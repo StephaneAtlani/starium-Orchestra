@@ -1,0 +1,14 @@
+{
+  "name": "starium-orchestra",
+  "private": true,
+  "scripts": {
+    "lint": "pnpm -r --parallel run lint",
+    "typecheck": "pnpm -r run typecheck",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.14.2"
+}

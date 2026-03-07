@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-typecheck-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build
+        run: pnpm run build
+
+  prisma-migrate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: starium
+          POSTGRES_PASSWORD: starium
+          POSTGRES_DB: starium
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U starium -d starium"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build types
+        run: pnpm --filter @starium-orchestra/types build
+
+      - name: Prisma generate
+        run: pnpm --filter @starium-orchestra/api exec prisma generate
+
+      - name: Prisma migrate deploy
+        run: pnpm --filter @starium-orchestra/api exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://starium:starium@localhost:5432/starium

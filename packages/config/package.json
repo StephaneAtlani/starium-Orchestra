@@ -1,0 +1,18 @@
+{
+  "name": "@starium-orchestra/config",
+  "version": "0.0.1",
+  "private": true,
+  "main": "eslint.config.js",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "echo OK",
+    "build": "echo OK",
+    "test": "echo OK"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "typescript-eslint": "^8.18.0"
+  }
+}
