@@ -1,0 +1,607 @@
+# Starium Orchestra — .cursorrules
+
+## Product context
+
+**Vision produit** : voir `docs/VISION_PRODUIT.md` (utilisateurs cibles, positionnement, modules, contraintes techniques, vision long terme).
+
+Starium Orchestra is a configurable, API-first, multi-tenant and multi-client SaaS platform for operational governance.
+
+Primary use case:
+
+* a fractional CIO / DSI à temps partagé manages several client organizations from the same platform.
+
+Current product scope:
+
+* Orchestra IT
+* financial core
+* configurable admin studio
+* future extensions for Finance, HR, Procurement, Governance
+
+Tech stack target:
+
+* Backend: NestJS + TypeScript + Prisma + PostgreSQL
+* Frontend: Next.js + TypeScript + Tailwind + shadcn/ui
+* Auth: JWT / refresh token / RBAC
+* Infra: Docker + Redis + Nginx
+
+**Architecture technique** : voir `docs/ARCHITECTURE.md` pour la structure du repo, l’arborescence backend/frontend, le modèle de données, la gestion multi-client, les logs et la CI/CD.
+
+---
+
+## Core architecture principles
+
+1. API-first
+
+* Everything must be exposed through documented REST APIs.
+* The frontend is a consumer of the same APIs as any other client.
+* No business logic must live only in the UI.
+
+2. Multi-tenant and multi-client by design
+
+* The platform serves multiple organizations.
+* A user can belong to one or more client organizations.
+* All business data must be isolated by tenant/client context.
+* Never generate code that can read or mutate data outside the active authorized client scope.
+
+3. Modular architecture
+
+* Build the product as domain modules with clear boundaries.
+* Reuse shared cores for auth, finance, workflow, documents, notifications, permissions, audit.
+
+4. Configurable platform
+
+* Business modules must rely on configuration engines whenever relevant.
+* Fields, statuses, workflows, views, reference lists, permissions and dashboards must be driven by admin configuration where specified.
+
+5. Secure by default
+
+* Every endpoint, query and mutation must enforce authentication, authorization and tenant isolation.
+* Never bypass role checks or client scoping.
+
+---
+
+## Product domains
+
+### Shared platform cores
+
+* auth
+* users
+* clients
+* company_users / client_users
+* roles
+* permissions
+* audit_logs
+* notifications
+* documents
+* workflows
+* admin configuration
+* financial core
+
+### Orchestra IT modules
+
+* budgets
+* projects
+* orders
+* suppliers
+* contracts
+* licenses
+* teams
+* applications
+* databases
+* domains
+* certificates
+* telephony
+* contacts
+* documents
+
+### Future modules
+
+* Orchestra Finance
+* Orchestra HR
+* Orchestra Procurement
+* Orchestra Governance
+
+---
+
+## Mandatory multi-client model
+
+This is critical. Implémentation détaillée (guards, header client, frontend) : `docs/ARCHITECTURE.md` §4.
+
+The platform must support a user such as a fractional CIO managing several clients.
+
+### Required concepts
+
+* `platform_admin`: global administrator of the solution
+* `client`: customer organization
+* `client_user`: assignment of a user to a client with a role
+* `active_client_context`: current client selected by the logged-in user
+
+### Rules
+
+* A platform admin can create clients, assign admins, manage subscriptions and platform-wide settings.
+* A client admin can only administer their own client.
+* A user may belong to multiple clients.
+* Every business entity must carry a client scope.
+* Every query must be filtered by authorized client IDs.
+* Every write operation must validate the target client against the authenticated user scope.
+* The frontend must include client context switching for authorized multi-client users.
+
+### Minimum tables expected
+
+* `users`
+* `clients`
+* `client_users`
+* `roles`
+* `permissions`
+
+### Suggested minimum API
+
+* `POST /api/platform/clients`
+* `GET /api/platform/clients`
+* `GET /api/platform/clients/:id`
+* `POST /api/platform/clients/:id/users`
+* `GET /api/me/clients`
+* `POST /api/me/active-client`
+
+---
+
+## Backend rules (NestJS)
+
+Structure détaillée (arborescence, modules partagés) : `docs/ARCHITECTURE.md` §1 et §6.
+
+### General structure
+
+Organize backend code by module.
+
+Expected folder pattern:
+
+* `src/modules/<module-name>/`
+
+  * `<module-name>.module.ts`
+  * `<module-name>.controller.ts`
+  * `<module-name>.service.ts`
+  * `dto/`
+  * `entities/` when useful
+  * `guards/` when module-specific
+  * `policies/` when useful
+  * `tests/` optional depending on project organization
+
+### Shared folders
+
+* `src/common/` for reusable guards, decorators, interceptors, pipes, utils
+* `src/config/` for configuration
+* `src/prisma/` for Prisma service and helpers
+* `src/auth/` for authentication flows
+
+### Controller rules
+
+* Controllers only handle HTTP concerns.
+* No database logic in controllers.
+* No complex business logic in controllers.
+* Use DTOs for all inputs.
+* Use explicit response shapes.
+
+### Service rules
+
+* Services contain business logic.
+* Services must validate tenant/client scope before data access.
+* Services should be small, cohesive and testable.
+* Reuse shared services for finance, workflow, notifications, documents and permissions.
+
+### DTO rules
+
+* All write endpoints must use DTOs.
+* DTOs must use class-validator decorators.
+* Never accept raw unvalidated payloads.
+
+### Prisma rules
+
+* Prisma is the only ORM/data access layer.
+* No raw SQL unless absolutely necessary.
+* If raw SQL is required, isolate it and document why.
+* Every model must include client scoping when it is business data.
+* Prefer explicit relation names and clean schema naming.
+
+### Authentication and authorization
+
+* JWT access token + refresh token.
+* RBAC required.
+* Authorization must be enforced on every endpoint.
+* Role checks must be client-aware where applicable.
+* Use guards and decorators consistently.
+
+### Auditability
+
+* Sensitive changes must produce audit logs.
+* Audit logs should capture who, what, when, target entity, target client, old/new state summary when relevant.
+
+---
+
+## Frontend rules (Next.js)
+
+Structure détaillée (dossiers, contexte client) : `docs/ARCHITECTURE.md` §3.
+
+### General structure
+
+Expected folders:
+
+* `app/` or `src/app/`
+* `components/`
+* `lib/`
+* `services/` or `api/`
+* `hooks/`
+* `types/`
+* `features/` if feature-based structure is used
+
+### UI principles
+
+* Use TypeScript everywhere.
+* Use shadcn/ui for base components when possible.
+* Use Tailwind for styling.
+* Keep components small and composable.
+* Separate page components from business components.
+
+### Data access
+
+* All data access goes through API service functions.
+* Never duplicate business rules in UI.
+* Handle loading, error and empty states.
+
+### Multi-client UX
+
+* Provide a client switcher when the user has access to multiple clients.
+* The active client must be visible in the UI.
+* All pages and mutations must operate in the current client context.
+* Never show mixed data from multiple clients unless explicitly requested and authorized in a platform-level screen.
+
+### Admin UX
+
+The admin studio must expose configurable interfaces for:
+
+* modules
+* fields
+* reference lists
+* statuses
+* workflows
+* roles and permissions
+* dashboards
+* notifications
+* analytical axes
+
+---
+
+## API design rules
+
+### General
+
+* REST APIs only unless a specific exception is approved.
+* Use plural resource names.
+* Use predictable CRUD patterns.
+* Version APIs if needed using `/api/v1/...` when project maturity requires it.
+
+### Examples
+
+* `/api/clients`
+* `/api/budgets`
+* `/api/projects`
+* `/api/orders`
+* `/api/suppliers`
+* `/api/contracts`
+* `/api/licenses`
+* `/api/applications`
+* `/api/databases`
+* `/api/domains`
+* `/api/certificates`
+* `/api/telephony/numbers`
+* `/api/contacts`
+* `/api/documents`
+
+### Filtering and security
+
+* Every business endpoint must apply client filtering.
+* Never trust client-provided `clientId` blindly.
+* Always derive or validate it from authenticated scope.
+
+### Idempotency
+
+* Be careful with create/update actions on critical financial or contractual data.
+* Prefer safe retry patterns for important actions.
+
+---
+
+## Financial core rules
+
+The financial engine is transversal and reusable across domains.
+
+### It must support
+
+* budgets
+* budget lines
+* orders
+* invoices if added later
+* commitments
+* consumed vs planned
+* forecast
+* revisions
+* cost centers
+* analytical axes
+* suppliers
+* contracts
+* reporting
+
+### Design principles
+
+* Build one shared financial core, not one financial engine per métier.
+* Connect business objects through allocations and relations.
+* Keep the financial model generic and extensible.
+
+### Typical shared entities
+
+* `budgets`
+* `budget_lines`
+* `orders`
+* `order_lines`
+* `suppliers`
+* `contracts`
+* `financial_allocations`
+* `cost_centers`
+* `analytical_axes`
+* `analytical_axis_values`
+
+---
+
+## Configurability rules
+
+All configurable business behavior must be driven through an admin interface and configuration tables, not hardcoded.
+
+### Must be configurable
+
+* module activation
+* custom fields
+* field labels
+* field visibility
+* field required/optional status
+* statuses
+* workflows
+* reference lists
+* views and saved filters
+* dashboards and widgets
+* notification rules
+* analytical axes
+* approval chains
+
+### Should remain controlled and not freely configurable
+
+* security foundations
+* tenant isolation rules
+* low-level financial calculation integrity
+* audit logging behavior
+* infrastructure secrets
+
+### Suggested config tables
+
+* `admin_modules`
+* `admin_module_fields`
+* `admin_field_options`
+* `admin_reference_lists`
+* `admin_reference_values`
+* `admin_statuses`
+* `admin_workflows`
+* `admin_workflow_steps`
+* `admin_roles`
+* `admin_permissions`
+* `admin_views`
+* `admin_dashboard_widgets`
+* `admin_notifications`
+
+---
+
+## Naming conventions
+
+### Code
+
+* PascalCase for classes, interfaces, React component names, Prisma models
+* camelCase for variables, functions and methods
+* kebab-case for folders when relevant in frontend
+* snake_case for database column names if mapped explicitly
+
+### API resources
+
+* plural nouns
+* explicit domain names
+* no vague endpoint names like `/data`, `/manage`, `/misc`
+
+### File naming
+
+* NestJS files: `<name>.controller.ts`, `<name>.service.ts`, `<name>.module.ts`
+* DTOs: `create-<name>.dto.ts`, `update-<name>.dto.ts`
+* React components: `PascalCase.tsx`
+
+---
+
+## Testing rules
+
+### Mandatory mindset
+
+AI-generated code is never trusted without review and test.
+
+### Backend
+
+* Write unit tests for services.
+* Write controller tests for main endpoints.
+* Cover authorization and client isolation cases.
+* Cover validation failures.
+
+### Frontend
+
+* Test important user flows.
+* Test client switching logic.
+* Test form validation and permissions-dependent rendering.
+
+### Critical tests
+
+Always test:
+
+* cross-client isolation
+* permissions per client
+* budget calculations
+* contract expiration workflows
+* notification triggers
+* workflow transitions
+
+---
+
+## Performance and scalability rules
+
+* Design queries for pagination.
+* Avoid loading unnecessary relations.
+* Add indexes on client-scoped foreign keys and frequent filters.
+* Watch for noisy-neighbor issues in multi-tenant use cases.
+* Prefer async jobs for heavy processing, imports, notifications and reports.
+
+---
+
+## Security rules
+
+* Never expose secrets in code.
+* Use environment variables and config modules.
+* Encrypt sensitive data where needed.
+* Validate file uploads.
+* Sanitize document metadata and filenames.
+* Enforce strict authorization at API level.
+* Log security-sensitive actions.
+* Never return data from another client context.
+
+---
+
+## Git and Cursor workflow rules
+
+### Mandatory workflow
+
+1. Read the relevant PRD / RFC / module spec first. For structure, repo layout, multi-client or new modules: read `docs/ARCHITECTURE.md`.
+2. Understand only the necessary files.
+3. Plan before coding for medium or large changes.
+4. Implement one bounded change at a time.
+5. Generate or update tests.
+6. Run tests.
+7. Review diff.
+8. Commit.
+
+### Cursor usage rules
+
+* Use Ask mode for exploration.
+* Use Plan mode for medium/large features.
+* Use Composer for scoped multi-file changes.
+* Use Agent for implementation with test execution.
+* Start new chats frequently.
+* Do not keep giant conversations open for too long.
+* Reference exact files and exact target behavior.
+
+### Prompting rules
+
+When implementing a feature, prompts should include:
+
+* business goal
+* client/tenant scope
+* files to inspect
+* constraints
+* acceptance criteria
+* required tests
+
+### Never do
+
+* never refactor unrelated areas without explicit request
+* never remove tenant/client filters
+* never weaken permissions to “make it work”
+* never hardcode client-specific business logic into shared code
+
+---
+
+## Documentation rules
+
+The repository must include a `docs/` folder with at least:
+
+* **`docs/ARCHITECTURE.md`** — architecture technique (structure repo, backend/frontend, multi-client, données, logs, CI/CD)
+* **`docs/VISION_PRODUIT.md`** — vision produit
+* PRD, RFCs par feature
+* conventions API, auth/RBAC, multi-client, admin studio
+
+Suggested structure:
+
+* `docs/` — ARCHITECTURE.md, VISION_PRODUIT.md à la racine
+* `docs/product/` — PRD
+* `docs/rfc/` — RFCs par feature
+* `docs/modules/` — specs modules
+* `docs/runbooks/` — opérations
+
+---
+
+## Module implementation expectations
+
+When creating a new module, always define:
+
+* business purpose
+* entities
+* DTOs
+* API endpoints
+* permissions
+* client scoping rules
+* workflows
+* admin configurability requirements
+* tests
+
+Minimum checklist for each module:
+
+* Prisma model(s)
+* DTOs
+* service
+* controller
+* module
+* tests
+* API examples
+* client scoping enforced
+* permissions enforced
+
+---
+
+## Starium Orchestra-specific product positioning
+
+The product is not just an IT tool.
+It is a configurable governance platform for support functions.
+
+So generated code must favor:
+
+* reusability
+* modularity
+* configurability
+* financial transversal logic
+* multi-client management
+* CODIR-grade reporting readiness
+
+---
+
+## Definition of done
+
+A task is done only if:
+
+* code compiles
+* tests pass
+* client isolation is enforced
+* permissions are enforced
+* DTO validation exists
+* API behavior is documented enough
+* no unrelated files were modified unnecessarily
+* code matches project conventions
+
+---
+
+## Absolute priorities
+
+1. Tenant/client isolation
+2. Security and RBAC
+3. Clean modular architecture
+4. Shared financial core
+5. Configurable admin studio
+6. Testability
+7. Clear API design
+8. Multi-client fractional CIO workflow
