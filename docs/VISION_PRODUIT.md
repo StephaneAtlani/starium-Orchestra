@@ -220,3 +220,27 @@ Modules futurs :
 - HR
 - Procurement
 - Governance
+
+# Règles produit importantes
+
+Les règles suivantes doivent toujours être respectées dans l’implémentation :
+
+1. Toute donnée métier appartient à un client (`clientId`).
+
+2. Un utilisateur peut appartenir à plusieurs clients.
+
+3. Une requête API doit toujours vérifier le scope client.
+
+4. Un admin client ne peut voir que les données de son client.
+
+5. Les platform admins peuvent créer et gérer les clients.
+
+6. Toute logique métier critique doit être implémentée dans le backend.
+
+7. Le frontend ne doit jamais implémenter de règles métier critiques.
+
+8. Les modules doivent être indépendants et réutilisables.
+
+9. Le core financier doit être partagé par plusieurs modules.
+
+10. Les données doivent être auditables (audit logs).

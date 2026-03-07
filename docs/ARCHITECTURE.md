@@ -304,6 +304,60 @@ Utilisation du logger NestJS ou Pino intégré à Nest ; même logger dans tous 
 - Migrations Prisma versionnées et rejouables ; pas de migration destructive sans procédure documentée.
 
 ---
+## 9. Design des APIs
+
+Toutes les fonctionnalités métier sont exposées via des APIs REST.
+
+Préfixe global :
+
+/api
+
+Exemples d’endpoints :
+
+Authentification
+
+POST /api/auth/login
+POST /api/auth/refresh
+POST /api/auth/logout
+
+Utilisateurs
+
+GET /api/me
+GET /api/me/clients
+
+Clients (platform admin)
+
+POST /api/platform/clients
+GET /api/platform/clients
+
+Budgets
+
+GET /api/budgets
+POST /api/budgets
+GET /api/budgets/:id
+
+Projets
+
+GET /api/projects
+POST /api/projects
+GET /api/projects/:id
+
+Fournisseurs
+
+GET /api/suppliers
+POST /api/suppliers
+
+Contrats
+
+GET /api/contracts
+POST /api/contracts
+
+Licences
+
+GET /api/licenses
+POST /api/licenses
+
+---
 
 ## Références
 
