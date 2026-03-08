@@ -10,7 +10,7 @@ import { PrismaModule } from './prisma/prisma.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env'],
+      envFilePath: ['.env', 'apps/api/.env'],
     }),
     PrismaModule,
     HealthModule,

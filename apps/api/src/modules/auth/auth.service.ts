@@ -1,12 +1,9 @@
-import {
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { JWT_ACCESS_EXPIRATION, JWT_REFRESH_EXPIRATION } from './auth.constants';
 
 const INVALID_CREDENTIALS = 'Identifiants invalides';
 
@@ -16,19 +13,12 @@ function hashRefreshToken(token: string): string {
 
 @Injectable()
 export class AuthService {
-  private readonly accessExpiration: number;
-  private readonly refreshExpiration: number;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService,
-  ) {
-    const rawAccess = this.config.get<string | number>('JWT_ACCESS_EXPIRATION', 900);
-    this.accessExpiration = Math.max(60, Number(rawAccess) || 900);
-    const rawRefresh = this.config.get<string | number>('JWT_REFRESH_EXPIRATION', 604800);
-    this.refreshExpiration = Math.max(60, Number(rawRefresh) || 604800);
-  }
+    @Inject(JWT_ACCESS_EXPIRATION) private readonly accessExpiration: number,
+    @Inject(JWT_REFRESH_EXPIRATION) private readonly refreshExpiration: number,
+  ) {}
 
   async login(
     email: string,
