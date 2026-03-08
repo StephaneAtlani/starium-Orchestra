@@ -26,7 +26,6 @@ Mettre en place le module de gestion des utilisateurs permettant :
 
 - de consulter les utilisateurs d’un client
 - de créer un utilisateur
-- d’inviter un utilisateur
 - de modifier un utilisateur
 - de supprimer l’accès d’un utilisateur à un client
 
@@ -36,22 +35,22 @@ Le système doit respecter les règles **multi-tenant** de la plateforme.
 
 # 3. Contexte architecture
 
+**Terminologie :** dans cette RFC, le terme **client** désigne l’organisation utilisatrice de la plateforme. Ne pas introduire d’entité Organisation distincte.
+
 Dans Starium Orchestra :
 
 - un **utilisateur est global à la plateforme**
 - un utilisateur peut appartenir à **plusieurs clients**
 - la relation est gérée par la table **ClientUser**
-- toutes les opérations sont réalisées dans le **contexte du client actif**
+- toutes les opérations sont réalisées dans le **contexte du client actif** (header `X-Client-Id`)
 
 Structure :
 
 ```
-
 User
 Client
 ClientUser
-
-````
+```
 
 ---
 
@@ -60,16 +59,18 @@ ClientUser
 ## Inclus
 
 - CRUD utilisateur
-- invitation utilisateur
-- modification profil
-- suppression d’accès au client
+- modification profil (firstName, lastName, role, status)
+- suppression d’accès au client (lien ClientUser uniquement)
+- module **me** : GET /me (profil global), GET /me/clients (clients accessibles)
 
 ## Exclus
 
 - reset mot de passe
 - gestion avancée des rôles
+- **gestion des rôles plateforme et capacités du Platform Admin**
 - acceptation invitation complète
 - gestion des permissions fines
+- invitation utilisateur (hors périmètre de cette RFC)
 
 Ces éléments feront l’objet d’autres RFC.
 
@@ -79,17 +80,43 @@ Ces éléments feront l’objet d’autres RFC.
 
 ## Liste des utilisateurs
 
-GET /users
+**GET /users** → 200
 
-Retourne la liste des utilisateurs du client actif.
+Retourne la liste des utilisateurs du **client actif** uniquement.
+
+**Format de réponse :** agrégat User + ClientUser (jamais de `passwordHash`).
+
+- **id** = User.id
+- **email**, **firstName**, **lastName** = depuis User
+- **role**, **status** = depuis ClientUser (pour ce client)
+
+Exemple :
+
+```json
+[
+  {
+    "id": "usr_001",
+    "email": "jean.dupont@client.fr",
+    "firstName": "Jean",
+    "lastName": "Dupont",
+    "role": "CLIENT_ADMIN",
+    "status": "ACTIVE"
+  }
+]
+```
 
 ---
 
 ## Création utilisateur
 
-POST /users
+**POST /users** → 201
 
-Crée un utilisateur et l’associe au client actif.
+Crée un utilisateur et l’associe au client actif. Deux cas :
+
+1. **Email existant** → rattachement au client actif via **ClientUser** uniquement. Le champ `password` du body est ignoré ; le backend n’écrase jamais le `passwordHash` dans cette RFC.
+2. **Email inexistant** → création du **User** (avec mot de passe **initial** fourni dans le payload, hashé) + création du **ClientUser**. Le champ `password` est **obligatoire** (min. 8 caractères) ; sinon 400.
+
+**Idempotence :** vérifier d’abord si un ClientUser (userId, clientId) existe déjà → si oui, retourner **409 Conflict** (avant toute création de User).
 
 Payload exemple :
 
@@ -98,22 +125,25 @@ Payload exemple :
   "email": "marie.dupont@client.fr",
   "firstName": "Marie",
   "lastName": "Dupont",
-  "role": "CLIENT_USER"
+  "role": "CLIENT_USER",
+  "password": "motdepasseinitial"
 }
-````
+```
+
+Réponse : objet utilisateur enrichi (même format qu’un élément de GET /users).
 
 ---
 
 ## Modification utilisateur
 
-PATCH /users/:id
+**PATCH /users/:id** → 200
 
-Permet de modifier :
+Permet de modifier uniquement :
 
-* prénom
-* nom
-* rôle
-* statut
+- **firstName, lastName** → table **User**
+- **role, status** → table **ClientUser** (lien pour le client actif)
+
+**Cas d’erreur :** si l’utilisateur n’existe pas (table User) ou n’est pas rattaché au client actif (ClientUser) → **404**.
 
 Payload exemple :
 
@@ -121,75 +151,39 @@ Payload exemple :
 {
   "firstName": "Marie",
   "lastName": "Dupont",
-  "role": "CLIENT_ADMIN"
+  "role": "CLIENT_ADMIN",
+  "status": "ACTIVE"
 }
 ```
+
+Réponse : objet utilisateur enrichi après mise à jour.
 
 ---
 
 ## Suppression utilisateur
 
-DELETE /users/:id
+**DELETE /users/:id** → 204 (No Content)
 
-Supprime le lien entre l’utilisateur et le client actif.
+- Suppression **uniquement du lien ClientUser** (userId, clientId actif).
+- **Ne jamais supprimer le User global** dans cette RFC.
+- **404** si le rattachement n’existe pas.
 
-L’utilisateur global n’est pas supprimé s’il appartient à d’autres clients.
-
----
-
-## Invitation utilisateur
-
-POST /users/invite
-
-Invite un utilisateur via email.
-
-Payload :
-
-```json
-{
-  "email": "nouveau@client.fr",
-  "role": "CLIENT_USER"
-}
-```
+**Règle future :** empêcher de supprimer le dernier admin du client (à traiter dans une RFC ultérieure).
 
 ---
 
-# 6. Flux fonctionnel — invitation utilisateur
+# 6. Modèle de données
 
-```
-Admin client
-   │
-   ▼
-Invite utilisateur
-   │
-   ▼
-Création invitation + token
-   │
-   ▼
-Email envoyé
-   │
-   ▼
-Utilisateur accepte invitation
-   │
-   ▼
-Création utilisateur
-   │
-   ▼
-Association ClientUser
-```
-
----
-
-# 7. Modèle de données
+**Identifiants :** User, Client, ClientUser utilisent **cuid**. X-Client-Id doit être un cuid valide de Client.
 
 ## User
 
-Utilisateur global de la plateforme.
+Utilisateur global de la plateforme. Contrainte **email @unique**.
 
 ```
 User
-- id
-- email
+- id (cuid)
+- email (unique)
 - passwordHash
 - firstName
 - lastName
@@ -197,130 +191,129 @@ User
 - updatedAt
 ```
 
----
+## Client
+
+Organisation (client).
+
+```
+Client
+- id (cuid)
+- name
+- slug (unique)
+- createdAt
+- updatedAt
+```
 
 ## ClientUser
 
-Association utilisateur ↔ client.
+Association utilisateur ↔ client. Contrainte unique (userId, clientId). Index sur clientId et userId.
 
 ```
 ClientUser
-- id
+- id (cuid)
 - userId
 - clientId
-- role
-- status
+- role (enum: CLIENT_ADMIN, CLIENT_USER)
+- status (enum: ACTIVE, SUSPENDED, INVITED — INVITED réservé futur)
 - createdAt
 - updatedAt
 ```
 
 ---
 
-## UserInvitation
+# 7. Règles de sécurité
 
-Invitation utilisateur.
+- **Pipeline des guards (ordre fixe) :** `JwtAuthGuard` → `ActiveClientGuard` → `ClientAdminGuard`.
+- **ActiveClientGuard :** lit `X-Client-Id` (cuid valide), vérifie qu’il existe un ClientUser (userId, clientId) avec **status = ACTIVE**. Refuser si status ≠ ACTIVE (ex. SUSPENDED). Attache `request.activeClient = { id, role, status }`. Si client invalide ou non rattaché → 403.
+- **ClientAdminGuard :** vérifie `request.activeClient.role === CLIENT_ADMIN` (aucun accès DB).
+- **Données sensibles :** ne jamais exposer `passwordHash`. Ne jamais renvoyer le mot de passe en clair. La communication du mot de passe initial à l’utilisateur est hors API (processus métier ou frontend sécurisé).
 
-```
-UserInvitation
-- id
-- email
-- clientId
-- role
-- token
-- expiresAt
-- acceptedAt
-- createdAt
-```
+Règles métier :
+
+- un utilisateur ne peut voir que les utilisateurs de son client
+- un admin client ne peut gérer que son client
+- aucune fuite de données inter-clients
 
 ---
 
-# 8. Règles de sécurité
+# 8. Structure backend
 
-Toutes les routes doivent vérifier :
+```
+apps/api/src/
+  common/
+    guards/
+      active-client.guard.ts
+      client-admin.guard.ts
+    decorators/
+      active-client.decorator.ts
+      request-user.decorator.ts
+  modules/
+    me/
+      me.module.ts
+      me.controller.ts
+      me.service.ts
+    users/
+      users.module.ts
+      users.controller.ts
+      users.service.ts
+      dto/
+        create-user.dto.ts
+        update-user.dto.ts
+```
 
-* authentification JWT
-* client actif
-* rôle administrateur
-
-Les opérations doivent respecter les règles :
-
-* un utilisateur ne peut voir que les utilisateurs de son client
-* un admin client ne peut gérer que son client
-* aucune fuite de données inter-clients
+**Module me :** GET /me retourne le profil utilisateur global ; GET /me/clients retourne les clients accessibles. Ce module ne gère pas la persistance du client actif côté backend (X-Client-Id à chaque requête).
 
 ---
 
-# 9. Structure backend
-
-```
-backend/src/modules/users
-
-users.module.ts
-users.controller.ts
-users.service.ts
-
-dto/
-create-user.dto.ts
-update-user.dto.ts
-invite-user.dto.ts
-```
-
----
-
-# 10. Checklist de développement
+# 9. Checklist de développement
 
 ## Backend
 
 * [ ] créer module users
-* [ ] créer DTO utilisateurs
+* [ ] créer DTO utilisateurs (create avec password optionnel, role @IsEnum ; update avec role/status @IsEnum)
 * [ ] implémenter GET /users
 * [ ] implémenter POST /users
 * [ ] implémenter PATCH /users/:id
 * [ ] implémenter DELETE /users/:id
-* [ ] implémenter POST /users/invite
-
----
+* [ ] module me + guards + décorateurs common
 
 ## Sécurité
 
 * [ ] vérification JWT
-* [ ] vérification client actif
-* [ ] vérification rôle admin
-
----
+* [ ] vérification client actif (X-Client-Id, status ACTIVE)
+* [ ] vérification rôle admin (ClientAdminGuard)
 
 ## Données
 
-* [ ] modèle User
-* [ ] modèle ClientUser
-* [ ] modèle UserInvitation
-
----
+* [ ] modèle User (email @unique)
+* [ ] modèle Client (slug @unique)
+* [ ] modèle ClientUser (index clientId, userId)
 
 ## Tests
 
-* [ ] test création utilisateur
+* [ ] test création utilisateur (rattacher / créer + rattacher / 409 / 400)
 * [ ] test modification utilisateur
 * [ ] test suppression utilisateur
-* [ ] test invitation utilisateur
 * [ ] test isolation multi-tenant
+* [ ] refus 403 si X-Client-Id absent ou non rattaché ou non admin
+* [ ] refus 404 si PATCH/DELETE sur user hors client
 
 ---
 
-# 11. Critères d’acceptation
+# 10. Critères d’acceptation
 
 La fonctionnalité est validée lorsque :
 
-* un admin client peut voir les utilisateurs de son client
-* un admin client peut créer un utilisateur
-* un admin client peut inviter un utilisateur
-* un admin client peut modifier un utilisateur
-* un admin client peut supprimer l’accès d’un utilisateur
+* un admin client peut voir les utilisateurs de son client (format agrégat)
+* un admin client peut créer un utilisateur (rattacher ou créer + rattacher)
+* un admin client peut modifier un utilisateur (User + ClientUser)
+* un admin client peut supprimer l’accès d’un utilisateur (lien ClientUser uniquement)
 * aucune donnée d’un autre client n’est visible
+* un utilisateur suspendu (status ≠ ACTIVE) ne peut plus appeler l’API
 
 ---
 
-# 12. Priorité
+# 11. Priorité
 
 Critique
 
@@ -332,16 +325,13 @@ Cette fonctionnalité est nécessaire pour :
 
 ---
 
-# 13. Dépendances
+# 12. Dépendances
 
 RFC dépend de :
 
-* RFC-007 — Authentification utilisateur
-* Gestion du client actif
-* Module clients
+* RFC-002 — Authentification utilisateur (JWT)
+* Gestion du client actif (header X-Client-Id)
+* Modèles Client, ClientUser (Prisma)
 
 ---
-
 ```
-
-

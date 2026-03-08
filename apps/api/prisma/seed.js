@@ -32,7 +32,7 @@ const TEST_USER = {
 
 async function main() {
   const passwordHash = await bcrypt.hash(TEST_USER.password, 10);
-  await prisma.user.upsert({
+  const user = await prisma.user.upsert({
     where: { email: TEST_USER.email },
     update: { passwordHash },
     create: {
@@ -42,7 +42,33 @@ async function main() {
       lastName: TEST_USER.lastName,
     },
   });
-  console.log('Seed OK: user', TEST_USER.email, 'créé ou mis à jour.');
+
+  const client = await prisma.client.upsert({
+    where: { slug: 'demo' },
+    update: {},
+    create: {
+      name: 'Client démo',
+      slug: 'demo',
+    },
+  });
+
+  await prisma.clientUser.upsert({
+    where: {
+      userId_clientId: {
+        userId: user.id,
+        clientId: client.id,
+      },
+    },
+    update: { role: 'CLIENT_ADMIN', status: 'ACTIVE' },
+    create: {
+      userId: user.id,
+      clientId: client.id,
+      role: 'CLIENT_ADMIN',
+      status: 'ACTIVE',
+    },
+  });
+
+  console.log('Seed OK: user', TEST_USER.email, 'client', client.slug, 'ClientUser créé ou mis à jour.');
 }
 
 main()
