@@ -17,11 +17,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         if (!secret) {
           throw new Error('JWT_SECRET must be set');
         }
+        const raw = config.get<string | number>('JWT_ACCESS_EXPIRATION', 900);
+        const expiresIn = Math.max(60, Number(raw) || 900);
         return {
           secret,
-          signOptions: {
-            expiresIn: config.get<number>('JWT_ACCESS_EXPIRATION', 900),
-          },
+          signOptions: { expiresIn },
         };
       },
       inject: [ConfigService],

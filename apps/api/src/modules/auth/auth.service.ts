@@ -24,10 +24,10 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {
-    this.accessExpiration =
-      this.config.get<number>('JWT_ACCESS_EXPIRATION', 900);
-    this.refreshExpiration =
-      this.config.get<number>('JWT_REFRESH_EXPIRATION', 604800);
+    const rawAccess = this.config.get<string | number>('JWT_ACCESS_EXPIRATION', 900);
+    this.accessExpiration = Math.max(60, Number(rawAccess) || 900);
+    const rawRefresh = this.config.get<string | number>('JWT_REFRESH_EXPIRATION', 604800);
+    this.refreshExpiration = Math.max(60, Number(rawRefresh) || 604800);
   }
 
   async login(
