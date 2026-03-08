@@ -16,9 +16,21 @@ pnpm install
 
 ## Démarrage en local avec Docker
 
+### Mode dev (recommandé) — hot reload API + front câblé sur api-dev
+
 ```bash
 cp .env.example .env
 cp .env.example apps/api/.env
+docker compose --profile dev up --build
+```
+
+- **API (api-dev)** : http://localhost:3002 — hot reload (volumes `src`, `prisma`)
+- **Web (web-dev)** : http://localhost:3000 — pointe vers l’API sur 3002
+- **PostgreSQL** : localhost:5432 (user `starium`, db `starium`)
+
+### Mode standard — api + web sans hot reload
+
+```bash
 docker compose up --build
 ```
 

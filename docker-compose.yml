@@ -1,6 +1,10 @@
+# Environnements :
+#   docker compose up                    → postgres + api (3001) + web (3000)
+#   docker compose --profile dev up      → postgres + api-dev (3002) + web-dev (3000), hot reload
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: starium
       POSTGRES_PASSWORD: starium
@@ -19,6 +23,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
       PORT: "3001"
@@ -28,6 +33,7 @@ services:
       postgres:
         condition: service_healthy
 
+  # api-dev : JWT etc. via env_file ; DATABASE_URL et PORT forcés ici (environment écrase env_file).
   api-dev:
     build:
       context: .
@@ -38,7 +44,7 @@ services:
       DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
       PORT: "3001"
     ports:
-      - "3001:3001"
+      - "3002:3001"
     volumes:
       - ./apps/api/src:/app/apps/api/src
       - ./apps/api/prisma:/app/apps/api/prisma
@@ -52,12 +58,27 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
     ports:
       - "3000:3000"
     depends_on:
       - api
+
+  # Full-stack dev : frontend pointe vers api-dev (port 3002). Utiliser avec --profile dev.
+  web-dev:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3002
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-dev
+    profiles:
+      - dev
 
 volumes:
   postgres_data: {}
