@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients).
 
 ---
 
@@ -234,12 +234,127 @@ Supprime **uniquement le lien ClientUser** (userId + client actif). Le User glob
 
 ---
 
-## 4. Résumé des guards et headers
+## 4. Gestion des clients — `/api/clients`
+
+Toutes les routes sont protégées par :
+
+1. **JwtAuthGuard** — utilisateur authentifié
+2. **PlatformAdminGuard** — `User.isPlatformAdmin === true` (administrateur plateforme)
+
+Sans JWT valide ou sans être Platform Admin → **401** / **403**.
+
+Réponses **POST** et **PATCH** : strictement `{ id, name, slug }`. Pas d’exposition des champs internes Prisma.
+
+---
+
+### GET /api/clients
+
+Retourne **tous** les clients, **sans pagination**, **sans filtre**, triés par **createdAt** (ordre décroissant).
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Réponse 200**
+
+```json
+[
+  {
+    "id": "clxxx...",
+    "name": "Client démo",
+    "slug": "demo",
+    "createdAt": "2026-03-08T10:00:00.000Z"
+  }
+]
+```
+
+**Erreurs :** 401 (non authentifié), 403 (non Platform Admin).
+
+---
+
+### POST /api/clients
+
+Crée un client et désigne ou crée l’administrateur du client (rattachement via ClientUser avec rôle CLIENT_ADMIN, statut ACTIVE). Le Platform Admin (auteur de la requête) ne devient **pas** CLIENT_ADMIN du client créé.
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Body (JSON)**
+
+| Champ            | Type   | Obligatoire | Description |
+|------------------|--------|-------------|-------------|
+| `name`           | string | oui         | Nom du client |
+| `slug`           | string | oui         | Slug unique (ex. `entreprise-abc`) |
+| `adminEmail`     | string | oui         | Email de l’utilisateur qui sera admin du client (créé ou rattaché) |
+| `adminPassword`  | string | si nouvel user | Min. 8 caractères ; **obligatoire côté API** si aucun User avec `adminEmail` n’existe |
+| `adminFirstName` | string | non         | Prénom (si création d’un nouvel utilisateur) |
+| `adminLastName`  | string | non         | Nom (si création d’un nouvel utilisateur) |
+
+**Réponse 201**
+
+```json
+{
+  "id": "clxxx...",
+  "name": "Entreprise ABC",
+  "slug": "entreprise-abc"
+}
+```
+
+**Erreurs :** 400 (validation ; ex. adminPassword manquant pour un email inconnu), 401, 403, 409 (slug déjà pris ou utilisateur déjà rattaché à ce client).
+
+---
+
+### PATCH /api/clients/:id
+
+Met à jour le nom et/ou le slug du client. Si `slug` est fourni, il doit rester unique (un **autre** client ne doit pas déjà l’utiliser).
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Body (JSON)** — tous les champs optionnels
+
+| Champ  | Type   | Description |
+|--------|--------|-------------|
+| `name` | string | Nom du client |
+| `slug` | string | Slug unique |
+
+**Réponse 200**
+
+```json
+{
+  "id": "clxxx...",
+  "name": "Entreprise ABC Groupe",
+  "slug": "abc-groupe"
+}
+```
+
+**Erreurs :** 401, 403, 404 (client non trouvé), 409 (slug déjà utilisé par un autre client).
+
+---
+
+### DELETE /api/clients/:id
+
+Suppression **physique** du client. Les **ClientUser** liés sont supprimés (cascade). Les **User** ne sont **jamais** supprimés.
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Réponse 204** (No Content).
+
+**Erreurs :** 401, 403, 404 (client non trouvé).
+
+---
+
+## 5. Résumé des guards et headers
 
 | Contexte      | Headers requis                    | Guards (ordre) |
 |---------------|------------------------------------|-----------------|
 | Auth          | —                                  | —               |
 | /api/me       | `Authorization: Bearer <accessToken>` | JwtAuthGuard    |
 | /api/users    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard |
+| /api/clients  | `Authorization: Bearer <accessToken>` | JwtAuthGuard → PlatformAdminGuard |
 
 Validation globale : body JSON avec **whitelist** + **forbidNonWhitelisted** (champs inconnus refusés).
