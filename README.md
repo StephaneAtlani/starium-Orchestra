@@ -24,8 +24,8 @@ cp .env.example apps/api/.env
 docker compose --profile dev up --build
 ```
 
-- **API (api-dev)** : http://localhost:3002 — hot reload (volumes `src`, `prisma`)
-- **Web (web-dev)** : http://localhost:3000 — pointe vers l’API sur 3002
+- **API (api-dev)** : http://localhost:3003 — hot reload (volumes `src`, `prisma`)
+- **Web (web-dev)** : http://localhost:3000 — pointe vers l’API sur 3003
 - **PostgreSQL** : localhost:5432 (user `starium`, db `starium`)
 
 ### Mode standard — api + web sans hot reload
