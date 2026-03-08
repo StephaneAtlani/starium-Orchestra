@@ -23,23 +23,28 @@ const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
 
-const TEST_USER = {
-  email: 'satlani@outlook.com',
-  password: 'D!diablo15',
-  firstName: 'Test',
-  lastName: 'User',
+/**
+ * Platform Admin (développement).
+ * Cet utilisateur a isPlatformAdmin = true et peut appeler GET/POST/PATCH/DELETE /api/clients.
+ * Il est aussi rattaché au client démo en CLIENT_ADMIN.
+ */
+const PLATFORM_ADMIN = {
+  email: 'admin@starium.fr',
+  password: 'mot de passe',
+  firstName: 'Platform',
+  lastName: 'Admin',
 };
 
 async function main() {
-  const passwordHash = await bcrypt.hash(TEST_USER.password, 10);
+  const passwordHash = await bcrypt.hash(PLATFORM_ADMIN.password, 10);
   const user = await prisma.user.upsert({
-    where: { email: TEST_USER.email },
+    where: { email: PLATFORM_ADMIN.email },
     update: { passwordHash, isPlatformAdmin: true },
     create: {
-      email: TEST_USER.email,
+      email: PLATFORM_ADMIN.email,
       passwordHash,
-      firstName: TEST_USER.firstName,
-      lastName: TEST_USER.lastName,
+      firstName: PLATFORM_ADMIN.firstName,
+      lastName: PLATFORM_ADMIN.lastName,
       isPlatformAdmin: true,
     },
   });
@@ -69,7 +74,7 @@ async function main() {
     },
   });
 
-  console.log('Seed OK: user', TEST_USER.email, 'client', client.slug, 'ClientUser créé ou mis à jour.');
+  console.log('Seed OK: Platform Admin', PLATFORM_ADMIN.email, 'client', client.slug, 'ClientUser créé ou mis à jour.');
 }
 
 main()
