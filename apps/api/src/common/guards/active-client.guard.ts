@@ -8,6 +8,7 @@ import { ClientUserStatus } from '@prisma/client';
 import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 
+/** Contexte client attaché à la requête après passage de ActiveClientGuard. */
 export interface ActiveClientContext {
   id: string;
   role: string;
@@ -22,6 +23,10 @@ declare global {
   }
 }
 
+/**
+ * Vérifie la présence de X-Client-Id et qu’un ClientUser ACTIVE existe pour (userId, clientId).
+ * Attache request.activeClient (id, role, status). À placer après JwtAuthGuard.
+ */
 @Injectable()
 export class ActiveClientGuard implements CanActivate {
   constructor(private readonly prisma: PrismaService) {}

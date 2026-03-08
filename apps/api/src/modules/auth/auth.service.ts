@@ -11,6 +11,10 @@ function hashRefreshToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
+/**
+ * Service d’authentification : login (bcrypt + JWT), refresh, logout.
+ * Durées d’expiration injectées via JWT_ACCESS_EXPIRATION et JWT_REFRESH_EXPIRATION.
+ */
 @Injectable()
 export class AuthService {
   constructor(
@@ -20,6 +24,7 @@ export class AuthService {
     @Inject(JWT_REFRESH_EXPIRATION) private readonly refreshExpiration: number,
   ) {}
 
+  /** Vérifie email/password (bcrypt), émet accessToken (JWT) + refreshToken (stocké hashé). */
   async login(
     email: string,
     password: string,
@@ -35,6 +40,7 @@ export class AuthService {
     return this.issueTokenPair(user.id);
   }
 
+  /** Valide le refresh token, le révoque et émet un nouveau couple de tokens. */
   async refresh(
     refreshToken: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
@@ -53,6 +59,7 @@ export class AuthService {
     return this.issueTokenPair(record.userId);
   }
 
+  /** Révoque le refresh token (suppression en base). */
   async logout(refreshToken: string): Promise<void> {
     const tokenHash = hashRefreshToken(refreshToken);
     await this.prisma.refreshToken.deleteMany({ where: { tokenHash } });

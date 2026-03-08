@@ -10,6 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
+/** Réponse utilisateur exposée par l’API (User + ClientUser pour le client actif, sans passwordHash). */
 export interface UserResponse {
   id: string;
   email: string;
@@ -19,6 +20,10 @@ export interface UserResponse {
   status: ClientUserStatus;
 }
 
+/**
+ * Service de gestion des utilisateurs dans le contexte d’un client (RFC-008).
+ * Toutes les opérations sont scopées au clientId fourni.
+ */
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -37,6 +42,7 @@ export class UsersService {
     };
   }
 
+  /** Liste des utilisateurs rattachés au client (ClientUser + User). */
   async findAll(clientId: string): Promise<UserResponse[]> {
     const clientUsers = await this.prisma.clientUser.findMany({
       where: { clientId },
@@ -47,6 +53,12 @@ export class UsersService {
     );
   }
 
+  /**
+   * Crée un utilisateur ou le rattache au client.
+   * Email existant → ClientUser seul (password ignoré). Email inconnu → User + ClientUser (password obligatoire).
+   * @throws ConflictException si déjà rattaché à ce client
+   * @throws BadRequestException si nouvel utilisateur sans password (min. 8 car.)
+   */
   async create(clientId: string, dto: CreateUserDto): Promise<UserResponse> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -107,6 +119,10 @@ export class UsersService {
     return this.toResponse(user, { role: clientUser.role, status: clientUser.status });
   }
 
+  /**
+   * Met à jour User (firstName, lastName) et ClientUser (role, status) pour le client.
+   * @throws NotFoundException si user absent ou non rattaché au client
+   */
   async update(
     clientId: string,
     userId: string,
@@ -164,6 +180,7 @@ export class UsersService {
     });
   }
 
+  /** Supprime le lien ClientUser uniquement (le User global n’est pas supprimé). */
   async remove(clientId: string, userId: string): Promise<void> {
     const clientUser = await this.prisma.clientUser.findUnique({
       where: {

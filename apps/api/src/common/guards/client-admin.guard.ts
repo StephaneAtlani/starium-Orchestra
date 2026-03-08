@@ -7,6 +7,10 @@ import {
 import { ClientUserRole } from '@prisma/client';
 import { Request } from 'express';
 
+/**
+ * Vérifie que request.activeClient.role === CLIENT_ADMIN.
+ * À placer après ActiveClientGuard.
+ */
 @Injectable()
 export class ClientAdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {

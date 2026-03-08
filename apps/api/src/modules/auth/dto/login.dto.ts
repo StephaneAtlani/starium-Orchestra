@@ -1,5 +1,6 @@
 import { IsEmail, IsString, MinLength } from 'class-validator';
 
+/** Payload POST /auth/login — email + password. */
 export class LoginDto {
   @IsEmail()
   email!: string;

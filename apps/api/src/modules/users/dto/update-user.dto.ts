@@ -1,6 +1,7 @@
 import { ClientUserRole, ClientUserStatus } from '@prisma/client';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 
+/** Payload PATCH /users/:id — tous les champs optionnels (firstName, lastName, role, status). */
 export class UpdateUserDto {
   @IsString()
   @IsOptional()

@@ -8,6 +8,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 
+/** Payload POST /users — email + role obligatoires ; password obligatoire si nouvel utilisateur. */
 export class CreateUserDto {
   @IsEmail()
   email!: string;
