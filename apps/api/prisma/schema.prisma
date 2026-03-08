@@ -35,15 +35,16 @@ model Client {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
-  firstName     String?
-  lastName      String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  clientUsers   ClientUser[]
-  refreshTokens RefreshToken[]
+  id              String         @id @default(cuid())
+  email           String         @unique
+  passwordHash    String
+  firstName       String?
+  lastName        String?
+  isPlatformAdmin Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  clientUsers     ClientUser[]
+  refreshTokens   RefreshToken[]
 }
 
 model ClientUser {

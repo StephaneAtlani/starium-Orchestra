@@ -2,7 +2,7 @@
 # RFC-009 — Gestion des clients
 
 ## Statut
-Draft
+Implémenté
 
 ## Référence
 US-009
@@ -69,7 +69,7 @@ ClientUser
 ↓
 Client
 
-````
+```
 
 ---
 
@@ -77,11 +77,10 @@ Client
 
 ## Inclus
 
-- création d’un client
+- création d’un client (avec désignation ou création de l’administrateur du client)
 - modification d’un client
-- consultation des clients
-- suppression d’un client
-- rattachement automatique du créateur comme **CLIENT_ADMIN**
+- consultation des clients (liste complète, sans pagination)
+- suppression physique d’un client (et des ClientUser liés, jamais des User)
 
 ## Exclus
 
@@ -103,9 +102,9 @@ Ces fonctionnalités sont traitées dans :
 
 ### GET /clients
 
-Retourne la liste des clients.
+Retourne **tous** les clients, **sans pagination**, **sans filtre**, triés par **`createdAt` desc**.
 
-Réponse :
+Réponse : tableau d’objets (ex. `id`, `name`, `slug`, `createdAt`).
 
 ```json
 [
@@ -116,7 +115,7 @@ Réponse :
     "createdAt": "2026-03-08T10:00:00Z"
   }
 ]
-````
+```
 
 ---
 
@@ -124,18 +123,24 @@ Réponse :
 
 ### POST /clients
 
-Permet de créer un nouveau client.
+Permet de créer un nouveau client. L’administrateur du client est **désigné** par `adminEmail` (créé ou rattaché). Le **Platform Admin** (créateur de la requête) ne devient **jamais** automatiquement CLIENT_ADMIN du client.
 
 Payload :
 
 ```json
 {
   "name": "Entreprise ABC",
-  "slug": "entreprise-abc"
+  "slug": "entreprise-abc",
+  "adminEmail": "admin@entreprise-abc.fr",
+  "adminPassword": "optional-si-user-existant",
+  "adminFirstName": "optionnel",
+  "adminLastName": "optionnel"
 }
 ```
 
-Réponse :
+- **adminPassword** : optionnel dans le DTO ; **obligatoire côté service** si aucun `User` avec `adminEmail` n’existe (sinon 400). Hash bcrypt (même stratégie que AuthService).
+
+Réponse **strictement** : `{ id, name, slug }` (201).
 
 ```json
 {
@@ -145,16 +150,14 @@ Réponse :
 }
 ```
 
-### Règles métier
+### Règles métier (création)
 
-Lors de la création :
+Ordre dans une **seule transaction** Prisma :
 
-1. création du **Client**
-2. création automatique d’un **ClientUser**
-3. rôle attribué : `CLIENT_ADMIN`
-4. statut : `ACTIVE`
-
-Le créateur devient donc **administrateur du client**.
+1. Résoudre ou créer l’utilisateur admin (par `adminEmail` ; si nouvel user → `adminPassword` obligatoire, hash bcrypt).
+2. Vérifier explicitement l’unicité du slug (ou capturer erreur Prisma) → **ConflictException** si slug déjà pris.
+3. Créer le **Client**.
+4. Créer le **ClientUser** rattachant l’admin au client : `role = CLIENT_ADMIN`, `status = ACTIVE`. Gérer défensivement le conflit (userId, clientId) → **ConflictException** si déjà rattaché.
 
 ---
 
@@ -176,7 +179,7 @@ Payload :
 }
 ```
 
-Réponse :
+Réponse **strictement** : `{ id, name, slug }`. Si `slug` est fourni, vérifier l’unicité (autre client uniquement) ; 409 si le slug est déjà utilisé par un autre client.
 
 ```json
 {
@@ -192,13 +195,9 @@ Réponse :
 
 ### DELETE /clients/:id
 
-Supprime un client.
+**Suppression physique** du client. Les **ClientUser** liés sont supprimés (cascade). Les **User** ne sont **jamais** supprimés. Pas de soft delete.
 
-Réponse :
-
-```
-204 No Content
-```
+Réponse : **204 No Content**.
 
 ---
 
@@ -206,26 +205,11 @@ Réponse :
 
 ## Création client
 
-Lorsqu’un client est créé :
-
-```
-Client.create()
-ClientUser.create()
-```
-
-Le créateur est automatiquement rattaché.
-
-Exemple :
-
-```
-User (creator)
-  ↓
-ClientUser
-  role = CLIENT_ADMIN
-  status = ACTIVE
-  ↓
-Client
-```
+- Création **transactionnelle** : résoudre/créer l’admin (User) → vérifier unicité du slug → créer Client → créer ClientUser (role = CLIENT_ADMIN, status = ACTIVE).
+- L’admin du client est désigné par **adminEmail** (utilisateur existant rattaché ou nouvel utilisateur créé avec **adminPassword** hashé bcrypt).
+- Le **Platform Admin** (auteur de la requête) **ne devient jamais** CLIENT_ADMIN du client créé.
+- Conflit slug : vérification explicite ou capture erreur Prisma → **ConflictException** avec message métier clair.
+- Conflit (userId, clientId) : gestion défensive → **ConflictException** si déjà rattaché.
 
 ---
 
@@ -251,16 +235,15 @@ Client.slug UNIQUE
 
 ## Suppression client
 
-La suppression doit :
-
-* supprimer le client
-* supprimer les liens ClientUser associés
-
-La suppression des utilisateurs globaux **n’est jamais effectuée**.
+- **Suppression physique** : supprimer le **Client** (Prisma supprime en cascade les **ClientUser** associés).
+- **Ne jamais supprimer** les **User** globaux.
+- Pas de soft delete.
 
 ---
 
 # 7. Modèle de données
+
+**Platform Admin** : le modèle `User` comporte `isPlatformAdmin Boolean @default(false)`. Uniquement ce booléen détermine l’accès aux routes `/clients` (pas de RBAC complet).
 
 ## Client
 
@@ -302,18 +285,12 @@ index(userId)
 
 ## Accès
 
-La gestion des clients est réservée aux :
+Toutes les routes `/clients` sont protégées par :
 
-```
-Platform Admin
-```
+- **JwtAuthGuard**
+- **PlatformAdminGuard**
 
-Guard utilisé :
-
-```
-JwtAuthGuard
-PlatformAdminGuard
-```
+**Platform Admin** : défini explicitement par `User.isPlatformAdmin === true` (booléen sur le modèle User). Aucun RBAC complet — le guard autorise uniquement si `user.isPlatformAdmin === true`. En dev, `isPlatformAdmin: true` est mis **uniquement** sur l’utilisateur seed pour tester `/api/clients`.
 
 ---
 
@@ -337,26 +314,14 @@ apps/api/src
 
 ## create-client.dto.ts
 
-```
-name
-slug
-```
-
-Validation :
-
-```
-@IsString
-@IsNotEmpty
-```
-
----
+- `name: string`, `slug: string` — `@IsString()`, `@IsNotEmpty()`
+- `adminEmail: string` — `@IsEmail()`, `@IsNotEmpty()`
+- `adminPassword?: string` — optionnel au DTO ; **obligatoire côté service** si aucun User avec `adminEmail` n’existe. Si présent : `@MinLength(8)`
+- `adminFirstName?`, `adminLastName?` — optionnels
 
 ## update-client.dto.ts
 
-```
-name?
-slug?
-```
+- `name?: string`, `slug?: string` — `@IsString()`, `@IsOptional()`
 
 ---
 
@@ -371,13 +336,15 @@ JwtAuthGuard
 ↓
 PlatformAdminGuard
 ↓
-ClientsService.create()
+ClientsService.create(dto)
 ↓
-Client.create
+$transaction :
+  1. Résoudre ou créer User admin (adminEmail, adminPassword si nouveau)
+  2. Vérifier unicité slug
+  3. Client.create
+  4. ClientUser.create (CLIENT_ADMIN, ACTIVE)
 ↓
-ClientUser.create
-↓
-Retour client
+Retour { id, name, slug }
 ```
 
 ---
@@ -386,23 +353,23 @@ Retour client
 
 Backend :
 
-* [ ] créer module clients
-* [ ] créer DTO create-client
-* [ ] créer DTO update-client
-* [ ] implémenter GET /clients
-* [ ] implémenter POST /clients
-* [ ] implémenter PATCH /clients/:id
-* [ ] implémenter DELETE /clients/:id
+* [x] créer module clients (imports: AuthModule, PrismaModule)
+* [x] créer DTO create-client (name, slug, adminEmail, adminPassword optionnel, adminFirstName/LastName optionnels)
+* [x] créer DTO update-client (name?, slug?)
+* [x] implémenter GET /clients (tous, sans pagination, tri createdAt desc)
+* [x] implémenter POST /clients (transaction, réponse { id, name, slug })
+* [x] implémenter PATCH /clients/:id (unicité slug autre client, réponse { id, name, slug })
+* [x] implémenter DELETE /clients/:id (204, suppression physique Client + cascade ClientUser)
 
 Sécurité :
 
-* [ ] vérifier JWT
-* [ ] vérifier Platform Admin
+* [x] JwtAuthGuard + PlatformAdminGuard sur toutes les routes
+* [x] Platform Admin : User.isPlatformAdmin === true
 
 Données :
 
-* [ ] slug unique
-* [ ] rattachement créateur
+* [x] slug unique (vérification explicite ou catch Prisma)
+* [x] admin client désigné par adminEmail (création ou rattachement), pas le Platform Admin
 
 ---
 
@@ -410,12 +377,12 @@ Données :
 
 Tests à couvrir :
 
-* création client
-* slug unique
-* modification client
-* suppression client
-* rattachement créateur
-* refus utilisateur non admin
+* création client (admin existant → Client + ClientUser ; admin nouveau + adminPassword → User + Client + ClientUser)
+* slug unique (ConflictException)
+* conflit (userId, clientId) défensif
+* modification client (409 si slug pris par un autre client)
+* suppression client (Client + ClientUser supprimés, User jamais supprimés)
+* refus utilisateur non Platform Admin
 
 ---
 
@@ -423,11 +390,12 @@ Tests à couvrir :
 
 La fonctionnalité est validée lorsque :
 
-* un admin plateforme peut créer un client
+* un Platform Admin peut créer un client (avec désignation de l’admin client par adminEmail)
 * un client possède un slug unique
-* le créateur est automatiquement admin
-* un admin plateforme peut modifier un client
-* un admin plateforme peut supprimer un client
+* l’administrateur du client est celui désigné par adminEmail (créé ou rattaché), pas le Platform Admin
+* POST et PATCH retournent strictement { id, name, slug }
+* un Platform Admin peut modifier un client (409 si slug pris par un autre client)
+* un Platform Admin peut supprimer un client (suppression physique ; ClientUser en cascade ; User jamais supprimés)
 
 ---
 
