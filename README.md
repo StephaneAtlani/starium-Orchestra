@@ -31,12 +31,14 @@ docker compose --profile dev up --build
 ### Mode standard — api + web sans hot reload
 
 ```bash
-docker compose up --build
+docker compose --profile standard up --build
 ```
 
 - **API** : http://localhost:3001 — préfixe `/api` (ex. `GET http://localhost:3001/api/health`)
 - **Web** : http://localhost:3000
 - **PostgreSQL** : localhost:5432 (user `starium`, db `starium`)
+
+Sans profil, `docker compose up` ne démarre que Postgres.
 
 Variables d’environnement requises pour l’API : `DATABASE_URL`, `JWT_SECRET` (voir `.env.example` pour `JWT_ACCESS_EXPIRATION`, `JWT_REFRESH_EXPIRATION`).
 
