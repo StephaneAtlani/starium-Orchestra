@@ -25,8 +25,9 @@ const prisma = new PrismaClient();
 
 /**
  * Platform Admin (développement).
- * Cet utilisateur a isPlatformAdmin = true et peut appeler GET/POST/PATCH/DELETE /api/clients.
- * Il est aussi rattaché au client démo en CLIENT_ADMIN.
+ * Cet utilisateur est UNIQUEMENT Platform Admin (isPlatformAdmin = true).
+ * Il peut appeler GET/POST/PATCH/DELETE /api/clients.
+ * Il n'est rattaché à aucun client : pas de ClientUser, donc pas CLIENT_ADMIN.
  */
 const PLATFORM_ADMIN = {
   email: 'admin@starium.fr',
@@ -37,7 +38,7 @@ const PLATFORM_ADMIN = {
 
 async function main() {
   const passwordHash = await bcrypt.hash(PLATFORM_ADMIN.password, 10);
-  const user = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: PLATFORM_ADMIN.email },
     update: { passwordHash, isPlatformAdmin: true },
     create: {
@@ -49,32 +50,7 @@ async function main() {
     },
   });
 
-  const client = await prisma.client.upsert({
-    where: { slug: 'demo' },
-    update: {},
-    create: {
-      name: 'Client démo',
-      slug: 'demo',
-    },
-  });
-
-  await prisma.clientUser.upsert({
-    where: {
-      userId_clientId: {
-        userId: user.id,
-        clientId: client.id,
-      },
-    },
-    update: { role: 'CLIENT_ADMIN', status: 'ACTIVE' },
-    create: {
-      userId: user.id,
-      clientId: client.id,
-      role: 'CLIENT_ADMIN',
-      status: 'ACTIVE',
-    },
-  });
-
-  console.log('Seed OK: Platform Admin', PLATFORM_ADMIN.email, 'client', client.slug, 'ClientUser créé ou mis à jour.');
+  console.log('Seed OK: Platform Admin', PLATFORM_ADMIN.email, '(aucun client rattaché).');
 }
 
 main()
