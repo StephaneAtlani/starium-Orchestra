@@ -1,0 +1,538 @@
+```md
+# RFC-010 — Sélection du client actif
+
+## Statut
+Draft
+
+## Référence
+US-010
+
+## Titre
+Sélection du client actif
+
+---
+
+# 1. User Story
+
+En tant qu’utilisateur  
+je veux sélectionner le client actif  
+afin d’utiliser la plateforme dans le contexte de mon organisation.
+
+---
+
+# 2. Objectif
+
+Mettre en place le mécanisme permettant de définir **le client actif utilisé par l’utilisateur** lors de ses interactions avec l’API.
+
+Le client actif permet de :
+
+- déterminer **le contexte organisationnel**
+- isoler **les données entre clients**
+- sécuriser l’architecture **multi-tenant**
+
+Toutes les opérations métier doivent être exécutées dans le **contexte d’un client actif validé**.
+
+---
+
+# 3. Contexte architecture
+
+Starium Orchestra est une plateforme **multi-tenant**.
+
+Les règles fondamentales sont :
+
+- un **utilisateur est global à la plateforme**
+- un utilisateur peut appartenir à **plusieurs clients**
+- les permissions sont portées par **ClientUser**
+- toutes les requêtes métier doivent être exécutées dans le **contexte d’un client**
+
+Structure de données :
+
+```
+
+User
+Client
+ClientUser
+
+```
+
+Relation :
+
+```
+
+User
+↓
+ClientUser
+↓
+Client
+
+```
+
+---
+
+# 4. Principe du client actif
+
+Le **client actif** représente :
+
+> l’organisation dans laquelle l’utilisateur travaille actuellement.
+
+Exemple :
+
+Un DSI à temps partagé peut gérer :
+
+- Client A
+- Client B
+- Client C
+
+Lorsqu’il travaille sur **Client B**, toutes les requêtes doivent être exécutées avec :
+
+```
+
+X-Client-Id = id(Client B)
+
+```
+
+---
+
+# 5. Règle fondamentale
+
+Toute requête métier doit respecter :
+
+```
+
+Utilisateur authentifié
++
+Client actif valide
+
+```
+
+Sans client actif valide :
+
+```
+
+Accès refusé
+
+```
+
+---
+
+# 6. Pourquoi le client actif n'est pas dans le JWT
+
+Le JWT contient uniquement :
+
+```
+
+userId
+
+```
+
+Le JWT **ne contient pas le client actif**.
+
+Raisons :
+
+1. Un utilisateur peut appartenir à plusieurs clients
+2. Le client actif peut changer dynamiquement
+3. Un utilisateur peut ouvrir plusieurs onglets avec différents clients
+4. Eviter la régénération du JWT à chaque changement de client
+
+La solution retenue est :
+
+```
+
+Header HTTP : X-Client-Id
+
+```
+
+---
+
+# 7. Transport du client actif
+
+Le client actif est transmis à chaque requête via le header :
+
+```
+
+X-Client-Id
+
+```
+
+Exemple :
+
+```
+
+GET /api/users
+Authorization: Bearer JWT
+X-Client-Id: cmmhcpcqq00010l6aihf6rwec
+
+````
+
+---
+
+# 8. Endpoints API
+
+## Profil utilisateur
+
+### GET /me
+
+Retourne le profil global de l’utilisateur connecté.
+
+Réponse :
+
+```json
+{
+  "id": "usr_001",
+  "email": "user@email.com",
+  "firstName": "John",
+  "lastName": "Doe"
+}
+````
+
+---
+
+## Clients accessibles
+
+### GET /me/clients
+
+Retourne les clients auxquels l’utilisateur est rattaché.
+
+Réponse :
+
+```json
+[
+  {
+    "id": "client_001",
+    "name": "Client démo",
+    "slug": "demo",
+    "role": "CLIENT_ADMIN",
+    "status": "ACTIVE"
+  }
+]
+```
+
+Champs :
+
+| champ  | origine    |
+| ------ | ---------- |
+| id     | Client     |
+| name   | Client     |
+| slug   | Client     |
+| role   | ClientUser |
+| status | ClientUser |
+
+---
+
+# 9. Sélection du client actif
+
+## Flux frontend
+
+Après connexion :
+
+```
+Login
+↓
+GET /me
+↓
+GET /me/clients
+↓
+affichage liste clients
+↓
+sélection client actif
+↓
+stockage côté frontend
+↓
+envoi X-Client-Id sur chaque requête
+```
+
+---
+
+## Stockage frontend
+
+Le client actif peut être stocké :
+
+* React Context
+* Zustand / Redux
+* localStorage
+* sessionStorage
+
+La RFC ne contraint pas le choix.
+
+---
+
+# 10. Validation backend
+
+La validation est effectuée par :
+
+```
+ActiveClientGuard
+```
+
+---
+
+# 11. Pipeline de sécurité
+
+Ordre obligatoire :
+
+```
+JwtAuthGuard
+↓
+ActiveClientGuard
+↓
+Guards métier
+```
+
+Exemple pour la gestion des utilisateurs :
+
+```
+JwtAuthGuard
+↓
+ActiveClientGuard
+↓
+ClientAdminGuard
+```
+
+---
+
+# 12. ActiveClientGuard
+
+Le guard doit :
+
+1. lire `X-Client-Id`
+2. vérifier que le client existe
+3. vérifier que l’utilisateur est rattaché
+4. vérifier que le statut est ACTIVE
+5. injecter le contexte client
+
+---
+
+## Exemple logique
+
+```
+clientId = header.X-Client-Id
+userId = JWT.userId
+
+ClientUser.findFirst({
+  userId,
+  clientId
+})
+```
+
+Si aucun résultat :
+
+```
+403 Forbidden
+```
+
+---
+
+## Contexte injecté
+
+Le guard injecte :
+
+```ts
+request.activeClient = {
+  id: clientId,
+  role: clientUser.role,
+  status: clientUser.status
+}
+```
+
+---
+
+# 13. Cas de refus
+
+La requête doit retourner **403** si :
+
+| situation                | réponse |
+| ------------------------ | ------- |
+| header absent            | 403     |
+| client inexistant        | 403     |
+| utilisateur non rattaché | 403     |
+| status SUSPENDED         | 403     |
+
+---
+
+# 14. Isolation multi-tenant
+
+Toutes les requêtes métier doivent filtrer par :
+
+```
+clientId = request.activeClient.id
+```
+
+Exemple Prisma :
+
+```ts
+prisma.project.findMany({
+  where: {
+    clientId: activeClientId
+  }
+})
+```
+
+---
+
+# 15. Structure backend
+
+```
+apps/api/src
+  common
+    guards
+      active-client.guard.ts
+    decorators
+      active-client.decorator.ts
+  modules
+    me
+      me.controller.ts
+      me.service.ts
+      me.module.ts
+```
+
+---
+
+# 16. Decorators
+
+## ActiveClientId
+
+Permet d'accéder au client actif.
+
+```ts
+@ActiveClientId()
+clientId: string
+```
+
+---
+
+## ActiveClient
+
+Permet d'accéder à l'objet complet.
+
+```ts
+@ActiveClient()
+client: ActiveClientContext
+```
+
+---
+
+# 17. Structure ActiveClientContext
+
+```ts
+interface ActiveClientContext {
+  id: string
+  role: ClientUserRole
+  status: ClientUserStatus
+}
+```
+
+---
+
+# 18. Flux technique
+
+```
+Frontend
+↓
+Request API
+↓
+JWT validation
+↓
+ActiveClientGuard
+↓
+Injection activeClient
+↓
+Controller
+↓
+Service
+↓
+Prisma query filtrée clientId
+```
+
+---
+
+# 19. Checklist de développement
+
+## Backend
+
+* [ ] créer ActiveClientGuard
+* [ ] créer ActiveClient decorator
+* [ ] implémenter GET /me
+* [ ] implémenter GET /me/clients
+* [ ] injecter activeClient dans request
+* [ ] protéger toutes les routes métier
+
+---
+
+## Sécurité
+
+* [ ] refuser si X-Client-Id absent
+* [ ] refuser si client inexistant
+* [ ] refuser si utilisateur non rattaché
+* [ ] refuser si status SUSPENDED
+
+---
+
+## Tests
+
+* [ ] récupération clients utilisateur
+* [ ] requête valide avec client actif
+* [ ] refus sans client actif
+* [ ] refus client inexistant
+* [ ] refus client non rattaché
+* [ ] refus client suspendu
+* [ ] isolation multi-tenant
+
+---
+
+# 20. Critères d’acceptation
+
+La fonctionnalité est validée lorsque :
+
+* un utilisateur peut récupérer ses clients
+* un client actif peut être sélectionné
+* le frontend envoie X-Client-Id
+* le backend valide le client actif
+* toutes les requêtes sont isolées par client
+* aucune fuite de données inter-clients n'est possible
+
+---
+
+# 21. Priorité
+
+Critique
+
+Le client actif est nécessaire pour :
+
+* sécuriser l’architecture multi-tenant
+* permettre l’utilisation multi-clients
+* implémenter tous les modules métier
+
+---
+
+# 22. Dépendances
+
+Cette RFC dépend de :
+
+* RFC-002 — Authentification
+* RFC-008 — Gestion des utilisateurs
+* modèles Prisma Client et ClientUser
+
+---
+
+```
+
+---
+
+💡 **Mon avis d’architecte SaaS sur ta stack :**
+
+Avec :
+
+- **JWT**
+- **X-Client-Id**
+- **ClientUser**
+- **ActiveClientGuard**
+
+tu as **exactement l’architecture utilisée par les SaaS sérieux** :
+
+- Linear
+- Notion
+- Stripe
+- Vercel
+- Supabase
+
+```
