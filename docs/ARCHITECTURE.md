@@ -308,6 +308,8 @@ Utilisation du logger NestJS ou Pino intégré à Nest ; même logger dans tous 
 
 Toutes les fonctionnalités métier sont exposées via des APIs REST.
 
+**Documentation détaillée des endpoints (auth, me, users) :** [docs/API.md](API.md) — formats de requête/réponse, guards, erreurs.
+
 Préfixe global :
 
 /api
