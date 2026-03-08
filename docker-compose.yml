@@ -28,6 +28,26 @@ services:
       postgres:
         condition: service_healthy
 
+  api-dev:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    env_file:
+      - apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
+      PORT: "3001"
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/prisma:/app/apps/api/prisma
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - dev
+
   web:
     build:
       context: .
