@@ -1,7 +1,7 @@
 # RFC-002 — Authentification utilisateur
 
 ## Statut
-À faire
+Implémenté
 
 ## Priorité
 Critique
@@ -95,3 +95,13 @@ Permet à un utilisateur de se connecter avec son email et son mot de passe.
   "email": "user@example.com",
   "password": "password"
 }
+```
+
+---
+
+## Implémentation
+
+- **Module** : `apps/api/src/modules/auth/` (auth.module.ts, auth.controller.ts, auth.service.ts, dto/, guards/jwt-auth.guard.ts, strategies/jwt.strategy.ts).
+- **Modèles Prisma** : `User`, `RefreshToken` (voir `apps/api/prisma/schema.prisma`).
+- **Variables d’environnement** : `JWT_SECRET` (obligatoire), `JWT_ACCESS_EXPIRATION` (déf. 900), `JWT_REFRESH_EXPIRATION` (déf. 604800). Voir `.env.example`.
+- **Seed** : `pnpm prisma:seed` depuis `apps/api` crée ou met à jour un utilisateur de test pour les démonstrations (identifiants documentés dans le README).

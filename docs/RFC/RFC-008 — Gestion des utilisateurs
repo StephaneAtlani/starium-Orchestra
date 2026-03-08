@@ -1,0 +1,347 @@
+```md
+# RFC-008 — Gestion des utilisateurs
+
+## Statut
+Draft
+
+## Référence
+US-008
+
+## Titre
+Gestion des utilisateurs
+
+---
+
+# 1. User Story
+
+En tant qu’administrateur d’un client  
+je veux gérer les utilisateurs  
+afin d’administrer mon organisation.
+
+---
+
+# 2. Objectif
+
+Mettre en place le module de gestion des utilisateurs permettant :
+
+- de consulter les utilisateurs d’un client
+- de créer un utilisateur
+- d’inviter un utilisateur
+- de modifier un utilisateur
+- de supprimer l’accès d’un utilisateur à un client
+
+Le système doit respecter les règles **multi-tenant** de la plateforme.
+
+---
+
+# 3. Contexte architecture
+
+Dans Starium Orchestra :
+
+- un **utilisateur est global à la plateforme**
+- un utilisateur peut appartenir à **plusieurs clients**
+- la relation est gérée par la table **ClientUser**
+- toutes les opérations sont réalisées dans le **contexte du client actif**
+
+Structure :
+
+```
+
+User
+Client
+ClientUser
+
+````
+
+---
+
+# 4. Périmètre
+
+## Inclus
+
+- CRUD utilisateur
+- invitation utilisateur
+- modification profil
+- suppression d’accès au client
+
+## Exclus
+
+- reset mot de passe
+- gestion avancée des rôles
+- acceptation invitation complète
+- gestion des permissions fines
+
+Ces éléments feront l’objet d’autres RFC.
+
+---
+
+# 5. Endpoints API
+
+## Liste des utilisateurs
+
+GET /users
+
+Retourne la liste des utilisateurs du client actif.
+
+---
+
+## Création utilisateur
+
+POST /users
+
+Crée un utilisateur et l’associe au client actif.
+
+Payload exemple :
+
+```json
+{
+  "email": "marie.dupont@client.fr",
+  "firstName": "Marie",
+  "lastName": "Dupont",
+  "role": "CLIENT_USER"
+}
+````
+
+---
+
+## Modification utilisateur
+
+PATCH /users/:id
+
+Permet de modifier :
+
+* prénom
+* nom
+* rôle
+* statut
+
+Payload exemple :
+
+```json
+{
+  "firstName": "Marie",
+  "lastName": "Dupont",
+  "role": "CLIENT_ADMIN"
+}
+```
+
+---
+
+## Suppression utilisateur
+
+DELETE /users/:id
+
+Supprime le lien entre l’utilisateur et le client actif.
+
+L’utilisateur global n’est pas supprimé s’il appartient à d’autres clients.
+
+---
+
+## Invitation utilisateur
+
+POST /users/invite
+
+Invite un utilisateur via email.
+
+Payload :
+
+```json
+{
+  "email": "nouveau@client.fr",
+  "role": "CLIENT_USER"
+}
+```
+
+---
+
+# 6. Flux fonctionnel — invitation utilisateur
+
+```
+Admin client
+   │
+   ▼
+Invite utilisateur
+   │
+   ▼
+Création invitation + token
+   │
+   ▼
+Email envoyé
+   │
+   ▼
+Utilisateur accepte invitation
+   │
+   ▼
+Création utilisateur
+   │
+   ▼
+Association ClientUser
+```
+
+---
+
+# 7. Modèle de données
+
+## User
+
+Utilisateur global de la plateforme.
+
+```
+User
+- id
+- email
+- passwordHash
+- firstName
+- lastName
+- createdAt
+- updatedAt
+```
+
+---
+
+## ClientUser
+
+Association utilisateur ↔ client.
+
+```
+ClientUser
+- id
+- userId
+- clientId
+- role
+- status
+- createdAt
+- updatedAt
+```
+
+---
+
+## UserInvitation
+
+Invitation utilisateur.
+
+```
+UserInvitation
+- id
+- email
+- clientId
+- role
+- token
+- expiresAt
+- acceptedAt
+- createdAt
+```
+
+---
+
+# 8. Règles de sécurité
+
+Toutes les routes doivent vérifier :
+
+* authentification JWT
+* client actif
+* rôle administrateur
+
+Les opérations doivent respecter les règles :
+
+* un utilisateur ne peut voir que les utilisateurs de son client
+* un admin client ne peut gérer que son client
+* aucune fuite de données inter-clients
+
+---
+
+# 9. Structure backend
+
+```
+backend/src/modules/users
+
+users.module.ts
+users.controller.ts
+users.service.ts
+
+dto/
+create-user.dto.ts
+update-user.dto.ts
+invite-user.dto.ts
+```
+
+---
+
+# 10. Checklist de développement
+
+## Backend
+
+* [ ] créer module users
+* [ ] créer DTO utilisateurs
+* [ ] implémenter GET /users
+* [ ] implémenter POST /users
+* [ ] implémenter PATCH /users/:id
+* [ ] implémenter DELETE /users/:id
+* [ ] implémenter POST /users/invite
+
+---
+
+## Sécurité
+
+* [ ] vérification JWT
+* [ ] vérification client actif
+* [ ] vérification rôle admin
+
+---
+
+## Données
+
+* [ ] modèle User
+* [ ] modèle ClientUser
+* [ ] modèle UserInvitation
+
+---
+
+## Tests
+
+* [ ] test création utilisateur
+* [ ] test modification utilisateur
+* [ ] test suppression utilisateur
+* [ ] test invitation utilisateur
+* [ ] test isolation multi-tenant
+
+---
+
+# 11. Critères d’acceptation
+
+La fonctionnalité est validée lorsque :
+
+* un admin client peut voir les utilisateurs de son client
+* un admin client peut créer un utilisateur
+* un admin client peut inviter un utilisateur
+* un admin client peut modifier un utilisateur
+* un admin client peut supprimer l’accès d’un utilisateur
+* aucune donnée d’un autre client n’est visible
+
+---
+
+# 12. Priorité
+
+Critique
+
+Cette fonctionnalité est nécessaire pour :
+
+* l’administration des organisations
+* la gestion des rôles
+* l’onboarding des utilisateurs
+
+---
+
+# 13. Dépendances
+
+RFC dépend de :
+
+* RFC-007 — Authentification utilisateur
+* Gestion du client actif
+* Module clients
+
+---
+
+```
+
+

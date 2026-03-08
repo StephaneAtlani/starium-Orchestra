@@ -1,0 +1,23 @@
+---
+alwaysApply: true
+---
+
+Quand je te demande de développer une RFC pour Starium Orchestra, réponds toujours avec cette méthode :
+
+1. Analyse de l’existant
+2. Hypothèses éventuelles
+3. Liste des fichiers à créer / modifier
+4. Implémentation complète
+5. Modifications Prisma si nécessaire
+6. Tests
+7. Récapitulatif final
+8. Points de vigilance
+
+Tu dois toujours :
+- respecter l’architecture existante
+- respecter le multi-tenant
+- respecter le client actif
+- éviter toute fuite inter-client
+- garder la logique métier dans le backend
+- produire du code propre, modulaire et maintenable
+- ne pas inventer de structure non demandée
