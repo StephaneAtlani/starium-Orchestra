@@ -1,532 +1,371 @@
 ## RFC-011 — Gestion des rôles, permissions et accès modules
 
 ## Statut
-À concevoir
+À valider
 
-## Référence
-US-011
+## Priorité
+Critique
 
-## Titre
-Gestion des rôles, des permissions et de l’activation des modules
+## User Story
+
+### US-011 — Gestion des rôles
+En tant que **CLIENT_ADMIN**  
+je veux **définir des rôles**  
+afin de **gérer les accès**.
+
+### Extension plateforme
+En tant que **PLATFORM_ADMIN**  
+je veux **activer ou désactiver des modules pour un client**  
+afin de **contrôler le périmètre fonctionnel disponible par organisation**.
 
 ---
 
 ## 1. Contexte
 
-Starium Orchestra est une plateforme SaaS **multi-client** et **multi-organisation**, utilisée notamment par des DSI à temps partagé qui gèrent plusieurs clients depuis un même compte.
+Starium Orchestra est une plateforme SaaS multi-client et multi-tenant.  
+Le contrôle d’accès doit respecter deux niveaux :
 
-Les RFC existantes ont posé :
+1. **niveau plateforme** : quels modules sont disponibles pour un client  
+2. **niveau client** : quels droits sont accordés aux utilisateurs de ce client
 
-- l’authentification (`RFC-002 — Authentification utilisateur`)
-- la gestion des utilisateurs côté client (`RFC-008 — Gestion des utilisateurs`)
-- la gestion des clients et du rôle `Platform Admin` (`RFC-009 — Gestion des clients`)
-- la notion de **client actif** et du `ActiveClientGuard` (`RFC-010 — Sélection du client actif`)
-
-Il manque encore un socle clair pour :
-
-- activer / désactiver des **modules métier** par client (périmètre fonctionnel vendu)
-- gérer des **rôles métier** et des **permissions fines** à l’intérieur des modules activés
-- sécuriser les endpoints par **module** + **permission** dans le contexte du **client actif**
-
-Cette RFC définit ce modèle de sécurité en **2 étages** :
-
-```text
-Platform Admin
-    ↓
-Activation des modules par client
-
-Client Admin
-    ↓
-RBAC interne (rôles métier + permissions fines)
-```
-
-et décrit l’architecture backend cible (guards, décorateurs, endpoints, modèle Prisma).
+Le système doit permettre :
+- d’activer des modules pour un client
+- de créer des rôles métier dans un client
+- d’associer des permissions à ces rôles
+- d’assigner ces rôles aux utilisateurs du client
 
 ---
 
 ## 2. Objectif
 
-Mettre en place un modèle de sécurité modulaire et multi-tenant permettant :
+Mettre en place un modèle de sécurité en **2 étages** :
 
-- au **Platform Admin** de contrôler **quels modules** sont disponibles pour chaque client
-- au **Client Admin** de contrôler **qui a accès à quoi** à l’intérieur de ces modules, via des rôles et des permissions fines
+### Niveau 1 — Contrôle plateforme
+Le **PLATFORM_ADMIN** gère les modules activés pour chaque client.
 
-Objectif précis :
+Exemples :
+- budgets
+- projets
+- fournisseurs
+- contrats
+- licences
+- équipes
+- référentiel IT
+- documents
 
-- formaliser la **gestion des modules** (`Module`, `ClientModule`)
-- formaliser le **RBAC métier client** (`Role`, `Permission`, `RolePermission`, `UserRole`)
-- définir les **endpoints** côté plateforme et côté client
-- définir le **pipeline de sécurité** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
-- fixer une **convention de nommage** des permissions
-- poser les **critères d’acceptation** et l’**ordre d’implémentation**
+### Niveau 2 — Contrôle client
+Le **CLIENT_ADMIN** gère :
+- les rôles
+- les permissions des rôles
+- l’assignation des rôles aux collaborateurs
 
-Portée :
-
-- spécification fonctionnelle et technique
-- **aucune implémentation directe** dans cette RFC
+Un client ne peut utiliser que des permissions appartenant à des modules **activés pour lui**.
 
 ---
 
 ## 3. Architecture des accès
 
-### 3.1 Niveau plateforme — Platform Admin
+Le système repose sur 3 couches distinctes.
 
-Porté par `User.platformRole` (déjà introduit en `RFC-009`).
+### 3.1 Rôle global plateforme
+Porté par `User.platformRole`
 
-Rôles plateforme :
-
+Valeurs :
 - `PLATFORM_ADMIN`
-- `null` (utilisateur sans droits plateforme)
+- `null`
 
-Un `PLATFORM_ADMIN` peut :
-
-- gérer les **clients** (`/api/clients/*`)
-- gérer les **utilisateurs plateforme** (RFC ultérieure)
-- **activer / désactiver les modules** pour un client (objet de cette RFC)
-
-Les routes plateforme sont protégées par :
-
-- `JwtAuthGuard`
-- `PlatformAdminGuard`
-
-Pas de `ActiveClientGuard` ici (les routes plateforme ne sont pas multi-tenant au sens client-actif).
+Usage :
+- accès aux routes d’administration plateforme
+- gestion des modules par client
 
 ---
 
-### 3.2 Niveau client — appartenance client
+### 3.2 Rôle d’appartenance au client
+Porté par `ClientUser.role`
 
-Porté par `ClientUser.role` (déjà décrit dans `RFC-008` et `RFC-010`).
-
-Rôles d’appartenance :
-
+Valeurs :
 - `CLIENT_ADMIN`
 - `CLIENT_USER`
 
-Ils déterminent :
-
-- la capacité à **administrer le client** (`CLIENT_ADMIN`)
-- la simple appartenance au client (`CLIENT_USER`)
-
-Ces rôles sont utilisés par :
-
-- `ActiveClientGuard` (contexte client actif)
-- `ClientAdminGuard` (protection des routes d’administration de l’organisation)
+Usage :
+- appartenance à un client
+- administration du client
+- contrôle du client actif
 
 ---
 
-### 3.3 Niveau client — RBAC métier (rôles & permissions)
+### 3.3 Rôles métier RBAC
+Portés par :
+- `Role`
+- `Permission`
+- `RolePermission`
+- `UserRole`
 
-Porté par les tables :
-
-- `Role` (rôle métier client)
-- `Permission` (permission unitaire, globale plateforme)
-- `RolePermission` (liaison rôle ↔ permission)
-- `UserRole` (liaison utilisateur ↔ rôle dans un client)
-
-Ces éléments permettent :
-
-- au **Client Admin** de définir des **rôles métier** (ex. `Responsable budgets`, `Chef de projet`)
-- d’y associer des **permissions** fines (ex. `budgets.read`, `projects.update`)
-- d’assigner un ou plusieurs rôles aux utilisateurs de son client
-
-Logique produit :
-
-- **Platform Admin** : scope = *quels modules sont accessibles pour ce client ?*
-- **Client Admin** : scope = *qui fait quoi dans les modules activés ?*
+Usage :
+- gestion fine des accès fonctionnels dans les modules activés
 
 ---
 
 ## 4. Gestion des modules
 
-### 4.1 Table `Module` — catalogue global
+### 4.1 Principe
+Un module peut être :
 
-`Module` représente le **catalogue global** des modules disponibles dans Starium Orchestra.
+- actif globalement sur la plateforme
+- activé ou désactivé pour un client donné
 
-Exemples de codes :
+### 4.2 Règle centrale
+Un module **désactivé pour un client** rend **inaccessibles** :
+- les permissions associées
+- les endpoints associés
+- les fonctionnalités associées
 
+---
+
+## 5. Modèle de données
+
+### 5.1 Module
+Catalogue global des modules de la plateforme.
+
+Champs :
+- `id`
+- `code`
+- `name`
+- `description`
+- `isActive`
+- `createdAt`
+- `updatedAt`
+
+Contraintes :
+- `code` unique
+
+Exemples :
 - `budgets`
 - `projects`
 - `contracts`
 - `suppliers`
-- `licenses`
-- `teams`
-- `applications`
-- `documents`
-
-Un module peut être globalement actif / inactif côté plateforme (feature flag produit).
-
----
-
-### 4.2 Table `ClientModule` — activation par client
-
-`ClientModule` représente l’**activation d’un module pour un client** donné.
-
-Règle fondamentale :
-
-> **Un module désactivé pour un client rend tous les endpoints associés interdits pour ce client.**
-
-Corollaires :
-
-- le frontend ne doit **pas** décider seul de l’accès
-- les endpoints métier doivent **refuser** les requêtes si :
-  - le module n’est pas activé pour le client actif
-  - ou si le module est explicitement désactivé
-
-Cette règle est appliquée par un `ModuleAccessGuard` dans le pipeline de sécurité.
-
----
-
-## 5. Modèle de données (Prisma cible)
-
-Le modèle s’appuie sur les modèles existants :
-
-- `User`, `Client`, `ClientUser` (voir `RFC-008`, `RFC-009`, `RFC-010`)
-
-### 5.1 Module
-
-```prisma
-model Module {
-  id            String        @id @default(cuid())
-  code          String        @unique
-  name          String
-  description   String?
-  isActive      Boolean       @default(true) // activation globale dans le catalogue
-  permissions   Permission[]
-  clientModules ClientModule[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-}
-```
 
 ---
 
 ### 5.2 ClientModule
+Activation d’un module pour un client.
 
-```prisma
-model ClientModule {
-  id        String              @id @default(cuid())
-  clientId  String
-  moduleId  String
-  status    ClientModuleStatus  @default(ENABLED)
-  client    Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  module    Module              @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  createdAt DateTime            @default(now())
-  updatedAt DateTime            @updatedAt
+Champs :
+- `id`
+- `clientId`
+- `moduleId`
+- `status`
+- `createdAt`
+- `updatedAt`
 
-  @@unique([clientId, moduleId])
-  @@index([clientId])
-  @@index([moduleId])
-}
+Contraintes :
+- unicité `(clientId, moduleId)`
 
-enum ClientModuleStatus {
-  ENABLED
-  DISABLED
-}
-```
+Enum :
+- `ENABLED`
+- `DISABLED`
 
 ---
 
 ### 5.3 Role
+Rôle métier défini dans un client.
 
-```prisma
-model Role {
-  id             String          @id @default(cuid())
-  clientId       String
-  name           String
-  description    String?
-  isSystem       Boolean         @default(false)
-  client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  rolePermissions RolePermission[]
-  userRoles      UserRole[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+Champs :
+- `id`
+- `clientId`
+- `name`
+- `description`
+- `isSystem`
+- `createdAt`
+- `updatedAt`
 
-  @@unique([clientId, name])
-  @@index([clientId])
-}
-```
+Contraintes :
+- unicité `(clientId, name)`
+
+Exemples :
+- Responsable budgets
+- Chef de projet
+- Responsable contrats
 
 ---
 
 ### 5.4 Permission
+Permission unitaire globale.
 
-```prisma
-model Permission {
-  id             String          @id @default(cuid())
-  code           String          @unique
-  label          String
-  description    String?
-  moduleId       String
-  module         Module          @relation(fields: [moduleId], references: [id], onDelete: Restrict)
-  rolePermissions RolePermission[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+Champs :
+- `id`
+- `code`
+- `label`
+- `description`
+- `moduleId`
+- `createdAt`
+- `updatedAt`
 
-  @@index([moduleId])
-}
-```
+Contraintes :
+- `code` unique
 
-Notes :
+Convention :
+`<module>.<action>`
 
-- `Permission` est **globale plateforme** (non scopée par client).
-- le lien au client se fait via `Role` (qui porte `clientId`) et `RolePermission`.
+Exemples :
+- `budgets.read`
+- `budgets.create`
+- `projects.update`
+- `roles.assign`
 
 ---
 
 ### 5.5 RolePermission
+Association N:N entre rôle et permission.
 
-```prisma
-model RolePermission {
-  id           String      @id @default(cuid())
-  roleId       String
-  permissionId String
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+Champs :
+- `id`
+- `roleId`
+- `permissionId`
 
-  @@unique([roleId, permissionId])
-}
-```
+Contraintes :
+- unicité `(roleId, permissionId)`
 
 ---
 
 ### 5.6 UserRole
+Association N:N entre utilisateur et rôle métier.
 
-```prisma
-model UserRole {
-  id        String   @id @default(cuid())
-  userId    String
-  roleId    String
-  clientId  String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+Champs :
+- `id`
+- `userId`
+- `roleId`
+- `createdAt`
 
-  @@unique([userId, roleId])
-  @@index([userId])
-  @@index([roleId])
-  @@index([clientId])
-}
-```
+Contraintes :
+- unicité `(userId, roleId)`
 
-Contraintes métier :
-
-- `UserRole.clientId` doit toujours être égal à `Role.clientId`
-- la création / mise à jour d’un `UserRole` doit vérifier cette cohérence
+Règle :
+- le client du rôle est porté par `Role.clientId`
+- l’utilisateur doit appartenir à ce client via `ClientUser`
 
 ---
 
-## 6. Permissions
+## 6. Règles métier
 
-### 6.1 Convention de nommage
+### 6.1 Côté Platform Admin
+Le **PLATFORM_ADMIN** peut :
+- lire le catalogue global des modules
+- activer un module pour un client
+- désactiver un module pour un client
+- consulter les modules activés d’un client
 
-Toutes les permissions suivent la convention :
-
-```text
-<module>.<action>
-```
-
-Exemples :
-
-- Budgets : `budgets.read`, `budgets.create`, `budgets.update`, `budgets.delete`
-- Projects : `projects.read`, `projects.create`, `projects.update`, `projects.delete`
-- Contracts : `contracts.read`, `contracts.create`, `contracts.update`, `contracts.delete`
-- Users / rôles :
-  - `users.read`, `users.create`, `users.update`, `users.delete`
-  - `roles.read`, `roles.create`, `roles.update`, `roles.delete`, `roles.assign`
-
-Objectifs :
-
-- éviter le **chaos des permissions** dans le temps
-- rendre les règles de sécurité **lisibles** côté code et côté produit
-- permettre un filtrage simple par module (`WHERE module.code = 'budgets'`)
+Le Platform Admin ne gère pas les rôles internes du client dans cette RFC.
 
 ---
 
-### 6.2 Table `Permission` et seed
+### 6.2 Côté Client Admin
+Le **CLIENT_ADMIN** peut :
+- lister les rôles de son client
+- créer un rôle
+- modifier un rôle
+- supprimer un rôle
+- associer des permissions à un rôle
+- assigner des rôles aux utilisateurs de son client
 
-La plateforme doit fournir un **seed** cohérent de la table `Permission`, par exemple dans un script `prisma/seed.ts` :
-
-- création du catalogue de `Module`
-- création des permissions génériques par module
-
-Cela garantit :
-
-- une base homogène pour tous les clients
-- la possibilité d’ajouter des permissions ultérieurement sans casser l’existant
-
----
-
-## 7. Architecture backend (guards / decorators)
-
-### 7.1 Pipeline de sécurité
-
-Pour les routes **métier multi-tenant** (scopées par client), le pipeline obligatoire devient :
-
-```text
-JwtAuthGuard
-↓
-ActiveClientGuard
-↓
-ModuleAccessGuard
-↓
-PermissionsGuard
-↓
-Controller
-```
-
-Rôle de chaque guard :
-
-- `JwtAuthGuard` : authentifie l’utilisateur via JWT (`userId`)
-- `ActiveClientGuard` : valide le **client actif** (voir RFC-010) et injecte `request.activeClient`
-- `ModuleAccessGuard` : vérifie que le **module du endpoint** est activé pour le client actif
-- `PermissionsGuard` : vérifie que l’utilisateur possède la **permission requise** via ses rôles (`UserRole` → `Role` → `RolePermission` → `Permission`)
-
-Les validations de sécurité restent **dans les guards**, pas dans les services métier.
+Il ne peut travailler que :
+- dans le **client actif**
+- avec les **modules activés** pour ce client
 
 ---
 
-### 7.2 ModuleAccessGuard
+### 6.3 Permissions limitées aux modules activés
+Un rôle ne peut recevoir que des permissions appartenant à des modules activés pour le client.
 
-Responsabilité :
-
-- lire le **code module** associé au contrôleur / route (ex. décorateur `@ModuleCode('budgets')` ou mapping interne)
-- récupérer le `clientId` depuis `request.activeClient.id`
-- vérifier qu’il existe un `ClientModule` avec :
-  - `clientId = activeClient.id`
-  - `Module.code = <moduleCode>`
-  - `status = ENABLED`
-
-En cas d’échec :
-
-- renvoyer `403 Forbidden` (module non disponible pour ce client)
-
-Ce guard garantit :
-
-- qu’un module **désactivé** bloque automatiquement **tous les endpoints associés**
-- que le backend reste **source de vérité** sur le périmètre fonctionnel par client
+Exemple :
+- si `contracts` est désactivé
+- alors `contracts.read` et `contracts.update` sont interdites
 
 ---
 
-### 7.3 PermissionsGuard
+### 6.4 Assignation des rôles
+Lorsqu’un rôle est assigné à un utilisateur :
+- le rôle doit appartenir au client actif
+- l’utilisateur doit être rattaché au client actif
+- sinon la requête est refusée
 
-Responsabilité :
+---
 
-1. Récupérer l’utilisateur connecté (`request.user` issu de `JwtAuthGuard`)
-2. Récupérer le client actif (`request.activeClient`)
-3. Charger les rôles utilisateur sur ce client (`UserRole` pour `(userId, clientId)`)
-4. Agréger les permissions via `RolePermission` → `Permission`
-5. Vérifier qu’au moins une des permissions requises est présente
+### 6.5 Rôles système
+Un rôle marqué `isSystem = true` :
+- ne peut pas être supprimé
+- peut éventuellement être protégé sur certaines modifications
 
-Exemple d’usage :
+---
 
+## 7. Architecture backend cible
+
+### 7.1 Guards
+Chaîne cible de sécurité :
+
+`JwtAuthGuard`  
+→ `ActiveClientGuard`  
+→ `ModuleAccessGuard`  
+→ `PermissionsGuard`
+
+---
+
+### 7.2 Rôle de chaque guard
+
+#### JwtAuthGuard
+Vérifie le JWT et identifie l’utilisateur.
+
+#### ActiveClientGuard
+Vérifie :
+- la présence du client actif
+- l’appartenance de l’utilisateur au client
+- le statut actif du rattachement
+
+#### ModuleAccessGuard
+Vérifie :
+- que le module demandé est actif globalement
+- que le module est activé pour le client actif
+
+#### PermissionsGuard
+Vérifie :
+- les rôles de l’utilisateur
+- les permissions agrégées
+- la présence de la permission requise
+
+---
+
+### 7.3 Décorateur cible
+Décorateur à prévoir :
+
+`@RequirePermissions(...)`
+
+Exemple :
 ```ts
 @RequirePermissions('budgets.read')
-@Get()
-findAllBudgets() { /* ... */ }
 ```
-
-ou pour plusieurs permissions :
-
-```ts
-@RequirePermissions('budgets.update', 'budgets.create')
-```
-
----
-
-### 7.4 @RequirePermissions()
-
-Décorateur déclaratif permettant de définir les permissions nécessaires au niveau :
-
-- d’un **contrôleur** (par défaut pour toutes les routes)
-- d’une **méthode** (surcharge / précision)
-
-Signature :
-
-```ts
-@RequirePermissions(...permissions: string[])
-```
-
-Le décorateur stocke les permissions attendues dans les **metadata** du handler (via `Reflector`) pour que `PermissionsGuard` les lise.
-
----
-
-### 7.5 Règle spéciale Client Admin
-
-Deux options ont été envisagées :
-
-- **Option A** — `CLIENT_ADMIN` a **tous les droits** dans son client (court-circuit du RBAC)
-- **Option B** — `CLIENT_ADMIN` reste soumis aux permissions fines (`Role` + `Permission`)
-
-Recommandation initiale pour Starium Orchestra :
-
-- implémenter **Option A** :
-  - plus simple à mettre en place
-  - robuste pour un premier niveau de sécurité
-  - cohérent avec son rôle d’administrateur du client
-
-Concrètement :
-
-- si `request.activeClient.role === CLIENT_ADMIN`, `PermissionsGuard` peut considérer toutes les permissions comme accordées (après vérification de `ModuleAccessGuard`).
-
-Cette décision pourra être revue ultérieurement (RFC dédiée) si un niveau de granularité supplémentaire est nécessaire.
 
 ---
 
 ## 8. Endpoints
 
-### 8.1 Endpoints plateforme — modules client
+### 8.1 Platform Admin — Modules
 
 Routes protégées par :
 
-- `JwtAuthGuard`
-- `PlatformAdminGuard`
+* `JwtAuthGuard`
+* `PlatformAdminGuard`
 
-#### 8.1.1 GET `/api/modules`
+#### GET /api/modules
 
-Liste le **catalogue global** des modules.
+Liste du catalogue global des modules
 
-Réponse (exemple) :
+#### GET /api/clients/:clientId/modules
 
-```json
-[
-  {
-    "code": "budgets",
-    "name": "Budgets",
-    "description": "Gestion des budgets IT",
-    "isActive": true
-  }
-]
-```
+Liste des modules et statuts pour un client
 
----
+#### POST /api/clients/:clientId/modules
 
-#### 8.1.2 GET `/api/clients/:clientId/modules`
-
-Liste les modules et leur **statut** pour un client donné.
-
-Réponse (exemple) :
-
-```json
-[
-  {
-    "code": "budgets",
-    "name": "Budgets",
-    "status": "ENABLED"
-  },
-  {
-    "code": "projects",
-    "name": "Projets",
-    "status": "DISABLED"
-  }
-]
-```
-
----
-
-#### 8.1.3 POST `/api/clients/:clientId/modules`
-
-Active un module pour un client (création ou mise à jour implicite).
+Active un module pour un client
 
 Body :
 
@@ -536,16 +375,9 @@ Body :
 }
 ```
 
-Règles :
+#### PATCH /api/clients/:clientId/modules/:moduleCode
 
-- si `ClientModule` n’existe pas → création avec `status = ENABLED`
-- si `ClientModule` existe déjà → mise à jour vers `status = ENABLED`
-
----
-
-#### 8.1.4 PATCH `/api/clients/:clientId/modules/:moduleCode`
-
-Change le statut d’un module pour un client.
+Modifie le statut d’un module pour un client
 
 Body :
 
@@ -555,28 +387,23 @@ Body :
 }
 ```
 
-Règles :
-
-- `status` ∈ `["ENABLED", "DISABLED"]`
-- si le module est passé à `DISABLED`, tous les endpoints du module doivent être refusés par `ModuleAccessGuard` pour ce client
-
 ---
 
-### 8.2 Endpoints client — rôles
+### 8.2 Client Admin — Roles
 
 Routes protégées par :
 
-- `JwtAuthGuard`
-- `ActiveClientGuard`
-- `ClientAdminGuard`
+* `JwtAuthGuard`
+* `ActiveClientGuard`
+* `ClientAdminGuard`
 
-#### 8.2.1 GET `/api/roles`
+#### GET /api/roles
 
-Liste les rôles du **client actif**.
+Liste les rôles du client actif
 
-#### 8.2.2 POST `/api/roles`
+#### POST /api/roles
 
-Crée un rôle pour le **client actif**.
+Crée un rôle
 
 Body :
 
@@ -587,227 +414,250 @@ Body :
 }
 ```
 
-Contrainte :
+#### GET /api/roles/:id
 
-- unicité `(clientId, name)`
+Retourne le détail d’un rôle
 
-#### 8.2.3 GET `/api/roles/:id`
+#### PATCH /api/roles/:id
 
-Retourne le détail d’un rôle, idéalement avec ses permissions associées.
+Met à jour un rôle
 
-#### 8.2.4 PATCH `/api/roles/:id`
+#### DELETE /api/roles/:id
 
-Met à jour le rôle (name, description).
-
-#### 8.2.5 DELETE `/api/roles/:id`
-
-Supprime un rôle.
+Supprime un rôle
 
 Règles :
 
-- impossible de supprimer un rôle `isSystem = true`
-- optionnellement : impossible de supprimer un rôle encore assigné (`UserRole` existants), ou alors imposer une règle métier explicite (hors périmètre minimal).
+* impossible si `isSystem = true`
+* impossible si règles métier futures de blocage
+* suppression conditionnée au client actif
 
 ---
 
-### 8.3 Endpoints client — permissions
+### 8.3 Permissions
 
-#### 8.3.1 GET `/api/permissions`
+#### GET /api/permissions
 
-Liste les permissions **disponibles pour le client actif**.
+Liste les permissions disponibles pour le client actif
 
 Comportement :
 
-- ne retourner que les permissions appartenant à des modules :
-  - **globablement actifs** (`Module.isActive = true`)
-  - **activés** pour le client (`ClientModule.status = ENABLED`)
+* retourne uniquement les permissions des modules activés pour le client actif
 
-Option :
+#### PUT /api/roles/:id/permissions
 
-- groupement par module dans la réponse pour simplifier le frontend.
-
----
-
-#### 8.3.2 PUT `/api/roles/:id/permissions`
-
-Remplace **la liste des permissions** d’un rôle.
+Remplace les permissions d’un rôle
 
 Body :
 
 ```json
 {
-  "permissionIds": [
-    "perm_1",
-    "perm_2",
-    "perm_3"
-  ]
+  "permissionIds": ["perm_1", "perm_2"]
 }
 ```
 
 Règles :
 
-- toutes les permissions doivent appartenir à des modules :
-  - globalement actifs (`Module.isActive = true`)
-  - activés pour le client actif (`ClientModule.status = ENABLED`)
-- sinon : `400 Bad Request`
+* le rôle doit appartenir au client actif
+* les permissions doivent appartenir à des modules activés
 
 ---
 
-### 8.4 Endpoints client — assignation des rôles aux utilisateurs
+### 8.4 Assignation rôles utilisateur
 
-#### 8.4.1 GET `/api/users/:id/roles`
+#### GET /api/users/:id/roles
 
-Liste les rôles d’un utilisateur dans le **client actif**.
+Liste les rôles d’un utilisateur dans le client actif
 
-#### 8.4.2 PUT `/api/users/:id/roles`
+#### PUT /api/users/:id/roles
 
-Remplace la liste des rôles d’un utilisateur dans le **client actif**.
+Remplace les rôles d’un utilisateur dans le client actif
 
 Body :
 
 ```json
 {
-  "roleIds": [
-    "role_1",
-    "role_2"
-  ]
+  "roleIds": ["role_1", "role_2"]
 }
 ```
 
 Règles :
 
-- l’utilisateur doit être rattaché au **client actif** (`ClientUser` valide)
-- les rôles doivent appartenir au **client actif** (`Role.clientId = activeClient.id`)
-- en cas de violation → `404` ou `400` selon le cas :
-  - utilisateur non rattaché : `404`
-  - rôle ne correspondant pas au client actif : `400`
+* l’utilisateur doit appartenir au client actif
+* les rôles doivent appartenir au client actif
 
 ---
 
-## 9. Règles métier
+## 9. Prisma cible
 
-### 9.1 Module désactivé
+```prisma
+enum ClientModuleStatus {
+  ENABLED
+  DISABLED
+}
 
-- si un module n’est **pas activé** pour un client (`ClientModule` absent ou `status = DISABLED`) :
-  - aucun endpoint rattaché à ce module ne doit être accessible
-  - aucune permission de ce module ne doit être proposée au Client Admin
-  - les tentatives d’utilisation de permissions de ce module doivent être refusées (`400` ou `403`)
+model Module {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  name          String
+  description   String?
+  isActive      Boolean        @default(true)
+  permissions   Permission[]
+  clientModules ClientModule[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
 
-Cette règle est appliquée :
+model ClientModule {
+  id        String             @id @default(cuid())
+  clientId  String
+  moduleId  String
+  status    ClientModuleStatus @default(ENABLED)
+  client    Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  module    Module             @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
 
-- par `ModuleAccessGuard` pour les endpoints
-- par les services des endpoints `/api/permissions` / `/api/roles/:id/permissions` pour la composition de rôles
+  @@unique([clientId, moduleId])
+  @@index([clientId])
+  @@index([moduleId])
+}
 
----
+model Role {
+  id              String           @id @default(cuid())
+  clientId        String
+  name            String
+  description     String?
+  isSystem        Boolean          @default(false)
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-### 9.2 Client Admin
+  @@unique([clientId, name])
+  @@index([clientId])
+}
 
-Un `CLIENT_ADMIN` peut :
+model Permission {
+  id              String           @id @default(cuid())
+  code            String           @unique
+  label           String
+  description     String?
+  moduleId        String
+  module          Module           @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-- voir les **modules activés** pour son client
-- créer, modifier, supprimer des **rôles métier**
-- associer des **permissions** à ces rôles (dans les modules activés)
-- assigner des **rôles** aux utilisateurs de son client
+  @@index([moduleId])
+}
 
-Il ne peut pas :
+model RolePermission {
+  id           String      @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-- activer des modules (réservé au Platform Admin)
-- gérer des données d’un autre client
+  @@unique([roleId, permissionId])
+}
 
----
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
-### 9.3 Sécurité / multi-client
-
-Rappels :
-
-- toutes les opérations se font dans le **contexte du client actif** (voir `RFC-010`)
-- aucune **permission d’un autre client** ne doit fuiter
-- les contrôleurs / services ne doivent **jamais** utiliser un `clientId` provenant du body / query params / URL comme scope principal
-- les filtrages Prisma doivent utiliser `request.activeClient.id` comme **source de vérité** pour `clientId`
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+```
 
 ---
 
 ## 10. Critères d’acceptation
 
-La fonctionnalité de cette RFC est considérée comme respectée lorsque :
+### Côté plateforme
 
-- un **Platform Admin** peut :
-  - consulter le catalogue global des modules (`GET /api/modules`)
-  - activer / désactiver des modules pour un client (`/api/clients/:clientId/modules*`)
-- un **Client Admin** peut :
-  - voir les modules activés pour son client
-  - créer, modifier, supprimer des rôles de son client
-  - assigner des permissions à un rôle (uniquement depuis des modules activés)
-  - assigner un ou plusieurs rôles à un utilisateur de son client
-- un **utilisateur** ne peut accéder à une fonctionnalité que si :
-  - le module est **activé** pour son client
-  - la permission correspondante lui est accordée (ou qu’il est `CLIENT_ADMIN` si Option A est retenue)
-- un **module désactivé** entraîne :
-  - refus d’accès à tous les endpoints du module pour ce client
-  - non-disponibilité des permissions de ce module dans les écrans de gestion des rôles
-- il n’y a **aucune fuite inter-client** :
-  - un utilisateur ne peut jamais voir des rôles / permissions / activations d’un autre client
-- le **backend** reste **source de vérité** :
-  - le frontend ne prend pas de décision de sécurité sans confirmation explicite de l’API
+* un `PLATFORM_ADMIN` peut consulter le catalogue des modules
+* un `PLATFORM_ADMIN` peut activer un module pour un client
+* un `PLATFORM_ADMIN` peut désactiver un module pour un client
 
----
+### Côté client
 
-## 11. Ordre d’implémentation recommandé
+* un `CLIENT_ADMIN` peut créer un rôle dans son client
+* un `CLIENT_ADMIN` peut modifier un rôle de son client
+* un `CLIENT_ADMIN` peut supprimer un rôle non système de son client
+* un `CLIENT_ADMIN` peut associer des permissions à un rôle
+* un `CLIENT_ADMIN` peut assigner un ou plusieurs rôles à un utilisateur de son client
 
-### Lot 1 — Catalogue de modules
+### Sécurité
 
-- ajouter les modèles Prisma :
-  - `Module`
-  - `ClientModule`
-  - `ClientModuleStatus`
-- créer le seed du **catalogue de modules**
-- implémenter les endpoints plateforme :
-  - `GET /api/modules`
-  - `GET /api/clients/:clientId/modules`
-  - `POST /api/clients/:clientId/modules`
-  - `PATCH /api/clients/:clientId/modules/:moduleCode`
+* un module désactivé est inaccessible
+* une permission d’un module désactivé ne peut pas être attribuée
+* aucune fuite inter-client n’est possible
+* le backend reste la source de vérité
+* le client actif est toujours pris en compte
+* un utilisateur ne peut recevoir un rôle que s’il appartient au client du rôle
 
 ---
 
-### Lot 2 — RBAC métier
+## 11. Hors périmètre
 
-- ajouter les modèles Prisma :
-  - `Role`
-  - `Permission`
-  - `RolePermission`
-  - `UserRole`
-- créer le seed des **permissions globales**
-- implémenter les endpoints côté client :
-  - `GET /api/roles`
-  - `POST /api/roles`
-  - `GET /api/roles/:id`
-  - `PATCH /api/roles/:id`
-  - `DELETE /api/roles/:id`
-  - `GET /api/permissions` (filtrage par modules activés)
-  - `PUT /api/roles/:id/permissions`
-  - `GET /api/users/:id/roles`
-  - `PUT /api/users/:id/roles`
+Cette RFC n’inclut pas :
+
+* l’héritage de rôles
+* les deny explicites
+* les permissions conditionnelles avancées
+* l’interface frontend détaillée
+* l’audit avancé des permissions effectives
+* la gestion dynamique du catalogue modules par les clients
 
 ---
 
-### Lot 3 — Sécurité et guards
+## 12. Ordre d’implémentation
 
-- implémenter `ModuleAccessGuard` :
-  - intégration dans le pipeline des modules métier (`JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard`)
-- implémenter `PermissionsGuard` + décorateur `@RequirePermissions()`
-- sécuriser au moins un premier module métier (`budgets`, `projects`, etc.) pour valider l’architecture complète :
-  - vérification module activé
-  - vérification permissions
-  - comportement spécifique pour `CLIENT_ADMIN` (Option A)
+### Lot 1
+
+* ajouter `Module`
+* ajouter `ClientModule`
+* seed du catalogue modules
+* endpoints Platform Admin de gestion des modules
+
+### Lot 2
+
+* ajouter `Role`
+* ajouter `Permission`
+* ajouter `RolePermission`
+* ajouter `UserRole`
+* seed des permissions globales
+
+### Lot 3
+
+* CRUD rôles
+* gestion permissions d’un rôle
+* assignation rôles utilisateur
+
+### Lot 4
+
+* `ModuleAccessGuard`
+* `PermissionsGuard`
+* décorateur `@RequirePermissions()`
+* sécurisation des premiers modules métier
 
 ---
 
-Cette RFC s’appuie explicitement sur :
+## 13. Décisions d’architecture
 
-- `RFC-002 — Authentification utilisateur`
-- `RFC-008 — Gestion des utilisateurs`
-- `RFC-009 — Gestion des clients`
-- `RFC-010 — Sélection du client actif`
-
-et étend l’architecture pour couvrir la **gestion des rôles, permissions et accès modules** dans un contexte **SaaS multi-client**.
+* `Permission` est un référentiel global plateforme
+* `Role` est spécifique à un client
+* `UserRole` porte seulement `userId` et `roleId`
+* le client du rôle est déduit via `Role.clientId`
+* l’appartenance utilisateur ↔ client reste portée par `ClientUser`
+* `CLIENT_ADMIN` administre son client
+* `PLATFORM_ADMIN` administre le périmètre fonctionnel disponible
 
