@@ -291,6 +291,22 @@ Crée un client et désigne ou crée l’administrateur du client (rattachement 
 | `adminFirstName` | string | non         | Prénom (si création d’un nouvel utilisateur) |
 | `adminLastName`  | string | non         | Nom (si création d’un nouvel utilisateur) |
 
+**Exemple (curl)**
+
+```bash
+curl -s -X POST http://localhost:3001/api/clients \
+  -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Mon client",
+    "slug": "mon-client",
+    "adminEmail": "admin@starium.fr",
+    "adminPassword": "mot de passe",
+    "adminFirstName": "Platform",
+    "adminLastName": "Admin"
+  }' | jq .
+```
+
 **Réponse 201**
 
 ```json
