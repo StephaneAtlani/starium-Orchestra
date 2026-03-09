@@ -24,7 +24,9 @@ export class UserRolesService {
   ): Promise<UserRoleItem[]> {
     await this.ensureUserBelongsToClient(clientId, userId);
 
-    const userRoles = await this.prisma.userRole.findMany({
+    const prisma = this.prisma as any;
+
+    const userRoles = await prisma.userRole.findMany({
       where: {
         userId,
         role: { clientId },
@@ -37,7 +39,7 @@ export class UserRolesService {
       },
     });
 
-    return userRoles.map((ur) => ({
+    return userRoles.map((ur: any) => ({
       id: ur.role.id,
       name: ur.role.name,
       description: ur.role.description ?? null,
@@ -52,7 +54,9 @@ export class UserRolesService {
   ): Promise<{ userId: string; roleIds: string[] }> {
     await this.ensureUserBelongsToClient(clientId, userId);
 
-    const roles = await this.prisma.role.findMany({
+    const prisma = this.prisma as any;
+
+    const roles = await prisma.role.findMany({
       where: {
         id: { in: dto.roleIds },
         clientId,
@@ -60,7 +64,7 @@ export class UserRolesService {
       select: { id: true },
     });
 
-    const allowedIds = new Set(roles.map((r) => r.id));
+    const allowedIds = new Set(roles.map((r: any) => r.id));
     const invalidIds = dto.roleIds.filter((id) => !allowedIds.has(id));
     if (invalidIds.length > 0) {
       throw new BadRequestException(
@@ -68,13 +72,13 @@ export class UserRolesService {
       );
     }
 
-    const allClientRoleIds = await this.prisma.role.findMany({
+    const allClientRoleIds = await (this.prisma as any).role.findMany({
       where: { clientId },
       select: { id: true },
     });
-    const clientRoleIdsSet = new Set(allClientRoleIds.map((r) => r.id));
+    const clientRoleIdsSet = new Set(allClientRoleIds.map((r: any) => r.id));
 
-    await this.prisma.$transaction(async (tx) => {
+    await (this.prisma as any).$transaction(async (tx: any) => {
       await tx.userRole.deleteMany({
         where: {
           userId,

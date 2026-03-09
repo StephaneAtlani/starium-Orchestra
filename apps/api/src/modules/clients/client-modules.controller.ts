@@ -7,7 +7,6 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ClientModuleStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import {
@@ -63,7 +62,7 @@ export class ClientModulesController {
     return this.clientModules.updateClientModuleStatus({
       clientId,
       moduleCode,
-      status: dto.status as ClientModuleStatus,
+      status: dto.status,
     });
   }
 }

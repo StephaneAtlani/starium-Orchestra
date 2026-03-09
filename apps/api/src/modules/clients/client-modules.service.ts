@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ClientModuleStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface ModuleCatalogueItem {
@@ -22,7 +21,7 @@ export interface ClientModuleItem {
   name: string;
   description: string | null;
   isActive: boolean;
-  status: ClientModuleStatus | null;
+  status: 'ENABLED' | 'DISABLED' | null;
 }
 
 @Injectable()
@@ -30,7 +29,9 @@ export class ClientModulesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listCatalogue(): Promise<ModuleCatalogueItem[]> {
-    const modules = await this.prisma.module.findMany({
+    const prisma = this.prisma as any;
+
+    const modules = await prisma.module.findMany({
       orderBy: { code: 'asc' },
       select: {
         id: true,
@@ -49,7 +50,9 @@ export class ClientModulesService {
   async listForClient(clientId: string): Promise<ClientModuleItem[]> {
     await this.ensureClientExists(clientId);
 
-    const modules = await this.prisma.module.findMany({
+    const prisma = this.prisma as any;
+
+    const modules = await prisma.module.findMany({
       orderBy: { code: 'asc' },
       select: {
         id: true,
@@ -65,7 +68,7 @@ export class ClientModulesService {
       },
     });
 
-    return modules.map((m) => ({
+    return modules.map((m: any) => ({
       id: m.id,
       code: m.code,
       name: m.name,
@@ -82,7 +85,9 @@ export class ClientModulesService {
     const { clientId, moduleCode } = params;
 
     await this.ensureClientExists(clientId);
-    const module = await this.prisma.module.findUnique({
+    const prisma = this.prisma as any;
+
+    const module = await prisma.module.findUnique({
       where: { code: moduleCode },
     });
     if (!module) {
@@ -92,7 +97,7 @@ export class ClientModulesService {
       throw new BadRequestException('Module inactif sur la plateforme');
     }
 
-    const clientModule = await this.prisma.clientModule.upsert({
+    const clientModule = await prisma.clientModule.upsert({
       where: {
         clientId_moduleId: {
           clientId,
@@ -102,10 +107,10 @@ export class ClientModulesService {
       create: {
         clientId,
         moduleId: module.id,
-        status: ClientModuleStatus.ENABLED,
+        status: 'ENABLED',
       },
       update: {
-        status: ClientModuleStatus.ENABLED,
+        status: 'ENABLED',
       },
     });
 
@@ -122,12 +127,14 @@ export class ClientModulesService {
   async updateClientModuleStatus(params: {
     clientId: string;
     moduleCode: string;
-    status: ClientModuleStatus;
+    status: 'ENABLED' | 'DISABLED';
   }): Promise<ClientModuleItem> {
     const { clientId, moduleCode, status } = params;
 
     await this.ensureClientExists(clientId);
-    const module = await this.prisma.module.findUnique({
+    const prisma = this.prisma as any;
+
+    const module = await prisma.module.findUnique({
       where: { code: moduleCode },
     });
     if (!module) {
@@ -137,7 +144,7 @@ export class ClientModulesService {
       throw new BadRequestException('Module inactif sur la plateforme');
     }
 
-    const clientModule = await this.prisma.clientModule.upsert({
+    const clientModule = await prisma.clientModule.upsert({
       where: {
         clientId_moduleId: {
           clientId,

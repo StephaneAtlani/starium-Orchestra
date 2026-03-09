@@ -1,5 +1,4 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { ClientModuleStatus } from '@prisma/client';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestWithClient } from '../types/request-with-client';
@@ -10,11 +9,13 @@ const createExecutionContext = (req: Partial<RequestWithClient>): ExecutionConte
     switchToHttp: () => ({
       getRequest: () => req,
     }),
+    getHandler: () => ((): void => undefined) as any,
+    getClass: () => (class {} as any),
   } as unknown as ExecutionContext);
 
 describe('ModuleAccessGuard', () => {
   let guard: ModuleAccessGuard;
-  let prisma: jest.Mocked<PrismaService>;
+  let prisma: any;
   let reflector: Reflector;
 
   beforeEach(() => {
@@ -87,7 +88,7 @@ describe('ModuleAccessGuard', () => {
     (reflector.get as jest.Mock).mockReturnValueOnce(['budgets.read']);
     prisma.module.findUnique.mockResolvedValue({
       isActive: true,
-      clientModules: [{ status: ClientModuleStatus.ENABLED }],
+      clientModules: [{ status: 'ENABLED' }],
     } as any);
 
     await expect(

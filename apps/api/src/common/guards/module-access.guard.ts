@@ -4,7 +4,6 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { ClientModuleStatus } from '@prisma/client';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
@@ -54,13 +53,15 @@ export class ModuleAccessGuard implements CanActivate {
       return true;
     }
 
-    const module = await this.prisma.module.findUnique({
+    const prisma = this.prisma as any;
+
+    const module = await prisma.module.findUnique({
       where: { code: moduleCode },
       include: {
         clientModules: {
           where: {
             clientId: activeClient.id,
-            status: ClientModuleStatus.ENABLED,
+            status: 'ENABLED',
           },
           select: { id: true },
         },

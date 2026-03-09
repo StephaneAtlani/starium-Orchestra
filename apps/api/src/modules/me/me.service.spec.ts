@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 describe('MeService', () => {
   let service: MeService;
-  let prisma: jest.Mocked<PrismaService>;
+  let prisma: any;
 
   beforeEach(() => {
     prisma = {

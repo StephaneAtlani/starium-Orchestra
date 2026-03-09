@@ -10,11 +10,13 @@ const createExecutionContext = (req: Partial<RequestWithClient>): ExecutionConte
     switchToHttp: () => ({
       getRequest: () => req,
     }),
+    getHandler: () => ((): void => undefined) as any,
+    getClass: () => (class {} as any),
   } as unknown as ExecutionContext);
 
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;
-  let prisma: jest.Mocked<PrismaService>;
+  let prisma: any;
   let reflector: Reflector;
 
   beforeEach(() => {

@@ -55,7 +55,9 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const userRoles = await this.prisma.userRole.findMany({
+    const prisma = this.prisma as any;
+
+    const userRoles = await prisma.userRole.findMany({
       where: {
         userId: user.userId,
         role: { clientId: activeClient.id },

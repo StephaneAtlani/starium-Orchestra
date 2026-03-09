@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ClientModuleStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
@@ -33,7 +32,9 @@ export class RolesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listRoles(clientId: string): Promise<RoleItem[]> {
-    const roles = await this.prisma.role.findMany({
+    const prisma = this.prisma as any;
+
+    const roles = await prisma.role.findMany({
       where: { clientId },
       orderBy: { name: 'asc' },
       select: {
@@ -52,7 +53,9 @@ export class RolesService {
   async createRole(clientId: string, dto: CreateRoleDto): Promise<RoleItem> {
     await this.ensureRoleNameUnique(clientId, dto.name);
 
-    const role = await this.prisma.role.create({
+    const prisma = this.prisma as any;
+
+    const role = await prisma.role.create({
       data: {
         clientId,
         name: dto.name,
@@ -64,7 +67,9 @@ export class RolesService {
   }
 
   async getRoleById(clientId: string, id: string): Promise<RoleItem> {
-    const role = await this.prisma.role.findFirst({
+    const prisma = this.prisma as any;
+
+    const role = await prisma.role.findFirst({
       where: { id, clientId },
     });
     if (!role) {
@@ -78,7 +83,9 @@ export class RolesService {
     id: string,
     dto: UpdateRoleDto,
   ): Promise<RoleItem> {
-    const role = await this.prisma.role.findFirst({
+    const prisma = this.prisma as any;
+
+    const role = await prisma.role.findFirst({
       where: { id, clientId },
     });
     if (!role) {
@@ -99,7 +106,7 @@ export class RolesService {
       return this.toRoleItem(role);
     }
 
-    const updated = await this.prisma.role.update({
+    const updated = await (this.prisma as any).role.update({
       where: { id: role.id },
       data,
     });
@@ -108,7 +115,9 @@ export class RolesService {
   }
 
   async deleteRole(clientId: string, id: string): Promise<void> {
-    const role = await this.prisma.role.findFirst({
+    const prisma = this.prisma as any;
+
+    const role = await prisma.role.findFirst({
       where: { id, clientId },
       include: { userRoles: true },
     });
@@ -124,18 +133,20 @@ export class RolesService {
       );
     }
 
-    await this.prisma.role.delete({
+    await (this.prisma as any).role.delete({
       where: { id: role.id },
     });
   }
 
   async listPermissionsForClient(clientId: string): Promise<PermissionItem[]> {
-    const permissions = await this.prisma.permission.findMany({
+    const prisma = this.prisma as any;
+
+    const permissions = await prisma.permission.findMany({
       where: {
         module: {
           isActive: true,
           clientModules: {
-            some: { clientId, status: ClientModuleStatus.ENABLED },
+            some: { clientId, status: 'ENABLED' },
           },
         },
       },
@@ -154,7 +165,7 @@ export class RolesService {
       },
     });
 
-    return permissions.map((p) => ({
+    return permissions.map((p: any) => ({
       id: p.id,
       code: p.code,
       label: p.label,
@@ -169,27 +180,29 @@ export class RolesService {
     roleId: string,
     dto: UpdateRolePermissionsDto,
   ): Promise<{ role: RoleItem; permissionIds: string[] }> {
-    const role = await this.prisma.role.findFirst({
+    const prisma = this.prisma as any;
+
+    const role = await prisma.role.findFirst({
       where: { id: roleId, clientId },
     });
     if (!role) {
       throw new NotFoundException('Rôle non trouvé pour ce client');
     }
 
-    const allowedPermissions = await this.prisma.permission.findMany({
+    const allowedPermissions = await (this.prisma as any).permission.findMany({
       where: {
         id: { in: dto.permissionIds },
         module: {
           isActive: true,
           clientModules: {
-            some: { clientId, status: ClientModuleStatus.ENABLED },
+            some: { clientId, status: 'ENABLED' },
           },
         },
       },
       select: { id: true },
     });
 
-    const allowedIds = new Set(allowedPermissions.map((p) => p.id));
+    const allowedIds = new Set(allowedPermissions.map((p: any) => p.id));
     const invalidIds = dto.permissionIds.filter((id) => !allowedIds.has(id));
     if (invalidIds.length > 0) {
       throw new BadRequestException(
@@ -197,7 +210,7 @@ export class RolesService {
       );
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    await (this.prisma as any).$transaction(async (tx: any) => {
       await tx.rolePermission.deleteMany({
         where: { roleId: role.id },
       });
@@ -223,7 +236,7 @@ export class RolesService {
     name: string,
     ignoreRoleId?: string,
   ): Promise<void> {
-    const existing = await this.prisma.role.findFirst({
+    const existing = await (this.prisma as any).role.findFirst({
       where: {
         clientId,
         name,

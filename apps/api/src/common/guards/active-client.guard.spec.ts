@@ -15,7 +15,7 @@ const createExecutionContext = (req: Partial<RequestWithClient>): ExecutionConte
 
 describe('ActiveClientGuard', () => {
   let guard: ActiveClientGuard;
-  let prisma: jest.Mocked<PrismaService>;
+  let prisma: any;
   let cache: ActiveClientCacheService;
 
   beforeEach(() => {
