@@ -36,7 +36,7 @@ const PLATFORM_ADMIN = {
   lastName: 'Admin',
 };
 
-async function main() {
+async function upsertPlatformAdmin() {
   const passwordHash = await bcrypt.hash(PLATFORM_ADMIN.password, 10);
   await prisma.user.upsert({
     where: { email: PLATFORM_ADMIN.email },
@@ -50,7 +50,77 @@ async function main() {
     },
   });
 
-  console.log('Seed OK: Platform Admin', PLATFORM_ADMIN.email, '(aucun client rattaché).');
+  console.log(
+    'Seed OK: Platform Admin',
+    PLATFORM_ADMIN.email,
+    '(aucun client rattaché).',
+  );
+}
+
+async function upsertModulesAndPermissions() {
+  const modules = [
+    { code: 'budgets', name: 'Budgets', description: 'Gestion des budgets IT' },
+    { code: 'projects', name: 'Projets', description: 'Gestion des projets IT' },
+    { code: 'contracts', name: 'Contrats', description: 'Gestion des contrats' },
+    { code: 'suppliers', name: 'Fournisseurs', description: 'Gestion des fournisseurs' },
+    { code: 'licenses', name: 'Licences', description: 'Gestion des licences' },
+  ];
+
+  const permsByModule = {
+    budgets: ['read', 'create', 'update', 'delete'],
+    projects: ['read', 'create', 'update', 'delete'],
+    contracts: ['read', 'create', 'update', 'delete'],
+    suppliers: ['read', 'create', 'update', 'delete'],
+    licenses: ['read', 'create', 'update', 'delete'],
+  };
+
+  const moduleRecords = {};
+
+  for (const m of modules) {
+    const record = await prisma.module.upsert({
+      where: { code: m.code },
+      update: {
+        name: m.name,
+        description: m.description,
+        isActive: true,
+      },
+      create: {
+        code: m.code,
+        name: m.name,
+        description: m.description,
+        isActive: true,
+      },
+    });
+    moduleRecords[m.code] = record;
+  }
+
+  for (const [moduleCode, actions] of Object.entries(permsByModule)) {
+    const module = moduleRecords[moduleCode];
+    for (const action of actions) {
+      const code = `${moduleCode}.${action}`;
+      await prisma.permission.upsert({
+        where: { code },
+        update: {
+          label: code,
+          description: null,
+          moduleId: module.id,
+        },
+        create: {
+          code,
+          label: code,
+          description: null,
+          moduleId: module.id,
+        },
+      });
+    }
+  }
+
+  console.log('Seed OK: modules et permissions globales (référentiel plateforme).');
+}
+
+async function main() {
+  await upsertPlatformAdmin();
+  await upsertModulesAndPermissions();
 }
 
 main()

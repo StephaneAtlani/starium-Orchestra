@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules).
 
 ---
 
@@ -379,16 +379,20 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 
 ## 5. Résumé des guards et headers
 
-| Contexte      | Headers requis                    | Guards (ordre) |
-|---------------|------------------------------------|-----------------|
-| Auth          | —                                  | —               |
-| /api/me       | `Authorization: Bearer <accessToken>` | JwtAuthGuard    |
-| /api/users    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard |
-| /api/clients  | `Authorization: Bearer <accessToken>` | JwtAuthGuard → PlatformAdminGuard |
+| Contexte          | Headers requis                                    | Guards (ordre)                                              |
+|-------------------|----------------------------------------------------|-------------------------------------------------------------|
+| Auth              | —                                                  | —                                                           |
+| /api/me           | `Authorization: Bearer <accessToken>`             | JwtAuthGuard                                                |
+| /api/users        | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
+| /api/roles        | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
+| /api/permissions  | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
+| /api/clients      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
+| /api/modules      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
+| /api/test-rbac    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 
 ---
 
-## 5. Gestion des utilisateurs globaux — `/api/platform/users`
+## 6. Gestion des utilisateurs globaux — `/api/platform/users`
 
 Routes **réservées au Platform Admin**.
 
@@ -427,7 +431,409 @@ Crée un **utilisateur global** (aucun rattachement client n’est créé).
 
 ---
 
-## 6. Gestion des rattachements plateforme — `/api/clients/:clientId/users`
+## 7. Gestion des rattachements plateforme — `/api/clients/:clientId/users`
+
+---
+
+## 8. Gestion des modules — `/api/modules`, `/api/clients/:clientId/modules`
+
+Routes réservées au **Platform Admin** (RFC-011, niveau plateforme).
+
+### GET /api/modules
+
+Liste le **catalogue global** des modules disponibles sur la plateforme.
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Réponse 200**
+
+```json
+[
+  {
+    "id": "mod_budgets",
+    "code": "budgets",
+    "name": "Budgets",
+    "description": "Gestion des budgets IT",
+    "isActive": true,
+    "createdAt": "2026-03-09T10:00:00.000Z",
+    "updatedAt": "2026-03-09T10:00:00.000Z"
+  }
+]
+```
+
+**Erreurs :** 401 (non authentifié), 403 (non Platform Admin).
+
+---
+
+### GET /api/clients/:clientId/modules
+
+Liste les modules disponibles et leur **statut** pour un client donné.
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Réponse 200**
+
+```json
+[
+  {
+    "id": "mod_budgets",
+    "code": "budgets",
+    "name": "Budgets",
+    "description": "Gestion des budgets IT",
+    "isActive": true,
+    "status": "ENABLED"
+  },
+  {
+    "id": "mod_contracts",
+    "code": "contracts",
+    "name": "Contrats",
+    "description": "Suivi des contrats",
+    "isActive": true,
+    "status": null
+  }
+]
+```
+
+`status` peut valoir `ENABLED`, `DISABLED` ou `null` (jamais configuré pour ce client).
+
+**Erreurs :** 401, 403, 404 (client non trouvé).
+
+---
+
+### POST /api/clients/:clientId/modules
+
+Active un module pour un client (opération **idempotente**).
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Body (JSON)**
+
+```json
+{
+  "moduleCode": "budgets"
+}
+```
+
+**Réponse 201**
+
+```json
+{
+  "id": "mod_budgets",
+  "code": "budgets",
+  "name": "Budgets",
+  "description": "Gestion des budgets IT",
+  "isActive": true,
+  "status": "ENABLED"
+}
+```
+
+**Erreurs :**
+
+- 400 : module inactif sur la plateforme
+- 401, 403
+- 404 : client ou module non trouvé
+
+---
+
+### PATCH /api/clients/:clientId/modules/:moduleCode
+
+Modifie le statut d’un module pour un client.
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Body (JSON)**
+
+```json
+{
+  "status": "DISABLED"
+}
+```
+
+`status` ∈ `ENABLED` \| `DISABLED`.
+
+**Réponse 200**
+
+```json
+{
+  "id": "mod_budgets",
+  "code": "budgets",
+  "name": "Budgets",
+  "description": "Gestion des budgets IT",
+  "isActive": true,
+  "status": "DISABLED"
+}
+```
+
+**Erreurs :**
+
+- 400 : module inactif sur la plateforme
+- 401, 403
+- 404 : client ou module non trouvé
+
+---
+
+## 9. Gestion des rôles métier — `/api/roles`
+
+Routes réservées au **Client Admin** du **client actif** (RFC-011, niveau client).
+
+Toutes les routes exigent :
+
+1. `Authorization: Bearer <accessToken>`
+2. `X-Client-Id: <clientId>` (client actif)
+3. Guards : `JwtAuthGuard` → `ActiveClientGuard` → `ClientAdminGuard`
+
+### GET /api/roles
+
+Liste les rôles métier définis dans le client actif.
+
+**Réponse 200**
+
+```json
+[
+  {
+    "id": "role_budgets_manager",
+    "name": "Responsable budgets",
+    "description": "Peut consulter et modifier les budgets",
+    "isSystem": false,
+    "createdAt": "2026-03-09T10:00:00.000Z",
+    "updatedAt": "2026-03-09T10:00:00.000Z"
+  }
+]
+```
+
+---
+
+### POST /api/roles
+
+Crée un rôle métier dans le client actif.
+
+**Body (JSON)**
+
+```json
+{
+  "name": "Responsable budgets",
+  "description": "Peut consulter et modifier les budgets"
+}
+```
+
+**Réponse 201**
+
+Même format que GET /api/roles (un seul objet).
+
+**Erreurs :**
+
+- 400 : validation
+- 401, 403
+- 409 : un rôle avec ce `name` existe déjà dans le client actif
+
+---
+
+### GET /api/roles/:id
+
+Retourne le détail d’un rôle du client actif.
+
+**Erreurs :** 401, 403, 404 (rôle non trouvé pour ce client).
+
+---
+
+### PATCH /api/roles/:id
+
+Met à jour un rôle métier (nom, description).
+
+**Body (JSON)** — tous les champs optionnels
+
+```json
+{
+  "name": "Responsable budgets senior",
+  "description": "Droits étendus sur les budgets"
+}
+```
+
+**Réponse 200** : rôle mis à jour.
+
+**Erreurs :**
+
+- 400 : validation
+- 401, 403
+- 404 : rôle non trouvé pour ce client
+- 409 : un autre rôle du client utilise déjà ce `name`
+
+---
+
+### DELETE /api/roles/:id
+
+Supprime un rôle du client actif.
+
+Règles :
+
+- impossible si `isSystem = true` → **409 Conflict**
+- impossible si le rôle est encore assigné à au moins un utilisateur → **409 Conflict**
+
+**Réponse 204** (No Content) en cas de succès.
+
+**Erreurs :** 401, 403, 404, 409.
+
+---
+
+## 10. Permissions disponibles — `/api/permissions`
+
+Liste les permissions **autorisées** pour le client actif, c’est-à-dire :
+
+- permissions dont le module est `isActive = true`
+- ET dont le module est `ENABLED` pour le client actif (`ClientModule.status = ENABLED`)
+
+### GET /api/permissions
+
+**Réponse 200**
+
+```json
+[
+  {
+    "id": "perm_budgets_read",
+    "code": "budgets.read",
+    "label": "Lecture des budgets",
+    "description": "Peut consulter les budgets",
+    "moduleCode": "budgets",
+    "moduleName": "Budgets"
+  }
+]
+```
+
+**Erreurs :** 401, 403.
+
+---
+
+## 11. Permissions d’un rôle — `/api/roles/:id/permissions`
+
+### PUT /api/roles/:id/permissions
+
+Remplace la liste des permissions d’un rôle métier du client actif.
+
+**Body (JSON)**
+
+```json
+{
+  "permissionIds": ["perm_budgets_read", "perm_budgets_update"]
+}
+```
+
+**Comportement**
+
+- Le rôle doit appartenir au client actif, sinon **404**
+- Toutes les `permissionIds` doivent correspondre à des permissions de **modules activés** pour le client actif, sinon **400**
+
+**Réponse 200**
+
+```json
+{
+  "role": {
+    "id": "role_budgets_manager",
+    "name": "Responsable budgets",
+    "description": "Peut consulter et modifier les budgets",
+    "isSystem": false,
+    "createdAt": "2026-03-09T10:00:00.000Z",
+    "updatedAt": "2026-03-09T10:00:00.000Z"
+  },
+  "permissionIds": ["perm_budgets_read", "perm_budgets_update"]
+}
+```
+
+**Erreurs :** 400, 401, 403, 404.
+
+---
+
+## 12. Assignation des rôles utilisateur — `/api/users/:id/roles`
+
+### GET /api/users/:id/roles
+
+Liste les rôles métier d’un utilisateur **dans le client actif**.
+
+**Réponse 200**
+
+```json
+[
+  {
+    "id": "role_budgets_manager",
+    "name": "Responsable budgets",
+    "description": "Peut consulter et modifier les budgets",
+    "isSystem": false
+  }
+]
+```
+
+**Erreurs :**
+
+- 401, 403
+- 404 : utilisateur non trouvé dans le client actif (ou lien inactif)
+
+---
+
+### PUT /api/users/:id/roles
+
+Remplace l’ensemble des rôles métier d’un utilisateur dans le client actif.
+
+**Body (JSON)**
+
+```json
+{
+  "roleIds": ["role_budgets_manager", "role_projects_viewer"]
+}
+```
+
+**Comportement**
+
+- L’utilisateur doit appartenir au client actif avec un `ClientUser` `ACTIVE`, sinon **404**
+- Tous les rôles doivent appartenir au client actif, sinon **400**
+- Les rôles associés à d’autres clients ne sont pas modifiés
+
+**Réponse 200**
+
+```json
+{
+  "userId": "usr_001",
+  "roleIds": ["role_budgets_manager", "role_projects_viewer"]
+}
+```
+
+**Erreurs :** 400, 401, 403, 404.
+
+---
+
+## 13. Endpoint de test RBAC — `/api/test-rbac`
+
+Endpoint technique permettant de valider la chaîne :
+
+`JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+
+### GET /api/test-rbac
+
+Nécessite la permission `budgets.read` dans le client actif.
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+- `X-Client-Id: <clientId>`
+
+**Réponse 200**
+
+```json
+{
+  "ok": true
+}
+```
+
+**Erreurs :**
+
+- 401 : non authentifié
+- 403 : client invalide / module budgets désactivé / permission manquante
 
 Routes **réservées au Platform Admin** pour rattacher/détacher des utilisateurs à un client.
 
