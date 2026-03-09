@@ -14,6 +14,71 @@ Plateforme SaaS de pilotage opérationnel pour DSI à temps partagé (multi-tena
 pnpm install
 ```
 
+## Démarrage rapide environnement de dev
+
+### Option 1 — Tout via Docker (recommandé)
+
+```bash
+# À la racine du repo
+cp .env.example .env
+cp .env.example apps/api/.env
+
+docker compose --profile dev up --build
+```
+
+- Postgres, API Nest (`api-dev`) et Web (`web-dev`) sont lancés.
+- API dev : `http://localhost:3003/api`
+- Web dev : `http://localhost:3000` (pointe sur `api-dev`)
+
+### Option 2 — Tout dans Docker (migrations/seed compris)
+
+> Recommandé si tu ne veux **jamais** installer Node/pnpm en local pour l’API.
+
+```bash
+# 1. Préparer les fichiers d'environnement
+cp .env.example .env
+cp .env.example apps/api/.env
+
+# 2. Lancer Postgres + api-dev (profil dev)
+docker compose --profile dev up -d
+
+# 3. Depuis le conteneur api-dev : migrations + seed
+docker compose --profile dev exec api-dev pnpm prisma migrate dev --name init   # ou pnpm prisma db push en dev
+docker compose --profile dev exec api-dev pnpm prisma db seed
+```
+
+L’API dev tourne sur `http://localhost:3003/api`.
+
+Tu peux tester la santé avec :
+
+```bash
+curl http://localhost:3003/api/health
+```
+
+### Option 3 — API en local, Postgres via Docker
+
+```bash
+# 1. Lancer Postgres
+docker compose up postgres -d
+
+# 2. Créer et remplir apps/api/.env (à partir de .env.example)
+cd apps/api
+
+# 3. Synchroniser le schéma et lancer le seed
+docker compose --profile dev exec api-dev pnpm prisma migrate dev --name init   # ou prisma db push en dev
+docker compose --profile dev exec api-dev pnpm prisma db seed
+
+# 4. Démarrer l'API Nest
+docker compose --profile dev exec api-dev pnpm start:dev
+```
+
+L’API est alors disponible sur `http://localhost:3001/api`.  
+Tu peux tester la santé avec :
+
+```bash
+curl http://localhost:3001/api/health
+```
+
 ## Démarrage en local avec Docker
 
 ### Mode dev (recommandé) — hot reload API + front câblé sur api-dev
@@ -85,8 +150,8 @@ Réponse : `{"accessToken":"...","refreshToken":"..."}`. Utiliser `Authorization
 
    ```bash
    cd apps/api
-   pnpm prisma:migrate
-   pnpm prisma:seed
+   pnpm prisma migrate dev --name init   # ou pnpm prisma db push en dev
+   pnpm prisma db seed
    pnpm start:dev
    ```
 
