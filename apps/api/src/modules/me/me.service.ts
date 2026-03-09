@@ -14,6 +14,8 @@ export interface MeClient {
   id: string;
   name: string;
   slug: string;
+  role: import('@prisma/client').ClientUserRole;
+  status: import('@prisma/client').ClientUserStatus;
 }
 
 /** Service profil et contexte client de l’utilisateur connecté. */
@@ -50,6 +52,8 @@ export class MeService {
         id: cu.client!.id,
         name: cu.client!.name,
         slug: cu.client!.slug,
+        role: cu.role,
+        status: cu.status,
       }));
   }
 }

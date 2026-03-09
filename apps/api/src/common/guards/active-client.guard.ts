@@ -5,23 +5,12 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ClientUserStatus } from '@prisma/client';
-import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
-
-/** Contexte client attaché à la requête après passage de ActiveClientGuard. */
-export interface ActiveClientContext {
-  id: string;
-  role: string;
-  status: ClientUserStatus;
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      activeClient?: ActiveClientContext;
-    }
-  }
-}
+import {
+  ActiveClientContext,
+  RequestWithClient,
+} from '../types/request-with-client';
+import { ActiveClientCacheService } from '../cache/active-client-cache.service';
 
 /**
  * Vérifie la présence de X-Client-Id et qu’un ClientUser ACTIVE existe pour (userId, clientId).
@@ -29,12 +18,14 @@ declare global {
  */
 @Injectable()
 export class ActiveClientGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: ActiveClientCacheService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request>();
-    const userId = (request as unknown as { user?: { userId: string } }).user
-      ?.userId;
+    const request = context.switchToHttp().getRequest<RequestWithClient>();
+    const userId = request.user?.userId;
     const clientId = request.headers['x-client-id'] as string | undefined;
 
     if (!userId) {
@@ -42,6 +33,12 @@ export class ActiveClientGuard implements CanActivate {
     }
     if (!clientId || typeof clientId !== 'string') {
       throw new ForbiddenException('X-Client-Id requis');
+    }
+
+    const cached = await this.cache.get(userId, clientId);
+    if (cached && cached.status === ClientUserStatus.ACTIVE) {
+      request.activeClient = cached;
+      return true;
     }
 
     const clientUser = await this.prisma.clientUser.findFirst({
@@ -57,11 +54,14 @@ export class ActiveClientGuard implements CanActivate {
       throw new ForbiddenException('Client invalide ou accès refusé');
     }
 
-    request.activeClient = {
+    const contextValue: ActiveClientContext = {
       id: clientId,
       role: clientUser.role,
       status: clientUser.status,
     };
+
+    request.activeClient = contextValue;
+    await this.cache.set(userId, clientId, contextValue);
     return true;
   }
 }

@@ -105,10 +105,27 @@ Liste des clients auxquels l’utilisateur a accès (au moins un ClientUser avec
 
 ```json
 [
-  { "id": "clxxx...", "name": "Acme Corp", "slug": "acme-corp" },
-  { "id": "clyyy...", "name": "Beta SA", "slug": "beta-sa" }
+  {
+    "id": "clxxx...",
+    "name": "Acme Corp",
+    "slug": "acme-corp",
+    "role": "CLIENT_ADMIN",
+    "status": "ACTIVE"
+  },
+  {
+    "id": "clyyy...",
+    "name": "Beta SA",
+    "slug": "beta-sa",
+    "role": "CLIENT_USER",
+    "status": "SUSPENDED"
+  }
 ]
 ```
+
+Notes :
+
+- `role` et `status` proviennent de la table `ClientUser`.
+- L’API renvoie tous les liens `ClientUser` (y compris `SUSPENDED` / `INVITED`) ; le frontend ne doit proposer comme client actif que ceux avec `status = \"ACTIVE\"`.
 
 **Erreurs :** 401 (non authentifié).
 

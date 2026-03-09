@@ -7,6 +7,7 @@ import {
 import { ClientUserRole, ClientUserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ActiveClientCacheService } from '../../common/cache/active-client-cache.service';
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -27,7 +28,10 @@ export interface UserResponse {
  */
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activeClientCache: ActiveClientCacheService,
+  ) {}
 
   private toResponse(
     user: { id: string; email: string; firstName: string | null; lastName: string | null },
@@ -93,6 +97,7 @@ export class UsersService {
         },
         include: { user: true },
       });
+      await this.activeClientCache.invalidate(existingUser.id, clientId);
       return this.toResponse(clientUser.user, {
         role: clientUser.role,
         status: clientUser.status,
@@ -122,7 +127,11 @@ export class UsersService {
         status: ClientUserStatus.ACTIVE,
       },
     });
-    return this.toResponse(user, { role: clientUser.role, status: clientUser.status });
+    await this.activeClientCache.invalidate(user.id, clientId);
+    return this.toResponse(user, {
+      role: clientUser.role,
+      status: clientUser.status,
+    });
   }
 
   /** Crée un utilisateur global (sans rattachement client). Réservé au Platform Admin. */
@@ -222,6 +231,7 @@ export class UsersService {
         where: { id: clientUser.id },
         data: clientUserData,
       });
+      await this.activeClientCache.invalidate(userId, clientId);
     }
 
     const updatedUser = await this.prisma.user.findUnique({
@@ -268,5 +278,6 @@ export class UsersService {
     await this.prisma.clientUser.delete({
       where: { id: clientUser.id },
     });
+    await this.activeClientCache.invalidate(userId, clientId);
   }
 }

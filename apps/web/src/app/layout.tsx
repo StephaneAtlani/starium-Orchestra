@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ActiveClientProvider } from '../context/active-client-context';
 
 export const metadata: Metadata = {
   title: 'Starium Orchestra',
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body>
+        <ActiveClientProvider>{children}</ActiveClientProvider>
+      </body>
     </html>
   );
 }

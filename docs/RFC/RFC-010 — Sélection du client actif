@@ -268,7 +268,7 @@ ActiveClientGuard
 
 # 11. Pipeline de sécurité
 
-Ordre obligatoire :
+Ordre obligatoire pour les routes métier multi-tenant :
 
 ```
 JwtAuthGuard
@@ -288,6 +288,26 @@ ActiveClientGuard
 ClientAdminGuard
 ```
 
+## 11.1 Portée d’ActiveClientGuard
+
+ActiveClientGuard ne doit être appliqué **que** sur les routes métier multi-tenant (données scopées par client).
+
+Routes **multi-tenant** typiques (ActiveClientGuard requis) :
+
+- `/api/users`
+- `/api/projects`
+- `/api/contracts`
+- `/api/licenses`
+- `/api/suppliers`
+- etc. (toutes les routes métier client-scopées)
+
+Routes **non multi-tenant** (ActiveClientGuard **interdit**) :
+
+- `/api/auth/*`
+- `/api/me`
+- `/api/me/clients`
+- `/api/platform/*`
+
 ---
 
 # 12. ActiveClientGuard
@@ -295,10 +315,9 @@ ClientAdminGuard
 Le guard doit :
 
 1. lire `X-Client-Id`
-2. vérifier que le client existe
-3. vérifier que l’utilisateur est rattaché
-4. vérifier que le statut est ACTIVE
-5. injecter le contexte client
+2. vérifier qu’un `ClientUser` existe pour `(userId, clientId)` avec `status = ACTIVE`
+3. vérifier que le client associé existe (client non supprimé si un soft delete est introduit)
+4. injecter le contexte client
 
 ---
 
@@ -340,18 +359,35 @@ request.activeClient = {
 
 La requête doit retourner **403** si :
 
-| situation                | réponse |
-| ------------------------ | ------- |
-| header absent            | 403     |
-| client inexistant        | 403     |
-| utilisateur non rattaché | 403     |
-| status SUSPENDED         | 403     |
+| situation                                         | réponse |
+| ------------------------------------------------- | ------- |
+| header `X-Client-Id` absent                       | 403     |
+| aucun `ClientUser` valide pour (userId, clientId) | 403     |
+| utilisateur non rattaché à ce client             | 403     |
+| status `SUSPENDED` (ou non `ACTIVE`)             | 403     |
+
+Explication :
+
+- Techniquement, le guard vérifie l’existence d’un enregistrement :
+
+```ts
+ClientUser.findFirst({
+  where: {
+    userId,
+    clientId,
+    status: ClientUserStatus.ACTIVE,
+  },
+  include: { client: true },
+})
+```
+
+- Un `clientId` invalide, un client supprimé ou un simple manque de rattachement se traduisent tous par l’absence de `ClientUser` valide → **403**.
 
 ---
 
 # 14. Isolation multi-tenant
 
-Toutes les requêtes métier doivent filtrer par :
+Toutes les requêtes métier **multi-tenant** doivent filtrer par :
 
 ```
 clientId = request.activeClient.id
@@ -366,6 +402,41 @@ prisma.project.findMany({
   }
 })
 ```
+
+## 14.1 Règle stricte Prisma
+
+Toute requête Prisma ciblant une entité **multi-tenant** doit inclure explicitement un filtre `clientId` issu du contexte validé :
+
+```ts
+const client = request.activeClient; // injecté par ActiveClientGuard
+
+await prisma.project.findMany({
+  where: { clientId: client.id },
+});
+```
+
+Règle de gouvernance :
+
+> Toute requête Prisma sur une entité multi-tenant sans filtre `clientId` issu du contexte client actif est considérée comme un bug d’architecture.
+> Toute Pull Request ajoutant une requête Prisma multi-tenant sans filtre `clientId` doit être **refusée** en revue de code.
+
+## 14.2 Scope courant : interdiction des `clientId` externes
+
+Les contrôleurs et services ne doivent **jamais** utiliser un `clientId` provenant directement :
+
+- du body,
+- des query params,
+- des URL params,
+
+comme **scope principal** d’une requête multi-tenant.
+
+Ces valeurs peuvent servir uniquement à :
+
+- comparer avec `request.activeClient.id`,
+- vérifier une cohérence métier,
+- gérer certains cas d’administration spécifique,
+
+mais **jamais** à remplacer le `clientId` issu de `request.activeClient`.
 
 ---
 

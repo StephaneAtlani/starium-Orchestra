@@ -7,11 +7,15 @@ import {
 import { ClientUserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ActiveClientCacheService } from '../../common/cache/active-client-cache.service';
 import { AttachUserToClientDto } from './dto/attach-user-to-client.dto';
 
 @Injectable()
 export class ClientMembershipService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activeClientCache: ActiveClientCacheService,
+  ) {}
 
   /** Rattache un utilisateur à un client (création User possible). Réservé au Platform Admin. */
   async attachUserToClient(clientId: string, dto: AttachUserToClientDto) {
@@ -98,6 +102,8 @@ export class ClientMembershipService {
       include: { user: true },
     });
 
+    await this.activeClientCache.invalidate(userId, clientId);
+
     return {
       user: {
         id: clientUser.user.id,
@@ -127,6 +133,7 @@ export class ClientMembershipService {
       throw new NotFoundException('Rattachement utilisateur/client introuvable');
     }
     await this.prisma.clientUser.delete({ where: { id: link.id } });
+    await this.activeClientCache.invalidate(userId, clientId);
   }
 }
 
