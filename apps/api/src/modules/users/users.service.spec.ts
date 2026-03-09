@@ -1,12 +1,18 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ClientUserRole, ClientUserStatus } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ActiveClientCacheService } from '../../common/cache/active-client-cache.service';
 import { UsersService } from './users.service';
 
 describe('UsersService', () => {
   let service: UsersService;
   let prisma: PrismaService;
+  let activeClientCache: ActiveClientCacheService;
 
   const clientId = 'client-1';
   const mockUser = {
@@ -29,6 +35,12 @@ describe('UsersService', () => {
   };
 
   beforeEach(async () => {
+    const activeClientCacheMock: Partial<ActiveClientCacheService> = {
+      get: jest.fn(),
+      set: jest.fn(),
+      invalidate: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -46,11 +58,18 @@ describe('UsersService', () => {
             },
           },
         },
+        {
+          provide: ActiveClientCacheService,
+          useValue: activeClientCacheMock,
+        },
       ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
     prisma = module.get<PrismaService>(PrismaService);
+    activeClientCache = module.get<ActiveClientCacheService>(
+      ActiveClientCacheService,
+    );
     jest.clearAllMocks();
   });
 
