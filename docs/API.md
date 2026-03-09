@@ -167,7 +167,8 @@ Crée un utilisateur ou rattache un utilisateur existant au client actif.
 
 **Comportement**
 
-- **Email déjà existant** : rattachement au client via un nouveau ClientUser. Le champ `password` est ignoré (mot de passe jamais écrasé).
+- **Email déjà existant** : rattachement au client via un nouveau ClientUser.  
+  - Le champ `password` est **interdit** dans ce flux (si fourni → **400 BadRequest**, pour éviter toute ambiguïté sur la modification de mot de passe).
 - **Email inexistant** : création du User (avec mot de passe hashé) + création du ClientUser. Le champ **`password` est obligatoire** (min. 8 caractères).
 - Si un ClientUser (userId, clientId) existe déjà → **409 Conflict**.
 
@@ -188,7 +189,7 @@ Crée un utilisateur ou rattache un utilisateur existant au client actif.
 
 **Réponse 201** : un objet utilisateur au même format que GET /users (id, email, firstName, lastName, role, status).
 
-**Erreurs :** 400 (validation, ex. mot de passe manquant pour nouvel utilisateur), 401, 403, 409 (déjà rattaché à ce client).
+**Erreurs :** 400 (validation, ex. mot de passe manquant pour nouvel utilisateur ou mot de passe fourni pour un email déjà existant), 401, 403, 409 (déjà rattaché à ce client).
 
 ---
 
@@ -198,6 +199,7 @@ Met à jour l’utilisateur pour le client actif uniquement.
 
 - **User** : `firstName`, `lastName`
 - **ClientUser** (lien avec le client actif) : `role`, `status`
+  - Règle métier : le **dernier `CLIENT_ADMIN`** du client **ne peut pas** être rétrogradé (`CLIENT_ADMIN` → `CLIENT_USER`) via ce flux ; tentative → **400 BadRequest** (cette opération reste possible via le flux plateforme).
 
 **Headers**
 
@@ -215,13 +217,14 @@ Met à jour l’utilisateur pour le client actif uniquement.
 
 **Réponse 200** : objet utilisateur mis à jour (même format que GET /users).
 
-**Erreurs :** 401, 403, 404 (utilisateur non trouvé ou non rattaché à ce client), 400 (validation).
+**Erreurs :** 401, 403, 404 (utilisateur non trouvé ou non rattaché à ce client), 400 (validation / tentative de rétrogradation du dernier CLIENT_ADMIN).
 
 ---
 
 ### DELETE /api/users/:id
 
 Supprime **uniquement le lien ClientUser** (userId + client actif). Le User global n’est pas supprimé.
+Règle métier : le **dernier `CLIENT_ADMIN`** du client **ne peut pas** être supprimé via ce flux ; tentative → **400 BadRequest** (suppression possible uniquement via les routes plateforme).
 
 **Headers**
 
@@ -230,7 +233,7 @@ Supprime **uniquement le lien ClientUser** (userId + client actif). Le User glob
 
 **Réponse 204** (No Content).
 
-**Erreurs :** 401, 403, 404 (rattachement inexistant pour ce client).
+**Erreurs :** 401, 403, 404 (rattachement inexistant pour ce client), 400 (tentative de suppression du dernier CLIENT_ADMIN).
 
 ---
 
@@ -274,7 +277,8 @@ Retourne **tous** les clients, **sans pagination**, **sans filtre**, triés par 
 
 ### POST /api/clients
 
-Crée un client et désigne ou crée l’administrateur du client (rattachement via ClientUser avec rôle CLIENT_ADMIN, statut ACTIVE). Le Platform Admin (auteur de la requête) ne devient **pas** CLIENT_ADMIN du client créé.
+Crée un client **sans** gérer d’administrateur ou de rattachement utilisateur.  
+Le Platform Admin utilise ensuite les autres endpoints (`/api/platform/users`, `/api/clients/:clientId/users`, `/api/users`) pour rattacher des utilisateurs au client.
 
 **Headers**
 
@@ -282,14 +286,10 @@ Crée un client et désigne ou crée l’administrateur du client (rattachement 
 
 **Body (JSON)**
 
-| Champ            | Type   | Obligatoire | Description |
-|------------------|--------|-------------|-------------|
-| `name`           | string | oui         | Nom du client |
-| `slug`           | string | oui         | Slug unique (ex. `entreprise-abc`) |
-| `adminEmail`     | string | oui         | Email de l’utilisateur qui sera admin du client (créé ou rattaché) |
-| `adminPassword`  | string | si nouvel user | Min. 8 caractères ; **obligatoire côté API** si aucun User avec `adminEmail` n’existe |
-| `adminFirstName` | string | non         | Prénom (si création d’un nouvel utilisateur) |
-| `adminLastName`  | string | non         | Nom (si création d’un nouvel utilisateur) |
+| Champ  | Type   | Obligatoire | Description                          |
+|--------|--------|-------------|--------------------------------------|
+| `name` | string | oui         | Nom du client                        |
+| `slug` | string | oui         | Slug unique (ex. `entreprise-abc`)   |
 
 **Exemple (curl)**
 
@@ -299,11 +299,7 @@ curl -s -X POST http://localhost:3001/api/clients \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Mon client",
-    "slug": "mon-client",
-    "adminEmail": "admin@starium.fr",
-    "adminPassword": "mot de passe",
-    "adminFirstName": "Platform",
-    "adminLastName": "Admin"
+    "slug": "mon-client"
   }' | jq .
 ```
 
@@ -318,6 +314,7 @@ curl -s -X POST http://localhost:3001/api/clients \
 ```
 
 **Erreurs :** 400 (validation ; ex. adminPassword manquant pour un email inconnu), 401, 403, 409 (slug déjà pris ou utilisateur déjà rattaché à ce client).
+**Erreurs :** 400 (validation), 401, 403, 409 (slug déjà pris).
 
 ---
 

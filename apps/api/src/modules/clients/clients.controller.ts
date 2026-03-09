@@ -36,7 +36,7 @@ export class ClientsController {
     return this.clients.findAll();
   }
 
-  /** POST /clients — Crée un client et rattache l'admin désigné (réponse strictement { id, name, slug }). */
+  /** POST /clients — Crée un client (réponse strictement { id, name, slug }). */
   @Post()
   async create(@Body() dto: CreateClientDto) {
     return this.clients.create(dto);

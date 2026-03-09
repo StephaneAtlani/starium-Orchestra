@@ -2,7 +2,7 @@
 # RFC-008 — Gestion des utilisateurs
 
 ## Statut
-Draft
+Implémenté
 
 ## Référence
 US-008
@@ -113,7 +113,9 @@ Exemple :
 
 Crée un utilisateur et l’associe au client actif. Deux cas :
 
-1. **Email existant** → rattachement au client actif via **ClientUser** uniquement. Le champ `password` du body est ignoré ; le backend n’écrase jamais le `passwordHash` dans cette RFC.
+1. **Email existant** → rattachement au client actif via **ClientUser** uniquement.  
+   - Le champ `password` est **interdit** dans ce cas : s’il est fourni dans le payload, l’API renvoie une **400 Bad Request** (pour éviter toute ambiguïté sur la modification de mot de passe).  
+   - Le backend n’écrase jamais le `passwordHash` dans cette RFC.
 2. **Email inexistant** → création du **User** (avec mot de passe **initial** fourni dans le payload, hashé) + création du **ClientUser**. Le champ `password` est **obligatoire** (min. 8 caractères) ; sinon 400.
 
 **Idempotence :** vérifier d’abord si un ClientUser (userId, clientId) existe déjà → si oui, retourner **409 Conflict** (avant toute création de User).
@@ -167,8 +169,7 @@ Réponse : objet utilisateur enrichi après mise à jour.
 - Suppression **uniquement du lien ClientUser** (userId, clientId actif).
 - **Ne jamais supprimer le User global** dans cette RFC.
 - **404** si le rattachement n’existe pas.
-
-**Règle future :** empêcher de supprimer le dernier admin du client (à traiter dans une RFC ultérieure).
+- Règle métier : le **dernier administrateur client** (`role = CLIENT_ADMIN`) ne peut pas être supprimé via ce flux ; tentative → **400 Bad Request** (cette opération reste possible via les flux plateforme).
 
 ---
 
@@ -269,34 +270,34 @@ apps/api/src/
 
 ## Backend
 
-* [ ] créer module users
-* [ ] créer DTO utilisateurs (create avec password optionnel, role @IsEnum ; update avec role/status @IsEnum)
-* [ ] implémenter GET /users
-* [ ] implémenter POST /users
-* [ ] implémenter PATCH /users/:id
-* [ ] implémenter DELETE /users/:id
-* [ ] module me + guards + décorateurs common
+* [x] créer module users
+* [x] créer DTO utilisateurs (create avec password optionnel, role @IsEnum ; update avec role/status @IsEnum)
+* [x] implémenter GET /users
+* [x] implémenter POST /users
+* [x] implémenter PATCH /users/:id
+* [x] implémenter DELETE /users/:id
+* [x] module me + guards + décorateurs common
 
 ## Sécurité
 
-* [ ] vérification JWT
-* [ ] vérification client actif (X-Client-Id, status ACTIVE)
-* [ ] vérification rôle admin (ClientAdminGuard)
+* [x] vérification JWT
+* [x] vérification client actif (X-Client-Id, status ACTIVE)
+* [x] vérification rôle admin (ClientAdminGuard)
 
 ## Données
 
-* [ ] modèle User (email @unique)
-* [ ] modèle Client (slug @unique)
-* [ ] modèle ClientUser (index clientId, userId)
+* [x] modèle User (email @unique)
+* [x] modèle Client (slug @unique)
+* [x] modèle ClientUser (index clientId, userId)
 
 ## Tests
 
-* [ ] test création utilisateur (rattacher / créer + rattacher / 409 / 400)
-* [ ] test modification utilisateur
-* [ ] test suppression utilisateur
-* [ ] test isolation multi-tenant
-* [ ] refus 403 si X-Client-Id absent ou non rattaché ou non admin
-* [ ] refus 404 si PATCH/DELETE sur user hors client
+* [x] test création utilisateur (rattacher / créer + rattacher / 409 / 400)
+* [x] test modification utilisateur
+* [x] test suppression utilisateur (dont protection du dernier CLIENT_ADMIN côté flux client actif)
+* [x] test isolation multi-tenant
+* [x] refus 403 si X-Client-Id absent ou non rattaché ou non admin
+* [x] refus 404 si PATCH/DELETE sur user hors client
 
 ---
 

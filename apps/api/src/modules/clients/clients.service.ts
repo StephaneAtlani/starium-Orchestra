@@ -1,11 +1,8 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ClientUserRole, ClientUserStatus } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -50,78 +47,26 @@ export class ClientsService {
   }
 
   /**
-   * Crée un client dans une transaction : résoudre/créer l'admin, vérifier slug, créer Client puis ClientUser.
+   * Crée un client.
+   * Vérifie explicitement l'unicité du slug avant création.
    * Réponse strictement { id, name, slug }.
    */
   async create(dto: CreateClientDto): Promise<ClientResponse> {
-    const result = await this.prisma.$transaction(async (tx) => {
-      let adminUserId: string;
+    const existingSlug = await this.prisma.client.findUnique({
+      where: { slug: dto.slug },
+    });
+    if (existingSlug) {
+      throw new ConflictException('Un client avec ce slug existe déjà');
+    }
 
-      const existingUser = await tx.user.findUnique({
-        where: { email: dto.adminEmail },
-      });
-
-      if (existingUser) {
-        adminUserId = existingUser.id;
-      } else {
-        if (!dto.adminPassword || dto.adminPassword.length < 8) {
-          throw new BadRequestException(
-            'Un mot de passe d’au moins 8 caractères est requis pour créer un nouvel administrateur client',
-          );
-        }
-        const passwordHash = await bcrypt.hash(dto.adminPassword, 10);
-        const newUser = await tx.user.create({
-          data: {
-            email: dto.adminEmail,
-            passwordHash,
-            firstName: dto.adminFirstName ?? null,
-            lastName: dto.adminLastName ?? null,
-          },
-        });
-        adminUserId = newUser.id;
-      }
-
-      const existingSlug = await tx.client.findUnique({
-        where: { slug: dto.slug },
-      });
-      if (existingSlug) {
-        throw new ConflictException('Un client avec ce slug existe déjà');
-      }
-
-      const client = await tx.client.create({
-        data: {
-          name: dto.name,
-          slug: dto.slug,
-        },
-      });
-
-      const existingLink = await tx.clientUser.findUnique({
-        where: {
-          userId_clientId: {
-            userId: adminUserId,
-            clientId: client.id,
-          },
-        },
-      });
-      if (existingLink) {
-        throw new ConflictException(
-          'Cet utilisateur est déjà rattaché à ce client',
-        );
-      }
-
-      await tx.clientUser.create({
-        data: {
-          userId: adminUserId,
-          clientId: client.id,
-          role: ClientUserRole.CLIENT_ADMIN,
-          status: ClientUserStatus.ACTIVE,
-        },
-      });
-
-      return { id: client.id, name: client.name, slug: client.slug };
+    const client = await this.prisma.client.create({
+      data: {
+        name: dto.name,
+        slug: dto.slug,
+      },
     });
 
-    return result;
+    return { id: client.id, name: client.name, slug: client.slug };
   }
 
   /**

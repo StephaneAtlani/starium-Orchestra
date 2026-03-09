@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
-import { ClientUserRole, ClientUserStatus } from '@prisma/client';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClientsService } from './clients.service';
@@ -19,32 +14,6 @@ describe('ClientsService', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
   };
-  const mockUser = {
-    id: 'user-1',
-    email: 'admin@test.fr',
-    passwordHash: 'hash',
-    firstName: 'Admin',
-    lastName: 'User',
-    platformRole: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-  const mockClientUser = {
-    id: 'cu-1',
-    userId: mockUser.id,
-    clientId: mockClient.id,
-    role: ClientUserRole.CLIENT_ADMIN,
-    status: ClientUserStatus.ACTIVE,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  const txMock = {
-    user: { findUnique: jest.fn(), create: jest.fn() },
-    client: { findUnique: jest.fn(), create: jest.fn() },
-    clientUser: { findUnique: jest.fn(), create: jest.fn() },
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -60,11 +29,6 @@ describe('ClientsService', () => {
               update: jest.fn(),
               delete: jest.fn(),
             },
-            clientUser: { findUnique: jest.fn(), create: jest.fn() },
-            user: { findUnique: jest.fn(), create: jest.fn() },
-            $transaction: jest.fn((cb: (tx: unknown) => Promise<unknown>) =>
-              cb(txMock),
-            ),
           },
         },
       ],
@@ -100,25 +64,20 @@ describe('ClientsService', () => {
   });
 
   describe('create', () => {
-    it('should create client and ClientUser when admin email exists', async () => {
-      (txMock.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      (txMock.client.findUnique as jest.Mock).mockResolvedValue(null);
-      (txMock.client.create as jest.Mock).mockResolvedValue(mockClient);
-      (txMock.clientUser.findUnique as jest.Mock).mockResolvedValue(null);
-      (txMock.clientUser.create as jest.Mock).mockResolvedValue(mockClientUser);
+    it('should create client when slug is free', async () => {
+      (prisma.client.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.client.create as jest.Mock).mockResolvedValue(mockClient);
 
       const dto = {
         name: 'Client démo',
         slug: 'demo',
-        adminEmail: mockUser.email,
       };
       const result = await service.create(dto);
 
-      expect(txMock.user.findUnique).toHaveBeenCalledWith({
-        where: { email: dto.adminEmail },
+      expect(prisma.client.findUnique).toHaveBeenCalledWith({
+        where: { slug: dto.slug },
       });
-      expect(txMock.user.create).not.toHaveBeenCalled();
-      expect(txMock.client.create).toHaveBeenCalledWith({
+      expect(prisma.client.create).toHaveBeenCalledWith({
         data: { name: dto.name, slug: dto.slug },
       });
       expect(result).toEqual({
@@ -128,82 +87,16 @@ describe('ClientsService', () => {
       });
     });
 
-    it('should create User, Client and ClientUser when admin email is new and adminPassword provided', async () => {
-      const newUser = { ...mockUser, id: 'user-2', email: 'new@test.fr' };
-      (txMock.user.findUnique as jest.Mock).mockResolvedValue(null);
-      (txMock.user.create as jest.Mock).mockResolvedValue(newUser);
-      (txMock.client.findUnique as jest.Mock).mockResolvedValue(null);
-      (txMock.client.create as jest.Mock).mockResolvedValue(mockClient);
-      (txMock.clientUser.findUnique as jest.Mock).mockResolvedValue(null);
-      (txMock.clientUser.create as jest.Mock).mockResolvedValue(mockClientUser);
-
-      const dto = {
-        name: 'New Client',
-        slug: 'new-client',
-        adminEmail: newUser.email,
-        adminPassword: 'password12',
-      };
-      const result = await service.create(dto);
-
-      expect(txMock.user.create).toHaveBeenCalled();
-      expect(txMock.client.create).toHaveBeenCalled();
-      expect(txMock.clientUser.create).toHaveBeenCalledWith({
-        data: {
-          userId: newUser.id,
-          clientId: mockClient.id,
-          role: ClientUserRole.CLIENT_ADMIN,
-          status: ClientUserStatus.ACTIVE,
-        },
-      });
-      expect(result).toEqual({
-        id: mockClient.id,
-        name: mockClient.name,
-        slug: mockClient.slug,
-      });
-    });
-
-    it('should throw BadRequestException when admin email unknown and no adminPassword', async () => {
-      (txMock.user.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(
-        service.create({
-          name: 'X',
-          slug: 'x',
-          adminEmail: 'unknown@test.fr',
-        }),
-      ).rejects.toThrow(BadRequestException);
-      expect(txMock.client.create).not.toHaveBeenCalled();
-    });
-
     it('should throw ConflictException when slug already exists', async () => {
-      (txMock.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      (txMock.client.findUnique as jest.Mock).mockResolvedValue(mockClient);
+      (prisma.client.findUnique as jest.Mock).mockResolvedValue(mockClient);
 
       await expect(
         service.create({
           name: 'Other',
           slug: mockClient.slug,
-          adminEmail: mockUser.email,
         }),
       ).rejects.toThrow(ConflictException);
-      expect(txMock.client.create).not.toHaveBeenCalled();
-    });
-
-    it('should throw ConflictException when admin already linked to this client', async () => {
-      (txMock.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      (txMock.client.findUnique as jest.Mock).mockResolvedValue(null);
-      (txMock.client.create as jest.Mock).mockResolvedValue(mockClient);
-      (txMock.clientUser.findUnique as jest.Mock).mockResolvedValue(
-        mockClientUser,
-      );
-
-      await expect(
-        service.create({
-          name: mockClient.name,
-          slug: mockClient.slug,
-          adminEmail: mockUser.email,
-        }),
-      ).rejects.toThrow(ConflictException);
+      expect(prisma.client.create).not.toHaveBeenCalled();
     });
   });
 

@@ -42,6 +42,7 @@ describe('UsersService', () => {
               create: jest.fn(),
               update: jest.fn(),
               delete: jest.fn(),
+              count: jest.fn(),
             },
           },
         },
@@ -99,6 +100,20 @@ describe('UsersService', () => {
         include: { user: true },
       });
       expect(result.id).toBe(mockUser.id);
+    });
+
+    it('should throw 400 when email exists and password is provided', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.create(clientId, {
+          email: mockUser.email,
+          role: ClientUserRole.CLIENT_USER,
+          password: 'password12',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.clientUser.create).not.toHaveBeenCalled();
     });
 
     it('should throw 409 when user already linked to client', async () => {
@@ -168,6 +183,21 @@ describe('UsersService', () => {
       expect(result.role).toBe(ClientUserRole.CLIENT_USER);
     });
 
+    it('should forbid demoting the last CLIENT_ADMIN for the client', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue(
+        mockClientUser,
+      );
+      (prisma.clientUser.count as jest.Mock).mockResolvedValue(1);
+
+      await expect(
+        service.update(clientId, mockUser.id, {
+          role: ClientUserRole.CLIENT_USER,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.clientUser.update).not.toHaveBeenCalled();
+    });
+
     it('should throw 404 when user not in client', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
       (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue(null);
@@ -179,12 +209,27 @@ describe('UsersService', () => {
 
   describe('remove', () => {
     it('should delete only ClientUser', async () => {
-      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue(mockClientUser);
+      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue(
+        mockClientUser,
+      );
+      (prisma.clientUser.count as jest.Mock).mockResolvedValue(2);
       (prisma.clientUser.delete as jest.Mock).mockResolvedValue(undefined);
       await service.remove(clientId, mockUser.id);
       expect(prisma.clientUser.delete).toHaveBeenCalledWith({
         where: { id: mockClientUser.id },
       });
+    });
+
+    it('should forbid deleting the last CLIENT_ADMIN for the client', async () => {
+      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue(
+        mockClientUser,
+      );
+      (prisma.clientUser.count as jest.Mock).mockResolvedValue(1);
+
+      await expect(service.remove(clientId, mockUser.id)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.clientUser.delete).not.toHaveBeenCalled();
     });
 
     it('should throw 404 when link does not exist', async () => {

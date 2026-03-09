@@ -66,6 +66,11 @@ export class UsersService {
     });
 
     if (existingUser) {
+      if (dto.password) {
+        throw new BadRequestException(
+          "Un mot de passe ne peut pas être fourni pour un utilisateur existant dans ce flux ; utilisez un autre flux pour changer le mot de passe",
+        );
+      }
       const existingLink = await this.prisma.clientUser.findUnique({
         where: {
           userId_clientId: {
@@ -167,9 +172,7 @@ export class UsersService {
     userId: string,
     dto: UpdateUserDto,
   ): Promise<UserResponse> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('Utilisateur non trouvé');
     }
@@ -181,6 +184,23 @@ export class UsersService {
     });
     if (!clientUser) {
       throw new NotFoundException('Utilisateur non rattaché à ce client');
+    }
+
+    // Règle métier : le dernier CLIENT_ADMIN ne peut pas être rétrogradé via le flux client actif.
+    if (dto.role !== undefined && dto.role !== clientUser.role) {
+      if (clientUser.role === ClientUserRole.CLIENT_ADMIN) {
+        const adminCount = await this.prisma.clientUser.count({
+          where: {
+            clientId,
+            role: ClientUserRole.CLIENT_ADMIN,
+          },
+        });
+        if (adminCount === 1) {
+          throw new BadRequestException(
+            'Impossible de rétrograder le dernier administrateur client via ce flux. Utilisez le flux plateforme.',
+          );
+        }
+      }
     }
 
     const userData: { firstName?: string; lastName?: string } = {};
@@ -229,6 +249,22 @@ export class UsersService {
     if (!clientUser) {
       throw new NotFoundException('Utilisateur non rattaché à ce client');
     }
+
+    // Règle métier : le dernier CLIENT_ADMIN ne peut pas être supprimé via le flux client actif.
+    if (clientUser.role === ClientUserRole.CLIENT_ADMIN) {
+      const adminCount = await this.prisma.clientUser.count({
+        where: {
+          clientId,
+          role: ClientUserRole.CLIENT_ADMIN,
+        },
+      });
+      if (adminCount === 1) {
+        throw new BadRequestException(
+          'Impossible de supprimer le dernier administrateur client via ce flux. Utilisez le flux plateforme.',
+        );
+      }
+    }
+
     await this.prisma.clientUser.delete({
       where: { id: clientUser.id },
     });
