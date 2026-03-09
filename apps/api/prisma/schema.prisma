@@ -30,12 +30,15 @@ model HealthCheck {
 }
 
 model Client {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  clientUsers ClientUser[]
+  id            String         @id @default(cuid())
+  name          String
+  slug          String         @unique
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  clientUsers   ClientUser[]
+  clientModules ClientModule[]
+  roles         Role[]
+  userRoles     UserRole[]
 }
 
 model User {
@@ -48,6 +51,7 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   clientUsers   ClientUser[]
+  userRoles     UserRole[]
   refreshTokens RefreshToken[]
 }
 
@@ -67,6 +71,97 @@ model ClientUser {
   @@index([userId])
 }
 
+/// Catalogue global des modules (budgets, projects, contracts, etc.).
+model Module {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  name          String
+  description   String?
+  isActive      Boolean        @default(true)
+  permissions   Permission[]
+  clientModules ClientModule[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+/// Activation d'un module pour un client donné.
+model ClientModule {
+  id        String             @id @default(cuid())
+  clientId  String
+  moduleId  String
+  status    ClientModuleStatus @default(ENABLED)
+  client    Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  module    Module             @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@unique([clientId, moduleId])
+  @@index([clientId])
+  @@index([moduleId])
+}
+
+/// Rôle métier client (scopé par client).
+model Role {
+  id             String          @id @default(cuid())
+  clientId       String
+  name           String
+  description    String?
+  isSystem       Boolean         @default(false)
+  client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles      UserRole[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([clientId, name])
+  @@index([clientId])
+}
+
+/// Permission unitaire globale (<module>.<action>).
+model Permission {
+  id             String          @id @default(cuid())
+  code           String          @unique
+  label          String
+  description    String?
+  moduleId       String
+  module         Module          @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  rolePermissions RolePermission[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([moduleId])
+}
+
+/// Liaison N:N rôle ↔ permission.
+model RolePermission {
+  id           String      @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+/// Liaison utilisateur ↔ rôle métier (le client est porté par Role.clientId).
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+enum ClientModuleStatus {
+  ENABLED
+  DISABLED
+}
+
 model RefreshToken {
   id        String   @id @default(uuid())
   tokenHash String
@@ -75,6 +170,6 @@ model RefreshToken {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])@
+  @@index([userId])
   @@index([tokenHash])
 }
