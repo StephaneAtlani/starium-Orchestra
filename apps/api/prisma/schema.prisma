@@ -9,6 +9,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PlatformRole {
+  PLATFORM_ADMIN
+}
+
 enum ClientUserRole {
   CLIENT_ADMIN
   CLIENT_USER
@@ -35,16 +39,16 @@ model Client {
 }
 
 model User {
-  id              String         @id @default(cuid())
-  email           String         @unique
-  passwordHash    String
-  firstName       String?
-  lastName        String?
-  isPlatformAdmin Boolean        @default(false)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  clientUsers     ClientUser[]
-  refreshTokens   RefreshToken[]
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  platformRole  PlatformRole?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  clientUsers   ClientUser[]
+  refreshTokens RefreshToken[]
 }
 
 model ClientUser {

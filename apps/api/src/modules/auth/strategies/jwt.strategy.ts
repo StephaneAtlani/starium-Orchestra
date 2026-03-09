@@ -5,10 +5,12 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 
 export interface JwtPayload {
   sub: string;
+  platformRole?: string | null;
 }
 
 export interface JwtUser {
   userId: string;
+  platformRole: string | null;
 }
 
 @Injectable()
@@ -29,6 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!payload?.sub) {
       throw new UnauthorizedException('Token invalide');
     }
-    return { userId: payload.sub };
+    const platformRole: string | null = payload.platformRole ?? null;
+    return { userId: payload.sub, platformRole };
   }
 }

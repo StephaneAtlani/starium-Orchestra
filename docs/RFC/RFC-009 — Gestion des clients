@@ -243,7 +243,8 @@ Client.slug UNIQUE
 
 # 7. Modèle de données
 
-**Platform Admin** : le modèle `User` comporte `isPlatformAdmin Boolean @default(false)`. Uniquement ce booléen détermine l’accès aux routes `/clients` (pas de RBAC complet).
+**Platform Admin** : le modèle `User` comporte `platformRole PlatformRole?`.  
+Seule la valeur `platformRole = PLATFORM_ADMIN` donne accès aux routes plateforme (`/api/clients`, `/api/platform/users`, `/api/clients/:clientId/users*`). Les autres utilisateurs ont `platformRole = null`.
 
 ## Client
 
@@ -290,7 +291,8 @@ Toutes les routes `/clients` sont protégées par :
 - **JwtAuthGuard**
 - **PlatformAdminGuard**
 
-**Platform Admin** : défini explicitement par `User.isPlatformAdmin === true` (booléen sur le modèle User). Aucun RBAC complet — le guard autorise uniquement si `user.isPlatformAdmin === true`. En dev, `isPlatformAdmin: true` est mis **uniquement** sur l’utilisateur seed pour tester `/api/clients`.
+**Platform Admin** : défini explicitement par `User.platformRole === 'PLATFORM_ADMIN'` (champ nullable sur le modèle User). Aucun rôle client n’est mis dans le JWT.  
+En dev, `platformRole = PLATFORM_ADMIN` est mis **uniquement** sur l’utilisateur seed pour tester les routes plateforme.
 
 ---
 

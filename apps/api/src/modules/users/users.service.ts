@@ -7,6 +7,7 @@ import {
 import { ClientUserRole, ClientUserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -117,6 +118,44 @@ export class UsersService {
       },
     });
     return this.toResponse(user, { role: clientUser.role, status: clientUser.status });
+  }
+
+  /** Crée un utilisateur global (sans rattachement client). Réservé au Platform Admin. */
+  async createPlatformUser(dto: CreatePlatformUserDto) {
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+    if (existing) {
+      throw new ConflictException(
+        "Un utilisateur avec cet email existe déjà (utilisez le rattachement client)",
+      );
+    }
+
+    if (!dto.password || dto.password.length < 8) {
+      throw new BadRequestException(
+        'Un mot de passe d’au moins 8 caractères est requis pour créer un utilisateur',
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        passwordHash,
+        firstName: dto.firstName ?? null,
+        lastName: dto.lastName ?? null,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+        updatedAt: true,
+        platformRole: true,
+      },
+    });
+    return user;
   }
 
   /**

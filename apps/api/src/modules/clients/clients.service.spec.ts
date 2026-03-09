@@ -25,7 +25,7 @@ describe('ClientsService', () => {
     passwordHash: 'hash',
     firstName: 'Admin',
     lastName: 'User',
-    isPlatformAdmin: false,
+    platformRole: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

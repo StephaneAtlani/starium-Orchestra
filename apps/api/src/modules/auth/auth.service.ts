@@ -68,8 +68,14 @@ export class AuthService {
   private async issueTokenPair(
     userId: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { platformRole: true },
+    });
+    const platformRole: string | null = (user?.platformRole as string | null) ?? null;
+
     const accessToken = this.jwt.sign(
-      { sub: userId },
+      { sub: userId, platformRole },
       { expiresIn: this.accessExpiration },
     );
     const refreshToken = randomBytes(64).toString('hex');

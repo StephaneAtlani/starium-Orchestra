@@ -140,10 +140,10 @@ Conventions de nommage des dossiers : kebab-case pour les dossiers frontend si p
 
 ### 4.3 Implémentation backend
 
-- **Token JWT** : contient `userId` et éventuellement la liste des `clientIds` autorisés (ou chargement en DB à chaque requête selon stratégie).
-- **Guard client** : vérifie que l’endpoint reçoit un `clientId` (header `X-Client-Id` ou param) et que ce client est dans le scope de l’utilisateur.
+- **Token JWT** : contient au minimum `userId` (`sub`) et éventuellement un `platformRole` global (`PLATFORM_ADMIN` \| null). Aucun rôle client n’est mis dans le token ; les rôles client sont toujours résolus via la table `client_users`.
+- **Guard client** : vérifie que l’endpoint reçoit un `clientId` (header `X-Client-Id` ou param) et que ce client est dans le scope de l’utilisateur, avec un `ClientUser` de statut `ACTIVE`.
 - **Service** : reçoit le `clientId` validé ; toutes les requêtes Prisma sur des données métier incluent `where: { clientId }` (ou `clientId: { in: authorizedClientIds }` pour les listes).
-- **API platform** : routes `/api/platform/*` réservées au platform admin (création clients, liste clients, affectation users).
+- **API platform** : routes `/api/platform/*` réservées au platform admin (création clients, liste clients, création d’utilisateurs globaux, affectation/désaffectation users ↔ clients).
 
 ### 4.4 Implémentation frontend
 
@@ -160,27 +160,19 @@ Conventions de nommage des dossiers : kebab-case pour les dossiers frontend si p
 
 ```
 users
-  id, email, passwordHash, name, ...
+  id, email, passwordHash, firstName, lastName, platformRole?, ...
   (pas de clientId : utilisateur global)
 
 clients
   id, name, slug, settings (jsonb), createdAt, ...
 
 client_users
-  id, userId, clientId, roleId, ...
-  (table de liaison user ↔ client avec rôle)
-
-roles
-  id, name, clientId (null = rôle plateforme), ...
-
-permissions
-  id, name, resource, action, ...
-
-role_permissions
-  roleId, permissionId
+  id, userId, clientId, role, status, ...
+  (table de liaison user ↔ client avec rôle et statut)
 ```
 
-- **Rôles** : soit globaux (ex. `platform_admin`), soit par client (ex. `client_admin`, `project_manager`). Les permissions sont attachées aux rôles.
+- **Rôles globaux** : encodés via `users.platformRole` (`PLATFORM_ADMIN` \| null).
+- **Rôles client** : encodés via `client_users.role` (`CLIENT_ADMIN`, `CLIENT_USER`, …). Seul le statut `ACTIVE` ouvre l’accès aux routes métier client (`ActiveClientGuard`).
 
 ### 5.2 Entités métier (toutes scopées client)
 

@@ -5,31 +5,24 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { PrismaService } from '../../prisma/prisma.service';
 
 /**
- * Vérifie que l'utilisateur connecté est administrateur plateforme (user.isPlatformAdmin === true).
- * À placer après JwtAuthGuard.
+ * Vérifie que l'utilisateur connecté est administrateur plateforme
+ * via req.user.platformRole === 'PLATFORM_ADMIN'. À placer après JwtAuthGuard.
  */
 @Injectable()
 export class PlatformAdminGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
-
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    const userId = (request as unknown as { user?: { userId: string } }).user
-      ?.userId;
+    const user = (request as unknown as {
+      user?: { userId: string; platformRole?: string | null };
+    }).user;
 
-    if (!userId) {
+    if (!user?.userId) {
       throw new ForbiddenException('Utilisateur non authentifié');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { isPlatformAdmin: true },
-    });
-
-    if (user?.isPlatformAdmin !== true) {
+    if (user.platformRole !== 'PLATFORM_ADMIN') {
       throw new ForbiddenException('Droits administrateur plateforme requis');
     }
 

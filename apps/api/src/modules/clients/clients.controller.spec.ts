@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { ClientsController } from './clients.controller';
+import { ClientMembershipService } from './client-membership.service';
 import { ClientsService } from './clients.service';
 
 describe('ClientsController', () => {
@@ -26,6 +27,13 @@ describe('ClientsController', () => {
             create: jest.fn(),
             update: jest.fn(),
             remove: jest.fn(),
+          },
+        },
+        {
+          provide: ClientMembershipService,
+          useValue: {
+            attachUserToClient: jest.fn(),
+            detachUserFromClient: jest.fn(),
           },
         },
       ],

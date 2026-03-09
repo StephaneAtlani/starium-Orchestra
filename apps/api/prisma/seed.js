@@ -25,7 +25,7 @@ const prisma = new PrismaClient();
 
 /**
  * Platform Admin (développement).
- * Cet utilisateur est UNIQUEMENT Platform Admin (isPlatformAdmin = true).
+ * Cet utilisateur est UNIQUEMENT Platform Admin (platformRole = PLATFORM_ADMIN).
  * Il peut appeler GET/POST/PATCH/DELETE /api/clients.
  * Il n'est rattaché à aucun client : pas de ClientUser, donc pas CLIENT_ADMIN.
  */
@@ -40,13 +40,13 @@ async function main() {
   const passwordHash = await bcrypt.hash(PLATFORM_ADMIN.password, 10);
   await prisma.user.upsert({
     where: { email: PLATFORM_ADMIN.email },
-    update: { passwordHash, isPlatformAdmin: true },
+    update: { passwordHash, platformRole: 'PLATFORM_ADMIN' },
     create: {
       email: PLATFORM_ADMIN.email,
       passwordHash,
       firstName: PLATFORM_ADMIN.firstName,
       lastName: PLATFORM_ADMIN.lastName,
-      isPlatformAdmin: true,
+      platformRole: 'PLATFORM_ADMIN',
     },
   });
 
