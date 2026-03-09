@@ -117,23 +117,15 @@ Accès refusé
 
 # 6. Pourquoi le client actif n'est pas dans le JWT
 
-Le JWT contient au minimum :
+Le JWT contient uniquement :
 
 ```
 
-userId (sub)
+userId
 
 ```
 
-et peut éventuellement contenir un rôle **global** de plateforme :
-
-```
-
-platformRole = "PLATFORM_ADMIN" | null
-
-```
-
-Le JWT **ne contient jamais le client actif**.
+Le JWT **ne contient pas le client actif**.
 
 Raisons :
 
@@ -201,14 +193,16 @@ Réponse :
 
 Retourne les clients auxquels l’utilisateur est rattaché.
 
-Réponse (alignée sur l’implémentation actuelle) :
+Réponse :
 
 ```json
 [
   {
     "id": "client_001",
     "name": "Client démo",
-    "slug": "demo"
+    "slug": "demo",
+    "role": "CLIENT_ADMIN",
+    "status": "ACTIVE"
   }
 ]
 ```
@@ -220,6 +214,8 @@ Champs :
 | id     | Client     |
 | name   | Client     |
 | slug   | Client     |
+| role   | ClientUser |
+| status | ClientUser |
 
 ---
 
@@ -516,27 +512,5 @@ Cette RFC dépend de :
 * RFC-008 — Gestion des utilisateurs
 * modèles Prisma Client et ClientUser
 
----
-
 ```
-
----
-
-💡 **Mon avis d’architecte SaaS sur ta stack :**
-
-Avec :
-
-- **JWT**
-- **X-Client-Id**
-- **ClientUser**
-- **ActiveClientGuard**
-
-tu as **exactement l’architecture utilisée par les SaaS sérieux** :
-
-- Linear
-- Notion
-- Stripe
-- Vercel
-- Supabase
-
 ```
