@@ -117,15 +117,23 @@ Accès refusé
 
 # 6. Pourquoi le client actif n'est pas dans le JWT
 
-Le JWT contient uniquement :
+Le JWT contient au minimum :
 
 ```
 
-userId
+userId (sub)
 
 ```
 
-Le JWT **ne contient pas le client actif**.
+et peut éventuellement contenir un rôle **global** de plateforme :
+
+```
+
+platformRole = "PLATFORM_ADMIN" | null
+
+```
+
+Le JWT **ne contient jamais le client actif**.
 
 Raisons :
 
@@ -193,16 +201,14 @@ Réponse :
 
 Retourne les clients auxquels l’utilisateur est rattaché.
 
-Réponse :
+Réponse (alignée sur l’implémentation actuelle) :
 
 ```json
 [
   {
     "id": "client_001",
     "name": "Client démo",
-    "slug": "demo",
-    "role": "CLIENT_ADMIN",
-    "status": "ACTIVE"
+    "slug": "demo"
   }
 ]
 ```
@@ -214,8 +220,6 @@ Champs :
 | id     | Client     |
 | name   | Client     |
 | slug   | Client     |
-| role   | ClientUser |
-| status | ClientUser |
 
 ---
 

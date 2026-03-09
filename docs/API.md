@@ -313,7 +313,6 @@ curl -s -X POST http://localhost:3001/api/clients \
 }
 ```
 
-**Erreurs :** 400 (validation ; ex. adminPassword manquant pour un email inconnu), 401, 403, 409 (slug déjà pris ou utilisateur déjà rattaché à ce client).
 **Erreurs :** 400 (validation), 401, 403, 409 (slug déjà pris).
 
 ---

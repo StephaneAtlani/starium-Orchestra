@@ -321,8 +321,8 @@ GET /api/me/clients
 
 Clients (platform admin)
 
-POST /api/platform/clients
-GET /api/platform/clients
+GET /api/clients
+POST /api/clients
 
 Budgets
 
