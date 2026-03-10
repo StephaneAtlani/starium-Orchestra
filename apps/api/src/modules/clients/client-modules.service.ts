@@ -4,6 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  AuditLogsService,
+  CreateAuditLogInput,
+} from '../audit-logs/audit-logs.service';
+import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 
 export interface ModuleCatalogueItem {
   id: string;
@@ -26,7 +31,10 @@ export interface ClientModuleItem {
 
 @Injectable()
 export class ClientModulesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogs: AuditLogsService,
+  ) {}
 
   async listCatalogue(): Promise<ModuleCatalogueItem[]> {
     const prisma = this.prisma as any;
@@ -81,8 +89,9 @@ export class ClientModulesService {
   async activateModuleForClient(params: {
     clientId: string;
     moduleCode: string;
+    context?: { actorUserId?: string; meta?: RequestMeta };
   }): Promise<ClientModuleItem> {
-    const { clientId, moduleCode } = params;
+    const { clientId, moduleCode, context } = params;
 
     await this.ensureClientExists(clientId);
     const prisma = this.prisma as any;
@@ -114,7 +123,7 @@ export class ClientModulesService {
       },
     });
 
-    return {
+    const result: ClientModuleItem = {
       id: module.id,
       code: module.code,
       name: module.name,
@@ -122,14 +131,22 @@ export class ClientModulesService {
       isActive: module.isActive,
       status: clientModule.status,
     };
+    await this.logClientModuleEvent('module.enabled', {
+      clientId,
+      moduleCode: module.code,
+      status: clientModule.status,
+      context,
+    });
+    return result;
   }
 
   async updateClientModuleStatus(params: {
     clientId: string;
     moduleCode: string;
     status: 'ENABLED' | 'DISABLED';
+    context?: { actorUserId?: string; meta?: RequestMeta };
   }): Promise<ClientModuleItem> {
-    const { clientId, moduleCode, status } = params;
+    const { clientId, moduleCode, status, context } = params;
 
     await this.ensureClientExists(clientId);
     const prisma = this.prisma as any;
@@ -159,7 +176,7 @@ export class ClientModulesService {
       update: { status },
     });
 
-    return {
+    const result: ClientModuleItem = {
       id: module.id,
       code: module.code,
       name: module.name,
@@ -167,6 +184,44 @@ export class ClientModulesService {
       isActive: module.isActive,
       status: clientModule.status,
     };
+    const action =
+      status === 'ENABLED' ? 'module.enabled' : ('module.disabled' as const);
+    await this.logClientModuleEvent(action, {
+      clientId,
+      moduleCode: module.code,
+      status: clientModule.status,
+      context,
+    });
+    return result;
+  }
+
+  private async logClientModuleEvent(
+    action: 'module.enabled' | 'module.disabled',
+    params: {
+      clientId: string;
+      moduleCode: string;
+      status: 'ENABLED' | 'DISABLED' | null;
+      context?: { actorUserId?: string; meta?: RequestMeta };
+    },
+  ): Promise<void> {
+    const { clientId, moduleCode, status, context } = params;
+    if (!clientId) {
+      return;
+    }
+    const input: CreateAuditLogInput = {
+      clientId,
+      userId: context?.actorUserId,
+      action,
+      resourceType: 'module',
+      resourceId: moduleCode,
+      newValue: {
+        status,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+    await this.auditLogs.create(input);
   }
 
   private async ensureClientExists(clientId: string): Promise<void> {

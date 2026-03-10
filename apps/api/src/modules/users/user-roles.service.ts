@@ -5,6 +5,11 @@ import {
 } from '@nestjs/common';
 import { ClientUserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  AuditLogsService,
+  CreateAuditLogInput,
+} from '../audit-logs/audit-logs.service';
+import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { UpdateUserRolesDto } from './dto/update-user-roles.dto';
 
 export interface UserRoleItem {
@@ -16,7 +21,10 @@ export interface UserRoleItem {
 
 @Injectable()
 export class UserRolesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogs: AuditLogsService,
+  ) {}
 
   async getUserRolesForClient(
     clientId: string,
@@ -51,6 +59,7 @@ export class UserRolesService {
     clientId: string,
     userId: string,
     dto: UpdateUserRolesDto,
+    context?: { actorUserId?: string; meta?: RequestMeta },
   ): Promise<{ userId: string; roleIds: string[] }> {
     await this.ensureUserBelongsToClient(clientId, userId);
 
@@ -96,6 +105,13 @@ export class UserRolesService {
       }
     });
 
+    await this.logUserRolesEvent({
+      clientId,
+      userId,
+      roleIds: dto.roleIds,
+      context,
+    });
+
     return { userId, roleIds: dto.roleIds };
   }
 
@@ -119,4 +135,28 @@ export class UserRolesService {
     }
   }
 }
+
+  private async logUserRolesEvent(params: {
+    clientId: string;
+    userId: string;
+    roleIds: string[];
+    context?: { actorUserId?: string; meta?: RequestMeta };
+  }): Promise<void> {
+    const { clientId, userId, roleIds, context } = params;
+    if (!clientId) {
+      return;
+    }
+    const input: CreateAuditLogInput = {
+      clientId,
+      userId: context?.actorUserId,
+      action: 'user.roles.updated',
+      resourceType: 'user',
+      resourceId: userId,
+      newValue: { roleIds },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+    await this.auditLogs.create(input);
+  }
 

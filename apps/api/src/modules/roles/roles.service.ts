@@ -5,6 +5,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  AuditLogsService,
+  CreateAuditLogInput,
+} from '../audit-logs/audit-logs.service';
+import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { UpdateRolePermissionsDto } from './dto/update-role-permissions.dto';
@@ -29,7 +34,10 @@ export interface PermissionItem {
 
 @Injectable()
 export class RolesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogs: AuditLogsService,
+  ) {}
 
   async listRoles(clientId: string): Promise<RoleItem[]> {
     const prisma = this.prisma as any;
@@ -50,7 +58,11 @@ export class RolesService {
     return roles;
   }
 
-  async createRole(clientId: string, dto: CreateRoleDto): Promise<RoleItem> {
+  async createRole(
+    clientId: string,
+    dto: CreateRoleDto,
+    context?: { actorUserId?: string; meta?: RequestMeta },
+  ): Promise<RoleItem> {
     await this.ensureRoleNameUnique(clientId, dto.name);
 
     const prisma = this.prisma as any;
@@ -63,7 +75,14 @@ export class RolesService {
       },
     });
 
-    return this.toRoleItem(role);
+    const item = this.toRoleItem(role);
+    await this.logRoleEvent('role.created', {
+      clientId,
+      roleId: item.id,
+      payload: { name: item.name, description: item.description },
+      context,
+    });
+    return item;
   }
 
   async getRoleById(clientId: string, id: string): Promise<RoleItem> {
@@ -82,6 +101,7 @@ export class RolesService {
     clientId: string,
     id: string,
     dto: UpdateRoleDto,
+    context?: { actorUserId?: string; meta?: RequestMeta },
   ): Promise<RoleItem> {
     const prisma = this.prisma as any;
 
@@ -111,10 +131,21 @@ export class RolesService {
       data,
     });
 
-    return this.toRoleItem(updated);
+    const item = this.toRoleItem(updated);
+    await this.logRoleEvent('role.updated', {
+      clientId,
+      roleId: item.id,
+      payload: { name: item.name, description: item.description },
+      context,
+    });
+    return item;
   }
 
-  async deleteRole(clientId: string, id: string): Promise<void> {
+  async deleteRole(
+    clientId: string,
+    id: string,
+    context?: { actorUserId?: string; meta?: RequestMeta },
+  ): Promise<void> {
     const prisma = this.prisma as any;
 
     const role = await prisma.role.findFirst({
@@ -135,6 +166,12 @@ export class RolesService {
 
     await (this.prisma as any).role.delete({
       where: { id: role.id },
+    });
+    await this.logRoleEvent('role.deleted', {
+      clientId,
+      roleId: role.id,
+      payload: { name: role.name },
+      context,
     });
   }
 
@@ -229,6 +266,33 @@ export class RolesService {
       role: this.toRoleItem(role),
       permissionIds: dto.permissionIds,
     };
+  }
+
+  private async logRoleEvent(
+    action: 'role.created' | 'role.updated' | 'role.deleted',
+    params: {
+      clientId: string;
+      roleId: string;
+      payload: Record<string, unknown>;
+      context?: { actorUserId?: string; meta?: RequestMeta };
+    },
+  ): Promise<void> {
+    const { clientId, roleId, payload, context } = params;
+    if (!clientId) {
+      return;
+    }
+    const input: CreateAuditLogInput = {
+      clientId,
+      userId: context?.actorUserId,
+      action,
+      resourceType: 'role',
+      resourceId: roleId,
+      newValue: payload,
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+    await this.auditLogs.create(input);
   }
 
   private async ensureRoleNameUnique(

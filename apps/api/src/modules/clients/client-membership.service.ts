@@ -8,6 +8,11 @@ import { ClientUserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ActiveClientCacheService } from '../../common/cache/active-client-cache.service';
+import {
+  AuditLogsService,
+  CreateAuditLogInput,
+} from '../audit-logs/audit-logs.service';
+import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { AttachUserToClientDto } from './dto/attach-user-to-client.dto';
 
 @Injectable()
@@ -15,10 +20,15 @@ export class ClientMembershipService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activeClientCache: ActiveClientCacheService,
+    private readonly auditLogs: AuditLogsService,
   ) {}
 
   /** Rattache un utilisateur à un client (création User possible). Réservé au Platform Admin. */
-  async attachUserToClient(clientId: string, dto: AttachUserToClientDto) {
+  async attachUserToClient(
+    clientId: string,
+    dto: AttachUserToClientDto,
+    context?: { actorUserId?: string; meta?: RequestMeta },
+  ) {
     const client = await this.prisma.client.findUnique({
       where: { id: clientId },
     });
@@ -104,7 +114,7 @@ export class ClientMembershipService {
 
     await this.activeClientCache.invalidate(userId, clientId);
 
-    return {
+    const result = {
       user: {
         id: clientUser.user.id,
         email: clientUser.user.email,
@@ -117,10 +127,22 @@ export class ClientMembershipService {
         status: clientUser.status,
       },
     };
+    await this.logClientUserEvent('client.user.attached', {
+      clientId,
+      userId,
+      role: clientUser.role,
+      status: clientUser.status,
+      context,
+    });
+    return result;
   }
 
   /** Supprime le lien ClientUser pour un client donné (ne supprime jamais User). */
-  async detachUserFromClient(clientId: string, userId: string): Promise<void> {
+  async detachUserFromClient(
+    clientId: string,
+    userId: string,
+    context?: { actorUserId?: string; meta?: RequestMeta },
+  ): Promise<void> {
     const link = await this.prisma.clientUser.findUnique({
       where: {
         userId_clientId: {
@@ -134,6 +156,37 @@ export class ClientMembershipService {
     }
     await this.prisma.clientUser.delete({ where: { id: link.id } });
     await this.activeClientCache.invalidate(userId, clientId);
+  }
+
+  private async logClientUserEvent(
+    action: 'client.user.attached' | 'client.user.detached',
+    params: {
+      clientId: string;
+      userId: string;
+      role: ClientUserStatus | string;
+      status: ClientUserStatus;
+      context?: { actorUserId?: string; meta?: RequestMeta };
+    },
+  ): Promise<void> {
+    const { clientId, userId, role, status, context } = params;
+    if (!clientId) {
+      return;
+    }
+    const input: CreateAuditLogInput = {
+      clientId,
+      userId: context?.actorUserId,
+      action,
+      resourceType: 'client_user',
+      resourceId: userId,
+      newValue: {
+        role,
+        status,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+    await this.auditLogs.create(input);
   }
 }
 

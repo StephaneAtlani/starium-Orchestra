@@ -226,5 +226,8 @@ model AuditLogArchive {
   archivedAt DateTime @default(now())
 
   @@index([clientId])
+  @@index([userId])
+  @@index([action])
   @@index([createdAt])
+  @@index([resourceType])
 }

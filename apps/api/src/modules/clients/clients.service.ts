@@ -61,7 +61,7 @@ export class ClientsService {
    */
   async create(
     dto: CreateClientDto,
-    context?: { actorUserId: string; meta: RequestMeta },
+    context?: { actorUserId?: string; meta?: RequestMeta },
   ): Promise<ClientResponse> {
     const existingSlug = await this.prisma.client.findUnique({
       where: { slug: dto.slug },
@@ -93,7 +93,7 @@ export class ClientsService {
   async update(
     id: string,
     dto: UpdateClientDto,
-    context?: { actorUserId: string; meta: RequestMeta },
+    context?: { actorUserId?: string; meta?: RequestMeta },
   ): Promise<ClientResponse> {
     const client = await this.prisma.client.findUnique({
       where: { id },
@@ -155,23 +155,20 @@ export class ClientsService {
     params: {
       clientId: string;
       payload: Record<string, unknown>;
-      context?: { actorUserId: string; meta: RequestMeta };
+      context?: { actorUserId?: string; meta?: RequestMeta };
     },
   ): Promise<void> {
     const { clientId, payload, context } = params;
-    if (!context?.actorUserId) {
-      return;
-    }
     const input: CreateAuditLogInput = {
       clientId,
-      userId: context.actorUserId,
+      userId: context?.actorUserId,
       action,
       resourceType: 'client',
       resourceId: clientId,
       newValue: payload,
-      ipAddress: context.meta.ipAddress,
-      userAgent: context.meta.userAgent,
-      requestId: context.meta.requestId,
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
     };
     await this.auditLogs.create(input);
   }

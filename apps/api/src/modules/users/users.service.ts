@@ -73,7 +73,7 @@ export class UsersService {
   async create(
     clientId: string,
     dto: CreateUserDto,
-    context?: { actorUserId: string; meta: RequestMeta },
+    context?: { actorUserId?: string; meta?: RequestMeta },
   ): Promise<UserResponse> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -208,7 +208,7 @@ export class UsersService {
     clientId: string,
     userId: string,
     dto: UpdateUserDto,
-    context?: { actorUserId: string; meta: RequestMeta },
+    context?: { actorUserId?: string; meta?: RequestMeta },
   ): Promise<UserResponse> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -292,7 +292,7 @@ export class UsersService {
   async remove(
     clientId: string,
     userId: string,
-    context?: { actorUserId: string; meta: RequestMeta },
+    context?: { actorUserId?: string; meta?: RequestMeta },
   ): Promise<void> {
     const clientUser = await this.prisma.clientUser.findUnique({
       where: {
@@ -339,23 +339,20 @@ export class UsersService {
       clientId: string;
       targetUserId: string;
       payload: Record<string, unknown>;
-      context?: { actorUserId: string; meta: RequestMeta };
+      context?: { actorUserId?: string; meta?: RequestMeta };
     },
   ): Promise<void> {
     const { clientId, targetUserId, payload, context } = params;
-    if (!context?.actorUserId) {
-      return;
-    }
     const input: CreateAuditLogInput = {
       clientId,
-      userId: context.actorUserId,
+      userId: context?.actorUserId,
       action,
       resourceType: 'user',
       resourceId: targetUserId,
       newValue: payload,
-      ipAddress: context.meta.ipAddress,
-      userAgent: context.meta.userAgent,
-      requestId: context.meta.requestId,
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
     };
     await this.auditLogs.create(input);
   }

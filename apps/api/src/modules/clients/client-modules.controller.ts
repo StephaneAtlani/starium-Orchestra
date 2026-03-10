@@ -16,6 +16,11 @@ import {
 } from './client-modules.service';
 import { SetClientModuleDto } from './dto/set-client-module.dto';
 import { UpdateClientModuleStatusDto } from './dto/update-client-module-status.dto';
+import { RequestUserId } from '../../common/decorators/request-user.decorator';
+import {
+  RequestMeta,
+  RequestMeta as RequestMetaDecorator,
+} from '../../common/decorators/request-meta.decorator';
 
 /**
  * Gestion des modules au niveau plateforme (RFC-011, lot 1).
@@ -45,10 +50,13 @@ export class ClientModulesController {
   activateModule(
     @Param('clientId') clientId: string,
     @Body() dto: SetClientModuleDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
   ): Promise<ClientModuleItem> {
     return this.clientModules.activateModuleForClient({
       clientId,
       moduleCode: dto.moduleCode,
+      context: { actorUserId, meta },
     });
   }
 
@@ -58,11 +66,14 @@ export class ClientModulesController {
     @Param('clientId') clientId: string,
     @Param('moduleCode') moduleCode: string,
     @Body() dto: UpdateClientModuleStatusDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
   ): Promise<ClientModuleItem> {
     return this.clientModules.updateClientModuleStatus({
       clientId,
       moduleCode,
       status: dto.status,
+      context: { actorUserId, meta },
     });
   }
 }
