@@ -9,6 +9,7 @@ import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { RbacTestModule } from './modules/rbac-test/rbac-test.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { RbacTestModule } from './modules/rbac-test/rbac-test.module';
     ClientsModule,
     RolesModule,
     RbacTestModule,
+    AuditLogsModule,
   ],
 })
 export class AppModule {}

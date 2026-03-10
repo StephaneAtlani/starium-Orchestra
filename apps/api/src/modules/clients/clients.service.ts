@@ -4,6 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  AuditLogsService,
+  CreateAuditLogInput,
+} from '../audit-logs/audit-logs.service';
+import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
@@ -28,7 +33,10 @@ export interface ClientResponse {
  */
 @Injectable()
 export class ClientsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogs: AuditLogsService,
+  ) {}
 
   /**
    * Retourne tous les clients, sans pagination ni filtre, triés par createdAt desc.
@@ -51,7 +59,10 @@ export class ClientsService {
    * Vérifie explicitement l'unicité du slug avant création.
    * Réponse strictement { id, name, slug }.
    */
-  async create(dto: CreateClientDto): Promise<ClientResponse> {
+  async create(
+    dto: CreateClientDto,
+    context?: { actorUserId: string; meta: RequestMeta },
+  ): Promise<ClientResponse> {
     const existingSlug = await this.prisma.client.findUnique({
       where: { slug: dto.slug },
     });
@@ -66,6 +77,12 @@ export class ClientsService {
       },
     });
 
+    await this.logClientEvent('client.created', {
+      clientId: client.id,
+      payload: { name: client.name, slug: client.slug },
+      context,
+    });
+
     return { id: client.id, name: client.name, slug: client.slug };
   }
 
@@ -73,7 +90,11 @@ export class ClientsService {
    * Met à jour un client. Si slug fourni, vérifie l'unicité (autre client uniquement).
    * Réponse strictement { id, name, slug }.
    */
-  async update(id: string, dto: UpdateClientDto): Promise<ClientResponse> {
+  async update(
+    id: string,
+    dto: UpdateClientDto,
+    context?: { actorUserId: string; meta: RequestMeta },
+  ): Promise<ClientResponse> {
     const client = await this.prisma.client.findUnique({
       where: { id },
     });
@@ -105,6 +126,11 @@ export class ClientsService {
       where: { id },
       data,
     });
+    await this.logClientEvent('client.updated', {
+      clientId: updated.id,
+      payload: { name: updated.name, slug: updated.slug },
+      context,
+    });
     return { id: updated.id, name: updated.name, slug: updated.slug };
   }
 
@@ -122,5 +148,31 @@ export class ClientsService {
     await this.prisma.client.delete({
       where: { id },
     });
+  }
+
+  private async logClientEvent(
+    action: string,
+    params: {
+      clientId: string;
+      payload: Record<string, unknown>;
+      context?: { actorUserId: string; meta: RequestMeta };
+    },
+  ): Promise<void> {
+    const { clientId, payload, context } = params;
+    if (!context?.actorUserId) {
+      return;
+    }
+    const input: CreateAuditLogInput = {
+      clientId,
+      userId: context.actorUserId,
+      action,
+      resourceType: 'client',
+      resourceId: clientId,
+      newValue: payload,
+      ipAddress: context.meta.ipAddress,
+      userAgent: context.meta.userAgent,
+      requestId: context.meta.requestId,
+    };
+    await this.auditLogs.create(input);
   }
 }

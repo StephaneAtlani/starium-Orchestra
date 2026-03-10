@@ -14,6 +14,10 @@ import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ClientAdminGuard } from '../../common/guards/client-admin.guard';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
+import {
+  RequestMeta,
+  RequestMeta as RequestMetaDecorator,
+} from '../../common/decorators/request-meta.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -39,8 +43,10 @@ export class UsersController {
   async create(
     @ActiveClientId() clientId: string | undefined,
     @Body() dto: CreateUserDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
   ) {
-    return this.users.create(clientId!, dto);
+    return this.users.create(clientId!, dto, { actorUserId: actorUserId!, meta });
   }
 
   /** PATCH /users/:id — Met à jour firstName, lastName (User) et role, status (ClientUser). */
@@ -49,8 +55,13 @@ export class UsersController {
     @ActiveClientId() clientId: string | undefined,
     @Param('id') userId: string,
     @Body() dto: UpdateUserDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
   ) {
-    return this.users.update(clientId!, userId, dto);
+    return this.users.update(clientId!, userId, dto, {
+      actorUserId: actorUserId!,
+      meta,
+    });
   }
 
   /** DELETE /users/:id — Supprime uniquement le lien ClientUser (pas le User global). */
@@ -59,7 +70,9 @@ export class UsersController {
   async remove(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') userId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
   ): Promise<void> {
-    await this.users.remove(clientId!, userId);
+    await this.users.remove(clientId!, userId, { actorUserId: actorUserId!, meta });
   }
 }

@@ -7,6 +7,11 @@ import {
 import { ClientUserRole, ClientUserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  AuditLogsService,
+  CreateAuditLogInput,
+} from '../audit-logs/audit-logs.service';
+import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { ActiveClientCacheService } from '../../common/cache/active-client-cache.service';
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -31,6 +36,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activeClientCache: ActiveClientCacheService,
+    private readonly auditLogs: AuditLogsService,
   ) {}
 
   private toResponse(
@@ -64,7 +70,11 @@ export class UsersService {
    * @throws ConflictException si déjà rattaché à ce client
    * @throws BadRequestException si nouvel utilisateur sans password (min. 8 car.)
    */
-  async create(clientId: string, dto: CreateUserDto): Promise<UserResponse> {
+  async create(
+    clientId: string,
+    dto: CreateUserDto,
+    context?: { actorUserId: string; meta: RequestMeta },
+  ): Promise<UserResponse> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -98,6 +108,15 @@ export class UsersService {
         include: { user: true },
       });
       await this.activeClientCache.invalidate(existingUser.id, clientId);
+      await this.logUserEvent('user.created', {
+        clientId,
+        targetUserId: existingUser.id,
+        payload: {
+          email: existingUser.email,
+          role: clientUser.role,
+        },
+        context,
+      });
       return this.toResponse(clientUser.user, {
         role: clientUser.role,
         status: clientUser.status,
@@ -128,6 +147,15 @@ export class UsersService {
       },
     });
     await this.activeClientCache.invalidate(user.id, clientId);
+    await this.logUserEvent('user.created', {
+      clientId,
+      targetUserId: user.id,
+      payload: {
+        email: user.email,
+        role: clientUser.role,
+      },
+      context,
+    });
     return this.toResponse(user, {
       role: clientUser.role,
       status: clientUser.status,
@@ -180,6 +208,7 @@ export class UsersService {
     clientId: string,
     userId: string,
     dto: UpdateUserDto,
+    context?: { actorUserId: string; meta: RequestMeta },
   ): Promise<UserResponse> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -243,6 +272,16 @@ export class UsersService {
     if (!updatedUser || !updatedClientUser) {
       throw new NotFoundException('Utilisateur non trouvé');
     }
+    await this.logUserEvent('user.updated', {
+      clientId,
+      targetUserId: updatedUser.id,
+      payload: {
+        email: updatedUser.email,
+        role: updatedClientUser.role,
+        status: updatedClientUser.status,
+      },
+      context,
+    });
     return this.toResponse(updatedUser, {
       role: updatedClientUser.role,
       status: updatedClientUser.status,
@@ -250,7 +289,11 @@ export class UsersService {
   }
 
   /** Supprime le lien ClientUser uniquement (le User global n’est pas supprimé). */
-  async remove(clientId: string, userId: string): Promise<void> {
+  async remove(
+    clientId: string,
+    userId: string,
+    context?: { actorUserId: string; meta: RequestMeta },
+  ): Promise<void> {
     const clientUser = await this.prisma.clientUser.findUnique({
       where: {
         userId_clientId: { userId, clientId },
@@ -279,5 +322,41 @@ export class UsersService {
       where: { id: clientUser.id },
     });
     await this.activeClientCache.invalidate(userId, clientId);
+    await this.logUserEvent('user.deleted', {
+      clientId,
+      targetUserId: userId,
+      payload: {
+        role: clientUser.role,
+        status: clientUser.status,
+      },
+      context,
+    });
+  }
+
+  private async logUserEvent(
+    action: string,
+    params: {
+      clientId: string;
+      targetUserId: string;
+      payload: Record<string, unknown>;
+      context?: { actorUserId: string; meta: RequestMeta };
+    },
+  ): Promise<void> {
+    const { clientId, targetUserId, payload, context } = params;
+    if (!context?.actorUserId) {
+      return;
+    }
+    const input: CreateAuditLogInput = {
+      clientId,
+      userId: context.actorUserId,
+      action,
+      resourceType: 'user',
+      resourceId: targetUserId,
+      newValue: payload,
+      ipAddress: context.meta.ipAddress,
+      userAgent: context.meta.userAgent,
+      requestId: context.meta.requestId,
+    };
+    await this.auditLogs.create(input);
   }
 }

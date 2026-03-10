@@ -64,6 +64,7 @@ async function upsertModulesAndPermissions() {
     { code: 'contracts', name: 'Contrats', description: 'Gestion des contrats' },
     { code: 'suppliers', name: 'Fournisseurs', description: 'Gestion des fournisseurs' },
     { code: 'licenses', name: 'Licences', description: 'Gestion des licences' },
+    { code: 'audit_logs', name: 'Audit logs', description: 'Traçabilité des actions métier' },
   ];
 
   const permsByModule = {
@@ -72,6 +73,7 @@ async function upsertModulesAndPermissions() {
     contracts: ['read', 'create', 'update', 'delete'],
     suppliers: ['read', 'create', 'update', 'delete'],
     licenses: ['read', 'create', 'update', 'delete'],
+    audit_logs: ['read', 'export', 'delete'],
   };
 
   const moduleRecords = {};

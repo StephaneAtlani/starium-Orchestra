@@ -38,6 +38,7 @@ model Client {
   clientUsers   ClientUser[]
   clientModules ClientModule[]
   roles         Role[]
+  auditLogs     AuditLog[]
 }
 
 model User {
@@ -52,6 +53,7 @@ model User {
   clientUsers   ClientUser[]
   userRoles     UserRole[]
   refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
 }
 
 model ClientUser {
@@ -171,4 +173,58 @@ model RefreshToken {
 
   @@index([userId])
   @@index([tokenHash])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  clientId String
+  userId   String?
+
+  action String
+
+  resourceType String
+  resourceId   String?
+
+  oldValue Json?
+  newValue Json?
+
+  ipAddress String?
+  userAgent String?
+  requestId String?
+
+  createdAt DateTime @default(now())
+
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model AuditLogArchive {
+  id String @id
+
+  clientId String
+  userId   String?
+
+  action String
+
+  resourceType String
+  resourceId   String?
+
+  oldValue Json?
+  newValue Json?
+
+  ipAddress String?
+  userAgent String?
+  requestId String?
+
+  createdAt  DateTime
+  archivedAt DateTime @default(now())
+
+  @@index([clientId])
+  @@index([createdAt])
 }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { ClientsController } from './clients.controller';
 import { ClientMembershipService } from './client-membership.service';
 import { ClientsService } from './clients.service';
@@ -9,7 +10,7 @@ import { ClientModulesController } from './client-modules.controller';
 import { ClientModulesService } from './client-modules.service';
 
 @Module({
-  imports: [AuthModule, PrismaModule],
+  imports: [AuthModule, PrismaModule, AuditLogsModule],
   controllers: [ClientsController, ClientModulesController],
   providers: [
     ClientsService,
