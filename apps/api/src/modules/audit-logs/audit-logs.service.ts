@@ -85,31 +85,42 @@ export class AuditLogsService {
         : {}),
     };
 
-    const logs = await (this.prisma as any).auditLog.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
-      select: {
-        id: true,
-        clientId: true,
-        userId: true,
-        action: true,
-        resourceType: true,
-        resourceId: true,
-        oldValue: true,
-        newValue: true,
-        ipAddress: true,
-        userAgent: true,
-        requestId: true,
-        createdAt: true,
-      },
-    });
+    try {
+      const logs = await (this.prisma as any).auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        select: {
+          id: true,
+          clientId: true,
+          userId: true,
+          action: true,
+          resourceType: true,
+          resourceId: true,
+          oldValue: true,
+          newValue: true,
+          ipAddress: true,
+          userAgent: true,
+          requestId: true,
+          createdAt: true,
+        },
+      });
 
-    return logs;
+      return logs;
+    } catch (error) {
+      this.logger.error(
+        `Failed to list audit logs for client "${clientId}": ${
+          (error as Error)?.message ?? error
+        }`,
+      );
+      return [];
+    }
   }
 
-  async listForPlatform(query: ListPlatformAuditLogsQueryDto): Promise<AuditLogItem[]> {
+  async listForPlatform(
+    query: ListPlatformAuditLogsQueryDto,
+  ): Promise<AuditLogItem[]> {
     const limit = query.limit ?? 50;
     const offset = query.offset ?? 0;
 
@@ -128,28 +139,37 @@ export class AuditLogsService {
         : {}),
     };
 
-    const logs = await (this.prisma as any).auditLog.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
-      select: {
-        id: true,
-        clientId: true,
-        userId: true,
-        action: true,
-        resourceType: true,
-        resourceId: true,
-        oldValue: true,
-        newValue: true,
-        ipAddress: true,
-        userAgent: true,
-        requestId: true,
-        createdAt: true,
-      },
-    });
+    try {
+      const logs = await (this.prisma as any).auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        select: {
+          id: true,
+          clientId: true,
+          userId: true,
+          action: true,
+          resourceType: true,
+          resourceId: true,
+          oldValue: true,
+          newValue: true,
+          ipAddress: true,
+          userAgent: true,
+          requestId: true,
+          createdAt: true,
+        },
+      });
 
-    return logs;
+      return logs;
+    } catch (error) {
+      this.logger.error(
+        `Failed to list platform audit logs: ${
+          (error as Error)?.message ?? error
+        }`,
+      );
+      return [];
+    }
   }
 }
 
