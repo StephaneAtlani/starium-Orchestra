@@ -158,21 +158,34 @@ Elle est utilisée pour :
 * éléments actifs
 * indicateurs visuels
 
+## Tokens additionnels
+
+* `--radius` : rayon des bords (ex. 0.75rem)
+* `--shadow-card` : ombre des cartes
+* `--color-hover` : fond au survol / item actif (ex. rgba or)
+
+(Voir FRONTEND_ARCHITECTURE.md §21 pour les valeurs.)
+
 ---
 
-# 5. Layout global (App Shell)
+# 5. Layout global (Board / App Shell)
 
-L’application utilise un **layout cockpit unique**.
+L'application utilise un **layout cockpit unique** (un seul board pour toute l'app). Il ne doit jamais exister plusieurs layouts principaux.
 
-Il ne doit jamais exister plusieurs layouts principaux.
+**Structure visuelle** (conforme FRONTEND_ARCHITECTURE.md) :
 
-Structure :
+* **Menu à gauche** : Sidebar persistante (logo, navigation par sections, profil). Largeur `w-72`, fond noir, texte blanc.
+* **Header en haut** : WorkspaceHeader (titre de page, breadcrumb, client actif, recherche, profil). Fond blanc, bordure basse, sticky.
+* **Contenu au centre** : zone principale (`main`) où les pages rendent leur contenu (via `PageContainer`). Aucun second menu ni layout alternatif.
+
+Structure logique :
 
 ```
 AppShell
  ├ Sidebar
- ├ Header
- └ MainContent
+ ├ WorkspaceArea
+ │   ├ WorkspaceHeader
+ │   └ main (children = PageContainer → PageHeader | TableToolbar | Card → DataTable | contenu)
 ```
 
 ---
@@ -464,6 +477,20 @@ Cette RFC s’applique à :
 * pages utilisateur
 
 Toute nouvelle feature doit respecter ce design system.
+
+---
+
+# 20 bis. Design system obligatoire
+
+Les pages doivent utiliser **exclusivement** :
+
+* `components/ui/*` — composants shadcn
+* `components/layout/*` — PageContainer, PageHeader, TableToolbar
+* `components/feedback/*` — LoadingState, EmptyState, ErrorState
+* `components/data-table/*` — DataTable
+* `components/shell/*` — AppShell, Sidebar, WorkspaceHeader
+
+**HTML brut interdit** pour structurer l'interface. Toute nouvelle page (et tout outil d'aide au code) doit utiliser : PageContainer, PageHeader, Card, DataTable (ou contenu métier adapté), LoadingState, EmptyState, ErrorState.
 
 ---
 

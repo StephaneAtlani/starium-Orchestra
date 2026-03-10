@@ -115,12 +115,29 @@ Conforme à la documentation projet : **Next.js**, **TypeScript**, **Tailwind**,
 * **Next.js App Router**
 * **React**
 * **TypeScript**
-* **Tailwind CSS**
-* **shadcn/ui**
-* **Lucide Icons**
+* **Tailwind CSS v4** (avec **PostCSS** et `@tailwindcss/postcss`)
+* **shadcn/ui** (style base-nova, primitives Base UI)
+* **Lucide Icons** (`lucide-react`)
 * **TanStack Query**
 * **React Hook Form**
 * **Zod**
+
+### Tailwind v4 et PostCSS
+
+* Fichier CSS principal : `src/app/globals.css` avec `@import "tailwindcss";`
+* Configuration : `postcss.config.mjs` avec le plugin `@tailwindcss/postcss` (obligatoire pour que Tailwind compile les utilitaires)
+* Thème : variables CSS dans `:root` et `@theme inline` pour exposer les couleurs au thème Tailwind
+
+### Dépendances UI (shadcn / base-nova)
+
+Les composants shadcn (base-nova) s’appuient sur :
+
+* `@base-ui/react` — primitives (Button, Dialog, Input, Select, Tabs, Tooltip, etc.)
+* `class-variance-authority` — variantes des composants
+* `clsx` et `tailwind-merge` — utilitaire `cn()` pour les classes
+* `lucide-react` — icônes
+
+Ces paquets doivent être déclarés dans `apps/web/package.json`. Ajout de composants via le CLI shadcn : `npx shadcn@latest add <component>`.
 
 ### Pourquoi ces choix
 
@@ -785,12 +802,27 @@ Le frontend doit suivre la palette Starium :
   --color-border-default: #e8e1d1;
   --color-primary: #db9801;
   --color-primary-foreground: #ffffff;
+  --radius: 0.75rem;
+  --shadow-card: 0 18px 30px -15px rgba(0, 0, 0, 0.24);
+  --color-hover: rgba(219, 152, 1, 0.08);
 }
 ```
 
 ### Règle
 
 Aucune couleur métier ne doit être codée en dur dans les composants hors design tokens.
+
+### Design system obligatoire (RFC-014-1)
+
+Les pages doivent utiliser **uniquement** les composants des dossiers suivants :
+
+* `components/ui/*` — composants shadcn
+* `components/layout/*` — PageContainer, PageHeader, TableToolbar
+* `components/feedback/*` — LoadingState, EmptyState, ErrorState
+* `components/data-table/*` — DataTable
+* `components/shell/*` — AppShell, Sidebar, WorkspaceHeader
+
+**HTML brut interdit** pour structurer l’interface. Toute nouvelle page doit suivre le pattern : PageContainer → PageHeader → TableToolbar → Card → DataTable (ou contenu métier) + gestion des états loading / empty / error.
 
 ---
 
