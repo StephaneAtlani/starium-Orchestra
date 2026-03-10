@@ -1,4 +1,5 @@
 import type { HealthResponse } from '@starium-orchestra/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 async function fetchHealth(): Promise<HealthResponse | null> {
   const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -16,29 +17,41 @@ async function fetchHealth(): Promise<HealthResponse | null> {
 export default async function Home() {
   const health = await fetchHealth();
   return (
-    <main className="min-h-screen p-8">
-      <h1 className="text-2xl font-semibold">Starium Orchestra</h1>
-      <p className="mt-2 text-neutral-400">Plateforme de pilotage opérationnel</p>
-      <section className="mt-8 rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
-        <h2 className="text-sm font-medium text-neutral-300">État de l’API</h2>
-        {health ? (
-          <ul className="mt-2 space-y-1 text-sm">
-            <li>
-              Statut : <span className="text-emerald-400">{health.status}</span>
-            </li>
-            {health.database && (
-              <li>
-                Base : <span className="text-emerald-400">{health.database}</span>
-              </li>
+    <main className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">
+            Starium Orchestra
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Plateforme de pilotage opérationnel
+          </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">État de l’API</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {health ? (
+              <ul className="space-y-1 text-sm">
+                <li>
+                  Statut : <span className="text-primary font-medium">{health.status}</span>
+                </li>
+                {health.database && (
+                  <li>
+                    Base : <span className="text-primary font-medium">{health.database}</span>
+                  </li>
+                )}
+                {health.timestamp && (
+                  <li className="text-muted-foreground">{health.timestamp}</li>
+                )}
+              </ul>
+            ) : (
+              <p className="text-sm text-destructive">API non joignable</p>
             )}
-            {health.timestamp && (
-              <li className="text-neutral-500">{health.timestamp}</li>
-            )}
-          </ul>
-        ) : (
-          <p className="mt-2 text-sm text-amber-500">API non joignable</p>
-        )}
-      </section>
+          </CardContent>
+        </Card>
+      </div>
     </main>
   );
 }

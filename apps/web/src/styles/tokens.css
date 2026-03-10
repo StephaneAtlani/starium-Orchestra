@@ -1,0 +1,24 @@
+:root {
+  /* Fond / surfaces */
+  --color-bg-app: #f8f6f1;
+  --color-bg-card: #ffffff;
+  --color-bg-sidebar: #1b1b1b;
+
+  /* Texte */
+  --color-text-primary: #1b1b1b;
+  --color-text-inverse: #ffffff;
+  --color-text-muted: #6b7280;
+
+  /* Bordures */
+  --color-border-default: #e8e1d1;
+
+  /* Couleur principale Starium */
+  --color-primary: #db9801;
+  --color-primary-foreground: #ffffff;
+
+  /* Tokens génériques */
+  --radius: 0.75rem;
+  --shadow-card: 0 18px 30px -15px rgba(0, 0, 0, 0.24);
+  --color-hover: rgba(219, 152, 1, 0.08);
+}
+

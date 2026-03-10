@@ -1,9 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useCreateClientMutation } from '../hooks/use-clients-query';
 
 export function CreateClientDialog() {
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -25,39 +37,56 @@ export function CreateClientDialog() {
       await mutateAsync({ name, slug: finalSlug });
       setName('');
       setSlug('');
+      setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-2">
-      <div className="flex gap-2">
-        <input
-          type="text"
-          placeholder="Nom du client"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="flex-1 rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm"
-          required
-        />
-        <input
-          type="text"
-          placeholder="slug"
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-          className="w-56 rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm"
-        />
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded bg-amber-600 px-3 py-1 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {isPending ? 'Création…' : 'Créer'}
-        </button>
-      </div>
-      {error && <div className="text-sm text-red-400">{error}</div>}
-    </form>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button>Créer un client</Button>} />
+      <DialogContent showCloseButton className="sm:max-w-md">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Créer un client</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="client-name">Nom du client</Label>
+              <Input
+                id="client-name"
+                placeholder="Nom du client"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="client-slug">Slug (optionnel)</Label>
+              <Input
+                id="client-slug"
+                placeholder="slug"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+              />
+            </div>
+            {error && (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+          </div>
+          <DialogFooter showCloseButton={false}>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? 'Création…' : 'Créer'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
-
