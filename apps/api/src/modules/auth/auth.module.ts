@@ -10,6 +10,7 @@ import {
   parseExpiration,
 } from './auth.constants';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { SecurityLogsService } from '../security-logs/security-logs.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -39,6 +40,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     AuthService,
     JwtStrategy,
     JwtAuthGuard,
+    SecurityLogsService,
     {
       provide: JWT_ACCESS_EXPIRATION,
       useFactory: (config: ConfigService) =>

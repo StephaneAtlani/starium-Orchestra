@@ -54,6 +54,7 @@ model User {
   userRoles     UserRole[]
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
+  securityLogs  SecurityLog[]
 }
 
 model ClientUser {
@@ -230,4 +231,28 @@ model AuditLogArchive {
   @@index([action])
   @@index([createdAt])
   @@index([resourceType])
+}
+
+model SecurityLog {
+  id String @id @default(cuid())
+
+  event String
+
+  userId String?
+  email  String?
+
+  success Boolean
+  reason  String?
+
+  ipAddress String?
+  userAgent String?
+  requestId String?
+
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([event])
+  @@index([userId])
+  @@index([createdAt])
 }

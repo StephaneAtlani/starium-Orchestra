@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { CommonModule } from './common/common.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ClientsModule } from './modules/clients/clients.module';
@@ -10,6 +11,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { RbacTestModule } from './modules/rbac-test/rbac-test.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
+import { SecurityLogsModule } from './modules/security-logs/security-logs.module';
 
 @Module({
   imports: [
@@ -17,6 +19,7 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
       isGlobal: true,
       envFilePath: ['.env', 'apps/api/.env'],
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     CommonModule,
     HealthModule,
@@ -27,6 +30,7 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
     RolesModule,
     RbacTestModule,
     AuditLogsModule,
+    SecurityLogsModule,
   ],
 })
 export class AppModule {}
