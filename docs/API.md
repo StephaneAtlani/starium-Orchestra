@@ -392,6 +392,19 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 
 ---
 
+## 5.1 RBAC métier — décorateur et conventions
+
+Les endpoints “métier” (scopés client) utilisent :
+
+- `@UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)`
+- `@RequirePermissions('<module>.<action>', ...)`
+
+Règles :
+
+- **Stratégie AND** : toutes les permissions listées sont requises.
+- **Un seul module par route** : ne jamais mélanger `budgets.*` et `contracts.*` sur le même handler.\n  - Raison : `ModuleAccessGuard` déduit le module depuis la 1ère permission et doit rester non ambigu.
+- **`CLIENT_ADMIN` n’implique pas “toutes les permissions métier”** : l’administration du client passe par `ClientAdminGuard`, les permissions métier restent RBAC.
+
 ## 6. Gestion des utilisateurs globaux — `/api/platform/users`
 
 Routes **réservées au Platform Admin**.
@@ -816,6 +829,11 @@ Endpoint technique permettant de valider la chaîne :
 ### GET /api/test-rbac
 
 Nécessite la permission `budgets.read` dans le client actif.
+
+Notes :
+
+- Le check permission est **dynamique** (DB) : `UserRole → RolePermission → Permission` filtré sur le client actif.\n  - Pas de liste statique en dur dans le code.
+- `PermissionsGuard` utilise un **cache request** (`request.resolvedPermissionCodes?: Set<string>`) pour ne résoudre les permissions qu’une seule fois par requête.
 
 **Headers**
 

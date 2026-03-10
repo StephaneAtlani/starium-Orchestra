@@ -68,14 +68,30 @@ Conventions de nommage des dossiers : kebab-case pour les dossiers frontend si p
 - **Controllers** : uniquement HTTP (params, body, query, réponses). Aucune logique métier ni accès DB direct.
 - **Services** : logique métier, validation du scope client, appels Prisma. Réutilisables entre endpoints et éventuels jobs.
 - **DTOs** : entrées/sorties typées avec `class-validator` sur tous les écritures.
-- **Guards** : `JwtAuthGuard`, `RolesGuard`, et garde dédiée au contexte client (vérification que le `clientId` cible appartient à l’utilisateur).
+- **Guards** : `JwtAuthGuard`, guard de contexte client (`ActiveClientGuard`), contrôle d’accès module (`ModuleAccessGuard`) et RBAC permissions (`PermissionsGuard`). Les guards “admin” (ex. `ClientAdminGuard`, `PlatformAdminGuard`) restent des couches dédiées selon le type de route.
 - **Prisma** : unique point d’accès données ; pas de SQL brut sauf exception documentée.
 
 ### 2.3 Points d’entrée globaux
 
 - Préfixe API : `/api` (ou `/api/v1` si versionnement).
 - CORS, helmet, rate limiting configurés au niveau application.
-- Pipeline : Auth → Client context → RBAC → Controller → Service → Prisma.
+- Pipeline (routes métier) : **Auth → Client context → Module access → RBAC permissions → Controller → Service → Prisma**.
+
+Détail (routes métier scopées client) :
+
+```
+JwtAuthGuard
+→ ActiveClientGuard (header X-Client-Id + ClientUser ACTIVE)
+→ ModuleAccessGuard (Module.isActive + ClientModule ENABLED)
+→ PermissionsGuard (UserRole → RolePermission → Permission)
+→ Controller
+→ Service
+→ Prisma (toujours filtré par clientId)
+```
+
+Optimisation perf (RFC-012) :
+
+- `PermissionsGuard` peut mettre en cache les permissions résolues **dans la requête** via `request.resolvedPermissionCodes?: Set<string>` (évite de recharger plusieurs fois dans la même requête).
 
 ### 2.4 Configuration
 

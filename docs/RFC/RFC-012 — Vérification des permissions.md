@@ -333,6 +333,12 @@ Si permission absente :
 403 Forbidden
 ```
 
+Notes d’implémentation (code actuel `apps/api/src/common/guards/permissions.guard.ts`) :
+
+- `CLIENT_ADMIN` **ne bypass pas** les permissions métier.\n  - `CLIENT_ADMIN` reste un rôle d’administration **du client** (utilisateurs/rôles/affectations) via `ClientAdminGuard`, mais n’accorde pas `budgets.*`, `projects.*`, etc.
+- Stratégie **AND** appliquée : toutes les permissions listées dans `@RequirePermissions(...)` doivent être présentes.
+- Règle de cohérence : une route protégée doit référencer des permissions d’**un seul module**.\n  - Exemple interdit : `@RequirePermissions('budgets.read', 'contracts.read')`.\n  - Raison : `ModuleAccessGuard` déduit le module à partir de la 1ère permission et doit rester non ambigu.
+
 ---
 
 # 8. Ordre d’exécution des guards
@@ -435,8 +441,12 @@ sont chargées une seule fois.
 Stockage :
 
 ```
-request.permissions
+request.resolvedPermissionCodes
 ```
+
+Forme recommandée :
+
+- `resolvedPermissionCodes?: Set<string>`\n  - test d’appartenance \(O(1)\), pas de doublons, pas d’ambiguïté.
 
 ---
 

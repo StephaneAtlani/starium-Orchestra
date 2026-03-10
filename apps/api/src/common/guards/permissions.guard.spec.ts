@@ -1,5 +1,4 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { ClientUserRole } from '@prisma/client';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestWithClient } from '../types/request-with-client';
@@ -37,30 +36,12 @@ describe('PermissionsGuard', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('court-circuite pour un CLIENT_ADMIN', async () => {
-    const req: Partial<RequestWithClient> = {
-      user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: ClientUserRole.CLIENT_ADMIN,
-        status: null as any,
-      },
-    };
-
-    (reflector.get as jest.Mock).mockReturnValueOnce(['budgets.read']);
-
-    await expect(
-      guard.canActivate(createExecutionContext(req)),
-    ).resolves.toBe(true);
-    expect(prisma.userRole.findMany).not.toHaveBeenCalled();
-  });
-
   it('refuse si permission requise manquante', async () => {
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
       activeClient: {
         id: 'client-1',
-        role: ClientUserRole.CLIENT_USER,
+        role: null as any,
         status: null as any,
       },
     };
@@ -78,7 +59,7 @@ describe('PermissionsGuard', () => {
       user: { userId: 'user-1' },
       activeClient: {
         id: 'client-1',
-        role: ClientUserRole.CLIENT_USER,
+        role: null as any,
         status: null as any,
       },
     };
@@ -97,6 +78,91 @@ describe('PermissionsGuard', () => {
     await expect(
       guard.canActivate(createExecutionContext(req)),
     ).resolves.toBe(true);
+  });
+
+  it('applique une stratégie AND sur plusieurs permissions', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: {
+        id: 'client-1',
+        role: null as any,
+        status: null as any,
+      },
+    };
+
+    (reflector.get as jest.Mock).mockReturnValueOnce([
+      'budgets.read',
+      'budgets.update',
+    ]);
+
+    prisma.userRole.findMany.mockResolvedValue([
+      {
+        role: {
+          rolePermissions: [
+            { permission: { code: 'budgets.read' } },
+            { permission: { code: 'budgets.update' } },
+          ],
+        },
+      },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).resolves.toBe(true);
+  });
+
+  it('utilise le cache request (ne relance pas Prisma)', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: {
+        id: 'client-1',
+        role: null as any,
+        status: null as any,
+      },
+    };
+
+    // même contexte deux fois
+    (reflector.get as jest.Mock)
+      .mockReturnValueOnce(['budgets.read'])
+      .mockReturnValueOnce(['budgets.read']);
+
+    prisma.userRole.findMany.mockResolvedValue([
+      {
+        role: {
+          rolePermissions: [{ permission: { code: 'budgets.read' } }],
+        },
+      },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).resolves.toBe(true);
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).resolves.toBe(true);
+
+    expect(prisma.userRole.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuse si les permissions requises couvrent plusieurs modules', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: {
+        id: 'client-1',
+        role: null as any,
+        status: null as any,
+      },
+    };
+
+    (reflector.get as jest.Mock).mockReturnValueOnce([
+      'budgets.read',
+      'contracts.read',
+    ]);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.userRole.findMany).not.toHaveBeenCalled();
   });
 });
 
