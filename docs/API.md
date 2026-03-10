@@ -388,6 +388,7 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 | /api/permissions  | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
 | /api/clients      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
 | /api/modules      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
+| /api/audit-logs   | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 | /api/test-rbac    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 
 ---
@@ -852,8 +853,98 @@ Notes :
 
 - 401 : non authentifié
 - 403 : client invalide / module budgets désactivé / permission manquante
+---
 
-Routes **réservées au Platform Admin** pour rattacher/détacher des utilisateurs à un client.
+## 14. Audit logs — `/api/audit-logs`, `/api/platform/audit-logs`
+
+### 14.1 GET /api/audit-logs — consultation des logs du client actif
+
+Traçabilité des actions sensibles dans le **client actif**.  
+Routes protégées par :
+
+- `JwtAuthGuard`
+- `ActiveClientGuard`
+- `ModuleAccessGuard`
+- `PermissionsGuard` avec `@RequirePermissions("audit_logs.read")`
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+- `X-Client-Id: <clientId>`
+
+**Query params (tous optionnels)**
+
+| Champ        | Type   | Description                                          |
+|--------------|--------|------------------------------------------------------|
+| `resourceType` | string | Type de ressource (ex. `user`, `client`, `module`)  |
+| `action`     | string | Code d’action `<resource>.<action>` (ex. `user.created`) |
+| `userId`     | string | Filtre sur l’utilisateur initiateur                  |
+| `dateFrom`   | string (ISO) | Date de début (inclus)                        |
+| `dateTo`     | string (ISO) | Date de fin (inclus)                          |
+| `offset`     | number | Décalage de pagination (par défaut 0)               |
+| `limit`      | number | Taille de page (par défaut 50, max 200)             |
+
+**Réponse 200**
+
+```json
+[
+  {
+    "id": "log_001",
+    "clientId": "clxxx...",
+    "userId": "usr_001",
+    "action": "module.enabled",
+    "resourceType": "module",
+    "resourceId": "budgets",
+    "oldValue": null,
+    "newValue": { "status": "ENABLED" },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "PostmanRuntime/7.37.0",
+    "requestId": "4f6a0ca5-1c0b-4c7c-bfa3-7e1f3a5b28c1",
+    "createdAt": "2026-03-10T08:30:00.000Z"
+  }
+]
+```
+
+Règles :
+
+- `clientId` est toujours celui du **client actif** (isolation stricte).
+- `userId` peut être `null` pour des actions système ou jobs.
+- `oldValue` / `newValue` ne contiennent **jamais** de données sensibles (`passwordHash`, tokens…).
+
+**Erreurs :** 401, 403 (client invalide, module `audit_logs` désactivé, permission manquante).
+
+---
+
+### 14.1 GET /api/platform/audit-logs — consultation globale (plateforme)
+
+Consultation des logs métier **tous clients** pour le Platform Admin.
+
+**Guards**
+
+- `JwtAuthGuard`
+- `PlatformAdminGuard`
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Query params**
+
+Identiques à `/api/audit-logs`, avec en plus :
+
+| Champ      | Type   | Description                          |
+|------------|--------|--------------------------------------|
+| `clientId` | string | Filtre sur un client particulier     |
+
+**Réponse 200**
+
+Même format que `/api/audit-logs`, mais potentiellement sur plusieurs clients.
+
+**Erreurs :** 401, 403 (non Platform Admin).
+
+---
+
+Routes suivantes **réservées au Platform Admin** pour rattacher/détacher des utilisateurs à un client.
 
 ### POST /api/clients/:clientId/users
 

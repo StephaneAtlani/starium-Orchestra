@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ListAuditLogsQueryDto } from './dto/list-audit-logs.query.dto';
 import { ListPlatformAuditLogsQueryDto } from './dto/list-platform-audit-logs.query.dto';
@@ -33,23 +33,33 @@ export interface AuditLogItem {
 
 @Injectable()
 export class AuditLogsService {
+  private readonly logger = new Logger(AuditLogsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(input: CreateAuditLogInput): Promise<void> {
-    await (this.prisma as any).auditLog.create({
-      data: {
-        clientId: input.clientId,
-        userId: input.userId ?? null,
-        action: input.action,
-        resourceType: input.resourceType,
-        resourceId: input.resourceId ?? null,
-        oldValue: input.oldValue ?? null,
-        newValue: input.newValue ?? null,
-        ipAddress: input.ipAddress ?? null,
-        userAgent: input.userAgent ?? null,
-        requestId: input.requestId ?? null,
-      },
-    });
+    try {
+      await (this.prisma as any).auditLog.create({
+        data: {
+          clientId: input.clientId,
+          userId: input.userId ?? null,
+          action: input.action,
+          resourceType: input.resourceType,
+          resourceId: input.resourceId ?? null,
+          oldValue: input.oldValue ?? null,
+          newValue: input.newValue ?? null,
+          ipAddress: input.ipAddress ?? null,
+          userAgent: input.userAgent ?? null,
+          requestId: input.requestId ?? null,
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to write audit log "${input.action}" for client "${input.clientId}": ${
+          (error as Error)?.message ?? error
+        }`,
+      );
+    }
   }
 
   async listForClient(params: {

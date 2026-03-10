@@ -2,7 +2,7 @@
 
 ## Statut
 
-À implémenter
+Implémenté (backend API + Prisma + archivage planifié)
 
 ## Priorité
 
@@ -172,28 +172,35 @@ license.deleted
 
 ## Table AuditLog
 
+Modèle final implémenté dans `apps/api/prisma/schema.prisma` :
+
 ```prisma
 model AuditLog {
-  id           String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  clientId     String?
-  userId       String?
+  clientId String
+  userId   String?
 
-  action       String
+  action String
 
   resourceType String
   resourceId   String?
 
-  oldValue     Json?
-  newValue     Json?
+  oldValue Json?
+  newValue Json?
 
-  createdAt    DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+  requestId String?
 
-  user   User?   @relation(fields: [userId], references: [id])
-  client Client? @relation(fields: [clientId], references: [id])
+  createdAt DateTime @default(now())
+
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
   @@index([userId])
+  @@index([action])
   @@index([resourceType])
   @@index([createdAt])
 }
@@ -298,21 +305,23 @@ await this.auditLogsService.create({
 
 # 11. API
 
-## Consultation des logs
+## Consultation des logs (client actif)
 
 ```
 GET /api/audit-logs
 ```
 
-Guards :
+Guards (RFC-010 + RFC-011 + RFC-012) :
 
 ```
 JwtAuthGuard
 ActiveClientGuard
-ClientAdminGuard
+ModuleAccessGuard
+PermissionsGuard
 ```
 
-Un utilisateur peut consulter uniquement les logs du **client actif**.
+La route utilise `@RequirePermissions("audit_logs.read")`.  
+Tout utilisateur du **client actif** possédant cette permission peut consulter les logs du **client actif** uniquement (filtre systématique sur `clientId` issu du contexte).
 
 ---
 
@@ -370,24 +379,34 @@ archivage dans AuditLogArchive
 
 ## Table archive
 
+Modèle implémenté (mêmes champs métier/forensic + indexes pour requêtes d’archive) :
+
 ```prisma
 model AuditLogArchive {
-  id           String   @id
+  id String @id
 
-  clientId     String?
-  userId       String?
+  clientId String
+  userId   String?
 
-  action       String
+  action String
+
   resourceType String
   resourceId   String?
 
-  oldValue     Json?
-  newValue     Json?
+  oldValue Json?
+  newValue Json?
 
-  createdAt    DateTime
-  archivedAt   DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+  requestId String?
+
+  createdAt  DateTime
+  archivedAt DateTime @default(now())
 
   @@index([clientId])
+  @@index([userId])
+  @@index([action])
+  @@index([resourceType])
   @@index([createdAt])
 }
 ```
@@ -424,27 +443,28 @@ Processus :
 Backend :
 
 ```
-[ ] ajouter modèle Prisma AuditLog
-[ ] ajouter modèle AuditLogArchive
-[ ] migration Prisma
-[ ] créer module audit-logs
-[ ] créer AuditLogsService
-[ ] intégrer audit dans services métier
+[x] ajouter modèle Prisma AuditLog
+[x] ajouter modèle AuditLogArchive
+[x] migration Prisma
+[x] créer module audit-logs
+[x] créer AuditLogsService
+[x] intégrer audit dans services métier
 ```
 
 API :
 
 ```
-[ ] GET /api/audit-logs
+[x] GET /api/audit-logs
+[x] GET /api/platform/audit-logs
 ```
 
 Tests :
 
 ```
-[ ] création audit log
-[ ] modification audit log
-[ ] suppression audit log
-[ ] isolation client
+[x] création audit log
+[x] modification audit log
+[x] suppression audit log
+[x] isolation client
 ```
 
 ---
