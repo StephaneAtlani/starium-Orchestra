@@ -7,6 +7,15 @@ import { JWT_ACCESS_EXPIRATION, JWT_REFRESH_EXPIRATION } from './auth.constants'
 import { SecurityLogsService } from '../security-logs/security-logs.service';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 
+jest.mock('bcrypt', () => {
+  const actual = jest.requireActual('bcrypt');
+  return {
+    __esModule: true,
+    ...actual,
+    compare: jest.fn(),
+  };
+});
+
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: PrismaService;
@@ -71,7 +80,7 @@ describe('AuthService', () => {
         email: 'test@example.com',
         passwordHash: 'hash',
       } as any);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as any);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true as any);
       jest.spyOn(prisma.refreshToken, 'create').mockResolvedValue({} as any);
 
       await service.login('test@example.com', 'password', meta);
@@ -176,5 +185,5 @@ describe('AuthService', () => {
       );
     });
   });
-}
+});
 

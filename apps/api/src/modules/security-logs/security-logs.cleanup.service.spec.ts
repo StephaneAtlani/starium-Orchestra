@@ -43,5 +43,5 @@ describe('SecurityLogsCleanupService', () => {
 
     dateNowSpy.mockRestore();
   });
-}
+});
 
