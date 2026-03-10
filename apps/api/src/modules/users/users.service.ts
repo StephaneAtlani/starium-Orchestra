@@ -27,6 +27,17 @@ export interface UserResponse {
   status: ClientUserStatus;
 }
 
+/** Résumé utilisateur global exposé par les endpoints plateforme (sans passwordHash). */
+export interface PlatformUserSummary {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  platformRole: string | null;
+}
+
 /**
  * Service de gestion des utilisateurs dans le contexte d’un client (RFC-008).
  * Toutes les opérations sont scopées au clientId fourni.
@@ -198,6 +209,26 @@ export class UsersService {
       },
     });
     return user;
+  }
+
+  /**
+   * Liste des utilisateurs globaux (scope plateforme).
+   * Triés par createdAt desc, sans exposer passwordHash.
+   */
+  async listPlatformUsers(): Promise<PlatformUserSummary[]> {
+    const users = await this.prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+        updatedAt: true,
+        platformRole: true,
+      },
+    });
+    return users;
   }
 
   /**

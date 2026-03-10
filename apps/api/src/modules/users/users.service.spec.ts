@@ -48,7 +48,12 @@ describe('UsersService', () => {
         {
           provide: PrismaService,
           useValue: {
-            user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+            user: {
+              findUnique: jest.fn(),
+              findMany: jest.fn(),
+              create: jest.fn(),
+              update: jest.fn(),
+            },
             clientUser: {
               findMany: jest.fn(),
               findUnique: jest.fn(),
@@ -98,6 +103,41 @@ describe('UsersService', () => {
       expect(result[0].id).toBe(mockUser.id);
       expect(result[0].email).toBe(mockUser.email);
       expect(result[0].role).toBe(ClientUserRole.CLIENT_ADMIN);
+    });
+  });
+
+  describe('listPlatformUsers', () => {
+    it('should delegate to prisma.user.findMany with correct select and order', async () => {
+      const users = [
+        {
+          id: 'user-1',
+          email: 'a@test.fr',
+          firstName: 'A',
+          lastName: 'User',
+          createdAt: new Date('2024-01-02'),
+          updatedAt: new Date('2024-01-03'),
+          platformRole: null,
+        },
+      ];
+      (prisma.user.findMany as jest.Mock).mockResolvedValue(users);
+
+      const result = await service.listPlatformUsers();
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          createdAt: true,
+          updatedAt: true,
+          platformRole: true,
+        },
+      });
+      expect(result).toEqual(users);
+      // passwordHash ne doit jamais être exposé
+      expect((result[0] as any).passwordHash).toBeUndefined();
     });
   });
 
