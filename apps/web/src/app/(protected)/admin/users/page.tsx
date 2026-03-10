@@ -1,3 +1,5 @@
+"use client";
+
 import { PlatformUsersTable } from '../../../../features/admin-studio/components/platform-users-table';
 import { usePlatformUsersQuery } from '../../../../features/admin-studio/hooks/use-platform-users-query';
 

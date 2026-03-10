@@ -1,6 +1,6 @@
 import type { AdminClientSummary } from '../types/admin-studio.types';
 
-interface CreateClientPayload {
+export interface CreateClientPayload {
   name: string;
   slug: string;
 }

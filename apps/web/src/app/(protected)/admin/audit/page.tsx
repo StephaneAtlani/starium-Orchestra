@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { PlatformAuditLogsTable } from '../../../../features/admin-studio/components/platform-audit-logs-table';
 import {

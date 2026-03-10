@@ -1,3 +1,5 @@
+"use client";
+
 import { ClientsTable } from '../../../../features/admin-studio/components/clients-table';
 import { CreateClientDialog } from '../../../../features/admin-studio/components/create-client-dialog';
 import { useClientsQuery } from '../../../../features/admin-studio/hooks/use-clients-query';
