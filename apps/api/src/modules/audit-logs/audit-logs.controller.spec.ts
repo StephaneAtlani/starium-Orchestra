@@ -13,5 +13,5 @@ describe('AuditLogsController', () => {
     const required = Reflect.getMetadata(REQUIRE_PERMISSIONS_KEY, handler);
     expect(required).toEqual(['audit_logs.read']);
   });
-}
+});
 

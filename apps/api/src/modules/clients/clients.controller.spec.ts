@@ -71,7 +71,10 @@ describe('ClientsController', () => {
         adminEmail: 'admin@test.fr',
       };
       const result = await controller.create(dto);
-      expect(service.create).toHaveBeenCalledWith(dto);
+      expect(service.create).toHaveBeenCalledWith(dto, {
+        actorUserId: undefined,
+        meta: undefined,
+      });
       expect(result).toEqual(mockClientResponse);
     });
   });
@@ -85,9 +88,16 @@ describe('ClientsController', () => {
       const result = await controller.update(mockClientResponse.id, {
         name: 'Updated',
       });
-      expect(service.update).toHaveBeenCalledWith(mockClientResponse.id, {
-        name: 'Updated',
-      });
+      expect(service.update).toHaveBeenCalledWith(
+        mockClientResponse.id,
+        {
+          name: 'Updated',
+        },
+        {
+          actorUserId: undefined,
+          meta: undefined,
+        },
+      );
       expect(result.name).toBe('Updated');
     });
   });

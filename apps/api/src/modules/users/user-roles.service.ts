@@ -134,8 +134,6 @@ export class UserRolesService {
       );
     }
   }
-}
-
   private async logUserRolesEvent(params: {
     clientId: string;
     userId: string;
@@ -159,4 +157,5 @@ export class UserRolesService {
     };
     await this.auditLogs.create(input);
   }
+}
 

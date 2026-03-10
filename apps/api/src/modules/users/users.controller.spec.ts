@@ -74,7 +74,10 @@ describe('UsersController', () => {
         password: 'password12',
       };
       const result = await controller.create(clientId, dto);
-      expect(service.create).toHaveBeenCalledWith(clientId, dto);
+      expect(service.create).toHaveBeenCalledWith(clientId, dto, {
+        actorUserId: undefined,
+        meta: undefined,
+      });
       expect(result).toEqual(mockUserResponse);
     });
   });
@@ -85,12 +88,24 @@ describe('UsersController', () => {
         ...mockUserResponse,
         firstName: 'Updated',
       });
-      const result = await controller.update(clientId, mockUserResponse.id, {
-        firstName: 'Updated',
-      });
-      expect(service.update).toHaveBeenCalledWith(clientId, mockUserResponse.id, {
-        firstName: 'Updated',
-      });
+      const result = await controller.update(
+        clientId,
+        mockUserResponse.id,
+        {
+          firstName: 'Updated',
+        },
+      );
+      expect(service.update).toHaveBeenCalledWith(
+        clientId,
+        mockUserResponse.id,
+        {
+          firstName: 'Updated',
+        },
+        {
+          actorUserId: undefined,
+          meta: undefined,
+        },
+      );
       expect(result.firstName).toBe('Updated');
     });
   });
@@ -99,7 +114,14 @@ describe('UsersController', () => {
     it('should call remove and return void', async () => {
       (service.remove as jest.Mock).mockResolvedValue(undefined);
       await controller.remove(clientId, mockUserResponse.id);
-      expect(service.remove).toHaveBeenCalledWith(clientId, mockUserResponse.id);
+      expect(service.remove).toHaveBeenCalledWith(
+        clientId,
+        mockUserResponse.id,
+        {
+          actorUserId: undefined,
+          meta: undefined,
+        },
+      );
     });
   });
 });

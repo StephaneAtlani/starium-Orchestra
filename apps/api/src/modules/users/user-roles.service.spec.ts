@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { ClientUserStatus } from '@prisma/client';
 import { UserRolesService } from './user-roles.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 describe('UserRolesService', () => {
   let service: UserRolesService;
@@ -28,7 +29,11 @@ describe('UserRolesService', () => {
       $transaction: jest.fn(),
     };
 
-    service = new UserRolesService(prisma);
+    const auditLogs: Partial<AuditLogsService> = {
+      create: jest.fn(),
+    };
+
+    service = new UserRolesService(prisma, auditLogs as AuditLogsService);
   });
 
   it('should be defined', () => {

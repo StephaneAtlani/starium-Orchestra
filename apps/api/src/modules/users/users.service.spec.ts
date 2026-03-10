@@ -8,6 +8,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ActiveClientCacheService } from '../../common/cache/active-client-cache.service';
 import { UsersService } from './users.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -61,6 +62,12 @@ describe('UsersService', () => {
         {
           provide: ActiveClientCacheService,
           useValue: activeClientCacheMock,
+        },
+        {
+          provide: AuditLogsService,
+          useValue: {
+            create: jest.fn(),
+          },
         },
       ],
     }).compile();

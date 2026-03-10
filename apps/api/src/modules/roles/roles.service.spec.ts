@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 describe('RolesService', () => {
   let service: RolesService;
@@ -36,7 +37,11 @@ describe('RolesService', () => {
       $transaction: jest.fn(),
     };
 
-    service = new RolesService(prisma);
+    const auditLogs: Partial<AuditLogsService> = {
+      create: jest.fn(),
+    };
+
+    service = new RolesService(prisma, auditLogs as AuditLogsService);
   });
 
   it('should be defined', () => {

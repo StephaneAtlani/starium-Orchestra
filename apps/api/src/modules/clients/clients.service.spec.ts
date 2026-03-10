@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClientsService } from './clients.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 describe('ClientsService', () => {
   let service: ClientsService;
@@ -29,6 +30,12 @@ describe('ClientsService', () => {
               update: jest.fn(),
               delete: jest.fn(),
             },
+          },
+        },
+        {
+          provide: AuditLogsService,
+          useValue: {
+            create: jest.fn(),
           },
         },
       ],

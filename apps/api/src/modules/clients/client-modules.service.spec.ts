@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ClientModulesService } from './client-modules.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 describe('ClientModulesService', () => {
   let service: ClientModulesService;
@@ -21,7 +22,11 @@ describe('ClientModulesService', () => {
       },
     };
 
-    service = new ClientModulesService(prisma);
+    const auditLogs: Partial<AuditLogsService> = {
+      create: jest.fn(),
+    };
+
+    service = new ClientModulesService(prisma, auditLogs as AuditLogsService);
   });
 
   it('should be defined', () => {
