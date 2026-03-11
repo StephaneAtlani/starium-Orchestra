@@ -4,10 +4,14 @@ import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { TableToolbar } from '@/components/layout/table-toolbar';
 import { Card, CardContent } from '@/components/ui/card';
-import { DataTable, type DataTableColumn } from '@/components/data-table/data-table';
+import {
+  DataTable,
+  type DataTableColumn,
+} from '@/components/data-table/data-table';
 import { usePlatformUsersQuery } from '../../../../features/admin-studio/hooks/use-platform-users-query';
 import type { AdminPlatformUserSummary } from '../../../../features/admin-studio/types/admin-studio.types';
 import { ManageUserClientsDialog } from '../../../../features/admin-studio/components/manage-user-clients-dialog';
+import { ChangeUserPasswordDialog } from '../../../../features/admin-studio/components/change-user-password-dialog';
 
 const columns: DataTableColumn<AdminPlatformUserSummary>[] = [
   { key: 'email', header: 'Email' },
@@ -28,12 +32,16 @@ const columns: DataTableColumn<AdminPlatformUserSummary>[] = [
     className: 'text-muted-foreground',
   },
   {
-    key: 'clients',
-    header: 'Clients',
-    cell: (row) =>
-      row.platformRole === 'PLATFORM_ADMIN' ? null : (
-        <ManageUserClientsDialog user={row} />
-      ),
+    key: 'actions',
+    header: 'Actions',
+    cell: (row) => (
+      <div className="flex items-center justify-end gap-1.5">
+        {row.platformRole !== 'PLATFORM_ADMIN' && (
+          <ManageUserClientsDialog user={row} />
+        )}
+        <ChangeUserPasswordDialog user={row} />
+      </div>
+    ),
     className: 'text-right',
   },
 ];

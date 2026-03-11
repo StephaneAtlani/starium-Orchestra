@@ -20,7 +20,7 @@ import type {
 import { useUpdateClientMutation } from '../hooks/use-clients-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { getClientUsers } from '../api/get-client-users';
-import { XIcon } from 'lucide-react';
+import { PencilIcon, XIcon } from 'lucide-react';
 
 function slugify(input: string): string {
   return input
@@ -123,8 +123,13 @@ export function EditClientDialog({ client }: { client: AdminClientSummary }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="outline" size="sm">
-            Modifier
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Modifier le client"
+          >
+            <PencilIcon className="size-4" />
           </Button>
         }
       />

@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { PencilIcon } from 'lucide-react';
 
 type ClientRole = 'CLIENT_ADMIN' | 'CLIENT_USER';
 
@@ -168,8 +169,13 @@ export function ManageUserClientsDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="outline" size="sm">
-            Clients
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Gérer les clients de cet utilisateur"
+          >
+            <PencilIcon className="size-4" />
           </Button>
         }
       />

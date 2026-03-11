@@ -20,6 +20,7 @@ import {
   PlatformUserClientAssignmentDto,
   UpdatePlatformUserClientsDto,
 } from './dto/update-platform-user-clients.dto';
+import { UpdatePlatformUserPasswordDto } from './dto/update-platform-user-password.dto';
 
 /** Réponse utilisateur exposée par l’API (User + ClientUser pour le client actif, sans passwordHash). */
 export interface UserResponse {
@@ -233,6 +234,28 @@ export class UsersService {
       },
     });
     return users;
+  }
+
+  /**
+   * Met à jour le mot de passe d’un utilisateur global (flux plateforme).
+   */
+  async updatePlatformUserPassword(
+    userId: string,
+    dto: UpdatePlatformUserPasswordDto,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true },
+    });
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
   }
 
   /**

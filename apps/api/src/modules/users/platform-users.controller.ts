@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { UpdatePlatformUserClientsDto } from './dto/update-platform-user-clients.dto';
+import { UpdatePlatformUserPasswordDto } from './dto/update-platform-user-password.dto';
 import { UsersService } from './users.service';
 
 /**
@@ -31,6 +32,17 @@ export class PlatformUsersController {
   @Get(':userId/clients')
   getUserClients(@Param('userId') userId: string) {
     return this.users.getPlatformUserClients(userId);
+  }
+
+  /**
+   * PATCH /platform/users/:userId/password — met à jour le mot de passe d’un utilisateur global.
+   */
+  @Patch(':userId/password')
+  updateUserPassword(
+    @Param('userId') userId: string,
+    @Body() dto: UpdatePlatformUserPasswordDto,
+  ) {
+    return this.users.updatePlatformUserPassword(userId, dto);
   }
 
   /**
