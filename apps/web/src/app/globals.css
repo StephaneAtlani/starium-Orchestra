@@ -1,31 +1,85 @@
 @import 'tailwindcss';
 @import '../styles/tokens.css';
 
+/* Palette Neutral shadcn/ui (base) avec accents or pour boutons / hover */
 :root {
-  /* Semantic theme (shadcn / Tailwind) from Starium tokens */
-  --background: var(--color-bg-app);
-  --foreground: var(--color-text-primary);
-  --card: var(--color-bg-card);
-  --card-foreground: var(--color-text-primary);
-  --primary: var(--color-primary);
-  --primary-foreground: var(--color-primary-foreground);
-  --muted: #f3f2ef;
-  --muted-foreground: var(--color-text-muted);
-  --accent: var(--color-hover);
-  --accent-foreground: var(--color-text-primary);
-  --border: var(--color-border-default);
-  --input: var(--color-border-default);
-  --ring: var(--color-primary);
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  /* Sidebar (board gauche) */
-  --sidebar: var(--color-bg-sidebar);
-  --sidebar-foreground: var(--color-text-inverse);
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-accent: var(--color-hover);
-  --sidebar-primary: var(--color-primary);
-  /* Radius */
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  /* Or neutre en light (plus foncé) */
+  --primary: oklch(0.78 0.16 95);            /* or un peu plus profond */
+  --primary-foreground: oklch(0.25 0.05 90); /* texte sombre lisible sur or */
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  /* Hover / accents en or plus foncé */
+  --accent: oklch(0.83 0.13 95);
+  --accent-foreground: oklch(0.25 0.05 90);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  /* Sidebar active en or plus foncé */
+  --sidebar-primary: oklch(0.78 0.16 95);
+  --sidebar-primary-foreground: oklch(0.25 0.05 90);
+  --sidebar-accent: oklch(0.83 0.13 95);
+  --sidebar-accent-foreground: oklch(0.25 0.05 90);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  /* compat radius existant */
   --radius-md: var(--radius);
+}
+
+/* Variante dark, avec boutons / hover or plus saturé */
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.269 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  /* Or plus vif en dark (mais un peu assombri) */
+  --primary: oklch(0.74 0.2 95);             /* or plus foncé sur fond dark */
+  --primary-foreground: oklch(0.22 0.04 90); /* texte sombre mais lisible */
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  /* Hover or plus profond */
+  --accent: oklch(0.66 0.14 95);
+  --accent-foreground: oklch(0.22 0.04 90);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  /* Sidebar active en or plus foncé */
+  --sidebar-primary: oklch(0.74 0.2 95);
+  --sidebar-primary-foreground: oklch(0.22 0.04 90);
+  --sidebar-accent: oklch(0.66 0.14 95);
+  --sidebar-accent-foreground: oklch(0.22 0.04 90);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.439 0 0);
 }
 
 html,
