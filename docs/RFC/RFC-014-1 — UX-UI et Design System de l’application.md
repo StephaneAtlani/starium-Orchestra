@@ -500,10 +500,9 @@ Cette RFC ne couvre pas :
 
 * pages marketing
 * landing pages
-* dark mode
 * branding avancé
 
-Elle concerne uniquement **l’interface applicative**.
+> **Note** : le **dark mode / light mode** est géré par une couche technique transversale (ThemeProvider + classe `dark` sur `<html>`), mais ne modifie pas les règles UX de structure des pages ni le design system de base (tokens, composants shadcn, patterns de layout).
 
 ---
 

@@ -778,42 +778,52 @@ Pour rester cohérent avec tes APIs actuelles et les RFC déjà cadrées, on rec
 
 ## 21. Design system et thème Starium
 
-Le frontend doit suivre la palette Starium :
+Le frontend s’appuie sur un **thème neutral** proche de l’exemple Dashboard shadcn, avec un accent or clair sur fond sombre (sidebar).
 
-* **Or** `#DB9801`
-* **Noir** `#1B1B1B`
-* **Blanc** `#FFFFFF`
+Palette de base :
 
-### Répartition recommandée
-
-* sidebar : noir
-* workspace : blanc cassé clair
-* cartes : blanc
-* accent principal : or
-* bordures : ton clair neutre
+* **Fond app** : gris clair (≈ Tailwind gray-100)
+* **Cartes** : blanc
+* **Sidebar** : slate très sombre
+* **Texte principal** : slate-900
+* **Texte sur fond sombre** : jaune très clair (or désaturé)
+* **Accent / primaire** : or clair sur fond sombre, slate-900 sur fond clair
 
 ### Tokens CSS
 
+Implémentation dans `apps/web/src/styles/tokens.css` :
+
 ```css
 :root {
-  --color-bg-app: #f8f6f1;
+  /* Fond / surfaces */
+  --color-bg-app: #f3f4f6;        /* gray-100 */
   --color-bg-card: #ffffff;
-  --color-bg-sidebar: #1b1b1b;
-  --color-text-primary: #1b1b1b;
-  --color-text-inverse: #ffffff;
-  --color-text-muted: #6b7280;
-  --color-border-default: #e8e1d1;
-  --color-primary: #db9801;
-  --color-primary-foreground: #ffffff;
+  --color-bg-sidebar: #020817;    /* slate-950 */
+
+  /* Texte */
+  --color-text-primary: #0f172a;  /* slate-900 */
+  --color-text-inverse: #fefce8;  /* jaune très clair */
+  --color-text-muted: #6b7280;    /* gray-500 */
+
+  /* Bordures */
+  --color-border-default: #e5e7eb; /* gray-200 */
+
+  /* Couleurs principales */
+  --color-primary: #facc15;             /* or clair (amber-400) */
+  --color-primary-foreground: #f9fafb;  /* gray-50 */
+
+  /* Tokens génériques */
   --radius: 0.75rem;
-  --shadow-card: 0 18px 30px -15px rgba(0, 0, 0, 0.24);
-  --color-hover: rgba(219, 152, 1, 0.08);
+  --shadow-card: 0 18px 30px -15px rgba(15, 23, 42, 0.25);
+  --color-hover: rgba(15, 23, 42, 0.06);
 }
 ```
 
+Ces tokens sont mappés sur les variables shadcn (`--background`, `--card`, `--sidebar`, etc.) dans `globals.css` et utilisés partout via les composants `components/ui/*`.
+
 ### Règle
 
-Aucune couleur métier ne doit être codée en dur dans les composants hors design tokens.
+Aucune couleur métier ne doit être codée en dur dans les composants hors design tokens. Toute nouvelle variation de palette (ex. secondaire, succès) doit passer par les tokens.
 
 ### Design system obligatoire (RFC-014-1)
 
