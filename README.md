@@ -119,17 +119,17 @@ Réponse attendue (ex.) : `{"status":"ok","database":"connected","timestamp":"..
 
 Endpoints : `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`. JWT access token (15 min) + refresh token (7 jours), hash bcrypt des mots de passe, hash SHA-256 des refresh tokens en base.
 
-Après avoir exécuté le seed (`pnpm prisma:seed` depuis `apps/api`), un utilisateur de test est disponible :
+Après avoir exécuté le seed (`pnpm prisma:seed` depuis `apps/api`), un utilisateur de test **Platform Admin** est disponible :
 
-- **Email** : `satlani@outlook.com`
-- **Mot de passe** : `D!diablo15`
+- **Email** : `admin@starium.fr`
+- **Mot de passe** : `mot de passe`
 
 Exemple de login :
 
 ```bash
 curl -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"satlani@outlook.com","password":"D!diablo15"}'
+  -d '{"email":"admin@starium.fr","password":"mot de passe"}'
 ```
 
 Réponse : `{"accessToken":"...","refreshToken":"..."}`. Utiliser `Authorization: Bearer <accessToken>` pour les routes protégées.

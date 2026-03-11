@@ -113,14 +113,16 @@ Liste des clients auxquels l’utilisateur a accès (au moins un ClientUser avec
     "name": "Acme Corp",
     "slug": "acme-corp",
     "role": "CLIENT_ADMIN",
-    "status": "ACTIVE"
+    "status": "ACTIVE",
+    "isDefault": true
   },
   {
     "id": "clyyy...",
     "name": "Beta SA",
     "slug": "beta-sa",
     "role": "CLIENT_USER",
-    "status": "SUSPENDED"
+    "status": "SUSPENDED",
+    "isDefault": false
   }
 ]
 ```
@@ -128,9 +130,49 @@ Liste des clients auxquels l’utilisateur a accès (au moins un ClientUser avec
 Notes :
 
 - `role` et `status` proviennent de la table `ClientUser`.
-- L’API renvoie tous les liens `ClientUser` (y compris `SUSPENDED` / `INVITED`) ; le frontend ne doit proposer comme client actif que ceux avec `status = \"ACTIVE\"`.
+- `isDefault` indique si ce `ClientUser` est marqué comme **client par défaut** pour l’utilisateur (RFC-009-1). Il y a au plus un `ClientUser` avec `isDefault = true` par utilisateur.
+- L’API renvoie tous les liens `ClientUser` (y compris `SUSPENDED` / `INVITED`) ; le frontend ne doit proposer comme client actif que ceux avec `status = "ACTIVE"`.
 
 **Erreurs :** 401 (non authentifié).
+
+---
+
+### PATCH /api/me/default-client
+
+Permet à l’utilisateur connecté de définir son **client par défaut** (RFC-009-1). Le client par défaut est une préférence persistée côté serveur, utilisée lors du bootstrap s’il n’existe pas de client actif local valide.
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Body (JSON)**
+
+```json
+{
+  "clientId": "clxxx..."
+}
+```
+
+Règles :
+
+- le `clientId` doit correspondre à un `ClientUser` de l’utilisateur.
+- le `ClientUser.status` doit être `ACTIVE`.
+- la mise à jour est transactionnelle : tous les autres `ClientUser` de l’utilisateur passent à `isDefault = false`, puis le `ClientUser` cible est mis à `isDefault = true`.
+
+**Réponse 200**
+
+```json
+{
+  "success": true,
+  "defaultClientId": "clxxx..."
+}
+```
+
+**Erreurs :**
+
+- `403 Forbidden` si le client ne fait pas partie des clients accessibles par l’utilisateur.
+- `400 Bad Request` si le rattachement existe mais n’est pas `ACTIVE`.
+- `401` si non authentifié.
 
 ---
 
