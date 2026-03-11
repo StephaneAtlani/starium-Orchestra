@@ -22,12 +22,6 @@ const columns: DataTableColumn<AdminPlatformUserSummary>[] = [
     cell: (row) => row.lastName ?? '—',
   },
   {
-    key: 'platformRole',
-    header: 'Rôle plateforme',
-    cell: (row) => row.platformRole ?? '—',
-    className: 'text-muted-foreground',
-  },
-  {
     key: 'createdAt',
     header: 'Créé le',
     cell: (row) => new Date(row.createdAt).toLocaleDateString('fr-FR'),
@@ -36,7 +30,10 @@ const columns: DataTableColumn<AdminPlatformUserSummary>[] = [
   {
     key: 'clients',
     header: 'Clients',
-    cell: (row) => <ManageUserClientsDialog user={row} />,
+    cell: (row) =>
+      row.platformRole === 'PLATFORM_ADMIN' ? null : (
+        <ManageUserClientsDialog user={row} />
+      ),
     className: 'text-right',
   },
 ];

@@ -16,6 +16,10 @@ import { ActiveClientCacheService } from '../../common/cache/active-client-cache
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import {
+  PlatformUserClientAssignmentDto,
+  UpdatePlatformUserClientsDto,
+} from './dto/update-platform-user-clients.dto';
 
 /** Réponse utilisateur exposée par l’API (User + ClientUser pour le client actif, sans passwordHash). */
 export interface UserResponse {
@@ -229,6 +233,159 @@ export class UsersService {
       },
     });
     return users;
+  }
+
+  /**
+   * Retourne les rattachements client d’un utilisateur global, pour le flux plateforme.
+   * Shape compatible avec le front (assignments?: [{ clientId, role }]).
+   */
+  async getPlatformUserClients(userId: string): Promise<{
+    assignments: PlatformUserClientAssignmentDto[];
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    const links = await this.prisma.clientUser.findMany({
+      where: { userId },
+      select: { clientId: true, role: true },
+      orderBy: { clientId: 'asc' },
+    });
+
+    return {
+      assignments: links.map((l) => ({
+        clientId: l.clientId,
+        role: l.role as ClientUserRole,
+      })),
+    };
+  }
+
+  /**
+   * Remplace les rattachements client d’un utilisateur global (flux plateforme).
+   * Idempotent : après appel, l’utilisateur est rattaché exactement aux clients listés,
+   * avec les rôles fournis. Les autres rattachements sont supprimés.
+   */
+  async updatePlatformUserClients(
+    userId: string,
+    dto: UpdatePlatformUserClientsDto,
+  ): Promise<{ assignments: PlatformUserClientAssignmentDto[] }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true },
+    });
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    const targetAssignments = dto.assignments ?? [];
+    const targetClientIds = [...new Set(targetAssignments.map((a) => a.clientId))];
+
+    if (targetClientIds.length === 0) {
+      // Simple cas : on supprime tous les rattachements existants
+      const existingAll = await this.prisma.clientUser.findMany({
+        where: { userId },
+        select: { id: true, clientId: true },
+      });
+
+      if (existingAll.length > 0) {
+        await this.prisma.clientUser.deleteMany({
+          where: { id: { in: existingAll.map((c) => c.id) } },
+        });
+        // Invalidation cache + audit par client
+        for (const cu of existingAll) {
+          await this.activeClientCache.invalidate(userId, cu.clientId);
+          await this.logUserEvent('platform.user.client-unlinked', {
+            clientId: cu.clientId,
+            targetUserId: userId,
+            payload: {
+              email: user.email,
+            },
+            context: undefined,
+          });
+        }
+      }
+
+      return { assignments: [] };
+    }
+
+    // Vérifie que tous les clients existent
+    const clients = await this.prisma.client.findMany({
+      where: { id: { in: targetClientIds } },
+      select: { id: true },
+    });
+    const existingClientIds = new Set(clients.map((c) => c.id));
+    const unknownClientId = targetClientIds.find((id) => !existingClientIds.has(id));
+    if (unknownClientId) {
+      throw new BadRequestException(
+        `Client inconnu pour le rattachement utilisateur: ${unknownClientId}`,
+      );
+    }
+
+    const existing = await this.prisma.clientUser.findMany({
+      where: { userId },
+    });
+
+    const existingByClientId = new Map(
+      existing.map((cu) => [cu.clientId, cu]),
+    );
+
+    const toDelete = existing.filter(
+      (cu) => !targetClientIds.includes(cu.clientId),
+    );
+
+    // On applique toutes les modifs dans une transaction pour garder la cohérence
+    await this.prisma.$transaction(async (tx) => {
+      if (toDelete.length > 0) {
+        await tx.clientUser.deleteMany({
+          where: { id: { in: toDelete.map((c) => c.id) } },
+        });
+      }
+
+      for (const assignment of targetAssignments) {
+        const current = existingByClientId.get(assignment.clientId);
+        if (current) {
+          if (current.role !== assignment.role) {
+            await tx.clientUser.update({
+              where: { id: current.id },
+              data: { role: assignment.role },
+            });
+          }
+        } else {
+          await tx.clientUser.create({
+            data: {
+              userId,
+              clientId: assignment.clientId,
+              role: assignment.role,
+              status: ClientUserStatus.ACTIVE,
+            },
+          });
+        }
+      }
+    });
+
+    // Invalidation cache + audit logs
+    const affectedClientIds = new Set<string>([
+      ...existing.map((c) => c.clientId),
+      ...targetClientIds,
+    ]);
+
+    for (const clientId of affectedClientIds) {
+      await this.activeClientCache.invalidate(userId, clientId);
+      await this.logUserEvent('platform.user.clients-updated', {
+        clientId,
+        targetUserId: userId,
+        payload: {
+          email: user.email,
+        },
+        context: undefined,
+      });
+    }
+
+    return { assignments: targetAssignments };
   }
 
   /**
