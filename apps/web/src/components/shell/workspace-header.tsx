@@ -6,6 +6,8 @@ import { useAuth } from '../../context/auth-context';
 import { useActiveClient } from '../../hooks/use-active-client';
 import { ClientSwitcher } from '../ClientSwitcher';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Badge } from '../ui/badge';
 
 export function WorkspaceHeader() {
   const router = useRouter();
@@ -18,31 +20,27 @@ export function WorkspaceHeader() {
   }
 
   return (
-    <header
-      className="h-14 sticky top-0 z-10 flex items-center justify-between shrink-0 px-6 shadow-sm"
-      style={{
-        background: 'var(--color-bg-card)',
-        color: 'var(--color-text-primary)',
-        borderBottom: '1px solid var(--color-border-default)',
-      }}
-    >
-      <div className="flex flex-col">
-        <span className="text-sm font-medium">
-          Cockpit Starium Orchestra
-        </span>
-        <span
-          className="text-xs"
-          style={{ color: 'var(--color-text-muted)' }}
-        >
-          Pilotage multi-clients
-        </span>
+    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-4 border-b bg-background/80 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium">Dashboard</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {activeClient ? (
+              <span className="inline-flex items-center gap-2">
+                <Badge variant="secondary">Client</Badge>
+                <span className="truncate">{activeClient.name}</span>
+              </span>
+            ) : (
+              <span>Contexte plateforme / multi-clients</span>
+            )}
+          </div>
+        </div>
+        <div className="hidden max-w-md flex-1 md:block">
+          <Input placeholder="Search" aria-label="Search" />
+        </div>
       </div>
-      <div className="flex items-center gap-4">
-        {activeClient && (
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {activeClient.name}
-          </span>
-        )}
+
+      <div className="flex items-center gap-3">
         {accessToken && <ClientSwitcher accessToken={accessToken} />}
         {user && (
           <Button variant="ghost" size="sm" onClick={handleLogout}>
