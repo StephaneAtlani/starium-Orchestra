@@ -35,7 +35,20 @@ export async function getPlatformAuditLogs(
   if (!res.ok) {
     throw new Error('Erreur lors du chargement des audit logs globaux');
   }
-  const data = (await res.json()) as PlatformAuditLogsResult;
-  return data;
+  const json = await res.json();
+
+  // Backend renvoie aujourd’hui un simple tableau (RFC/API.md) :
+  //   AuditLogItem[]
+  // mais le front travaille avec { items, total }.
+  if (Array.isArray(json)) {
+    const items = json as AdminPlatformAuditLogRow[];
+    return {
+      items,
+      total: items.length,
+    };
+  }
+
+  // Fallback si le backend renvoie déjà { items, total }
+  return json as PlatformAuditLogsResult;
 }
 
