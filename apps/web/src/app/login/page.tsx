@@ -39,8 +39,12 @@ export default function LoginPage() {
     setSubmitting(true);
     didLoginThisSession.current = true;
     try {
-      const loggedInUser = await login(email, password);
-      const res = await authenticatedFetch('/api/me/clients');
+      const { user: loggedInUser, accessToken } = await login(email, password);
+      // Important : après login(), le state accessToken est async.
+      // On utilise donc le token retourné pour éviter un appel sans Authorization.
+      const res = await fetch('/api/me/clients', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       if (!res.ok) {
         throw new Error('Impossible de récupérer la liste des clients');
       }

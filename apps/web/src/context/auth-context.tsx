@@ -35,7 +35,10 @@ interface AuthContextValue {
   accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ user: AuthUser; accessToken: string }>;
   logout: () => Promise<void>;
   /** Returns new accessToken on success, null otherwise (for 401 retry). */
   refreshSession: () => Promise<string | null>;
@@ -98,7 +101,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession]);
 
   const login = useCallback(
-    async (email: string, password: string): Promise<AuthUser> => {
+    async (
+      email: string,
+      password: string,
+    ): Promise<{ user: AuthUser; accessToken: string }> => {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,9 +122,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setAccessToken(data.accessToken);
       const profile = await getMe(data.accessToken);
-      const authUser = profileToAuthUser(profile);
-      setUser(authUser);
-      return authUser;
+      const user = profileToAuthUser(profile);
+      setUser(user);
+      return { user, accessToken: data.accessToken };
     },
     [],
   );
