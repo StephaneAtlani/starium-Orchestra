@@ -6,5 +6,5 @@ RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build
 RUN pnpm --filter @starium-orchestra/api exec prisma generate
 WORKDIR /app/apps/api
-EXPOSE 3001
+EXPOSE 3003
 CMD ["pnpm", "start:dev"]

@@ -1,57 +1,21 @@
-import type { HealthResponse } from '@starium-orchestra/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+'use client';
 
-async function fetchHealth(): Promise<HealthResponse | null> {
-  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-  try {
-    const res = await fetch(`${base}/api/health`, {
-      next: { revalidate: 10 },
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/auth-context';
 
-export default async function Home() {
-  const health = await fetchHealth();
+export default function Home() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (isLoading) return;
+    router.replace(isAuthenticated ? '/dashboard' : '/login');
+  }, [isAuthenticated, isLoading, router]);
+
   return (
-    <main className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            Starium Orchestra
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Plateforme de pilotage opérationnel
-          </p>
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">État de l’API</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {health ? (
-              <ul className="space-y-1 text-sm">
-                <li>
-                  Statut : <span className="text-primary font-medium">{health.status}</span>
-                </li>
-                {health.database && (
-                  <li>
-                    Base : <span className="text-primary font-medium">{health.database}</span>
-                  </li>
-                )}
-                {health.timestamp && (
-                  <li className="text-muted-foreground">{health.timestamp}</li>
-                )}
-              </ul>
-            ) : (
-              <p className="text-sm text-destructive">API non joignable</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+    <main className="min-h-screen flex items-center justify-center bg-background p-6">
+      <p className="text-sm text-muted-foreground">Chargement…</p>
     </main>
   );
 }
