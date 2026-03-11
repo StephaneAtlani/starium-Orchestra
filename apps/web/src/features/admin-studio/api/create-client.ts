@@ -1,4 +1,5 @@
 import type { AdminClientSummary } from '../types/admin-studio.types';
+import type { AuthFetch } from './get-clients';
 
 export interface CreateClientPayload {
   name: string;
@@ -6,9 +7,10 @@ export interface CreateClientPayload {
 }
 
 export async function createClient(
+  authFetch: AuthFetch,
   payload: CreateClientPayload,
 ): Promise<AdminClientSummary> {
-  const res = await fetch('/api/clients', {
+  const res = await authFetch('/api/clients', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

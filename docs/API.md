@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole).
 
 ---
 
@@ -72,7 +72,7 @@ Routes protégées par **JWT** : header `Authorization: Bearer <accessToken>` re
 
 ### GET /api/me
 
-Retourne le profil global de l’utilisateur connecté (données de la table User uniquement, pas de rôle ni client).
+Retourne le profil global de l’utilisateur connecté (données de la table User). Depuis RFC-014-2, la réponse inclut `platformRole` pour piloter la navigation plateforme côté frontend.
 
 **Headers**
 
@@ -85,9 +85,12 @@ Retourne le profil global de l’utilisateur connecté (données de la table Use
   "id": "clxxx...",
   "email": "jean.dupont@example.com",
   "firstName": "Jean",
-  "lastName": "Dupont"
+  "lastName": "Dupont",
+  "platformRole": "PLATFORM_ADMIN"
 }
 ```
+
+- `platformRole` : `"PLATFORM_ADMIN"` ou `null`. Permet au frontend d'afficher ou masquer les entrées « Administration plateforme » (sidebar, redirections).
 
 **Erreurs :** 401 (non authentifié), 404 (utilisateur non trouvé).
 

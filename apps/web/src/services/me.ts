@@ -3,6 +3,7 @@ export interface MeProfile {
   email: string;
   firstName: string | null;
   lastName: string | null;
+  platformRole: 'PLATFORM_ADMIN' | null;
 }
 
 export interface MeClient {
@@ -11,6 +12,7 @@ export interface MeClient {
   slug: string;
   role: 'CLIENT_ADMIN' | 'CLIENT_USER';
   status: 'ACTIVE' | 'SUSPENDED' | 'INVITED';
+  isDefault: boolean;
 }
 
 export async function getMe(accessToken: string): Promise<MeProfile> {
@@ -39,3 +41,26 @@ export async function getMyClients(
   return (await res.json()) as MeClient[];
 }
 
+export interface SetDefaultClientResult {
+  success: true;
+  defaultClientId: string;
+}
+
+export async function setDefaultClient(
+  accessToken: string,
+  clientId: string,
+): Promise<SetDefaultClientResult> {
+  const res = await fetch('/api/me/default-client', {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ clientId }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || 'Impossible de définir le client par défaut');
+  }
+  return (await res.json()) as SetDefaultClientResult;
+}

@@ -1,4 +1,5 @@
 import type { AdminPlatformAuditLogRow } from '../types/admin-studio.types';
+import type { AuthFetch } from './get-clients';
 
 export interface PlatformAuditLogsFilters {
   clientId?: string;
@@ -15,6 +16,7 @@ export interface PlatformAuditLogsResult {
 }
 
 export async function getPlatformAuditLogs(
+  authFetch: AuthFetch,
   filters: PlatformAuditLogsFilters,
   offset: number,
   limit: number,
@@ -29,7 +31,7 @@ export async function getPlatformAuditLogs(
   params.set('offset', String(offset));
   params.set('limit', String(limit));
 
-  const res = await fetch(`/api/platform/audit-logs?${params.toString()}`);
+  const res = await authFetch(`/api/platform/audit-logs?${params.toString()}`);
   if (!res.ok) {
     throw new Error('Erreur lors du chargement des audit logs globaux');
   }

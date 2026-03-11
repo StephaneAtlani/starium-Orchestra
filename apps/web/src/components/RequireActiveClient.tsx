@@ -1,16 +1,16 @@
+'use client';
+
 import React from 'react';
+import { useAuth } from '../context/auth-context';
 import { useActiveClient } from '../hooks/use-active-client';
 import { ClientSwitcher } from './ClientSwitcher';
 
 interface RequireActiveClientProps {
-  accessToken: string;
   children: React.ReactNode;
 }
 
-export function RequireActiveClient({
-  accessToken,
-  children,
-}: RequireActiveClientProps) {
+export function RequireActiveClient({ children }: RequireActiveClientProps) {
+  const { accessToken } = useAuth();
   const { activeClient, initialized } = useActiveClient();
 
   if (!initialized) {
@@ -19,9 +19,11 @@ export function RequireActiveClient({
 
   if (!activeClient) {
     return (
-      <div>
-        <p>Veuillez sélectionner un client pour continuer.</p>
-        <ClientSwitcher accessToken={accessToken} />
+      <div className="p-6 space-y-4">
+        <p className="text-muted-foreground">
+          Veuillez sélectionner un client pour continuer.
+        </p>
+        {accessToken && <ClientSwitcher accessToken={accessToken} />}
       </div>
     );
   }

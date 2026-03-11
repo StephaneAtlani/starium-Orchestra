@@ -1,0 +1,249 @@
+# RFC-009-1 — Modification du client par défaut par l’utilisateur
+
+## Objectif complémentaire
+
+Permettre à un utilisateur de choisir lui-même son **client par défaut** depuis ses **paramètres de compte**.
+
+Cela permet :
+
+* de personnaliser son contexte d’entrée
+* d’accélérer le bootstrap après connexion
+* d’éviter une sélection manuelle répétée du client actif
+* de rester cohérent avec un usage multi-client
+
+---
+
+# Règle fonctionnelle supplémentaire
+
+## Gestion du client par défaut par l’utilisateur
+
+Chaque utilisateur peut modifier son client par défaut depuis une section depuis sa liste de client
+A la  connexion si aucun client par défaut, alors le premier de la liste est choisi.
+
+### Contraintes
+
+L’utilisateur ne peut choisir comme client par défaut que :
+
+* un client auquel il est rattaché
+* avec un rattachement `ClientUser`
+* dont le statut est `ACTIVE`
+
+Il ne peut pas choisir :
+
+* un client `SUSPENDED`
+* un client auquel il n’appartient pas
+* un client dont le rattachement n’est pas actif
+
+---
+
+# Règles métier
+
+## 1. Unicité
+
+Pour un utilisateur donné :
+
+* un seul `ClientUser` peut avoir `isDefault = true`
+
+## 2. Changement du client par défaut
+
+Quand l’utilisateur choisit un nouveau client par défaut :
+
+* vérifier que ce client lui appartient
+* vérifier que son rattachement est `ACTIVE`
+* exécuter une transaction :
+
+  * mettre tous les `ClientUser` de l’utilisateur à `isDefault = false`
+  * mettre le `ClientUser` cible à `isDefault = true`
+
+## 3. Effet immédiat
+
+Le changement de client par défaut :
+
+* est persistant en base
+* est utilisé au prochain login
+* est utilisé au prochain bootstrap si aucun `starium.activeClient` valide n’est trouvé
+
+Le changement du client par défaut **ne doit pas obligatoirement changer immédiatement le client actif courant**.
+Le plus propre est :
+
+* **client actif courant** = contexte de travail immédiat
+* **client par défaut** = contexte initial futur
+
+Donc par défaut :
+
+* changer le client par défaut ne modifie pas automatiquement la session en cours
+* optionnellement, l’UI peut proposer :
+
+  * “Définir comme client par défaut”
+  * “Définir comme client par défaut et basculer dessus maintenant”
+
+---
+
+# Contrat API à prévoir
+
+## Lecture
+
+`GET /api/me/clients` doit renvoyer :
+
+```json
+[
+  {
+    "id": "client_1",
+    "name": "Client A",
+    "slug": "client-a",
+    "role": "CLIENT_ADMIN",
+    "status": "ACTIVE",
+    "isDefault": true
+  }
+]
+```
+
+## Écriture
+
+Ajouter un endpoint dédié pour permettre à l’utilisateur connecté de modifier son client par défaut :
+
+```http
+PATCH /api/me/default-client
+```
+
+### Body
+
+```json
+{
+  "clientId": "client_2"
+}
+```
+
+### Réponse attendue
+
+```json
+{
+  "success": true,
+  "defaultClientId": "client_2"
+}
+```
+
+---
+
+# Backend
+
+## Endpoint
+
+Créer un endpoint orienté utilisateur connecté :
+
+```txt
+PATCH /api/me/default-client
+```
+
+Pourquoi ici :
+
+* le client par défaut est une préférence du user connecté
+* ce n’est pas une action d’administration plateforme
+* ce n’est pas une action d’administration client
+
+## Validation backend
+
+Le backend doit :
+
+1. récupérer `req.user.id`
+2. vérifier l’existence d’un `ClientUser` pour :
+
+   * `userId = req.user.id`
+   * `clientId = body.clientId`
+3. vérifier `status === ACTIVE`
+4. faire la mise à jour transactionnelle
+
+## Transaction
+
+```txt
+- updateMany ClientUser where userId = currentUser => isDefault = false
+- update ClientUser cible => isDefault = true
+```
+
+## Sécurité
+
+Refuser la demande si :
+
+* le client n’appartient pas à l’utilisateur
+* le rattachement n’est pas `ACTIVE`
+
+Réponse :
+
+* `403 Forbidden` ou `400 Bad Request` selon convention API retenue
+
+---
+
+# Frontend
+
+## Paramètres de compte
+
+Ajouter une section dans les paramètres utilisateur, par exemple :
+
+```txt
+/ account / preferences
+```
+
+ou dans une page existante de type :
+
+```txt
+/ account
+```
+
+## UI attendue
+
+Afficher :
+
+* la liste des clients `ACTIVE`
+* le client actuellement par défaut
+* une action pour en choisir un autre
+
+Exemples UI :
+
+* radio list
+* select
+* cards avec badge “Par défaut”
+
+### Action utilisateur
+
+Quand l’utilisateur clique sur “Définir comme client par défaut” :
+
+1. appeler `PATCH /api/me/default-client`
+2. rafraîchir `GET /api/me/clients`
+3. mettre à jour l’état local si nécessaire
+4. afficher un message de succès
+
+---
+
+# Bootstrap frontend mis à jour
+
+Ordre de résolution du client actif :
+
+1. `starium.activeClient` si toujours valide
+2. client avec `isDefault = true`
+3. unique client `ACTIVE`
+4. `/select-client`
+
+Le changement du client par défaut dans les paramètres doit donc influencer directement ce point 2.
+
+---
+
+# Critères d’acceptation supplémentaires
+
+## Backend
+
+* un utilisateur connecté peut définir son client par défaut via `PATCH /api/me/default-client`
+* seul un client `ACTIVE` appartenant à l’utilisateur peut être choisi
+* un seul client par défaut existe par utilisateur
+
+## Frontend
+
+* les paramètres de compte affichent la liste des clients `ACTIVE`
+* l’utilisateur peut changer son client par défaut
+* le client par défaut est visible dans l’UI
+* le bootstrap utilise bien ce client par défaut si aucun client actif local n’est restauré
+
+## UX
+
+* changer le client par défaut ne casse pas la session en cours
+* au prochain bootstrap, le nouveau client par défaut est prioritaire
+

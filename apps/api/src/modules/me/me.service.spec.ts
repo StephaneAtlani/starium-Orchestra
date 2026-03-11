@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ClientUserRole, ClientUserStatus } from '@prisma/client';
 import { MeService } from './me.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -14,7 +14,11 @@ describe('MeService', () => {
       },
       clientUser: {
         findMany: jest.fn(),
+        findUnique: jest.fn(),
+        updateMany: jest.fn(),
+        update: jest.fn(),
       },
+      $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     } as unknown as jest.Mocked<PrismaService>;
     service = new MeService(prisma);
   });
@@ -33,6 +37,7 @@ describe('MeService', () => {
         email: 'user@example.com',
         firstName: 'John',
         lastName: 'Doe',
+        platformRole: null,
       } as any);
 
       const result = await service.getProfile('user-1');
@@ -41,16 +46,31 @@ describe('MeService', () => {
         email: 'user@example.com',
         firstName: 'John',
         lastName: 'Doe',
+        platformRole: null,
       });
+    });
+
+    it('retourne platformRole PLATFORM_ADMIN si défini', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        email: 'admin@example.com',
+        firstName: 'Admin',
+        lastName: 'User',
+        platformRole: 'PLATFORM_ADMIN',
+      } as any);
+
+      const result = await service.getProfile('admin-1');
+      expect(result.platformRole).toBe('PLATFORM_ADMIN');
     });
   });
 
   describe('getClients', () => {
-    it('mappe correctement les clients (id, name, slug, role, status)', async () => {
+    it('mappe correctement les clients (id, name, slug, role, status, isDefault)', async () => {
       prisma.clientUser.findMany.mockResolvedValue([
         {
           role: ClientUserRole.CLIENT_ADMIN,
           status: ClientUserStatus.ACTIVE,
+          isDefault: true,
           client: {
             id: 'client-1',
             name: 'Client Démo',
@@ -60,6 +80,7 @@ describe('MeService', () => {
         {
           role: ClientUserRole.CLIENT_USER,
           status: ClientUserStatus.SUSPENDED,
+          isDefault: false,
           client: {
             id: 'client-2',
             name: 'Autre Client',
@@ -76,6 +97,7 @@ describe('MeService', () => {
           slug: 'client-demo',
           role: ClientUserRole.CLIENT_ADMIN,
           status: ClientUserStatus.ACTIVE,
+          isDefault: true,
         },
         {
           id: 'client-2',
@@ -83,6 +105,7 @@ describe('MeService', () => {
           slug: 'autre-client',
           role: ClientUserRole.CLIENT_USER,
           status: ClientUserStatus.SUSPENDED,
+          isDefault: false,
         },
       ]);
     });
@@ -92,12 +115,61 @@ describe('MeService', () => {
         {
           role: ClientUserRole.CLIENT_ADMIN,
           status: ClientUserStatus.ACTIVE,
+          isDefault: false,
           client: null,
         },
       ] as any);
 
       const result = await service.getClients('user-1');
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('setDefaultClient', () => {
+    it('met à jour le client par défaut et retourne success', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue({
+        id: 'cu-1',
+        userId: 'user-1',
+        clientId: 'client-2',
+        status: ClientUserStatus.ACTIVE,
+      });
+      prisma.clientUser.updateMany.mockResolvedValue({ count: 2 });
+      prisma.clientUser.update.mockResolvedValue({});
+
+      const result = await service.setDefaultClient('user-1', 'client-2');
+      expect(result).toEqual({ success: true, defaultClientId: 'client-2' });
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.clientUser.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { isDefault: false },
+      });
+      expect(prisma.clientUser.update).toHaveBeenCalledWith({
+        where: { id: 'cu-1' },
+        data: { isDefault: true },
+      });
+    });
+
+    it('lève ForbiddenException si le client n’appartient pas au user', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.setDefaultClient('user-1', 'client-other'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('lève BadRequestException si le rattachement n’est pas ACTIVE', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue({
+        id: 'cu-1',
+        userId: 'user-1',
+        clientId: 'client-2',
+        status: ClientUserStatus.SUSPENDED,
+      });
+
+      await expect(
+        service.setDefaultClient('user-1', 'client-2'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 });

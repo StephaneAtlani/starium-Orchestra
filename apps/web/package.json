@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "echo OK"
+    "test": "echo OK",
+    "clean": "rm -rf .next node_modules/.cache"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

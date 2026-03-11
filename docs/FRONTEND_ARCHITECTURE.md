@@ -383,29 +383,27 @@ On n’introduit pas de faux préfixe `/workspace/*` dans l’URL.
 
 ```text
 /login
-/logout
 ```
 
-### Routes protégées plateforme
+(La déconnexion est gérée par un bouton dans le header ; pas de route `/logout` dédiée.)
+
+### Routes protégées (layout `(protected)`)
+
+- **Indépendantes du client actif** : `/admin/*`, `/select-client`, `/no-client`
+- **Nécessitant un client actif** : `/dashboard`, routes métier (`/budgets`, `/projects`, etc.)
 
 ```text
 /admin
 /admin/clients
 /admin/users
 /admin/audit
-```
-
-### Routes protégées métier
-
-```text
+/select-client    — choix du client actif (plusieurs clients ACTIVE)
+/no-client        — écran bloquant si aucun client ACTIVE (non platform admin)
 /dashboard
 /budgets
 /budgets/[id]
 /projects
-/projects/[id]
-/suppliers
-/contracts
-/licenses
+...
 /users
 /roles
 ```
@@ -529,9 +527,9 @@ Cette structure reste compatible avec le bootstrap visé par le projet (`apps/we
 
 ---
 
-## 13. Authentification frontend
+## 13. Authentification frontend (RFC-014-2)
 
-Les endpoints de base existent déjà côté API : login, refresh, logout, `GET /me`, `GET /me/clients`. 
+Les endpoints côté API : `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/me`, `GET /api/me/clients`. 
 
 ### Flux retenu
 
@@ -559,7 +557,7 @@ Le frontend doit centraliser :
 * le retry après `401` si refresh possible
 * le logout propre si refresh impossible
 
-Aucun composant ne gère lui-même le refresh.
+Aucun composant ne gère lui-même le refresh. **Détail d'implémentation** : voir RFC-014-2 (AuthProvider, `resolve-active-client`, `authenticated-fetch`, logout toujours nettoyé, contrat X-Client-Id).
 
 ---
 
@@ -602,6 +600,8 @@ Choix recommandé :
 * changement de client ⇒ invalidation du cache TanStack Query tenant-aware
 * les pages plateforme ne lisent pas `activeClientId` pour fonctionner
 
+**Implémentation RFC-014-2** : routes `/select-client` (choix du client) et `/no-client` (écran bloquant) ; résolution initiale via `lib/auth/resolve-active-client.ts` (une seule règle partagée).
+
 ---
 
 ## 15. API client central
@@ -626,6 +626,8 @@ src/lib/api/api-client.ts
 ### Règle
 
 Aucun composant ou hook ne fait un `fetch` direct vers le backend sans passer par ce client.
+
+**Implémentation RFC-014-2** : `lib/authenticated-fetch.ts` + hook `useAuthenticatedFetch` ; contrat strict (jamais X-Client-Id sur auth/me/platform/clients) ; 401 → un refresh puis retry, sinon clear session + `/login`.
 
 ---
 
@@ -680,7 +682,8 @@ type NavigationItem = {
   scope: "platform" | "client";
   moduleCode?: string;
   requiredPermissions?: string[];
-  platformOnly?: boolean;
+  platformOnly?: boolean;   // visible si user.platformRole === 'PLATFORM_ADMIN'
+  clientAdminOnly?: boolean; // visible si activeClient.role === 'CLIENT_ADMIN'
   children?: NavigationItem[];
 };
 ```
@@ -923,26 +926,25 @@ On évite un gros dossier `services/` fourre-tout.
 
 ---
 
-## 26. Providers globaux
+## 26. Providers globaux (RFC-014-2)
 
-### Providers recommandés
+### Providers utilisés
 
-* `QueryProvider`
-* `AuthProvider`
-* `ActiveClientProvider`
-* `AppProvider`
+* **AuthProvider** (session, user, tokens, login, logout, refreshSession)
+* **ActiveClientProvider** (client actif, persistance localStorage)
+* **QueryProvider** (TanStack Query ; présent dans le layout protégé)
 
-### Ordre type
+### Ordre (root layout)
 
 ```tsx
-<AppProvider>
-  <AuthProvider>
-    <ActiveClientProvider>
-      <QueryProvider>{children}</QueryProvider>
-    </ActiveClientProvider>
-  </AuthProvider>
-</AppProvider>
+<AuthProvider>
+  <ActiveClientProvider>
+    {children}
+  </ActiveClientProvider>
+</AuthProvider>
 ```
+
+Le `QueryProvider` est monté dans le layout `(protected)` après le guard d'auth et le bootstrap client, autour de l'App Shell.
 
 ---
 

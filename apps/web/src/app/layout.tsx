@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthProvider } from '../context/auth-context';
 import { ActiveClientProvider } from '../context/active-client-context';
 
 export const metadata: Metadata = {
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body>
-        <ActiveClientProvider>{children}</ActiveClientProvider>
+        <AuthProvider>
+          <ActiveClientProvider>{children}</ActiveClientProvider>
+        </AuthProvider>
       </body>
     </html>
   );

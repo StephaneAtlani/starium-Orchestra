@@ -161,12 +161,13 @@ Optimisation perf (RFC-012) :
 - **Service** : reçoit le `clientId` validé ; toutes les requêtes Prisma sur des données métier incluent `where: { clientId }` (ou `clientId: { in: authorizedClientIds }` pour les listes).
 - **API platform** : routes `/api/platform/*` réservées au platform admin (création clients, liste clients, création d’utilisateurs globaux, affectation/désaffectation users ↔ clients).
 
-### 4.4 Implémentation frontend
+### 4.4 Implémentation frontend (RFC-014-2)
 
-- Après login : récupération des clients accessibles (`GET /api/me/clients`).
-- Sélection du client actif : `POST /api/me/active-client` ou simple stockage local + header sur chaque requête.
-- Header / layout : affichage du client actif + switcher si plusieurs clients.
-- Toutes les requêtes métier envoient le client actif (header recommandé).
+- **AuthProvider** : gestion de la session (user, accessToken en mémoire, refreshToken en localStorage). Login, logout, refreshSession. Le logout vide **toujours** l’état local et le localStorage même si `POST /api/auth/logout` échoue (token expiré).
+- **Bootstrap client** : une seule fonction partagée (`resolve-active-client`) reçoit les clients, `platformRole` et le client mémorisé ; elle retourne une décision (redirect, blocked, set-client). Utilisée après login et au chargement du layout protégé (refresh / accès direct).
+- **Fetch authentifié** : un client unique (`authenticated-fetch` + hook `useAuthenticatedFetch`) injecte `Authorization`, applique le **contrat X-Client-Id** (jamais sur `/api/auth/*`, `/api/me`, `/api/me/clients`, `/api/platform/*`, `/api/clients` ; toujours sur routes métier). Sur 401 : un seul refresh puis retry ; si échec → clear session et redirection `/login`.
+- **Routes** : `/login` (public), `/select-client`, `/no-client`, `/dashboard` et routes métier (protégées, client actif requis pour le métier). Layout protégé : guard auth, bootstrap une fois, puis App Shell.
+- **Header** : affichage du client actif, switcher de client, bouton déconnexion.
 
 ---
 

@@ -1,10 +1,11 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
+import { SetDefaultClientDto } from './dto/set-default-client.dto';
 import { MeService } from './me.service';
 
 /**
- * Profil et contexte de l’utilisateur connecté (RFC-008).
+ * Profil et contexte de l’utilisateur connecté (RFC-008, RFC-009-1).
  * Toutes les routes exigent un JWT valide.
  */
 @Controller('me')
@@ -22,5 +23,14 @@ export class MeController {
   @Get('clients')
   getClients(@RequestUserId() userId?: string) {
     return this.me.getClients(userId!);
+  }
+
+  /** PATCH /me/default-client — Définit le client par défaut (RFC-009-1). */
+  @Patch('default-client')
+  setDefaultClient(
+    @RequestUserId() userId: string | undefined,
+    @Body() dto: SetDefaultClientDto,
+  ) {
+    return this.me.setDefaultClient(userId!, dto.clientId);
   }
 }

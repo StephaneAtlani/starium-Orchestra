@@ -7,6 +7,10 @@ export type NavigationItem = {
   scope: 'platform' | 'client';
   moduleCode?: string;
   requiredPermissions?: string[];
+  /** Visible uniquement si user.platformRole === 'PLATFORM_ADMIN'. */
+  platformOnly?: boolean;
+  /** Visible uniquement si activeClient.role === 'CLIENT_ADMIN'. */
+  clientAdminOnly?: boolean;
 };
 
 export type NavigationSection = {
@@ -32,16 +36,29 @@ export const navigation: NavigationSection[] = [
         label: 'Clients',
         href: '/admin/clients',
         scope: 'platform',
+        platformOnly: true,
       },
       {
         label: 'Utilisateurs',
         href: '/admin/users',
         scope: 'platform',
+        platformOnly: true,
       },
       {
         label: 'Audit logs',
         href: '/admin/audit',
         scope: 'platform',
+        platformOnly: true,
+      },
+    ],
+  },
+  {
+    section: 'Compte',
+    items: [
+      {
+        label: 'Compte',
+        href: '/account',
+        scope: 'client',
       },
     ],
   },

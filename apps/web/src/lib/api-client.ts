@@ -29,6 +29,7 @@ export async function apiFetch(
     url.startsWith('/api/auth/') ||
     url === '/api/me' ||
     url === '/api/me/clients' ||
+    url === '/api/me/default-client' ||
     url.startsWith('/api/platform/');
 
   if (!isExcludedRoute && isMultiTenantRoute && options.activeClient?.id) {
