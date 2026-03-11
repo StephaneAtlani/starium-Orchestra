@@ -10,7 +10,13 @@ import type { MeClient } from '@/services/me';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 
 const ACTIVE_CLIENT_KEY = 'starium.activeClient';
 
@@ -88,52 +94,78 @@ export default function LoginPage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-background p-4">
+      <main className="flex min-h-screen items-center justify-center bg-background px-4">
         <p className="text-muted-foreground">Chargement…</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Connexion</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+      <Card className="w-full max-w-4xl">
+        <div className="grid gap-0 md:grid-cols-2">
+          <div className="relative hidden flex-col justify-between bg-muted/40 p-8 md:flex">
+            <div className="text-sm font-medium tracking-tight text-muted-foreground">
+              Starium Orchestra
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-destructive" role="alert">
-                {error}
+            <div className="mt-8 text-xs text-muted-foreground">
+              <p className="font-medium">
+                « Votre cockpit de gouvernance IT, finance et opérations. »
               </p>
-            )}
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? 'Connexion…' : 'Se connecter'}
-            </Button>
-          </form>
-        </CardContent>
+            </div>
+          </div>
+          <div className="flex items-center justify-center p-6 md:p-8">
+            <div className="w-full max-w-sm">
+              <div className="mb-6 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Accès cockpit</span>
+                <span className="font-medium">Connexion</span>
+              </div>
+              <CardTitle className="mb-1 text-2xl font-semibold tracking-tight">
+                Se connecter
+              </CardTitle>
+              <CardDescription className="mb-6">
+                Entrez vos identifiants pour accéder à vos clients et à vos
+                espaces.
+              </CardDescription>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Mot de passe</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                {error && (
+                  <p className="text-sm text-destructive" role="alert">
+                    {error}
+                  </p>
+                )}
+                <Button
+                  type="submit"
+                  className="mt-2 w-full"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Connexion…' : 'Se connecter'}
+                </Button>
+              </form>
+            </div>
+          </div>
+        </div>
       </Card>
     </main>
   );
