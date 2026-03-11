@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '../context/auth-context';
 import { ActiveClientProvider } from '../context/active-client-context';
+import { ThemeProvider } from '../context/theme-context';
 
 export const metadata: Metadata = {
   title: 'Starium Orchestra',
@@ -16,9 +17,11 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body>
-        <AuthProvider>
-          <ActiveClientProvider>{children}</ActiveClientProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ActiveClientProvider>{children}</ActiveClientProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

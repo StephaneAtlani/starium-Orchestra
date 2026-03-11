@@ -1,24 +1,30 @@
 :root {
-  /* Fond / surfaces */
-  --color-bg-app: #f8f6f1;
-  --color-bg-card: #ffffff;
-  --color-bg-sidebar: #1b1b1b;
+  /* Fond / surfaces — proche thème neutral du dashboard shadcn */
+  --color-bg-app: #f3f4f6;        /* gray-100 */
+  --color-bg-card: #ffffff;       /* white */
+  --color-bg-sidebar: #020817;    /* slate-950 */
 
   /* Texte */
-  --color-text-primary: #1b1b1b;
-  --color-text-inverse: #ffffff;
-  --color-text-muted: #6b7280;
+  --color-text-primary: #0f172a;  /* slate-900 */
+  --color-text-inverse: #f9fafb;  /* gray-50 */
+  --color-text-muted: #6b7280;    /* gray-500 */
 
   /* Bordures */
-  --color-border-default: #e8e1d1;
+  --color-border-default: #e5e7eb; /* gray-200 */
 
-  /* Couleur principale Starium */
-  --color-primary: #db9801;
-  --color-primary-foreground: #ffffff;
+  /* Couleur principale / accents (neutral) */
+  --color-primary: #0f172a;             /* slate-900 */
+  --color-primary-foreground: #f9fafb;  /* gray-50 */
 
   /* Tokens génériques */
   --radius: 0.75rem;
-  --shadow-card: 0 18px 30px -15px rgba(0, 0, 0, 0.24);
-  --color-hover: rgba(219, 152, 1, 0.08);
+  --shadow-card: 0 18px 30px -15px rgba(15, 23, 42, 0.25);
+  --color-hover: rgba(15, 23, 42, 0.06); /* hover neutre sur fond clair */
+
+  /* Spécifique fond sombre (sidebar) : texte / accents or clair */
+  /* Utilisés via --sidebar-foreground / --sidebar-primary dans globals.css */
+  --color-text-inverse: #fefce8;        /* jaune très clair (amber-50) */
+  /* Accent or pour éléments actifs sur fond sombre */
+  --color-primary: #f3a303;             /* amber-400 */
 }
 

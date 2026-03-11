@@ -7,6 +7,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,9 @@ export function EditClientDialog({ client }: { client: AdminClientSummary }) {
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Modifier le client</DialogTitle>
+            <DialogDescription>
+              Met à jour le nom et le slug utilisés dans l’interface et les URLs.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
