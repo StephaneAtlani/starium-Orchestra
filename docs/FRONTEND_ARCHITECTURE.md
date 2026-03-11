@@ -1015,6 +1015,107 @@ Le frontend de Starium Orchestra repose sur :
 
 ---
 
+## 30. Implémentation concrète actuelle (apps/web)
+
+Cette section décrit rapidement **l’état réel** du frontend dans `apps/web` (2026‑03), pour que les futurs développements restent cohérents.
+
+### 30.1 App Shell & routing
+
+- `src/app/layout.tsx` : monte les providers principaux (`ThemeProvider`, `AuthProvider`, `ActiveClientProvider`) et importe `globals.css`.
+- `src/app/(protected)/layout.tsx` : applique l’`AppShell` (sidebar + header + zone de contenu) aux pages protégées.
+- `src/components/shell/` :
+  - `sidebar.tsx` : navigation principale (colonne gauche compacte, icône + label en dessous, typographie réduite).
+  - `workspace-header.tsx` : titre, client actif, recherche, toggle thème, actions utilisateur.
+  - `app-shell.tsx` : composition globale si présent.
+
+**Règle :** toute nouvelle page métier dans `(protected)` doit simplement rendre son contenu dans le `<main>` du shell, **sans recréer de layout**.
+
+### 30.2 Design system & thèmes (Tailwind v4 + shadcn/ui)
+
+- Fichier principal : `src/app/globals.css`.
+- Design tokens Starium : `src/styles/tokens.css`.
+- Thème basé sur les variables `oklch` shadcn (`--background`, `--foreground`, `--primary`, `--sidebar`, etc.) :
+  - light et dark définis dans `:root` et `.dark`.
+  - mapping vers Tailwind via `@theme inline` (`bg-background`, `bg-card`, `bg-sidebar`, `text-foreground`, etc.).
+- Composants UI shadcn (base-nova) dans `src/components/ui/` :
+  - `button.tsx`, `input.tsx`, `badge.tsx`, `card.tsx`, `table.tsx`, etc., générés puis adaptés.
+
+Règles concrètes :
+
+- Toujours utiliser les **couleurs de thème** (`bg-card`, `text-muted-foreground`, `border-border`, `bg-sidebar`, `text-sidebar-foreground`), **jamais** d’hex direct dans les composants.
+- Pour le texte de contenu (tables, body de card), utiliser `text-card-foreground` / `text-muted-foreground` plutôt que `text-foreground`.
+- Pour les bordures, utiliser `border`, `border-border`, ou les `ring-*` déjà branchés sur les variables.
+
+### 30.3 Tables & listes (pattern DataTable)
+
+- `src/components/ui/table.tsx` encapsule la table shadcn :
+
+```tsx
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>Nom</TableHead>
+      <TableHead>Slug</TableHead>
+      <TableHead>Créé le</TableHead>
+      <TableHead>Actions</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    <TableRow>
+      <TableCell>Client Demo</TableCell>
+      <TableCell>client-demo-123</TableCell>
+      <TableCell>10/03/2026</TableCell>
+      <TableCell>…</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+```
+
+- Header :
+  - `TableHeader` ajoute un `bg-muted/60` et une bordure basse.
+  - `TableHead` utilise `text-foreground` pour garder des en‑têtes lisibles.
+- Lignes :
+  - `TableRow` applique `border-b border-border/60` et un hover `bg-muted/50`.
+  - `TableCell` reste sobre (`text-card-foreground` via la card).
+- `src/components/data-table/data-table.tsx` fournit le pattern **DataTable** générique :
+  - gère `loading / error / empty / success`.
+  - prend une liste de colonnes typées (`DataTableColumn<T>`).
+  - est utilisé dans les pages admin (`/admin/clients`, `/admin/users`, `/admin/audit`).
+
+**Règle :** toute nouvelle table doit utiliser ce pattern (Card + DataTable + `ui/table`) pour rester cohérente visuellement et UX.
+
+### 30.4 Sidebar compacte
+
+- Fichier : `src/components/shell/sidebar.tsx`.
+- Largeur : `w-52` (colonne compacte).
+- Sections : `SidebarSection` (`sidebar-section.tsx`) + `SidebarItem` (`sidebar-item.tsx`).
+- Chaque item :
+  - layout colonne (`flex flex-col items-center`),
+  - icône (`lucide-react`) au-dessus en `h-4 w-4`,
+  - label en dessous en `text-[0.7rem]` tronqué.
+
+Règles :
+
+- Pour ajouter un lien de navigation, **ajouter la config** dans `src/config/navigation.ts` et laisser la `Sidebar` le rendre via `SidebarItem`.
+- Ne jamais coder des liens de sidebar en dur dans les pages.
+
+### 30.5 Typographie
+
+- Taille de base du body définie dans `globals.css` :
+
+```css
+body {
+  font-size: 0.875rem; /* ~14px, cohérent avec un cockpit dense */
+}
+```
+
+- Titre d’app dans la sidebar : `text-sm`.
+- Titres de cards / sections : `text-base` ou `text-sm` selon le contexte.
+
+**Règle :** pour du texte courant (lignes de tableau, labels de formulaire, descriptions), rester sur `text-sm` ou moins ; réserver `text-lg`+ aux titres vraiment structurants.
+
+---
+
 ## 30. Vision finale
 
 Le frontend doit être perçu comme :

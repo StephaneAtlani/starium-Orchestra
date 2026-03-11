@@ -7,7 +7,6 @@ import { useAuth } from '../../context/auth-context';
 import { useActiveClient } from '../../hooks/use-active-client';
 import { SidebarSection } from './sidebar-section';
 import { SidebarItem } from './sidebar-item';
-import { Badge } from '../ui/badge';
 
 function visible(item: NavigationItem, platformRole: string | null, clientRole: string | null): boolean {
   if (item.platformOnly && platformRole !== 'PLATFORM_ADMIN') return false;
@@ -57,39 +56,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div
-        className="shrink-0 border-t border-sidebar-border px-4 py-3 text-xs text-sidebar-foreground/70"
-        data-slot="sidebar-footer"
-        data-sidebar="footer"
-      >
-        <div className="flex items-center gap-3">
-          <div
-            data-slot="avatar"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent text-[0.7rem] font-semibold uppercase"
-          >
-            {(displayName || 'U')
-              .split(' ')
-              .filter(Boolean)
-              .map((part) => part[0])
-              .slice(0, 2)
-              .join('')}
-          </div>
-          <div className="min-w-0 flex-1 text-left leading-tight">
-            <div className="truncate text-sm font-medium">{displayName}</div>
-            <div className="truncate text-[0.7rem] text-sidebar-foreground/70">
-              {user?.email ?? 'Non connecté'}
-            </div>
-          </div>
-          {platformRole === 'PLATFORM_ADMIN' && (
-            <Badge
-              variant="outline"
-              className="ml-auto text-[0.7rem] px-2 py-0.5 text-sidebar-foreground"
-            >
-              Admin
-            </Badge>
-          )}
-        </div>
-      </div>
     </aside>
   );
 }
