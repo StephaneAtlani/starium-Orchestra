@@ -7,7 +7,8 @@
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  /* Texte par défaut dans les cartes / tables : gris foncé (plus doux) */
+  --card-foreground: oklch(0.4 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   /* Or neutre en light (plus foncé) */
@@ -16,14 +17,16 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* Texte secondaire en gris moyen */
+  --muted-foreground: oklch(0.45 0 0);
   /* Hover / accents en or plus foncé */
   --accent: oklch(0.83 0.13 95);
   --accent-foreground: oklch(0.25 0.05 90);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  /* Bordures gris neutre un peu plus marquées en light (pour tables, cartes, etc.) */
+  --border: oklch(0.82 0 0);
+  --input: oklch(0.82 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -48,7 +51,8 @@
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
+  /* Texte par défaut dans les cartes / tables en dark : gris clair (pas blanc pur) */
+  --card-foreground: oklch(0.9 0 0);
   --popover: oklch(0.269 0 0);
   --popover-foreground: oklch(0.985 0 0);
   /* Or plus vif en dark (mais un peu assombri) */
@@ -57,14 +61,16 @@
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  /* Texte secondaire en dark : gris un peu atténué */
+  --muted-foreground: oklch(0.78 0 0);
   /* Hover or plus profond */
   --accent: oklch(0.66 0.14 95);
   --accent-foreground: oklch(0.22 0.04 90);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  /* Bordures plus marquées en dark */
+  --border: oklch(0.4 0 0);
+  --input: oklch(0.4 0 0);
   --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
@@ -91,6 +97,8 @@ body {
 body {
   background: var(--background);
   color: var(--foreground);
+  /* Taille de base un peu réduite pour tout l'UI */
+  font-size: 0.875rem; /* ~14px */
   font-feature-settings: 'rlig' 1, 'calt' 1;
   font-family: 'Geist', 'Geist Fallback', system-ui, -apple-system,
     BlinkMacSystemFont, 'Segoe UI', sans-serif;

@@ -22,7 +22,7 @@ export function SidebarItem({ label, href, icon: Icon }: SidebarItemProps) {
     <Link
       href={href}
       className={cn(
-        'group flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+        'group flex flex-col items-center gap-1 rounded-lg px-2.5 py-2 text-[0.72rem] font-medium transition-colors',
         'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground',
         isActive && 'bg-sidebar-accent text-sidebar-primary',
       )}
@@ -30,7 +30,9 @@ export function SidebarItem({ label, href, icon: Icon }: SidebarItemProps) {
       {Icon && (
         <Icon className="h-4 w-4 shrink-0 opacity-80 group-hover:opacity-100" />
       )}
-      <span className="truncate">{label}</span>
+      <span className="truncate text-[0.7rem] leading-tight text-sidebar-foreground/80">
+        {label}
+      </span>
     </Link>
   );
 }

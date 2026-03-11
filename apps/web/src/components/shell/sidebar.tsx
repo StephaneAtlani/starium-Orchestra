@@ -26,9 +26,7 @@ export function Sidebar() {
       : user?.email ?? 'Non connecté';
 
   return (
-    <aside
-      className="hidden w-72 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex"
-    >
+    <aside className="hidden w-24 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
         <div className="flex flex-col leading-tight">
           <span className="text-sm font-semibold tracking-tight">
