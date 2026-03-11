@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/data-table/data-table';
 import { usePlatformUsersQuery } from '../../../../features/admin-studio/hooks/use-platform-users-query';
 import type { AdminPlatformUserSummary } from '../../../../features/admin-studio/types/admin-studio.types';
+import { ManageUserClientsDialog } from '../../../../features/admin-studio/components/manage-user-clients-dialog';
 
 const columns: DataTableColumn<AdminPlatformUserSummary>[] = [
   { key: 'email', header: 'Email' },
@@ -31,6 +32,12 @@ const columns: DataTableColumn<AdminPlatformUserSummary>[] = [
     header: 'Créé le',
     cell: (row) => new Date(row.createdAt).toLocaleDateString('fr-FR'),
     className: 'text-muted-foreground',
+  },
+  {
+    key: 'clients',
+    header: 'Clients',
+    cell: (row) => <ManageUserClientsDialog user={row} />,
+    className: 'text-right',
   },
 ];
 
