@@ -45,7 +45,6 @@ describe('UserRolesService', () => {
       prisma.clientUser.findFirst.mockResolvedValue(null);
 
       await expect(
-        // @ts-expect-error accès privé pour test
         (service as any).ensureUserBelongsToClient(clientId, userId),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
@@ -59,7 +58,6 @@ describe('UserRolesService', () => {
       });
 
       await expect(
-        // @ts-expect-error accès privé pour test
         (service as any).ensureUserBelongsToClient(clientId, userId),
       ).resolves.toBeUndefined();
     });

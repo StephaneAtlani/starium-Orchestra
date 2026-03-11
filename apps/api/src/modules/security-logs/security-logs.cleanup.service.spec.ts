@@ -31,8 +31,11 @@ describe('SecurityLogsCleanupService', () => {
 
     await service.handleCron();
 
-    expect(prisma.securityLog.deleteMany).toHaveBeenCalledTimes(1);
-    const callArg = (prisma.securityLog.deleteMany as jest.Mock).mock.calls[0][0];
+    const prismaMock = prisma as unknown as {
+      securityLog: { deleteMany: jest.Mock };
+    };
+    expect(prismaMock.securityLog.deleteMany).toHaveBeenCalledTimes(1);
+    const callArg = prismaMock.securityLog.deleteMany.mock.calls[0][0];
     const threshold: Date = callArg.where.createdAt.lt;
 
     const diffMs = baseNow - threshold.getTime();

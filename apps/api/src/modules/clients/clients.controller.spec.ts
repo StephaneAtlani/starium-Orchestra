@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
+import type { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { ClientsController } from './clients.controller';
 import { ClientMembershipService } from './client-membership.service';
 import { ClientsService } from './clients.service';
@@ -8,6 +9,7 @@ import { ClientsService } from './clients.service';
 describe('ClientsController', () => {
   let controller: ClientsController;
   let service: ClientsService;
+  const meta: RequestMeta = {};
 
   const mockClientResponse = {
     id: 'client-1',
@@ -70,10 +72,10 @@ describe('ClientsController', () => {
         slug: 'new-client',
         adminEmail: 'admin@test.fr',
       };
-      const result = await controller.create(dto);
+      const result = await controller.create(dto, undefined, meta);
       expect(service.create).toHaveBeenCalledWith(dto, {
         actorUserId: undefined,
-        meta: undefined,
+        meta,
       });
       expect(result).toEqual(mockClientResponse);
     });
@@ -85,9 +87,12 @@ describe('ClientsController', () => {
         ...mockClientResponse,
         name: 'Updated',
       });
-      const result = await controller.update(mockClientResponse.id, {
-        name: 'Updated',
-      });
+      const result = await controller.update(
+        mockClientResponse.id,
+        { name: 'Updated' },
+        undefined,
+        meta,
+      );
       expect(service.update).toHaveBeenCalledWith(
         mockClientResponse.id,
         {
@@ -95,7 +100,7 @@ describe('ClientsController', () => {
         },
         {
           actorUserId: undefined,
-          meta: undefined,
+          meta,
         },
       );
       expect(result.name).toBe('Updated');

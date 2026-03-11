@@ -3,12 +3,14 @@ import { ClientUserRole, ClientUserStatus } from '@prisma/client';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ClientAdminGuard } from '../../common/guards/client-admin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 describe('UsersController', () => {
   let controller: UsersController;
   let service: UsersService;
+  const meta: RequestMeta = {};
 
   const clientId = 'client-1';
   const mockUserResponse = {
@@ -73,10 +75,10 @@ describe('UsersController', () => {
         role: ClientUserRole.CLIENT_USER,
         password: 'password12',
       };
-      const result = await controller.create(clientId, dto);
+      const result = await controller.create(clientId, dto, undefined, meta);
       expect(service.create).toHaveBeenCalledWith(clientId, dto, {
         actorUserId: undefined,
-        meta: undefined,
+        meta,
       });
       expect(result).toEqual(mockUserResponse);
     });
@@ -91,9 +93,9 @@ describe('UsersController', () => {
       const result = await controller.update(
         clientId,
         mockUserResponse.id,
-        {
-          firstName: 'Updated',
-        },
+        { firstName: 'Updated' },
+        undefined,
+        meta,
       );
       expect(service.update).toHaveBeenCalledWith(
         clientId,
@@ -103,7 +105,7 @@ describe('UsersController', () => {
         },
         {
           actorUserId: undefined,
-          meta: undefined,
+          meta,
         },
       );
       expect(result.firstName).toBe('Updated');
@@ -113,13 +115,13 @@ describe('UsersController', () => {
   describe('remove', () => {
     it('should call remove and return void', async () => {
       (service.remove as jest.Mock).mockResolvedValue(undefined);
-      await controller.remove(clientId, mockUserResponse.id);
+      await controller.remove(clientId, mockUserResponse.id, undefined, meta);
       expect(service.remove).toHaveBeenCalledWith(
         clientId,
         mockUserResponse.id,
         {
           actorUserId: undefined,
-          meta: undefined,
+          meta,
         },
       );
     });

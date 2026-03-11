@@ -41,6 +41,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile.dev
+    command: sh -c "pnpm exec prisma generate && pnpm start:dev"
     env_file:
       - apps/api/.env
     environment:
