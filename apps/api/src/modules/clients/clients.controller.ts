@@ -69,6 +69,15 @@ export class ClientsController {
     await this.clients.remove(id);
   }
 
+  /**
+   * GET /clients/:clientId/users — liste des utilisateurs rattachés à un client (flux plateforme).
+   * Utilisé par l’Admin Studio dans la modal de modification client.
+   */
+  @Get(':clientId/users')
+  getClientUsers(@Param('clientId') clientId: string) {
+    return this.membership.listUsersForClient(clientId);
+  }
+
   /** POST /clients/:clientId/users — rattache un user à un client (Platform Admin). */
   @Post(':clientId/users')
   attachUser(

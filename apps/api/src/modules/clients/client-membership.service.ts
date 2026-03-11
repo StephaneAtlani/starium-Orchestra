@@ -23,6 +23,46 @@ export class ClientMembershipService {
     private readonly auditLogs: AuditLogsService,
   ) {}
 
+  /**
+   * Retourne les utilisateurs rattachés à un client pour le Platform Admin.
+   * Shape simplifiée (user + role + status) pour l’Admin Studio.
+   */
+  async listUsersForClient(clientId: string): Promise<{
+    users: {
+      userId: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+      role: string;
+      status: ClientUserStatus;
+    }[];
+  }> {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { id: true },
+    });
+    if (!client) {
+      throw new NotFoundException('Client non trouvé');
+    }
+
+    const links = await this.prisma.clientUser.findMany({
+      where: { clientId },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return {
+      users: links.map((link) => ({
+        userId: link.userId,
+        email: link.user.email,
+        firstName: link.user.firstName,
+        lastName: link.user.lastName,
+        role: link.role,
+        status: link.status,
+      })),
+    };
+  }
+
   /** Rattache un utilisateur à un client (création User possible). Réservé au Platform Admin. */
   async attachUserToClient(
     clientId: string,

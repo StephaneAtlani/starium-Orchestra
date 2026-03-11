@@ -5,6 +5,15 @@ export interface AdminClientSummary {
   createdAt: string;
 }
 
+export interface AdminClientUserSummary {
+  userId: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  status: string;
+}
+
 export interface AdminPlatformUserSummary {
   id: string;
   email: string;
