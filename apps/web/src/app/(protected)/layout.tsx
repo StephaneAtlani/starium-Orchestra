@@ -35,6 +35,14 @@ export default function ProtectedLayout({
   useEffect(() => {
     if (isLoading || !isAuthenticated || !user || bootstrapDone.current) return;
 
+    // La page /select-client gère elle-même le chargement de /api/me/clients.
+    // On ne bloque pas l'UI dessus.
+    if (pathname === '/select-client') {
+      bootstrapDone.current = true;
+      setBootstrapResolved(true);
+      return;
+    }
+
     // Routes plateforme : ne dépendent pas du client actif (FRONTEND_ARCHITECTURE.md).
     // On ne bloque pas l'UI sur le bootstrap multi-client pour /admin/*.
     if (pathname.startsWith('/admin')) {

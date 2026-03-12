@@ -6,7 +6,17 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import type { MeClient } from '@/services/me';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
 
 export default function SelectClientPage() {
   const router = useRouter();
@@ -45,61 +55,84 @@ export default function SelectClientPage() {
     router.push('/dashboard');
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh] p-4">
-        <p className="text-muted-foreground">Chargement des clients…</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh] p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6">
-            <p className="text-destructive text-sm">{error}</p>
+  return (
+    <Dialog open modal>
+      <DialogContent
+        showCloseButton={false}
+        className="w-full max-w-xl shadow-lg border-border/80 p-0"
+      >
+        <Card className="border-0 shadow-none">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Sélectionner un client</CardTitle>
+            <CardDescription>
+              Choisissez l&apos;organisation avec laquelle vous souhaitez
+              travailler. Vous pourrez en changer plus tard.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loading ? (
+              <p className="text-sm text-muted-foreground">
+                Chargement des clients…
+              </p>
+            ) : error ? (
+              <p className="text-sm text-destructive">{error}</p>
+            ) : clients.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Aucun client actif n&apos;est associé à votre compte. Contactez
+                un administrateur.
+              </p>
+            ) : (
+              <ul className="space-y-2" role="list" aria-label="Clients disponibles">
+                {clients.map((client) => (
+                  <li key={client.id}>
+                    <Card
+                      size="sm"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleSelect(client)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleSelect(client);
+                        }
+                      }}
+                      className="w-full text-left cursor-pointer transition-colors hover:bg-accent hover:ring-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate font-medium">
+                              {client.name}
+                            </span>
+                            {client.isDefault && (
+                              <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[0.7rem] font-medium text-primary">
+                                Par défaut
+                              </span>
+                            )}
+                          </div>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {client.slug} ·{' '}
+                            {client.role === 'CLIENT_ADMIN'
+                              ? 'Administrateur'
+                              : 'Utilisateur'}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 group-hover:bg-primary group-hover:text-primary-foreground"
+                        >
+                          Continuer
+                        </Button>
+                      </div>
+                    </Card>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Choisir un client</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Sélectionnez le client avec lequel vous souhaitez travailler.
-        </p>
-      </div>
-      <div className="grid gap-3">
-        {clients.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-muted-foreground text-sm">
-                Aucun client actif disponible.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          clients.map((client) => (
-            <Card
-              key={client.id}
-              className="cursor-pointer transition-colors hover:bg-muted/50"
-              onClick={() => handleSelect(client)}
-            >
-              <CardHeader className="py-4">
-                <CardTitle className="text-base">{client.name}</CardTitle>
-                <p className="text-muted-foreground text-sm">{client.slug}</p>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <Button size="sm">Continuer</Button>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
