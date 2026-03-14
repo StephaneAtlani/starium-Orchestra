@@ -30,15 +30,21 @@ model HealthCheck {
 }
 
 model Client {
-  id            String         @id @default(cuid())
-  name          String
-  slug          String         @unique
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  clientUsers   ClientUser[]
-  clientModules ClientModule[]
-  roles         Role[]
-  auditLogs     AuditLog[]
+  id                   String                @id @default(cuid())
+  name                 String
+  slug                 String                @unique
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  clientUsers          ClientUser[]
+  clientModules        ClientModule[]
+  roles                Role[]
+  auditLogs            AuditLog[]
+  budgetExercises      BudgetExercise[]
+  budgets              Budget[]
+  budgetEnvelopes      BudgetEnvelope[]
+  budgetLines          BudgetLine[]
+  financialAllocations FinancialAllocation[]
+  financialEvents      FinancialEvent[]
 }
 
 model User {
@@ -55,6 +61,7 @@ model User {
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
   securityLogs  SecurityLog[]
+  ownedBudgets Budget[]       @relation("OwnedBudgets")
 }
 
 model ClientUser {
@@ -164,6 +171,222 @@ enum ClientModuleStatus {
   ENABLED
   DISABLED
 }
+
+// --- Budget MVP (RFC-015-1A) ---
+
+enum BudgetExerciseStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum BudgetStatus {
+  DRAFT
+  ACTIVE
+  LOCKED
+  ARCHIVED
+}
+
+enum BudgetEnvelopeType {
+  RUN
+  BUILD
+  TRANSVERSE
+}
+
+enum BudgetLineStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum ExpenseType {
+  OPEX
+  CAPEX
+}
+
+enum FinancialSourceType {
+  PROJECT
+  ACTIVITY
+  SUPPLIER
+  CONTRACT
+  LICENSE
+  ORDER
+  TEAM_ASSIGNMENT
+  APPLICATION
+  ASSET
+  MANUAL
+}
+
+enum AllocationType {
+  PLANNED
+  RESERVED
+  COMMITTED
+  CONSUMED
+  FORECAST
+  REALLOCATED
+  CANCELLED
+}
+
+enum FinancialEventType {
+  LINE_CREATED
+  BUDGET_INITIALIZED
+  ALLOCATION_ADDED
+  ALLOCATION_UPDATED
+  COMMITMENT_REGISTERED
+  CONSUMPTION_REGISTERED
+  FORECAST_UPDATED
+  REALLOCATION_DONE
+  CANCELLATION
+  ADJUSTMENT
+}
+
+model BudgetExercise {
+  id        String               @id @default(cuid())
+  clientId  String
+  name      String
+  code      String
+  startDate DateTime
+  endDate   DateTime
+  status    BudgetExerciseStatus @default(DRAFT)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  client    Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budgets   Budget[]
+
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([status])
+}
+
+model Budget {
+  id            String       @id @default(cuid())
+  clientId      String
+  exerciseId    String
+  name          String
+  code          String
+  description   String?
+  currency      String
+  status        BudgetStatus @default(DRAFT)
+  ownerUserId   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  client        Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  exercise      BudgetExercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  owner         User?        @relation("OwnedBudgets", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  envelopes     BudgetEnvelope[]
+  budgetLines   BudgetLine[]
+
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([exerciseId])
+  @@index([status])
+}
+
+model BudgetEnvelope {
+  id          String             @id @default(cuid())
+  clientId    String
+  budgetId    String
+  parentId    String?
+  name        String
+  code        String
+  type        BudgetEnvelopeType
+  description String?
+  sortOrder   Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budget      Budget             @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  parent      BudgetEnvelope?    @relation("EnvelopeHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    BudgetEnvelope[]   @relation("EnvelopeHierarchy")
+  budgetLines BudgetLine[]
+
+  @@unique([clientId, budgetId, code])
+  @@index([clientId])
+  @@index([budgetId])
+  @@index([parentId])
+}
+
+model BudgetLine {
+  id              String           @id @default(cuid())
+  clientId        String
+  budgetId        String
+  envelopeId      String
+  code            String
+  name            String
+  description     String?
+  expenseType     ExpenseType
+  status          BudgetLineStatus @default(DRAFT)
+  currency        String
+  initialAmount   Decimal          @db.Decimal(18, 2) @default(0)
+  revisedAmount   Decimal          @db.Decimal(18, 2) @default(0)
+  forecastAmount  Decimal          @db.Decimal(18, 2) @default(0)
+  committedAmount Decimal          @db.Decimal(18, 2) @default(0)
+  consumedAmount  Decimal          @db.Decimal(18, 2) @default(0)
+  remainingAmount Decimal          @db.Decimal(18, 2) @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budget          Budget           @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  envelope        BudgetEnvelope   @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
+  allocations     FinancialAllocation[]
+  financialEvents FinancialEvent[]
+
+  @@unique([clientId, budgetId, code])
+  @@index([clientId])
+  @@index([budgetId])
+  @@index([envelopeId])
+  @@index([status])
+}
+
+model FinancialAllocation {
+  id             String         @id @default(cuid())
+  clientId       String
+  budgetLineId  String
+  sourceType    FinancialSourceType
+  sourceId      String
+  allocationType AllocationType
+  allocatedAmount Decimal       @db.Decimal(18, 2)
+  currency      String
+  effectiveDate DateTime?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budgetLine    BudgetLine     @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([budgetLineId])
+  @@index([sourceType, sourceId])
+  @@index([allocationType])
+}
+
+model FinancialEvent {
+  id            String              @id @default(cuid())
+  clientId      String
+  budgetLineId String
+  sourceType   FinancialSourceType
+  sourceId     String?
+  eventType    FinancialEventType
+  amount       Decimal             @db.Decimal(18, 2)
+  currency     String
+  eventDate    DateTime
+  label        String
+  description  String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budgetLine   BudgetLine          @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([budgetLineId])
+  @@index([sourceType, sourceId])
+  @@index([eventType])
+  @@index([eventDate])
+}
+
+// --- End Budget MVP ---
 
 model RefreshToken {
   id        String   @id @default(uuid())
