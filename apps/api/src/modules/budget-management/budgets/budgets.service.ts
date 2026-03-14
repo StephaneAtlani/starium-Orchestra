@@ -170,6 +170,15 @@ export class BudgetsService {
         'Cannot update a locked or archived budget',
       );
     }
+    if (
+      existing.isVersioned &&
+      existing.versionStatus &&
+      ['SUPERSEDED', 'ARCHIVED'].includes(existing.versionStatus)
+    ) {
+      throw new BadRequestException(
+        'Cannot update a superseded or archived version',
+      );
+    }
 
     if (dto.ownerUserId !== undefined) {
       if (dto.ownerUserId) {

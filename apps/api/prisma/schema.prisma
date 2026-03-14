@@ -50,6 +50,7 @@ model Client {
   budgetImportMappings BudgetImportMapping[]
   budgetImportJobs     BudgetImportJob[]
   budgetImportRowLinks BudgetImportRowLink[]
+  budgetVersionSets    BudgetVersionSet[]
 }
 
 model User {
@@ -210,6 +211,20 @@ enum BudgetLineStatus {
   ARCHIVED
 }
 
+// --- Budget Versioning (RFC-019) ---
+
+enum BudgetVersionKind {
+  BASELINE
+  REVISION
+}
+
+enum BudgetVersionStatus {
+  DRAFT
+  ACTIVE
+  SUPERSEDED
+  ARCHIVED
+}
+
 enum ExpenseType {
   OPEX
   CAPEX
@@ -264,10 +279,34 @@ model BudgetExercise {
   client    Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
   budgets   Budget[]
   budgetSnapshots BudgetSnapshot[]
+  budgetVersionSets BudgetVersionSet[]
 
   @@unique([clientId, code])
   @@index([clientId])
   @@index([status])
+}
+
+model BudgetVersionSet {
+  id               String    @id @default(cuid())
+  clientId         String
+  exerciseId       String
+  code            String
+  name            String
+  description     String?
+  baselineBudgetId String?   @unique
+  activeBudgetId   String?    @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  exercise        BudgetExercise  @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  versions        Budget[]        @relation("VersionSetVersions")
+  baselineBudget  Budget?         @relation("VersionSetBaseline", fields: [baselineBudgetId], references: [id], onDelete: SetNull)
+  activeBudget    Budget?         @relation("VersionSetActive", fields: [activeBudgetId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([exerciseId])
 }
 
 model Budget {
@@ -280,11 +319,25 @@ model Budget {
   currency      String
   status        BudgetStatus @default(DRAFT)
   ownerUserId   String?
+  versionSetId  String?
+  versionNumber Int?
+  versionLabel  String?
+  versionKind   BudgetVersionKind?
+  versionStatus BudgetVersionStatus?
+  parentBudgetId String?
+  activatedAt   DateTime?
+  archivedAt    DateTime?
+  isVersioned   Boolean      @default(false)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   client        Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   exercise      BudgetExercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
   owner         User?        @relation("OwnedBudgets", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  versionSet    BudgetVersionSet? @relation("VersionSetVersions", fields: [versionSetId], references: [id], onDelete: SetNull)
+  parentBudget  Budget?      @relation("BudgetVersionParent", fields: [parentBudgetId], references: [id], onDelete: SetNull)
+  childVersions Budget[]     @relation("BudgetVersionParent")
+  baselineForSet BudgetVersionSet? @relation("VersionSetBaseline")
+  activeForSet   BudgetVersionSet? @relation("VersionSetActive")
   envelopes     BudgetEnvelope[]
   budgetLines   BudgetLine[]
   budgetSnapshots BudgetSnapshot[]
@@ -292,9 +345,13 @@ model Budget {
   budgetImportJobs    BudgetImportJob[]
 
   @@unique([clientId, code])
+  @@unique([versionSetId, versionNumber])
   @@index([clientId])
   @@index([exerciseId])
   @@index([status])
+  @@index([clientId, versionSetId])
+  @@index([clientId, versionStatus])
+  @@index([clientId, versionKind])
 }
 
 model BudgetEnvelope {

@@ -6,17 +6,18 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 
 ## 1. Ce qui est en place
 
-### Schéma Prisma (RFC-015-1A)
+### Schéma Prisma (RFC-015-1A, RFC-019)
 
 - **BudgetExercise** : exercice budgétaire (clientId, name, code, startDate, endDate, status).
-- **Budget** : budget (clientId, exerciseId, name, code, currency, status, ownerUserId optionnel).
+- **Budget** : budget (clientId, exerciseId, name, code, currency, status, ownerUserId optionnel). Extension RFC-019 : versionSetId?, versionNumber?, versionLabel?, versionKind? (BASELINE/REVISION), versionStatus? (DRAFT/ACTIVE/SUPERSEDED/ARCHIVED), parentBudgetId?, activatedAt?, archivedAt?, isVersioned.
+- **BudgetVersionSet** (RFC-019) : ensemble de versions (clientId, exerciseId, code, name, description?, baselineBudgetId?, activeBudgetId?). Relations nommées : versions, baselineBudget, activeBudget.
 - **BudgetEnvelope** : enveloppe (clientId, budgetId, parentId optionnel, name, code, type RUN/BUILD/TRANSVERSE).
 - **BudgetLine** : ligne budgétaire (clientId, budgetId, envelopeId, code, name, expenseType, currency, montants : initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount).
 - **FinancialAllocation** : allocation sur une ligne (budgetLineId, sourceType, sourceId, allocationType, allocatedAmount, etc.).
 - **FinancialEvent** : événement financier (budgetLineId, sourceType, sourceId?, eventType, amount, eventDate, label, etc.).
 - **BudgetReallocation** (RFC-017) : réallocation entre deux lignes (clientId, budgetId, sourceLineId, targetLineId, amount, currency, reason?, createdById?, createdAt). Chaque réallocation génère deux FinancialEvent de type REALLOCATION_DONE (source : montant négatif ; cible : montant positif).
 
-Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType` (dont REALLOCATION_DONE), `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `BudgetLineStatus`, `ExpenseType`.
+Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType` (dont REALLOCATION_DONE), `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `BudgetLineStatus`, `ExpenseType`, `BudgetVersionKind` (BASELINE, REVISION), `BudgetVersionStatus` (DRAFT, ACTIVE, SUPERSEDED, ARCHIVED).
 
 ### Backend Budget Management (RFC-015-2)
 
@@ -82,6 +83,22 @@ Détail : [docs/API.md](../API.md) §17 (Réallocations budgétaires).
 
 Détail : [docs/API.md](../API.md) §19 (Budget Data Import).
 
+### Backend Budget Versioning (RFC-019)
+
+- **Module** `budget-versioning` : gestion des versions de budgets (ensembles de versions, baseline, révisions, version active, comparaison).
+- **API** :
+  - `GET /api/budget-version-sets` — liste des ensembles de versions (exerciseId?, search?, offset?, limit?) ; permission `budgets.read`.
+  - `GET /api/budget-version-sets/:id` — détail (métadonnées, baseline, active, liste des versions) ; permission `budgets.read`.
+  - `POST /api/budgets/:id/create-baseline` — crée un version set et une baseline V1 par copie du budget (non versionné) ; permission `budgets.create`.
+  - `POST /api/budgets/:id/create-revision` — crée une révision (body optionnel : label?, description?) ; permission `budgets.create`.
+  - `POST /api/budgets/:id/activate-version` — marque la version comme active ; permission `budgets.update`.
+  - `POST /api/budgets/:id/archive-version` — archive une version non active ; permission `budgets.update`.
+  - `GET /api/budgets/:id/version-history` — historique des versions du set ; permission `budgets.read`.
+  - `GET /api/budgets/:id/compare?targetBudgetId=...` — comparaison entre deux versions du même set ; permission `budgets.read`.
+- **Règles** : duplication Budget / BudgetEnvelope / BudgetLine (codes stables, pas de clonage des allocations ni événements) ; une seule baseline et une seule version active par set ; versions SUPERSEDED/ARCHIVED en lecture seule.
+
+Détail : [docs/API.md](../API.md) §20 (Budget Versioning).
+
 ---
 
 ## 2. Ce qui n’est pas implémenté
@@ -89,7 +106,7 @@ Détail : [docs/API.md](../API.md) §19 (Budget Data Import).
 - **Frontend** : aucune interface utilisateur pour les budgets dans cette phase.
 - **Suppression physique** : pas d’endpoint DELETE sur la structure budgétaire (RFC-015-2).
 - **Snapshots** : implémentés (RFC-015-3). **Réallocations** : backend implémenté (RFC-017) ; UI « Réallouer » hors périmètre MVP.
-- **Axes analytiques, export Excel, duplication de budget, workflow d’approbation** : hors périmètre du MVP. **Import Excel/CSV** : backend implémenté (RFC-018) ; UI d’import hors périmètre MVP.
+- **Axes analytiques, export Excel, workflow d’approbation** : hors périmètre du MVP. **Import Excel/CSV** : backend implémenté (RFC-018) ; UI d’import hors périmètre MVP. **Versioning** : backend implémenté (RFC-019) ; baseline, révisions, version active, comparaison ; UI versioning hors périmètre MVP.
 
 ---
 
@@ -140,6 +157,8 @@ Voir [docs/API.md](../API.md#15-noyau-financier--apifinancial-allocations-apifin
 - **RFC-015-2** : Budget Management Backend (structure budgétaire)
 - **RFC-015-1B** : Financial Core Backend (allocations, événements)
 - **RFC-017** : Budget Reallocation (transfert entre lignes)
-- **Plan d’implémentation** : [docs/RFC/RFC-015-1B-implementation-plan.md](../RFC/RFC-015-1B-implementation-plan.md)
-- **API** : [docs/API.md](../API.md) (§15 Structure budgétaire, §16 Noyau financier, §17 Réallocations budgétaires, §18 Budget Reporting)
+- **RFC-018** : Budget Data Import
+- **RFC-019** : Budget Versioning (baselines, révisions, version active, comparaison)
+- **Plan d’implémentation** : [docs/RFC/RFC-015-1B-implementation-plan.md](../RFC/RFC-015-1B-implementation-plan.md), [docs/RFC/RFC-019 — Budget Versioning — Plan implémentation.md](../RFC/RFC-019%20—%20Budget%20Versioning%20—%20Plan%20implémentation.md)
+- **API** : [docs/API.md](../API.md) (§15 Structure budgétaire, §16 Noyau financier, §17 Réallocations budgétaires, §18 Budget Reporting, §19 Budget Data Import, §20 Budget Versioning)
 - **Architecture** : [docs/ARCHITECTURE.md](../ARCHITECTURE.md) (§5.3 Noyau financier, §6.1 Modules)

@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning).
 
 ---
 
@@ -441,6 +441,8 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 | /api/budget-reporting/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budget-imports/* (analyze, preview, execute) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-import-mappings | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
+| /api/budget-version-sets | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
+| /api/budgets/:id/create-baseline, create-revision, activate-version, archive-version, version-history, compare | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update` selon l’action) |
 
 ---
 
@@ -1585,3 +1587,31 @@ Mappings sauvegardés (configuration colonnes → champs logiques, stratégie de
 - **DELETE /api/budget-import-mappings/:id** — Suppression. Permission `budgets.update`.
 
 **Erreurs :** 401, 403, 404 (mapping introuvable ou hors client).
+
+---
+
+## 20. Budget Versioning (RFC-019) — `/api/budget-version-sets`, `/api/budgets/:id/*`
+
+Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets : ensembles de versions (BudgetVersionSet), baseline, révisions, version active, comparaison entre versions. Duplication transactionnelle de la structure Budget / BudgetEnvelope / BudgetLine (sans clonage des allocations ni événements financiers).
+
+### Guards et headers
+
+- **Headers** : `Authorization: Bearer <accessToken>`, `X-Client-Id`
+- **Guards** : JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard
+- **Permissions** : `budgets.read` (GET), `budgets.create` (create-baseline, create-revision), `budgets.update` (activate-version, archive-version)
+
+### Budget Version Sets — `/api/budget-version-sets`
+
+- **GET /api/budget-version-sets** — Liste des ensembles de versions du client actif. Query : `exerciseId?`, `search?`, `offset?`, `limit?`. Réponse : `{ items, total, limit, offset }` avec pour chaque item : `id`, `clientId`, `exerciseId`, `code`, `name`, `description`, `baselineBudgetId`, `activeBudgetId`, `createdAt`. Permission `budgets.read`.
+- **GET /api/budget-version-sets/:id** — Détail d’un ensemble : métadonnées + `baseline`, `active`, liste `versions` (triées par `versionNumber`). Permission `budgets.read`.
+
+### Actions sur un budget — `/api/budgets/:id/...`
+
+- **POST /api/budgets/:id/create-baseline** — Crée un version set et une baseline (V1) par copie du budget existant (non versionné). Réponse : `versionSetId`, `budgetId`, `versionNumber`, `versionLabel`, `versionKind`, `versionStatus`. Permission `budgets.create`.
+- **POST /api/budgets/:id/create-revision** — Crée une nouvelle révision (duplication). Body optionnel : `label?`, `description?`. Réponse : `versionSetId`, `budgetId`, `versionNumber`, `versionLabel`, `versionKind`, `versionStatus`, `parentBudgetId`. Permission `budgets.create`.
+- **POST /api/budgets/:id/activate-version** — Marque la version comme active (l’ancienne active du même set passe en SUPERSEDED). Idempotent si déjà active. Permission `budgets.update`.
+- **POST /api/budgets/:id/archive-version** — Archive une version non active. Interdit d’archiver la baseline si elle est la seule version du set. Permission `budgets.update`.
+- **GET /api/budgets/:id/version-history** — Historique des versions du set (liste triée par `versionNumber`). Permission `budgets.read`.
+- **GET /api/budgets/:id/compare?targetBudgetId=...** — Comparaison entre deux versions du même set. Query requise : `targetBudgetId`. Réponse : `sourceBudgetId`, `targetBudgetId`, `lines` (diff par code de ligne : source, target, delta des montants). Permission `budgets.read`.
+
+**Erreurs :** 400 (budget déjà versionné, pas le même set pour compare, archivage baseline unique, etc.), 401, 403, 404.

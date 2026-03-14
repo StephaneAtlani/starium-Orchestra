@@ -118,6 +118,15 @@ export class BudgetLinesService {
         'Cannot create line for a locked or archived budget',
       );
     }
+    if (
+      budget.isVersioned &&
+      budget.versionStatus &&
+      ['SUPERSEDED', 'ARCHIVED'].includes(budget.versionStatus)
+    ) {
+      throw new BadRequestException(
+        'Cannot create line for a superseded or archived version',
+      );
+    }
 
     const envelope = await this.prisma.budgetEnvelope.findFirst({
       where: { id: dto.envelopeId, clientId },
@@ -227,6 +236,15 @@ export class BudgetLinesService {
     ) {
       throw new BadRequestException(
         'Cannot update line when parent budget is locked or archived',
+      );
+    }
+    if (
+      existing.budget.isVersioned &&
+      existing.budget.versionStatus &&
+      ['SUPERSEDED', 'ARCHIVED'].includes(existing.budget.versionStatus)
+    ) {
+      throw new BadRequestException(
+        'Cannot update line when parent budget is a superseded or archived version',
       );
     }
     if (

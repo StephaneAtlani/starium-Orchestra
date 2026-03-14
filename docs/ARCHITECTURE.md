@@ -219,6 +219,7 @@ Entités transverses réutilisables par plusieurs modules :
 - `financial_allocations` (liaison source ↔ ligne budgétaire ; types : FORECAST, COMMITTED, CONSUMED, etc.)
 - `financial_events` (événements financiers : COMMITMENT_REGISTERED, CONSUMPTION_REGISTERED, REALLOCATION_DONE, etc.)
 - `budget_reallocations` (RFC-017 : transfert entre deux BudgetLine d’un même budget ; crée 2 FinancialEvent REALLOCATION_DONE et déclenche le recalcul)
+- `budget_version_sets` (RFC-019 : ensembles de versions ; baseline, révisions, version active ; chaque version = copie Budget + BudgetEnvelope + BudgetLine, sans clonage des allocations/événements)
 
 Le **module backend `budget-management`** (RFC-015-2) implémente le CRUD de la structure budgétaire : exercices, budgets, enveloppes et lignes budgétaires. Il ne gère pas les allocations ni les événements financiers.
 
@@ -253,9 +254,9 @@ Chaque module vit sous `src/modules/<module-name>/` :
 - `tests/`
 
 **Modules partagés (core)** : auth, users, clients, client-users, roles, permissions, audit-logs, notifications, documents, config (admin).  
-**Modules métier** : **budget-management** (CRUD exercices, budgets, enveloppes, lignes budgétaires — RFC-015-2), **financial-core** (noyau financier : allocations, événements, recalcul des lignes), **budget-reallocation** (RFC-017 : transfert budgétaire entre deux lignes d’un même budget, traçable et auditée), **budget-reporting** (RFC-016 : agrégations et KPI budgétaires en lecture seule — exercice, budget, enveloppe), **budget-snapshots** (RFC-015-3 : snapshots budgétaires), **budget-import** (RFC-018 : import Excel/CSV, mapping colonnes, preview, execute, traçabilité BudgetImportRowLink), projects, orders, suppliers, contracts, licenses, applications, etc.
+**Modules métier** : **budget-management** (CRUD exercices, budgets, enveloppes, lignes budgétaires — RFC-015-2), **financial-core** (noyau financier : allocations, événements, recalcul des lignes), **budget-reallocation** (RFC-017 : transfert budgétaire entre deux lignes d’un même budget, traçable et auditée), **budget-reporting** (RFC-016 : agrégations et KPI budgétaires en lecture seule — exercice, budget, enveloppe), **budget-snapshots** (RFC-015-3 : snapshots budgétaires), **budget-import** (RFC-018 : import Excel/CSV, mapping colonnes, preview, execute, traçabilité BudgetImportRowLink), **budget-versioning** (RFC-019 : BudgetVersionSet, baseline, révisions, version active, comparaison entre versions ; duplication Budget/Envelope/Line sans allocations/événements), projects, orders, suppliers, contracts, licenses, applications, etc.
 
-Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **budget-management** gère la structure budgétaire ; le module **financial-core** expose les API allocations/événements et le recalcul des lignes (sur des lignes créées via budget-management ou en base), et prend en charge les événements REALLOCATION_DONE pour la base budgétaire effective ; le module **budget-reallocation** crée des réallocations (BudgetReallocation + 2 FinancialEvent) et déclenche le recalcul des deux lignes. Le module **budget-reporting** consomme les données BudgetExercise, Budget, BudgetEnvelope, BudgetLine en lecture seule pour exposer des synthèses et KPI (totaux, ratios, alertes, répartition RUN/BUILD). Le module **budget-import** permet d’importer des lignes budgétaires depuis un fichier (XLSX/CSV) : analyse, mapping, prévisualisation, exécution transactionnelle avec anti-doublon (externalId ou clé composite) et traçabilité via BudgetImportRowLink.
+Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **budget-management** gère la structure budgétaire ; le module **financial-core** expose les API allocations/événements et le recalcul des lignes (sur des lignes créées via budget-management ou en base), et prend en charge les événements REALLOCATION_DONE pour la base budgétaire effective ; le module **budget-reallocation** crée des réallocations (BudgetReallocation + 2 FinancialEvent) et déclenche le recalcul des deux lignes. Le module **budget-reporting** consomme les données BudgetExercise, Budget, BudgetEnvelope, BudgetLine en lecture seule pour exposer des synthèses et KPI (totaux, ratios, alertes, répartition RUN/BUILD). Le module **budget-import** permet d’importer des lignes budgétaires depuis un fichier (XLSX/CSV) : analyse, mapping, prévisualisation, exécution transactionnelle avec anti-doublon (externalId ou clé composite) et traçabilité via BudgetImportRowLink. Le module **budget-versioning** gère les ensembles de versions (création baseline depuis un budget non versionné, révisions, activation, archivage, historique, comparaison entre versions).
 
 ### 6.2 Frontend
 
@@ -265,7 +266,7 @@ Les modules métier dépendent du core (auth, clients, permissions) et du module
 
 ### 6.3 Dépendances
 
-- Backend : core → métier ; budget-management (structure budgétaire), financial-core (allocations/événements), budget-reallocation (transferts entre lignes), budget-reporting (lecture seule, agrégations KPI), budget-import (import Excel/CSV, mapping, preview, execute) ; orders, contracts consomment le noyau financier.
+- Backend : core → métier ; budget-management (structure budgétaire), financial-core (allocations/événements), budget-reallocation (transferts entre lignes), budget-reporting (lecture seule, agrégations KPI), budget-import (import Excel/CSV, mapping, preview, execute), budget-versioning (RFC-019 : versioning et comparaison) ; orders, contracts consomment le noyau financier.
 - Frontend : pas de dépendances entre features si possible ; dépendance commune vers `services/api` et contexte client.
 
 ---
@@ -392,6 +393,17 @@ POST /api/budget-import-mappings
 GET /api/budget-import-mappings/:id
 PATCH /api/budget-import-mappings/:id
 DELETE /api/budget-import-mappings/:id
+
+Budget Versioning — RFC-019
+
+GET /api/budget-version-sets
+GET /api/budget-version-sets/:id
+POST /api/budgets/:id/create-baseline
+POST /api/budgets/:id/create-revision
+POST /api/budgets/:id/activate-version
+POST /api/budgets/:id/archive-version
+GET /api/budgets/:id/version-history
+GET /api/budgets/:id/compare?targetBudgetId=...
 
 Projets
 
