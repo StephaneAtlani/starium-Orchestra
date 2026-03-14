@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import '../styles/tokens.css';
 
-/* Palette Neutral shadcn/ui (base) avec accents or pour boutons / hover */
+/* Palette Neutral shadcn/ui (base) avec accents violets (hex) pour boutons / hover */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -11,17 +11,17 @@
   --card-foreground: oklch(0.4 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* Or neutre en light (plus foncé) */
-  --primary: oklch(0.78 0.16 95);            /* or un peu plus profond */
-  --primary-foreground: oklch(0.25 0.05 90); /* texte sombre lisible sur or */
+  /* Violet en light (#7f22fe) */
+  --primary: #7f22fe;
+  --primary-foreground: #f9fafb;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   /* Texte secondaire en gris moyen */
   --muted-foreground: oklch(0.45 0 0);
-  /* Hover / accents en or plus foncé */
-  --accent: oklch(0.83 0.13 95);
-  --accent-foreground: oklch(0.25 0.05 90);
+  /* Hover / accents violets un peu plus clairs */
+  --accent: #8b5cf6;
+  --accent-foreground: #f9fafb;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   /* Bordures gris neutre un peu plus marquées en light (pour tables, cartes, etc.) */
@@ -35,18 +35,18 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  /* Sidebar active en or plus foncé */
-  --sidebar-primary: oklch(0.78 0.16 95);
-  --sidebar-primary-foreground: oklch(0.25 0.05 90);
-  --sidebar-accent: oklch(0.83 0.13 95);
-  --sidebar-accent-foreground: oklch(0.25 0.05 90);
+  /* Sidebar active toujours violette, hover en gris légèrement plus foncé que le fond */
+  --sidebar-primary: oklch(0.65 0.22 305);
+  --sidebar-primary-foreground: oklch(0.98 0.03 305);
+  --sidebar-accent: oklch(0.94 0 0);           /* gris un peu plus foncé que 0.985 */
+  --sidebar-accent-foreground: oklch(0.145 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   /* compat radius existant */
   --radius-md: var(--radius);
 }
 
-/* Variante dark, avec boutons / hover or plus saturé */
+/* Variante dark, avec boutons / hover violets (hex) */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -55,17 +55,17 @@
   --card-foreground: oklch(0.9 0 0);
   --popover: oklch(0.269 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  /* Or plus vif en dark (mais un peu assombri) */
-  --primary: oklch(0.74 0.2 95);             /* or plus foncé sur fond dark */
-  --primary-foreground: oklch(0.22 0.04 90); /* texte sombre mais lisible */
+  /* Violet en dark (un peu assombri) */
+  --primary: #6d28d9;              /* violet-700 */
+  --primary-foreground: #f9fafb;   /* texte clair sur violet */
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   /* Texte secondaire en dark : gris un peu atténué */
   --muted-foreground: oklch(0.78 0 0);
-  /* Hover or plus profond */
-  --accent: oklch(0.66 0.14 95);
-  --accent-foreground: oklch(0.22 0.04 90);
+  /* Hover violet plus profond */
+  --accent: #7c3aed;               /* violet-600 */
+  --accent-foreground: #f9fafb;
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
   /* Bordures plus marquées en dark */
@@ -79,11 +79,11 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  /* Sidebar active en or plus foncé */
-  --sidebar-primary: oklch(0.74 0.2 95);
-  --sidebar-primary-foreground: oklch(0.22 0.04 90);
-  --sidebar-accent: oklch(0.66 0.14 95);
-  --sidebar-accent-foreground: oklch(0.22 0.04 90);
+  /* Sidebar active en violet, hover en gris légèrement plus clair que le fond */
+  --sidebar-primary: oklch(0.6 0.22 305);
+  --sidebar-primary-foreground: oklch(0.98 0.03 305);
+  --sidebar-accent: oklch(0.26 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.439 0 0);
 }
@@ -109,12 +109,16 @@ body {
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-border: var(--sidebar-border);

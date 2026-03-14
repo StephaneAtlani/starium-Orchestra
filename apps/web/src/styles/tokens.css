@@ -12,8 +12,8 @@
   /* Bordures */
   --color-border-default: #e5e7eb; /* gray-200 */
 
-  /* Couleur principale / accents (neutral) */
-  --color-primary: #0f172a;             /* slate-900 */
+  /* Couleur principale / accents (violet) */
+  --color-primary: #7c3aed;             /* violet-600 */
   --color-primary-foreground: #f9fafb;  /* gray-50 */
 
   /* Tokens génériques */
@@ -21,10 +21,8 @@
   --shadow-card: 0 18px 30px -15px rgba(15, 23, 42, 0.25);
   --color-hover: rgba(15, 23, 42, 0.06); /* hover neutre sur fond clair */
 
-  /* Spécifique fond sombre (sidebar) : texte / accents or clair */
+  /* Spécifique fond sombre (sidebar) : texte */
   /* Utilisés via --sidebar-foreground / --sidebar-primary dans globals.css */
   --color-text-inverse: #fefce8;        /* jaune très clair (amber-50) */
-  /* Accent or pour éléments actifs sur fond sombre */
-  --color-primary: #f3a303;             /* amber-400 */
 }
 

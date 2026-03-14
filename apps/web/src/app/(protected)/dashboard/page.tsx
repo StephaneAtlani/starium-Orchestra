@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { TableToolbar } from '@/components/layout/table-toolbar';
 import { Button } from '@/components/ui/button';
+import { CirclePlus } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -22,7 +23,12 @@ export default function DashboardPage() {
         <PageHeader
           title="Dashboard"
           description="Vue d’ensemble du cockpit."
-          actions={<Button>Quick Create</Button>}
+          actions={
+            <Button size="sm" className="hidden h-7 sm:flex">
+              <CirclePlus className="mr-1.5 h-4 w-4" />
+              <span>Quick Create</span>
+            </Button>
+          }
         />
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
