@@ -45,6 +45,7 @@ model Client {
   budgetLines          BudgetLine[]
   financialAllocations FinancialAllocation[]
   financialEvents      FinancialEvent[]
+  budgetSnapshots       BudgetSnapshot[]
 }
 
 model User {
@@ -61,7 +62,8 @@ model User {
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
   securityLogs  SecurityLog[]
-  ownedBudgets Budget[]       @relation("OwnedBudgets")
+  ownedBudgets Budget[]           @relation("OwnedBudgets")
+  createdBudgetSnapshots BudgetSnapshot[]
 }
 
 model ClientUser {
@@ -254,6 +256,7 @@ model BudgetExercise {
   updatedAt DateTime             @updatedAt
   client    Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
   budgets   Budget[]
+  budgetSnapshots BudgetSnapshot[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -277,6 +280,7 @@ model Budget {
   owner         User?        @relation("OwnedBudgets", fields: [ownerUserId], references: [id], onDelete: SetNull)
   envelopes     BudgetEnvelope[]
   budgetLines   BudgetLine[]
+  budgetSnapshots BudgetSnapshot[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -338,6 +342,88 @@ model BudgetLine {
   @@index([budgetId])
   @@index([envelopeId])
   @@index([status])
+}
+
+enum BudgetSnapshotStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model BudgetSnapshot {
+  id                   String                @id @default(cuid())
+  clientId             String
+  budgetId             String
+  exerciseId           String
+  name                 String
+  code                 String
+  description          String?
+  snapshotDate         DateTime
+  status               BudgetSnapshotStatus   @default(ACTIVE)
+
+  budgetName           String
+  budgetCode           String?
+  budgetCurrency       String
+  budgetStatus         BudgetStatus
+
+  totalInitialAmount   Decimal               @db.Decimal(18, 2)
+  totalRevisedAmount   Decimal               @db.Decimal(18, 2)
+  totalForecastAmount  Decimal               @db.Decimal(18, 2)
+  totalCommittedAmount Decimal               @db.Decimal(18, 2)
+  totalConsumedAmount  Decimal               @db.Decimal(18, 2)
+  totalRemainingAmount Decimal               @db.Decimal(18, 2)
+
+  createdByUserId      String?
+  createdAt            DateTime              @default(now())
+
+  client               Client                @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  budget                Budget                @relation(fields: [budgetId], references: [id], onDelete: Restrict)
+  exercise              BudgetExercise        @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  createdByUser         User?                 @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  lines                 BudgetSnapshotLine[]
+
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([budgetId])
+  @@index([exerciseId])
+  @@index([snapshotDate])
+  @@index([clientId, budgetId])
+}
+
+model BudgetSnapshotLine {
+  id               String   @id @default(cuid())
+  snapshotId       String
+  clientId         String
+
+  budgetLineId     String
+  budgetId         String
+  envelopeId       String?
+
+  envelopeName     String?
+  envelopeCode     String?
+  envelopeType     BudgetEnvelopeType?
+
+  lineCode         String
+  lineName         String
+  expenseType      ExpenseType
+  currency         String
+  lineStatus       BudgetLineStatus
+
+  initialAmount    Decimal  @db.Decimal(18, 2)
+  revisedAmount    Decimal  @db.Decimal(18, 2)
+  forecastAmount   Decimal  @db.Decimal(18, 2)
+  committedAmount  Decimal  @db.Decimal(18, 2)
+  consumedAmount   Decimal  @db.Decimal(18, 2)
+  remainingAmount  Decimal  @db.Decimal(18, 2)
+
+  createdAt        DateTime @default(now())
+
+  snapshot         BudgetSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId])
+  @@index([clientId])
+  @@index([budgetLineId])
+  @@index([budgetId])
+  @@index([envelopeId])
 }
 
 model FinancialAllocation {
