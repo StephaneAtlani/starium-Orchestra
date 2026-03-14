@@ -42,6 +42,22 @@ Détail : [docs/API.md](../API.md) §15 (Structure budgétaire).
 
 Détail : [docs/API.md](../API.md) §16 (Noyau financier).
 
+### Backend Budget Reporting (RFC-016)
+
+- **Module** `budget-reporting` : agrégations et KPI budgétaires en **lecture seule** (exercice, budget, enveloppe).
+- **API** (toutes en GET, permission `budgets.read`) :
+  - `GET /api/budget-reporting/exercises/:id/summary` — KPI exercice
+  - `GET /api/budget-reporting/exercises/:id/budgets` — liste budgets + KPI (pagination, search, status)
+  - `GET /api/budget-reporting/budgets/:id/summary` — KPI budget
+  - `GET /api/budget-reporting/budgets/:id/envelopes` — liste enveloppes + KPI (pagination, type, parentId, includeChildren)
+  - `GET /api/budget-reporting/budgets/:id/breakdown-by-type` — répartition RUN/BUILD/TRANSVERSE
+  - `GET /api/budget-reporting/envelopes/:id/summary` — KPI enveloppe (option includeChildren)
+  - `GET /api/budget-reporting/envelopes/:id/lines` — lignes avec ratios et alertes (pagination, search, status)
+- **Règles** : une seule devise par périmètre (400 si plusieurs) ; ratios = 0 si revisedAmount = 0 ; `currency` présent dans toutes les réponses KPI ; search uniquement sur name/code.
+- **Pas de modification** des modules budget-management ni financial-core ; consommation des données en lecture.
+
+Détail : [docs/API.md](../API.md) §17 (Budget Reporting API).
+
 ---
 
 ## 2. Ce qui n’est pas implémenté

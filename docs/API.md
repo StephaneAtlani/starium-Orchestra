@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API).
 
 ---
 
@@ -437,6 +437,7 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 | /api/test-rbac    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 | /api/budget-exercises, /api/budgets, /api/budget-envelopes, /api/budget-lines (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update`) |
 | /api/financial-allocations, /api/financial-events, /api/budget-lines/:id/allocations, /api/budget-lines/:id/events | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create`) |
+| /api/budget-reporting/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 
 ---
 
@@ -1324,3 +1325,83 @@ Liste les événements financiers d’une ligne budgétaire. Même règles que c
 **Réponse 200** : `{ items, total, limit, offset }`.
 
 **Erreurs :** 401, 403, 404.
+
+---
+
+## 17. Budget Reporting API — `/api/budget-reporting/*`
+
+Référence : **RFC-016** (Budget Reporting API). Module **budget-reporting** : agrégations et KPI budgétaires en **lecture seule** (exercice, budget, enveloppe). Données calculées à partir de `BudgetLine` ; pas de conversion multi-devise (400 si plusieurs devises dans le périmètre).
+
+### Guards et headers
+
+- `Authorization: Bearer <accessToken>`
+- `X-Client-Id: <clientId>`
+- `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- Permission : **`budgets.read`** pour toutes les routes
+
+### Format des réponses
+
+- **Summary** (exercice, budget, enveloppe) : objet KPI avec `totalInitialAmount`, `totalRevisedAmount`, `totalForecastAmount`, `totalCommittedAmount`, `totalConsumedAmount`, `totalRemainingAmount`, `consumptionRate`, `commitmentRate`, `forecastRate`, `varianceAmount`, `forecastGapAmount`, `budgetCount` / `envelopeCount` / `lineCount` (selon niveau), `overConsumedLineCount`, `overCommittedLineCount`, `negativeRemainingLineCount`, `currency` (string ou `null` si périmètre sans ligne).
+- **Listes** : `{ "items": [...], "total": number, "limit": number, "offset": number }`. `limit` max **100** (query).
+- **Ratios** : 0 si `revisedAmount` = 0 ; jamais `null`.
+- **Search** : appliqué uniquement à `name` et `code` (budgets, enveloppes, lignes).
+
+### GET /api/budget-reporting/exercises/:id/summary
+
+KPI consolidés de l’exercice (toutes les lignes des budgets de l’exercice). **404** si exercice absent ou hors client. **400** si plusieurs devises dans les lignes.
+
+---
+
+### GET /api/budget-reporting/exercises/:id/budgets
+
+Liste paginée des budgets de l’exercice avec KPI synthétiques par budget.
+
+**Query (optionnels)** : `offset`, `limit` (max 100), `search` (name/code), `status` (BudgetStatus).
+
+**Réponse 200** : `{ items, total, limit, offset }`. Chaque item : budget (id, name, code, currency, status, …) + `kpi` (BudgetSummaryKpi).
+
+**Erreurs :** 401, 403, 404 (exercice), 400 (multi-devise dans un budget).
+
+---
+
+### GET /api/budget-reporting/budgets/:id/summary
+
+KPI consolidés du budget. **404** si budget absent. **400** si plusieurs devises. Si aucune ligne : `currency` = `budget.currency`.
+
+---
+
+### GET /api/budget-reporting/budgets/:id/envelopes
+
+Liste paginée des enveloppes du budget avec KPI par enveloppe.
+
+**Query (optionnels)** : `offset`, `limit` (max 100), `type` (BudgetEnvelopeType), `parentId`, `includeChildren` (bool).
+
+**Réponse 200** : `{ items, total, limit, offset }`. Chaque item : enveloppe + `kpi`.
+
+**Erreurs :** 401, 403, 404 (budget), 400 (multi-devise).
+
+---
+
+### GET /api/budget-reporting/budgets/:id/breakdown-by-type
+
+Répartition des montants par type d’enveloppe (RUN, BUILD, TRANSVERSE). Tableau d’objets `{ type, totalInitialAmount, totalRevisedAmount, totalForecastAmount, totalCommittedAmount, totalConsumedAmount, totalRemainingAmount, lineCount }`.
+
+**Erreurs :** 401, 403, 404 (budget), 400 (multi-devise).
+
+---
+
+### GET /api/budget-reporting/envelopes/:id/summary
+
+KPI consolidés de l’enveloppe. **Query** : `includeChildren` (bool) pour inclure les sous-enveloppes. **404** si enveloppe absente. Si aucune ligne : `currency` = devise du budget parent ou `null`.
+
+---
+
+### GET /api/budget-reporting/envelopes/:id/lines
+
+Liste paginée des lignes de l’enveloppe avec montants, ratios et indicateurs d’alerte par ligne.
+
+**Query (optionnels)** : `offset`, `limit` (max 100), `search` (name/code), `status` (BudgetLineStatus).
+
+**Réponse 200** : `{ items, total, limit, offset }`. Chaque item : ligne + `consumptionRate`, `commitmentRate`, `forecastRate`, `overConsumed`, `overCommitted`, `negativeRemaining`.
+
+**Erreurs :** 401, 403, 404 (enveloppe).

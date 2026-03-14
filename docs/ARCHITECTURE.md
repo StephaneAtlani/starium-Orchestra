@@ -252,9 +252,9 @@ Chaque module vit sous `src/modules/<module-name>/` :
 - `tests/`
 
 **Modules partagés (core)** : auth, users, clients, client-users, roles, permissions, audit-logs, notifications, documents, config (admin).  
-**Modules métier** : **budget-management** (CRUD exercices, budgets, enveloppes, lignes budgétaires — RFC-015-2), **financial-core** (noyau financier : allocations, événements, recalcul des lignes), projects, orders, suppliers, contracts, licenses, applications, etc.
+**Modules métier** : **budget-management** (CRUD exercices, budgets, enveloppes, lignes budgétaires — RFC-015-2), **financial-core** (noyau financier : allocations, événements, recalcul des lignes), **budget-reporting** (RFC-016 : agrégations et KPI budgétaires en lecture seule — exercice, budget, enveloppe), **budget-snapshots** (RFC-015-3 : snapshots budgétaires), projects, orders, suppliers, contracts, licenses, applications, etc.
 
-Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **budget-management** gère la structure budgétaire ; le module **financial-core** expose les API allocations/événements et le recalcul des lignes (sur des lignes créées via budget-management ou en base).
+Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **budget-management** gère la structure budgétaire ; le module **financial-core** expose les API allocations/événements et le recalcul des lignes (sur des lignes créées via budget-management ou en base). Le module **budget-reporting** consomme les données BudgetExercise, Budget, BudgetEnvelope, BudgetLine en lecture seule pour exposer des synthèses et KPI (totaux, ratios, alertes, répartition RUN/BUILD).
 
 ### 6.2 Frontend
 
@@ -264,7 +264,7 @@ Les modules métier dépendent du core (auth, clients, permissions) et du module
 
 ### 6.3 Dépendances
 
-- Backend : core → métier ; budget-management (structure budgétaire) et financial-core (allocations/événements) ; orders, contracts consomment le noyau financier.
+- Backend : core → métier ; budget-management (structure budgétaire), financial-core (allocations/événements), budget-reporting (lecture seule, agrégations KPI) ; orders, contracts consomment le noyau financier.
 - Frontend : pas de dépendances entre features si possible ; dépendance commune vers `services/api` et contexte client.
 
 ---
@@ -364,6 +364,16 @@ Noyau financier — RFC-015-1B
 GET /api/financial-allocations, POST /api/financial-allocations
 GET /api/financial-events, POST /api/financial-events
 GET /api/budget-lines/:id/allocations, GET /api/budget-lines/:id/events
+
+Reporting budgétaire — RFC-016
+
+GET /api/budget-reporting/exercises/:id/summary
+GET /api/budget-reporting/exercises/:id/budgets
+GET /api/budget-reporting/budgets/:id/summary
+GET /api/budget-reporting/budgets/:id/envelopes
+GET /api/budget-reporting/budgets/:id/breakdown-by-type
+GET /api/budget-reporting/envelopes/:id/summary
+GET /api/budget-reporting/envelopes/:id/lines
 
 Projets
 
