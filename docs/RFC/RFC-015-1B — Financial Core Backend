@@ -1,0 +1,227 @@
+# RFC-015-1B — Financial Core Backend
+
+## Objectif
+
+Implémenter uniquement le backend du noyau financier transverse pour le module Budget MVP de Starium Orchestra.
+
+Cette tâche couvre exclusivement :
+
+- le module `financial-core`
+- la gestion des `FinancialAllocation`
+- la gestion des `FinancialEvent`
+- le service central de recalcul des montants d’une `BudgetLine`
+
+Cette tâche ne doit pas implémenter :
+
+- le CRUD complet des `BudgetExercise`
+- le CRUD complet des `Budget`
+- le CRUD complet des `BudgetEnvelope`
+- le CRUD complet des `BudgetLine`
+- le frontend
+- les snapshots
+- les axes analytiques
+- les imports/exports Excel
+
+---
+
+## Contexte projet
+
+Le projet est Starium Orchestra, SaaS multi-tenant de pilotage opérationnel.
+
+Contraintes impératives :
+
+- backend NestJS
+- Prisma ORM
+- PostgreSQL
+- architecture API-first
+- toute donnée métier est rattachée à un `clientId`
+- le `clientId` vient du client actif (`X-Client-Id`), jamais du body
+- la logique métier critique reste dans le backend
+- le module Budget est la source de vérité financière transverse
+
+Le schéma Prisma de RFC-015-1A est déjà en place.
+
+---
+
+## Arborescence attendue
+
+Créer :
+
+apps/api/src/modules/financial-core/
+- financial-core.module.ts
+- budget-line-calculator.service.ts
+- allocations/
+  - financial-allocations.controller.ts
+  - financial-allocations.service.ts
+  - dto/
+- events/
+  - financial-events.controller.ts
+  - financial-events.service.ts
+  - dto/
+
+---
+
+## API à implémenter
+
+### Allocations
+- GET /api/financial-allocations
+- POST /api/financial-allocations
+- GET /api/budget-lines/:id/allocations
+
+### Events
+- GET /api/financial-events
+- POST /api/financial-events
+- GET /api/budget-lines/:id/events
+
+Le préfixe global `/api` existe déjà.
+
+---
+
+## Guards et permissions
+
+Toutes les routes doivent utiliser les guards déjà en place :
+
+- JwtAuthGuard
+- ActiveClientGuard
+- ModuleAccessGuard
+- PermissionsGuard
+
+Utiliser les permissions existantes du module `budgets` :
+
+- budgets.read
+- budgets.create
+- budgets.update
+
+Ne pas introduire de nouveau système RBAC dans cette tâche.
+
+---
+
+## DTOs à créer
+
+### Allocations
+- CreateFinancialAllocationDto
+- ListFinancialAllocationsQueryDto
+
+### Events
+- CreateFinancialEventDto
+- ListFinancialEventsQueryDto
+
+Utiliser `class-validator`.
+
+---
+
+## Règles de validation
+
+### Toutes les écritures
+- ne jamais accepter `clientId` dans le body
+- dériver `clientId` depuis le client actif
+
+### Toutes les lectures
+- toujours filtrer par `clientId`
+
+### Toutes les validations FK
+- vérifier que `budgetLineId` existe
+- vérifier que `budgetLineId` appartient au client actif
+
+---
+
+## Service central de recalcul
+
+Créer `BudgetLineCalculatorService`.
+
+Ce service doit recalculer pour une ligne budgétaire :
+
+- forecastAmount
+- committedAmount
+- consumedAmount
+- remainingAmount
+
+### Règles de calcul MVP
+
+- budgetBase = revisedAmount
+- forecastAmount = somme des allocations avec allocationType = FORECAST
+- committedAmount = somme des allocations avec allocationType = COMMITTED + somme des événements avec eventType = COMMITMENT_REGISTERED
+- consumedAmount = somme des allocations avec allocationType = CONSUMED + somme des événements avec eventType = CONSUMPTION_REGISTERED
+- remainingAmount = budgetBase - committedAmount - consumedAmount
+
+Le recalcul doit être centralisé dans ce service uniquement.
+
+---
+
+## Services métier
+
+### FinancialAllocationsService
+Doit couvrir :
+- création
+- listing
+- listing par budgetLine
+
+Après chaque création d’allocation :
+- recalculer la ligne concernée
+
+### FinancialEventsService
+Doit couvrir :
+- création
+- listing
+- listing par budgetLine
+
+Après chaque création d’événement :
+- recalculer la ligne concernée si l’événement impacte les agrégats
+
+---
+
+## Audit logs
+
+Créer un audit log pour :
+- création d’une allocation
+- création d’un événement financier
+
+Utiliser le mécanisme d’audit existant du projet.
+
+---
+
+## Tests minimum
+
+Créer des tests unitaires sur :
+
+1. BudgetLineCalculatorService
+- calcul forecast
+- calcul committed
+- calcul consumed
+- calcul remaining
+
+2. FinancialAllocationsService
+- création allocation
+- recalcul appelé
+
+3. FinancialEventsService
+- création événement
+- recalcul appelé si nécessaire
+
+4. Isolation client
+- impossible d’accéder à une BudgetLine d’un autre client
+
+---
+
+## Livrables attendus
+
+Je veux :
+
+1. le module `financial-core`
+2. les DTOs
+3. les controllers
+4. les services
+5. les tests unitaires minimum
+6. un résumé clair des fichiers créés / modifiés
+7. les arbitrages techniques éventuels
+
+---
+
+## Important
+
+Ne pas créer le CRUD complet des budgets dans cette tâche.
+Ne pas créer de frontend.
+Ne pas déplacer la logique métier dans le frontend.
+Ne pas dupliquer les montants financiers ailleurs.
+Ne pas ignorer le `clientId`.
+Ne pas créer de dépendance circulaire avec le futur module `budgets`.
