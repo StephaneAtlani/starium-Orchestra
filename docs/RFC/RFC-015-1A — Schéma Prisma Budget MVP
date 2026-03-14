@@ -1,5 +1,11 @@
 # RFC-015-1A — Schéma Prisma Budget MVP
 
+## Statut
+
+Implémenté
+
+---
+
 ## Objectif
 
 Implémenter uniquement le **schéma Prisma** du module Budget MVP pour Starium Orchestra.

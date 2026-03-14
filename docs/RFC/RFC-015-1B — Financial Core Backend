@@ -1,5 +1,11 @@
 # RFC-015-1B — Financial Core Backend
 
+## Statut
+
+Implémenté
+
+---
+
 ## Objectif
 
 Implémenter uniquement le backend du noyau financier transverse pour le module Budget MVP de Starium Orchestra.

@@ -1,5 +1,11 @@
 # Plan d’implémentation RFC-015-1B — Financial Core Backend (v2)
 
+## État d’avancement
+
+**Implémenté** — Le plan a été exécuté ; le module `financial-core` est en place (allocations, événements, recalcul des lignes, budget-lines controller).
+
+---
+
 Version mise à jour avec : enums Prisma figés, recalcul transactionnel, formule remainingAmount, pagination uniforme, format liste stable, imports module allégés, helper BudgetLine, règles sourceId, tri par défaut, tests Decimal.
 
 ---
