@@ -163,7 +163,7 @@ describe('BudgetSnapshotsService', () => {
         }),
       );
       expect(result.id).toBe('snap-new');
-      expect(result.lines).toBeUndefined();
+      expect((result as unknown as Record<string, unknown>).lines).toBeUndefined();
     });
 
     it('refuse si budget introuvable', async () => {

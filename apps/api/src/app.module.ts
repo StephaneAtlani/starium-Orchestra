@@ -14,6 +14,7 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { FinancialCoreModule } from './modules/financial-core/financial-core.module';
 import { BudgetManagementModule } from './modules/budget-management/budget-management.module';
 import { BudgetSnapshotsModule } from './modules/budget-snapshots/budget-snapshots.module';
+import { BudgetReportingModule } from './modules/budget-reporting/budget-reporting.module';
 import { SecurityLogsModule } from './modules/security-logs/security-logs.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { SecurityLogsModule } from './modules/security-logs/security-logs.module
     FinancialCoreModule,
     BudgetManagementModule,
     BudgetSnapshotsModule,
+    BudgetReportingModule,
     SecurityLogsModule,
   ],
 })
