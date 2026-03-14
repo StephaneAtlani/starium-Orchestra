@@ -20,5 +20,6 @@ import { BudgetLinesController } from './budget-lines.controller';
     FinancialAllocationsService,
     FinancialEventsService,
   ],
+  exports: [BudgetLineCalculatorService],
 })
 export class FinancialCoreModule {}

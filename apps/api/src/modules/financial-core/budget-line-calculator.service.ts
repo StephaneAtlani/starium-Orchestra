@@ -15,7 +15,7 @@ export class BudgetLineCalculatorService {
   /**
    * Recalcule forecastAmount, committedAmount, consumedAmount, remainingAmount
    * pour une ligne budgétaire. Utilise tx si fourni (dans une transaction).
-   * Formule MVP : budgetBase = revisedAmount ; remaining = budgetBase - committed - consumed.
+   * Base effective = revisedAmount + delta des REALLOCATION_DONE (non comptés dans forecast/committed/consumed).
    */
   async recalculateForBudgetLine(
     budgetLineId: string,
@@ -40,7 +40,11 @@ export class BudgetLineCalculatorService {
       }),
     ]);
 
-    const budgetBase = Number(line.revisedAmount);
+    const revisedAmount = Number(line.revisedAmount);
+    const reallocationDelta = events
+      .filter((e) => e.eventType === FinancialEventType.REALLOCATION_DONE)
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+    const effectiveBudgetBase = revisedAmount + reallocationDelta;
 
     const forecastAmount = allocations
       .filter((a) => a.allocationType === AllocationType.FORECAST)
@@ -62,7 +66,7 @@ export class BudgetLineCalculatorService {
       .reduce((sum, e) => sum + Number(e.amount), 0);
     const consumedAmount = consumedAlloc + consumedEvents;
 
-    const remainingAmount = budgetBase - committedAmount - consumedAmount;
+    const remainingAmount = effectiveBudgetBase - committedAmount - consumedAmount;
 
     await client.budgetLine.update({
       where: { id: budgetLineId },

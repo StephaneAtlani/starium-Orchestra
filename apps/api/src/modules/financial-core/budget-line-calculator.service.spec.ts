@@ -131,5 +131,56 @@ describe('BudgetLineCalculatorService', () => {
       expect(tx.budgetLine.update).toHaveBeenCalled();
       expect(prisma.budgetLine.update).not.toHaveBeenCalled();
     });
+
+    it('revisedAmount 1000 + REALLOCATION_DONE +200 => effective base 1200', async () => {
+      prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
+        revisedAmount: 1000,
+      });
+      prisma.financialAllocation.findMany.mockResolvedValue([]);
+      prisma.financialEvent.findMany.mockResolvedValue([
+        { eventType: FinancialEventType.REALLOCATION_DONE, amount: 200 },
+      ]);
+      prisma.budgetLine.update.mockResolvedValue({});
+
+      await service.recalculateForBudgetLine(budgetLineId, clientId);
+
+      const updateData = prisma.budgetLine.update.mock.calls[0][0].data;
+      expect(Number(updateData.remainingAmount)).toBe(1200);
+    });
+
+    it('revisedAmount 1000 + REALLOCATION_DONE -200 => effective base 800', async () => {
+      prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
+        revisedAmount: 1000,
+      });
+      prisma.financialAllocation.findMany.mockResolvedValue([]);
+      prisma.financialEvent.findMany.mockResolvedValue([
+        { eventType: FinancialEventType.REALLOCATION_DONE, amount: -200 },
+      ]);
+      prisma.budgetLine.update.mockResolvedValue({});
+
+      await service.recalculateForBudgetLine(budgetLineId, clientId);
+
+      const updateData = prisma.budgetLine.update.mock.calls[0][0].data;
+      expect(Number(updateData.remainingAmount)).toBe(800);
+    });
+
+    it('revisedAmount 1000, REALLOCATION_DONE +200, committed 300, consumed 100 => remaining 800', async () => {
+      prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
+        revisedAmount: 1000,
+      });
+      prisma.financialAllocation.findMany.mockResolvedValue([
+        { allocationType: AllocationType.COMMITTED, allocatedAmount: 300 },
+        { allocationType: AllocationType.CONSUMED, allocatedAmount: 100 },
+      ]);
+      prisma.financialEvent.findMany.mockResolvedValue([
+        { eventType: FinancialEventType.REALLOCATION_DONE, amount: 200 },
+      ]);
+      prisma.budgetLine.update.mockResolvedValue({});
+
+      await service.recalculateForBudgetLine(budgetLineId, clientId);
+
+      const updateData = prisma.budgetLine.update.mock.calls[0][0].data;
+      expect(Number(updateData.remainingAmount)).toBe(800);
+    });
   });
 });

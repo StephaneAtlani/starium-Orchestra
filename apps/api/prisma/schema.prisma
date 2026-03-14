@@ -46,6 +46,7 @@ model Client {
   financialAllocations FinancialAllocation[]
   financialEvents      FinancialEvent[]
   budgetSnapshots       BudgetSnapshot[]
+  budgetReallocations  BudgetReallocation[]
 }
 
 model User {
@@ -64,6 +65,7 @@ model User {
   securityLogs  SecurityLog[]
   ownedBudgets Budget[]           @relation("OwnedBudgets")
   createdBudgetSnapshots BudgetSnapshot[]
+  budgetReallocationsCreated BudgetReallocation[]
 }
 
 model ClientUser {
@@ -281,6 +283,7 @@ model Budget {
   envelopes     BudgetEnvelope[]
   budgetLines   BudgetLine[]
   budgetSnapshots BudgetSnapshot[]
+  budgetReallocations BudgetReallocation[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -336,6 +339,8 @@ model BudgetLine {
   envelope        BudgetEnvelope   @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
   allocations     FinancialAllocation[]
   financialEvents FinancialEvent[]
+  reallocationsAsSource BudgetReallocation[] @relation("ReallocationSource")
+  reallocationsAsTarget BudgetReallocation[] @relation("ReallocationTarget")
 
   @@unique([clientId, budgetId, code])
   @@index([clientId])
@@ -470,6 +475,31 @@ model FinancialEvent {
   @@index([sourceType, sourceId])
   @@index([eventType])
   @@index([eventDate])
+}
+
+model BudgetReallocation {
+  id            String    @id @default(cuid())
+  clientId      String
+  budgetId      String
+  sourceLineId  String
+  targetLineId  String
+  amount        Decimal   @db.Decimal(18, 2)
+  currency      String
+  reason        String?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budget        Budget    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  sourceLine    BudgetLine @relation("ReallocationSource", fields: [sourceLineId], references: [id], onDelete: Restrict)
+  targetLine    BudgetLine @relation("ReallocationTarget", fields: [targetLineId], references: [id], onDelete: Restrict)
+  createdBy     User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([budgetId])
+  @@index([sourceLineId])
+  @@index([targetLineId])
+  @@index([createdAt])
 }
 
 // --- End Budget MVP ---

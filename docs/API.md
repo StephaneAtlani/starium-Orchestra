@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation).
 
 ---
 
@@ -437,6 +437,7 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 | /api/test-rbac    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 | /api/budget-exercises, /api/budgets, /api/budget-envelopes, /api/budget-lines (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update`) |
 | /api/financial-allocations, /api/financial-events, /api/budget-lines/:id/allocations, /api/budget-lines/:id/events | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create`) |
+| /api/budget-reallocations | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-reporting/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 
 ---
@@ -1328,7 +1329,54 @@ Liste les événements financiers d’une ligne budgétaire. Même règles que c
 
 ---
 
-## 17. Budget Reporting API — `/api/budget-reporting/*`
+## 17. Réallocations budgétaires — `/api/budget-reallocations`
+
+Référence : **RFC-017** (Budget Reallocation). Transfert traçable entre deux lignes budgétaires d’un même budget. La réallocation ne modifie pas `BudgetLine.revisedAmount` ; elle crée un enregistrement `BudgetReallocation`, deux `FinancialEvent` (type `REALLOCATION_DONE`) et déclenche le recalcul des montants des deux lignes.
+
+### Guards et headers
+
+- `Authorization: Bearer <accessToken>`
+- `X-Client-Id: <clientId>` (obligatoire)
+- `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- **POST** : permission `budgets.update`
+- **GET** : permission `budgets.read`
+
+### POST /api/budget-reallocations
+
+Crée une réallocation : transfert d’un montant de la ligne source vers la ligne cible (même budget, même client, lignes ACTIVE, budget non LOCKED/ARCHIVED, montant ≤ `remainingAmount` de la source).
+
+**Body (JSON)**
+
+| Champ           | Type   | Obligatoire | Description |
+|-----------------|--------|-------------|-------------|
+| `sourceLineId`  | string | oui         | ID de la ligne budgétaire source |
+| `targetLineId`  | string | oui         | ID de la ligne budgétaire cible |
+| `amount`        | number | oui         | Montant à transférer (> 0, ≤ remainingAmount de la source) |
+| `reason`        | string | non         | Motif (max 500 caractères) ; normalisé (trim), stocké null si vide |
+
+**Réponse 200** : objet mappé `{ id, budgetId, sourceLineId, targetLineId, amount, currency, reason, createdAt }` (amount en number).
+
+**Erreurs :** 400 (validation, même ligne, budgets différents, devise différente, ligne non ACTIVE, budget LOCKED/ARCHIVED, montant > remaining), 401, 403, 404 (ligne introuvable ou hors client).
+
+### GET /api/budget-reallocations
+
+Liste les réallocations du client actif. **Query** : `budgetId`, `budgetLineId` (source ou cible), `dateFrom`, `dateTo` (sur `createdAt` ; si les deux fournis, `dateFrom` doit être ≤ `dateTo`), `limit` (défaut 20, max 100), `offset` (défaut 0). **Tri :** `createdAt` décroissant (plus récent en premier).
+
+**Réponse 200** : `{ items, total, limit, offset }`. Chaque item : `{ id, budgetId, sourceLineId, targetLineId, amount, currency, reason, createdAt }` (amount en number).
+
+**Erreurs :** 400 (dateFrom > dateTo), 401, 403.
+
+### GET /api/budget-reallocations/:id
+
+Détail d’une réallocation. **404** si absente ou hors client.
+
+**Réponse 200** : `{ id, budgetId, sourceLineId, targetLineId, amount, currency, reason, createdAt }`.
+
+**Erreurs :** 401, 403, 404.
+
+---
+
+## 18. Budget Reporting API — `/api/budget-reporting/*`
 
 Référence : **RFC-016** (Budget Reporting API). Module **budget-reporting** : agrégations et KPI budgétaires en **lecture seule** (exercice, budget, enveloppe). Données calculées à partir de `BudgetLine` ; pas de conversion multi-devise (400 si plusieurs devises dans le périmètre).
 
