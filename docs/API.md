@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import).
 
 ---
 
@@ -439,6 +439,8 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 | /api/financial-allocations, /api/financial-events, /api/budget-lines/:id/allocations, /api/budget-lines/:id/events | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create`) |
 | /api/budget-reallocations | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-reporting/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
+| /api/budget-imports/* (analyze, preview, execute) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
+| /api/budget-import-mappings | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 
 ---
 
@@ -1453,3 +1455,133 @@ Liste paginée des lignes de l’enveloppe avec montants, ratios et indicateurs 
 **Réponse 200** : `{ items, total, limit, offset }`. Chaque item : ligne + `consumptionRate`, `commitmentRate`, `forecastRate`, `overConsumed`, `overCommitted`, `negativeRemaining`.
 
 **Erreurs :** 401, 403, 404 (enveloppe).
+
+---
+
+## 19. Budget Data Import — `/api/budget-imports/*`, `/api/budget-import-mappings`
+
+Référence : **RFC-018** (Budget Data Import). Import de données budgétaires depuis fichiers Excel (`.xlsx`) ou CSV (`.csv`) : analyse, mapping des colonnes, prévisualisation, exécution transactionnelle avec anti-doublon (externalId ou clé composite) et traçabilité via `BudgetImportRowLink`.
+
+### Guards et headers
+
+- `Authorization: Bearer <accessToken>`
+- `X-Client-Id: <clientId>` (obligatoire)
+- `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- **analyze**, **preview** : permission `budgets.read`
+- **execute**, CRUD **budget-import-mappings** : permission `budgets.update`
+
+Règle MVP : **seul l’utilisateur ayant uploadé le fichier** peut appeler preview ou execute avec le `fileToken` retourné par analyze (sinon 403).
+
+### Contraintes
+
+- Taille max fichier : **10 MB**
+- Nombre max de lignes : **20 000**
+- CSV : UTF-8, séparateurs `,` ou `;`
+- Excel : une feuille à la fois
+
+### POST /api/budget-imports/analyze
+
+Envoi du fichier pour analyse (détection des colonnes, échantillon, volume).
+
+**Body** : `multipart/form-data`, champ **`file`** (fichier `.csv` ou `.xlsx`).
+
+**Réponse 200**
+
+```json
+{
+  "fileToken": "abc123...",
+  "sourceType": "XLSX",
+  "sheetNames": ["Feuil1"],
+  "columns": ["Date", "Montant", "Fournisseur", "N° pièce"],
+  "sampleRows": [ { "Date": "2026-01-01", "Montant": "1000", ... } ],
+  "rowCount": 1250
+}
+```
+
+**Erreurs :** 400 (fichier manquant, taille > 10 MB, extension non autorisée), 401, 403.
+
+---
+
+### POST /api/budget-imports/preview
+
+Prévisualisation de l’import sans écriture en base. Le `fileToken` doit appartenir au client actif, ne pas être expiré, et correspondre à l’utilisateur connecté (uploader).
+
+**Body (JSON)**
+
+| Champ       | Type   | Obligatoire | Description |
+|------------|--------|-------------|-------------|
+| `budgetId` | string | oui         | ID du budget cible |
+| `fileToken`| string | oui         | Token retourné par analyze |
+| `mapping`  | object | oui         | MappingConfig (fields, matching?, defaults?) |
+| `options`  | object | non         | defaultEnvelopeId, defaultCurrency, importMode, ignoreEmptyRows, trimValues, dateFormat?, decimalSeparator? |
+
+**Réponse 200**
+
+```json
+{
+  "stats": {
+    "totalRows": 1250,
+    "createRows": 1120,
+    "updateRows": 98,
+    "skipRows": 12,
+    "errorRows": 20
+  },
+  "previewRows": [
+    { "rowIndex": 1, "status": "CREATE", "reason": "NO_MATCH_CREATE", "data": { ... } }
+  ],
+  "warnings": [],
+  "errors": []
+}
+```
+
+Statuts par ligne : `CREATE`, `UPDATE`, `SKIP`, `ERROR`. Motifs possibles : `MATCHED_BY_EXTERNAL_ID`, `MATCHED_BY_COMPOSITE_KEY`, `NO_MATCH_CREATE`, `NO_MATCH_UPDATE_ONLY`, `MISSING_ENVELOPE`, `INVALID_AMOUNT`, `INVALID_DATE`, `MISSING_REQUIRED_FIELD`, `DUPLICATE_SOURCE_KEY`, `AMBIGUOUS_MATCH`.
+
+**Erreurs :** 400 (validation), 401, 403 (fileToken invalide ou non uploader), 404 (fichier expiré ou budget introuvable).
+
+---
+
+### POST /api/budget-imports/execute
+
+Exécution de l’import (création/mise à jour de `BudgetLine`, création de `BudgetImportRowLink`, job en base). Préparation hors transaction ; écritures en une seule transaction Prisma.
+
+**Body (JSON)**
+
+| Champ       | Type   | Obligatoire | Description |
+|------------|--------|-------------|-------------|
+| `budgetId` | string | oui         | ID du budget cible |
+| `fileToken`| string | oui         | Token retourné par analyze |
+| `mappingId`| string | non         | ID d’un mapping sauvegardé (optionnel) |
+| `mapping`  | object | oui         | MappingConfig |
+| `options`  | object | non         | Options d’import (voir preview) |
+
+**Réponse 200**
+
+```json
+{
+  "jobId": "job_001",
+  "status": "COMPLETED",
+  "totalRows": 1250,
+  "createdRows": 1120,
+  "updatedRows": 98,
+  "skippedRows": 12,
+  "errorRows": 20
+}
+```
+
+`summary` du job (en base) : structure minimale `{ "warningsCount": number, "errorsByType": Record<string, number> }`.
+
+**Erreurs :** 400 (validation), 401, 403 (fileToken invalide ou non uploader), 404 (fichier expiré ou budget introuvable).
+
+---
+
+### CRUD Budget Import Mappings — `/api/budget-import-mappings`
+
+Mappings sauvegardés (configuration colonnes → champs logiques, stratégie de rapprochement, options). Tous scopés au client actif.
+
+- **GET /api/budget-import-mappings** — Liste (query : `limit`, `offset`). Permission `budgets.read`.
+- **POST /api/budget-import-mappings** — Création (name, description?, sourceType, entityType?, sheetName?, headerRowIndex?, mappingConfig, optionsConfig?). Permission `budgets.update`.
+- **GET /api/budget-import-mappings/:id** — Détail. Permission `budgets.read`.
+- **PATCH /api/budget-import-mappings/:id** — Mise à jour partielle. Permission `budgets.update`.
+- **DELETE /api/budget-import-mappings/:id** — Suppression. Permission `budgets.update`.
+
+**Erreurs :** 401, 403, 404 (mapping introuvable ou hors client).

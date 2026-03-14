@@ -253,9 +253,9 @@ Chaque module vit sous `src/modules/<module-name>/` :
 - `tests/`
 
 **Modules partagés (core)** : auth, users, clients, client-users, roles, permissions, audit-logs, notifications, documents, config (admin).  
-**Modules métier** : **budget-management** (CRUD exercices, budgets, enveloppes, lignes budgétaires — RFC-015-2), **financial-core** (noyau financier : allocations, événements, recalcul des lignes), **budget-reallocation** (RFC-017 : transfert budgétaire entre deux lignes d’un même budget, traçable et auditée), **budget-reporting** (RFC-016 : agrégations et KPI budgétaires en lecture seule — exercice, budget, enveloppe), **budget-snapshots** (RFC-015-3 : snapshots budgétaires), projects, orders, suppliers, contracts, licenses, applications, etc.
+**Modules métier** : **budget-management** (CRUD exercices, budgets, enveloppes, lignes budgétaires — RFC-015-2), **financial-core** (noyau financier : allocations, événements, recalcul des lignes), **budget-reallocation** (RFC-017 : transfert budgétaire entre deux lignes d’un même budget, traçable et auditée), **budget-reporting** (RFC-016 : agrégations et KPI budgétaires en lecture seule — exercice, budget, enveloppe), **budget-snapshots** (RFC-015-3 : snapshots budgétaires), **budget-import** (RFC-018 : import Excel/CSV, mapping colonnes, preview, execute, traçabilité BudgetImportRowLink), projects, orders, suppliers, contracts, licenses, applications, etc.
 
-Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **budget-management** gère la structure budgétaire ; le module **financial-core** expose les API allocations/événements et le recalcul des lignes (sur des lignes créées via budget-management ou en base), et prend en charge les événements REALLOCATION_DONE pour la base budgétaire effective ; le module **budget-reallocation** crée des réallocations (BudgetReallocation + 2 FinancialEvent) et déclenche le recalcul des deux lignes. Le module **budget-reporting** consomme les données BudgetExercise, Budget, BudgetEnvelope, BudgetLine en lecture seule pour exposer des synthèses et KPI (totaux, ratios, alertes, répartition RUN/BUILD).
+Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **budget-management** gère la structure budgétaire ; le module **financial-core** expose les API allocations/événements et le recalcul des lignes (sur des lignes créées via budget-management ou en base), et prend en charge les événements REALLOCATION_DONE pour la base budgétaire effective ; le module **budget-reallocation** crée des réallocations (BudgetReallocation + 2 FinancialEvent) et déclenche le recalcul des deux lignes. Le module **budget-reporting** consomme les données BudgetExercise, Budget, BudgetEnvelope, BudgetLine en lecture seule pour exposer des synthèses et KPI (totaux, ratios, alertes, répartition RUN/BUILD). Le module **budget-import** permet d’importer des lignes budgétaires depuis un fichier (XLSX/CSV) : analyse, mapping, prévisualisation, exécution transactionnelle avec anti-doublon (externalId ou clé composite) et traçabilité via BudgetImportRowLink.
 
 ### 6.2 Frontend
 
@@ -265,7 +265,7 @@ Les modules métier dépendent du core (auth, clients, permissions) et du module
 
 ### 6.3 Dépendances
 
-- Backend : core → métier ; budget-management (structure budgétaire), financial-core (allocations/événements), budget-reallocation (transferts entre lignes), budget-reporting (lecture seule, agrégations KPI) ; orders, contracts consomment le noyau financier.
+- Backend : core → métier ; budget-management (structure budgétaire), financial-core (allocations/événements), budget-reallocation (transferts entre lignes), budget-reporting (lecture seule, agrégations KPI), budget-import (import Excel/CSV, mapping, preview, execute) ; orders, contracts consomment le noyau financier.
 - Frontend : pas de dépendances entre features si possible ; dépendance commune vers `services/api` et contexte client.
 
 ---
@@ -381,6 +381,17 @@ GET /api/budget-reporting/budgets/:id/envelopes
 GET /api/budget-reporting/budgets/:id/breakdown-by-type
 GET /api/budget-reporting/envelopes/:id/summary
 GET /api/budget-reporting/envelopes/:id/lines
+
+Budget Data Import — RFC-018
+
+POST /api/budget-imports/analyze
+POST /api/budget-imports/preview
+POST /api/budget-imports/execute
+GET /api/budget-import-mappings
+POST /api/budget-import-mappings
+GET /api/budget-import-mappings/:id
+PATCH /api/budget-import-mappings/:id
+DELETE /api/budget-import-mappings/:id
 
 Projets
 

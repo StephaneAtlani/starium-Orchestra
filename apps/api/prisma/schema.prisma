@@ -47,6 +47,9 @@ model Client {
   financialEvents      FinancialEvent[]
   budgetSnapshots       BudgetSnapshot[]
   budgetReallocations  BudgetReallocation[]
+  budgetImportMappings BudgetImportMapping[]
+  budgetImportJobs     BudgetImportJob[]
+  budgetImportRowLinks BudgetImportRowLink[]
 }
 
 model User {
@@ -66,6 +69,8 @@ model User {
   ownedBudgets Budget[]           @relation("OwnedBudgets")
   createdBudgetSnapshots BudgetSnapshot[]
   budgetReallocationsCreated BudgetReallocation[]
+  createdBudgetImportMappings BudgetImportMapping[]
+  createdBudgetImportJobs    BudgetImportJob[]
 }
 
 model ClientUser {
@@ -284,6 +289,7 @@ model Budget {
   budgetLines   BudgetLine[]
   budgetSnapshots BudgetSnapshot[]
   budgetReallocations BudgetReallocation[]
+  budgetImportJobs    BudgetImportJob[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -500,6 +506,106 @@ model BudgetReallocation {
   @@index([sourceLineId])
   @@index([targetLineId])
   @@index([createdAt])
+}
+
+// --- Budget Import (RFC-018) ---
+
+enum BudgetImportSourceType {
+  CSV
+  XLSX
+}
+
+enum BudgetImportEntityType {
+  BUDGET_LINES
+}
+
+enum BudgetImportTargetEntityType {
+  BUDGET_LINE
+}
+
+enum BudgetImportJobStatus {
+  ANALYZED
+  PREVIEWED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum BudgetImportMode {
+  CREATE_ONLY
+  UPSERT
+  UPDATE_ONLY
+}
+
+model BudgetImportMapping {
+  id              String                  @id @default(cuid())
+  clientId        String
+  name            String
+  description     String?
+  sourceType      BudgetImportSourceType
+  entityType      BudgetImportEntityType   @default(BUDGET_LINES)
+  sheetName       String?
+  headerRowIndex  Int                      @default(1)
+  mappingConfig   Json
+  optionsConfig   Json?
+  createdById     String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  jobs      BudgetImportJob[]
+
+  @@index([clientId])
+}
+
+model BudgetImportJob {
+  id            String                @id @default(cuid())
+  clientId      String
+  budgetId      String
+  mappingId     String?
+  fileName      String
+  sourceType    BudgetImportSourceType
+  status        BudgetImportJobStatus
+  importMode    BudgetImportMode
+  totalRows     Int                   @default(0)
+  createdRows   Int                   @default(0)
+  updatedRows   Int                   @default(0)
+  skippedRows   Int                   @default(0)
+  errorRows     Int                   @default(0)
+  summary       Json?
+  createdById   String?
+  createdAt     DateTime              @default(now())
+
+  client    Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budget    Budget                 @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  mapping   BudgetImportMapping?   @relation(fields: [mappingId], references: [id], onDelete: SetNull)
+  createdBy User?                  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  rowLinks  BudgetImportRowLink[]
+
+  @@index([clientId, budgetId])
+  @@index([mappingId])
+}
+
+model BudgetImportRowLink {
+  id               String                       @id @default(cuid())
+  clientId         String
+  budgetId         String
+  importJobId      String
+  targetEntityType BudgetImportTargetEntityType @default(BUDGET_LINE)
+  targetEntityId   String
+  sourceRowNumber  Int?
+  externalId       String?
+  compositeHash    String?
+  fingerprintData  Json?
+  createdAt        DateTime                    @default(now())
+
+  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  importJob BudgetImportJob  @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, budgetId, targetEntityType, targetEntityId])
+  @@index([clientId, budgetId, externalId])
+  @@index([clientId, budgetId, compositeHash])
 }
 
 // --- End Budget MVP ---

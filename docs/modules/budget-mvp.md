@@ -70,6 +70,18 @@ Détail : [docs/API.md](../API.md) §18 (Budget Reporting API).
 
 Détail : [docs/API.md](../API.md) §17 (Réallocations budgétaires).
 
+### Backend Budget Import (RFC-018)
+
+- **Module** `budget-import` : import de lignes budgétaires depuis fichiers Excel (`.xlsx`) ou CSV (`.csv`).
+- **API** :
+  - `POST /api/budget-imports/analyze` — analyse du fichier (fileToken, colonnes, échantillon, rowCount) ; permission `budgets.read`.
+  - `POST /api/budget-imports/preview` — prévisualisation sans écriture (stats create/update/skip/error, previewRows, warnings, errors) ; permission `budgets.read`.
+  - `POST /api/budget-imports/execute` — exécution transactionnelle (création/mise à jour BudgetLine, BudgetImportRowLink, job) ; permission `budgets.update`.
+  - CRUD `GET/POST/GET/:id/PATCH/DELETE /api/budget-import-mappings` — mappings sauvegardés (scopés client) ; `budgets.read` (GET), `budgets.update` (POST, PATCH, DELETE).
+- **Règles** : fichier max 10 MB, 20 000 lignes ; seul l’uploader peut utiliser le fileToken pour preview/execute ; anti-doublon par externalId ou clé composite ; traçabilité via BudgetImportRowLink.
+
+Détail : [docs/API.md](../API.md) §19 (Budget Data Import).
+
 ---
 
 ## 2. Ce qui n’est pas implémenté
@@ -77,7 +89,7 @@ Détail : [docs/API.md](../API.md) §17 (Réallocations budgétaires).
 - **Frontend** : aucune interface utilisateur pour les budgets dans cette phase.
 - **Suppression physique** : pas d’endpoint DELETE sur la structure budgétaire (RFC-015-2).
 - **Snapshots** : implémentés (RFC-015-3). **Réallocations** : backend implémenté (RFC-017) ; UI « Réallouer » hors périmètre MVP.
-- **Axes analytiques, imports/exports Excel, duplication de budget, workflow d’approbation** : hors périmètre du MVP.
+- **Axes analytiques, export Excel, duplication de budget, workflow d’approbation** : hors périmètre du MVP. **Import Excel/CSV** : backend implémenté (RFC-018) ; UI d’import hors périmètre MVP.
 
 ---
 
