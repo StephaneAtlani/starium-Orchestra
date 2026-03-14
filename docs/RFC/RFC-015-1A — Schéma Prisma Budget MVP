@@ -1,0 +1,361 @@
+# RFC-015-1A — Schéma Prisma Budget MVP
+
+## Objectif
+
+Implémenter uniquement le **schéma Prisma** du module Budget MVP pour Starium Orchestra.
+
+Cette tâche couvre exclusivement :
+
+- les enums Prisma
+- les modèles Prisma
+- les relations Prisma
+- les indexes
+- les contraintes d’unicité
+- la migration Prisma
+
+Cette tâche ne doit pas implémenter :
+
+- modules NestJS
+- services
+- controllers
+- DTOs
+- endpoints REST
+- guards
+- permissions
+- audit logs applicatifs
+- logique de recalcul
+- tests backend
+- frontend
+
+---
+
+## Contexte projet
+
+Le projet est Starium Orchestra, un SaaS multi-tenant de pilotage opérationnel.
+
+Contraintes impératives :
+
+- backend NestJS
+- Prisma ORM
+- PostgreSQL
+- architecture API-first
+- toute donnée métier doit appartenir à un client via `clientId`
+- le module Budget est la source de vérité financière transverse
+- aucune duplication de vérité budgétaire dans les autres modules
+
+Le schéma doit être compatible avec un futur noyau financier partagé.
+
+---
+
+## Fichier à modifier
+
+- `apps/api/prisma/schema.prisma`
+
+Créer ensuite une migration Prisma claire.
+
+Nom recommandé :
+- `add_budget_mvp`
+
+---
+
+## Enums Prisma à créer
+
+### BudgetExerciseStatus
+- DRAFT
+- ACTIVE
+- CLOSED
+- ARCHIVED
+
+### BudgetStatus
+- DRAFT
+- ACTIVE
+- LOCKED
+- ARCHIVED
+
+### BudgetEnvelopeType
+- RUN
+- BUILD
+- TRANSVERSE
+
+### BudgetLineStatus
+- DRAFT
+- ACTIVE
+- CLOSED
+- ARCHIVED
+
+### ExpenseType
+- OPEX
+- CAPEX
+
+### FinancialSourceType
+- PROJECT
+- ACTIVITY
+- SUPPLIER
+- CONTRACT
+- LICENSE
+- ORDER
+- TEAM_ASSIGNMENT
+- APPLICATION
+- ASSET
+- MANUAL
+
+### AllocationType
+- PLANNED
+- RESERVED
+- COMMITTED
+- CONSUMED
+- FORECAST
+- REALLOCATED
+- CANCELLED
+
+### FinancialEventType
+- LINE_CREATED
+- BUDGET_INITIALIZED
+- ALLOCATION_ADDED
+- ALLOCATION_UPDATED
+- COMMITMENT_REGISTERED
+- CONSUMPTION_REGISTERED
+- FORECAST_UPDATED
+- REALLOCATION_DONE
+- CANCELLATION
+- ADJUSTMENT
+
+---
+
+## Modèles Prisma à créer
+
+### BudgetExercise
+Champs :
+- id
+- clientId
+- name
+- code
+- startDate
+- endDate
+- status
+- createdAt
+- updatedAt
+
+Relations :
+- Client
+- Budget[]
+
+Contraintes :
+- `@@unique([clientId, code])`
+- `@@index([clientId])`
+- `@@index([status])`
+
+---
+
+### Budget
+Champs :
+- id
+- clientId
+- exerciseId
+- name
+- code
+- description nullable
+- currency
+- status
+- ownerUserId nullable
+- createdAt
+- updatedAt
+
+Relations :
+- Client
+- BudgetExercise
+- User optionnel via ownerUserId
+- BudgetEnvelope[]
+- BudgetLine[]
+
+Contraintes :
+- `@@unique([clientId, code])`
+- `@@index([clientId])`
+- `@@index([exerciseId])`
+- `@@index([status])`
+
+---
+
+### BudgetEnvelope
+Champs :
+- id
+- clientId
+- budgetId
+- parentId nullable
+- name
+- code
+- type
+- description nullable
+- sortOrder
+- createdAt
+- updatedAt
+
+Relations :
+- Client
+- Budget
+- parent optionnel
+- children
+- BudgetLine[]
+
+Contraintes :
+- `@@unique([clientId, budgetId, code])`
+- `@@index([clientId])`
+- `@@index([budgetId])`
+- `@@index([parentId])`
+
+---
+
+### BudgetLine
+Champs :
+- id
+- clientId
+- budgetId
+- envelopeId
+- code
+- name
+- description nullable
+- expenseType
+- status
+- currency
+- initialAmount
+- revisedAmount
+- forecastAmount
+- committedAmount
+- consumedAmount
+- remainingAmount
+- createdAt
+- updatedAt
+
+Relations :
+- Client
+- Budget
+- BudgetEnvelope
+- FinancialAllocation[]
+- FinancialEvent[]
+
+Contraintes :
+- `@@unique([clientId, budgetId, code])`
+- `@@index([clientId])`
+- `@@index([budgetId])`
+- `@@index([envelopeId])`
+- `@@index([status])`
+
+Règle :
+- tous les montants en `Decimal @db.Decimal(18,2)`
+
+---
+
+### FinancialAllocation
+Champs :
+- id
+- clientId
+- budgetLineId
+- sourceType
+- sourceId
+- allocationType
+- allocatedAmount
+- currency
+- effectiveDate nullable
+- notes nullable
+- createdAt
+- updatedAt
+
+Relations :
+- Client
+- BudgetLine
+
+Contraintes :
+- `@@index([clientId])`
+- `@@index([budgetLineId])`
+- `@@index([sourceType, sourceId])`
+- `@@index([allocationType])`
+
+Règle :
+- `allocatedAmount` en `Decimal @db.Decimal(18,2)`
+
+---
+
+### FinancialEvent
+Champs :
+- id
+- clientId
+- budgetLineId
+- sourceType
+- sourceId nullable
+- eventType
+- amount
+- currency
+- eventDate
+- label
+- description nullable
+- createdAt
+- updatedAt
+
+Relations :
+- Client
+- BudgetLine
+
+Contraintes :
+- `@@index([clientId])`
+- `@@index([budgetLineId])`
+- `@@index([sourceType, sourceId])`
+- `@@index([eventType])`
+- `@@index([eventDate])`
+
+Règle :
+- `amount` en `Decimal @db.Decimal(18,2)`
+
+---
+
+## Relations inverses à ajouter
+
+### Dans Client
+Ajouter les relations inverses :
+- budgetExercises
+- budgets
+- budgetEnvelopes
+- budgetLines
+- financialAllocations
+- financialEvents
+
+### Dans User
+Si `ownerUserId` est conservé, ajouter :
+- ownedBudgets
+
+---
+
+## Règles de persistance
+
+- toutes les nouvelles entités doivent contenir `clientId`
+- aucune suppression logique ou physique à implémenter dans cette tâche
+- aucun service métier à créer
+- aucun calcul métier à implémenter
+- aucune validation applicative à écrire ici
+- aucune route API à créer ici
+
+---
+
+## Livrables attendus
+
+Je veux uniquement :
+
+1. le schéma Prisma modifié
+2. la migration Prisma générée
+3. un résumé clair des modèles, enums, relations, indexes et contraintes ajoutés
+4. les éventuels points de vigilance Prisma détectés
+
+---
+
+## Important
+
+Ne pas implémenter de backend NestJS dans cette tâche.
+Ne pas créer de DTOs.
+Ne pas créer de controllers.
+Ne pas créer de services.
+Ne pas créer de permissions.
+Ne pas créer de tests.
+Ne pas créer de seed.
+Ne pas inventer d’API REST.
+Ne pas ajouter de logique de recalcul.
+
+Cette tâche est strictement limitée à la couche Prisma.
