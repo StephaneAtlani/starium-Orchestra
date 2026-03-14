@@ -212,11 +212,18 @@ Schéma générique pour une entité métier :
 
 Entités transverses réutilisables par plusieurs modules :
 
-- `budgets`, `budget_lines`
+- `budgets`, `budget_lines`, `budget_exercises`, `budget_envelopes`
 - `orders`, `order_lines`
 - `suppliers`, `contracts`
 - `cost_centers`, `analytical_axes`, `analytical_axis_values`
-- `financial_allocations` (liaison commandes / contrats ↔ budgets)
+- `financial_allocations` (liaison source ↔ ligne budgétaire ; types : FORECAST, COMMITTED, CONSUMED, etc.)
+- `financial_events` (événements financiers : COMMITMENT_REGISTERED, CONSUMPTION_REGISTERED, etc.)
+
+Le **module backend `financial-core`** (RFC-015-1B) implémente :
+- les API d’allocations et d’événements financiers ;
+- le recalcul centralisé des montants d’une `BudgetLine` (forecast, committed, consumed, remaining).
+
+Il **ne gère pas** le CRUD des exercices, budgets, enveloppes et lignes budgétaires ; ces entités doivent exister en base (création manuelle, seed ou future API dédiée). Voir [docs/modules/budget-mvp.md](modules/budget-mvp.md).
 
 ### 5.4 Configuration admin (optionnel mais recommandé)
 
@@ -243,9 +250,9 @@ Chaque module vit sous `src/modules/<module-name>/` :
 - `tests/`
 
 **Modules partagés (core)** : auth, users, clients, client-users, roles, permissions, audit-logs, notifications, documents, config (admin).  
-**Modules métier** : budgets, projects, orders, suppliers, contracts, licenses, applications, etc.
+**Modules métier** : **financial-core** (noyau financier : allocations, événements, recalcul des lignes), budgets (CRUD budgets à venir), projects, orders, suppliers, contracts, licenses, applications, etc.
 
-Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires ; le noyau financier peut être un module `financial-core` importé par budgets, orders, contracts.
+Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **financial-core** est le noyau financier transverse : il expose les API allocations/événements et le recalcul des lignes ; un futur module `budgets` pourra en dépendre pour le CRUD exercices/budgets/enveloppes/lignes.
 
 ### 6.2 Frontend
 
@@ -341,11 +348,16 @@ Clients (platform admin)
 GET /api/clients
 POST /api/clients
 
-Budgets
+Noyau financier (RFC-015-1B)
 
-GET /api/budgets
-POST /api/budgets
-GET /api/budgets/:id
+GET /api/financial-allocations
+POST /api/financial-allocations
+GET /api/financial-events
+POST /api/financial-events
+GET /api/budget-lines/:id/allocations
+GET /api/budget-lines/:id/events
+
+(CRUD exercices / budgets / enveloppes / lignes non implémenté ; voir docs/modules/budget-mvp.md)
 
 Projets
 

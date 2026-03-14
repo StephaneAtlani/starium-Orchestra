@@ -435,6 +435,7 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 | /api/modules      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
 | /api/audit-logs   | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 | /api/test-rbac    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
+| /api/financial-allocations, /api/financial-events, /api/budget-lines/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create`) |
 
 ---
 
@@ -1064,3 +1065,155 @@ Supprime **uniquement** le lien `ClientUser` pour ce client et cet utilisateur. 
 **Erreurs :** 401, 403 (non Platform Admin), 404 (rattachement introuvable).
 
 Validation globale : body JSON avec **whitelist** + **forbidNonWhitelisted** (champs inconnus refusés).
+
+---
+
+## 15. Noyau financier — `/api/financial-allocations`, `/api/financial-events`, `/api/budget-lines`
+
+Référence : **RFC-015-1B** (Financial Core Backend). Ces endpoints permettent de gérer les **allocations** et **événements** financiers sur des **lignes budgétaires existantes**, et de consulter les listes par ligne. Le **CRUD des exercices, budgets, enveloppes et lignes** n’est pas implémenté dans cette API ; les entités `BudgetExercise`, `Budget`, `BudgetEnvelope`, `BudgetLine` doivent exister en base (voir [docs/modules/budget-mvp.md](modules/budget-mvp.md)).
+
+### Guards et headers
+
+Toutes les routes exigent :
+
+- `Authorization: Bearer <accessToken>`
+- `X-Client-Id: <clientId>` (client actif)
+- `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- Permissions : **`budgets.read`** pour les GET, **`budgets.create`** pour les POST
+
+Le `clientId` est **toujours** dérivé du client actif ; il ne doit **jamais** être fourni dans le body.
+
+### Format de réponse des listes
+
+Toutes les listes retournent un objet paginé :
+
+```json
+{
+  "items": [ ... ],
+  "total": 42,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+Tri par défaut : **allocations** → `effectiveDate desc`, puis `createdAt desc` ; **events** → `eventDate desc`, puis `createdAt desc`.
+
+### Enums (Prisma, @prisma/client)
+
+- **AllocationType** : `PLANNED`, `RESERVED`, `COMMITTED`, `CONSUMED`, `FORECAST`, `REALLOCATED`, `CANCELLED`
+- **FinancialEventType** : `LINE_CREATED`, `BUDGET_INITIALIZED`, `ALLOCATION_ADDED`, `ALLOCATION_UPDATED`, `COMMITMENT_REGISTERED`, `CONSUMPTION_REGISTERED`, `FORECAST_UPDATED`, `REALLOCATION_DONE`, `CANCELLATION`, `ADJUSTMENT`
+- **FinancialSourceType** : `PROJECT`, `ACTIVITY`, `SUPPLIER`, `CONTRACT`, `LICENSE`, `ORDER`, `TEAM_ASSIGNMENT`, `APPLICATION`, `ASSET`, `MANUAL`
+
+---
+
+### GET /api/financial-allocations
+
+Liste les allocations du client actif, avec filtres optionnels et pagination.
+
+**Query (tous optionnels)**
+
+| Champ            | Type   | Description                          |
+|-----------------|--------|--------------------------------------|
+| `budgetLineId`  | string | Filtre sur une ligne budgétaire      |
+| `allocationType`| enum   | Filtre par type d’allocation         |
+| `offset`        | number | Pagination (défaut 0)                |
+| `limit`         | number | Taille de page (défaut 20, max 200)  |
+
+**Réponse 200** : `{ items, total, limit, offset }` (voir format ci-dessus).
+
+**Erreurs :** 401, 403 (client invalide, module budgets désactivé, permission manquante).
+
+---
+
+### POST /api/financial-allocations
+
+Crée une allocation et recalcule les montants de la ligne budgétaire concernée.
+
+**Body (JSON)**
+
+| Champ            | Type   | Obligatoire | Description |
+|-----------------|--------|-------------|-------------|
+| `budgetLineId`  | string | oui         | ID d’une BudgetLine du client actif |
+| `sourceType`    | enum   | oui         | FinancialSourceType |
+| `sourceId`      | string | oui sauf si `sourceType === "MANUAL"` | Référence de la source |
+| `allocationType`| enum   | oui         | AllocationType |
+| `allocatedAmount`| number| oui         | Montant ≥ 0 |
+| `currency`      | string | oui         | Devise |
+| `effectiveDate` | string (ISO) | non  | Date d’effet |
+| `notes`         | string | non         | Notes |
+
+**Réponse 201** : objet allocation créé (champs Prisma, dont `allocatedAmount` en Decimal sérialisé).
+
+**Erreurs :** 400 (validation), 401, 403, 404 (ligne non trouvée ou n’appartient pas au client).
+
+---
+
+### GET /api/financial-events
+
+Liste les événements financiers du client actif.
+
+**Query (tous optionnels)**
+
+| Champ           | Type   | Description                    |
+|----------------|--------|--------------------------------|
+| `budgetLineId` | string | Filtre sur une ligne           |
+| `eventType`    | enum   | Filtre par type d’événement   |
+| `offset`       | number | Pagination (défaut 0)         |
+| `limit`        | number | Taille de page (défaut 20, max 200) |
+
+**Réponse 200** : `{ items, total, limit, offset }`.
+
+**Erreurs :** 401, 403.
+
+---
+
+### POST /api/financial-events
+
+Crée un événement financier ; si le type est `COMMITMENT_REGISTERED` ou `CONSUMPTION_REGISTERED`, les montants de la ligne sont recalculés.
+
+**Body (JSON)**
+
+| Champ           | Type   | Obligatoire | Description |
+|----------------|--------|-------------|-------------|
+| `budgetLineId` | string | oui         | ID d’une BudgetLine du client actif |
+| `sourceType`   | enum   | oui         | FinancialSourceType |
+| `sourceId`     | string | non         | Référence (optionnel pour MANUAL / types techniques) |
+| `eventType`    | enum   | oui         | FinancialEventType |
+| `amount`       | number | oui         | Montant ≥ 0 |
+| `currency`     | string | oui         | Devise |
+| `eventDate`    | string (ISO) | oui  | Date de l’événement |
+| `label`        | string | oui         | Libellé |
+| `description`  | string | non         | Description |
+
+**Réponse 201** : objet événement créé.
+
+**Erreurs :** 400 (validation), 401, 403, 404 (ligne non trouvée ou n’appartient pas au client).
+
+---
+
+### GET /api/budget-lines/:id/allocations
+
+Liste les allocations d’une ligne budgétaire. La ligne doit appartenir au client actif.
+
+**Paramètre** : `id` = `budgetLineId`.
+
+**Query (optionnels)**
+
+| Champ   | Type   | Description           |
+|---------|--------|-----------------------|
+| `offset`| number | Défaut 0              |
+| `limit` | number | Défaut 20, max 200    |
+
+**Réponse 200** : `{ items, total, limit, offset }`.
+
+**Erreurs :** 401, 403, 404 (ligne non trouvée ou n’appartient pas au client).
+
+---
+
+### GET /api/budget-lines/:id/events
+
+Liste les événements financiers d’une ligne budgétaire. Même règles que ci-dessus.
+
+**Réponse 200** : `{ items, total, limit, offset }`.
+
+**Erreurs :** 401, 403, 404.
