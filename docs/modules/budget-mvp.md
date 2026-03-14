@@ -17,6 +17,19 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 
 Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType`, `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `BudgetLineStatus`, `ExpenseType`.
 
+### Backend Budget Management (RFC-015-2)
+
+- **Module** `budget-management` : CRUD de la structure budgétaire (exercices, budgets, enveloppes, lignes).
+- **API** :
+  - `GET/POST /api/budget-exercises`, `GET/PATCH /api/budget-exercises/:id`
+  - `GET/POST /api/budgets`, `GET/PATCH /api/budgets/:id`
+  - `GET/POST /api/budget-envelopes`, `GET/PATCH /api/budget-envelopes/:id`
+  - `GET/POST /api/budget-lines`, `GET/PATCH /api/budget-lines/:id`
+- **Règles** : pas de `clientId` dans les body (client actif) ; codes optionnels en entrée, générés si absents (EX-, BUD-, ENV-, BL-) ; montants en `number` en API ; pas de suppression physique.
+- **Audit** : création et mise à jour tracées (budget_exercise.created/updated, budget.created/updated, etc.).
+
+Détail : [docs/API.md](../API.md) §15 (Structure budgétaire).
+
 ### Backend Financial Core (RFC-015-1B)
 
 - **Module** `financial-core` : allocations, événements, recalcul des lignes.
@@ -27,54 +40,39 @@ Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType`
 - **Recalcul** : à chaque création d’allocation ou d’événement (types COMMITMENT_REGISTERED / CONSUMPTION_REGISTERED), les champs `forecastAmount`, `committedAmount`, `consumedAmount`, `remainingAmount` de la `BudgetLine` sont recalculés (formule MVP : remaining = revisedAmount − committed − consumed).
 - **Audit** : création d’allocation et d’événement tracées en audit log.
 
-Détail des endpoints, body et erreurs : [docs/API.md](../API.md#15-noyau-financier--apifinancial-allocations-apifinancial-events-apibudget-lines).
+Détail : [docs/API.md](../API.md) §16 (Noyau financier).
 
 ---
 
 ## 2. Ce qui n’est pas implémenté
 
-- **CRUD exercices budgétaires** : pas d’API pour créer/modifier/supprimer des `BudgetExercise`.
-- **CRUD budgets** : pas d’API pour créer/modifier/supprimer des `Budget`.
-- **CRUD enveloppes** : pas d’API pour créer/modifier/supprimer des `BudgetEnvelope`.
-- **CRUD lignes budgétaires** : pas d’API pour créer/modifier/supprimer des `BudgetLine`.
 - **Frontend** : aucune interface utilisateur pour les budgets dans cette phase.
-- **Snapshots, axes analytiques, imports/exports Excel** : hors périmètre du MVP.
+- **Suppression physique** : pas d’endpoint DELETE sur la structure budgétaire (RFC-015-2).
+- **Snapshots, axes analytiques, imports/exports Excel, duplication de budget, workflow d’approbation** : hors périmètre du MVP.
 
 ---
 
 ## 3. Comment créer un budget (données de test ou dev)
 
-Les API du financial-core s’appuient sur des **BudgetLine** existantes. Pour en avoir, il faut créer les données en base **en dehors de l’API** (pour l’instant).
+### Option A : API Budget Management (recommandé)
 
-### Option A : Prisma Studio
+1. S’assurer que le **module budgets** est activé pour le client et que l’utilisateur a les permissions `budgets.read`, `budgets.create`, `budgets.update`.
+2. Appeler avec `Authorization: Bearer <accessToken>` et `X-Client-Id: <clientId>` :
+   - `POST /api/budget-exercises` (name, startDate, endDate ; code optionnel)
+   - `POST /api/budgets` (exerciseId, name, currency ; code optionnel)
+   - `POST /api/budget-envelopes` (budgetId, name, type ; code optionnel)
+   - `POST /api/budget-lines` (budgetId, envelopeId, name, expenseType, initialAmount, currency ; code optionnel)
+
+Voir [docs/API.md](../API.md) §15 pour les body complets.
+
+### Option B : Prisma Studio
 
 1. Lancer Prisma Studio : `cd apps/api && pnpm exec prisma studio`
-2. Créer dans l’ordre :
-   - un **BudgetExercise** (clientId, name, code, startDate, endDate, status = DRAFT ou ACTIVE)
-   - un **Budget** (clientId, exerciseId, name, code, currency, status = DRAFT ou ACTIVE)
-   - un **BudgetEnvelope** (clientId, budgetId, name, code, type = RUN ou BUILD ou TRANSVERSE)
-   - une **BudgetLine** (clientId, budgetId, envelopeId, code, name, expenseType = OPEX ou CAPEX, currency, revisedAmount, etc. ; les montants calculés peuvent rester à 0, ils seront mis à jour par le recalcul lors des créations d’allocations/événements)
+2. Créer dans l’ordre : BudgetExercise → Budget → BudgetEnvelope → BudgetLine (mêmes champs que ci-dessus).
 
-### Option B : Seed ou script
+### Option C : Seed ou script
 
-Étendre `apps/api/prisma/seed.js` (ou un script dédié) pour créer, après les clients et modules :
-
-- un Client (ou réutiliser un existant)
-- l’activation du module `budgets` pour ce client (ClientModule)
-- un BudgetExercise, un Budget, une BudgetEnvelope, une BudgetLine
-
-Cela permet d’avoir des données reproductibles pour tester les API financial-core.
-
-### Option C : Future API
-
-Une future RFC pourra ajouter les endpoints de type :
-
-- `POST /api/budget-exercises`, `GET /api/budget-exercises`, etc.
-- `POST /api/budgets`, `GET /api/budgets`, etc.
-- `POST /api/budget-envelopes`, …
-- `POST /api/budget-lines`, …
-
-Jusque-là, la création des structures budgétaires reste manuelle ou via seed.
+Étendre `apps/api/prisma/seed.js` pour créer, après les clients et modules, un BudgetExercise, un Budget, une BudgetEnvelope, une BudgetLine (données reproductibles pour tests).
 
 ---
 
@@ -98,7 +96,8 @@ Voir [docs/API.md](../API.md#15-noyau-financier--apifinancial-allocations-apifin
 ## 5. Références
 
 - **RFC-015-1A** : Schéma Prisma Budget MVP
-- **RFC-015-1B** : Financial Core Backend
+- **RFC-015-2** : Budget Management Backend (structure budgétaire)
+- **RFC-015-1B** : Financial Core Backend (allocations, événements)
 - **Plan d’implémentation** : [docs/RFC/RFC-015-1B-implementation-plan.md](../RFC/RFC-015-1B-implementation-plan.md)
-- **API** : [docs/API.md](../API.md)
+- **API** : [docs/API.md](../API.md) (§15 Structure budgétaire, §16 Noyau financier)
 - **Architecture** : [docs/ARCHITECTURE.md](../ARCHITECTURE.md) (§5.3 Noyau financier, §6.1 Modules)

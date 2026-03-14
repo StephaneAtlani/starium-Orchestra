@@ -219,11 +219,13 @@ Entités transverses réutilisables par plusieurs modules :
 - `financial_allocations` (liaison source ↔ ligne budgétaire ; types : FORECAST, COMMITTED, CONSUMED, etc.)
 - `financial_events` (événements financiers : COMMITMENT_REGISTERED, CONSUMPTION_REGISTERED, etc.)
 
+Le **module backend `budget-management`** (RFC-015-2) implémente le CRUD de la structure budgétaire : exercices, budgets, enveloppes et lignes budgétaires. Il ne gère pas les allocations ni les événements financiers.
+
 Le **module backend `financial-core`** (RFC-015-1B) implémente :
 - les API d’allocations et d’événements financiers ;
 - le recalcul centralisé des montants d’une `BudgetLine` (forecast, committed, consumed, remaining).
 
-Il **ne gère pas** le CRUD des exercices, budgets, enveloppes et lignes budgétaires ; ces entités doivent exister en base (création manuelle, seed ou future API dédiée). Voir [docs/modules/budget-mvp.md](modules/budget-mvp.md).
+Les entités `BudgetExercise`, `Budget`, `BudgetEnvelope`, `BudgetLine` sont créées via l’API budget-management (ou manuellement / seed). Voir [docs/modules/budget-mvp.md](modules/budget-mvp.md).
 
 ### 5.4 Configuration admin (optionnel mais recommandé)
 
@@ -250,9 +252,9 @@ Chaque module vit sous `src/modules/<module-name>/` :
 - `tests/`
 
 **Modules partagés (core)** : auth, users, clients, client-users, roles, permissions, audit-logs, notifications, documents, config (admin).  
-**Modules métier** : **financial-core** (noyau financier : allocations, événements, recalcul des lignes), budgets (CRUD budgets à venir), projects, orders, suppliers, contracts, licenses, applications, etc.
+**Modules métier** : **budget-management** (CRUD exercices, budgets, enveloppes, lignes budgétaires — RFC-015-2), **financial-core** (noyau financier : allocations, événements, recalcul des lignes), projects, orders, suppliers, contracts, licenses, applications, etc.
 
-Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **financial-core** est le noyau financier transverse : il expose les API allocations/événements et le recalcul des lignes ; un futur module `budgets` pourra en dépendre pour le CRUD exercices/budgets/enveloppes/lignes.
+Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **budget-management** gère la structure budgétaire ; le module **financial-core** expose les API allocations/événements et le recalcul des lignes (sur des lignes créées via budget-management ou en base).
 
 ### 6.2 Frontend
 
@@ -262,7 +264,7 @@ Les modules métier dépendent du core (auth, clients, permissions) et du module
 
 ### 6.3 Dépendances
 
-- Backend : core → métier ; financial-core utilisé par budgets, orders, contracts.
+- Backend : core → métier ; budget-management (structure budgétaire) et financial-core (allocations/événements) ; orders, contracts consomment le noyau financier.
 - Frontend : pas de dépendances entre features si possible ; dépendance commune vers `services/api` et contexte client.
 
 ---
@@ -348,16 +350,20 @@ Clients (platform admin)
 GET /api/clients
 POST /api/clients
 
-Noyau financier (RFC-015-1B)
+Budgets et noyau financier
 
-GET /api/financial-allocations
-POST /api/financial-allocations
-GET /api/financial-events
-POST /api/financial-events
-GET /api/budget-lines/:id/allocations
-GET /api/budget-lines/:id/events
+Structure budgétaire (RFC-015-2)
 
-(CRUD exercices / budgets / enveloppes / lignes non implémenté ; voir docs/modules/budget-mvp.md)
+GET/POST /api/budget-exercises, GET/PATCH /api/budget-exercises/:id
+GET/POST /api/budgets, GET/PATCH /api/budgets/:id
+GET/POST /api/budget-envelopes, GET/PATCH /api/budget-envelopes/:id
+GET/POST /api/budget-lines, GET/PATCH /api/budget-lines/:id
+
+Noyau financier — RFC-015-1B
+
+GET /api/financial-allocations, POST /api/financial-allocations
+GET /api/financial-events, POST /api/financial-events
+GET /api/budget-lines/:id/allocations, GET /api/budget-lines/:id/events
 
 Projets
 

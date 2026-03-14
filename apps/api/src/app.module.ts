@@ -12,6 +12,7 @@ import { RolesModule } from './modules/roles/roles.module';
 import { RbacTestModule } from './modules/rbac-test/rbac-test.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { FinancialCoreModule } from './modules/financial-core/financial-core.module';
+import { BudgetManagementModule } from './modules/budget-management/budget-management.module';
 import { SecurityLogsModule } from './modules/security-logs/security-logs.module';
 
 @Module({
@@ -32,6 +33,7 @@ import { SecurityLogsModule } from './modules/security-logs/security-logs.module
     RbacTestModule,
     AuditLogsModule,
     FinancialCoreModule,
+    BudgetManagementModule,
     SecurityLogsModule,
   ],
 })

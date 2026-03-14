@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend).
 
 ---
 
@@ -435,7 +435,8 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 | /api/modules      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
 | /api/audit-logs   | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 | /api/test-rbac    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
-| /api/financial-allocations, /api/financial-events, /api/budget-lines/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create`) |
+| /api/budget-exercises, /api/budgets, /api/budget-envelopes, /api/budget-lines (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update`) |
+| /api/financial-allocations, /api/financial-events, /api/budget-lines/:id/allocations, /api/budget-lines/:id/events | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create`) |
 
 ---
 
@@ -1068,9 +1069,115 @@ Validation globale : body JSON avec **whitelist** + **forbidNonWhitelisted** (ch
 
 ---
 
-## 15. Noyau financier — `/api/financial-allocations`, `/api/financial-events`, `/api/budget-lines`
+## 15. Structure budgétaire (Budget Management) — `/api/budget-exercises`, `/api/budgets`, `/api/budget-envelopes`, `/api/budget-lines`
 
-Référence : **RFC-015-1B** (Financial Core Backend). Ces endpoints permettent de gérer les **allocations** et **événements** financiers sur des **lignes budgétaires existantes**, et de consulter les listes par ligne. Le **CRUD des exercices, budgets, enveloppes et lignes** n’est pas implémenté dans cette API ; les entités `BudgetExercise`, `Budget`, `BudgetEnvelope`, `BudgetLine` doivent exister en base (voir [docs/modules/budget-mvp.md](modules/budget-mvp.md)).
+Référence : **RFC-015-2** (Budget Management Backend). Ces endpoints permettent de gérer la **structure budgétaire** : exercices, budgets, enveloppes et lignes budgétaires. Ils doivent être utilisés **avant** le noyau financier (allocations et événements) pour créer les entités. Pas de suppression physique (DELETE) ; pas de `clientId` dans les body (toujours dérivé du client actif).
+
+### Guards et headers (structure budgétaire)
+
+- `Authorization: Bearer <accessToken>`
+- `X-Client-Id: <clientId>`
+- **Permissions** : `budgets.read` (GET), `budgets.create` (POST), `budgets.update` (PATCH)
+
+### Format des listes
+
+Toutes les listes retournent : `{ "items": [...], "total": number, "limit": number, "offset": number }`. Par défaut `limit = 20`, max `100`.
+
+### Enums (structure budgétaire)
+
+- **BudgetExerciseStatus** : `DRAFT`, `ACTIVE`, `CLOSED`, `ARCHIVED`
+- **BudgetStatus** : `DRAFT`, `ACTIVE`, `LOCKED`, `ARCHIVED`
+- **BudgetEnvelopeType** : `RUN`, `BUILD`, `TRANSVERSE`
+- **BudgetLineStatus** : `DRAFT`, `ACTIVE`, `CLOSED`, `ARCHIVED`
+- **ExpenseType** : `OPEX`, `CAPEX`
+
+Les montants en entrée/sortie sont des **number** (jamais d’objet Decimal en API).
+
+---
+
+### GET /api/budget-exercises
+
+Liste les exercices budgétaires du client actif. **Query** : `status`, `search` (name/code), `offset`, `limit`. **Tri** : `startDate desc`.
+
+---
+
+### POST /api/budget-exercises
+
+Crée un exercice. **Body** : `name`, `code?`, `startDate`, `endDate`, `status?`. Si `code` absent, généré (format `EX-YYYY-suffix`). **Erreurs** : 400 (dates incohérentes), 409 (code déjà utilisé).
+
+---
+
+### GET /api/budget-exercises/:id
+
+Détail d’un exercice. **Erreurs** : 404 si hors client.
+
+---
+
+### PATCH /api/budget-exercises/:id
+
+Met à jour un exercice (champs partiels). **Refusé** si status = ARCHIVED.
+
+---
+
+### GET /api/budgets
+
+Liste les budgets. **Query** : `exerciseId`, `status`, `ownerUserId`, `search`, `offset`, `limit`. **Tri** : `createdAt desc`.
+
+---
+
+### POST /api/budgets
+
+Crée un budget. **Body** : `exerciseId`, `name`, `code?`, `description?`, `currency`, `status?`, `ownerUserId?`. L’exercice doit appartenir au client ; si `ownerUserId` fourni, l’utilisateur doit être rattaché au client actif. Si `code` absent, généré (`BUD-suffix`).
+
+---
+
+### GET /api/budgets/:id — PATCH /api/budgets/:id
+
+Détail et mise à jour. PATCH refusé si status = LOCKED ou ARCHIVED.
+
+---
+
+### GET /api/budget-envelopes
+
+Liste les enveloppes. **Query** : `budgetId`, `search`, `offset`, `limit`. **Tri** : `createdAt desc`.
+
+---
+
+### POST /api/budget-envelopes
+
+Crée une enveloppe. **Body** : `budgetId`, `name`, `code?`, `description?`, `type` (obligatoire), `parentId?`, `sortOrder?`. Le budget ne doit pas être LOCKED/ARCHIVED. Si `parentId` fourni, l’enveloppe parent doit exister et appartenir au même budget/client. Si `code` absent, généré (`ENV-suffix`).
+
+---
+
+### GET /api/budget-envelopes/:id — PATCH /api/budget-envelopes/:id
+
+Détail et mise à jour. PATCH refusé si le **budget parent** est LOCKED ou ARCHIVED (BudgetEnvelope n’a pas de champ status).
+
+---
+
+### GET /api/budget-lines
+
+Liste les lignes budgétaires. **Query** : `budgetId`, `envelopeId`, `status`, `expenseType`, `search`, `offset`, `limit`. **Tri** : `createdAt desc`. Les montants retournés sont des **number**.
+
+---
+
+### POST /api/budget-lines
+
+Crée une ligne. **Body** : `budgetId`, `envelopeId`, `name`, `code?`, `description?`, `expenseType`, `initialAmount`, `revisedAmount?`, `currency`, `status?`. L’enveloppe doit appartenir au budget indiqué et au client. À la création : `revisedAmount = initialAmount` si absent, `forecastAmount = 0`, `committedAmount = 0`, `consumedAmount = 0`, `remainingAmount = revisedAmount`. Si `code` absent, généré (`BL-suffix`).
+
+---
+
+### GET /api/budget-lines/:id — PATCH /api/budget-lines/:id
+
+Détail et mise à jour d’une ligne. PATCH : si `revisedAmount` change, `remainingAmount` est recalculé ; les champs `forecastAmount`, `committedAmount`, `consumedAmount` ne sont jamais modifiés (gérés par le noyau financier). PATCH refusé si budget parent LOCKED/ARCHIVED ou si ligne ARCHIVED/CLOSED.
+
+**Note** : les routes `GET /api/budget-lines/:id/allocations` et `GET /api/budget-lines/:id/events` sont documentées en §16 (noyau financier).
+
+---
+
+## 16. Noyau financier — `/api/financial-allocations`, `/api/financial-events`, `/api/budget-lines/:id/allocations`, `/api/budget-lines/:id/events`
+
+Référence : **RFC-015-1B** (Financial Core Backend). Ces endpoints permettent de gérer les **allocations** et **événements** financiers sur des **lignes budgétaires existantes**, et de consulter les listes par ligne. La **structure budgétaire** (exercices, budgets, enveloppes, lignes) est gérée par les API de la [section 15](#15-structure-budgétaire-budget-management--apibudget-exercises-apibudgets-apibudget-envelopes-apibudget-lines).
 
 ### Guards et headers
 
