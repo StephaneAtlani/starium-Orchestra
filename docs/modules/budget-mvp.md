@@ -14,8 +14,9 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 - **BudgetLine** : ligne budgétaire (clientId, budgetId, envelopeId, code, name, expenseType, currency, montants : initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount).
 - **FinancialAllocation** : allocation sur une ligne (budgetLineId, sourceType, sourceId, allocationType, allocatedAmount, etc.).
 - **FinancialEvent** : événement financier (budgetLineId, sourceType, sourceId?, eventType, amount, eventDate, label, etc.).
+- **BudgetReallocation** (RFC-017) : réallocation entre deux lignes (clientId, budgetId, sourceLineId, targetLineId, amount, currency, reason?, createdById?, createdAt). Chaque réallocation génère deux FinancialEvent de type REALLOCATION_DONE (source : montant négatif ; cible : montant positif).
 
-Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType`, `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `BudgetLineStatus`, `ExpenseType`.
+Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType` (dont REALLOCATION_DONE), `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `BudgetLineStatus`, `ExpenseType`.
 
 ### Backend Budget Management (RFC-015-2)
 
@@ -37,7 +38,7 @@ Détail : [docs/API.md](../API.md) §15 (Structure budgétaire).
   - `GET /api/financial-allocations`, `POST /api/financial-allocations`
   - `GET /api/financial-events`, `POST /api/financial-events`
   - `GET /api/budget-lines/:id/allocations`, `GET /api/budget-lines/:id/events`
-- **Recalcul** : à chaque création d’allocation ou d’événement (types COMMITMENT_REGISTERED / CONSUMPTION_REGISTERED), les champs `forecastAmount`, `committedAmount`, `consumedAmount`, `remainingAmount` de la `BudgetLine` sont recalculés (formule MVP : remaining = revisedAmount − committed − consumed).
+- **Recalcul** : à chaque création d’allocation ou d’événement (types COMMITMENT_REGISTERED / CONSUMPTION_REGISTERED, ou après une réallocation avec REALLOCATION_DONE), les champs `forecastAmount`, `committedAmount`, `consumedAmount`, `remainingAmount` de la `BudgetLine` sont recalculés. Base budgétaire effective = revisedAmount + somme des événements REALLOCATION_DONE ; remaining = base effective − committed − consumed.
 - **Audit** : création d’allocation et d’événement tracées en audit log.
 
 Détail : [docs/API.md](../API.md) §16 (Noyau financier).
@@ -56,7 +57,18 @@ Détail : [docs/API.md](../API.md) §16 (Noyau financier).
 - **Règles** : une seule devise par périmètre (400 si plusieurs) ; ratios = 0 si revisedAmount = 0 ; `currency` présent dans toutes les réponses KPI ; search uniquement sur name/code.
 - **Pas de modification** des modules budget-management ni financial-core ; consommation des données en lecture.
 
-Détail : [docs/API.md](../API.md) §17 (Budget Reporting API).
+Détail : [docs/API.md](../API.md) §18 (Budget Reporting API).
+
+### Backend Budget Reallocation (RFC-017)
+
+- **Module** `budget-reallocation` : transfert budgétaire traçable entre deux BudgetLine d’un même budget (sans modifier revisedAmount).
+- **API** (permission `budgets.update` pour POST, `budgets.read` pour GET) :
+  - `POST /api/budget-reallocations` — crée une réallocation (sourceLineId, targetLineId, amount, reason?), deux FinancialEvent REALLOCATION_DONE, et recalcule les deux lignes.
+  - `GET /api/budget-reallocations` — liste avec filtres (budgetId, budgetLineId, dateFrom, dateTo), tri createdAt desc.
+  - `GET /api/budget-reallocations/:id` — détail.
+- **Règles** : même budget, même devise, lignes ACTIVE, budget non LOCKED/ARCHIVED, amount ≤ remainingAmount de la source. Audit : action `budget.reallocated`, resourceType `budget_reallocation`.
+
+Détail : [docs/API.md](../API.md) §17 (Réallocations budgétaires).
 
 ---
 
@@ -64,7 +76,8 @@ Détail : [docs/API.md](../API.md) §17 (Budget Reporting API).
 
 - **Frontend** : aucune interface utilisateur pour les budgets dans cette phase.
 - **Suppression physique** : pas d’endpoint DELETE sur la structure budgétaire (RFC-015-2).
-- **Snapshots, axes analytiques, imports/exports Excel, duplication de budget, workflow d’approbation** : hors périmètre du MVP.
+- **Snapshots** : implémentés (RFC-015-3). **Réallocations** : backend implémenté (RFC-017) ; UI « Réallouer » hors périmètre MVP.
+- **Axes analytiques, imports/exports Excel, duplication de budget, workflow d’approbation** : hors périmètre du MVP.
 
 ---
 
@@ -114,6 +127,7 @@ Voir [docs/API.md](../API.md#15-noyau-financier--apifinancial-allocations-apifin
 - **RFC-015-1A** : Schéma Prisma Budget MVP
 - **RFC-015-2** : Budget Management Backend (structure budgétaire)
 - **RFC-015-1B** : Financial Core Backend (allocations, événements)
+- **RFC-017** : Budget Reallocation (transfert entre lignes)
 - **Plan d’implémentation** : [docs/RFC/RFC-015-1B-implementation-plan.md](../RFC/RFC-015-1B-implementation-plan.md)
-- **API** : [docs/API.md](../API.md) (§15 Structure budgétaire, §16 Noyau financier)
+- **API** : [docs/API.md](../API.md) (§15 Structure budgétaire, §16 Noyau financier, §17 Réallocations budgétaires, §18 Budget Reporting)
 - **Architecture** : [docs/ARCHITECTURE.md](../ARCHITECTURE.md) (§5.3 Noyau financier, §6.1 Modules)

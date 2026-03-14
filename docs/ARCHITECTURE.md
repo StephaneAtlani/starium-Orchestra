@@ -217,7 +217,8 @@ Entités transverses réutilisables par plusieurs modules :
 - `suppliers`, `contracts`
 - `cost_centers`, `analytical_axes`, `analytical_axis_values`
 - `financial_allocations` (liaison source ↔ ligne budgétaire ; types : FORECAST, COMMITTED, CONSUMED, etc.)
-- `financial_events` (événements financiers : COMMITMENT_REGISTERED, CONSUMPTION_REGISTERED, etc.)
+- `financial_events` (événements financiers : COMMITMENT_REGISTERED, CONSUMPTION_REGISTERED, REALLOCATION_DONE, etc.)
+- `budget_reallocations` (RFC-017 : transfert entre deux BudgetLine d’un même budget ; crée 2 FinancialEvent REALLOCATION_DONE et déclenche le recalcul)
 
 Le **module backend `budget-management`** (RFC-015-2) implémente le CRUD de la structure budgétaire : exercices, budgets, enveloppes et lignes budgétaires. Il ne gère pas les allocations ni les événements financiers.
 
@@ -252,9 +253,9 @@ Chaque module vit sous `src/modules/<module-name>/` :
 - `tests/`
 
 **Modules partagés (core)** : auth, users, clients, client-users, roles, permissions, audit-logs, notifications, documents, config (admin).  
-**Modules métier** : **budget-management** (CRUD exercices, budgets, enveloppes, lignes budgétaires — RFC-015-2), **financial-core** (noyau financier : allocations, événements, recalcul des lignes), **budget-reporting** (RFC-016 : agrégations et KPI budgétaires en lecture seule — exercice, budget, enveloppe), **budget-snapshots** (RFC-015-3 : snapshots budgétaires), projects, orders, suppliers, contracts, licenses, applications, etc.
+**Modules métier** : **budget-management** (CRUD exercices, budgets, enveloppes, lignes budgétaires — RFC-015-2), **financial-core** (noyau financier : allocations, événements, recalcul des lignes), **budget-reallocation** (RFC-017 : transfert budgétaire entre deux lignes d’un même budget, traçable et auditée), **budget-reporting** (RFC-016 : agrégations et KPI budgétaires en lecture seule — exercice, budget, enveloppe), **budget-snapshots** (RFC-015-3 : snapshots budgétaires), projects, orders, suppliers, contracts, licenses, applications, etc.
 
-Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **budget-management** gère la structure budgétaire ; le module **financial-core** expose les API allocations/événements et le recalcul des lignes (sur des lignes créées via budget-management ou en base). Le module **budget-reporting** consomme les données BudgetExercise, Budget, BudgetEnvelope, BudgetLine en lecture seule pour exposer des synthèses et KPI (totaux, ratios, alertes, répartition RUN/BUILD).
+Les modules métier dépendent du core (auth, clients, permissions) et du module Prisma. Pas de dépendances circulaires. Le module **budget-management** gère la structure budgétaire ; le module **financial-core** expose les API allocations/événements et le recalcul des lignes (sur des lignes créées via budget-management ou en base), et prend en charge les événements REALLOCATION_DONE pour la base budgétaire effective ; le module **budget-reallocation** crée des réallocations (BudgetReallocation + 2 FinancialEvent) et déclenche le recalcul des deux lignes. Le module **budget-reporting** consomme les données BudgetExercise, Budget, BudgetEnvelope, BudgetLine en lecture seule pour exposer des synthèses et KPI (totaux, ratios, alertes, répartition RUN/BUILD).
 
 ### 6.2 Frontend
 
@@ -264,7 +265,7 @@ Les modules métier dépendent du core (auth, clients, permissions) et du module
 
 ### 6.3 Dépendances
 
-- Backend : core → métier ; budget-management (structure budgétaire), financial-core (allocations/événements), budget-reporting (lecture seule, agrégations KPI) ; orders, contracts consomment le noyau financier.
+- Backend : core → métier ; budget-management (structure budgétaire), financial-core (allocations/événements), budget-reallocation (transferts entre lignes), budget-reporting (lecture seule, agrégations KPI) ; orders, contracts consomment le noyau financier.
 - Frontend : pas de dépendances entre features si possible ; dépendance commune vers `services/api` et contexte client.
 
 ---
@@ -364,6 +365,12 @@ Noyau financier — RFC-015-1B
 GET /api/financial-allocations, POST /api/financial-allocations
 GET /api/financial-events, POST /api/financial-events
 GET /api/budget-lines/:id/allocations, GET /api/budget-lines/:id/events
+
+Réallocations budgétaires — RFC-017
+
+POST /api/budget-reallocations
+GET /api/budget-reallocations
+GET /api/budget-reallocations/:id
 
 Reporting budgétaire — RFC-016
 
