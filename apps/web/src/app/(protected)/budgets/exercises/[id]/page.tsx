@@ -10,7 +10,7 @@ import { BudgetErrorState } from '@/features/budgets/components/budget-error-sta
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useBudgetExerciseSummary } from '@/features/budgets/hooks/use-budget-exercises';
 import { useBudgetsList } from '@/features/budgets/hooks/use-budgets';
-import { budgetDetail } from '@/features/budgets/constants/budget-routes';
+import { budgetDetail, budgetExerciseEdit } from '@/features/budgets/constants/budget-routes';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -53,6 +53,16 @@ export default function BudgetExerciseDetailPage() {
         <BudgetPageHeader
           title={exercise.name}
           description={exercise.code ? `Code : ${exercise.code}` : undefined}
+          actions={
+            id ? (
+              <Link
+                href={budgetExerciseEdit(id)}
+                className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+              >
+                Modifier
+              </Link>
+            ) : undefined
+          }
         />
 
         <Card>

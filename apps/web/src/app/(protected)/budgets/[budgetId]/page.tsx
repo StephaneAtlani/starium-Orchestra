@@ -21,6 +21,9 @@ import {
   budgetSnapshots,
   budgetVersions,
   budgetReallocations,
+  budgetEdit,
+  budgetEnvelopeNew,
+  budgetLineNew,
 } from '@/features/budgets/constants/budget-routes';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { formatAmount } from '@/features/budgets/lib/budget-formatters';
@@ -121,6 +124,28 @@ export default function BudgetDetailPage() {
           title={budget.name}
           description={
             budget.code ? `${budget.code} · ${budget.currency}` : budget.currency
+          }
+          actions={
+            <div className="flex items-center gap-2">
+              <Link
+                href={budgetEdit(budgetId!)}
+                className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+              >
+                Modifier
+              </Link>
+              <Link
+                href={budgetEnvelopeNew(budgetId!)}
+                className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Nouvelle enveloppe
+              </Link>
+              <Link
+                href={budgetLineNew(budgetId!)}
+                className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Nouvelle ligne
+              </Link>
+            </div>
           }
         />
 

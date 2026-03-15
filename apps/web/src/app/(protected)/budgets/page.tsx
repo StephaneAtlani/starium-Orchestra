@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { BudgetPageHeader } from '@/features/budgets/components/budget-page-header';
@@ -15,7 +16,8 @@ import { useBudgetsListFilters } from '@/features/budgets/hooks/use-budget-list-
 import { useBudgetsQuery } from '@/features/budgets/hooks/use-budgets-query';
 import { useBudgetExerciseOptionsQuery } from '@/features/budgets/hooks/use-budget-exercise-options-query';
 import { DEFAULT_LIMIT } from '@/features/budgets/constants/budget-filters';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { budgetNew } from '@/features/budgets/constants/budget-routes';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
 export default function BudgetsListPage() {
   const { filters, setFilters } = useBudgetsListFilters();
@@ -34,6 +36,15 @@ export default function BudgetsListPage() {
         <BudgetPageHeader
           title="Budgets"
           description="Liste des budgets du client actif."
+          actions={
+            <Link
+              href={budgetNew()}
+              className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+            >
+              <Plus className="size-4" />
+              Créer un budget
+            </Link>
+          }
         />
         <BudgetsToolbar />
 

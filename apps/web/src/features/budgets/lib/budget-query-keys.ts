@@ -9,6 +9,10 @@ export const budgetQueryKeys = {
   exercises: (clientId: string, filters?: object) =>
     ['budgets', clientId, 'exercises', filters] as const,
 
+  /** id = segment de route [id] (/budgets/exercises/[id]/edit) — RFC-FE-015 */
+  exerciseDetail: (clientId: string, id: string) =>
+    ['budgets', clientId, 'exercise-detail', id] as const,
+
   exerciseSummary: (clientId: string, exerciseId: string) =>
     ['budgets', clientId, 'exercise-summary', exerciseId] as const,
 
@@ -58,4 +62,7 @@ export const budgetQueryKeys = {
     ['budgets', clientId, filters] as const,
   budgetExerciseOptions: (clientId: string) =>
     ['budget-exercise-options', clientId] as const,
+
+  generalLedgerAccountOptions: (clientId: string) =>
+    ['general-ledger-account-options', clientId] as const,
 };

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { BudgetPageHeader } from '@/features/budgets/components/budget-page-header';
@@ -14,7 +15,8 @@ import { Button } from '@/components/ui/button';
 import { useBudgetExercisesListFilters } from '@/features/budgets/hooks/use-budget-list-filters';
 import { useBudgetExercisesQuery } from '@/features/budgets/hooks/use-budget-exercises-query';
 import { DEFAULT_LIMIT } from '@/features/budgets/constants/budget-filters';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { budgetExerciseNew } from '@/features/budgets/constants/budget-routes';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
 export default function BudgetExercisesPage() {
   const { filters, setFilters } = useBudgetExercisesListFilters();
@@ -32,6 +34,15 @@ export default function BudgetExercisesPage() {
         <BudgetPageHeader
           title="Exercices budgétaires"
           description="Liste des exercices du client actif."
+          actions={
+            <Link
+              href={budgetExerciseNew()}
+              className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+            >
+              <Plus className="size-4" />
+              Créer un exercice
+            </Link>
+          }
         />
         <BudgetExercisesToolbar />
 

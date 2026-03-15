@@ -1,6 +1,6 @@
-# Module Budget Frontend — Fondation (RFC-FE-001), listes (RFC-FE-003) et explorateur (RFC-FE-004)
+# Module Budget Frontend — Fondation (RFC-FE-001), listes (RFC-FE-003), explorateur (RFC-FE-004) et formulaires (RFC-FE-015)
 
-Ce document décrit la **fondation frontend** du module Budget dans Starium Orchestra : structure, conventions, et utilisation. Références : [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md), [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md), [RFC-FE-004 — Budget Envelopes & Lines Explorer UI](../RFC/RFC-FE-004%20—%20Budget%20Envelopes%20%26%20Lines%20Explorer%20UI.md).
+Ce document décrit la **fondation frontend** du module Budget dans Starium Orchestra : structure, conventions, et utilisation. Références : [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md), [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md), [RFC-FE-004 — Budget Envelopes & Lines Explorer UI](../RFC/RFC-FE-004%20—%20Budget%20Envelopes%20%26%20Lines%20Explorer%20UI.md), [RFC-FE-015 — Budget Forms UX](../RFC/RFC-FE-015%20—%20Budget%20Forms%20UX.md).
 
 ---
 
@@ -24,7 +24,9 @@ La logique métier reste **côté backend** ; le frontend ne fait pas de calculs
 ```
 features/budgets/
 ├── api/                    # Appels backend (authFetch)
-│   ├── budget-management.api.ts   # Exercices, budgets, enveloppes, lignes (GET)
+│   ├── types.ts                      # ApiFormError (RFC-FE-015)
+│   ├── budget-management.api.ts     # CRUD exercices, budgets, enveloppes, lignes (RFC-FE-015)
+│   ├── general-ledger-accounts.api.ts  # Options comptes formulaire ligne (RFC-FE-015)
 │   ├── get-budget-exercises.ts    # Liste exercices (page→offset, RFC-FE-003)
 │   ├── get-budgets.ts             # Liste budgets (page→offset, RFC-FE-003)
 │   ├── get-budget-exercise-options.ts  # Options pour filtre exercice (RFC-FE-003)
@@ -47,6 +49,7 @@ features/budgets/
 │   ├── use-budget-lines.ts             # Toutes lignes d’un budget (RFC-FE-004)
 │   ├── use-budget-explorer.ts          # Agrégat budget + enveloppes + lignes (RFC-FE-004)
 │   └── use-budget-explorer-tree.ts     # tree + filteredTree mémoïsés (RFC-FE-004)
+│   # Hooks formulaires (RFC-FE-015) : use-exercise-detail, use-create/update-*-exercise, use-create/update-budget, use-create/update-budget-envelope, use-create/update-budget-line, use-general-ledger-account-options, use-budget-envelope-options, use-budget-options
 ├── components/
 │   ├── budget-page-header.tsx
 │   ├── budget-kpi-cards.tsx
@@ -63,12 +66,26 @@ features/budgets/
 │   ├── budget-empty-state.tsx
 │   ├── budget-error-state.tsx
 │   ├── pagination-summary.tsx          # "1–20 sur N résultats" (RFC-FE-003)
-│   └── forms/
+│   ├── forms/                         # Formulaires create/edit (RFC-FE-015)
+│   │   ├── budget-exercise-form.tsx
+│   │   ├── budget-form.tsx
+│   │   ├── budget-envelope-form.tsx
+│   │   ├── budget-line-form.tsx
+│   │   └── budget-form-actions.tsx
+│   └── pages/                         # Pages conteneurs formulaires (RFC-FE-015)
+│       ├── budget-exercise-form-page.tsx
+│       ├── budget-form-page.tsx
+│       ├── budget-envelope-form-page.tsx
+│       └── budget-line-form-page.tsx
 ├── schemas/
+│   ├── budget-exercise-form.schema.ts  # Zod exercice (RFC-FE-015)
+│   ├── budget-line-form.schema.ts      # Zod ligne (RFC-FE-015)
 │   ├── create-budget.schema.ts
 │   ├── create-envelope.schema.ts
 │   ├── create-line.schema.ts
 │   └── reallocate-budget.schema.ts
+├── mappers/
+│   └── budget-form.mappers.ts         # API ↔ formulaire exercice, budget, enveloppe, ligne (RFC-FE-015)
 ├── types/
 │   ├── budget-management.types.ts
 │   ├── budget-list.types.ts            # ListResult, Summary, Params listes (RFC-FE-003)
@@ -83,7 +100,7 @@ features/budgets/
 │   ├── build-budget-tree.ts            # Arbre enveloppes/lignes, orphelins (RFC-FE-004)
 │   └── filter-budget-tree.ts           # Filtrage côté client (RFC-FE-004)
 └── constants/
-    ├── budget-routes.ts       # + budgetList(), budgetListWithExercise(exerciseId)
+    ├── budget-routes.ts       # + formulaires : budgetExerciseNew/Edit, budgetNew/Edit, budgetEnvelopeNew/Edit, budgetLineNew/Edit (RFC-FE-015)
     └── budget-filters.ts      # DEFAULT_PAGE, DEFAULT_LIMIT, options statut (RFC-FE-003)
 ```
 
@@ -101,6 +118,8 @@ Exemples :
 - `budgetQueryKeys.budgetExercisesList(clientId, filters?)` — listes paginées (RFC-FE-003)
 - `budgetQueryKeys.budgetsList(clientId, filters?)` — listes paginées (RFC-FE-003)
 - `budgetQueryKeys.budgetExerciseOptions(clientId)` — options filtre exercice (RFC-FE-003)
+- `budgetQueryKeys.exerciseDetail(clientId, id)` — détail exercice pour formulaire edit (RFC-FE-015)
+- `budgetQueryKeys.generalLedgerAccountOptions(clientId)` — options comptes formulaire ligne (RFC-FE-015)
 - `budgetQueryKeys.budgetDetail(clientId, budgetId)`
 - `budgetQueryKeys.budgetEnvelopes(clientId, budgetId, options?)` — `options.full === true` pour l’explorer (toutes enveloppes) (RFC-FE-004)
 - `budgetQueryKeys.budgetLinesByBudget(clientId, budgetId)` — toutes lignes du budget, sans filtres API (RFC-FE-004)
@@ -118,12 +137,11 @@ Tous les modules API reçoivent une fonction **authFetch** (retour de `useAuthen
 
 | Module | Rôle | Endpoints principaux |
 |--------|------|----------------------|
-| budget-management | Lectures structure (exercices, budgets, enveloppes, lignes) | GET `/api/budget-exercises`, `/api/budgets`, `/api/budget-envelopes`, `/api/budget-lines` |
+| budget-management | CRUD structure (exercices, budgets, enveloppes, lignes) | GET + POST/PATCH (RFC-FE-015) ; `parseApiFormError` + `ApiFormError` pour erreurs formulaires |
+| general-ledger-accounts | Options comptes comptables (formulaire ligne) | GET `/api/general-ledger-accounts` (RFC-FE-015) |
 | budget-reporting | KPI et listes reporting | GET `/api/budget-reporting/*` (summary, listBudgetsForExercise, listEnvelopesForBudget, getEnvelopeSummary, listLinesForEnvelope) |
 | budget-dashboard | Vue cockpit | GET `/api/budget-dashboard` |
 | budget-snapshots, -reallocations, -imports, -versioning | Stubs | À implémenter dans les RFC dédiées |
-
-Les mutations (create/update) ne sont **pas** implémentées dans la fondation ; les schémas Zod préparent les futures RFC.
 
 ---
 
@@ -145,6 +163,14 @@ Les mutations (create/update) ne sont **pas** implémentées dans la fondation ;
 | `useBudgetLinesByBudget(budgetId)` | use-budget-lines | Toutes lignes du budget, sans filtres API (RFC-FE-004) |
 | `useBudgetExplorer(budgetId)` | use-budget-explorer | Agrégat budget + enveloppes + lignes, états (RFC-FE-004) |
 | `useBudgetExplorerTree(budget, envelopes, lines, filters)` | use-budget-explorer-tree | tree + filteredTree mémoïsés (RFC-FE-004) |
+| **RFC-FE-015 (formulaires)** | | |
+| `useExerciseDetail(id)` | use-exercise-detail | Détail exercice pour formulaire edit |
+| `useCreateBudgetExercise` / `useUpdateBudgetExercise(id)` | use-create/update-budget-exercise | Mutations exercice |
+| `useCreateBudget` / `useUpdateBudget(budgetId)` | use-create/update-budget | Mutations budget |
+| `useCreateBudgetEnvelope` / `useUpdateBudgetEnvelope(envelopeId, budgetId)` | use-create/update-budget-envelope | Mutations enveloppe |
+| `useCreateBudgetLine` / `useUpdateBudgetLine(lineId, budgetId)` | use-create/update-budget-line | Mutations ligne |
+| `useGeneralLedgerAccountOptions()` | use-general-ledger-account-options | Options comptes formulaire ligne |
+| `useBudgetEnvelopeOptions(budgetId)` / `useBudgetOptions()` | use-budget-envelope-options, use-budget-options | Options enveloppes et exercice/budget pour formulaires |
 
 Pas de hooks pour les API stubs (snapshots, versioning, imports, reallocations) dans cette fondation.
 
@@ -170,6 +196,11 @@ Pas de hooks pour les API stubs (snapshots, versioning, imports, reallocations) 
 | `BudgetEmptyState` | État vide avec messages par défaut budget |
 | `BudgetErrorState` | Erreur + retry avec messages par défaut budget |
 
+| **Formulaires (RFC-FE-015)** | |
+| `BudgetExerciseForm` / `BudgetForm` / `BudgetEnvelopeForm` / `BudgetLineForm` | Formulaires RHF + Zod (create/edit), `submitError` ApiFormError, `cancelHref`, `disableSubmit` (ligne si options manquantes) |
+| `BudgetFormActions` | Annuler (Link `cancelHref`) + Enregistrer ; pas de `router.back()` |
+| `BudgetExerciseFormPage` / `BudgetFormPage` / `BudgetEnvelopeFormPage` / `BudgetLineFormPage` | Pages conteneurs : chargement, mutation, defaultValues, redirection après succès |
+
 Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `EmptyState`, `ErrorState`, `LoadingState`.
 
 ---
@@ -181,9 +212,17 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budgets` | **Liste principale des budgets** (RFC-FE-003) : table paginée, filtres, sync URL |
 | `/budgets/exercises` | **Liste des exercices budgétaires** (RFC-FE-003) : table paginée, filtres, sync URL |
 | `/budgets/exercises/[id]` | Détail exercice + liens vers budgets |
+| `/budgets/exercises/new` | **Création exercice** (RFC-FE-015) |
+| `/budgets/exercises/[id]/edit` | **Édition exercice** (RFC-FE-015) |
+| `/budgets/new` | **Création budget** (RFC-FE-015) |
+| `/budgets/[budgetId]/edit` | **Édition budget** (RFC-FE-015) |
+| `/budgets/[budgetId]/envelopes/new` | **Création enveloppe** (RFC-FE-015) |
+| `/budget-envelopes/[envelopeId]/edit` | **Édition enveloppe** (RFC-FE-015) |
+| `/budgets/[budgetId]/lines/new` | **Création ligne budgétaire** (RFC-FE-015) |
+| `/budget-lines/[lineId]/edit` | **Édition ligne budgétaire** (RFC-FE-015) |
 | `/budgets/[budgetId]` | **Cockpit budget (RFC-FE-004)** : KPI, tableau hiérarchique enveloppes/lignes (expand/collapse), filtres recherche/type/OPEX-CAPEX, états loading/error/empty global/empty filtré, liens lines/reporting/snapshots/versions/reallocations |
 | `/budgets/dashboard` | Dashboard détaillé (KPI, CAPEX/OPEX, tendance, top enveloppes/lignes) |
-| `/budgets/[budgetId]/lines` | Squelette (à venir) |
+| `/budgets/[budgetId]/lines` | Liste lignes (détail) |
 | `/budgets/[budgetId]/reporting` | Squelette |
 | `/budgets/[budgetId]/snapshots` | Squelette |
 | `/budgets/[budgetId]/versions` | Squelette |
