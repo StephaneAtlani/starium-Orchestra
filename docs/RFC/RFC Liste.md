@@ -10,4 +10,4 @@
 | **RFC-019**    | Budget Versioning      | Baselines et versions                         | Moyenne  | ✅ Terminé   |
 | **RFC-020**    | Budget Workflow        | Validation budgétaire                         | Moyenne  | Annulé      |
 | **RFC-021**    | Analytical Dimensions  | Comptes comptables, ventilation par centres de coûts | Haute    | ✅ Terminé   |
-| **RFC-022**    | Budget Dashboard API   | API cockpit de pilotage                       | Haute    | À faire      |
+| **RFC-022**    | Budget Dashboard API   | API cockpit de pilotage                       | Haute    | ✅ Terminé   |

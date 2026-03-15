@@ -6,6 +6,7 @@ import {
   Users,
   FileText,
   UserCircle,
+  Wallet,
 } from 'lucide-react';
 
 export type NavigationItem = {
@@ -35,6 +36,18 @@ export const navigation: NavigationSection[] = [
         href: '/dashboard',
         icon: LayoutDashboard,
         scope: 'client',
+      },
+    ],
+  },
+  {
+    section: 'Finance',
+    items: [
+      {
+        label: 'Dashboard Budgets',
+        href: '/budgets/dashboard',
+        icon: Wallet,
+        scope: 'client',
+        requiredPermissions: ['budgets.read'],
       },
     ],
   },

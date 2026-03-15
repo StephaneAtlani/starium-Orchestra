@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API).
 
 ---
 
@@ -442,6 +442,7 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 | /api/financial-allocations, /api/financial-events, /api/budget-lines/:id/allocations, /api/budget-lines/:id/events | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create`) |
 | /api/budget-reallocations | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-reporting/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
+| /api/budget-dashboard | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budget-imports/* (analyze, preview, execute) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-import-mappings | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-version-sets | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
@@ -1479,6 +1480,109 @@ Liste paginée des lignes de l’enveloppe avec montants, ratios et indicateurs 
 **Réponse 200** : `{ items, total, limit, offset }`. Chaque item : ligne + `consumptionRate`, `commitmentRate`, `forecastRate`, `overConsumed`, `overCommitted`, `negativeRemaining`.
 
 **Erreurs :** 401, 403, 404 (enveloppe).
+
+---
+
+## 18.1 Budget Dashboard API — GET /api/budget-dashboard
+
+Référence : **RFC-022** (Budget Dashboard API). Module **budget-dashboard** : cockpit de pilotage budgétaire en **lecture seule**. Retourne une vue synthétique (KPI, répartition CAPEX/OPEX, tendance mensuelle, top enveloppes, enveloppes à risque, top lignes) pour alimenter le dashboard Finance. Données dérivées de BudgetLine, FinancialAllocation et FinancialEvent ; scopées par client actif.
+
+### Guards et headers
+
+- `Authorization: Bearer <accessToken>`
+- `X-Client-Id: <clientId>`
+- `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- Permission : **`budgets.read`**
+
+### GET /api/budget-dashboard
+
+Retourne la vue globale du cockpit budgétaire pour un budget résolu (ou l’exercice courant si aucun paramètre).
+
+**Query (tous optionnels)**
+
+| Paramètre           | Type    | Description |
+|---------------------|---------|-------------|
+| `exerciseId`        | string  | ID de l’exercice. Si fourni avec `budgetId`, `budgetId` est prioritaire. |
+| `budgetId`          | string  | ID du budget. Si fourni, l’exercice est déduit du budget. |
+| `includeEnvelopes`  | boolean | Inclure `topEnvelopes` et `riskEnvelopes`. Défaut : true. En query, passer `true`/`false` (chaîne convertie en booléen). |
+| `includeLines`      | boolean | Inclure `topBudgetLines`. Défaut : true. |
+
+**Résolution du budget**
+
+- Si `budgetId` fourni : charger ce budget (scope client) ; 404 si absent. Exercice = budget.exerciseId.
+- Si `exerciseId` fourni : charger l’exercice ; budget = budget versionné actif (BudgetVersionSet.activeBudgetId) si présent, sinon budget avec status ACTIVE, sinon budget le plus récent de l’exercice ; 404 si aucun budget.
+- Si aucun paramètre : exercice courant = ACTIVE et endDate ≥ now (sinon exercice le plus récent par endDate) ; puis même logique de résolution du budget ; 404 si aucun exercice ou aucun budget.
+
+**Réponse 200**
+
+```json
+{
+  "exercise": {
+    "id": "string",
+    "name": "string",
+    "code": "string | null"
+  },
+  "budget": {
+    "id": "string",
+    "name": "string",
+    "code": "string | null",
+    "currency": "string",
+    "status": "string"
+  },
+  "kpis": {
+    "totalBudget": 0,
+    "committed": 0,
+    "consumed": 0,
+    "forecast": 0,
+    "remaining": 0,
+    "consumptionRate": 0
+  },
+  "capexOpexDistribution": { "capex": 0, "opex": 0 },
+  "monthlyTrend": [
+    { "month": "YYYY-MM", "committed": 0, "consumed": 0 }
+  ],
+  "topEnvelopes": [
+    {
+      "envelopeId": "string",
+      "code": "string | null",
+      "name": "string",
+      "totalBudget": 0,
+      "consumed": 0,
+      "remaining": 0
+    }
+  ],
+  "riskEnvelopes": [
+    {
+      "envelopeId": "string",
+      "code": "string | null",
+      "name": "string",
+      "forecast": 0,
+      "budgetAmount": 0,
+      "riskRatio": 0,
+      "riskLevel": "LOW | MEDIUM | HIGH"
+    }
+  ],
+  "topBudgetLines": [
+    {
+      "lineId": "string",
+      "code": "string | null",
+      "name": "string",
+      "envelopeName": "string | null",
+      "consumed": 0,
+      "forecast": 0,
+      "remaining": 0
+    }
+  ]
+}
+```
+
+- `topEnvelopes` et `riskEnvelopes` sont **absents** si `includeEnvelopes=false`.
+- `topBudgetLines` est **absent** si `includeLines=false`.
+- KPI : `totalBudget` = SUM(BudgetLine.revisedAmount), `remaining` = SUM(BudgetLine.remainingAmount), committed/consumed/forecast = agrégats FinancialAllocation, `consumptionRate` = consumed / totalBudget (0 si totalBudget = 0).
+- Risk : `riskRatio` = forecast / budgetAmount par enveloppe ; LOW &lt; 0,70, MEDIUM 0,70–0,90, HIGH &gt; 0,90.
+- Top enveloppes et top lignes : tri par consommé décroissant, au plus 10 éléments chacun.
+
+**Erreurs :** 401, 403, 404 (exercice ou budget introuvable dans le scope client).
 
 ---
 

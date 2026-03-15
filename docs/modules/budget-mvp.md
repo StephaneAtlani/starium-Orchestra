@@ -67,6 +67,17 @@ Détail : [docs/API.md](../API.md) §16 (Noyau financier).
 
 Détail : [docs/API.md](../API.md) §18 (Budget Reporting API).
 
+### Backend Budget Dashboard (RFC-022)
+
+- **Module** `budget-dashboard` : cockpit de pilotage budgétaire en **lecture seule** (une seule route).
+- **API** (GET, permission `budgets.read`) :
+  - `GET /api/budget-dashboard` — vue globale du cockpit : exercice et budget résolus, KPI (totalBudget, committed, consumed, forecast, remaining, consumptionRate), répartition CAPEX/OPEX, tendance mensuelle (FinancialEvent), top enveloppes, enveloppes à risque, top lignes. Query : `exerciseId?`, `budgetId?`, `includeEnvelopes?`, `includeLines?` (booléens en query, défaut true).
+- **Résolution** : si `budgetId` → ce budget (404 si absent) ; si `exerciseId` → budget versionné actif, sinon ACTIVE, sinon plus récent ; si aucun paramètre → exercice courant (ACTIVE + endDate ≥ now) ou plus récent, puis même logique budget. Tout scopé par client actif.
+- **Sources** : KPI committed/consumed/forecast depuis FinancialAllocation ; totalBudget, remaining, CAPEX/OPEX, top enveloppes, risk, top lignes depuis BudgetLine ; tendance mensuelle depuis FinancialEvent (eventDate, COMMITMENT_REGISTERED / CONSUMPTION_REGISTERED). Limite 10 pour top enveloppes et top lignes.
+- **Frontend** : page `/budgets/dashboard` (section Finance), appel GET /api/budget-dashboard, affichage contexte exercice/budget, KPI, CAPEX/OPEX, trend, tableaux conditionnels (top enveloppes, enveloppes à risque, top lignes).
+
+Détail : [docs/API.md](../API.md) §18.1 (Budget Dashboard API).
+
 ### Backend Budget Reallocation (RFC-017)
 
 - **Module** `budget-reallocation` : transfert budgétaire traçable entre deux BudgetLine d’un même budget (sans modifier revisedAmount).
@@ -110,7 +121,7 @@ Détail : [docs/API.md](../API.md) §20 (Budget Versioning).
 
 ## 2. Ce qui n’est pas implémenté
 
-- **Frontend** : aucune interface utilisateur pour les budgets dans cette phase. UI dimensions analytiques (référentiels, édition ligne avec portée et ventilation) hors périmètre immédiat (RFC-021).
+- **Frontend** : aucune interface utilisateur complète pour la gestion des budgets (CRUD exercices/budgets/enveloppes/lignes) dans cette phase. Le **dashboard Budgets** (RFC-022) est implémenté : page `/budgets/dashboard` avec KPI, CAPEX/OPEX, tendance mensuelle, top enveloppes/lignes, enveloppes à risque. UI dimensions analytiques (référentiels, édition ligne avec portée et ventilation) hors périmètre immédiat (RFC-021).
 - **Suppression physique** : pas d’endpoint DELETE sur la structure budgétaire (RFC-015-2).
 - **Snapshots** : implémentés (RFC-015-3). **Réallocations** : backend implémenté (RFC-017) ; UI « Réallouer » hors périmètre MVP.
 - **Axes analytiques, export Excel, workflow d’approbation** : hors périmètre du MVP. **Import Excel/CSV** : backend implémenté (RFC-018) ; UI d’import hors périmètre MVP. **Versioning** : backend implémenté (RFC-019) ; baseline, révisions, version active, comparaison ; UI versioning hors périmètre MVP.

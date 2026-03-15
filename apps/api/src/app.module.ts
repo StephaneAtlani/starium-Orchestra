@@ -18,6 +18,7 @@ import { BudgetReportingModule } from './modules/budget-reporting/budget-reporti
 import { BudgetReallocationModule } from './modules/budget-reallocation/budget-reallocation.module';
 import { BudgetImportModule } from './modules/budget-import/budget-import.module';
 import { BudgetVersioningModule } from './modules/budget-versioning/budget-versioning.module';
+import { BudgetDashboardModule } from './modules/budget-dashboard/budget-dashboard.module';
 import { SecurityLogsModule } from './modules/security-logs/security-logs.module';
 
 @Module({
@@ -44,6 +45,7 @@ import { SecurityLogsModule } from './modules/security-logs/security-logs.module
     BudgetReallocationModule,
     BudgetImportModule,
     BudgetVersioningModule,
+    BudgetDashboardModule,
     SecurityLogsModule,
   ],
 })
