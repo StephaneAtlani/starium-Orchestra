@@ -306,7 +306,7 @@ Le workspace est la zone de travail métier.
 
 ```text
 PageHeader
-KPI row
+KPI row (composant KpiCard dans components/ui/kpi-card.tsx : title, value, subtitle, trend?, icon?)
 Toolbar (filtres, recherche, actions)
 Contenu principal (table, cards, détails)
 Pagination / résumé
@@ -829,7 +829,7 @@ Aucune couleur métier ne doit être codée en dur dans les composants hors desi
 
 Les pages doivent utiliser **uniquement** les composants des dossiers suivants :
 
-* `components/ui/*` — composants shadcn
+* `components/ui/*` — composants shadcn (dont `KpiCard` pour les indicateurs dashboard)
 * `components/layout/*` — PageContainer, PageHeader, TableToolbar
 * `components/feedback/*` — LoadingState, EmptyState, ErrorState
 * `components/data-table/*` — DataTable
@@ -1105,20 +1105,11 @@ Règles concrètes :
 
 **Règle :** toute nouvelle table doit utiliser ce pattern (Card + DataTable + `ui/table`) pour rester cohérente visuellement et UX.
 
-### 30.4 Sidebar compacte
+### 30.4 Sidebar et shell de contenu
 
-- Fichier : `src/components/shell/sidebar.tsx`.
-- Largeur : `w-52` (colonne compacte).
-- Sections : `SidebarSection` (`sidebar-section.tsx`) + `SidebarItem` (`sidebar-item.tsx`).
-- Chaque item :
-  - layout colonne (`flex flex-col items-center`),
-  - icône (`lucide-react`) au-dessus en `h-4 w-4`,
-  - label en dessous en `text-[0.7rem]` tronqué.
-
-Règles :
-
-- Pour ajouter un lien de navigation, **ajouter la config** dans `src/config/navigation.ts` et laisser la `Sidebar` le rendre via `SidebarItem`.
-- Ne jamais coder des liens de sidebar en dur dans les pages.
+- **Sidebar** : `src/components/shell/sidebar.tsx`. Largeur définie en CSS (`.starium-sidebar` dans `globals.css`) : **12rem**. Sections : `SidebarSection` + `SidebarItem`. Item Budgets : menu déroulant au survol (`SidebarDropdown` + contexte pour le panneau). Pour ajouter un lien : config dans `src/config/navigation.ts`.
+- **App Shell** : `app-shell.tsx` utilise un wrapper de contenu unique `CONTENT_WRAPPER = 'mx-auto w-full max-w-7xl px-6 sm:px-8'` pour le header et le main, afin que le contenu soit aligné verticalement. Le header (`WorkspaceHeader`) reçoit `contentClassName` ; le main enveloppe les enfants dans ce même wrapper + `py-6 sm:py-8`.
+- **PageContainer** : n’ajoute que l’espacement vertical (`space-y-6`) ; le padding horizontal et le `max-w-7xl` sont gérés par le shell.
 
 ### 30.5 Typographie
 

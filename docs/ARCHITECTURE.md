@@ -10,34 +10,36 @@ Organisation cible (monorepo ou repos séparés selon choix projet) :
 
 ```
 starium-Orchestra/
-├── backend/                 # NestJS API
-│   ├── src/
-│   │   ├── main.ts
-│   │   ├── app.module.ts
-│   │   ├── common/          # guards, decorators, interceptors, pipes
-│   │   ├── config/          # configuration (env, validation)
-│   │   ├── prisma/          # PrismaService, helpers
-│   │   ├── auth/            # JWT, refresh, stratégies
-│   │   └── modules/         # modules métier (voir §6)
-│   ├── prisma/
-│   │   ├── schema.prisma
-│   │   └── migrations/
-│   ├── test/
-│   ├── Dockerfile
-│   └── package.json
-├── frontend/                # Next.js
-│   ├── src/
-│   │   ├── app/             # routes, layouts
-│   │   ├── components/
-│   │   ├── lib/
-│   │   ├── services/       # appels API
-│   │   ├── hooks/
-│   │   ├── types/
-│   │   └── features/       # optionnel, par feature
-│   ├── public/
-│   ├── Dockerfile
-│   └── package.json
-├── docker-compose.yml       # app + PostgreSQL + Redis + Nginx
+├── apps/
+│   ├── api/                 # NestJS API
+│   │   ├── src/
+│   │   │   ├── main.ts
+│   │   │   ├── app.module.ts
+│   │   │   ├── common/      # guards, decorators, interceptors, pipes
+│   │   │   ├── config/      # configuration (env, validation)
+│   │   │   ├── prisma/      # PrismaService, helpers
+│   │   │   ├── auth/        # JWT, refresh, stratégies
+│   │   │   └── modules/     # modules métier (voir §6)
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma
+│   │   │   └── migrations/
+│   │   ├── test/
+│   │   ├── Dockerfile
+│   │   └── package.json
+│   └── web/                 # Next.js
+│       ├── src/
+│       │   ├── app/         # routes, layouts
+│       │   ├── components/
+│       │   ├── lib/
+│       │   ├── services/    # appels API
+│       │   ├── hooks/
+│       │   ├── types/
+│       │   └── features/    # optionnel, par feature
+│       ├── public/
+│       ├── Dockerfile
+│       └── package.json
+├── packages/                # types, config partagés
+├── docker-compose.yml       # postgres + api(-dev) + web(-dev)
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   ├── VISION_PRODUIT.md

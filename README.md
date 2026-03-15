@@ -39,15 +39,15 @@ docker compose --profile dev up --build
 cp .env.example .env
 cp .env.example apps/api/.env
 
-# 2. Lancer Postgres + api-dev (profil dev)
+# 2. Lancer Postgres + api-dev + web-dev (profil dev)
 docker compose --profile dev up -d
 
-# 3. Depuis le conteneur api-dev : migrations + seed
-docker compose --profile dev exec api-dev pnpm prisma migrate dev --name init   # ou pnpm prisma db push en dev
-docker compose --profile dev exec api-dev pnpm prisma db seed
+# 3. Migrations et seed (conteneur api-dev)
+docker compose --profile dev run --rm api-dev pnpm exec prisma migrate deploy
+docker compose --profile dev run --rm api-dev pnpm exec prisma db seed
 ```
 
-L’API dev tourne sur `http://localhost:3001/api`.
+L’API dev tourne sur `http://localhost:3001/api`, le web sur `http://localhost:3000`.
 
 Tu peux tester la santé avec :
 
@@ -90,7 +90,7 @@ docker compose --profile dev up --build
 ```
 
 - **API (api-dev)** : http://localhost:3001 — hot reload (volumes `src`, `prisma`)
-- **Web (web-dev)** : http://localhost:3000 — proxy /api/* vers l’API (3001)
+- **Web (web-dev)** : http://localhost:3000 — proxy /api/* vers l’API (3001). Hot reload activé via `WATCHPACK_POLLING` et `CHOKIDAR_USEPOLLING` (détection des changements de fichiers dans le conteneur).
 - **PostgreSQL** : localhost:5432 (user `starium`, db `starium`)
 
 ### Mode standard — api + web sans hot reload
@@ -119,10 +119,10 @@ Réponse attendue (ex.) : `{"status":"ok","database":"connected","timestamp":"..
 
 Endpoints : `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`. JWT access token (15 min) + refresh token (7 jours), hash bcrypt des mots de passe, hash SHA-256 des refresh tokens en base.
 
-Après avoir exécuté le seed (`pnpm prisma:seed` depuis `apps/api`), un utilisateur de test **Platform Admin** est disponible :
+Après avoir exécuté le seed (`pnpm prisma db seed` depuis `apps/api`, ou `docker compose --profile dev run --rm api-dev pnpm exec prisma db seed`), les utilisateurs de test suivants sont disponibles :
 
-- **Email** : `admin@starium.fr`
-- **Mot de passe** : `mot de passe`
+- **Platform Admin** : `admin@starium.fr` / `mot de passe` (aucun client rattaché)
+- **Client Admin (client Sitral)** : `satlani@outlook.com` / `password`
 
 Exemple de login :
 
