@@ -72,13 +72,14 @@ services:
     profiles:
       - standard
 
-  # Full-stack dev : frontend pointe vers api-dev (port 3002). Utiliser avec --profile dev.
+  # Full-stack dev : le proxy Next (côté serveur) doit appeler l’API via le nom de service
+  # (api-dev:3001). Next lit NEXT_PUBLIC_* au build, donc on passe l’URL en build arg.
   web-dev:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3003
+      args:
+        NEXT_PUBLIC_API_URL: http://api-dev:3001
     ports:
       - "3000:3000"
     depends_on:

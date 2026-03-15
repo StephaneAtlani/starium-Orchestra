@@ -11,7 +11,8 @@ import {
 
 export type NavigationItem = {
   label: string;
-  href: string;
+  /** Lien direct ; absent si l’item a des children (dropdown). */
+  href?: string;
   icon?: LucideIcon;
   scope: 'platform' | 'client';
   moduleCode?: string;
@@ -20,6 +21,8 @@ export type NavigationItem = {
   platformOnly?: boolean;
   /** Visible uniquement si activeClient.role === 'CLIENT_ADMIN'. */
   clientAdminOnly?: boolean;
+  /** Sous-entrées : affichées en dropdown au clic sur l’item. */
+  children?: NavigationItem[];
 };
 
 export type NavigationSection = {
@@ -44,18 +47,14 @@ export const navigation: NavigationSection[] = [
     items: [
       {
         label: 'Budgets',
-        href: '/budgets',
         icon: Wallet,
         scope: 'client',
         moduleCode: 'budgets',
         requiredPermissions: ['budgets.read'],
-      },
-      {
-        label: 'Dashboard Budgets',
-        href: '/budgets/dashboard',
-        icon: Wallet,
-        scope: 'client',
-        requiredPermissions: ['budgets.read'],
+        children: [
+          { label: 'Cockpit', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
+          { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
+        ],
       },
     ],
   },

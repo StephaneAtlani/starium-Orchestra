@@ -7,6 +7,7 @@ import { useAuth } from '../../context/auth-context';
 import { useActiveClient } from '../../hooks/use-active-client';
 import { SidebarSection } from './sidebar-section';
 import { SidebarItem } from './sidebar-item';
+import { SidebarDropdown } from './sidebar-dropdown';
 
 function visible(item: NavigationItem, platformRole: string | null, clientRole: string | null): boolean {
   if (item.platformOnly && platformRole !== 'PLATFORM_ADMIN') return false;
@@ -44,14 +45,25 @@ export function Sidebar() {
           if (items.length === 0) return null;
           return (
             <SidebarSection key={section.section} title={section.section}>
-              {items.map((item) => (
-                <SidebarItem
-                  key={item.href}
-                  label={item.label}
-                  href={item.href}
-                  icon={item.icon}
-                />
-              ))}
+              {items.map((item) =>
+                item.children?.length ? (
+                  <SidebarDropdown
+                    key={item.label}
+                    label={item.label}
+                    icon={item.icon}
+                    children={item.children}
+                  />
+                ) : (
+                  item.href && (
+                    <SidebarItem
+                      key={item.href}
+                      label={item.label}
+                      href={item.href}
+                      icon={item.icon}
+                    />
+                  )
+                ),
+              )}
             </SidebarSection>
           );
         })}

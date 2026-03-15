@@ -19,6 +19,7 @@ import { BudgetImportService } from './budget-import.service';
 import { PreviewImportDto } from './dto/preview-import.dto';
 import { ExecuteImportDto } from './dto/execute-import.dto';
 import { MAX_FILE_SIZE_BYTES } from './constants';
+import type { UploadedFileType } from './types';
 
 @Controller('budget-imports')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -35,7 +36,7 @@ export class BudgetImportController {
   analyze(
     @ActiveClientId() clientId: string | undefined,
     @RequestUserId() userId: string | undefined,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: UploadedFileType,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     return this.service.analyze(clientId!, userId!, file, meta);

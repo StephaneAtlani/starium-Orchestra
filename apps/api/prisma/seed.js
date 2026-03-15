@@ -203,9 +203,88 @@ async function applyDefaultProfilesForAllClients() {
   console.log('Seed OK: profils par défaut appliqués pour', clients.length, 'client(s).');
 }
 
+/**
+ * Client "Sitral" avec un client admin satlani@outlook.com (dev / démo).
+ */
+const SITRAL_CLIENT_ADMIN = {
+  email: 'satlani@outlook.com',
+  password: 'password',
+  firstName: 'Satlani',
+  lastName: 'Admin',
+};
+
+async function upsertSitralAndClientAdmin() {
+  const client = await prisma.client.upsert({
+    where: { slug: 'sitral' },
+    update: { name: 'Sitral' },
+    create: {
+      name: 'Sitral',
+      slug: 'sitral',
+    },
+  });
+
+  const budgetModule = await prisma.module.findUnique({
+    where: { code: 'budgets' },
+  });
+  if (budgetModule) {
+    await prisma.clientModule.upsert({
+      where: {
+        clientId_moduleId: { clientId: client.id, moduleId: budgetModule.id },
+      },
+      update: { status: 'ENABLED' },
+      create: {
+        clientId: client.id,
+        moduleId: budgetModule.id,
+        status: 'ENABLED',
+      },
+    });
+  }
+
+  const passwordHash = await bcrypt.hash(SITRAL_CLIENT_ADMIN.password, 10);
+  const user = await prisma.user.upsert({
+    where: { email: SITRAL_CLIENT_ADMIN.email },
+    update: {
+      passwordHash,
+      firstName: SITRAL_CLIENT_ADMIN.firstName,
+      lastName: SITRAL_CLIENT_ADMIN.lastName,
+    },
+    create: {
+      email: SITRAL_CLIENT_ADMIN.email,
+      passwordHash,
+      firstName: SITRAL_CLIENT_ADMIN.firstName,
+      lastName: SITRAL_CLIENT_ADMIN.lastName,
+    },
+  });
+
+  await prisma.clientUser.upsert({
+    where: {
+      userId_clientId: { userId: user.id, clientId: client.id },
+    },
+    update: {
+      role: 'CLIENT_ADMIN',
+      status: 'ACTIVE',
+      isDefault: true,
+    },
+    create: {
+      userId: user.id,
+      clientId: client.id,
+      role: 'CLIENT_ADMIN',
+      status: 'ACTIVE',
+      isDefault: true,
+    },
+  });
+
+  console.log(
+    'Seed OK: client Sitral + admin',
+    SITRAL_CLIENT_ADMIN.email,
+    '(CLIENT_ADMIN, module budgets activé).',
+  );
+}
+
 async function main() {
   await upsertPlatformAdmin();
   await upsertModulesAndPermissions();
+  await upsertSitralAndClientAdmin();
   await applyDefaultProfilesForAllClients();
 }
 

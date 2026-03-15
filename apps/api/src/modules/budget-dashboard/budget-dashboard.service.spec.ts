@@ -31,6 +31,7 @@ const mockVersionSet = {
 function mockLine(overrides: Partial<{
   id: string;
   envelopeId: string;
+  envelope: { id: string; code: string; name: string };
   revisedAmount: number;
   remainingAmount: number;
   consumedAmount: number;

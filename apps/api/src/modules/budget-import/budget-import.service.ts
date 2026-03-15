@@ -23,6 +23,7 @@ import {
   MAX_FILE_SIZE_BYTES,
   SAMPLE_ROWS_LIMIT,
 } from './constants';
+import type { UploadedFileType } from './types';
 import type {
   BudgetImportOptionsConfig,
   BudgetImportPreviewStatus,
@@ -96,7 +97,7 @@ export class BudgetImportService {
   async analyze(
     clientId: string,
     userId: string,
-    file: Express.Multer.File,
+    file: UploadedFileType,
     meta?: { ipAddress?: string; userAgent?: string; requestId?: string },
   ): Promise<AnalyzeResult> {
     if (!file || (!(file as any).buffer && !file.buffer)) {
