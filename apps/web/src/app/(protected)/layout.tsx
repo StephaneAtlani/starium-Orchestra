@@ -11,6 +11,7 @@ import { QueryProvider } from '../../providers/query-provider';
 import { AppShell } from '../../components/shell/app-shell';
 
 const ACTIVE_CLIENT_KEY = 'starium.activeClient';
+const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
 
 export default function ProtectedLayout({
   children,
@@ -19,11 +20,12 @@ export default function ProtectedLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const { activeClient, setActiveClient, initialized } = useActiveClient();
+  const { user, isAuthenticated, isLoading, accessToken } = useAuth();
+  const { setActiveClient } = useActiveClient();
   const authenticatedFetch = useAuthenticatedFetch();
   const bootstrapDone = useRef(false);
   const [bootstrapResolved, setBootstrapResolved] = useState(false);
+  const BOOTSTRAP_TIMEOUT_MS = 15_000;
 
   useEffect(() => {
     if (!isAuthenticated && !isLoading) {
@@ -36,29 +38,55 @@ export default function ProtectedLayout({
     if (isLoading || !isAuthenticated || !user || bootstrapDone.current) return;
 
     // La page /select-client gère elle-même le chargement de /api/me/clients.
-    // On ne bloque pas l'UI dessus.
     if (pathname === '/select-client') {
       bootstrapDone.current = true;
       setBootstrapResolved(true);
       return;
     }
 
-    // Routes plateforme : ne dépendent pas du client actif (FRONTEND_ARCHITECTURE.md).
-    // On ne bloque pas l'UI sur le bootstrap multi-client pour /admin/*.
+    // Routes plateforme : ne dépendent pas du client actif.
     if (pathname.startsWith('/admin')) {
       bootstrapDone.current = true;
       setBootstrapResolved(true);
       return;
     }
 
+    // Juste après login : le client a déjà été résolu côté login, on l’applique sans refetch.
+    if (typeof window !== 'undefined') {
+      const stored = window.sessionStorage.getItem(BOOTSTRAP_FROM_LOGIN_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as { client?: MeClient };
+          if (parsed?.client) {
+            bootstrapDone.current = true;
+            setActiveClient(parsed.client);
+            setBootstrapResolved(true);
+            window.sessionStorage.removeItem(BOOTSTRAP_FROM_LOGIN_KEY);
+            return;
+          }
+        } catch {
+          window.sessionStorage.removeItem(BOOTSTRAP_FROM_LOGIN_KEY);
+        }
+      }
+    }
+
+    if (!accessToken) return;
+
     const currentUser = user;
     let cancelled = false;
+
+    const timeoutId = setTimeout(() => {
+      if (cancelled) return;
+      bootstrapDone.current = true;
+      setBootstrapResolved(true);
+    }, BOOTSTRAP_TIMEOUT_MS);
 
     async function runBootstrap() {
       bootstrapDone.current = true;
       try {
         const res = await authenticatedFetch('/api/me/clients');
         if (cancelled) return;
+        clearTimeout(timeoutId);
         if (!res.ok) {
           setBootstrapResolved(true);
           return;
@@ -102,7 +130,10 @@ export default function ProtectedLayout({
         if (pathname === '/select-client') {
           router.replace(resolution.to);
         }
+      } catch {
+        if (!cancelled) setBootstrapResolved(true);
       } finally {
+        clearTimeout(timeoutId);
         if (!cancelled) setBootstrapResolved(true);
       }
     }
@@ -110,11 +141,13 @@ export default function ProtectedLayout({
     void runBootstrap();
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
     };
   }, [
     isAuthenticated,
     isLoading,
     user,
+    accessToken,
     authenticatedFetch,
     setActiveClient,
     router,
@@ -123,16 +156,16 @@ export default function ProtectedLayout({
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Chargement…</p>
+      <div className="starium-main min-h-screen flex items-center justify-center">
+        <p className="starium-text-muted">Chargement…</p>
       </div>
     );
   }
 
   if (!bootstrapResolved) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Chargement…</p>
+      <div className="starium-main min-h-screen flex items-center justify-center">
+        <p className="starium-text-muted">Chargement…</p>
       </div>
     );
   }

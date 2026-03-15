@@ -25,7 +25,7 @@ import { SecurityLogsModule } from './modules/security-logs/security-logs.module
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      // .env depuis apps/api ; ../.env = racine monorepo (PORT=3003, etc.)
+      // .env depuis apps/api ; ../.env = racine monorepo (PORT=3001, etc.)
       envFilePath: ['.env', '../.env', 'apps/api/.env'],
     }),
     ScheduleModule.forRoot(),

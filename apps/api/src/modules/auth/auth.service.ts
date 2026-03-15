@@ -1,4 +1,10 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
@@ -19,6 +25,8 @@ function hashRefreshToken(token: string): string {
  */
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -33,47 +41,66 @@ export class AuthService {
     password: string,
     meta: RequestMeta,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) {
+    try {
+      const user = await this.prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        await this.securityLogs.create({
+          event: 'auth.login.failure',
+          email,
+          success: false,
+          reason: 'invalid_credentials',
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+          requestId: meta.requestId,
+        });
+        throw new UnauthorizedException(INVALID_CREDENTIALS);
+      }
+      let valid = false;
+      try {
+        valid = await bcrypt.compare(password, user.passwordHash);
+      } catch (bcryptError) {
+        this.logger.warn(
+          `bcrypt.compare failed for user ${user.id}: ${(bcryptError as Error)?.message}`,
+        );
+        throw new UnauthorizedException(INVALID_CREDENTIALS);
+      }
+      if (!valid) {
+        await this.securityLogs.create({
+          event: 'auth.login.failure',
+          userId: user.id,
+          email: user.email,
+          success: false,
+          reason: 'invalid_credentials',
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+          requestId: meta.requestId,
+        });
+        throw new UnauthorizedException(INVALID_CREDENTIALS);
+      }
+
+      const tokens = await this.issueTokenPair(user.id);
+
       await this.securityLogs.create({
-        event: 'auth.login.failure',
-        email,
-        success: false,
-        reason: 'invalid_credentials',
-        ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
-        requestId: meta.requestId,
-      });
-      throw new UnauthorizedException(INVALID_CREDENTIALS);
-    }
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      await this.securityLogs.create({
-        event: 'auth.login.failure',
+        event: 'auth.login.success',
         userId: user.id,
         email: user.email,
-        success: false,
-        reason: 'invalid_credentials',
+        success: true,
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
         requestId: meta.requestId,
       });
-      throw new UnauthorizedException(INVALID_CREDENTIALS);
+
+      return tokens;
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      const msg = (err as Error)?.message ?? String(err);
+      this.logger.error(`Login failed for "${email}": ${msg}`, (err as Error)?.stack);
+      const hint =
+        msg.includes('does not exist') || msg.includes('Unknown argument') || msg.includes('P2021')
+          ? 'Base de données non migrée. Exécutez: pnpm prisma migrate deploy (ou prisma migrate dev), puis pnpm prisma db seed.'
+          : 'Erreur serveur lors de la connexion. Consultez les logs de l’API.';
+      throw new InternalServerErrorException(hint);
     }
-
-    const tokens = await this.issueTokenPair(user.id);
-
-    await this.securityLogs.create({
-      event: 'auth.login.success',
-      userId: user.id,
-      email: user.email,
-      success: true,
-      ipAddress: meta.ipAddress,
-      userAgent: meta.userAgent,
-      requestId: meta.requestId,
-    });
-
-    return tokens;
   }
 
   /** Valide le refresh token, le révoque et émet un nouveau couple de tokens. */

@@ -10,5 +10,5 @@ WORKDIR /app/apps/api
 RUN pnpm install --frozen-lockfile || pnpm install
 # Vérifier que xlsx et csv-parse sont résolubles (évite MODULE_NOT_FOUND au runtime)
 RUN node -e "require('xlsx'); require('csv-parse/sync'); console.log('modules OK');"
-EXPOSE 3003
+EXPOSE 3001
 CMD ["pnpm", "start:dev"]

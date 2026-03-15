@@ -27,7 +27,7 @@ docker compose --profile dev up --build
 ```
 
 - Postgres, API Nest (`api-dev`) et Web (`web-dev`) sont lancés.
-- API dev : `http://localhost:3003/api`
+- API dev : `http://localhost:3001/api`
 - Web dev : `http://localhost:3000` (pointe sur `api-dev`)
 
 ### Option 2 — Tout dans Docker (migrations/seed compris)
@@ -47,12 +47,12 @@ docker compose --profile dev exec api-dev pnpm prisma migrate dev --name init   
 docker compose --profile dev exec api-dev pnpm prisma db seed
 ```
 
-L’API dev tourne sur `http://localhost:3003/api`.
+L’API dev tourne sur `http://localhost:3001/api`.
 
 Tu peux tester la santé avec :
 
 ```bash
-curl http://localhost:3003/api/health
+curl http://localhost:3001/api/health
 ```
 
 ### Option 3 — API en local, Postgres via Docker
@@ -89,8 +89,8 @@ cp .env.example apps/api/.env
 docker compose --profile dev up --build
 ```
 
-- **API (api-dev)** : http://localhost:3003 — hot reload (volumes `src`, `prisma`)
-- **Web (web-dev)** : http://localhost:3000 — pointe vers l’API sur 3003
+- **API (api-dev)** : http://localhost:3001 — hot reload (volumes `src`, `prisma`)
+- **Web (web-dev)** : http://localhost:3000 — proxy /api/* vers l’API (3001)
 - **PostgreSQL** : localhost:5432 (user `starium`, db `starium`)
 
 ### Mode standard — api + web sans hot reload

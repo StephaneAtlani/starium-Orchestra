@@ -1,28 +1,33 @@
+/**
+ * Tokens Starium Orchestra — palette officielle.
+ * Les composants utilisent de préférence --primary, --sidebar, etc. (globals.css)
+ * qui sont dérivés de ces variables pour permettre la surcharge par client.
+ */
 :root {
-  /* Fond / surfaces — proche thème neutral du dashboard shadcn */
-  --color-bg-app: #f3f4f6;        /* gray-100 */
-  --color-bg-card: #ffffff;       /* white */
-  --color-bg-sidebar: #020817;    /* slate-950 */
+  --color-primary: #6F4BB8;
+  --color-primary-hover: #5E3FA3;
+  --color-primary-soft: #EFE7FB;
 
-  /* Texte */
-  --color-text-primary: #0f172a;  /* slate-900 */
-  --color-text-inverse: #f9fafb;  /* gray-50 */
-  --color-text-muted: #6b7280;    /* gray-500 */
+  --color-sidebar-bg: #6F4BB8;
+  --color-sidebar-hover: #5E3FA3;
+  --color-sidebar-active: #4E2F8E;
+  --color-sidebar-text: #FFFFFF;
 
-  /* Bordures */
-  --color-border-default: #e5e7eb; /* gray-200 */
+  --color-background: #F8F9FC;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F3F4F8;
 
-  /* Couleur principale / accents (violet) */
-  --color-primary: #7c3aed;             /* violet-600 */
-  --color-primary-foreground: #f9fafb;  /* gray-50 */
+  --color-border: #E6E8EF;
 
-  /* Tokens génériques */
-  --radius: 0.75rem;
-  --shadow-card: 0 18px 30px -15px rgba(15, 23, 42, 0.25);
-  --color-hover: rgba(15, 23, 42, 0.06); /* hover neutre sur fond clair */
+  --color-text: #1B1B1B;
+  --color-text-muted: #6B7280;
 
-  /* Spécifique fond sombre (sidebar) : texte */
-  /* Utilisés via --sidebar-foreground / --sidebar-primary dans globals.css */
-  --color-text-inverse: #fefce8;        /* jaune très clair (amber-50) */
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #3B82F6;
+
+  --radius: 0.625rem;
+  --radius-md: var(--radius);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
 }
-

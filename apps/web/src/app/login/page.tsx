@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/card';
 
 const ACTIVE_CLIENT_KEY = 'starium.activeClient';
+const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -84,6 +85,12 @@ export default function LoginPage() {
         return;
       }
       setActiveClient(resolution.client);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(
+          BOOTSTRAP_FROM_LOGIN_KEY,
+          JSON.stringify({ client: resolution.client }),
+        );
+      }
       router.replace(resolution.to);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Identifiants invalides');

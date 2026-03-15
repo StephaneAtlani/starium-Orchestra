@@ -1,7 +1,8 @@
 # Environnements (un seul profil à la fois) :
 #   docker compose up                      → postgres seul
 #   docker compose --profile standard up   → postgres + api (3001) + web (3000)
-#   docker compose --profile dev up        → postgres + api-dev (3003) + web-dev (3000), hot reload
+#   docker compose --profile dev up        → postgres + api-dev (3001) + web-dev (3000), hot reload
+#   Ports identiques dev/prod : API 3001, Web 3000.
 services:
   postgres:
     image: postgres:16-alpine
@@ -48,7 +49,7 @@ services:
       DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
       PORT: "3001"
     ports:
-      - "3003:3001"
+      - "3001:3001"
     volumes:
       - ./apps/api/src:/app/apps/api/src
       - ./apps/api/prisma:/app/apps/api/prisma
@@ -72,16 +73,19 @@ services:
     profiles:
       - standard
 
-  # Full-stack dev : le proxy Next (côté serveur) doit appeler l’API via le nom de service
-  # (api-dev:3001). Next lit NEXT_PUBLIC_* au build, donc on passe l’URL en build arg.
+  # Full-stack dev : le proxy Next (côté serveur) appelle l’API via le nom de service (api-dev:3001).
+  # NEXT_PUBLIC_* est lu au build ; le navigateur appelle toujours /api/* sur la même origine (Next).
   web-dev:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: http://api-dev:3001
+      dockerfile: apps/web/Dockerfile.dev
+    environment:
+      # Proxy /api/* vers l’API depuis le conteneur (réseau Docker).
+      NEXT_PUBLIC_API_URL: http://api-dev:3001
     ports:
       - "3000:3000"
+    volumes:
+      - ./apps/web:/app/apps/web
     depends_on:
       - api-dev
     profiles:

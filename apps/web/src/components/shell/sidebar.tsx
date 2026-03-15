@@ -32,19 +32,15 @@ export function Sidebar() {
   const clientRole = activeClient?.role ?? null;
 
   return (
-    <aside className="relative z-10 hidden w-24 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
+    <aside className="starium-sidebar relative z-10 hidden shrink-0 flex-col border-r border-white/10 md:flex">
       <SidebarDropdownContext.Provider value={contextValue}>
-        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
+        <div className="starium-sidebar-nav flex h-14 shrink-0 items-center gap-2 border-b border-white/10 px-4">
           <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold tracking-tight">
-              Starium Orchestra
-            </span>
-            <span className="text-xs text-sidebar-foreground/60">
-              Cockpit
-            </span>
+            <span className="starium-sidebar-brand text-sm font-semibold tracking-tight">Starium Orchestra</span>
+            <span className="starium-sidebar-brand-muted text-xs">Cockpit</span>
           </div>
         </div>
-        <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
+        <nav className="starium-sidebar-nav min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
         {navigation.map((section) => {
           const items = section.items.filter((item) =>
             visible(item, platformRole, clientRole),
@@ -80,8 +76,8 @@ export function Sidebar() {
                             href={child.href}
                             role="menuitem"
                             className={cn(
-                              'block px-3 py-2 text-sm text-sidebar-foreground/90 hover:bg-sidebar-accent hover:text-sidebar-foreground',
-                              isActive && 'bg-sidebar-accent font-medium text-sidebar-primary',
+                              'block px-3 py-2 text-sm starium-dropdown-link',
+                              isActive && 'starium-dropdown-link-active',
                             )}
                           >
                             {child.label}

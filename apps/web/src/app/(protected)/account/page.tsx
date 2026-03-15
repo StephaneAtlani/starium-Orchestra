@@ -84,7 +84,7 @@ export default function AccountPage() {
             </p>
           )}
           {success && (
-            <p className="text-sm text-green-600 dark:text-green-400" role="status">
+            <p className="text-sm text-green-600" role="status">
               {success}
             </p>
           )}
