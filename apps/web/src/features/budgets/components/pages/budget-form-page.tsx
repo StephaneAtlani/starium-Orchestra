@@ -1,7 +1,7 @@
 'use client';
 
 import { BudgetPageHeader } from '../budget-page-header';
-import { BudgetErrorState } from '../budget-error-state';
+import { BudgetEmptyState } from '../budget-empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { BudgetForm } from '../forms/budget-form';
 import { useBudgetDetail } from '../../hooks/use-budgets';
@@ -43,10 +43,7 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
     return (
       <>
         <BudgetPageHeader title="Modifier le budget" />
-        <BudgetErrorState
-          message={error instanceof Error ? error.message : 'Budget non trouvé.'}
-          onRetry={() => void refetch()}
-        />
+        <BudgetEmptyState title="Aucun budget à afficher" description="" />
       </>
     );
   }

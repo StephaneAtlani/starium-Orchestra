@@ -1,7 +1,7 @@
 'use client';
 
 import { BudgetPageHeader } from '../budget-page-header';
-import { BudgetErrorState } from '../budget-error-state';
+import { BudgetEmptyState } from '../budget-empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { BudgetExerciseForm } from '../forms/budget-exercise-form';
 import { useExerciseDetail } from '../../hooks/use-exercise-detail';
@@ -39,10 +39,7 @@ export function BudgetExerciseFormPage({ mode, id }: BudgetExerciseFormPageProps
     return (
       <>
         <BudgetPageHeader title="Modifier l'exercice" />
-        <BudgetErrorState
-          message={error instanceof Error ? error.message : 'Exercice non trouvé.'}
-          onRetry={() => void refetch()}
-        />
+        <BudgetEmptyState title="Aucun exercice à afficher" description="" />
       </>
     );
   }

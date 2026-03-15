@@ -5,7 +5,6 @@ import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { LoadingState } from '@/components/feedback/loading-state';
-import { ErrorState } from '@/components/feedback/error-state';
 import { EmptyState } from '@/components/feedback/empty-state';
 import {
   Card,
@@ -51,17 +50,14 @@ export default function BudgetDashboardPage() {
 
         {error && (
           <div data-testid="budget-dashboard-error">
-            <ErrorState
-            message={error instanceof Error ? error.message : 'Erreur lors du chargement du dashboard.'}
-            onRetry={() => void refetch()}
-          />
+            <EmptyState title="Aucune donnée à afficher" description="" />
           </div>
         )}
 
         {!isLoading && !error && !data && (
           <div data-testid="budget-dashboard-empty">
             <EmptyState
-            title="Aucun budget ou exercice trouvé"
+            title="Aucune donnée à afficher"
             description="Sélectionnez un client disposant d’un exercice et d’un budget, ou créez-en un."
           />
           </div>

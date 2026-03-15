@@ -21,6 +21,8 @@ export type NavigationItem = {
   platformOnly?: boolean;
   /** Visible uniquement si activeClient.role === 'CLIENT_ADMIN'. */
   clientAdminOnly?: boolean;
+  /** Visible uniquement si activeClient.role est dans cette liste (ex. CLIENT_ADMIN, CLIENT_USER). */
+  allowedClientRoles?: string[];
   /** Sous-entrées : affichées en dropdown au clic sur l’item. */
   children?: NavigationItem[];
 };
@@ -51,6 +53,7 @@ export const navigation: NavigationSection[] = [
         scope: 'client',
         moduleCode: 'budgets',
         requiredPermissions: ['budgets.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
         children: [
           { label: 'Liste', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Exercices', href: '/budgets/exercises', scope: 'client', requiredPermissions: ['budgets.read'] },

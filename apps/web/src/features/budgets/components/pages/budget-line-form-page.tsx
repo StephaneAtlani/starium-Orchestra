@@ -1,7 +1,7 @@
 'use client';
 
 import { BudgetPageHeader } from '../budget-page-header';
-import { BudgetErrorState } from '../budget-error-state';
+import { BudgetEmptyState } from '../budget-empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { BudgetLineForm } from '../forms/budget-line-form';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -61,10 +61,7 @@ export function BudgetLineFormPage({ mode, budgetId, lineId }: BudgetLineFormPag
     return (
       <>
         <BudgetPageHeader title="Modifier la ligne" />
-        <BudgetErrorState
-          message={error instanceof Error ? error.message : 'Ligne non trouvée.'}
-          onRetry={() => void refetch()}
-        />
+        <BudgetEmptyState title="Aucune ligne à afficher" description="" />
       </>
     );
   }
@@ -73,7 +70,7 @@ export function BudgetLineFormPage({ mode, budgetId, lineId }: BudgetLineFormPag
     return (
       <>
         <BudgetPageHeader title="Ligne" />
-        <BudgetErrorState message="Budget introuvable." />
+        <BudgetEmptyState title="Aucun budget à afficher" description="" />
       </>
     );
   }

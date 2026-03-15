@@ -7,7 +7,6 @@ import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { BudgetPageHeader } from '@/features/budgets/components/budget-page-header';
 import { BudgetKpiCards } from '@/features/budgets/components/budget-kpi-cards';
-import { BudgetErrorState } from '@/features/budgets/components/budget-error-state';
 import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
 import { BudgetToolbar } from '@/features/budgets/components/budget-toolbar';
 import { BudgetExplorerTable } from '@/features/budgets/components/budget-explorer-table';
@@ -93,10 +92,7 @@ export default function BudgetDetailPage() {
       <RequireActiveClient>
         <PageContainer>
           <BudgetPageHeader title="Budget" />
-          <BudgetErrorState
-            message={error instanceof Error ? error.message : 'Budget non trouvé.'}
-            onRetry={() => void refetch()}
-          />
+          <BudgetEmptyState title="Aucun budget à afficher" description="" />
         </PageContainer>
       </RequireActiveClient>
     );

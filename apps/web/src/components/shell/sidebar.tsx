@@ -20,6 +20,9 @@ import {
 function visible(item: NavigationItem, platformRole: string | null, clientRole: string | null): boolean {
   if (item.platformOnly && platformRole !== 'PLATFORM_ADMIN') return false;
   if (item.clientAdminOnly && clientRole !== 'CLIENT_ADMIN') return false;
+  if (item.allowedClientRoles != null) {
+    if (clientRole == null || !item.allowedClientRoles.includes(clientRole)) return false;
+  }
   return true;
 }
 

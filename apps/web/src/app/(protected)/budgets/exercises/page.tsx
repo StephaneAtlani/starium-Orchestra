@@ -8,7 +8,6 @@ import { BudgetPageHeader } from '@/features/budgets/components/budget-page-head
 import { BudgetExercisesToolbar } from '@/features/budgets/components/budget-exercises-toolbar';
 import { BudgetExercisesTable } from '@/features/budgets/components/budget-exercises-table';
 import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
-import { BudgetErrorState } from '@/features/budgets/components/budget-error-state';
 import { PaginationSummary } from '@/features/budgets/components/pagination-summary';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Button } from '@/components/ui/button';
@@ -53,17 +52,11 @@ export default function BudgetExercisesPage() {
         )}
 
         {error && (
-          <BudgetErrorState
-            message={error instanceof Error ? error.message : 'Erreur lors du chargement.'}
-            onRetry={() => void refetch()}
-          />
+          <BudgetEmptyState title="Aucun exercice à afficher" description="" />
         )}
 
         {!isLoading && !error && data && data.items.length === 0 && (
-          <BudgetEmptyState
-            title="Aucun exercice budgétaire trouvé."
-            description="Ajustez les filtres ou créez un exercice pour commencer."
-          />
+          <BudgetEmptyState title="Aucun exercice à afficher" description="" />
         )}
 
         {!isLoading && !error && data && data.items.length > 0 && (

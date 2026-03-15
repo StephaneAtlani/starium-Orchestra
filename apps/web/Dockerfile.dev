@@ -5,6 +5,8 @@ COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build
 # next dev (HMR) sur le port 3000 pour correspondre au mapping docker-compose
-WORKDIR /app/apps/web
+# Avec le volume mount ./apps/web:/app/apps/web, le node_modules du build est masqué :
+# on réinstalle au démarrage pour que le montage ait bien ses deps (ex. sonner).
+WORKDIR /app
 EXPOSE 3000
-CMD ["pnpm", "exec", "next", "dev", "-p", "3000"]
+CMD ["sh", "-c", "pnpm install --frozen-lockfile 2>/dev/null || pnpm install && cd apps/web && pnpm exec next dev -p 3000"]

@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { BudgetPageHeader } from '@/features/budgets/components/budget-page-header';
-import { BudgetErrorState } from '@/features/budgets/components/budget-error-state';
+import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useBudgetExerciseSummary } from '@/features/budgets/hooks/use-budget-exercises';
 import { useBudgetsList } from '@/features/budgets/hooks/use-budgets';
@@ -36,10 +36,7 @@ export default function BudgetExerciseDetailPage() {
       <RequireActiveClient>
         <PageContainer>
           <BudgetPageHeader title="Exercice" />
-          <BudgetErrorState
-            message={exerciseError instanceof Error ? exerciseError.message : 'Exercice non trouvé.'}
-            onRetry={() => void refetch()}
-          />
+          <BudgetEmptyState title="Aucun exercice à afficher" description="" />
         </PageContainer>
       </RequireActiveClient>
     );

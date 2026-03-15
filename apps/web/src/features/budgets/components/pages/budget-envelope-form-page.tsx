@@ -1,7 +1,7 @@
 'use client';
 
 import { BudgetPageHeader } from '../budget-page-header';
-import { BudgetErrorState } from '../budget-error-state';
+import { BudgetEmptyState } from '../budget-empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { BudgetEnvelopeForm } from '../forms/budget-envelope-form';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -55,10 +55,7 @@ export function BudgetEnvelopeFormPage({ mode, budgetId, envelopeId }: BudgetEnv
     return (
       <>
         <BudgetPageHeader title="Modifier l'enveloppe" />
-        <BudgetErrorState
-          message={error instanceof Error ? error.message : 'Enveloppe non trouvée.'}
-          onRetry={() => void refetch()}
-        />
+        <BudgetEmptyState title="Aucune enveloppe à afficher" description="" />
       </>
     );
   }
