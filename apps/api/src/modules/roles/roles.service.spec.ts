@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
@@ -33,6 +34,10 @@ describe('RolesService', () => {
       },
       permission: {
         findMany: jest.fn(),
+      },
+      rolePermission: {
+        deleteMany: jest.fn(),
+        createMany: jest.fn(),
       },
       $transaction: jest.fn(),
     };
@@ -111,12 +116,19 @@ describe('RolesService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('retourne le rôle si trouvé', async () => {
-      prisma.role.findFirst.mockResolvedValue(roleRecord);
+    it('retourne le rôle avec permissionIds si trouvé', async () => {
+      prisma.role.findFirst.mockResolvedValue({
+        ...roleRecord,
+        rolePermissions: [
+          { permissionId: 'perm-1' },
+          { permissionId: 'perm-2' },
+        ],
+      });
 
       const result = await service.getRoleById(clientId, roleRecord.id);
       expect(result.id).toBe(roleRecord.id);
       expect(result.name).toBe(roleRecord.name);
+      expect(result.permissionIds).toEqual(['perm-1', 'perm-2']);
     });
   });
 
@@ -154,6 +166,18 @@ describe('RolesService', () => {
         service.updateRole(clientId, 'unknown', { name: 'X' }),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
+
+    it('lève ForbiddenException si le rôle est système', async () => {
+      prisma.role.findFirst.mockResolvedValue({
+        ...roleRecord,
+        isSystem: true,
+      });
+
+      await expect(
+        service.updateRole(clientId, roleRecord.id, { name: 'X' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.role.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('deleteRole', () => {
@@ -166,7 +190,7 @@ describe('RolesService', () => {
       expect(prisma.role.delete).not.toHaveBeenCalled();
     });
 
-    it('lève ConflictException si isSystem', async () => {
+    it('lève ForbiddenException si isSystem', async () => {
       prisma.role.findFirst.mockResolvedValue({
         ...roleRecord,
         isSystem: true,
@@ -175,7 +199,7 @@ describe('RolesService', () => {
 
       await expect(
         service.deleteRole(clientId, roleRecord.id),
-      ).rejects.toBeInstanceOf(ConflictException);
+      ).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.role.delete).not.toHaveBeenCalled();
     });
 
@@ -283,7 +307,19 @@ describe('RolesService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('remplace les permissions via une transaction', async () => {
+    it('lève ForbiddenException si le rôle est système', async () => {
+      prisma.role.findFirst.mockResolvedValue({
+        ...roleRecord,
+        isSystem: true,
+      });
+
+      await expect(
+        service.replaceRolePermissions(clientId, roleRecord.id, dto),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('remplace les permissions via une transaction et audite', async () => {
       prisma.role.findFirst.mockResolvedValue(roleRecord);
       prisma.permission.findMany.mockResolvedValue([
         { id: 'perm-1' },

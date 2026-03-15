@@ -1,20 +1,13 @@
-/**
- * Routes sur lesquelles on ne doit jamais envoyer X-Client-Id.
- * Règle centralisée (RFC-014-2).
- */
-function shouldSendClientId(url: string): boolean {
-  const path = url.split('?')[0];
-  if (path.startsWith('/api/auth/')) return false;
-  if (path === '/api/me' || path === '/api/me/clients' || path === '/api/me/default-client') return false;
-  // /api/me/permissions requiert X-Client-Id (client actif)
-  if (path.startsWith('/api/platform/')) return false;
-  if (path === '/api/clients' || path.startsWith('/api/clients/')) return false;
-  return true;
-}
+import { getXClientIdHeaderValue } from './api-client';
 
 function normalizeUrl(input: RequestInfo): string {
   if (typeof input === 'string') return input;
   return input.url;
+}
+
+function getApiBaseUrl(): string | null {
+  if (typeof process === 'undefined') return null;
+  return process.env.NEXT_PUBLIC_API_URL ?? null;
 }
 
 export interface AuthenticatedFetchOptions {
@@ -50,11 +43,12 @@ export function createAuthenticatedFetch(
       headers.set('Authorization', `Bearer ${token}`);
     }
 
-    if (shouldSendClientId(url)) {
-      const clientId = getActiveClientId();
-      if (clientId) {
-        headers.set('X-Client-Id', clientId);
-      }
+    const headerValue = getXClientIdHeaderValue(url, {
+      activeClientId: getActiveClientId(),
+      apiBaseUrl: getApiBaseUrl(),
+    });
+    if (headerValue !== null) {
+      headers.set('X-Client-Id', headerValue);
     }
 
     let response = await fetch(input, { ...init, headers });

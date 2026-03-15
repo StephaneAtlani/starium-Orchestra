@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 (Client RBAC Administration).
 
 ---
 
@@ -653,7 +653,7 @@ Modifie le statut d’un module pour un client.
 
 ## 9. Gestion des rôles métier — `/api/roles`
 
-Routes réservées au **Client Admin** du **client actif** (RFC-011, niveau client).
+Routes réservées au **Client Admin** du **client actif** (RFC-011, RFC-023).
 
 **Profils par défaut** : à la création d’un client, des rôles prédéfinis (Directeur, Responsable Budgets, Contributeur Budgets) sont créés automatiquement. Le seed les applique aussi à tous les clients existants. Voir [docs/default-profiles.md](default-profiles.md).
 
@@ -711,7 +711,15 @@ Même format que GET /api/roles (un seul objet).
 
 ### GET /api/roles/:id
 
-Retourne le détail d’un rôle du client actif.
+Retourne le détail d’un rôle du client actif, **incluant la liste des IDs de permissions** du rôle (RFC-023).
+
+**Réponse 200**
+
+Même structure que un élément de GET /api/roles, **plus** :
+
+| Champ           | Type     | Description                |
+|-----------------|----------|----------------------------|
+| `permissionIds` | string[] | IDs des permissions du rôle |
 
 **Erreurs :** 401, 403, 404 (rôle non trouvé pour ce client).
 
@@ -732,10 +740,12 @@ Met à jour un rôle métier (nom, description).
 
 **Réponse 200** : rôle mis à jour.
 
+**Règles (RFC-023)** : si le rôle a `isSystem = true`, toute modification est refusée → **403 Forbidden**.
+
 **Erreurs :**
 
 - 400 : validation
-- 401, 403
+- 401, 403 (403 si rôle système)
 - 404 : rôle non trouvé pour ce client
 - 409 : un autre rôle du client utilise déjà ce `name`
 
@@ -745,10 +755,10 @@ Met à jour un rôle métier (nom, description).
 
 Supprime un rôle du client actif.
 
-Règles :
+**Règles (RFC-023)** :
 
-- impossible si `isSystem = true` → **409 Conflict**
-- impossible si le rôle est encore assigné à au moins un utilisateur → **409 Conflict**
+- si `isSystem = true` → **403 Forbidden** (message : « Impossible de supprimer un rôle système »)
+- si le rôle est encore assigné à au moins un utilisateur → **409 Conflict** (message : « Impossible de supprimer : rôle encore assigné à au moins un utilisateur »)
 
 **Réponse 204** (No Content) en cas de succès.
 
@@ -801,6 +811,7 @@ Remplace la liste des permissions d’un rôle métier du client actif.
 **Comportement**
 
 - Le rôle doit appartenir au client actif, sinon **404**
+- Si le rôle a `isSystem = true` → **403 Forbidden** (RFC-023 : « Impossible de modifier les permissions d’un rôle système »)
 - Toutes les `permissionIds` doivent correspondre à des permissions de **modules activés** pour le client actif, sinon **400**
 
 **Réponse 200**

@@ -14,9 +14,15 @@ import {
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ClientAdminGuard } from '../../common/guards/client-admin.guard';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
+import { RequestUserId } from '../../common/decorators/request-user.decorator';
+import {
+  RequestMeta,
+  RequestMeta as RequestMetaDecorator,
+} from '../../common/decorators/request-meta.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
   PermissionItem,
+  RoleDetail,
   RoleItem,
   RolesService,
 } from './roles.service';
@@ -44,8 +50,10 @@ export class RolesController {
   createRole(
     @ActiveClientId() clientId: string | undefined,
     @Body() dto: CreateRoleDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
   ): Promise<RoleItem> {
-    return this.roles.createRole(clientId!, dto);
+    return this.roles.createRole(clientId!, dto, { actorUserId, meta });
   }
 
   /** GET /roles/:id — Détail d'un rôle dans le client actif. */
@@ -53,7 +61,7 @@ export class RolesController {
   getRole(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
-  ): Promise<RoleItem> {
+  ): Promise<RoleDetail> {
     return this.roles.getRoleById(clientId!, id);
   }
 
@@ -63,8 +71,10 @@ export class RolesController {
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
     @Body() dto: UpdateRoleDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
   ): Promise<RoleItem> {
-    return this.roles.updateRole(clientId!, id, dto);
+    return this.roles.updateRole(clientId!, id, dto, { actorUserId, meta });
   }
 
   /** DELETE /roles/:id — Supprime un rôle (si non système et non assigné). */
@@ -73,8 +83,10 @@ export class RolesController {
   async deleteRole(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
   ): Promise<void> {
-    await this.roles.deleteRole(clientId!, id);
+    await this.roles.deleteRole(clientId!, id, { actorUserId, meta });
   }
 
   /**
@@ -96,8 +108,13 @@ export class RolesController {
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
     @Body() dto: UpdateRolePermissionsDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
   ): Promise<{ role: RoleItem; permissionIds: string[] }> {
-    return this.roles.replaceRolePermissions(clientId!, id, dto);
+    return this.roles.replaceRolePermissions(clientId!, id, dto, {
+      actorUserId,
+      meta,
+    });
   }
 }
 

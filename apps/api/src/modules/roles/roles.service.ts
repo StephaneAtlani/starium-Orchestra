@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -22,6 +23,8 @@ export interface RoleItem {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type RoleDetail = RoleItem & { permissionIds: string[] };
 
 export interface PermissionItem {
   id: string;
@@ -85,16 +88,25 @@ export class RolesService {
     return item;
   }
 
-  async getRoleById(clientId: string, id: string): Promise<RoleItem> {
+  async getRoleById(clientId: string, id: string): Promise<RoleDetail> {
     const prisma = this.prisma as any;
 
     const role = await prisma.role.findFirst({
       where: { id, clientId },
+      include: {
+        rolePermissions: { select: { permissionId: true } },
+      },
     });
     if (!role) {
       throw new NotFoundException('Rôle non trouvé pour ce client');
     }
-    return this.toRoleItem(role);
+    const permissionIds = (role as any).rolePermissions?.map(
+      (rp: { permissionId: string }) => rp.permissionId,
+    ) ?? [];
+    return {
+      ...this.toRoleItem(role),
+      permissionIds,
+    };
   }
 
   async updateRole(
@@ -110,6 +122,9 @@ export class RolesService {
     });
     if (!role) {
       throw new NotFoundException('Rôle non trouvé pour ce client');
+    }
+    if ((role as any).isSystem) {
+      throw new ForbiddenException('Impossible de modifier un rôle système');
     }
 
     const data: { name?: string; description?: string | null } = {};
@@ -155,12 +170,12 @@ export class RolesService {
     if (!role) {
       throw new NotFoundException('Rôle non trouvé pour ce client');
     }
-    if (role.isSystem) {
-      throw new ConflictException('Impossible de supprimer un rôle système');
+    if ((role as any).isSystem) {
+      throw new ForbiddenException('Impossible de supprimer un rôle système');
     }
-    if (role.userRoles.length > 0) {
+    if ((role as any).userRoles?.length > 0) {
       throw new ConflictException(
-        'Impossible de supprimer un rôle encore assigné à au moins un utilisateur',
+        'Impossible de supprimer : rôle encore assigné à au moins un utilisateur',
       );
     }
 
@@ -216,6 +231,7 @@ export class RolesService {
     clientId: string,
     roleId: string,
     dto: UpdateRolePermissionsDto,
+    context?: { actorUserId?: string; meta?: RequestMeta },
   ): Promise<{ role: RoleItem; permissionIds: string[] }> {
     const prisma = this.prisma as any;
 
@@ -224,6 +240,11 @@ export class RolesService {
     });
     if (!role) {
       throw new NotFoundException('Rôle non trouvé pour ce client');
+    }
+    if ((role as any).isSystem) {
+      throw new ForbiddenException(
+        'Impossible de modifier les permissions d’un rôle système',
+      );
     }
 
     const allowedPermissions = await (this.prisma as any).permission.findMany({
@@ -262,6 +283,13 @@ export class RolesService {
       }
     });
 
+    await this.logRoleEvent('role.permissions.updated', {
+      clientId,
+      roleId: role.id,
+      payload: { permissionIds: dto.permissionIds },
+      context,
+    });
+
     return {
       role: this.toRoleItem(role),
       permissionIds: dto.permissionIds,
@@ -269,7 +297,11 @@ export class RolesService {
   }
 
   private async logRoleEvent(
-    action: 'role.created' | 'role.updated' | 'role.deleted',
+    action:
+      | 'role.created'
+      | 'role.updated'
+      | 'role.deleted'
+      | 'role.permissions.updated',
     params: {
       clientId: string;
       roleId: string;

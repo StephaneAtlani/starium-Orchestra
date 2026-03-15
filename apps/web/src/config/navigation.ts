@@ -45,6 +45,25 @@ export const navigation: NavigationSection[] = [
     ],
   },
   {
+    section: 'Administration client',
+    items: [
+      {
+        label: 'Membres',
+        href: '/client/members',
+        icon: Users,
+        scope: 'client',
+        clientAdminOnly: true,
+      },
+      {
+        label: 'Rôles',
+        href: '/client/roles',
+        icon: Shield,
+        scope: 'client',
+        clientAdminOnly: true,
+      },
+    ],
+  },
+  {
     section: 'Finance',
     items: [
       {
