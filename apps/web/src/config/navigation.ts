@@ -52,9 +52,9 @@ export const navigation: NavigationSection[] = [
         moduleCode: 'budgets',
         requiredPermissions: ['budgets.read'],
         children: [
-          { label: 'Cockpit', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
-          { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
+          { label: 'Liste', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Exercices', href: '/budgets/exercises', scope: 'client', requiredPermissions: ['budgets.read'] },
+          { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Imports', href: '/budgets/imports', scope: 'client', requiredPermissions: ['budgets.read'] },
         ],
       },

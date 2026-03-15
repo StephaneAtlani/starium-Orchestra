@@ -53,9 +53,9 @@ export function Sidebar() {
 
                 if (isBudgets) {
                   const budgetsChildren = [
-                    { label: 'Cockpit', href: '/budgets' },
-                    { label: 'Dashboard', href: '/budgets/dashboard' },
+                    { label: 'Liste', href: '/budgets' },
                     { label: 'Exercices', href: '/budgets/exercises' },
+                    { label: 'Dashboard', href: '/budgets/dashboard' },
                     { label: 'Imports', href: '/budgets/imports' },
                   ];
 

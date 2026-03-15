@@ -4,6 +4,14 @@
 
 export const BUDGETS_ROOT = '/budgets';
 
+export function budgetList(): string {
+  return BUDGETS_ROOT;
+}
+
+export function budgetListWithExercise(exerciseId: string): string {
+  return `${BUDGETS_ROOT}?exerciseId=${encodeURIComponent(exerciseId)}`;
+}
+
 export function budgetExercisesList(): string {
   return `${BUDGETS_ROOT}/exercises`;
 }

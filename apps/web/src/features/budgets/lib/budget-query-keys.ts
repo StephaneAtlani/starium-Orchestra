@@ -42,4 +42,12 @@ export const budgetQueryKeys = {
 
   imports: (clientId: string, budgetId: string, filters?: object) =>
     ['budgets', clientId, 'imports', budgetId, filters] as const,
+
+  // Listes paginées (RFC-FE-003) — clés conformes RFC §7.1
+  budgetExercisesList: (clientId: string, filters?: object) =>
+    ['budget-exercises', clientId, filters] as const,
+  budgetsList: (clientId: string, filters?: object) =>
+    ['budgets', clientId, filters] as const,
+  budgetExerciseOptions: (clientId: string) =>
+    ['budget-exercise-options', clientId] as const,
 };

@@ -1,6 +1,6 @@
-# Module Budget Frontend — Fondation (RFC-FE-001)
+# Module Budget Frontend — Fondation (RFC-FE-001) et listes (RFC-FE-003)
 
-Ce document décrit la **fondation frontend** du module Budget dans Starium Orchestra : structure, conventions, et utilisation. Référence : [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md).
+Ce document décrit la **fondation frontend** du module Budget dans Starium Orchestra : structure, conventions, et utilisation. Références : [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md), [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md).
 
 ---
 
@@ -25,41 +25,55 @@ La logique métier reste **côté backend** ; le frontend ne fait pas de calculs
 features/budgets/
 ├── api/                    # Appels backend (authFetch)
 │   ├── budget-management.api.ts   # Exercices, budgets, enveloppes, lignes (GET)
-│   ├── budget-reporting.api.ts   # Summary, listes reporting
-│   ├── budget-dashboard.api.ts   # Dashboard cockpit
-│   ├── budget-snapshots.api.ts   # Stub (futures RFC)
+│   ├── get-budget-exercises.ts    # Liste exercices (page→offset, RFC-FE-003)
+│   ├── get-budgets.ts             # Liste budgets (page→offset, RFC-FE-003)
+│   ├── get-budget-exercise-options.ts  # Options pour filtre exercice (RFC-FE-003)
+│   ├── budget-reporting.api.ts
+│   ├── budget-dashboard.api.ts
+│   ├── budget-snapshots.api.ts   # Stub
 │   ├── budget-reallocations.api.ts
 │   ├── budget-imports.api.ts
 │   └── budget-versioning.api.ts
-├── hooks/                  # TanStack Query (useActiveClient + query keys)
+├── hooks/
 │   ├── use-budget-exercises.ts
+│   ├── use-budget-exercises-query.ts   # Liste paginée + filtres URL (RFC-FE-003)
 │   ├── use-budgets.ts
+│   ├── use-budgets-query.ts            # Liste paginée + filtres URL (RFC-FE-003)
+│   ├── use-budget-exercise-options-query.ts  # Options filtre exercice (RFC-FE-003)
+│   ├── use-budget-list-filters.ts      # Filtres URL exercices / budgets (RFC-FE-003)
 │   ├── use-budget-summary.ts
 │   └── use-budget-dashboard.ts
-├── components/             # Composants partagés budget
+├── components/
 │   ├── budget-page-header.tsx
 │   ├── budget-kpi-cards.tsx
 │   ├── budget-toolbar.tsx
+│   ├── budget-exercises-toolbar.tsx    # Recherche, status, limit, reset (RFC-FE-003)
+│   ├── budgets-toolbar.tsx             # + filtre exercice (RFC-FE-003)
+│   ├── budget-exercises-table.tsx      # Table liste exercices (RFC-FE-003)
+│   ├── budgets-table.tsx               # Table liste budgets (RFC-FE-003)
 │   ├── budget-list-table.tsx
 │   ├── budget-status-badge.tsx
 │   ├── budget-empty-state.tsx
 │   ├── budget-error-state.tsx
-│   └── forms/              # Vide en fondation (futures RFC)
-├── schemas/                # Zod (validation, pas de formulaires complets)
+│   ├── pagination-summary.tsx          # "1–20 sur N résultats" (RFC-FE-003)
+│   └── forms/
+├── schemas/
 │   ├── create-budget.schema.ts
 │   ├── create-envelope.schema.ts
 │   ├── create-line.schema.ts
 │   └── reallocate-budget.schema.ts
-├── types/                  # Types alignés réponses API
+├── types/
 │   ├── budget-management.types.ts
+│   ├── budget-list.types.ts            # ListResult, Summary, Params listes (RFC-FE-003)
 │   ├── budget-reporting.types.ts
 │   ├── budget-dashboard.types.ts
 │   └── placeholders (snapshots, reallocations, imports, versioning)
 ├── lib/
-│   ├── budget-query-keys.ts   # Factory query keys (clientId obligatoire)
-│   └── budget-formatters.ts   # formatAmount, formatPercent
+│   ├── budget-query-keys.ts   # + budgetExercisesList, budgetsList, budgetExerciseOptions (RFC-FE-003)
+│   └── budget-formatters.ts
 └── constants/
-    └── budget-routes.ts       # Helpers de routes (liens, navigation)
+    ├── budget-routes.ts       # + budgetList(), budgetListWithExercise(exerciseId)
+    └── budget-filters.ts      # DEFAULT_PAGE, DEFAULT_LIMIT, options statut (RFC-FE-003)
 ```
 
 ---
@@ -73,6 +87,9 @@ features/budgets/
 Exemples :
 
 - `budgetQueryKeys.exercises(clientId, filters?)`
+- `budgetQueryKeys.budgetExercisesList(clientId, filters?)` — listes paginées (RFC-FE-003)
+- `budgetQueryKeys.budgetsList(clientId, filters?)` — listes paginées (RFC-FE-003)
+- `budgetQueryKeys.budgetExerciseOptions(clientId)` — options filtre exercice (RFC-FE-003)
 - `budgetQueryKeys.budgetDetail(clientId, budgetId)`
 - `budgetQueryKeys.budgetSummary(clientId, budgetId)`
 - `budgetQueryKeys.dashboard(clientId, params?)`
@@ -97,16 +114,20 @@ Les mutations (create/update) ne sont **pas** implémentées dans la fondation ;
 
 ---
 
-## 5. Hooks disponibles (fondation)
+## 5. Hooks disponibles (fondation + RFC-FE-003)
 
 | Hook | Fichier | Usage |
 |------|---------|--------|
-| `useBudgetExercisesList(query?)` | use-budget-exercises | Liste paginée des exercices |
+| `useBudgetExercisesList(query?)` | use-budget-exercises | Liste exercices (offset/limit brut) |
 | `useBudgetExerciseSummary(exerciseId)` | use-budget-exercises | Détail d’un exercice |
-| `useBudgetsList(query?)` | use-budgets | Liste des budgets (ex. par exerciseId) |
+| `useBudgetsList(query?)` | use-budgets | Liste budgets (offset/limit brut) |
 | `useBudgetDetail(budgetId)` | use-budgets | Détail d’un budget |
 | `useBudgetSummary(budgetId)` | use-budget-summary | KPI budget (reporting) |
-| `useBudgetDashboardQuery(params?)` | use-budget-dashboard | Données dashboard (query key tenant-aware) |
+| `useBudgetDashboardQuery(params?)` | use-budget-dashboard | Données dashboard |
+| `useBudgetExercisesQuery(filters)` | use-budget-exercises-query | Liste exercices paginée, filtres URL (RFC-FE-003) |
+| `useBudgetsQuery(filters)` | use-budgets-query | Liste budgets paginée, filtres URL (RFC-FE-003) |
+| `useBudgetExerciseOptionsQuery()` | use-budget-exercise-options-query | Options filtre exercice (RFC-FE-003) |
+| `useBudgetExercisesListFilters()` / `useBudgetsListFilters()` | use-budget-list-filters | Filtres dans l'URL (RFC-FE-003) |
 
 Pas de hooks pour les API stubs (snapshots, versioning, imports, reallocations) dans cette fondation.
 
@@ -119,7 +140,12 @@ Pas de hooks pour les API stubs (snapshots, versioning, imports, reallocations) 
 | `BudgetPageHeader` | Wrapper PageHeader (titre, description, actions) |
 | `BudgetKpiCards` | Grille de cartes KPI (`items: { label, value, trend? }[]`) |
 | `BudgetToolbar` | Barre filtres/recherche/actions (TableToolbar) |
-| `BudgetListTable` | Table générique (colonnes configurables, keyExtractor) — simple, pas un data-grid |
+| `BudgetExercisesToolbar` | Recherche (debounce), status, limit, reset — sync URL (RFC-FE-003) |
+| `BudgetsToolbar` | Idem + filtre exercice (RFC-FE-003) |
+| `BudgetListTable` | Table générique (colonnes configurables, keyExtractor) |
+| `BudgetExercisesTable` | Table liste exercices (RFC-FE-003) |
+| `BudgetsTable` | Table liste budgets (RFC-FE-003) |
+| `PaginationSummary` | "1–20 sur N résultats" (RFC-FE-003) |
 | `BudgetStatusBadge` | Badge de statut (DRAFT, ACTIVE, LOCKED, ARCHIVED, etc.) |
 | `BudgetEmptyState` | État vide avec messages par défaut budget |
 | `BudgetErrorState` | Erreur + retry avec messages par défaut budget |
@@ -132,8 +158,8 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 
 | Route | Contenu |
 |-------|---------|
-| `/budgets` | Cockpit minimal : header, cartes d’accès (exercices, dashboard, imports), mini résumé |
-| `/budgets/exercises` | Liste des exercices (table, états loading/error/empty) |
+| `/budgets` | **Liste principale des budgets** (RFC-FE-003) : table paginée, filtres, sync URL |
+| `/budgets/exercises` | **Liste des exercices budgétaires** (RFC-FE-003) : table paginée, filtres, sync URL |
 | `/budgets/exercises/[id]` | Détail exercice + liens vers budgets |
 | `/budgets/[budgetId]` | Détail budget (KPI, liens lines/reporting/snapshots/versions/reallocations) |
 | `/budgets/dashboard` | Dashboard détaillé (KPI, CAPEX/OPEX, tendance, top enveloppes/lignes) |
@@ -144,16 +170,20 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budgets/[budgetId]/reallocations` | Squelette |
 | `/budgets/imports` | Squelette |
 
-Chaque page de données gère **loading**, **error**, **empty**, **success**.
+Chaque page de données gère **loading**, **error**, **empty**, **success**. Les listes `/budgets` et `/budgets/exercises` reflètent filtres et pagination dans l'URL.
 
 ---
 
 ## 8. Navigation
 
-Dans `config/navigation.ts`, section Finance :
+Dans `config/navigation.ts` et `components/shell/sidebar.tsx`, section Finance (dropdown Budgets) :
 
-- **Budgets** : `href: "/budgets"`, `moduleCode: "budgets"`, `requiredPermissions: ["budgets.read"]`
-- **Dashboard Budgets** : `href: "/budgets/dashboard"`
+- **Liste** : `href: "/budgets"` — liste principale des budgets (page par défaut du module)
+- **Exercices** : `href: "/budgets/exercises"`
+- **Dashboard** : `href: "/budgets/dashboard"`
+- **Imports** : `href: "/budgets/imports"`
+
+`moduleCode: "budgets"`, `requiredPermissions: ["budgets.read"]`.
 
 ---
 
@@ -161,7 +191,7 @@ Dans `config/navigation.ts`, section Finance :
 
 Fichier `constants/budget-routes.ts` : helpers pour les liens (éviter les chaînes en dur).
 
-Exemples : `budgetExercisesList()`, `budgetExerciseDetail(id)`, `budgetDetail(budgetId)`, `budgetLines(budgetId)`, `budgetReporting(budgetId)`, `budgetDashboard()`, `budgetImports()`, etc.
+Exemples : `budgetList()` → `/budgets`, `budgetListWithExercise(exerciseId)` → `/budgets?exerciseId=<id>` (RFC-FE-003), `budgetExercisesList()`, `budgetExerciseDetail(id)`, `budgetDetail(budgetId)`, `budgetLines(budgetId)`, `budgetReporting(budgetId)`, `budgetDashboard()`, `budgetImports()`, etc.
 
 ---
 
@@ -178,6 +208,8 @@ Exemples : `budgetExercisesList()`, `budgetExerciseDetail(id)`, `budgetDetail(bu
 ## 11. Références
 
 - [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md)
+- [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md) — listes paginées, filtres, sync URL
+- [RFC-FE-003 — Conformité](../RFC/RFC-FE-003-conformite.md)
 - [Module Budget MVP (backend)](budget-mvp.md)
 - [API.md](../API.md) §15 (Budget Management), §16 (Financial Core), §18 (Budget Reporting), §18.1 (Budget Dashboard)
 - [FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md) (architecture frontend globale)

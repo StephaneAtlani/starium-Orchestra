@@ -400,7 +400,8 @@ On n’introduit pas de faux préfixe `/workspace/*` dans l’URL.
 /select-client    — choix du client actif (plusieurs clients ACTIVE)
 /no-client        — écran bloquant si aucun client ACTIVE (non platform admin)
 /dashboard
-/budgets
+/budgets          — liste des budgets (RFC-FE-003), filtres et pagination
+/budgets/exercises — liste des exercices budgétaires (RFC-FE-003)
 /budgets/[id]
 /projects
 ...
@@ -900,28 +901,33 @@ L’Admin Studio est le cockpit de gestion plateforme. Il fait partie du core pl
 
 Chaque feature suit une structure stable.
 
-### Exemple : `features/budgets` (RFC-FE-001)
+### Exemple : `features/budgets` (RFC-FE-001 + RFC-FE-003)
 
-Structure réelle du module budget frontend (fondation) :
+Structure réelle du module budget frontend (fondation et listes) :
 
 ```text
 features/budgets/
 ├── api/
 │   ├── budget-management.api.ts
+│   ├── get-budget-exercises.ts, get-budgets.ts, get-budget-exercise-options.ts  # RFC-FE-003
 │   ├── budget-reporting.api.ts
 │   ├── budget-dashboard.api.ts
 │   └── stubs (snapshots, reallocations, imports, versioning)
 ├── hooks/
-│   ├── use-budget-exercises.ts
-│   ├── use-budgets.ts
+│   ├── use-budget-exercises.ts, use-budgets.ts
+│   ├── use-budget-exercises-query.ts, use-budgets-query.ts, use-budget-exercise-options-query.ts  # RFC-FE-003
+│   ├── use-budget-list-filters.ts   # RFC-FE-003 (filtres URL)
 │   ├── use-budget-summary.ts
 │   └── use-budget-dashboard.ts
 ├── components/
 │   ├── budget-page-header.tsx
 │   ├── budget-kpi-cards.tsx
 │   ├── budget-toolbar.tsx
+│   ├── budget-exercises-toolbar.tsx, budgets-toolbar.tsx   # RFC-FE-003
+│   ├── budget-exercises-table.tsx, budgets-table.tsx       # RFC-FE-003
 │   ├── budget-list-table.tsx
 │   ├── budget-status-badge.tsx
+│   ├── pagination-summary.tsx      # RFC-FE-003
 │   ├── budget-empty-state.tsx
 │   ├── budget-error-state.tsx
 │   └── forms/
@@ -932,14 +938,16 @@ features/budgets/
 │   └── reallocate-budget.schema.ts
 ├── types/
 │   ├── budget-management.types.ts
+│   ├── budget-list.types.ts         # RFC-FE-003
 │   ├── budget-reporting.types.ts
 │   ├── budget-dashboard.types.ts
-│   └── placeholders (snapshots, reallocations, imports, versioning)
+│   └── placeholders
 ├── lib/
-│   ├── budget-query-keys.ts   # Query keys tenant-aware (clientId obligatoire)
+│   ├── budget-query-keys.ts   # + budgetExercisesList, budgetsList, budgetExerciseOptions (RFC-FE-003)
 │   └── budget-formatters.ts
 └── constants/
-    └── budget-routes.ts
+    ├── budget-routes.ts       # + budgetList(), budgetListWithExercise()
+    └── budget-filters.ts     # RFC-FE-003
 ```
 
 Détail : [docs/modules/budget-frontend.md](modules/budget-frontend.md).
