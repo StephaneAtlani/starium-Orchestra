@@ -21,3 +21,5 @@ Tu dois toujours :
 - garder la logique métier dans le backend
 - produire du code propre, modulaire et maintenable
 - ne pas inventer de structure non demandée
+
+La documentation est dans /docs/
