@@ -82,6 +82,9 @@ services:
     environment:
       # Proxy /api/* vers l’API depuis le conteneur (réseau Docker).
       NEXT_PUBLIC_API_URL: http://api-dev:3001
+      # Détection des changements de fichiers dans le conteneur → hot reload sans redémarrage.
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     ports:
       - "3000:3000"
     volumes:

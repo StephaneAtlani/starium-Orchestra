@@ -5,11 +5,13 @@ interface PageContainerProps {
   className?: string;
 }
 
+/**
+ * Conteneur de page : espacement vertical uniquement.
+ * Le padding horizontal et max-width sont gérés par le shell (AppShell).
+ */
 export function PageContainer({ children, className }: PageContainerProps) {
   return (
-    <div
-      className={className ?? 'p-6 sm:p-8 space-y-6 max-w-7xl mx-auto'}
-    >
+    <div className={className ?? 'space-y-6'}>
       {children}
     </div>
   );

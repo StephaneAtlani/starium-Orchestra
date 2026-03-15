@@ -9,7 +9,11 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Bell, Calendar, ChevronDown, FileText, Search } from 'lucide-react';
 
-export function WorkspaceHeader() {
+interface WorkspaceHeaderProps {
+  contentClassName?: string;
+}
+
+export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
   const router = useRouter();
   const { user, accessToken, logout } = useAuth();
   const { activeClient } = useActiveClient();
@@ -19,7 +23,8 @@ export function WorkspaceHeader() {
   }
 
   return (
-    <header className="starium-header sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-4 px-6">
+    <header className="starium-header sticky top-0 z-10 shrink-0 border-b border-border">
+      <div className={`flex h-14 items-center justify-between gap-4 ${contentClassName ?? 'mx-auto max-w-7xl px-6 sm:px-8'}`}>
       <nav className="flex min-w-0 flex-1 items-center gap-2 text-sm starium-text">
         <a href="/dashboard" className="starium-text hover:underline">Home</a>
         <span className="starium-text-muted">/</span>
@@ -80,6 +85,7 @@ export function WorkspaceHeader() {
             </div>
           </details>
         )}
+      </div>
       </div>
     </header>
   );
