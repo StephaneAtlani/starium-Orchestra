@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DefaultProfilesService } from '../roles/default-profiles.service';
 import { ClientsService } from './clients.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
@@ -38,6 +39,12 @@ describe('ClientsService', () => {
             create: jest.fn(),
           },
         },
+        {
+          provide: DefaultProfilesService,
+          useValue: {
+            applyForClient: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
@@ -71,15 +78,24 @@ describe('ClientsService', () => {
   });
 
   describe('create', () => {
-    it('should create client when slug is free', async () => {
+    it('should create client when slug is free and apply default profiles', async () => {
+      const defaultProfiles = {
+        applyForClient: jest.fn().mockResolvedValue(undefined),
+      };
+      const testModule = await Test.createTestingModule({
+        providers: [
+          ClientsService,
+          { provide: PrismaService, useValue: prisma },
+          { provide: AuditLogsService, useValue: { create: jest.fn() } },
+          { provide: DefaultProfilesService, useValue: defaultProfiles },
+        ],
+      }).compile();
+      const svc = testModule.get<ClientsService>(ClientsService);
       (prisma.client.findUnique as jest.Mock).mockResolvedValue(null);
       (prisma.client.create as jest.Mock).mockResolvedValue(mockClient);
 
-      const dto = {
-        name: 'Client démo',
-        slug: 'demo',
-      };
-      const result = await service.create(dto);
+      const dto = { name: 'Client démo', slug: 'demo' };
+      const result = await svc.create(dto);
 
       expect(prisma.client.findUnique).toHaveBeenCalledWith({
         where: { slug: dto.slug },
@@ -87,6 +103,7 @@ describe('ClientsService', () => {
       expect(prisma.client.create).toHaveBeenCalledWith({
         data: { name: dto.name, slug: dto.slug },
       });
+      expect(defaultProfiles.applyForClient).toHaveBeenCalledWith(mockClient.id);
       expect(result).toEqual({
         id: mockClient.id,
         name: mockClient.name,

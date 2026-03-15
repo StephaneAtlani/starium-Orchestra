@@ -655,6 +655,8 @@ Modifie le statut d’un module pour un client.
 
 Routes réservées au **Client Admin** du **client actif** (RFC-011, niveau client).
 
+**Profils par défaut** : à la création d’un client, des rôles prédéfinis (Directeur, Responsable Budgets, Contributeur Budgets) sont créés automatiquement. Le seed les applique aussi à tous les clients existants. Voir [docs/default-profiles.md](default-profiles.md).
+
 Toutes les routes exigent :
 
 1. `Authorization: Bearer <accessToken>`

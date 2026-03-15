@@ -1,0 +1,36 @@
+[
+  {
+    "name": "Directeur",
+    "description": "Visualisation budget et reporting (lecture seule)",
+    "permissionCodes": ["budgets.read"]
+  },
+  {
+    "name": "Responsable Budgets",
+    "description": "Pilotage complet des budgets (lecture, création, modification)",
+    "permissionCodes": [
+      "budgets.read",
+      "budgets.create",
+      "budgets.update",
+      "budgets.cost-centers.read",
+      "budgets.cost-centers.create",
+      "budgets.cost-centers.update",
+      "budgets.general-ledger-accounts.read",
+      "budgets.general-ledger-accounts.create",
+      "budgets.general-ledger-accounts.update",
+      "budgets.analytical-ledger-accounts.read",
+      "budgets.analytical-ledger-accounts.create",
+      "budgets.analytical-ledger-accounts.update"
+    ]
+  },
+  {
+    "name": "Contributeur Budgets",
+    "description": "Saisie et consultation budgets (lecture et création)",
+    "permissionCodes": [
+      "budgets.read",
+      "budgets.create",
+      "budgets.cost-centers.read",
+      "budgets.general-ledger-accounts.read",
+      "budgets.analytical-ledger-accounts.read"
+    ]
+  }
+]

@@ -157,9 +157,56 @@ async function upsertModulesAndPermissions() {
   console.log('Seed OK: modules et permissions globales (référentiel plateforme).');
 }
 
+/**
+ * Applique les profils par défaut à tous les clients (idempotent).
+ * Lit prisma/default-profiles.json et crée/met à jour les rôles pour chaque client.
+ */
+async function applyDefaultProfilesForAllClients() {
+  const profilesPath = path.join(__dirname, 'default-profiles.json');
+  if (!fs.existsSync(profilesPath)) {
+    console.log('Seed: pas de default-profiles.json, skip profils par défaut.');
+    return;
+  }
+  const profiles = JSON.parse(fs.readFileSync(profilesPath, 'utf8'));
+  const clients = await prisma.client.findMany({ select: { id: true } });
+  for (const { id: clientId } of clients) {
+    for (const profile of profiles) {
+      let role = await prisma.role.findFirst({
+        where: { clientId, name: profile.name },
+      });
+      if (!role) {
+        role = await prisma.role.create({
+          data: {
+            clientId,
+            name: profile.name,
+            description: profile.description ?? null,
+            isSystem: true,
+          },
+        });
+      }
+      const permissions = await prisma.permission.findMany({
+        where: { code: { in: profile.permissionCodes } },
+        select: { id: true },
+      });
+      const permissionIds = permissions.map((p) => p.id);
+      await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+      if (permissionIds.length > 0) {
+        await prisma.rolePermission.createMany({
+          data: permissionIds.map((permissionId) => ({
+            roleId: role.id,
+            permissionId,
+          })),
+        });
+      }
+    }
+  }
+  console.log('Seed OK: profils par défaut appliqués pour', clients.length, 'client(s).');
+}
+
 async function main() {
   await upsertPlatformAdmin();
   await upsertModulesAndPermissions();
+  await applyDefaultProfilesForAllClients();
 }
 
 main()

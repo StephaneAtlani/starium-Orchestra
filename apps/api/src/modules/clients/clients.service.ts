@@ -9,6 +9,7 @@ import {
   CreateAuditLogInput,
 } from '../audit-logs/audit-logs.service';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
+import { DefaultProfilesService } from '../roles/default-profiles.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
@@ -36,6 +37,7 @@ export class ClientsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly defaultProfiles: DefaultProfilesService,
   ) {}
 
   /**
@@ -76,6 +78,8 @@ export class ClientsService {
         slug: dto.slug,
       },
     });
+
+    await this.defaultProfiles.applyForClient(client.id);
 
     await this.logClientEvent('client.created', {
       clientId: client.id,

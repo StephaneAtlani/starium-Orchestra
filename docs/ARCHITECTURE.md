@@ -303,7 +303,7 @@ Utilisation du logger NestJS ou Pino intégré à Nest ; même logger dans tous 
 2. **Types** : `tsc --noEmit` (backend + frontend).
 3. **Tests** : unitaires (services, guards) + tests d’API (controllers) ; frontend : tests des parcours critiques et du switcher client.
 4. **Build** : backend `nest build`, frontend `next build`.
-5. **Migrations** : Prisma migrate (en CI, vérification que les migrations sont applicables ; en déploiement, exécution contrôlée). En dev, `pnpm prisma:seed` depuis `apps/api` pour créer l’utilisateur de test d’authentification (voir README).
+5. **Migrations** : Prisma migrate (en CI, vérification que les migrations sont applicables ; en déploiement, exécution contrôlée). En dev, `pnpm prisma:seed` depuis `apps/api` pour créer l’utilisateur de test d’authentification (voir README). Le seed applique aussi les **profils par défaut** (rôles prédéfinis) à tous les clients existants — voir [docs/default-profiles.md](default-profiles.md).
 
 ### 8.2 Environnements
 
