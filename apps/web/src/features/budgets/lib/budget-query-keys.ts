@@ -18,11 +18,19 @@ export const budgetQueryKeys = {
   budgetDetail: (clientId: string, budgetId: string) =>
     ['budgets', clientId, 'budget-detail', budgetId] as const,
 
-  budgetEnvelopes: (clientId: string, budgetId: string, filters?: object) =>
-    ['budgets', clientId, 'budget-envelopes', budgetId, filters] as const,
+  /** options.full === true pour l’explorer (toutes les enveloppes) ; sans options = listes paginées */
+  budgetEnvelopes: (
+    clientId: string,
+    budgetId: string,
+    options?: { full?: boolean },
+  ) => ['budgets', clientId, 'budget-envelopes', budgetId, options] as const,
 
   budgetLines: (clientId: string, envelopeId: string, filters?: object) =>
     ['budgets', clientId, 'budget-lines', envelopeId, filters] as const,
+
+  /** Toutes les lignes du budget (explorer) — sans filtres API */
+  budgetLinesByBudget: (clientId: string, budgetId: string) =>
+    ['budgets', clientId, 'budget-lines-by-budget', budgetId] as const,
 
   budgetSummary: (clientId: string, budgetId: string) =>
     ['budgets', clientId, 'budget-summary', budgetId] as const,

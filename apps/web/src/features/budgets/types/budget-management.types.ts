@@ -63,6 +63,9 @@ export interface BudgetLine {
   allocationScope: string;
   initialAmount: number;
   revisedAmount: number;
+  forecastAmount: number;
+  committedAmount: number;
+  consumedAmount: number;
   remainingAmount: number;
   currency: string;
   status: string;

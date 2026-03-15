@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
@@ -8,21 +8,73 @@ import { PageContainer } from '@/components/layout/page-container';
 import { BudgetPageHeader } from '@/features/budgets/components/budget-page-header';
 import { BudgetKpiCards } from '@/features/budgets/components/budget-kpi-cards';
 import { BudgetErrorState } from '@/features/budgets/components/budget-error-state';
+import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
+import { BudgetToolbar } from '@/features/budgets/components/budget-toolbar';
+import { BudgetExplorerTable } from '@/features/budgets/components/budget-explorer-table';
 import { LoadingState } from '@/components/feedback/loading-state';
-import { useBudgetDetail } from '@/features/budgets/hooks/use-budgets';
+import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer';
+import { useBudgetExplorerTree } from '@/features/budgets/hooks/use-budget-explorer-tree';
 import { useBudgetSummary } from '@/features/budgets/hooks/use-budget-summary';
-import { budgetLines, budgetReporting, budgetSnapshots, budgetVersions, budgetReallocations } from '@/features/budgets/constants/budget-routes';
+import {
+  budgetLines,
+  budgetReporting,
+  budgetSnapshots,
+  budgetVersions,
+  budgetReallocations,
+} from '@/features/budgets/constants/budget-routes';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { formatAmount } from '@/features/budgets/lib/budget-formatters';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { BudgetExplorerFilters } from '@/features/budgets/types/budget-explorer.types';
 
 export default function BudgetDetailPage() {
   const params = useParams();
   const budgetId = typeof params.budgetId === 'string' ? params.budgetId : null;
-  const { data: budget, isLoading: budgetLoading, error: budgetError, refetch } = useBudgetDetail(budgetId);
+
+  const { budget, envelopes, lines, isLoading, error, refetch } =
+    useBudgetExplorer(budgetId);
+
+  const [filters, setFilters] = useState<BudgetExplorerFilters>({});
+  const { tree, filteredTree } = useBudgetExplorerTree(
+    budget,
+    envelopes,
+    lines,
+    filters,
+  );
+
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const hasInitializedExpanded = useRef(false);
+
+  useEffect(() => {
+    if (tree.length > 0 && !hasInitializedExpanded.current) {
+      const rootEnvelopeIds = tree
+        .filter((n) => n.type === 'envelope')
+        .map((n) => n.id);
+      setExpandedIds(new Set(rootEnvelopeIds));
+      hasInitializedExpanded.current = true;
+    }
+  }, [tree]);
+
+  const onToggleExpand = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   const { data: summary } = useBudgetSummary(budgetId);
 
-  if (budgetLoading) {
+  if (isLoading) {
     return (
       <RequireActiveClient>
         <PageContainer>
@@ -33,13 +85,13 @@ export default function BudgetDetailPage() {
     );
   }
 
-  if (budgetError || !budget) {
+  if (error || !budget) {
     return (
       <RequireActiveClient>
         <PageContainer>
           <BudgetPageHeader title="Budget" />
           <BudgetErrorState
-            message={budgetError instanceof Error ? budgetError.message : 'Budget non trouvé.'}
+            message={error instanceof Error ? error.message : 'Budget non trouvé.'}
             onRetry={() => void refetch()}
           />
         </PageContainer>
@@ -59,6 +111,9 @@ export default function BudgetDetailPage() {
       ]
     : [];
 
+  const isEmptyGlobal = tree.length === 0;
+  const isEmptyFiltered = filteredTree.length === 0 && tree.length > 0;
+
   return (
     <RequireActiveClient>
       <PageContainer>
@@ -77,29 +132,119 @@ export default function BudgetDetailPage() {
           <BudgetKpiCards items={kpiItems} className="mb-6" />
         )}
 
+        <BudgetToolbar className="mb-4">
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            <Input
+              placeholder="Rechercher (nom, code)…"
+              value={filters.search ?? ''}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, search: e.target.value || undefined }))
+              }
+              className="max-w-xs"
+              data-testid="explorer-search"
+            />
+            <Select
+              value={filters.envelopeType ?? '__all__'}
+              onValueChange={(v) =>
+                setFilters((f) => ({
+                  ...f,
+                  envelopeType: v === '__all__' || !v ? undefined : v,
+                }))
+              }
+            >
+              <SelectTrigger size="sm" className="w-[140px]" data-testid="explorer-envelope-type">
+                <SelectValue placeholder="Type enveloppe" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Tous les types</SelectItem>
+                <SelectItem value="RUN">RUN</SelectItem>
+                <SelectItem value="BUILD">BUILD</SelectItem>
+                <SelectItem value="TRANSVERSE">TRANSVERSE</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={filters.expenseType ?? '__all__'}
+              onValueChange={(v) =>
+                setFilters((f) => ({
+                  ...f,
+                  expenseType: v === '__all__' || !v ? undefined : v,
+                }))
+              }
+            >
+              <SelectTrigger size="sm" className="w-[120px]" data-testid="explorer-expense-type">
+                <SelectValue placeholder="OPEX/CAPEX" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Tous</SelectItem>
+                <SelectItem value="OPEX">OPEX</SelectItem>
+                <SelectItem value="CAPEX">CAPEX</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </BudgetToolbar>
+
+        {isEmptyGlobal && (
+          <BudgetEmptyState
+            title="Aucune enveloppe"
+            description="Ce budget n’a pas encore d’enveloppe. Les lignes budgétaires apparaîtront ici une fois la structure créée."
+            className="mb-6"
+          />
+        )}
+
+        {!isEmptyGlobal && (
+          <Card className="mb-6">
+            <CardContent className="p-0">
+              <BudgetExplorerTable
+                nodes={filteredTree}
+                currency={currency}
+                expandedIds={expandedIds}
+                onToggleExpand={onToggleExpand}
+                emptyMessage="Aucune enveloppe."
+                emptyFilteredMessage="Aucun résultat pour ces filtres."
+                isFilteredEmpty={isEmptyFiltered}
+              />
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Accès rapides</CardTitle>
             <CardDescription>Sous-domaines du budget.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Link href={budgetLines(budgetId!)} className="text-sm font-medium text-primary hover:underline">
+            <Link
+              href={budgetLines(budgetId!)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
               Lignes
             </Link>
             <span className="text-muted-foreground">·</span>
-            <Link href={budgetReporting(budgetId!)} className="text-sm font-medium text-primary hover:underline">
+            <Link
+              href={budgetReporting(budgetId!)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
               Reporting
             </Link>
             <span className="text-muted-foreground">·</span>
-            <Link href={budgetSnapshots(budgetId!)} className="text-sm font-medium text-primary hover:underline">
+            <Link
+              href={budgetSnapshots(budgetId!)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
               Snapshots
             </Link>
             <span className="text-muted-foreground">·</span>
-            <Link href={budgetVersions(budgetId!)} className="text-sm font-medium text-primary hover:underline">
+            <Link
+              href={budgetVersions(budgetId!)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
               Versions
             </Link>
             <span className="text-muted-foreground">·</span>
-            <Link href={budgetReallocations(budgetId!)} className="text-sm font-medium text-primary hover:underline">
+            <Link
+              href={budgetReallocations(budgetId!)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
               Réallocations
             </Link>
           </CardContent>

@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémenté
 
 ## Domaine
 
@@ -499,4 +499,23 @@ comprendre la structure budgétaire
 ```
 
 C’est **l’interface centrale du module Budget**.
+
+---
+
+# 20. Implémentation (référence)
+
+L’implémentation suit le plan détaillé (`.cursor/plans/` ou équivalent) et respecte :
+
+- **Route** : `apps/web/src/app/(protected)/budgets/[budgetId]/page.tsx`
+- **APIs** : `GET /api/budgets/:id`, `GET /api/budget-envelopes?budgetId=&limit=&offset=`, `GET /api/budget-lines?budgetId=&limit=&offset=` (pagination gérée en boucle côté frontend pour charger l’intégralité des données).
+- **Structure feature** :
+  - `features/budgets/types/budget-explorer.types.ts` — types discriminés `ExplorerNode`, `BudgetExplorerFilters`, `BudgetExplorerData`
+  - `features/budgets/lib/fetch-budget-explorer-data.ts` — `fetchAllEnvelopesForBudget`, `fetchAllLinesForBudget` (sans filtres API)
+  - `features/budgets/lib/build-budget-tree.ts` — construction arbre, orphelins à la racine / nœud virtuel « Lignes sans enveloppe »
+  - `features/budgets/lib/filter-budget-tree.ts` — filtrage côté client (search, envelopeType, expenseType)
+  - `features/budgets/hooks/use-budget-envelopes.ts`, `use-budget-lines.ts`, `use-budget-explorer.ts`, `use-budget-explorer-tree.ts`
+  - `features/budgets/components/budget-lines-progress.tsx`, `budget-explorer-row.tsx`, `budget-explorer-table.tsx`
+- **Query keys** : `budgetEnvelopes(clientId, budgetId, { full: true })` pour l’explorer ; `budgetLinesByBudget(clientId, budgetId)` sans filtres. Toutes tenant-aware.
+- **États** : loading, error, empty global (aucune enveloppe), empty filtré (message distinct). Expansion par défaut : racines ouvertes, sous-niveaux fermés.
+- **Critères d’acceptation** (§18) : tous couverts.
 
