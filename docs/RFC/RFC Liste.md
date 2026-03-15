@@ -11,6 +11,7 @@
 | **RFC-020**    | Budget Workflow        | Validation budgétaire                         | Moyenne  | Annulé      |
 | **RFC-021**    | Analytical Dimensions  | Comptes comptables, ventilation par centres de coûts | Haute    | ✅ Terminé   |
 | **RFC-022**    | Budget Dashboard API   | API cockpit de pilotage                       | Haute    | ✅ Terminé   |
+| **RFC-023**    | Client RBAC Administration   | Administration des rôles et droits par le Client Admin    | Haute    | A faire   |
 
 | Ordre  | RFC            | Nom                                   | Objectif                                                                                                                 | Attendus / Résultat concret                                                                                                                                                                 | Priorité | État      |
 | ------ | -------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------- |
