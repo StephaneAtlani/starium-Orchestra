@@ -1,12 +1,14 @@
 'use client';
 
 import React from 'react';
+import { DollarSign, Users, Building2, TrendingUp } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { TableToolbar } from '@/components/layout/table-toolbar';
 import { Button } from '@/components/ui/button';
+import { KpiCard } from '@/components/ui/kpi-card';
 import {
   Card,
   CardContent,
@@ -29,42 +31,30 @@ export default function DashboardPage() {
             Vue d’ensemble
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <CardDescription>Ce mois</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold tabular-nums">—</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">New Customers</CardTitle>
-                <CardDescription>30 jours</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold tabular-nums">—</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Active Accounts</CardTitle>
-                <CardDescription>30 jours</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold tabular-nums">—</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
-                <CardDescription>30 jours</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold tabular-nums">—</p>
-              </CardContent>
-            </Card>
+            <KpiCard
+              title="Total Revenue"
+              value="—"
+              subtitle="Ce mois"
+              icon={<DollarSign className="h-4 w-4" />}
+            />
+            <KpiCard
+              title="New Customers"
+              value="—"
+              subtitle="30 jours"
+              icon={<Users className="h-4 w-4" />}
+            />
+            <KpiCard
+              title="Active Accounts"
+              value="—"
+              subtitle="30 jours"
+              icon={<Building2 className="h-4 w-4" />}
+            />
+            <KpiCard
+              title="Growth Rate"
+              value="—"
+              subtitle="30 jours"
+              icon={<TrendingUp className="h-4 w-4" />}
+            />
           </div>
         </section>
 

@@ -54,8 +54,8 @@
 
 /* Shell : classes sémantiques (variables :root) */
 .starium-sidebar {
-  width: 14rem;
-  min-width: 14rem;
+  width: 12rem;
+  min-width: 12rem;
   background-color: var(--sidebar);
   color: var(--sidebar-foreground);
 }
