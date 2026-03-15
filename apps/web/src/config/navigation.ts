@@ -54,6 +54,8 @@ export const navigation: NavigationSection[] = [
         children: [
           { label: 'Cockpit', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
+          { label: 'Exercices', href: '/budgets/exercises', scope: 'client', requiredPermissions: ['budgets.read'] },
+          { label: 'Imports', href: '/budgets/imports', scope: 'client', requiredPermissions: ['budgets.read'] },
         ],
       },
     ],
