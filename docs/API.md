@@ -436,6 +436,9 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 | /api/audit-logs   | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 | /api/test-rbac    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 | /api/budget-exercises, /api/budgets, /api/budget-envelopes, /api/budget-lines (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update`) |
+| /api/general-ledger-accounts (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.general-ledger-accounts.read` / `.create` / `.update`) |
+| /api/analytical-ledger-accounts (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.analytical-ledger-accounts.read` / `.create` / `.update`) |
+| /api/cost-centers (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.cost-centers.read` / `.create` / `.update`) |
 | /api/financial-allocations, /api/financial-events, /api/budget-lines/:id/allocations, /api/budget-lines/:id/events | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create`) |
 | /api/budget-reallocations | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-reporting/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
@@ -1096,6 +1099,7 @@ Toutes les listes retournent : `{ "items": [...], "total": number, "limit": numb
 - **BudgetEnvelopeType** : `RUN`, `BUILD`, `TRANSVERSE`
 - **BudgetLineStatus** : `DRAFT`, `ACTIVE`, `CLOSED`, `ARCHIVED`
 - **ExpenseType** : `OPEX`, `CAPEX`
+- **BudgetLineAllocationScope** (RFC-021) : `ENTERPRISE`, `ANALYTICAL`
 
 Les montants en entrée/sortie sont des **number** (jamais d’objet Decimal en API).
 
@@ -1163,21 +1167,31 @@ Détail et mise à jour. PATCH refusé si le **budget parent** est LOCKED ou ARC
 
 ### GET /api/budget-lines
 
-Liste les lignes budgétaires. **Query** : `budgetId`, `envelopeId`, `status`, `expenseType`, `search`, `offset`, `limit`. **Tri** : `createdAt desc`. Les montants retournés sont des **number**.
+Liste les lignes budgétaires. **Query** : `budgetId`, `envelopeId`, `status`, `expenseType`, `costCenterId` (lignes ayant un split vers ce centre), `generalLedgerAccountId`, `allocationScope` (ENTERPRISE | ANALYTICAL), `search`, `offset`, `limit`. **Tri** : `createdAt desc`. Les montants et champs analytiques (generalLedgerAccount, analyticalLedgerAccount, costCenterSplits) sont inclus. Les montants retournés sont des **number**.
 
 ---
 
 ### POST /api/budget-lines
 
-Crée une ligne. **Body** : `budgetId`, `envelopeId`, `name`, `code?`, `description?`, `expenseType`, `initialAmount`, `revisedAmount?`, `currency`, `status?`. L’enveloppe doit appartenir au budget indiqué et au client. À la création : `revisedAmount = initialAmount` si absent, `forecastAmount = 0`, `committedAmount = 0`, `consumedAmount = 0`, `remainingAmount = revisedAmount`. Si `code` absent, généré (`BL-suffix`).
+Crée une ligne. **Body** : `budgetId`, `envelopeId`, `name`, `code?`, `description?`, `expenseType`, **`generalLedgerAccountId`** (obligatoire), `analyticalLedgerAccountId?`, `allocationScope?` (défaut ENTERPRISE), `costCenterSplits?` (tableau `[{ costCenterId, percentage }]` si ANALYTICAL ; somme = 100), `initialAmount`, `revisedAmount?`, `currency`, `status?`. L’enveloppe et le compte comptable doivent appartenir au client. **Règles** : ENTERPRISE ⇒ 0 split ; ANALYTICAL ⇒ au moins 1 split, somme 100 %, unicité costCenter par ligne. Si `code` absent, généré (`BL-suffix`).
 
 ---
 
 ### GET /api/budget-lines/:id — PATCH /api/budget-lines/:id
 
-Détail et mise à jour d’une ligne. PATCH : si `revisedAmount` change, `remainingAmount` est recalculé ; les champs `forecastAmount`, `committedAmount`, `consumedAmount` ne sont jamais modifiés (gérés par le noyau financier). PATCH refusé si budget parent LOCKED/ARCHIVED ou si ligne ARCHIVED/CLOSED.
+Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`. PATCH : champs optionnels dont `generalLedgerAccountId`, `analyticalLedgerAccountId`, `allocationScope`, `costCenterSplits`. Si `allocationScope` = ENTERPRISE, les splits existants sont supprimés ; si ANALYTICAL et `costCenterSplits` non fourni, les splits existants sont conservés. Si `revisedAmount` change, `remainingAmount` est recalculé. PATCH refusé si budget parent LOCKED/ARCHIVED ou si ligne ARCHIVED/CLOSED.
 
 **Note** : les routes `GET /api/budget-lines/:id/allocations` et `GET /api/budget-lines/:id/events` sont documentées en §16 (noyau financier).
+
+---
+
+### Référentiels RFC-021 (comptes et centres de coûts)
+
+**General Ledger Accounts** — `GET /api/general-ledger-accounts`, `GET /api/general-ledger-accounts/:id`, `POST /api/general-ledger-accounts`, `PATCH /api/general-ledger-accounts/:id`. **Permissions** : `budgets.general-ledger-accounts.read`, `.create`, `.update`. **Body create** : `code`, `name`, `description?`, `isActive?`, `sortOrder?`. **Query list** : `search`, `isActive`, `offset`, `limit`.
+
+**Analytical Ledger Accounts** — `GET /api/analytical-ledger-accounts`, `GET /api/analytical-ledger-accounts/:id`, `POST /api/analytical-ledger-accounts`, `PATCH /api/analytical-ledger-accounts/:id`. **Permissions** : `budgets.analytical-ledger-accounts.read`, `.create`, `.update`. Même schéma body/query que General Ledger Accounts.
+
+**Cost Centers** — `GET /api/cost-centers`, `GET /api/cost-centers/:id`, `POST /api/cost-centers`, `PATCH /api/cost-centers/:id`. **Permissions** : `budgets.cost-centers.read`, `.create`, `.update`. Même schéma body/query. Tous scopés client (`X-Client-Id`).
 
 ---
 
@@ -1440,6 +1454,14 @@ Répartition des montants par type d’enveloppe (RUN, BUILD, TRANSVERSE). Table
 
 **Erreurs :** 401, 403, 404 (budget), 400 (multi-devise).
 
+### GET /api/budget-reporting/budgets/:id/totals-by-cost-center (RFC-021)
+
+Totaux par centre de coûts. **Seules les lignes `allocationScope = ANALYTICAL`** sont prises en compte. Pour chaque centre : contribution = `lineAmount * percentage / 100` ; `lineAmount` = `revisedAmount` pour total révisé, `remainingAmount` pour restant. Réponse : `{ currency, items: [{ costCenterId, costCenterCode, costCenterName, totalRevisedAmount, totalRemainingAmount }] }`.
+
+### GET /api/budget-reporting/budgets/:id/totals-by-general-ledger-account (RFC-021)
+
+Totaux par compte comptable. **Toutes les lignes** (ENTERPRISE + ANALYTICAL). Agrégation par `generalLedgerAccountId`. Réponse : `{ currency, items: [{ generalLedgerAccountId, generalLedgerAccountCode, generalLedgerAccountName, totalRevisedAmount, totalRemainingAmount }] }`.
+
 ---
 
 ### GET /api/budget-reporting/envelopes/:id/summary
@@ -1515,7 +1537,7 @@ Prévisualisation de l’import sans écriture en base. Le `fileToken` doit appa
 | `budgetId` | string | oui         | ID du budget cible |
 | `fileToken`| string | oui         | Token retourné par analyze |
 | `mapping`  | object | oui         | MappingConfig (fields, matching?, defaults?) |
-| `options`  | object | non         | defaultEnvelopeId, defaultCurrency, importMode, ignoreEmptyRows, trimValues, dateFormat?, decimalSeparator? |
+| `options`  | object | non         | defaultEnvelopeId, **defaultGeneralLedgerAccountId** (RFC-021 : compte comptable pour lignes créées ; sinon compte client code 999999), defaultCurrency, importMode, ignoreEmptyRows, trimValues, dateFormat?, decimalSeparator? |
 
 **Réponse 200**
 

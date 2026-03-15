@@ -51,6 +51,10 @@ model Client {
   budgetImportJobs     BudgetImportJob[]
   budgetImportRowLinks BudgetImportRowLink[]
   budgetVersionSets    BudgetVersionSet[]
+  generalLedgerAccounts     GeneralLedgerAccount[]
+  analyticalLedgerAccounts  AnalyticalLedgerAccount[]
+  costCenters               CostCenter[]
+  budgetLineCostCenterSplits BudgetLineCostCenterSplit[]
 }
 
 model User {
@@ -378,38 +382,121 @@ model BudgetEnvelope {
   @@index([parentId])
 }
 
+enum BudgetLineAllocationScope {
+  ENTERPRISE
+  ANALYTICAL
+}
+
+model GeneralLedgerAccount {
+  id          String   @id @default(cuid())
+  clientId    String
+  code        String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client      Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  budgetLines BudgetLine[]
+
+  @@unique([clientId, code])
+  @@index([clientId, isActive])
+}
+
+model AnalyticalLedgerAccount {
+  id          String   @id @default(cuid())
+  clientId    String
+  code        String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client      Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  budgetLines BudgetLine[]
+
+  @@unique([clientId, code])
+  @@index([clientId, isActive])
+}
+
+model CostCenter {
+  id          String   @id @default(cuid())
+  clientId    String
+  code        String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  splits      BudgetLineCostCenterSplit[]
+
+  @@unique([clientId, code])
+  @@index([clientId, isActive])
+}
+
 model BudgetLine {
-  id              String           @id @default(cuid())
-  clientId        String
-  budgetId        String
-  envelopeId      String
-  code            String
-  name            String
-  description     String?
-  expenseType     ExpenseType
-  status          BudgetLineStatus @default(DRAFT)
-  currency        String
-  initialAmount   Decimal          @db.Decimal(18, 2) @default(0)
-  revisedAmount   Decimal          @db.Decimal(18, 2) @default(0)
-  forecastAmount  Decimal          @db.Decimal(18, 2) @default(0)
-  committedAmount Decimal          @db.Decimal(18, 2) @default(0)
-  consumedAmount  Decimal          @db.Decimal(18, 2) @default(0)
-  remainingAmount Decimal          @db.Decimal(18, 2) @default(0)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  budget          Budget           @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  envelope        BudgetEnvelope   @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
-  allocations     FinancialAllocation[]
-  financialEvents FinancialEvent[]
-  reallocationsAsSource BudgetReallocation[] @relation("ReallocationSource")
-  reallocationsAsTarget BudgetReallocation[] @relation("ReallocationTarget")
+  id                       String                     @id @default(cuid())
+  clientId                 String
+  budgetId                 String
+  envelopeId               String
+  code                     String
+  name                     String
+  description              String?
+  expenseType              ExpenseType
+  status                   BudgetLineStatus           @default(DRAFT)
+  currency                 String
+  initialAmount            Decimal                    @db.Decimal(18, 2) @default(0)
+  revisedAmount            Decimal                    @db.Decimal(18, 2) @default(0)
+  forecastAmount           Decimal                    @db.Decimal(18, 2) @default(0)
+  committedAmount          Decimal                    @db.Decimal(18, 2) @default(0)
+  consumedAmount           Decimal                    @db.Decimal(18, 2) @default(0)
+  remainingAmount           Decimal                    @db.Decimal(18, 2) @default(0)
+  generalLedgerAccountId   String   // Required; backfilled by migration 20260315090300
+  analyticalLedgerAccountId String?
+  allocationScope          BudgetLineAllocationScope  @default(ENTERPRISE)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  client                   Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budget                   Budget                    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  envelope                 BudgetEnvelope            @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
+  generalLedgerAccount     GeneralLedgerAccount      @relation(fields: [generalLedgerAccountId], references: [id], onDelete: Restrict)
+  analyticalLedgerAccount  AnalyticalLedgerAccount?  @relation(fields: [analyticalLedgerAccountId], references: [id], onDelete: SetNull)
+  costCenterSplits         BudgetLineCostCenterSplit[]
+  allocations               FinancialAllocation[]
+  financialEvents           FinancialEvent[]
+  reallocationsAsSource     BudgetReallocation[]      @relation("ReallocationSource")
+  reallocationsAsTarget     BudgetReallocation[]      @relation("ReallocationTarget")
 
   @@unique([clientId, budgetId, code])
   @@index([clientId])
   @@index([budgetId])
   @@index([envelopeId])
   @@index([status])
+}
+
+model BudgetLineCostCenterSplit {
+  id           String   @id @default(cuid())
+  clientId     String
+  budgetLineId String
+  costCenterId String
+  percentage   Decimal  @db.Decimal(5, 2)
+  createdAt    DateTime @default(now())
+
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+  costCenter CostCenter @relation(fields: [costCenterId], references: [id], onDelete: Restrict)
+
+  @@unique([budgetLineId, costCenterId])
+  @@index([budgetLineId])
+  @@index([clientId, budgetLineId])
+  @@index([clientId, costCenterId])
 }
 
 enum BudgetSnapshotStatus {

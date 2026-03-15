@@ -13,6 +13,7 @@ export interface MappingMatchingConfig {
 
 export interface BudgetImportOptionsConfig {
   defaultEnvelopeId?: string;
+  defaultGeneralLedgerAccountId?: string;
   defaultCurrency?: string;
   importMode?: BudgetImportMode;
   ignoreEmptyRows?: boolean;

@@ -4,7 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetLineStatus, BudgetStatus } from '@prisma/client';
+import { BudgetLineAllocationScope, BudgetLineStatus, BudgetStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -16,6 +17,14 @@ import { AuditContext, ListResult } from '../types/audit-context';
 import { CreateBudgetLineDto } from './dto/create-budget-line.dto';
 import { ListBudgetLinesQueryDto } from './dto/list-budget-lines.query.dto';
 import { UpdateBudgetLineDto } from './dto/update-budget-line.dto';
+
+export interface CostCenterSplitResponse {
+  id: string;
+  costCenterId: string;
+  costCenterCode: string;
+  costCenterName: string;
+  percentage: number;
+}
 
 export interface BudgetLineResponse {
   id: string;
@@ -34,9 +43,25 @@ export interface BudgetLineResponse {
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;
+  generalLedgerAccountId: string;
+  generalLedgerAccountCode: string;
+  generalLedgerAccountName: string;
+  analyticalLedgerAccountId: string | null;
+  analyticalLedgerAccountCode: string | null;
+  analyticalLedgerAccountName: string | null;
+  allocationScope: string;
+  costCenterSplits: CostCenterSplitResponse[];
   createdAt: Date;
   updatedAt: Date;
 }
+
+const BUDGET_LINE_INCLUDE = {
+  generalLedgerAccount: { select: { id: true, code: true, name: true } },
+  analyticalLedgerAccount: { select: { id: true, code: true, name: true } },
+  costCenterSplits: {
+    include: { costCenter: { select: { id: true, code: true, name: true } } },
+  },
+} as const;
 
 @Injectable()
 export class BudgetLinesService {
@@ -51,12 +76,21 @@ export class BudgetLinesService {
   ): Promise<ListResult<BudgetLineResponse>> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
-    const where: import('@prisma/client').Prisma.BudgetLineWhereInput = {
+    const where: Prisma.BudgetLineWhereInput = {
       clientId,
       ...(query.budgetId && { budgetId: query.budgetId }),
       ...(query.envelopeId && { envelopeId: query.envelopeId }),
       ...(query.status && { status: query.status }),
       ...(query.expenseType && { expenseType: query.expenseType }),
+      ...(query.generalLedgerAccountId && {
+        generalLedgerAccountId: query.generalLedgerAccountId,
+      }),
+      ...(query.allocationScope && { allocationScope: query.allocationScope }),
+      ...(query.costCenterId && {
+        costCenterSplits: {
+          some: { costCenterId: query.costCenterId, clientId },
+        },
+      }),
     };
     if (query.search?.trim()) {
       const term = query.search.trim();
@@ -69,6 +103,7 @@ export class BudgetLinesService {
     const [items, total] = await Promise.all([
       this.prisma.budgetLine.findMany({
         where,
+        include: BUDGET_LINE_INCLUDE,
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
@@ -90,6 +125,7 @@ export class BudgetLinesService {
   ): Promise<BudgetLineResponse> {
     const line = await this.prisma.budgetLine.findFirst({
       where: { id, clientId },
+      include: BUDGET_LINE_INCLUDE,
     });
     if (!line) {
       throw new NotFoundException('Budget line not found');
@@ -102,6 +138,42 @@ export class BudgetLinesService {
     dto: CreateBudgetLineDto,
     context?: AuditContext,
   ): Promise<BudgetLineResponse> {
+    const allocationScope = dto.allocationScope ?? BudgetLineAllocationScope.ENTERPRISE;
+    const costCenterSplits = dto.costCenterSplits ?? [];
+
+    if (allocationScope === BudgetLineAllocationScope.ENTERPRISE && costCenterSplits.length > 0) {
+      throw new BadRequestException(
+        'ENTERPRISE allocation scope must have zero cost center splits',
+      );
+    }
+    if (allocationScope === BudgetLineAllocationScope.ANALYTICAL) {
+      if (costCenterSplits.length === 0) {
+        throw new BadRequestException(
+          'ANALYTICAL allocation scope requires at least one cost center split',
+        );
+      }
+      const sum = costCenterSplits.reduce((s, x) => s + x.percentage, 0);
+      if (Math.abs(sum - 100) > 0.01) {
+        throw new BadRequestException(
+          `Sum of cost center split percentages must equal 100 (got ${sum})`,
+        );
+      }
+      const costCenterIds = costCenterSplits.map((s) => s.costCenterId);
+      if (new Set(costCenterIds).size !== costCenterIds.length) {
+        throw new BadRequestException(
+          'Duplicate cost center in splits (each center can appear only once per line)',
+        );
+      }
+    }
+
+    await this.validateGeneralLedgerAccount(clientId, dto.generalLedgerAccountId);
+    if (dto.analyticalLedgerAccountId) {
+      await this.validateAnalyticalLedgerAccount(clientId, dto.analyticalLedgerAccountId);
+    }
+    for (const s of costCenterSplits) {
+      await this.validateCostCenter(clientId, s.costCenterId);
+    }
+
     const budget = await this.prisma.budget.findFirst({
       where: { id: dto.budgetId, clientId },
     });
@@ -171,24 +243,45 @@ export class BudgetLinesService {
       }
     }
 
-    const created = await this.prisma.budgetLine.create({
-      data: {
-        clientId,
-        budgetId: dto.budgetId,
-        envelopeId: dto.envelopeId,
-        name: dto.name,
-        code,
-        description: dto.description ?? null,
-        expenseType: dto.expenseType,
-        status: dto.status ?? BudgetLineStatus.DRAFT,
-        currency: dto.currency,
-        initialAmount: toDecimal(dto.initialAmount),
-        revisedAmount: toDecimal(revisedAmount),
-        forecastAmount: toDecimal(forecastAmount),
-        committedAmount: toDecimal(committedAmount),
-        consumedAmount: toDecimal(consumedAmount),
-        remainingAmount: toDecimal(remainingAmount),
-      },
+    const created = await this.prisma.$transaction(async (tx) => {
+      const line = await tx.budgetLine.create({
+        data: {
+          clientId,
+          budgetId: dto.budgetId,
+          envelopeId: dto.envelopeId,
+          name: dto.name,
+          code,
+          description: dto.description ?? null,
+          expenseType: dto.expenseType,
+          status: dto.status ?? BudgetLineStatus.DRAFT,
+          currency: dto.currency,
+          generalLedgerAccountId: dto.generalLedgerAccountId,
+          analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
+          allocationScope,
+          initialAmount: toDecimal(dto.initialAmount),
+          revisedAmount: toDecimal(revisedAmount),
+          forecastAmount: toDecimal(forecastAmount),
+          committedAmount: toDecimal(committedAmount),
+          consumedAmount: toDecimal(consumedAmount),
+          remainingAmount: toDecimal(remainingAmount),
+        },
+      });
+      if (allocationScope === BudgetLineAllocationScope.ANALYTICAL && costCenterSplits.length > 0) {
+        for (const s of costCenterSplits) {
+          await tx.budgetLineCostCenterSplit.create({
+            data: {
+              clientId,
+              budgetLineId: line.id,
+              costCenterId: s.costCenterId,
+              percentage: toDecimal(s.percentage),
+            },
+          });
+        }
+      }
+      return tx.budgetLine.findUniqueOrThrow({
+        where: { id: line.id },
+        include: BUDGET_LINE_INCLUDE,
+      });
     });
 
     const auditInput: CreateAuditLogInput = {
@@ -196,17 +289,24 @@ export class BudgetLinesService {
       userId: context?.actorUserId,
       action: 'budget_line.created',
       resourceType: 'budget_line',
-      resourceId: created.id,
+      resourceId: created!.id,
       newValue: {
-        id: created.id,
-        name: created.name,
-        code: created.code,
-        budgetId: created.budgetId,
-        envelopeId: created.envelopeId,
+        id: created!.id,
+        name: created!.name,
+        code: created!.code,
+        budgetId: created!.budgetId,
+        envelopeId: created!.envelopeId,
+        generalLedgerAccountId: created!.generalLedgerAccountId,
+        analyticalLedgerAccountId: created!.analyticalLedgerAccountId,
+        allocationScope: created!.allocationScope,
         initialAmount: dto.initialAmount,
         revisedAmount,
-        currency: created.currency,
-        status: created.status,
+        currency: created!.currency,
+        status: created!.status,
+        costCenterSplitsSummary: costCenterSplits.map((s) => ({
+          costCenterId: s.costCenterId,
+          percentage: s.percentage,
+        })),
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -214,7 +314,7 @@ export class BudgetLinesService {
     };
     await this.auditLogs.create(auditInput);
 
-    return toResponse(created);
+    return toResponse(created!);
   }
 
   async update(
@@ -225,7 +325,7 @@ export class BudgetLinesService {
   ): Promise<BudgetLineResponse> {
     const existing = await this.prisma.budgetLine.findFirst({
       where: { id, clientId },
-      include: { budget: true },
+      include: { budget: true, costCenterSplits: true },
     });
     if (!existing) {
       throw new NotFoundException('Budget line not found');
@@ -256,6 +356,48 @@ export class BudgetLinesService {
       );
     }
 
+    const allocationScope = dto.allocationScope ?? existing.allocationScope;
+    const costCenterSplits = dto.costCenterSplits;
+
+    if (allocationScope === BudgetLineAllocationScope.ENTERPRISE) {
+      if (costCenterSplits !== undefined && costCenterSplits.length > 0) {
+        throw new BadRequestException(
+          'ENTERPRISE allocation scope must have zero cost center splits',
+        );
+      }
+    }
+    if (allocationScope === BudgetLineAllocationScope.ANALYTICAL && costCenterSplits !== undefined) {
+      if (costCenterSplits.length === 0) {
+        throw new BadRequestException(
+          'ANALYTICAL allocation scope requires at least one cost center split',
+        );
+      }
+      const sum = costCenterSplits.reduce((s, x) => s + x.percentage, 0);
+      if (Math.abs(sum - 100) > 0.01) {
+        throw new BadRequestException(
+          `Sum of cost center split percentages must equal 100 (got ${sum})`,
+        );
+      }
+      const costCenterIds = costCenterSplits.map((s) => s.costCenterId);
+      if (new Set(costCenterIds).size !== costCenterIds.length) {
+        throw new BadRequestException(
+          'Duplicate cost center in splits (each center can appear only once per line)',
+        );
+      }
+    }
+
+    if (dto.generalLedgerAccountId != null) {
+      await this.validateGeneralLedgerAccount(clientId, dto.generalLedgerAccountId);
+    }
+    if (dto.analyticalLedgerAccountId !== undefined && dto.analyticalLedgerAccountId) {
+      await this.validateAnalyticalLedgerAccount(clientId, dto.analyticalLedgerAccountId);
+    }
+    if (costCenterSplits) {
+      for (const s of costCenterSplits) {
+        await this.validateCostCenter(clientId, s.costCenterId);
+      }
+    }
+
     if (
       dto.code != null &&
       dto.code !== existing.code
@@ -276,25 +418,60 @@ export class BudgetLinesService {
       }
     }
 
-    const baseData: import('@prisma/client').Prisma.BudgetLineUpdateInput = {
-      ...(dto.name != null && { name: dto.name }),
-      ...(dto.code != null && { code: dto.code }),
-      ...(dto.description !== undefined && { description: dto.description }),
-      ...(dto.status != null && { status: dto.status }),
-      ...(dto.currency != null && { currency: dto.currency }),
-    };
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const baseData: Prisma.BudgetLineUpdateInput = {
+        ...(dto.name != null && { name: dto.name }),
+        ...(dto.code != null && { code: dto.code }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.status != null && { status: dto.status }),
+        ...(dto.currency != null && { currency: dto.currency }),
+        ...(dto.generalLedgerAccountId != null && {
+          generalLedgerAccountId: dto.generalLedgerAccountId,
+        }),
+        ...(dto.analyticalLedgerAccountId !== undefined && {
+          analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
+        }),
+        ...(dto.allocationScope != null && { allocationScope: dto.allocationScope }),
+      };
 
-    if (dto.revisedAmount !== undefined && dto.revisedAmount !== null) {
-      const committed = Number(existing.committedAmount);
-      const consumed = Number(existing.consumedAmount);
-      const remaining = dto.revisedAmount - committed - consumed;
-      baseData.revisedAmount = toDecimal(dto.revisedAmount);
-      baseData.remainingAmount = toDecimal(Math.max(0, remaining));
-    }
+      if (dto.revisedAmount !== undefined && dto.revisedAmount !== null) {
+        const committed = Number(existing.committedAmount);
+        const consumed = Number(existing.consumedAmount);
+        const remaining = dto.revisedAmount - committed - consumed;
+        baseData.revisedAmount = toDecimal(dto.revisedAmount);
+        baseData.remainingAmount = toDecimal(Math.max(0, remaining));
+      }
 
-    const updated = await this.prisma.budgetLine.update({
-      where: { id },
-      data: baseData,
+      if (allocationScope === BudgetLineAllocationScope.ENTERPRISE) {
+        await tx.budgetLineCostCenterSplit.deleteMany({
+          where: { budgetLineId: id, clientId },
+        });
+      } else if (
+        allocationScope === BudgetLineAllocationScope.ANALYTICAL &&
+        costCenterSplits !== undefined
+      ) {
+        await tx.budgetLineCostCenterSplit.deleteMany({
+          where: { budgetLineId: id, clientId },
+        });
+        for (const s of costCenterSplits) {
+          await tx.budgetLineCostCenterSplit.create({
+            data: {
+              clientId,
+              budgetLineId: id,
+              costCenterId: s.costCenterId,
+              percentage: toDecimal(s.percentage),
+            },
+          });
+        }
+      }
+      await tx.budgetLine.update({
+        where: { id },
+        data: baseData,
+      });
+      return tx.budgetLine.findUniqueOrThrow({
+        where: { id },
+        include: BUDGET_LINE_INCLUDE,
+      });
     });
 
     const auditInput: CreateAuditLogInput = {
@@ -307,15 +484,29 @@ export class BudgetLinesService {
         name: existing.name,
         code: existing.code,
         status: existing.status,
+        generalLedgerAccountId: existing.generalLedgerAccountId,
+        analyticalLedgerAccountId: existing.analyticalLedgerAccountId,
+        allocationScope: existing.allocationScope,
         revisedAmount: fromDecimal(existing.revisedAmount),
         remainingAmount: fromDecimal(existing.remainingAmount),
+        costCenterSplitsSummary: existing.costCenterSplits.map((s) => ({
+          costCenterId: s.costCenterId,
+          percentage: fromDecimal(s.percentage),
+        })),
       },
       newValue: {
         name: updated.name,
         code: updated.code,
         status: updated.status,
+        generalLedgerAccountId: updated.generalLedgerAccountId,
+        analyticalLedgerAccountId: updated.analyticalLedgerAccountId,
+        allocationScope: updated.allocationScope,
         revisedAmount: fromDecimal(updated.revisedAmount),
         remainingAmount: fromDecimal(updated.remainingAmount),
+        costCenterSplitsSummary: updated.costCenterSplits.map((s) => ({
+          costCenterId: s.costCenterId,
+          percentage: fromDecimal(s.percentage),
+        })),
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -324,6 +515,48 @@ export class BudgetLinesService {
     await this.auditLogs.create(auditInput);
 
     return toResponse(updated);
+  }
+
+  private async validateGeneralLedgerAccount(
+    clientId: string,
+    generalLedgerAccountId: string,
+  ): Promise<void> {
+    const gla = await this.prisma.generalLedgerAccount.findFirst({
+      where: { id: generalLedgerAccountId, clientId },
+    });
+    if (!gla) {
+      throw new BadRequestException(
+        'General ledger account not found or does not belong to this client',
+      );
+    }
+  }
+
+  private async validateAnalyticalLedgerAccount(
+    clientId: string,
+    analyticalLedgerAccountId: string,
+  ): Promise<void> {
+    const ala = await this.prisma.analyticalLedgerAccount.findFirst({
+      where: { id: analyticalLedgerAccountId, clientId },
+    });
+    if (!ala) {
+      throw new BadRequestException(
+        'Analytical ledger account not found or does not belong to this client',
+      );
+    }
+  }
+
+  private async validateCostCenter(
+    clientId: string,
+    costCenterId: string,
+  ): Promise<void> {
+    const cc = await this.prisma.costCenter.findFirst({
+      where: { id: costCenterId, clientId },
+    });
+    if (!cc) {
+      throw new BadRequestException(
+        'Cost center not found or does not belong to this client',
+      );
+    }
   }
 
   private async resolveUniqueBudgetLineCode(
@@ -346,11 +579,11 @@ export class BudgetLinesService {
   }
 }
 
-type BudgetLineRow = Awaited<
-  ReturnType<PrismaService['budgetLine']['findFirst']>
->;
+type BudgetLineRowWithAnalytics = Prisma.BudgetLineGetPayload<{
+  include: typeof BUDGET_LINE_INCLUDE;
+}>;
 
-function toResponse(row: NonNullable<BudgetLineRow>): BudgetLineResponse {
+function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
   return {
     id: row.id,
     clientId: row.clientId,
@@ -368,6 +601,20 @@ function toResponse(row: NonNullable<BudgetLineRow>): BudgetLineResponse {
     committedAmount: fromDecimal(row.committedAmount),
     consumedAmount: fromDecimal(row.consumedAmount),
     remainingAmount: fromDecimal(row.remainingAmount),
+    generalLedgerAccountId: row.generalLedgerAccountId,
+    generalLedgerAccountCode: row.generalLedgerAccount?.code ?? '',
+    generalLedgerAccountName: row.generalLedgerAccount?.name ?? '',
+    analyticalLedgerAccountId: row.analyticalLedgerAccountId,
+    analyticalLedgerAccountCode: row.analyticalLedgerAccount?.code ?? null,
+    analyticalLedgerAccountName: row.analyticalLedgerAccount?.name ?? null,
+    allocationScope: row.allocationScope,
+    costCenterSplits: (row.costCenterSplits ?? []).map((s) => ({
+      id: s.id,
+      costCenterId: s.costCenterId,
+      costCenterCode: s.costCenter?.code ?? '',
+      costCenterName: s.costCenter?.name ?? '',
+      percentage: fromDecimal(s.percentage),
+    })),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

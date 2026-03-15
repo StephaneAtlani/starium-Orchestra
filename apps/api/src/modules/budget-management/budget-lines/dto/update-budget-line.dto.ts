@@ -1,12 +1,16 @@
 import {
+  IsArray,
   IsEnum,
   IsNumber,
   IsOptional,
   IsString,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
-import { BudgetLineStatus } from '@prisma/client';
+import { Type } from 'class-transformer';
+import { BudgetLineAllocationScope, BudgetLineStatus } from '@prisma/client';
+import { CostCenterSplitItemDto } from './cost-center-split-item.dto';
 
 export class UpdateBudgetLineDto {
   @IsOptional()
@@ -26,6 +30,24 @@ export class UpdateBudgetLineDto {
   @IsOptional()
   @IsEnum(BudgetLineStatus)
   status?: BudgetLineStatus;
+
+  @IsOptional()
+  @IsString()
+  generalLedgerAccountId?: string;
+
+  @IsOptional()
+  @IsString()
+  analyticalLedgerAccountId?: string | null;
+
+  @IsOptional()
+  @IsEnum(BudgetLineAllocationScope)
+  allocationScope?: BudgetLineAllocationScope;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CostCenterSplitItemDto)
+  costCenterSplits?: CostCenterSplitItemDto[];
 
   @IsOptional()
   @IsNumber()

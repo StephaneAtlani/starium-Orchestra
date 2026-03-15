@@ -109,7 +109,7 @@ export class BudgetVersioningService {
       where: { id: budgetId, clientId },
       include: {
         envelopes: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
-        budgetLines: true,
+        budgetLines: { include: { costCenterSplits: true } },
       },
     });
     if (!source) {
@@ -182,25 +182,13 @@ export class BudgetVersioningService {
       for (const line of source.budgetLines) {
         const newEnvelopeId = envelopeIdMap.get(line.envelopeId);
         if (!newEnvelopeId) continue;
-        await tx.budgetLine.create({
-          data: {
-            clientId,
-            budgetId: newBudget.id,
-            envelopeId: newEnvelopeId,
-            code: line.code,
-            name: line.name,
-            description: line.description,
-            expenseType: line.expenseType,
-            status: line.status,
-            currency: line.currency,
-            initialAmount: line.initialAmount,
-            revisedAmount: line.revisedAmount,
-            forecastAmount: line.forecastAmount,
-            committedAmount: line.committedAmount,
-            consumedAmount: line.consumedAmount,
-            remainingAmount: line.remainingAmount,
-          },
-        });
+        await this.cloneBudgetLineWithAnalytics(
+          tx,
+          clientId,
+          line,
+          newBudget.id,
+          newEnvelopeId,
+        );
       }
 
       await tx.budgetVersionSet.update({
@@ -264,7 +252,7 @@ export class BudgetVersioningService {
       include: {
         versionSet: true,
         envelopes: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
-        budgetLines: true,
+        budgetLines: { include: { costCenterSplits: true } },
       },
     });
     if (!source) {
@@ -339,25 +327,13 @@ export class BudgetVersioningService {
       for (const line of source.budgetLines) {
         const newEnvelopeId = envelopeIdMap.get(line.envelopeId);
         if (!newEnvelopeId) continue;
-        await tx.budgetLine.create({
-          data: {
-            clientId,
-            budgetId: newBudget.id,
-            envelopeId: newEnvelopeId,
-            code: line.code,
-            name: line.name,
-            description: line.description,
-            expenseType: line.expenseType,
-            status: line.status,
-            currency: line.currency,
-            initialAmount: line.initialAmount,
-            revisedAmount: line.revisedAmount,
-            forecastAmount: line.forecastAmount,
-            committedAmount: line.committedAmount,
-            consumedAmount: line.consumedAmount,
-            remainingAmount: line.remainingAmount,
-          },
-        });
+        await this.cloneBudgetLineWithAnalytics(
+          tx,
+          clientId,
+          line,
+          newBudget.id,
+          newEnvelopeId,
+        );
       }
 
       return { newBudget, versionSet: source.versionSet! };
@@ -627,6 +603,71 @@ export class BudgetVersioningService {
       targetBudgetId,
       lines,
     };
+  }
+
+  /**
+   * Clone a budget line into a new budget (baseline or revision), including
+   * generalLedgerAccountId, analyticalLedgerAccountId, allocationScope and costCenterSplits.
+   */
+  private async cloneBudgetLineWithAnalytics(
+    tx: Omit<Prisma.TransactionClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>,
+    clientId: string,
+    sourceLine: {
+      envelopeId: string;
+      code: string;
+      name: string;
+      description: string | null;
+      expenseType: string;
+      status: string;
+      currency: string;
+      generalLedgerAccountId: string;
+      analyticalLedgerAccountId: string | null;
+      allocationScope: string;
+      initialAmount: Prisma.Decimal;
+      revisedAmount: Prisma.Decimal;
+      forecastAmount: Prisma.Decimal;
+      committedAmount: Prisma.Decimal;
+      consumedAmount: Prisma.Decimal;
+      remainingAmount: Prisma.Decimal;
+      costCenterSplits?: { costCenterId: string; percentage: Prisma.Decimal }[];
+    },
+    newBudgetId: string,
+    newEnvelopeId: string,
+  ): Promise<void> {
+    const newLine = await tx.budgetLine.create({
+      data: {
+        clientId,
+        budgetId: newBudgetId,
+        envelopeId: newEnvelopeId,
+        code: sourceLine.code,
+        name: sourceLine.name,
+        description: sourceLine.description,
+        expenseType: sourceLine.expenseType as 'OPEX' | 'CAPEX',
+        status: sourceLine.status as any,
+        currency: sourceLine.currency,
+        generalLedgerAccountId: sourceLine.generalLedgerAccountId,
+        analyticalLedgerAccountId: sourceLine.analyticalLedgerAccountId,
+        allocationScope: sourceLine.allocationScope as any,
+        initialAmount: sourceLine.initialAmount,
+        revisedAmount: sourceLine.revisedAmount,
+        forecastAmount: sourceLine.forecastAmount,
+        committedAmount: sourceLine.committedAmount,
+        consumedAmount: sourceLine.consumedAmount,
+        remainingAmount: sourceLine.remainingAmount,
+      },
+    });
+    if (sourceLine.costCenterSplits?.length) {
+      for (const split of sourceLine.costCenterSplits) {
+        await tx.budgetLineCostCenterSplit.create({
+          data: {
+            clientId,
+            budgetLineId: newLine.id,
+            costCenterId: split.costCenterId,
+            percentage: split.percentage,
+          },
+        });
+      }
+    }
   }
 }
 

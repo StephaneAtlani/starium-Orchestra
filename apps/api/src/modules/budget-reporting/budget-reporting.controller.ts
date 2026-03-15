@@ -63,6 +63,24 @@ export class BudgetReportingController {
     return this.service.getBreakdownByType(clientId!, id);
   }
 
+  @Get('budgets/:id/totals-by-cost-center')
+  @RequirePermissions('budgets.read')
+  getTotalsByCostCenter(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.service.getTotalsByCostCenter(clientId!, id);
+  }
+
+  @Get('budgets/:id/totals-by-general-ledger-account')
+  @RequirePermissions('budgets.read')
+  getTotalsByGeneralLedgerAccount(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.service.getTotalsByGeneralLedgerAccount(clientId!, id);
+  }
+
   @Get('envelopes/:id/summary')
   @RequirePermissions('budgets.read')
   getEnvelopeSummary(

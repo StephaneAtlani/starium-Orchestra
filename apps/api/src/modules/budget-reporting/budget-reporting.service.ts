@@ -449,4 +449,123 @@ export class BudgetReportingService {
     }));
     return groupLinesByEnvelopeType(withType);
   }
+
+  /**
+   * RFC-021: Totals by cost center. Only lines with allocationScope = ANALYTICAL.
+   * Contribution per split = lineAmount * percentage / 100.
+   * lineAmount source: revisedAmount for totalRevisedAmount, remainingAmount for totalRemainingAmount (no new recalculation).
+   */
+  async getTotalsByCostCenter(
+    clientId: string,
+    budgetId: string,
+  ): Promise<{
+    currency: string;
+    items: {
+      costCenterId: string;
+      costCenterCode: string;
+      costCenterName: string;
+      totalRevisedAmount: number;
+      totalRemainingAmount: number;
+    }[];
+  }> {
+    const budget = await this.prisma.budget.findFirst({
+      where: { id: budgetId, clientId },
+    });
+    if (!budget) {
+      throw new NotFoundException('Budget not found');
+    }
+    const lines = await this.prisma.budgetLine.findMany({
+      where: { clientId, budgetId, allocationScope: 'ANALYTICAL' },
+      include: { costCenterSplits: { include: { costCenter: true } } },
+    });
+    const currency = budget.currency;
+    const byCostCenter = new Map<
+      string,
+      { code: string; name: string; revised: number; remaining: number }
+    >();
+    for (const line of lines) {
+      const lineRev = fromDecimal(line.revisedAmount);
+      const lineRem = fromDecimal(line.remainingAmount);
+      for (const split of line.costCenterSplits) {
+        const pct = fromDecimal(split.percentage) / 100;
+        const key = split.costCenterId;
+        const current = byCostCenter.get(key) ?? {
+          code: split.costCenter?.code ?? '',
+          name: split.costCenter?.name ?? '',
+          revised: 0,
+          remaining: 0,
+        };
+        current.revised += lineRev * pct;
+        current.remaining += lineRem * pct;
+        byCostCenter.set(key, current);
+      }
+    }
+    const items = Array.from(byCostCenter.entries()).map(
+      ([costCenterId, v]) => ({
+        costCenterId,
+        costCenterCode: v.code,
+        costCenterName: v.name,
+        totalRevisedAmount: Math.round(v.revised * 100) / 100,
+        totalRemainingAmount: Math.round(v.remaining * 100) / 100,
+      }),
+    );
+    return { currency, items };
+  }
+
+  /**
+   * RFC-021: Totals by general ledger account. All lines (ENTERPRISE + ANALYTICAL).
+   * Aggregate by generalLedgerAccountId; sum revisedAmount and remainingAmount (no new recalculation).
+   */
+  async getTotalsByGeneralLedgerAccount(
+    clientId: string,
+    budgetId: string,
+  ): Promise<{
+    currency: string;
+    items: {
+      generalLedgerAccountId: string;
+      generalLedgerAccountCode: string;
+      generalLedgerAccountName: string;
+      totalRevisedAmount: number;
+      totalRemainingAmount: number;
+    }[];
+  }> {
+    const budget = await this.prisma.budget.findFirst({
+      where: { id: budgetId, clientId },
+    });
+    if (!budget) {
+      throw new NotFoundException('Budget not found');
+    }
+    const lines = await this.prisma.budgetLine.findMany({
+      where: { clientId, budgetId },
+      include: { generalLedgerAccount: true },
+    });
+    const currency = budget.currency;
+    const byGla = new Map<
+      string,
+      { code: string; name: string; revised: number; remaining: number }
+    >();
+    for (const line of lines) {
+      const key = line.generalLedgerAccountId;
+      const gla = line.generalLedgerAccount;
+      const current = byGla.get(key) ?? {
+        code: gla?.code ?? '',
+        name: gla?.name ?? '',
+        revised: 0,
+        remaining: 0,
+      };
+      current.revised += fromDecimal(line.revisedAmount);
+      current.remaining += fromDecimal(line.remainingAmount);
+      byGla.set(key, current);
+    }
+    const items = Array.from(byGla.entries()).map(
+      ([generalLedgerAccountId, v]) => ({
+        generalLedgerAccountId,
+        generalLedgerAccountCode: v.code,
+        generalLedgerAccountName: v.name,
+        totalRevisedAmount: Math.round(v.revised * 100) / 100,
+        totalRemainingAmount: Math.round(v.remaining * 100) / 100,
+      }),
+    );
+    return { currency, items };
+  }
 }

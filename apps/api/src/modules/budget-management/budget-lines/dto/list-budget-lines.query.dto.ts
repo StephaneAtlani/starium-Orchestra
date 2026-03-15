@@ -1,5 +1,5 @@
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { BudgetLineStatus, ExpenseType } from '@prisma/client';
+import { BudgetLineAllocationScope, BudgetLineStatus, ExpenseType } from '@prisma/client';
 import { PaginationQueryDto } from '../../dto/pagination-query.dto';
 
 export class ListBudgetLinesQueryDto extends PaginationQueryDto {
@@ -18,6 +18,18 @@ export class ListBudgetLinesQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(ExpenseType)
   expenseType?: ExpenseType;
+
+  @IsOptional()
+  @IsString()
+  costCenterId?: string;
+
+  @IsOptional()
+  @IsString()
+  generalLedgerAccountId?: string;
+
+  @IsOptional()
+  @IsEnum(BudgetLineAllocationScope)
+  allocationScope?: BudgetLineAllocationScope;
 
   @IsOptional()
   @IsString()

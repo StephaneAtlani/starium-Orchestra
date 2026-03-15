@@ -18,6 +18,10 @@ export class ExecuteImportOptionsDto implements BudgetImportOptionsConfig {
 
   @IsOptional()
   @IsString()
+  defaultGeneralLedgerAccountId?: string;
+
+  @IsOptional()
+  @IsString()
   defaultCurrency?: string;
 
   @IsOptional()

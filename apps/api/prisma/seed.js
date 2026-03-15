@@ -76,6 +76,21 @@ async function upsertModulesAndPermissions() {
     audit_logs: ['read', 'export', 'delete'],
   };
 
+  // RFC-021: permissions complètes (module.action ou module.sous-resource.action)
+  const extraPermsByModule = {
+    budgets: [
+      'cost-centers.read',
+      'cost-centers.create',
+      'cost-centers.update',
+      'general-ledger-accounts.read',
+      'general-ledger-accounts.create',
+      'general-ledger-accounts.update',
+      'analytical-ledger-accounts.read',
+      'analytical-ledger-accounts.create',
+      'analytical-ledger-accounts.update',
+    ],
+  };
+
   const moduleRecords = {};
 
   for (const m of modules) {
@@ -100,6 +115,28 @@ async function upsertModulesAndPermissions() {
     const module = moduleRecords[moduleCode];
     for (const action of actions) {
       const code = `${moduleCode}.${action}`;
+      await prisma.permission.upsert({
+        where: { code },
+        update: {
+          label: code,
+          description: null,
+          moduleId: module.id,
+        },
+        create: {
+          code,
+          label: code,
+          description: null,
+          moduleId: module.id,
+        },
+      });
+    }
+  }
+
+  for (const [moduleCode, extraCodes] of Object.entries(extraPermsByModule || {})) {
+    const module = moduleRecords[moduleCode];
+    if (!module) continue;
+    for (const fullAction of extraCodes) {
+      const code = `${moduleCode}.${fullAction}`;
       await prisma.permission.upsert({
         where: { code },
         update: {

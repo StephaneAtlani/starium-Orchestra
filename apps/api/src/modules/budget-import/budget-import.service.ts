@@ -206,6 +206,10 @@ export class BudgetImportService {
     const options = this.mergeOptions(dto.options);
     const importMode = options.importMode ?? 'UPSERT';
     await this.validateBudget(clientId, dto.budgetId);
+    const defaultGlaId = await this.resolveDefaultGeneralLedgerAccountId(
+      clientId,
+      options.defaultGeneralLedgerAccountId,
+    );
     const envelopeMaps = await this.loadEnvelopeMaps(clientId, dto.budgetId);
     const rowLinkMaps = await this.loadRowLinkMaps(clientId, dto.budgetId);
     const parseResult = this.parser.parse(buffer, fileMeta.sourceType, {
@@ -272,6 +276,9 @@ export class BudgetImportService {
                 expenseType: ExpenseType.OPEX,
                 status: BudgetLineStatus.DRAFT,
                 currency,
+                generalLedgerAccountId: defaultGlaId,
+                analyticalLedgerAccountId: null,
+                allocationScope: 'ENTERPRISE',
                 initialAmount: new Prisma.Decimal(amount),
                 revisedAmount: new Prisma.Decimal(amount),
                 forecastAmount: new Prisma.Decimal(0),
@@ -392,6 +399,33 @@ export class BudgetImportService {
     if (budget.status === BudgetStatus.LOCKED || budget.status === BudgetStatus.ARCHIVED) {
       throw new BadRequestException('Cannot import into a locked or archived budget');
     }
+  }
+
+  /** RFC-021: resolve GLA for import. Use options.defaultGeneralLedgerAccountId or client default (code 999999). */
+  private async resolveDefaultGeneralLedgerAccountId(
+    clientId: string,
+    defaultGeneralLedgerAccountId?: string,
+  ): Promise<string> {
+    if (defaultGeneralLedgerAccountId) {
+      const gla = await this.prisma.generalLedgerAccount.findFirst({
+        where: { id: defaultGeneralLedgerAccountId, clientId },
+      });
+      if (!gla) {
+        throw new BadRequestException(
+          'defaultGeneralLedgerAccountId not found or does not belong to this client',
+        );
+      }
+      return gla.id;
+    }
+    const defaultGla = await this.prisma.generalLedgerAccount.findFirst({
+      where: { clientId, code: '999999' },
+    });
+    if (!defaultGla) {
+      throw new BadRequestException(
+        'No default general ledger account for this client. Create a general ledger account (e.g. code 999999) or pass defaultGeneralLedgerAccountId in options.',
+      );
+    }
+    return defaultGla.id;
   }
 
   private async loadEnvelopeMaps(
