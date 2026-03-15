@@ -119,16 +119,30 @@ Détail : [docs/API.md](../API.md) §20 (Budget Versioning).
 
 ---
 
-## 2. Ce qui n’est pas implémenté
+## 2. Frontend Budget (RFC-FE-001)
 
-- **Frontend** : aucune interface utilisateur complète pour la gestion des budgets (CRUD exercices/budgets/enveloppes/lignes) dans cette phase. Le **dashboard Budgets** (RFC-022) est implémenté : page `/budgets/dashboard` avec KPI, CAPEX/OPEX, tendance mensuelle, top enveloppes/lignes, enveloppes à risque. UI dimensions analytiques (référentiels, édition ligne avec portée et ventilation) hors périmètre immédiat (RFC-021).
+Une **fondation frontend** du module budget est en place (RFC-FE-001) :
+
+- **Structure** : `apps/web/src/features/budgets/` (api, hooks, components, schemas, types, lib, constants).
+- **Routes** : cockpit `/budgets`, liste exercices `/budgets/exercises`, détail exercice/budget, dashboard `/budgets/dashboard`, squelettes (lines, reporting, snapshots, versions, reallocations, imports).
+- **API client** : modules read-only (budget-management, budget-reporting, budget-dashboard) ; stubs pour snapshots, reallocations, imports, versioning.
+- **Hooks** : TanStack Query avec query keys tenant-aware (`clientId` obligatoire).
+- **Composants** : header, KPI cards, toolbar, list table, status badge, empty/error states.
+
+Aucun formulaire complet (CRUD) ni UI avancée (versioning, import, snapshots, reallocations) dans cette fondation. Détail : [docs/modules/budget-frontend.md](budget-frontend.md).
+
+---
+
+## 3. Ce qui n’est pas implémenté (côté UI / métier complète)
+
+- **Frontend** : pas d’interface CRUD complète pour exercices/budgets/enveloppes/lignes. Le **dashboard Budgets** (RFC-022) est implémenté : page `/budgets/dashboard` avec KPI, CAPEX/OPEX, tendance mensuelle, top enveloppes/lignes, enveloppes à risque. UI dimensions analytiques (référentiels, édition ligne avec portée et ventilation) hors périmètre immédiat (RFC-021).
 - **Suppression physique** : pas d’endpoint DELETE sur la structure budgétaire (RFC-015-2).
 - **Snapshots** : implémentés (RFC-015-3). **Réallocations** : backend implémenté (RFC-017) ; UI « Réallouer » hors périmètre MVP.
 - **Axes analytiques, export Excel, workflow d’approbation** : hors périmètre du MVP. **Import Excel/CSV** : backend implémenté (RFC-018) ; UI d’import hors périmètre MVP. **Versioning** : backend implémenté (RFC-019) ; baseline, révisions, version active, comparaison ; UI versioning hors périmètre MVP.
 
 ---
 
-## 3. Comment créer un budget (données de test ou dev)
+## 4. Comment créer un budget (données de test ou dev)
 
 ### Option A : API Budget Management (recommandé)
 
@@ -152,7 +166,7 @@ Voir [docs/API.md](../API.md) §15 et [docs/modules/analytical-dimensions-rfc021
 
 ---
 
-## 4. Tester le financial-core
+## 5. Tester le financial-core
 
 Une fois qu’une **BudgetLine** existe pour un client :
 
@@ -169,8 +183,9 @@ Voir [docs/API.md](../API.md#15-noyau-financier--apifinancial-allocations-apifin
 
 ---
 
-## 5. Références
+## 6. Références
 
+- **RFC-FE-001** : Budget Frontend Foundation (structure, hooks, composants, routes)
 - **RFC-015-1A** : Schéma Prisma Budget MVP
 - **RFC-015-2** : Budget Management Backend (structure budgétaire)
 - **RFC-015-1B** : Financial Core Backend (allocations, événements)

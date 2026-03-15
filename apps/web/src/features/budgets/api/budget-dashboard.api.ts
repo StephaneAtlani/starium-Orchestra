@@ -1,11 +1,15 @@
-import type { BudgetDashboardQueryParams, BudgetDashboardResponse } from '../types/budget-dashboard.types';
+/**
+ * API budget-dashboard — vue cockpit (lecture seule).
+ */
 
-export type AuthFetch = (
-  input: RequestInfo,
-  init?: RequestInit,
-) => Promise<Response>;
+import type {
+  BudgetDashboardQueryParams,
+  BudgetDashboardResponse,
+} from '../types/budget-dashboard.types';
 
-export async function getBudgetDashboard(
+export type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+
+export async function getDashboard(
   authFetch: AuthFetch,
   params?: BudgetDashboardQueryParams,
 ): Promise<BudgetDashboardResponse> {
@@ -18,9 +22,7 @@ export async function getBudgetDashboard(
   const url = qs ? `/api/budget-dashboard?${qs}` : '/api/budget-dashboard';
   const res = await authFetch(url);
   if (!res.ok) {
-    if (res.status === 404) {
-      throw new Error('Aucun budget ou exercice trouvé');
-    }
+    if (res.status === 404) throw new Error('Aucun budget ou exercice trouvé');
     throw new Error('Erreur lors du chargement du dashboard budget');
   }
   return res.json() as Promise<BudgetDashboardResponse>;

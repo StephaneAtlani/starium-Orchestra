@@ -24,23 +24,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useBudgetDashboardQuery } from '@/features/budget-dashboard/hooks/use-budget-dashboard-query';
-
-function formatAmount(value: number, currency?: string): string {
-  const n = new Intl.NumberFormat('fr-FR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-  return currency ? `${n} ${currency}` : n;
-}
-
-function formatPercent(value: number): string {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'percent',
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(value);
-}
+import { useBudgetDashboardQuery } from '@/features/budgets/hooks/use-budget-dashboard';
+import { formatAmount, formatPercent } from '@/features/budgets/lib/budget-formatters';
 
 export default function BudgetDashboardPage() {
   const { data, isLoading, error, refetch } = useBudgetDashboardQuery();

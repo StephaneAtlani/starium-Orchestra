@@ -15,7 +15,7 @@
 
 | Ordre  | RFC            | Nom                                   | Objectif                                                                                                                 | Priorité | État    |
 | ------ | -------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------- | ------- |
-| **1**  | **RFC-FE-001** | Budget Frontend Foundation            | Poser l’architecture frontend du module budget : structure feature-first, client API, hooks React Query, layout, routing | Haute    | À faire |
+| **1**  | **RFC-FE-001** | Budget Frontend Foundation            | Poser l’architecture frontend du module budget : structure feature-first, client API, hooks React Query, layout, routing | Haute    | ✅ Terminé |
 | **2**  | **RFC-FE-003** | Budget Exercises & Budgets List UI    | Pages de listing des exercices et budgets avec filtres, recherche et pagination                                          | Haute    | À faire |
 | **3**  | **RFC-FE-004** | Budget Envelopes & Lines Explorer UI  | Explorateur hiérarchique Budget → Enveloppes → Lignes (navigation principale du module)                                  | Haute    | À faire |
 | **4**  | **RFC-FE-015** | Budget Forms UX                       | Formulaires create/edit pour exercices, budgets, enveloppes et lignes                                                    | Haute    | À faire |

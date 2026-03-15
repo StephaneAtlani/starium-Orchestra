@@ -43,6 +43,14 @@ export const navigation: NavigationSection[] = [
     section: 'Finance',
     items: [
       {
+        label: 'Budgets',
+        href: '/budgets',
+        icon: Wallet,
+        scope: 'client',
+        moduleCode: 'budgets',
+        requiredPermissions: ['budgets.read'],
+      },
+      {
         label: 'Dashboard Budgets',
         href: '/budgets/dashboard',
         icon: Wallet,

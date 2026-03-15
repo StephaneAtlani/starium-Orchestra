@@ -900,35 +900,56 @@ L’Admin Studio est le cockpit de gestion plateforme. Il fait partie du core pl
 
 Chaque feature suit une structure stable.
 
-### Exemple : `features/budgets`
+### Exemple : `features/budgets` (RFC-FE-001)
+
+Structure réelle du module budget frontend (fondation) :
 
 ```text
 features/budgets/
 ├── api/
-│   ├── get-budgets.ts
-│   ├── get-budget.ts
-│   └── create-budget.ts
-├── components/
-│   ├── budgets-table.tsx
-│   ├── budget-filters.tsx
-│   └── create-budget-dialog.tsx
+│   ├── budget-management.api.ts
+│   ├── budget-reporting.api.ts
+│   ├── budget-dashboard.api.ts
+│   └── stubs (snapshots, reallocations, imports, versioning)
 ├── hooks/
-│   ├── use-budgets-query.ts
-│   └── use-create-budget-mutation.ts
-├── mappers/
-│   └── budget.mapper.ts
+│   ├── use-budget-exercises.ts
+│   ├── use-budgets.ts
+│   ├── use-budget-summary.ts
+│   └── use-budget-dashboard.ts
+├── components/
+│   ├── budget-page-header.tsx
+│   ├── budget-kpi-cards.tsx
+│   ├── budget-toolbar.tsx
+│   ├── budget-list-table.tsx
+│   ├── budget-status-badge.tsx
+│   ├── budget-empty-state.tsx
+│   ├── budget-error-state.tsx
+│   └── forms/
 ├── schemas/
-│   └── create-budget.schema.ts
-└── types/
-    └── budget.types.ts
+│   ├── create-budget.schema.ts
+│   ├── create-envelope.schema.ts
+│   ├── create-line.schema.ts
+│   └── reallocate-budget.schema.ts
+├── types/
+│   ├── budget-management.types.ts
+│   ├── budget-reporting.types.ts
+│   ├── budget-dashboard.types.ts
+│   └── placeholders (snapshots, reallocations, imports, versioning)
+├── lib/
+│   ├── budget-query-keys.ts   # Query keys tenant-aware (clientId obligatoire)
+│   └── budget-formatters.ts
+└── constants/
+    └── budget-routes.ts
 ```
+
+Détail : [docs/modules/budget-frontend.md](modules/budget-frontend.md).
 
 ### Règle
 
 Chaque feature contient :
 
-* son accès API
-* ses hooks TanStack Query
+* son accès API (modules dédiés, pas de `fetch` direct dans les composants)
+* ses hooks TanStack Query (query keys tenant-aware)
 * ses composants métier
 * ses schémas et types
 

@@ -1,3 +1,7 @@
+/**
+ * Types alignés sur la réponse API budget-dashboard (cockpit).
+ */
+
 export interface BudgetDashboardResponse {
   exercise: {
     id: string;
