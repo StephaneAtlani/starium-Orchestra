@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ActiveClientGuard } from '../../common/guards/active-client.guard';
+import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { SetDefaultClientDto } from './dto/set-default-client.dto';
 import { MeService } from './me.service';
@@ -12,6 +14,17 @@ import { MeService } from './me.service';
 @UseGuards(JwtAuthGuard)
 export class MeController {
   constructor(private readonly me: MeService) {}
+
+  /** GET /me/permissions — Codes de permission pour le client actif (X-Client-Id requis). */
+  @Get('permissions')
+  @UseGuards(ActiveClientGuard)
+  async getPermissions(
+    @RequestUserId() userId: string | undefined,
+    @ActiveClientId() clientId: string | undefined,
+  ) {
+    const codes = await this.me.getPermissionCodes(userId!, clientId!);
+    return { permissionCodes: codes };
+  }
 
   /** GET /me — Profil global (id, email, firstName, lastName). */
   @Get()

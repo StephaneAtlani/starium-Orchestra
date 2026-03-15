@@ -31,6 +31,37 @@ export interface MeClient {
 export class MeService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Liste des codes de permission de l'utilisateur pour le client donné
+   * (via UserRole → Role → RolePermission → Permission.code). Utilisé par le frontend pour afficher/masquer les actions.
+   */
+  async getPermissionCodes(userId: string, clientId: string): Promise<string[]> {
+    const userRoles = await this.prisma.userRole.findMany({
+      where: {
+        userId,
+        role: { clientId },
+      },
+      include: {
+        role: {
+          include: {
+            rolePermissions: {
+              include: { permission: true },
+            },
+          },
+        },
+      },
+    });
+    const codes = new Set<string>();
+    for (const ur of userRoles) {
+      for (const rp of ur.role.rolePermissions) {
+        if (rp.permission?.code) {
+          codes.add(rp.permission.code);
+        }
+      }
+    }
+    return Array.from(codes);
+  }
+
   /** Retourne le profil User (id, email, firstName, lastName, platformRole). */
   async getProfile(userId: string): Promise<MeProfile> {
     const user = await this.prisma.user.findUnique({

@@ -6,6 +6,7 @@ function shouldSendClientId(url: string): boolean {
   const path = url.split('?')[0];
   if (path.startsWith('/api/auth/')) return false;
   if (path === '/api/me' || path === '/api/me/clients' || path === '/api/me/default-client') return false;
+  // /api/me/permissions requiert X-Client-Id (client actif)
   if (path.startsWith('/api/platform/')) return false;
   if (path === '/api/clients' || path.startsWith('/api/clients/')) return false;
   return true;

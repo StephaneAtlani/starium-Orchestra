@@ -24,6 +24,7 @@ import {
   budgetEnvelopeNew,
   budgetLineNew,
 } from '@/features/budgets/constants/budget-routes';
+import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { formatAmount } from '@/features/budgets/lib/budget-formatters';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -123,24 +124,30 @@ export default function BudgetDetailPage() {
           }
           actions={
             <div className="flex items-center gap-2">
-              <Link
-                href={budgetEdit(budgetId!)}
-                className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
-              >
-                Modifier
-              </Link>
-              <Link
-                href={budgetEnvelopeNew(budgetId!)}
-                className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                Nouvelle enveloppe
-              </Link>
-              <Link
-                href={budgetLineNew(budgetId!)}
-                className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                Nouvelle ligne
-              </Link>
+              <PermissionGate permission="budgets.update">
+                <Link
+                  href={budgetEdit(budgetId!)}
+                  className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+                >
+                  Modifier
+                </Link>
+              </PermissionGate>
+              <PermissionGate permission="budgets.create">
+                <Link
+                  href={budgetEnvelopeNew(budgetId!)}
+                  className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  Nouvelle enveloppe
+                </Link>
+              </PermissionGate>
+              <PermissionGate permission="budgets.create">
+                <Link
+                  href={budgetLineNew(budgetId!)}
+                  className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  Nouvelle ligne
+                </Link>
+              </PermissionGate>
             </div>
           }
         />

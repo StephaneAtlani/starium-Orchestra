@@ -12,6 +12,7 @@ import { useBudgetExerciseSummary } from '@/features/budgets/hooks/use-budget-ex
 import { useBudgetsList } from '@/features/budgets/hooks/use-budgets';
 import { budgetDetail, budgetExerciseEdit } from '@/features/budgets/constants/budget-routes';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
+import { PermissionGate } from '@/components/PermissionGate';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function BudgetExerciseDetailPage() {
@@ -52,12 +53,14 @@ export default function BudgetExerciseDetailPage() {
           description={exercise.code ? `Code : ${exercise.code}` : undefined}
           actions={
             id ? (
-              <Link
-                href={budgetExerciseEdit(id)}
-                className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
-              >
-                Modifier
-              </Link>
+              <PermissionGate permission="budgets.update">
+                <Link
+                  href={budgetExerciseEdit(id)}
+                  className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+                >
+                  Modifier
+                </Link>
+              </PermissionGate>
             ) : undefined
           }
         />

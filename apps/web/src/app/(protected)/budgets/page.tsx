@@ -16,6 +16,7 @@ import { useBudgetsQuery } from '@/features/budgets/hooks/use-budgets-query';
 import { useBudgetExerciseOptionsQuery } from '@/features/budgets/hooks/use-budget-exercise-options-query';
 import { DEFAULT_LIMIT } from '@/features/budgets/constants/budget-filters';
 import { budgetNew } from '@/features/budgets/constants/budget-routes';
+import { PermissionGate } from '@/components/PermissionGate';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
 export default function BudgetsListPage() {
@@ -36,13 +37,15 @@ export default function BudgetsListPage() {
           title="Budgets"
           description="Liste des budgets du client actif."
           actions={
-            <Link
-              href={budgetNew()}
-              className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
-            >
-              <Plus className="size-4" />
-              Créer un budget
-            </Link>
+            <PermissionGate permission="budgets.create">
+              <Link
+                href={budgetNew()}
+                className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+              >
+                <Plus className="size-4" />
+                Créer un budget
+              </Link>
+            </PermissionGate>
           }
         />
         <BudgetsToolbar />

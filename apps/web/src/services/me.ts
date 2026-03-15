@@ -41,6 +41,21 @@ export async function getMyClients(
   return (await res.json()) as MeClient[];
 }
 
+export interface MePermissionsResponse {
+  permissionCodes: string[];
+}
+
+/** GET /me/permissions — codes de permission pour le client actif (X-Client-Id requis). */
+export async function getMyPermissions(
+  authenticatedFetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
+): Promise<MePermissionsResponse> {
+  const res = await authenticatedFetch('/api/me/permissions');
+  if (!res.ok) {
+    throw new Error('Impossible de récupérer les permissions');
+  }
+  return (await res.json()) as MePermissionsResponse;
+}
+
 export interface SetDefaultClientResult {
   success: true;
   defaultClientId: string;

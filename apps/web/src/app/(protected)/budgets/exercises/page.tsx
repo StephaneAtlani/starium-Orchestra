@@ -15,6 +15,7 @@ import { useBudgetExercisesListFilters } from '@/features/budgets/hooks/use-budg
 import { useBudgetExercisesQuery } from '@/features/budgets/hooks/use-budget-exercises-query';
 import { DEFAULT_LIMIT } from '@/features/budgets/constants/budget-filters';
 import { budgetExerciseNew } from '@/features/budgets/constants/budget-routes';
+import { PermissionGate } from '@/components/PermissionGate';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
 export default function BudgetExercisesPage() {
@@ -34,13 +35,15 @@ export default function BudgetExercisesPage() {
           title="Exercices budgétaires"
           description="Liste des exercices du client actif."
           actions={
-            <Link
-              href={budgetExerciseNew()}
-              className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
-            >
-              <Plus className="size-4" />
-              Créer un exercice
-            </Link>
+            <PermissionGate permission="budgets.create">
+              <Link
+                href={budgetExerciseNew()}
+                className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+              >
+                <Plus className="size-4" />
+                Créer un exercice
+              </Link>
+            </PermissionGate>
           }
         />
         <BudgetExercisesToolbar />
