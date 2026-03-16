@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ChevronDown, ChevronRight, Lock, LockOpen, Check } from 'lucide-react';
 import {
   TableCell,
   TableRow,
@@ -10,7 +10,10 @@ import { cn } from '@/lib/utils';
 import type { ExplorerNode } from '../types/budget-explorer.types';
 import { formatAmount, formatPercent } from '../lib/budget-formatters';
 import { BudgetLinesProgress } from './budget-lines-progress';
+import { BudgetStatusBadge } from './budget-status-badge';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useInlineUpdateBudgetLine } from '../hooks/use-inline-update-budget-line';
+import type { ApiFormError } from '../api/types';
 
 interface BudgetExplorerRowProps {
   node: ExplorerNode;
@@ -18,8 +21,9 @@ interface BudgetExplorerRowProps {
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
   currency: string;
-  selectedLineId?: string | null;
-  onSelectLine?: (lineId: string) => void;
+  budgetId: string;
+  editableLineId?: string | null;
+  onToggleEditable?: (lineId: string | null) => void;
 }
 
 /** expandedIds ne contient que des ids d’enveloppes. */
@@ -29,8 +33,9 @@ export function BudgetExplorerRow({
   expandedIds,
   onToggleExpand,
   currency,
-  selectedLineId,
-  onSelectLine,
+  budgetId,
+  editableLineId,
+  onToggleEditable,
 }: BudgetExplorerRowProps) {
   const isEnvelope = node.type === 'envelope';
   const isExpanded = isEnvelope && expandedIds.has(node.id);
@@ -112,8 +117,9 @@ export function BudgetExplorerRow({
               expandedIds={expandedIds}
               onToggleExpand={onToggleExpand}
               currency={currency}
-              selectedLineId={selectedLineId}
-              onSelectLine={onSelectLine}
+              budgetId={budgetId}
+              editableLineId={editableLineId}
+              onToggleEditable={onToggleEditable}
             />
           ))}
       </>
@@ -121,38 +127,135 @@ export function BudgetExplorerRow({
   }
 
   const line = node;
+  const isEditable = editableLineId === line.id;
+  const [draftName, setDraftName] = useState(line.name);
+  const [draftRevisedAmount, setDraftRevisedAmount] = useState<number | ''>(
+    line.revisedAmount ?? '',
+  );
+  const [draftExpenseType, setDraftExpenseType] = useState(line.expenseType);
+  const inlineMutation = useInlineUpdateBudgetLine(line.id, budgetId);
+  const { has } = usePermissions();
+  const canEdit = has('budgets.update');
+
+  useEffect(() => {
+    if (isEditable) {
+      setDraftName(line.name);
+      setDraftRevisedAmount(line.revisedAmount ?? '');
+      setDraftExpenseType(line.expenseType);
+    }
+  }, [isEditable, line.name, line.revisedAmount, line.expenseType]);
+
+  const handleToggleLock = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onToggleEditable || !canEdit) return;
+    if (isEditable) {
+      await handleSave();
+    } else {
+      onToggleEditable(line.id);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!canEdit) return;
+    if (draftName.trim().length === 0) return;
+
+    const payload = {
+      name: draftName.trim(),
+      revisedAmount:
+        draftRevisedAmount === '' ? undefined : Number(draftRevisedAmount),
+      expenseType: draftExpenseType,
+    };
+
+    await inlineMutation.mutateAsync(payload);
+    onToggleEditable?.(null);
+  };
+
   return (
     <TableRow
       data-testid={`explorer-row-line-${line.id}`}
       className={cn(
-        'cursor-pointer hover:bg-muted/60',
-        selectedLineId === line.id && 'bg-muted',
+        isEditable ? 'bg-muted/60' : 'hover:bg-muted/40',
       )}
-      onClick={() => {
-        // Debug clic ligne budget explorer
-        // eslint-disable-next-line no-console
-        console.debug('[BudgetExplorerRow] line click', { id: line.id, name: line.name });
-        onSelectLine?.(line.id);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelectLine?.(line.id);
-        }
-      }}
-      tabIndex={0}
-      aria-selected={selectedLineId === line.id}
     >
       <TableCell
         className="align-middle text-foreground"
         style={{ paddingLeft: `${12 + (depth + 1) * 20}px` }}
       >
-        <span className="text-sm truncate">{line.name}</span>
+        <div className="flex items-center gap-2">
+          {isEditable ? (
+            <input
+              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+            />
+          ) : (
+            <span className="text-sm truncate">{line.name}</span>
+          )}
+          {canEdit && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleToggleLock}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label={isEditable ? 'Verrouiller la ligne' : 'Déverrouiller la ligne'}
+              >
+                {isEditable ? <LockOpen className="size-3.5" /> : <Lock className="size-3.5" />}
+              </button>
+              {isEditable && (
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="inline-flex h-6 items-center justify-center rounded-md border border-input bg-background px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                  disabled={inlineMutation.isPending}
+                >
+                  {inlineMutation.isPending ? (
+                    'Enreg.'
+                  ) : (
+                    <>
+                      <Check className="mr-1 size-3" />
+                      Enreg.
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+          <BudgetStatusBadge
+            status={line.status}
+            className="h-5 px-1.5 text-[10px]"
+          />
+        </div>
       </TableCell>
       <TableCell className="text-muted-foreground">—</TableCell>
-      <TableCell>{line.expenseType}</TableCell>
+      <TableCell>
+        {isEditable && canEdit ? (
+          <select
+            className="flex h-8 w-28 rounded-lg border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={draftExpenseType}
+            onChange={(e) => setDraftExpenseType(e.target.value)}
+          >
+            <option value="OPEX">OPEX</option>
+            <option value="CAPEX">CAPEX</option>
+          </select>
+        ) : (
+          line.expenseType
+        )}
+      </TableCell>
       <TableCell className="text-right tabular-nums">
-        {formatAmount(line.revisedAmount, line.currency)}
+        {isEditable ? (
+          <input
+            className="h-8 w-24 rounded-md border border-input bg-background px-2 text-right text-sm"
+            type="number"
+            step="0.01"
+            min={0}
+            value={draftRevisedAmount}
+            onChange={(e) =>
+              setDraftRevisedAmount(e.target.value === '' ? '' : Number(e.target.value))
+            }
+          />
+        ) : (
+          formatAmount(line.revisedAmount, line.currency)
+        )}
       </TableCell>
       <TableCell />
       <TableCell />

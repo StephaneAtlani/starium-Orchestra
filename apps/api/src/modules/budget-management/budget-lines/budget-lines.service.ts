@@ -465,6 +465,7 @@ export class BudgetLinesService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.status != null && { status: dto.status }),
         ...(dto.currency != null && { currency: dto.currency }),
+        ...(dto.expenseType != null && { expenseType: dto.expenseType }),
         ...(dto.generalLedgerAccountId !== undefined && {
           generalLedgerAccountId: dto.generalLedgerAccountId,
         }),

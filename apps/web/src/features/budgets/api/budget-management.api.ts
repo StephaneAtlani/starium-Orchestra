@@ -297,6 +297,7 @@ export interface UpdateLinePayload {
   analyticalLedgerAccountId?: string | null;
   revisedAmount?: number;
   currency?: string;
+  expenseType?: string;
 }
 
 export async function createLine(

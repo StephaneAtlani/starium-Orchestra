@@ -58,4 +58,8 @@ export class UpdateBudgetLineDto {
   @IsString()
   @MaxLength(8)
   currency?: string;
+
+  @IsOptional()
+  @IsString()
+  expenseType?: string;
 }

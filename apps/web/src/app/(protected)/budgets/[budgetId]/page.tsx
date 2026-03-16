@@ -37,7 +37,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { BudgetExplorerFilters } from '@/features/budgets/types/budget-explorer.types';
-import { BudgetLineBottomSheet } from '@/features/budgets/components/budget-line-bottom-sheet';
 
 export default function BudgetDetailPage() {
   const params = useParams();
@@ -55,7 +54,7 @@ export default function BudgetDetailPage() {
   );
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [editableLineId, setEditableLineId] = useState<string | null>(null);
   const hasInitializedExpanded = useRef(false);
 
   useEffect(() => {
@@ -76,12 +75,6 @@ export default function BudgetDetailPage() {
       return next;
     });
   }, []);
-
-  useEffect(() => {
-    // Debug sélection ligne
-    // eslint-disable-next-line no-console
-    console.debug('[BudgetDetailPage] selectedLineId', selectedLineId);
-  }, [selectedLineId]);
 
   const { data: summary } = useBudgetSummary(budgetId);
 
@@ -235,8 +228,9 @@ export default function BudgetDetailPage() {
                 currency={currency}
                 expandedIds={expandedIds}
                 onToggleExpand={onToggleExpand}
-                selectedLineId={selectedLineId}
-                onSelectLine={setSelectedLineId}
+                budgetId={budgetId!}
+                editableLineId={editableLineId}
+                onToggleEditable={setEditableLineId}
                 emptyMessage="Aucune enveloppe."
                 emptyFilteredMessage="Aucun résultat pour ces filtres."
                 isFilteredEmpty={isEmptyFiltered}
@@ -288,13 +282,6 @@ export default function BudgetDetailPage() {
           </CardContent>
         </Card>
 
-        {selectedLineId && (
-          <BudgetLineBottomSheet
-            budgetId={budgetId!}
-            lineId={selectedLineId}
-            onClose={() => setSelectedLineId(null)}
-          />
-        )}
       </PageContainer>
     </RequireActiveClient>
   );
