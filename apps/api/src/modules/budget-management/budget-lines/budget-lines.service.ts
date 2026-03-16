@@ -38,7 +38,7 @@ export interface BudgetLineResponse {
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;
-  generalLedgerAccountId: string;
+  generalLedgerAccountId: string | null;
   generalLedgerAccountCode: string;
   generalLedgerAccountName: string;
   analyticalLedgerAccountId: string | null;
@@ -641,7 +641,7 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
     committedAmount: fromDecimal(row.committedAmount),
     consumedAmount: fromDecimal(row.consumedAmount),
     remainingAmount: fromDecimal(row.remainingAmount),
-    generalLedgerAccountId: row.generalLedgerAccountId,
+    generalLedgerAccountId: row.generalLedgerAccountId ?? null,
     generalLedgerAccountCode: row.generalLedgerAccount?.code ?? '',
     generalLedgerAccountName: row.generalLedgerAccount?.name ?? '',
     analyticalLedgerAccountId: row.analyticalLedgerAccountId,

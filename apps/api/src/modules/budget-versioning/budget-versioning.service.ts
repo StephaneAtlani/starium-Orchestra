@@ -620,7 +620,7 @@ export class BudgetVersioningService {
       expenseType: string;
       status: string;
       currency: string;
-      generalLedgerAccountId: string;
+      generalLedgerAccountId: string | null;
       analyticalLedgerAccountId: string | null;
       allocationScope: string;
       initialAmount: Prisma.Decimal;

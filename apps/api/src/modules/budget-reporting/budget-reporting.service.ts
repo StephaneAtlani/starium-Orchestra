@@ -545,7 +545,7 @@ export class BudgetReportingService {
       { code: string; name: string; revised: number; remaining: number }
     >();
     for (const line of lines) {
-      const key = line.generalLedgerAccountId;
+      const key = line.generalLedgerAccountId ?? 'UNASSIGNED';
       const gla = line.generalLedgerAccount;
       const current = byGla.get(key) ?? {
         code: gla?.code ?? '',
