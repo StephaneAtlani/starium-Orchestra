@@ -133,6 +133,7 @@ export function BudgetExplorerRow({
     line.revisedAmount ?? '',
   );
   const [draftExpenseType, setDraftExpenseType] = useState(line.expenseType);
+  const [draftStatus, setDraftStatus] = useState(line.status);
   const inlineMutation = useInlineUpdateBudgetLine(line.id, budgetId);
   const { has } = usePermissions();
   const canEdit = has('budgets.update');
@@ -142,8 +143,9 @@ export function BudgetExplorerRow({
       setDraftName(line.name);
       setDraftRevisedAmount(line.revisedAmount ?? '');
       setDraftExpenseType(line.expenseType);
+      setDraftStatus(line.status);
     }
-  }, [isEditable, line.name, line.revisedAmount, line.expenseType]);
+  }, [isEditable, line.name, line.revisedAmount, line.expenseType, line.status]);
 
   const handleToggleLock = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -164,6 +166,7 @@ export function BudgetExplorerRow({
       revisedAmount:
         draftRevisedAmount === '' ? undefined : Number(draftRevisedAmount),
       expenseType: draftExpenseType,
+      status: draftStatus,
     };
 
     await inlineMutation.mutateAsync(payload);
@@ -220,10 +223,23 @@ export function BudgetExplorerRow({
               )}
             </div>
           )}
-          <BudgetStatusBadge
-            status={line.status}
-            className="h-5 px-1.5 text-[10px]"
-          />
+          {isEditable && canEdit ? (
+            <select
+              className="flex h-6 rounded-md border border-input bg-background px-1.5 text-[10px] ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={draftStatus}
+              onChange={(e) => setDraftStatus(e.target.value)}
+            >
+              <option value="DRAFT">Brouillon</option>
+              <option value="ACTIVE">Actif</option>
+              <option value="CLOSED">Clôturé</option>
+              <option value="ARCHIVED">Archivé</option>
+            </select>
+          ) : (
+            <BudgetStatusBadge
+              status={line.status}
+              className="h-5 px-1.5 text-[10px]"
+            />
+          )}
         </div>
       </TableCell>
       <TableCell className="text-muted-foreground">—</TableCell>
