@@ -18,6 +18,8 @@ interface BudgetExplorerRowProps {
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
   currency: string;
+  selectedLineId?: string | null;
+  onSelectLine?: (lineId: string) => void;
 }
 
 /** expandedIds ne contient que des ids d’enveloppes. */
@@ -27,8 +29,9 @@ export function BudgetExplorerRow({
   expandedIds,
   onToggleExpand,
   currency,
+  selectedLineId,
+  onSelectLine,
 }: BudgetExplorerRowProps) {
-  const { has, isLoading: isPermissionsLoading } = usePermissions();
   const isEnvelope = node.type === 'envelope';
   const isExpanded = isEnvelope && expandedIds.has(node.id);
   const hasChildren = isEnvelope && node.children.length > 0;
@@ -109,6 +112,8 @@ export function BudgetExplorerRow({
               expandedIds={expandedIds}
               onToggleExpand={onToggleExpand}
               currency={currency}
+              selectedLineId={selectedLineId}
+              onSelectLine={onSelectLine}
             />
           ))}
       </>
@@ -116,9 +121,28 @@ export function BudgetExplorerRow({
   }
 
   const line = node;
-  const canEditLine = !isPermissionsLoading && has('budgets.update');
   return (
-    <TableRow data-testid={`explorer-row-line-${line.id}`}>
+    <TableRow
+      data-testid={`explorer-row-line-${line.id}`}
+      className={cn(
+        'cursor-pointer hover:bg-muted/60',
+        selectedLineId === line.id && 'bg-muted',
+      )}
+      onClick={() => {
+        // Debug clic ligne budget explorer
+        // eslint-disable-next-line no-console
+        console.debug('[BudgetExplorerRow] line click', { id: line.id, name: line.name });
+        onSelectLine?.(line.id);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelectLine?.(line.id);
+        }
+      }}
+      tabIndex={0}
+      aria-selected={selectedLineId === line.id}
+    >
       <TableCell
         className="align-middle text-foreground"
         style={{ paddingLeft: `${12 + (depth + 1) * 20}px` }}

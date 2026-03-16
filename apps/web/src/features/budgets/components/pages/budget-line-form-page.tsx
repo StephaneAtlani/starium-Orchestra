@@ -23,9 +23,18 @@ interface BudgetLineFormPageProps {
   budgetId?: string;
   envelopeId?: string;
   lineId?: string;
+  variant?: 'page' | 'embedded';
+  onCloseEmbedded?: () => void;
 }
 
-export function BudgetLineFormPage({ mode, budgetId, envelopeId, lineId }: BudgetLineFormPageProps) {
+export function BudgetLineFormPage({
+  mode,
+  budgetId,
+  envelopeId,
+  lineId,
+  variant = 'page',
+  onCloseEmbedded,
+}: BudgetLineFormPageProps) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -55,28 +64,40 @@ export function BudgetLineFormPage({ mode, budgetId, envelopeId, lineId }: Budge
 
   if (isEdit && isLoading) {
     return (
-      <>
-        <BudgetPageHeader title="Modifier la ligne" description="Chargement…" />
+      variant === 'page' ? (
+        <>
+          <BudgetPageHeader title="Modifier la ligne" description="Chargement…" />
+          <LoadingState rows={3} />
+        </>
+      ) : (
         <LoadingState rows={3} />
-      </>
+      )
     );
   }
 
   if (isEdit && (error || (!isLoading && !line))) {
     return (
-      <>
-        <BudgetPageHeader title="Modifier la ligne" />
+      variant === 'page' ? (
+        <>
+          <BudgetPageHeader title="Modifier la ligne" />
+          <BudgetEmptyState title="Aucune ligne à afficher" description="" />
+        </>
+      ) : (
         <BudgetEmptyState title="Aucune ligne à afficher" description="" />
-      </>
+      )
     );
   }
 
   if (!resolvedBudgetId) {
     return (
-      <>
-        <BudgetPageHeader title="Ligne" />
+      variant === 'page' ? (
+        <>
+          <BudgetPageHeader title="Ligne" />
+          <BudgetEmptyState title="Aucun budget à afficher" description="" />
+        </>
+      ) : (
         <BudgetEmptyState title="Aucun budget à afficher" description="" />
-      </>
+      )
     );
   }
 
@@ -97,15 +118,18 @@ export function BudgetLineFormPage({ mode, budgetId, envelopeId, lineId }: Budge
 
   return (
     <>
-      <BudgetPageHeader
-        title={isEdit ? 'Modifier la ligne' : 'Nouvelle ligne budgétaire'}
-        description={isEdit && line ? line.name : 'Créez une ligne pour ce budget.'}
-      />
+      {variant === 'page' && (
+        <BudgetPageHeader
+          title={isEdit ? 'Modifier la ligne' : 'Nouvelle ligne budgétaire'}
+          description={isEdit && line ? line.name : 'Créez une ligne pour ce budget.'}
+        />
+      )}
       <BudgetLineForm
         defaultValues={defaultValues}
         onSubmit={handleSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
-        cancelHref={cancelHref}
+        cancelHref={variant === 'page' ? cancelHref : undefined}
+        onCancel={variant === 'embedded' ? onCloseEmbedded : undefined}
         submitError={submitError}
         budgetId={resolvedBudgetId}
         budgetLabel={budgetLabel}

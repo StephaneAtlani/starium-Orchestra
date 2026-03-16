@@ -17,6 +17,8 @@ interface BudgetExplorerTableProps {
   currency: string;
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
+  selectedLineId?: string | null;
+  onSelectLine?: (lineId: string) => void;
   emptyMessage?: string;
   emptyFilteredMessage?: string;
   /** true quand l’arbre affiché est filtré et vide (tree.length > 0 mais nodes.length === 0) */
@@ -31,6 +33,8 @@ export function BudgetExplorerTable({
   currency,
   expandedIds,
   onToggleExpand,
+  selectedLineId,
+  onSelectLine,
   emptyMessage = DEFAULT_EMPTY,
   emptyFilteredMessage = DEFAULT_FILTERED_EMPTY,
   isFilteredEmpty = false,
@@ -73,6 +77,8 @@ export function BudgetExplorerTable({
             expandedIds={expandedIds}
             onToggleExpand={onToggleExpand}
             currency={currency}
+            selectedLineId={selectedLineId}
+            onSelectLine={onSelectLine}
           />
         ))}
       </TableBody>

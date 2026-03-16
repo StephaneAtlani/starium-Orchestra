@@ -32,7 +32,8 @@ interface BudgetLineFormProps {
   onSubmit: (values: BudgetLineFormValues) => void;
   isSubmitting?: boolean;
   submitLabel?: string;
-  cancelHref: string;
+  cancelHref?: string;
+  onCancel?: () => void;
   submitError?: ApiFormError | null;
   budgetId: string;
   budgetLabel?: string;
@@ -50,6 +51,7 @@ export function BudgetLineForm({
   isSubmitting = false,
   submitLabel = 'Enregistrer',
   cancelHref,
+  onCancel,
   submitError,
   budgetId,
   budgetLabel,
@@ -298,6 +300,7 @@ export function BudgetLineForm({
 
       <BudgetFormActions
         cancelHref={cancelHref}
+        onCancel={onCancel}
         submitLabel={submitLabel}
         isSubmitting={isSubmitting}
         disableSubmit={!canSubmit}

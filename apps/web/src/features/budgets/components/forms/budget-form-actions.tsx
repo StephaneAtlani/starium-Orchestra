@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 
 interface BudgetFormActionsProps {
-  cancelHref: string;
+  cancelHref?: string;
+  onCancel?: () => void;
   submitLabel?: string;
   isSubmitting?: boolean;
   /** Désactiver le bouton Enregistrer (ex. options manquantes) */
@@ -19,6 +20,7 @@ interface BudgetFormActionsProps {
  */
 export function BudgetFormActions({
   cancelHref,
+  onCancel,
   submitLabel = 'Enregistrer',
   isSubmitting = false,
   disableSubmit = false,
@@ -26,15 +28,30 @@ export function BudgetFormActions({
   const submitDisabled = isSubmitting || disableSubmit;
   return (
     <div className="flex items-center gap-2 pt-4">
-      <Link
-        href={cancelHref}
-        className={cn(
-          'inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-muted disabled:pointer-events-none disabled:opacity-50',
-        )}
-        aria-disabled={isSubmitting}
-      >
-        Annuler
-      </Link>
+      {onCancel ? (
+        <button
+          type="button"
+          onClick={onCancel}
+          className={cn(
+            'inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-muted disabled:pointer-events-none disabled:opacity-50',
+          )}
+          aria-disabled={isSubmitting}
+        >
+          Annuler
+        </button>
+      ) : (
+        cancelHref && (
+          <Link
+            href={cancelHref}
+            className={cn(
+              'inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-muted disabled:pointer-events-none disabled:opacity-50',
+            )}
+            aria-disabled={isSubmitting}
+          >
+            Annuler
+          </Link>
+        )
+      )}
       <Button type="submit" disabled={submitDisabled}>
         {isSubmitting ? (
           <>
