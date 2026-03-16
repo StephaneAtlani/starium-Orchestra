@@ -1,12 +1,13 @@
 'use client';
 
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { BudgetPageHeader } from '../budget-page-header';
 import { BudgetEmptyState } from '../budget-empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { BudgetLineForm } from '../forms/budget-line-form';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { useQuery } from '@tanstack/react-query';
 import { getLine } from '../../api/budget-management.api';
 import { useBudgetEnvelopesAll } from '../../hooks/use-budget-envelopes';
 import { useBudgetDetail } from '../../hooks/use-budgets';
@@ -17,6 +18,10 @@ import { lineApiToForm } from '../../mappers/budget-form.mappers';
 import { budgetDetail } from '../../constants/budget-routes';
 import type { BudgetLineFormValues } from '../../schemas/budget-line-form.schema';
 import type { ApiFormError } from '../../api/types';
+import { BudgetLinePlanningToolbar } from '../budget-line-planning-toolbar';
+import { BudgetLinePlanningGrid } from '../budget-line-planning-grid';
+import { BudgetLinePlanningCalculatorPanel } from '../budget-line-planning-calculator-panel';
+import type { PlanningCalculatorTool } from '../budget-line-planning-calculator-panel';
 
 interface BudgetLineFormPageProps {
   mode: 'create' | 'edit';
@@ -61,6 +66,10 @@ export function BudgetLineFormPage({
   const isEdit = mode === 'edit';
   const submitError: ApiFormError | null =
     (createMutation.error as ApiFormError) ?? (updateMutation.error as ApiFormError) ?? null;
+
+  const [selectedTool, setSelectedTool] = useState<PlanningCalculatorTool>('GROWTH');
+  const [planningError, setPlanningError] = useState<ApiFormError | null>(null);
+  const [showPlanning, setShowPlanning] = useState(false);
 
   if (isEdit && isLoading) {
     return (
@@ -116,6 +125,15 @@ export function BudgetLineFormPage({
   const cancelHref = budgetDetail(resolvedBudgetId);
   const budgetLabel = budget?.name ?? resolvedBudgetId;
 
+  const effectiveLineId: string | null =
+    (isEdit ? lineId ?? line?.id : (createMutation.data as { id?: string } | undefined)?.id) ?? null;
+
+  const handleOpenPlanning = () => {
+    if (effectiveLineId) {
+      setShowPlanning(true);
+    }
+  };
+
   return (
     <>
       {variant === 'page' && (
@@ -124,21 +142,58 @@ export function BudgetLineFormPage({
           description={isEdit && line ? line.name : 'Créez une ligne pour ce budget.'}
         />
       )}
-      <BudgetLineForm
-        defaultValues={defaultValues}
-        onSubmit={handleSubmit}
-        isSubmitting={createMutation.isPending || updateMutation.isPending}
-        cancelHref={variant === 'page' ? cancelHref : undefined}
-        onCancel={variant === 'embedded' ? onCloseEmbedded : undefined}
-        submitError={submitError}
-        budgetId={resolvedBudgetId}
-        budgetLabel={budgetLabel}
-        isEdit={isEdit}
-        envelopeOptions={envelopeOptions.map((e) => ({ id: e.id, name: e.name }))}
-        envelopeOptionsLoading={isEnvelopeOptionsLoading}
-        envelopeOptionsSuccess={isEnvelopeOptionsSuccess}
-        generalLedgerOptions={generalLedgerOptions}
-      />
+      <div className="space-y-6">
+        <BudgetLineForm
+          defaultValues={defaultValues}
+          onSubmit={handleSubmit}
+          isSubmitting={createMutation.isPending || updateMutation.isPending}
+          cancelHref={variant === 'page' ? cancelHref : undefined}
+          onCancel={variant === 'embedded' ? onCloseEmbedded : undefined}
+          submitError={submitError}
+          budgetId={resolvedBudgetId}
+          budgetLabel={budgetLabel}
+          isEdit={isEdit}
+          envelopeOptions={envelopeOptions.map((e) => ({ id: e.id, name: e.name }))}
+          envelopeOptionsLoading={isEnvelopeOptionsLoading}
+          envelopeOptionsSuccess={isEnvelopeOptionsSuccess}
+          generalLedgerOptions={generalLedgerOptions}
+          hasPlanning={!!effectiveLineId}
+          onOpenPlanning={handleOpenPlanning}
+        />
+
+        {effectiveLineId && showPlanning && (
+          <div className="space-y-3">
+            {planningError && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                Erreur de planning : {planningError.message ?? 'une erreur est survenue.'}
+              </div>
+            )}
+            <BudgetLinePlanningToolbar
+              canEdit
+              selectedTool={selectedTool}
+              onSelectTool={setSelectedTool}
+            />
+            <div className="grid gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+              <div>
+                <BudgetLinePlanningGrid
+                  lineId={effectiveLineId}
+                  budgetId={resolvedBudgetId}
+                  currency={budget?.currency ?? 'EUR'}
+                  canEdit
+                  onError={(err) => setPlanningError(err)}
+                />
+              </div>
+              <BudgetLinePlanningCalculatorPanel
+                lineId={effectiveLineId}
+                budgetId={resolvedBudgetId}
+                currency={budget?.currency ?? 'EUR'}
+                selectedTool={selectedTool}
+                onError={(err) => setPlanningError(err)}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 }

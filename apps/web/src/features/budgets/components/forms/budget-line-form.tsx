@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
+import { Calculator } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -43,6 +44,10 @@ interface BudgetLineFormProps {
   /** true quand la requête enveloppes a réussi (évite d’afficher l’alerte pendant le chargement ou si la query est désactivée). */
   envelopeOptionsSuccess?: boolean;
   generalLedgerOptions: GeneralLedgerAccountOption[];
+  /** Afficher l'icône calculette (planning) à côté des montants. */
+  hasPlanning?: boolean;
+  /** Callback pour ouvrir la calculette de planning. */
+  onOpenPlanning?: () => void;
 }
 
 export function BudgetLineForm({
@@ -60,6 +65,8 @@ export function BudgetLineForm({
   envelopeOptionsLoading = false,
   envelopeOptionsSuccess = false,
   generalLedgerOptions,
+  hasPlanning = false,
+  onOpenPlanning,
 }: BudgetLineFormProps) {
   const noEnvelopes = envelopeOptionsSuccess && envelopeOptions.length === 0;
   const envelopeSelectLoading = !envelopeOptionsSuccess || envelopeOptionsLoading;
@@ -243,7 +250,19 @@ export function BudgetLineForm({
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="initialAmount">Montant initial *</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="initialAmount">Montant initial *</Label>
+                {hasPlanning && (
+                  <button
+                    type="button"
+                    onClick={onOpenPlanning}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label="Ouvrir la calculette de planning"
+                  >
+                    <Calculator className="size-3.5" />
+                  </button>
+                )}
+              </div>
               <Input
                 id="initialAmount"
                 type="number"
@@ -256,7 +275,19 @@ export function BudgetLineForm({
               {errors.initialAmount && <p className="text-sm text-destructive">{errors.initialAmount.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="revisedAmount">Montant révisé</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="revisedAmount">Montant révisé</Label>
+                {hasPlanning && (
+                  <button
+                    type="button"
+                    onClick={onOpenPlanning}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label="Ouvrir la calculette de planning"
+                  >
+                    <Calculator className="size-3.5" />
+                  </button>
+                )}
+              </div>
               <Input
                 id="revisedAmount"
                 type="number"
