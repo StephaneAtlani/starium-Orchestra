@@ -238,7 +238,7 @@ export function BudgetExplorerRow({
             <option value="CAPEX">CAPEX</option>
           </select>
         ) : (
-          line.expenseType
+          draftExpenseType ?? line.expenseType
         )}
       </TableCell>
       <TableCell className="text-right tabular-nums">
