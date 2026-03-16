@@ -9,6 +9,7 @@ import { budgetExerciseDetail, budgetListWithExercise } from '../constants/budge
 import type { BudgetExerciseSummary } from '../types/budget-list.types';
 import { List, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDate } from '../lib/budget-formatters';
 
 interface BudgetExercisesTableProps {
   data: BudgetExerciseSummary[];
@@ -46,7 +47,7 @@ export function BudgetExercisesTable({
             {
               key: 'period',
               header: 'Période',
-              render: (row) => `${row.startDate} → ${row.endDate}`,
+              render: (row) => `${formatDate(row.startDate)} → ${formatDate(row.endDate)}`,
             },
             {
               key: 'status',

@@ -17,3 +17,17 @@ export function formatPercent(value: number): string {
     maximumFractionDigits: 1,
   }).format(value);
 }
+
+export function formatDate(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
