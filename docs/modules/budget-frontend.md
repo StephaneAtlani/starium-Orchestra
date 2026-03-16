@@ -45,11 +45,11 @@ features/budgets/
 │   ├── use-budget-list-filters.ts      # Filtres URL exercices / budgets (RFC-FE-003)
 │   ├── use-budget-summary.ts
 │   ├── use-budget-dashboard.ts
-│   ├── use-budget-envelopes.ts         # Toutes enveloppes d’un budget (RFC-FE-004)
+│   ├── use-budget-envelopes.ts         # Toutes enveloppes d’un budget (RFC-FE-004, aussi utilisé par le formulaire de ligne)
 │   ├── use-budget-lines.ts             # Toutes lignes d’un budget (RFC-FE-004)
 │   ├── use-budget-explorer.ts          # Agrégat budget + enveloppes + lignes (RFC-FE-004)
 │   └── use-budget-explorer-tree.ts     # tree + filteredTree mémoïsés (RFC-FE-004)
-│   # Hooks formulaires (RFC-FE-015) : use-exercise-detail, use-create/update-*-exercise, use-create/update-budget, use-create/update-budget-envelope, use-create/update-budget-line, use-general-ledger-account-options, use-budget-envelope-options, use-budget-options
+│   # Hooks formulaires (RFC-FE-015) : use-exercise-detail, use-create/update-*-exercise, use-create/update-budget, use-create/update-budget-envelope, use-create/update-budget-line, use-general-ledger-account-options, use-budget-options
 ├── components/
 │   ├── budget-page-header.tsx
 │   ├── budget-kpi-cards.tsx
@@ -159,7 +159,7 @@ Tous les modules API reçoivent une fonction **authFetch** (retour de `useAuthen
 | `useBudgetsQuery(filters)` | use-budgets-query | Liste budgets paginée, filtres URL (RFC-FE-003) |
 | `useBudgetExerciseOptionsQuery()` | use-budget-exercise-options-query | Options filtre exercice (RFC-FE-003) |
 | `useBudgetExercisesListFilters()` / `useBudgetsListFilters()` | use-budget-list-filters | Filtres dans l'URL (RFC-FE-003) |
-| `useBudgetEnvelopesAll(budgetId)` | use-budget-envelopes | Toutes enveloppes du budget, pagination en boucle (RFC-FE-004) |
+| `useBudgetEnvelopesAll(budgetId)` | use-budget-envelopes | Toutes enveloppes du budget, pagination en boucle (RFC-FE-004, réutilisé par le formulaire de ligne pour le select d’enveloppe) |
 | `useBudgetLinesByBudget(budgetId)` | use-budget-lines | Toutes lignes du budget, sans filtres API (RFC-FE-004) |
 | `useBudgetExplorer(budgetId)` | use-budget-explorer | Agrégat budget + enveloppes + lignes, états (RFC-FE-004) |
 | `useBudgetExplorerTree(budget, envelopes, lines, filters)` | use-budget-explorer-tree | tree + filteredTree mémoïsés (RFC-FE-004) |
@@ -170,7 +170,7 @@ Tous les modules API reçoivent une fonction **authFetch** (retour de `useAuthen
 | `useCreateBudgetEnvelope` / `useUpdateBudgetEnvelope(envelopeId, budgetId)` | use-create/update-budget-envelope | Mutations enveloppe |
 | `useCreateBudgetLine` / `useUpdateBudgetLine(lineId, budgetId)` | use-create/update-budget-line | Mutations ligne |
 | `useGeneralLedgerAccountOptions()` | use-general-ledger-account-options | Options comptes formulaire ligne |
-| `useBudgetEnvelopeOptions(budgetId)` / `useBudgetOptions()` | use-budget-envelope-options, use-budget-options | Options enveloppes et exercice/budget pour formulaires |
+| `useBudgetOptions()` | use-budget-options | Options exercice/budget pour formulaires |
 
 Pas de hooks pour les API stubs (snapshots, versioning, imports, reallocations) dans cette fondation.
 
@@ -228,6 +228,7 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budgets/[budgetId]/versions` | Squelette |
 | `/budgets/[budgetId]/reallocations` | Squelette |
 | `/budgets/imports` | Squelette |
+| `/budgets/configuration` | Page de configuration budget : cartes vers **Exercices** (`/budgets/exercises`) et **Imports** (`/budgets/imports`) |
 
 Chaque page de données gère **loading**, **error**, **empty**, **success**. Les listes `/budgets` et `/budgets/exercises` reflètent filtres et pagination dans l'URL.
 
@@ -237,10 +238,9 @@ Chaque page de données gère **loading**, **error**, **empty**, **success**. Le
 
 Dans `config/navigation.ts` et `components/shell/sidebar.tsx`, section Finance (dropdown Budgets) :
 
-- **Liste** : `href: "/budgets"` — liste principale des budgets (page par défaut du module)
-- **Exercices** : `href: "/budgets/exercises"`
-- **Dashboard** : `href: "/budgets/dashboard"`
-- **Imports** : `href: "/budgets/imports"`
+- **Dashboard** : `href: "/budgets/dashboard"` — cockpit budgétaire
+- **Budget** : `href: "/budgets"` — liste principale des budgets (page par défaut du module)
+- **Configuration** : `href: "/budgets/configuration"` — accès aux Exercices et Imports
 
 `moduleCode: "budgets"`, `requiredPermissions: ["budgets.read"]`.
 
