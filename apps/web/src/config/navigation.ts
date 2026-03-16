@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Building2,
   LayoutDashboard,
+  Settings,
   Shield,
   Users,
   FileText,
@@ -45,25 +46,6 @@ export const navigation: NavigationSection[] = [
     ],
   },
   {
-    section: 'Administration client',
-    items: [
-      {
-        label: 'Membres',
-        href: '/client/members',
-        icon: Users,
-        scope: 'client',
-        clientAdminOnly: true,
-      },
-      {
-        label: 'Rôles',
-        href: '/client/roles',
-        icon: Shield,
-        scope: 'client',
-        clientAdminOnly: true,
-      },
-    ],
-  },
-  {
     section: 'Finance',
     items: [
       {
@@ -74,10 +56,9 @@ export const navigation: NavigationSection[] = [
         requiredPermissions: ['budgets.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
         children: [
-          { label: 'Liste', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
-          { label: 'Exercices', href: '/budgets/exercises', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
-          { label: 'Imports', href: '/budgets/imports', scope: 'client', requiredPermissions: ['budgets.read'] },
+          { label: 'Budget', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
+          { label: 'Configuration', href: '/budgets/configuration', scope: 'client', requiredPermissions: ['budgets.read'] },
         ],
       },
     ],
@@ -116,6 +97,18 @@ export const navigation: NavigationSection[] = [
         href: '/account',
         icon: UserCircle,
         scope: 'client',
+      },
+    ],
+  },
+  {
+    section: 'Administration client',
+    items: [
+      {
+        label: 'Administration',
+        href: '/client/administration',
+        icon: Settings,
+        scope: 'client',
+        clientAdminOnly: true,
       },
     ],
   },

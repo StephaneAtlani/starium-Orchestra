@@ -69,8 +69,8 @@ Détail des contrats et codes d’erreur : [API.md §9–12](../API.md#9-gestion
 
 Section **« Administration client »** (visible uniquement si `activeClient?.role === 'CLIENT_ADMIN'`) :
 
-- **Membres** → `/client/members`
-- **Rôles** → `/client/roles`
+- **Administration** → `/client/administration` (page d’accueil avec deux cartes : Membres, Rôles)
+- Depuis cette page : **Membres** → `/client/members`, **Rôles** → `/client/roles`
 
 Config : [apps/web/src/config/navigation.ts](../../apps/web/src/config/navigation.ts).
 

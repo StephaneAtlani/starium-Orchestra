@@ -56,11 +56,28 @@ export function Sidebar() {
 
                 if (isBudgets) {
                   const budgetsChildren = [
-                    { label: 'Liste', href: '/budgets' },
-                    { label: 'Exercices', href: '/budgets/exercises' },
                     { label: 'Dashboard', href: '/budgets/dashboard' },
-                    { label: 'Imports', href: '/budgets/imports' },
+                    { label: 'Budget', href: '/budgets' },
+                    { label: 'Configuration', href: '/budgets/configuration' },
                   ];
+
+                  const isBudgetChildActive = (href: string) => {
+                    if (!pathname) return false;
+                    if (href === '/budgets/dashboard') {
+                      return pathname === '/budgets/dashboard' || pathname.startsWith('/budgets/dashboard/');
+                    }
+                    if (href === '/budgets/configuration') {
+                      return pathname.startsWith('/budgets/configuration') || pathname.startsWith('/budgets/exercises') || pathname.startsWith('/budgets/imports');
+                    }
+                    if (href === '/budgets') {
+                      if (pathname === '/budgets') return true;
+                      if (!pathname.startsWith('/budgets/')) return false;
+                      const sub = pathname.slice('/budgets/'.length);
+                      const firstSegment = sub.split('/')[0];
+                      return !['dashboard', 'configuration', 'exercises', 'imports'].includes(firstSegment);
+                    }
+                    return false;
+                  };
 
                   return (
                     <SidebarDropdown
@@ -69,9 +86,7 @@ export function Sidebar() {
                       icon={item.icon}
                     >
                       {budgetsChildren.map((child) => {
-                        const isActive =
-                          pathname === child.href ||
-                          (child.href !== '/' && pathname?.startsWith(child.href));
+                        const isActive = isBudgetChildActive(child.href);
 
                         return (
                           <Link
