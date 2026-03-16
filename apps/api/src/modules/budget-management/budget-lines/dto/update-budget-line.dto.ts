@@ -33,7 +33,7 @@ export class UpdateBudgetLineDto {
 
   @IsOptional()
   @IsString()
-  generalLedgerAccountId?: string;
+  generalLedgerAccountId?: string | null;
 
   @IsOptional()
   @IsString()

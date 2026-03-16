@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { BudgetLineAllocationScope, BudgetLineStatus, BudgetStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -69,6 +64,23 @@ export class BudgetLinesService {
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
   ) {}
+
+  private normalizeGeneralLedgerAccountId(
+    value: string | null | undefined,
+  ): string | null | undefined {
+    if (value === '') {
+      return null;
+    }
+    return value;
+  }
+
+  private async isBudgetAccountingEnabled(clientId: string): Promise<boolean> {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { budgetAccountingEnabled: true },
+    });
+    return !!client?.budgetAccountingEnabled;
+  }
 
   async list(
     clientId: string,
@@ -138,6 +150,11 @@ export class BudgetLinesService {
     dto: CreateBudgetLineDto,
     context?: AuditContext,
   ): Promise<BudgetLineResponse> {
+    const normalizedGeneralLedgerAccountId = this.normalizeGeneralLedgerAccountId(
+      dto.generalLedgerAccountId ?? undefined,
+    );
+    dto.generalLedgerAccountId = normalizedGeneralLedgerAccountId;
+
     const allocationScope = dto.allocationScope ?? BudgetLineAllocationScope.ENTERPRISE;
     const costCenterSplits = dto.costCenterSplits ?? [];
 
@@ -166,7 +183,14 @@ export class BudgetLinesService {
       }
     }
 
-    await this.validateGeneralLedgerAccount(clientId, dto.generalLedgerAccountId);
+    const budgetAccountingEnabled = await this.isBudgetAccountingEnabled(clientId);
+    if (budgetAccountingEnabled && !dto.generalLedgerAccountId) {
+      throw new BadRequestException('General ledger account is required for this client');
+    }
+
+    if (dto.generalLedgerAccountId) {
+      await this.validateGeneralLedgerAccount(clientId, dto.generalLedgerAccountId);
+    }
     if (dto.analyticalLedgerAccountId) {
       await this.validateAnalyticalLedgerAccount(clientId, dto.analyticalLedgerAccountId);
     }
@@ -386,12 +410,28 @@ export class BudgetLinesService {
       }
     }
 
-    if (dto.generalLedgerAccountId != null) {
-      await this.validateGeneralLedgerAccount(clientId, dto.generalLedgerAccountId);
-    }
+    const normalizedGeneralLedgerAccountId = this.normalizeGeneralLedgerAccountId(
+      dto.generalLedgerAccountId,
+    );
+    dto.generalLedgerAccountId = normalizedGeneralLedgerAccountId;
+
+    const budgetAccountingEnabled = await this.isBudgetAccountingEnabled(clientId);
+
     if (dto.analyticalLedgerAccountId !== undefined && dto.analyticalLedgerAccountId) {
       await this.validateAnalyticalLedgerAccount(clientId, dto.analyticalLedgerAccountId);
     }
+    if (dto.generalLedgerAccountId !== undefined) {
+      if (dto.generalLedgerAccountId === null) {
+        if (budgetAccountingEnabled) {
+          throw new BadRequestException(
+            'General ledger account cannot be removed for this client',
+          );
+        }
+      } else {
+        await this.validateGeneralLedgerAccount(clientId, dto.generalLedgerAccountId);
+      }
+    }
+
     if (costCenterSplits) {
       for (const s of costCenterSplits) {
         await this.validateCostCenter(clientId, s.costCenterId);
@@ -425,7 +465,7 @@ export class BudgetLinesService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.status != null && { status: dto.status }),
         ...(dto.currency != null && { currency: dto.currency }),
-        ...(dto.generalLedgerAccountId != null && {
+        ...(dto.generalLedgerAccountId !== undefined && {
           generalLedgerAccountId: dto.generalLedgerAccountId,
         }),
         ...(dto.analyticalLedgerAccountId !== undefined && {

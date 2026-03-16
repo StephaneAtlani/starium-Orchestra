@@ -40,9 +40,9 @@ export class CreateBudgetLineDto {
   @IsEnum(ExpenseType)
   expenseType!: ExpenseType;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  generalLedgerAccountId!: string;
+  generalLedgerAccountId?: string | null;
 
   @IsOptional()
   @IsString()

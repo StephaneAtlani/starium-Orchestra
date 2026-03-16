@@ -155,7 +155,7 @@ export function lineApiToForm(line: BudgetLine): BudgetLineFormValues {
     code: line.code ?? '',
     description: line.description ?? '',
     expenseType: line.expenseType as BudgetLineFormValues['expenseType'],
-    generalLedgerAccountId: line.generalLedgerAccountId,
+    generalLedgerAccountId: line.generalLedgerAccountId ?? '',
     initialAmount: line.initialAmount,
     revisedAmount: line.revisedAmount,
     currency: line.currency,
@@ -164,14 +164,13 @@ export function lineApiToForm(line: BudgetLine): BudgetLineFormValues {
 }
 
 export function lineFormToCreatePayload(values: BudgetLineFormValues): CreateLinePayload {
-  return {
+  const payload: CreateLinePayload = {
     budgetId: values.budgetId,
     envelopeId: values.envelopeId,
     name: values.name,
     code: values.code || undefined,
     description: values.description || undefined,
     expenseType: values.expenseType,
-    generalLedgerAccountId: values.generalLedgerAccountId,
     initialAmount: values.initialAmount,
     revisedAmount:
       values.revisedAmount === '' || values.revisedAmount === undefined
@@ -180,10 +179,16 @@ export function lineFormToCreatePayload(values: BudgetLineFormValues): CreateLin
     currency: values.currency,
     status: values.status,
   };
+
+  if (values.generalLedgerAccountId && values.generalLedgerAccountId.trim().length > 0) {
+    payload.generalLedgerAccountId = values.generalLedgerAccountId;
+  }
+
+  return payload;
 }
 
 export function lineFormToUpdatePayload(values: BudgetLineFormValues): UpdateLinePayload {
-  return {
+  const payload: UpdateLinePayload = {
     name: values.name,
     code: values.code || undefined,
     description: values.description || undefined,
@@ -193,6 +198,13 @@ export function lineFormToUpdatePayload(values: BudgetLineFormValues): UpdateLin
         : Number(values.revisedAmount),
     currency: values.currency,
     status: values.status,
-    generalLedgerAccountId: values.generalLedgerAccountId,
   };
+
+  if (values.generalLedgerAccountId === '') {
+    // champ laissé vide dans le formulaire → aucune modification du compte comptable
+    return payload;
+  }
+
+  payload.generalLedgerAccountId = values.generalLedgerAccountId;
+  return payload;
 }

@@ -30,30 +30,31 @@ model HealthCheck {
 }
 
 model Client {
-  id                   String                @id @default(cuid())
-  name                 String
-  slug                 String                @unique
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  clientUsers          ClientUser[]
-  clientModules        ClientModule[]
-  roles                Role[]
-  auditLogs            AuditLog[]
-  budgetExercises      BudgetExercise[]
-  budgets              Budget[]
-  budgetEnvelopes      BudgetEnvelope[]
-  budgetLines          BudgetLine[]
-  financialAllocations FinancialAllocation[]
-  financialEvents      FinancialEvent[]
-  budgetSnapshots       BudgetSnapshot[]
-  budgetReallocations  BudgetReallocation[]
-  budgetImportMappings BudgetImportMapping[]
-  budgetImportJobs     BudgetImportJob[]
-  budgetImportRowLinks BudgetImportRowLink[]
-  budgetVersionSets    BudgetVersionSet[]
-  generalLedgerAccounts     GeneralLedgerAccount[]
-  analyticalLedgerAccounts  AnalyticalLedgerAccount[]
-  costCenters               CostCenter[]
+  id                         String                    @id @default(cuid())
+  name                       String
+  slug                       String                    @unique
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+  budgetAccountingEnabled    Boolean                   @default(false)
+  clientUsers                ClientUser[]
+  clientModules              ClientModule[]
+  roles                      Role[]
+  auditLogs                  AuditLog[]
+  budgetExercises            BudgetExercise[]
+  budgets                    Budget[]
+  budgetEnvelopes            BudgetEnvelope[]
+  budgetLines                BudgetLine[]
+  financialAllocations       FinancialAllocation[]
+  financialEvents            FinancialEvent[]
+  budgetSnapshots            BudgetSnapshot[]
+  budgetReallocations        BudgetReallocation[]
+  budgetImportMappings       BudgetImportMapping[]
+  budgetImportJobs           BudgetImportJob[]
+  budgetImportRowLinks       BudgetImportRowLink[]
+  budgetVersionSets          BudgetVersionSet[]
+  generalLedgerAccounts      GeneralLedgerAccount[]
+  analyticalLedgerAccounts   AnalyticalLedgerAccount[]
+  costCenters                CostCenter[]
   budgetLineCostCenterSplits BudgetLineCostCenterSplit[]
 }
 
@@ -457,8 +458,8 @@ model BudgetLine {
   forecastAmount           Decimal                    @db.Decimal(18, 2) @default(0)
   committedAmount          Decimal                    @db.Decimal(18, 2) @default(0)
   consumedAmount           Decimal                    @db.Decimal(18, 2) @default(0)
-  remainingAmount           Decimal                    @db.Decimal(18, 2) @default(0)
-  generalLedgerAccountId   String   // Required; backfilled by migration 20260315090300
+  remainingAmount          Decimal                    @db.Decimal(18, 2) @default(0)
+  generalLedgerAccountId   String?
   analyticalLedgerAccountId String?
   allocationScope          BudgetLineAllocationScope  @default(ENTERPRISE)
   createdAt                DateTime                  @default(now())
@@ -466,7 +467,7 @@ model BudgetLine {
   client                   Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   budget                   Budget                    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
   envelope                 BudgetEnvelope            @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
-  generalLedgerAccount     GeneralLedgerAccount      @relation(fields: [generalLedgerAccountId], references: [id], onDelete: Restrict)
+  generalLedgerAccount     GeneralLedgerAccount?     @relation(fields: [generalLedgerAccountId], references: [id], onDelete: Restrict)
   analyticalLedgerAccount  AnalyticalLedgerAccount?  @relation(fields: [analyticalLedgerAccountId], references: [id], onDelete: SetNull)
   costCenterSplits         BudgetLineCostCenterSplit[]
   allocations               FinancialAllocation[]

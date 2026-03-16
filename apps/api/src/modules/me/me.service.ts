@@ -21,6 +21,7 @@ export interface MeClient {
   id: string;
   name: string;
   slug: string;
+  budgetAccountingEnabled: boolean;
   role: import('@prisma/client').ClientUserRole;
   status: import('@prisma/client').ClientUserStatus;
   isDefault: boolean;
@@ -87,7 +88,16 @@ export class MeService {
   async getClients(userId: string): Promise<MeClient[]> {
     const clientUsers = await this.prisma.clientUser.findMany({
       where: { userId },
-      include: { client: true },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            budgetAccountingEnabled: true,
+          },
+        },
+      },
       orderBy: [{ isDefault: 'desc' }, { client: { name: 'asc' } }],
     });
     return clientUsers
@@ -96,6 +106,7 @@ export class MeService {
         id: cu.client!.id,
         name: cu.client!.name,
         slug: cu.client!.slug,
+        budgetAccountingEnabled: cu.client!.budgetAccountingEnabled,
         role: cu.role,
         status: cu.status,
         isDefault: cu.isDefault,

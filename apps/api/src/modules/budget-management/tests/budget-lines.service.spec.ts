@@ -43,6 +43,9 @@ describe('BudgetLinesService', () => {
 
   beforeEach(() => {
     prisma = {
+      client: {
+        findUnique: jest.fn().mockResolvedValue({ id: clientId, budgetAccountingEnabled: false }),
+      },
       budget: { findFirst: jest.fn() },
       budgetEnvelope: { findFirst: jest.fn() },
       generalLedgerAccount: { findFirst: jest.fn() },
@@ -65,7 +68,7 @@ describe('BudgetLinesService', () => {
   });
 
   describe('create', () => {
-    it('enveloppe et budget cohérents + initialisation des montants', async () => {
+    it('enveloppe et budget cohérents + initialisation des montants quand la compta budgétaire est désactivée', async () => {
       prisma.generalLedgerAccount.findFirst.mockResolvedValue({
         id: generalLedgerAccountId,
         clientId,
@@ -128,6 +131,43 @@ describe('BudgetLinesService', () => {
       );
       expect(result.initialAmount).toBe(1000);
       expect(result.remainingAmount).toBe(1000);
+    });
+
+    it('rejette la création sans generalLedgerAccountId quand la compta budgétaire est activée', async () => {
+      prisma.client.findUnique.mockResolvedValue({ id: clientId, budgetAccountingEnabled: true });
+      prisma.budget.findFirst.mockResolvedValue({
+        id: budgetId,
+        clientId,
+        status: BudgetStatus.DRAFT,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      prisma.budgetEnvelope.findFirst.mockResolvedValue({
+        id: envelopeId,
+        clientId,
+        budgetId,
+        name: 'E',
+        code: 'E',
+        type: 'RUN',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await expect(
+        service.create(
+          clientId,
+          {
+            budgetId,
+            envelopeId,
+            name: 'Line',
+            code: 'BL-1',
+            expenseType: ExpenseType.OPEX,
+            initialAmount: 1000,
+            currency: 'EUR',
+          },
+          { actorUserId: 'user-1', meta: {} },
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('rejet si envelope.budgetId !== budgetId', async () => {
@@ -236,6 +276,97 @@ describe('BudgetLinesService', () => {
       expect(updateCall.data.revisedAmount).toBeDefined();
       expect(updateCall.data.remainingAmount).toBeDefined();
       expect(Number(updateCall.data.remainingAmount)).toBe(1200); // 1500 - 200 - 100
+    });
+
+    it('permet de laisser generalLedgerAccountId inchangé quand le champ est absent', async () => {
+      const existingWithBudget = {
+        ...lineWithInclude(),
+        budget: { status: BudgetStatus.DRAFT },
+        costCenterSplits: [],
+      };
+      prisma.budgetLine.findFirst.mockResolvedValue(existingWithBudget);
+      let capturedTx: any;
+      prisma.$transaction.mockImplementation(async (cb: (tx: any) => Promise<any>) => {
+        capturedTx = {
+          budgetLine: {
+            update: jest.fn().mockResolvedValue({}),
+            findUniqueOrThrow: jest.fn().mockResolvedValue(existingWithBudget),
+          },
+          budgetLineCostCenterSplit: {
+            deleteMany: jest.fn().mockResolvedValue({}),
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+        return cb(capturedTx);
+      });
+
+      await service.update(
+        clientId,
+        'line-1',
+        { name: 'New name' },
+        { actorUserId: 'user-1', meta: {} },
+      );
+
+      const updateCall = capturedTx.budgetLine.update.mock.calls[0][0];
+      expect(updateCall.data.generalLedgerAccountId).toBeUndefined();
+    });
+
+    it('interdit la suppression du compte comptable quand la compta budgétaire est activée', async () => {
+      prisma.client.findUnique.mockResolvedValue({ id: clientId, budgetAccountingEnabled: true });
+      const existingWithBudget = {
+        ...lineWithInclude(),
+        budget: { status: BudgetStatus.DRAFT },
+        costCenterSplits: [],
+      };
+      prisma.budgetLine.findFirst.mockResolvedValue(existingWithBudget);
+
+      await expect(
+        service.update(
+          clientId,
+          'line-1',
+          { generalLedgerAccountId: null },
+          { actorUserId: 'user-1', meta: {} },
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('autorise la suppression du compte comptable quand la compta budgétaire est désactivée', async () => {
+      prisma.client.findUnique.mockResolvedValue({ id: clientId, budgetAccountingEnabled: false });
+      const existingWithBudget = {
+        ...lineWithInclude(),
+        budget: { status: BudgetStatus.DRAFT },
+        costCenterSplits: [],
+      };
+      prisma.budgetLine.findFirst.mockResolvedValue(existingWithBudget);
+      let capturedTx: any;
+      prisma.$transaction.mockImplementation(async (cb: (tx: any) => Promise<any>) => {
+        capturedTx = {
+          budgetLine: {
+            update: jest.fn().mockResolvedValue({}),
+            findUniqueOrThrow: jest.fn().mockResolvedValue(
+              lineWithInclude({
+                generalLedgerAccountId: null,
+              }),
+            ),
+          },
+          budgetLineCostCenterSplit: {
+            deleteMany: jest.fn().mockResolvedValue({}),
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+        return cb(capturedTx);
+      });
+
+      await service.update(
+        clientId,
+        'line-1',
+        { generalLedgerAccountId: null },
+        { actorUserId: 'user-1', meta: {} },
+      );
+
+      const updateCall = capturedTx.budgetLine.update.mock.calls[0][0];
+      expect(updateCall.data.generalLedgerAccountId).toBeNull();
     });
 
     it('rejet si ligne ARCHIVED', async () => {

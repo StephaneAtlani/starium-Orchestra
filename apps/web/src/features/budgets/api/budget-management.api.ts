@@ -280,7 +280,7 @@ export interface CreateLinePayload {
   code?: string;
   description?: string;
   expenseType: string;
-  generalLedgerAccountId: string;
+  generalLedgerAccountId?: string;
   analyticalLedgerAccountId?: string | null;
   initialAmount: number;
   revisedAmount?: number;
@@ -293,7 +293,7 @@ export interface UpdateLinePayload {
   code?: string;
   description?: string;
   status?: string;
-  generalLedgerAccountId?: string;
+  generalLedgerAccountId?: string | null;
   analyticalLedgerAccountId?: string | null;
   revisedAmount?: number;
   currency?: string;

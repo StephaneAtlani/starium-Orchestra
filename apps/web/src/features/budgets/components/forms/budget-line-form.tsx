@@ -8,11 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { budgetLineFormSchema, type BudgetLineFormValues } from '../../schemas/budget-line-form.schema';
+import { buildBudgetLineFormSchema, type BudgetLineFormValues } from '../../schemas/budget-line-form.schema';
 import { BudgetFormActions } from './budget-form-actions';
 import { budgetEnvelopeNew } from '../../constants/budget-routes';
 import type { ApiFormError } from '../../api/types';
 import type { GeneralLedgerAccountOption } from '../../api/general-ledger-accounts.api';
+import { useActiveClient } from '@/hooks/use-active-client';
 
 const EXPENSE_TYPE_OPTIONS = [
   { value: 'CAPEX', label: 'CAPEX' },
@@ -59,7 +60,9 @@ export function BudgetLineForm({
   const noEnvelopes = envelopeOptionsSuccess && envelopeOptions.length === 0;
   const envelopeSelectLoading = !envelopeOptionsSuccess || envelopeOptionsLoading;
   const noGeneralLedger = generalLedgerOptions.length === 0;
-  const canSubmit = !noEnvelopes && !noGeneralLedger;
+  const { activeClient } = useActiveClient();
+  const isBudgetAccountingEnabled = activeClient?.budgetAccountingEnabled ?? false;
+  const canSubmit = !noEnvelopes && (isBudgetAccountingEnabled ? !noGeneralLedger : true);
 
   const {
     register,
@@ -68,7 +71,7 @@ export function BudgetLineForm({
     setValue,
     formState: { errors },
   } = useForm<BudgetLineFormValues>({
-    resolver: zodResolver(budgetLineFormSchema),
+    resolver: zodResolver(buildBudgetLineFormSchema(isBudgetAccountingEnabled)),
     defaultValues: {
       currency: 'EUR',
       status: 'DRAFT',
@@ -103,9 +106,12 @@ export function BudgetLineForm({
       )}
 
       {noGeneralLedger && (
-        <Alert variant="destructive">
+        <Alert variant={isBudgetAccountingEnabled ? 'destructive' : 'default'}>
           <AlertDescription>
-            Aucun compte comptable n&apos;est disponible pour le client. Créez un compte comptable ou contactez l&apos;administrateur.
+            Aucun compte comptable n&apos;est disponible pour le client.
+            {isBudgetAccountingEnabled
+              ? ' Créez un compte comptable ou contactez l\'administrateur.'
+              : ' Vous pouvez néanmoins créer des lignes sans compte comptable.'}
           </AlertDescription>
         </Alert>
       )}
@@ -206,13 +212,15 @@ export function BudgetLineForm({
             {errors.expenseType && <p className="text-sm text-destructive">{errors.expenseType.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="generalLedgerAccountId">Compte comptable *</Label>
+            <Label htmlFor="generalLedgerAccountId">
+              {isBudgetAccountingEnabled ? 'Compte comptable *' : 'Compte comptable (optionnel)'}
+            </Label>
             <select
               id="generalLedgerAccountId"
               className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               {...register('generalLedgerAccountId')}
               aria-invalid={!!errors.generalLedgerAccountId}
-              disabled={noGeneralLedger}
+              disabled={isBudgetAccountingEnabled && noGeneralLedger}
             >
               <option value="">Sélectionner un compte</option>
               {generalLedgerOptions.map((gla) => (

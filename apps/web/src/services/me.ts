@@ -10,6 +10,7 @@ export interface MeClient {
   id: string;
   name: string;
   slug: string;
+  budgetAccountingEnabled: boolean;
   role: 'CLIENT_ADMIN' | 'CLIENT_USER';
   status: 'ACTIVE' | 'SUSPENDED' | 'INVITED';
   isDefault: boolean;
