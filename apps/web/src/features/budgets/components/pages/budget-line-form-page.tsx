@@ -8,7 +8,8 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useQuery } from '@tanstack/react-query';
 import { getLine } from '../../api/budget-management.api';
-import { useBudgetEnvelopeOptions } from '../../hooks/use-budget-envelope-options';
+import { useBudgetEnvelopesAll } from '../../hooks/use-budget-envelopes';
+import { useBudgetDetail } from '../../hooks/use-budgets';
 import { useGeneralLedgerAccountOptions } from '../../hooks/use-general-ledger-account-options';
 import { useCreateBudgetLine } from '../../hooks/use-create-budget-line';
 import { useUpdateBudgetLine } from '../../hooks/use-update-budget-line';
@@ -20,10 +21,11 @@ import type { ApiFormError } from '../../api/types';
 interface BudgetLineFormPageProps {
   mode: 'create' | 'edit';
   budgetId?: string;
+  envelopeId?: string;
   lineId?: string;
 }
 
-export function BudgetLineFormPage({ mode, budgetId, lineId }: BudgetLineFormPageProps) {
+export function BudgetLineFormPage({ mode, budgetId, envelopeId, lineId }: BudgetLineFormPageProps) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -35,10 +37,13 @@ export function BudgetLineFormPage({ mode, budgetId, lineId }: BudgetLineFormPag
   });
 
   const resolvedBudgetId = budgetId ?? line?.budgetId;
-  const { data: envelopeData } = useBudgetEnvelopeOptions(resolvedBudgetId ?? null);
+  const { data: budget } = useBudgetDetail(resolvedBudgetId ?? null);
+  const envelopesQuery = useBudgetEnvelopesAll(resolvedBudgetId ?? null);
   const { data: generalLedgerData } = useGeneralLedgerAccountOptions();
 
-  const envelopeOptions = envelopeData?.items ?? [];
+  const envelopeOptions = envelopesQuery.data ?? [];
+  const isEnvelopeOptionsLoading = envelopesQuery.isLoading;
+  const isEnvelopeOptionsSuccess = envelopesQuery.isSuccess;
   const generalLedgerOptions = generalLedgerData?.items ?? [];
 
   const createMutation = useCreateBudgetLine(resolvedBudgetId ?? null);
@@ -77,7 +82,7 @@ export function BudgetLineFormPage({ mode, budgetId, lineId }: BudgetLineFormPag
 
   const defaultValues: Partial<BudgetLineFormValues> = isEdit && line
     ? lineApiToForm(line)
-    : { budgetId: resolvedBudgetId, currency: 'EUR', status: 'DRAFT' };
+    : { budgetId: resolvedBudgetId, envelopeId, currency: 'EUR', status: 'DRAFT' };
 
   const handleSubmit = (values: BudgetLineFormValues) => {
     if (isEdit) {
@@ -88,6 +93,7 @@ export function BudgetLineFormPage({ mode, budgetId, lineId }: BudgetLineFormPag
   };
 
   const cancelHref = budgetDetail(resolvedBudgetId);
+  const budgetLabel = budget?.name ?? resolvedBudgetId;
 
   return (
     <>
@@ -102,7 +108,10 @@ export function BudgetLineFormPage({ mode, budgetId, lineId }: BudgetLineFormPag
         cancelHref={cancelHref}
         submitError={submitError}
         budgetId={resolvedBudgetId}
+        budgetLabel={budgetLabel}
         envelopeOptions={envelopeOptions.map((e) => ({ id: e.id, name: e.name }))}
+        envelopeOptionsLoading={isEnvelopeOptionsLoading}
+        envelopeOptionsSuccess={isEnvelopeOptionsSuccess}
         generalLedgerOptions={generalLedgerOptions}
       />
     </>

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
@@ -9,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { budgetLineFormSchema, type BudgetLineFormValues } from '../../schemas/budget-line-form.schema';
 import { BudgetFormActions } from './budget-form-actions';
+import { budgetEnvelopeNew } from '../../constants/budget-routes';
 import type { ApiFormError } from '../../api/types';
 import type { GeneralLedgerAccountOption } from '../../api/general-ledger-accounts.api';
 
@@ -32,7 +34,11 @@ interface BudgetLineFormProps {
   cancelHref: string;
   submitError?: ApiFormError | null;
   budgetId: string;
+  budgetLabel?: string;
   envelopeOptions: { id: string; name: string }[];
+  envelopeOptionsLoading?: boolean;
+  /** true quand la requête enveloppes a réussi (évite d’afficher l’alerte pendant le chargement ou si la query est désactivée). */
+  envelopeOptionsSuccess?: boolean;
   generalLedgerOptions: GeneralLedgerAccountOption[];
 }
 
@@ -44,10 +50,14 @@ export function BudgetLineForm({
   cancelHref,
   submitError,
   budgetId,
+  budgetLabel,
   envelopeOptions,
+  envelopeOptionsLoading = false,
+  envelopeOptionsSuccess = false,
   generalLedgerOptions,
 }: BudgetLineFormProps) {
-  const noEnvelopes = envelopeOptions.length === 0;
+  const noEnvelopes = envelopeOptionsSuccess && envelopeOptions.length === 0;
+  const envelopeSelectLoading = !envelopeOptionsSuccess || envelopeOptionsLoading;
   const noGeneralLedger = generalLedgerOptions.length === 0;
   const canSubmit = !noEnvelopes && !noGeneralLedger;
 
@@ -101,8 +111,14 @@ export function BudgetLineForm({
       )}
       {noEnvelopes && (
         <Alert variant="destructive">
-          <AlertDescription>
+          <AlertDescription className="flex flex-wrap items-center gap-x-1 gap-y-1">
             Il faut créer au moins une enveloppe avant de créer une ligne.
+            <Link
+              href={budgetEnvelopeNew(budgetId)}
+              className="underline font-medium focus:outline-none focus:underline"
+            >
+              Créer une enveloppe
+            </Link>
           </AlertDescription>
         </Alert>
       )}
@@ -112,7 +128,9 @@ export function BudgetLineForm({
           <CardTitle className="text-base">Contexte</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Budget : {budgetId}</p>
+          <p className="text-sm text-muted-foreground">
+            Budget : {budgetLabel ?? budgetId}
+          </p>
           <input type="hidden" {...register('budgetId')} value={budgetId} />
         </CardContent>
       </Card>
@@ -129,7 +147,7 @@ export function BudgetLineForm({
               className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               {...register('envelopeId')}
               aria-invalid={!!errors.envelopeId}
-              disabled={noEnvelopes}
+              disabled={noEnvelopes || envelopeSelectLoading}
             >
               <option value="">Sélectionner une enveloppe</option>
               {envelopeOptions.map((env) => (

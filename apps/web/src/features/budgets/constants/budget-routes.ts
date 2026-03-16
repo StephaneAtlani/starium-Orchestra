@@ -48,8 +48,12 @@ export function budgetEnvelopeEdit(envelopeId: string): string {
   return `/budget-envelopes/${envelopeId}/edit`;
 }
 
-export function budgetLineNew(budgetId: string): string {
-  return `${BUDGETS_ROOT}/${budgetId}/lines/new`;
+export function budgetLineNew(budgetId: string, envelopeId?: string): string {
+  const base = `${BUDGETS_ROOT}/${budgetId}/lines/new`;
+  if (envelopeId) {
+    return `${base}?envelopeId=${encodeURIComponent(envelopeId)}`;
+  }
+  return base;
 }
 
 export function budgetLineEdit(lineId: string): string {
