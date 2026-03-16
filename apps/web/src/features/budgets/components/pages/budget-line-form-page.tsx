@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BudgetPageHeader } from '../budget-page-header';
 import { BudgetEmptyState } from '../budget-empty-state';
@@ -70,6 +70,7 @@ export function BudgetLineFormPage({
   const [selectedTool, setSelectedTool] = useState<PlanningCalculatorTool>('GROWTH');
   const [planningError, setPlanningError] = useState<ApiFormError | null>(null);
   const [showPlanning, setShowPlanning] = useState(false);
+  const planningRef = useRef<HTMLDivElement | null>(null);
 
   if (isEdit && isLoading) {
     return (
@@ -134,6 +135,18 @@ export function BudgetLineFormPage({
     }
   };
 
+  useEffect(() => {
+    if (effectiveLineId && createMutation.isSuccess && !showPlanning) {
+      setShowPlanning(true);
+    }
+  }, [effectiveLineId, createMutation.isSuccess, showPlanning]);
+
+  useEffect(() => {
+    if (showPlanning && planningRef.current) {
+      planningRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [showPlanning]);
+
   return (
     <>
       {variant === 'page' && (
@@ -157,12 +170,15 @@ export function BudgetLineFormPage({
           envelopeOptionsLoading={isEnvelopeOptionsLoading}
           envelopeOptionsSuccess={isEnvelopeOptionsSuccess}
           generalLedgerOptions={generalLedgerOptions}
-          hasPlanning={!!effectiveLineId}
+          hasPlanning
           onOpenPlanning={handleOpenPlanning}
         />
 
         {effectiveLineId && showPlanning && (
-          <div className="space-y-3">
+          <div
+            ref={planningRef}
+            className="space-y-3"
+          >
             {planningError && (
               <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                 Erreur de planning : {planningError.message ?? 'une erreur est survenue.'}
@@ -188,6 +204,7 @@ export function BudgetLineFormPage({
                 budgetId={resolvedBudgetId}
                 currency={budget?.currency ?? 'EUR'}
                 selectedTool={selectedTool}
+                canEdit
                 onError={(err) => setPlanningError(err)}
               />
             </div>

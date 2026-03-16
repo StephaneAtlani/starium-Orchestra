@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Calculator } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type PlanningCalculatorTool = 'GROWTH' | 'QUANTITY_X_UNIT_PRICE';
@@ -26,8 +27,9 @@ export function BudgetLinePlanningToolbar({
       )}
     >
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-xs font-medium text-muted-foreground">
-          Calculatrice de planning
+        <span className="inline-flex items-center gap-1 mr-1 text-xs font-medium text-muted-foreground">
+          <Calculator className="size-3.5" />
+          <span>Calculatrice de planning</span>
         </span>
         <button
           type="button"
