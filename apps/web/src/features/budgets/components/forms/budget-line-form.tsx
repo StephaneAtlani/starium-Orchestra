@@ -36,6 +36,7 @@ interface BudgetLineFormProps {
   submitError?: ApiFormError | null;
   budgetId: string;
   budgetLabel?: string;
+  isEdit?: boolean;
   envelopeOptions: { id: string; name: string }[];
   envelopeOptionsLoading?: boolean;
   /** true quand la requête enveloppes a réussi (évite d’afficher l’alerte pendant le chargement ou si la query est désactivée). */
@@ -52,6 +53,7 @@ export function BudgetLineForm({
   submitError,
   budgetId,
   budgetLabel,
+  isEdit = false,
   envelopeOptions,
   envelopeOptionsLoading = false,
   envelopeOptionsSuccess = false,
@@ -153,7 +155,7 @@ export function BudgetLineForm({
               className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               {...register('envelopeId')}
               aria-invalid={!!errors.envelopeId}
-              disabled={noEnvelopes || envelopeSelectLoading}
+              disabled={isEdit || noEnvelopes || envelopeSelectLoading}
             >
               <option value="">Sélectionner une enveloppe</option>
               {envelopeOptions.map((env) => (
@@ -202,6 +204,7 @@ export function BudgetLineForm({
               className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               {...register('expenseType')}
               aria-invalid={!!errors.expenseType}
+              disabled={isEdit}
             >
               {EXPENSE_TYPE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -250,6 +253,7 @@ export function BudgetLineForm({
               min={0}
               {...register('initialAmount', { valueAsNumber: true })}
               aria-invalid={!!errors.initialAmount}
+              disabled={isEdit}
             />
             {errors.initialAmount && <p className="text-sm text-destructive">{errors.initialAmount.message}</p>}
           </div>

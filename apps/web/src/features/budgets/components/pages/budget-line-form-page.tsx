@@ -109,6 +109,7 @@ export function BudgetLineFormPage({ mode, budgetId, envelopeId, lineId }: Budge
         submitError={submitError}
         budgetId={resolvedBudgetId}
         budgetLabel={budgetLabel}
+        isEdit={isEdit}
         envelopeOptions={envelopeOptions.map((e) => ({ id: e.id, name: e.name }))}
         envelopeOptionsLoading={isEnvelopeOptionsLoading}
         envelopeOptionsSuccess={isEnvelopeOptionsSuccess}

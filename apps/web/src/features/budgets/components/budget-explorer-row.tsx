@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import type { ExplorerNode } from '../types/budget-explorer.types';
 import { formatAmount, formatPercent } from '../lib/budget-formatters';
 import { BudgetLinesProgress } from './budget-lines-progress';
+import { usePermissions } from '@/hooks/use-permissions';
 
 interface BudgetExplorerRowProps {
   node: ExplorerNode;
@@ -27,6 +28,7 @@ export function BudgetExplorerRow({
   onToggleExpand,
   currency,
 }: BudgetExplorerRowProps) {
+  const { has, isLoading: isPermissionsLoading } = usePermissions();
   const isEnvelope = node.type === 'envelope';
   const isExpanded = isEnvelope && expandedIds.has(node.id);
   const hasChildren = isEnvelope && node.children.length > 0;
@@ -114,14 +116,14 @@ export function BudgetExplorerRow({
   }
 
   const line = node;
+  const canEditLine = !isPermissionsLoading && has('budgets.update');
   return (
     <TableRow data-testid={`explorer-row-line-${line.id}`}>
       <TableCell
-        className="align-middle text-muted-foreground"
+        className="align-middle text-foreground"
         style={{ paddingLeft: `${12 + (depth + 1) * 20}px` }}
       >
-        <span className="tabular-nums">{line.code ?? '—'}</span>
-        <span className="ml-2">{line.name}</span>
+        <span className="text-sm truncate">{line.name}</span>
       </TableCell>
       <TableCell className="text-muted-foreground">—</TableCell>
       <TableCell>{line.expenseType}</TableCell>
@@ -147,8 +149,8 @@ export function BudgetExplorerRow({
         {formatAmount(line.consumedAmount, line.currency)}
       </TableCell>
       <TableCell>
-        <div className="flex items-center justify-end gap-2">
-          <span className="tabular-nums">
+        <div className="flex flex-col items-end gap-1">
+          <span className="tabular-nums font-medium">
             {formatAmount(line.remainingAmount, line.currency)}
           </span>
           <BudgetLinesProgress
@@ -156,7 +158,7 @@ export function BudgetExplorerRow({
             consumedAmount={line.consumedAmount}
             remainingAmount={line.remainingAmount}
             currency={line.currency}
-            className="w-24"
+            className="w-32"
           />
         </div>
       </TableCell>

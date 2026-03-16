@@ -200,11 +200,8 @@ export function lineFormToUpdatePayload(values: BudgetLineFormValues): UpdateLin
     status: values.status,
   };
 
-  if (values.generalLedgerAccountId === '') {
-    // champ laissé vide dans le formulaire → aucune modification du compte comptable
-    return payload;
-  }
-
-  payload.generalLedgerAccountId = values.generalLedgerAccountId;
+  // Permet explicitement de "vider" le compte comptable (si autorisé côté backend).
+  // Note: le backend normalise "" → null.
+  payload.generalLedgerAccountId = values.generalLedgerAccountId === '' ? null : values.generalLedgerAccountId;
   return payload;
 }
