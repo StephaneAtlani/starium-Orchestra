@@ -8,7 +8,9 @@ Ce document décrit l’implémentation des **dimensions analytiques** et de la 
 
 Enrichir chaque **BudgetLine** avec :
 
-- un **compte comptable** obligatoire (General Ledger Account) ;
+- un **compte comptable** (General Ledger Account), qui est :
+  - **optionnel dans le modèle** Prisma (champ nullable) ;
+  - mais peut être rendu **obligatoire par client** via la configuration `Client.budgetAccountingEnabled` (voir RFC-021-CORR) ;
 - un **compte analytique** optionnel (Analytical Ledger Account) ;
 - une **portée** : ENTERPRISE (dépense globale) ou ANALYTICAL (ventilée par centres de coûts) ;
 - une **ventilation en %** par centre de coûts lorsque la portée est ANALYTICAL (somme = 100 %).
@@ -35,8 +37,10 @@ Unicité : `@@unique([clientId, code])` pour chaque référentiel. Index : `@@in
 
 ### 2.3 Extension BudgetLine
 
-- **generalLedgerAccountId** (String, obligatoire) — FK vers GeneralLedgerAccount.
-- **analyticalLedgerAccountId** (String?, optionnel) — FK vers AnalyticalLedgerAccount.
+- **generalLedgerAccountId** (`String?`, nullable) — FK vers GeneralLedgerAccount.  
+  - Contrainte métier : **obligatoire** pour les clients ayant `Client.budgetAccountingEnabled === true` (validation dans le service `BudgetLinesService`).  
+  - Optionnel pour les clients avec `budgetAccountingEnabled === false`.
+- **analyticalLedgerAccountId** (`String?`, optionnel) — FK vers AnalyticalLedgerAccount.
 - **allocationScope** (BudgetLineAllocationScope, défaut ENTERPRISE).
 - Relations : `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`.
 
@@ -50,7 +54,10 @@ Unicité : `@@unique([clientId, code])` pour chaque référentiel. Index : `@@in
 
 ## 3. Règles métier
 
-- **Compte comptable** : obligatoire pour toute création/mise à jour de BudgetLine.
+- **Compte comptable** :
+  - obligatoire pour toute création/mise à jour de `BudgetLine` lorsque `Client.budgetAccountingEnabled === true` ;
+  - optionnel (peut être omis ou supprimé) lorsque `budgetAccountingEnabled === false`.  
+  La validation est centralisée dans `BudgetLinesService` (create/update), pas au niveau du schéma.
 - **Compte analytique** : optionnel ; une ligne ENTERPRISE peut en avoir un (ENTERPRISE ≠ « pas d’analytique »).
 - **ENTERPRISE** : 0 split. Si `costCenterSplits` non vide → rejet. Passage d’une ligne ANALYTICAL à ENTERPRISE → suppression automatique des splits.
 - **ANALYTICAL** : au moins 1 split ; somme des `percentage` = 100 (tolérance 0,01). Unicité des `costCenterId` par ligne (validation métier + contrainte DB).
@@ -111,12 +118,16 @@ Création et mise à jour de lignes : audit avec `generalLedgerAccountId`, `anal
 
 ## 7. Migration des données existantes
 
-Une migration dédiée a créé un compte comptable par défaut (code `999999`, name « Non affecté ») par client ayant des BudgetLine, puis a affecté ce compte à toutes les lignes existantes et rendu `generalLedgerAccountId` NOT NULL.
+- Une première migration (RFC-021) a créé un compte comptable par défaut (code `999999`, name « Non affecté ») par client ayant des BudgetLine, puis a affecté ce compte à toutes les lignes existantes et rendu `generalLedgerAccountId` NOT NULL.  
+- La **correction RFC-021-CORR** a ensuite :
+  - rendu `generalLedgerAccountId` à nouveau **nullable** dans le modèle et en base ;
+  - introduit une configuration par client (`Client.budgetAccountingEnabled`) qui pilote le caractère obligatoire du compte comptable au niveau métier (service).
 
 ---
 
 ## 8. Références
 
 - **RFC** : [RFC-021 — Analytical Dimensions & Budget Allocation Splits](../RFC/RFC-021%20—%20Analytical%20Dimensions%20%26%20Budget%20Allocation%20Splits.md)
+- **Correction** : [RFC-021-CORR — Compte comptable optionnel par client](../RFC/RFC-021-CORR%20—%20Compte%20comptable%20optionnel%20par%20client.md)
 - **API** : [docs/API.md](../API.md) (référentiels, budget-lines, reporting, import)
 - **Module Budget** : [docs/modules/budget-mvp.md](budget-mvp.md)

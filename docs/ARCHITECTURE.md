@@ -183,7 +183,7 @@ users
   (pas de clientId : utilisateur global)
 
 clients
-  id, name, slug, settings (jsonb), createdAt, ...
+  id, name, slug, budgetAccountingEnabled (bool), createdAt, updatedAt, ...
 
 client_users
   id, userId, clientId, role, status, ...
@@ -214,7 +214,7 @@ Schéma générique pour une entité métier :
 
 Entités transverses réutilisables par plusieurs modules :
 
-- `budgets`, `budget_lines`, `budget_exercises`, `budget_envelopes`
+-- `budgets`, `budget_lines`, `budget_exercises`, `budget_envelopes`
 - `orders`, `order_lines`
 - `suppliers`, `contracts`
 - `cost_centers`, `analytical_axes`, `analytical_axis_values`
@@ -223,7 +223,8 @@ Entités transverses réutilisables par plusieurs modules :
 - `budget_reallocations` (RFC-017 : transfert entre deux BudgetLine d’un même budget ; crée 2 FinancialEvent REALLOCATION_DONE et déclenche le recalcul)
 - `budget_version_sets` (RFC-019 : ensembles de versions ; baseline, révisions, version active ; chaque version = copie Budget + BudgetEnvelope + BudgetLine, sans clonage des allocations/événements)
 
-Le **module backend `budget-management`** (RFC-015-2) implémente le CRUD de la structure budgétaire : exercices, budgets, enveloppes et lignes budgétaires. Il ne gère pas les allocations ni les événements financiers.
+Le **module backend `budget-management`** (RFC-015-2) implémente le CRUD de la structure budgétaire : exercices, budgets, enveloppes et lignes budgétaires.  
+Depuis **RFC-021-CORR**, le compte comptable d’une `BudgetLine` est **optionnel dans le modèle** mais peut être rendu **obligatoire par client** via `Client.budgetAccountingEnabled`; la validation est portée par le service (et non plus par une contrainte NOT NULL).
 
 Le **module backend `financial-core`** (RFC-015-1B) implémente :
 - les API d’allocations et d’événements financiers ;

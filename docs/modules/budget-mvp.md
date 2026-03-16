@@ -6,13 +6,15 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 
 ## 1. Ce qui est en place
 
-### Schéma Prisma (RFC-015-1A, RFC-019, RFC-021)
+### Schéma Prisma (RFC-015-1A, RFC-019, RFC-021, RFC-021-CORR)
 
 - **BudgetExercise** : exercice budgétaire (clientId, name, code, startDate, endDate, status).
 - **Budget** : budget (clientId, exerciseId, name, code, currency, status, ownerUserId optionnel). Extension RFC-019 : versionSetId?, versionNumber?, versionLabel?, versionKind? (BASELINE/REVISION), versionStatus? (DRAFT/ACTIVE/SUPERSEDED/ARCHIVED), parentBudgetId?, activatedAt?, archivedAt?, isVersioned.
 - **BudgetVersionSet** (RFC-019) : ensemble de versions (clientId, exerciseId, code, name, description?, baselineBudgetId?, activeBudgetId?). Relations nommées : versions, baselineBudget, activeBudget.
 - **BudgetEnvelope** : enveloppe (clientId, budgetId, parentId optionnel, name, code, type RUN/BUILD/TRANSVERSE).
-- **BudgetLine** : ligne budgétaire (clientId, budgetId, envelopeId, code, name, expenseType, currency, montants : initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount). Extension RFC-021 : generalLedgerAccountId (obligatoire), analyticalLedgerAccountId?, allocationScope (ENTERPRISE | ANALYTICAL), relations generalLedgerAccount, analyticalLedgerAccount, costCenterSplits.
+- **BudgetLine** : ligne budgétaire (clientId, budgetId, envelopeId, code, name, expenseType, currency, montants : initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount).  
+  Extension RFC-021 : `generalLedgerAccountId` (compte comptable), `analyticalLedgerAccountId?`, `allocationScope` (ENTERPRISE \| ANALYTICAL), relations `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`.  
+  Extension **RFC-021-CORR** : `generalLedgerAccountId` est **nullable dans le modèle** et son caractère obligatoire est piloté par une configuration par client (`Client.budgetAccountingEnabled`).
 - **GeneralLedgerAccount**, **AnalyticalLedgerAccount**, **CostCenter** (RFC-021) : catalogues client (clientId, code, name, description?, isActive, sortOrder) ; unicité code par client.
 - **BudgetLineCostCenterSplit** (RFC-021) : ventilation par centre de coûts (budgetLineId, costCenterId, percentage) ; unicité (budgetLineId, costCenterId) ; somme des pourcentages = 100 % pour les lignes ANALYTICAL.
 - **FinancialAllocation** : allocation sur une ligne (budgetLineId, sourceType, sourceId, allocationType, allocatedAmount, etc.).
@@ -21,7 +23,7 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 
 Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType` (dont REALLOCATION_DONE), `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `BudgetLineStatus`, `ExpenseType`, `BudgetVersionKind` (BASELINE, REVISION), `BudgetVersionStatus` (DRAFT, ACTIVE, SUPERSEDED, ARCHIVED), `BudgetLineAllocationScope` (ENTERPRISE, ANALYTICAL).
 
-### Backend Budget Management (RFC-015-2, RFC-021)
+### Backend Budget Management (RFC-015-2, RFC-021, RFC-021-CORR)
 
 - **Module** `budget-management` : CRUD de la structure budgétaire (exercices, budgets, enveloppes, lignes) et des référentiels analytiques (comptes comptables, comptes analytiques, centres de coûts).
 - **API** :
@@ -32,7 +34,11 @@ Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType`
   - `GET/POST /api/general-ledger-accounts`, `GET/PATCH /api/general-ledger-accounts/:id`
   - `GET/POST /api/analytical-ledger-accounts`, `GET/PATCH /api/analytical-ledger-accounts/:id`
   - `GET/POST /api/cost-centers`, `GET/PATCH /api/cost-centers/:id`
-- **Règles** : pas de `clientId` dans les body (client actif) ; codes optionnels en entrée, générés si absents (EX-, BUD-, ENV-, BL-) ; montants en `number` en API ; pas de suppression physique. Pour les lignes : generalLedgerAccountId obligatoire ; ENTERPRISE = 0 split ; ANALYTICAL = au moins 1 split, somme 100 % ; unicité du centre de coûts par ligne.
+- **Règles** : pas de `clientId` dans les body (client actif) ; codes optionnels en entrée, générés si absents (EX-, BUD-, ENV-, BL-) ; montants en `number` en API ; pas de suppression physique.  
+  Pour les lignes :
+  - `generalLedgerAccountId` **obligatoire** lorsque `Client.budgetAccountingEnabled === true` (validation côté service) ;
+  - **optionnel** lorsque `budgetAccountingEnabled === false` (ligne budgétaire acceptée sans compte comptable) ;
+  - ENTERPRISE = 0 split ; ANALYTICAL = au moins 1 split, somme 100 % ; unicité du centre de coûts par ligne.
 - **Audit** : création et mise à jour tracées (budget_exercise.created/updated, budget.created/updated, general_ledger_account.created/updated, etc.).
 
 Détail : [docs/API.md](../API.md) §15 (Structure budgétaire), [docs/modules/analytical-dimensions-rfc021.md](analytical-dimensions-rfc021.md) (dimensions analytiques).
@@ -146,12 +152,16 @@ Aucun formulaire complet (CRUD) ni UI avancée (versioning, import, snapshots, r
 
 ### Option A : API Budget Management (recommandé)
 
-1. S’assurer que le **module budgets** est activé pour le client et que l’utilisateur a les permissions `budgets.read`, `budgets.create`, `budgets.update`.
+1. S’assurer que le **module budgets** est activé pour le client et que l’utilisateur a les permissions `budgets.read`, `budgets.create`, `budgets.update`.  
+   Si `Client.budgetAccountingEnabled === true`, prévoir un compte comptable à utiliser pour la ligne (`generalLedgerAccountId`).
 2. Appeler avec `Authorization: Bearer <accessToken>` et `X-Client-Id: <clientId>` :
    - `POST /api/budget-exercises` (name, startDate, endDate ; code optionnel)
    - `POST /api/budgets` (exerciseId, name, currency ; code optionnel)
    - `POST /api/budget-envelopes` (budgetId, name, type ; code optionnel)
-   - `POST /api/budget-lines` (budgetId, envelopeId, name, expenseType, initialAmount, currency, **generalLedgerAccountId** ; code optionnel ; analyticalLedgerAccountId?, allocationScope?, costCenterSplits? si ANALYTICAL)
+   - `POST /api/budget-lines` (budgetId, envelopeId, name, expenseType, initialAmount, currency, `generalLedgerAccountId?`) :  
+     - si `budgetAccountingEnabled === true` pour le client → **generalLedgerAccountId requis** en entrée (erreur 400 sinon) ;  
+     - si `budgetAccountingEnabled === false` → le champ est **optionnel** et la ligne peut être créée sans compte comptable.  
+     Champs supplémentaires possibles : `code?`, `analyticalLedgerAccountId?`, `allocationScope?`, `costCenterSplits?` si ANALYTICAL.
 
 Voir [docs/API.md](../API.md) §15 et [docs/modules/analytical-dimensions-rfc021.md](analytical-dimensions-rfc021.md) pour les body complets.
 
