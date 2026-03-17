@@ -65,13 +65,35 @@ export class BudgetEnvelopesService {
     clientId: string,
     id: string,
   ): Promise<BudgetEnvelopeDetailResponseDto> {
+    // #region agent log
+    // Diagnostic temporaire pour comprendre les 404 sur GET /api/budget-envelopes/:id
+    console.log('[BudgetEnvelopesService.getById] called', {
+      clientId,
+      id,
+    });
+    // #endregion agent log
+
     const envelope = await this.prisma.budgetEnvelope.findFirst({
       where: { id, clientId },
       include: { budget: true },
     });
     if (!envelope) {
+      // #region agent log
+      console.log('[BudgetEnvelopesService.getById] envelope not found', {
+        clientId,
+        id,
+      });
+      // #endregion agent log
       throw new NotFoundException('Budget envelope not found');
     }
+
+    // #region agent log
+    console.log('[BudgetEnvelopesService.getById] envelope found', {
+      clientId,
+      id,
+      budgetId: envelope.budgetId,
+    });
+    // #endregion agent log
 
     const sums = await this.prisma.budgetLine.aggregate({
       where: {

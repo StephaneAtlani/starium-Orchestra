@@ -18,6 +18,25 @@ export default function BudgetEnvelopeDetailPage() {
   const params = useParams();
   const envelopeId = typeof params.id === 'string' ? params.id : null;
 
+  // #region agent log
+  fetch('http://127.0.0.1:7925/ingest/142bcba9-2a34-410d-ae2a-dbff12a993e5', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': 'b8c01a',
+    },
+    body: JSON.stringify({
+      sessionId: 'b8c01a',
+      runId: 'frontend-route',
+      hypothesisId: 'H1',
+      location: 'apps/web/src/app/(protected)/budget-envelopes/[id]/page.tsx:24',
+      message: 'BudgetEnvelopeDetailPage rendered',
+      data: { envelopeId },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion agent log
+
   const [offset, setOffset] = React.useState(0);
 
   const envelopeQuery = useBudgetEnvelope(envelopeId);
