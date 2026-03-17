@@ -37,6 +37,7 @@ function lineToNode(line: BudgetLine, depth: number, sortOrder: number): Explore
     code: line.code,
     name: line.name,
     expenseType: line.expenseType,
+    status: line.status,
     revisedAmount: line.revisedAmount ?? 0,
     committedAmount: line.committedAmount ?? 0,
     consumedAmount: line.consumedAmount ?? 0,

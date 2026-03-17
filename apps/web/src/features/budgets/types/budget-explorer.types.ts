@@ -34,6 +34,7 @@ export interface ExplorerLineNode extends ExplorerNodeBase {
   code: string | null;
   name: string;
   expenseType: string;
+  status: string;
   revisedAmount: number;
   committedAmount: number;
   consumedAmount: number;

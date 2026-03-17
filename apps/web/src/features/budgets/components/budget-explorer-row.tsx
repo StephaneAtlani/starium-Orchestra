@@ -12,6 +12,7 @@ import type { ExplorerNode } from '../types/budget-explorer.types';
 import { formatAmount, formatPercent } from '../lib/budget-formatters';
 import { BudgetLinesProgress } from './budget-lines-progress';
 import { usePermissions } from '@/hooks/use-permissions';
+import { BudgetStatusBadge } from './budget-status-badge';
 
 interface BudgetExplorerRowProps {
   node: ExplorerNode;
@@ -104,6 +105,15 @@ export function BudgetExplorerRow({
           <TableCell className="text-right tabular-nums">
             {formatAmount(env.totalRemaining, currency)}
           </TableCell>
+          <TableCell className="w-[160px]">
+            <BudgetLinesProgress
+              revisedAmount={env.totalRevised}
+              consumedAmount={env.totalConsumed}
+              remainingAmount={env.totalRemaining}
+              currency={currency}
+              className="w-36"
+            />
+          </TableCell>
         </TableRow>
         {isExpanded &&
           hasChildren &&
@@ -129,12 +139,18 @@ export function BudgetExplorerRow({
         className="align-middle text-foreground"
         style={{ paddingLeft: `${12 + (depth + 1) * 20}px` }}
       >
-        <Link
-          href={`/budget-lines/${line.id}/edit`}
-          className="text-sm truncate text-primary hover:underline"
-        >
-          {line.name}
-        </Link>
+        <div className="flex items-center gap-2">
+          <BudgetStatusBadge
+            status={line.status}
+            className="h-5 px-2 text-[10px] uppercase"
+          />
+          <Link
+            href={`/budget-lines/${line.id}/edit`}
+            className="text-sm truncate text-primary hover:underline"
+          >
+            {line.name}
+          </Link>
+        </div>
       </TableCell>
       <TableCell className="text-muted-foreground">—</TableCell>
       <TableCell>{line.expenseType}</TableCell>
@@ -159,19 +175,17 @@ export function BudgetExplorerRow({
       <TableCell className="text-right tabular-nums">
         {formatAmount(line.consumedAmount, line.currency)}
       </TableCell>
-      <TableCell>
-        <div className="flex flex-col items-end gap-1">
-          <span className="tabular-nums font-medium">
-            {formatAmount(line.remainingAmount, line.currency)}
-          </span>
-          <BudgetLinesProgress
-            revisedAmount={line.revisedAmount}
-            consumedAmount={line.consumedAmount}
-            remainingAmount={line.remainingAmount}
-            currency={line.currency}
-            className="w-32"
-          />
-        </div>
+      <TableCell className="text-right tabular-nums">
+        {formatAmount(line.remainingAmount, line.currency)}
+      </TableCell>
+      <TableCell className="w-[160px]">
+        <BudgetLinesProgress
+          revisedAmount={line.revisedAmount}
+          consumedAmount={line.consumedAmount}
+          remainingAmount={line.remainingAmount}
+          currency={line.currency}
+          className="w-36"
+        />
       </TableCell>
     </TableRow>
   );
