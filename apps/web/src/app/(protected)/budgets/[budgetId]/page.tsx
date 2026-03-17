@@ -141,14 +141,6 @@ export default function BudgetDetailPage() {
                   Nouvelle enveloppe
                 </Link>
               </PermissionGate>
-              <PermissionGate permission="budgets.create">
-                <Link
-                  href={budgetLineNew(budgetId!)}
-                  className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
-                >
-                  Nouvelle ligne
-                </Link>
-              </PermissionGate>
             </div>
           }
         />

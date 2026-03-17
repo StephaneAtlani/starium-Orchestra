@@ -69,7 +69,7 @@ export function BudgetExplorerTable({
           <TableHead className="text-right">Engagé</TableHead>
           <TableHead className="text-right">Consommé</TableHead>
           <TableHead className="text-right">Solde</TableHead>
-          <TableHead className="text-right">Planning</TableHead>
+          <TableHead className="text-right">Progression</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

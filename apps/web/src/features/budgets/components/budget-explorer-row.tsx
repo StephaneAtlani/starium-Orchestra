@@ -55,6 +55,7 @@ export function BudgetExplorerRow({
 
   if (node.type === 'envelope') {
     const env = node;
+    const envStatus = env.status ?? 'DRAFT';
     return (
       <TableRow
         data-testid={`explorer-row-envelope-${env.id}`}
@@ -70,9 +71,9 @@ export function BudgetExplorerRow({
         }}
         tabIndex={0}
       >
-        <TableCell className="align-middle">
+        <TableCell className="align-middle w-[56px]">
           <BudgetStatusBadge
-            status={env.status}
+            status={envStatus}
             className="h-5 px-1.5 text-[10px]"
           />
         </TableCell>
@@ -82,9 +83,6 @@ export function BudgetExplorerRow({
         >
           <div className="flex items-center gap-1">
             <span className="font-medium">{env.name}</span>
-            {env.code && (
-              <span className="text-muted-foreground text-xs">({env.code})</span>
-            )}
           </div>
         </TableCell>
         <TableCell className="text-muted-foreground">—</TableCell>
@@ -110,6 +108,17 @@ export function BudgetExplorerRow({
         </TableCell>
         <TableCell className="text-right tabular-nums">
           {formatAmount(env.totalRemaining, currency)}
+        </TableCell>
+        <TableCell>
+          <div className="flex justify-end">
+            <BudgetLinesProgress
+              revisedAmount={env.totalRevised}
+              consumedAmount={env.totalConsumed}
+              remainingAmount={env.totalRemaining}
+              currency={currency}
+              className="w-32"
+            />
+          </div>
         </TableCell>
       </TableRow>
     );
@@ -287,10 +296,12 @@ export function BudgetExplorerRow({
           {formatAmount(line.consumedAmount, line.currency)}
         </TableCell>
         <TableCell>
-          <div className="flex flex-col items-end gap-1">
-            <span className="tabular-nums font-medium">
-              {formatAmount(line.remainingAmount, line.currency)}
-            </span>
+          <span className="tabular-nums font-medium">
+            {formatAmount(line.remainingAmount, line.currency)}
+          </span>
+        </TableCell>
+        <TableCell>
+          <div className="flex justify-end">
             <BudgetLinesProgress
               revisedAmount={line.revisedAmount}
               consumedAmount={line.consumedAmount}
@@ -299,23 +310,6 @@ export function BudgetExplorerRow({
               className="w-32"
             />
           </div>
-        </TableCell>
-        <TableCell className="text-right align-middle">
-          <PermissionGate
-            permission="budgets.read"
-            showWhileLoading
-          >
-            <button
-              type="button"
-              className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-background px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={() => {
-                setPlanningError(null);
-                setIsPlanningOpen(true);
-              }}
-            >
-              Planning
-            </button>
-          </PermissionGate>
         </TableCell>
       </TableRow>
 
