@@ -21,6 +21,7 @@ import { BudgetEnvelopesService } from './budget-envelopes.service';
 import { CreateBudgetEnvelopeDto } from './dto/create-budget-envelope.dto';
 import { ListBudgetEnvelopesQueryDto } from './dto/list-budget-envelopes.query.dto';
 import { UpdateBudgetEnvelopeDto } from './dto/update-budget-envelope.dto';
+import type { BudgetEnvelopeDetailResponseDto } from './dto/budget-envelope-detail-response.dto';
 
 @Controller('budget-envelopes')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -41,7 +42,7 @@ export class BudgetEnvelopesController {
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
-  ) {
+  ): Promise<BudgetEnvelopeDetailResponseDto> {
     return this.service.getById(clientId!, id);
   }
 

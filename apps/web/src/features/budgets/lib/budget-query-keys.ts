@@ -22,6 +22,9 @@ export const budgetQueryKeys = {
   budgetDetail: (clientId: string, budgetId: string) =>
     ['budgets', clientId, 'budget-detail', budgetId] as const,
 
+  budgetEnvelopeDetail: (clientId: string, envelopeId: string) =>
+    ['budgets', clientId, 'budget-envelope-detail', envelopeId] as const,
+
   /** options.full === true pour l’explorer (toutes les enveloppes) ; sans options = listes paginées */
   budgetEnvelopes: (
     clientId: string,

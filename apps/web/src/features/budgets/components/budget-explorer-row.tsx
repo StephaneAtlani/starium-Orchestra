@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import {
   TableCell,
@@ -68,7 +69,12 @@ export function BudgetExplorerRow({
               ) : (
                 <span className="w-5" aria-hidden />
               )}
-              <span className="font-medium">{env.name}</span>
+              <Link
+                href={`/budget-envelopes/${env.id}`}
+                className="font-medium text-primary hover:underline"
+              >
+                {env.name}
+              </Link>
               {env.code && (
                 <span className="text-muted-foreground text-xs">({env.code})</span>
               )}
@@ -123,7 +129,12 @@ export function BudgetExplorerRow({
         className="align-middle text-foreground"
         style={{ paddingLeft: `${12 + (depth + 1) * 20}px` }}
       >
-        <span className="text-sm truncate">{line.name}</span>
+        <Link
+          href={`/budget-lines/${line.id}/edit`}
+          className="text-sm truncate text-primary hover:underline"
+        >
+          {line.name}
+        </Link>
       </TableCell>
       <TableCell className="text-muted-foreground">—</TableCell>
       <TableCell>{line.expenseType}</TableCell>

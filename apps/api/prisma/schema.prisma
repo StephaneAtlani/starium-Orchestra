@@ -371,6 +371,7 @@ model BudgetEnvelope {
   sortOrder   Int                @default(0)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
+  status      BudgetEnvelopeStatus @default(ACTIVE)
   client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
   budget      Budget             @relation(fields: [budgetId], references: [id], onDelete: Cascade)
   parent      BudgetEnvelope?    @relation("EnvelopeHierarchy", fields: [parentId], references: [id], onDelete: SetNull)

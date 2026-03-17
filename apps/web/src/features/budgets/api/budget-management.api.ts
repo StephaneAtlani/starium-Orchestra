@@ -9,11 +9,15 @@ import type {
   BudgetExercise,
   BudgetLine,
   ListBudgetEnvelopesQuery,
-  ListBudgetExercisesQuery,
   ListBudgetLinesQuery,
+  ListBudgetExercisesQuery,
   ListBudgetsQuery,
   PaginatedResponse,
 } from '../types/budget-management.types';
+import type {
+  BudgetEnvelopeDetail,
+  BudgetEnvelopeLineItem,
+} from '../types/budget-envelope-detail.types';
 
 export type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
@@ -121,6 +125,14 @@ export async function getEnvelope(authFetch: AuthFetch, id: string): Promise<Bud
   return handleResponse<BudgetEnvelope>(res);
 }
 
+export async function getBudgetEnvelopeDetail(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<BudgetEnvelopeDetail> {
+  const res = await authFetch(`${BASE_ENVELOPES}/${id}`);
+  return handleResponse<BudgetEnvelopeDetail>(res);
+}
+
 // ——— Lignes ———
 export async function listLines(
   authFetch: AuthFetch,
@@ -129,6 +141,20 @@ export async function listLines(
   const qs = buildQueryString(query as Record<string, string | number | boolean | undefined>);
   const res = await authFetch(`${BASE_LINES}${qs}`);
   return handleResponse<PaginatedResponse<BudgetLine>>(res);
+}
+
+export async function listEnvelopeLines(
+  authFetch: AuthFetch,
+  envelopeId: string,
+  params?: { offset?: number; limit?: number },
+): Promise<PaginatedResponse<BudgetEnvelopeLineItem>> {
+  const qs = buildQueryString({
+    envelopeId,
+    offset: params?.offset,
+    limit: params?.limit,
+  });
+  const res = await authFetch(`${BASE_LINES}${qs}`);
+  return handleResponse<PaginatedResponse<BudgetEnvelopeLineItem>>(res);
 }
 
 export async function getLine(authFetch: AuthFetch, id: string): Promise<BudgetLine> {

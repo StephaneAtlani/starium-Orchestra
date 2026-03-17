@@ -32,6 +32,10 @@ export function budgetDetail(budgetId: string): string {
   return `${BUDGETS_ROOT}/${budgetId}`;
 }
 
+export function budgetEnvelopeDetail(envelopeId: string): string {
+  return `/budget-envelopes/${envelopeId}`;
+}
+
 export function budgetNew(): string {
   return `${BUDGETS_ROOT}/new`;
 }
