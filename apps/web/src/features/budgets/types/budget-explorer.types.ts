@@ -17,6 +17,7 @@ export interface ExplorerEnvelopeNode extends ExplorerNodeBase {
   name: string;
   code: string | null;
   envelopeType: string;
+  status: string;
   lineCount: number;
   totalRevised: number;
   totalCommitted: number;

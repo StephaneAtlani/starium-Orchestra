@@ -371,6 +371,7 @@ model BudgetEnvelope {
   type        BudgetEnvelopeType
   description String?
   sortOrder   Int                @default(0)
+  status      BudgetStatus       @default(DRAFT)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -383,6 +384,7 @@ model BudgetEnvelope {
   @@index([clientId])
   @@index([budgetId])
   @@index([parentId])
+  @@index([status])
 }
 
 enum BudgetLineAllocationScope {

@@ -57,6 +57,7 @@ export function BudgetExplorerTable({
     <Table data-testid="budget-explorer-table">
       <TableHeader>
         <TableRow>
+          <TableHead>État</TableHead>
           <TableHead>Sous-budget</TableHead>
           <TableHead>Responsable</TableHead>
           <TableHead>Type</TableHead>

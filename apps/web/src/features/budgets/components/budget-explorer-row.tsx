@@ -25,6 +25,8 @@ import { BudgetLinePlanningCalculatorPanel } from './budget-line-planning-calcul
 import type { PlanningCalculatorTool } from './budget-line-planning-calculator-panel';
 import type { ApiFormError } from '../api/types';
 import { useInlineUpdateBudgetLine } from '../hooks/use-inline-update-budget-line';
+import { useRouter } from 'next/navigation';
+import { budgetLines } from '../constants/budget-routes';
 
 interface BudgetExplorerRowProps {
   node: ExplorerNode;
@@ -49,91 +51,67 @@ export function BudgetExplorerRow({
   onToggleEditable,
 }: BudgetExplorerRowProps) {
   const isEnvelope = node.type === 'envelope';
-  const isExpanded = isEnvelope && expandedIds.has(node.id);
-  const hasChildren = isEnvelope && node.children.length > 0;
-
-  const handleKeyDown = (e: React.KeyboardEvent, id: string) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onToggleExpand(id);
-    }
-  };
+  const router = useRouter();
 
   if (node.type === 'envelope') {
     const env = node;
     return (
-      <>
-        <TableRow data-testid={`explorer-row-envelope-${env.id}`}>
-          <TableCell
-            className="align-middle"
-            style={{ paddingLeft: `${12 + depth * 20}px` }}
-          >
-            <div className="flex items-center gap-1">
-              {hasChildren ? (
-                <button
-                  type="button"
-                  onClick={() => onToggleExpand(env.id)}
-                  onKeyDown={(e) => handleKeyDown(e, env.id)}
-                  aria-expanded={isExpanded}
-                  aria-label={isExpanded ? `Réduire ${env.name}` : `Développer ${env.name}`}
-                  className="rounded p-0.5 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="size-4" />
-                  ) : (
-                    <ChevronRight className="size-4" />
-                  )}
-                </button>
-              ) : (
-                <span className="w-5" aria-hidden />
-              )}
-              <span className="font-medium">{env.name}</span>
-              {env.code && (
-                <span className="text-muted-foreground text-xs">({env.code})</span>
-              )}
-            </div>
-          </TableCell>
-          <TableCell className="text-muted-foreground">—</TableCell>
-          <TableCell>{env.envelopeType}</TableCell>
-          <TableCell className="text-right tabular-nums">
-            {formatAmount(env.totalRevised, currency)}
-          </TableCell>
-          <TableCell className="text-right tabular-nums">
-            {formatPercent(env.percentOfBudget / 100)}
-          </TableCell>
-          <TableCell className="text-right">{env.lineCount}</TableCell>
-          <TableCell className="text-right tabular-nums">
-            {formatAmount(env.opexAmount, currency)}
-          </TableCell>
-          <TableCell className="text-right tabular-nums">
-            {formatAmount(env.capexAmount, currency)}
-          </TableCell>
-          <TableCell className="text-right tabular-nums">
-            {formatAmount(env.totalCommitted, currency)}
-          </TableCell>
-          <TableCell className="text-right tabular-nums">
-            {formatAmount(env.totalConsumed, currency)}
-          </TableCell>
-          <TableCell className="text-right tabular-nums">
-            {formatAmount(env.totalRemaining, currency)}
-          </TableCell>
-        </TableRow>
-        {isExpanded &&
-          hasChildren &&
-          env.children.map((child) => (
-            <BudgetExplorerRow
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              expandedIds={expandedIds}
-              onToggleExpand={onToggleExpand}
-              currency={currency}
-              budgetId={budgetId}
-              editableLineId={editableLineId}
-              onToggleEditable={onToggleEditable}
-            />
-          ))}
-      </>
+      <TableRow
+        data-testid={`explorer-row-envelope-${env.id}`}
+        className="cursor-pointer hover:bg-muted/40"
+        onClick={() => {
+          router.push(budgetLines(budgetId));
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            router.push(budgetLines(budgetId));
+          }
+        }}
+        tabIndex={0}
+      >
+        <TableCell className="align-middle">
+          <BudgetStatusBadge
+            status={env.status}
+            className="h-5 px-1.5 text-[10px]"
+          />
+        </TableCell>
+        <TableCell
+          className="align-middle"
+          style={{ paddingLeft: `${12 + depth * 20}px` }}
+        >
+          <div className="flex items-center gap-1">
+            <span className="font-medium">{env.name}</span>
+            {env.code && (
+              <span className="text-muted-foreground text-xs">({env.code})</span>
+            )}
+          </div>
+        </TableCell>
+        <TableCell className="text-muted-foreground">—</TableCell>
+        <TableCell>{env.envelopeType}</TableCell>
+        <TableCell className="text-right tabular-nums">
+          {formatAmount(env.totalRevised, currency)}
+        </TableCell>
+        <TableCell className="text-right tabular-nums">
+          {formatPercent(env.percentOfBudget / 100)}
+        </TableCell>
+        <TableCell className="text-right">{env.lineCount}</TableCell>
+        <TableCell className="text-right tabular-nums">
+          {formatAmount(env.opexAmount, currency)}
+        </TableCell>
+        <TableCell className="text-right tabular-nums">
+          {formatAmount(env.capexAmount, currency)}
+        </TableCell>
+        <TableCell className="text-right tabular-nums">
+          {formatAmount(env.totalCommitted, currency)}
+        </TableCell>
+        <TableCell className="text-right tabular-nums">
+          {formatAmount(env.totalConsumed, currency)}
+        </TableCell>
+        <TableCell className="text-right tabular-nums">
+          {formatAmount(env.totalRemaining, currency)}
+        </TableCell>
+      </TableRow>
     );
   }
 
@@ -195,6 +173,25 @@ export function BudgetExplorerRow({
           isEditable ? 'bg-muted/60' : 'hover:bg-muted/40',
         )}
       >
+        <TableCell className="align-middle">
+          {isEditable && canEdit ? (
+            <select
+              className="flex h-6 rounded-md border border-input bg-background px-1.5 text-[10px] ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={draftStatus}
+              onChange={(e) => setDraftStatus(e.target.value)}
+            >
+              <option value="DRAFT">Brouillon</option>
+              <option value="ACTIVE">Actif</option>
+              <option value="CLOSED">Clôturé</option>
+              <option value="ARCHIVED">Archivé</option>
+            </select>
+          ) : (
+            <BudgetStatusBadge
+              status={line.status}
+              className="h-5 px-1.5 text-[10px]"
+            />
+          )}
+        </TableCell>
         <TableCell
           className="align-middle text-foreground"
           style={{ paddingLeft: `${12 + (depth + 1) * 20}px` }}
@@ -237,23 +234,6 @@ export function BudgetExplorerRow({
                   </button>
                 )}
               </div>
-            )}
-            {isEditable && canEdit ? (
-              <select
-                className="flex h-6 rounded-md border border-input bg-background px-1.5 text-[10px] ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={draftStatus}
-                onChange={(e) => setDraftStatus(e.target.value)}
-              >
-                <option value="DRAFT">Brouillon</option>
-                <option value="ACTIVE">Actif</option>
-                <option value="CLOSED">Clôturé</option>
-                <option value="ARCHIVED">Archivé</option>
-              </select>
-            ) : (
-              <BudgetStatusBadge
-                status={line.status}
-                className="h-5 px-1.5 text-[10px]"
-              />
             )}
           </div>
         </TableCell>

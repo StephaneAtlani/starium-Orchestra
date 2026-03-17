@@ -233,6 +233,7 @@ export interface CreateEnvelopePayload {
   code?: string;
   description?: string;
   type: string;
+  status?: string;
   parentId?: string;
   sortOrder?: number;
 }
@@ -242,6 +243,7 @@ export interface UpdateEnvelopePayload {
   code?: string;
   description?: string;
   type?: string;
+  status?: string;
   parentId?: string;
   sortOrder?: number;
 }
