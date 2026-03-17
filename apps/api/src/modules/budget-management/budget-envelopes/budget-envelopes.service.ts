@@ -365,3 +365,12 @@ export class BudgetEnvelopesService {
     );
   }
 }
+
+type EnvelopeRow = Awaited<
+  ReturnType<PrismaService['budgetEnvelope']['findFirst']>
+>;
+type EnvelopeWithNumbers = NonNullable<EnvelopeRow>;
+
+function toResponse(row: NonNullable<EnvelopeRow>): EnvelopeWithNumbers {
+  return { ...row };
+}

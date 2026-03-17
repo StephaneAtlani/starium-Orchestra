@@ -203,6 +203,13 @@ enum BudgetStatus {
   ARCHIVED
 }
 
+enum BudgetEnvelopeStatus {
+  DRAFT
+  ACTIVE
+  LOCKED
+  ARCHIVED
+}
+
 enum BudgetEnvelopeType {
   RUN
   BUILD
