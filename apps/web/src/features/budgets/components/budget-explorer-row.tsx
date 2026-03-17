@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import {
   TableCell,
   TableRow,
@@ -139,17 +139,23 @@ export function BudgetExplorerRow({
         className="align-middle text-foreground"
         style={{ paddingLeft: `${12 + (depth + 1) * 20}px` }}
       >
-        <div className="flex items-center gap-2">
-          <BudgetStatusBadge
-            status={line.status}
-            className="h-5 px-2 text-[10px] uppercase"
-          />
-          <Link
-            href={`/budget-lines/${line.id}/edit`}
-            className="text-sm truncate text-primary hover:underline"
-          >
-            {line.name}
-          </Link>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <BudgetStatusBadge
+              status={line.status}
+              className="h-5 px-2 text-[10px] uppercase"
+            />
+            <span className="text-sm truncate">{line.name}</span>
+          </div>
+          {canEditLine && (
+            <Link
+              href={`/budget-lines/${line.id}/edit`}
+              className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={`Modifier ${line.name}`}
+            >
+              <Pencil className="h-3 w-3" />
+            </Link>
+          )}
         </div>
       </TableCell>
       <TableCell className="text-muted-foreground">—</TableCell>
