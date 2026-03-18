@@ -451,8 +451,15 @@ Après implémentation :
 * cohérence budget vs factures
 * UX moderne et flexible
 * base prête pour module DAF
-
+ 
 ---
+## 19.1 Note de conformité (vérification)
+Lors de la vérification du `18/03/2026`, l’affichage HT/TTC des **événements financiers** dans le `Budget Line Intelligence Drawer` (onglets “Commandes & engagements”, “Factures & consommation”, et bloc “Dernier événement”) consomme encore la valeur legacy `amount` au lieu de `amountHt/amountTtc`.
+
+Conséquence : le toggle `taxDisplayMode` n’est pas reflété par un label HT/TTC explicite côté drawer pour ces événements.
+
+Backend : conforme (persistance `amountHt/taxRate/taxAmount/amountTtc`).
+À faire (frontend) : basculer le rendu des événements sur `amountHt/amountTtc` et appliquer la règle transactionnel (TTC réel, pas de `≈`).
 
 # 20. Prompt Cursor (ultra optimisé)
 

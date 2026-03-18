@@ -264,7 +264,7 @@ Contient les événements financiers traduits métier comme commandes / engageme
 
 * date
 * libellé
-* montant
+* montant (affichage HT/TTC selon `taxDisplayMode` ; transactionnel TTC réel via `amountTtc`, jamais de marquage `≈`)
 * sourceType
 * référence éventuelle
 * statut d’usage UI
@@ -278,7 +278,7 @@ Contient les événements financiers de type consommation :
 
 * date facture
 * libellé
-* montant
+* montant (affichage HT/TTC selon `taxDisplayMode` ; transactionnel TTC réel via `amountTtc`, jamais de marquage `≈`)
 * fournisseur si présent plus tard
 * référence documentaire éventuelle
 * commentaire
