@@ -161,15 +161,19 @@ export function CreateInvoiceDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" showCloseButton>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <DialogHeader>
-            <DialogTitle>Ajouter une facture</DialogTitle>
-          </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <DialogHeader>
+              <DialogTitle>Ajouter une facture</DialogTitle>
+            </DialogHeader>
+          </div>
 
           {submitError && (
-            <Alert variant="destructive">
-              <AlertDescription>{submitError.message}</AlertDescription>
-            </Alert>
+            <div className="col-span-2">
+              <Alert variant="destructive">
+                <AlertDescription>{submitError.message}</AlertDescription>
+              </Alert>
+            </div>
           )}
 
           <div className="grid gap-2">
@@ -235,37 +239,41 @@ export function CreateInvoiceDialog({
           </div>
 
           {!isTaxRateAvailable && (
-            <Alert variant="destructive">
-              <AlertDescription>Impossible de recalculer TVA : aucune TVA connue sur la ligne ni pour le client.</AlertDescription>
-            </Alert>
-          )}
-
-          {isTaxRateAvailable && indicative && (
-            <div className="grid gap-2">
-              <Label>Champs dérivés (indicatifs)</Label>
-              <div className="grid gap-1">
-                <Label>Montant HT (calculé)</Label>
-                <Input value={indicative.amountHt.toFixed(2)} disabled />
-              </div>
-              <div className="grid gap-1">
-                <Label>TVA montant (calculée)</Label>
-                <Input value={indicative.taxAmount.toFixed(2)} disabled />
-              </div>
-              <div className="grid gap-1">
-                <Label>Montant TTC (calculé)</Label>
-                <Input value={indicative.amountTtc.toFixed(2)} disabled />
-              </div>
+            <div className="col-span-2">
+              <Alert variant="destructive">
+                <AlertDescription>Impossible de recalculer TVA : aucune TVA connue sur la ligne ni pour le client.</AlertDescription>
+              </Alert>
             </div>
           )}
 
-          <DialogFooter showCloseButton={false}>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isPending || !isTaxRateAvailable}>
-              {isPending ? 'Création…' : 'Créer'}
-            </Button>
-          </DialogFooter>
+          <div className="grid gap-2 col-span-2">
+            <Label>Champs dérivés (indicatifs)</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-1">
+                <Label>Montant HT (calculé)</Label>
+                <Input value={indicative ? indicative.amountHt.toFixed(2) : ''} disabled />
+              </div>
+              <div className="grid gap-1">
+                <Label>TVA montant (calculée)</Label>
+                <Input value={indicative ? indicative.taxAmount.toFixed(2) : ''} disabled />
+              </div>
+              <div className="grid gap-1 col-span-2">
+                <Label>Montant TTC (calculé)</Label>
+                <Input value={indicative ? indicative.amountTtc.toFixed(2) : ''} disabled />
+              </div>
+            </div>
+          </div>
+
+          <div className="col-span-2">
+            <DialogFooter showCloseButton={false}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={isPending || !isTaxRateAvailable}>
+                {isPending ? 'Création…' : 'Créer'}
+              </Button>
+            </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
