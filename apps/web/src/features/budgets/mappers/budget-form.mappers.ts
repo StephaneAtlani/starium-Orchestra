@@ -83,6 +83,11 @@ export function budgetApiToForm(budget: Budget): CreateBudgetInput {
     description: budget.description ?? '',
     currency: budget.currency,
     status: budget.status as CreateBudgetInput['status'],
+    taxMode: budget.taxMode ?? 'HT',
+    defaultTaxRate:
+      budget.defaultTaxRate === null || budget.defaultTaxRate === undefined
+        ? undefined
+        : budget.defaultTaxRate.toFixed(2),
   };
 }
 
@@ -94,6 +99,8 @@ export function budgetFormToCreatePayload(values: CreateBudgetInput): CreateBudg
     description: values.description || undefined,
     currency: values.currency,
     status: values.status,
+    taxMode: values.taxMode,
+    defaultTaxRate: values.defaultTaxRate,
   };
 }
 
@@ -104,6 +111,8 @@ export function budgetFormToUpdatePayload(values: CreateBudgetInput): UpdateBudg
     description: values.description || undefined,
     currency: values.currency,
     status: values.status,
+    taxMode: values.taxMode,
+    defaultTaxRate: values.defaultTaxRate,
   };
 }
 
@@ -147,7 +156,15 @@ export function envelopeFormToUpdatePayload(
 }
 
 // ——— Ligne ———
-export function lineApiToForm(line: BudgetLine): BudgetLineFormValues {
+export function lineApiToForm(
+  line: BudgetLine,
+  budgetTaxMode: 'HT' | 'TTC' = 'HT',
+): BudgetLineFormValues {
+  const initialAmount =
+    budgetTaxMode === 'TTC' ? line.initialAmountTtc ?? line.initialAmount : line.initialAmount;
+  const revisedAmount =
+    budgetTaxMode === 'TTC' ? line.revisedAmountTtc ?? line.revisedAmount : line.revisedAmount;
+
   return {
     budgetId: line.budgetId,
     envelopeId: line.envelopeId,
@@ -156,8 +173,8 @@ export function lineApiToForm(line: BudgetLine): BudgetLineFormValues {
     description: line.description ?? '',
     expenseType: line.expenseType as BudgetLineFormValues['expenseType'],
     generalLedgerAccountId: line.generalLedgerAccountId ?? '',
-    initialAmount: line.initialAmount,
-    revisedAmount: line.revisedAmount,
+    initialAmount,
+    revisedAmount,
     currency: line.currency,
     status: line.status as BudgetLineFormValues['status'],
   };

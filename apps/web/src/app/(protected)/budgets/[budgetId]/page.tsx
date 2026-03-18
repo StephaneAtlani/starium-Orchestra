@@ -128,51 +128,57 @@ export default function BudgetDetailPage() {
 
   const kpi = summary?.kpi;
   const currency = budget.currency;
+  const isBudgetTtcProjection = taxDisplayMode === 'TTC' && budget.taxMode !== taxDisplayMode;
   const kpiItems = kpi
     ? [
         {
           label: 'Initial',
           value: formatTaxAwareAmount({
             htValue: kpi.totalInitialAmount,
-            ttcValue: null,
+            ttcValue: kpi.totalInitialAmountTtc ?? null,
             currency,
             mode: taxDisplayMode,
+            isApproximation: isBudgetTtcProjection,
           }),
         },
         {
           label: 'Révisé',
           value: formatTaxAwareAmount({
             htValue: kpi.totalRevisedAmount,
-            ttcValue: null,
+            ttcValue: kpi.totalRevisedAmountTtc ?? null,
             currency,
             mode: taxDisplayMode,
+            isApproximation: isBudgetTtcProjection,
           }),
         },
         {
           label: 'Engagé',
           value: formatTaxAwareAmount({
             htValue: kpi.totalCommittedAmount,
-            ttcValue: null,
+            ttcValue: kpi.totalCommittedAmountTtc ?? null,
             currency,
             mode: taxDisplayMode,
+            isApproximation: isBudgetTtcProjection,
           }),
         },
         {
           label: 'Consommé',
           value: formatTaxAwareAmount({
             htValue: kpi.totalConsumedAmount,
-            ttcValue: null,
+            ttcValue: kpi.totalConsumedAmountTtc ?? null,
             currency,
             mode: taxDisplayMode,
+            isApproximation: isBudgetTtcProjection,
           }),
         },
         {
           label: 'Restant',
           value: formatTaxAwareAmount({
             htValue: kpi.totalRemainingAmount,
-            ttcValue: null,
+            ttcValue: kpi.totalRemainingAmountTtc ?? null,
             currency,
             mode: taxDisplayMode,
+            isApproximation: isBudgetTtcProjection,
           }),
         },
       ]
@@ -311,6 +317,7 @@ export default function BudgetDetailPage() {
                 onToggleExpand={onToggleExpand}
                 onBudgetLineClick={onBudgetLineClick}
                 taxDisplayMode={taxDisplayMode}
+                budgetTaxMode={budget.taxMode}
                 emptyMessage="Aucune enveloppe."
                 emptyFilteredMessage="Aucun résultat pour ces filtres."
                 isFilteredEmpty={isEmptyFiltered}

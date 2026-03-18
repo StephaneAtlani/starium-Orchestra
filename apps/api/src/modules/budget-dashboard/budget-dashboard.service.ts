@@ -3,6 +3,7 @@ import { AllocationType, FinancialEventType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
+import { TaxCalculator } from '../financial-core/helpers/tax-calculator';
 import type { DashboardQueryDto } from './dto/dashboard.query.dto';
 import type { BudgetDashboardResponse } from './types/budget-dashboard.types';
 
@@ -37,43 +38,43 @@ export class BudgetDashboardService {
     const includeEnvelopes = query.includeEnvelopes !== false;
     const includeLines = query.includeLines !== false;
 
-    const [linesForAggregation, allocationSums, eventsForTrend] =
-      await Promise.all([
-        this.prisma.budgetLine.findMany({
-          where: { clientId, budgetId },
-          select: {
-            id: true,
-            envelopeId: true,
-            revisedAmount: true,
-            remainingAmount: true,
-            consumedAmount: true,
-            forecastAmount: true,
-            expenseType: true,
-            code: true,
-            name: true,
-            envelope: { select: { id: true, code: true, name: true } },
+    const [linesForAggregation, eventsForTrend] = await Promise.all([
+      this.prisma.budgetLine.findMany({
+        where: { clientId, budgetId },
+        select: {
+          id: true,
+          envelopeId: true,
+          taxRate: true,
+          revisedAmount: true,
+          committedAmount: true,
+          remainingAmount: true,
+          consumedAmount: true,
+          forecastAmount: true,
+          expenseType: true,
+          code: true,
+          name: true,
+          envelope: { select: { id: true, code: true, name: true } },
+        },
+      }),
+      this.prisma.financialEvent.findMany({
+        where: {
+          clientId,
+          budgetLine: { budgetId },
+          eventType: {
+            in: [
+              FinancialEventType.COMMITMENT_REGISTERED,
+              FinancialEventType.CONSUMPTION_REGISTERED,
+            ],
           },
-        }),
-        this.getAllocationSums(clientId, budgetId),
-        this.prisma.financialEvent.findMany({
-          where: {
-            clientId,
-            budgetLine: { budgetId },
-            eventType: {
-              in: [
-                FinancialEventType.COMMITMENT_REGISTERED,
-                FinancialEventType.CONSUMPTION_REGISTERED,
-              ],
-            },
-          },
-          select: {
-            eventType: true,
-            amountHt: true,
-            eventDate: true,
-            createdAt: true,
-          },
-        }),
-      ]);
+        },
+        select: {
+          eventType: true,
+          amountHt: true,
+          eventDate: true,
+          createdAt: true,
+        },
+      }),
+    ]);
 
     const totalBudget = linesForAggregation.reduce(
       (s, l) => s + fromDecimal(l.revisedAmount),
@@ -83,11 +84,99 @@ export class BudgetDashboardService {
       (s, l) => s + fromDecimal(l.remainingAmount),
       0,
     );
-    const consumed = allocationSums.consumed;
-    const committed = allocationSums.committed;
-    const forecast = allocationSums.forecast;
+    const committed = linesForAggregation.reduce(
+      (s, l) => s + fromDecimal(l.committedAmount),
+      0,
+    );
+    const consumed = linesForAggregation.reduce(
+      (s, l) => s + fromDecimal(l.consumedAmount),
+      0,
+    );
+    const forecast = linesForAggregation.reduce(
+      (s, l) => s + fromDecimal(l.forecastAmount),
+      0,
+    );
     const consumptionRate =
       totalBudget === 0 ? 0 : consumed / totalBudget;
+
+    const [clientTax, budgetTax] = await Promise.all([
+      this.prisma.client.findUnique({
+        where: { id: clientId },
+        select: { defaultTaxRate: true },
+      }),
+      this.prisma.budget.findFirst({
+        where: { id: budgetId, clientId },
+        select: { defaultTaxRate: true },
+      }),
+    ]);
+
+    const clientDefaultTaxRate = clientTax?.defaultTaxRate ?? null;
+    const budgetDefaultTaxRate = budgetTax?.defaultTaxRate ?? null;
+
+    const emptyTtc = {
+      totalBudgetTtc: null,
+      committedTtc: null,
+      consumedTtc: null,
+      forecastTtc: null,
+      remainingTtc: null,
+    };
+
+    const ttcTotals =
+      linesForAggregation.length === 0
+        ? emptyTtc
+        : (() => {
+            let totalBudgetTtc = 0;
+            let committedTtc = 0;
+            let consumedTtc = 0;
+            let forecastTtc = 0;
+            let remainingTtc = 0;
+
+            for (const l of linesForAggregation) {
+              const effectiveTaxRate =
+                l.taxRate ?? budgetDefaultTaxRate ?? clientDefaultTaxRate ?? null;
+
+              if (effectiveTaxRate == null) return emptyTtc;
+
+              totalBudgetTtc += fromDecimal(
+                TaxCalculator.fromHtAndTaxRate({
+                  amountHt: l.revisedAmount,
+                  taxRate: effectiveTaxRate,
+                }).amountTtc,
+              );
+              committedTtc += fromDecimal(
+                TaxCalculator.fromHtAndTaxRate({
+                  amountHt: l.committedAmount,
+                  taxRate: effectiveTaxRate,
+                }).amountTtc,
+              );
+              consumedTtc += fromDecimal(
+                TaxCalculator.fromHtAndTaxRate({
+                  amountHt: l.consumedAmount,
+                  taxRate: effectiveTaxRate,
+                }).amountTtc,
+              );
+              forecastTtc += fromDecimal(
+                TaxCalculator.fromHtAndTaxRate({
+                  amountHt: l.forecastAmount,
+                  taxRate: effectiveTaxRate,
+                }).amountTtc,
+              );
+              remainingTtc += fromDecimal(
+                TaxCalculator.fromHtAndTaxRate({
+                  amountHt: l.remainingAmount,
+                  taxRate: effectiveTaxRate,
+                }).amountTtc,
+              );
+            }
+
+            return {
+              totalBudgetTtc,
+              committedTtc,
+              consumedTtc,
+              forecastTtc,
+              remainingTtc,
+            };
+          })();
 
     const capex = linesForAggregation
       .filter((l) => l.expenseType === 'CAPEX')
@@ -118,6 +207,7 @@ export class BudgetDashboardService {
         forecast,
         remaining,
         consumptionRate,
+        ...ttcTotals,
       },
       capexOpexDistribution: { capex, opex },
       monthlyTrend,

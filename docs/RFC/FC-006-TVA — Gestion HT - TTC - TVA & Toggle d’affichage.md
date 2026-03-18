@@ -89,30 +89,62 @@ model Client {
 
 * `taxDisplayMode` → affichage par défaut
 * `taxInputMode` → saisie par défaut
-* `defaultTaxRate` → valeur pré-remplie
+* `defaultTaxRate` → valeur pré-remplie (fallback taux si aucun taux n’est disponible sur BudgetLine/Budget)
 
 ⚠️ Ces paramètres **n’impactent pas le stockage interne**
 
 ---
 
-# 5. Budget (règles simplifiées)
+# 5. Budget (règles fiscales)
 
-## 5.1 Décision
+## 5.1 Modèle (nouveau)
+Le budget porte une configuration fiscale explicite :
 
-👉 Tous les montants budget sont **HT**
+```prisma
+enum BudgetTaxMode {
+  HT
+  TTC
+}
 
-## 5.2 Implication
+model Budget {
+  taxMode         BudgetTaxMode @default(HT)
+  defaultTaxRate Decimal?       @db.Decimal(5, 2)
+}
+```
 
-Champs existants deviennent implicitement :
+## 5.2 Règle métier unique (stockage interne et interprétation)
+Les montants budgétaires sont **normalisés en HT** (base de calcul, agrégats, reporting).
 
-* `initialAmount` = HT
-* `revisedAmount` = HT
-* `forecastAmount` = HT
-* etc.
+La configuration `taxMode` sert uniquement à **interpréter la saisie** côté UI :
 
----
+* si `Budget.taxMode = HT` :
+  * les montants saisis sur budget / budget-line sont interprétés comme des montants **en HT**
+  * ils sont persistés tels quels en HT
+* si `Budget.taxMode = TTC` :
+  * les montants saisis sur budget / budget-line sont interprétés comme des montants **en TTC**
+  * ils sont convertis en HT (via `TaxCalculator`) **avant persistance**
 
-## 5.3 Extension
+## 5.3 Hiérarchie des taux (pour “montant budgété TTC”)
+Pour calculer un “montant budgété TTC” :
+
+1. `BudgetLine.taxRate`
+2. `Budget.defaultTaxRate`
+3. `Client.defaultTaxRate`
+
+Si aucun des trois n’est disponible, alors la projection/interprétation budgétaire TTC n’est **pas** calculée.
+
+## 5.4 Projection / affichage TTC budgété (pas un TTC de transaction)
+Le TTC affiché pour les budgets est un **montant budgété TTC** :
+* c’est une interprétation/projection basée sur la normalisation HT
+* ce n’est pas un TTC “réel” de transaction
+
+Règle d’étiquetage (avec le toggle UI HT/TTC) :
+* si le mode d’affichage correspond au `Budget.taxMode` :
+  * afficher “montant budgété TTC” (sans qualification “réel/exact”)
+* sinon :
+  * afficher “projection/interprétation budgétaire TTC” (marquage visuel `≈`)
+
+## 5.5 Extension
 
 ```prisma
 model BudgetLine {
@@ -123,8 +155,7 @@ model BudgetLine {
 
 Usage :
 
-* suggestion TVA
-* affichage TTC estimé
+* pilotage optionnel de la projection/interprétation TTC budgétaire sur cette ligne
 
 ---
 

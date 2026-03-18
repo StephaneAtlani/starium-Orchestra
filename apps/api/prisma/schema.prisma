@@ -34,6 +34,11 @@ enum TaxInputMode {
   TTC
 }
 
+enum BudgetTaxMode {
+  HT
+  TTC
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -343,6 +348,8 @@ model Budget {
   description   String?
   currency      String
   status        BudgetStatus @default(DRAFT)
+  taxMode       BudgetTaxMode @default(HT)
+  defaultTaxRate Decimal?    @db.Decimal(5, 2)
   ownerUserId   String?
   versionSetId  String?
   versionNumber Int?

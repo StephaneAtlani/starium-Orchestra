@@ -41,6 +41,7 @@ export function CreateInvoiceDialog({
   const [submitError, setSubmitError] = useState<ApiFormError | null>(null);
   const { mutateAsync, isPending } = useCreateFinancialEvent(budgetId, line.id);
   const { taxInputMode, defaultTaxRate } = useTaxDisplayMode();
+  const baseTaxRate = line.taxRate ?? defaultTaxRate;
 
   const {
     register,
@@ -56,6 +57,7 @@ export function CreateInvoiceDialog({
       label: '',
       inputMode: taxInputMode,
       amountInput: 0,
+      taxRateInput: baseTaxRate ?? undefined,
       description: '',
     },
   });
@@ -73,14 +75,29 @@ export function CreateInvoiceDialog({
 
   const inputMode = watch('inputMode');
   const amountInput = watch('amountInput');
+  const taxRateInput = watch('taxRateInput');
 
   const effectiveTaxRate = line.taxRate ?? defaultTaxRate;
-  const isTaxRateAvailable = effectiveTaxRate !== null && effectiveTaxRate !== undefined;
+  const selectedTaxRate = taxRateInput ?? effectiveTaxRate;
+  const isTaxRateAvailable =
+    selectedTaxRate !== null && selectedTaxRate !== undefined;
+
+  useEffect(() => {
+    // Préremplit `taxRateInput` dès que la TVA est disponible.
+    if (!open) return;
+    if (!isTaxRateAvailable) return;
+    if (taxRateInput === undefined || taxRateInput === null) {
+      setValue('taxRateInput', selectedTaxRate as number, {
+        shouldValidate: true,
+      });
+    }
+  }, [open, isTaxRateAvailable, setValue, taxRateInput, selectedTaxRate]);
+
   const round2 = (n: number) => Math.round(n * 100) / 100;
 
   const indicative = useMemo(() => {
     if (!isTaxRateAvailable) return null;
-    const taxRate = effectiveTaxRate as number;
+    const taxRate = selectedTaxRate as number;
     if (inputMode === 'HT') {
       const taxAmount = round2((amountInput * taxRate) / 100);
       const amountTtc = round2(amountInput + taxAmount);
@@ -89,7 +106,7 @@ export function CreateInvoiceDialog({
     const amountHt = taxRate === 0 ? amountInput : round2(amountInput / (1 + taxRate / 100));
     const taxAmount = round2(amountInput - amountHt);
     return { taxAmount, amountHt, amountTtc: amountInput };
-  }, [amountInput, effectiveTaxRate, inputMode, isTaxRateAvailable]);
+  }, [amountInput, inputMode, isTaxRateAvailable, selectedTaxRate]);
 
   const onSubmit = async (values: CreateInvoiceValues) => {
     setSubmitError(null);
@@ -101,7 +118,17 @@ export function CreateInvoiceDialog({
       }
 
       const budgetLineTaxRate = line.taxRate ?? null;
-      const shouldUseDefaultTaxRate = budgetLineTaxRate === null && defaultTaxRate !== null;
+      const shouldUseDefaultTaxRate =
+        budgetLineTaxRate === null && defaultTaxRate !== null && values.taxRateInput === undefined;
+
+      const taxRateToUse =
+        values.taxRateInput ?? budgetLineTaxRate ?? defaultTaxRate ?? null;
+
+      if (taxRateToUse == null) {
+        throw {
+          message: 'TVA indisponible : définissez la TVA (lignes ou configuration client).',
+        } as ApiFormError;
+      }
 
       await mutateAsync({
         budgetLineId: line.id,
@@ -116,13 +143,13 @@ export function CreateInvoiceDialog({
               amountHt: values.amountInput.toFixed(2),
               ...(shouldUseDefaultTaxRate
                 ? { useDefaultTaxRate: true }
-                : { taxRate: (budgetLineTaxRate ?? defaultTaxRate)!.toFixed(2) }),
+                : { taxRate: taxRateToUse.toFixed(2) }),
             }
           : {
               amountTtc: values.amountInput.toFixed(2),
               ...(shouldUseDefaultTaxRate
                 ? { useDefaultTaxRate: true }
-                : { taxRate: (budgetLineTaxRate ?? defaultTaxRate)!.toFixed(2) }),
+                : { taxRate: taxRateToUse.toFixed(2) }),
             }),
       });
       onOpenChange(false);
@@ -186,6 +213,23 @@ export function CreateInvoiceDialog({
           </div>
 
           <div className="grid gap-2">
+            <Label htmlFor="invoice-taxRateInput">TVA % (taxRate)</Label>
+            <Input
+              id="invoice-taxRateInput"
+              type="number"
+              step="0.01"
+              min={0}
+              {...register('taxRateInput', {
+                setValueAs: (v) => (v === '' || v === undefined ? undefined : Number(v)),
+              })}
+              aria-invalid={!!errors.taxRateInput}
+            />
+            {errors.taxRateInput && (
+              <p className="text-sm text-destructive">{errors.taxRateInput.message}</p>
+            )}
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="invoice-description">Description (optionnel)</Label>
             <Input id="invoice-description" {...register('description')} aria-invalid={!!errors.description} />
           </div>
@@ -199,29 +243,18 @@ export function CreateInvoiceDialog({
           {isTaxRateAvailable && indicative && (
             <div className="grid gap-2">
               <Label>Champs dérivés (indicatifs)</Label>
-              {inputMode === 'HT' ? (
-                <>
-                  <div className="grid gap-1">
-                    <Label>TVA (calculée)</Label>
-                    <Input value={indicative.taxAmount.toFixed(2)} disabled />
-                  </div>
-                  <div className="grid gap-1">
-                    <Label>Montant TTC (calculé)</Label>
-                    <Input value={indicative.amountTtc.toFixed(2)} disabled />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid gap-1">
-                    <Label>TVA (calculée)</Label>
-                    <Input value={indicative.taxAmount.toFixed(2)} disabled />
-                  </div>
-                  <div className="grid gap-1">
-                    <Label>Montant HT (calculé)</Label>
-                    <Input value={indicative.amountHt.toFixed(2)} disabled />
-                  </div>
-                </>
-              )}
+              <div className="grid gap-1">
+                <Label>Montant HT (calculé)</Label>
+                <Input value={indicative.amountHt.toFixed(2)} disabled />
+              </div>
+              <div className="grid gap-1">
+                <Label>TVA montant (calculée)</Label>
+                <Input value={indicative.taxAmount.toFixed(2)} disabled />
+              </div>
+              <div className="grid gap-1">
+                <Label>Montant TTC (calculé)</Label>
+                <Input value={indicative.amountTtc.toFixed(2)} disabled />
+              </div>
             </div>
           )}
 

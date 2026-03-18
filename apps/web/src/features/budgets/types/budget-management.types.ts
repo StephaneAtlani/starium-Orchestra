@@ -30,6 +30,8 @@ export interface Budget {
   description: string | null;
   currency: string;
   status: string;
+  taxMode: 'HT' | 'TTC';
+  defaultTaxRate: number | null;
   ownerUserId: string | null;
   createdAt: string;
   updatedAt: string;

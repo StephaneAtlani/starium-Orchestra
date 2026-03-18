@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetStatus } from '@prisma/client';
+import { BudgetStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -124,6 +124,10 @@ export class BudgetsService {
         currency: dto.currency,
         status: dto.status ?? BudgetStatus.DRAFT,
         ownerUserId: dto.ownerUserId ?? null,
+        ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
+        ...(dto.defaultTaxRate !== undefined
+          ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
+          : {}),
       },
     });
 
@@ -140,6 +144,8 @@ export class BudgetsService {
         exerciseId: created.exerciseId,
         currency: created.currency,
         status: created.status,
+        taxMode: created.taxMode,
+        defaultTaxRate: created.defaultTaxRate ? Number(created.defaultTaxRate) : null,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -219,6 +225,10 @@ export class BudgetsService {
         ...(dto.ownerUserId !== undefined && {
           ownerUserId: dto.ownerUserId || null,
         }),
+        ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
+        ...(dto.defaultTaxRate !== undefined
+          ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
+          : {}),
       },
     });
 
@@ -232,11 +242,15 @@ export class BudgetsService {
         name: existing.name,
         code: existing.code,
         status: existing.status,
+        taxMode: existing.taxMode,
+        defaultTaxRate: existing.defaultTaxRate ? Number(existing.defaultTaxRate) : null,
       },
       newValue: {
         name: updated.name,
         code: updated.code,
         status: updated.status,
+        taxMode: updated.taxMode,
+        defaultTaxRate: updated.defaultTaxRate ? Number(updated.defaultTaxRate) : null,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -261,10 +275,13 @@ export class BudgetsService {
 }
 
 type BudgetRow = Awaited<ReturnType<PrismaService['budget']['findFirst']>>;
-type BudgetWithNumbers = Omit<NonNullable<BudgetRow>, never> & {
-  // Budget has no Decimal in schema, keep as-is
+type BudgetWithNumbers = Omit<NonNullable<BudgetRow>, 'defaultTaxRate'> & {
+  defaultTaxRate: number | null;
 };
 
 function toResponse(row: NonNullable<BudgetRow>): BudgetWithNumbers {
-  return { ...row };
+  return {
+    ...row,
+    defaultTaxRate: row.defaultTaxRate ? Number(row.defaultTaxRate) : null,
+  };
 }

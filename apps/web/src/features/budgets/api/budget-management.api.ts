@@ -215,6 +215,8 @@ export interface CreateBudgetPayload {
   currency: string;
   status?: string;
   ownerUserId?: string;
+  taxMode?: 'HT' | 'TTC';
+  defaultTaxRate?: string;
 }
 
 export interface UpdateBudgetPayload {
@@ -224,6 +226,8 @@ export interface UpdateBudgetPayload {
   currency?: string;
   status?: string;
   ownerUserId?: string;
+  taxMode?: 'HT' | 'TTC';
+  defaultTaxRate?: string;
 }
 
 export async function createBudget(

@@ -21,15 +21,24 @@ export function formatTaxAwareAmount(params: {
   ttcValue: number | null;
   currency: string;
   mode: TaxDisplayMode;
+  /**
+   * Marque "≈" pour les TTC budgétés/projetés.
+   * - Pour les transactions TTC réelles : false
+   * - Pour les budgets en TTC mismatch : true
+   */
+  isApproximation?: boolean;
 }): string {
-  const { htValue, ttcValue, currency, mode } = params;
+  const { htValue, ttcValue, currency, mode, isApproximation } = params;
+  const approx = isApproximation ?? true;
 
   if (mode === 'HT') {
     return `${formatCurrency(htValue, currency)} HT`;
   }
 
   if (ttcValue != null) {
-    return `≈ ${formatCurrency(ttcValue, currency)} TTC`;
+    return approx
+      ? `≈ ${formatCurrency(ttcValue, currency)} TTC`
+      : `${formatCurrency(ttcValue, currency)} TTC`;
   }
 
   return `${formatCurrency(htValue, currency)} HT`;

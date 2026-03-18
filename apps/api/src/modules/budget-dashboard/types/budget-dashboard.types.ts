@@ -18,6 +18,13 @@ export type BudgetDashboardResponse = {
     forecast: number;
     remaining: number;
     consumptionRate: number;
+    // Projections TTC (montants budgétés) pour affichage uniquement.
+    // Si au moins un taux effectif est absent pour une ligne, alors ces valeurs sont à `null`.
+    totalBudgetTtc?: number | null;
+    committedTtc?: number | null;
+    consumedTtc?: number | null;
+    forecastTtc?: number | null;
+    remainingTtc?: number | null;
   };
   capexOpexDistribution: {
     capex: number;

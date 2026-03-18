@@ -8,6 +8,11 @@ export const createBudgetSchema = z.object({
   currency: z.string().min(1, 'Devise requise').max(8),
   status: z.enum(['DRAFT', 'ACTIVE', 'LOCKED', 'ARCHIVED']).optional(),
   ownerUserId: z.string().optional(),
+  taxMode: z.enum(['HT', 'TTC']).optional(),
+  defaultTaxRate: z
+    .string()
+    .regex(/^(0|[0-9]{1,3})(\.[0-9]{1,2})?$/, 'TVA invalide')
+    .optional(),
 });
 
 export type CreateBudgetInput = z.infer<typeof createBudgetSchema>;

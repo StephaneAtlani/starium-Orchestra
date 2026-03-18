@@ -81,7 +81,7 @@ export function BudgetLineFormPage({ mode, budgetId, envelopeId, lineId }: Budge
   }
 
   const defaultValues: Partial<BudgetLineFormValues> = isEdit && line
-    ? lineApiToForm(line)
+    ? lineApiToForm(line, budget?.taxMode ?? 'HT')
     : { budgetId: resolvedBudgetId, envelopeId, currency: 'EUR', status: 'DRAFT' };
 
   const handleSubmit = (values: BudgetLineFormValues) => {
@@ -110,6 +110,7 @@ export function BudgetLineFormPage({ mode, budgetId, envelopeId, lineId }: Budge
         budgetId={resolvedBudgetId}
         budgetLabel={budgetLabel}
         isEdit={isEdit}
+        budgetTaxMode={budget?.taxMode ?? 'HT'}
         envelopeOptions={envelopeOptions.map((e) => ({ id: e.id, name: e.name }))}
         envelopeOptionsLoading={isEnvelopeOptionsLoading}
         envelopeOptionsSuccess={isEnvelopeOptionsSuccess}

@@ -20,6 +20,7 @@ interface BudgetExplorerTableProps {
   onToggleExpand: (id: string) => void;
   onBudgetLineClick?: (lineId: string) => void;
   taxDisplayMode: TaxDisplayMode;
+  budgetTaxMode: TaxDisplayMode;
   emptyMessage?: string;
   emptyFilteredMessage?: string;
   /** true quand l’arbre affiché est filtré et vide (tree.length > 0 mais nodes.length === 0) */
@@ -36,6 +37,7 @@ export function BudgetExplorerTable({
   onToggleExpand,
   onBudgetLineClick,
   taxDisplayMode,
+  budgetTaxMode,
   emptyMessage = DEFAULT_EMPTY,
   emptyFilteredMessage = DEFAULT_FILTERED_EMPTY,
   isFilteredEmpty = false,
@@ -81,6 +83,7 @@ export function BudgetExplorerTable({
             currency={currency}
             onBudgetLineClick={onBudgetLineClick}
             taxDisplayMode={taxDisplayMode}
+            budgetTaxMode={budgetTaxMode}
           />
         ))}
       </TableBody>

@@ -42,6 +42,8 @@ interface BudgetLineFormProps {
   /** true quand la requête enveloppes a réussi (évite d’afficher l’alerte pendant le chargement ou si la query est désactivée). */
   envelopeOptionsSuccess?: boolean;
   generalLedgerOptions: GeneralLedgerAccountOption[];
+  /** Interprétation côté backend des montants saisis (conversion TTC -> HT si besoin). */
+  budgetTaxMode?: 'HT' | 'TTC';
 }
 
 export function BudgetLineForm({
@@ -58,6 +60,7 @@ export function BudgetLineForm({
   envelopeOptionsLoading = false,
   envelopeOptionsSuccess = false,
   generalLedgerOptions,
+  budgetTaxMode = 'HT',
 }: BudgetLineFormProps) {
   const noEnvelopes = envelopeOptionsSuccess && envelopeOptions.length === 0;
   const envelopeSelectLoading = !envelopeOptionsSuccess || envelopeOptionsLoading;
@@ -245,7 +248,11 @@ export function BudgetLineForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="initialAmount">Montant initial *</Label>
+            <Label htmlFor="initialAmount">
+              {budgetTaxMode === 'TTC'
+                ? 'Montant initial TTC *'
+                : 'Montant initial HT *'}
+            </Label>
             <Input
               id="initialAmount"
               type="number"
@@ -258,7 +265,11 @@ export function BudgetLineForm({
             {errors.initialAmount && <p className="text-sm text-destructive">{errors.initialAmount.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="revisedAmount">Montant révisé</Label>
+            <Label htmlFor="revisedAmount">
+              {budgetTaxMode === 'TTC'
+                ? 'Montant révisé TTC'
+                : 'Montant révisé HT'}
+            </Label>
             <Input
               id="revisedAmount"
               type="number"

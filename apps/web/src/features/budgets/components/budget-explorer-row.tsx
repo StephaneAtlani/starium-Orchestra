@@ -23,6 +23,7 @@ interface BudgetExplorerRowProps {
   currency: string;
   onBudgetLineClick?: (lineId: string) => void;
   taxDisplayMode: TaxDisplayMode;
+  budgetTaxMode: TaxDisplayMode;
 }
 
 /** expandedIds ne contient que des ids d’enveloppes. */
@@ -34,6 +35,7 @@ export function BudgetExplorerRow({
   currency,
   onBudgetLineClick,
   taxDisplayMode,
+  budgetTaxMode,
 }: BudgetExplorerRowProps) {
   const { has, isLoading: isPermissionsLoading } = usePermissions();
   const isEnvelope = node.type === 'envelope';
@@ -62,12 +64,14 @@ export function BudgetExplorerRow({
         ? env.totalRemainingTtc
         : env.totalRemaining;
 
+    const isApproximation = taxDisplayMode === 'TTC' && budgetTaxMode !== taxDisplayMode;
     const formatTax = (htValue: number, ttcValue: number | null) =>
       formatTaxAwareAmount({
         htValue,
         ttcValue,
         currency,
         mode: taxDisplayMode,
+        isApproximation,
       });
 
     return (
@@ -153,6 +157,7 @@ export function BudgetExplorerRow({
               currency={currency}
               onBudgetLineClick={onBudgetLineClick}
               taxDisplayMode={taxDisplayMode}
+              budgetTaxMode={budgetTaxMode}
             />
           ))}
       </>
@@ -161,8 +166,9 @@ export function BudgetExplorerRow({
 
   const line = node;
   const canEditLine = !isPermissionsLoading && has('budgets.update');
+  const isApproximation = taxDisplayMode === 'TTC' && budgetTaxMode !== taxDisplayMode;
   const formatTaxLine = (htValue: number, ttcValue: number | null, c: string) =>
-    formatTaxAwareAmount({ htValue, ttcValue, currency: c, mode: taxDisplayMode });
+    formatTaxAwareAmount({ htValue, ttcValue, currency: c, mode: taxDisplayMode, isApproximation });
 
   const progressRevised =
     taxDisplayMode === 'TTC' && line.revisedAmountTtc != null

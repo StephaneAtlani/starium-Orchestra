@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { BudgetLineAllocationScope, BudgetLineStatus, BudgetStatus } from '@prisma/client';
+import { BudgetLineAllocationScope, BudgetLineStatus, BudgetStatus, BudgetTaxMode } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
@@ -256,21 +256,48 @@ export class BudgetLinesService {
       );
     }
 
-    const revisedAmount =
+    const revisedAmountInput =
       dto.revisedAmount !== undefined && dto.revisedAmount !== null
         ? dto.revisedAmount
         : dto.initialAmount;
+
     const forecastAmount = 0;
     const committedAmount = 0;
     const consumedAmount = 0;
-    const remainingAmount = revisedAmount;
 
     const clientTax = await this.prisma.client.findUnique({
       where: { id: clientId },
       select: { defaultTaxRate: true },
     });
+
+    // Hiérarchie des taux (TTC budgété / conversion) :
+    // BudgetLine.taxRate > Budget.defaultTaxRate > Client.defaultTaxRate
     const taxRateToPersist =
-      dto.taxRate !== undefined ? toDecimal(dto.taxRate) : clientTax?.defaultTaxRate ?? null;
+      dto.taxRate !== undefined
+        ? toDecimal(dto.taxRate)
+        : budget.defaultTaxRate ?? clientTax?.defaultTaxRate ?? null;
+
+    // Normalisation interne : stocker en HT.
+    let initialAmountStored = toDecimal(dto.initialAmount);
+    let revisedAmountStored = toDecimal(revisedAmountInput);
+
+    if (budget.taxMode === BudgetTaxMode.TTC) {
+      if (taxRateToPersist == null) {
+        throw new BadRequestException(
+          'Budget en mode TTC : tax rate requis (BudgetLine.taxRate ou Budget.defaultTaxRate ou Client.defaultTaxRate).',
+        );
+      }
+      initialAmountStored = TaxCalculator.fromTtcAndTaxRate({
+        amountTtc: initialAmountStored,
+        taxRate: taxRateToPersist,
+      }).amountHt;
+      revisedAmountStored = TaxCalculator.fromTtcAndTaxRate({
+        amountTtc: revisedAmountStored,
+        taxRate: taxRateToPersist,
+      }).amountHt;
+    }
+
+    const remainingAmountStored = revisedAmountStored;
 
     let code = dto.code?.trim();
     if (!code) {
@@ -307,12 +334,12 @@ export class BudgetLinesService {
           generalLedgerAccountId: dto.generalLedgerAccountId,
           analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
           allocationScope,
-          initialAmount: toDecimal(dto.initialAmount),
-          revisedAmount: toDecimal(revisedAmount),
+          initialAmount: initialAmountStored,
+          revisedAmount: revisedAmountStored,
           forecastAmount: toDecimal(forecastAmount),
           committedAmount: toDecimal(committedAmount),
           consumedAmount: toDecimal(consumedAmount),
-          remainingAmount: toDecimal(remainingAmount),
+          remainingAmount: remainingAmountStored,
           taxRate: taxRateToPersist,
         },
       });
@@ -349,8 +376,8 @@ export class BudgetLinesService {
         generalLedgerAccountId: created!.generalLedgerAccountId,
         analyticalLedgerAccountId: created!.analyticalLedgerAccountId,
         allocationScope: created!.allocationScope,
-        initialAmount: dto.initialAmount,
-        revisedAmount,
+        initialAmount: fromDecimal(initialAmountStored),
+        revisedAmount: fromDecimal(revisedAmountStored),
         currency: created!.currency,
         status: created!.status,
         costCenterSplitsSummary: costCenterSplits.map((s) => ({
@@ -504,8 +531,43 @@ export class BudgetLinesService {
       if (dto.revisedAmount !== undefined && dto.revisedAmount !== null) {
         const committed = Number(existing.committedAmount);
         const consumed = Number(existing.consumedAmount);
-        const remaining = dto.revisedAmount - committed - consumed;
-        baseData.revisedAmount = toDecimal(dto.revisedAmount);
+
+        let revisedAmountStoredHt: Prisma.Decimal;
+        if (existing.budget.taxMode === BudgetTaxMode.TTC) {
+          const effectiveTaxRate =
+            dto.taxRate !== undefined
+              ? toDecimal(dto.taxRate)
+              : existing.taxRate ??
+                existing.budget.defaultTaxRate ??
+                (
+                  await tx.client.findUnique({
+                    where: { id: clientId },
+                    select: { defaultTaxRate: true },
+                  })
+                )?.defaultTaxRate ??
+                null;
+
+          if (effectiveTaxRate == null) {
+            throw new BadRequestException(
+              'Budget en mode TTC : tax rate requis (BudgetLine.taxRate ou Budget.defaultTaxRate ou Client.defaultTaxRate).',
+            );
+          }
+
+          if (dto.taxRate === undefined && existing.taxRate == null) {
+            // Permet de mémoriser le taux utilisé pour convertir l’entrée TTC -> HT.
+            baseData.taxRate = effectiveTaxRate;
+          }
+
+          revisedAmountStoredHt = TaxCalculator.fromTtcAndTaxRate({
+            amountTtc: toDecimal(dto.revisedAmount),
+            taxRate: effectiveTaxRate,
+          }).amountHt;
+        } else {
+          revisedAmountStoredHt = toDecimal(dto.revisedAmount);
+        }
+
+        const remaining = Number(revisedAmountStoredHt) - committed - consumed;
+        baseData.revisedAmount = revisedAmountStoredHt;
         baseData.remainingAmount = toDecimal(Math.max(0, remaining));
       }
 

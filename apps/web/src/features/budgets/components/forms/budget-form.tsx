@@ -48,6 +48,7 @@ export function BudgetForm({
     defaultValues: {
       currency: 'EUR',
       status: 'DRAFT',
+      taxMode: 'HT',
       ...defaultValues,
     },
   });
@@ -158,6 +159,35 @@ export function BudgetForm({
               ))}
             </select>
             {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="taxMode">Mode fiscal du budget</Label>
+            <select
+              id="taxMode"
+              className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              {...register('taxMode')}
+              aria-invalid={!!errors.taxMode}
+            >
+              <option value="HT">HT</option>
+              <option value="TTC">TTC</option>
+            </select>
+            {errors.taxMode && <p className="text-sm text-destructive">{errors.taxMode.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="defaultTaxRate">TVA par défaut (%)</Label>
+            <Input
+              id="defaultTaxRate"
+              type="number"
+              step="0.01"
+              placeholder="Ex. 20"
+              {...register('defaultTaxRate')}
+              aria-invalid={!!errors.defaultTaxRate}
+            />
+            {errors.defaultTaxRate && (
+              <p className="text-sm text-destructive">{errors.defaultTaxRate.message}</p>
+            )}
           </div>
         </CardContent>
       </Card>
