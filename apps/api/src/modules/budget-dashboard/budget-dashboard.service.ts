@@ -68,7 +68,7 @@ export class BudgetDashboardService {
           },
           select: {
             eventType: true,
-            amount: true,
+            amountHt: true,
             eventDate: true,
             createdAt: true,
           },
@@ -324,7 +324,7 @@ export class BudgetDashboardService {
   private buildMonthlyTrend(
     events: {
       eventType: string;
-      amount: unknown;
+      amountHt: unknown;
       eventDate: Date;
       createdAt: Date;
     }[],
@@ -337,7 +337,7 @@ export class BudgetDashboardService {
       const date = e.eventDate ?? e.createdAt;
       const month =
         `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const amount = fromDecimal(e.amount as DecimalLike);
+      const amount = fromDecimal(e.amountHt as DecimalLike);
       let entry = byMonth.get(month);
       if (!entry) {
         entry = { committed: 0, consumed: 0 };

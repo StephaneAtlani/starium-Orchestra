@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { ExpenseType } from '@prisma/client';
+import { ExpenseType, Prisma } from '@prisma/client';
 import { BudgetLineStatus, BudgetStatus } from '@prisma/client';
 import { BudgetLinesService } from '../budget-lines/budget-lines.service';
 
@@ -227,6 +227,34 @@ describe('BudgetLinesService', () => {
           currency: 'EUR',
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('getById (dérivés HT/TTC)', () => {
+    it('expose initialTaxAmount / initialAmountTtc quand taxRate est connu', async () => {
+      const taxRate = new Prisma.Decimal(20);
+
+      const lineWithTax = lineWithInclude({
+        taxRate,
+        initialAmount: new Prisma.Decimal(1000),
+        revisedAmount: new Prisma.Decimal(1100),
+        forecastAmount: new Prisma.Decimal(1200),
+        committedAmount: new Prisma.Decimal(100),
+        consumedAmount: new Prisma.Decimal(50),
+        remainingAmount: new Prisma.Decimal(850),
+      });
+
+      prisma.budgetLine.findFirst.mockResolvedValue(lineWithTax);
+
+      const result = await service.getById(clientId, 'line-1');
+
+      expect(result.taxRate).toBe(20);
+      expect(result.initialTaxAmount).toBe(200);
+      expect(result.initialAmountTtc).toBe(1200);
+      expect(result.revisedTaxAmount).toBe(220);
+      expect(result.revisedAmountTtc).toBe(1320);
+      expect(result.forecastTaxAmount).toBe(240);
+      expect(result.forecastAmountTtc).toBe(1440);
     });
   });
 

@@ -9,10 +9,11 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { ExplorerNode } from '../types/budget-explorer.types';
-import { formatAmount, formatPercent } from '../lib/budget-formatters';
+import { formatPercent } from '../lib/budget-formatters';
 import { BudgetLinesProgress } from './budget-lines-progress';
 import { usePermissions } from '@/hooks/use-permissions';
 import { BudgetStatusBadge } from './budget-status-badge';
+import { formatTaxAwareAmount, type TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 
 interface BudgetExplorerRowProps {
   node: ExplorerNode;
@@ -21,6 +22,7 @@ interface BudgetExplorerRowProps {
   onToggleExpand: (id: string) => void;
   currency: string;
   onBudgetLineClick?: (lineId: string) => void;
+  taxDisplayMode: TaxDisplayMode;
 }
 
 /** expandedIds ne contient que des ids d’enveloppes. */
@@ -31,6 +33,7 @@ export function BudgetExplorerRow({
   onToggleExpand,
   currency,
   onBudgetLineClick,
+  taxDisplayMode,
 }: BudgetExplorerRowProps) {
   const { has, isLoading: isPermissionsLoading } = usePermissions();
   const isEnvelope = node.type === 'envelope';
@@ -46,6 +49,27 @@ export function BudgetExplorerRow({
 
   if (node.type === 'envelope') {
     const env = node;
+    const progressRevised =
+      taxDisplayMode === 'TTC' && env.totalRevisedTtc != null
+        ? env.totalRevisedTtc
+        : env.totalRevised;
+    const progressConsumed =
+      taxDisplayMode === 'TTC' && env.totalConsumedTtc != null
+        ? env.totalConsumedTtc
+        : env.totalConsumed;
+    const progressRemaining =
+      taxDisplayMode === 'TTC' && env.totalRemainingTtc != null
+        ? env.totalRemainingTtc
+        : env.totalRemaining;
+
+    const formatTax = (htValue: number, ttcValue: number | null) =>
+      formatTaxAwareAmount({
+        htValue,
+        ttcValue,
+        currency,
+        mode: taxDisplayMode,
+      });
+
     return (
       <>
         <TableRow data-testid={`explorer-row-envelope-${env.id}`}>
@@ -86,32 +110,32 @@ export function BudgetExplorerRow({
           <TableCell className="text-muted-foreground">—</TableCell>
           <TableCell>{env.envelopeType}</TableCell>
           <TableCell className="text-right tabular-nums">
-            {formatAmount(env.totalRevised, currency)}
+            {formatTax(env.totalRevised, env.totalRevisedTtc)}
           </TableCell>
           <TableCell className="text-right tabular-nums">
             {formatPercent(env.percentOfBudget / 100)}
           </TableCell>
           <TableCell className="text-right">{env.lineCount}</TableCell>
           <TableCell className="text-right tabular-nums">
-            {formatAmount(env.opexAmount, currency)}
+            {formatTax(env.opexAmount, env.opexAmountTtc)}
           </TableCell>
           <TableCell className="text-right tabular-nums">
-            {formatAmount(env.capexAmount, currency)}
+            {formatTax(env.capexAmount, env.capexAmountTtc)}
           </TableCell>
           <TableCell className="text-right tabular-nums">
-            {formatAmount(env.totalCommitted, currency)}
+            {formatTax(env.totalCommitted, env.totalCommittedTtc)}
           </TableCell>
           <TableCell className="text-right tabular-nums">
-            {formatAmount(env.totalConsumed, currency)}
+            {formatTax(env.totalConsumed, env.totalConsumedTtc)}
           </TableCell>
           <TableCell className="text-right tabular-nums">
-            {formatAmount(env.totalRemaining, currency)}
+            {formatTax(env.totalRemaining, env.totalRemainingTtc)}
           </TableCell>
           <TableCell className="w-[160px]">
             <BudgetLinesProgress
-              revisedAmount={env.totalRevised}
-              consumedAmount={env.totalConsumed}
-              remainingAmount={env.totalRemaining}
+              revisedAmount={progressRevised}
+              consumedAmount={progressConsumed}
+              remainingAmount={progressRemaining}
               currency={currency}
               className="w-36"
             />
@@ -128,6 +152,7 @@ export function BudgetExplorerRow({
               onToggleExpand={onToggleExpand}
               currency={currency}
               onBudgetLineClick={onBudgetLineClick}
+              taxDisplayMode={taxDisplayMode}
             />
           ))}
       </>
@@ -136,6 +161,22 @@ export function BudgetExplorerRow({
 
   const line = node;
   const canEditLine = !isPermissionsLoading && has('budgets.update');
+  const formatTaxLine = (htValue: number, ttcValue: number | null, c: string) =>
+    formatTaxAwareAmount({ htValue, ttcValue, currency: c, mode: taxDisplayMode });
+
+  const progressRevised =
+    taxDisplayMode === 'TTC' && line.revisedAmountTtc != null
+      ? line.revisedAmountTtc
+      : line.revisedAmount;
+  const progressConsumed =
+    taxDisplayMode === 'TTC' && line.consumedAmountTtc != null
+      ? line.consumedAmountTtc
+      : line.consumedAmount;
+  const progressRemaining =
+    taxDisplayMode === 'TTC' && line.remainingAmountTtc != null
+      ? line.remainingAmountTtc
+      : line.remainingAmount;
+
   return (
     <TableRow data-testid={`explorer-row-line-${line.id}`}>
       <TableCell
@@ -175,34 +216,54 @@ export function BudgetExplorerRow({
       <TableCell className="text-muted-foreground">—</TableCell>
       <TableCell>{line.expenseType}</TableCell>
       <TableCell className="text-right tabular-nums">
-        {formatAmount(line.revisedAmount, line.currency)}
+        {formatTaxLine(line.revisedAmount, line.revisedAmountTtc, line.currency)}
       </TableCell>
       <TableCell />
       <TableCell />
       <TableCell className="text-right tabular-nums">
         {line.expenseType === 'OPEX'
-          ? formatAmount(line.revisedAmount, line.currency)
+          ? formatTaxLine(
+              line.revisedAmount,
+              line.revisedAmountTtc,
+              line.currency,
+            )
           : '—'}
       </TableCell>
       <TableCell className="text-right tabular-nums">
         {line.expenseType === 'CAPEX'
-          ? formatAmount(line.revisedAmount, line.currency)
+          ? formatTaxLine(
+              line.revisedAmount,
+              line.revisedAmountTtc,
+              line.currency,
+            )
           : '—'}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {formatAmount(line.committedAmount, line.currency)}
+        {formatTaxLine(
+          line.committedAmount,
+          line.committedAmountTtc,
+          line.currency,
+        )}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {formatAmount(line.consumedAmount, line.currency)}
+        {formatTaxLine(
+          line.consumedAmount,
+          line.consumedAmountTtc,
+          line.currency,
+        )}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {formatAmount(line.remainingAmount, line.currency)}
+        {formatTaxLine(
+          line.remainingAmount,
+          line.remainingAmountTtc,
+          line.currency,
+        )}
       </TableCell>
       <TableCell className="w-[160px]">
         <BudgetLinesProgress
-          revisedAmount={line.revisedAmount}
-          consumedAmount={line.consumedAmount}
-          remainingAmount={line.remainingAmount}
+          revisedAmount={progressRevised}
+          consumedAmount={progressConsumed}
+          remainingAmount={progressRemaining}
           currency={line.currency}
           className="w-36"
         />

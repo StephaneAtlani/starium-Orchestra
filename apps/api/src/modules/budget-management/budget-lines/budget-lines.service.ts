@@ -12,6 +12,7 @@ import { AuditContext, ListResult } from '../types/audit-context';
 import { CreateBudgetLineDto } from './dto/create-budget-line.dto';
 import { ListBudgetLinesQueryDto } from './dto/list-budget-lines.query.dto';
 import { UpdateBudgetLineDto } from './dto/update-budget-line.dto';
+import { TaxCalculator } from '../../financial-core/helpers/tax-calculator';
 
 export interface CostCenterSplitResponse {
   id: string;
@@ -32,12 +33,29 @@ export interface BudgetLineResponse {
   expenseType: string;
   status: string;
   currency: string;
+  /**
+   * TVA en %.
+   * - null => TTC budgétaire indisponible (projection impossible)
+   */
+  taxRate: number | null;
   initialAmount: number;
+  initialTaxAmount: number | null;
+  initialAmountTtc: number | null;
   revisedAmount: number;
+  revisedTaxAmount: number | null;
+  revisedAmountTtc: number | null;
   forecastAmount: number;
+  forecastTaxAmount: number | null;
+  forecastAmountTtc: number | null;
   committedAmount: number;
+  committedTaxAmount: number | null;
+  committedAmountTtc: number | null;
   consumedAmount: number;
+  consumedTaxAmount: number | null;
+  consumedAmountTtc: number | null;
   remainingAmount: number;
+  remainingTaxAmount: number | null;
+  remainingAmountTtc: number | null;
   generalLedgerAccountId: string | null;
   generalLedgerAccountCode: string;
   generalLedgerAccountName: string;
@@ -247,6 +265,13 @@ export class BudgetLinesService {
     const consumedAmount = 0;
     const remainingAmount = revisedAmount;
 
+    const clientTax = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { defaultTaxRate: true },
+    });
+    const taxRateToPersist =
+      dto.taxRate !== undefined ? toDecimal(dto.taxRate) : clientTax?.defaultTaxRate ?? null;
+
     let code = dto.code?.trim();
     if (!code) {
       code = await this.resolveUniqueBudgetLineCode(clientId, dto.budgetId);
@@ -288,6 +313,7 @@ export class BudgetLinesService {
           committedAmount: toDecimal(committedAmount),
           consumedAmount: toDecimal(consumedAmount),
           remainingAmount: toDecimal(remainingAmount),
+          taxRate: taxRateToPersist,
         },
       });
       if (allocationScope === BudgetLineAllocationScope.ANALYTICAL && costCenterSplits.length > 0) {
@@ -472,6 +498,7 @@ export class BudgetLinesService {
           analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
         }),
         ...(dto.allocationScope != null && { allocationScope: dto.allocationScope }),
+        ...(dto.taxRate !== undefined && { taxRate: toDecimal(dto.taxRate) }),
       };
 
       if (dto.revisedAmount !== undefined && dto.revisedAmount !== null) {
@@ -624,6 +651,66 @@ type BudgetLineRowWithAnalytics = Prisma.BudgetLineGetPayload<{
 }>;
 
 function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
+  const taxRateDec = row.taxRate ?? null;
+  const taxRate = taxRateDec != null ? fromDecimal(taxRateDec) : null;
+
+  let initialTaxAmount: number | null = null;
+  let initialAmountTtc: number | null = null;
+  let revisedTaxAmount: number | null = null;
+  let revisedAmountTtc: number | null = null;
+  let forecastTaxAmount: number | null = null;
+  let forecastAmountTtc: number | null = null;
+  let committedTaxAmount: number | null = null;
+  let committedAmountTtc: number | null = null;
+  let consumedTaxAmount: number | null = null;
+  let consumedAmountTtc: number | null = null;
+  let remainingTaxAmount: number | null = null;
+  let remainingAmountTtc: number | null = null;
+
+  if (taxRateDec != null) {
+    const calcInitial = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.initialAmount,
+      taxRate: taxRateDec,
+    });
+    initialTaxAmount = fromDecimal(calcInitial.taxAmount);
+    initialAmountTtc = fromDecimal(calcInitial.amountTtc);
+
+    const calcRevised = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.revisedAmount,
+      taxRate: taxRateDec,
+    });
+    revisedTaxAmount = fromDecimal(calcRevised.taxAmount);
+    revisedAmountTtc = fromDecimal(calcRevised.amountTtc);
+
+    const calcForecast = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.forecastAmount,
+      taxRate: taxRateDec,
+    });
+    forecastTaxAmount = fromDecimal(calcForecast.taxAmount);
+    forecastAmountTtc = fromDecimal(calcForecast.amountTtc);
+
+    const calcCommitted = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.committedAmount,
+      taxRate: taxRateDec,
+    });
+    committedTaxAmount = fromDecimal(calcCommitted.taxAmount);
+    committedAmountTtc = fromDecimal(calcCommitted.amountTtc);
+
+    const calcConsumed = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.consumedAmount,
+      taxRate: taxRateDec,
+    });
+    consumedTaxAmount = fromDecimal(calcConsumed.taxAmount);
+    consumedAmountTtc = fromDecimal(calcConsumed.amountTtc);
+
+    const calcRemaining = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.remainingAmount,
+      taxRate: taxRateDec,
+    });
+    remainingTaxAmount = fromDecimal(calcRemaining.taxAmount);
+    remainingAmountTtc = fromDecimal(calcRemaining.amountTtc);
+  }
+
   return {
     id: row.id,
     clientId: row.clientId,
@@ -635,12 +722,25 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
     expenseType: row.expenseType,
     status: row.status,
     currency: row.currency,
+    taxRate,
     initialAmount: fromDecimal(row.initialAmount),
+    initialTaxAmount,
+    initialAmountTtc,
     revisedAmount: fromDecimal(row.revisedAmount),
+    revisedTaxAmount,
+    revisedAmountTtc,
     forecastAmount: fromDecimal(row.forecastAmount),
+    forecastTaxAmount,
+    forecastAmountTtc,
     committedAmount: fromDecimal(row.committedAmount),
+    committedTaxAmount,
+    committedAmountTtc,
     consumedAmount: fromDecimal(row.consumedAmount),
+    consumedTaxAmount,
+    consumedAmountTtc,
     remainingAmount: fromDecimal(row.remainingAmount),
+    remainingTaxAmount,
+    remainingAmountTtc,
     generalLedgerAccountId: row.generalLedgerAccountId ?? null,
     generalLedgerAccountCode: row.generalLedgerAccount?.code ?? '',
     generalLedgerAccountName: row.generalLedgerAccount?.name ?? '',

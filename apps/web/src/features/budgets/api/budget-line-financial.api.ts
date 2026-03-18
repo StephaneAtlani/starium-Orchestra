@@ -13,7 +13,12 @@ import type { PaginatedResponse } from '../types/budget-management.types';
 export interface FinancialEventForLine {
   id: string;
   eventType: string;
+  // Legacy: montant HT historique (synchro avec amountHt côté backend)
   amount: number;
+  amountHt: number;
+  taxRate: number | null;
+  taxAmount: number | null;
+  amountTtc: number | null;
   currency: string;
   eventDate: string;
   label: string;
@@ -37,7 +42,11 @@ export interface CreateFinancialEventPayload {
   budgetLineId: string;
   sourceType: 'MANUAL' | string;
   eventType: string;
-  amount: number;
+  amountHt?: string;
+  amountTtc?: string;
+  taxRate?: string;
+  taxAmount?: string;
+  useDefaultTaxRate?: boolean;
   currency: string;
   eventDate: string; // ISO
   label: string;

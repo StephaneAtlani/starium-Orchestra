@@ -24,6 +24,16 @@ enum ClientUserStatus {
   INVITED
 }
 
+enum TaxDisplayMode {
+  HT
+  TTC
+}
+
+enum TaxInputMode {
+  HT
+  TTC
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -36,6 +46,9 @@ model Client {
   createdAt                  DateTime                  @default(now())
   updatedAt                  DateTime                  @updatedAt
   budgetAccountingEnabled    Boolean                   @default(false)
+  taxDisplayMode            TaxDisplayMode           @default(HT)
+  taxInputMode              TaxInputMode             @default(HT)
+  defaultTaxRate            Decimal?                  @db.Decimal(5, 2)
   clientUsers                ClientUser[]
   clientModules              ClientModule[]
   roles                      Role[]
@@ -461,6 +474,7 @@ model BudgetLine {
   expenseType              ExpenseType
   status                   BudgetLineStatus           @default(DRAFT)
   currency                 String
+  taxRate                  Decimal?                   @db.Decimal(5, 2)
   initialAmount            Decimal                    @db.Decimal(18, 2) @default(0)
   revisedAmount            Decimal                    @db.Decimal(18, 2) @default(0)
   forecastAmount           Decimal                    @db.Decimal(18, 2) @default(0)
@@ -615,19 +629,23 @@ model FinancialAllocation {
 model FinancialEvent {
   id            String              @id @default(cuid())
   clientId      String
-  budgetLineId String
-  sourceType   FinancialSourceType
-  sourceId     String?
-  eventType    FinancialEventType
-  amount       Decimal             @db.Decimal(18, 2)
-  currency     String
-  eventDate    DateTime
-  label        String
-  description  String?
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  budgetLine   BudgetLine          @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+  budgetLineId  String
+  sourceType    FinancialSourceType
+  sourceId      String?
+  eventType     FinancialEventType
+  amount        Decimal             @db.Decimal(18, 2)
+  amountHt      Decimal             @db.Decimal(18, 2)
+  taxRate       Decimal?            @db.Decimal(5, 2)
+  taxAmount     Decimal?            @db.Decimal(18, 2)
+  amountTtc     Decimal?            @db.Decimal(18, 2)
+  currency      String
+  eventDate     DateTime
+  label         String
+  description   String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  client        Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budgetLine    BudgetLine          @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
   @@index([budgetLineId])

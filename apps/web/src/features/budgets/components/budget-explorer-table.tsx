@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import type { ExplorerNode } from '../types/budget-explorer.types';
 import { BudgetExplorerRow } from './budget-explorer-row';
+import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 
 interface BudgetExplorerTableProps {
   nodes: ExplorerNode[];
@@ -18,6 +19,7 @@ interface BudgetExplorerTableProps {
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
   onBudgetLineClick?: (lineId: string) => void;
+  taxDisplayMode: TaxDisplayMode;
   emptyMessage?: string;
   emptyFilteredMessage?: string;
   /** true quand l’arbre affiché est filtré et vide (tree.length > 0 mais nodes.length === 0) */
@@ -33,6 +35,7 @@ export function BudgetExplorerTable({
   expandedIds,
   onToggleExpand,
   onBudgetLineClick,
+  taxDisplayMode,
   emptyMessage = DEFAULT_EMPTY,
   emptyFilteredMessage = DEFAULT_FILTERED_EMPTY,
   isFilteredEmpty = false,
@@ -77,6 +80,7 @@ export function BudgetExplorerTable({
             onToggleExpand={onToggleExpand}
             currency={currency}
             onBudgetLineClick={onBudgetLineClick}
+            taxDisplayMode={taxDisplayMode}
           />
         ))}
       </TableBody>

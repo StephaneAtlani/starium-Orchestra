@@ -26,7 +26,6 @@ import {
 } from '@/features/budgets/constants/budget-routes';
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
-import { formatAmount } from '@/features/budgets/lib/budget-formatters';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
@@ -39,6 +38,9 @@ import {
 import type { BudgetExplorerFilters } from '@/features/budgets/types/budget-explorer.types';
 import { BudgetLineIntelligenceDrawer, type BudgetLineDrawerTab } from '@/features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer';
 import type { BudgetEnvelope, BudgetLine } from '@/features/budgets/types/budget-management.types';
+import { TaxDisplayModeToggle } from '@/components/finance/tax-display-mode-toggle';
+import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
+import { formatTaxAwareAmount } from '@/lib/format-tax-aware-amount';
 
 export default function BudgetDetailPage() {
   const budgetId = (() => {
@@ -48,6 +50,9 @@ export default function BudgetDetailPage() {
 
   const { budget, envelopes, lines, isLoading, error, refetch } =
     useBudgetExplorer(budgetId);
+
+  const { taxDisplayMode, setTaxDisplayMode, isLoading: isTaxLoading } =
+    useTaxDisplayMode();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedBudgetLineId, setSelectedBudgetLineId] = useState<string | null>(null);
@@ -125,11 +130,51 @@ export default function BudgetDetailPage() {
   const currency = budget.currency;
   const kpiItems = kpi
     ? [
-        { label: 'Initial', value: formatAmount(kpi.totalInitialAmount, currency) },
-        { label: 'Révisé', value: formatAmount(kpi.totalRevisedAmount, currency) },
-        { label: 'Engagé', value: formatAmount(kpi.totalCommittedAmount, currency) },
-        { label: 'Consommé', value: formatAmount(kpi.totalConsumedAmount, currency) },
-        { label: 'Restant', value: formatAmount(kpi.totalRemainingAmount, currency) },
+        {
+          label: 'Initial',
+          value: formatTaxAwareAmount({
+            htValue: kpi.totalInitialAmount,
+            ttcValue: null,
+            currency,
+            mode: taxDisplayMode,
+          }),
+        },
+        {
+          label: 'Révisé',
+          value: formatTaxAwareAmount({
+            htValue: kpi.totalRevisedAmount,
+            ttcValue: null,
+            currency,
+            mode: taxDisplayMode,
+          }),
+        },
+        {
+          label: 'Engagé',
+          value: formatTaxAwareAmount({
+            htValue: kpi.totalCommittedAmount,
+            ttcValue: null,
+            currency,
+            mode: taxDisplayMode,
+          }),
+        },
+        {
+          label: 'Consommé',
+          value: formatTaxAwareAmount({
+            htValue: kpi.totalConsumedAmount,
+            ttcValue: null,
+            currency,
+            mode: taxDisplayMode,
+          }),
+        },
+        {
+          label: 'Restant',
+          value: formatTaxAwareAmount({
+            htValue: kpi.totalRemainingAmount,
+            ttcValue: null,
+            currency,
+            mode: taxDisplayMode,
+          }),
+        },
       ]
     : [];
 
@@ -239,6 +284,12 @@ export default function BudgetDetailPage() {
                 <SelectItem value="CAPEX">CAPEX</SelectItem>
               </SelectContent>
             </Select>
+
+            <TaxDisplayModeToggle
+              taxDisplayMode={taxDisplayMode}
+              setTaxDisplayMode={setTaxDisplayMode}
+              isLoading={isTaxLoading}
+            />
           </div>
         </BudgetToolbar>
 
@@ -259,6 +310,7 @@ export default function BudgetDetailPage() {
                 expandedIds={expandedIds}
                 onToggleExpand={onToggleExpand}
                 onBudgetLineClick={onBudgetLineClick}
+                taxDisplayMode={taxDisplayMode}
                 emptyMessage="Aucune enveloppe."
                 emptyFilteredMessage="Aucun résultat pour ces filtres."
                 isFilteredEmpty={isEmptyFiltered}
