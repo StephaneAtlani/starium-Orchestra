@@ -42,6 +42,16 @@ export const budgetQueryKeys = {
   budgetSummary: (clientId: string, budgetId: string) =>
     ['budgets', clientId, 'budget-summary', budgetId] as const,
 
+  // Drawer ligne budgétaire (RFC-FE-ADD-006)
+  budgetLineDetail: (clientId: string, budgetLineId: string) =>
+    ['budgets', clientId, 'budget-line-detail', budgetLineId] as const,
+
+  budgetLineEvents: (clientId: string, budgetLineId: string, filters?: object) =>
+    ['budgets', clientId, 'budget-line-events', budgetLineId, filters] as const,
+
+  budgetLineAllocations: (clientId: string, budgetLineId: string, filters?: object) =>
+    ['budgets', clientId, 'budget-line-allocations', budgetLineId, filters] as const,
+
   dashboard: (clientId: string, params?: object) =>
     ['budgets', clientId, 'dashboard', params] as const,
 

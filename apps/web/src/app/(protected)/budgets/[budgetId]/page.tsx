@@ -37,6 +37,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { BudgetExplorerFilters } from '@/features/budgets/types/budget-explorer.types';
+import { BudgetLineIntelligenceDrawer, type BudgetLineDrawerTab } from '@/features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer';
+import type { BudgetEnvelope, BudgetLine } from '@/features/budgets/types/budget-management.types';
 
 export default function BudgetDetailPage() {
   const params = useParams();
@@ -44,6 +46,10 @@ export default function BudgetDetailPage() {
 
   const { budget, envelopes, lines, isLoading, error, refetch } =
     useBudgetExplorer(budgetId);
+
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedBudgetLineId, setSelectedBudgetLineId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<BudgetLineDrawerTab>('overview');
 
   const [filters, setFilters] = useState<BudgetExplorerFilters>({});
   const { tree, filteredTree } = useBudgetExplorerTree(
@@ -55,6 +61,20 @@ export default function BudgetDetailPage() {
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const hasInitializedExpanded = useRef(false);
+
+  const onBudgetLineClick = useCallback((lineId: string) => {
+    setSelectedBudgetLineId(lineId);
+    setIsDrawerOpen(true);
+    setActiveTab('overview');
+  }, []);
+
+  const onDrawerOpenChange = useCallback((nextOpen: boolean) => {
+    setIsDrawerOpen(nextOpen);
+    if (!nextOpen) {
+      setSelectedBudgetLineId(null);
+      setActiveTab('overview');
+    }
+  }, []);
 
   useEffect(() => {
     if (tree.length > 0 && !hasInitializedExpanded.current) {
@@ -113,6 +133,12 @@ export default function BudgetDetailPage() {
 
   const isEmptyGlobal = tree.length === 0;
   const isEmptyFiltered = filteredTree.length === 0 && tree.length > 0;
+
+  const selectedLine = (lines ?? []).find((l: BudgetLine) => l.id === selectedBudgetLineId) ?? null;
+  const envelopeName =
+    selectedLine && envelopes
+      ? (envelopes as BudgetEnvelope[]).find((e) => e.id === selectedLine.envelopeId)?.name ?? null
+      : null;
 
   return (
     <RequireActiveClient>
@@ -227,6 +253,7 @@ export default function BudgetDetailPage() {
                 currency={currency}
                 expandedIds={expandedIds}
                 onToggleExpand={onToggleExpand}
+                onBudgetLineClick={onBudgetLineClick}
                 emptyMessage="Aucune enveloppe."
                 emptyFilteredMessage="Aucun résultat pour ces filtres."
                 isFilteredEmpty={isEmptyFiltered}
@@ -277,6 +304,17 @@ export default function BudgetDetailPage() {
             </Link>
           </CardContent>
         </Card>
+
+        <BudgetLineIntelligenceDrawer
+          open={isDrawerOpen}
+          onOpenChange={onDrawerOpenChange}
+          budgetId={budgetId!}
+          budgetName={budget.name}
+          envelopeName={envelopeName}
+          budgetLineId={selectedBudgetLineId}
+          activeTab={activeTab}
+          onActiveTabChange={setActiveTab}
+        />
       </PageContainer>
     </RequireActiveClient>
   );

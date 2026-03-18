@@ -20,6 +20,7 @@ interface BudgetExplorerRowProps {
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
   currency: string;
+  onBudgetLineClick?: (lineId: string) => void;
 }
 
 /** expandedIds ne contient que des ids d’enveloppes. */
@@ -29,6 +30,7 @@ export function BudgetExplorerRow({
   expandedIds,
   onToggleExpand,
   currency,
+  onBudgetLineClick,
 }: BudgetExplorerRowProps) {
   const { has, isLoading: isPermissionsLoading } = usePermissions();
   const isEnvelope = node.type === 'envelope';
@@ -125,6 +127,7 @@ export function BudgetExplorerRow({
               expandedIds={expandedIds}
               onToggleExpand={onToggleExpand}
               currency={currency}
+              onBudgetLineClick={onBudgetLineClick}
             />
           ))}
       </>
@@ -145,7 +148,18 @@ export function BudgetExplorerRow({
               status={line.status}
               className="h-5 px-2 text-[10px] uppercase"
             />
-            <span className="text-sm truncate">{line.name}</span>
+            <button
+              type="button"
+              onClick={() => onBudgetLineClick?.(line.id)}
+              className={cn(
+                'text-left text-sm truncate hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded',
+                !onBudgetLineClick && 'cursor-default hover:no-underline',
+              )}
+              aria-label={`Ouvrir la ligne budgétaire ${line.name}`}
+              disabled={!onBudgetLineClick}
+            >
+              {line.name}
+            </button>
           </div>
           {canEditLine && (
             <Link
