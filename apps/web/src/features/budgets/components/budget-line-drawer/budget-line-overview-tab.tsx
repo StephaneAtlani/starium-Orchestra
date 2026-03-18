@@ -6,6 +6,7 @@ import { Pencil } from 'lucide-react';
 import type { BudgetLine } from '../../types/budget-management.types';
 import type { FinancialEventForLine } from '../../api/budget-line-financial.api';
 import { formatAmount } from '../../lib/budget-formatters';
+import { formatFinancialEventType } from '../../lib/financial-event-labels';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -132,7 +133,7 @@ export function BudgetLineOverviewTab({
             <div className="space-y-1">
               <div className="font-medium">{lastEvent.label}</div>
               <div className="text-muted-foreground">
-                {new Date(lastEvent.eventDate).toLocaleDateString()} · {lastEvent.eventType}
+                {new Date(lastEvent.eventDate).toLocaleDateString()} · {formatFinancialEventType(lastEvent.eventType)}
               </div>
               <div className="tabular-nums">
                 {formatAmount(lastEvent.amount, lastEvent.currency ?? line.currency)}

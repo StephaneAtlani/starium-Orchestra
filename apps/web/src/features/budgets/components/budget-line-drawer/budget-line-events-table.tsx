@@ -4,6 +4,7 @@ import React from 'react';
 import type { FinancialEventForLine } from '../../api/budget-line-financial.api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatAmount } from '../../lib/budget-formatters';
+import { formatFinancialEventType } from '../../lib/financial-event-labels';
 
 export function BudgetLineEventsTable({
   events,
@@ -32,7 +33,9 @@ export function BudgetLineEventsTable({
               {new Date(e.eventDate).toLocaleDateString()}
             </TableCell>
             <TableCell className="font-medium">{e.label}</TableCell>
-            <TableCell className="text-muted-foreground">{e.eventType}</TableCell>
+            <TableCell className="text-muted-foreground">
+              {formatFinancialEventType(e.eventType)}
+            </TableCell>
             <TableCell className="text-muted-foreground">{e.sourceType}</TableCell>
             <TableCell className="text-right tabular-nums">
               {formatAmount(e.amount, e.currency)}

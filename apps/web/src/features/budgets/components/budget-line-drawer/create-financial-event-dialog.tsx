@@ -25,10 +25,11 @@ import { createFinancialEventSchema, type CreateFinancialEventValues } from '../
 import type { ApiFormError } from '../../api/types';
 import type { BudgetLine } from '../../types/budget-management.types';
 import { useCreateFinancialEvent } from '../../hooks/use-create-financial-event';
+import { formatFinancialEventType } from '../../lib/financial-event-labels';
 
 const KNOWN_EVENT_TYPES = [
-  { value: 'COMMITMENT_REGISTERED', label: 'Commande / engagement (COMMITMENT_REGISTERED)' },
-  { value: 'CONSUMPTION_REGISTERED', label: 'Facture / consommation (CONSUMPTION_REGISTERED)' },
+  { value: 'COMMITMENT_REGISTERED', label: 'Engagement' },
+  { value: 'CONSUMPTION_REGISTERED', label: 'Consommation' },
 ] as const;
 
 export function CreateFinancialEventDialog({
@@ -67,6 +68,18 @@ export function CreateFinancialEventDialog({
   const eventTypeSelectValue = useMemo(() => {
     return KNOWN_EVENT_TYPES.some((t) => t.value === eventType) ? eventType : '__custom__';
   }, [eventType]);
+
+  const eventTypeLabel = useMemo(() => {
+    if (!eventType) return '';
+    const known = KNOWN_EVENT_TYPES.find((t) => t.value === eventType);
+    if (known) return known.label;
+    return formatFinancialEventType(eventType);
+  }, [eventType]);
+
+  const triggerLabel =
+    eventTypeSelectValue === '__custom__'
+      ? 'Autre…'
+      : eventTypeLabel || '';
 
   useEffect(() => {
     if (!open) {
@@ -121,7 +134,9 @@ export function CreateFinancialEventDialog({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner un type" />
+                <SelectValue placeholder="Sélectionner un type">
+                  {triggerLabel || undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {KNOWN_EVENT_TYPES.map((t) => (
@@ -134,7 +149,7 @@ export function CreateFinancialEventDialog({
             </Select>
             {eventTypeSelectValue === '__custom__' && (
               <Input
-                placeholder="Ex. ADJUSTMENT_REGISTERED"
+                placeholder="Type personnalisé"
                 {...register('eventType')}
                 aria-invalid={!!errors.eventType}
               />
