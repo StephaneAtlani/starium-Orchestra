@@ -41,8 +41,10 @@ import { BudgetLineIntelligenceDrawer, type BudgetLineDrawerTab } from '@/featur
 import type { BudgetEnvelope, BudgetLine } from '@/features/budgets/types/budget-management.types';
 
 export default function BudgetDetailPage() {
-  const params = useParams();
-  const budgetId = typeof params.budgetId === 'string' ? params.budgetId : null;
+  const budgetId = (() => {
+    const p = useParams();
+    return typeof p.budgetId === 'string' ? p.budgetId : null;
+  })();
 
   const { budget, envelopes, lines, isLoading, error, refetch } =
     useBudgetExplorer(budgetId);

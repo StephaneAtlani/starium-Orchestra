@@ -30,10 +30,11 @@ export function useBudgetLineEvents({
   const clientId = activeClient?.id ?? '';
 
   const filters = { offset, limit, eventType };
+  const apiParams = { offset, limit };
 
   return useQuery({
     queryKey: budgetQueryKeys.budgetLineEvents(clientId, budgetLineId ?? '', filters),
-    queryFn: () => listBudgetLineEvents(authFetch, budgetLineId!, filters),
+    queryFn: () => listBudgetLineEvents(authFetch, budgetLineId!, apiParams),
     enabled: enabled && !!clientId && !!budgetLineId,
   });
 }

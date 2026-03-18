@@ -60,12 +60,11 @@ function buildQueryString(params?: Record<string, string | number | boolean | un
 export async function listBudgetLineEvents(
   authFetch: AuthFetch,
   budgetLineId: string,
-  params?: { offset?: number; limit?: number; eventType?: string },
+  params?: { offset?: number; limit?: number },
 ): Promise<PaginatedResponse<FinancialEventForLine>> {
   const qs = buildQueryString({
     offset: params?.offset,
     limit: params?.limit,
-    eventType: params?.eventType,
   });
   const res = await authFetch(`${BASE_BUDGET_LINES}/${budgetLineId}/events${qs}`);
   if (!res.ok) throw await parseApiFormError(res);

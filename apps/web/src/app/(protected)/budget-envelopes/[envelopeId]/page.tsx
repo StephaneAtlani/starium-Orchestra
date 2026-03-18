@@ -15,9 +15,10 @@ import { BudgetEnvelopeLinesTable } from '@/features/budgets/components/budget-e
 const DEFAULT_LIMIT = 20;
 
 export default function BudgetEnvelopeDetailPage() {
-  const params = useParams();
-  const envelopeId =
-    typeof params.envelopeId === 'string' ? params.envelopeId : null;
+  const envelopeId = (() => {
+    const p = useParams();
+    return typeof p.envelopeId === 'string' ? p.envelopeId : null;
+  })();
 
   const [offset, setOffset] = React.useState(0);
 
