@@ -100,7 +100,7 @@ export function BudgetLineIntelligenceDrawer({
         <DialogPrimitive.Popup
           className={cn(
             'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-none',
-            'border bg-background shadow-lg outline-none',
+            'border border-border/60 bg-background shadow-lg outline-none',
             // Mobile: quasi plein écran. Desktop: hauteur contenue.
             'h-[100dvh] sm:h-[70vh] md:h-[65vh]',
             'rounded-none sm:rounded-t-2xl',
@@ -112,7 +112,7 @@ export function BudgetLineIntelligenceDrawer({
         >
           {!line && detail.isLoading && (
             <div className="flex h-full flex-col">
-              <div className="border-b px-4 py-3">
+              <div className="border-b border-border/60 px-4 py-3">
                 <Skeleton className="h-5 w-1/3" />
                 <Skeleton className="mt-2 h-4 w-1/4" />
               </div>
@@ -169,17 +169,19 @@ export function BudgetLineIntelligenceDrawer({
                 <Tabs
                   value={activeTab}
                   onValueChange={(v) => onActiveTabChange(v as BudgetLineDrawerTab)}
-                  className="h-full"
+                  className="flex h-full flex-col"
                 >
-                  <TabsList variant="line" className="w-full justify-start">
-                    <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
-                    <TabsTrigger value="commitments">Commandes</TabsTrigger>
-                    <TabsTrigger value="invoices">Factures</TabsTrigger>
-                    <TabsTrigger value="allocations">Allocations</TabsTrigger>
-                    <TabsTrigger value="dsi-info">Infos DSI</TabsTrigger>
-                  </TabsList>
+                  <div className="sticky top-0 z-10 -mx-4 border-b border-border/60 bg-background/80 px-4 pb-2 backdrop-blur supports-backdrop-filter:bg-background/60">
+                    <TabsList variant="line" className="w-full justify-start">
+                      <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
+                      <TabsTrigger value="commitments">Commandes</TabsTrigger>
+                      <TabsTrigger value="invoices">Factures</TabsTrigger>
+                      <TabsTrigger value="allocations">Allocations</TabsTrigger>
+                      <TabsTrigger value="dsi-info">Infos DSI</TabsTrigger>
+                    </TabsList>
+                  </div>
 
-                  <div className="mt-3 h-[calc(100%-2.25rem)] overflow-y-auto pr-1">
+                  <div className="flex-1 overflow-y-auto pr-1 pt-3">
                     <TabsContent value="overview">
                       <BudgetLineOverviewTab
                         line={line}

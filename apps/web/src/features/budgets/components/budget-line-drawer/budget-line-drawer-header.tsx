@@ -39,7 +39,7 @@ export function BudgetLineDrawerHeader({
   const envelopeTypeLabel = envelopeType ?? '—';
 
   return (
-    <div className="flex items-start justify-between gap-4 border-b bg-background/80 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/60">
+    <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           {line.code && (
