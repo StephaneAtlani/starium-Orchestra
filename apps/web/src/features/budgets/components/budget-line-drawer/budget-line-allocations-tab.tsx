@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useBudgetLineAllocations } from '../../hooks/use-budget-line-allocations';
 import { formatAmount } from '../../lib/budget-formatters';
+import { rangeLabel } from './pagination-label';
 
 const DEFAULT_LIMIT = 20;
 
@@ -17,6 +18,10 @@ export function BudgetLineAllocationsTab({
   enabled: boolean;
 }) {
   const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [budgetLineId]);
 
   const q = useBudgetLineAllocations({
     budgetLineId,
@@ -89,7 +94,7 @@ export function BudgetLineAllocationsTab({
       </Table>
 
       <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground">{total > 0 ? `Total : ${total}` : ''}</div>
+        <div className="text-xs text-muted-foreground">{rangeLabel(offset, DEFAULT_LIMIT, total)}</div>
         <div className="flex items-center gap-2">
           <Button
             type="button"

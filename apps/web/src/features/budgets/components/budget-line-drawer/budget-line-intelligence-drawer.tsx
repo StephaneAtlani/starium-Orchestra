@@ -23,6 +23,10 @@ import { useBudgetLineEvents } from '../../hooks/use-budget-line-events';
 export type BudgetLineDrawerTab = 'overview' | 'commitments' | 'invoices' | 'allocations' | 'dsi-info';
 
 const LAST_EVENT_LIMIT = 1;
+const RECENT_INVOICE_DAYS = 30;
+// Limite “première page raisonnable” (heuristique technique, pas une règle produit).
+const RECENT_INVOICE_PAGE_LIMIT = 20;
+const EVENT_TYPE_CONSUMPTION = 'CONSUMPTION_REGISTERED';
 
 export function BudgetLineIntelligenceDrawer({
   open,
@@ -30,6 +34,8 @@ export function BudgetLineIntelligenceDrawer({
   budgetId,
   budgetName,
   envelopeName,
+  envelopeCode,
+  envelopeType,
   budgetLineId,
   activeTab,
   onActiveTabChange,
@@ -39,6 +45,8 @@ export function BudgetLineIntelligenceDrawer({
   budgetId: string;
   budgetName?: string | null;
   envelopeName?: string | null;
+  envelopeCode?: string | null;
+  envelopeType?: string | null;
   budgetLineId: string | null;
   activeTab: BudgetLineDrawerTab;
   onActiveTabChange: (tab: BudgetLineDrawerTab) => void;
@@ -63,6 +71,26 @@ export function BudgetLineIntelligenceDrawer({
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [eventOpen, setEventOpen] = useState(false);
 
+  const invoiceRecentQuery = useBudgetLineEvents({
+    budgetLineId: open ? budgetLineId : null,
+    offset: 0,
+    limit: RECENT_INVOICE_PAGE_LIMIT,
+    eventType: EVENT_TYPE_CONSUMPTION,
+    enabled: open,
+  });
+
+  const hasRecentInvoice30d = useMemo(() => {
+    const items = invoiceRecentQuery.data?.items ?? [];
+    if (items.length === 0) return false;
+    const threshold = Date.now() - RECENT_INVOICE_DAYS * 24 * 60 * 60 * 1000;
+    // fallback si l’API ignore eventType
+    return items.some((e) => {
+      if (e.eventType !== EVENT_TYPE_CONSUMPTION) return false;
+      const t = Date.parse(e.eventDate);
+      return Number.isFinite(t) && t >= threshold;
+    });
+  }, [invoiceRecentQuery.data?.items]);
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -72,8 +100,12 @@ export function BudgetLineIntelligenceDrawer({
         <DialogPrimitive.Popup
           className={cn(
             'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-none',
-            'rounded-t-2xl border bg-background shadow-lg outline-none',
-            'h-[72vh] sm:h-[70vh] md:h-[65vh]',
+            'border bg-background shadow-lg outline-none',
+            // Mobile: quasi plein écran. Desktop: hauteur contenue.
+            'h-[100dvh] sm:h-[70vh] md:h-[65vh]',
+            'rounded-none sm:rounded-t-2xl',
+            // Anti double-scroll: seul le contenu d’onglet scrolle.
+            'overflow-hidden',
             'data-open:animate-in data-open:slide-in-from-bottom-2 data-open:fade-in-0',
             'data-closed:animate-out data-closed:slide-out-to-bottom-2 data-closed:fade-out-0',
           )}
@@ -120,6 +152,9 @@ export function BudgetLineIntelligenceDrawer({
                 line={line}
                 budgetName={budgetName}
                 envelopeName={envelopeName}
+                envelopeCode={envelopeCode}
+                envelopeType={envelopeType}
+                hasRecentInvoice30d={hasRecentInvoice30d}
                 onClose={() => onOpenChange(false)}
                 onCreateOrder={() => setOrderOpen(true)}
                 onCreateInvoice={() => setInvoiceOpen(true)}
@@ -150,6 +185,8 @@ export function BudgetLineIntelligenceDrawer({
                         line={line}
                         budgetName={budgetName}
                         envelopeName={envelopeName}
+                        envelopeCode={envelopeCode}
+                        envelopeType={envelopeType}
                         lastEvent={lastEvent}
                       />
                     </TabsContent>

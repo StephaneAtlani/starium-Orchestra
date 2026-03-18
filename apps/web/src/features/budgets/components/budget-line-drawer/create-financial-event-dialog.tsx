@@ -116,7 +116,7 @@ export function CreateFinancialEventDialog({
                 if (v === '__custom__') {
                   setValue('eventType', '');
                 } else {
-                  setValue('eventType', v);
+                  setValue('eventType', v ?? '');
                 }
               }}
             >

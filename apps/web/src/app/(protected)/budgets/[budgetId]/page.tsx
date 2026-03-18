@@ -135,10 +135,13 @@ export default function BudgetDetailPage() {
   const isEmptyFiltered = filteredTree.length === 0 && tree.length > 0;
 
   const selectedLine = (lines ?? []).find((l: BudgetLine) => l.id === selectedBudgetLineId) ?? null;
-  const envelopeName =
+  const selectedEnvelope =
     selectedLine && envelopes
-      ? (envelopes as BudgetEnvelope[]).find((e) => e.id === selectedLine.envelopeId)?.name ?? null
+      ? (envelopes as BudgetEnvelope[]).find((e) => e.id === selectedLine.envelopeId) ?? null
       : null;
+  const envelopeName = selectedEnvelope?.name ?? null;
+  const envelopeCode = selectedEnvelope?.code ?? null;
+  const envelopeType = selectedEnvelope?.type ?? null;
 
   return (
     <RequireActiveClient>
@@ -311,6 +314,8 @@ export default function BudgetDetailPage() {
           budgetId={budgetId!}
           budgetName={budget.name}
           envelopeName={envelopeName}
+          envelopeCode={envelopeCode}
+          envelopeType={envelopeType}
           budgetLineId={selectedBudgetLineId}
           activeTab={activeTab}
           onActiveTabChange={setActiveTab}

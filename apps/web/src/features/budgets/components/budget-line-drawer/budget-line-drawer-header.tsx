@@ -6,12 +6,16 @@ import { X } from 'lucide-react';
 import type { BudgetLine } from '../../types/budget-management.types';
 import { BudgetStatusBadge } from '../budget-status-badge';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 export function BudgetLineDrawerHeader({
   line,
   budgetName,
   envelopeName,
+  envelopeCode,
+  envelopeType,
+  hasRecentInvoice30d,
   onClose,
   onCreateOrder,
   onCreateInvoice,
@@ -20,11 +24,20 @@ export function BudgetLineDrawerHeader({
   line: BudgetLine;
   budgetName?: string | null;
   envelopeName?: string | null;
+  envelopeCode?: string | null;
+  envelopeType?: string | null;
+  hasRecentInvoice30d: boolean;
   onClose: () => void;
   onCreateOrder: () => void;
   onCreateInvoice: () => void;
   onCreateEvent: () => void;
 }) {
+  const isOverrun = line.consumedAmount > line.revisedAmount;
+  const isNegativeRemaining = line.remainingAmount < 0;
+  const isUncoveredOrder = line.committedAmount > 0 && line.consumedAmount === 0;
+  const envelopeCodeLabel = envelopeCode ?? '—';
+  const envelopeTypeLabel = envelopeType ?? '—';
+
   return (
     <div className="flex items-start justify-between gap-4 border-b bg-background/80 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="min-w-0">
@@ -36,6 +49,28 @@ export function BudgetLineDrawerHeader({
           )}
           <h2 className="text-base font-semibold truncate">{line.name}</h2>
         </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {isOverrun && (
+            <Badge variant="destructive" className="h-5 px-2 text-[10px]">
+              Dépassement
+            </Badge>
+          )}
+          {isNegativeRemaining && (
+            <Badge variant="destructive" className="h-5 px-2 text-[10px]">
+              Reste négatif
+            </Badge>
+          )}
+          {hasRecentInvoice30d && (
+            <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+              Facture récente (30j)
+            </Badge>
+          )}
+          {isUncoveredOrder && (
+            <Badge variant="outline" className="h-5 px-2 text-[10px]">
+              Commande non couverte
+            </Badge>
+          )}
+        </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <BudgetStatusBadge status={line.status} className="h-5 px-2 text-[10px] uppercase" />
           {envelopeName && (
@@ -44,6 +79,14 @@ export function BudgetLineDrawerHeader({
               <span className="truncate max-w-[240px]" title={envelopeName}>
                 {envelopeName}
               </span>
+            </>
+          )}
+          {envelopeName && (
+            <>
+              <span>·</span>
+              <span className="shrink-0">{envelopeCodeLabel}</span>
+              <span>·</span>
+              <span className="shrink-0">{envelopeTypeLabel}</span>
             </>
           )}
           {budgetName && (

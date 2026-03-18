@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { BudgetLineEventsTable } from './budget-line-events-table';
 import { useBudgetLineEvents } from '../../hooks/use-budget-line-events';
+import { rangeLabel } from './pagination-label';
 
 const DEFAULT_LIMIT = 20;
 const EVENT_TYPE_INVOICE = 'CONSUMPTION_REGISTERED';
@@ -17,6 +18,10 @@ export function BudgetLineInvoicesTab({
   enabled: boolean;
 }) {
   const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [budgetLineId]);
 
   const q = useBudgetLineEvents({
     budgetLineId,
@@ -63,9 +68,7 @@ export function BudgetLineInvoicesTab({
     <div className="space-y-3">
       <BudgetLineEventsTable events={events} />
       <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground">
-          {total > 0 ? `Total : ${total}` : ''}
-        </div>
+        <div className="text-xs text-muted-foreground">{rangeLabel(offset, DEFAULT_LIMIT, total)}</div>
         <div className="flex items-center gap-2">
           <Button
             type="button"
