@@ -1,10 +1,14 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { Pencil } from 'lucide-react';
 import type { BudgetLine } from '../../types/budget-management.types';
 import type { FinancialEventForLine } from '../../api/budget-line-financial.api';
 import { formatAmount } from '../../lib/budget-formatters';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export function BudgetLineOverviewTab({
   line,
@@ -61,7 +65,7 @@ export function BudgetLineOverviewTab({
         <CardHeader>
           <CardTitle className="text-base">Contexte</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="relative space-y-2 text-sm">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-muted-foreground">Code ligne</span>
             <span className="font-medium">{line.code ?? '—'}</span>
@@ -102,6 +106,18 @@ export function BudgetLineOverviewTab({
             <span className="text-muted-foreground">Mise à jour</span>
             <span className="font-medium">{new Date(line.updatedAt).toLocaleDateString()}</span>
           </div>
+
+          <Link
+            href={`/budget-lines/${line.id}/edit`}
+            aria-label="Éditer la ligne"
+            title="Éditer la ligne"
+            className={cn(
+              buttonVariants({ variant: 'outline', size: 'icon-sm' }),
+              'absolute bottom-3 right-3 h-7 w-7',
+            )}
+          >
+            <Pencil className="size-4" />
+          </Link>
         </CardContent>
       </Card>
 

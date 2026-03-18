@@ -1,11 +1,10 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { X } from 'lucide-react';
 import type { BudgetLine } from '../../types/budget-management.types';
 import { BudgetStatusBadge } from '../budget-status-badge';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -113,12 +112,6 @@ export function BudgetLineDrawerHeader({
         <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateEvent}>
           + Événement
         </Button>
-        <Link
-          href={`/budget-lines/${line.id}/edit`}
-          className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'h-7 px-2')}
-        >
-          Ouvrir la fiche
-        </Link>
         <Button
           size="icon-sm"
           variant="ghost"
