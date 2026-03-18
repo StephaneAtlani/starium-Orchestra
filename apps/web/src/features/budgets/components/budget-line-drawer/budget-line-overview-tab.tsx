@@ -21,10 +21,7 @@ export function BudgetLineOverviewTab({
   envelopeType?: string | null;
   lastEvent?: FinancialEventForLine | null;
 }) {
-  const revised = line.revisedAmount || 0;
-  const consumedPct = revised > 0 ? Math.round((line.consumedAmount / revised) * 100) : null;
-  const committedPct = revised > 0 ? Math.round((line.committedAmount / revised) * 100) : null;
-  const remainingPct = revised > 0 ? Math.round((line.remainingAmount / revised) * 100) : null;
+  const reference = line.code ?? `${line.id.slice(0, 8)}…`;
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -39,33 +36,22 @@ export function BudgetLineOverviewTab({
             <div className="text-muted-foreground">Aucune description.</div>
           )}
 
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             <div className="rounded-md border border-border/60 p-2">
-              <div className="text-xs text-muted-foreground">Consommé</div>
-              <div className="mt-0.5 font-medium tabular-nums">
-                {formatAmount(line.consumedAmount, line.currency)}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {consumedPct === null ? '—' : `${consumedPct}% du révisé`}
-              </div>
+              <div className="text-xs text-muted-foreground">Scope d’allocation</div>
+              <div className="mt-0.5 font-medium">{line.allocationScope ?? '—'}</div>
             </div>
             <div className="rounded-md border border-border/60 p-2">
-              <div className="text-xs text-muted-foreground">Engagé</div>
-              <div className="mt-0.5 font-medium tabular-nums">
-                {formatAmount(line.committedAmount, line.currency)}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {committedPct === null ? '—' : `${committedPct}% du révisé`}
-              </div>
+              <div className="text-xs text-muted-foreground">Compte comptable</div>
+              <div className="mt-0.5 font-medium">{line.generalLedgerAccountId ?? '—'}</div>
             </div>
             <div className="rounded-md border border-border/60 p-2">
-              <div className="text-xs text-muted-foreground">Restant</div>
-              <div className="mt-0.5 font-medium tabular-nums">
-                {formatAmount(line.remainingAmount, line.currency)}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {remainingPct === null ? '—' : `${remainingPct}% du révisé`}
-              </div>
+              <div className="text-xs text-muted-foreground">Compte analytique</div>
+              <div className="mt-0.5 font-medium">{line.analyticalLedgerAccountId ?? '—'}</div>
+            </div>
+            <div className="rounded-md border border-border/60 p-2">
+              <div className="text-xs text-muted-foreground">Référence</div>
+              <div className="mt-0.5 font-medium">{reference}</div>
             </div>
           </div>
         </CardContent>
