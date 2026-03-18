@@ -101,17 +101,23 @@ export default function LoginPage() {
 
   if (isLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-primary/32 via-background to-primary/18 px-4">
         <p className="text-muted-foreground">Chargement…</p>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-primary/30 via-background to-primary/16 px-4 py-8">
       <Card className="w-full max-w-4xl">
         <div className="grid gap-0 md:grid-cols-2">
           <div className="relative hidden flex-col justify-between bg-muted/40 p-8 md:flex">
+            <img
+              src="/login-hero.svg"
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-45"
+            />
             <div className="text-sm font-medium tracking-tight text-muted-foreground">
               Starium Orchestra
             </div>
