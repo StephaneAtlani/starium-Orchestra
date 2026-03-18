@@ -161,7 +161,7 @@ export function BudgetLineIntelligenceDrawer({
                 onCreateEvent={() => setEventOpen(true)}
               />
 
-              <div className="px-4 pt-3">
+              <div className="px-2 pt-3 sm:px-4">
                 <BudgetLineKpiStrip line={line} className="mb-1" />
               </div>
 

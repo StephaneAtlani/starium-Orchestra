@@ -252,7 +252,7 @@ Administration plateforme
 * affichage selon scope et permissions
 * état actif visible
 * profil utilisateur en bas
-* version mobile via drawer
+* version mobile via drawer (ex. drawer “Budget Line Intelligence” : RFC-FE-ADD-006)
 
 ### Important
 

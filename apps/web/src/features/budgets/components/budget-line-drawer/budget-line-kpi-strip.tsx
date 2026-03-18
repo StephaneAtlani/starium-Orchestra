@@ -4,7 +4,7 @@ import React from 'react';
 import type { BudgetLine } from '../../types/budget-management.types';
 import { formatAmount } from '../../lib/budget-formatters';
 import { cn } from '@/lib/utils';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Banknote,
@@ -15,7 +15,7 @@ import {
   Receipt,
 } from 'lucide-react';
 
-function KpiTile({
+function KpiItem({
   label,
   value,
   subtitle,
@@ -27,24 +27,25 @@ function KpiTile({
   icon: React.ReactNode;
 }) {
   return (
-    <Card
-      size="sm"
-      className="shadow-none border-border/60 bg-gradient-to-b from-background to-muted/20 hover:to-muted/30 transition-colors"
-    >
-      <CardHeader className="pb-0">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              {icon}
-            </div>
-            <span className="truncate text-xs font-medium text-muted-foreground">{label}</span>
-          </div>
-          {subtitle ? <Badge variant="outline" className="tabular-nums">{subtitle}</Badge> : null}
+    <Card className="min-w-[168px] shadow-none bg-muted/10 border-border/60">
+      <div className="flex items-center gap-2 px-2.5 py-2">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-foreground/80">
+          {icon}
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="text-xl font-semibold tracking-tight tabular-nums">{value}</div>
-      </CardContent>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {label}
+            </span>
+            {subtitle ? (
+              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] tabular-nums">
+                {subtitle}
+              </Badge>
+            ) : null}
+          </div>
+          <div className="truncate text-sm font-semibold tabular-nums">{value}</div>
+        </div>
+      </div>
     </Card>
   );
 }
@@ -64,43 +65,45 @@ export function BudgetLineKpiStrip({
   return (
     <div
       className={cn(
-        'grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6',
+        'overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         className,
       )}
     >
-      <KpiTile
-        label="Initial"
-        value={formatAmount(line.initialAmount, currency)}
-        icon={<PiggyBank className="size-4" />}
-      />
-      <KpiTile
-        label="Révisé"
-        value={formatAmount(line.revisedAmount, currency)}
-        icon={<Banknote className="size-4" />}
-      />
-      <KpiTile
-        label="Forecast"
-        subtitle={toPct(line.forecastAmount)}
-        value={formatAmount(line.forecastAmount, currency)}
-        icon={<ChartLine className="size-4" />}
-      />
-      <KpiTile
-        label="Engagé"
-        subtitle={toPct(line.committedAmount)}
-        value={formatAmount(line.committedAmount, currency)}
-        icon={<HandCoins className="size-4" />}
-      />
-      <KpiTile
-        label="Consommé"
-        subtitle={toPct(line.consumedAmount)}
-        value={formatAmount(line.consumedAmount, currency)}
-        icon={<Receipt className="size-4" />}
-      />
-      <KpiTile
-        label="Restant"
-        value={formatAmount(line.remainingAmount, currency)}
-        icon={<CircleDollarSign className="size-4" />}
-      />
+      <div className="flex w-max min-w-full items-stretch justify-center gap-2">
+        <KpiItem
+          label="Initial"
+          value={formatAmount(line.initialAmount, currency)}
+          icon={<PiggyBank className="size-4" />}
+        />
+        <KpiItem
+          label="Révisé"
+          value={formatAmount(line.revisedAmount, currency)}
+          icon={<Banknote className="size-4" />}
+        />
+        <KpiItem
+          label="Forecast"
+          subtitle={toPct(line.forecastAmount)}
+          value={formatAmount(line.forecastAmount, currency)}
+          icon={<ChartLine className="size-4" />}
+        />
+        <KpiItem
+          label="Engagé"
+          subtitle={toPct(line.committedAmount)}
+          value={formatAmount(line.committedAmount, currency)}
+          icon={<HandCoins className="size-4" />}
+        />
+        <KpiItem
+          label="Consommé"
+          subtitle={toPct(line.consumedAmount)}
+          value={formatAmount(line.consumedAmount, currency)}
+          icon={<Receipt className="size-4" />}
+        />
+        <KpiItem
+          label="Restant"
+          value={formatAmount(line.remainingAmount, currency)}
+          icon={<CircleDollarSign className="size-4" />}
+        />
+      </div>
     </div>
   );
 }

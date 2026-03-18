@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémenté (V1 / MVP+)
 
 ## Titre
 
@@ -81,6 +81,60 @@ Le besoin métier réel est :
 * synchronisation ERP / comptabilité externe
 
 ---
+
+## 3.1 État d’implémentation dans le repo (V1 / MVP+)
+
+Cette section documente **l’implémentation réelle** (frontend only) afin d’éviter toute ambiguïté.
+
+### Points clés
+
+* **Aucun changement backend** : uniquement consommation des endpoints existants (`GET /api/budget-lines/:id`, `GET /api/budget-lines/:id/events`, `GET /api/budget-lines/:id/allocations`, `POST /api/financial-events`).
+* **Drawer unique réutilisé** : ouverture depuis le titre de ligne, réutilisation quand on clique une autre ligne, reset `activeTab` sur “overview”.
+* **Heuristiques UI uniquement** pour les badges d’alerte (display-only).
+* **Pagination offset/limit** + libellé UI uniforme `X–Y sur Total`, reset offset au changement de ligne.
+* **Mobile** : bottom sheet quasi plein écran, avec **une seule zone scroll** (anti double-scroll).
+
+### Chemins (frontend)
+
+* Page budget (state local drawer + lookup enveloppe) :
+  * `apps/web/src/app/(protected)/budgets/[budgetId]/page.tsx`
+  * Le lookup `envelopeName/envelopeCode/envelopeType` est résolu ici à partir des données **déjà chargées par l’explorer**, puis transmis au drawer via props.
+* Drawer root (Base UI Dialog bottom-sheet) :
+  * `apps/web/src/features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer.tsx`
+* Header drawer (badges + actions + contexte) :
+  * `apps/web/src/features/budgets/components/budget-line-drawer/budget-line-drawer-header.tsx`
+* Overview cockpit :
+  * `apps/web/src/features/budgets/components/budget-line-drawer/budget-line-overview-tab.tsx`
+* Tabs listés :
+  * `apps/web/src/features/budgets/components/budget-line-drawer/budget-line-commitments-tab.tsx`
+  * `apps/web/src/features/budgets/components/budget-line-drawer/budget-line-invoices-tab.tsx`
+  * `apps/web/src/features/budgets/components/budget-line-drawer/budget-line-allocations-tab.tsx`
+  * `apps/web/src/features/budgets/components/budget-line-drawer/budget-line-dsi-info-tab.tsx`
+* Helper pagination (léger, local drawer) :
+  * `apps/web/src/features/budgets/components/budget-line-drawer/pagination-label.ts`
+
+### Badges d’alerte (heuristiques V1)
+
+Badges visuels (aucune règle métier critique) :
+
+* **Dépassement** : `consumedAmount > revisedAmount`
+* **Reste négatif** : `remainingAmount < 0`
+* **Commande non couverte** : `committedAmount > 0 && consumedAmount === 0`
+* **Facture récente (30j)** : présence d’au moins 1 event `CONSUMPTION_REGISTERED` dont `eventDate >= now - 30j`
+  * La détection utilise **offset 0** + une **première page raisonnable** d’events, avec fallback filtrage frontend si `eventType` est ignoré par l’API.
+
+### Responsive / scroll (V1)
+
+* `Popup` en `overflow-hidden`
+* contenu d’onglet dans une unique zone `overflow-y-auto`
+* mobile `h-[100dvh]`, desktop hauteur contenue
+
+### Hors périmètre V1 (rappel)
+
+* Affichage “exercice” uniquement si déjà disponible en mémoire (pas de fetch dédié).
+* Pas de workflow / documents / commentaires / notifications.
+* Pas de liens cross-modules (contrats/fournisseurs/licences) en V1.
+* Pas de prefetch avancé, pas de pagination générique.
 
 ## 4. Références et dépendances
 
