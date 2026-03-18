@@ -113,6 +113,9 @@ export function BudgetLineIntelligenceDrawer({
 
           {line && (
             <div className="flex h-full flex-col">
+              <div className="flex justify-center py-2">
+                <div className="h-1 w-12 rounded-full bg-muted-foreground/20" />
+              </div>
               <BudgetLineDrawerHeader
                 line={line}
                 budgetName={budgetName}
@@ -124,7 +127,7 @@ export function BudgetLineIntelligenceDrawer({
               />
 
               <div className="px-4 pt-3">
-                <BudgetLineKpiStrip line={line} />
+                <BudgetLineKpiStrip line={line} className="mb-1" />
               </div>
 
               <div className="flex-1 overflow-hidden px-4 pb-4 pt-3">
