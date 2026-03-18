@@ -39,7 +39,7 @@ export function BudgetLineDrawerHeader({
   const envelopeTypeLabel = envelopeType ?? '—';
 
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/60">
+    <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-background/80 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           {line.code && (
@@ -47,32 +47,32 @@ export function BudgetLineDrawerHeader({
               [{line.code}]
             </span>
           )}
-          <h2 className="text-base font-semibold truncate">{line.name}</h2>
+          <h2 className="text-sm font-semibold leading-5 truncate">{line.name}</h2>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
           {isOverrun && (
-            <Badge variant="destructive" className="h-5 px-2 text-[10px]">
+            <Badge variant="destructive" className="h-4 px-1.5 text-[10px]">
               Dépassement
             </Badge>
           )}
           {isNegativeRemaining && (
-            <Badge variant="destructive" className="h-5 px-2 text-[10px]">
+            <Badge variant="destructive" className="h-4 px-1.5 text-[10px]">
               Reste négatif
             </Badge>
           )}
           {hasRecentInvoice30d && (
-            <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+            <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
               Facture récente (30j)
             </Badge>
           )}
           {isUncoveredOrder && (
-            <Badge variant="outline" className="h-5 px-2 text-[10px]">
+            <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
               Commande non couverte
             </Badge>
           )}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <BudgetStatusBadge status={line.status} className="h-5 px-2 text-[10px] uppercase" />
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+          <BudgetStatusBadge status={line.status} className="h-4 px-1.5 text-[10px] uppercase" />
           {envelopeName && (
             <>
               <span>·</span>
@@ -103,19 +103,19 @@ export function BudgetLineDrawerHeader({
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-        <Button size="sm" variant="outline" onClick={onCreateOrder}>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+        <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateOrder}>
           + Commande
         </Button>
-        <Button size="sm" variant="outline" onClick={onCreateInvoice}>
+        <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateInvoice}>
           + Facture
         </Button>
-        <Button size="sm" variant="outline" onClick={onCreateEvent}>
+        <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateEvent}>
           + Événement
         </Button>
         <Link
           href={`/budget-lines/${line.id}/edit`}
-          className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
+          className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'h-7 px-2')}
         >
           Ouvrir la fiche
         </Link>

@@ -28,7 +28,7 @@ export function BudgetLineOverviewTab({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card>
+      <Card className="border-border/60">
         <CardHeader>
           <CardTitle className="text-base">Synthèse métier</CardTitle>
         </CardHeader>
@@ -40,7 +40,7 @@ export function BudgetLineOverviewTab({
           )}
 
           <div className="grid gap-2 sm:grid-cols-3">
-            <div className="rounded-md border p-2">
+            <div className="rounded-md border border-border/60 p-2">
               <div className="text-xs text-muted-foreground">Consommé</div>
               <div className="mt-0.5 font-medium tabular-nums">
                 {formatAmount(line.consumedAmount, line.currency)}
@@ -49,7 +49,7 @@ export function BudgetLineOverviewTab({
                 {consumedPct === null ? '—' : `${consumedPct}% du révisé`}
               </div>
             </div>
-            <div className="rounded-md border p-2">
+            <div className="rounded-md border border-border/60 p-2">
               <div className="text-xs text-muted-foreground">Engagé</div>
               <div className="mt-0.5 font-medium tabular-nums">
                 {formatAmount(line.committedAmount, line.currency)}
@@ -58,7 +58,7 @@ export function BudgetLineOverviewTab({
                 {committedPct === null ? '—' : `${committedPct}% du révisé`}
               </div>
             </div>
-            <div className="rounded-md border p-2">
+            <div className="rounded-md border border-border/60 p-2">
               <div className="text-xs text-muted-foreground">Restant</div>
               <div className="mt-0.5 font-medium tabular-nums">
                 {formatAmount(line.remainingAmount, line.currency)}
@@ -71,7 +71,7 @@ export function BudgetLineOverviewTab({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/60">
         <CardHeader>
           <CardTitle className="text-base">Contexte</CardTitle>
         </CardHeader>
@@ -119,7 +119,7 @@ export function BudgetLineOverviewTab({
         </CardContent>
       </Card>
 
-      <Card className="lg:col-span-2">
+      <Card className="lg:col-span-2 border-border/60">
         <CardHeader>
           <CardTitle className="text-base">Dernier événement</CardTitle>
         </CardHeader>
