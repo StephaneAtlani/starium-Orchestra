@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  InternalServerErrorException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -61,14 +62,15 @@ export class SuppliersService {
     }
 
     const prisma = this.prisma as any;
+    const supplierRepo = this.getSupplierRepo(prisma);
     const [items, total] = await Promise.all([
-      prisma.supplier.findMany({
+      supplierRepo.findMany({
         where,
         orderBy: [{ name: 'asc' }, { createdAt: 'desc' }],
         take: limit,
         skip: offset,
       }),
-      prisma.supplier.count({ where }),
+      supplierRepo.count({ where }),
     ]);
 
     return { items: items.map(toSupplierResponse), total, limit, offset };
@@ -81,7 +83,8 @@ export class SuppliersService {
   ): Promise<SupplierResponse> {
     const name = normalizeSupplierName(dto.name);
     const prisma = this.prisma as any;
-    const existing = await prisma.supplier.findFirst({
+    const supplierRepo = this.getSupplierRepo(prisma);
+    const existing = await supplierRepo.findFirst({
       where: { clientId, name: { equals: name, mode: 'insensitive' } },
     });
     if (existing) {
@@ -90,7 +93,7 @@ export class SuppliersService {
 
     let created: any;
     try {
-      created = await prisma.supplier.create({
+      created = await supplierRepo.create({
         data: {
           clientId,
           name,
@@ -128,7 +131,8 @@ export class SuppliersService {
   ): Promise<SupplierResponse> {
     const name = normalizeSupplierName(dto.name);
     const prisma = this.prisma as any;
-    const existing = await prisma.supplier.findFirst({
+    const supplierRepo = this.getSupplierRepo(prisma);
+    const existing = await supplierRepo.findFirst({
       where: { clientId, name: { equals: name, mode: 'insensitive' } },
     });
     if (existing) {
@@ -137,7 +141,7 @@ export class SuppliersService {
 
     let created: any;
     try {
-      created = await prisma.supplier.create({
+      created = await supplierRepo.create({
         data: {
           clientId,
           name,
@@ -147,7 +151,7 @@ export class SuppliersService {
     } catch (error) {
       // Race condition: un autre appel a créé le même fournisseur juste avant.
       if (isPrismaUniqueConstraintError(error)) {
-        const nowExisting = await prisma.supplier.findFirst({
+        const nowExisting = await supplierRepo.findFirst({
           where: { clientId, name: { equals: name, mode: 'insensitive' } },
         });
         if (nowExisting) {
@@ -183,7 +187,8 @@ export class SuppliersService {
     context?: ProcurementAuditContext,
   ): Promise<SupplierResponse> {
     const prisma = this.prisma as any;
-    const existing = await prisma.supplier.findFirst({
+    const supplierRepo = this.getSupplierRepo(prisma);
+    const existing = await supplierRepo.findFirst({
       where: { id, clientId },
     });
     if (!existing) {
@@ -195,7 +200,7 @@ export class SuppliersService {
 
     const nextName = dto.name ? normalizeSupplierName(dto.name) : undefined;
     if (nextName && nextName.toLowerCase() !== existing.name.toLowerCase()) {
-      const conflict = await prisma.supplier.findFirst({
+      const conflict = await supplierRepo.findFirst({
         where: {
           clientId,
           id: { not: id },
@@ -207,7 +212,7 @@ export class SuppliersService {
       }
     }
 
-    const updated = await prisma.supplier.update({
+    const updated = await supplierRepo.update({
       where: { id },
       data: {
         ...(nextName !== undefined && { name: nextName }),
@@ -239,7 +244,8 @@ export class SuppliersService {
     context?: ProcurementAuditContext,
   ): Promise<SupplierResponse> {
     const prisma = this.prisma as any;
-    const existing = await prisma.supplier.findFirst({
+    const supplierRepo = this.getSupplierRepo(prisma);
+    const existing = await supplierRepo.findFirst({
       where: { id, clientId },
     });
     if (!existing) {
@@ -249,7 +255,7 @@ export class SuppliersService {
       return toSupplierResponse(existing);
     }
 
-    const updated = await prisma.supplier.update({
+    const updated = await supplierRepo.update({
       where: { id },
       data: { status: 'ARCHIVED' },
     });
@@ -272,11 +278,22 @@ export class SuppliersService {
 
   async findById(clientId: string, id: string): Promise<SupplierResponse> {
     const prisma = this.prisma as any;
-    const row = await prisma.supplier.findFirst({ where: { id, clientId } });
+    const supplierRepo = this.getSupplierRepo(prisma);
+    const row = await supplierRepo.findFirst({ where: { id, clientId } });
     if (!row) {
       throw new NotFoundException('Supplier not found');
     }
     return toSupplierResponse(row);
+  }
+
+  private getSupplierRepo(prisma: any) {
+    const repo = prisma?.supplier ?? prisma?.Supplier;
+    if (!repo) {
+      throw new InternalServerErrorException(
+        'Prisma Client non synchronise avec le schema Supplier. Regenerer/rebuilder l’API.',
+      );
+    }
+    return repo;
   }
 }
 

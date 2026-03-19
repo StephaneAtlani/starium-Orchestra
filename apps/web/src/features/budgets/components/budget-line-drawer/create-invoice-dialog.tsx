@@ -105,6 +105,9 @@ export function CreateInvoiceDialog({
   }, [open, amountHtInput, amountTtcInput, taxRateInput, lastEditedField, setValue]);
 
   const onSubmit = async (values: CreateInvoiceValues) => {
+    if (isCreateSupplierDialogOpen) {
+      return;
+    }
     setSubmitError(null);
     if (!canCreateProcurement) {
       setSubmitError({
@@ -140,6 +143,7 @@ export function CreateInvoiceDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto shadow-lg bg-white" showCloseButton>
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
@@ -318,64 +322,65 @@ export function CreateInvoiceDialog({
         </form>
       </DialogContent>
 
-      <Dialog open={isCreateSupplierDialogOpen} onOpenChange={setIsCreateSupplierDialogOpen}>
-        <DialogContent className="sm:max-w-md" showCloseButton>
-          <DialogHeader>
-            <DialogTitle>Créer un fournisseur</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-create-supplier-name">Nom du fournisseur</Label>
-            <Input
-              id="invoice-create-supplier-name"
-              value={supplierDraftName}
-              onChange={(event) => setSupplierDraftName(event.target.value)}
-              placeholder="Ex: ACME Services"
-            />
-          </div>
-          <DialogFooter showCloseButton={false}>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setIsCreateSupplierDialogOpen(false);
-              }}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              disabled={!canCreateProcurement || !supplierDraftName.trim() || quickCreateSupplier.isPending}
-              onClick={async (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setSubmitError(null);
-                if (!canCreateProcurement) {
-                  setSubmitError({
-                    status: 403,
-                    message: "Tu n'as pas la permission 'procurement.create' pour créer un fournisseur.",
-                  });
-                  return;
-                }
-                try {
-                  const name = supplierDraftName.trim();
-                  if (!name) return;
-                  const created = await quickCreateSupplier.mutateAsync({ name });
-                  setResolvedSupplier({ id: created.id, name: created.name });
-                  setValue('supplierName', created.name, { shouldValidate: true });
-                  setIsCreateSupplierDialogOpen(false);
-                } catch (e) {
-                  setSubmitError(e as ApiFormError);
-                }
-              }}
-            >
-              {quickCreateSupplier.isPending ? 'Création…' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Dialog>
+    <Dialog open={isCreateSupplierDialogOpen} onOpenChange={setIsCreateSupplierDialogOpen}>
+      <DialogContent className="sm:max-w-md" showCloseButton>
+        <DialogHeader>
+          <DialogTitle>Créer un fournisseur</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-2">
+          <Label htmlFor="invoice-create-supplier-name">Nom du fournisseur</Label>
+          <Input
+            id="invoice-create-supplier-name"
+            value={supplierDraftName}
+            onChange={(event) => setSupplierDraftName(event.target.value)}
+            placeholder="Ex: ACME Services"
+          />
+        </div>
+        <DialogFooter showCloseButton={false}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setIsCreateSupplierDialogOpen(false);
+            }}
+          >
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            disabled={!canCreateProcurement || !supplierDraftName.trim() || quickCreateSupplier.isPending}
+            onClick={async (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setSubmitError(null);
+              if (!canCreateProcurement) {
+                setSubmitError({
+                  status: 403,
+                  message: "Tu n'as pas la permission 'procurement.create' pour créer un fournisseur.",
+                });
+                return;
+              }
+              try {
+                const name = supplierDraftName.trim();
+                if (!name) return;
+                const created = await quickCreateSupplier.mutateAsync({ name });
+                setResolvedSupplier({ id: created.id, name: created.name });
+                setValue('supplierName', created.name, { shouldValidate: true });
+                setIsCreateSupplierDialogOpen(false);
+              } catch (e) {
+                setSubmitError(e as ApiFormError);
+              }
+            }}
+          >
+            {quickCreateSupplier.isPending ? 'Création…' : 'Créer'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

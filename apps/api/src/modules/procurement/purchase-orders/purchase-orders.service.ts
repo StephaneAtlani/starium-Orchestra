@@ -325,7 +325,7 @@ export class PurchaseOrdersService {
   }
 
   private async resolveBudgetLine(
-    tx: TxClient,
+    tx: any,
     clientId: string,
     budgetLineId?: string,
   ) {

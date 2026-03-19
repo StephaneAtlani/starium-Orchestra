@@ -63,7 +63,7 @@ export class InvoicesService {
   ): Promise<ListInvoicesResult> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
-    const where: Prisma.InvoiceWhereInput = {
+    const where: any = {
       clientId,
       ...(query.includeCancelled ? {} : { status: { not: 'CANCELLED' } }),
       ...(query.supplierId && { supplierId: query.supplierId }),
