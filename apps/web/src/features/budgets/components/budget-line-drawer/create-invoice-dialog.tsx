@@ -14,13 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { createInvoiceSchema, type CreateInvoiceValues } from '../../schemas/create-invoice.schema';
 import type { ApiFormError } from '../../api/types';
 import type { BudgetLine } from '../../types/budget-management.types';
@@ -39,8 +32,9 @@ export function CreateInvoiceDialog({
   line: BudgetLine;
 }) {
   const [submitError, setSubmitError] = useState<ApiFormError | null>(null);
+  const [lastEditedField, setLastEditedField] = useState<'ht' | 'ttc' | 'tax'>('ht');
   const { mutateAsync, isPending } = useCreateFinancialEvent(budgetId, line.id);
-  const { taxInputMode, defaultTaxRate } = useTaxDisplayMode();
+  const { defaultTaxRate } = useTaxDisplayMode();
   const baseTaxRate = line.taxRate ?? defaultTaxRate;
 
   const {
@@ -55,9 +49,9 @@ export function CreateInvoiceDialog({
     defaultValues: {
       eventDate: new Date().toISOString().slice(0, 10),
       label: '',
-      inputMode: taxInputMode,
-      amountInput: 0,
-      taxRateInput: baseTaxRate ?? undefined,
+      amountHtInput: 0,
+      amountTtcInput: 0,
+      taxRateInput: baseTaxRate ?? 0,
       description: '',
     },
   });
@@ -69,67 +63,31 @@ export function CreateInvoiceDialog({
     }
   }, [open, reset]);
 
-  useEffect(() => {
-    if (open && (taxInputMode === 'HT' || taxInputMode === 'TTC')) setValue('inputMode', taxInputMode);
-  }, [open, setValue, taxInputMode]);
-
-  const inputMode = watch('inputMode');
-  const amountInput = watch('amountInput');
+  const amountHtInput = watch('amountHtInput');
+  const amountTtcInput = watch('amountTtcInput');
   const taxRateInput = watch('taxRateInput');
-
-  const effectiveTaxRate = line.taxRate ?? defaultTaxRate;
-  const selectedTaxRate = taxRateInput ?? effectiveTaxRate;
-  const isTaxRateAvailable =
-    selectedTaxRate !== null && selectedTaxRate !== undefined;
-
-  useEffect(() => {
-    // Préremplit `taxRateInput` dès que la TVA est disponible.
-    if (!open) return;
-    if (!isTaxRateAvailable) return;
-    if (taxRateInput === undefined || taxRateInput === null) {
-      setValue('taxRateInput', selectedTaxRate as number, {
-        shouldValidate: true,
-      });
-    }
-  }, [open, isTaxRateAvailable, setValue, taxRateInput, selectedTaxRate]);
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
 
-  const indicative = useMemo(() => {
-    if (!isTaxRateAvailable) return null;
-    const taxRate = selectedTaxRate as number;
-    if (inputMode === 'HT') {
-      const taxAmount = round2((amountInput * taxRate) / 100);
-      const amountTtc = round2(amountInput + taxAmount);
-      return { taxAmount, amountTtc, amountHt: amountInput };
+  useEffect(() => {
+    if (!open) return;
+    const rate = taxRateInput ?? 0;
+    if (lastEditedField === 'ttc') {
+      const nextHt = rate === 0 ? amountTtcInput : round2(amountTtcInput / (1 + rate / 100));
+      if (Math.abs((amountHtInput ?? 0) - nextHt) > 0.004) {
+        setValue('amountHtInput', nextHt, { shouldValidate: true });
+      }
+      return;
     }
-    const amountHt = taxRate === 0 ? amountInput : round2(amountInput / (1 + taxRate / 100));
-    const taxAmount = round2(amountInput - amountHt);
-    return { taxAmount, amountHt, amountTtc: amountInput };
-  }, [amountInput, inputMode, isTaxRateAvailable, selectedTaxRate]);
+    const nextTtc = round2((amountHtInput ?? 0) * (1 + rate / 100));
+    if (Math.abs((amountTtcInput ?? 0) - nextTtc) > 0.004) {
+      setValue('amountTtcInput', nextTtc, { shouldValidate: true });
+    }
+  }, [open, amountHtInput, amountTtcInput, taxRateInput, lastEditedField, setValue]);
 
   const onSubmit = async (values: CreateInvoiceValues) => {
     setSubmitError(null);
     try {
-      if (!isTaxRateAvailable) {
-        throw {
-          message: 'TVA indisponible : définissez la TVA (lignes ou configuration client).',
-        } as ApiFormError;
-      }
-
-      const budgetLineTaxRate = line.taxRate ?? null;
-      const shouldUseDefaultTaxRate =
-        budgetLineTaxRate === null && defaultTaxRate !== null && values.taxRateInput === undefined;
-
-      const taxRateToUse =
-        values.taxRateInput ?? budgetLineTaxRate ?? defaultTaxRate ?? null;
-
-      if (taxRateToUse == null) {
-        throw {
-          message: 'TVA indisponible : définissez la TVA (lignes ou configuration client).',
-        } as ApiFormError;
-      }
-
       await mutateAsync({
         budgetLineId: line.id,
         sourceType: 'MANUAL',
@@ -138,19 +96,8 @@ export function CreateInvoiceDialog({
         eventDate: new Date(values.eventDate).toISOString(),
         label: values.label,
         description: values.description?.trim() ? values.description.trim() : undefined,
-        ...(values.inputMode === 'HT'
-          ? {
-              amountHt: values.amountInput.toFixed(2),
-              ...(shouldUseDefaultTaxRate
-                ? { useDefaultTaxRate: true }
-                : { taxRate: taxRateToUse.toFixed(2) }),
-            }
-          : {
-              amountTtc: values.amountInput.toFixed(2),
-              ...(shouldUseDefaultTaxRate
-                ? { useDefaultTaxRate: true }
-                : { taxRate: taxRateToUse.toFixed(2) }),
-            }),
+        amountHt: values.amountHtInput.toFixed(2),
+        taxRate: values.taxRateInput.toFixed(2),
       });
       onOpenChange(false);
     } catch (e) {
@@ -189,31 +136,19 @@ export function CreateInvoiceDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Mode de saisie</Label>
-            <Select value={inputMode} onValueChange={(v) => setValue('inputMode', v as CreateInvoiceValues['inputMode'])}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner le mode de saisie" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="HT">Saisie HT</SelectItem>
-                <SelectItem value="TTC">Saisie TTC</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-amount">
-              Montant {inputMode === 'HT' ? `(HT) (${line.currency})` : `(TTC) (${line.currency})`}
-            </Label>
+            <Label htmlFor="invoice-amountHtInput">Montant HT ({line.currency})</Label>
             <Input
-              id="invoice-amount"
+              id="invoice-amountHtInput"
               type="number"
               step="0.01"
               min={0}
-              {...register('amountInput', { valueAsNumber: true })}
-              aria-invalid={!!errors.amountInput}
+              {...register('amountHtInput', {
+                valueAsNumber: true,
+                onChange: () => setLastEditedField('ht'),
+              })}
+              aria-invalid={!!errors.amountHtInput}
             />
-            {errors.amountInput && <p className="text-sm text-destructive">{errors.amountInput.message}</p>}
+            {errors.amountHtInput && <p className="text-sm text-destructive">{errors.amountHtInput.message}</p>}
           </div>
 
           <div className="grid gap-2">
@@ -224,7 +159,8 @@ export function CreateInvoiceDialog({
               step="0.01"
               min={0}
               {...register('taxRateInput', {
-                setValueAs: (v) => (v === '' || v === undefined ? undefined : Number(v)),
+                valueAsNumber: true,
+                onChange: () => setLastEditedField('tax'),
               })}
               aria-invalid={!!errors.taxRateInput}
             />
@@ -234,26 +170,24 @@ export function CreateInvoiceDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="invoice-description">Description (optionnel)</Label>
-            <Input id="invoice-description" {...register('description')} aria-invalid={!!errors.description} />
+            <Label htmlFor="invoice-amountTtcInput">Montant TTC ({line.currency})</Label>
+            <Input
+              id="invoice-amountTtcInput"
+              type="number"
+              step="0.01"
+              min={0}
+              {...register('amountTtcInput', {
+                valueAsNumber: true,
+                onChange: () => setLastEditedField('ttc'),
+              })}
+              aria-invalid={!!errors.amountTtcInput}
+            />
+            {errors.amountTtcInput && <p className="text-sm text-destructive">{errors.amountTtcInput.message}</p>}
           </div>
 
-          <div className="grid gap-2 col-span-2">
-            <Label>Champs dérivés (indicatifs)</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="grid gap-1">
-                <Label>Montant HT (calculé)</Label>
-                <Input value={indicative ? indicative.amountHt.toFixed(2) : ''} disabled />
-              </div>
-              <div className="grid gap-1">
-                <Label>TVA montant (calculée)</Label>
-                <Input value={indicative ? indicative.taxAmount.toFixed(2) : ''} disabled />
-              </div>
-              <div className="grid gap-1 col-span-2">
-                <Label>Montant TTC (calculé)</Label>
-                <Input value={indicative ? indicative.amountTtc.toFixed(2) : ''} disabled />
-              </div>
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="invoice-description">Description (optionnel)</Label>
+            <Input id="invoice-description" {...register('description')} aria-invalid={!!errors.description} />
           </div>
 
           <div className="col-span-2">
@@ -261,7 +195,7 @@ export function CreateInvoiceDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Annuler
               </Button>
-              <Button type="submit" disabled={isPending || !isTaxRateAvailable}>
+              <Button type="submit" disabled={isPending}>
                 {isPending ? 'Création…' : 'Créer'}
               </Button>
             </DialogFooter>
