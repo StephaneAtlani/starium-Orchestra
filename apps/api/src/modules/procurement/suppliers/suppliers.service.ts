@@ -88,15 +88,23 @@ export class SuppliersService {
       throw new ConflictException('Supplier already exists for this client');
     }
 
-    const created = await prisma.supplier.create({
-      data: {
-        clientId,
-        name,
-        code: dto.code?.trim() || null,
-        siret: dto.siret?.trim() || null,
-        vatNumber: dto.vatNumber?.trim() || null,
-      },
-    });
+    let created: any;
+    try {
+      created = await prisma.supplier.create({
+        data: {
+          clientId,
+          name,
+          code: dto.code?.trim() || null,
+          siret: dto.siret?.trim() || null,
+          vatNumber: dto.vatNumber?.trim() || null,
+        },
+      });
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
+        throw new ConflictException('Supplier already exists for this client');
+      }
+      throw error;
+    }
 
     await this.auditLogs.create({
       clientId,
@@ -127,13 +135,27 @@ export class SuppliersService {
       return toSupplierResponse(existing);
     }
 
-    const created = await prisma.supplier.create({
-      data: {
-        clientId,
-        name,
-        status: 'ACTIVE',
-      },
-    });
+    let created: any;
+    try {
+      created = await prisma.supplier.create({
+        data: {
+          clientId,
+          name,
+          status: 'ACTIVE',
+        },
+      });
+    } catch (error) {
+      // Race condition: un autre appel a créé le même fournisseur juste avant.
+      if (isPrismaUniqueConstraintError(error)) {
+        const nowExisting = await prisma.supplier.findFirst({
+          where: { clientId, name: { equals: name, mode: 'insensitive' } },
+        });
+        if (nowExisting) {
+          return toSupplierResponse(nowExisting);
+        }
+      }
+      throw error;
+    }
 
     const auditInput: CreateAuditLogInput = {
       clientId,
@@ -278,5 +300,12 @@ function toSupplierResponse(row: any): SupplierResponse {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+function isPrismaUniqueConstraintError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
 }
 

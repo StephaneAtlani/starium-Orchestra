@@ -56,7 +56,7 @@ function RoleActions({
       </Link>
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger>
+          <TooltipTrigger render={<span className="inline-block" />}>
             <Button
               variant="ghost"
               size="sm"

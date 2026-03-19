@@ -37,5 +37,15 @@
       "budgets.general-ledger-accounts.read",
       "budgets.analytical-ledger-accounts.read"
     ]
+  },
+  {
+    "name": "Gestionnaire Procurement",
+    "description": "Gestion fournisseurs/commandes/factures avec lecture budget",
+    "permissionCodes": [
+      "budgets.read",
+      "procurement.read",
+      "procurement.create",
+      "procurement.update"
+    ]
   }
 ]
