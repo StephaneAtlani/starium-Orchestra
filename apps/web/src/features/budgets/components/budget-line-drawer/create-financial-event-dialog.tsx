@@ -299,14 +299,6 @@ export function CreateFinancialEventDialog({
             <Input id="event-description" {...register('description')} aria-invalid={!!errors.description} />
           </div>
 
-          {!isTaxRateAvailable && (
-            <div className="col-span-2">
-              <Alert variant="destructive">
-                <AlertDescription>Impossible de recalculer TVA : aucune TVA connue sur la ligne ni pour le client.</AlertDescription>
-              </Alert>
-            </div>
-          )}
-
           <div className="grid gap-2 col-span-2">
             <Label>Champs dérivés (indicatifs)</Label>
             <div className="grid grid-cols-2 gap-2">
