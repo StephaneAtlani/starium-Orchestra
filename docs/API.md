@@ -1312,6 +1312,8 @@ Liste les événements financiers du client actif.
 
 Crée un événement financier ; si le type est `COMMITMENT_REGISTERED` ou `CONSUMPTION_REGISTERED`, les montants de la ligne sont recalculés.
 
+Saisie fiscale strictement validée selon RFC FC-006 (HT/TVA/TTC explicites). Le champ legacy `amount` n’est pas utilisé comme source de vérité.
+
 **Body (JSON)**
 
 | Champ           | Type   | Obligatoire | Description |
@@ -1320,7 +1322,11 @@ Crée un événement financier ; si le type est `COMMITMENT_REGISTERED` ou `CONS
 | `sourceType`   | enum   | oui         | FinancialSourceType |
 | `sourceId`     | string | non         | Référence (optionnel pour MANUAL / types techniques) |
 | `eventType`    | enum   | oui         | FinancialEventType |
-| `amount`       | number | oui         | Montant ≥ 0 |
+| `amountHt`     | string (number) | optionnel | Montant HT (≥ 0). |
+| `amountTtc`    | string (number) | optionnel | Montant TTC (≥ 0). |
+| `taxRate`      | string (number) | optionnel | TVA % (ex: `20.00`). |
+| `taxAmount`    | string (number) | optionnel | Montant TVA (≥ 0). |
+| `useDefaultTaxRate` | boolean | optionnel | Si `taxRate` n’est pas fourni, utiliser explicitement `Client.defaultTaxRate`. |
 | `currency`     | string | oui         | Devise |
 | `eventDate`    | string (ISO) | oui  | Date de l’événement |
 | `label`        | string | oui         | Libellé |

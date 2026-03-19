@@ -321,34 +321,34 @@ Exemple :
 
 ## 12.1 Mode de saisie
 
-* hérite de `taxInputMode`
-* switch possible :
+Trois champs éditables :
 
-```
-Saisie : [ HT | TTC ]
-```
+* `Montant HT`
+* `TVA %` (editable)
+* `Montant TTC`
+
+Préremplissage de `TVA %` :
+
+* `BudgetLine.taxRate` si présent
+* sinon `Client.defaultTaxRate` (si disponible)
 
 ---
 
 ## 12.2 Comportement
 
-Si HT :
+Recalcul bidirectionnel en temps réel :
 
-* user saisit HT + TVA
-* TTC calculé
-
-Si TTC :
-
-* user saisit TTC + TVA
-* HT calculé
+* si l’utilisateur modifie `Montant HT` (et `TVA %`) => recalcul `Montant TTC`
+* si l’utilisateur modifie `Montant TTC` (et `TVA %`) => recalcul `Montant HT`
 
 ---
 
 ## 12.3 UX attendue
 
 * recalcul en temps réel
-* champs dérivés verrouillés
-* validation immédiate
+* cohérence immédiate entre HT et TTC
+* `TVA %` editable
+* validation immédiate au submit
 
 ---
 

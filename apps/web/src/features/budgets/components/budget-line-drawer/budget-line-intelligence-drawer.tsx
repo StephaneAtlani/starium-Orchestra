@@ -69,7 +69,8 @@ export function BudgetLineIntelligenceDrawer({
 
   const [orderOpen, setOrderOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [eventOpen, setEventOpen] = useState(false);
+  const [engagementOpen, setEngagementOpen] = useState(false);
+  const [consumptionOpen, setConsumptionOpen] = useState(false);
 
   const invoiceRecentQuery = useBudgetLineEvents({
     budgetLineId: open ? budgetLineId : null,
@@ -158,7 +159,8 @@ export function BudgetLineIntelligenceDrawer({
                 onClose={() => onOpenChange(false)}
                 onCreateOrder={() => setOrderOpen(true)}
                 onCreateInvoice={() => setInvoiceOpen(true)}
-                onCreateEvent={() => setEventOpen(true)}
+                onCreateEngagement={() => setEngagementOpen(true)}
+                onCreateConsumption={() => setConsumptionOpen(true)}
               />
 
               <div className="px-2 pt-3 sm:px-4">
@@ -230,10 +232,18 @@ export function BudgetLineIntelligenceDrawer({
                 line={line}
               />
               <CreateFinancialEventDialog
-                open={eventOpen}
-                onOpenChange={setEventOpen}
+                open={engagementOpen}
+                onOpenChange={setEngagementOpen}
                 budgetId={budgetId}
                 line={line}
+                initialEventType="COMMITMENT_REGISTERED"
+              />
+              <CreateFinancialEventDialog
+                open={consumptionOpen}
+                onOpenChange={setConsumptionOpen}
+                budgetId={budgetId}
+                line={line}
+                initialEventType="CONSUMPTION_REGISTERED"
               />
             </div>
           )}

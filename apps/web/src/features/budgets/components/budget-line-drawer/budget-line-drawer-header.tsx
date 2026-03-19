@@ -18,7 +18,8 @@ export function BudgetLineDrawerHeader({
   onClose,
   onCreateOrder,
   onCreateInvoice,
-  onCreateEvent,
+  onCreateEngagement,
+  onCreateConsumption,
 }: {
   line: BudgetLine;
   budgetName?: string | null;
@@ -29,7 +30,8 @@ export function BudgetLineDrawerHeader({
   onClose: () => void;
   onCreateOrder: () => void;
   onCreateInvoice: () => void;
-  onCreateEvent: () => void;
+  onCreateEngagement: () => void;
+  onCreateConsumption: () => void;
 }) {
   const isOverrun = line.consumedAmount > line.revisedAmount;
   const isNegativeRemaining = line.remainingAmount < 0;
@@ -109,8 +111,11 @@ export function BudgetLineDrawerHeader({
         <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateInvoice}>
           + Facture
         </Button>
-        <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateEvent}>
-          + Événement
+        <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateEngagement}>
+          + Engagement
+        </Button>
+        <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateConsumption}>
+          + Consommation
         </Button>
         <Button
           size="icon-sm"

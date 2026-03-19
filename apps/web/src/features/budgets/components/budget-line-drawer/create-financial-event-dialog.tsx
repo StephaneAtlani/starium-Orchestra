@@ -38,11 +38,13 @@ export function CreateFinancialEventDialog({
   onOpenChange,
   budgetId,
   line,
+  initialEventType,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   budgetId: string;
   line: BudgetLine;
+  initialEventType?: 'COMMITMENT_REGISTERED' | 'CONSUMPTION_REGISTERED';
 }) {
   const [submitError, setSubmitError] = useState<ApiFormError | null>(null);
   const [lastEditedField, setLastEditedField] = useState<'ht' | 'ttc' | 'tax'>('ht');
@@ -60,7 +62,7 @@ export function CreateFinancialEventDialog({
   } = useForm<CreateFinancialEventValues>({
     resolver: zodResolver(createFinancialEventSchema),
     defaultValues: {
-      eventType: KNOWN_EVENT_TYPES[0].value,
+      eventType: initialEventType ?? KNOWN_EVENT_TYPES[0].value,
       eventDate: new Date().toISOString().slice(0, 10),
       label: '',
       amountHtInput: 0,
@@ -138,11 +140,17 @@ export function CreateFinancialEventDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto" showCloseButton>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto shadow-lg bg-white" showCloseButton>
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <DialogHeader>
-              <DialogTitle>Ajouter un événement</DialogTitle>
+              <DialogTitle>
+                {initialEventType === 'COMMITMENT_REGISTERED'
+                  ? 'Ajouter un engagement'
+                  : initialEventType === 'CONSUMPTION_REGISTERED'
+                    ? 'Ajouter une consommation'
+                    : 'Ajouter un événement'}
+              </DialogTitle>
             </DialogHeader>
           </div>
 
@@ -154,6 +162,7 @@ export function CreateFinancialEventDialog({
             </div>
           )}
 
+          {!initialEventType && (
           <div className="grid gap-2">
             <Label>Type d’événement</Label>
             <Select
@@ -189,6 +198,7 @@ export function CreateFinancialEventDialog({
             )}
             {errors.eventType && <p className="text-sm text-destructive">{errors.eventType.message}</p>}
           </div>
+          )}
 
           <div className="grid gap-2">
             <Label htmlFor="event-eventDate">Date</Label>

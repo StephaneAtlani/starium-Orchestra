@@ -342,7 +342,9 @@ Ouvre un dialog ou panneau secondaire contenant au minimum :
 
 * date
 * libellé
-* montant
+* `Montant HT` (editable)
+* `TVA %` (editable)
+* `Montant TTC` (editable, recalculable)
 * description optionnelle
 * sourceType = `MANUAL`
 
@@ -354,7 +356,8 @@ Au submit :
   * `budgetLineId`
   * `sourceType: MANUAL`
   * `eventType: COMMITMENT_REGISTERED`
-  * `amount`
+  * `amountHt` (envoi de base HT)
+  * `taxRate` (TVA %)
   * `currency`
   * `eventDate`
   * `label`
