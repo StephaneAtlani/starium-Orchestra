@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -17,8 +17,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createOrderSchema, type CreateOrderValues } from '../../schemas/create-order.schema';
 import type { ApiFormError } from '../../api/types';
 import type { BudgetLine } from '../../types/budget-management.types';
-import { useCreateFinancialEvent } from '../../hooks/use-create-financial-event';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
+import { useCreatePurchaseOrder } from '@/features/procurement/hooks/use-create-purchase-order';
+import { useQuickCreateSupplier } from '@/features/procurement/hooks/use-quick-create-supplier';
+import { useSuppliersSearch } from '@/features/procurement/hooks/use-suppliers-search';
 
 export function CreateOrderDialog({
   open,
@@ -33,7 +35,8 @@ export function CreateOrderDialog({
 }) {
   const [submitError, setSubmitError] = useState<ApiFormError | null>(null);
   const [lastEditedField, setLastEditedField] = useState<'ht' | 'ttc' | 'tax'>('ht');
-  const { mutateAsync, isPending } = useCreateFinancialEvent(budgetId, line.id);
+  const createOrder = useCreatePurchaseOrder(budgetId, line.id);
+  const quickCreateSupplier = useQuickCreateSupplier();
   const { defaultTaxRate } = useTaxDisplayMode();
   const baseTaxRate = line.taxRate ?? defaultTaxRate;
 
@@ -47,6 +50,8 @@ export function CreateOrderDialog({
   } = useForm<CreateOrderValues>({
     resolver: zodResolver(createOrderSchema),
     defaultValues: {
+      supplierName: '',
+      reference: '',
       eventDate: new Date().toISOString().slice(0, 10),
       label: '',
       amountHtInput: 0,
@@ -66,6 +71,8 @@ export function CreateOrderDialog({
   const amountHtInput = watch('amountHtInput');
   const amountTtcInput = watch('amountTtcInput');
   const taxRateInput = watch('taxRateInput');
+  const supplierName = watch('supplierName');
+  const supplierSearch = useSuppliersSearch(supplierName, open);
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -88,16 +95,22 @@ export function CreateOrderDialog({
   const onSubmit = async (values: CreateOrderValues) => {
     setSubmitError(null);
     try {
-      await mutateAsync({
+      const exactSupplier = (supplierSearch.data?.items ?? []).find(
+        (s) => s.name.toLowerCase() === values.supplierName.trim().toLowerCase(),
+      );
+      const supplierId =
+        exactSupplier?.id ??
+        (await quickCreateSupplier.mutateAsync({ name: values.supplierName.trim() }))
+          .id;
+
+      await createOrder.mutateAsync({
+        supplierId,
         budgetLineId: line.id,
-        sourceType: 'MANUAL',
-        eventType: 'COMMITMENT_REGISTERED',
-        currency: line.currency,
-        eventDate: new Date(values.eventDate).toISOString(),
+        reference: values.reference.trim(),
         label: values.label,
-        description: values.description?.trim() ? values.description.trim() : undefined,
         amountHt: values.amountHtInput.toFixed(2),
         taxRate: values.taxRateInput.toFixed(2),
+        orderDate: new Date(values.eventDate).toISOString(),
       });
       onOpenChange(false);
     } catch (e) {
@@ -122,6 +135,36 @@ export function CreateOrderDialog({
               </Alert>
             </div>
           )}
+
+          <div className="grid gap-2">
+            <Label htmlFor="order-supplierName">Fournisseur</Label>
+            <Input
+              id="order-supplierName"
+              list="order-suppliers"
+              {...register('supplierName')}
+              aria-invalid={!!errors.supplierName}
+            />
+            <datalist id="order-suppliers">
+              {(supplierSearch.data?.items ?? []).map((s) => (
+                <option key={s.id} value={s.name} />
+              ))}
+            </datalist>
+            {errors.supplierName && (
+              <p className="text-sm text-destructive">{errors.supplierName.message}</p>
+            )}
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="order-reference">Référence</Label>
+            <Input
+              id="order-reference"
+              {...register('reference')}
+              aria-invalid={!!errors.reference}
+            />
+            {errors.reference && (
+              <p className="text-sm text-destructive">{errors.reference.message}</p>
+            )}
+          </div>
 
           <div className="grid gap-2">
             <Label htmlFor="order-eventDate">Date</Label>
@@ -195,8 +238,11 @@ export function CreateOrderDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Annuler
               </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Création…' : 'Créer'}
+              <Button
+                type="submit"
+                disabled={createOrder.isPending || quickCreateSupplier.isPending}
+              >
+                {createOrder.isPending || quickCreateSupplier.isPending ? 'Création…' : 'Créer'}
               </Button>
             </DialogFooter>
           </div>

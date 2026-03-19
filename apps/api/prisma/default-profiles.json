@@ -11,6 +11,9 @@
       "budgets.read",
       "budgets.create",
       "budgets.update",
+      "procurement.read",
+      "procurement.create",
+      "procurement.update",
       "budgets.cost-centers.read",
       "budgets.cost-centers.create",
       "budgets.cost-centers.update",
@@ -28,6 +31,8 @@
     "permissionCodes": [
       "budgets.read",
       "budgets.create",
+      "procurement.read",
+      "procurement.create",
       "budgets.cost-centers.read",
       "budgets.general-ledger-accounts.read",
       "budgets.analytical-ledger-accounts.read"

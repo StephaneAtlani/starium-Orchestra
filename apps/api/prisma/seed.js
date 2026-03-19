@@ -63,6 +63,7 @@ async function upsertModulesAndPermissions() {
     { code: 'projects', name: 'Projets', description: 'Gestion des projets IT' },
     { code: 'contracts', name: 'Contrats', description: 'Gestion des contrats' },
     { code: 'suppliers', name: 'Fournisseurs', description: 'Gestion des fournisseurs' },
+    { code: 'procurement', name: 'Procurement', description: 'Fournisseurs, commandes, factures' },
     { code: 'licenses', name: 'Licences', description: 'Gestion des licences' },
     { code: 'audit_logs', name: 'Audit logs', description: 'Traçabilité des actions métier' },
   ];
@@ -72,6 +73,7 @@ async function upsertModulesAndPermissions() {
     projects: ['read', 'create', 'update', 'delete'],
     contracts: ['read', 'create', 'update', 'delete'],
     suppliers: ['read', 'create', 'update', 'delete'],
+    procurement: ['read', 'create', 'update'],
     licenses: ['read', 'create', 'update', 'delete'],
     audit_logs: ['read', 'export', 'delete'],
   };
@@ -226,6 +228,9 @@ async function upsertSitralAndClientAdmin() {
   const budgetModule = await prisma.module.findUnique({
     where: { code: 'budgets' },
   });
+  const procurementModule = await prisma.module.findUnique({
+    where: { code: 'procurement' },
+  });
   if (budgetModule) {
     await prisma.clientModule.upsert({
       where: {
@@ -235,6 +240,19 @@ async function upsertSitralAndClientAdmin() {
       create: {
         clientId: client.id,
         moduleId: budgetModule.id,
+        status: 'ENABLED',
+      },
+    });
+  }
+  if (procurementModule) {
+    await prisma.clientModule.upsert({
+      where: {
+        clientId_moduleId: { clientId: client.id, moduleId: procurementModule.id },
+      },
+      update: { status: 'ENABLED' },
+      create: {
+        clientId: client.id,
+        moduleId: procurementModule.id,
         status: 'ENABLED',
       },
     });
@@ -277,7 +295,7 @@ async function upsertSitralAndClientAdmin() {
   console.log(
     'Seed OK: client Sitral + admin',
     SITRAL_CLIENT_ADMIN.email,
-    '(CLIENT_ADMIN, module budgets activé).',
+    '(CLIENT_ADMIN, modules budgets + procurement activés).',
   );
 }
 

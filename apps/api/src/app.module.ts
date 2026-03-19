@@ -20,6 +20,7 @@ import { BudgetImportModule } from './modules/budget-import/budget-import.module
 import { BudgetVersioningModule } from './modules/budget-versioning/budget-versioning.module';
 import { BudgetDashboardModule } from './modules/budget-dashboard/budget-dashboard.module';
 import { SecurityLogsModule } from './modules/security-logs/security-logs.module';
+import { ProcurementModule } from './modules/procurement/procurement.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { SecurityLogsModule } from './modules/security-logs/security-logs.module
     BudgetVersioningModule,
     BudgetDashboardModule,
     SecurityLogsModule,
+    ProcurementModule,
   ],
 })
 export class AppModule {}

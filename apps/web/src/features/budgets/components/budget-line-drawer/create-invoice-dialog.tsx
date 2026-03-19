@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -17,8 +17,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createInvoiceSchema, type CreateInvoiceValues } from '../../schemas/create-invoice.schema';
 import type { ApiFormError } from '../../api/types';
 import type { BudgetLine } from '../../types/budget-management.types';
-import { useCreateFinancialEvent } from '../../hooks/use-create-financial-event';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
+import { useCreateInvoice } from '@/features/procurement/hooks/use-create-invoice';
+import { useQuickCreateSupplier } from '@/features/procurement/hooks/use-quick-create-supplier';
+import { useSuppliersSearch } from '@/features/procurement/hooks/use-suppliers-search';
+import { usePurchaseOrdersByBudgetLine } from '@/features/procurement/hooks/use-purchase-orders-by-budget-line';
 
 export function CreateInvoiceDialog({
   open,
@@ -33,7 +36,8 @@ export function CreateInvoiceDialog({
 }) {
   const [submitError, setSubmitError] = useState<ApiFormError | null>(null);
   const [lastEditedField, setLastEditedField] = useState<'ht' | 'ttc' | 'tax'>('ht');
-  const { mutateAsync, isPending } = useCreateFinancialEvent(budgetId, line.id);
+  const createInvoice = useCreateInvoice(budgetId, line.id);
+  const quickCreateSupplier = useQuickCreateSupplier();
   const { defaultTaxRate } = useTaxDisplayMode();
   const baseTaxRate = line.taxRate ?? defaultTaxRate;
 
@@ -47,6 +51,9 @@ export function CreateInvoiceDialog({
   } = useForm<CreateInvoiceValues>({
     resolver: zodResolver(createInvoiceSchema),
     defaultValues: {
+      supplierName: '',
+      invoiceNumber: '',
+      purchaseOrderId: '',
       eventDate: new Date().toISOString().slice(0, 10),
       label: '',
       amountHtInput: 0,
@@ -66,6 +73,9 @@ export function CreateInvoiceDialog({
   const amountHtInput = watch('amountHtInput');
   const amountTtcInput = watch('amountTtcInput');
   const taxRateInput = watch('taxRateInput');
+  const supplierName = watch('supplierName');
+  const supplierSearch = useSuppliersSearch(supplierName, open);
+  const poQuery = usePurchaseOrdersByBudgetLine(line.id, open);
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -88,16 +98,23 @@ export function CreateInvoiceDialog({
   const onSubmit = async (values: CreateInvoiceValues) => {
     setSubmitError(null);
     try {
-      await mutateAsync({
+      const exactSupplier = (supplierSearch.data?.items ?? []).find(
+        (s) => s.name.toLowerCase() === values.supplierName.trim().toLowerCase(),
+      );
+      const supplierId =
+        exactSupplier?.id ??
+        (await quickCreateSupplier.mutateAsync({ name: values.supplierName.trim() }))
+          .id;
+
+      await createInvoice.mutateAsync({
+        supplierId,
         budgetLineId: line.id,
-        sourceType: 'MANUAL',
-        eventType: 'CONSUMPTION_REGISTERED',
-        currency: line.currency,
-        eventDate: new Date(values.eventDate).toISOString(),
+        purchaseOrderId: values.purchaseOrderId?.trim() || undefined,
+        invoiceNumber: values.invoiceNumber.trim(),
         label: values.label,
-        description: values.description?.trim() ? values.description.trim() : undefined,
         amountHt: values.amountHtInput.toFixed(2),
         taxRate: values.taxRateInput.toFixed(2),
+        invoiceDate: new Date(values.eventDate).toISOString(),
       });
       onOpenChange(false);
     } catch (e) {
@@ -122,6 +139,52 @@ export function CreateInvoiceDialog({
               </Alert>
             </div>
           )}
+
+          <div className="grid gap-2">
+            <Label htmlFor="invoice-supplierName">Fournisseur</Label>
+            <Input
+              id="invoice-supplierName"
+              list="invoice-suppliers"
+              {...register('supplierName')}
+              aria-invalid={!!errors.supplierName}
+            />
+            <datalist id="invoice-suppliers">
+              {(supplierSearch.data?.items ?? []).map((s) => (
+                <option key={s.id} value={s.name} />
+              ))}
+            </datalist>
+            {errors.supplierName && (
+              <p className="text-sm text-destructive">{errors.supplierName.message}</p>
+            )}
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="invoice-invoiceNumber">Numero facture</Label>
+            <Input
+              id="invoice-invoiceNumber"
+              {...register('invoiceNumber')}
+              aria-invalid={!!errors.invoiceNumber}
+            />
+            {errors.invoiceNumber && (
+              <p className="text-sm text-destructive">{errors.invoiceNumber.message}</p>
+            )}
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="invoice-purchaseOrderId">Commande (optionnel)</Label>
+            <select
+              id="invoice-purchaseOrderId"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              {...register('purchaseOrderId')}
+            >
+              <option value="">Aucune</option>
+              {(poQuery.data?.items ?? []).map((po) => (
+                <option key={po.id} value={po.id}>
+                  {po.reference} - {po.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="grid gap-2">
             <Label htmlFor="invoice-eventDate">Date</Label>
@@ -195,8 +258,13 @@ export function CreateInvoiceDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Annuler
               </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Création…' : 'Créer'}
+              <Button
+                type="submit"
+                disabled={createInvoice.isPending || quickCreateSupplier.isPending}
+              >
+                {createInvoice.isPending || quickCreateSupplier.isPending
+                  ? 'Création…'
+                  : 'Créer'}
               </Button>
             </DialogFooter>
           </div>

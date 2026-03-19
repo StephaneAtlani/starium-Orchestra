@@ -64,6 +64,9 @@ model Client {
   budgetLines                BudgetLine[]
   financialAllocations       FinancialAllocation[]
   financialEvents            FinancialEvent[]
+  suppliers                  Supplier[]
+  purchaseOrders             PurchaseOrder[]
+  invoices                   Invoice[]
   budgetSnapshots            BudgetSnapshot[]
   budgetReallocations        BudgetReallocation[]
   budgetImportMappings       BudgetImportMapping[]
@@ -271,6 +274,30 @@ enum FinancialSourceType {
   APPLICATION
   ASSET
   MANUAL
+  PURCHASE_ORDER
+  INVOICE
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ISSUED
+  APPROVED
+  PARTIALLY_INVOICED
+  FULLY_INVOICED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  RECEIVED
+  VALIDATED
+  PAID
+  CANCELLED
 }
 
 enum AllocationType {
@@ -501,6 +528,8 @@ model BudgetLine {
   costCenterSplits         BudgetLineCostCenterSplit[]
   allocations               FinancialAllocation[]
   financialEvents           FinancialEvent[]
+  purchaseOrders            PurchaseOrder[]
+  invoices                  Invoice[]
   reallocationsAsSource     BudgetReallocation[]      @relation("ReallocationSource")
   reallocationsAsTarget     BudgetReallocation[]      @relation("ReallocationTarget")
 
@@ -684,6 +713,80 @@ model BudgetReallocation {
   @@index([sourceLineId])
   @@index([targetLineId])
   @@index([createdAt])
+}
+
+model Supplier {
+  id             String         @id @default(cuid())
+  clientId       String
+  name           String
+  code           String?
+  siret          String?
+  vatNumber      String?
+  status         SupplierStatus @default(ACTIVE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+  invoices       Invoice[]
+
+  @@unique([clientId, name])
+  @@index([clientId])
+  @@index([clientId, name])
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  clientId     String
+  supplierId   String
+  budgetLineId String?
+  reference    String
+  label        String
+  amountHt     Decimal             @db.Decimal(18, 2)
+  taxRate      Decimal?            @db.Decimal(5, 2)
+  taxAmount    Decimal?            @db.Decimal(18, 2)
+  amountTtc    Decimal?            @db.Decimal(18, 2)
+  orderDate    DateTime
+  status       PurchaseOrderStatus @default(APPROVED)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplier     Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  budgetLine   BudgetLine?         @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  invoices     Invoice[]
+
+  @@unique([clientId, reference])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([budgetLineId])
+  @@index([clientId, supplierId])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  clientId        String
+  supplierId      String
+  budgetLineId    String?
+  purchaseOrderId String?
+  invoiceNumber   String
+  label           String
+  amountHt        Decimal       @db.Decimal(18, 2)
+  taxRate         Decimal?      @db.Decimal(5, 2)
+  taxAmount       Decimal?      @db.Decimal(18, 2)
+  amountTtc       Decimal?      @db.Decimal(18, 2)
+  invoiceDate     DateTime
+  status          InvoiceStatus @default(VALIDATED)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplier        Supplier      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  budgetLine      BudgetLine?   @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, invoiceNumber, supplierId])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([budgetLineId])
+  @@index([clientId, supplierId])
 }
 
 // --- Budget Import (RFC-018) ---
