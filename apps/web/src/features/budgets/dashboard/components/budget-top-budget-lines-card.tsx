@@ -35,11 +35,13 @@ export function BudgetTopBudgetLinesCard({
   currency,
   taxDisplayMode,
   defaultTaxRate,
+  onBudgetLineClick,
 }: {
   rows: NonNullable<BudgetDashboardResponse['topBudgetLines']>;
   currency: string;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
+  onBudgetLineClick?: (lineId: string) => void;
 }) {
   if (rows.length === 0) return null;
 
@@ -70,7 +72,18 @@ export function BudgetTopBudgetLinesCard({
           </TableHeader>
           <TableBody>
             {rows.map((l) => (
-              <TableRow key={l.lineId} className="border-border">
+              <TableRow
+                key={l.lineId}
+                className={cn(
+                  'border-border',
+                  onBudgetLineClick && 'cursor-pointer hover:bg-muted/50',
+                )}
+                onClick={
+                  onBudgetLineClick
+                    ? () => onBudgetLineClick(l.lineId)
+                    : undefined
+                }
+              >
                 <TableCell className={cn(cockpitTdFirst, 'min-w-[160px]')}>
                   {l.code ? `${l.code} — ` : ''}
                   {l.name}

@@ -1,10 +1,14 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Layers } from 'lucide-react';
 import { getCurrencySymbol } from '@/lib/currency-format';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
+import {
+  BudgetLineIntelligenceDrawer,
+  type BudgetLineDrawerTab,
+} from '@/features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import { useBudgetDashboardPage } from './hooks/use-budget-dashboard-page';
 import { BudgetDashboardShell } from './components/budget-dashboard-shell';
@@ -51,6 +55,26 @@ export function BudgetDashboardPage() {
     isLoading: taxDisplayLoading,
     defaultTaxRate,
   } = useTaxDisplayMode();
+
+  const [isLineDrawerOpen, setIsLineDrawerOpen] = useState(false);
+  const [selectedBudgetLineId, setSelectedBudgetLineId] = useState<string | null>(
+    null,
+  );
+  const [lineDrawerTab, setLineDrawerTab] = useState<BudgetLineDrawerTab>('overview');
+
+  const openBudgetLineDrawer = useCallback((lineId: string) => {
+    setSelectedBudgetLineId(lineId);
+    setLineDrawerTab('overview');
+    setIsLineDrawerOpen(true);
+  }, []);
+
+  const onLineDrawerOpenChange = useCallback((open: boolean) => {
+    setIsLineDrawerOpen(open);
+    if (!open) {
+      setSelectedBudgetLineId(null);
+      setLineDrawerTab('overview');
+    }
+  }, []);
 
   const err = error instanceof Error ? error : null;
 
@@ -179,6 +203,7 @@ export function BudgetDashboardPage() {
                   budgetId={data.budget.id}
                   taxDisplayMode={taxDisplayMode}
                   defaultTaxRate={defaultTaxRate}
+                  onBudgetLineClick={openBudgetLineDrawer}
                 />
               )}
             </div>
@@ -189,8 +214,22 @@ export function BudgetDashboardPage() {
                 currency={data.budget.currency}
                 taxDisplayMode={taxDisplayMode}
                 defaultTaxRate={defaultTaxRate}
+                onBudgetLineClick={openBudgetLineDrawer}
               />
             )}
+
+            <BudgetLineIntelligenceDrawer
+              open={isLineDrawerOpen}
+              onOpenChange={onLineDrawerOpenChange}
+              budgetId={data.budget.id}
+              budgetName={data.budget.name}
+              envelopeName={null}
+              envelopeCode={null}
+              envelopeType={null}
+              budgetLineId={selectedBudgetLineId}
+              activeTab={lineDrawerTab}
+              onActiveTabChange={setLineDrawerTab}
+            />
           </BudgetDashboardShell>
         )}
       </PageContainer>

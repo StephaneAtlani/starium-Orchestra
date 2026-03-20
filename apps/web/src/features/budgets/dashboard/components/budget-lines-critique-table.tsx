@@ -38,12 +38,14 @@ export function BudgetLinesCritiqueTable({
   budgetId,
   taxDisplayMode,
   defaultTaxRate,
+  onBudgetLineClick,
 }: {
   rows: NonNullable<BudgetDashboardResponse['criticalBudgetLines']>;
   currency: string;
   budgetId: string;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
+  onBudgetLineClick?: (lineId: string) => void;
 }) {
   const empty = (
     <CockpitSection
@@ -100,7 +102,18 @@ export function BudgetLinesCritiqueTable({
             </TableHeader>
             <TableBody>
               {rows.map((l) => (
-                <TableRow key={l.lineId} className="border-border">
+                <TableRow
+                  key={l.lineId}
+                  className={cn(
+                    'border-border',
+                    onBudgetLineClick && 'cursor-pointer hover:bg-muted/50',
+                  )}
+                  onClick={
+                    onBudgetLineClick
+                      ? () => onBudgetLineClick(l.lineId)
+                      : undefined
+                  }
+                >
                 <TableCell
                   className={cn(cockpitTdFirst, 'max-w-[200px] truncate')}
                 >
@@ -143,7 +156,10 @@ export function BudgetLinesCritiqueTable({
                 <TableCell className={cockpitTdEnd}>
                   <LineSeverityLabel level={l.lineRiskLevel} />
                 </TableCell>
-                <TableCell className={cockpitTdEndRight}>
+                <TableCell
+                  className={cockpitTdEndRight}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Link
                     href={budgetDetail(budgetId)}
                     className="text-sm font-medium text-primary underline-offset-4 hover:underline"
