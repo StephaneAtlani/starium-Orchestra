@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BarChart3, PieChart } from 'lucide-react';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
-import { cockpitCardClass } from './budget-dashboard-shell';
+import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
 import { BudgetRunBuildCard } from './budget-run-build-card';
 
 export function BudgetAnalyticsGrid({
@@ -23,85 +23,97 @@ export function BudgetAnalyticsGrid({
 
   const monthlyTaxHint =
     taxDisplayMode === 'HT'
-      ? 'montants HT (agrégation des montants HT des événements).'
+      ? 'Montants HT — agrégation des montants HT des événements.'
       : defaultTaxRate != null
-        ? 'TTC approximatif (TVA client par défaut appliquée aux montants HT des événements).'
-        : 'TTC indisponible sans TVA par défaut — affichage HT.';
+        ? 'TTC approximatif (TVA client par défaut sur les montants HT des événements).'
+        : 'Sans TVA par défaut, affichage en HT.';
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <BudgetRunBuildCard
-        distribution={runBuildDistribution}
-        currency={c}
-        taxDisplayMode={taxDisplayMode}
-        defaultTaxRate={defaultTaxRate}
-      />
+    <CockpitSection
+      id="budget-analytics-heading"
+      title="Répartition & tendances"
+      description="Structure du budget révisé et dynamique mensuelle des événements financiers."
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        <BudgetRunBuildCard
+          distribution={runBuildDistribution}
+          currency={c}
+          taxDisplayMode={taxDisplayMode}
+          defaultTaxRate={defaultTaxRate}
+        />
 
-      <Card className={cockpitCardClass}>
-        <CardHeader>
-          <CardTitle className="text-base">CAPEX / OPEX</CardTitle>
-          <CardDescription>
-            Montants budgétés (révisés) par type de dépense
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">CAPEX</span>
-            <span className="font-medium tabular-nums text-foreground">
-              {formatDashboardAmount({
-                ht: capexOpexDistribution.capex,
-                currency: c,
-                mode: taxDisplayMode,
-                defaultTaxRate,
-              })}
-            </span>
+        <CockpitSurfaceCard
+          title="CAPEX / OPEX"
+          description="Montants budgétés (révisés) par type de dépense"
+          icon={PieChart}
+          accent="violet"
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+              <span className="text-sm font-medium text-muted-foreground">CAPEX</span>
+              <span className="text-right text-sm font-semibold tabular-nums text-foreground">
+                {formatDashboardAmount({
+                  ht: capexOpexDistribution.capex,
+                  currency: c,
+                  mode: taxDisplayMode,
+                  defaultTaxRate,
+                })}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+              <span className="text-sm font-medium text-muted-foreground">OPEX</span>
+              <span className="text-right text-sm font-semibold tabular-nums text-foreground">
+                {formatDashboardAmount({
+                  ht: capexOpexDistribution.opex,
+                  currency: c,
+                  mode: taxDisplayMode,
+                  defaultTaxRate,
+                })}
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">OPEX</span>
-            <span className="font-medium tabular-nums text-foreground">
-              {formatDashboardAmount({
-                ht: capexOpexDistribution.opex,
-                currency: c,
-                mode: taxDisplayMode,
-                defaultTaxRate,
-              })}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+        </CockpitSurfaceCard>
 
-      <Card className={`${cockpitCardClass} md:col-span-2`}>
-        <CardHeader>
-          <CardTitle className="text-base">Évolution mensuelle</CardTitle>
-          <CardDescription>
-            Engagé et consommé par mois (événements financiers).{' '}
-            <span className="text-foreground">
-              Devise {c} · {monthlyTaxHint}
-            </span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CockpitSurfaceCard
+          title="Évolution mensuelle"
+          description={
+            <>
+              Engagé et consommé par mois (événements financiers).{' '}
+              <span className="text-foreground">
+                Devise {c} · {monthlyTaxHint}
+              </span>
+            </>
+          }
+          icon={BarChart3}
+          accent="sky"
+          className="md:col-span-2"
+          contentPad={false}
+          bodyClassName="p-0"
+        >
           {monthlyTrend.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune donnée</p>
+            <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+              Aucune donnée sur la période.
+            </p>
           ) : (
-            <div className="max-h-48 space-y-1 overflow-y-auto">
+            <div className="max-h-56 divide-y divide-border/80 overflow-y-auto">
               {monthlyTrend.map((row) => (
                 <div
                   key={row.month}
-                  className="flex justify-between gap-2 text-sm text-foreground"
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3 text-sm transition-colors hover:bg-muted/30"
                 >
-                  <span className="shrink-0 text-muted-foreground">
+                  <span className="min-w-[7rem] font-medium text-muted-foreground">
                     {row.month}
                   </span>
-                  <span className="min-w-0 text-right tabular-nums text-foreground">
-                    E:{' '}
+                  <span className="min-w-0 flex-1 text-right tabular-nums text-foreground">
+                    <span className="text-muted-foreground">E</span>{' '}
                     {formatDashboardAmount({
                       ht: row.committed,
                       currency: c,
                       mode: taxDisplayMode,
                       defaultTaxRate,
                     })}{' '}
-                    · C:{' '}
+                    <span className="text-muted-foreground">·</span>{' '}
+                    <span className="text-muted-foreground">C</span>{' '}
                     {formatDashboardAmount({
                       ht: row.consumed,
                       currency: c,
@@ -113,8 +125,8 @@ export function BudgetAnalyticsGrid({
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </CockpitSurfaceCard>
+      </div>
+    </CockpitSection>
   );
 }

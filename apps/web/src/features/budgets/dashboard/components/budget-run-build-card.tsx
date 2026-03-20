@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Boxes } from 'lucide-react';
 import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
-import { cockpitCardClass } from './budget-dashboard-shell';
+import { CockpitSurfaceCard } from './budget-cockpit-primitives';
 
 function Bar({
   label,
@@ -26,10 +26,10 @@ function Bar({
 }) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="tabular-nums text-foreground">
+    <div className="space-y-2">
+      <div className="flex justify-between gap-2 text-sm">
+        <span className="font-medium text-muted-foreground">{label}</span>
+        <span className="text-right tabular-nums text-sm font-medium text-foreground">
           {formatDashboardAmount({
             ht: value,
             currency,
@@ -38,12 +38,13 @@ function Bar({
           })}
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
         <div
           className={`h-full rounded-full transition-all ${colorClass}`}
           style={{ width: `${pct}%` }}
         />
       </div>
+      <p className="text-right text-xs text-muted-foreground tabular-nums">{pct}% du total</p>
     </div>
   );
 }
@@ -62,17 +63,25 @@ export function BudgetRunBuildCard({
   const total = distribution.run + distribution.build + distribution.transverse;
 
   return (
-    <Card
-      className={cockpitCardClass}
+    <CockpitSurfaceCard
+      title="RUN / BUILD / TRANSVERSE"
+      description="Répartition du budget révisé par type d’enveloppe (hors CAPEX/OPEX)"
+      icon={Boxes}
+      accent="emerald"
       data-testid="budget-dashboard-run-build"
+      footer={
+        <>
+          Total :{' '}
+          {formatDashboardAmount({
+            ht: total,
+            currency,
+            mode: taxDisplayMode,
+            defaultTaxRate,
+          })}
+        </>
+      }
     >
-      <CardHeader>
-        <CardTitle className="text-base">RUN / BUILD / TRANSVERSE</CardTitle>
-        <CardDescription>
-          Répartition du budget révisé par type d&apos;enveloppe (hors CAPEX/OPEX)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <div className="space-y-5">
         <Bar
           label="RUN"
           value={distribution.run}
@@ -100,16 +109,7 @@ export function BudgetRunBuildCard({
           taxDisplayMode={taxDisplayMode}
           defaultTaxRate={defaultTaxRate}
         />
-        <p className="text-xs text-muted-foreground">
-          Total :{' '}
-          {formatDashboardAmount({
-            ht: total,
-            currency,
-            mode: taxDisplayMode,
-            defaultTaxRate,
-          })}
-        </p>
-      </CardContent>
-    </Card>
+      </div>
+    </CockpitSurfaceCard>
   );
 }

@@ -3,7 +3,7 @@
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { CockpitSurfaceCard } from './budget-cockpit-primitives';
 
 export function BudgetDashboardErrorState({
   message,
@@ -13,17 +13,21 @@ export function BudgetDashboardErrorState({
   onRetry: () => void;
 }) {
   return (
-    <Card
-      className="border-destructive/30 bg-card"
+    <CockpitSurfaceCard
+      title="Chargement impossible"
+      description="La vue cockpit n’a pas pu être récupérée."
+      icon={AlertCircle}
+      accent="rose"
+      className="border-destructive/25 bg-destructive/[0.03]"
+      headerClassName="bg-destructive/[0.06]"
       data-testid="budget-dashboard-error"
     >
-      <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
-        <AlertCircle className="h-10 w-10 text-destructive" aria-hidden />
+      <div className="flex flex-col items-center gap-4 text-center">
         <p className="text-sm text-foreground">{message}</p>
         <Button type="button" variant="outline" onClick={onRetry}>
           Réessayer
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </CockpitSurfaceCard>
   );
 }

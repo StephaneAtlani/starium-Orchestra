@@ -17,6 +17,7 @@ import {
 } from '@/features/budgets/lib/budget-dashboard-format';
 import { formatPercent } from '@/features/budgets/lib/budget-formatters';
 import { BudgetKpiCard, type BudgetKpiAmountTone } from './budget-kpi-card';
+import { CockpitSection } from './budget-cockpit-primitives';
 
 export function BudgetKpiGrid({
   data,
@@ -47,24 +48,18 @@ export function BudgetKpiGrid({
     formatKpiAmountParts(p);
 
   return (
-    <section aria-labelledby="budget-kpi-heading" className="space-y-4">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2
-            id="budget-kpi-heading"
-            className="text-lg font-semibold tracking-tight text-foreground"
-          >
-            Synthèse financière
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Montants du budget actif · taux de consommation{' '}
-            <span className="font-medium tabular-nums text-foreground">
-              {formatPercent(kpis.consumptionRate)}
-            </span>
-          </p>
-        </div>
-      </div>
-
+    <CockpitSection
+      id="budget-kpi-heading"
+      title="Synthèse financière"
+      description={
+        <>
+          Montants du budget actif · taux de consommation{' '}
+          <span className="font-medium tabular-nums text-foreground">
+            {formatPercent(kpis.consumptionRate)}
+          </span>
+        </>
+      }
+    >
       <div
         className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4"
         data-testid="budget-dashboard-kpis"
@@ -156,6 +151,6 @@ export function BudgetKpiGrid({
           dataTestId="kpi-forecast-gap"
         />
       </div>
-    </section>
+    </CockpitSection>
   );
 }

@@ -1,19 +1,10 @@
 'use client';
 
 import React, { useRef } from 'react';
+import { Layers } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
-import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { useBudgetDashboardPage } from './hooks/use-budget-dashboard-page';
 import { BudgetDashboardShell } from './components/budget-dashboard-shell';
 import { BudgetDashboardSkeleton } from './components/budget-dashboard-skeleton';
@@ -26,7 +17,8 @@ import { BudgetAnalyticsGrid } from './components/budget-analytics-grid';
 import { BudgetTopEnvelopesCard } from './components/budget-top-envelopes-card';
 import { BudgetEnvelopesTable } from './components/budget-envelopes-table';
 import { BudgetLinesCritiqueTable } from './components/budget-lines-critique-table';
-import { cockpitCardClass } from './components/budget-dashboard-shell';
+import { BudgetTopBudgetLinesCard } from './components/budget-top-budget-lines-card';
+import { CockpitSurfaceCard } from './components/budget-cockpit-primitives';
 
 export function BudgetDashboardPage() {
   const criticalRef = useRef<HTMLDivElement>(null);
@@ -95,22 +87,51 @@ export function BudgetDashboardPage() {
               taxDisplayLoading={taxDisplayLoading}
             />
 
-            <Card className={cockpitCardClass}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Contexte
-                </CardTitle>
-                <CardDescription>
-                  Exercice : {data.exercise.name}
-                  {data.exercise.code ? ` (${data.exercise.code})` : ''}
-                  {' · '}
-                  Budget : {data.budget.name}
-                  {data.budget.code ? ` (${data.budget.code})` : ''}
-                  {' · '}
-                  {data.budget.currency}
-                </CardDescription>
-              </CardHeader>
-            </Card>
+            <CockpitSurfaceCard
+              title="Périmètre sélectionné"
+              description="Exercice et budget actifs pour toutes les métriques ci-dessous."
+              icon={Layers}
+              accent="primary"
+            >
+              <dl className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Exercice
+                  </dt>
+                  <dd className="mt-1 text-sm font-semibold text-foreground">
+                    {data.exercise.name}
+                    {data.exercise.code ? (
+                      <span className="font-normal text-muted-foreground">
+                        {' '}
+                        ({data.exercise.code})
+                      </span>
+                    ) : null}
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Budget
+                  </dt>
+                  <dd className="mt-1 text-sm font-semibold text-foreground">
+                    {data.budget.name}
+                    {data.budget.code ? (
+                      <span className="font-normal text-muted-foreground">
+                        {' '}
+                        ({data.budget.code})
+                      </span>
+                    ) : null}
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Devise
+                  </dt>
+                  <dd className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                    {data.budget.currency}
+                  </dd>
+                </div>
+              </dl>
+            </CockpitSurfaceCard>
 
             <BudgetKpiGrid
               data={data}
@@ -162,84 +183,12 @@ export function BudgetDashboardPage() {
             </div>
 
             {data.topBudgetLines && data.topBudgetLines.length > 0 && (
-              <Card className={cockpitCardClass}>
-                <CardHeader>
-                  <CardTitle className="text-base">Top lignes (consommation)</CardTitle>
-                  <CardDescription>
-                    Max. 10 — par montant consommé
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-border hover:bg-transparent">
-                        <TableHead className="text-muted-foreground">Ligne</TableHead>
-                        <TableHead className="text-muted-foreground">Enveloppe</TableHead>
-                        <TableHead className="text-right text-muted-foreground">
-                          Consommé
-                        </TableHead>
-                        <TableHead className="text-right text-muted-foreground">
-                          Forecast
-                        </TableHead>
-                        <TableHead className="text-right text-muted-foreground">
-                          Restant
-                        </TableHead>
-                        <TableHead className="text-muted-foreground">Gravité</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.topBudgetLines.map((l) => (
-                        <TableRow key={l.lineId} className="border-border">
-                          <TableCell className="text-foreground">
-                            {l.code ? `${l.code} — ` : ''}
-                            {l.name}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {l.envelopeName ?? '—'}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatDashboardAmount({
-                              ht: l.consumed,
-                              currency: data.budget.currency,
-                              mode: taxDisplayMode,
-                              defaultTaxRate,
-                            })}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatDashboardAmount({
-                              ht: l.forecast,
-                              currency: data.budget.currency,
-                              mode: taxDisplayMode,
-                              defaultTaxRate,
-                            })}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatDashboardAmount({
-                              ht: l.remaining,
-                              currency: data.budget.currency,
-                              mode: taxDisplayMode,
-                              defaultTaxRate,
-                            })}
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={
-                                l.lineRiskLevel === 'CRITICAL'
-                                  ? 'text-destructive'
-                                  : l.lineRiskLevel === 'WARNING'
-                                    ? 'text-amber-700'
-                                    : 'text-emerald-700'
-                              }
-                            >
-                              {l.lineRiskLevel}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+              <BudgetTopBudgetLinesCard
+                rows={data.topBudgetLines}
+                currency={data.budget.currency}
+                taxDisplayMode={taxDisplayMode}
+                defaultTaxRate={defaultTaxRate}
+              />
             )}
           </BudgetDashboardShell>
         )}

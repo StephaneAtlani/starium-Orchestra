@@ -2,8 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { AlertOctagon, ShieldAlert } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -13,33 +13,24 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
-import type {
-  BudgetDashboardLineRow,
-  BudgetDashboardResponse,
-} from '@/features/budgets/types/budget-dashboard.types';
+import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { budgetDetail } from '@/features/budgets/constants/budget-routes';
-import { cockpitCardClass } from './budget-dashboard-shell';
-
-function severityBadge(level: BudgetDashboardLineRow['lineRiskLevel']) {
-  if (level === 'CRITICAL')
-    return (
-      <Badge className="border-red-200 bg-red-50 text-red-800">
-        Critique
-      </Badge>
-    );
-  if (level === 'WARNING')
-    return (
-      <Badge className="border-amber-200 bg-amber-50 text-amber-900">
-        Attention
-      </Badge>
-    );
-  return (
-    <Badge className="border-emerald-200 bg-emerald-50 text-emerald-900">
-      OK
-    </Badge>
-  );
-}
+import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
+import { LineSeverityLabel } from './budget-cockpit-status-labels';
+import {
+  cockpitTableHeadRow,
+  cockpitTdEnd,
+  cockpitTdEndRight,
+  cockpitTdFirst,
+  cockpitTdNum,
+  cockpitTdText,
+  cockpitThEndLeft,
+  cockpitThEndRight,
+  cockpitThFirst,
+  cockpitThNum,
+  cockpitThText,
+} from './budget-cockpit-table-classes';
 
 export function BudgetLinesCritiqueTable({
   rows,
@@ -54,63 +45,70 @@ export function BudgetLinesCritiqueTable({
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
 }) {
-  if (rows.length === 0) {
-    return (
-      <Card
-        className={cockpitCardClass}
+  const empty = (
+    <CockpitSection
+      id="budget-critical-lines-heading"
+      title="Lignes sous surveillance"
+      description="Lignes budgétaires en alerte WARNING ou CRITICAL."
+    >
+      <CockpitSurfaceCard
+        title="Lignes critiques"
+        description="Tri par gravité puis consommation (10 lignes max.)"
+        icon={ShieldAlert}
+        accent="rose"
         data-testid="budget-dashboard-critical-lines"
       >
-        <CardHeader>
-          <CardTitle className="text-base">Lignes critiques</CardTitle>
-          <CardDescription>
-            Lignes en alerte (WARNING / CRITICAL)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Aucune ligne en alerte sur ce budget.
-          </p>
-        </CardContent>
-      </Card>
-    );
+        <p className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+          Aucune ligne en alerte sur ce budget.
+        </p>
+      </CockpitSurfaceCard>
+    </CockpitSection>
+  );
+
+  if (rows.length === 0) {
+    return empty;
   }
 
   return (
-    <Card
-      className={cockpitCardClass}
-      data-testid="budget-dashboard-critical-lines"
+    <CockpitSection
+      id="budget-critical-lines-heading"
+      title="Lignes sous surveillance"
+      description="Lignes budgétaires en alerte WARNING ou CRITICAL."
     >
-      <CardHeader>
-        <CardTitle className="text-base">Lignes critiques</CardTitle>
-        <CardDescription>
-          Tri par gravité puis consommation (max. 10)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border hover:bg-transparent">
-              <TableHead className="text-muted-foreground">Ligne</TableHead>
-              <TableHead className="text-muted-foreground">Enveloppe</TableHead>
-              <TableHead className="text-right text-muted-foreground">Révisé</TableHead>
-              <TableHead className="text-right text-muted-foreground">Engagé</TableHead>
-              <TableHead className="text-right text-muted-foreground">Consommé</TableHead>
-              <TableHead className="text-right text-muted-foreground">Forecast</TableHead>
-              <TableHead className="text-muted-foreground">Gravité</TableHead>
-              <TableHead className="text-right text-muted-foreground">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((l) => (
-              <TableRow key={l.lineId} className="border-border">
-                <TableCell className="max-w-[200px] truncate text-foreground">
+      <CockpitSurfaceCard
+        title="Lignes critiques"
+        description="Tri par gravité puis consommation (10 lignes max.)"
+        icon={AlertOctagon}
+        accent="rose"
+        data-testid="budget-dashboard-critical-lines"
+        contentPad={false}
+        bodyClassName="p-0"
+      >
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-transparent">
+              <TableRow className={cockpitTableHeadRow}>
+                <TableHead className={cn('min-w-[140px]', cockpitThFirst)}>Ligne</TableHead>
+                <TableHead className={cockpitThText}>Enveloppe</TableHead>
+                <TableHead className={cockpitThNum}>Révisé</TableHead>
+                <TableHead className={cockpitThNum}>Engagé</TableHead>
+                <TableHead className={cockpitThNum}>Consommé</TableHead>
+                <TableHead className={cockpitThNum}>Forecast</TableHead>
+                <TableHead className={cockpitThEndLeft}>Gravité</TableHead>
+                <TableHead className={cockpitThEndRight}>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((l) => (
+                <TableRow key={l.lineId} className="border-border">
+                <TableCell
+                  className={cn(cockpitTdFirst, 'max-w-[200px] truncate')}
+                >
                   {l.code ? `${l.code} — ` : ''}
                   {l.name}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {l.envelopeName ?? '—'}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell className={cockpitTdText}>{l.envelopeName ?? '—'}</TableCell>
+                <TableCell className={cockpitTdNum}>
                   {formatDashboardAmount({
                     ht: l.revisedAmount,
                     currency,
@@ -118,7 +116,7 @@ export function BudgetLinesCritiqueTable({
                     defaultTaxRate,
                   })}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell className={cockpitTdNum}>
                   {formatDashboardAmount({
                     ht: l.committed,
                     currency,
@@ -126,7 +124,7 @@ export function BudgetLinesCritiqueTable({
                     defaultTaxRate,
                   })}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell className={cockpitTdNum}>
                   {formatDashboardAmount({
                     ht: l.consumed,
                     currency,
@@ -134,7 +132,7 @@ export function BudgetLinesCritiqueTable({
                     defaultTaxRate,
                   })}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell className={cockpitTdNum}>
                   {formatDashboardAmount({
                     ht: l.forecast,
                     currency,
@@ -142,20 +140,23 @@ export function BudgetLinesCritiqueTable({
                     defaultTaxRate,
                   })}
                 </TableCell>
-                <TableCell>{severityBadge(l.lineRiskLevel)}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className={cockpitTdEnd}>
+                  <LineSeverityLabel level={l.lineRiskLevel} />
+                </TableCell>
+                <TableCell className={cockpitTdEndRight}>
                   <Link
                     href={budgetDetail(budgetId)}
                     className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                   >
-                    Budget
+                    Ouvrir le budget
                   </Link>
                 </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CockpitSurfaceCard>
+    </CockpitSection>
   );
 }

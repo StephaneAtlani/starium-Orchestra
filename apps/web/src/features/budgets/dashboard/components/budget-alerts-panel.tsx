@@ -50,7 +50,7 @@ export function BudgetAlertsPanel({
 
   return (
     <Card
-      className={`${cockpitCardClass} border-amber-200/80 bg-amber-50/40`}
+      className={`${cockpitCardClass} border-amber-200/80 bg-amber-50/40 dark:border-amber-900/50 dark:bg-amber-950/25`}
       data-testid="budget-dashboard-alerts"
     >
       <CardHeader className="pb-2">
@@ -72,7 +72,7 @@ export function BudgetAlertsPanel({
           >
             <div className="flex min-w-0 items-center gap-2">
               <Icon
-                className="h-4 w-4 shrink-0 text-amber-600"
+                className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500"
                 aria-hidden
               />
               <span className="truncate text-sm text-foreground">{label}</span>
