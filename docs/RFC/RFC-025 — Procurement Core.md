@@ -306,6 +306,8 @@ si absente → pas de FinancialEvent
 * commande : reference unique
 * facture : unique par fournisseur
 
+* commande : `reference` peut être laissée vide côté UI → l’API génère une référence unique `AUTO-<uuid>`.
+
 ---
 
 ## 10.5 Annulation
@@ -384,9 +386,10 @@ creationMode = QUICK_CREATE
 
 ### UX attendue
 
-* champ autocomplete
-* si pas trouvé → “Créer ‘X’”
-* sélection automatique
+* champ de recherche (autocomplete) pour sélectionner un fournisseur existant
+* si pas trouvé → clic sur `+` pour ouvrir une modale de création
+* création “nom uniquement” sans rupture de flux
+* sélection automatique du fournisseur créé
 
 ---
 
@@ -441,7 +444,7 @@ GET /api/budget-lines/:id/purchase-orders
 ```text
 supplierId OR supplierName
 budgetLineId?
-reference
+reference? (optionnel)
 label
 amountHt / amountTtc
 taxRate
@@ -450,6 +453,9 @@ orderDate
 
 👉 si `supplierId` absent et `supplierName` présent
 → quick create automatique
+
+👉 si `reference` absent ou vide
+→ génération automatique `AUTO-<uuid>` (unicité assurée par `@@unique([clientId, reference])`)
 
 ---
 
