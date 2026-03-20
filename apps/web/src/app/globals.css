@@ -195,6 +195,9 @@ body {
   --color-background: #F8F9FC;
   --color-foreground: #1B1B1B;
   --color-card: #FFFFFF;
+  /* Aligné sur :root --popover ; sans ça, bg-popover ne colore pas le panneau (Select, etc.). */
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #1B1B1B;
   --color-primary: #6F4BB8;
   --color-primary-foreground: #FFFFFF;
   --color-muted: #F3F4F8;
