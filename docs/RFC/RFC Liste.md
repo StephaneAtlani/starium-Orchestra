@@ -16,7 +16,7 @@
 
 | Ordre | RFC                    | Nom                         | Objectif                            | Résultat concret                          | Priorité | État    |
 | ----- | ---------------------- | --------------------------- | ----------------------------------- | ----------------------------------------- | -------- | ------- |
-| **6** | **RFC-FE-002**         | Budget Dashboard UI         | Vision globale DG / CODIR           | Dashboard KPI + alertes + drill-down      | 🔥🔥     | À faire |
+| **6** | **RFC-FE-002**         | Budget Dashboard UI         | Vision globale DG / CODIR           | Dashboard KPI + alertes + drill-down      | 🔥🔥     | ✅ v1 (`/budgets/dashboard` — voir `docs/modules/budget-cockpit.md`) |
 | **7** | **RFC-FE-027** *(NEW)* | Budget Alerts & Integrity   | Sécuriser les budgets               | Alertes dépassement, incohérences, badges | 🔥🔥     | À créer |
 | **8** | **RFC-FE-013**         | Permissions & Navigation UX | Adapter UI au RBAC                  | Menus dynamiques, actions conditionnelles | 🔥🔥     | À faire |
 | **9** | **RFC-FE-014**         | UX States                   | Uniformiser loading / error / empty | UX propre sur tout le module              | 🔥🔥     | À faire |
