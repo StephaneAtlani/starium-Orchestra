@@ -146,12 +146,19 @@ export async function listLines(
 export async function listEnvelopeLines(
   authFetch: AuthFetch,
   envelopeId: string,
-  params?: { offset?: number; limit?: number },
+  params?: {
+    offset?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  },
 ): Promise<PaginatedResponse<BudgetEnvelopeLineItem>> {
   const qs = buildQueryString({
     envelopeId,
     offset: params?.offset,
     limit: params?.limit,
+    search: params?.search?.trim() || undefined,
+    status: params?.status?.trim() || undefined,
   });
   const res = await authFetch(`${BASE_LINES}${qs}`);
   return handleResponse<PaginatedResponse<BudgetEnvelopeLineItem>>(res);

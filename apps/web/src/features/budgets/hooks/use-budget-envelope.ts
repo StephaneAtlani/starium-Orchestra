@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { budgetQueryKeys } from '../lib/budget-query-keys';
@@ -23,7 +23,12 @@ export function useBudgetEnvelope(envelopeId: string | null) {
 
 export function useBudgetEnvelopeLines(
   envelopeId: string | null,
-  params: { offset: number; limit: number },
+  params: {
+    offset: number;
+    limit: number;
+    search?: string;
+    status?: string;
+  },
 ) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -33,7 +38,7 @@ export function useBudgetEnvelopeLines(
     queryKey: budgetQueryKeys.budgetLines(clientId, envelopeId ?? '', params),
     queryFn: () => listEnvelopeLines(authFetch, envelopeId!, params),
     enabled: !!clientId && !!envelopeId,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }
 
