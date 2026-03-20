@@ -9,6 +9,7 @@ Documentation d’implémentation de la **vue cockpit budgétaire** (pilotage DG
 | [RFC-FE-002 — Budget Cockpit UI](../RFC/RFC-FE-002%20Budget%20Cockpit%20UI%20Dashboard%20décisionnel%20DG%20CODIR%20.md) | Vision fonctionnelle, périmètre widgets |
 | [RFC-022 — Budget Dashboard API](../RFC/RFC-022%20—%20Budget%20Dashboard%20API.md) | Contrat API backend (agrégats, sécurité) |
 | [RFC-006 — TVA & toggle d’affichage](../RFC/RFC-006-TVA%20—%20Gestion%20HT%20-%20TTC%20-%20TVA%20%26%20Toggle%20d’affichage.md) | Règles HT/TTC côté produit |
+| [RFC-FE-ADD-006 — Budget Line Intelligence Drawer](../RFC/RFC-FE-ADD-006%20—%20Budget%20Line%20Intelligence%20Drawer%20UI.md) | Panneau ligne (même composant que l’explorateur budget) |
 | [FRONTEND_VISION.md](../FRONTEND_VISION.md) | Fond clair, lisibilité contenu |
 | [Module Budget Frontend](budget-frontend.md) | Fondation `features/budgets`, query keys, conventions |
 
@@ -107,6 +108,30 @@ Les zones **sans** agrégat TTC backend (RUN/BUILD, CAPEX/OPEX, tendance mensuel
 | `EnvelopeRiskLabel` / `LineSeverityLabel` | Pastilles de risque (`<span>`, pas le `Badge` shadcn pill) |
 | Classes `cockpitTh*` / `cockpitTd*` | Alignement homogène des en-têtes et cellules des tableaux |
 
+### 6.1 Drill-down ligne budgétaire (cockpit)
+
+Sur le cockpit, un **clic sur une ligne** des tableaux suivants ouvre le **`BudgetLineIntelligenceDrawer`** (panneau bas / intelligence ligne), avec le **budget courant** du dashboard (`budgetId` / `budgetName` issus de la réponse API) :
+
+| Tableau | Composant | Comportement |
+|---------|-----------|--------------|
+| Lignes critiques | `budget-lines-critique-table.tsx` | Clic sur la ligne → drawer. Le lien **« Ouvrir le budget »** (navigation vers `/budgets/[budgetId]`) utilise `stopPropagation` sur la cellule pour ne pas ouvrir le drawer en même temps. |
+| Top lignes | `budget-top-budget-lines-card.tsx` | Clic sur la ligne → drawer. |
+
+État et handlers : `BudgetDashboardPage` (`budget-dashboard-page.tsx`) — même pattern que la page détail budget (`/budgets/[budgetId]`) : `selectedBudgetLineId`, onglet `BudgetLineDrawerTab`, `onOpenChange` qui réinitialise la sélection à la fermeture.
+
+Composant drawer : `features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer.tsx` — détail ligne, onglets (overview, engagements, etc.), aligné **RFC-FE-ADD-006**.
+
+### 6.2 Tableaux — colonnes « Top lignes »
+
+Le tableau **Top lignes** (`budget-top-budget-lines-card.tsx`) vise une **lecture exécutive** sur toute la largeur de la carte :
+
+- **`table-fixed`** + **`min-w-[880px]`** : largeurs de colonnes stables ; défilement horizontal si besoin (le composant `Table` enveloppe déjà le `<table>` dans un conteneur `overflow-x-auto`).
+- **`colgroup`** : colonne **#** (rang 1…n), **Ligne** (~30 %), **Enveloppe** (~24 %), **Consommé / Forecast / Restant** (~12,5 % chacune), **Gravité** (largeur fixe pour le badge).
+- **Ligne** et **Enveloppe** : libellés longs avec **`truncate`** + attribut **`title`** (texte complet au survol).
+- Colonnes montants et gravité : **`whitespace-nowrap`** pour éviter les coupures de ligne.
+
+Le tableau **Lignes critiques** conserve une colonne **Action** (lien vers le budget) ; pas de colonne `#` (priorité à la gravité et aux montants).
+
 ---
 
 ## 7. États UI
@@ -125,6 +150,7 @@ Les zones **sans** agrégat TTC backend (RUN/BUILD, CAPEX/OPEX, tendance mensuel
 - **Isolation client** : ne jamais afficher ou requêter hors `clientId` actif ; les query keys dashboard incluent `clientId` (`budgetQueryKeys.dashboard`).
 - **Cohérence HT/TTC** : les montants « mixtes » (ligne à ligne TVA différente) ne sont pas tous reconstitués en TTC exact côté UI ; l’API agrégée reste la référence quand elle fournit les `*Ttc`.
 - **Accessibilité** : titres de section avec `aria-labelledby` où défini ; tableaux scrollables horizontalement sur petits écrans.
+- **Drill-down** : le drawer ligne est le même module que sur `/budgets/[budgetId]` ; le cockpit ne duplique pas la logique métier (chargement via hooks du drawer, `budgetLineId` dans le scope client actif).
 
 ---
 

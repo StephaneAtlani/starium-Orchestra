@@ -1506,7 +1506,7 @@ Liste paginée des lignes de l’enveloppe avec montants, ratios et indicateurs 
 
 Référence : **RFC-022** (Budget Dashboard API). Module **budget-dashboard** : cockpit de pilotage budgétaire en **lecture seule**. Retourne une vue synthétique (KPI, RUN/BUILD/TRANSVERSE, compteurs d’alertes par ligne, répartition CAPEX/OPEX, tendance mensuelle, top enveloppes, enveloppes à risque, top lignes, lignes critiques) pour alimenter le dashboard Finance. Données dérivées de BudgetLine et FinancialEvent (tendance) ; scopées par client actif.
 
-**Frontend** : consommation par `GET /api/budget-dashboard`, page `/budgets/dashboard` — voir [docs/modules/budget-cockpit.md](modules/budget-cockpit.md).
+**Frontend** : consommation par `GET /api/budget-dashboard`, page `/budgets/dashboard` — voir [docs/modules/budget-cockpit.md](modules/budget-cockpit.md) (KPI, tableaux, ouverture du panneau intelligence ligne sur les lignes `topBudgetLines` / `criticalBudgetLines`).
 
 ### Guards et headers
 

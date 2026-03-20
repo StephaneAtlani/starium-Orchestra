@@ -266,6 +266,15 @@ grid md:grid-cols-2 gap-4
 
 * tri par risque
 * highlight couleur
+* **Implémentation** : `BudgetLinesCritiqueTable` — clic ligne → `BudgetLineIntelligenceDrawer` ; lien « Ouvrir le budget » avec isolation du clic (`stopPropagation`) pour naviguer vers le détail budget sans ouvrir le drawer.
+
+## Table 3 — Top lignes
+
+* classement par consommation (ordre API)
+* colonne **#** (rang), `table-fixed` + `colgroup`, libellés Ligne / Enveloppe tronqués avec `title` pour le texte complet
+* **Implémentation** : `BudgetTopBudgetLinesCard` — même ouverture du drawer au clic ligne que pour les lignes critiques.
+
+**Référence technique** : [docs/modules/budget-cockpit.md](../modules/budget-cockpit.md) (§6.1, §6.2).
 
 ---
 
@@ -290,16 +299,19 @@ text-red-400
 ## Règles
 
 * click KPI → filtre
-* click table → navigation
-* click alerte → focus
+* click table enveloppes / lignes → **contexte** (voir ci-dessous)
+* click alerte → focus (scroll vers section lignes critiques)
 
-## Interactions
+## Interactions (implémenté sur `/budgets/dashboard`)
+
+* **Lignes critiques / Top lignes** : clic sur la ligne → ouverture de **`BudgetLineIntelligenceDrawer`** avec `budgetLineId` (même composant que sur `/budgets/[budgetId]`, voir RFC-FE-ADD-006).
+* **Lien « Ouvrir le budget »** (tableau lignes critiques uniquement) : navigation vers `/budgets/[budgetId]` sans ouvrir le drawer.
 
 ```tsx
 onClick={() => router.push(`/budgets/${budgetId}`)}
 ```
 
-ou
+ou (cockpit & page budget)
 
 ```tsx
 openBudgetLineDrawer(lineId)
