@@ -6,7 +6,13 @@
  * - Une feuille par numéro de compte (61561600, …) : mouvements avec « Ligne budgetaire »
  *
  * Crée / remplace : exercice budgétaire, budget, comptes GL (upsert), enveloppes (1 par compte),
- * lignes budgétaires (agrégées par Ligne budgetaire unique) — libellé ligne = colonne « Objet de la dépense ».
+ * lignes : **une ligne par mouvement Excel** sur chaque feuille compte présente.
+ * **Tous les comptes** listés dans l’onglet « Compte » ont une enveloppe ; les feuilles absentes = enveloppe vide.
+ * Feuilles présentes mais non listées dans « Compte » sont traitées à la suite.
+ * Libellé = « Objet de la dépense », code = `{compte}-L{index}`.
+ * Montants : `committedAmount` = « Montant facture », `consumedAmount` = « Montant qui consomme ».
+ * Type Commande / Facture déduit de la colonne « Référence » : préfixe **CD** = commande, **FA** = facture.
+ * Fournisseurs : `Supplier.code` = colonne « Fournisseur », `Supplier.name` = « Nom du fournisseur ».
  *
  * Variables d'environnement :
  * - DATABASE_URL (ou .env dans apps/api)
@@ -68,21 +74,146 @@ function toDecimalString(n) {
   return x.toFixed(2);
 }
 
-function lineCodeFromLigneBudgetaire(ligne) {
-  const s = String(ligne).trim();
-  if (s.length <= 200) return s;
-  return s.slice(0, 197) + '...';
+/** Code unique par budget : 61561600-L000001 … (évite collision entre feuilles). */
+function lineCodeForRow(accountCode, rowIndexInSheet) {
+  return `${accountCode}-L${String(rowIndexInSheet).padStart(6, '0')}`;
 }
 
-/** Nom affiché BudgetLine : toujours « Objet de la dépense » (1er non vide du groupe), sinon clé ligne budgétaire. */
-function pickLineName(group, ligneBudgetaire) {
-  const obj = group.objetDepense?.trim();
-  if (obj) return obj.slice(0, 500);
-  return ligneBudgetaire.slice(0, 500);
+/** Commande / Facture depuis « Référence » (CD… / FA…). Sinon colonne Excel en secours. */
+function kindFromReference(r) {
+  const raw = String(r['Référence'] ?? '').trim().toUpperCase();
+  if (raw.startsWith('CD')) return 'Commande';
+  if (raw.startsWith('FA')) return 'Facture';
+  return '';
+}
+
+function rowDocTypeFallback(r) {
+  return String(
+    r['commande Facture Avoir'] ?? r['Commande Facture Avoir'] ?? '',
+  ).trim();
+}
+
+function rowKindLabel(r) {
+  return kindFromReference(r) || rowDocTypeFallback(r);
+}
+
+function rowName(r, ligneBudgetaireFallback) {
+  const obj = String(
+    r['Objet de la dépense'] ?? r['Objet de la depense'] ?? '',
+  ).trim();
+  const base = obj || String(ligneBudgetaireFallback ?? '').trim() || '—';
+  const kind = rowKindLabel(r);
+  const ref = String(r['Référence'] ?? '').trim().replace(/\s+/g, ' ');
+  const extra = [kind, ref].filter(Boolean);
+  const suffix = extra.length ? ` — ${extra.join(' ')}` : '';
+  return (base + suffix).slice(0, 500);
+}
+
+/** Référence CD/FA + fournisseur + montants. */
+function rowDescription(r, supplierInfo) {
+  const ref = String(r['Référence'] ?? '').trim();
+  const refUpper = ref.toUpperCase();
+  let refLine = '';
+  if (refUpper.startsWith('CD')) {
+    refLine = `Référence ${ref} (commande)`;
+  } else if (refUpper.startsWith('FA')) {
+    refLine = `Référence ${ref} (facture)`;
+  } else if (ref) {
+    refLine = `Référence ${ref}`;
+  }
+
+  const codeMov = String(r['Code mouvement'] ?? '').trim();
+  const nPiece = String(r['N°piece'] ?? r['N°piece'] ?? '').trim();
+  const ligne = String(r['Ligne budgetaire'] ?? '').trim();
+
+  const headParts = [];
+  if (refLine) headParts.push(refLine);
+  if (codeMov) headParts.push(`Mouvement : ${codeMov}`);
+  if (nPiece) headParts.push(`N° pièce ${nPiece}`);
+  if (ligne) headParts.push(ligne);
+  if (supplierInfo) {
+    const c = supplierInfo.code != null ? String(supplierInfo.code) : '—';
+    headParts.push(`Fournisseur : ${supplierInfo.name} (code ${c})`);
+  }
+
+  const facture = toDecimalString(r['Montant facture']);
+  const consomme = toDecimalString(r['Montant qui consomme']);
+  const amounts = `Montant facture (col.) ${facture} € · Montant consommé ${consomme} €`;
+
+  const head = headParts.length ? `${headParts.join(' · ')} · ` : '';
+  return (head + amounts).slice(0, 2000);
 }
 
 /**
- * @returns {{ compteRows: Array<{ metier: string, compte: string, libelle: string }>, accountSheets: string[] }}
+ * `Supplier.code` = Excel « Fournisseur », `Supplier.name` = « Nom du fournisseur ».
+ * @param {Map<string, { id: string, name: string, code: string | null }>} cache
+ */
+async function ensureSupplier(prisma, clientId, cache, fournisseurRaw, nomRaw) {
+  const codeStr = String(fournisseurRaw ?? '').trim();
+  const nameStr = String(nomRaw ?? '').trim();
+  if (!codeStr && !nameStr) return null;
+
+  const cacheKey = codeStr || `name:${nameStr}`;
+  if (cache.has(cacheKey)) return cache.get(cacheKey);
+
+  const name = nameStr || `Fournisseur ${codeStr}`;
+
+  let s = codeStr
+    ? await prisma.supplier.findFirst({ where: { clientId, code: codeStr } })
+    : null;
+  if (!s && nameStr) {
+    s = await prisma.supplier.findFirst({ where: { clientId, name: nameStr } });
+  }
+  if (!s) {
+    s = await prisma.supplier.create({
+      data: {
+        clientId,
+        code: codeStr || null,
+        name,
+        status: 'ACTIVE',
+      },
+    });
+  } else {
+    s = await prisma.supplier.update({
+      where: { id: s.id },
+      data: {
+        name,
+        ...(codeStr ? { code: codeStr } : {}),
+      },
+    });
+  }
+
+  const info = { id: s.id, name: s.name, code: s.code };
+  cache.set(cacheKey, info);
+  if (codeStr) cache.set(codeStr, info);
+  return info;
+}
+
+/**
+ * Ordre : d’abord tous les comptes de l’onglet « Compte », puis feuilles non listées (sans doublon).
+ * @returns {string[]}
+ */
+function getOrderedAccountCodes(compteRows, sheetNames) {
+  const accountSheets = sheetNames.filter((n) => n !== 'Compte');
+  const seen = new Set();
+  const ordered = [];
+  for (const r of compteRows) {
+    const c = String(r.compte).trim();
+    if (!c || seen.has(c)) continue;
+    seen.add(c);
+    ordered.push(c);
+  }
+  for (const name of accountSheets) {
+    const c = String(name).trim();
+    if (!c || seen.has(c)) continue;
+    seen.add(c);
+    ordered.push(c);
+  }
+  return ordered;
+}
+
+/**
+ * @returns {{ wb: import('xlsx').WorkBook, compteRows: Array<{ metier: string, compte: string, libelle: string }> }}
  */
 function parseWorkbook(xlsxPath) {
   if (!fs.existsSync(xlsxPath)) {
@@ -106,51 +237,22 @@ function parseWorkbook(xlsxPath) {
     });
   }
 
-  const accountSheets = wb.SheetNames.filter((n) => n !== 'Compte');
-  return { wb, compteRows, accountSheets };
-}
-
-function aggregateSheetRows(rows, accountCode) {
-  /** @type {Map<string, { sumInit: number, sumCons: number, sumFacture: number, sumEngagementFacture: number, objetDepense: string }>} */
-  const byLine = new Map();
-
-  for (const r of rows) {
-    const lb = String(r['Ligne budgetaire'] ?? '').trim();
-    if (!lb) continue;
-
-    if (!byLine.has(lb)) {
-      byLine.set(lb, {
-        sumInit: 0,
-        sumCons: 0,
-        sumFacture: 0,
-        sumEngagementFacture: 0,
-        objetDepense: '',
-      });
-    }
-    const g = byLine.get(lb);
-    g.sumInit += Number(r['Montant initial']) || 0;
-    g.sumCons += Number(r['Montant qui consomme']) || 0;
-    g.sumFacture += Number(r['Montant facture']) || 0;
-    const mov = String(r['Code mouvement'] ?? '').trim();
-    if (mov === 'Engagement') {
-      g.sumEngagementFacture += Number(r['Montant facture']) || 0;
-    }
-    const obj = String(
-      r['Objet de la dépense'] ?? r['Objet de la depense'] ?? '',
-    ).trim();
-    if (obj && !g.objetDepense) g.objetDepense = obj;
-  }
-
-  return { accountCode, byLine };
+  return { wb, compteRows };
 }
 
 async function main() {
   const xlsxPath = DEFAULT_XLSX;
   console.log('Fichier :', xlsxPath);
 
-  const { wb, compteRows, accountSheets } = parseWorkbook(xlsxPath);
+  const { wb, compteRows } = parseWorkbook(xlsxPath);
   const libelleByCompte = new Map(
     compteRows.map((r) => [r.compte, r.libelle || r.compte]),
+  );
+  const orderedAccounts = getOrderedAccountCodes(compteRows, wb.SheetNames);
+  console.log(
+    'Comptes à traiter :',
+    orderedAccounts.length,
+    '(onglet Compte + feuilles orphelines)',
   );
 
   const client = await prisma.client.findUnique({
@@ -213,15 +315,16 @@ async function main() {
 
   let envelopeOrder = 0;
   let lineTotal = 0;
+  /** @type {Map<string, { id: string, name: string, code: string | null }>} */
+  const supplierCache = new Map();
+  const supplierIds = new Set();
 
-  for (const sheetName of accountSheets) {
-    const sh = wb.Sheets[sheetName];
-    if (!sh) continue;
+  for (const accountCode of orderedAccounts) {
+    const sh = wb.Sheets[accountCode];
+    const rows = sh
+      ? XLSX.utils.sheet_to_json(sh, { defval: '' })
+      : [];
 
-    const rows = XLSX.utils.sheet_to_json(sh, { defval: '' });
-    if (!rows.length) continue;
-
-    const accountCode = sheetName.trim();
     const glName =
       libelleByCompte.get(accountCode) || `Compte ${accountCode}`;
 
@@ -255,16 +358,29 @@ async function main() {
       },
     });
 
-    const { byLine } = aggregateSheetRows(rows, accountCode);
+    let rowInSheet = 0;
+    for (const r of rows) {
+      const ligneBudgetaire = String(r['Ligne budgetaire'] ?? '').trim();
+      if (!ligneBudgetaire) continue;
 
-    for (const [ligneBudgetaire, group] of byLine) {
-      const code = lineCodeFromLigneBudgetaire(ligneBudgetaire);
-      const name = pickLineName(group, ligneBudgetaire);
-      const initial = toDecimalString(group.sumInit);
-      const consumed = toDecimalString(group.sumCons);
+      rowInSheet += 1;
+      const code = lineCodeForRow(accountCode, rowInSheet);
+      const name = rowName(r, ligneBudgetaire);
+      const initial = toDecimalString(r['Montant initial']);
+      const facture = toDecimalString(r['Montant facture']);
+      const consomme = toDecimalString(r['Montant qui consomme']);
       const initNum = Number(initial);
-      const consNum = Number(consumed);
+      const consNum = Number(consomme);
       const remaining = toDecimalString(initNum - consNum);
+
+      const supplierInfo = await ensureSupplier(
+        prisma,
+        clientId,
+        supplierCache,
+        r['Fournisseur'],
+        r['Nom du fournisseur'],
+      );
+      if (supplierInfo) supplierIds.add(supplierInfo.id);
 
       await prisma.budgetLine.create({
         data: {
@@ -273,15 +389,15 @@ async function main() {
           envelopeId: envelope.id,
           code,
           name,
-          description: `Ligne export : ${ligneBudgetaire}`,
+          description: rowDescription(r, supplierInfo),
           expenseType: expenseTypeForAccount(accountCode),
           status: 'ACTIVE',
           currency: 'EUR',
           initialAmount: initial,
           revisedAmount: initial,
           forecastAmount: '0',
-          committedAmount: toDecimalString(group.sumEngagementFacture),
-          consumedAmount: consumed,
+          committedAmount: facture,
+          consumedAmount: consomme,
           remainingAmount: remaining,
           generalLedgerAccountId: gl.id,
           allocationScope: 'ENTERPRISE',
@@ -289,12 +405,21 @@ async function main() {
       });
       lineTotal += 1;
     }
+    const note = !sh
+      ? 'pas de feuille'
+      : rows.length === 0
+        ? 'feuille vide'
+        : 'OK';
+    console.log(
+      `  ${accountCode} : ${rowInSheet} mouvement(s) [${note}]`,
+    );
   }
 
   console.log('OK — client :', CLIENT_SLUG);
   console.log('  Exercice :', exercise.code, exercise.id);
   console.log('  Budget  :', budget.code, budget.id);
   console.log('  Lignes  :', lineTotal);
+  console.log('  Fournisseurs uniques :', supplierIds.size);
 }
 
 main()
