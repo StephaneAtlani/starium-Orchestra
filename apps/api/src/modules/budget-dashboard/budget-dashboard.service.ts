@@ -5,7 +5,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
 import { TaxCalculator } from '../financial-core/helpers/tax-calculator';
 import type { DashboardQueryDto } from './dto/dashboard.query.dto';
-import type { BudgetDashboardResponse } from './types/budget-dashboard.types';
+import type {
+  BudgetDashboardLineRow,
+  BudgetDashboardResponse,
+} from './types/budget-dashboard.types';
 
 type DecimalLike = Prisma.Decimal | null | undefined;
 
@@ -17,6 +20,23 @@ function riskLevel(ratio: number): RiskLevel {
   if (ratio < 0.7) return 'LOW';
   if (ratio <= 0.9) return 'MEDIUM';
   return 'HIGH';
+}
+
+/** Règles alignées sur alertsSummary (comptage par ligne). */
+function lineRiskLevelFromAmounts(
+  revised: number,
+  committed: number,
+  consumed: number,
+  forecast: number,
+  remaining: number,
+): BudgetDashboardLineRow['lineRiskLevel'] {
+  if (remaining < 0 || consumed > revised || forecast > revised) {
+    return 'CRITICAL';
+  }
+  if (committed > revised) {
+    return 'WARNING';
+  }
+  return 'OK';
 }
 
 @Injectable()
@@ -53,7 +73,9 @@ export class BudgetDashboardService {
           expenseType: true,
           code: true,
           name: true,
-          envelope: { select: { id: true, code: true, name: true } },
+          envelope: {
+            select: { id: true, code: true, name: true, type: true },
+          },
         },
       }),
       this.prisma.financialEvent.findMany({
@@ -187,6 +209,10 @@ export class BudgetDashboardService {
 
     const monthlyTrend = this.buildMonthlyTrend(eventsForTrend);
 
+    const runBuildDistribution =
+      this.buildRunBuildDistribution(linesForAggregation);
+    const alertsSummary = this.buildAlertsSummary(linesForAggregation);
+
     const response: BudgetDashboardResponse = {
       exercise: {
         id: exercise.id,
@@ -209,6 +235,8 @@ export class BudgetDashboardService {
         consumptionRate,
         ...ttcTotals,
       },
+      runBuildDistribution,
+      alertsSummary,
       capexOpexDistribution: { capex, opex },
       monthlyTrend,
     };
@@ -219,6 +247,8 @@ export class BudgetDashboardService {
     }
     if (includeLines) {
       response.topBudgetLines = this.buildTopBudgetLines(linesForAggregation);
+      response.criticalBudgetLines =
+        this.buildCriticalBudgetLines(linesForAggregation);
     }
 
     return response;
@@ -448,6 +478,104 @@ export class BudgetDashboardService {
       }));
   }
 
+  private buildRunBuildDistribution(
+    lines: {
+      revisedAmount: DecimalLike;
+      envelope: { type: string };
+    }[],
+  ): BudgetDashboardResponse['runBuildDistribution'] {
+    let run = 0;
+    let build = 0;
+    let transverse = 0;
+    for (const l of lines) {
+      const amt = fromDecimal(l.revisedAmount);
+      switch (l.envelope.type) {
+        case 'RUN':
+          run += amt;
+          break;
+        case 'BUILD':
+          build += amt;
+          break;
+        case 'TRANSVERSE':
+          transverse += amt;
+          break;
+        default:
+          break;
+      }
+    }
+    return { run, build, transverse };
+  }
+
+  private buildAlertsSummary(
+    lines: {
+      revisedAmount: DecimalLike;
+      committedAmount: DecimalLike;
+      consumedAmount: DecimalLike;
+      forecastAmount: DecimalLike;
+      remainingAmount: DecimalLike;
+    }[],
+  ): BudgetDashboardResponse['alertsSummary'] {
+    let negativeRemaining = 0;
+    let overCommitted = 0;
+    let overConsumed = 0;
+    let forecastOverBudget = 0;
+    for (const l of lines) {
+      const revised = fromDecimal(l.revisedAmount);
+      const committed = fromDecimal(l.committedAmount);
+      const consumed = fromDecimal(l.consumedAmount);
+      const forecast = fromDecimal(l.forecastAmount);
+      const remaining = fromDecimal(l.remainingAmount);
+      if (remaining < 0) negativeRemaining += 1;
+      if (committed > revised) overCommitted += 1;
+      if (consumed > revised) overConsumed += 1;
+      if (forecast > revised) forecastOverBudget += 1;
+    }
+    return {
+      negativeRemaining,
+      overCommitted,
+      overConsumed,
+      forecastOverBudget,
+    };
+  }
+
+  private mapBudgetLineRow(
+    l: {
+      id: string;
+      code: string;
+      name: string;
+      envelope: { name: string };
+      revisedAmount: DecimalLike;
+      committedAmount: DecimalLike;
+      consumedAmount: DecimalLike;
+      forecastAmount: DecimalLike;
+      remainingAmount: DecimalLike;
+    },
+  ): BudgetDashboardLineRow {
+    const revised = fromDecimal(l.revisedAmount);
+    const committed = fromDecimal(l.committedAmount);
+    const consumed = fromDecimal(l.consumedAmount);
+    const forecast = fromDecimal(l.forecastAmount);
+    const remaining = fromDecimal(l.remainingAmount);
+    return {
+      lineId: l.id,
+      code: l.code ?? null,
+      name: l.name,
+      envelopeName: l.envelope?.name ?? null,
+      revisedAmount: revised,
+      committed,
+      consumed,
+      forecast,
+      remaining,
+      lineRiskLevel: lineRiskLevelFromAmounts(
+        revised,
+        committed,
+        consumed,
+        forecast,
+        remaining,
+      ),
+    };
+  }
+
   private buildTopEnvelopes(
     lines: {
       envelopeId: string;
@@ -542,6 +670,8 @@ export class BudgetDashboardService {
       code: string;
       name: string;
       envelope: { name: string };
+      revisedAmount: DecimalLike;
+      committedAmount: DecimalLike;
       consumedAmount: DecimalLike;
       forecastAmount: DecimalLike;
       remainingAmount: DecimalLike;
@@ -553,14 +683,32 @@ export class BudgetDashboardService {
           fromDecimal(b.consumedAmount) - fromDecimal(a.consumedAmount),
       )
       .slice(0, TOP_LIMIT)
-      .map((l) => ({
-        lineId: l.id,
-        code: l.code ?? null,
-        name: l.name,
-        envelopeName: l.envelope?.name ?? null,
-        consumed: fromDecimal(l.consumedAmount),
-        forecast: fromDecimal(l.forecastAmount),
-        remaining: fromDecimal(l.remainingAmount),
-      }));
+      .map((l) => this.mapBudgetLineRow(l));
+  }
+
+  private buildCriticalBudgetLines(
+    lines: {
+      id: string;
+      code: string;
+      name: string;
+      envelope: { name: string };
+      revisedAmount: DecimalLike;
+      committedAmount: DecimalLike;
+      consumedAmount: DecimalLike;
+      forecastAmount: DecimalLike;
+      remainingAmount: DecimalLike;
+    }[],
+  ): BudgetDashboardResponse['criticalBudgetLines'] {
+    const enriched = lines.map((l) => this.mapBudgetLineRow(l));
+    const flagged = enriched.filter((r) => r.lineRiskLevel !== 'OK');
+    const rank = (lvl: BudgetDashboardLineRow['lineRiskLevel']) =>
+      lvl === 'CRITICAL' ? 0 : 1;
+    return flagged
+      .sort((a, b) => {
+        const dr = rank(a.lineRiskLevel) - rank(b.lineRiskLevel);
+        if (dr !== 0) return dr;
+        return b.consumed - a.consumed;
+      })
+      .slice(0, TOP_LIMIT);
   }
 }

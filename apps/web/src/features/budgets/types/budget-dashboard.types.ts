@@ -2,6 +2,21 @@
  * Types alignés sur la réponse API budget-dashboard (cockpit).
  */
 
+export type BudgetDashboardLineRiskLevel = 'OK' | 'WARNING' | 'CRITICAL';
+
+export interface BudgetDashboardLineRow {
+  lineId: string;
+  code: string | null;
+  name: string;
+  envelopeName: string | null;
+  revisedAmount: number;
+  committed: number;
+  consumed: number;
+  forecast: number;
+  remaining: number;
+  lineRiskLevel: BudgetDashboardLineRiskLevel;
+}
+
 export interface BudgetDashboardResponse {
   exercise: {
     id: string;
@@ -22,6 +37,17 @@ export interface BudgetDashboardResponse {
     forecast: number;
     remaining: number;
     consumptionRate: number;
+  };
+  runBuildDistribution: {
+    run: number;
+    build: number;
+    transverse: number;
+  };
+  alertsSummary: {
+    negativeRemaining: number;
+    overCommitted: number;
+    overConsumed: number;
+    forecastOverBudget: number;
   };
   capexOpexDistribution: {
     capex: number;
@@ -49,15 +75,8 @@ export interface BudgetDashboardResponse {
     riskRatio: number;
     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   }[];
-  topBudgetLines?: {
-    lineId: string;
-    code: string | null;
-    name: string;
-    envelopeName: string | null;
-    consumed: number;
-    forecast: number;
-    remaining: number;
-  }[];
+  topBudgetLines?: BudgetDashboardLineRow[];
+  criticalBudgetLines?: BudgetDashboardLineRow[];
 }
 
 export interface BudgetDashboardQueryParams {

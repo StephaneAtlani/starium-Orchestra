@@ -1504,7 +1504,7 @@ Liste paginée des lignes de l’enveloppe avec montants, ratios et indicateurs 
 
 ## 18.1 Budget Dashboard API — GET /api/budget-dashboard
 
-Référence : **RFC-022** (Budget Dashboard API). Module **budget-dashboard** : cockpit de pilotage budgétaire en **lecture seule**. Retourne une vue synthétique (KPI, répartition CAPEX/OPEX, tendance mensuelle, top enveloppes, enveloppes à risque, top lignes) pour alimenter le dashboard Finance. Données dérivées de BudgetLine, FinancialAllocation et FinancialEvent ; scopées par client actif.
+Référence : **RFC-022** (Budget Dashboard API). Module **budget-dashboard** : cockpit de pilotage budgétaire en **lecture seule**. Retourne une vue synthétique (KPI, RUN/BUILD/TRANSVERSE, compteurs d’alertes par ligne, répartition CAPEX/OPEX, tendance mensuelle, top enveloppes, enveloppes à risque, top lignes, lignes critiques) pour alimenter le dashboard Finance. Données dérivées de BudgetLine et FinancialEvent (tendance) ; scopées par client actif.
 
 ### Guards et headers
 
@@ -1524,7 +1524,7 @@ Retourne la vue globale du cockpit budgétaire pour un budget résolu (ou l’ex
 | `exerciseId`        | string  | ID de l’exercice. Si fourni avec `budgetId`, `budgetId` est prioritaire. |
 | `budgetId`          | string  | ID du budget. Si fourni, l’exercice est déduit du budget. |
 | `includeEnvelopes`  | boolean | Inclure `topEnvelopes` et `riskEnvelopes`. Défaut : true. En query, passer `true`/`false` (chaîne convertie en booléen). |
-| `includeLines`      | boolean | Inclure `topBudgetLines`. Défaut : true. |
+| `includeLines`      | boolean | Inclure `topBudgetLines` et `criticalBudgetLines`. Défaut : true. |
 
 **Résolution du budget**
 
@@ -1555,6 +1555,13 @@ Retourne la vue globale du cockpit budgétaire pour un budget résolu (ou l’ex
     "forecast": 0,
     "remaining": 0,
     "consumptionRate": 0
+  },
+  "runBuildDistribution": { "run": 0, "build": 0, "transverse": 0 },
+  "alertsSummary": {
+    "negativeRemaining": 0,
+    "overCommitted": 0,
+    "overConsumed": 0,
+    "forecastOverBudget": 0
   },
   "capexOpexDistribution": { "capex": 0, "opex": 0 },
   "monthlyTrend": [
@@ -1587,19 +1594,39 @@ Retourne la vue globale du cockpit budgétaire pour un budget résolu (ou l’ex
       "code": "string | null",
       "name": "string",
       "envelopeName": "string | null",
+      "revisedAmount": 0,
+      "committed": 0,
       "consumed": 0,
       "forecast": 0,
-      "remaining": 0
+      "remaining": 0,
+      "lineRiskLevel": "OK | WARNING | CRITICAL"
+    }
+  ],
+  "criticalBudgetLines": [
+    {
+      "lineId": "string",
+      "code": "string | null",
+      "name": "string",
+      "envelopeName": "string | null",
+      "revisedAmount": 0,
+      "committed": 0,
+      "consumed": 0,
+      "forecast": 0,
+      "remaining": 0,
+      "lineRiskLevel": "WARNING | CRITICAL"
     }
   ]
 }
 ```
 
 - `topEnvelopes` et `riskEnvelopes` sont **absents** si `includeEnvelopes=false`.
-- `topBudgetLines` est **absent** si `includeLines=false`.
-- KPI : `totalBudget` = SUM(BudgetLine.revisedAmount), `remaining` = SUM(BudgetLine.remainingAmount), committed/consumed/forecast = agrégats FinancialAllocation, `consumptionRate` = consumed / totalBudget (0 si totalBudget = 0).
-- Risk : `riskRatio` = forecast / budgetAmount par enveloppe ; LOW &lt; 0,70, MEDIUM 0,70–0,90, HIGH &gt; 0,90.
-- Top enveloppes et top lignes : tri par consommé décroissant, au plus 10 éléments chacun.
+- `topBudgetLines` et `criticalBudgetLines` sont **absents** si `includeLines=false`.
+- KPI : `totalBudget` = SUM(BudgetLine.revisedAmount), `remaining` = SUM(BudgetLine.remainingAmount), committed/consumed/forecast = SUM des montants sur BudgetLine, `consumptionRate` = consumed / totalBudget (0 si totalBudget = 0).
+- `runBuildDistribution` : sommes de `revisedAmount` par `BudgetEnvelope.type` (RUN / BUILD / TRANSVERSE).
+- `alertsSummary` : nombre de lignes vérifiant respectivement `remaining < 0`, `committed > revisedAmount`, `consumed > revisedAmount`, `forecast > revisedAmount`.
+- `lineRiskLevel` (ligne) : CRITICAL si reste négatif, consommé ou forecast au-dessus du révisé ; WARNING si engagé au-dessus du révisé sans condition CRITICAL ; sinon OK.
+- Risk (enveloppe) : `riskRatio` = forecast / budgetAmount par enveloppe ; LOW &lt; 0,70, MEDIUM 0,70–0,90, HIGH &gt; 0,90.
+- Top enveloppes et top lignes : tri par consommé décroissant, au plus 10 éléments chacun. `criticalBudgetLines` : lignes non OK, tri gravité puis consommation, au plus 10.
 
 **Erreurs :** 401, 403, 404 (exercice ou budget introuvable dans le scope client).
 

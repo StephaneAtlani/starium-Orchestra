@@ -18,3 +18,6 @@ export function useBudgetDashboardQuery(params?: BudgetDashboardQueryParams) {
     enabled: !!clientId,
   });
 }
+
+/** Alias RFC-FE-002 — même comportement que useBudgetDashboardQuery. */
+export const useBudgetDashboard = useBudgetDashboardQuery;
