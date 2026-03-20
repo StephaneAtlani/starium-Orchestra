@@ -9,9 +9,14 @@ import { listSuppliers } from '../api/procurement.api';
 const DEBOUNCE_MS = 280;
 
 /**
- * Liste fournisseurs pour dropdown (recherche optionnelle, fetch même si search vide).
+ * Liste fournisseurs pour dropdown (gating >= 2 caractères).
+ * Note: la cohérence UI en dessous de 2 caractères est gérée côté combobox (pas via React Query data persistante).
  */
-export function useSuppliersDropdownQuery(search: string, enabled: boolean) {
+export function useSuppliersDropdownQuery(
+  search: string,
+  enabled: boolean,
+  minChars = 2,
+) {
   const [debounced, setDebounced] = useState(search);
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), DEBOUNCE_MS);
@@ -22,15 +27,17 @@ export function useSuppliersDropdownQuery(search: string, enabled: boolean) {
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
 
+  const normalizedQuery = debounced.trim().replace(/\s+/g, ' ');
+
   return useQuery({
-    queryKey: ['procurement', clientId, 'suppliers-dropdown', debounced],
+    queryKey: ['procurement', clientId, 'suppliers-dropdown', normalizedQuery, minChars],
     queryFn: () =>
       listSuppliers(authFetch, {
-        search: debounced.trim() || undefined,
+        search: normalizedQuery || undefined,
         limit: 40,
         offset: 0,
       }),
-    enabled: enabled && !!clientId,
+    enabled: enabled && !!clientId && normalizedQuery.length >= minChars,
     staleTime: 20_000,
   });
 }

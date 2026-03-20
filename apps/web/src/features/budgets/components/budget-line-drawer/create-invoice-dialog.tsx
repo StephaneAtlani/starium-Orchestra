@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 import { createInvoiceSchema, type CreateInvoiceValues } from '../../schemas/create-invoice.schema';
 import type { ApiFormError } from '../../api/types';
 import type { BudgetLine } from '../../types/budget-management.types';
@@ -22,6 +23,7 @@ import { useCreateInvoice } from '@/features/procurement/hooks/use-create-invoic
 import { useQuickCreateSupplier } from '@/features/procurement/hooks/use-quick-create-supplier';
 import { listSuppliers } from '@/features/procurement/api/procurement.api';
 import { SupplierSearchCombobox } from '@/features/procurement/components/supplier-search-combobox';
+import { prepareQuickCreateRequest } from '@/features/procurement/utils/prepare-quick-create-request';
 import { usePurchaseOrdersByBudgetLine } from '@/features/procurement/hooks/use-purchase-orders-by-budget-line';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -41,8 +43,6 @@ export function CreateInvoiceDialog({
   const [submitError, setSubmitError] = useState<ApiFormError | null>(null);
   const [lastEditedField, setLastEditedField] = useState<'ht' | 'ttc' | 'tax'>('ht');
   const [resolvedSupplier, setResolvedSupplier] = useState<{ id: string; name: string } | null>(null);
-  const [isCreateSupplierDialogOpen, setIsCreateSupplierDialogOpen] = useState(false);
-  const [supplierDraftName, setSupplierDraftName] = useState('');
   const createInvoice = useCreateInvoice(budgetId, line.id);
   const quickCreateSupplier = useQuickCreateSupplier();
   const authFetch = useAuthenticatedFetch();
@@ -58,6 +58,8 @@ export function CreateInvoiceDialog({
     handleSubmit,
     reset,
     setValue,
+    setError,
+    clearErrors,
     watch,
     formState: { errors },
   } = useForm<CreateInvoiceValues>({
@@ -79,8 +81,6 @@ export function CreateInvoiceDialog({
     if (!open) {
       setSubmitError(null);
       setResolvedSupplier(null);
-      setIsCreateSupplierDialogOpen(false);
-      setSupplierDraftName('');
       reset();
     }
   }, [open, reset]);
@@ -109,9 +109,6 @@ export function CreateInvoiceDialog({
   }, [open, amountHtInput, amountTtcInput, taxRateInput, lastEditedField, setValue]);
 
   const onSubmit = async (values: CreateInvoiceValues) => {
-    if (isCreateSupplierDialogOpen) {
-      return;
-    }
     setSubmitError(null);
     if (!canCreateProcurement) {
       setSubmitError({
@@ -135,7 +132,11 @@ export function CreateInvoiceDialog({
         supplierId = exactSupplier?.id;
       }
       if (!supplierId) {
-        supplierId = (await quickCreateSupplier.mutateAsync({ name: supplierNameValue })).id;
+        setError('supplierName', {
+          type: 'manual',
+          message: 'Fournisseur introuvable. Sélectionne un fournisseur existant ou crée-le.',
+        });
+        return;
       }
 
       await createInvoice.mutateAsync({
@@ -151,6 +152,57 @@ export function CreateInvoiceDialog({
       onOpenChange(false);
     } catch (e) {
       setSubmitError(e as ApiFormError);
+    }
+  };
+
+  const requestQuickCreate = (draftName: string) => {
+    void (async () => {
+      setSubmitError(null);
+      const request = prepareQuickCreateRequest(draftName, canCreateProcurement);
+      if (!request.ok) {
+        if (request.error) setSubmitError(request.error);
+        return;
+      }
+      try {
+        const created = await quickCreateSupplier.mutateAsync({ name: request.name });
+        setResolvedSupplier({ id: created.id, name: created.name });
+        setValue('supplierName', created.name, { shouldValidate: true });
+        clearErrors('supplierName');
+        toast.success('Fournisseur créé.');
+      } catch (e) {
+        setSubmitError(e as ApiFormError);
+      }
+    })();
+  };
+
+  const validateSupplierOnBlur = async (rawValue: string) => {
+    const supplierNameValue = rawValue.trim();
+    if (!supplierNameValue) return;
+    if (resolvedSupplier) return;
+    if (!activeClient?.id) return;
+
+    try {
+      const searchRes = await listSuppliers(authFetch, {
+        search: supplierNameValue,
+        limit: 50,
+        offset: 0,
+      });
+      const exactSupplier = searchRes.items.find(
+        (s) => s.name.toLowerCase() === supplierNameValue.toLowerCase(),
+      );
+      if (exactSupplier) {
+        setResolvedSupplier({ id: exactSupplier.id, name: exactSupplier.name });
+        setValue('supplierName', exactSupplier.name, { shouldValidate: true });
+        clearErrors('supplierName');
+        return;
+      }
+      setError('supplierName', {
+        type: 'manual',
+        message: 'Fournisseur introuvable. Sélectionne un fournisseur existant ou crée-le.',
+      });
+    } catch {
+      // On ne bloque pas brutalement le flux en cas d'erreur réseau,
+      // la validation finale côté submit reste souveraine.
     }
   };
 
@@ -175,8 +227,7 @@ export function CreateInvoiceDialog({
 
           <div className="grid gap-2">
             <Label htmlFor="invoice-supplierName">Fournisseur</Label>
-            <div className="flex gap-2">
-              <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1">
               <Controller
                 name="supplierName"
                 control={control}
@@ -191,38 +242,20 @@ export function CreateInvoiceDialog({
                     parentOpen={open}
                     disabled={createInvoice.isPending || quickCreateSupplier.isPending}
                     aria-invalid={!!errors.supplierName}
-                    onManualInput={() => setResolvedSupplier(null)}
-                    onSupplierPicked={(s) => setResolvedSupplier(s)}
+                    onManualInput={() => {
+                      setResolvedSupplier(null);
+                      clearErrors('supplierName');
+                    }}
+                    onSupplierPicked={(s) => {
+                      setResolvedSupplier(s);
+                      clearErrors('supplierName');
+                    }}
+                    hasSupplierSelection={resolvedSupplier != null}
+                    onValidateOnBlur={validateSupplierOnBlur}
+                    onRequestQuickCreate={(draftName) => requestQuickCreate(draftName)}
                   />
                 )}
               />
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  if (!canCreateProcurement) {
-                    setSubmitError({
-                      status: 403,
-                      message: "Tu n'as pas la permission 'procurement.create' pour créer un fournisseur.",
-                    });
-                    return;
-                  }
-                  setSupplierDraftName((watch('supplierName') as string)?.trim() ?? '');
-                  setIsCreateSupplierDialogOpen(true);
-                }}
-                disabled={createInvoice.isPending || quickCreateSupplier.isPending}
-                aria-label="Créer le fournisseur"
-                title={
-                  canCreateProcurement
-                    ? 'Créer le fournisseur'
-                    : "Permission manquante: procurement.create"
-                }
-              >
-                +
-              </Button>
             </div>
             {errors.supplierName && (
               <p className="text-sm text-destructive">{errors.supplierName.message}</p>
@@ -342,63 +375,6 @@ export function CreateInvoiceDialog({
         </form>
       </DialogContent>
 
-    </Dialog>
-    <Dialog open={isCreateSupplierDialogOpen} onOpenChange={setIsCreateSupplierDialogOpen}>
-      <DialogContent className="sm:max-w-md" showCloseButton>
-        <DialogHeader>
-          <DialogTitle>Créer un fournisseur</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-2">
-          <Label htmlFor="invoice-create-supplier-name">Nom du fournisseur</Label>
-          <Input
-            id="invoice-create-supplier-name"
-            value={supplierDraftName}
-            onChange={(event) => setSupplierDraftName(event.target.value)}
-            placeholder="Ex: ACME Services"
-          />
-        </div>
-        <DialogFooter showCloseButton={false}>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setIsCreateSupplierDialogOpen(false);
-            }}
-          >
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            disabled={!canCreateProcurement || !supplierDraftName.trim() || quickCreateSupplier.isPending}
-            onClick={async (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setSubmitError(null);
-              if (!canCreateProcurement) {
-                setSubmitError({
-                  status: 403,
-                  message: "Tu n'as pas la permission 'procurement.create' pour créer un fournisseur.",
-                });
-                return;
-              }
-              try {
-                const name = supplierDraftName.trim();
-                if (!name) return;
-                const created = await quickCreateSupplier.mutateAsync({ name });
-                setResolvedSupplier({ id: created.id, name: created.name });
-                setValue('supplierName', created.name, { shouldValidate: true });
-                setIsCreateSupplierDialogOpen(false);
-              } catch (e) {
-                setSubmitError(e as ApiFormError);
-              }
-            }}
-          >
-            {quickCreateSupplier.isPending ? 'Création…' : 'Créer'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
     </Dialog>
     </>
   );
