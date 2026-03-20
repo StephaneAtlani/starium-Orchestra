@@ -173,8 +173,8 @@ export function BudgetLineIntelligenceDrawer({
                   onValueChange={(v) => onActiveTabChange(v as BudgetLineDrawerTab)}
                   className="flex h-full flex-col"
                 >
-                  <div className="sticky top-0 z-10 -mx-4 border-b border-border/60 bg-background/80 px-4 pb-2 backdrop-blur supports-backdrop-filter:bg-background/60">
-                    <TabsList variant="line" className="w-full justify-start">
+                  <div className="sticky top-0 z-10 -mx-4 border-b border-border/60 bg-background/90 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/80 shadow-sm">
+                    <TabsList variant="line" className="w-full justify-start gap-1">
                       <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
                       <TabsTrigger value="commitments">Commandes</TabsTrigger>
                       <TabsTrigger value="invoices">Factures</TabsTrigger>
