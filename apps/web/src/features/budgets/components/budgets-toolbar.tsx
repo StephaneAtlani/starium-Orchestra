@@ -67,7 +67,14 @@ export function BudgetsToolbar() {
           onValueChange={handleExerciseChange}
         >
           <SelectTrigger size="sm" className="w-[180px]" data-testid="budgets-exercise">
-            <SelectValue placeholder="Exercice" />
+            <SelectValue placeholder="Exercice">
+              {(v) => {
+                if (v === '__all__' || v == null) return 'Tous les exercices';
+                const ex = exerciseOptions.find((e) => e.id === v);
+                if (!ex) return String(v);
+                return `${ex.name}${ex.code ? ` (${ex.code})` : ''}`.trim();
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">Tous les exercices</SelectItem>

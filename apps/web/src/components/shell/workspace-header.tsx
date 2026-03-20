@@ -77,7 +77,7 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
             <div className="starium-dropdown-panel absolute right-0 mt-1 min-w-[160px] rounded-lg py-1 text-sm shadow-lg pointer-events-none opacity-0 translate-y-1 scale-95 transition-all duration-150 ease-out group-open/details:pointer-events-auto group-open/details:opacity-100 group-open/details:translate-y-0 group-open/details:scale-100">
               <button
                 type="button"
-                className="flex w-full items-center px-3 py-2 text-left text-sm starium-text hover:starium-bg-muted"
+                className="flex w-full items-center px-3 py-2 text-left text-sm starium-text hover:bg-accent"
                 onClick={handleLogout}
               >
                 Déconnexion

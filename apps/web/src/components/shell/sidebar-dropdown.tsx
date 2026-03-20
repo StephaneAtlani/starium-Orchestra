@@ -110,7 +110,7 @@ export function SidebarDropdownLayer({ panel }: { panel: SidebarDropdownPanelSta
   return (
     <div
       role="menu"
-      className="starium-dropdown-panel min-w-[11rem] rounded-lg py-1 shadow-lg"
+      className="starium-dropdown-panel starium-dropdown-panel--sidebar min-w-[11rem] rounded-lg py-1 shadow-lg"
       style={{
         position: 'fixed',
         top: panel.position.top,

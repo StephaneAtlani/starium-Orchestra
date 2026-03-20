@@ -106,8 +106,30 @@
 }
 .starium-dropdown-panel {
   background-color: var(--starium-surface);
-  border: 1px solid var(--starium-border);
+  border: 1px solid transparent;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.06),
+    0 10px 24px -8px rgb(15 23 42 / 0.12);
   color: var(--starium-text);
+}
+/* Sous-menu latéral (ex. Budget) : même univers violet que la sidebar, sans fond/bordure gris. */
+.starium-dropdown-panel--sidebar {
+  background-color: var(--starium-sidebar-bg);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  color: #ffffff;
+}
+.starium-dropdown-panel--sidebar .starium-dropdown-link {
+  color: rgba(255, 255, 255, 0.92);
+}
+.starium-dropdown-panel--sidebar .starium-dropdown-link:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+.starium-dropdown-panel--sidebar .starium-dropdown-link-active {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-weight: 600;
 }
 .starium-dropdown-link {
   color: var(--starium-text);

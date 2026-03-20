@@ -87,7 +87,12 @@ function SelectContent({
           {...props}
         >
           <SelectScrollUpButton />
-          <SelectPrimitive.List className="p-1 space-y-1">
+          <SelectPrimitive.List
+            data-slot="select-list"
+            className={cn(
+              "base-ui-disable-scrollbar rounded-md bg-popover p-1 space-y-1 text-popover-foreground",
+            )}
+          >
             {children}
           </SelectPrimitive.List>
           <SelectScrollDownButton />
@@ -119,7 +124,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-1.5 rounded-md bg-muted py-2 pr-8 pl-2 text-sm outline-hidden select-none hover:bg-muted/80 data-highlighted:bg-accent data-highlighted:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex w-full cursor-default items-center gap-1.5 rounded-md bg-card py-2 pr-8 pl-2 text-sm text-card-foreground outline-hidden select-none hover:bg-accent/50 data-highlighted:bg-accent data-highlighted:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
       )}
       {...props}

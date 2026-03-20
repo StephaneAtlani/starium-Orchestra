@@ -9,6 +9,7 @@ import { BudgetPageHeader } from '@/features/budgets/components/budget-page-head
 import { BudgetKpiCards } from '@/features/budgets/components/budget-kpi-cards';
 import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
 import { BudgetToolbar } from '@/features/budgets/components/budget-toolbar';
+import { BudgetExplorerToolbar } from '@/features/budgets/components/budget-explorer-toolbar';
 import { BudgetExplorerTable } from '@/features/budgets/components/budget-explorer-table';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer';
@@ -27,18 +28,9 @@ import {
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import type { BudgetExplorerFilters } from '@/features/budgets/types/budget-explorer.types';
 import { BudgetLineIntelligenceDrawer, type BudgetLineDrawerTab } from '@/features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer';
 import type { BudgetEnvelope, BudgetLine } from '@/features/budgets/types/budget-management.types';
-import { TaxDisplayModeToggle } from '@/components/finance/tax-display-mode-toggle';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import { formatTaxAwareAmount } from '@/lib/format-tax-aware-amount';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -254,60 +246,13 @@ export default function BudgetDetailPage() {
         )}
 
         <BudgetToolbar className="mb-4">
-          <div className="flex flex-1 flex-wrap items-center gap-2">
-            <Input
-              placeholder="Rechercher (nom, code)…"
-              value={filters.search ?? ''}
-              onChange={(e) =>
-                setFilters((f) => ({ ...f, search: e.target.value || undefined }))
-              }
-              className="max-w-xs"
-              data-testid="explorer-search"
-            />
-            <Select
-              value={filters.envelopeType ?? '__all__'}
-              onValueChange={(v) =>
-                setFilters((f) => ({
-                  ...f,
-                  envelopeType: v === '__all__' || !v ? undefined : v,
-                }))
-              }
-            >
-              <SelectTrigger size="sm" className="w-[140px]" data-testid="explorer-envelope-type">
-                <SelectValue placeholder="Type enveloppe" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Tous les types</SelectItem>
-                <SelectItem value="RUN">RUN</SelectItem>
-                <SelectItem value="BUILD">BUILD</SelectItem>
-                <SelectItem value="TRANSVERSE">TRANSVERSE</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.expenseType ?? '__all__'}
-              onValueChange={(v) =>
-                setFilters((f) => ({
-                  ...f,
-                  expenseType: v === '__all__' || !v ? undefined : v,
-                }))
-              }
-            >
-              <SelectTrigger size="sm" className="w-[120px]" data-testid="explorer-expense-type">
-                <SelectValue placeholder="OPEX/CAPEX" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Tous</SelectItem>
-                <SelectItem value="OPEX">OPEX</SelectItem>
-                <SelectItem value="CAPEX">CAPEX</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <TaxDisplayModeToggle
-              taxDisplayMode={taxDisplayMode}
-              setTaxDisplayMode={setTaxDisplayMode}
-              isLoading={isTaxLoading}
-            />
-          </div>
+          <BudgetExplorerToolbar
+            filters={filters}
+            setFilters={setFilters}
+            taxDisplayMode={taxDisplayMode}
+            setTaxDisplayMode={setTaxDisplayMode}
+            isTaxLoading={isTaxLoading}
+          />
         </BudgetToolbar>
 
         {isEmptyGlobal && (
