@@ -1,9 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useActiveClient } from '@/hooks/use-active-client';
 import { useBudgetDashboardQuery } from '@/features/budgets/hooks/use-budget-dashboard';
 import { useBudgetExerciseOptionsQuery } from '@/features/budgets/hooks/use-budget-exercise-options-query';
 import { useBudgetsQuery } from '@/features/budgets/hooks/use-budgets-query';
+import {
+  loadBudgetCockpitSelection,
+  saveBudgetCockpitSelection,
+} from '@/features/budgets/lib/budget-cockpit-selection-storage';
 import type {
   BudgetDashboardQueryParams,
   BudgetDashboardResponse,
@@ -87,8 +92,11 @@ function mergeBudgetOptionsForSelect(
 }
 
 export function useBudgetDashboardPage() {
+  const { activeClient } = useActiveClient();
   const [exerciseId, setExerciseId] = useState<string | undefined>();
   const [budgetId, setBudgetId] = useState<string | undefined>();
+  /** Évite un fetch « défaut serveur » avant lecture du localStorage (refresh). */
+  const [selectionHydrated, setSelectionHydrated] = useState(false);
 
   const params: BudgetDashboardQueryParams | undefined = useMemo(() => {
     const p: BudgetDashboardQueryParams = {};
@@ -97,7 +105,27 @@ export function useBudgetDashboardPage() {
     return Object.keys(p).length > 0 ? p : undefined;
   }, [exerciseId, budgetId]);
 
-  const dashboardQuery = useBudgetDashboardQuery(params);
+  useEffect(() => {
+    if (!activeClient?.id) {
+      setExerciseId(undefined);
+      setBudgetId(undefined);
+      setSelectionHydrated(false);
+      return;
+    }
+    const saved = loadBudgetCockpitSelection(activeClient.id);
+    if (saved) {
+      setExerciseId(saved.exerciseId);
+      setBudgetId(saved.budgetId);
+    } else {
+      setExerciseId(undefined);
+      setBudgetId(undefined);
+    }
+    setSelectionHydrated(true);
+  }, [activeClient?.id]);
+
+  const dashboardQuery = useBudgetDashboardQuery(params, {
+    enabled: selectionHydrated,
+  });
   const { data, isLoading, error, refetch, isFetching } = dashboardQuery;
 
   const exercisesQuery = useBudgetExerciseOptionsQuery();
@@ -121,6 +149,11 @@ export function useBudgetDashboardPage() {
       setBudgetId(data.budget.id);
     }
   }, [data, exerciseId, budgetId]);
+
+  useEffect(() => {
+    if (!activeClient?.id || !exerciseId || !budgetId) return;
+    saveBudgetCockpitSelection(activeClient.id, { exerciseId, budgetId });
+  }, [activeClient?.id, exerciseId, budgetId]);
 
   const onExerciseChange = useCallback((nextExerciseId: string) => {
     setExerciseId(nextExerciseId);
@@ -181,7 +214,8 @@ export function useBudgetDashboardPage() {
     onBudgetChange,
     refresh,
     data,
-    isLoading,
+    /** Tant que la sélection locale n’est pas lue, on affiche le chargement (évite flash 1er budget). */
+    isLoading: !selectionHydrated || isLoading,
     isFetching,
     error,
     exercises,
