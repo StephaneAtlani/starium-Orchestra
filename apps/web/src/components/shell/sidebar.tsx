@@ -35,7 +35,7 @@ export function Sidebar() {
   const clientRole = activeClient?.role ?? null;
 
   return (
-    <aside className="starium-sidebar relative z-10 hidden h-full min-h-screen shrink-0 flex-col self-stretch border-r border-white/10 md:flex">
+    <aside className="starium-sidebar relative z-10 hidden h-full min-h-0 shrink-0 flex-col border-r border-white/10 md:flex">
       <SidebarDropdownContext.Provider value={contextValue}>
         <div className="starium-sidebar-header flex h-14 shrink-0 items-center gap-2 border-b border-white/10 px-4">
           <div className="flex flex-col leading-tight">
