@@ -1,14 +1,9 @@
+import { formatCurrencyAmountFr } from '@/lib/currency-format';
+
 export type TaxDisplayMode = 'HT' | 'TTC';
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('fr-FR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
 function formatCurrency(value: number, currency: string): string {
-  return `${formatNumber(value)} ${currency}`;
+  return formatCurrencyAmountFr(value, currency);
 }
 
 /**

@@ -2,20 +2,27 @@
  * Formateurs réutilisables pour KPI et listes budget.
  */
 
+import {
+  formatCurrencyAmountFr,
+  formatNumberFr,
+  normalizeFrNumberGrouping,
+} from '@/lib/currency-format';
+
 export function formatAmount(value: number, currency?: string): string {
-  const n = new Intl.NumberFormat('fr-FR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-  return currency ? `${n} ${currency}` : n;
+  if (!currency) {
+    return formatNumberFr(value);
+  }
+  return formatCurrencyAmountFr(value, currency);
 }
 
 export function formatPercent(value: number): string {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'percent',
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(value);
+  return normalizeFrNumberGrouping(
+    new Intl.NumberFormat('fr-FR', {
+      style: 'percent',
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(value),
+  );
 }
 
 export function formatDate(value: string | Date): string {

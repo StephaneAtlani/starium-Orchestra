@@ -4,6 +4,7 @@ import React from 'react';
 import { BarChart3, PieChart } from 'lucide-react';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
+import { getCurrencySymbol } from '@/lib/currency-format';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
 import { BudgetRunBuildCard } from './budget-run-build-card';
@@ -80,7 +81,7 @@ export function BudgetAnalyticsGrid({
             <>
               Engagé et consommé par mois (événements financiers).{' '}
               <span className="text-foreground">
-                Devise {c} · {monthlyTaxHint}
+                Devise {getCurrencySymbol(c)} · {monthlyTaxHint}
               </span>
             </>
           }

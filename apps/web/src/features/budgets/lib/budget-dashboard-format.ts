@@ -2,6 +2,7 @@ import {
   formatTaxAwareAmount,
   type TaxDisplayMode,
 } from '@/lib/format-tax-aware-amount';
+import { formatNumberFr, getCurrencySymbol } from '@/lib/currency-format';
 
 /** TTC affiché : valeur API si présente, sinon HT × (1 + TVA % / 100). */
 export function resolveTtcDisplay(
@@ -41,10 +42,7 @@ export type KpiAmountParts = {
 };
 
 function formatFrInt(n: number): string {
-  return new Intl.NumberFormat('fr-FR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(n);
+  return formatNumberFr(n);
 }
 
 export function formatKpiAmountParts(params: {
@@ -58,18 +56,20 @@ export function formatKpiAmountParts(params: {
   const ttc = resolveTtcDisplay(ht, ttcFromApi, defaultTaxRate);
   const isApproximation = ttcFromApi == null && mode === 'TTC';
 
+  const sym = getCurrencySymbol(currency);
+
   if (mode === 'HT') {
-    return { amount: formatFrInt(ht), currency, taxTag: 'HT', approx: false };
+    return { amount: formatFrInt(ht), currency: sym, taxTag: 'HT', approx: false };
   }
   if (ttc != null) {
     return {
       amount: formatFrInt(ttc),
-      currency,
+      currency: sym,
       taxTag: 'TTC',
       approx: isApproximation,
     };
   }
-  return { amount: formatFrInt(ht), currency, taxTag: 'HT', approx: false };
+  return { amount: formatFrInt(ht), currency: sym, taxTag: 'HT', approx: false };
 }
 
 /** Écart forecast − budget révisé : différence des TTC API si les deux agrégats sont connus. */

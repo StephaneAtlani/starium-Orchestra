@@ -2,6 +2,7 @@
 
 import React, { useRef } from 'react';
 import { Layers } from 'lucide-react';
+import { getCurrencySymbol } from '@/lib/currency-format';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
@@ -127,7 +128,7 @@ export function BudgetDashboardPage() {
                     Devise
                   </dt>
                   <dd className="mt-1 text-sm font-semibold tabular-nums text-foreground">
-                    {data.budget.currency}
+                    {getCurrencySymbol(data.budget.currency)}
                   </dd>
                 </div>
               </dl>
