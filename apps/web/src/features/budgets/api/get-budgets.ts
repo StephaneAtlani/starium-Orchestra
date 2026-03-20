@@ -18,6 +18,8 @@ function toSummary(item: {
   ownerUserId?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  exerciseName?: string;
+  exerciseCode?: string | null;
 }): BudgetSummary {
   return {
     id: item.id,
@@ -30,6 +32,8 @@ function toSummary(item: {
     ownerUserId: item.ownerUserId ?? null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+    exerciseName: item.exerciseName,
+    exerciseCode: item.exerciseCode ?? undefined,
   };
 }
 

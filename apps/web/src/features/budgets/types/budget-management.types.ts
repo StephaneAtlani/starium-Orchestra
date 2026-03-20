@@ -35,6 +35,9 @@ export interface Budget {
   ownerUserId: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Présent quand l’API joint l’exercice (liste / détail budgets). */
+  exerciseName?: string;
+  exerciseCode?: string | null;
 }
 
 export interface BudgetEnvelope {

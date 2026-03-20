@@ -49,6 +49,9 @@ export class BudgetsService {
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
+        include: {
+          exercise: { select: { name: true, code: true } },
+        },
       }),
       this.prisma.budget.count({ where }),
     ]);
@@ -64,6 +67,9 @@ export class BudgetsService {
   async getById(clientId: string, id: string): Promise<BudgetWithNumbers> {
     const budget = await this.prisma.budget.findFirst({
       where: { id, clientId },
+      include: {
+        exercise: { select: { name: true, code: true } },
+      },
     });
     if (!budget) {
       throw new NotFoundException('Budget not found');
@@ -128,6 +134,9 @@ export class BudgetsService {
         ...(dto.defaultTaxRate !== undefined
           ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
           : {}),
+      },
+      include: {
+        exercise: { select: { name: true, code: true } },
       },
     });
 
@@ -230,6 +239,9 @@ export class BudgetsService {
           ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
           : {}),
       },
+      include: {
+        exercise: { select: { name: true, code: true } },
+      },
     });
 
     const auditInput: CreateAuditLogInput = {
@@ -275,13 +287,24 @@ export class BudgetsService {
 }
 
 type BudgetRow = Awaited<ReturnType<PrismaService['budget']['findFirst']>>;
-type BudgetWithNumbers = Omit<NonNullable<BudgetRow>, 'defaultTaxRate'> & {
+type BudgetWithNumbers = Omit<NonNullable<BudgetRow>, 'defaultTaxRate' | 'exercise'> & {
   defaultTaxRate: number | null;
+  exerciseName?: string;
+  exerciseCode?: string | null;
 };
 
-function toResponse(row: NonNullable<BudgetRow>): BudgetWithNumbers {
+function toResponse(
+  row: NonNullable<BudgetRow> & {
+    exercise?: { name: string; code: string } | null;
+  },
+): BudgetWithNumbers {
+  const { exercise, defaultTaxRate, ...rest } = row;
   return {
-    ...row,
-    defaultTaxRate: row.defaultTaxRate ? Number(row.defaultTaxRate) : null,
+    ...rest,
+    defaultTaxRate: defaultTaxRate ? Number(defaultTaxRate) : null,
+    ...(exercise && {
+      exerciseName: exercise.name,
+      exerciseCode: exercise.code,
+    }),
   };
 }
