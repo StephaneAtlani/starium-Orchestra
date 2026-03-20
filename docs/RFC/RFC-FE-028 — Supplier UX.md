@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémentée (v1) — avec dérogation d’architecture frontend (implémentation conservée dans `features/procurement/` pour ce cycle).
 
 ## Titre
 
@@ -52,13 +52,13 @@ Cette RFC apporte un pattern frontend unique pour fiabiliser cette interaction.
 
 ## Inclus
 
-* composant **SupplierAutocomplete**
-* composant **SupplierQuickCreateDialog** ou drawer léger
+* composant de recherche/sélection fournisseur opérationnel dans les dialogs métier
+* création fournisseur directe depuis le flux de sélection (sans modal intermédiaire de confirmation/saisie)
 * logique UX d’anti-doublons côté frontend
 * hooks React Query dédiés aux fournisseurs
 * intégration dans les formulaires consommateurs
 * états loading / empty / error cohérents
-* pattern réutilisable feature-first dans `features/suppliers/`
+* pattern réutilisable conservé dans `features/procurement/` (dérogation assumée)
 
 ## Exclus
 
@@ -299,7 +299,7 @@ par cohérence avec les autres modules frontend/backend.
 
 # 10. Structure frontend
 
-Implémentation cible :
+Implémentation cible RFC (théorique) :
 
 ```text
 apps/web/src/features/suppliers/
@@ -323,7 +323,20 @@ apps/web/src/features/suppliers/
     └── normalize-supplier-name.ts
 ```
 
-Architecture cohérente avec la stratégie feature-first du frontend. 
+Décision d’implémentation v1 (réelle) :
+
+```text
+apps/web/src/features/procurement/
+├── components/
+│   └── supplier-search-combobox.tsx
+├── hooks/
+│   ├── use-suppliers-dropdown-query.ts
+│   └── use-quick-create-supplier.ts
+└── utils/
+    └── normalize-supplier-name.ts
+```
+
+Cette dérogation est volontaire pour clôturer rapidement la RFC sans migration structurelle coûteuse dans ce cycle.
 
 ---
 
@@ -368,7 +381,13 @@ Hook purement UX qui :
 
 ## 12.1 `SupplierAutocomplete`
 
-Props proposées :
+Composant réel v1 :
+
+* `SupplierSearchCombobox` (recherche + sélection + action de création)
+* ouverture d’une modal de sélection contenant la liste et la recherche fournisseur
+* action "Créer" directe dans ce flux
+
+Props proposées (cible RFC initiale) :
 
 ```ts
 type SupplierAutocompleteProps = {
@@ -391,12 +410,11 @@ Responsabilités :
 
 ## 12.2 `SupplierQuickCreateDialog`
 
-Responsabilités :
+Statut v1 :
 
-* préremplir `name`
-* afficher le mini-formulaire
-* gérer submit / cancel
-* renvoyer le fournisseur créé au parent
+* non retenu comme composant dédié
+* création exécutée directement via l’action de création dans le flux de sélection fournisseur
+* le fournisseur créé est auto-sélectionné dans le formulaire appelant
 
 ## 12.3 `SupplierField`
 
@@ -560,7 +578,7 @@ Le frontend n’implémente pas l’audit mais doit préserver des flux clairs p
 
 ## Techniques
 
-* implémentation dans `features/suppliers/`
+* implémentation en v1 dans `features/procurement/` (dérogation documentée)
 * hooks React Query tenant-aware
 * aucun `fetch` direct hors client API central
 * aucun calcul métier critique côté frontend

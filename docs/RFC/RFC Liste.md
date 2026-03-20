@@ -7,7 +7,7 @@
 | **1** | **RFC-FE-005**         | Budget Line Detail UI              | Comprendre réellement une ligne budgétaire | Page `/budget-lines/[id]` : KPI, allocations, commitments, invoices, events (lecture complète et audit) | 🔥🔥🔥   | À faire       |
 | **2** | **RFC-FE-ADD-006**     | Budget Line Intelligence Drawer UI | Agir rapidement sur une ligne              | Drawer opérationnel + **refacto/mutualisation composants avec FE-005**                                  | 🔥🔥🔥   | ✅ À optimiser |
 | **3** | **RFC-FE-025** *(NEW)* | Procurement Management UI          | Gérer fournisseurs / commandes / factures  | Pages `/procurement` : listes, filtres, recherche, navigation                                           | 🔥🔥🔥   | À créer       |
-| **4** | **RFC-FE-028** *(NEW)* | Supplier UX                        | UX propre fournisseur                      | Autocomplete, quick-create, anti-doublons                                                               | 🔥🔥🔥   | À créer       |
+| **4** | **RFC-FE-028** *(NEW)* | Supplier UX                        | UX propre fournisseur                      | Autocomplete, quick-create, anti-doublons                                                               | 🔥🔥🔥   | ✅ Implémentée (v1) |
 | **5** | **RFC-FE-026** *(NEW)* | Financial Events Timeline          | Comprendre les impacts financiers          | Timeline claire (PO, invoices, allocations)                                                             | 🔥🔥🔥   | À créer       |
 
 ---
