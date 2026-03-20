@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
@@ -20,8 +20,11 @@ import type { BudgetLine } from '../../types/budget-management.types';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import { useCreatePurchaseOrder } from '@/features/procurement/hooks/use-create-purchase-order';
 import { useQuickCreateSupplier } from '@/features/procurement/hooks/use-quick-create-supplier';
-import { useSuppliersSearch } from '@/features/procurement/hooks/use-suppliers-search';
+import { listSuppliers } from '@/features/procurement/api/procurement.api';
+import { SupplierSearchCombobox } from '@/features/procurement/components/supplier-search-combobox';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useActiveClient } from '@/hooks/use-active-client';
 
 export function CreateOrderDialog({
   open,
@@ -41,6 +44,8 @@ export function CreateOrderDialog({
   const [supplierDraftName, setSupplierDraftName] = useState('');
   const createOrder = useCreatePurchaseOrder(budgetId, line.id);
   const quickCreateSupplier = useQuickCreateSupplier();
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
   const { has } = usePermissions();
   const canCreateProcurement = has('procurement.create');
   const { defaultTaxRate } = useTaxDisplayMode();
@@ -48,6 +53,7 @@ export function CreateOrderDialog({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setValue,
@@ -80,9 +86,6 @@ export function CreateOrderDialog({
   const amountHtInput = watch('amountHtInput');
   const amountTtcInput = watch('amountTtcInput');
   const taxRateInput = watch('taxRateInput');
-  const supplierName = watch('supplierName');
-  const supplierSearch = useSuppliersSearch(supplierName, open);
-
   const round2 = (n: number) => Math.round(n * 100) / 100;
 
   useEffect(() => {
@@ -115,18 +118,28 @@ export function CreateOrderDialog({
     }
     try {
       const supplierNameValue = values.supplierName.trim();
-      const exactSupplier = (supplierSearch.data?.items ?? []).find(
-        (s) => s.name.toLowerCase() === supplierNameValue.toLowerCase(),
-      );
-      const supplierId =
-        resolvedSupplier?.id ??
-        exactSupplier?.id ??
-        (await quickCreateSupplier.mutateAsync({ name: supplierNameValue })).id;
+      let supplierId = resolvedSupplier?.id;
+      if (!supplierId && activeClient?.id) {
+        const searchRes = await listSuppliers(authFetch, {
+          search: supplierNameValue,
+          limit: 50,
+          offset: 0,
+        });
+        const exactSupplier = searchRes.items.find(
+          (s) => s.name.toLowerCase() === supplierNameValue.toLowerCase(),
+        );
+        supplierId = exactSupplier?.id;
+      }
+      if (!supplierId) {
+        supplierId = (await quickCreateSupplier.mutateAsync({ name: supplierNameValue })).id;
+      }
 
       await createOrder.mutateAsync({
         supplierId,
         budgetLineId: line.id,
-        reference: values.reference.trim(),
+        ...(values.reference.trim()
+          ? { reference: values.reference.trim() }
+          : {}),
         label: values.label,
         amountHt: values.amountHtInput.toFixed(2),
         taxRate: values.taxRateInput.toFixed(2),
@@ -160,14 +173,27 @@ export function CreateOrderDialog({
           <div className="grid gap-2">
             <Label htmlFor="order-supplierName">Fournisseur</Label>
             <div className="flex gap-2">
-              <Input
-                id="order-supplierName"
-                list="order-suppliers"
-                {...register('supplierName', {
-                  onChange: () => setResolvedSupplier(null),
-                })}
-                aria-invalid={!!errors.supplierName}
+              <div className="min-w-0 flex-1">
+              <Controller
+                name="supplierName"
+                control={control}
+                render={({ field }) => (
+                  <SupplierSearchCombobox
+                    id="order-supplierName"
+                    name={field.name}
+                    ref={field.ref}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    parentOpen={open}
+                    disabled={createOrder.isPending || quickCreateSupplier.isPending}
+                    aria-invalid={!!errors.supplierName}
+                    onManualInput={() => setResolvedSupplier(null)}
+                    onSupplierPicked={(s) => setResolvedSupplier(s)}
+                  />
+                )}
               />
+              </div>
               <Button
                 type="button"
                 variant="outline"
@@ -181,7 +207,7 @@ export function CreateOrderDialog({
                     });
                     return;
                   }
-                  setSupplierDraftName((watch('supplierName') ?? '').trim());
+                  setSupplierDraftName((watch('supplierName') as string)?.trim() ?? '');
                   setIsCreateSupplierDialogOpen(true);
                 }}
                 disabled={createOrder.isPending || quickCreateSupplier.isPending}
@@ -195,20 +221,16 @@ export function CreateOrderDialog({
                 +
               </Button>
             </div>
-            <datalist id="order-suppliers">
-              {(supplierSearch.data?.items ?? []).map((s) => (
-                <option key={s.id} value={s.name} />
-              ))}
-            </datalist>
             {errors.supplierName && (
               <p className="text-sm text-destructive">{errors.supplierName.message}</p>
             )}
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="order-reference">Référence</Label>
+            <Label htmlFor="order-reference">Référence (optionnel)</Label>
             <Input
               id="order-reference"
+              placeholder="Laisser vide pour génération auto"
               {...register('reference')}
               aria-invalid={!!errors.reference}
             />

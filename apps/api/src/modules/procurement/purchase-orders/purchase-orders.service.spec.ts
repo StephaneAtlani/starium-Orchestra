@@ -64,6 +64,45 @@ describe('PurchaseOrdersService', () => {
     expect(events.create).toHaveBeenCalled();
   });
 
+  it('create sans reference genere une reference AUTO- unique', async () => {
+    prisma.supplier.findFirst.mockResolvedValue({
+      id: 'sup-1',
+      name: 'Microsoft',
+      status: 'ACTIVE',
+    });
+    prisma.budgetLine.findFirst.mockResolvedValue({ id: 'bl-1', currency: 'EUR' });
+    prisma.purchaseOrder.create.mockImplementation(async ({ data }: any) => ({
+      id: 'po-auto',
+      clientId: 'c1',
+      supplierId: 'sup-1',
+      supplier: { id: 'sup-1', name: 'Microsoft' },
+      budgetLineId: 'bl-1',
+      reference: data.reference,
+      label: data.label,
+      amountHt: { toFixed: () => '50.00' },
+      taxRate: null,
+      taxAmount: null,
+      amountTtc: null,
+      orderDate: data.orderDate,
+      status: 'APPROVED',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+
+    const result = await service.create('c1', {
+      supplierId: 'sup-1',
+      budgetLineId: 'bl-1',
+      label: 'Sans ref',
+      amountHt: '50',
+      orderDate: new Date(),
+    });
+
+    expect(prisma.purchaseOrder.create).toHaveBeenCalled();
+    const call = prisma.purchaseOrder.create.mock.calls[0][0];
+    expect(call.data.reference).toMatch(/^AUTO-[0-9a-f-]{36}$/i);
+    expect(result.reference).toMatch(/^AUTO-/);
+  });
+
   it('update refuse metadonnees interdites', async () => {
     prisma.purchaseOrder.findFirst.mockResolvedValue({
       id: 'po-1',

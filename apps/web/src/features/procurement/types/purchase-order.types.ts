@@ -22,7 +22,8 @@ export interface CreatePurchaseOrderPayload {
   supplierId?: string;
   supplierName?: string;
   budgetLineId?: string;
-  reference: string;
+  /** Si absent ou vide, l’API génère une référence unique (AUTO-…) */
+  reference?: string;
   label: string;
   amountHt: string;
   taxRate?: string;

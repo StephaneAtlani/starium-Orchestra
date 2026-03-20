@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
@@ -20,9 +20,12 @@ import type { BudgetLine } from '../../types/budget-management.types';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import { useCreateInvoice } from '@/features/procurement/hooks/use-create-invoice';
 import { useQuickCreateSupplier } from '@/features/procurement/hooks/use-quick-create-supplier';
-import { useSuppliersSearch } from '@/features/procurement/hooks/use-suppliers-search';
+import { listSuppliers } from '@/features/procurement/api/procurement.api';
+import { SupplierSearchCombobox } from '@/features/procurement/components/supplier-search-combobox';
 import { usePurchaseOrdersByBudgetLine } from '@/features/procurement/hooks/use-purchase-orders-by-budget-line';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useActiveClient } from '@/hooks/use-active-client';
 
 export function CreateInvoiceDialog({
   open,
@@ -42,6 +45,8 @@ export function CreateInvoiceDialog({
   const [supplierDraftName, setSupplierDraftName] = useState('');
   const createInvoice = useCreateInvoice(budgetId, line.id);
   const quickCreateSupplier = useQuickCreateSupplier();
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
   const { has } = usePermissions();
   const canCreateProcurement = has('procurement.create');
   const { defaultTaxRate } = useTaxDisplayMode();
@@ -49,6 +54,7 @@ export function CreateInvoiceDialog({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setValue,
@@ -82,8 +88,6 @@ export function CreateInvoiceDialog({
   const amountHtInput = watch('amountHtInput');
   const amountTtcInput = watch('amountTtcInput');
   const taxRateInput = watch('taxRateInput');
-  const supplierName = watch('supplierName');
-  const supplierSearch = useSuppliersSearch(supplierName, open);
   const poQuery = usePurchaseOrdersByBudgetLine(line.id, open);
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -118,13 +122,21 @@ export function CreateInvoiceDialog({
     }
     try {
       const supplierNameValue = values.supplierName.trim();
-      const exactSupplier = (supplierSearch.data?.items ?? []).find(
-        (s) => s.name.toLowerCase() === supplierNameValue.toLowerCase(),
-      );
-      const supplierId =
-        resolvedSupplier?.id ??
-        exactSupplier?.id ??
-        (await quickCreateSupplier.mutateAsync({ name: supplierNameValue })).id;
+      let supplierId = resolvedSupplier?.id;
+      if (!supplierId && activeClient?.id) {
+        const searchRes = await listSuppliers(authFetch, {
+          search: supplierNameValue,
+          limit: 50,
+          offset: 0,
+        });
+        const exactSupplier = searchRes.items.find(
+          (s) => s.name.toLowerCase() === supplierNameValue.toLowerCase(),
+        );
+        supplierId = exactSupplier?.id;
+      }
+      if (!supplierId) {
+        supplierId = (await quickCreateSupplier.mutateAsync({ name: supplierNameValue })).id;
+      }
 
       await createInvoice.mutateAsync({
         supplierId,
@@ -164,14 +176,27 @@ export function CreateInvoiceDialog({
           <div className="grid gap-2">
             <Label htmlFor="invoice-supplierName">Fournisseur</Label>
             <div className="flex gap-2">
-              <Input
-                id="invoice-supplierName"
-                list="invoice-suppliers"
-                {...register('supplierName', {
-                  onChange: () => setResolvedSupplier(null),
-                })}
-                aria-invalid={!!errors.supplierName}
+              <div className="min-w-0 flex-1">
+              <Controller
+                name="supplierName"
+                control={control}
+                render={({ field }) => (
+                  <SupplierSearchCombobox
+                    id="invoice-supplierName"
+                    name={field.name}
+                    ref={field.ref}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    parentOpen={open}
+                    disabled={createInvoice.isPending || quickCreateSupplier.isPending}
+                    aria-invalid={!!errors.supplierName}
+                    onManualInput={() => setResolvedSupplier(null)}
+                    onSupplierPicked={(s) => setResolvedSupplier(s)}
+                  />
+                )}
               />
+              </div>
               <Button
                 type="button"
                 variant="outline"
@@ -185,7 +210,7 @@ export function CreateInvoiceDialog({
                     });
                     return;
                   }
-                  setSupplierDraftName((watch('supplierName') ?? '').trim());
+                  setSupplierDraftName((watch('supplierName') as string)?.trim() ?? '');
                   setIsCreateSupplierDialogOpen(true);
                 }}
                 disabled={createInvoice.isPending || quickCreateSupplier.isPending}
@@ -199,11 +224,6 @@ export function CreateInvoiceDialog({
                 +
               </Button>
             </div>
-            <datalist id="invoice-suppliers">
-              {(supplierSearch.data?.items ?? []).map((s) => (
-                <option key={s.id} value={s.name} />
-              ))}
-            </datalist>
             {errors.supplierName && (
               <p className="text-sm text-destructive">{errors.supplierName.message}</p>
             )}

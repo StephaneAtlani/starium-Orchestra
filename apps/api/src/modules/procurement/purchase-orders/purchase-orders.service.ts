@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import {
   FinancialEventType,
   FinancialSourceType,
@@ -141,12 +142,15 @@ export class PurchaseOrdersService {
       const supplier = await this.resolveSupplier(clientId, dto, context);
       const budgetLine = await this.resolveBudgetLine(tx, clientId, dto.budgetLineId);
 
+      const refTrim = (dto.reference ?? '').trim();
+      const reference = refTrim || `AUTO-${randomUUID()}`;
+
       const created = await tx.purchaseOrder.create({
         data: {
           clientId,
           supplierId: supplier.id,
           budgetLineId: budgetLine?.id ?? null,
-          reference: dto.reference.trim(),
+          reference,
           label: dto.label.trim(),
           amountHt: taxCalc.amountHt,
           taxRate: taxCalc.taxRate,

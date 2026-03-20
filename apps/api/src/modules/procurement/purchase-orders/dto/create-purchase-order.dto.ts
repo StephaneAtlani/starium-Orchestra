@@ -1,12 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsDate,
-  IsNotEmpty,
-  IsNumberString,
-  IsOptional,
-  IsString,
-  MaxLength,
-} from 'class-validator';
+import { IsDate, IsNotEmpty, IsNumberString, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreatePurchaseOrderDto {
   @IsOptional()
@@ -22,10 +15,10 @@ export class CreatePurchaseOrderDto {
   @IsString()
   budgetLineId?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(128)
-  reference!: string;
+  reference?: string;
 
   @IsString()
   @IsNotEmpty()
