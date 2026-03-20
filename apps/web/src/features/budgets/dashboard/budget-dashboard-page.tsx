@@ -12,7 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatAmount } from '@/features/budgets/lib/budget-formatters';
+import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
+import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { useBudgetDashboardPage } from './hooks/use-budget-dashboard-page';
 import { BudgetDashboardShell } from './components/budget-dashboard-shell';
 import { BudgetDashboardSkeleton } from './components/budget-dashboard-skeleton';
@@ -51,6 +52,13 @@ export function BudgetDashboardPage() {
     budgetsLoading,
   } = useBudgetDashboardPage();
 
+  const {
+    taxDisplayMode,
+    setTaxDisplayMode,
+    isLoading: taxDisplayLoading,
+    defaultTaxRate,
+  } = useTaxDisplayMode();
+
   const err = error instanceof Error ? error : null;
 
   return (
@@ -82,6 +90,9 @@ export function BudgetDashboardPage() {
               onBudgetChange={onBudgetChange}
               onRefresh={refresh}
               isFetching={isFetching}
+              taxDisplayMode={taxDisplayMode}
+              onTaxDisplayModeChange={setTaxDisplayMode}
+              taxDisplayLoading={taxDisplayLoading}
             />
 
             <Card className={cockpitCardClass}>
@@ -101,19 +112,29 @@ export function BudgetDashboardPage() {
               </CardHeader>
             </Card>
 
-            <BudgetKpiGrid data={data} />
+            <BudgetKpiGrid
+              data={data}
+              taxDisplayMode={taxDisplayMode}
+              defaultTaxRate={defaultTaxRate}
+            />
 
             <BudgetAlertsPanel
               alertsSummary={data.alertsSummary}
               onViewCriticalLines={scrollToCritical}
             />
 
-            <BudgetAnalyticsGrid data={data} />
+            <BudgetAnalyticsGrid
+              data={data}
+              taxDisplayMode={taxDisplayMode}
+              defaultTaxRate={defaultTaxRate}
+            />
 
             {data.topEnvelopes && data.topEnvelopes.length > 0 && (
               <BudgetTopEnvelopesCard
                 rows={data.topEnvelopes}
                 currency={data.budget.currency}
+                taxDisplayMode={taxDisplayMode}
+                defaultTaxRate={defaultTaxRate}
                 onRowClick={scrollToCritical}
               />
             )}
@@ -122,6 +143,8 @@ export function BudgetDashboardPage() {
               <BudgetEnvelopesTable
                 rows={data.riskEnvelopes}
                 currency={data.budget.currency}
+                taxDisplayMode={taxDisplayMode}
+                defaultTaxRate={defaultTaxRate}
                 onRowClick={scrollToCritical}
               />
             )}
@@ -132,6 +155,8 @@ export function BudgetDashboardPage() {
                   rows={data.criticalBudgetLines}
                   currency={data.budget.currency}
                   budgetId={data.budget.id}
+                  taxDisplayMode={taxDisplayMode}
+                  defaultTaxRate={defaultTaxRate}
                 />
               )}
             </div>
@@ -173,13 +198,28 @@ export function BudgetDashboardPage() {
                             {l.envelopeName ?? '—'}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
-                            {formatAmount(l.consumed, data.budget.currency)}
+                            {formatDashboardAmount({
+                              ht: l.consumed,
+                              currency: data.budget.currency,
+                              mode: taxDisplayMode,
+                              defaultTaxRate,
+                            })}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
-                            {formatAmount(l.forecast, data.budget.currency)}
+                            {formatDashboardAmount({
+                              ht: l.forecast,
+                              currency: data.budget.currency,
+                              mode: taxDisplayMode,
+                              defaultTaxRate,
+                            })}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
-                            {formatAmount(l.remaining, data.budget.currency)}
+                            {formatDashboardAmount({
+                              ht: l.remaining,
+                              currency: data.budget.currency,
+                              mode: taxDisplayMode,
+                              defaultTaxRate,
+                            })}
                           </TableCell>
                           <TableCell>
                             <span

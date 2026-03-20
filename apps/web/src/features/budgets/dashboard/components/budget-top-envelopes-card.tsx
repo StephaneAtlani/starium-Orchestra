@@ -10,17 +10,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
-import { formatAmount } from '@/features/budgets/lib/budget-formatters';
+import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { cockpitCardClass } from './budget-dashboard-shell';
 
 export function BudgetTopEnvelopesCard({
   rows,
   currency,
+  taxDisplayMode,
+  defaultTaxRate,
   onRowClick,
 }: {
   rows: NonNullable<BudgetDashboardResponse['topEnvelopes']>;
   currency: string;
+  taxDisplayMode: TaxDisplayMode;
+  defaultTaxRate: number | null;
   onRowClick?: () => void;
 }) {
   if (rows.length === 0) return null;
@@ -61,13 +66,28 @@ export function BudgetTopEnvelopesCard({
                   {e.name}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatAmount(e.totalBudget, currency)}
+                  {formatDashboardAmount({
+                    ht: e.totalBudget,
+                    currency,
+                    mode: taxDisplayMode,
+                    defaultTaxRate,
+                  })}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatAmount(e.consumed, currency)}
+                  {formatDashboardAmount({
+                    ht: e.consumed,
+                    currency,
+                    mode: taxDisplayMode,
+                    defaultTaxRate,
+                  })}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatAmount(e.remaining, currency)}
+                  {formatDashboardAmount({
+                    ht: e.remaining,
+                    currency,
+                    mode: taxDisplayMode,
+                    defaultTaxRate,
+                  })}
                 </TableCell>
               </TableRow>
             ))}

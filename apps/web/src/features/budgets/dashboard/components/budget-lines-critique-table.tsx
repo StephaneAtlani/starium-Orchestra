@@ -12,11 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type {
   BudgetDashboardLineRow,
   BudgetDashboardResponse,
 } from '@/features/budgets/types/budget-dashboard.types';
-import { formatAmount } from '@/features/budgets/lib/budget-formatters';
+import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { budgetDetail } from '@/features/budgets/constants/budget-routes';
 import { cockpitCardClass } from './budget-dashboard-shell';
 
@@ -44,10 +45,14 @@ export function BudgetLinesCritiqueTable({
   rows,
   currency,
   budgetId,
+  taxDisplayMode,
+  defaultTaxRate,
 }: {
   rows: NonNullable<BudgetDashboardResponse['criticalBudgetLines']>;
   currency: string;
   budgetId: string;
+  taxDisplayMode: TaxDisplayMode;
+  defaultTaxRate: number | null;
 }) {
   if (rows.length === 0) {
     return (
@@ -106,16 +111,36 @@ export function BudgetLinesCritiqueTable({
                   {l.envelopeName ?? '—'}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatAmount(l.revisedAmount, currency)}
+                  {formatDashboardAmount({
+                    ht: l.revisedAmount,
+                    currency,
+                    mode: taxDisplayMode,
+                    defaultTaxRate,
+                  })}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatAmount(l.committed, currency)}
+                  {formatDashboardAmount({
+                    ht: l.committed,
+                    currency,
+                    mode: taxDisplayMode,
+                    defaultTaxRate,
+                  })}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatAmount(l.consumed, currency)}
+                  {formatDashboardAmount({
+                    ht: l.consumed,
+                    currency,
+                    mode: taxDisplayMode,
+                    defaultTaxRate,
+                  })}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatAmount(l.forecast, currency)}
+                  {formatDashboardAmount({
+                    ht: l.forecast,
+                    currency,
+                    mode: taxDisplayMode,
+                    defaultTaxRate,
+                  })}
                 </TableCell>
                 <TableCell>{severityBadge(l.lineRiskLevel)}</TableCell>
                 <TableCell className="text-right">

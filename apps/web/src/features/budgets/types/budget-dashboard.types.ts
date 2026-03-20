@@ -37,6 +37,12 @@ export interface BudgetDashboardResponse {
     forecast: number;
     remaining: number;
     consumptionRate: number;
+    /** Projections TTC (agrégat lignes) — `null` si un taux ligne manque. */
+    totalBudgetTtc?: number | null;
+    committedTtc?: number | null;
+    consumedTtc?: number | null;
+    forecastTtc?: number | null;
+    remainingTtc?: number | null;
   };
   runBuildDistribution: {
     run: number;

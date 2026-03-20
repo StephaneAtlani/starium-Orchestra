@@ -13,6 +13,8 @@ import {
 import type { BudgetExerciseSummary } from '@/features/budgets/types/budget-list.types';
 import type { BudgetSummary } from '@/features/budgets/types/budget-list.types';
 import { budgetList } from '@/features/budgets/constants/budget-routes';
+import { TaxDisplayModeToggle } from '@/components/finance/tax-display-mode-toggle';
+import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 
 export function BudgetDashboardHeader({
   exercises,
@@ -27,6 +29,9 @@ export function BudgetDashboardHeader({
   onBudgetChange,
   onRefresh,
   isFetching,
+  taxDisplayMode,
+  onTaxDisplayModeChange,
+  taxDisplayLoading,
 }: {
   exercises: BudgetExerciseSummary[];
   budgets: BudgetSummary[];
@@ -41,6 +46,9 @@ export function BudgetDashboardHeader({
   onBudgetChange: (id: string) => void;
   onRefresh: () => void;
   isFetching: boolean;
+  taxDisplayMode: TaxDisplayMode;
+  onTaxDisplayModeChange: (next: TaxDisplayMode) => void;
+  taxDisplayLoading?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -126,6 +134,12 @@ export function BudgetDashboardHeader({
             />
             Actualiser
           </Button>
+
+          <TaxDisplayModeToggle
+            taxDisplayMode={taxDisplayMode}
+            setTaxDisplayMode={onTaxDisplayModeChange}
+            isLoading={taxDisplayLoading}
+          />
 
           <Link
             href={budgetList()}

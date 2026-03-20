@@ -2,24 +2,39 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
-import { formatAmount } from '@/features/budgets/lib/budget-formatters';
+import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { cockpitCardClass } from './budget-dashboard-shell';
 import { BudgetRunBuildCard } from './budget-run-build-card';
 
 export function BudgetAnalyticsGrid({
   data,
+  taxDisplayMode,
+  defaultTaxRate,
 }: {
   data: BudgetDashboardResponse;
+  taxDisplayMode: TaxDisplayMode;
+  defaultTaxRate: number | null;
 }) {
   const { capexOpexDistribution, monthlyTrend, budget, runBuildDistribution } =
     data;
+  const c = budget.currency;
+
+  const monthlyTaxHint =
+    taxDisplayMode === 'HT'
+      ? 'montants HT (agrégation des montants HT des événements).'
+      : defaultTaxRate != null
+        ? 'TTC approximatif (TVA client par défaut appliquée aux montants HT des événements).'
+        : 'TTC indisponible sans TVA par défaut — affichage HT.';
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <BudgetRunBuildCard
         distribution={runBuildDistribution}
-        currency={budget.currency}
+        currency={c}
+        taxDisplayMode={taxDisplayMode}
+        defaultTaxRate={defaultTaxRate}
       />
 
       <Card className={cockpitCardClass}>
@@ -33,13 +48,23 @@ export function BudgetAnalyticsGrid({
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">CAPEX</span>
             <span className="font-medium tabular-nums text-foreground">
-              {formatAmount(capexOpexDistribution.capex, budget.currency)}
+              {formatDashboardAmount({
+                ht: capexOpexDistribution.capex,
+                currency: c,
+                mode: taxDisplayMode,
+                defaultTaxRate,
+              })}
             </span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">OPEX</span>
             <span className="font-medium tabular-nums text-foreground">
-              {formatAmount(capexOpexDistribution.opex, budget.currency)}
+              {formatDashboardAmount({
+                ht: capexOpexDistribution.opex,
+                currency: c,
+                mode: taxDisplayMode,
+                defaultTaxRate,
+              })}
             </span>
           </div>
         </CardContent>
@@ -51,11 +76,7 @@ export function BudgetAnalyticsGrid({
           <CardDescription>
             Engagé et consommé par mois (événements financiers).{' '}
             <span className="text-foreground">
-              Devise {budget.currency} · montants{' '}
-              <abbr title="Hors taxes" className="cursor-help no-underline">
-                HT
-              </abbr>{' '}
-              (agrégation des montants HT des événements).
+              Devise {c} · {monthlyTaxHint}
             </span>
           </CardDescription>
         </CardHeader>
@@ -73,8 +94,20 @@ export function BudgetAnalyticsGrid({
                     {row.month}
                   </span>
                   <span className="min-w-0 text-right tabular-nums text-foreground">
-                    E: {formatAmount(row.committed, budget.currency)} · C:{' '}
-                    {formatAmount(row.consumed, budget.currency)}
+                    E:{' '}
+                    {formatDashboardAmount({
+                      ht: row.committed,
+                      currency: c,
+                      mode: taxDisplayMode,
+                      defaultTaxRate,
+                    })}{' '}
+                    · C:{' '}
+                    {formatDashboardAmount({
+                      ht: row.consumed,
+                      currency: c,
+                      mode: taxDisplayMode,
+                      defaultTaxRate,
+                    })}
                   </span>
                 </div>
               ))}

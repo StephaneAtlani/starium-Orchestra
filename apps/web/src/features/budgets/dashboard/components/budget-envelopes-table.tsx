@@ -11,8 +11,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
-import { formatAmount } from '@/features/budgets/lib/budget-formatters';
+import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { cockpitCardClass } from './budget-dashboard-shell';
 
 function riskBadge(level: 'LOW' | 'MEDIUM' | 'HIGH') {
@@ -38,10 +39,14 @@ function riskBadge(level: 'LOW' | 'MEDIUM' | 'HIGH') {
 export function BudgetEnvelopesTable({
   rows,
   currency,
+  taxDisplayMode,
+  defaultTaxRate,
   onRowClick,
 }: {
   rows: NonNullable<BudgetDashboardResponse['riskEnvelopes']>;
   currency: string;
+  taxDisplayMode: TaxDisplayMode;
+  defaultTaxRate: number | null;
   onRowClick?: () => void;
 }) {
   if (rows.length === 0) return null;
@@ -80,10 +85,20 @@ export function BudgetEnvelopesTable({
                   {e.name}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatAmount(e.forecast, currency)}
+                  {formatDashboardAmount({
+                    ht: e.forecast,
+                    currency,
+                    mode: taxDisplayMode,
+                    defaultTaxRate,
+                  })}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatAmount(e.budgetAmount, currency)}
+                  {formatDashboardAmount({
+                    ht: e.budgetAmount,
+                    currency,
+                    mode: taxDisplayMode,
+                    defaultTaxRate,
+                  })}
                 </TableCell>
                 <TableCell>{riskBadge(e.riskLevel)}</TableCell>
               </TableRow>
