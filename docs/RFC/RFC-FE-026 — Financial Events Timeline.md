@@ -38,22 +38,20 @@ Fournir une **visualisation chronologique unifiée** des événements financiers
 
 ### Emplacement principal
 
-👉 **Budget Line Detail UI (RFC-FE-005)**
-
-* page : `/budget-lines/[id]`
-* composant : `BudgetLineDrawer`
+* **Cible long terme** : **Budget Line Detail UI (RFC-FE-005)** — page `/budget-lines/[id]`.
+* **Livré en V1** : **`BudgetLineIntelligenceDrawer`** — ouvert depuis l’explorer budget (`/budgets/[budgetId]`, clic sur une ligne). Aucune page `/budget-lines/[id]` requise pour la timeline V1.
 
 ---
 
 ### Intégration
 
-Ajout d’un nouvel onglet :
+Ajout d’un nouvel onglet dans le drawer (libellés FR) :
 
 ```
-[ Overview ] [ Commitments ] [ Invoices ] [ Allocations ] [ Timeline ]
+[ Vue d’ensemble ] [ Commandes ] [ Factures ] [ Allocations ] [ Timeline ] [ Infos DSI ]
 ```
 
-👉 `Timeline` = nouvel onglet dédié
+👉 `Timeline` = onglet dédié (agrégation multi-sources côté frontend)
 
 ---
 
@@ -96,12 +94,16 @@ type TimelineEvent = {
 
 ## 7. Sources de données
 
-### APIs utilisées (inchangées)
+### APIs utilisées (inchangées — implémentation V1)
+
+Endpoints **sous** `budget-lines` (scopes client via `X-Client-Id` + droits `budgets.read` / `procurement.read` selon route) :
 
 * `GET /api/budget-lines/:id/events`
-* `GET /api/commitments?budgetLineId=`
-* `GET /api/invoices?budgetLineId=`
-* `GET /api/allocations?budgetLineId=`
+* `GET /api/budget-lines/:id/allocations`
+* `GET /api/budget-lines/:id/purchase-orders`
+* `GET /api/budget-lines/:id/invoices`
+
+*(Les variantes query globales type `GET /api/invoices?budgetLineId=` ne sont pas utilisées par la V1 livrée.)*
 
 ---
 
@@ -364,4 +366,32 @@ Cette RFC introduit une **timeline financière unifiée** au niveau ligne budgé
 👉 Feature **structurante**
 👉 Transformation UX majeure
 👉 Fondamentale pour ton positionnement “cockpit de pilotage”
+
+---
+
+## 21. Implémentation V1 (état repo)
+
+**Périmètre** : drawer uniquement, **frontend uniquement**, backend non modifié.
+
+| Élément | Détail |
+|--------|--------|
+| **Entrée UI** | `BudgetLineIntelligenceDrawer` — `apps/web/src/features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer.tsx` |
+| **Onglet Timeline** | `BudgetLineTimelineTab`, `TimelineEventItem`, `TimelineFilters` |
+| **Données** | `useBudgetLineTimeline` — 4 `useQuery` parallèles, `isError` si **une** source échoue (stricte) |
+| **Normalisation** | `timeline-utils.ts` — type `TimelineEvent`, mappers, dédup (éviter doublon event / PO ou event / facture), filtres type + période |
+| **Présentation** | `timeline-display.ts` — libellés FR statuts procurement, montants signés |
+| **Query keys** | `budgetQueryKeys.timeline(clientId, budgetLineId)` + sous-clés `events` / `allocations` / `purchase-orders` / `invoices` ; ajouts `budgetLinePurchaseOrders`, `budgetLineInvoices` |
+| **API web** | `listInvoicesByBudgetLine` dans `procurement.api.ts` (miroir des PO par ligne) |
+| **Invalidation** | Après création PO / facture : invalidation `timeline` + clés lignes (`budget-line-events`, allocations, purchase-orders, invoices) |
+| **Tests** | `timeline-utils.spec.ts` (Vitest, `apps/web`) |
+| **Autres UX** | Poignée du drawer : toggle hauteur réduite ↔ **plein écran** (`100dvh`, sm+) ; table `BudgetLineEventsTable` (onglets Commandes / Factures) : dates FR, badges, montants cohérents |
+
+**Hypothèse affichage** : les types TS `PurchaseOrder` / `Invoice` n’exposent pas toujours `currency` — la devise des lignes PO/facture en timeline reprend la **devise de la ligne budgétaire**.
+
+---
+
+## 22. Suite possible (hors V1)
+
+* Répliquer ou compléter la timeline sur la **page** `/budget-lines/[id]` lorsque RFC-FE-005 sera livrée.
+* Pagination / infinite scroll si volume > première page (ex. `limit` 200 par source aujourd’hui).
 

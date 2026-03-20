@@ -32,6 +32,7 @@ Voici le **schéma fonctionnel mis à jour**, aligné avec ton architecture actu
      │ - overview               │     │ - allocations                │
      │ - commandes / factures   │     │ - events financiers          │
      │ - allocations            │     │ - historique / audit         │
+     │ - timeline (RFC-FE-026)  │     │ - (timeline page future)     │
      │ - quick create           │     │ - lecture DAF / DSI          │
      └──────────────┬───────────┘     └──────────────┬───────────────┘
                     │                                │
@@ -368,6 +369,25 @@ Dashboard
 Procurement pages
    = gérer fournisseurs / commandes / factures hors budget line
 ```
+
+---
+
+### 6.3 Budget Line Intelligence Drawer (web)
+
+Implémenté dans `apps/web` — ouverture au clic sur une **ligne budgétaire** depuis l’explorer (`/budgets/[budgetId]`).
+
+**Onglets** : Vue d’ensemble · Commandes · Factures · Allocations · **Timeline** · Infos DSI.
+
+* **RFC-FE-026 (Timeline)** — frontend uniquement : fusion **strict multi-sources** (les 4 flux doivent réussir sinon erreur globale) :
+  * `GET /api/budget-lines/:id/events`
+  * `GET /api/budget-lines/:id/allocations`
+  * `GET /api/budget-lines/:id/purchase-orders`
+  * `GET /api/budget-lines/:id/invoices`  
+  Clés React Query tenant-aware (`clientId`), normalisation dans `timeline-utils`, hook `useBudgetLineTimeline`.
+* **UX panneau** : poignée en tête de panneau — clic pour **agrandir** le drawer jusqu’à `100dvh` (sm+) ou revenir à la hauteur réduite ; réinitialisation à la fermeture.
+* **Tableaux d’événements** (onglets Commandes / Factures) : `BudgetLineEventsTable` — dates `fr-FR`, badges type/source, montants signés pour engagements / consommations.
+
+La page dédiée `/budget-lines/[id]` (RFC-FE-005) reste une cible produit distincte ; la timeline V1 n’exige pas cette route.
 
 ---
 
