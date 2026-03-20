@@ -6,7 +6,7 @@
  * - Une feuille par numéro de compte (61561600, …) : mouvements avec « Ligne budgetaire »
  *
  * Crée / remplace : exercice budgétaire, budget, comptes GL (upsert), enveloppes (1 par compte),
- * lignes budgétaires (agrégées par Ligne budgetaire unique).
+ * lignes budgétaires (agrégées par Ligne budgetaire unique) — libellé ligne = colonne « Objet de la dépense ».
  *
  * Variables d'environnement :
  * - DATABASE_URL (ou .env dans apps/api)
@@ -74,12 +74,9 @@ function lineCodeFromLigneBudgetaire(ligne) {
   return s.slice(0, 197) + '...';
 }
 
+/** Nom affiché BudgetLine : toujours « Objet de la dépense » (1er non vide du groupe), sinon clé ligne budgétaire. */
 function pickLineName(group, ligneBudgetaire) {
-  const libs = [...group.libelles].filter(
-    (l) => l && l !== 'STRUCTURE',
-  );
-  if (libs.length > 0) return libs[0].slice(0, 500);
-  const obj = group.firstObjet?.trim();
+  const obj = group.objetDepense?.trim();
   if (obj) return obj.slice(0, 500);
   return ligneBudgetaire.slice(0, 500);
 }
@@ -114,7 +111,7 @@ function parseWorkbook(xlsxPath) {
 }
 
 function aggregateSheetRows(rows, accountCode) {
-  /** @type {Map<string, { sumInit: number, sumCons: number, sumFacture: number, sumEngagementFacture: number, libelles: Set<string>, firstObjet: string }>} */
+  /** @type {Map<string, { sumInit: number, sumCons: number, sumFacture: number, sumEngagementFacture: number, objetDepense: string }>} */
   const byLine = new Map();
 
   for (const r of rows) {
@@ -127,8 +124,7 @@ function aggregateSheetRows(rows, accountCode) {
         sumCons: 0,
         sumFacture: 0,
         sumEngagementFacture: 0,
-        libelles: new Set(),
-        firstObjet: '',
+        objetDepense: '',
       });
     }
     const g = byLine.get(lb);
@@ -139,10 +135,10 @@ function aggregateSheetRows(rows, accountCode) {
     if (mov === 'Engagement') {
       g.sumEngagementFacture += Number(r['Montant facture']) || 0;
     }
-    const lib = String(r['Libellé ligne budgétaire'] ?? '').trim();
-    if (lib) g.libelles.add(lib);
-    const obj = String(r['Objet de la dépense'] ?? '').trim();
-    if (obj && !g.firstObjet) g.firstObjet = obj;
+    const obj = String(
+      r['Objet de la dépense'] ?? r['Objet de la depense'] ?? '',
+    ).trim();
+    if (obj && !g.objetDepense) g.objetDepense = obj;
   }
 
   return { accountCode, byLine };
