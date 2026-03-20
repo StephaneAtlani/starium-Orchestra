@@ -56,11 +56,20 @@
 .starium-sidebar {
   width: 12rem;
   min-width: 12rem;
-  background-color: var(--sidebar);
+  /* Dégradé violet (marque) — haut plus profond, bas plus lumineux */
+  background: linear-gradient(
+    165deg,
+    #4a2f7a 0%,
+    #5e3fa3 28%,
+    #6f4bb8 55%,
+    #7d5ec9 78%,
+    #8f72d4 100%
+  );
+  background-color: var(--sidebar); /* repli si gradient non supporté */
   color: var(--sidebar-foreground);
 }
 .starium-sidebar-nav {
-  background-color: var(--sidebar);
+  background-color: transparent;
   color: var(--sidebar-foreground);
 }
 .starium-sidebar-brand {
