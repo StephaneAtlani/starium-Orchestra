@@ -33,7 +33,7 @@ def main() -> int:
     parser.add_argument(
         "--output",
         default=None,
-        help="Output markdown path (default: <docs-dir>/DOCS_CONSOLIDATED.md)",
+        help="Output markdown path (default: <repo-root>/DOCS_CONSOLIDATED.md)",
     )
     parser.add_argument(
         "--encoding",
@@ -48,7 +48,7 @@ def main() -> int:
         print(f"ERROR: docs dir not found: {docs_dir}", file=sys.stderr)
         return 2
 
-    out_path = Path(args.output).resolve() if args.output else (docs_dir / "DOCS_CONSOLIDATED.md")
+    out_path = Path(args.output).resolve() if args.output else (repo_root / "DOCS_CONSOLIDATED.md")
 
     # Avoid accidental self-inclusion if the output is inside docs/.
     files = [p for p in iter_files(docs_dir) if p.resolve() != out_path]
