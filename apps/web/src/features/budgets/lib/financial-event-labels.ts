@@ -18,3 +18,16 @@ export function formatFinancialEventType(eventType: string | null | undefined): 
   return EVENT_TYPE_LABELS[eventType] ?? eventType;
 }
 
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  MANUAL: 'Saisie manuelle',
+  PURCHASE_ORDER: 'Commande',
+  INVOICE: 'Facture',
+};
+
+export function formatFinancialSourceType(
+  sourceType: string | null | undefined,
+): string {
+  if (!sourceType) return '—';
+  return SOURCE_TYPE_LABELS[sourceType] ?? sourceType;
+}
+

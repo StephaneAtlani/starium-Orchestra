@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useBudgetLineAllocations } from '../../hooks/use-budget-line-allocations';
 import { formatAmount } from '../../lib/budget-formatters';
 import { rangeLabel } from './pagination-label';
+import { formatFinancialSourceType } from '../../lib/financial-event-labels';
 
 const DEFAULT_LIMIT = 20;
 
@@ -81,7 +82,9 @@ export function BudgetLineAllocationsTab({
                 {new Date(a.effectiveDate).toLocaleDateString()}
               </TableCell>
               <TableCell className="text-muted-foreground">{a.allocationType}</TableCell>
-              <TableCell className="text-muted-foreground">{a.sourceType}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {formatFinancialSourceType(a.sourceType)}
+              </TableCell>
               <TableCell className="text-right tabular-nums">
                 {formatAmount(a.allocatedAmount, a.currency)}
               </TableCell>
