@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronUp } from 'lucide-react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -14,13 +15,20 @@ import { BudgetLineCommitmentsTab } from './budget-line-commitments-tab';
 import { BudgetLineInvoicesTab } from './budget-line-invoices-tab';
 import { BudgetLineAllocationsTab } from './budget-line-allocations-tab';
 import { BudgetLineDsiInfoTab } from './budget-line-dsi-info-tab';
+import { BudgetLineTimelineTab } from './budget-line-timeline-tab';
 import { CreateOrderDialog } from './create-order-dialog';
 import { CreateInvoiceDialog } from './create-invoice-dialog';
 import { CreateFinancialEventDialog } from './create-financial-event-dialog';
 import { useBudgetLineDetail } from '../../hooks/use-budget-line-detail';
 import { useBudgetLineEvents } from '../../hooks/use-budget-line-events';
 
-export type BudgetLineDrawerTab = 'overview' | 'commitments' | 'invoices' | 'allocations' | 'dsi-info';
+export type BudgetLineDrawerTab =
+  | 'overview'
+  | 'commitments'
+  | 'invoices'
+  | 'allocations'
+  | 'timeline'
+  | 'dsi-info';
 
 const LAST_EVENT_LIMIT = 1;
 const RECENT_INVOICE_DAYS = 30;
@@ -71,6 +79,12 @@ export function BudgetLineIntelligenceDrawer({
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [engagementOpen, setEngagementOpen] = useState(false);
   const [consumptionOpen, setConsumptionOpen] = useState(false);
+  /** Panneau agrandi vers le haut (sm+) — mobile déjà plein écran */
+  const [panelExpanded, setPanelExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!open) setPanelExpanded(false);
+  }, [open]);
 
   const invoiceRecentQuery = useBudgetLineEvents({
     budgetLineId: open ? budgetLineId : null,
@@ -102,9 +116,11 @@ export function BudgetLineIntelligenceDrawer({
           className={cn(
             'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-none',
             'border border-border/60 bg-background shadow-lg outline-none',
-            // Mobile: quasi plein écran. Desktop: hauteur contenue.
+            // Mobile: plein écran. Desktop: hauteur de base ou agrandie (poignée).
             'h-[100dvh] sm:h-[70vh] md:h-[65vh]',
+            panelExpanded && 'sm:h-[min(92dvh,100vh)] md:h-[min(90dvh,100vh)]',
             'rounded-none sm:rounded-t-2xl',
+            'transition-[height] duration-300 ease-out motion-reduce:transition-none',
             // Anti double-scroll: seul le contenu d’onglet scrolle.
             'overflow-hidden',
             'data-open:animate-in data-open:slide-in-from-bottom-2 data-open:fade-in-0',
@@ -145,10 +161,32 @@ export function BudgetLineIntelligenceDrawer({
           )}
 
           {line && (
-            <div className="flex h-full flex-col">
-              <div className="flex justify-center py-2">
-                <div className="h-1 w-12 rounded-full bg-muted-foreground/20" />
-              </div>
+            <div className="flex h-full min-h-0 flex-col">
+              <button
+                type="button"
+                className={cn(
+                  'group flex shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 py-2.5',
+                  'touch-manipulation select-none rounded-t-2xl outline-none',
+                  'hover:bg-muted/40 active:bg-muted/60',
+                  'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                )}
+                aria-expanded={panelExpanded}
+                aria-label={
+                  panelExpanded
+                    ? 'Réduire le panneau'
+                    : 'Agrandir le panneau vers le haut'
+                }
+                onClick={() => setPanelExpanded((v) => !v)}
+              >
+                <span className="h-1 w-12 rounded-full bg-muted-foreground/35 transition-colors group-hover:bg-muted-foreground/50" />
+                <ChevronUp
+                  className={cn(
+                    'size-4 text-muted-foreground transition-transform duration-300 ease-out',
+                    panelExpanded && 'rotate-180',
+                  )}
+                  aria-hidden
+                />
+              </button>
               <BudgetLineDrawerHeader
                 line={line}
                 budgetName={budgetName}
@@ -179,6 +217,7 @@ export function BudgetLineIntelligenceDrawer({
                       <TabsTrigger value="commitments">Commandes</TabsTrigger>
                       <TabsTrigger value="invoices">Factures</TabsTrigger>
                       <TabsTrigger value="allocations">Allocations</TabsTrigger>
+                      <TabsTrigger value="timeline">Timeline</TabsTrigger>
                       <TabsTrigger value="dsi-info">Infos DSI</TabsTrigger>
                     </TabsList>
                   </div>
@@ -210,6 +249,13 @@ export function BudgetLineIntelligenceDrawer({
                       <BudgetLineAllocationsTab
                         budgetLineId={line.id}
                         enabled={activeTab === 'allocations'}
+                      />
+                    </TabsContent>
+                    <TabsContent value="timeline">
+                      <BudgetLineTimelineTab
+                        budgetLineId={line.id}
+                        lineCurrency={line.currency}
+                        enabled={activeTab === 'timeline'}
                       />
                     </TabsContent>
                     <TabsContent value="dsi-info">

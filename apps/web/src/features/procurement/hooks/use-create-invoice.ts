@@ -30,6 +30,9 @@ export function useCreateInvoice(budgetId: string | null, budgetLineId: string |
           queryKey: budgetQueryKeys.budgetLineDetail(clientId, budgetLineId),
         });
         queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.timeline(clientId, budgetLineId),
+        });
+        queryClient.invalidateQueries({
           predicate: (q) => {
             const key = q.queryKey;
             return (
@@ -38,7 +41,9 @@ export function useCreateInvoice(budgetId: string | null, budgetLineId: string |
               key[1] === clientId &&
               key[3] === budgetLineId &&
               (key[2] === 'budget-line-events' ||
-                key[2] === 'budget-line-allocations')
+                key[2] === 'budget-line-allocations' ||
+                key[2] === 'budget-line-purchase-orders' ||
+                key[2] === 'budget-line-invoices')
             );
           },
         });

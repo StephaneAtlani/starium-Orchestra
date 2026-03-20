@@ -52,6 +52,19 @@ export const budgetQueryKeys = {
   budgetLineAllocations: (clientId: string, budgetLineId: string, filters?: object) =>
     ['budgets', clientId, 'budget-line-allocations', budgetLineId, filters] as const,
 
+  /**
+   * RFC-FE-026 — préfixe timeline (sous-clés : events, allocations, purchase-orders, invoices).
+   * Invalider ce préfixe rafraîchit les 4 sources agrégées.
+   */
+  timeline: (clientId: string, budgetLineId: string) =>
+    ['budgets', clientId, 'timeline', budgetLineId] as const,
+
+  budgetLinePurchaseOrders: (clientId: string, budgetLineId: string, filters?: object) =>
+    ['budgets', clientId, 'budget-line-purchase-orders', budgetLineId, filters] as const,
+
+  budgetLineInvoices: (clientId: string, budgetLineId: string, filters?: object) =>
+    ['budgets', clientId, 'budget-line-invoices', budgetLineId, filters] as const,
+
   dashboard: (clientId: string, params?: object) =>
     ['budgets', clientId, 'dashboard', params] as const,
 

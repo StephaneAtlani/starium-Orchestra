@@ -93,3 +93,20 @@ export async function listPurchaseOrdersByBudgetLine(
   return res.json() as Promise<PaginatedResponse<PurchaseOrder>>;
 }
 
+export async function listInvoicesByBudgetLine(
+  authFetch: AuthFetch,
+  budgetLineId: string,
+  params?: {
+    offset?: number;
+    limit?: number;
+    includeCancelled?: boolean;
+  },
+): Promise<PaginatedResponse<Invoice>> {
+  const qs = buildQueryString(params);
+  const res = await authFetch(
+    `${BASE_BUDGET_LINES}/${budgetLineId}/invoices${qs}`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PaginatedResponse<Invoice>>;
+}
+
