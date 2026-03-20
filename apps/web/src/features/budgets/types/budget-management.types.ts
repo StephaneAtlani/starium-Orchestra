@@ -54,6 +54,14 @@ export interface BudgetEnvelope {
   updatedAt: string;
 }
 
+export interface BudgetLineCostCenterSplit {
+  id: string;
+  costCenterId: string;
+  costCenterCode: string;
+  costCenterName: string;
+  percentage: number;
+}
+
 export interface BudgetLine {
   id: string;
   clientId: string;
@@ -63,9 +71,15 @@ export interface BudgetLine {
   code: string | null;
   description: string | null;
   expenseType: string;
-  generalLedgerAccountId: string;
+  generalLedgerAccountId: string | null;
+  /** Présents quand l’API joint les comptes (GET ligne). */
+  generalLedgerAccountCode?: string;
+  generalLedgerAccountName?: string;
   analyticalLedgerAccountId: string | null;
+  analyticalLedgerAccountCode?: string | null;
+  analyticalLedgerAccountName?: string | null;
   allocationScope: string;
+  costCenterSplits?: BudgetLineCostCenterSplit[];
   initialAmount: number;
   revisedAmount: number;
   forecastAmount: number;
