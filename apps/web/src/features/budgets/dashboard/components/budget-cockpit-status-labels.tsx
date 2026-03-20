@@ -11,7 +11,7 @@ export function EnvelopeRiskLabel({ level }: { level: 'LOW' | 'MEDIUM' | 'HIGH' 
     HIGH:
       'border-destructive/35 bg-destructive/[0.08] text-destructive dark:border-destructive/50 dark:bg-destructive/15',
     MEDIUM:
-      'border-amber-500/40 bg-amber-500/[0.12] text-amber-950 dark:border-amber-500/35 dark:bg-amber-500/15 dark:text-amber-100',
+      'border-amber-300/80 bg-amber-50 !text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90 dark:!text-[#1c1917]',
     LOW: 'border-border bg-muted/70 text-muted-foreground',
   };
   const labels: Record<typeof level, string> = {
@@ -35,7 +35,7 @@ export function LineSeverityLabel({
     CRITICAL:
       'border-destructive/35 bg-destructive/[0.08] text-destructive dark:border-destructive/50 dark:bg-destructive/15',
     WARNING:
-      'border-amber-500/40 bg-amber-500/[0.12] text-amber-950 dark:border-amber-500/35 dark:bg-amber-500/15 dark:text-amber-100',
+      'border-amber-300/80 bg-amber-50 !text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90 dark:!text-[#1c1917]',
     OK: 'border-border bg-muted/70 text-muted-foreground',
   };
   const labels: Record<typeof level, string> = {
