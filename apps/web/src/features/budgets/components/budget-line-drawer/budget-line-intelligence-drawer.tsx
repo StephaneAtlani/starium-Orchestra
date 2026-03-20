@@ -118,7 +118,7 @@ export function BudgetLineIntelligenceDrawer({
             'border border-border/60 bg-background shadow-lg outline-none',
             // Mobile: plein écran. Desktop: hauteur de base ou agrandie (poignée).
             'h-[100dvh] sm:h-[70vh] md:h-[65vh]',
-            panelExpanded && 'sm:h-[min(92dvh,100vh)] md:h-[min(90dvh,100vh)]',
+            panelExpanded && 'sm:h-[100dvh] md:h-[100dvh]',
             'rounded-none sm:rounded-t-2xl',
             'transition-[height] duration-300 ease-out motion-reduce:transition-none',
             // Anti double-scroll: seul le contenu d’onglet scrolle.
