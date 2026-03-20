@@ -1,38 +1,42 @@
+# 🧭 ROADMAP FRONTEND — VERSION FINALE PRIORISÉE
 
-| RFC            | Nom                        | Objectif                                               | Priorité | État              |
-| -------------- | -------------------------- | ------------------------------------------------------ | -------- | ----------------- |
-| **RFC-015-1A** | Budget Prisma Schema       | Modèle de données budgets                              | Haute    | ✅ Terminé         |
-| **RFC-015-1B** | Financial Core             | Allocations, événements et recalcul financier          | Haute    | ✅ Terminé         |
-| **RFC-015-2**  | Budget Management API      | CRUD exercices, budgets, enveloppes, lignes            | Haute    | ✅ Terminé         |
-| **RFC-015-3**  | Budget Snapshots           | Historisation des budgets                              | Haute    | ✅ Terminé         |
-| **RFC-016**    | Budget Reporting API       | KPI et agrégations budgétaires                         | Haute    | ✅ Terminé         |
-| **RFC-017**    | Budget Reallocation        | Transfert budgétaire entre lignes                      | Moyenne  | ✅ Terminé         |
-| **RFC-018**    | Budget Import / Export     | Import / export Excel                                  | Moyenne  | ✅ Terminé terminé |
-| **RFC-019**    | Budget Versioning          | Baselines et versions                                  | Moyenne  | ✅ Terminé         |
-| **RFC-020**    | Budget Workflow            | Validation budgétaire                                  | Moyenne  | Annulé            |
-| **RFC-021**    | Analytical Dimensions      | Comptes comptables, ventilation par centres de coûts   | Haute    | ✅ Terminé         |
-| **RFC-022**    | Budget Dashboard API       | API cockpit de pilotage                                | Haute    | ✅ Terminé         |
-| **RFC-023**    | Client RBAC Administration | Administration des rôles et droits par le Client Admin | Haute    | A faire           |
+## 🔥 NIVEAU 1 — PRODUIT UTILISABLE (CRITIQUE)
 
+| Ordre | RFC                    | Nom                                | Objectif                                   | Résultat concret                                                                                        | Priorité | État          |
+| ----- | ---------------------- | ---------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | -------- | ------------- |
+| **1** | **RFC-FE-005**         | Budget Line Detail UI              | Comprendre réellement une ligne budgétaire | Page `/budget-lines/[id]` : KPI, allocations, commitments, invoices, events (lecture complète et audit) | 🔥🔥🔥   | À faire       |
+| **2** | **RFC-FE-ADD-006**     | Budget Line Intelligence Drawer UI | Agir rapidement sur une ligne              | Drawer opérationnel + **refacto/mutualisation composants avec FE-005**                                  | 🔥🔥🔥   | ✅ À optimiser |
+| **3** | **RFC-FE-025** *(NEW)* | Procurement Management UI          | Gérer fournisseurs / commandes / factures  | Pages `/procurement` : listes, filtres, recherche, navigation                                           | 🔥🔥🔥   | À créer       |
+| **4** | **RFC-FE-028** *(NEW)* | Supplier UX                        | UX propre fournisseur                      | Autocomplete, quick-create, anti-doublons                                                               | 🔥🔥🔥   | À créer       |
+| **5** | **RFC-FE-026** *(NEW)* | Financial Events Timeline          | Comprendre les impacts financiers          | Timeline claire (PO, invoices, allocations)                                                             | 🔥🔥🔥   | À créer       |
 
+---
 
-| Ordre  | RFC                | Nom                                   | Objectif                                                                                                                 | Attendus / Résultat concret                                                                                                                                                                 | Priorité | État      |
-| ------ | ------------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------- |
-| **1**  | **RFC-FE-001**     | Budget Frontend Foundation            | Poser l’architecture frontend du module budget : structure feature-first, client API, hooks React Query, layout, routing | Module `/budgets` fonctionnel dans le frontend. Architecture `features/budgets`, API client centralisé, hooks React Query, routing App Router prêt pour les écrans suivants.                | Haute    | ✅ Terminé |
-| **2**  | **RFC-FE-003**     | Budget Exercises & Budgets List UI    | Pages de listing des exercices et budgets avec filtres, recherche et pagination                                          | Pages `/budgets` et `/budgets/exercises` opérationnelles : affichage des listes, filtres (status, exercice), recherche, pagination. Navigation possible vers un budget spécifique.          | Haute    | ✅ Terminé |
-| **3**  | **RFC-FE-004**     | Budget Envelopes & Lines Explorer UI  | Explorateur hiérarchique Budget → Enveloppes → Lignes (navigation principale du module)                                  | Page `/budgets/[budgetId]` avec navigation hiérarchique : affichage des enveloppes et des lignes budgétaires. Expansion / navigation dans la structure budgétaire. Accès direct aux lignes. | Haute    | ✅ Terminé |
-| **4**  | **RFC-FE-015**     | Budget Forms UX                       | Formulaires create/edit pour exercices, budgets, enveloppes et lignes                                                    | Création et modification via UI : création d’exercice, budget, enveloppe et ligne budgétaire. Formulaires validés, gestion loading/error/success, redirection après création.               | Haute    | ✅ Terminé |
-| **5**  | **RFC-FE-005**     | Budget Line Detail UI                 | Page détail d’une ligne budgétaire avec montants, allocations, événements                                                | Page `/budget-lines/[id]` affichant le détail : montants (initial, revised, forecast, remaining), historique allocations et événements financiers.                                          | Haute    | À faire   |
-| **6**  | **RFC-FE-010**     | Budget Reporting Views UI             | Vues de reporting : synthèse exercice, budget, enveloppes et breakdowns                                                  | Pages de reporting permettant de voir les agrégations budgétaires : totaux, consommé, engagé, prévisionnel, reste disponible. Tableaux synthétiques exploitant l’API reporting.             | Haute    | À faire   |
-| **7**  | **RFC-FE-002**     | Budget Dashboard UI                   | Cockpit budgétaire avec KPI, alertes et widgets de pilotage                                                              | Dashboard global du module budget : KPI (consommation, dépassements, forecasts), widgets synthétiques, alertes budgétaires.                                                                 | Haute    | À faire   |
-| **8**  | **RFC-FE-009**     | Budget Import UI                      | Interface d’import Excel : analyse, mapping, preview et exécution                                                        | Interface permettant d’importer un budget via Excel : upload fichier, analyse, mapping colonnes, preview avant import, lancement de l’import.                                               | Haute    | À faire   |
-| **9**  | **RFC-FE-006**     | Budget Envelope Detail UI             | Page détail d’une enveloppe budgétaire (statut, KPI, lignes)                                                             | Page `/budget-envelopes/[id]` en lecture seule : identité, statut, KPI consolidés fournis par le backend, liste paginée des lignes et navigation vers `/budget-lines/[id]` ou edit.         | Moyenne  | ✅ Terminé |
-| **10** | **RFC-FE-007**     | Budget Snapshots UI                   | Interface snapshots : création, liste, consultation et comparaison                                                       | Création de snapshots budgétaires, liste des snapshots existants, consultation et comparaison entre versions figées d’un budget.                                                            | Moyenne  | À faire   |
-| **11** | **RFC-FE-008**     | Budget Versioning UI                  | Interface baseline / révisions / activation / historique de versions                                                     | Gestion des versions de budget : baseline, nouvelles révisions, activation d’une version, visualisation de l’historique.                                                                    | Moyenne  | À faire   |
-| **12** | **RFC-FE-011**     | Analytical Dimensions UI              | Gestion des comptes analytiques, centres de coûts et ventilations                                                        | Interfaces pour gérer les axes analytiques : comptes analytiques, centres de coûts, ventilation des lignes budgétaires.                                                                     | Moyenne  | À faire   |
-| **13** | **RFC-FE-012**     | Budget Charts & Visual Analytics      | Graphiques et visualisations du cockpit budgétaire                                                                       | Graphiques de pilotage : évolution budgétaire, consommation par enveloppe, répartition des dépenses, visualisation interactive.                                                             | Moyenne  | À faire   |
-| **14** | **RFC-FE-013**     | Budget Permissions & Navigation UX    | Gestion de l’affichage selon modules, permissions et client actif                                                        | Adaptation de l’interface selon permissions RBAC et module actif : menus dynamiques, actions visibles selon rôle.                                                                           | Haute    | À faire   |
-| **15** | **RFC-FE-014**     | Budget Empty / Error / Loading States | Uniformisation UX des états loading, empty et error                                                                      | Tous les écrans utilisent des composants standard : `LoadingState`, `EmptyState`, `ErrorState`. UX cohérente dans tout le module budget.                                                    | Haute    | À faire   |
-| **16** | **RFC-FE-ADD-006** | Budget Line Intelligence Drawer UI    | Drawer bottom-sheet “cockpit” sur une ligne budgétaire depuis l’explorer                                                 | Clic sur titre de ligne → drawer bas réutilisable : header + badges, KPI, overview cockpit, onglets commandes/factures/allocations + création d’événements + DSI placeholders structurés.   | Haute    | ✅ Terminé |
+## ⚙️ NIVEAU 2 — PILOTAGE & CRÉDIBILITÉ
 
+| Ordre | RFC                    | Nom                         | Objectif                            | Résultat concret                          | Priorité | État    |
+| ----- | ---------------------- | --------------------------- | ----------------------------------- | ----------------------------------------- | -------- | ------- |
+| **6** | **RFC-FE-002**         | Budget Dashboard UI         | Vision globale DG / CODIR           | Dashboard KPI + alertes + drill-down      | 🔥🔥     | À faire |
+| **7** | **RFC-FE-027** *(NEW)* | Budget Alerts & Integrity   | Sécuriser les budgets               | Alertes dépassement, incohérences, badges | 🔥🔥     | À créer |
+| **8** | **RFC-FE-013**         | Permissions & Navigation UX | Adapter UI au RBAC                  | Menus dynamiques, actions conditionnelles | 🔥🔥     | À faire |
+| **9** | **RFC-FE-014**         | UX States                   | Uniformiser loading / error / empty | UX propre sur tout le module              | 🔥🔥     | À faire |
 
+---
+
+## 📊 NIVEAU 3 — ANALYSE & VALORISATION
+
+| Ordre  | RFC            | Nom                       | Objectif                | Résultat concret               | Priorité | État    |
+| ------ | -------------- | ------------------------- | ----------------------- | ------------------------------ | -------- | ------- |
+| **10** | **RFC-FE-010** | Budget Reporting Views UI | Exploiter API reporting | Vues synthétiques exploitables | 🔥       | À faire |
+| **11** | **RFC-FE-012** | Charts & Visual Analytics | Visualisation graphique | Graphiques interactifs         | 🔥       | À faire |
+
+---
+
+## 🧱 NIVEAU 4 — AVANCÉ / NON BLOQUANT
+
+| Ordre  | RFC            | Nom                      | Objectif            | Résultat concret         | Priorité | État    |
+| ------ | -------------- | ------------------------ | ------------------- | ------------------------ | -------- | ------- |
+| **12** | **RFC-FE-007** | Budget Snapshots UI      | Exploiter snapshots | Comparaison versions     | 🟡       | À faire |
+| **13** | **RFC-FE-008** | Budget Versioning UI     | Gestion versions    | Baselines + historique   | 🟡       | À faire |
+| **14** | **RFC-FE-009** | Budget Import UI         | Import Excel avancé | Mapping + preview        | 🟡       | À faire |
+| **15** | **RFC-FE-011** | Analytical Dimensions UI | UI analytique       | Gestion axes analytiques | 🟡       | À faire |
