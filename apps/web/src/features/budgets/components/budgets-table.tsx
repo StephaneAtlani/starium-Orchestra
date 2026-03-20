@@ -10,6 +10,8 @@ import type { BudgetSummary } from '../types/budget-list.types';
 import type { BudgetExerciseSummary } from '../types/budget-list.types';
 import { ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { saveBudgetCockpitSelection } from '@/features/budgets/lib/budget-cockpit-selection-storage';
 
 function formatDate(value: string | undefined): string {
   if (!value) return '—';
@@ -39,6 +41,16 @@ export function BudgetsTable({
   exerciseOptions,
   dataTestId = 'budgets-table',
 }: BudgetsTableProps) {
+  const { activeClient } = useActiveClient();
+
+  const persistCockpitSelection = (row: BudgetSummary) => {
+    if (!activeClient?.id) return;
+    saveBudgetCockpitSelection(activeClient.id, {
+      exerciseId: row.exerciseId,
+      budgetId: row.id,
+    });
+  };
+
   const getExerciseLabel = (exerciseId: string): string => {
     const ex = exerciseOptions.find((e) => e.id === exerciseId);
     return ex ? ex.name : exerciseId;
@@ -57,6 +69,7 @@ export function BudgetsTable({
                 <Link
                   href={budgetDetail(row.id)}
                   className="font-medium text-primary hover:underline"
+                  onClick={() => persistCockpitSelection(row)}
                 >
                   {row.name}
                 </Link>
@@ -94,6 +107,7 @@ export function BudgetsTable({
                     'inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm',
                     'hover:bg-muted hover:text-foreground',
                   )}
+                  onClick={() => persistCockpitSelection(row)}
                 >
                   <ExternalLink className="size-4" />
                   Ouvrir

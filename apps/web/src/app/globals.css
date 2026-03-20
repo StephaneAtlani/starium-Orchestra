@@ -41,7 +41,7 @@
   --input: #E6E8EF;
   --ring: #6F4BB8;
 
-  --sidebar: #6F4BB8;
+  --sidebar: #4a2f7a;
   --sidebar-foreground: #FFFFFF;
   --sidebar-primary: #6F4BB8;
   --sidebar-primary-foreground: #FFFFFF;
@@ -56,19 +56,24 @@
 .starium-sidebar {
   width: 12rem;
   min-width: 12rem;
-  /* Dégradé violet (marque) — haut plus profond, bas plus lumineux */
-  background: linear-gradient(
-    165deg,
-    #4a2f7a 0%,
-    #5e3fa3 28%,
-    #6f4bb8 55%,
-    #7d5ec9 78%,
-    #8f72d4 100%
-  );
-  background-color: var(--sidebar); /* repli si gradient non supporté */
+  /* Colonne gauche : même fond du haut au bas (y compris scroll long) */
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--sidebar);
+  /* Dégradé violet (marque) — étiré sur toute la hauteur de l’aside */
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: var(--sidebar-foreground);
+}
+/* Bandeau logo — pas de fond opaque : le dégradé parent reste visible */
+.starium-sidebar-header {
+  flex-shrink: 0;
+  background-color: transparent;
   color: var(--sidebar-foreground);
 }
 .starium-sidebar-nav {
+  flex: 1 1 0%;
+  min-height: 0;
   background-color: transparent;
   color: var(--sidebar-foreground);
 }

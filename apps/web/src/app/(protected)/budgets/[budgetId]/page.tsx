@@ -41,6 +41,8 @@ import type { BudgetEnvelope, BudgetLine } from '@/features/budgets/types/budget
 import { TaxDisplayModeToggle } from '@/components/finance/tax-display-mode-toggle';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import { formatTaxAwareAmount } from '@/lib/format-tax-aware-amount';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { saveBudgetCockpitSelection } from '@/features/budgets/lib/budget-cockpit-selection-storage';
 
 export default function BudgetDetailPage() {
   const budgetId = (() => {
@@ -103,6 +105,15 @@ export default function BudgetDetailPage() {
   }, []);
 
   const { data: summary } = useBudgetSummary(budgetId);
+  const { activeClient } = useActiveClient();
+
+  useEffect(() => {
+    if (!activeClient?.id || !budget?.id || !budget.exerciseId) return;
+    saveBudgetCockpitSelection(activeClient.id, {
+      exerciseId: budget.exerciseId,
+      budgetId: budget.id,
+    });
+  }, [activeClient?.id, budget?.id, budget?.exerciseId]);
 
   if (isLoading) {
     return (
