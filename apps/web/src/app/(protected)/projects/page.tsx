@@ -4,8 +4,18 @@ import Link from 'next/link';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
-import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { PermissionGate } from '@/components/PermissionGate';
 import { PaginationSummary } from '@/features/budgets/components/pagination-summary';
 import { useProjectsListFilters } from '@/features/projects/hooks/use-projects-list-filters';
@@ -36,7 +46,7 @@ export default function ProjectsPortfolioPage() {
     enabled: listEnabled,
   });
 
-  const apiErr = error as ApiFormError | undefined;
+  const apiErr = error ? (error as unknown as ApiFormError) : undefined;
 
   const limit = filters.limit;
   const total = data?.total ?? 0;
@@ -49,12 +59,12 @@ export default function ProjectsPortfolioPage() {
       <PageContainer>
         <PageHeader
           title="Projets"
-          description="Cockpit portefeuille — pilotage et signaux par client actif."
+          description="Cockpit portefeuille — pilotage et signaux pour le client actif."
           actions={
             <PermissionGate permission="projects.create">
               <Link
                 href={projectNew()}
-                className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+                className={cn(buttonVariants({ variant: 'default', size: 'sm' }))}
               >
                 <Plus className="size-4" />
                 Nouveau projet
@@ -100,11 +110,27 @@ export default function ProjectsPortfolioPage() {
                 <p className="font-medium text-destructive">
                   {apiErr?.message ?? 'Impossible de charger les projets.'}
                 </p>
-                {(apiErr?.status === 403 || apiErr?.status === 404) && (
+                {apiErr?.status != null && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Code HTTP : <code className="rounded bg-muted px-1">{apiErr.status}</code>
+                  </p>
+                )}
+                {apiErr?.status === 403 && (
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Si vous devriez avoir accès : vérifiez que le module <strong>Projets</strong> est activé
-                    pour ce client (administration) et que votre rôle inclut{' '}
+                    Accès refusé par l&apos;API (module désactivé pour ce client, ou permissions
+                    insuffisantes). Vérifiez en administration que le module{' '}
+                    <strong>Projets</strong> est <strong>activé</strong> pour ce client et que
+                    votre rôle inclut{' '}
                     <code className="rounded bg-muted px-1">projects.read</code>.
+                  </p>
+                )}
+                {apiErr?.status === 404 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Un <strong>404</strong> sur <code className="rounded bg-muted px-1">GET /api/projects</code>{' '}
+                    indique en général que la route n&apos;existe pas sur le serveur API (binaire pas à
+                    jour, mauvaise <code className="rounded bg-muted px-1">NEXT_PUBLIC_API_URL</code>,
+                    ou proxy). Ce n&apos;est <strong>pas</strong> typiquement un problème de rôle dans
+                    la base : dans ce cas l&apos;API répondrait plutôt en <strong>403</strong>.
                   </p>
                 )}
                 <Button
@@ -121,38 +147,61 @@ export default function ProjectsPortfolioPage() {
             )}
 
             {!isLoading && !error && data && data.items.length === 0 && (
-              <p className="text-sm text-muted-foreground">Aucun projet sur ce périmètre.</p>
+              <EmptyState
+                title="Aucun projet"
+                description="Aucun projet ne correspond à ce périmètre. Élargissez les filtres ou créez un nouveau projet."
+                action={
+                  has('projects.create') ? (
+                    <Link
+                      href={projectNew()}
+                      className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+                    >
+                      Nouveau projet
+                    </Link>
+                  ) : undefined
+                }
+              />
             )}
 
             {!isLoading && !error && data && data.items.length > 0 && (
-          <>
-            <ProjectsListTable items={data.items} />
-            <div className="mt-3 flex items-center justify-between">
-              <PaginationSummary offset={offset} limit={data.limit} total={data.total} />
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage <= 1}
-                  onClick={() => setFilters({ page: currentPage - 1 })}
-                  data-testid="projects-pagination-prev"
-                >
-                  <ChevronLeft className="size-4" />
-                  Précédent
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setFilters({ page: currentPage + 1 })}
-                  data-testid="projects-pagination-next"
-                >
-                  Suivant
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
-            </div>
-          </>
+              <Card size="sm" className="overflow-hidden shadow-sm">
+                <CardHeader className="border-b border-border/60 pb-3">
+                  <CardTitle className="text-sm font-medium">Liste des projets</CardTitle>
+                  <CardDescription>
+                    Sélectionnez un projet pour ouvrir la fiche (jalons, risques, tâches).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-0 pb-0 pt-0">
+                  <div data-slot="table-container" className="overflow-x-auto">
+                    <ProjectsListTable items={data.items} />
+                  </div>
+                </CardContent>
+                <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <PaginationSummary offset={offset} limit={data.limit} total={data.total} />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage <= 1}
+                      onClick={() => setFilters({ page: currentPage - 1 })}
+                      data-testid="projects-pagination-prev"
+                    >
+                      <ChevronLeft className="size-4" />
+                      Précédent
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => setFilters({ page: currentPage + 1 })}
+                      data-testid="projects-pagination-next"
+                    >
+                      Suivant
+                      <ChevronRight className="size-4" />
+                    </Button>
+                  </div>
+                </CardFooter>
+              </Card>
             )}
           </>
         )}

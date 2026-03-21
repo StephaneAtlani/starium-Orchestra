@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 export interface KpiCardProps {
   title: string;
@@ -9,29 +10,62 @@ export interface KpiCardProps {
   /** Évolution positive (ex. "+5 %") — affiché en vert. */
   trend?: string;
   icon?: React.ReactNode;
+  /**
+   * `dense` — grilles cockpit multi-KPI (portefeuille projets, tableaux de bord compacts).
+   * `default` — carte hero (dashboard, détail budget).
+   */
+  variant?: 'default' | 'dense';
 }
 
-export function KpiCard({ title, value, subtitle, trend, icon }: KpiCardProps) {
+export function KpiCard({
+  title,
+  value,
+  subtitle,
+  trend,
+  icon,
+  variant = 'default',
+}: KpiCardProps) {
+  const dense = variant === 'dense';
   return (
-    <Card className="flex flex-col gap-2 p-5 transition-shadow hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground">
+    <Card
+      className={cn(
+        'flex flex-col transition-shadow hover:shadow-md',
+        dense ? 'gap-1.5 p-3 shadow-sm' : 'gap-2 p-5',
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className={cn(
+            'font-medium leading-tight text-muted-foreground',
+            dense ? 'text-xs' : 'text-sm',
+          )}
+        >
           {title}
         </span>
         {icon && (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
+          <div
+            className={cn(
+              'flex shrink-0 items-center justify-center rounded-lg bg-accent text-primary',
+              dense ? 'h-7 w-7 [&_svg]:size-3.5' : 'h-9 w-9',
+            )}
+          >
             {icon}
           </div>
         )}
       </div>
-      <div className="text-3xl font-bold tracking-tight tabular-nums text-foreground">
+      <div
+        className={cn(
+          'tracking-tight tabular-nums text-foreground',
+          dense ? 'text-xl font-semibold' : 'text-3xl font-bold',
+        )}
+      >
         {value}
       </div>
       {subtitle && (
         <div className="text-xs text-muted-foreground">{subtitle}</div>
       )}
       {trend && (
-        <div className="text-xs text-emerald-600">{trend}</div>
+        <div className="text-xs text-emerald-600 dark:text-emerald-500">{trend}</div>
       )}
     </Card>
   );

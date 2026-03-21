@@ -37,7 +37,14 @@ export function ProjectsToolbar({ filters, setFilters }: ProjectsToolbarProps) {
   const criticalityKey = filters.criticality ?? '__all__';
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-3">
+    <div
+      className="flex w-full min-w-0 flex-col gap-3 rounded-xl border border-border/80 bg-muted/30 p-3 sm:p-4"
+      role="search"
+      aria-label="Filtres et tri de la liste des projets"
+    >
+      <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+        Filtres & tri
+      </p>
       <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
         <div className="flex min-w-[min(100%,12rem)] max-w-xs flex-1 flex-col gap-1 sm:flex-none">
           <Label htmlFor="projects-search" className="text-xs text-muted-foreground">

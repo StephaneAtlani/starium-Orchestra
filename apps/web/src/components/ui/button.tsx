@@ -41,19 +41,29 @@ const buttonVariants = cva(
   }
 )
 
+type ButtonProps = ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & {
+    /**
+     * Compat shadcn/Radix : ne pas transmettre au DOM (Base UI n’utilise pas `asChild`).
+     * Pour un lien stylé bouton : `Link` + `buttonVariants({ ... })`.
+     */
+    asChild?: boolean;
+  };
+
 function Button({
   className,
   variant = "default",
   size = "default",
+  asChild: _asChild,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonProps) {
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
-  )
+  );
 }
 
 export { Button, buttonVariants }

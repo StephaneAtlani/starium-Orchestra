@@ -2,6 +2,8 @@
 
 ## Architecture Frontend — Starium Orchestra
 
+> **UI/UX (patterns visuels, extraits de code)** : voir [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md).
+
 ---
 
 ## 1. Objectif
@@ -306,9 +308,9 @@ Le workspace est la zone de travail métier.
 
 ```text
 PageHeader
-KPI row (composant KpiCard dans components/ui/kpi-card.tsx : title, value, subtitle, trend?, icon?)
-Toolbar (filtres, recherche, actions)
-Contenu principal (table, cards, détails)
+KPI row (`KpiCard` : `variant="default"` pour un hero, `variant="dense"` + icônes pour les grilles portefeuille — voir §30.6 Projets)
+Toolbar (filtres, recherche, actions — souvent dans un panneau `rounded-xl border bg-muted/30`)
+Contenu principal (`Card` + en-tête + table dans `data-slot="table-container"` si débordement horizontal)
 Pagination / résumé
 ```
 
@@ -830,7 +832,7 @@ Aucune couleur métier ne doit être codée en dur dans les composants hors desi
 
 Les pages doivent utiliser **uniquement** les composants des dossiers suivants :
 
-* `components/ui/*` — composants shadcn (dont `KpiCard` pour les indicateurs dashboard)
+* `components/ui/*` — composants shadcn (dont `KpiCard` pour les indicateurs dashboard — prop `variant="dense"` pour les grilles multi-KPI cockpit)
 * `components/layout/*` — PageContainer, PageHeader, TableToolbar
 * `components/feedback/*` — LoadingState, EmptyState, ErrorState
 * `components/data-table/*` — DataTable
@@ -1133,6 +1135,44 @@ body {
 - Titres de cards / sections : `text-base` ou `text-sm` selon le contexte.
 
 **Règle :** pour du texte courant (lignes de tableau, labels de formulaire, descriptions), rester sur `text-sm` ou moins ; réserver `text-lg`+ aux titres vraiment structurants.
+
+### 30.6 Module Projets — cockpit portefeuille (`/projects`)
+
+Écran de référence pour un **cockpit dense multi-indicateurs** côté client (RFC-PROJ-001, MVP).
+
+**Structure UX**
+
+1. **PageHeader** — titre « Projets », description courte, action primaire : `Link` + `buttonVariants({ variant: 'default', size: 'sm' })` « Nouveau projet » (même pattern que les pages RBAC client) derrière `PermissionGate` (`projects.create`).
+2. **KPI** — `features/projects/components/projects-portfolio-kpi.tsx` :
+   * utilise **`KpiCard` en `variant="dense"`** avec **icônes Lucide** (cohérence §21) ;
+   * indicateurs **groupés en trois sections** accessibles (`Volume`, `Risques & échéances`, `Complétude`) pour éviter une grille plate de neuf cartes indifférenciées ;
+   * données issues de `GET /api/projects/portfolio-summary` (`usePortfolioSummaryQuery`).
+3. **Filtres** — `ProjectsToolbar` dans un **panneau** `rounded-xl border border-border/80 bg-muted/30`, titre « Filtres & tri », `role="search"` ; filtres synchronisés URL (`useProjectsListFilters`).
+4. **Liste** — `Card size="sm"` : `CardHeader` (titre + description), `CardContent` avec `data-slot="table-container"` + `overflow-x-auto`, `ProjectsListTable` (`components/ui/table`).
+5. **États** — `LoadingState`, bloc d’erreur API (codes HTTP), **`EmptyState`** si liste vide (CTA création si `projects.create`).
+6. **Pagination** — `CardFooter` + `PaginationSummary` (feature budgets) + boutons Précédent / Suivant.
+
+**Arborescence `features/projects/` (extraits)**
+
+```text
+features/projects/
+├── api/projects.api.ts
+├── hooks/
+│   ├── use-projects-list-filters.ts    # filtres ↔ URL
+│   ├── use-projects-list-query.ts
+│   ├── use-portfolio-summary-query.ts
+│   └── use-project-detail-query.ts
+├── components/
+│   ├── projects-portfolio-kpi.tsx
+│   ├── projects-toolbar.tsx
+│   ├── projects-list-table.tsx
+│   ├── project-badges.tsx
+│   └── project-detail-view.tsx
+├── lib/project-query-keys.ts           # query keys tenant-aware
+└── constants/project-routes.ts
+```
+
+**Query keys** — toute donnée métier inclut `clientId` (ex. `projectQueryKeys.list(clientId, params)`).
 
 ---
 
