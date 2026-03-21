@@ -40,6 +40,9 @@ const ALLOCATION_LABEL: Record<ProjectBudgetAllocationType, string> = {
   FIXED: 'Montants fixes',
 };
 
+/** Valeur réservée pour « aucune sélection » — évite value undefined (Select contrôlé stable). */
+const SELECT_NONE = '__none__';
+
 function isApiFormError(e: unknown): e is ApiFormError {
   return (
     typeof e === 'object' &&
@@ -52,12 +55,14 @@ function isApiFormError(e: unknown): e is ApiFormError {
 export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   const linksQuery = useProjectBudgetLinksQuery(projectId);
   const budgetsQuery = useBudgetsList({ limit: 100 });
-  const [budgetId, setBudgetId] = useState<string>('');
-  const linesQuery = useBudgetLinesByBudget(budgetId || null);
+  const [budgetId, setBudgetId] = useState<string>(SELECT_NONE);
+  const linesQuery = useBudgetLinesByBudget(
+    budgetId === SELECT_NONE ? null : budgetId,
+  );
 
   const [allocationType, setAllocationType] =
     useState<ProjectBudgetAllocationType>('FULL');
-  const [budgetLineId, setBudgetLineId] = useState('');
+  const [budgetLineId, setBudgetLineId] = useState<string>(SELECT_NONE);
   const [percentage, setPercentage] = useState('');
   const [amount, setAmount] = useState('');
 
@@ -70,14 +75,14 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   }, [linesQuery.data]);
 
   const resetForm = () => {
-    setBudgetLineId('');
+    setBudgetLineId(SELECT_NONE);
     setPercentage('');
     setAmount('');
   };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!budgetLineId) {
+    if (!budgetLineId || budgetLineId === SELECT_NONE) {
       toast.error('Choisissez une ligne budgétaire ACTIVE.');
       return;
     }
@@ -133,7 +138,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
       <CardHeader>
         <CardTitle>Budget</CardTitle>
         <p className="text-sm font-normal text-muted-foreground">
-          Liez le projet à une ou plusieurs lignes budgétaires (RFC-PROJ-010).
+          Liez le projet à une ou plusieurs lignes budgétaires.
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -187,16 +192,19 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
               </Table>
             )}
 
-            <form onSubmit={onSubmit} className="space-y-4 rounded-lg border p-4">
+            <form
+              onSubmit={onSubmit}
+              className="space-y-4 rounded-lg border border-border/70 bg-muted/30 p-4"
+            >
               <p className="text-sm font-medium">Ajouter un lien</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="pb-budget">Budget</Label>
                   <Select
-                    value={budgetId || undefined}
+                    value={budgetId}
                     onValueChange={(v) => {
-                      setBudgetId(v ?? '');
-                      setBudgetLineId('');
+                      setBudgetId(v);
+                      setBudgetLineId(SELECT_NONE);
                     }}
                     disabled={budgetsQuery.isLoading}
                   >
@@ -208,6 +216,9 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={SELECT_NONE} className="text-muted-foreground">
+                        Choisir un budget
+                      </SelectItem>
                       {(budgetsQuery.data?.items ?? []).map((b) => (
                         <SelectItem key={b.id} value={b.id}>
                           {b.code} — {b.name}
@@ -219,14 +230,17 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                 <div className="space-y-2">
                   <Label htmlFor="pb-line">Ligne budgétaire (ACTIVE)</Label>
                   <Select
-                    value={budgetLineId || undefined}
-                    onValueChange={(v) => setBudgetLineId(v ?? '')}
-                    disabled={!budgetId || linesQuery.isLoading}
+                    value={budgetLineId}
+                    onValueChange={setBudgetLineId}
+                    disabled={budgetId === SELECT_NONE || linesQuery.isLoading}
                   >
                     <SelectTrigger id="pb-line">
                       <SelectValue placeholder="Choisir une ligne" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={SELECT_NONE} className="text-muted-foreground">
+                        Choisir une ligne
+                      </SelectItem>
                       {activeLines.map((l) => (
                         <SelectItem key={l.id} value={l.id}>
                           {l.code} — {l.name}
@@ -286,7 +300,14 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                 )}
               </div>
 
-              <Button type="submit" disabled={createMut.isPending || !budgetLineId}>
+              <Button
+                type="submit"
+                disabled={
+                  createMut.isPending ||
+                  !budgetLineId ||
+                  budgetLineId === SELECT_NONE
+                }
+              >
                 {createMut.isPending ? 'Enregistrement…' : 'Ajouter le lien'}
               </Button>
             </form>

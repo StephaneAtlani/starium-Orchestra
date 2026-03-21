@@ -21,6 +21,7 @@ Fichiers clés : `apps/web/src/app/globals.css`, `apps/web/src/styles/tokens.css
 ## 2. Règles express
 
 - Couleurs : **tokens** (`bg-background`, `text-muted-foreground`, `border-border`, `bg-card`, etc.) — pas d’hex arbitraires dans les pages.
+- **Bordures / cadres** : ne jamais se contenter de la classe **`border`** seule — sans couleur explicite, Tailwind applique souvent une couleur de bordure **trop contrastée** (effet « noir » sur fond clair). Toujours combiner avec un token : **`border-border`**, **`border-border/60`**, **`border-border/70`**, **`border-input`** (champs), ou **`border-dashed border-border/80`** (zones vides). Les **`Card`** utilisent déjà `.starium-card` (`var(--starium-border)`). Pour un **sous-bloc** dans une carte (formulaire, encart), préférer par ex. `rounded-lg border border-border/70 bg-muted/30 p-4` — filet **gris** cohérent avec le reste de l’UI, pas un trait noir.
 - Structure : **pas de HTML “layout” bricolé** ; utiliser `components/ui/*`, `components/layout/*`, `components/feedback/*`, `components/shell/*`.
 - Chaque écran de données : états **loading**, **error**, **empty**, **success** explicites.
 - **Query keys** métier : toujours inclure `clientId` (voir architecture).
