@@ -57,12 +57,12 @@ function formatUserLabel(m: ProjectAssignableUser): string {
   return n || m.email;
 }
 
-/** Libellé affiché dans le select utilisateur (jamais l’id brut). */
+/** Libellé affiché dans le select utilisateur (jamais l’id ni la sentinelle __none__). */
 function userPickLabel(
   pick: string,
   assignable: ProjectAssignableUser[],
-): string | undefined {
-  if (pick === NONE) return undefined;
+): string {
+  if (pick === NONE) return '— Choisir dans la liste';
   const u = assignable.find((x) => x.id === pick);
   return u ? formatUserLabel(u) : 'Compte non disponible dans la liste';
 }
@@ -234,9 +234,12 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                   const freeAff =
                     freeAffiliationByRole[role.id] ??
                     ('INTERNAL' as ProjectTeamMemberAffiliationApi);
-                  const canDeleteRole = canEdit && role.systemKind == null;
                   const busy =
                     addMemberMutation.isPending || removeMemberMutation.isPending;
+                  const deleteRoleConfirmMessage =
+                    role.systemKind != null
+                      ? 'Supprimer ce rôle système ? Aucun membre ne doit y être affecté. Les champs sponsor / responsable projet (portefeuille) seront recalculés.'
+                      : 'Supprimer ce rôle ? (aucun membre ne doit y être affecté)';
 
                   return (
                     <li
@@ -264,22 +267,17 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                             </Badge>
                           ) : null}
                         </div>
-                        {canEdit && canDeleteRole ? (
+                        {canEdit ? (
                           <Button
                             type="button"
                             size="icon"
                             variant="ghost"
                             className="size-9 shrink-0 text-muted-foreground hover:text-destructive lg:hidden"
                             disabled={deleteRoleMutation.isPending}
-                            title="Supprimer ce rôle (doit être vide)"
+                            title="Supprimer ce rôle (aucun membre affecté)"
                             aria-label={`Supprimer le rôle ${role.name}`}
                             onClick={() => {
-                              if (
-                                !confirm(
-                                  'Supprimer ce rôle ? (aucun membre ne doit y être affecté)',
-                                )
-                              )
-                                return;
+                              if (!confirm(deleteRoleConfirmMessage)) return;
                               deleteRoleMutation.mutate(role.id);
                             }}
                           >
@@ -494,28 +492,21 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
 
                       {canEdit ? (
                         <div className="hidden lg:flex lg:mt-0 lg:justify-end lg:pt-0">
-                          {canDeleteRole ? (
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              className="size-9 text-muted-foreground hover:text-destructive"
-                              disabled={deleteRoleMutation.isPending}
-                              title="Supprimer ce rôle (doit être vide)"
-                              aria-label={`Supprimer le rôle ${role.name}`}
-                              onClick={() => {
-                                if (
-                                  !confirm(
-                                    'Supprimer ce rôle ? (aucun membre ne doit y être affecté)',
-                                  )
-                                )
-                                  return;
-                                deleteRoleMutation.mutate(role.id);
-                              }}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          ) : null}
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="size-9 text-muted-foreground hover:text-destructive"
+                            disabled={deleteRoleMutation.isPending}
+                            title="Supprimer ce rôle (aucun membre affecté)"
+                            aria-label={`Supprimer le rôle ${role.name}`}
+                            onClick={() => {
+                              if (!confirm(deleteRoleConfirmMessage)) return;
+                              deleteRoleMutation.mutate(role.id);
+                            }}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
                         </div>
                       ) : null}
                     </li>

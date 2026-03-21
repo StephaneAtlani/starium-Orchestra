@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  Check,
   ChevronDown,
   ChevronLeft,
   Info,
@@ -239,6 +238,21 @@ const textareaClass = cn(
   'disabled:cursor-not-allowed disabled:opacity-50',
 );
 
+/** Délai après la dernière frappe avant envoi API (sauvegarde automatique fiche projet). */
+const SHEET_AUTOSAVE_DEBOUNCE_MS = 900;
+
+function formatSavedClock(ts: number): string {
+  try {
+    return new Date(ts).toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
 export function ProjectSheetView({ projectId }: { projectId: string }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -279,8 +293,22 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const [tWO, setTWO] = useState<string[]>(['']);
   const [tWT, setTWT] = useState<string[]>(['']);
 
+  /** Une seule hydratation par navigation projet : les refetch n’écrasent pas la saisie (autosave). */
+  const hydratedProjectIdRef = useRef<string | null>(null);
+  /** Après hydratation, ignore une exécution du debounce (évite un POST au chargement). */
+  const suppressNextSheetAutosaveRef = useRef(false);
+  const [lastSheetSavedAt, setLastSheetSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    hydratedProjectIdRef.current = null;
+  }, [projectId]);
+
   useEffect(() => {
     if (!sheet) return;
+    if (hydratedProjectIdRef.current === projectId) return;
+    hydratedProjectIdRef.current = projectId;
+    suppressNextSheetAutosaveRef.current = true;
+
     setProjectName(sheet.name);
     setCadreWhere(sheet.cadreLocation ?? '');
     setCadreWho(sheet.cadreQui ?? '');
@@ -308,49 +336,79 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     setTST(linesForForm(t?.ST));
     setTWO(linesForForm(t?.WO));
     setTWT(linesForForm(t?.WT));
-  }, [sheet]);
+  }, [projectId, sheet]);
+
+  const buildProjectSheetPayload = useCallback((): UpdateProjectSheetPayload => {
+    if (!sheet) throw new Error('Fiche indisponible');
+    const payload: UpdateProjectSheetPayload = {};
+    payload.name = projectName.trim() || sheet.name;
+    payload.cadreLocation = cadreWhere.trim() ? cadreWhere.trim() : null;
+    payload.cadreQui = cadreWho.trim() ? cadreWho.trim() : null;
+    payload.startDate = cadreStart.trim() ? cadreStart : null;
+    payload.targetEndDate = cadreEnd.trim() ? cadreEnd : null;
+    payload.description = description.trim();
+    const nBv = numOrUndef(bv);
+    const nSa = numOrUndef(sa);
+    const nUs = numOrUndef(us);
+    const nCost = numOrUndef(cost);
+    const nGain = numOrUndef(gain);
+    if (nBv !== undefined) payload.businessValueScore = nBv;
+    if (nSa !== undefined) payload.strategicAlignment = nSa;
+    if (nUs !== undefined) payload.urgencyScore = nUs;
+    if (nCost !== undefined) payload.estimatedCost = nCost;
+    if (nGain !== undefined) payload.estimatedGain = nGain;
+    if (risk && risk !== RISK_UNSET) {
+      payload.riskLevel = risk as ProjectSheetRiskLevel;
+    }
+    payload.copilRecommendation = copilDraft;
+    if (problem.trim()) payload.businessProblem = problem.trim();
+    if (benefits.trim()) payload.businessBenefits = benefits.trim();
+    payload.businessSuccessKpis = kpiLines.map((s) => s.trim()).filter(Boolean);
+    payload.swotStrengths = trimLinesToPayload(swS);
+    payload.swotWeaknesses = trimLinesToPayload(swW);
+    payload.swotOpportunities = trimLinesToPayload(swO);
+    payload.swotThreats = trimLinesToPayload(swT);
+    payload.towsActions = {
+      SO: trimLinesToPayload(tSO),
+      ST: trimLinesToPayload(tST),
+      WO: trimLinesToPayload(tWO),
+      WT: trimLinesToPayload(tWT),
+    };
+    return payload;
+  }, [
+    sheet,
+    projectName,
+    cadreWhere,
+    cadreWho,
+    cadreStart,
+    cadreEnd,
+    description,
+    bv,
+    sa,
+    us,
+    cost,
+    gain,
+    risk,
+    copilDraft,
+    problem,
+    benefits,
+    kpiLines,
+    swS,
+    swW,
+    swO,
+    swT,
+    tSO,
+    tST,
+    tWO,
+    tWT,
+  ]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!sheet) throw new Error('Fiche indisponible');
-      const payload: UpdateProjectSheetPayload = {};
-      payload.name = projectName.trim() || sheet.name;
-      payload.cadreLocation = cadreWhere.trim() ? cadreWhere.trim() : null;
-      payload.cadreQui = cadreWho.trim() ? cadreWho.trim() : null;
-      payload.startDate = cadreStart.trim() ? cadreStart : null;
-      payload.targetEndDate = cadreEnd.trim() ? cadreEnd : null;
-      payload.description = description.trim();
-      const nBv = numOrUndef(bv);
-      const nSa = numOrUndef(sa);
-      const nUs = numOrUndef(us);
-      const nCost = numOrUndef(cost);
-      const nGain = numOrUndef(gain);
-      if (nBv !== undefined) payload.businessValueScore = nBv;
-      if (nSa !== undefined) payload.strategicAlignment = nSa;
-      if (nUs !== undefined) payload.urgencyScore = nUs;
-      if (nCost !== undefined) payload.estimatedCost = nCost;
-      if (nGain !== undefined) payload.estimatedGain = nGain;
-      if (risk && risk !== RISK_UNSET) {
-        payload.riskLevel = risk as ProjectSheetRiskLevel;
-      }
-      payload.copilRecommendation = copilDraft;
-      if (problem.trim()) payload.businessProblem = problem.trim();
-      if (benefits.trim()) payload.businessBenefits = benefits.trim();
-      payload.businessSuccessKpis = kpiLines.map((s) => s.trim()).filter(Boolean);
-      payload.swotStrengths = trimLinesToPayload(swS);
-      payload.swotWeaknesses = trimLinesToPayload(swW);
-      payload.swotOpportunities = trimLinesToPayload(swO);
-      payload.swotThreats = trimLinesToPayload(swT);
-      payload.towsActions = {
-        SO: trimLinesToPayload(tSO),
-        ST: trimLinesToPayload(tST),
-        WO: trimLinesToPayload(tWO),
-        WT: trimLinesToPayload(tWT),
-      };
-      return updateProjectSheet(authFetch, projectId, payload);
+      return updateProjectSheet(authFetch, projectId, buildProjectSheetPayload());
     },
     onSuccess: () => {
-      toast.success('Fiche mise à jour');
+      setLastSheetSavedAt(Date.now());
       void queryClient.invalidateQueries({
         queryKey: projectQueryKeys.sheet(clientId, projectId),
       });
@@ -362,6 +420,48 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       toast.error(e.message || 'Erreur enregistrement');
     },
   });
+
+  useEffect(() => {
+    if (!canEdit || !sheet) return;
+    if (suppressNextSheetAutosaveRef.current) {
+      suppressNextSheetAutosaveRef.current = false;
+      return;
+    }
+    const id = window.setTimeout(() => {
+      saveMutation.mutate();
+    }, SHEET_AUTOSAVE_DEBOUNCE_MS);
+    return () => window.clearTimeout(id);
+    // sheet / refetch exclus : évite un POST à chaque invalidation ; mutationFn lit l’état courant.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- champs formulaire uniquement
+  }, [
+    canEdit,
+    sheet?.id,
+    projectId,
+    projectName,
+    cadreWhere,
+    cadreWho,
+    cadreStart,
+    cadreEnd,
+    description,
+    bv,
+    sa,
+    us,
+    cost,
+    gain,
+    risk,
+    copilDraft,
+    problem,
+    benefits,
+    kpiLines,
+    swS,
+    swW,
+    swO,
+    swT,
+    tSO,
+    tST,
+    tWO,
+    tWT,
+  ]);
 
   const copilSaveMutation = useMutation({
     mutationFn: (value: ProjectCopilRecommendation) =>
@@ -742,10 +842,19 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               <Label htmlFor="arb">Statut d’arbitrage</Label>
               <Select
                 value={arbDraft}
-                onValueChange={(v) => setArbDraft(v as ProjectArbitrationStatus)}
-                disabled={!canEdit}
+                onValueChange={(v) => {
+                  const next = v as ProjectArbitrationStatus;
+                  const prev = arbDraft;
+                  if (next === prev) return;
+                  setArbDraft(next);
+                  if (!canEdit) return;
+                  arbitrationMutation.mutate(next, {
+                    onError: () => setArbDraft(prev),
+                  });
+                }}
+                disabled={!canEdit || arbitrationMutation.isPending}
               >
-                <SelectTrigger id="arb">
+                <SelectTrigger id="arb" aria-busy={arbitrationMutation.isPending}>
                   <SelectValue>{ARBITRATION_LABEL[arbDraft]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -756,20 +865,12 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                   ))}
                 </SelectContent>
               </Select>
+              {canEdit ? (
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Enregistrement automatique à la sélection.
+                </p>
+              ) : null}
             </div>
-            {canEdit ? (
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                className="mt-3 w-full gap-1.5 sm:w-auto"
-                disabled={arbitrationMutation.isPending}
-                onClick={() => arbitrationMutation.mutate(arbDraft)}
-              >
-                <Check className="size-4 shrink-0" aria-hidden />
-                {arbitrationMutation.isPending ? 'Application…' : 'Appliquer le statut'}
-              </Button>
-            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -1565,14 +1666,21 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       />
 
       {canEdit && (
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-          >
-            {saveMutation.isPending ? 'Enregistrement…' : 'Enregistrer la fiche'}
-          </Button>
+        <div className="flex flex-col items-end gap-0.5 text-right">
+          <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
+            {saveMutation.isPending ? (
+              <span className="text-foreground">Enregistrement de la fiche…</span>
+            ) : lastSheetSavedAt != null ? (
+              <>
+                Fiche enregistrée automatiquement —{' '}
+                <time dateTime={new Date(lastSheetSavedAt).toISOString()}>
+                  {formatSavedClock(lastSheetSavedAt)}
+                </time>
+              </>
+            ) : (
+              'Les champs de la fiche sont enregistrés automatiquement après la saisie.'
+            )}
+          </p>
         </div>
       )}
     </div>

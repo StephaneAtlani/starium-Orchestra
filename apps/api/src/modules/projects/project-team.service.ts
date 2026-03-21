@@ -218,9 +218,6 @@ export class ProjectTeamService {
     if (!existing) {
       throw new NotFoundException('Team role not found');
     }
-    if (existing.systemKind != null) {
-      throw new BadRequestException('Cannot delete a system role');
-    }
     if (existing._count.members > 0) {
       throw new BadRequestException(
         'Remove team members from this role before deleting it',
