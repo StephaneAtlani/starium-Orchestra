@@ -195,16 +195,14 @@ export default function ProjectsPortfolioPage() {
 
             {!isLoading && !error && data && data.items.length > 0 && (
               <Card size="sm" className="overflow-hidden shadow-sm">
-                <CardHeader className="border-b border-border/60 pb-3">
+                <CardHeader className="border-b border-border/60 pb-3 pt-4 sm:px-4">
                   <CardTitle className="text-sm font-medium">Liste des projets</CardTitle>
-                  <CardDescription>
-                    Sélectionnez un projet pour ouvrir la fiche (jalons, risques, tâches).
+                  <CardDescription className="text-xs">
+                    Cliquez sur un nom pour ouvrir la fiche détail.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="px-0 pb-0 pt-0">
-                  <div data-slot="table-container" className="overflow-x-auto">
-                    <ProjectsListTable items={data.items} />
-                  </div>
+                <CardContent className="p-0">
+                  <ProjectsListTable items={data.items} />
                 </CardContent>
                 <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <PaginationSummary offset={offset} limit={data.limit} total={data.total} />

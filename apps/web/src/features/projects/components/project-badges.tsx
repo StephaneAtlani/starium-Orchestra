@@ -6,7 +6,14 @@ import type { ProjectListItem, ProjectSignals } from '../types/project.types';
 const chip =
   'inline-flex min-h-[1.375rem] items-center rounded-md border px-2 py-0.5 text-xs font-medium leading-none';
 
-export function HealthBadge({ health }: { health: ProjectListItem['computedHealth'] }) {
+export function HealthBadge({
+  health,
+  compact = false,
+}: {
+  health: ProjectListItem['computedHealth'];
+  /** Libellés courts pour tableaux denses. */
+  compact?: boolean;
+}) {
   const styles: Record<typeof health, string> = {
     RED: 'border-destructive/35 bg-destructive/[0.08] text-destructive',
     ORANGE:
@@ -18,9 +25,21 @@ export function HealthBadge({ health }: { health: ProjectListItem['computedHealt
     ORANGE: 'Santé : attention',
     GREEN: 'Santé : bon',
   };
+  const labelsCompact: Record<typeof health, string> = {
+    RED: 'Critique',
+    ORANGE: 'Attention',
+    GREEN: 'Bon',
+  };
   return (
-    <span className={cn(chip, styles[health])} data-health={health.toLowerCase()}>
-      {labels[health]}
+    <span
+      className={cn(
+        chip,
+        compact && '!min-h-0 px-1.5 py-0.5 text-[0.65rem]',
+        styles[health],
+      )}
+      data-health={health.toLowerCase()}
+    >
+      {compact ? labelsCompact[health] : labels[health]}
     </span>
   );
 }
