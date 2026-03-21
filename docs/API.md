@@ -1808,7 +1808,8 @@ Référence : **RFC-PROJ-001**, détail produit et technique : [docs/modules/pro
   Query : `page`, `limit`, `search`, `status`, `priority`, `criticality`, `sortBy` (`name` \| `targetEndDate` \| `status` \| `priority` \| `criticality` \| `computedHealth` \| `progressPercent`), `sortOrder` (`asc` \| `desc`), `atRiskOnly` (booléen).  
   Réponse : `{ items, total, page, limit }`. Permission **`projects.read`**.
 - **GET /api/projects/portfolio-summary** — KPI agrégés sur **tous** les projets du client actif (sans pagination liste). Permission **`projects.read`**.
-- **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, etc.). Permission **`projects.create`**.
+- **GET /api/projects/assignable-users** — Membres **actifs** du client (id, email, nom) pour désigner un responsable projet sans exiger le rôle client admin. Permission **`projects.read`**.
+- **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, `ownerUserId`, etc.). Permission **`projects.create`**.
 - **GET /api/projects/:id** — Détail enrichi (même enrichissement pilotage que la liste + champs étendus description, notes, etc.). Permission **`projects.read`**.
 - **PATCH /api/projects/:id** — Mise à jour partielle. Permission **`projects.update`**.
 - **DELETE /api/projects/:id** — Suppression. Permission **`projects.delete`**.

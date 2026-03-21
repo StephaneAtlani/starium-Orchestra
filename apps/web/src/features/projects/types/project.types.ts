@@ -1,3 +1,13 @@
+/** Réponse GET /api/projects/assignable-users */
+export type ProjectAssignableUser = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  status: string;
+};
+
 export type ComputedHealth = 'GREEN' | 'ORANGE' | 'RED';
 
 export type ProjectSignals = {

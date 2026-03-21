@@ -123,7 +123,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
               {formatDate(project.targetEndDate)}
             </div>
             <div>
-              <span className="text-muted-foreground">Responsable : </span>
+              <span className="text-muted-foreground">Responsable projet / activité : </span>
               {project.ownerDisplayName ?? '—'}
             </div>
             {project.description && (

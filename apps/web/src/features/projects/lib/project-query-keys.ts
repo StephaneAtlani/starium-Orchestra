@@ -3,6 +3,8 @@ import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
 export const projectQueryKeys = {
   all: ['projects'] as const,
   summary: (clientId: string) => [...projectQueryKeys.all, 'summary', clientId] as const,
+  assignableUsers: (clientId: string) =>
+    [...projectQueryKeys.all, 'assignable-users', clientId] as const,
   list: (clientId: string, params: ProjectsListFilters | Record<string, unknown>) =>
     [...projectQueryKeys.all, 'list', clientId, params] as const,
   detail: (clientId: string, projectId: string) =>

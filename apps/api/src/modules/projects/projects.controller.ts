@@ -34,6 +34,12 @@ export class ProjectsController {
     return this.projectsService.getPortfolioSummary(clientId!);
   }
 
+  @Get('assignable-users')
+  @RequirePermissions('projects.read')
+  assignableUsers(@ActiveClientId() clientId: string | undefined) {
+    return this.projectsService.listAssignableUsers(clientId!);
+  }
+
   @Get()
   @RequirePermissions('projects.read')
   list(

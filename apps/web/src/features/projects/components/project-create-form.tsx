@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, type ComponentType, type FormEvent, type ReactNode } from 'react';
+import {
+  useMemo,
+  useState,
+  type ComponentType,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -30,6 +36,8 @@ import {
   PROJECT_PRIORITY_LABEL,
   PROJECT_CRITICALITY_LABEL,
 } from '../constants/project-enum-labels';
+import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
+import type { ProjectAssignableUser } from '../types/project.types';
 import { CalendarRange, FolderKanban, Layers, SlidersHorizontal } from 'lucide-react';
 
 const textareaClass = cn(
@@ -87,6 +95,11 @@ function generateAutoProjectCode(kind: 'PROJECT' | 'ACTIVITY'): string {
   return `${prefix}-${y}-${suffix}`;
 }
 
+function formatAssignableUserLabel(m: ProjectAssignableUser): string {
+  const n = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
+  return n || m.email;
+}
+
 export function ProjectCreateForm() {
   const create = useCreateProject();
   const [name, setName] = useState('');
@@ -100,6 +113,25 @@ export function ProjectCreateForm() {
   const [progressPercent, setProgressPercent] = useState<string>('');
   const [startDate, setStartDate] = useState('');
   const [targetEndDate, setTargetEndDate] = useState('');
+  const [ownerUserId, setOwnerUserId] = useState('');
+
+  const {
+    data: members = [],
+    isLoading: membersLoading,
+    isError: membersError,
+  } = useProjectAssignableUsers();
+
+  const sortedMembers = useMemo(() => {
+    return [...members].sort((a, b) =>
+      formatAssignableUserLabel(a).localeCompare(formatAssignableUserLabel(b), 'fr'),
+    );
+  }, [members]);
+
+  const ownerTriggerLabel = useMemo(() => {
+    if (!ownerUserId) return null;
+    const m = sortedMembers.find((x) => x.id === ownerUserId);
+    return m ? formatAssignableUserLabel(m) : ownerUserId;
+  }, [ownerUserId, sortedMembers]);
 
   const year = new Date().getFullYear();
 
@@ -128,6 +160,7 @@ export function ProjectCreateForm() {
     }
     if (startDate) body.startDate = startDate;
     if (targetEndDate) body.targetEndDate = targetEndDate;
+    if (ownerUserId) body.ownerUserId = ownerUserId;
 
     create.mutate(body);
   };
@@ -202,6 +235,40 @@ export function ProjectCreateForm() {
                   aléatoire).
                 </p>
               </div>
+            </div>
+            <div className={field}>
+              <Label htmlFor="p-owner">Responsable</Label>
+              <Select
+                value={ownerUserId || '__none__'}
+                onValueChange={(v) => setOwnerUserId(v === '__none__' ? '' : v)}
+                disabled={membersLoading || membersError}
+              >
+                <SelectTrigger id="p-owner" size="sm" className="max-w-md w-full">
+                  <SelectValue placeholder="Choisir un responsable…">
+                    {membersLoading
+                      ? 'Chargement des membres…'
+                      : ownerTriggerLabel ?? 'Aucun'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Aucun</SelectItem>
+                  {sortedMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {`${formatAssignableUserLabel(m)} · ${m.email}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {membersError ? (
+                <p className="text-xs text-destructive">
+                  Impossible de charger les membres du client — création sans responsable, ou
+                  réessayez plus tard.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Membre du client actif en charge du pilotage (projet ou activité).
+                </p>
+              )}
             </div>
             <div className={field}>
               <Label htmlFor="p-desc">Description</Label>

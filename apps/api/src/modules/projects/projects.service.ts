@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ClientUserStatus,
   Prisma,
   Project,
   ProjectMilestone,
@@ -158,6 +159,24 @@ export class ProjectsService {
         'User must be an active member of the client',
       );
     }
+  }
+
+  /**
+   * Membres actifs du client pour désigner un responsable (sans exiger le rôle client admin).
+   */
+  async listAssignableUsers(clientId: string) {
+    const rows = await this.prisma.clientUser.findMany({
+      where: { clientId, status: ClientUserStatus.ACTIVE },
+      include: { user: true },
+    });
+    return rows.map((cu) => ({
+      id: cu.user.id,
+      email: cu.user.email,
+      firstName: cu.user.firstName,
+      lastName: cu.user.lastName,
+      role: cu.role,
+      status: cu.status,
+    }));
   }
 
   async list(

@@ -1,6 +1,7 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
 import type {
+  ProjectAssignableUser,
   ProjectDetail,
   ProjectsListResponse,
   ProjectsPortfolioSummary,
@@ -24,6 +25,14 @@ export async function getPortfolioSummary(
   const res = await authFetch(`${BASE}/portfolio-summary`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectsPortfolioSummary>;
+}
+
+export async function listAssignableUsers(
+  authFetch: AuthFetch,
+): Promise<ProjectAssignableUser[]> {
+  const res = await authFetch(`${BASE}/assignable-users`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectAssignableUser[]>;
 }
 
 export async function listProjects(
