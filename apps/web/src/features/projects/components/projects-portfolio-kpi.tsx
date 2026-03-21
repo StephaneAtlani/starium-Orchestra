@@ -1,6 +1,13 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { KpiCard } from '@/components/ui/kpi-card';
 import type { ProjectsPortfolioSummary } from '../types/project.types';
 import {
@@ -57,7 +64,14 @@ export function ProjectsPortfolioKpi({ summary, isLoading }: Props) {
   const loading = isLoading;
 
   return (
-    <div className="space-y-5" data-testid="projects-portfolio-kpi">
+    <Card size="sm" className="shadow-sm" data-testid="projects-portfolio-kpi">
+      <CardHeader className="border-b border-border/60 pb-3">
+        <CardTitle className="text-sm font-medium">Indicateurs portefeuille</CardTitle>
+        <CardDescription>
+          Synthèse et signaux pour le client actif (données serveur).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5 pt-4">
       <KpiSection sectionId="volume" label="Volume">
         <KpiCard
           variant="dense"
@@ -120,6 +134,7 @@ export function ProjectsPortfolioKpi({ summary, isLoading }: Props) {
           icon={<MapPinOff aria-hidden />}
         />
       </KpiSection>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

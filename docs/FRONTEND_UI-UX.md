@@ -168,7 +168,7 @@ import { FolderKanban } from 'lucide-react';
 />
 ```
 
-**Référence cockpit** : `features/projects/components/projects-portfolio-kpi.tsx` (sections *Volume* / *Risques & échéances* / *Complétude*).
+**Référence cockpit** : `features/projects/components/projects-portfolio-kpi.tsx` — les trois sections sont enveloppées dans une **`Card size="sm"`** avec en-tête « Indicateurs portefeuille » (FRONTEND_UI-UX : hiérarchie cockpit).
 
 ---
 
@@ -227,7 +227,16 @@ Tables : composants `Table`, `TableHeader`, `TableBody`, etc. depuis `@/componen
 
 ---
 
-## 9. États vides & chargement
+## 9. Alertes erreur / avertissement
+
+Utiliser **`Alert`**, **`AlertTitle`**, **`AlertDescription`** (`components/ui/alert.tsx`) plutôt qu’un `div` + bordures ad hoc.
+
+* **Erreur bloquante** (API, permissions) : `variant="destructive"` + icône `AlertCircle` (Lucide) en premier enfant.
+* **Avertissement** (ex. permission métier manquante) : `Alert` en `default` avec `className` type `border-amber-500/35 bg-amber-500/5` + `AlertTriangle`, titres en `text-amber-950` / mode sombre explicite.
+
+---
+
+## 10. États vides & chargement
 
 ```tsx
 import { EmptyState } from '@/components/feedback/empty-state';
@@ -242,16 +251,18 @@ import { LoadingState } from '@/components/feedback/loading-state';
 <LoadingState rows={5} />
 ```
 
+Liste vide : préférer une **`Card size="sm"`** autour de `EmptyState` (`CardContent` avec `py-10`) pour aligner la zone vide sur les autres surfaces (cockpit Projets).
+
 ---
 
-## 10. Composition type — page cockpit Projets
+## 11. Composition type — page cockpit Projets
 
 Ordre recommandé dans `PageContainer` :
 
 1. `PageHeader` (titre, description, actions)
-2. Bloc KPI (`KpiCard` dense + sections)
+2. **`Card`** + bloc KPI (`KpiCard` dense + sections §6)
 3. Toolbar filtres (panneau §7)
-4. `LoadingState` / erreur API / `EmptyState`
+4. `LoadingState` / **`Alert` erreur API** (§9) / **`Card` + `EmptyState`**
 5. `Card` + tableau + pagination
 
 Route : `app/(protected)/projects/page.tsx`.  
@@ -259,14 +270,14 @@ Feature : `features/projects/` (hooks, `project-query-keys`, API).
 
 ---
 
-## 11. Typographie (rappel)
+## 12. Typographie (rappel)
 
 - Body global ~`0.875rem` (cockpit dense) — voir `globals.css`.
 - Texte courant : `text-sm` / `text-xs` ; titres de page : `text-2xl` sur le `h1` du `PageHeader`.
 
 ---
 
-## 12. Liens utiles
+## 13. Liens utiles
 
 | Sujet | Document |
 |--------|-----------|
