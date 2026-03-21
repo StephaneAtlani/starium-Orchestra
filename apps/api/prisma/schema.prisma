@@ -80,7 +80,26 @@ model Client {
   projects         Project[]
   projectTasks     ProjectTask[]
   projectRisks     ProjectRisk[]
-  projectMilestones ProjectMilestone[]
+  projectMilestones  ProjectMilestone[]
+  projectBudgetLinks ProjectBudgetLink[]
+}
+
+model ProjectBudgetLink {
+  id             String                      @id @default(cuid())
+  clientId       String
+  projectId      String
+  budgetLineId   String
+  allocationType ProjectBudgetAllocationType
+  percentage     Decimal?                    @db.Decimal(5, 2)
+  amount         Decimal?                    @db.Decimal(18, 2)
+  createdAt      DateTime                    @default(now())
+
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, budgetLineId])
+  @@index([clientId])
 }
 
 model User {
@@ -297,6 +316,13 @@ enum ProjectMilestoneStatus {
   CANCELLED
 }
 
+/** RFC-PROJ-010 — liaison projet ↔ ligne budgétaire */
+enum ProjectBudgetAllocationType {
+  FULL
+  PERCENTAGE
+  FIXED
+}
+
 model Project {
   id        String  @id @default(cuid())
   clientId  String
@@ -329,9 +355,10 @@ model Project {
   sponsor  User?  @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
   owner    User?  @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
 
-  tasks      ProjectTask[]
-  risks      ProjectRisk[]
-  milestones ProjectMilestone[]
+  tasks       ProjectTask[]
+  risks       ProjectRisk[]
+  milestones  ProjectMilestone[]
+  budgetLinks ProjectBudgetLink[]
 
   @@unique([clientId, code])
   @@index([clientId])
