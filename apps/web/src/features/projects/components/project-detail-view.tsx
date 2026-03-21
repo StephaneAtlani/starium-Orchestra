@@ -127,9 +127,6 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
               <span className="text-muted-foreground">Responsable projet / activité : </span>
               {project.ownerDisplayName ?? '—'}
             </div>
-            {project.description && (
-              <p className="mt-2 whitespace-pre-wrap border-t pt-2">{project.description}</p>
-            )}
             {project.pilotNotes && (
               <p className="mt-2 whitespace-pre-wrap border-t pt-2 text-muted-foreground">
                 <span className="font-medium text-foreground">Notes pilotage : </span>

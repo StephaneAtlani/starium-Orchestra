@@ -32,6 +32,7 @@ import { useProjectBudgetLinksQuery } from '../hooks/use-project-budget-links-qu
 import { useCreateProjectBudgetLink } from '../hooks/use-create-project-budget-link';
 import { useDeleteProjectBudgetLink } from '../hooks/use-delete-project-budget-link';
 import { useCreateBudgetLineInline } from '../hooks/use-create-budget-line-inline';
+import { ProjectBudgetHierarchyCombobox } from './project-budget-hierarchy-combobox';
 import type {
   CreateProjectBudgetLinkPayload,
   ProjectBudgetAllocationType,
@@ -101,6 +102,8 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
     'OPEX',
   );
   const [newLineInitial, setNewLineInitial] = useState('0');
+  /** Formulaire « nouvelle ligne » : uniquement après action explicite (pas dès budget+enveloppe). */
+  const [showNewLineForm, setShowNewLineForm] = useState(false);
 
   const createMut = useCreateProjectBudgetLink(projectId);
   const deleteMut = useDeleteProjectBudgetLink(projectId);
@@ -111,43 +114,28 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
     [budgetsQuery.data?.items, budgetId],
   );
 
-  /** Libellés trigger — en fonction de la valeur interne du Select (children fonction sur Select.Value, Base UI). */
-  const budgetValueLabel = (value: unknown) => {
-    if (budgetsQuery.isLoading) return 'Chargement…';
-    const v = typeof value === 'string' ? value : SELECT_NONE;
-    if (v === SELECT_NONE) return 'Choisir un budget';
-    const b = budgetsQuery.data?.items?.find((x) => x.id === v);
-    return b ? formatBudgetOptionLabel(b) : 'Budget introuvable dans la liste';
-  };
+  const budgetOptions = useMemo(
+    () => [
+      { id: SELECT_NONE, label: '— Choisir un budget —' },
+      ...(budgetsQuery.data?.items ?? []).map((b) => ({
+        id: b.id,
+        label: formatBudgetOptionLabel(b),
+      })),
+    ],
+    [budgetsQuery.data?.items],
+  );
 
-  const envelopeValueLabel = (value: unknown) => {
-    if (budgetId === SELECT_NONE) return 'D’abord un budget';
-    // Première requête (pas encore de résultat) — isLoading peut être faux si le cache est vide
-    if (
-      envelopesQuery.isPending ||
-      (envelopesQuery.isFetching && envelopesQuery.data === undefined)
-    ) {
-      return 'Chargement…';
-    }
-    const v = typeof value === 'string' ? value : SELECT_NONE;
-    if (v === SELECT_NONE) return 'Choisir une enveloppe';
-    const env = envelopesQuery.data?.find((e) => e.id === v);
-    return env ? formatEnvelopeOptionLabel(env) : 'Enveloppe introuvable';
-  };
-
-  const lineValueLabel = (value: unknown) => {
-    if (envelopeId === SELECT_NONE) return 'D’abord une enveloppe';
-    if (
-      linesQuery.isPending ||
-      (linesQuery.isFetching && linesQuery.data === undefined)
-    ) {
-      return 'Chargement…';
-    }
-    const v = typeof value === 'string' ? value : SELECT_NONE;
-    if (v === SELECT_NONE) return 'Choisir une ligne';
-    const line = linesQuery.data?.find((l) => l.id === v);
-    return line ? formatLineOptionLabel(line) : 'Ligne introuvable';
-  };
+  const envelopeOptions = useMemo(() => {
+    const none = { id: SELECT_NONE, label: '— Choisir une enveloppe —' };
+    if (budgetId === SELECT_NONE) return [none];
+    return [
+      none,
+      ...(envelopesQuery.data ?? []).map((e) => ({
+        id: e.id,
+        label: formatEnvelopeOptionLabel(e),
+      })),
+    ];
+  }, [budgetId, envelopesQuery.data]);
 
   const activeLinesInEnvelope = useMemo(() => {
     const lines = linesQuery.data ?? [];
@@ -158,6 +146,29 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
         l.envelopeId === envelopeId,
     );
   }, [linesQuery.data, envelopeId]);
+
+  const lineOptions = useMemo(() => {
+    const none = { id: SELECT_NONE, label: '— Choisir une ligne —' };
+    if (envelopeId === SELECT_NONE) return [none];
+    return [
+      none,
+      ...activeLinesInEnvelope.map((l) => ({
+        id: l.id,
+        label: formatLineOptionLabel(l),
+      })),
+    ];
+  }, [envelopeId, activeLinesInEnvelope]);
+
+  const envelopeLoading =
+    budgetId !== SELECT_NONE &&
+    (envelopesQuery.isPending ||
+      (envelopesQuery.isFetching && envelopesQuery.data === undefined));
+
+  const lineLoading =
+    budgetId !== SELECT_NONE &&
+    envelopeId !== SELECT_NONE &&
+    (linesQuery.isPending ||
+      (linesQuery.isFetching && linesQuery.data === undefined));
 
   const resetForm = () => {
     setBudgetLineId(SELECT_NONE);
@@ -195,6 +206,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
       setNewLineName('');
       setNewLineCode('');
       setNewLineInitial('0');
+      setShowNewLineForm(false);
       toast.success('Ligne créée et sélectionnée.');
     } catch (err: unknown) {
       const msg = isApiFormError(err) ? err.message : 'Création de ligne impossible.';
@@ -323,8 +335,8 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                   Ajouter un lien budgétaire
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Budget, puis enveloppe, puis une ligne active. Les libellés affichés sont ceux
-                  du module Budget.
+                  Tapez pour filtrer, ou ouvrez la liste. Budget, puis enveloppe, puis une ligne
+                  active — libellés alignés sur le module Budget.
                 </p>
               </div>
 
@@ -333,130 +345,137 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                   Sélection
                 </p>
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="pb-budget" className="text-xs text-muted-foreground">
-                      1. Budget
-                    </Label>
-                    <Select
-                      modal={false}
-                      value={budgetId}
-                      onValueChange={(v) => {
-                        setBudgetId(v ?? SELECT_NONE);
-                        setEnvelopeId(SELECT_NONE);
-                        setBudgetLineId(SELECT_NONE);
-                      }}
-                      disabled={budgetsQuery.isLoading}
-                    >
-                      <SelectTrigger id="pb-budget" className="h-9 w-full min-w-0">
-                        <SelectValue placeholder="Choisir un budget">
-                          {budgetValueLabel}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent alignItemWithTrigger={false}>
-                        <SelectItem value={SELECT_NONE} className="text-muted-foreground">
-                          Choisir un budget
-                        </SelectItem>
-                        {(budgetsQuery.data?.items ?? []).map((b) => (
-                          <SelectItem key={b.id} value={b.id}>
-                            {formatBudgetOptionLabel(b)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pb-envelope" className="text-xs text-muted-foreground">
-                      2. Enveloppe
-                    </Label>
-                    <Select
-                      key={`pb-env-${budgetId}-${envelopesQuery.dataUpdatedAt}`}
-                      modal={false}
-                      value={envelopeId}
-                      onValueChange={(v) => {
-                        setEnvelopeId(v ?? SELECT_NONE);
-                        setBudgetLineId(SELECT_NONE);
-                      }}
-                      disabled={
-                        budgetId === SELECT_NONE ||
-                        envelopesQuery.isPending ||
-                        envelopesQuery.isError
-                      }
-                    >
-                      <SelectTrigger id="pb-envelope" className="h-9 w-full min-w-0">
-                        <SelectValue placeholder="Choisir une enveloppe">
-                          {envelopeValueLabel}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent alignItemWithTrigger={false}>
-                        <SelectItem value={SELECT_NONE} className="text-muted-foreground">
-                          Choisir une enveloppe
-                        </SelectItem>
-                        {(envelopesQuery.data ?? []).map((env) => (
-                          <SelectItem key={env.id} value={env.id}>
-                            {formatEnvelopeOptionLabel(env)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {budgetId !== SELECT_NONE && envelopesQuery.isError && (
-                      <p className="text-xs text-destructive">
-                        Impossible de charger les enveloppes. Vérifiez la console réseau ou
-                        réessayez.
-                      </p>
-                    )}
-                    {budgetId !== SELECT_NONE &&
+                  <ProjectBudgetHierarchyCombobox
+                    id="pb-budget"
+                    label="1. Budget"
+                    placeholder="Rechercher un budget…"
+                    value={budgetId}
+                    noneId={SELECT_NONE}
+                    options={budgetOptions}
+                    loading={budgetsQuery.isLoading}
+                    onValueChange={(id) => {
+                      setBudgetId(id);
+                      setEnvelopeId(SELECT_NONE);
+                      setBudgetLineId(SELECT_NONE);
+                      setShowNewLineForm(false);
+                    }}
+                  />
+                  <ProjectBudgetHierarchyCombobox
+                    id="pb-envelope"
+                    label="2. Enveloppe"
+                    placeholder={
+                      budgetId === SELECT_NONE
+                        ? 'Choisissez d’abord un budget'
+                        : 'Rechercher une enveloppe…'
+                    }
+                    value={envelopeId}
+                    noneId={SELECT_NONE}
+                    options={envelopeOptions}
+                    disabled={
+                      budgetId === SELECT_NONE ||
+                      envelopesQuery.isError ||
+                      envelopeLoading
+                    }
+                    loading={envelopeLoading}
+                    errorText={
+                      budgetId !== SELECT_NONE && envelopesQuery.isError
+                        ? 'Impossible de charger les enveloppes.'
+                        : null
+                    }
+                    emptyText={
+                      budgetId !== SELECT_NONE &&
                       envelopesQuery.isSuccess &&
-                      (envelopesQuery.data?.length ?? 0) === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Aucune enveloppe sur ce budget. Créez-en une depuis le module
-                          Budget.
-                        </p>
-                      )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pb-line" className="text-xs text-muted-foreground">
-                      3. Ligne (active)
-                    </Label>
-                    <Select
-                      key={`pb-line-${budgetId}-${envelopeId}-${linesQuery.dataUpdatedAt}`}
-                      modal={false}
-                      value={budgetLineId}
-                      onValueChange={(v) => setBudgetLineId(v ?? SELECT_NONE)}
-                      disabled={
-                        budgetId === SELECT_NONE ||
-                        envelopeId === SELECT_NONE ||
-                        linesQuery.isPending
-                      }
-                    >
-                      <SelectTrigger id="pb-line" className="h-9 w-full min-w-0">
-                        <SelectValue placeholder="Choisir une ligne">
-                          {lineValueLabel}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent alignItemWithTrigger={false}>
-                        <SelectItem value={SELECT_NONE} className="text-muted-foreground">
-                          Choisir une ligne
-                        </SelectItem>
-                        {activeLinesInEnvelope.map((l) => (
-                          <SelectItem key={l.id} value={l.id}>
-                            {formatLineOptionLabel(l)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      (envelopesQuery.data?.length ?? 0) === 0
+                        ? 'Aucune enveloppe sur ce budget. Créez-en une depuis le module Budget.'
+                        : null
+                    }
+                    onValueChange={(id) => {
+                      setEnvelopeId(id);
+                      setBudgetLineId(SELECT_NONE);
+                      setShowNewLineForm(false);
+                    }}
+                  />
+                  <ProjectBudgetHierarchyCombobox
+                    id="pb-line"
+                    label="3. Ligne (active)"
+                    placeholder={
+                      envelopeId === SELECT_NONE
+                        ? 'Choisissez d’abord une enveloppe'
+                        : 'Rechercher une ligne…'
+                    }
+                    value={budgetLineId}
+                    noneId={SELECT_NONE}
+                    options={lineOptions}
+                    disabled={
+                      budgetId === SELECT_NONE ||
+                      envelopeId === SELECT_NONE ||
+                      lineLoading
+                    }
+                    loading={lineLoading}
+                    emptyText={
+                      budgetId !== SELECT_NONE &&
+                      envelopeId !== SELECT_NONE &&
+                      linesQuery.isSuccess &&
+                      activeLinesInEnvelope.length === 0
+                        ? canCreateBudgetLine
+                          ? 'Aucune ligne active. Utilisez le bouton « Créer une nouvelle ligne » sous la sélection, ou le module Budget.'
+                          : 'Aucune ligne active dans cette enveloppe. Créez-en une depuis le module Budget.'
+                        : null
+                    }
+                    onValueChange={(id) => {
+                      setBudgetLineId(id);
+                    }}
+                  />
                 </div>
               </div>
 
               {canCreateBudgetLine &&
                 budgetId !== SELECT_NONE &&
-                envelopeId !== SELECT_NONE && (
+                envelopeId !== SELECT_NONE &&
+                !showNewLineForm && (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Besoin d’une ligne qui n’existe pas encore dans cette enveloppe ?
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => setShowNewLineForm(true)}
+                    >
+                      Créer une nouvelle ligne
+                    </Button>
+                  </div>
+                )}
+
+              {canCreateBudgetLine &&
+                budgetId !== SELECT_NONE &&
+                envelopeId !== SELECT_NONE &&
+                showNewLineForm && (
                   <div className="space-y-3 rounded-lg border border-dashed border-primary/25 bg-background/80 p-4">
-                    <div>
-                      <p className="text-sm font-medium">Nouvelle ligne dans cette enveloppe</p>
-                      <p className="text-xs text-muted-foreground">
-                        Création rapide sans quitter la fiche projet (permission budgets.create).
-                      </p>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">Nouvelle ligne dans cette enveloppe</p>
+                        <p className="text-xs text-muted-foreground">
+                          Création rapide sans quitter la fiche projet (permission budgets.create).
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0 text-muted-foreground"
+                        onClick={() => {
+                          setShowNewLineForm(false);
+                          setNewLineName('');
+                          setNewLineCode('');
+                          setNewLineExpenseType('OPEX');
+                          setNewLineInitial('0');
+                        }}
+                      >
+                        Annuler
+                      </Button>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <div className="space-y-1.5 sm:col-span-2">
