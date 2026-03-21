@@ -13,11 +13,17 @@ import {
   ProjectTask,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  AuditLogsService,
-  CreateAuditLogInput,
-} from '../audit-logs/audit-logs.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
+import {
+  PROJECT_AUDIT_ACTION,
+  PROJECT_AUDIT_RESOURCE_TYPE,
+} from './project-audit.constants';
+import {
+  diffAuditSnapshots,
+  omitKeysFromDiff,
+  projectEntityAuditSnapshot,
+} from './project-audit-serialize';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects.query.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -379,18 +385,17 @@ export class ProjectsService {
       include: projectIncludeList,
     });
 
-    const auditInput: CreateAuditLogInput = {
+    await this.auditLogs.create({
       clientId,
       userId: context?.actorUserId,
-      action: 'project.create',
-      resourceType: 'Project',
+      action: PROJECT_AUDIT_ACTION.PROJECT_CREATED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
       resourceId: created.id,
-      newValue: { code: created.code, name: created.name },
+      newValue: projectEntityAuditSnapshot(created),
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
-    };
-    await this.auditLogs.create(auditInput);
+    });
 
     return this.getById(clientId, created.id);
   }
@@ -459,23 +464,65 @@ export class ProjectsService {
       data.pilotNotes = dto.pilotNotes?.trim() ?? null;
     }
 
-    await this.prisma.project.update({
+    const updated = await this.prisma.project.update({
       where: { id },
       data,
     });
 
-    await this.auditLogs.create({
-      clientId,
-      userId: context?.actorUserId,
-      action: 'project.update',
-      resourceType: 'Project',
-      resourceId: id,
-      oldValue: { code: existing.code },
-      newValue: dto,
+    const oldSnap = projectEntityAuditSnapshot(existing);
+    const newSnap = projectEntityAuditSnapshot(updated);
+    let { oldValue, newValue } = diffAuditSnapshots(oldSnap, newSnap);
+    const statusChanged = existing.status !== updated.status;
+    const ownerChanged = existing.ownerUserId !== updated.ownerUserId;
+    const keysToOmit: string[] = [];
+    if (statusChanged) keysToOmit.push('status');
+    if (ownerChanged) keysToOmit.push('ownerUserId');
+    ({ oldValue, newValue } = omitKeysFromDiff(oldValue, newValue, keysToOmit));
+
+    const meta = {
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
-    });
+    };
+
+    if (Object.keys(oldValue).length > 0) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_UPDATED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+        resourceId: id,
+        oldValue,
+        newValue,
+        ...meta,
+      });
+    }
+
+    if (statusChanged) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_STATUS_UPDATED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+        resourceId: id,
+        oldValue: { status: existing.status },
+        newValue: { status: updated.status },
+        ...meta,
+      });
+    }
+
+    if (ownerChanged) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_OWNER_UPDATED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+        resourceId: id,
+        oldValue: { ownerUserId: existing.ownerUserId ?? null },
+        newValue: { ownerUserId: updated.ownerUserId ?? null },
+        ...meta,
+      });
+    }
 
     return this.getById(clientId, id);
   }
@@ -493,10 +540,14 @@ export class ProjectsService {
     await this.auditLogs.create({
       clientId,
       userId: context?.actorUserId,
-      action: 'project.delete',
-      resourceType: 'Project',
+      action: PROJECT_AUDIT_ACTION.PROJECT_DELETED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
       resourceId: id,
-      oldValue: { code: existing.code, name: existing.name },
+      oldValue: {
+        code: existing.code,
+        name: existing.name,
+        status: existing.status,
+      },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,

@@ -73,6 +73,7 @@ export class AuditLogsService {
     const where: any = {
       clientId,
       ...(query.resourceType && { resourceType: query.resourceType }),
+      ...(query.resourceId && { resourceId: query.resourceId }),
       ...(query.action && { action: query.action }),
       ...(query.userId && { userId: query.userId }),
       ...(query.dateFrom || query.dateTo
@@ -127,6 +128,7 @@ export class AuditLogsService {
     const where: any = {
       ...(query.clientId && { clientId: query.clientId }),
       ...(query.resourceType && { resourceType: query.resourceType }),
+      ...(query.resourceId && { resourceId: query.resourceId }),
       ...(query.action && { action: query.action }),
       ...(query.userId && { userId: query.userId }),
       ...(query.dateFrom || query.dateTo

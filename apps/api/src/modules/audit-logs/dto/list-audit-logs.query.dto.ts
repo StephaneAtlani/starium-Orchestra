@@ -22,6 +22,10 @@ export class ListAuditLogsQueryDto {
   userId?: string;
 
   @IsOptional()
+  @IsString()
+  resourceId?: string;
+
+  @IsOptional()
   @Type(() => Date)
   @IsDate()
   dateFrom?: Date;

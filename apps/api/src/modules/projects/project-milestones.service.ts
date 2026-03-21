@@ -1,10 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  AuditLogsService,
-  CreateAuditLogInput,
-} from '../audit-logs/audit-logs.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
+import {
+  PROJECT_AUDIT_ACTION,
+  PROJECT_AUDIT_RESOURCE_TYPE,
+} from './project-audit.constants';
+import {
+  diffAuditSnapshots,
+  projectMilestoneEntityAuditSnapshot,
+} from './project-audit-serialize';
 import { ProjectsService } from './projects.service';
 import { CreateProjectMilestoneDto } from './dto/create-project-milestone.dto';
 import { UpdateProjectMilestoneDto } from './dto/update-project-milestone.dto';
@@ -47,14 +52,14 @@ export class ProjectMilestonesService {
     await this.auditLogs.create({
       clientId,
       userId: context?.actorUserId,
-      action: 'project_milestone.create',
-      resourceType: 'ProjectMilestone',
+      action: PROJECT_AUDIT_ACTION.PROJECT_MILESTONE_CREATED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_MILESTONE,
       resourceId: created.id,
-      newValue: { projectId, name: created.name },
+      newValue: projectMilestoneEntityAuditSnapshot(created),
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
-    } satisfies CreateAuditLogInput);
+    });
 
     return created;
   }
@@ -88,17 +93,24 @@ export class ProjectMilestonesService {
       },
     });
 
-    await this.auditLogs.create({
-      clientId,
-      userId: context?.actorUserId,
-      action: 'project_milestone.update',
-      resourceType: 'ProjectMilestone',
-      resourceId: milestoneId,
-      newValue: dto,
-      ipAddress: context?.meta?.ipAddress,
-      userAgent: context?.meta?.userAgent,
-      requestId: context?.meta?.requestId,
-    });
+    const oldSnap = projectMilestoneEntityAuditSnapshot(existing);
+    const newSnap = projectMilestoneEntityAuditSnapshot(updated);
+    const { oldValue, newValue } = diffAuditSnapshots(oldSnap, newSnap);
+
+    if (Object.keys(oldValue).length > 0) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_MILESTONE_UPDATED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_MILESTONE,
+        resourceId: milestoneId,
+        oldValue,
+        newValue,
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
+    }
 
     return updated;
   }
@@ -121,10 +133,10 @@ export class ProjectMilestonesService {
     await this.auditLogs.create({
       clientId,
       userId: context?.actorUserId,
-      action: 'project_milestone.delete',
-      resourceType: 'ProjectMilestone',
+      action: PROJECT_AUDIT_ACTION.PROJECT_MILESTONE_DELETED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_MILESTONE,
       resourceId: milestoneId,
-      oldValue: { name: existing.name },
+      oldValue: projectMilestoneEntityAuditSnapshot(existing),
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
