@@ -111,53 +111,32 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
     [budgetsQuery.data?.items, budgetId],
   );
 
-  const selectedEnvelope = useMemo(
-    () => (envelopesQuery.data?.items ?? []).find((e) => e.id === envelopeId),
-    [envelopesQuery.data?.items, envelopeId],
-  );
+  /** Libellés trigger — en fonction de la valeur interne du Select (children fonction sur Select.Value, Base UI). */
+  const budgetValueLabel = (value: unknown) => {
+    if (budgetsQuery.isLoading) return 'Chargement…';
+    const v = typeof value === 'string' ? value : SELECT_NONE;
+    if (v === SELECT_NONE) return 'Choisir un budget';
+    const b = budgetsQuery.data?.items?.find((x) => x.id === v);
+    return b ? formatBudgetOptionLabel(b) : 'Budget introuvable dans la liste';
+  };
 
-  const selectedLine = useMemo(() => {
-    const lines = linesQuery.data ?? [];
-    return lines.find((l) => l.id === budgetLineId);
-  }, [linesQuery.data, budgetLineId]);
+  const envelopeValueLabel = (value: unknown) => {
+    if (budgetId === SELECT_NONE) return 'D’abord un budget';
+    if (envelopesQuery.isLoading) return 'Chargement…';
+    const v = typeof value === 'string' ? value : SELECT_NONE;
+    if (v === SELECT_NONE) return 'Choisir une enveloppe';
+    const env = envelopesQuery.data?.items?.find((e) => e.id === v);
+    return env ? formatEnvelopeOptionLabel(env) : 'Enveloppe introuvable';
+  };
 
-  /** Toujours une chaîne lisible — sinon Base UI affiche la valeur brute (__none__ ou id). */
-  const budgetTriggerText =
-    budgetId === SELECT_NONE
-      ? budgetsQuery.isLoading
-        ? 'Chargement…'
-        : 'Choisir un budget'
-      : selectedBudget
-        ? formatBudgetOptionLabel(selectedBudget)
-        : budgetsQuery.isLoading
-          ? 'Chargement…'
-          : 'Budget introuvable dans la liste';
-
-  const envelopeTriggerText =
-    envelopeId === SELECT_NONE
-      ? budgetId === SELECT_NONE
-        ? 'D’abord un budget'
-        : envelopesQuery.isLoading
-          ? 'Chargement…'
-          : 'Choisir une enveloppe'
-      : selectedEnvelope
-        ? formatEnvelopeOptionLabel(selectedEnvelope)
-        : envelopesQuery.isLoading
-          ? 'Chargement…'
-          : 'Enveloppe introuvable';
-
-  const lineTriggerText =
-    budgetLineId === SELECT_NONE
-      ? envelopeId === SELECT_NONE
-        ? 'D’abord une enveloppe'
-        : linesQuery.isLoading
-          ? 'Chargement…'
-          : 'Choisir une ligne'
-      : selectedLine
-        ? formatLineOptionLabel(selectedLine)
-        : linesQuery.isLoading
-          ? 'Chargement…'
-          : 'Ligne introuvable';
+  const lineValueLabel = (value: unknown) => {
+    if (envelopeId === SELECT_NONE) return 'D’abord une enveloppe';
+    if (linesQuery.isLoading) return 'Chargement…';
+    const v = typeof value === 'string' ? value : SELECT_NONE;
+    if (v === SELECT_NONE) return 'Choisir une ligne';
+    const line = linesQuery.data?.find((l) => l.id === v);
+    return line ? formatLineOptionLabel(line) : 'Ligne introuvable';
+  };
 
   const activeLinesInEnvelope = useMemo(() => {
     const lines = linesQuery.data ?? [];
@@ -348,6 +327,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       1. Budget
                     </Label>
                     <Select
+                      modal={false}
                       value={budgetId}
                       onValueChange={(v) => {
                         setBudgetId(v ?? SELECT_NONE);
@@ -358,7 +338,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                     >
                       <SelectTrigger id="pb-budget" className="h-9 w-full min-w-0">
                         <SelectValue placeholder="Choisir un budget">
-                          {budgetTriggerText}
+                          {budgetValueLabel}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
@@ -378,6 +358,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       2. Enveloppe
                     </Label>
                     <Select
+                      modal={false}
                       value={envelopeId}
                       onValueChange={(v) => {
                         setEnvelopeId(v ?? SELECT_NONE);
@@ -389,7 +370,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                     >
                       <SelectTrigger id="pb-envelope" className="h-9 w-full min-w-0">
                         <SelectValue placeholder="Choisir une enveloppe">
-                          {envelopeTriggerText}
+                          {envelopeValueLabel}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
@@ -417,6 +398,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       3. Ligne (active)
                     </Label>
                     <Select
+                      modal={false}
                       value={budgetLineId}
                       onValueChange={(v) => setBudgetLineId(v ?? SELECT_NONE)}
                       disabled={
@@ -427,7 +409,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                     >
                       <SelectTrigger id="pb-line" className="h-9 w-full min-w-0">
                         <SelectValue placeholder="Choisir une ligne">
-                          {lineTriggerText}
+                          {lineValueLabel}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
@@ -479,6 +461,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       <div className="space-y-1.5">
                         <Label>Type</Label>
                         <Select
+                          modal={false}
                           value={newLineExpenseType}
                           onValueChange={(v) =>
                             setNewLineExpenseType((v as 'OPEX' | 'CAPEX') ?? 'OPEX')
@@ -531,6 +514,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Mode</Label>
                   <Select
+                    modal={false}
                     value={allocationType}
                     onValueChange={(v) =>
                       setAllocationType((v ?? 'FULL') as ProjectBudgetAllocationType)

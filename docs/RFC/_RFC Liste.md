@@ -2,49 +2,144 @@
 
 ## 🧱 BACKEND — PROJET
 
-| Ordre | RFC              | Nom                 | Description                                                     | État       | Commentaire        |
-| ----- | ---------------- | ------------------- | --------------------------------------------------------------- | ---------- | ------------------ |
-| 1     | **RFC-PROJ-001** | Cadrage fonctionnel | Définition du périmètre projet (projet, tâche, risque, cockpit) | ✅ Couvert  | Base MVP OK        |
-| 2     | **RFC-PROJ-002** | Prisma Schema       | Modélisation DB : Project, Task, Risk, Milestone                | ✅ Couvert  | Structure OK       |
-| 3     | **RFC-PROJ-003** | Règles métier       | Calcul health, statuts, cohérence projet                        | ✅ Couvert  | Service existant   |
-| 4     | **RFC-PROJ-004** | Portfolio API       | CRUD projets + agrégats portefeuille                            | ✅ Couvert  | `/api/projects` OK |
-| 5     | **RFC-PROJ-005** | Tasks Backend       | Gestion exécution (tâches projet)                               | ✅ Couvert  | OK                 |
-| 6     | **RFC-PROJ-006** | Risks Backend       | Gestion risques (probabilité, impact)                           | ✅ Couvert  | OK                 |
-| 7     | **RFC-PROJ-008** | Permissions         | RBAC projet (`projects.*`)                                      | ✅ Couvert  | OK                 |
-| 8     | **RFC-PROJ-009** | Audit Logs Projet   | Traçabilité actions projet (create/update/delete)               | ✅ Couvert  | backend — actions granulaires (`project-audit.constants.ts`) |
+| Ordre | RFC              | Nom                 | Description                                                            | État      | Commentaire                                  |
+| ----- | ---------------- | ------------------- | ---------------------------------------------------------------------- | --------- | -------------------------------------------- |
+| 1     | **RFC-PROJ-001** | Cadrage fonctionnel | Définition du périmètre projet (projet, tâche, risque, cockpit)        | ✅ Couvert | Base MVP OK                                  |
+| 2     | **RFC-PROJ-002** | Prisma Schema       | Modélisation DB : Project, Task, Risk, Milestone                       | ✅ Couvert | Structure OK                                 |
+| 3     | **RFC-PROJ-003** | Règles métier       | Calcul health, statuts, cohérence projet                               | ✅ Couvert | Service existant                             |
+| 4     | **RFC-PROJ-004** | Portfolio API       | CRUD projets + agrégats portefeuille                                   | ✅ Couvert | `/api/projects` OK                           |
+| 5     | **RFC-PROJ-012** | Project Sheet       | Fiche projet décisionnelle pour arbitrer : valeur, coût, ROI, priorité | ❌ À faire | **urgence absolue** — couche arbitrage CODIR |
+| 6     | **RFC-PROJ-005** | Tasks Backend       | Gestion exécution (tâches projet)                                      | ✅ Couvert | OK                                           |
+| 7     | **RFC-PROJ-006** | Risks Backend       | Gestion risques (probabilité, impact)                                  | ✅ Couvert | OK                                           |
+| 8     | **RFC-PROJ-008** | Permissions         | RBAC projet (`projects.*`)                                             | ✅ Couvert | OK                                           |
+| 9     | **RFC-PROJ-009** | Audit Logs Projet   | Traçabilité actions projet (create/update/delete)                      | ✅ Couvert | backend — actions granulaires                |
+
+---
+
+## 📄 BACKEND — FICHE PROJET DÉCISIONNELLE
+
+| Ordre | RFC              | Nom                    | Description                                                           | État      | Commentaire                                 |
+| ----- | ---------------- | ---------------------- | --------------------------------------------------------------------- | --------- | ------------------------------------------- |
+| 10    | **RFC-PROJ-012** | Project Sheet          | Objet décisionnel lié au projet                                       | ❌ À faire | doit compléter `Project`, pas le remplacer  |
+| 11    | **RFC-PROJ-012** | Project Sheet API      | `GET /api/projects/:id/sheet`, `PATCH /api/projects/:id/sheet`, liste | ❌ À faire | vue arbitrage portefeuille                  |
+| 12    | **RFC-PROJ-012** | Project Sheet Metrics  | Calcul backend : coût total, budget, forecast, resource cost, ROI     | ❌ À faire | aucun calcul critique côté frontend         |
+| 13    | **RFC-PROJ-012** | Project Decision Rules | Règles d’arbitrage : APPROVED / REJECTED / ON_HOLD / TO_VALIDATE      | ❌ À faire | blocage tant que données minimales absentes |
+
+### Contenu attendu de la fiche projet
+
+La fiche projet doit consolider au minimum :
+
+* données d’identité projet
+* sponsor
+* business owner
+* priorité
+* alignement stratégique
+* valeur attendue
+* coût estimé
+* budget lié
+* charge ressources
+* score de risque
+* score de complexité
+* statut de décision
+
+### Champs métier minimum
+
+* `projectId`
+* `clientId`
+* `businessOwner`
+* `sponsor`
+* `priority` = `LOW | MEDIUM | HIGH | CRITICAL`
+* `strategicAlignment` = score `0–100`
+* `expectedValue`
+* `estimatedCost`
+* `roi`
+* `riskScore`
+* `complexityScore`
+* `statusDecision` = `IDEA | TO_VALIDATE | APPROVED | REJECTED | ON_HOLD`
+
+### Calculs backend obligatoires
+
+* `totalBudget` = somme des lignes budgétaires liées au projet
+* `totalCommitted`
+* `totalConsumed`
+* `totalForecast`
+* `resourceCost` = somme des affectations ressources valorisées
+* `estimatedCost` = budget projet + coût ressources
+* `roi` = `(expectedValue - estimatedCost) / estimatedCost`
+
+### Règles métier critiques
+
+* une fiche projet doit exister pour tout projet actif
+* impossible de passer un projet en `APPROVED` sans :
+
+  * `expectedValue`
+  * `estimatedCost`
+* verrouillage décisionnel si projet `CLOSED`
+* toute donnée reste strictement scopée `clientId`
+
+### Audit logs à ajouter
+
+* `project.sheet.updated`
+* `project.decision.changed`
 
 ---
 
 ## 🔗 BACKEND — LIENS CRITIQUES
 
-| Ordre | RFC              | Nom                | Description                                    | État      | Commentaire       |
-| ----- | ---------------- | ------------------ | ---------------------------------------------- | --------- | ----------------- |
-| 9     | **RFC-PROJ-010** | Project ↔ Budget   | Lier projets aux lignes/enveloppes budgétaires | ✅ Couvert  | MVP `project-budget` + UI fiche projet |
-| 10    | **RFC-PROJ-011** | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire | vision transverse |
+| Ordre | RFC              | Nom                | Description                                    | État       | Commentaire                                |
+| ----- | ---------------- | ------------------ | ---------------------------------------------- | ---------- | ------------------------------------------ |
+| 14    | **RFC-PROJ-010** | Project ↔ Budget   | Lier projets aux lignes/enveloppes budgétaires | ✅ Couvert  | MVP `project-budget` + base fiche projet   |
+| 15    | **RFC-PROJ-011** | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire  | vision transverse                          |
+| 16    | **RFC-PROJ-010** | Project Budget KPI | Exposer les KPI budget projet pour la fiche    | ⚠️ Partiel | nécessaire pour coût projet / dérive / ROI |
 
 ---
 
 ## 👥 BACKEND — RESSOURCES
 
-| Ordre | RFC             | Nom                 | Description                                  | État      | Commentaire        |
-| ----- | --------------- | ------------------- | -------------------------------------------- | --------- | ------------------ |
-| 11    | **RFC-RES-001** | Resource Registry   | Catalogue ressources (collaborateurs, rôles) | ❌ À faire | fondation staffing |
-| 12    | **RFC-RES-002** | Resource Assignment | Affectation ressources aux projets (charge)  | ❌ À faire | pilotage équipe    |
+| Ordre | RFC             | Nom                 | Description                                  | État      | Commentaire                         |
+| ----- | --------------- | ------------------- | -------------------------------------------- | --------- | ----------------------------------- |
+| 17    | **RFC-RES-001** | Resource Registry   | Catalogue ressources (collaborateurs, rôles) | ❌ À faire | fondation staffing                  |
+| 18    | **RFC-RES-002** | Resource Assignment | Affectation ressources aux projets (charge)  | ❌ À faire | indispensable pour coût projet réel |
+| 19    | **RFC-RES-002** | Resource Costing    | Valorisation charge / coût ressource         | ❌ À faire | dépend fiche projet et arbitrage    |
 
 ---
 
 ## 🖥️ FRONTEND — PROJET
 
-| Ordre | RFC                 | Nom               | Description                                    | État      | Commentaire     |
-| ----- | ------------------- | ----------------- | ---------------------------------------------- | --------- | --------------- |
-| 13    | **RFC-FE-PROJ-001** | Portfolio List UI | Vue globale projets (liste + filtres + statut) | ✅ Couvert | `/projects`     |
-| 14    | **RFC-FE-PROJ-002** | Project Detail UI | Cockpit projet (vue détaillée)                 | ✅ Couvert | OK              |
-| 15    | **RFC-FE-PROJ-003** | Tasks UI          | Interface gestion tâches                       | ✅ Couvert | stable          |
-| 16    | **RFC-FE-PROJ-004** | Risks UI          | Interface gestion risques                      | ✅ Couvert | stable          |
-| 17    | **RFC-FE-PROJ-005** | Resources UI      | Vue ressources projet + affectations           | ❌ À faire | dépend RES      |
-| 18    | **RFC-FE-PROJ-006** | Budget Links UI   | Visualiser budgets liés au projet              | ⚠️ Partiel | section Budget sur détail projet ; pas liste inverse sur ligne |
-| 19    | **RFC-FE-PROJ-007** | Supplier Links UI | Visualiser fournisseurs liés                   | ❌ À faire | dépend PROJ-011 |
-| 20    | **RFC-FE-PROJ-011** | Project Health UI | Indicateurs santé projet (badges, score)       | ✅ Couvert | OK              |
+| Ordre | RFC                 | Nom               | Description                                    | État       | Commentaire                      |
+| ----- | ------------------- | ----------------- | ---------------------------------------------- | ---------- | -------------------------------- |
+| 20    | **RFC-FE-PROJ-001** | Portfolio List UI | Vue globale projets (liste + filtres + statut) | ✅ Couvert  | `/projects`                      |
+| 21    | **RFC-FE-PROJ-002** | Project Detail UI | Cockpit projet (vue détaillée)                 | ✅ Couvert  | OK                               |
+| 22    | **RFC-FE-PROJ-014** | Project Sheet UI  | Fiche projet décisionnelle pour arbitrer       | ❌ À faire  | **urgence absolue**              |
+| 23    | **RFC-FE-PROJ-003** | Tasks UI          | Interface gestion tâches                       | ✅ Couvert  | stable                           |
+| 24    | **RFC-FE-PROJ-004** | Risks UI          | Interface gestion risques                      | ✅ Couvert  | stable                           |
+| 25    | **RFC-FE-PROJ-005** | Resources UI      | Vue ressources projet + affectations           | ❌ À faire  | dépend RES                       |
+| 26    | **RFC-FE-PROJ-006** | Budget Links UI   | Visualiser budgets liés au projet              | ⚠️ Partiel | section Budget sur détail projet |
+| 27    | **RFC-FE-PROJ-007** | Supplier Links UI | Visualiser fournisseurs liés                   | ❌ À faire  | dépend PROJ-011                  |
+| 28    | **RFC-FE-PROJ-011** | Project Health UI | Indicateurs santé projet (badges, score)       | ✅ Couvert  | OK                               |
+
+### Contenu attendu côté UI — Fiche Projet
+
+La fiche projet doit afficher :
+
+* sponsor
+* business owner
+* priorité
+* score de risque
+* score de complexité
+* coût budgétaire
+* coût ressources
+* coût total
+* valeur attendue
+* ROI
+* décision actuelle
+
+### Actions attendues
+
+* approuver
+* rejeter
+* mettre en attente
+* repasser en validation
 
 ---
 
@@ -54,11 +149,11 @@
 
 | Ordre | RFC         | Nom                   | Description                                   | État       | Commentaire   |
 | ----- | ----------- | --------------------- | --------------------------------------------- | ---------- | ------------- |
-| 21    | **RFC-024** | Monthly Planning      | Stockage + calcul planning mensuel (12 mois)  | ❌ À faire  | cœur forecast |
-| 22    | **RFC-019** | Budget Versioning     | Gestion versions budget (baseline, révisions) | ⚠️ Partiel | à connecter   |
-| 23    | **RFC-016** | Budget Reporting      | KPI consolidés (exercice, budget, enveloppe)  | ✅ Terminé  | API prête     |
-| 24    | **RFC-017** | Budget Reallocation   | Transfert budget entre lignes                 | ✅ Terminé  | OK            |
-| 25    | **RFC-021** | Analytical Dimensions | Centres de coûts + ventilation analytique     | ❌ À faire  | critique DAF  |
+| 29    | **RFC-024** | Monthly Planning      | Stockage + calcul planning mensuel (12 mois)  | ❌ À faire  | cœur forecast |
+| 30    | **RFC-019** | Budget Versioning     | Gestion versions budget (baseline, révisions) | ⚠️ Partiel | à connecter   |
+| 31    | **RFC-016** | Budget Reporting      | KPI consolidés (exercice, budget, enveloppe)  | ✅ Terminé  | API prête     |
+| 32    | **RFC-017** | Budget Reallocation   | Transfert budget entre lignes                 | ✅ Terminé  | OK            |
+| 33    | **RFC-021** | Analytical Dimensions | Centres de coûts + ventilation analytique     | ❌ À faire  | critique DAF  |
 
 ---
 
@@ -66,10 +161,10 @@
 
 | Ordre | RFC            | Nom                   | Description                                         | État       | Commentaire    |
 | ----- | -------------- | --------------------- | --------------------------------------------------- | ---------- | -------------- |
-| 26    | **RFC-FE-005** | Budget Line Detail    | Vue détaillée ligne (montants, events, allocations) | ⚠️ Partiel | à finir        |
-| 27    | **RFC-FE-029** | Monthly Planning Grid | Grille de saisie mensuelle (12 mois)                | ❌ À faire  | dépend RFC-024 |
-| 28    | **RFC-FE-030** | Cell Calculation UI   | Explication calcul des montants                     | ❌ À faire  | UX clé         |
-| 29    | **RFC-FE-031** | Calculator UI         | Outil calcul (quantité × prix, etc.)                | ❌ À faire  | productivité   |
+| 34    | **RFC-FE-005** | Budget Line Detail    | Vue détaillée ligne (montants, events, allocations) | ⚠️ Partiel | à finir        |
+| 35    | **RFC-FE-029** | Monthly Planning Grid | Grille de saisie mensuelle (12 mois)                | ❌ À faire  | dépend RFC-024 |
+| 36    | **RFC-FE-030** | Cell Calculation UI   | Explication calcul des montants                     | ❌ À faire  | UX clé         |
+| 37    | **RFC-FE-031** | Calculator UI         | Outil calcul (quantité × prix, etc.)                | ❌ À faire  | productivité   |
 
 ---
 
@@ -77,12 +172,12 @@
 
 | Ordre | RFC            | Nom                   | Description                               | État       | Commentaire |
 | ----- | -------------- | --------------------- | ----------------------------------------- | ---------- | ----------- |
-| 30    | **RFC-FE-002** | Budget Dashboard      | Cockpit global financier (KPI, tendances) | ⚠️ Partiel | à enrichir  |
-| 31    | **RFC-FE-032** | Envelope Monthly View | Vue mensuelle par enveloppe               | ❌ À faire  |             |
-| 32    | **RFC-FE-033** | Landing Forecast      | Projection fin d’année (atterrissage)     | ❌ À faire  |             |
-| 33    | **RFC-FE-034** | Landing Target        | Comparaison cible vs forecast             | ❌ À faire  |             |
-| 34    | **RFC-FE-035** | Landing Allocation    | Répartition automatique budget            | ❌ À faire  |             |
-| 35    | **RFC-FE-027** | Alerts & Integrity    | Alertes dépassement / incohérences        | ❌ À faire  | sécurité    |
+| 38    | **RFC-FE-002** | Budget Dashboard      | Cockpit global financier (KPI, tendances) | ⚠️ Partiel | à enrichir  |
+| 39    | **RFC-FE-032** | Envelope Monthly View | Vue mensuelle par enveloppe               | ❌ À faire  |             |
+| 40    | **RFC-FE-033** | Landing Forecast      | Projection fin d’année (atterrissage)     | ❌ À faire  |             |
+| 41    | **RFC-FE-034** | Landing Target        | Comparaison cible vs forecast             | ❌ À faire  |             |
+| 42    | **RFC-FE-035** | Landing Allocation    | Répartition automatique budget            | ❌ À faire  |             |
+| 43    | **RFC-FE-027** | Alerts & Integrity    | Alertes dépassement / incohérences        | ❌ À faire  | sécurité    |
 
 ---
 
@@ -90,11 +185,11 @@
 
 | Ordre | RFC                 | Nom                 | Description                      | État |
 | ----- | ------------------- | ------------------- | -------------------------------- | ---- |
-| 36    | **RFC-FE-PROJ-008** | Portfolio Cockpit   | Vue consolidée projets + budgets | ❌    |
-| 37    | **RFC-FE-PROJ-012** | Project vs Budget   | Analyse dérive coût projet       | ❌    |
-| 38    | **RFC-FE-036**      | Forecast vs Landing | Analyse écart financier          | ❌    |
-| 39    | **RFC-FE-PROJ-013** | Project Insights    | Détection projets en dérive      | ❌    |
-| 40    | **RFC-FE-PROJ-015** | Resource Load View  | Charge équipes / capacité        | ❌    |
+| 44    | **RFC-FE-PROJ-008** | Portfolio Cockpit   | Vue consolidée projets + budgets | ❌    |
+| 45    | **RFC-FE-PROJ-012** | Project vs Budget   | Analyse dérive coût projet       | ❌    |
+| 46    | **RFC-FE-036**      | Forecast vs Landing | Analyse écart financier          | ❌    |
+| 47    | **RFC-FE-PROJ-013** | Project Insights    | Détection projets en dérive      | ❌    |
+| 48    | **RFC-FE-PROJ-015** | Resource Load View  | Charge équipes / capacité        | ❌    |
 
 ---
 
@@ -102,19 +197,39 @@
 
 ## 🔥 À FAIRE MAINTENANT (CRITIQUE)
 
-| RFC                     | Pourquoi                           |
-| ----------------------- | ---------------------------------- |
-| **PROJ-011**            | événements financiers projet / fournisseur |
-| **PROJ-010 suite**      | §8.2 liste projets sur BudgetLine, §8.3 KPI (optionnel) |
-| **RES-001 / 002**       | pilotage équipes                   |
-| **FE-PROJ-005/007**     | cockpit / ressources (006 partiel) |
+| RFC                     | Pourquoi                                                   |
+| ----------------------- | ---------------------------------------------------------- |
+| **RFC-PROJ-012**        | **fiche projet décisionnelle** indispensable pour arbitrer |
+| **RFC-FE-PROJ-014**     | UI d’arbitrage CODIR / DAF / DSI                           |
+| **RFC-PROJ-010 suite**  | alimenter la fiche avec les KPI budget projet              |
+| **RFC-RES-001 / 002**   | calcul charge / coût ressources                            |
+| **RFC-PROJ-011**        | vue transverse projet / fournisseurs                       |
+| **RFC-FE-PROJ-005/007** | cockpit ressources / fournisseurs                          |
 
 ---
 
 ## ⚙️ ENSUITE
 
-| RFC              | Pourquoi          |
-| ---------------- | ----------------- |
-| **RFC-024**      | moteur forecast   |
-| **FE-029 → 031** | UX différenciante |
+| RFC                 | Pourquoi                   |
+| ------------------- | -------------------------- |
+| **RFC-024**         | moteur forecast            |
+| **FE-029 → 031**    | UX différenciante          |
+| **RFC-021**         | lecture analytique DAF     |
+| **RFC-FE-PROJ-012** | analyse dérive coût projet |
 
+---
+
+# ✅ DÉCISION DE PRIORISATION
+
+Avant d’aller plus loin sur le forecast avancé, il faut **absolument** ajouter la **fiche projet**.
+
+Pourquoi :
+
+* sans fiche projet, tu suis des projets
+* avec fiche projet, tu peux **arbitrer**, **prioriser**, **valider**, **geler**, **rejeter**
+
+Autrement dit :
+
+> le module Projet devient un vrai outil de décision, pas seulement un outil de suivi
+
+Je peux maintenant te rédiger la **RFC-PROJ-012 — Fiche Projet Décisionnelle** proprement.
