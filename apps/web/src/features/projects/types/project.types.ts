@@ -148,3 +148,35 @@ export type UpdateProjectBudgetLinkPayload = {
   percentage?: number;
   amount?: number;
 };
+
+/** RFC-PROJ-012 — fiche projet décisionnelle */
+export type ProjectArbitrationStatus =
+  | 'DRAFT'
+  | 'TO_REVIEW'
+  | 'VALIDATED'
+  | 'REJECTED';
+
+export type ProjectSheetRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export type ProjectSheet = {
+  id: string;
+  name: string;
+  businessValueScore: number | null;
+  strategicAlignment: number | null;
+  urgencyScore: number | null;
+  estimatedCost: number | null;
+  estimatedGain: number | null;
+  roi: number | null;
+  riskLevel: ProjectSheetRiskLevel | null;
+  priorityScore: number | null;
+  arbitrationStatus: ProjectArbitrationStatus | null;
+};
+
+export type UpdateProjectSheetPayload = {
+  businessValueScore?: number;
+  strategicAlignment?: number;
+  urgencyScore?: number;
+  estimatedCost?: number;
+  estimatedGain?: number;
+  riskLevel?: ProjectSheetRiskLevel;
+};

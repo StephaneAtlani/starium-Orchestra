@@ -27,8 +27,8 @@ import {
 } from '../constants/project-enum-labels';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
-import { projectsList } from '../constants/project-routes';
-import { ChevronLeft } from 'lucide-react';
+import { projectSheet, projectsList } from '../constants/project-routes';
+import { ChevronLeft, LayoutDashboard } from 'lucide-react';
 import { ProjectBudgetSection } from './project-budget-section';
 
 function formatDate(iso: string | null) {
@@ -77,7 +77,18 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         <PageHeader
           title={project.name}
           description={project.code ? `Code : ${project.code}` : undefined}
-          actions={<HealthBadge health={project.computedHealth} />}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={projectSheet(projectId)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <LayoutDashboard className="size-4" />
+                Fiche projet
+              </Link>
+              <HealthBadge health={project.computedHealth} />
+            </div>
+          }
         />
       </div>
 

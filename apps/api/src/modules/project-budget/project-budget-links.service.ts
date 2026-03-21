@@ -2,7 +2,7 @@
  * RFC-PROJ-010 — liaisons projet ↔ lignes budgétaires.
  *
  * Taxonomie des erreurs :
- * - BadRequestException : validation / invariant (mélange de types, somme % ≠ 100, etc.)
+ * - BadRequestException : validation / invariant (mélange de types, somme % > 100, etc.)
  * - ConflictException : budget ou exercice fermé, ligne non ACTIVE, suppression refusée
  *   (résidu incohérent), doublon (unicité projectId + budgetLineId)
  * - NotFoundException : ressource hors scope client
@@ -97,10 +97,10 @@ export class ProjectBudgetLinksService {
         (acc, l) => acc.plus(l.percentage!),
         new Prisma.Decimal(0),
       );
-      const diff = sum.minus(new Prisma.Decimal(100)).abs();
-      if (diff.gt(PERCENTAGE_SUM_EPSILON)) {
+      const cap = new Prisma.Decimal(100).plus(PERCENTAGE_SUM_EPSILON);
+      if (sum.gt(cap)) {
         throw new BadRequestException(
-          'La somme des pourcentages doit être égale à 100',
+          'La somme des pourcentages ne peut pas dépasser 100',
         );
       }
       return;

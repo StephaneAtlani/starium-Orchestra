@@ -5,6 +5,8 @@ import { ProjectMilestonesController } from './project-milestones.controller';
 import { ProjectMilestonesService } from './project-milestones.service';
 import { ProjectRisksController } from './project-risks.controller';
 import { ProjectRisksService } from './project-risks.service';
+import { ProjectSheetController } from './project-sheet/project-sheet.controller';
+import { ProjectSheetService } from './project-sheet/project-sheet.service';
 import { ProjectTasksController } from './project-tasks.controller';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsController } from './projects.controller';
@@ -15,6 +17,7 @@ import { ProjectsService } from './projects.service';
   imports: [PrismaModule, AuditLogsModule],
   controllers: [
     ProjectsController,
+    ProjectSheetController,
     ProjectTasksController,
     ProjectRisksController,
     ProjectMilestonesController,
@@ -22,6 +25,7 @@ import { ProjectsService } from './projects.service';
   providers: [
     ProjectsService,
     ProjectsPilotageService,
+    ProjectSheetService,
     ProjectTasksService,
     ProjectRisksService,
     ProjectMilestonesService,

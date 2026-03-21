@@ -71,6 +71,30 @@ export function projectEntityAuditSnapshot(p: Project): Record<string, unknown> 
     progressPercent: p.progressPercent ?? null,
     targetBudgetAmount: toAuditJson(p.targetBudgetAmount) as string | null,
     pilotNotes: p.pilotNotes ?? null,
+    businessValueScore: p.businessValueScore ?? null,
+    strategicAlignment: p.strategicAlignment ?? null,
+    urgencyScore: p.urgencyScore ?? null,
+    estimatedCost: toAuditJson(p.estimatedCost) as string | null,
+    estimatedGain: toAuditJson(p.estimatedGain) as string | null,
+    roi: toAuditJson(p.roi) as string | null,
+    riskLevel: p.riskLevel ?? null,
+    priorityScore: toAuditJson(p.priorityScore) as string | null,
+    arbitrationStatus: p.arbitrationStatus ?? null,
+  };
+}
+
+/** Snapshot des seuls champs fiche (RFC-PROJ-012) pour diff audit ciblé */
+export function projectSheetFieldsAuditSnapshot(p: Project): Record<string, unknown> {
+  return {
+    businessValueScore: p.businessValueScore ?? null,
+    strategicAlignment: p.strategicAlignment ?? null,
+    urgencyScore: p.urgencyScore ?? null,
+    estimatedCost: toAuditJson(p.estimatedCost),
+    estimatedGain: toAuditJson(p.estimatedGain),
+    roi: toAuditJson(p.roi),
+    riskLevel: p.riskLevel ?? null,
+    priorityScore: toAuditJson(p.priorityScore),
+    arbitrationStatus: p.arbitrationStatus ?? null,
   };
 }
 

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { Prisma, ProjectBudgetAllocationType } from '@prisma/client';
 import { ProjectBudgetLinksService } from './project-budget-links.service';
 
@@ -35,7 +35,7 @@ describe('ProjectBudgetLinksService', () => {
       ).not.toThrow();
     });
 
-    it('PERCENTAGE somme ≠ 100 : BadRequest', () => {
+    it('PERCENTAGE 40 + 40 : valide (somme < 100, complétable plus tard)', () => {
       expect(() =>
         service.validateProjectLinksInvariant([
           {
@@ -46,6 +46,23 @@ describe('ProjectBudgetLinksService', () => {
           {
             allocationType: ProjectBudgetAllocationType.PERCENTAGE,
             percentage: new Prisma.Decimal(40),
+            amount: null,
+          },
+        ]),
+      ).not.toThrow();
+    });
+
+    it('PERCENTAGE 60 + 50 : BadRequest (somme > 100)', () => {
+      expect(() =>
+        service.validateProjectLinksInvariant([
+          {
+            allocationType: ProjectBudgetAllocationType.PERCENTAGE,
+            percentage: new Prisma.Decimal(60),
+            amount: null,
+          },
+          {
+            allocationType: ProjectBudgetAllocationType.PERCENTAGE,
+            percentage: new Prisma.Decimal(50),
             amount: null,
           },
         ]),
@@ -117,7 +134,7 @@ describe('ProjectBudgetLinksService', () => {
   });
 
   describe('remove', () => {
-    it('refuse Conflict si le résidu PERCENTAGE ne fait pas 100 %', async () => {
+    it('supprime un lien PERCENTAGE : succès si le résidu reste ≤ 100 % (ex. 50+50 → 50)', async () => {
       const linkA = {
         id: 'link-a',
         clientId: 'client-1',
@@ -140,7 +157,7 @@ describe('ProjectBudgetLinksService', () => {
       const tx = {
         projectBudgetLink: {
           findMany: jest.fn().mockResolvedValue([linkA, linkB]),
-          delete: jest.fn(),
+          delete: jest.fn().mockResolvedValue({}),
         },
       };
 
@@ -159,10 +176,10 @@ describe('ProjectBudgetLinksService', () => {
         { getProjectForScope: jest.fn() } as never,
       );
 
-      await expect(
-        svc.remove('client-1', 'link-a', undefined),
-      ).rejects.toThrow(ConflictException);
-      expect(tx.projectBudgetLink.delete).not.toHaveBeenCalled();
+      await svc.remove('client-1', 'link-a', undefined);
+      expect(tx.projectBudgetLink.delete).toHaveBeenCalledWith({
+        where: { id: 'link-a' },
+      });
     });
   });
 });

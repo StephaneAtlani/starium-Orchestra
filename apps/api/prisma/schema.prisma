@@ -305,6 +305,20 @@ enum ProjectBudgetAllocationType {
   FIXED
 }
 
+/** RFC-PROJ-012 — fiche projet décisionnelle */
+enum ProjectRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectArbitrationStatus {
+  DRAFT
+  TO_REVIEW
+  VALIDATED
+  REJECTED
+}
+
 model Project {
   id        String  @id @default(cuid())
   clientId  String
@@ -329,6 +343,17 @@ model Project {
 
   targetBudgetAmount Decimal? @db.Decimal(18, 2)
   pilotNotes         String?
+
+  businessValueScore   Int?
+  strategicAlignment   Int?
+  urgencyScore         Int?
+
+  estimatedCost     Decimal? @db.Decimal(18, 2)
+  estimatedGain     Decimal? @db.Decimal(18, 2)
+  roi               Decimal? @db.Decimal(10, 2)
+  riskLevel         ProjectRiskLevel?
+  priorityScore     Decimal? @db.Decimal(5, 2)
+  arbitrationStatus ProjectArbitrationStatus?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

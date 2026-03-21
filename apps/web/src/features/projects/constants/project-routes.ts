@@ -9,3 +9,7 @@ export function projectNew(): string {
 export function projectDetail(id: string): string {
   return `/projects/${id}`;
 }
+
+export function projectSheet(projectId: string): string {
+  return `/projects/${projectId}/sheet`;
+}

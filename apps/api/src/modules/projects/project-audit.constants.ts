@@ -35,4 +35,9 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_BUDGET_LINK_CREATED: 'project.budget_link.created',
   PROJECT_BUDGET_LINK_UPDATED: 'project.budget_link.updated',
   PROJECT_BUDGET_LINK_DELETED: 'project.budget_link.deleted',
+
+  /** RFC-PROJ-012 */
+  PROJECT_SHEET_UPDATED: 'project.sheet.updated',
+  PROJECT_ARBITRATION_VALIDATED: 'project.arbitration.validated',
+  PROJECT_ARBITRATION_REJECTED: 'project.arbitration.rejected',
 } as const;

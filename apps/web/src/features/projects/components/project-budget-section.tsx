@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, Link2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,9 @@ import { useBudgetsList } from '@/features/budgets/hooks/use-budgets';
 import { useBudgetLinesByBudget } from '@/features/budgets/hooks/use-budget-lines';
 import { useBudgetEnvelopesAll } from '@/features/budgets/hooks/use-budget-envelopes';
 import type { ApiFormError } from '@/features/budgets/api/types';
+import type { CreateLinePayload } from '@/features/budgets/api/budget-management.api';
+import { useGeneralLedgerAccountOptions } from '@/features/budgets/hooks/use-general-ledger-account-options';
+import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectBudgetLinksQuery } from '../hooks/use-project-budget-links-query';
 import { useCreateProjectBudgetLink } from '../hooks/use-create-project-budget-link';
@@ -42,7 +45,7 @@ import { ProjectBudgetLinkEditDialog } from './project-budget-link-edit-dialog';
 
 const ALLOCATION_LABEL: Record<ProjectBudgetAllocationType, string> = {
   FULL: '100 % sur la ligne',
-  PERCENTAGE: 'Pourcentages (somme 100 %)',
+  PERCENTAGE: 'Pourcentages (somme ≤ 100 %)',
   FIXED: 'Montants fixes',
 };
 
@@ -88,10 +91,47 @@ function formatProjectBudgetPercentage(value: string | null | undefined): string
   }).format(n)} %`;
 }
 
+type BuildLinkResult =
+  | { ok: true; payload: CreateProjectBudgetLinkPayload }
+  | { ok: false; message: string };
+
+function buildCreateLinkPayload(
+  budgetLineId: string,
+  allocationType: ProjectBudgetAllocationType,
+  percentage: string,
+  amount: string,
+): BuildLinkResult {
+  if (!budgetLineId || budgetLineId === SELECT_NONE) {
+    return { ok: false, message: 'Choisissez une ligne budgétaire ACTIVE.' };
+  }
+  const payload: CreateProjectBudgetLinkPayload = {
+    budgetLineId,
+    allocationType,
+  };
+  if (allocationType === 'PERCENTAGE') {
+    const p = Number(percentage.replace(',', '.'));
+    if (Number.isNaN(p)) {
+      return { ok: false, message: 'Indiquez un pourcentage valide.' };
+    }
+    payload.percentage = p;
+  }
+  if (allocationType === 'FIXED') {
+    const a = Number(amount.replace(',', '.'));
+    if (Number.isNaN(a)) {
+      return { ok: false, message: 'Indiquez un montant valide.' };
+    }
+    payload.amount = a;
+  }
+  return { ok: true, payload };
+}
+
 export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   const { has } = usePermissions();
+  const { activeClient } = useActiveClient();
   const canCreateBudgetLine = has('budgets.create');
   const canEditBudgetLinks = has('projects.update');
+  const budgetAccountingEnabled = Boolean(activeClient?.budgetAccountingEnabled);
+  const generalLedgerQuery = useGeneralLedgerAccountOptions();
 
   const linksQuery = useProjectBudgetLinksQuery(projectId);
   const budgetsQuery = useBudgetsList({ limit: 100 });
@@ -116,6 +156,8 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
     'OPEX',
   );
   const [newLineInitial, setNewLineInitial] = useState('0');
+  const [newLineGeneralLedgerId, setNewLineGeneralLedgerId] =
+    useState<string>(SELECT_NONE);
   /** Formulaire « nouvelle ligne » : uniquement après action explicite (pas dès budget+enveloppe). */
   const [showNewLineForm, setShowNewLineForm] = useState(false);
   /** Bloc « Ajouter un lien budgétaire » repliable. */
@@ -193,7 +235,8 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
     setAmount('');
   };
 
-  const handleCreateBudgetLine = async () => {
+  /** Crée la ligne budgétaire puis tente d’ajouter le lien projet (même règles que « Ajouter le lien »). */
+  const handleCreateBudgetLineAndLink = async () => {
     if (budgetId === SELECT_NONE || envelopeId === SELECT_NONE) {
       toast.error('Choisissez un budget et une enveloppe.');
       return;
@@ -208,8 +251,15 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
       toast.error('Montant initial invalide.');
       return;
     }
+    if (
+      budgetAccountingEnabled &&
+      (newLineGeneralLedgerId === SELECT_NONE || !newLineGeneralLedgerId)
+    ) {
+      toast.error('Sélectionnez un compte comptable pour la nouvelle ligne.');
+      return;
+    }
     try {
-      const line = await createLineMut.mutateAsync({
+      const linePayload: CreateLinePayload = {
         budgetId,
         envelopeId,
         name,
@@ -218,49 +268,62 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
         initialAmount,
         currency: selectedBudget?.currency ?? 'EUR',
         status: 'ACTIVE',
-      });
+      };
+      if (budgetAccountingEnabled && newLineGeneralLedgerId !== SELECT_NONE) {
+        linePayload.generalLedgerAccountId = newLineGeneralLedgerId;
+      }
+      if (
+        selectedBudget?.taxMode === 'TTC' &&
+        selectedBudget.defaultTaxRate != null
+      ) {
+        linePayload.taxRate = selectedBudget.defaultTaxRate;
+      }
+
+      const line = await createLineMut.mutateAsync(linePayload);
       setBudgetLineId(line.id);
       setNewLineName('');
       setNewLineCode('');
       setNewLineInitial('0');
+      setNewLineGeneralLedgerId(SELECT_NONE);
       setShowNewLineForm(false);
-      toast.success('Ligne créée et sélectionnée.');
+
+      const built = buildCreateLinkPayload(
+        line.id,
+        allocationType,
+        percentage,
+        amount,
+      );
+      if (!built.ok) {
+        toast.warning('Ligne créée et sélectionnée', {
+          description: `${built.message} Complétez l’allocation ci-dessus, puis « Ajouter le lien ».`,
+        });
+        return;
+      }
+
+      await createMut.mutateAsync(built.payload);
+      toast.success('Ligne créée et lien budgétaire ajouté.');
+      resetForm();
     } catch (err: unknown) {
-      const msg = isApiFormError(err) ? err.message : 'Création de ligne impossible.';
+      const msg = isApiFormError(err) ? err.message : 'Création impossible.';
       toast.error(msg);
     }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!budgetLineId || budgetLineId === SELECT_NONE) {
-      toast.error('Choisissez une ligne budgétaire ACTIVE.');
+    const built = buildCreateLinkPayload(
+      budgetLineId,
+      allocationType,
+      percentage,
+      amount,
+    );
+    if (!built.ok) {
+      toast.error(built.message);
       return;
     }
 
-    const payload: CreateProjectBudgetLinkPayload = {
-      budgetLineId,
-      allocationType,
-    };
-    if (allocationType === 'PERCENTAGE') {
-      const p = Number(percentage.replace(',', '.'));
-      if (Number.isNaN(p)) {
-        toast.error('Pourcentage invalide.');
-        return;
-      }
-      payload.percentage = p;
-    }
-    if (allocationType === 'FIXED') {
-      const a = Number(amount.replace(',', '.'));
-      if (Number.isNaN(a)) {
-        toast.error('Montant invalide.');
-        return;
-      }
-      payload.amount = a;
-    }
-
     try {
-      await createMut.mutateAsync(payload);
+      await createMut.mutateAsync(built.payload);
       toast.success('Lien budget créé.');
       resetForm();
     } catch (err: unknown) {
@@ -494,6 +557,63 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                 </div>
               </div>
 
+              <div className="border-t border-border/60 pt-5">
+                <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Allocation sur la ligne choisie ou à créer
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Mode</Label>
+                    <Select
+                      modal={false}
+                      value={allocationType}
+                      onValueChange={(v) =>
+                        setAllocationType((v ?? 'FULL') as ProjectBudgetAllocationType)
+                      }
+                    >
+                      <SelectTrigger className="h-9 w-full min-w-0">
+                        <SelectValue placeholder="Mode d’allocation">
+                          {ALLOCATION_LABEL[allocationType]}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALLOCATION_TYPE_KEYS.map((k) => (
+                          <SelectItem key={k} value={k}>
+                            {ALLOCATION_LABEL[k]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {allocationType === 'PERCENTAGE' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="pb-pct">Pourcentage sur cette ligne</Label>
+                      <Input
+                        id="pb-pct"
+                        inputMode="decimal"
+                        placeholder="ex. 40"
+                        value={percentage}
+                        onChange={(ev) => setPercentage(ev.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                  )}
+                  {allocationType === 'FIXED' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="pb-amt">Montant (devise budget)</Label>
+                      <Input
+                        id="pb-amt"
+                        inputMode="decimal"
+                        placeholder="ex. 12000"
+                        value={amount}
+                        onChange={(ev) => setAmount(ev.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {canCreateBudgetLine &&
                 budgetId !== SELECT_NONE &&
                 envelopeId !== SELECT_NONE &&
@@ -523,7 +643,8 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       <div>
                         <p className="text-sm font-medium">Nouvelle ligne dans cette enveloppe</p>
                         <p className="text-xs text-muted-foreground">
-                          Création rapide sans quitter la fiche projet (permission budgets.create).
+                          Définissez l’allocation (mode, % ou montant) au-dessus. Création rapide
+                          sans quitter la fiche projet (permission budgets.create).
                         </p>
                       </div>
                       <Button
@@ -537,6 +658,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                           setNewLineCode('');
                           setNewLineExpenseType('OPEX');
                           setNewLineInitial('0');
+                          setNewLineGeneralLedgerId(SELECT_NONE);
                         }}
                       >
                         Annuler
@@ -597,79 +719,69 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                         </p>
                       </div>
                     </div>
+                    {budgetAccountingEnabled ? (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="pb-new-gl">Compte comptable</Label>
+                        <Select
+                          modal={false}
+                          value={newLineGeneralLedgerId}
+                          onValueChange={setNewLineGeneralLedgerId}
+                        >
+                          <SelectTrigger id="pb-new-gl" className="h-9 w-full min-w-0">
+                            <SelectValue placeholder="Choisir un compte">
+                              {newLineGeneralLedgerId !== SELECT_NONE
+                                ? (() => {
+                                    const g = (
+                                      generalLedgerQuery.data?.items ?? []
+                                    ).find((x) => x.id === newLineGeneralLedgerId);
+                                    return g ? `${g.code} — ${g.name}` : '—';
+                                  })()
+                                : null}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={SELECT_NONE}>— Choisir —</SelectItem>
+                            {(generalLedgerQuery.data?.items ?? []).map((g) => (
+                              <SelectItem key={g.id} value={g.id}>
+                                {g.code} — {g.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Requis lorsque la comptabilité budgétaire est activée pour le client.
+                        </p>
+                        {generalLedgerQuery.isError ? (
+                          <p className="text-xs text-destructive">
+                            Impossible de charger les comptes comptables.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <Button
                       type="button"
-                      variant="secondary"
-                      className="w-full sm:w-auto"
-                      disabled={createLineMut.isPending}
-                      onClick={() => void handleCreateBudgetLine()}
+                      variant="default"
+                      className="inline-flex w-full min-h-9 items-center justify-center gap-2 sm:w-auto"
+                      disabled={
+                        createLineMut.isPending ||
+                        createMut.isPending ||
+                        (budgetAccountingEnabled && generalLedgerQuery.isPending)
+                      }
+                      onClick={() => void handleCreateBudgetLineAndLink()}
                     >
-                      {createLineMut.isPending
-                        ? 'Création…'
-                        : 'Créer la ligne et la sélectionner'}
+                      <Link2 className="size-4 shrink-0 opacity-90" aria-hidden />
+                      {createLineMut.isPending || createMut.isPending ? (
+                        'Enregistrement…'
+                      ) : (
+                        'Créer la ligne et ajouter le lien'
+                      )}
                     </Button>
                   </div>
                 )}
 
-              <div className="border-t border-border/60 pt-5">
-                <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Allocation sur la ligne choisie
-                </p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Mode</Label>
-                  <Select
-                    modal={false}
-                    value={allocationType}
-                    onValueChange={(v) =>
-                      setAllocationType((v ?? 'FULL') as ProjectBudgetAllocationType)
-                    }
-                  >
-                    <SelectTrigger className="h-9 w-full min-w-0">
-                      <SelectValue placeholder="Mode d’allocation">
-                        {ALLOCATION_LABEL[allocationType]}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ALLOCATION_TYPE_KEYS.map((k) => (
-                        <SelectItem key={k} value={k}>
-                          {ALLOCATION_LABEL[k]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {allocationType === 'PERCENTAGE' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="pb-pct">Pourcentage sur cette ligne</Label>
-                    <Input
-                      id="pb-pct"
-                      inputMode="decimal"
-                      placeholder="ex. 40"
-                      value={percentage}
-                      onChange={(ev) => setPercentage(ev.target.value)}
-                      className="h-9"
-                    />
-                  </div>
-                )}
-                {allocationType === 'FIXED' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="pb-amt">Montant (devise budget)</Label>
-                    <Input
-                      id="pb-amt"
-                      inputMode="decimal"
-                      placeholder="ex. 12000"
-                      value={amount}
-                      onChange={(ev) => setAmount(ev.target.value)}
-                      className="h-9"
-                    />
-                  </div>
-                )}
-              </div>
-              </div>
-
               <Button
                 type="submit"
+                variant="secondary"
                 className="w-full sm:w-auto"
                 disabled={
                   createMut.isPending ||

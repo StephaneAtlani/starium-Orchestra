@@ -48,30 +48,46 @@ async function handleResponse<T>(res: Response): Promise<T> {
  * Parse une réponse non ok en ApiFormError (contrat unique formulaires).
  */
 export async function parseApiFormError(res: Response): Promise<ApiFormError> {
-  let message = 'Impossible d\'enregistrer les modifications.';
+  const defaultMessage = 'Impossible d\'enregistrer les modifications.';
+  let message = defaultMessage;
   let fieldErrors: Record<string, string> | undefined;
-  try {
-    const body = (await res.json()) as {
-      message?: string | string[];
-      statusCode?: number;
-      errors?: Array<{ property?: string; message?: string }>;
-    };
-    if (Array.isArray(body.message)) {
-      message = body.message[0] ?? message;
-      if (body.errors?.length) {
-        fieldErrors = {};
-        for (const e of body.errors) {
-          if (e.property) fieldErrors[e.property] = e.message ?? '';
-        }
-      }
-    } else if (typeof body.message === 'string') {
-      message = body.message;
-    }
+
+  const text = await res.text();
+  if (!text.trim()) {
     if (res.status === 403) message = 'Vous n\'avez pas les droits nécessaires.';
-    if (res.status === 404) message = 'L\'objet demandé est introuvable.';
-  } catch {
-    // keep default message
+    else if (res.status === 404) message = 'L\'objet demandé est introuvable.';
+    return { status: res.status, message, fieldErrors };
   }
+
+  let body: {
+    message?: string | string[];
+    statusCode?: number;
+    errors?: Array<{ property?: string; message?: string }>;
+  };
+  try {
+    body = JSON.parse(text) as typeof body;
+  } catch {
+    const snippet = text.replace(/\s+/g, ' ').trim().slice(0, 280);
+    return {
+      status: res.status,
+      message: snippet || defaultMessage,
+      fieldErrors,
+    };
+  }
+
+  if (Array.isArray(body.message)) {
+    message = body.message[0] ?? message;
+    if (body.errors?.length) {
+      fieldErrors = {};
+      for (const e of body.errors) {
+        if (e.property) fieldErrors[e.property] = e.message ?? '';
+      }
+    }
+  } else if (typeof body.message === 'string') {
+    message = body.message;
+  }
+  if (res.status === 403) message = 'Vous n\'avez pas les droits nécessaires.';
+  if (res.status === 404) message = 'L\'objet demandé est introuvable.';
   return { status: res.status, message, fieldErrors };
 }
 

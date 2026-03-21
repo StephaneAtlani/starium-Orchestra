@@ -33,7 +33,7 @@ import type {
 
 const ALLOCATION_LABEL: Record<ProjectBudgetAllocationType, string> = {
   FULL: '100 % sur la ligne',
-  PERCENTAGE: 'Pourcentages (somme 100 %)',
+  PERCENTAGE: 'Pourcentages (somme ≤ 100 %)',
   FIXED: 'Montants fixes',
 };
 

@@ -2,6 +2,7 @@
 #   docker compose up                      → postgres seul
 #   docker compose --profile standard up   → postgres + api (3001) + web (3000)
 #   docker compose --profile dev up        → postgres + api-dev (3001) + web-dev (3000), hot reload
+#   (web-dev attend api-dev healthy pour éviter proxy /api/* → ECONNREFUSED au démarrage)
 #   Ports identiques dev/prod : API 3001, Web 3000.
 services:
   postgres:
@@ -60,6 +61,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Évite ECONNREFUSED côté web-dev (proxy Next → api-dev) : Nest peut mettre 30–90 s au premier démarrage.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3001/api/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
     profiles:
       - dev
 
@@ -95,9 +109,14 @@ services:
       - ./apps/web:/app/apps/web
       # .next hors bind mount : évite cache Next corrompu (ENOENT routes-manifest.json, chunks *.js manquants)
       # quand l’hôte et le conteneur se marchent dessus ou après rm partiel du cache.
+      # Si erreurs MODULE_NOT_FOUND (ex. vendor-chunks/@swc+helpers, ./5783.js) : le volume nommé peut être
+      # désynchronisé après upgrade Next/pnpm ou arrêt brutal. Purger puis relancer :
+      #   ./scripts/docker-clear-web-next-cache.sh
+      # ou : docker compose --profile dev stop web-dev && docker volume rm $(docker volume ls -q | grep web_next_cache) && docker compose --profile dev up -d web-dev
       - web_next_cache:/app/apps/web/.next
     depends_on:
-      - api-dev
+      api-dev:
+        condition: service_healthy
     profiles:
       - dev
 

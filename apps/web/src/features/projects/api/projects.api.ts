@@ -1,10 +1,13 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
 import type {
+  ProjectArbitrationStatus,
   ProjectAssignableUser,
   ProjectDetail,
+  ProjectSheet,
   ProjectsListResponse,
   ProjectsPortfolioSummary,
+  UpdateProjectSheetPayload,
 } from '../types/project.types';
 
 const BASE = '/api/projects';
@@ -112,4 +115,41 @@ export async function listMilestones(authFetch: AuthFetch, projectId: string) {
   const res = await authFetch(`${BASE}/${projectId}/milestones`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<unknown[]>;
+}
+
+export async function getProjectSheet(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectSheet> {
+  const res = await authFetch(`${BASE}/${projectId}/project-sheet`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectSheet>;
+}
+
+export async function updateProjectSheet(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: UpdateProjectSheetPayload,
+): Promise<ProjectSheet> {
+  const res = await authFetch(`${BASE}/${projectId}/project-sheet`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectSheet>;
+}
+
+export async function postProjectArbitration(
+  authFetch: AuthFetch,
+  projectId: string,
+  status: ProjectArbitrationStatus,
+): Promise<ProjectSheet> {
+  const res = await authFetch(`${BASE}/${projectId}/arbitration`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectSheet>;
 }

@@ -10,6 +10,8 @@ export interface ActiveClient {
   slug: string;
   role: 'CLIENT_ADMIN' | 'CLIENT_USER';
   status: ActiveClientStatus;
+  /** Présent quand le client vient de /api/me/clients (bootstrap). */
+  budgetAccountingEnabled?: boolean;
 }
 
 interface ActiveClientContextValue {
