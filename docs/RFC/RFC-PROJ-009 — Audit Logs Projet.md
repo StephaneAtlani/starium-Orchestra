@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémenté (backend) — contrat d’actions et `resourceType` dans `apps/api/src/modules/projects/project-audit.constants.ts` ; lecture API avec filtre `resourceId` et rétrocompat en lecture sur les anciens enregistrements.
 
 ## Priorité
 
@@ -372,4 +372,14 @@ Cette RFC est **critique pour Starium Orchestra** :
 * détection automatique d’anomalies
 * scoring de dérive projet
 * audit consolidé multi-clients
+
+---
+
+# 16. Référence implémentation (backend)
+
+* **Contrat** : `apps/api/src/modules/projects/project-audit.constants.ts` (`PROJECT_AUDIT_ACTION`, `PROJECT_AUDIT_RESOURCE_TYPE`)
+* **Diff / sérialisation** : `apps/api/src/modules/projects/project-audit-serialize.ts`
+* **Logs** : services `projects` / sous-services (tâches, risques, jalons) via `AuditLogsService`
+* **Liste / filtres** : `apps/api/src/modules/audit-logs/audit-logs.service.ts` (`resourceId`, scope client / plateforme)
+* **Lecture legacy** : `apps/api/src/modules/audit-logs/audit-logs-read-legacy.ts` (anciens `resourceType` / `action` normalisés)
 

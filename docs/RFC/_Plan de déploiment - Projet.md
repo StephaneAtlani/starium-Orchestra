@@ -334,17 +334,10 @@ Raccorder le module à ton core plateforme.
 **Objectif**
 Tracer toutes les actions sensibles.
 
-**Événements à auditer**
+**Événements à auditer** (contrat `PROJECT_AUDIT_ACTION` — préfixes `project`, `project_task`, `project_risk`, `project_milestone`)
 
-* `portfolio-item.created`
-* `portfolio-item.updated`
-* `portfolio-item.archived`
-* `portfolio-task.created`
-* `portfolio-task.updated`
-* `portfolio-risk.created`
-* `portfolio-risk.updated`
-* `portfolio-milestone.created`
-* `portfolio-milestone.updated`
+* création / mise à jour / suppression par entité
+* événements granulaires : statut projet, owner projet ; statut / assignation tâche ; niveau risque ; etc. (liste complète dans RFC-PROJ-009)
 
 **Résultat concret**
 
@@ -838,7 +831,7 @@ C’est plus fidèle à ton besoin réel.
 | RFC-PROJ-006    | Risks Backend                   | Gestion des risques                     | Haute         | Couvert (MVP) |
 | RFC-PROJ-007    | Milestones Backend              | Jalons et échéances macro               | Moyenne/Haute | Couvert (MVP) |
 | RFC-PROJ-008    | Permissions & Module Activation | RBAC et activation module               | Haute         | Couvert (MVP) — `projects.*` |
-| RFC-PROJ-009    | Audit Logs Projet               | Traçabilité métier                      | Haute         | Partiel (MVP) — audit créations / mises à jour projet et sous-ressources |
+| RFC-PROJ-009    | Audit Logs Projet               | Traçabilité métier                      | Haute         | Couvert (MVP) — audit projet / tâches / risques / jalons + actions granulaires (statut, owner, assignation, niveau risque) |
 | RFC-PROJ-010    | Budget Links                    | Liens vers module budget                | Haute         | À faire |
 | RFC-PROJ-011    | Supplier Links                  | Liens vers module fournisseur           | Haute         | À faire |
 | RFC-PROJ-012    | Documents & Attachments Links   | Documents liés                          | Moyenne       | À faire |

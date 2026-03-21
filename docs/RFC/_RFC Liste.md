@@ -11,7 +11,7 @@
 | 5     | **RFC-PROJ-005** | Tasks Backend       | Gestion exécution (tâches projet)                               | ✅ Couvert  | OK                 |
 | 6     | **RFC-PROJ-006** | Risks Backend       | Gestion risques (probabilité, impact)                           | ✅ Couvert  | OK                 |
 | 7     | **RFC-PROJ-008** | Permissions         | RBAC projet (`projects.*`)                                      | ✅ Couvert  | OK                 |
-| 8     | **RFC-PROJ-009** | Audit Logs Projet   | Traçabilité actions projet (create/update/delete)               | ⚠️ Partiel | manque granularité |
+| 8     | **RFC-PROJ-009** | Audit Logs Projet   | Traçabilité actions projet (create/update/delete)               | ✅ Couvert  | backend — actions granulaires (`project-audit.constants.ts`) |
 
 ---
 
