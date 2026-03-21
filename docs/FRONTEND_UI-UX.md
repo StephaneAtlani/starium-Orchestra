@@ -168,7 +168,7 @@ import { FolderKanban } from 'lucide-react';
 />
 ```
 
-**Référence cockpit** : `features/projects/components/projects-portfolio-kpi.tsx` — les trois sections sont enveloppées dans une **`Card size="sm"`** avec en-tête « Indicateurs portefeuille » (FRONTEND_UI-UX : hiérarchie cockpit).
+**Référence cockpit** : le portefeuille projets (`features/projects/components/projects-portfolio-kpi.tsx`) n’utilise **pas** `KpiCard` : c’est une **grille compacte** de trois bandeaux (Volume / Risques & échéances / Complétude) avec cellules `Stat` — voir **§6.1**. `KpiCard` `dense` reste le pattern pour d’autres écrans qui affichent des cartes KPI empilées.
 
 ### 6.1 Bloc KPI portefeuille (compact)
 
@@ -199,7 +199,7 @@ Variante optionnelle : bandeau avec fond **§9** (ambre) si besoin de signal sur
 Pattern **liste / cockpit** : une **`Card size="sm"`** avec en-tête (titre + description + **Réinitialiser**), puis sections séparées par un filet `h-px bg-border/70` :
 
 1. **Recherche** — champ avec icône `Search` en préfixe, `max-w-lg`.
-2. **Filtrer par** — grille responsive `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` (statut, priorité, criticité), labels `Label` + `Select` pleine largeur dans la colonne.
+2. **Filtrer par** — grille responsive `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` : **Nature** (Tous / Projet / Activité, paramètre URL `kind`), **statut**, **priorité**, **criticité** ; labels `Label` + `Select` pleine largeur dans la colonne.
 3. **Tri** — critère + ordre + case à cocher option (ex. « À risque ») dans un `label` bordé pour l’action booléenne.
 
 Titres de section : petite ligne avec icône Lucide (`Search`, `Filter`, `ArrowDownWideNarrow`) + libellé en `text-xs font-semibold`, pas d’uppercase global sur tout le bloc.
@@ -211,7 +211,7 @@ Voir : `features/projects/components/projects-toolbar.tsx`.
 ## 8. Liste dans une `Card` + table
 
 - En-tête : `CardHeader` + `CardTitle` / `CardDescription`.
-- Table scrollable : `CardContent` + conteneur `data-slot="table-container"` + `overflow-x-auto`.
+- **Ne pas doubler** le conteneur scroll : le composant **`Table`** (`@/components/ui/table`) enveloppe déjà la balise `<table>` dans un `div` avec `overflow-x-auto` et `data-slot="table-container"`. Le **`CardContent`** peut donc être en **`p-0`** avec le composant liste **directement** en enfant (ex. `ProjectsListTable`).
 - Pied : `CardFooter` (pagination, actions).
 
 ```tsx
@@ -227,18 +227,25 @@ import {
 <Card size="sm" className="overflow-hidden shadow-sm">
   <CardHeader className="border-b border-border/60 pb-3">
     <CardTitle className="text-sm font-medium">Liste des projets</CardTitle>
-    <CardDescription>Description courte pour l’utilisateur.</CardDescription>
+    <CardDescription className="text-xs">Cliquez sur un nom pour ouvrir la fiche détail.</CardDescription>
   </CardHeader>
-  <CardContent className="px-0 pb-0 pt-0">
-    <div data-slot="table-container" className="overflow-x-auto">
-      <Table>{/* … */}</Table>
-    </div>
+  <CardContent className="p-0">
+    <ProjectsListTable items={items} />
   </CardContent>
   <CardFooter>{/* pagination */}</CardFooter>
 </Card>
 ```
 
 Tables : composants `Table`, `TableHeader`, `TableBody`, etc. depuis `@/components/ui/table`.
+
+### 8.1 Liste projets — `ProjectsListTable`
+
+Implémentation : `features/projects/components/projects-list-table.tsx`.
+
+- **Colonnes** : Projet (nom, code mono, criticité, responsable), **Nature** (badge), **Santé** (`HealthBadge` avec prop **`compact`** : libellés courts Bon / Attention / Critique), **Statut**, **Avancement** (une colonne : manuel au-dessus, dérivé en dessous), **Échéance**, **T · R · J** (tâches ouvertes / risques ouverts / jalons en retard), **Signaux** (`ProjectPortfolioBadges` uniquement — pas de répétition textuelle des `warnings` sous les pastilles).
+- **Largeur** : `min-w-[56rem]` sur la table pour scroll horizontal sur petits écrans.
+- **Tooltips** : `TooltipProvider` (délai ~250 ms) ; en-têtes via **`HeaderTip`** (libellés avec soulignement pointillé + `cursor-help`) ; cellules **Nature**, **Avancement** et **T · R · J** via **`CellTip`** (Base UI : `TooltipTrigger` avec `render={<span … />}` comme ailleurs dans l’app).
+- **Couleurs des chiffres** (KPI au-dessus de la liste, §6.1) : voir tonalités `text-primary`, `emerald`, `yellow`, `destructive` — documentées dans §6.1.
 
 ---
 
@@ -275,18 +282,19 @@ Liste vide : préférer une **`Card size="sm"`** autour de `EmptyState` (`CardCo
 Ordre recommandé dans `PageContainer` :
 
 1. `PageHeader` (titre, description, actions)
-2. **`Card`** + bloc KPI (`KpiCard` dense + sections §6)
-3. Toolbar filtres (panneau §7)
+2. **`Card`** + bloc KPI portefeuille (**§6.1** — grille compacte `projects-portfolio-kpi`, pas `KpiCard`)
+3. Toolbar filtres (panneau §7 — inclut filtre **Nature**)
 4. `LoadingState` / **`Alert` erreur API** (§9) / **`Card` + `EmptyState`**
-5. `Card` + tableau + pagination
+5. `Card` + tableau (**§8** / **§8.1**) + pagination
 
 Route : `app/(protected)/projects/page.tsx`.  
 Feature : `features/projects/` (hooks, `project-query-keys`, API).
 
 ### 11.1 Création projet (`/projects/new`)
 
+- Grille **lg** : en-tête de page (retour + titre) en deux colonnes ; formulaire en **deux colonnes** (`lg:grid-cols-2`) — Identité à gauche, Classification + Planning à droite (bordure verticale légère entre colonnes).
 - Lien **Retour au portefeuille** en `buttonVariants({ variant: 'ghost', size: 'sm' })` au-dessus du `PageHeader`.
-- **`ProjectCreateForm`** : une **`Card`** avec en-tête descriptif, **`CardContent`** découpé en sections (titres + icônes Lucide : identité, classification, planning), **`textarea`** pour la description (styles alignés sur `Input`), **`CardFooter`** avec fond `bg-muted/20` : rappel champs obligatoires + **Annuler** (`Link` + `buttonVariants` outline) et **Créer le projet** (`Button` désactivé si nom/code vides).
+- **`ProjectCreateForm`** : une **`Card`** avec en-tête descriptif, **`CardContent`** en sections (titres + icônes Lucide : identité, classification, planning), **Nature** (projet / activité), **code** optionnel (génération auto si vide), **responsable** (`GET /api/projects/assignable-users`, pas `GET /api/users` client-admin), **`textarea`** pour la description, **`CardFooter`** avec fond `bg-muted/20` : rappel (nom obligatoire ; code auto) + **Annuler** + **Créer le projet** (`Button` désactivé si nom vide).
 - Absence de permission `projects.create` : **`Alert`** (pas seulement un paragraphe).
 
 ---
@@ -308,4 +316,4 @@ Feature : `features/projects/` (hooks, `project-query-keys`, API).
 
 ---
 
-*Dernière mise à jour : alignée sur `apps/web` (App Shell, PageHeader, Button, KpiCard, cockpit Projets, §6.1 KPI portefeuille).*
+*Dernière mise à jour : cockpit Projets (KPI compact §6.1, filtres Nature, liste §8.1 tooltips, formulaire création 2 colonnes, `HealthBadge` compact).*

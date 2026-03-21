@@ -1144,13 +1144,16 @@ body {
 
 1. **PageHeader** — titre « Projets », description courte, action primaire : `Link` + `buttonVariants({ variant: 'default', size: 'sm' })` « Nouveau projet » (même pattern que les pages RBAC client) derrière `PermissionGate` (`projects.create`).
 2. **KPI** — `features/projects/components/projects-portfolio-kpi.tsx` :
-   * utilise **`KpiCard` en `variant="dense"`** avec **icônes Lucide** (cohérence §21) ;
-   * indicateurs **groupés en trois sections** accessibles (`Volume`, `Risques & échéances`, `Complétude`) pour éviter une grille plate de neuf cartes indifférenciées ;
+   * **pas** de `KpiCard` : trois bandeaux compacts (`Stat`) regroupés en sections (`Volume`, `Risques & échéances`, `Complétude`) ;
+   * **couleurs sémantiques sur les chiffres** (`text-primary`, `emerald`, `yellow-800` / `dark:yellow-400`, `destructive`) — détail [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §6.1 ;
    * données issues de `GET /api/projects/portfolio-summary` (`usePortfolioSummaryQuery`).
-3. **Filtres** — `ProjectsToolbar` dans un **panneau** `rounded-xl border border-border/80 bg-muted/30`, titre « Filtres & tri », `role="search"` ; filtres synchronisés URL (`useProjectsListFilters`).
-4. **Liste** — `Card size="sm"` : `CardHeader` (titre + description), `CardContent` avec `data-slot="table-container"` + `overflow-x-auto`, `ProjectsListTable` (`components/ui/table`).
-5. **États** — `LoadingState`, bloc d’erreur API (codes HTTP), **`EmptyState`** si liste vide (CTA création si `projects.create`).
-6. **Pagination** — `CardFooter` + `PaginationSummary` (feature budgets) + boutons Précédent / Suivant.
+3. **Filtres** — `ProjectsToolbar` dans un **panneau** `rounded-xl border border-border/80 bg-muted/30`, titre « Filtres & tri », `role="search"` ; grille **quatre colonnes** sur `lg` incluant **Nature** (projet / activité, paramètre URL `kind`) ; autres filtres synchronisés URL (`useProjectsListFilters`).
+4. **Liste** — `Card size="sm"` : `CardHeader` (titre + description), **`CardContent` en `p-0`** + `ProjectsListTable` — le composant **`Table`** porte déjà `overflow-x-auto` / `data-slot="table-container"` : **ne pas** ajouter un second wrapper scroll.
+5. **Tableau** — `HealthBadge` avec **`compact`** en liste ; colonne **Avancement** fusionnée (manuel + dérivé) ; **T · R · J** ; signaux via `ProjectPortfolioBadges` **sans** ligne de texte répétant les `warnings` ; tooltips : helpers **`HeaderTip` / `CellTip`** + `TooltipProvider` dans `projects-list-table.tsx`.
+6. **États** — `LoadingState`, bloc d’erreur API (codes HTTP), **`EmptyState`** si liste vide (CTA création si `projects.create`).
+7. **Pagination** — `CardFooter` + `PaginationSummary` (feature budgets) + boutons Précédent / Suivant.
+
+**Création** (`/projects/new`) — `ProjectCreateForm` : grille **deux colonnes** `lg` ; responsable via **`GET /api/projects/assignable-users`** (`useProjectAssignableUsersQuery`).
 
 **Arborescence `features/projects/` (extraits)**
 
@@ -1158,17 +1161,24 @@ body {
 features/projects/
 ├── api/projects.api.ts
 ├── hooks/
-│   ├── use-projects-list-filters.ts    # filtres ↔ URL
+│   ├── use-projects-list-filters.ts
 │   ├── use-projects-list-query.ts
 │   ├── use-portfolio-summary-query.ts
-│   └── use-project-detail-query.ts
+│   ├── use-project-assignable-users.ts
+│   ├── use-create-project.ts
+│   ├── use-project-detail-query.ts
+│   ├── use-project-tasks-query.ts
+│   ├── use-project-risks-query.ts
+│   └── use-project-milestones-query.ts
 ├── components/
 │   ├── projects-portfolio-kpi.tsx
 │   ├── projects-toolbar.tsx
 │   ├── projects-list-table.tsx
-│   ├── project-badges.tsx
+│   ├── project-badges.tsx          # HealthBadge, ProjectPortfolioBadges
+│   ├── project-create-form.tsx
 │   └── project-detail-view.tsx
-├── lib/project-query-keys.ts           # query keys tenant-aware
+├── types/project.types.ts
+├── lib/project-query-keys.ts
 └── constants/project-routes.ts
 ```
 

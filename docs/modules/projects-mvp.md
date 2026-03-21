@@ -41,9 +41,10 @@ Permissions métier : `projects.read`, `projects.create`, `projects.update`, `pr
 
 | Méthode | Route | Permission |
 |---------|--------|------------|
-| GET | `/projects` | `projects.read` — liste paginée **enrichie** (query : `page`, `limit`, `search`, `status`, `priority`, `criticality`, `sortBy`, `sortOrder`, `atRiskOnly`) |
+| GET | `/projects` | `projects.read` — liste paginée **enrichie** (query : `page`, `limit`, `search`, `kind`, `status`, `priority`, `criticality`, `sortBy`, `sortOrder`, `atRiskOnly`) |
 | POST | `/projects` | `projects.create` |
 | GET | `/projects/portfolio-summary` | `projects.read` — KPI portefeuille (tous les projets du client actif) |
+| GET | `/projects/assignable-users` | `projects.read` — membres actifs du client pour désigner un **responsable** projet |
 | GET | `/projects/:id` | `projects.read` |
 | PATCH | `/projects/:id` | `projects.update` |
 | DELETE | `/projects/:id` | `projects.delete` |
@@ -68,6 +69,8 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 - **Routes** : `apps/web/src/app/(protected)/projects/` — `/projects`, `/projects/new`, `/projects/[projectId]`
 - **Navigation** : `apps/web/src/config/navigation.ts` — entrée « Projets », `moduleCode: 'projects'`, `requiredPermissions: ['projects.read']`
 - **Sécurité UI** : `RequireActiveClient`, `PermissionGate`, données via `authFetch` + TanStack Query — **pas** de calcul cockpit de santé côté client (affichage des champs renvoyés par l’API)
+- **Cockpit liste** : filtres incluant **nature** (`kind` : projet / activité, query alignée backend) ; KPI portefeuille en **bandeaux compacts** (pas les cartes KPI génériques d’autres écrans) — détail visuel : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §6–8.
+- **Création** : formulaire **deux colonnes** sur grand écran ; responsable alimenté par **`GET /api/projects/assignable-users`** (utilisateurs du client actif avec droit d’assignation), pas l’endpoint admin global utilisateurs.
 
 ---
 
