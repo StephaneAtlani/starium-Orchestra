@@ -50,7 +50,12 @@ export function ProjectPortfolioBadges({ signals }: { signals: ProjectSignals })
       { key: 'late', label: 'En retard', show: signals.isLate, variant: 'danger' },
       { key: 'blocked', label: 'Bloqué', show: signals.isBlocked, variant: 'danger' },
       { key: 'critical', label: 'Critique', show: signals.isCritical, variant: 'danger' },
-      { key: 'norisk', label: 'Sans risque', show: signals.hasNoRisks, variant: 'warn' },
+      {
+        key: 'norisk',
+        label: 'Sans étude de risque',
+        show: signals.hasNoRisks,
+        variant: 'warn',
+      },
       { key: 'noowner', label: 'Sans owner', show: signals.hasNoOwner, variant: 'warn' },
     ];
 

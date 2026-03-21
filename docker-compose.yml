@@ -93,6 +93,9 @@ services:
       - "3000:3000"
     volumes:
       - ./apps/web:/app/apps/web
+      # .next hors bind mount : évite cache Next corrompu (ENOENT routes-manifest.json, chunks *.js manquants)
+      # quand l’hôte et le conteneur se marchent dessus ou après rm partiel du cache.
+      - web_next_cache:/app/apps/web/.next
     depends_on:
       - api-dev
     profiles:
@@ -100,3 +103,4 @@ services:
 
 volumes:
   postgres_data: {}
+  web_next_cache: {}

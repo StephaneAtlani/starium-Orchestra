@@ -123,8 +123,8 @@ export function ProjectsPortfolioKpi({ summary, isLoading }: Props) {
 
           <KpiGroup sectionId="completeness" label="Complétude">
             <Stat
-              label="Sans risque"
-              title="Sans risque identifié"
+              label="Sans étude de risque"
+              title="Aucune étude de risque enregistrée"
               valueStr={v(s?.noRiskProjects)}
               valueTone="warning"
             />
