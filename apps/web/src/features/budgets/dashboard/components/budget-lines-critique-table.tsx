@@ -2,8 +2,10 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { AlertOctagon, ShieldAlert } from 'lucide-react';
+import { AlertOctagon, Pencil, ShieldAlert } from 'lucide-react';
+import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { usePermissions } from '@/hooks/use-permissions';
 import {
   Table,
   TableBody,
@@ -15,19 +17,21 @@ import {
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
-import { budgetDetail } from '@/features/budgets/constants/budget-routes';
+import { budgetDetail, budgetLineEdit } from '@/features/budgets/constants/budget-routes';
 import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
 import { LineSeverityLabel } from './budget-cockpit-status-labels';
 import {
   cockpitTableHeadRow,
+  cockpitTdAction,
   cockpitTdEnd,
   cockpitTdEndRight,
-  cockpitTdFirst,
+  cockpitTdFirstAfterAction,
   cockpitTdNum,
   cockpitTdText,
+  cockpitThAction,
   cockpitThEndLeft,
   cockpitThEndRight,
-  cockpitThFirst,
+  cockpitThFirstAfterAction,
   cockpitThNum,
   cockpitThText,
 } from './budget-cockpit-table-classes';
@@ -47,6 +51,9 @@ export function BudgetLinesCritiqueTable({
   defaultTaxRate: number | null;
   onBudgetLineClick?: (lineId: string) => void;
 }) {
+  const { has, isLoading: isPermissionsLoading } = usePermissions();
+  const canEditLine = !isPermissionsLoading && has('budgets.update');
+
   const empty = (
     <CockpitSection
       id="budget-critical-lines-heading"
@@ -90,7 +97,12 @@ export function BudgetLinesCritiqueTable({
           <Table>
             <TableHeader className="bg-transparent">
               <TableRow className={cockpitTableHeadRow}>
-                <TableHead className={cn('min-w-[140px]', cockpitThFirst)}>Ligne</TableHead>
+                <TableHead className={cockpitThAction}>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+                <TableHead className={cn('min-w-[140px]', cockpitThFirstAfterAction)}>
+                  Ligne
+                </TableHead>
                 <TableHead className={cockpitThText}>Enveloppe</TableHead>
                 <TableHead className={cockpitThNum}>Révisé</TableHead>
                 <TableHead className={cockpitThNum}>Engagé</TableHead>
@@ -115,7 +127,24 @@ export function BudgetLinesCritiqueTable({
                   }
                 >
                 <TableCell
-                  className={cn(cockpitTdFirst, 'max-w-[200px] truncate')}
+                  className={cockpitTdAction}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {canEditLine ? (
+                    <Link
+                      href={budgetLineEdit(l.lineId)}
+                      className={cn(
+                        buttonVariants({ variant: 'ghost', size: 'icon' }),
+                        'size-8 text-muted-foreground hover:text-foreground',
+                      )}
+                      aria-label={`Modifier la ligne ${l.name}`}
+                    >
+                      <Pencil className="size-4 shrink-0" />
+                    </Link>
+                  ) : null}
+                </TableCell>
+                <TableCell
+                  className={cn(cockpitTdFirstAfterAction, 'max-w-[200px] truncate')}
                 >
                   {l.code ? `${l.code} — ` : ''}
                   {l.name}

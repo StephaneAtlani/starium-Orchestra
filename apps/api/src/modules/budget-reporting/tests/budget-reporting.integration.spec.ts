@@ -21,6 +21,7 @@ describe('Budget reporting integration', () => {
     budget: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
     budgetEnvelope: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
     budgetLine: { findMany: jest.Mock; count: jest.Mock };
+    client: { findUnique: jest.Mock };
   };
 
   const clientA = 'client-A';
@@ -38,6 +39,7 @@ describe('Budget reporting integration', () => {
         count: jest.fn(),
       },
       budgetLine: { findMany: jest.fn(), count: jest.fn() },
+      client: { findUnique: jest.fn() },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -69,6 +71,7 @@ describe('Budget reporting integration', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.client.findUnique.mockResolvedValue({ defaultTaxRate: null });
   });
 
   describe('isolation client (obligatoire)', () => {

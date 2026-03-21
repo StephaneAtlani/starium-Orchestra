@@ -58,6 +58,9 @@ export function BudgetExplorerTable({
     <Table data-testid="budget-explorer-table">
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10 min-w-10 p-2 text-center">
+            <span className="sr-only">Actions</span>
+          </TableHead>
           <TableHead>Sous-budget</TableHead>
           <TableHead>Responsable</TableHead>
           <TableHead>Type</TableHead>

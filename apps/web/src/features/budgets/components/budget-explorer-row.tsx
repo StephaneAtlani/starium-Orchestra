@@ -7,9 +7,11 @@ import {
   TableCell,
   TableRow,
 } from '@/components/ui/table';
+import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ExplorerNode } from '../types/budget-explorer.types';
 import { formatPercent } from '../lib/budget-formatters';
+import { budgetEnvelopeEdit, budgetLineEdit } from '../constants/budget-routes';
 import { BudgetLinesProgress } from './budget-lines-progress';
 import { usePermissions } from '@/hooks/use-permissions';
 import { BudgetStatusBadge } from './budget-status-badge';
@@ -51,6 +53,7 @@ export function BudgetExplorerRow({
 
   if (node.type === 'envelope') {
     const env = node;
+    const canEditEnvelope = !isPermissionsLoading && has('budgets.update');
     const progressRevised =
       taxDisplayMode === 'TTC' && env.totalRevisedTtc != null
         ? env.totalRevisedTtc
@@ -77,6 +80,23 @@ export function BudgetExplorerRow({
     return (
       <>
         <TableRow data-testid={`explorer-row-envelope-${env.id}`}>
+          <TableCell
+            className="w-10 min-w-10 p-2 align-middle"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {canEditEnvelope ? (
+              <Link
+                href={budgetEnvelopeEdit(env.id)}
+                className={cn(
+                  buttonVariants({ variant: 'ghost', size: 'icon' }),
+                  'size-8 text-muted-foreground hover:text-foreground',
+                )}
+                aria-label={`Modifier l’enveloppe ${env.name}`}
+              >
+                <Pencil className="size-4 shrink-0" />
+              </Link>
+            ) : null}
+          </TableCell>
           <TableCell
             className="align-middle"
             style={{ paddingLeft: `${12 + depth * 20}px` }}
@@ -186,37 +206,37 @@ export function BudgetExplorerRow({
   return (
     <TableRow data-testid={`explorer-row-line-${line.id}`}>
       <TableCell
-        className="align-middle text-foreground"
-        style={{ paddingLeft: `${12 + (depth + 1) * 20}px` }}
+        className="w-10 min-w-10 p-2 align-middle"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <BudgetStatusBadge
-              status={line.status}
-              className="h-5 px-2 text-[10px] uppercase"
-            />
-            <button
-              type="button"
-              onClick={() => onBudgetLineClick?.(line.id)}
-              className={cn(
-                'text-left text-sm truncate hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded',
-                !onBudgetLineClick && 'cursor-default hover:no-underline',
-              )}
-              aria-label={`Ouvrir la ligne budgétaire ${line.name}`}
-              disabled={!onBudgetLineClick}
-            >
-              {line.name}
-            </button>
-          </div>
-          {canEditLine && (
-            <Link
-              href={`/budget-lines/${line.id}/edit`}
-              className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label={`Modifier ${line.name}`}
-            >
-              <Pencil className="h-3 w-3" />
-            </Link>
-          )}
+        {canEditLine ? (
+          <Link
+            href={budgetLineEdit(line.id)}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label={`Modifier ${line.name}`}
+          >
+            <Pencil className="h-3 w-3" />
+          </Link>
+        ) : null}
+      </TableCell>
+      <TableCell className="align-middle text-foreground pl-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <BudgetStatusBadge
+            status={line.status}
+            className="h-5 px-2 text-[10px] uppercase"
+          />
+          <button
+            type="button"
+            onClick={() => onBudgetLineClick?.(line.id)}
+            className={cn(
+              'text-left text-sm truncate hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded',
+              !onBudgetLineClick && 'cursor-default hover:no-underline',
+            )}
+            aria-label={`Ouvrir la ligne budgétaire ${line.name}`}
+            disabled={!onBudgetLineClick}
+          >
+            {line.name}
+          </button>
         </div>
       </TableCell>
       <TableCell className="text-muted-foreground">—</TableCell>
