@@ -45,6 +45,14 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
       riskLevel: 'LOW' as const,
       priorityScore: new Prisma.Decimal(5),
       arbitrationStatus: null as ProjectArbitrationStatus | null,
+      businessProblem: null,
+      businessBenefits: null,
+      businessSuccessKpis: null,
+      swotStrengths: null,
+      swotWeaknesses: null,
+      swotOpportunities: null,
+      swotThreats: null,
+      towsActions: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,
@@ -111,6 +119,26 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
       expect((captured.roi as Prisma.Decimal).toNumber()).toBeCloseTo(1.4, 5);
       expect(captured.priorityScore).toBeDefined();
       expect(prisma.project.update).toHaveBeenCalled();
+    });
+
+    it('persiste swotStrengths et les expose dans la réponse', async () => {
+      prisma.project.findFirst.mockResolvedValue(baseProject());
+      prisma.project.update.mockImplementation(
+        ({ data }: { data: { swotStrengths?: unknown } }) =>
+          Promise.resolve({
+            ...baseProject(),
+            swotStrengths: data.swotStrengths,
+          } as Project),
+      );
+
+      const res = await service.updateSheet(
+        clientId,
+        projectId,
+        { swotStrengths: ['A', 'B'] },
+        { actorUserId: 'u1', meta: {} },
+      );
+
+      expect(res.swotStrengths).toEqual(['A', 'B']);
     });
   });
 

@@ -158,9 +158,23 @@ export type ProjectArbitrationStatus =
 
 export type ProjectSheetRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
+export type TowsActionsPayload = {
+  SO?: string[];
+  ST?: string[];
+  WO?: string[];
+  WT?: string[];
+};
+
 export type ProjectSheet = {
   id: string;
   name: string;
+  code: string;
+  description: string | null;
+  kind: string;
+  type: string;
+  status: string;
+  priority: string;
+  targetBudgetAmount: number | null;
   businessValueScore: number | null;
   strategicAlignment: number | null;
   urgencyScore: number | null;
@@ -170,13 +184,35 @@ export type ProjectSheet = {
   riskLevel: ProjectSheetRiskLevel | null;
   priorityScore: number | null;
   arbitrationStatus: ProjectArbitrationStatus | null;
+  businessProblem: string | null;
+  businessBenefits: string | null;
+  businessSuccessKpis: string[];
+  swotStrengths: string[];
+  swotWeaknesses: string[];
+  swotOpportunities: string[];
+  swotThreats: string[];
+  towsActions: {
+    SO: string[];
+    ST: string[];
+    WO: string[];
+    WT: string[];
+  } | null;
 };
 
 export type UpdateProjectSheetPayload = {
+  description?: string;
   businessValueScore?: number;
   strategicAlignment?: number;
   urgencyScore?: number;
   estimatedCost?: number;
   estimatedGain?: number;
   riskLevel?: ProjectSheetRiskLevel;
+  businessProblem?: string;
+  businessBenefits?: string;
+  businessSuccessKpis?: string[];
+  swotStrengths?: string[];
+  swotWeaknesses?: string[];
+  swotOpportunities?: string[];
+  swotThreats?: string[];
+  towsActions?: TowsActionsPayload;
 };

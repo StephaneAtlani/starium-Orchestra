@@ -355,6 +355,19 @@ model Project {
   priorityScore     Decimal? @db.Decimal(5, 2)
   arbitrationStatus ProjectArbitrationStatus?
 
+  /// RFC-PROJ-012 — objectif métier (texte MVP)
+  businessProblem   String?
+  businessBenefits  String?
+  /// KPI de succès — liste de lignes (JSON string[])
+  businessSuccessKpis Json?
+
+  /// SWOT / TOWS — JSON (tableaux de strings ; contraintes en DTO)
+  swotStrengths     Json?
+  swotWeaknesses    Json?
+  swotOpportunities Json?
+  swotThreats       Json?
+  towsActions       Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

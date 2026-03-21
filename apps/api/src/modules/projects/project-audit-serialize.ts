@@ -80,12 +80,21 @@ export function projectEntityAuditSnapshot(p: Project): Record<string, unknown> 
     riskLevel: p.riskLevel ?? null,
     priorityScore: toAuditJson(p.priorityScore) as string | null,
     arbitrationStatus: p.arbitrationStatus ?? null,
+    businessProblem: p.businessProblem ?? null,
+    businessBenefits: p.businessBenefits ?? null,
+    businessSuccessKpis: toAuditJson(p.businessSuccessKpis),
+    swotStrengths: toAuditJson(p.swotStrengths),
+    swotWeaknesses: toAuditJson(p.swotWeaknesses),
+    swotOpportunities: toAuditJson(p.swotOpportunities),
+    swotThreats: toAuditJson(p.swotThreats),
+    towsActions: toAuditJson(p.towsActions),
   };
 }
 
 /** Snapshot des seuls champs fiche (RFC-PROJ-012) pour diff audit ciblé */
 export function projectSheetFieldsAuditSnapshot(p: Project): Record<string, unknown> {
   return {
+    description: p.description ?? null,
     businessValueScore: p.businessValueScore ?? null,
     strategicAlignment: p.strategicAlignment ?? null,
     urgencyScore: p.urgencyScore ?? null,
@@ -95,6 +104,14 @@ export function projectSheetFieldsAuditSnapshot(p: Project): Record<string, unkn
     riskLevel: p.riskLevel ?? null,
     priorityScore: toAuditJson(p.priorityScore),
     arbitrationStatus: p.arbitrationStatus ?? null,
+    businessProblem: p.businessProblem ?? null,
+    businessBenefits: p.businessBenefits ?? null,
+    businessSuccessKpis: toAuditJson(p.businessSuccessKpis),
+    swotStrengths: toAuditJson(p.swotStrengths),
+    swotWeaknesses: toAuditJson(p.swotWeaknesses),
+    swotOpportunities: toAuditJson(p.swotOpportunities),
+    swotThreats: toAuditJson(p.swotThreats),
+    towsActions: toAuditJson(p.towsActions),
   };
 }
 
