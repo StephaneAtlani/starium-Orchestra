@@ -50,6 +50,8 @@ describe('ProjectsPilotageService', () => {
     businessProblem: null,
     businessBenefits: null,
     businessSuccessKpis: null,
+    cadreLocation: null,
+    cadreQui: null,
     swotStrengths: null,
     swotWeaknesses: null,
     swotOpportunities: null,

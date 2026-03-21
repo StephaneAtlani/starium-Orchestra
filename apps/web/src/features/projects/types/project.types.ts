@@ -170,6 +170,10 @@ export type ProjectSheet = {
   name: string;
   code: string;
   description: string | null;
+  cadreLocation: string | null;
+  cadreQui: string | null;
+  startDate: string | null;
+  targetEndDate: string | null;
   kind: string;
   type: string;
   status: string;
@@ -200,6 +204,11 @@ export type ProjectSheet = {
 };
 
 export type UpdateProjectSheetPayload = {
+  name?: string;
+  cadreLocation?: string | null;
+  cadreQui?: string | null;
+  startDate?: string | null;
+  targetEndDate?: string | null;
   description?: string;
   businessValueScore?: number;
   strategicAlignment?: number;

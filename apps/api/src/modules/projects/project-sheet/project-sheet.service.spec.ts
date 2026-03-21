@@ -23,6 +23,8 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
       name: 'Migration ERP',
       code: 'MIG-1',
       description: null,
+      cadreLocation: null,
+      cadreQui: null,
       kind: 'PROJECT',
       type: 'GOVERNANCE',
       status: 'DRAFT',

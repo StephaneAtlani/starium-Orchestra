@@ -82,6 +82,8 @@ export function projectEntityAuditSnapshot(p: Project): Record<string, unknown> 
     arbitrationStatus: p.arbitrationStatus ?? null,
     businessProblem: p.businessProblem ?? null,
     businessBenefits: p.businessBenefits ?? null,
+    cadreLocation: p.cadreLocation ?? null,
+    cadreQui: p.cadreQui ?? null,
     businessSuccessKpis: toAuditJson(p.businessSuccessKpis),
     swotStrengths: toAuditJson(p.swotStrengths),
     swotWeaknesses: toAuditJson(p.swotWeaknesses),
@@ -94,6 +96,11 @@ export function projectEntityAuditSnapshot(p: Project): Record<string, unknown> 
 /** Snapshot des seuls champs fiche (RFC-PROJ-012) pour diff audit ciblé */
 export function projectSheetFieldsAuditSnapshot(p: Project): Record<string, unknown> {
   return {
+    name: p.name,
+    cadreLocation: p.cadreLocation ?? null,
+    cadreQui: p.cadreQui ?? null,
+    startDate: toAuditJson(p.startDate),
+    targetEndDate: toAuditJson(p.targetEndDate),
     description: p.description ?? null,
     businessValueScore: p.businessValueScore ?? null,
     strategicAlignment: p.strategicAlignment ?? null,

@@ -355,6 +355,10 @@ model Project {
   priorityScore     Decimal? @db.Decimal(5, 2)
   arbitrationStatus ProjectArbitrationStatus?
 
+  /// Cadrage OQQCQPC (fiche projet)
+  cadreLocation String? @db.VarChar(500)
+  cadreQui      String? @db.VarChar(500)
+
   /// RFC-PROJ-012 — objectif métier (texte MVP)
   businessProblem   String?
   businessBenefits  String?

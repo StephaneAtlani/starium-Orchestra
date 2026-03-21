@@ -4,6 +4,7 @@ import type {
   ProjectArbitrationStatus,
   ProjectAssignableUser,
   ProjectDetail,
+  ProjectRiskApi,
   ProjectSheet,
   ProjectsListResponse,
   ProjectsPortfolioSummary,
@@ -109,6 +110,39 @@ export async function listRisks(authFetch: AuthFetch, projectId: string) {
   const res = await authFetch(`${BASE}/${projectId}/risks`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<unknown[]>;
+}
+
+export type CreateProjectRiskPayload = {
+  title: string;
+  description?: string;
+  probability: 'LOW' | 'MEDIUM' | 'HIGH';
+  impact: 'LOW' | 'MEDIUM' | 'HIGH';
+  status?: string;
+};
+
+export async function createProjectRisk(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: CreateProjectRiskPayload,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${BASE}/${projectId}/risks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function deleteProjectRisk(
+  authFetch: AuthFetch,
+  projectId: string,
+  riskId: string,
+): Promise<void> {
+  const res = await authFetch(`${BASE}/${projectId}/risks/${riskId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
 }
 
 export async function listMilestones(authFetch: AuthFetch, projectId: string) {

@@ -28,6 +28,10 @@ export type ProjectSheetResponseDto = {
   name: string;
   code: string;
   description: string | null;
+  cadreLocation: string | null;
+  cadreQui: string | null;
+  startDate: string | null;
+  targetEndDate: string | null;
   kind: string;
   type: string;
   status: string;
@@ -75,6 +79,10 @@ export class ProjectSheetService {
       name: p.name,
       code: p.code,
       description: p.description ?? null,
+      cadreLocation: p.cadreLocation ?? null,
+      cadreQui: p.cadreQui ?? null,
+      startDate: p.startDate?.toISOString() ?? null,
+      targetEndDate: p.targetEndDate?.toISOString() ?? null,
       kind: p.kind,
       type: p.type,
       status: p.status,
@@ -142,7 +150,12 @@ export class ProjectSheetService {
         : (merged.towsActions as unknown as Prisma.InputJsonValue);
 
     const data: Prisma.ProjectUncheckedUpdateInput = {
+      name: merged.name,
       description: merged.description,
+      cadreLocation: merged.cadreLocation,
+      cadreQui: merged.cadreQui,
+      startDate: merged.startDate,
+      targetEndDate: merged.targetEndDate,
       businessValueScore: merged.businessValueScore,
       strategicAlignment: merged.strategicAlignment,
       urgencyScore: merged.urgencyScore,
@@ -258,7 +271,12 @@ export class ProjectSheetService {
     project: Project,
     dto: UpdateProjectSheetDto,
   ): {
+    name: string;
     description: string | null;
+    cadreLocation: string | null;
+    cadreQui: string | null;
+    startDate: Date | null;
+    targetEndDate: Date | null;
     businessValueScore: number | null;
     strategicAlignment: number | null;
     urgencyScore: number | null;
@@ -294,6 +312,39 @@ export class ProjectSheetService {
         : project.estimatedGain;
     const riskLevel =
       dto.riskLevel !== undefined ? dto.riskLevel : project.riskLevel;
+
+    const name =
+      dto.name !== undefined
+        ? dto.name.trim() || project.name
+        : project.name;
+
+    const cadreLocation =
+      dto.cadreLocation !== undefined
+        ? dto.cadreLocation == null || dto.cadreLocation.trim() === ''
+          ? null
+          : dto.cadreLocation.trim()
+        : project.cadreLocation;
+
+    const cadreQui =
+      dto.cadreQui !== undefined
+        ? dto.cadreQui == null || dto.cadreQui.trim() === ''
+          ? null
+          : dto.cadreQui.trim()
+        : project.cadreQui;
+
+    const startDate =
+      dto.startDate !== undefined
+        ? dto.startDate
+          ? new Date(dto.startDate)
+          : null
+        : project.startDate;
+
+    const targetEndDate =
+      dto.targetEndDate !== undefined
+        ? dto.targetEndDate
+          ? new Date(dto.targetEndDate)
+          : null
+        : project.targetEndDate;
 
     const description =
       dto.description !== undefined
@@ -345,7 +396,12 @@ export class ProjectSheetService {
     const towsActions = this.mergeTows(project, dto);
 
     return {
+      name,
       description,
+      cadreLocation,
+      cadreQui,
+      startDate,
+      targetEndDate,
       businessValueScore,
       strategicAlignment,
       urgencyScore,
