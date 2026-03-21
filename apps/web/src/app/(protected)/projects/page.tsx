@@ -39,7 +39,7 @@ export default function ProjectsPortfolioPage() {
   const canReadProjects = has('projects.read');
   const listEnabled = !!clientId && permsSuccess && canReadProjects;
 
-  const { filters, setFilters, apiParams } = useProjectsListFilters();
+  const { filters, setFilters, reset, apiParams } = useProjectsListFilters();
   const { data, isLoading, error, refetch, isRefetching } = useProjectsListQuery(apiParams, {
     enabled: listEnabled,
   });
@@ -110,7 +110,7 @@ export default function ProjectsPortfolioPage() {
           <>
             <ProjectsPortfolioKpi summary={summary} isLoading={summaryLoading} />
 
-            <ProjectsToolbar filters={filters} setFilters={setFilters} />
+            <ProjectsToolbar filters={filters} setFilters={setFilters} onReset={reset} />
 
             {isLoading && (
               <div data-testid="projects-loading">

@@ -172,22 +172,15 @@ import { FolderKanban } from 'lucide-react';
 
 ---
 
-## 7. Filtres — panneau
+## 7. Filtres — panneau (cockpit Projets)
 
-Pattern toolbar liste (bordure légère, fond discret, titre de section) :
+Pattern **liste / cockpit** : une **`Card size="sm"`** avec en-tête (titre + description + **Réinitialiser**), puis sections séparées par un filet `h-px bg-border/70` :
 
-```tsx
-<div
-  className="flex w-full min-w-0 flex-col gap-3 rounded-xl border border-border/80 bg-muted/30 p-3 sm:p-4"
-  role="search"
-  aria-label="Filtres et tri de la liste des projets"
->
-  <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-    Filtres & tri
-  </p>
-  {/* champs */}
-</div>
-```
+1. **Recherche** — champ avec icône `Search` en préfixe, `max-w-lg`.
+2. **Filtrer par** — grille responsive `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` (statut, priorité, criticité), labels `Label` + `Select` pleine largeur dans la colonne.
+3. **Tri** — critère + ordre + case à cocher option (ex. « À risque ») dans un `label` bordé pour l’action booléenne.
+
+Titres de section : petite ligne avec icône Lucide (`Search`, `Filter`, `ArrowDownWideNarrow`) + libellé en `text-xs font-semibold`, pas d’uppercase global sur tout le bloc.
 
 Voir : `features/projects/components/projects-toolbar.tsx`.
 

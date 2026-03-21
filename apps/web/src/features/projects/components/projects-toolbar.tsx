@@ -1,5 +1,14 @@
 'use client';
 
+import type { ComponentType, ReactNode } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -9,12 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
 import {
   PROJECT_CRITICALITY_LABEL,
   PROJECT_PRIORITY_LABEL,
   PROJECT_STATUS_LABEL,
 } from '../constants/project-enum-labels';
+import { ArrowDownWideNarrow, Filter, RotateCcw, Search } from 'lucide-react';
 
 const SORT_LABEL: Record<string, string> = {
   name: 'Nom',
@@ -26,159 +37,242 @@ const SORT_LABEL: Record<string, string> = {
   progressPercent: 'Avancement',
 };
 
+function SectionTitle({
+  icon: Icon,
+  children,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+      <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      {children}
+    </div>
+  );
+}
+
 export interface ProjectsToolbarProps {
   filters: ProjectsListFilters;
   setFilters: (updates: Partial<ProjectsListFilters>) => void;
+  onReset: () => void;
 }
 
-export function ProjectsToolbar({ filters, setFilters }: ProjectsToolbarProps) {
+export function ProjectsToolbar({ filters, setFilters, onReset }: ProjectsToolbarProps) {
   const statusKey = filters.status ?? '__all__';
   const priorityKey = filters.priority ?? '__all__';
   const criticalityKey = filters.criticality ?? '__all__';
 
+  const fieldClass = 'flex min-w-0 flex-col gap-1.5';
+
   return (
-    <div
-      className="flex w-full min-w-0 flex-col gap-3 rounded-xl border border-border/80 bg-muted/30 p-3 sm:p-4"
+    <Card
+      size="sm"
+      className="shadow-sm"
       role="search"
-      aria-label="Filtres et tri de la liste des projets"
+      aria-label="Filtrer et trier la liste des projets"
     >
-      <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-        Filtres & tri
-      </p>
-      <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
-        <div className="flex min-w-[min(100%,12rem)] max-w-xs flex-1 flex-col gap-1 sm:flex-none">
-          <Label htmlFor="projects-search" className="text-xs text-muted-foreground">
-            Recherche
-          </Label>
-          <Input
-            id="projects-search"
-            placeholder="Nom, code…"
-            value={filters.search ?? ''}
-            onChange={(e) => setFilters({ search: e.target.value || undefined })}
-            data-testid="projects-search"
-          />
+      <CardHeader className="flex flex-col gap-2 border-b border-border/60 pb-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <CardTitle className="text-sm font-medium">Filtrer et trier</CardTitle>
+          <CardDescription>
+            Les critères sont synchronisés avec l&apos;URL (partage et rafraîchissement).
+          </CardDescription>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">Statut</span>
-          <Select
-            value={statusKey}
-            onValueChange={(v) =>
-              setFilters({ status: v === '__all__' || !v ? undefined : v })
-            }
-          >
-            <SelectTrigger size="sm" className="min-w-[9.5rem] w-[9.5rem]">
-              <SelectValue>
-                {statusKey === '__all__' ? 'Tous' : PROJECT_STATUS_LABEL[statusKey] ?? statusKey}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Tous</SelectItem>
-              {Object.entries(PROJECT_STATUS_LABEL).map(([k, label]) => (
-                <SelectItem key={k} value={k}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 self-start"
+          onClick={onReset}
+          data-testid="projects-filters-reset"
+        >
+          <RotateCcw className="size-3.5" />
+          Réinitialiser
+        </Button>
+      </CardHeader>
+
+      <CardContent className="space-y-6 pt-4">
+        {/* Recherche */}
+        <div className="space-y-2">
+          <SectionTitle icon={Search}>Recherche</SectionTitle>
+          <div className="relative max-w-lg">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              id="projects-search"
+              placeholder="Nom ou code projet…"
+              value={filters.search ?? ''}
+              onChange={(e) => setFilters({ search: e.target.value || undefined })}
+              className={cn('h-9 pl-9', 'bg-background')}
+              data-testid="projects-search"
+            />
+          </div>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">Priorité</span>
-          <Select
-            value={priorityKey}
-            onValueChange={(v) =>
-              setFilters({ priority: v === '__all__' || !v ? undefined : v })
-            }
-          >
-            <SelectTrigger size="sm" className="min-w-[8.5rem] w-[8.5rem]">
-              <SelectValue>
-                {priorityKey === '__all__'
-                  ? 'Toutes'
-                  : PROJECT_PRIORITY_LABEL[priorityKey] ?? priorityKey}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Toutes</SelectItem>
-              {Object.entries(PROJECT_PRIORITY_LABEL).map(([k, label]) => (
-                <SelectItem key={k} value={k}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
+        <div className="h-px w-full bg-border/70" />
+
+        {/* Filtres métier */}
+        <div className="space-y-3">
+          <SectionTitle icon={Filter}>Filtrer par</SectionTitle>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={fieldClass}>
+              <Label htmlFor="projects-filter-status" className="text-xs text-muted-foreground">
+                Statut
+              </Label>
+              <Select
+                value={statusKey}
+                onValueChange={(v) =>
+                  setFilters({ status: v === '__all__' || !v ? undefined : v })
+                }
+              >
+                <SelectTrigger id="projects-filter-status" size="sm" className="w-full">
+                  <SelectValue>
+                    {statusKey === '__all__'
+                      ? 'Tous les statuts'
+                      : PROJECT_STATUS_LABEL[statusKey] ?? statusKey}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Tous les statuts</SelectItem>
+                  {Object.entries(PROJECT_STATUS_LABEL).map(([k, label]) => (
+                    <SelectItem key={k} value={k}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className={fieldClass}>
+              <Label htmlFor="projects-filter-priority" className="text-xs text-muted-foreground">
+                Priorité
+              </Label>
+              <Select
+                value={priorityKey}
+                onValueChange={(v) =>
+                  setFilters({ priority: v === '__all__' || !v ? undefined : v })
+                }
+              >
+                <SelectTrigger id="projects-filter-priority" size="sm" className="w-full">
+                  <SelectValue>
+                    {priorityKey === '__all__'
+                      ? 'Toutes les priorités'
+                      : PROJECT_PRIORITY_LABEL[priorityKey] ?? priorityKey}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Toutes les priorités</SelectItem>
+                  {Object.entries(PROJECT_PRIORITY_LABEL).map(([k, label]) => (
+                    <SelectItem key={k} value={k}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className={fieldClass}>
+              <Label htmlFor="projects-filter-criticality" className="text-xs text-muted-foreground">
+                Criticité
+              </Label>
+              <Select
+                value={criticalityKey}
+                onValueChange={(v) =>
+                  setFilters({ criticality: v === '__all__' || !v ? undefined : v })
+                }
+              >
+                <SelectTrigger id="projects-filter-criticality" size="sm" className="w-full">
+                  <SelectValue>
+                    {criticalityKey === '__all__'
+                      ? 'Toutes les criticités'
+                      : PROJECT_CRITICALITY_LABEL[criticalityKey] ?? criticalityKey}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Toutes les criticités</SelectItem>
+                  {Object.entries(PROJECT_CRITICALITY_LABEL).map(([k, label]) => (
+                    <SelectItem key={k} value={k}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">Criticité</span>
-          <Select
-            value={criticalityKey}
-            onValueChange={(v) =>
-              setFilters({ criticality: v === '__all__' || !v ? undefined : v })
-            }
-          >
-            <SelectTrigger size="sm" className="min-w-[8.5rem] w-[8.5rem]">
-              <SelectValue>
-                {criticalityKey === '__all__'
-                  ? 'Toutes'
-                  : PROJECT_CRITICALITY_LABEL[criticalityKey] ?? criticalityKey}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Toutes</SelectItem>
-              {Object.entries(PROJECT_CRITICALITY_LABEL).map(([k, label]) => (
-                <SelectItem key={k} value={k}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
+        <div className="h-px w-full bg-border/70" />
+
+        {/* Tri + option */}
+        <div className="space-y-3">
+          <SectionTitle icon={ArrowDownWideNarrow}>Tri</SectionTitle>
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+            <div className={cn(fieldClass, 'min-w-0 flex-1 lg:max-w-[14rem]')}>
+              <Label htmlFor="projects-sort-by" className="text-xs text-muted-foreground">
+                Trier par
+              </Label>
+              <Select
+                value={filters.sortBy}
+                onValueChange={(v) =>
+                  setFilters({ sortBy: v as ProjectsListFilters['sortBy'] })
+                }
+              >
+                <SelectTrigger id="projects-sort-by" size="sm" className="w-full">
+                  <SelectValue>{SORT_LABEL[filters.sortBy] ?? filters.sortBy}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SORT_LABEL).map(([k, label]) => (
+                    <SelectItem key={k} value={k}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className={cn(fieldClass, 'w-full min-w-0 sm:w-auto sm:min-w-[8rem]')}>
+              <Label htmlFor="projects-sort-order" className="text-xs text-muted-foreground">
+                Ordre
+              </Label>
+              <Select
+                value={filters.sortOrder}
+                onValueChange={(v) => setFilters({ sortOrder: v as 'asc' | 'desc' })}
+              >
+                <SelectTrigger id="projects-sort-order" size="sm" className="w-full sm:w-[8.5rem]">
+                  <SelectValue>
+                    {filters.sortOrder === 'asc' ? 'Croissant' : 'Décroissant'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Croissant</SelectItem>
+                  <SelectItem value="desc">Décroissant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex min-h-9 items-center pb-px lg:pb-0">
+              <label
+                htmlFor="at-risk-only"
+                className={cn(
+                  'flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm',
+                  'transition-colors hover:bg-muted/40 has-[:focus-visible]:outline-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50',
+                )}
+              >
+                <input
+                  type="checkbox"
+                  id="at-risk-only"
+                  className="size-4 shrink-0 rounded border-input accent-primary"
+                  checked={filters.atRiskOnly}
+                  onChange={(e) => setFilters({ atRiskOnly: e.target.checked })}
+                  data-testid="projects-at-risk-only"
+                />
+                <span className="text-card-foreground leading-snug">
+                  À risque <span className="text-muted-foreground">(hors santé verte)</span>
+                </span>
+              </label>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">Trier par</span>
-          <Select
-            value={filters.sortBy}
-            onValueChange={(v) =>
-              setFilters({ sortBy: v as ProjectsListFilters['sortBy'] })
-            }
-          >
-            <SelectTrigger size="sm" className="min-w-[10rem] w-[10rem]">
-              <SelectValue>{SORT_LABEL[filters.sortBy] ?? filters.sortBy}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(SORT_LABEL).map(([k, label]) => (
-                <SelectItem key={k} value={k}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">Ordre</span>
-          <Select
-            value={filters.sortOrder}
-            onValueChange={(v) => setFilters({ sortOrder: v as 'asc' | 'desc' })}
-          >
-            <SelectTrigger size="sm" className="w-[7rem]">
-              <SelectValue>{filters.sortOrder === 'asc' ? 'Croissant' : 'Décroissant'}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="asc">Croissant</SelectItem>
-              <SelectItem value="desc">Décroissant</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2 pb-0.5">
-          <input
-            type="checkbox"
-            id="at-risk-only"
-            className="size-4 rounded border-input"
-            checked={filters.atRiskOnly}
-            onChange={(e) => setFilters({ atRiskOnly: e.target.checked })}
-          />
-          <Label htmlFor="at-risk-only" className="cursor-pointer font-normal">
-            À risque seulement
-          </Label>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
