@@ -22,7 +22,8 @@ Offrir un **écran unique** de synthèse pour l’exercice et le budget sélecti
 - indicateurs financiers (KPI) avec taux de consommation ;
 - alertes ligne (compteurs) ;
 - répartition RUN/BUILD/TRANSVERSE, CAPEX/OPEX, tendance mensuelle ;
-- tableaux top enveloppes, enveloppes à risque, lignes critiques, top lignes.
+- tableaux top enveloppes, enveloppes à risque, lignes critiques, top lignes ;
+- **clic enveloppe** (top / à risque) : volet bas `BudgetEnvelopeIntelligenceDrawer` (détail + lignes, lien fiche complète) ; **clic ligne** dans ce volet ouvre le volet ligne (`z-index` supérieur).
 
 Toute la **logique et les agrégats** viennent du backend (`budget-dashboard`). Le frontend n’applique des **projections TTC** qu’en **affichage** lorsque l’API ne fournit pas d’agrégat TTC (voir §5).
 
@@ -59,6 +60,8 @@ apps/web/src/features/budgets/
 ├── types/budget-dashboard.types.ts       # BudgetDashboardResponse (aligné API)
 ├── hooks/use-budget-dashboard.ts         # useBudgetDashboardQuery / alias useBudgetDashboard
 ├── lib/budget-dashboard-format.ts        # HT/TTC affichage (KPI parts, forecast gap)
+├── components/budget-envelope-drawer/
+│   └── budget-envelope-intelligence-drawer.tsx  # Volet bas enveloppe (cockpit)
 └── dashboard/
     ├── budget-dashboard-page.tsx         # Page : header, périmètre, sections
     ├── hooks/use-budget-dashboard-page.ts  # Exercice/budget sélection, labels selects, query
@@ -121,7 +124,11 @@ Sur le cockpit, un **clic sur une ligne** des tableaux suivants ouvre le **`Budg
 
 Composant drawer : `features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer.tsx` — détail ligne, onglets (overview, engagements, etc.), aligné **RFC-FE-ADD-006**.
 
-### 6.2 Tableaux — colonnes « Top lignes »
+### 6.2 Drill-down enveloppe (cockpit)
+
+Un **clic sur une enveloppe** des tableaux **Top enveloppes** ou **Enveloppes à risque** ouvre le **`BudgetEnvelopeIntelligenceDrawer`** (panneau bas, même gabarit que le volet ligne : poignée d’agrandissement, scroll interne). Données : `useBudgetEnvelope` + `useBudgetEnvelopeLines` (pagination / recherche / filtre comme la page `/budget-envelopes/[id]`). Lien **« Fiche complète »** vers `budgetEnvelopeDetail(envelopeId)`. Un clic sur une **ligne budgétaire** dans le tableau du volet appelle le même `openBudgetLineDrawer` que le reste du cockpit ; le volet ligne est rendu **après** le volet enveloppe et utilise un **z-index** plus élevé (`z-[60]`) pour passer au-dessus.
+
+### 6.3 Tableaux — colonnes « Top lignes »
 
 Le tableau **Top lignes** (`budget-top-budget-lines-card.tsx`) vise une **lecture exécutive** sur toute la largeur de la carte :
 

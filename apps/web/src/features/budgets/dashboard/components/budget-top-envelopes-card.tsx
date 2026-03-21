@@ -1,7 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Trophy } from 'lucide-react';
+import Link from 'next/link';
+import { Pencil, Trophy } from 'lucide-react';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { budgetEnvelopeEdit } from '@/features/budgets/constants/budget-routes';
 import {
   Table,
   TableBody,
@@ -20,10 +24,12 @@ import { BudgetLinesProgress } from '@/features/budgets/components/budget-lines-
 import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
 import {
   cockpitTableHeadRow,
-  cockpitTdFirst,
+  cockpitTdAction,
+  cockpitTdFirstAfterAction,
   cockpitTdNum,
   cockpitTdProgress,
-  cockpitThFirst,
+  cockpitThAction,
+  cockpitThFirstAfterAction,
   cockpitThNum,
   cockpitThProgress,
 } from './budget-cockpit-table-classes';
@@ -33,13 +39,13 @@ export function BudgetTopEnvelopesCard({
   currency,
   taxDisplayMode,
   defaultTaxRate,
-  onRowClick,
+  onEnvelopeClick,
 }: {
   rows: NonNullable<BudgetDashboardResponse['topEnvelopes']>;
   currency: string;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
-  onRowClick?: () => void;
+  onEnvelopeClick?: (envelopeId: string) => void;
 }) {
   if (rows.length === 0) return null;
 
@@ -47,7 +53,7 @@ export function BudgetTopEnvelopesCard({
     <CockpitSection
       id="budget-top-envelopes-heading"
       title="Enveloppes les plus consommées"
-      description="Classement par montant consommé (10 lignes max.). Cliquez une ligne pour aller aux alertes."
+      description="Classement par montant consommé (10 lignes max.). Cliquez une ligne pour ouvrir le détail de l’enveloppe."
     >
       <CockpitSurfaceCard
         title="Top enveloppes"
@@ -60,7 +66,10 @@ export function BudgetTopEnvelopesCard({
         <Table>
           <TableHeader className="bg-transparent">
             <TableRow className={cockpitTableHeadRow}>
-              <TableHead className={cockpitThFirst}>Enveloppe</TableHead>
+              <TableHead className={cockpitThAction}>
+                <span className="sr-only">Actions</span>
+              </TableHead>
+              <TableHead className={cockpitThFirstAfterAction}>Enveloppe</TableHead>
               <TableHead className={cockpitThNum}>Budget</TableHead>
               <TableHead className={cockpitThNum}>Consommé</TableHead>
               <TableHead className={cockpitThNum}>Restant</TableHead>
@@ -89,9 +98,24 @@ export function BudgetTopEnvelopesCard({
                 <TableRow
                   key={e.envelopeId}
                   className="cursor-pointer border-border transition-colors hover:bg-muted/50"
-                  onClick={onRowClick}
+                  onClick={() => onEnvelopeClick?.(e.envelopeId)}
                 >
-                  <TableCell className={cockpitTdFirst}>
+                  <TableCell
+                    className={cockpitTdAction}
+                    onClick={(ev) => ev.stopPropagation()}
+                  >
+                    <Link
+                      href={budgetEnvelopeEdit(e.envelopeId)}
+                      className={cn(
+                        buttonVariants({ variant: 'ghost', size: 'icon' }),
+                        'size-8 text-muted-foreground hover:text-foreground',
+                      )}
+                      aria-label={`Modifier l’enveloppe ${e.name}`}
+                    >
+                      <Pencil className="size-4 shrink-0" />
+                    </Link>
+                  </TableCell>
+                  <TableCell className={cockpitTdFirstAfterAction}>
                     {e.code ? `${e.code} — ` : ''}
                     {e.name}
                   </TableCell>

@@ -1,7 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Flame } from 'lucide-react';
+import Link from 'next/link';
+import { Flame, Pencil } from 'lucide-react';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { budgetEnvelopeEdit } from '@/features/budgets/constants/budget-routes';
 import {
   Table,
   TableBody,
@@ -17,11 +21,13 @@ import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives'
 import { EnvelopeRiskLabel } from './budget-cockpit-status-labels';
 import {
   cockpitTableHeadRow,
+  cockpitTdAction,
   cockpitTdEnd,
-  cockpitTdFirst,
+  cockpitTdFirstAfterAction,
   cockpitTdNum,
+  cockpitThAction,
   cockpitThEndLeft,
-  cockpitThFirst,
+  cockpitThFirstAfterAction,
   cockpitThNum,
 } from './budget-cockpit-table-classes';
 
@@ -30,13 +36,13 @@ export function BudgetEnvelopesTable({
   currency,
   taxDisplayMode,
   defaultTaxRate,
-  onRowClick,
+  onEnvelopeClick,
 }: {
   rows: NonNullable<BudgetDashboardResponse['riskEnvelopes']>;
   currency: string;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
-  onRowClick?: () => void;
+  onEnvelopeClick?: (envelopeId: string) => void;
 }) {
   if (rows.length === 0) return null;
 
@@ -57,7 +63,10 @@ export function BudgetEnvelopesTable({
         <Table>
           <TableHeader className="bg-transparent">
             <TableRow className={cockpitTableHeadRow}>
-              <TableHead className={cockpitThFirst}>Enveloppe</TableHead>
+              <TableHead className={cockpitThAction}>
+                <span className="sr-only">Actions</span>
+              </TableHead>
+              <TableHead className={cockpitThFirstAfterAction}>Enveloppe</TableHead>
               <TableHead className={cockpitThNum}>Prévision</TableHead>
               <TableHead className={cockpitThNum}>Budget</TableHead>
               <TableHead className={cockpitThEndLeft}>Niveau</TableHead>
@@ -68,9 +77,24 @@ export function BudgetEnvelopesTable({
               <TableRow
                 key={e.envelopeId}
                 className="cursor-pointer border-border transition-colors hover:bg-muted/50"
-                onClick={onRowClick}
+                onClick={() => onEnvelopeClick?.(e.envelopeId)}
               >
-                <TableCell className={cockpitTdFirst}>
+                <TableCell
+                  className={cockpitTdAction}
+                  onClick={(ev) => ev.stopPropagation()}
+                >
+                  <Link
+                    href={budgetEnvelopeEdit(e.envelopeId)}
+                    className={cn(
+                      buttonVariants({ variant: 'ghost', size: 'icon' }),
+                      'size-8 text-muted-foreground hover:text-foreground',
+                    )}
+                    aria-label={`Modifier l’enveloppe ${e.name}`}
+                  >
+                    <Pencil className="size-4 shrink-0" />
+                  </Link>
+                </TableCell>
+                <TableCell className={cockpitTdFirstAfterAction}>
                   {e.code ? `${e.code} — ` : ''}
                   {e.name}
                 </TableCell>

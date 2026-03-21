@@ -9,6 +9,7 @@ import {
   BudgetLineIntelligenceDrawer,
   type BudgetLineDrawerTab,
 } from '@/features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer';
+import { BudgetEnvelopeIntelligenceDrawer } from '@/features/budgets/components/budget-envelope-drawer/budget-envelope-intelligence-drawer';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import { useBudgetDashboardPage } from './hooks/use-budget-dashboard-page';
 import { BudgetDashboardShell } from './components/budget-dashboard-shell';
@@ -62,6 +63,9 @@ export function BudgetDashboardPage() {
   );
   const [lineDrawerTab, setLineDrawerTab] = useState<BudgetLineDrawerTab>('overview');
 
+  const [isEnvelopeDrawerOpen, setIsEnvelopeDrawerOpen] = useState(false);
+  const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string | null>(null);
+
   const openBudgetLineDrawer = useCallback((lineId: string) => {
     setSelectedBudgetLineId(lineId);
     setLineDrawerTab('overview');
@@ -73,6 +77,18 @@ export function BudgetDashboardPage() {
     if (!open) {
       setSelectedBudgetLineId(null);
       setLineDrawerTab('overview');
+    }
+  }, []);
+
+  const openEnvelopeDrawer = useCallback((envelopeId: string) => {
+    setSelectedEnvelopeId(envelopeId);
+    setIsEnvelopeDrawerOpen(true);
+  }, []);
+
+  const onEnvelopeDrawerOpenChange = useCallback((open: boolean) => {
+    setIsEnvelopeDrawerOpen(open);
+    if (!open) {
+      setSelectedEnvelopeId(null);
     }
   }, []);
 
@@ -181,7 +197,7 @@ export function BudgetDashboardPage() {
                 currency={data.budget.currency}
                 taxDisplayMode={taxDisplayMode}
                 defaultTaxRate={defaultTaxRate}
-                onRowClick={scrollToCritical}
+                onEnvelopeClick={openEnvelopeDrawer}
               />
             )}
 
@@ -191,7 +207,7 @@ export function BudgetDashboardPage() {
                 currency={data.budget.currency}
                 taxDisplayMode={taxDisplayMode}
                 defaultTaxRate={defaultTaxRate}
-                onRowClick={scrollToCritical}
+                onEnvelopeClick={openEnvelopeDrawer}
               />
             )}
 
@@ -217,6 +233,13 @@ export function BudgetDashboardPage() {
                 onBudgetLineClick={openBudgetLineDrawer}
               />
             )}
+
+            <BudgetEnvelopeIntelligenceDrawer
+              open={isEnvelopeDrawerOpen}
+              onOpenChange={onEnvelopeDrawerOpenChange}
+              envelopeId={selectedEnvelopeId}
+              onBudgetLineClick={openBudgetLineDrawer}
+            />
 
             <BudgetLineIntelligenceDrawer
               open={isLineDrawerOpen}

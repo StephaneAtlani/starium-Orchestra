@@ -110,11 +110,11 @@ export function BudgetLineIntelligenceDrawer({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop
-          className="fixed inset-0 z-50 bg-black/20 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+          className="fixed inset-0 z-[60] bg-black/20 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         />
         <DialogPrimitive.Popup
           className={cn(
-            'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-none',
+            'fixed inset-x-0 bottom-0 z-[60] mx-auto w-full max-w-none',
             'border border-border/60 bg-background shadow-lg outline-none',
             // Mobile: plein écran. Desktop: hauteur de base ou agrandie (poignée).
             'h-[100dvh] sm:h-[70vh] md:h-[65vh]',

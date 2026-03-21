@@ -11,10 +11,22 @@ export const cockpitTableHeadRow =
 const thBase =
   'h-auto min-h-11 align-middle font-semibold text-muted-foreground';
 
+/** Colonne étroite action (icône début de ligne) */
+export const cockpitThAction = cn(thBase, 'w-10 min-w-10 p-3 text-center');
+
+export const cockpitTdAction =
+  'w-10 min-w-10 py-2.5 pl-5 pr-0 align-middle';
+
 /** 1re colonne (libellé principal) */
 export const cockpitThFirst = cn(
   thBase,
   'min-w-0 py-3 pl-5 pr-3 text-left',
+);
+
+/** Libellé principal quand une colonne action précède (pas de double pl-5) */
+export const cockpitThFirstAfterAction = cn(
+  thBase,
+  'min-w-0 py-3 pl-2 pr-3 text-left',
 );
 
 /** Colonnes texte (milieu) */
@@ -40,6 +52,9 @@ export const cockpitThEndLeft = cn(thBase, 'py-3 pl-3 pr-5 text-left');
 
 export const cockpitTdFirst =
   'min-w-0 py-2.5 pl-5 pr-3 align-middle font-medium text-foreground';
+
+export const cockpitTdFirstAfterAction =
+  'min-w-0 py-2.5 pl-2 pr-3 align-middle font-medium text-foreground';
 
 export const cockpitTdText = 'min-w-0 px-3 py-2.5 align-middle text-muted-foreground';
 
