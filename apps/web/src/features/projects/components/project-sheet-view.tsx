@@ -52,6 +52,11 @@ import {
 } from '../constants/project-enum-labels';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
+import {
+  computeProjectSheetPriorityScorePreview,
+  computeRoiFromCostGain,
+  effectiveRiskLevelForSheetPreview,
+} from '../lib/project-sheet-priority-preview';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import type {
@@ -84,11 +89,6 @@ const RISK_UNSET = '__unset__';
 
 const GO_PRIORITY_SCORE_THRESHOLD = 5;
 
-function fmtEuro(n: number | null | undefined): string {
-  if (n == null) return '—';
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
-}
-
 function scoreOutOf5(n: number | null | undefined): string {
   if (n == null || n === undefined) return '—';
   return `${n} / 5`;
@@ -100,7 +100,10 @@ type DecisionCockpit = {
   badgeClassName: string;
 };
 
-function cockpitDecision(sheet: ProjectSheet): DecisionCockpit {
+function cockpitDecision(
+  sheet: ProjectSheet,
+  priorityScoreEffective: number | null,
+): DecisionCockpit {
   const costMissing = sheet.estimatedCost == null;
   const gainMissing = sheet.estimatedGain == null;
   if (costMissing || gainMissing) {
@@ -119,7 +122,7 @@ function cockpitDecision(sheet: ProjectSheet): DecisionCockpit {
       badgeClassName: 'border-transparent bg-red-600 text-white hover:bg-red-600',
     };
   }
-  const ps = sheet.priorityScore;
+  const ps = priorityScoreEffective;
   if (roi != null && roi > 0 && ps != null && ps >= GO_PRIORITY_SCORE_THRESHOLD) {
     return {
       badge: 'GO',
@@ -136,14 +139,22 @@ function cockpitDecision(sheet: ProjectSheet): DecisionCockpit {
   };
 }
 
-function cockpitMissingLines(sheet: ProjectSheet): string[] {
+/** Critères cockpit — alignés sur les champs du formulaire pour mise à jour immédiate (sans attendre l’enregistrement). */
+function cockpitMissingLinesFromForm(params: {
+  cost: number | undefined;
+  gain: number | undefined;
+  bv: number | undefined;
+  sa: number | undefined;
+  us: number | undefined;
+  problem: string;
+}): string[] {
   const lines: string[] = [];
-  if (sheet.estimatedCost == null) lines.push('Coût manquant');
-  if (sheet.estimatedGain == null) lines.push('Gain manquant');
-  if (sheet.businessValueScore == null) lines.push('Valeur (score) manquant');
-  if (sheet.strategicAlignment == null) lines.push('Alignement manquant');
-  if (sheet.urgencyScore == null) lines.push('Urgence manquant');
-  if (!sheet.businessProblem?.trim()) lines.push('Objectif métier (pourquoi) absent');
+  if (params.cost === undefined) lines.push('Coût manquant');
+  if (params.gain === undefined) lines.push('Gain manquant');
+  if (params.bv === undefined) lines.push('Valeur (score) manquant');
+  if (params.sa === undefined) lines.push('Alignement manquant');
+  if (params.us === undefined) lines.push('Urgence manquant');
+  if (!params.problem.trim()) lines.push('Objectif métier (pourquoi) absent');
   return lines;
 }
 
@@ -401,6 +412,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       void queryClient.invalidateQueries({
         queryKey: projectQueryKeys.detail(clientId, projectId),
       });
+      void queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.sheet(clientId, projectId),
+      });
     },
     onError: (e: Error) => {
       toast.error(e.message || 'Erreur création risque');
@@ -418,6 +432,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       });
       void queryClient.invalidateQueries({
         queryKey: projectQueryKeys.detail(clientId, projectId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.sheet(clientId, projectId),
       });
     },
     onError: (e: Error) => {
@@ -455,8 +472,35 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       ? '—'
       : new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 }).format(n);
 
-  const decision = cockpitDecision(sheet);
-  const missingCritical = cockpitMissingLines(sheet);
+  const risksLoaded = !risksQuery.isLoading && risksQuery.data !== undefined;
+  /** Risques métier (GET /risks) en criticité HIGH — même grille P×I que le pilotage ; indépendant du niveau fiche. */
+  const criticalRiskCount = risksLoaded
+    ? risksQuery.data.filter((r) => riskCriticalityForRisk(r) === 'HIGH').length
+    : null;
+
+  const priorityScoreDisplayed =
+    sheet.priorityScore ??
+    computeProjectSheetPriorityScorePreview({
+      businessValueScore: numOrUndef(bv),
+      strategicAlignment: numOrUndef(sa),
+      urgencyScore: numOrUndef(us),
+      effectiveRiskLevel: effectiveRiskLevelForSheetPreview(
+        risk,
+        RISK_UNSET,
+        risksQuery.data,
+      ),
+      roi: computeRoiFromCostGain(numOrUndef(cost), numOrUndef(gain)),
+    });
+
+  const decision = cockpitDecision(sheet, priorityScoreDisplayed);
+  const missingCritical = cockpitMissingLinesFromForm({
+    cost: numOrUndef(cost),
+    gain: numOrUndef(gain),
+    bv: numOrUndef(bv),
+    sa: numOrUndef(sa),
+    us: numOrUndef(us),
+    problem,
+  });
   const costOrGainMissing =
     sheet.estimatedCost == null || sheet.estimatedGain == null;
   const roiHint = costOrGainMissing
@@ -464,11 +508,6 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     : sheet.roi == null
       ? 'ROI non calculable (coût nul ou données insuffisantes)'
       : null;
-
-  const risksLoaded = !risksQuery.isLoading && risksQuery.data !== undefined;
-  const criticalRiskCount = risksLoaded
-    ? risksQuery.data.filter((r) => riskCriticalityForRisk(r) === 'HIGH').length
-    : null;
 
   return (
     <div className="space-y-6">
@@ -548,7 +587,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   2. Priorité décisionnelle
                 </p>
-                <p className="mt-2 text-2xl font-semibold tabular-nums">{fmt(sheet.priorityScore)}</p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums">
+                  {fmt(priorityScoreDisplayed)}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Priorité réf. :{' '}
                   <span className="font-medium text-foreground">
@@ -589,10 +630,10 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
           {missingCritical.length > 0 ? (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
-              <p className="font-medium text-amber-900 dark:text-amber-200">
+              <p className="font-medium text-amber-950 dark:text-amber-600">
                 Fiche incomplète :
               </p>
-              <ul className="mt-1 list-inside list-disc text-xs text-muted-foreground">
+              <ul className="mt-1 list-inside list-disc text-xs text-amber-950/90 dark:text-amber-600">
                 {missingCritical.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
@@ -616,7 +657,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 disabled={!canEdit}
               >
                 <SelectTrigger id="arb">
-                  <SelectValue />
+                  <SelectValue>{ARBITRATION_LABEL[arbDraft]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.keys(ARBITRATION_LABEL) as ProjectArbitrationStatus[]).map((k) => (
@@ -713,7 +754,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cadre-combien">Combien (€)</Label>
+              <Label htmlFor="cadre-combien">Budget</Label>
               <Input
                 id="cadre-combien"
                 type="number"
@@ -725,7 +766,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="cadre-comment">Comment</Label>
+              <Label htmlFor="cadre-comment">Comment : les principales étapes</Label>
               <textarea
                 id="cadre-comment"
                 className={cn(textareaClass, 'min-h-[72px]')}
@@ -750,7 +791,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="project-desc">Description du projet</Label>
+            <Label htmlFor="project-desc">Description métier</Label>
             <textarea
               id="project-desc"
               className={textareaClass}
@@ -884,12 +925,6 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           <CardTitle className="text-base">D. Arbitrage financier</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="text-sm">
-            <span className="text-muted-foreground">Budget cible (réf.) : </span>
-            <span className="font-medium tabular-nums text-foreground">
-              {fmtEuro(sheet.targetBudgetAmount)}
-            </span>
-          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="cost">Coût estimé (fiche)</Label>
@@ -904,7 +939,12 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="gain">Gain estimé</Label>
+              <div>
+                <Label htmlFor="gain">Gain estimé</Label>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Ne s&apos;applique pas à tous les cas — laisser vide si sans objet.
+                </p>
+              </div>
               <Input
                 id="gain"
                 type="number"
@@ -934,13 +974,13 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground">Priorité : </span>
+              <span className="text-muted-foreground">Priorité (score calculé) : </span>
               <span className="font-semibold tabular-nums text-foreground">
-                {sheet.priorityScore != null ? fmt(sheet.priorityScore) : '—'}
+                {priorityScoreDisplayed != null ? fmt(priorityScoreDisplayed) : '—'}
               </span>
             </div>
             {criticalRiskCount != null && criticalRiskCount > 0 ? (
-              <p className="pt-0.5 text-sm font-medium text-amber-800 dark:text-amber-200">
+              <p className="pt-0.5 text-sm font-medium text-amber-950 dark:text-amber-600">
                 ⚠️{' '}
                 {criticalRiskCount === 1
                   ? '1 risque critique'
@@ -958,7 +998,11 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               disabled={!canEdit}
             >
               <SelectTrigger className="max-w-xs">
-                <SelectValue />
+                <SelectValue placeholder="Non renseigné">
+                  {risk === RISK_UNSET
+                    ? 'Non renseigné'
+                    : RISK_LABEL[risk as ProjectSheetRiskLevel]}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={RISK_UNSET}>Non renseigné</SelectItem>
@@ -1011,7 +1055,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                                 crit === 'LOW' &&
                                   'border-emerald-500/50 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
                                 crit === 'MEDIUM' &&
-                                  'border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200',
+                                  'border-amber-500/50 bg-amber-500/10 text-amber-950 dark:text-amber-600',
                                 crit === 'HIGH' &&
                                   'border-red-500/50 bg-red-500/10 text-red-800 dark:text-red-300',
                               )}
@@ -1083,7 +1127,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                   disabled={!canEdit || createRiskMutation.isPending}
                 >
                   <SelectTrigger className="w-full min-w-[120px]">
-                    <SelectValue />
+                    <SelectValue>{RISK_LABEL[newRiskProb]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
@@ -1102,7 +1146,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                   disabled={!canEdit || createRiskMutation.isPending}
                 >
                   <SelectTrigger className="w-full min-w-[120px]">
-                    <SelectValue />
+                    <SelectValue>{RISK_LABEL[newRiskImpact]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
@@ -1170,7 +1214,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
             <div className="space-y-0 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4 shadow-sm dark:bg-amber-500/10">
               <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-amber-500/20 pb-2">
-                <span className="text-lg font-bold tabular-nums text-amber-800 dark:text-amber-400">
+                <span className="text-lg font-bold tabular-nums text-amber-950 dark:text-amber-600">
                   W
                 </span>
                 <span className="font-semibold text-foreground">Faiblesses</span>
@@ -1266,7 +1310,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
             <div className="space-y-0 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] p-4 shadow-sm dark:bg-amber-500/10">
               <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-amber-500/25 pb-2">
-                <span className="text-lg font-bold tabular-nums text-amber-800 dark:text-amber-400">
+                <span className="text-lg font-bold tabular-nums text-amber-950 dark:text-amber-600">
                   ST
                 </span>
                 <span className="font-semibold text-foreground">Sécuriser</span>

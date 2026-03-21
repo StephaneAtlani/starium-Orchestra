@@ -61,7 +61,10 @@ export function BudgetExercisesToolbar() {
           onValueChange={handleStatusChange}
         >
           <SelectTrigger size="sm" className="w-[140px]" data-testid="exercises-status">
-            <SelectValue placeholder="Statut" />
+            <SelectValue placeholder="Statut">
+              {BUDGET_EXERCISE_STATUS_OPTIONS.find((o) => o.value === (filters.status ?? 'ALL'))
+                ?.label ?? (filters.status ?? 'ALL')}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {BUDGET_EXERCISE_STATUS_OPTIONS.map((opt) => (
@@ -73,7 +76,7 @@ export function BudgetExercisesToolbar() {
         </Select>
         <Select value={String(filters.limit ?? 20)} onValueChange={handleLimitChange}>
           <SelectTrigger size="sm" className="w-[100px]" data-testid="exercises-limit">
-            <SelectValue />
+            <SelectValue>{`${filters.limit ?? 20} / page`}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {LIMIT_OPTIONS.map((n) => (

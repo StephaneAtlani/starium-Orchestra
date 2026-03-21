@@ -1,4 +1,11 @@
-import { Prisma, Project, ProjectArbitrationStatus } from '@prisma/client';
+import {
+  Prisma,
+  Project,
+  ProjectArbitrationStatus,
+  ProjectRiskImpact,
+  ProjectRiskProbability,
+  ProjectRiskStatus,
+} from '@prisma/client';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import { PROJECT_AUDIT_ACTION, PROJECT_AUDIT_RESOURCE_TYPE } from '../project-audit.constants';
 import { ProjectSheetService } from './project-sheet.service';
@@ -9,6 +16,9 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
     project: {
       findFirst: jest.Mock;
       update: jest.Mock;
+    };
+    projectRisk: {
+      findMany: jest.Mock;
     };
   };
   let auditLogs: { create: jest.Mock };
@@ -67,6 +77,9 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
         findFirst: jest.fn(),
         update: jest.fn(),
       },
+      projectRisk: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     service = new ProjectSheetService(
@@ -85,6 +98,23 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
       expect(typeof dto.priorityScore).toBe('number');
       expect(dto.estimatedCost).toBe(50000);
       expect(dto.estimatedGain).toBe(80000);
+    });
+
+    it('dérive riskLevel depuis les risques métier si la fiche est sans niveau', () => {
+      const p = baseProject({
+        riskLevel: null,
+        priorityScore: null,
+      });
+      const risks = [
+        {
+          probability: ProjectRiskProbability.HIGH,
+          impact: ProjectRiskImpact.HIGH,
+          status: ProjectRiskStatus.OPEN,
+        },
+      ];
+      const dto = service.mapToSheetResponse(p as Project, risks as any);
+      expect(dto.riskLevel).toBe('HIGH');
+      expect(dto.priorityScore).not.toBeNull();
     });
   });
 

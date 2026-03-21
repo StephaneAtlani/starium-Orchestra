@@ -1,5 +1,17 @@
 import { Prisma, ProjectRiskLevel } from '@prisma/client';
 
+/**
+ * Champs dérivés persistés sur `Project` lors d’un PATCH fiche (avec `mapToSheetResponse` pour relecture).
+ *
+ * - **roi** : (estimatedGain − estimatedCost) / estimatedCost — si coût absent ou 0, ou gain absent → null.
+ * - **priorityScore** : null si l’un des scores valeur / alignement / urgence est absent ; sinon
+ *   `bv*0.4 + sa*0.3 + us*0.2 − riskPenalty(niveau) + roiFactor(roi)` avec
+ *   pénalité risque LOW=0, MEDIUM=1, HIGH=2 (niveau effectif = saisie fiche ou agrégat max des risques métier P×I),
+ *   et roiFactor : ROI > 1 → +2, > 0 → +1, < 0 → −2, sinon 0.
+ *
+ * Non persistés dans ce module (voir `ProjectSheetService`) :
+ * - **riskLevel** affiché : `Project.riskLevel` ou, si null, max des criticités des `ProjectRisk` (même grille que le pilotage).
+ */
 /** ROI = (gain - coût) / coût ; coût null ou 0 → null */
 export function computeRoi(
   estimatedCost: Prisma.Decimal | null | undefined,

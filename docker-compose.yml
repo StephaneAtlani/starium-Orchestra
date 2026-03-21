@@ -39,10 +39,7 @@ services:
       - standard
 
   # api-dev : JWT etc. via env_file ; DATABASE_URL et PORT forcés ici (environment écrase env_file).
-  # Si le schéma Prisma change (nouveaux models) : regénérer le client dans le conteneur puis restart,
-  # sinon Nest ne compile pas les modules qui utilisent prisma.* → routes manquantes (404 sur /api/...).
-  #   docker compose --profile dev exec api-dev sh -c "cd /app/apps/api && pnpm exec prisma generate"
-  #   docker compose --profile dev restart api-dev
+  # Schéma Prisma modifié : régénérer le client dans le conteneur puis redémarrer api-dev (commande en infobulle, README § Docker dev).
   api-dev:
     build:
       context: .

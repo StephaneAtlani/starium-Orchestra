@@ -87,7 +87,10 @@ export function BudgetsToolbar() {
         </Select>
         <Select value={filters.status ?? 'ALL'} onValueChange={handleStatusChange}>
           <SelectTrigger size="sm" className="w-[140px]" data-testid="budgets-status">
-            <SelectValue placeholder="Statut" />
+            <SelectValue placeholder="Statut">
+              {BUDGET_STATUS_OPTIONS.find((o) => o.value === (filters.status ?? 'ALL'))
+                ?.label ?? (filters.status ?? 'ALL')}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {BUDGET_STATUS_OPTIONS.map((opt) => (
@@ -99,7 +102,7 @@ export function BudgetsToolbar() {
         </Select>
         <Select value={String(filters.limit ?? 20)} onValueChange={handleLimitChange}>
           <SelectTrigger size="sm" className="w-[100px]" data-testid="budgets-limit">
-            <SelectValue />
+            <SelectValue>{`${filters.limit ?? 20} / page`}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {LIMIT_OPTIONS.map((n) => (

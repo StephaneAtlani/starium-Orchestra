@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, Project } from '@prisma/client';
+import { Prisma, Project, ProjectRisk, ProjectRiskLevel } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import type { AuditContext } from '../../budget-management/types/audit-context';
@@ -11,6 +11,7 @@ import {
   diffAuditSnapshots,
   projectSheetFieldsAuditSnapshot,
 } from '../project-audit-serialize';
+import { riskCriticalityForRisk } from '../projects-pilotage.service';
 import {
   computePriorityScore,
   computeRoi,
@@ -23,6 +24,14 @@ import {
   type TowsActionsShape,
 } from './project-sheet-json';
 
+/**
+ * Fiche projet — champs calculés / dérivés exposés au client :
+ * - **roi**, **priorityScore** : formules dans `calculators/project-sheet-calculators.ts` ; à l’écriture (PATCH)
+ *   `priorityScore` utilise le même **niveau de risque effectif** qu’à la lecture (fiche ou agrégat risques métier).
+ * - **riskLevel** dans la réponse : niveau saisi en base, ou à défaut max criticité des risques opérationnels.
+ * - **priorityScore** en lecture : valeur persistée si présente, sinon recalcul (aligné après sauvegarde).
+ * - **roi** en lecture : colonne persistée si présente, sinon recalcul depuis coût / gain.
+ */
 export type ProjectSheetResponseDto = {
   id: string;
   name: string;
@@ -65,6 +74,33 @@ function emptyTows(): TowsActionsShape {
   return { SO: [], ST: [], WO: [], WT: [] };
 }
 
+/**
+ * Niveau « agrégé » des risques métier (max des criticités P×I, aligné portefeuille).
+ * Utilisé en secours quand `Project.riskLevel` (saisie CODIR) est null.
+ */
+function maxSheetRiskLevelFromOperationalRisks(
+  risks: ProjectRisk[],
+): ProjectRiskLevel | null {
+  if (risks.length === 0) return null;
+  let maxRank = 0;
+  for (const r of risks) {
+    const c = riskCriticalityForRisk(r);
+    const rk = c === 'HIGH' ? 3 : c === 'MEDIUM' ? 2 : 1;
+    if (rk > maxRank) maxRank = rk;
+  }
+  if (maxRank === 3) return 'HIGH';
+  if (maxRank === 2) return 'MEDIUM';
+  return 'LOW';
+}
+
+/** Même logique GET / PATCH : saisie fiche prioritaire, sinon agrégat des risques métier. */
+function effectiveSheetRiskLevel(
+  sheetLevel: ProjectRiskLevel | null,
+  operationalRisks: ProjectRisk[],
+): ProjectRiskLevel | null {
+  return sheetLevel ?? maxSheetRiskLevelFromOperationalRisks(operationalRisks) ?? null;
+}
+
 @Injectable()
 export class ProjectSheetService {
   constructor(
@@ -72,8 +108,32 @@ export class ProjectSheetService {
     private readonly auditLogs: AuditLogsService,
   ) {}
 
-  mapToSheetResponse(p: Project): ProjectSheetResponseDto {
+  /**
+   * @param operationalRisks — risques projet (même périmètre que GET /risks) pour dériver le niveau
+   *   affiché si la fiche n’a pas `riskLevel` en base.
+   */
+  mapToSheetResponse(
+    p: Project,
+    operationalRisks: ProjectRisk[] = [],
+  ): ProjectSheetResponseDto {
+    const effectiveRiskLevel = effectiveSheetRiskLevel(
+      p.riskLevel,
+      operationalRisks,
+    );
+
     const tows = parseTowsActions(p.towsActions);
+    const roiComputed = computeRoi(p.estimatedCost, p.estimatedGain);
+    const roiForResponse = p.roi ?? roiComputed;
+    const priorityScoreComputed = computePriorityScore(
+      p.businessValueScore,
+      p.strategicAlignment,
+      p.urgencyScore,
+      effectiveRiskLevel,
+      roiComputed,
+    );
+    const priorityScoreForResponse =
+      p.priorityScore != null ? p.priorityScore : priorityScoreComputed;
+
     return {
       id: p.id,
       name: p.name,
@@ -93,9 +153,9 @@ export class ProjectSheetService {
       urgencyScore: p.urgencyScore ?? null,
       estimatedCost: decimalToNumber(p.estimatedCost),
       estimatedGain: decimalToNumber(p.estimatedGain),
-      roi: decimalToNumber(p.roi),
-      riskLevel: p.riskLevel ?? null,
-      priorityScore: decimalToNumber(p.priorityScore),
+      roi: decimalToNumber(roiForResponse),
+      riskLevel: effectiveRiskLevel,
+      priorityScore: decimalToNumber(priorityScoreForResponse),
       arbitrationStatus: p.arbitrationStatus ?? null,
       businessProblem: p.businessProblem ?? null,
       businessBenefits: p.businessBenefits ?? null,
@@ -118,7 +178,8 @@ export class ProjectSheetService {
     if (!p) {
       throw new NotFoundException('Project not found');
     }
-    return this.mapToSheetResponse(p);
+    const risks = await this.risksForProject(clientId, projectId);
+    return this.mapToSheetResponse(p, risks);
   }
 
   async updateSheet(
@@ -135,12 +196,17 @@ export class ProjectSheetService {
     }
 
     const merged = this.mergeSheetState(existing, dto);
+    const risks = await this.risksForProject(clientId, projectId);
+    const effectiveRiskLevel = effectiveSheetRiskLevel(
+      merged.riskLevel,
+      risks,
+    );
     const roi = computeRoi(merged.estimatedCost, merged.estimatedGain);
     const priorityScore = computePriorityScore(
       merged.businessValueScore,
       merged.strategicAlignment,
       merged.urgencyScore,
-      merged.riskLevel,
+      effectiveRiskLevel,
       roi,
     );
 
@@ -217,7 +283,7 @@ export class ProjectSheetService {
       });
     }
 
-    return this.mapToSheetResponse(updated);
+    return this.mapToSheetResponse(updated, risks);
   }
 
   async setArbitrationStatus(
@@ -264,7 +330,17 @@ export class ProjectSheetService {
       ...meta,
     });
 
-    return this.mapToSheetResponse(updated);
+    const risks = await this.risksForProject(clientId, projectId);
+    return this.mapToSheetResponse(updated, risks);
+  }
+
+  private async risksForProject(
+    clientId: string,
+    projectId: string,
+  ): Promise<ProjectRisk[]> {
+    return this.prisma.projectRisk.findMany({
+      where: { clientId, projectId },
+    });
   }
 
   private mergeSheetState(
