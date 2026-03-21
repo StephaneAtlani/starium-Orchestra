@@ -93,71 +93,93 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card size="sm">
+        <Card size="sm" className="lg:col-span-2 w-full min-w-0">
           <CardHeader>
             <CardTitle>Informations</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div>
-              <span className="text-muted-foreground">Nature : </span>
-              {PROJECT_KIND_LABEL[project.kind as keyof typeof PROJECT_KIND_LABEL] ??
-                project.kind}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Type : </span>
-              {PROJECT_TYPE_LABEL[project.type] ?? project.type}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Statut : </span>
-              {PROJECT_STATUS_LABEL[project.status] ?? project.status}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Avancement manuel / dérivé : </span>
-              {project.progressPercent != null ? `${project.progressPercent} %` : '—'}
-              {' / '}
-              {project.derivedProgressPercent != null
-                ? `${project.derivedProgressPercent} %`
-                : '—'}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Échéance cible : </span>
-              {formatDate(project.targetEndDate)}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Responsable projet / activité : </span>
-              {project.ownerDisplayName ?? '—'}
-            </div>
-            {project.pilotNotes && (
-              <p className="mt-2 whitespace-pre-wrap border-t pt-2 text-muted-foreground">
-                <span className="font-medium text-foreground">Notes pilotage : </span>
-                {project.pilotNotes}
-              </p>
-            )}
-            {project.targetBudgetAmount && (
-              <div className="border-t pt-2">
-                <span className="text-muted-foreground">Budget cible : </span>
-                {project.targetBudgetAmount}
+          <CardContent className="text-sm">
+            <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+              <div className="min-w-0">
+                <span className="text-muted-foreground">Nature : </span>
+                {PROJECT_KIND_LABEL[project.kind as keyof typeof PROJECT_KIND_LABEL] ??
+                  project.kind}
               </div>
-            )}
+              <div className="min-w-0">
+                <span className="text-muted-foreground">Type : </span>
+                {PROJECT_TYPE_LABEL[project.type] ?? project.type}
+              </div>
+              <div className="min-w-0">
+                <span className="text-muted-foreground">Statut : </span>
+                {PROJECT_STATUS_LABEL[project.status] ?? project.status}
+              </div>
+              <div className="min-w-0">
+                <span className="text-muted-foreground">Avancement manuel / dérivé : </span>
+                {project.progressPercent != null ? `${project.progressPercent} %` : '—'}
+                {' / '}
+                {project.derivedProgressPercent != null
+                  ? `${project.derivedProgressPercent} %`
+                  : '—'}
+              </div>
+              <div className="min-w-0">
+                <span className="text-muted-foreground">Échéance cible : </span>
+                {formatDate(project.targetEndDate)}
+              </div>
+              <div className="min-w-0">
+                <span className="text-muted-foreground">Responsable projet / activité : </span>
+                {project.ownerDisplayName ?? '—'}
+              </div>
+              {project.pilotNotes && (
+                <p className="sm:col-span-2 mt-1 whitespace-pre-wrap border-t pt-3 text-muted-foreground">
+                  <span className="font-medium text-foreground">Notes pilotage : </span>
+                  {project.pilotNotes}
+                </p>
+              )}
+              {project.targetBudgetAmount && (
+                <div className="sm:col-span-2 border-t pt-3">
+                  <span className="text-muted-foreground">Budget cible : </span>
+                  {project.targetBudgetAmount}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>Compteurs</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-3 gap-2 text-center text-sm">
-            <div>
-              <p className="text-2xl font-semibold tabular-nums">{project.openTasksCount}</p>
-              <p className="text-xs text-muted-foreground">Tâches ouvertes</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold tabular-nums">{project.openRisksCount}</p>
-              <p className="text-xs text-muted-foreground">Risques ouverts</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold tabular-nums">{project.delayedMilestonesCount}</p>
-              <p className="text-xs text-muted-foreground">Jalons retard</p>
+        <Card
+          size="sm"
+          className="lg:col-span-2 w-full min-w-0 gap-0 py-0 data-[size=sm]:gap-0 data-[size=sm]:py-0"
+        >
+          <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-1.5 px-4 py-2 !pt-2 !pb-2 sm:gap-x-10 group-data-[size=sm]/card:px-4 group-data-[size=sm]/card:!py-2">
+            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Compteurs
+            </span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-start gap-x-6 gap-y-1 sm:justify-end">
+              <span
+                className="inline-flex items-baseline gap-1.5 tabular-nums"
+                title="Tâches ouvertes"
+              >
+                <span className="text-lg font-semibold leading-none">
+                  {project.openTasksCount}
+                </span>
+                <span className="text-xs text-muted-foreground">Tâches</span>
+              </span>
+              <span
+                className="inline-flex items-baseline gap-1.5 tabular-nums"
+                title="Risques ouverts"
+              >
+                <span className="text-lg font-semibold leading-none">
+                  {project.openRisksCount}
+                </span>
+                <span className="text-xs text-muted-foreground">Risques</span>
+              </span>
+              <span
+                className="inline-flex items-baseline gap-1.5 tabular-nums"
+                title="Jalons en retard"
+              >
+                <span className="text-lg font-semibold leading-none">
+                  {project.delayedMilestonesCount}
+                </span>
+                <span className="text-xs text-muted-foreground">Jalons ret.</span>
+              </span>
             </div>
           </CardContent>
         </Card>

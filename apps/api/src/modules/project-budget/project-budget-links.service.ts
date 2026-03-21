@@ -146,7 +146,8 @@ export class ProjectBudgetLinksService {
   }
 
   /**
-   * Répartition des montants FIXED en pourcentages (somme = 100).
+   * Répartition des montants FIXED en % de la somme des montants (pas des lignes budgétaires).
+   * Aligné sur @db.Decimal(5,2) : 2 décimales, dernière ligne = 100 − somme des arrondis (somme ≈ 100).
    */
   private fixedAmountsToPercentages(
     amounts: Prisma.Decimal[],
@@ -163,13 +164,17 @@ export class ProjectBudgetLinksService {
     const n = amounts.length;
     const pcts: Prisma.Decimal[] = [];
     let accPct = new Prisma.Decimal(0);
+    const dp = 2;
     for (let i = 0; i < n - 1; i++) {
-      const p = amounts[i]!.div(sum).times(100);
-      const rounded = p.toDecimalPlaces(4, Prisma.Decimal.ROUND_HALF_UP);
+      const raw = amounts[i]!.div(sum).times(100);
+      const rounded = raw.toDecimalPlaces(dp, Prisma.Decimal.ROUND_HALF_UP);
       pcts.push(rounded);
       accPct = accPct.plus(rounded);
     }
-    pcts.push(new Prisma.Decimal(100).minus(accPct));
+    const last = new Prisma.Decimal(100)
+      .minus(accPct)
+      .toDecimalPlaces(dp, Prisma.Decimal.ROUND_HALF_UP);
+    pcts.push(last);
     return pcts;
   }
 
@@ -354,8 +359,14 @@ export class ProjectBudgetLinksService {
       projectId: link.projectId,
       budgetLineId: link.budgetLineId,
       allocationType: link.allocationType,
-      percentage: link.percentage?.toString() ?? null,
-      amount: link.amount?.toString() ?? null,
+      percentage:
+        link.percentage != null
+          ? new Prisma.Decimal(link.percentage).toDecimalPlaces(2).toString()
+          : null,
+      amount:
+        link.amount != null
+          ? new Prisma.Decimal(link.amount).toDecimalPlaces(2).toString()
+          : null,
       createdAt: link.createdAt.toISOString(),
       budgetLine: {
         id: budgetLine.id,
@@ -656,6 +667,8 @@ export class ProjectBudgetLinksService {
         let amt = pct.div(100).times(rev);
         if (amt.lte(0)) {
           amt = new Prisma.Decimal('0.01');
+        } else {
+          amt = amt.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
         }
         rowsForInvariant.push({
           allocationType: ProjectBudgetAllocationType.FIXED,

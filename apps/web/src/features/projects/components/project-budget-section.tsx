@@ -77,6 +77,17 @@ function formatLineOptionLabel(l: { code: string | null; name: string }): string
   return l.code ? `${l.code} — ${l.name}` : l.name;
 }
 
+/** Affichage cohérent avec @db.Decimal(5,2) — la part est (montant_i / Σ montants)×100 en mode % dérivé des FIXED. */
+function formatProjectBudgetPercentage(value: string | null | undefined): string {
+  if (value == null || value === '') return '—';
+  const n = Number(String(value).replace(',', '.'));
+  if (Number.isNaN(n)) return `${value} %`;
+  return `${new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(n)} %`;
+}
+
 export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   const { has } = usePermissions();
   const canCreateBudgetLine = has('budgets.create');
@@ -319,7 +330,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                         )}
                         {row.allocationType === 'PERCENTAGE' && (
                           <span className="text-muted-foreground">
-                            {row.percentage != null ? `${row.percentage} %` : '—'}
+                            {formatProjectBudgetPercentage(row.percentage)}
                           </span>
                         )}
                         {row.allocationType === 'FIXED' && (
