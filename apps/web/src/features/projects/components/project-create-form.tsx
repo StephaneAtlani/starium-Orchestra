@@ -147,12 +147,16 @@ export function ProjectCreateForm() {
     const body: Record<string, unknown> = {
       name: name.trim(),
       code: resolvedCode,
-      kind,
       type,
       priority,
       criticality,
       status,
     };
+    // N’envoyer `kind` que si ≠ PROJECT : évite 400 « property kind should not exist »
+    // sur une API déployée sans ce champ dans CreateProjectDto (défaut DB = PROJECT).
+    if (kind !== 'PROJECT') {
+      body.kind = kind;
+    }
     if (description.trim()) body.description = description.trim();
     if (progressPercent !== '') {
       const n = Number(progressPercent);

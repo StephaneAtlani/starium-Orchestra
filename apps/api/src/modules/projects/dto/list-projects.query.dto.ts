@@ -12,7 +12,6 @@ import {
 import { Transform } from 'class-transformer';
 import {
   ProjectCriticality,
-  ProjectKind,
   ProjectPriority,
   ProjectStatus,
 } from '@prisma/client';
@@ -48,8 +47,8 @@ export class ListProjectsQueryDto {
   criticality?: ProjectCriticality;
 
   @IsOptional()
-  @IsEnum(ProjectKind)
-  kind?: ProjectKind;
+  @IsIn(['PROJECT', 'ACTIVITY'])
+  kind?: 'PROJECT' | 'ACTIVITY';
 
   @IsOptional()
   @IsString()

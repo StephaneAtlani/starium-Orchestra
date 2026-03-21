@@ -170,6 +170,28 @@ import { FolderKanban } from 'lucide-react';
 
 **Référence cockpit** : `features/projects/components/projects-portfolio-kpi.tsx` — les trois sections sont enveloppées dans une **`Card size="sm"`** avec en-tête « Indicateurs portefeuille » (FRONTEND_UI-UX : hiérarchie cockpit).
 
+### 6.1 Bloc KPI portefeuille (compact)
+
+Implémentation actuelle : **pas de fond teinté** sur les trois bandeaux — **`border-border`**, **`bg-transparent`**, titres **`text-muted-foreground`**. Les **chiffres** sont sémantiques (tokens **§2**) : `text-primary` (volume / en cours), `text-emerald-600` (terminés), `text-yellow-800` / `dark:text-yellow-400` (retard, complétude), `text-destructive` (critiques, bloqués).
+
+Variante optionnelle : bandeau avec fond **§9** (ambre) si besoin de signal sur toute la zone.
+
+```tsx
+// Bandeau neutre (défaut dans projects-portfolio-kpi)
+<section
+  className="min-w-0 rounded-lg border border-border bg-transparent px-3 py-2.5"
+  aria-labelledby="projects-kpi-risks"
+>
+  <h2
+    id="projects-kpi-risks"
+    className="mb-1.5 border-b border-border/70 pb-1 text-[0.6rem] font-semibold uppercase tracking-wider text-muted-foreground"
+  >
+    Risques & échéances
+  </h2>
+  {/* grille de stats */}
+</section>
+```
+
 ---
 
 ## 7. Filtres — panneau (cockpit Projets)
@@ -286,4 +308,4 @@ Feature : `features/projects/` (hooks, `project-query-keys`, API).
 
 ---
 
-*Dernière mise à jour : alignée sur `apps/web` (App Shell, PageHeader, Button, KpiCard, cockpit Projets).*
+*Dernière mise à jour : alignée sur `apps/web` (App Shell, PageHeader, Button, KpiCard, cockpit Projets, §6.1 KPI portefeuille).*

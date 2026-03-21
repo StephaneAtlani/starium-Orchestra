@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -11,7 +12,6 @@ import {
 } from 'class-validator';
 import {
   ProjectCriticality,
-  ProjectKind,
   ProjectPriority,
   ProjectStatus,
   ProjectType,
@@ -33,8 +33,8 @@ export class UpdateProjectDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(ProjectKind)
-  kind?: ProjectKind;
+  @IsIn(['PROJECT', 'ACTIVITY'])
+  kind?: 'PROJECT' | 'ACTIVITY';
 
   @IsOptional()
   @IsEnum(ProjectType)
