@@ -52,3 +52,12 @@ export const cockpitTdNumLast =
 export const cockpitTdEnd = 'py-2.5 pl-3 pr-5 align-middle';
 
 export const cockpitTdEndRight = 'py-2.5 pl-3 pr-5 text-right align-middle';
+
+/** Colonne barre de progression (dernière colonne, largeur fixe type explorateur) */
+export const cockpitThProgress = cn(
+  thBase,
+  'w-[168px] min-w-[140px] py-3 pl-3 pr-5 text-left',
+);
+
+export const cockpitTdProgress =
+  'w-[168px] min-w-[140px] py-2.5 pl-3 pr-5 align-middle';

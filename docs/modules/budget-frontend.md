@@ -250,7 +250,7 @@ Dans `config/navigation.ts` et `components/shell/sidebar.tsx`, section Finance (
 
 Fichier `constants/budget-routes.ts` : helpers pour les liens (éviter les chaînes en dur).
 
-Exemples : `budgetList()` → `/budgets`, `budgetListWithExercise(exerciseId)` → `/budgets?exerciseId=<id>` (RFC-FE-003), `budgetExercisesList()`, `budgetExerciseDetail(id)`, `budgetDetail(budgetId)`, `budgetLines(budgetId)`, `budgetReporting(budgetId)`, `budgetDashboard()`, `budgetImports()`, etc.
+Exemples : `budgetList()` → `/budgets`, `budgetListWithExercise(exerciseId)` → `/budgets?exerciseId=<id>` (RFC-FE-003), `budgetExercisesList()`, `budgetExerciseDetail(id)`, `budgetDetail(budgetId)`, `budgetLines(budgetId)`, `budgetReporting(budgetId)`, `budgetDashboard()`, `budgetDashboardForBudget(exerciseId, budgetId)` → `/budgets/dashboard?exerciseId=…&budgetId=…`, `budgetImports()`, etc.
 
 ---
 

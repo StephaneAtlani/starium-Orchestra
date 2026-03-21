@@ -91,3 +91,14 @@ export function budgetImports(): string {
 export function budgetDashboard(): string {
   return `${BUDGETS_ROOT}/dashboard`;
 }
+
+/** Deep link cockpit : pré-sélectionne exercice + budget (aligné sur `BudgetDashboardQueryParams`). */
+export function budgetDashboardForBudget(
+  exerciseId: string,
+  budgetId: string,
+): string {
+  const search = new URLSearchParams();
+  search.set('exerciseId', exerciseId);
+  search.set('budgetId', budgetId);
+  return `${BUDGETS_ROOT}/dashboard?${search.toString()}`;
+}

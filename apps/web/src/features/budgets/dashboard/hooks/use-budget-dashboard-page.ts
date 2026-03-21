@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useBudgetDashboardQuery } from '@/features/budgets/hooks/use-budget-dashboard';
 import { useBudgetExerciseOptionsQuery } from '@/features/budgets/hooks/use-budget-exercise-options-query';
@@ -93,6 +94,7 @@ function mergeBudgetOptionsForSelect(
 
 export function useBudgetDashboardPage() {
   const { activeClient } = useActiveClient();
+  const searchParams = useSearchParams();
   const [exerciseId, setExerciseId] = useState<string | undefined>();
   const [budgetId, setBudgetId] = useState<string | undefined>();
   /** Évite un fetch « défaut serveur » avant lecture du localStorage (refresh). */
@@ -112,6 +114,15 @@ export function useBudgetDashboardPage() {
       setSelectionHydrated(false);
       return;
     }
+    const urlExerciseId =
+      searchParams.get('exerciseId')?.trim() || undefined;
+    const urlBudgetId = searchParams.get('budgetId')?.trim() || undefined;
+    if (urlExerciseId || urlBudgetId) {
+      setExerciseId(urlExerciseId);
+      setBudgetId(urlBudgetId);
+      setSelectionHydrated(true);
+      return;
+    }
     const saved = loadBudgetCockpitSelection(activeClient.id);
     if (saved) {
       setExerciseId(saved.exerciseId);
@@ -121,7 +132,7 @@ export function useBudgetDashboardPage() {
       setBudgetId(undefined);
     }
     setSelectionHydrated(true);
-  }, [activeClient?.id]);
+  }, [activeClient?.id, searchParams]);
 
   const dashboardQuery = useBudgetDashboardQuery(params, {
     enabled: selectionHydrated,
@@ -149,6 +160,18 @@ export function useBudgetDashboardPage() {
       setBudgetId(data.budget.id);
     }
   }, [data, exerciseId, budgetId]);
+
+  /** Deep link avec `budgetId` seul : complète l’exercice une fois la réponse cockpit connue. */
+  useEffect(() => {
+    if (!data) return;
+    if (
+      budgetId !== undefined &&
+      exerciseId === undefined &&
+      data.budget.id === budgetId
+    ) {
+      setExerciseId(data.exercise.id);
+    }
+  }, [data, budgetId, exerciseId]);
 
   useEffect(() => {
     if (!activeClient?.id || !exerciseId || !budgetId) return;

@@ -1,11 +1,26 @@
 'use client';
 
 import React from 'react';
-import { X } from 'lucide-react';
+import Link from 'next/link';
+import {
+  ArrowDownCircle,
+  CircleDollarSign,
+  Receipt,
+  ShoppingCart,
+  SquarePen,
+  X,
+} from 'lucide-react';
 import type { BudgetLine } from '../../types/budget-management.types';
+import { budgetLineEdit } from '../../constants/budget-routes';
 import { BudgetStatusBadge } from '../budget-status-badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 export function BudgetLineDrawerHeader({
@@ -38,6 +53,7 @@ export function BudgetLineDrawerHeader({
   const isUncoveredOrder = line.committedAmount > 0 && line.consumedAmount === 0;
   const envelopeCodeLabel = envelopeCode ?? '—';
   const envelopeTypeLabel = envelopeType ?? '—';
+  const editHref = budgetLineEdit(line.id);
 
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-background/80 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -104,30 +120,99 @@ export function BudgetLineDrawerHeader({
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-        <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateOrder}>
-          + Commande
-        </Button>
-        <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateInvoice}>
-          + Facture
-        </Button>
-        <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateEngagement}>
-          + Engagement
-        </Button>
-        <Button size="sm" className="h-7 px-2" variant="outline" onClick={onCreateConsumption}>
-          + Consommation
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          onClick={onClose}
-          className={cn('ml-1')}
-          aria-label="Fermer"
-        >
-          <X className="size-4" />
-        </Button>
-      </div>
+      <TooltipProvider delay={300}>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+          <Tooltip>
+            <TooltipTrigger render={<span className="inline-flex" />}>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                onClick={onCreateOrder}
+                aria-label="Nouvelle commande"
+              >
+                <ShoppingCart className="size-4" aria-hidden />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Nouvelle commande</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger render={<span className="inline-flex" />}>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                onClick={onCreateInvoice}
+                aria-label="Nouvelle facture"
+              >
+                <Receipt className="size-4" aria-hidden />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Nouvelle facture</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger render={<span className="inline-flex" />}>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                onClick={onCreateEngagement}
+                aria-label="Saisir un engagement financier"
+              >
+                <CircleDollarSign className="size-4" aria-hidden />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Engagement financier</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger render={<span className="inline-flex" />}>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                onClick={onCreateConsumption}
+                aria-label="Saisir une consommation"
+              >
+                <ArrowDownCircle className="size-4" aria-hidden />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Consommation</TooltipContent>
+          </Tooltip>
+
+          <span
+            className="mx-0.5 hidden h-5 w-px shrink-0 bg-border sm:inline-block"
+            aria-hidden
+          />
+
+          <Tooltip>
+            <TooltipTrigger render={<span className="inline-flex" />}>
+              <Link
+                href={editHref}
+                onClick={onClose}
+                className={cn(
+                  buttonVariants({ variant: 'outline', size: 'icon-sm' }),
+                  'inline-flex',
+                )}
+                aria-label="Modifier la ligne budgétaire"
+              >
+                <SquarePen className="size-4" aria-hidden />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Modifier la ligne</TooltipContent>
+          </Tooltip>
+
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            onClick={onClose}
+            className="ml-0.5"
+            aria-label="Fermer"
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
+      </TooltipProvider>
     </div>
   );
 }
-

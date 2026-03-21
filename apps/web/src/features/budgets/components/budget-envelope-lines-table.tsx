@@ -243,12 +243,23 @@ export function BudgetEnvelopeLinesTable({
                       className={cockpitTdEndRight}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Link
-                        href={budgetLineEdit(line.id)}
-                        className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                      >
-                        Éditer
-                      </Link>
+                      {onBudgetLineClick ? (
+                        <button
+                          type="button"
+                          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                          onClick={() => onBudgetLineClick(line.id)}
+                          aria-label={`Ouvrir la ligne ${label}`}
+                        >
+                          Éditer
+                        </button>
+                      ) : (
+                        <Link
+                          href={budgetLineEdit(line.id)}
+                          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          Éditer
+                        </Link>
+                      )}
                     </TableCell>
                   </TableRow>
                 );

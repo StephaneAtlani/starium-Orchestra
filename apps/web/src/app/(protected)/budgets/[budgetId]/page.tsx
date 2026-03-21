@@ -35,6 +35,10 @@ import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import { formatTaxAwareAmount } from '@/lib/format-tax-aware-amount';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { saveBudgetCockpitSelection } from '@/features/budgets/lib/budget-cockpit-selection-storage';
+import {
+  collectEnvelopeIdsWithFilteredChildren,
+  hasActiveBudgetExplorerFilters,
+} from '@/features/budgets/lib/filter-budget-tree';
 
 export default function BudgetDetailPage() {
   const budgetId = (() => {
@@ -61,7 +65,7 @@ export default function BudgetDetailPage() {
   );
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const hasInitializedExpanded = useRef(false);
+  const prevFiltersActiveRef = useRef(false);
 
   const onBudgetLineClick = useCallback((lineId: string) => {
     setSelectedBudgetLineId(lineId);
@@ -76,16 +80,6 @@ export default function BudgetDetailPage() {
       setActiveTab('overview');
     }
   }, []);
-
-  useEffect(() => {
-    if (tree.length > 0 && !hasInitializedExpanded.current) {
-      const rootEnvelopeIds = tree
-        .filter((n) => n.type === 'envelope')
-        .map((n) => n.id);
-      setExpandedIds(new Set(rootEnvelopeIds));
-      hasInitializedExpanded.current = true;
-    }
-  }, [tree]);
 
   const onToggleExpand = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -106,6 +100,16 @@ export default function BudgetDetailPage() {
       budgetId: budget.id,
     });
   }, [activeClient?.id, budget?.id, budget?.exerciseId]);
+
+  useEffect(() => {
+    const active = hasActiveBudgetExplorerFilters(filters);
+    if (active) {
+      setExpandedIds(collectEnvelopeIdsWithFilteredChildren(filteredTree));
+    } else if (prevFiltersActiveRef.current) {
+      setExpandedIds(new Set());
+    }
+    prevFiltersActiveRef.current = active;
+  }, [filters, filteredTree]);
 
   if (isLoading) {
     return (

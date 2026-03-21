@@ -23,7 +23,10 @@ import {
   formatForecastGapParts,
   formatKpiAmountParts,
 } from '@/features/budgets/lib/budget-dashboard-format';
-import { budgetDashboard } from '@/features/budgets/constants/budget-routes';
+import {
+  budgetDashboard,
+  budgetDashboardForBudget,
+} from '@/features/budgets/constants/budget-routes';
 import {
   BudgetKpiCard,
   type BudgetKpiAmountTone,
@@ -568,13 +571,17 @@ export function DashboardBudgetKpiWidget() {
             Personnaliser
           </Button>
           <Link
-            href={budgetDashboard()}
+            href={
+              data
+                ? budgetDashboardForBudget(data.exercise.id, data.budget.id)
+                : budgetDashboard()
+            }
             className={cn(
               buttonVariants({ variant: 'outline', size: 'sm' }),
               'whitespace-nowrap',
             )}
           >
-            Cockpit budget
+            Dashboard budget
           </Link>
         </div>
       </div>
@@ -614,7 +621,7 @@ export function DashboardBudgetKpiWidget() {
               'mt-2 h-auto p-0',
             )}
           >
-            Ouvrir le cockpit budget
+            Ouvrir le dashboard budget
           </Link>
         </div>
       ) : data ? (
