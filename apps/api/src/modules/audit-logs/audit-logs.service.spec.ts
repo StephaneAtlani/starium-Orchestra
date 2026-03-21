@@ -18,14 +18,14 @@ describe('AuditLogsService', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           clientId: 'client-1',
-          resourceType: 'project',
+          resourceType: { in: ['project', 'Project'] },
           resourceId: 'proj-42',
         }),
       }),
     );
   });
 
-  it('listForClient combine resourceType et resourceId (filtre conjoint)', async () => {
+  it('listForClient combine resourceType et resourceId et action (RFC + legacy)', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = { auditLog: { findMany } };
     const service = new AuditLogsService(prisma as any);
@@ -43,26 +43,47 @@ describe('AuditLogsService', () => {
     expect(arg.where).toEqual(
       expect.objectContaining({
         clientId: 'c1',
-        resourceType: 'project_task',
+        resourceType: { in: ['project_task', 'ProjectTask'] },
         resourceId: 'task-7',
-        action: 'project_task.updated',
+        action: { in: ['project_task.updated', 'project_task.update'] },
       }),
     );
   });
 
-  it('listForPlatform propage resourceId vers findMany', async () => {
+  it('listForClient filtre action project.created inclut project.create (legacy)', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = { auditLog: { findMany } };
+    const service = new AuditLogsService(prisma as any);
+
+    await service.listForClient({
+      clientId: 'c1',
+      query: { action: 'project.created' } as any,
+    });
+
+    const arg = findMany.mock.calls[0][0];
+    expect(arg.where).toEqual(
+      expect.objectContaining({
+        clientId: 'c1',
+        action: { in: ['project.created', 'project.create'] },
+      }),
+    );
+  });
+
+  it('listForPlatform propage resourceId et alias resourceType', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = { auditLog: { findMany } };
     const service = new AuditLogsService(prisma as any);
 
     await service.listForPlatform({
       resourceId: 'rid-9',
+      resourceType: 'project',
     } as any);
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           resourceId: 'rid-9',
+          resourceType: { in: ['project', 'Project'] },
         }),
       }),
     );

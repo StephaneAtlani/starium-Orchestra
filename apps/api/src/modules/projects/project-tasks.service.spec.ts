@@ -3,6 +3,7 @@ import {
   ProjectTaskPriority,
   ProjectTaskStatus,
 } from '@prisma/client';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import {
   PROJECT_AUDIT_ACTION,
   PROJECT_AUDIT_RESOURCE_TYPE,
@@ -55,7 +56,7 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     };
     service = new ProjectTasksService(
       prisma,
-      auditLogs,
+      auditLogs as unknown as AuditLogsService,
       projects as unknown as ProjectsService,
     );
   });

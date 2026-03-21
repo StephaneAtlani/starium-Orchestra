@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  auditLogActionWhere,
+  auditLogResourceTypeWhere,
+} from './audit-logs-read-legacy';
 import { ListAuditLogsQueryDto } from './dto/list-audit-logs.query.dto';
 import { ListPlatformAuditLogsQueryDto } from './dto/list-platform-audit-logs.query.dto';
 
@@ -72,9 +76,9 @@ export class AuditLogsService {
 
     const where: any = {
       clientId,
-      ...(query.resourceType && { resourceType: query.resourceType }),
+      ...auditLogResourceTypeWhere(query.resourceType),
       ...(query.resourceId && { resourceId: query.resourceId }),
-      ...(query.action && { action: query.action }),
+      ...auditLogActionWhere(query.action),
       ...(query.userId && { userId: query.userId }),
       ...(query.dateFrom || query.dateTo
         ? {
@@ -127,9 +131,9 @@ export class AuditLogsService {
 
     const where: any = {
       ...(query.clientId && { clientId: query.clientId }),
-      ...(query.resourceType && { resourceType: query.resourceType }),
+      ...auditLogResourceTypeWhere(query.resourceType),
       ...(query.resourceId && { resourceId: query.resourceId }),
-      ...(query.action && { action: query.action }),
+      ...auditLogActionWhere(query.action),
       ...(query.userId && { userId: query.userId }),
       ...(query.dateFrom || query.dateTo
         ? {

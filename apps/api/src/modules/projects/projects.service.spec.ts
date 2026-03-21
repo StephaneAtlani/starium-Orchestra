@@ -6,6 +6,7 @@ import {
   ProjectType,
 } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ProjectsPilotageService } from './projects-pilotage.service';
 import { ProjectsService } from './projects.service';
 import { PROJECT_AUDIT_ACTION, PROJECT_AUDIT_RESOURCE_TYPE } from './project-audit.constants';
@@ -88,7 +89,7 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
     };
     service = new ProjectsService(
       prisma,
-      auditLogs,
+      auditLogs as unknown as AuditLogsService,
       pilotage as ProjectsPilotageService,
     );
   });
@@ -164,7 +165,7 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       const updated = { ...existing, status: ProjectStatus.IN_PROGRESS };
       prisma.project.findFirst.mockResolvedValueOnce(existing);
       prisma.project.update.mockResolvedValue(updated);
-      prisma.project.findFirst.mockResolvedValueOnce(withInclude(updated));
+      prisma.project.findFirst.mockResolvedValueOnce(withInclude(updated as any));
 
       await service.update(
         clientId,
@@ -190,7 +191,7 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       prisma.clientUser.findFirst.mockResolvedValue({ id: 'cu1' });
       prisma.project.findFirst.mockResolvedValueOnce(existing);
       prisma.project.update.mockResolvedValue(updated);
-      prisma.project.findFirst.mockResolvedValueOnce(withInclude(updated));
+      prisma.project.findFirst.mockResolvedValueOnce(withInclude(updated as any));
 
       await service.update(
         clientId,
@@ -222,7 +223,7 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       };
       prisma.project.findFirst.mockResolvedValueOnce(existing);
       prisma.project.update.mockResolvedValue(updated);
-      prisma.project.findFirst.mockResolvedValueOnce(withInclude(updated));
+      prisma.project.findFirst.mockResolvedValueOnce(withInclude(updated as any));
 
       await service.update(
         clientId,
@@ -265,7 +266,7 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       prisma.clientUser.findFirst.mockResolvedValue({ id: 'cu1' });
       prisma.project.findFirst.mockResolvedValueOnce(existing);
       prisma.project.update.mockResolvedValue(updated);
-      prisma.project.findFirst.mockResolvedValueOnce(withInclude(updated));
+      prisma.project.findFirst.mockResolvedValueOnce(withInclude(updated as any));
 
       await service.update(
         clientId,

@@ -4,6 +4,7 @@ import {
   ProjectRiskProbability,
   ProjectRiskStatus,
 } from '@prisma/client';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import {
   PROJECT_AUDIT_ACTION,
   PROJECT_AUDIT_RESOURCE_TYPE,
@@ -56,7 +57,7 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
     };
     service = new ProjectRisksService(
       prisma,
-      auditLogs,
+      auditLogs as unknown as AuditLogsService,
       projects as unknown as ProjectsService,
     );
   });
