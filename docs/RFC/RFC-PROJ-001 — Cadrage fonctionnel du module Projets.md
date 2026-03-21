@@ -2,7 +2,9 @@
 
 ## Statut
 
-Draft
+**Accepted** — 2026-03-21  
+
+**Implemented** (MVP backend + API pilotage + UI portefeuille cockpit) — 2026-03-21
 
 ## Titre
 
@@ -479,3 +481,10 @@ La RFC est considérée comme validée si :
 * les exclusions sont assumées
 * le module reste aligné avec le positionnement cockpit / gouvernance de Starium Orchestra
 * les futures RFC backend/frontend peuvent être dérivées sans reposer les bases
+
+---
+
+## 18. Implémentation MVP (2026-03-21)
+
+* **Backend** : modèles Prisma `Project`, `ProjectTask`, `ProjectRisk`, `ProjectMilestone` ; API REST sécurisée multi-client ; `projects-pilotage.service.ts` (santé, signaux, warnings, agrégats) ; `GET /api/projects/portfolio-summary`.
+* **Frontend** : routes `/projects` (KPI + liste enrichie + filtres / tri / recherche via query string alignés backend), `/projects/new`, `/projects/[projectId]` (fiche + sections tâches / risques / jalons) ; navigation module `projects` + `projects.read` / `projects.create`.

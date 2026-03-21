@@ -25,7 +25,7 @@ Objectif :
 
 | Ordre | RFC              | Nom                             | Objectif          | Résultat concret                 | Priorité | État    |
 | ----- | ---------------- | ------------------------------- | ----------------- | -------------------------------- | -------- | ------- |
-| **1** | **RFC-PROJ-001** | Cadrage fonctionnel             | Définir périmètre | Vision claire projet vs activité | 🔥🔥🔥   | À faire |
+| **1** | **RFC-PROJ-001** | Cadrage fonctionnel             | Définir périmètre | Vision claire projet vs activité | 🔥🔥🔥   | Implémenté (MVP) |
 | **2** | **RFC-PROJ-002** | Prisma Schema Portefeuille      | Modèle de données | `PortfolioItem`, `Task`, `Risk`  | 🔥🔥🔥   | À faire |
 | **3** | **RFC-PROJ-003** | Règles métier                   | Cohérence backend | validations, health, statuts     | 🔥🔥🔥   | À faire |
 | **4** | **RFC-PROJ-004** | Portfolio Management Backend    | CRUD portefeuille | API `/portfolio-items`           | 🔥🔥🔥   | À faire |

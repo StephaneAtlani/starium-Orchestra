@@ -1,0 +1,38 @@
+import { IsDateString, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  ProjectRiskImpact,
+  ProjectRiskProbability,
+  ProjectRiskStatus,
+} from '@prisma/client';
+
+export class CreateProjectRiskDto {
+  @IsString()
+  @MinLength(1)
+  title!: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsEnum(ProjectRiskProbability)
+  probability!: ProjectRiskProbability;
+
+  @IsEnum(ProjectRiskImpact)
+  impact!: ProjectRiskImpact;
+
+  @IsOptional()
+  @IsString()
+  actionPlan?: string;
+
+  @IsOptional()
+  @IsString()
+  ownerUserId?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectRiskStatus)
+  status?: ProjectRiskStatus;
+
+  @IsOptional()
+  @IsDateString()
+  reviewDate?: string;
+}

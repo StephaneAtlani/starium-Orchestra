@@ -77,6 +77,10 @@ model Client {
   analyticalLedgerAccounts   AnalyticalLedgerAccount[]
   costCenters                CostCenter[]
   budgetLineCostCenterSplits BudgetLineCostCenterSplit[]
+  projects         Project[]
+  projectTasks     ProjectTask[]
+  projectRisks     ProjectRisk[]
+  projectMilestones ProjectMilestone[]
 }
 
 model User {
@@ -98,6 +102,10 @@ model User {
   budgetReallocationsCreated BudgetReallocation[]
   createdBudgetImportMappings BudgetImportMapping[]
   createdBudgetImportJobs    BudgetImportJob[]
+  sponsoredProjects          Project[]           @relation("ProjectSponsor")
+  ownedProjects              Project[]           @relation("ProjectOwner")
+  assignedProjectTasks       ProjectTask[]
+  ownedProjectRisks          ProjectRisk[]
 }
 
 model ClientUser {
@@ -206,6 +214,199 @@ model UserRole {
 enum ClientModuleStatus {
   ENABLED
   DISABLED
+}
+
+// --- Projects MVP (RFC-PROJ-001) ---
+
+enum ProjectType {
+  TRANSFORMATION
+  INFRASTRUCTURE
+  APPLICATION
+  CYBERSECURITY
+  COMPLIANCE
+  ORGANIZATION
+  PROCUREMENT
+  GOVERNANCE
+}
+
+enum ProjectStatus {
+  DRAFT
+  PLANNED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectCriticality {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectTaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum ProjectTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectRiskStatus {
+  OPEN
+  MITIGATED
+  CLOSED
+  ACCEPTED
+}
+
+enum ProjectRiskProbability {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectRiskImpact {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectMilestoneStatus {
+  PLANNED
+  REACHED
+  DELAYED
+  CANCELLED
+}
+
+model Project {
+  id        String  @id @default(cuid())
+  clientId  String
+  name      String
+  code      String
+  description String?
+
+  type         ProjectType
+  status       ProjectStatus
+  priority     ProjectPriority
+
+  sponsorUserId String?
+  ownerUserId   String?
+
+  startDate      DateTime?
+  targetEndDate  DateTime?
+  actualEndDate  DateTime?
+
+  criticality     ProjectCriticality
+  progressPercent Int?
+
+  targetBudgetAmount Decimal? @db.Decimal(18, 2)
+  pilotNotes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sponsor  User?  @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
+  owner    User?  @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  tasks      ProjectTask[]
+  risks      ProjectRisk[]
+  milestones ProjectMilestone[]
+
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([clientId, status])
+  @@index([targetEndDate])
+}
+
+model ProjectTask {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  title       String
+  description String?
+
+  assigneeUserId String?
+
+  status   ProjectTaskStatus
+  priority ProjectTaskPriority
+
+  dueDate      DateTime?
+  completedAt  DateTime?
+  sortOrder    Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?   @relation(fields: [assigneeUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectId])
+}
+
+model ProjectRisk {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  title       String
+  description String?
+
+  probability ProjectRiskProbability
+  impact      ProjectRiskImpact
+
+  actionPlan   String?
+  ownerUserId  String?
+
+  status     ProjectRiskStatus
+  reviewDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner   User?   @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectId])
+}
+
+model ProjectMilestone {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  name       String
+  targetDate DateTime
+  actualDate DateTime?
+
+  status ProjectMilestoneStatus
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([projectId])
 }
 
 // --- Budget MVP (RFC-015-1A) ---

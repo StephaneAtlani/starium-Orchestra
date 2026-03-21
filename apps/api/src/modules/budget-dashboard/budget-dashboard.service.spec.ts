@@ -283,7 +283,12 @@ describe('BudgetDashboardService', () => {
         mockLine({
           id: `line-${i}`,
           envelopeId: `env-${i}`,
-          envelope: { id: `env-${i}`, code: `E${i}`, name: `Env ${i}` },
+          envelope: {
+            id: `env-${i}`,
+            code: `E${i}`,
+            name: `Env ${i}`,
+            type: 'RUN',
+          },
         }),
       );
       prisma.budgetLine.findMany.mockResolvedValue(manyLines);
