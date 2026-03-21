@@ -137,7 +137,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   /** Formulaire « nouvelle ligne » : uniquement après action explicite (pas dès budget+enveloppe). */
   const [showNewLineForm, setShowNewLineForm] = useState(false);
   /** Bloc « Ajouter un lien budgétaire » repliable. */
-  const [addBudgetLinkOpen, setAddBudgetLinkOpen] = useState(true);
+  const [addBudgetLinkOpen, setAddBudgetLinkOpen] = useState(false);
 
   const createMut = useCreateProjectBudgetLink(projectId);
   const deleteMut = useDeleteProjectBudgetLink(projectId);
