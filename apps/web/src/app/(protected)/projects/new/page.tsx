@@ -20,12 +20,12 @@ export default function NewProjectPage() {
     <RequireActiveClient>
       <PageContainer>
         <div className="space-y-6">
-          <div className="space-y-4">
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-[auto,minmax(0,1fr)] lg:items-start lg:gap-x-10 xl:gap-x-12">
             <Link
               href={projectsList()}
               className={cn(
                 buttonVariants({ variant: 'ghost', size: 'sm' }),
-                '-ml-2 inline-flex w-fit gap-1 text-muted-foreground',
+                '-ml-2 inline-flex w-fit shrink-0 gap-1 text-muted-foreground lg:pt-0.5',
               )}
             >
               <ChevronLeft className="size-4 shrink-0" />

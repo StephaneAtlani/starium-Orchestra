@@ -60,14 +60,14 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-4" aria-labelledby={id}>
-      <div className="border-b border-border/70 pb-2">
+    <section className="space-y-6" aria-labelledby={id}>
+      <div className="border-b border-border/70 pb-3">
         <h2 id={id} className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Icon className="size-4 text-muted-foreground" aria-hidden />
           {title}
         </h2>
         {description && (
-          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{description}</p>
         )}
       </div>
       {children}
@@ -168,7 +168,7 @@ export function ProjectCreateForm() {
   const field = 'flex min-w-0 flex-col gap-1.5';
 
   return (
-    <form onSubmit={submit} className="max-w-3xl space-y-6">
+    <form onSubmit={submit} className="w-full">
       <Card size="sm" className="shadow-sm">
         <CardHeader className="border-b border-border/60 pb-3">
           <CardTitle className="text-base">Informations du projet</CardTitle>
@@ -178,7 +178,10 @@ export function ProjectCreateForm() {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-8 pt-6">
+        <CardContent className="pt-6">
+          <div className="grid gap-10 lg:grid-cols-2 lg:items-start lg:gap-x-10 lg:gap-y-0 xl:gap-x-12">
+            {/* Colonne gauche : identité — en dessous sur mobile / petit écran */}
+            <div className="min-w-0 space-y-10">
           <Section
             id="project-create-identity"
             title="Identité"
@@ -191,7 +194,7 @@ export function ProjectCreateForm() {
                 value={kind}
                 onValueChange={(v) => setKind((v as 'PROJECT' | 'ACTIVITY') ?? 'PROJECT')}
               >
-                <SelectTrigger id="p-kind" size="sm" className="max-w-md w-full">
+                <SelectTrigger id="p-kind" size="sm" className="w-full">
                   <SelectValue>{PROJECT_KIND_LABEL[kind]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -243,7 +246,7 @@ export function ProjectCreateForm() {
                 onValueChange={(v) => setOwnerUserId(v === '__none__' ? '' : v)}
                 disabled={membersLoading || membersError}
               >
-                <SelectTrigger id="p-owner" size="sm" className="max-w-md w-full">
+                <SelectTrigger id="p-owner" size="sm" className="w-full">
                   <SelectValue placeholder="Choisir un responsable…">
                     {membersLoading
                       ? 'Chargement des membres…'
@@ -282,7 +285,10 @@ export function ProjectCreateForm() {
               />
             </div>
           </Section>
+            </div>
 
+            {/* Colonne droite : classification + planning — empilées en dessous sur mobile */}
+            <div className="min-w-0 space-y-10 lg:border-l lg:border-border/60 lg:pl-8 xl:pl-10">
           <Section
             id="project-create-classification"
             title="Classification"
@@ -400,6 +406,8 @@ export function ProjectCreateForm() {
               </p>
             </div>
           </Section>
+            </div>
+          </div>
         </CardContent>
 
         <CardFooter className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
