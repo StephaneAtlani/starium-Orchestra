@@ -25,7 +25,7 @@ import {
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useBudgetsList } from '@/features/budgets/hooks/use-budgets';
 import { useBudgetLinesByBudget } from '@/features/budgets/hooks/use-budget-lines';
-import { useBudgetEnvelopeOptions } from '@/features/budgets/hooks/use-budget-envelope-options';
+import { useBudgetEnvelopesAll } from '@/features/budgets/hooks/use-budget-envelopes';
 import type { ApiFormError } from '@/features/budgets/api/types';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectBudgetLinksQuery } from '../hooks/use-project-budget-links-query';
@@ -85,7 +85,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   const linesQuery = useBudgetLinesByBudget(
     budgetId === SELECT_NONE ? null : budgetId,
   );
-  const envelopesQuery = useBudgetEnvelopeOptions(
+  const envelopesQuery = useBudgetEnvelopesAll(
     budgetId === SELECT_NONE ? null : budgetId,
   );
 
@@ -122,16 +122,27 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
 
   const envelopeValueLabel = (value: unknown) => {
     if (budgetId === SELECT_NONE) return 'D’abord un budget';
-    if (envelopesQuery.isLoading) return 'Chargement…';
+    // Première requête (pas encore de résultat) — isLoading peut être faux si le cache est vide
+    if (
+      envelopesQuery.isPending ||
+      (envelopesQuery.isFetching && envelopesQuery.data === undefined)
+    ) {
+      return 'Chargement…';
+    }
     const v = typeof value === 'string' ? value : SELECT_NONE;
     if (v === SELECT_NONE) return 'Choisir une enveloppe';
-    const env = envelopesQuery.data?.items?.find((e) => e.id === v);
+    const env = envelopesQuery.data?.find((e) => e.id === v);
     return env ? formatEnvelopeOptionLabel(env) : 'Enveloppe introuvable';
   };
 
   const lineValueLabel = (value: unknown) => {
     if (envelopeId === SELECT_NONE) return 'D’abord une enveloppe';
-    if (linesQuery.isLoading) return 'Chargement…';
+    if (
+      linesQuery.isPending ||
+      (linesQuery.isFetching && linesQuery.data === undefined)
+    ) {
+      return 'Chargement…';
+    }
     const v = typeof value === 'string' ? value : SELECT_NONE;
     if (v === SELECT_NONE) return 'Choisir une ligne';
     const line = linesQuery.data?.find((l) => l.id === v);
@@ -341,7 +352,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                           {budgetValueLabel}
                         </SelectValue>
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent alignItemWithTrigger={false}>
                         <SelectItem value={SELECT_NONE} className="text-muted-foreground">
                           Choisir un budget
                         </SelectItem>
@@ -358,6 +369,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       2. Enveloppe
                     </Label>
                     <Select
+                      key={`pb-env-${budgetId}-${envelopesQuery.dataUpdatedAt}`}
                       modal={false}
                       value={envelopeId}
                       onValueChange={(v) => {
@@ -365,7 +377,9 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                         setBudgetLineId(SELECT_NONE);
                       }}
                       disabled={
-                        budgetId === SELECT_NONE || envelopesQuery.isLoading
+                        budgetId === SELECT_NONE ||
+                        envelopesQuery.isPending ||
+                        envelopesQuery.isError
                       }
                     >
                       <SelectTrigger id="pb-envelope" className="h-9 w-full min-w-0">
@@ -373,20 +387,26 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                           {envelopeValueLabel}
                         </SelectValue>
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent alignItemWithTrigger={false}>
                         <SelectItem value={SELECT_NONE} className="text-muted-foreground">
                           Choisir une enveloppe
                         </SelectItem>
-                        {(envelopesQuery.data?.items ?? []).map((env) => (
+                        {(envelopesQuery.data ?? []).map((env) => (
                           <SelectItem key={env.id} value={env.id}>
                             {formatEnvelopeOptionLabel(env)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {budgetId !== SELECT_NONE && envelopesQuery.isError && (
+                      <p className="text-xs text-destructive">
+                        Impossible de charger les enveloppes. Vérifiez la console réseau ou
+                        réessayez.
+                      </p>
+                    )}
                     {budgetId !== SELECT_NONE &&
                       envelopesQuery.isSuccess &&
-                      (envelopesQuery.data?.items?.length ?? 0) === 0 && (
+                      (envelopesQuery.data?.length ?? 0) === 0 && (
                         <p className="text-xs text-muted-foreground">
                           Aucune enveloppe sur ce budget. Créez-en une depuis le module
                           Budget.
@@ -398,13 +418,14 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       3. Ligne (active)
                     </Label>
                     <Select
+                      key={`pb-line-${budgetId}-${envelopeId}-${linesQuery.dataUpdatedAt}`}
                       modal={false}
                       value={budgetLineId}
                       onValueChange={(v) => setBudgetLineId(v ?? SELECT_NONE)}
                       disabled={
                         budgetId === SELECT_NONE ||
                         envelopeId === SELECT_NONE ||
-                        linesQuery.isLoading
+                        linesQuery.isPending
                       }
                     >
                       <SelectTrigger id="pb-line" className="h-9 w-full min-w-0">
@@ -412,7 +433,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                           {lineValueLabel}
                         </SelectValue>
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent alignItemWithTrigger={false}>
                         <SelectItem value={SELECT_NONE} className="text-muted-foreground">
                           Choisir une ligne
                         </SelectItem>
