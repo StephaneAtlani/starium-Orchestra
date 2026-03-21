@@ -55,6 +55,14 @@ const ARBITRATION_LABEL: Record<ProjectArbitrationStatus, string> = {
   REJECTED: 'Refusé',
 };
 
+/** Texte court pour le bloc « recommandation » (statut arbitrage enregistré) */
+const ARBITRATION_RECOMMENDATION: Record<ProjectArbitrationStatus, string> = {
+  DRAFT: 'Compléter la fiche et les critères avant arbitrage.',
+  TO_REVIEW: 'Soumettre à la CODIR pour décision.',
+  VALIDATED: 'Décision favorable — lancer ou poursuivre selon le plan.',
+  REJECTED: 'Décision défavorable — ne pas engager les moyens prévus.',
+};
+
 /** Valeur Select stable (évite uncontrolled → controlled si `undefined` au 1er rendu) */
 const RISK_UNSET = '__unset__';
 
@@ -242,6 +250,11 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const fmt = (n: number | null) =>
     n == null ? '—' : new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(n);
 
+  const fmtRoi = (n: number | null) =>
+    n == null
+      ? '—'
+      : new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 }).format(n);
+
   return (
     <div className="space-y-6">
       <div>
@@ -268,27 +281,94 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
         />
       </div>
 
-      {/* A — Résumé */}
+      {/* A — Résumé + synthèse (un seul cadre) */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="text-base">A. Résumé projet</CardTitle>
+          <CardTitle className="text-base">A. Résumé projet & synthèse décisionnelle</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <span className="text-muted-foreground">Code : </span>
-            {sheet.code}
+        <CardContent className="space-y-6">
+          <div className="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <span className="text-muted-foreground">Code : </span>
+              {sheet.code}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Type : </span>
+              {PROJECT_TYPE_LABEL[sheet.type] ?? sheet.type}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Nature : </span>
+              {PROJECT_KIND_LABEL[sheet.kind] ?? sheet.kind}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Statut : </span>
+              {PROJECT_STATUS_LABEL[sheet.status] ?? sheet.status}
+            </div>
           </div>
-          <div>
-            <span className="text-muted-foreground">Type : </span>
-            {PROJECT_TYPE_LABEL[sheet.type] ?? sheet.type}
-          </div>
-          <div>
-            <span className="text-muted-foreground">Nature : </span>
-            {PROJECT_KIND_LABEL[sheet.kind] ?? sheet.kind}
-          </div>
-          <div>
-            <span className="text-muted-foreground">Statut : </span>
-            {PROJECT_STATUS_LABEL[sheet.status] ?? sheet.status}
+
+          <div className="border-t border-border pt-6">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  1. ROI
+                </p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums">{fmtRoi(sheet.roi)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  (Gain − coût) / coût — calcul serveur
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  2. Priorité décisionnelle
+                </p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums">{fmt(sheet.priorityScore)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Priorité réf. :{' '}
+                  <span className="font-medium text-foreground">
+                    {PROJECT_PRIORITY_LABEL[sheet.priority] ?? sheet.priority}
+                  </span>
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  3. Objectif métier
+                </p>
+                <div className="mt-2 space-y-2 text-sm">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Valeur</span>
+                    <span className="font-medium tabular-nums">
+                      {sheet.businessValueScore ?? '—'}
+                      <span className="text-muted-foreground"> /5</span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Alignement</span>
+                    <span className="font-medium tabular-nums">
+                      {sheet.strategicAlignment ?? '—'}
+                      <span className="text-muted-foreground"> /5</span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Urgence</span>
+                    <span className="font-medium tabular-nums">
+                      {sheet.urgencyScore ?? '—'}
+                      <span className="text-muted-foreground"> /5</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  4. Recommandation
+                </p>
+                <p className="mt-2 text-sm font-semibold leading-snug">
+                  {ARBITRATION_LABEL[arbDraft]}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {ARBITRATION_RECOMMENDATION[arbDraft]}
+                </p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
