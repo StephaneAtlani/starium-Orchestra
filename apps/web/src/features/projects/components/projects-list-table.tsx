@@ -10,7 +10,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { ProjectListItem } from '../types/project.types';
+import { Badge } from '@/components/ui/badge';
 import {
+  PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
   WARNING_CODE_LABEL,
@@ -32,6 +34,7 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
       <TableHeader>
         <TableRow>
           <TableHead>Projet</TableHead>
+          <TableHead className="w-[7rem]">Nature</TableHead>
           <TableHead>Santé</TableHead>
           <TableHead>Statut</TableHead>
           <TableHead className="text-right">Av. manuel</TableHead>
@@ -58,6 +61,11 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
                 {PROJECT_CRITICALITY_LABEL[p.criticality] ?? p.criticality}
                 {p.ownerDisplayName ? ` · ${p.ownerDisplayName}` : ''}
               </div>
+            </TableCell>
+            <TableCell>
+              <Badge variant="secondary" className="font-normal">
+                {PROJECT_KIND_LABEL[p.kind] ?? p.kind}
+              </Badge>
             </TableCell>
             <TableCell>
               <HealthBadge health={p.computedHealth} />

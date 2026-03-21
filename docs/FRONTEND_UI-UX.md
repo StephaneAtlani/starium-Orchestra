@@ -261,6 +261,12 @@ Ordre recommandé dans `PageContainer` :
 Route : `app/(protected)/projects/page.tsx`.  
 Feature : `features/projects/` (hooks, `project-query-keys`, API).
 
+### 11.1 Création projet (`/projects/new`)
+
+- Lien **Retour au portefeuille** en `buttonVariants({ variant: 'ghost', size: 'sm' })` au-dessus du `PageHeader`.
+- **`ProjectCreateForm`** : une **`Card`** avec en-tête descriptif, **`CardContent`** découpé en sections (titres + icônes Lucide : identité, classification, planning), **`textarea`** pour la description (styles alignés sur `Input`), **`CardFooter`** avec fond `bg-muted/20` : rappel champs obligatoires + **Annuler** (`Link` + `buttonVariants` outline) et **Créer le projet** (`Button` désactivé si nom/code vides).
+- Absence de permission `projects.create` : **`Alert`** (pas seulement un paragraphe).
+
 ---
 
 ## 12. Typographie (rappel)

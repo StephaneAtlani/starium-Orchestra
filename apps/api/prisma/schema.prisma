@@ -218,6 +218,12 @@ enum ClientModuleStatus {
 
 // --- Projects MVP (RFC-PROJ-001) ---
 
+/** Projet structuré vs activité de suivi plus légère (même entité `Project` côté SI). */
+enum ProjectKind {
+  PROJECT
+  ACTIVITY
+}
+
 enum ProjectType {
   TRANSFORMATION
   INFRASTRUCTURE
@@ -298,6 +304,7 @@ model Project {
   code      String
   description String?
 
+  kind         ProjectKind @default(PROJECT)
   type         ProjectType
   status       ProjectStatus
   priority     ProjectPriority
@@ -329,6 +336,7 @@ model Project {
   @@unique([clientId, code])
   @@index([clientId])
   @@index([clientId, status])
+  @@index([clientId, kind])
   @@index([targetEndDate])
 }
 

@@ -1,3 +1,9 @@
+/** Projet structuré vs activité de suivi (champ `kind`). */
+export const PROJECT_KIND_LABEL: Record<string, string> = {
+  PROJECT: 'Projet',
+  ACTIVITY: 'Activité',
+};
+
 export const PROJECT_TYPE_LABEL: Record<string, string> = {
   TRANSFORMATION: 'Transformation',
   INFRASTRUCTURE: 'Infrastructure',

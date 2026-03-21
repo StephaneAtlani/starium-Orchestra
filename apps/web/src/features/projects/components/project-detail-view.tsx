@@ -17,6 +17,7 @@ import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import {
+  PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
   PROJECT_TYPE_LABEL,
   TASK_STATUS_LABEL,
@@ -96,6 +97,11 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             <CardTitle>Informations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
+            <div>
+              <span className="text-muted-foreground">Nature : </span>
+              {PROJECT_KIND_LABEL[project.kind as keyof typeof PROJECT_KIND_LABEL] ??
+                project.kind}
+            </div>
             <div>
               <span className="text-muted-foreground">Type : </span>
               {PROJECT_TYPE_LABEL[project.type] ?? project.type}

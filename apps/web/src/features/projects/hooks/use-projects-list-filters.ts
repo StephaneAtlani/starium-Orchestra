@@ -22,6 +22,8 @@ export type ProjectsListFilters = {
   page: number;
   limit: number;
   search?: string;
+  /** PROJECT | ACTIVITY */
+  kind?: string;
   status?: string;
   priority?: string;
   criticality?: string;
@@ -59,6 +61,7 @@ export function useProjectsListFilters(): {
 
   const filters = useMemo((): ProjectsListFilters => {
     const search = searchParams.get('search') ?? undefined;
+    const kind = searchParams.get('kind') ?? undefined;
     const status = searchParams.get('status') ?? undefined;
     const priority = searchParams.get('priority') ?? undefined;
     const criticality = searchParams.get('criticality') ?? undefined;
@@ -71,6 +74,7 @@ export function useProjectsListFilters(): {
 
     return {
       search: search || undefined,
+      kind: kind || undefined,
       status: status || undefined,
       priority: priority || undefined,
       criticality: criticality || undefined,
@@ -86,6 +90,7 @@ export function useProjectsListFilters(): {
     (next: ProjectsListFilters) => {
       const params = new URLSearchParams();
       if (next.search?.trim()) params.set('search', next.search.trim());
+      if (next.kind) params.set('kind', next.kind);
       if (next.status) params.set('status', next.status);
       if (next.priority) params.set('priority', next.priority);
       if (next.criticality) params.set('criticality', next.criticality);
@@ -109,6 +114,7 @@ export function useProjectsListFilters(): {
       const next: ProjectsListFilters = { ...filters, ...updates };
       if (
         ('search' in updates ||
+          'kind' in updates ||
           'status' in updates ||
           'priority' in updates ||
           'criticality' in updates ||
@@ -133,6 +139,7 @@ export function useProjectsListFilters(): {
       page: filters.page,
       limit: filters.limit,
       ...(filters.search?.trim() && { search: filters.search.trim() }),
+      ...(filters.kind && { kind: filters.kind }),
       ...(filters.status && { status: filters.status }),
       ...(filters.priority && { priority: filters.priority }),
       ...(filters.criticality && { criticality: filters.criticality }),

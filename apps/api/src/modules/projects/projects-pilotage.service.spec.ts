@@ -1,5 +1,6 @@
 import {
   ProjectCriticality,
+  ProjectKind,
   ProjectPriority,
   ProjectRiskImpact,
   ProjectRiskProbability,
@@ -24,6 +25,7 @@ describe('ProjectsPilotageService', () => {
     name: 'P',
     code: 'P01',
     description: null,
+    kind: ProjectKind.PROJECT,
     type: ProjectType.APPLICATION,
     status: 'IN_PROGRESS' as ProjectStatus,
     priority: 'MEDIUM' as ProjectPriority,

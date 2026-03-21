@@ -15,6 +15,8 @@ export type ProjectListItem = {
   id: string;
   code: string;
   name: string;
+  /** `PROJECT` | `ACTIVITY` */
+  kind: string;
   type: string;
   status: string;
   priority: string;

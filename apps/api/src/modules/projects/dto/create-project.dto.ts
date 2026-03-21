@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import {
   ProjectCriticality,
+  ProjectKind,
   ProjectPriority,
   ProjectStatus,
   ProjectType,
@@ -28,6 +29,10 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectKind)
+  kind?: ProjectKind;
 
   @IsEnum(ProjectType)
   type!: ProjectType;

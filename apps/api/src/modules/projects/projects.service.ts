@@ -37,6 +37,7 @@ export type ProjectListItemDto = {
   id: string;
   code: string;
   name: string;
+  kind: string;
   type: string;
   status: string;
   priority: string;
@@ -126,6 +127,7 @@ export class ProjectsService {
       id: project.id,
       code: project.code,
       name: project.name,
+      kind: project.kind,
       type: project.type,
       status: project.status,
       priority: project.priority,
@@ -174,6 +176,7 @@ export class ProjectsService {
     if (query.status) where.status = query.status;
     if (query.priority) where.priority = query.priority;
     if (query.criticality) where.criticality = query.criticality;
+    if (query.kind) where.kind = query.kind;
 
     if (query.search?.trim()) {
       const s = query.search.trim();
@@ -337,6 +340,7 @@ export class ProjectsService {
         name: dto.name.trim(),
         code: dto.code.trim(),
         description: dto.description?.trim() ?? null,
+        kind: dto.kind ?? 'PROJECT',
         type: dto.type,
         status: dto.status ?? 'DRAFT',
         priority: dto.priority,
@@ -403,6 +407,7 @@ export class ProjectsService {
     if (dto.description !== undefined) {
       data.description = dto.description?.trim() ?? null;
     }
+    if (dto.kind !== undefined) data.kind = dto.kind;
     if (dto.type !== undefined) data.type = dto.type;
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.priority !== undefined) data.priority = dto.priority;

@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
 import {
   PROJECT_CRITICALITY_LABEL,
+  PROJECT_KIND_LABEL,
   PROJECT_PRIORITY_LABEL,
   PROJECT_STATUS_LABEL,
 } from '../constants/project-enum-labels';
@@ -59,6 +60,7 @@ export interface ProjectsToolbarProps {
 }
 
 export function ProjectsToolbar({ filters, setFilters, onReset }: ProjectsToolbarProps) {
+  const kindKey = filters.kind ?? '__all__';
   const statusKey = filters.status ?? '__all__';
   const priorityKey = filters.priority ?? '__all__';
   const criticalityKey = filters.criticality ?? '__all__';
@@ -117,7 +119,31 @@ export function ProjectsToolbar({ filters, setFilters, onReset }: ProjectsToolba
         {/* Filtres métier */}
         <div className="space-y-3">
           <SectionTitle icon={Filter}>Filtrer par</SectionTitle>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={fieldClass}>
+              <Label htmlFor="projects-filter-kind" className="text-xs text-muted-foreground">
+                Nature
+              </Label>
+              <Select
+                value={kindKey}
+                onValueChange={(v) =>
+                  setFilters({ kind: v === '__all__' || !v ? undefined : v })
+                }
+              >
+                <SelectTrigger id="projects-filter-kind" size="sm" className="w-full">
+                  <SelectValue>
+                    {kindKey === '__all__'
+                      ? 'Toutes'
+                      : PROJECT_KIND_LABEL[kindKey] ?? kindKey}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Toutes</SelectItem>
+                  <SelectItem value="PROJECT">{PROJECT_KIND_LABEL.PROJECT}</SelectItem>
+                  <SelectItem value="ACTIVITY">{PROJECT_KIND_LABEL.ACTIVITY}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className={fieldClass}>
               <Label htmlFor="projects-filter-status" className="text-xs text-muted-foreground">
                 Statut

@@ -32,6 +32,7 @@ export async function listProjects(
     page?: number;
     limit?: number;
     search?: string;
+    kind?: string;
     status?: string;
     priority?: string;
     criticality?: string;
