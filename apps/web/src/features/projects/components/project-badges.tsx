@@ -56,7 +56,7 @@ export function ProjectPortfolioBadges({ signals }: { signals: ProjectSignals })
         show: signals.hasNoRisks,
         variant: 'warn',
       },
-      { key: 'noowner', label: 'Sans owner', show: signals.hasNoOwner, variant: 'warn' },
+      { key: 'noowner', label: 'Sans responsable', show: signals.hasNoOwner, variant: 'warn' },
     ];
 
   const variantClass: Record<typeof items[number]['variant'], string> = {

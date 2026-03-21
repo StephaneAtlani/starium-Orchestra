@@ -33,5 +33,6 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_MILESTONE_DELETED: 'project_milestone.deleted',
 
   PROJECT_BUDGET_LINK_CREATED: 'project.budget_link.created',
+  PROJECT_BUDGET_LINK_UPDATED: 'project.budget_link.updated',
   PROJECT_BUDGET_LINK_DELETED: 'project.budget_link.deleted',
 } as const;

@@ -3,6 +3,7 @@ import { parseApiFormError } from '@/features/budgets/api/budget-management.api'
 import type {
   CreateProjectBudgetLinkPayload,
   ProjectBudgetLinksPage,
+  UpdateProjectBudgetLinkPayload,
 } from '../types/project.types';
 
 const BASE_PROJECTS = '/api/projects';
@@ -37,6 +38,20 @@ export async function createProjectBudgetLink(
 ): Promise<ProjectBudgetLinksPage['items'][0]> {
   const res = await authFetch(`${BASE_PROJECTS}/${projectId}/budget-links`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectBudgetLinksPage['items'][0]>;
+}
+
+export async function updateProjectBudgetLink(
+  authFetch: AuthFetch,
+  linkId: string,
+  body: UpdateProjectBudgetLinkPayload,
+): Promise<ProjectBudgetLinksPage['items'][0]> {
+  const res = await authFetch(`${BASE_LINKS}/${linkId}`, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });

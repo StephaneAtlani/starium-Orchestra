@@ -140,3 +140,8 @@ export type CreateProjectBudgetLinkPayload = {
   percentage?: number;
   amount?: number;
 };
+
+export type UpdateProjectBudgetLinkPayload = {
+  percentage?: number;
+  amount?: number;
+};

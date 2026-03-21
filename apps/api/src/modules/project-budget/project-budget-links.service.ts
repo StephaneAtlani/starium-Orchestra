@@ -37,6 +37,7 @@ import {
 import { ProjectsService } from '../projects/projects.service';
 import { CreateProjectBudgetLinkDto } from './dto/create-project-budget-link.dto';
 import { ListProjectBudgetLinksQueryDto } from './dto/list-project-budget-links.query.dto';
+import { UpdateProjectBudgetLinkDto } from './dto/update-project-budget-link.dto';
 
 const PERCENTAGE_SUM_EPSILON = new Prisma.Decimal('0.01');
 
@@ -140,6 +141,37 @@ export class ProjectBudgetLinksService {
       }
       if (dto.percentage != null) {
         throw new BadRequestException('Ne pas envoyer de pourcentage en mode FIXED');
+      }
+    }
+  }
+
+  private assertUpdateDtoForLink(
+    existing: { allocationType: ProjectBudgetAllocationType },
+    dto: UpdateProjectBudgetLinkDto,
+  ): void {
+    if (existing.allocationType === ProjectBudgetAllocationType.FULL) {
+      if (dto.percentage != null || dto.amount != null) {
+        throw new BadRequestException(
+          'Un lien FULL ne peut pas recevoir de pourcentage ni de montant',
+        );
+      }
+      return;
+    }
+    if (existing.allocationType === ProjectBudgetAllocationType.PERCENTAGE) {
+      if (dto.percentage == null) {
+        throw new BadRequestException('Le pourcentage est requis pour un lien PERCENTAGE');
+      }
+      if (dto.amount != null) {
+        throw new BadRequestException('Ne pas envoyer de montant pour un lien PERCENTAGE');
+      }
+      return;
+    }
+    if (existing.allocationType === ProjectBudgetAllocationType.FIXED) {
+      if (dto.amount == null) {
+        throw new BadRequestException('Le montant est requis pour un lien FIXED');
+      }
+      if (dto.percentage != null) {
+        throw new BadRequestException('Ne pas envoyer de pourcentage pour un lien FIXED');
       }
     }
   }
@@ -436,5 +468,105 @@ export class ProjectBudgetLinksService {
       oldValue: snapshot,
       ...meta,
     });
+  }
+
+  async update(
+    clientId: string,
+    linkId: string,
+    dto: UpdateProjectBudgetLinkDto,
+    context?: AuditContext,
+  ) {
+    const existingLink = await this.prisma.projectBudgetLink.findFirst({
+      where: { id: linkId, clientId },
+      include: {
+        budgetLine: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            budgetId: true,
+            status: true,
+          },
+        },
+      },
+    });
+    if (!existingLink) {
+      throw new NotFoundException('Project budget link not found');
+    }
+
+    this.assertUpdateDtoForLink(existingLink, dto);
+
+    if (existingLink.allocationType === ProjectBudgetAllocationType.FULL) {
+      throw new BadRequestException(
+        'Aucun champ modifiable pour un lien en mode FULL',
+      );
+    }
+
+    const newPercentage =
+      existingLink.allocationType === ProjectBudgetAllocationType.PERCENTAGE
+        ? new Prisma.Decimal(dto.percentage!)
+        : existingLink.percentage;
+    const newAmount =
+      existingLink.allocationType === ProjectBudgetAllocationType.FIXED
+        ? new Prisma.Decimal(dto.amount!)
+        : existingLink.amount;
+
+    const snapshot = this.auditPayload(existingLink);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const all = await tx.projectBudgetLink.findMany({
+        where: { clientId, projectId: existingLink.projectId },
+      });
+
+      const merged = all.map((row) => {
+        if (row.id !== linkId) {
+          return this.rowFromEntity(row);
+        }
+        return {
+          allocationType: row.allocationType,
+          percentage: newPercentage,
+          amount: newAmount,
+        };
+      });
+      this.validateProjectLinksInvariant(merged);
+
+      return tx.projectBudgetLink.update({
+        where: { id: linkId },
+        data: {
+          percentage: newPercentage,
+          amount: newAmount,
+        },
+        include: {
+          budgetLine: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              budgetId: true,
+              status: true,
+            },
+          },
+        },
+      });
+    });
+
+    const meta = {
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_BUDGET_LINK_UPDATED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_BUDGET_LINK,
+      resourceId: linkId,
+      oldValue: snapshot,
+      newValue: this.auditPayload(updated),
+      ...meta,
+    });
+
+    return this.serializeLink(updated, updated.budgetLine);
   }
 }
