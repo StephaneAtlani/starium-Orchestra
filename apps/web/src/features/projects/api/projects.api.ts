@@ -8,6 +8,8 @@ import type {
   ProjectMilestoneApi,
   ProjectRiskApi,
   ProjectSheet,
+  ProjectTeamMemberApi,
+  ProjectTeamRoleApi,
   ProjectsListResponse,
   ProjectsPortfolioSummary,
   UpdateProjectSheetPayload,
@@ -202,4 +204,81 @@ export async function postProjectArbitration(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectSheet>;
+}
+
+export async function listProjectTeamRoles(
+  authFetch: AuthFetch,
+): Promise<ProjectTeamRoleApi[]> {
+  const res = await authFetch(`${BASE}/team-roles`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTeamRoleApi[]>;
+}
+
+export async function createProjectTeamRole(
+  authFetch: AuthFetch,
+  body: { name: string; sortOrder?: number },
+): Promise<ProjectTeamRoleApi> {
+  const res = await authFetch(`${BASE}/team-roles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTeamRoleApi>;
+}
+
+export async function updateProjectTeamRole(
+  authFetch: AuthFetch,
+  roleId: string,
+  body: { name?: string; sortOrder?: number },
+): Promise<ProjectTeamRoleApi> {
+  const res = await authFetch(`${BASE}/team-roles/${roleId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTeamRoleApi>;
+}
+
+export async function deleteProjectTeamRole(
+  authFetch: AuthFetch,
+  roleId: string,
+): Promise<void> {
+  const res = await authFetch(`${BASE}/team-roles/${roleId}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseApiFormError(res);
+}
+
+export async function getProjectTeam(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectTeamMemberApi[]> {
+  const res = await authFetch(`${BASE}/${projectId}/team`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTeamMemberApi[]>;
+}
+
+export async function addProjectTeamMember(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: { roleId: string; userId: string },
+): Promise<ProjectTeamMemberApi> {
+  const res = await authFetch(`${BASE}/${projectId}/team`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTeamMemberApi>;
+}
+
+export async function removeProjectTeamMember(
+  authFetch: AuthFetch,
+  projectId: string,
+  memberId: string,
+): Promise<void> {
+  const res = await authFetch(`${BASE}/${projectId}/team/${memberId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
 }

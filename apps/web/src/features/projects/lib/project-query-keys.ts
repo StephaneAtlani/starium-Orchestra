@@ -19,4 +19,8 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'milestones', clientId, projectId] as const,
   budgetLinks: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'budget-links', clientId, projectId] as const,
+  teamRoles: (clientId: string) =>
+    [...projectQueryKeys.all, 'team-roles', clientId] as const,
+  team: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'team', clientId, projectId] as const,
 };

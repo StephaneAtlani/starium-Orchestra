@@ -12,6 +12,7 @@ import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsController } from './projects.controller';
 import { ProjectsPilotageService } from './projects-pilotage.service';
 import { ProjectsService } from './projects.service';
+import { ProjectTeamService } from './project-team.service';
 
 @Module({
   imports: [PrismaModule, AuditLogsModule],
@@ -30,7 +31,8 @@ import { ProjectsService } from './projects.service';
     ProjectTasksService,
     ProjectRisksService,
     ProjectMilestonesService,
+    ProjectTeamService,
   ],
-  exports: [ProjectsService, ProjectsPilotageService],
+  exports: [ProjectsService, ProjectsPilotageService, ProjectTeamService],
 })
 export class ProjectsModule {}

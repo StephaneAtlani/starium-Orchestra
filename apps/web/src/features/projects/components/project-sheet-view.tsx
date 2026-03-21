@@ -63,6 +63,7 @@ import {
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
+import { ProjectTeamMatrix } from './project-team-matrix';
 import {
   computeProjectSheetPriorityScorePreview,
   computeRoiFromCostGain,
@@ -565,6 +566,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           description="Cadrage projet"
         />
       </div>
+
+      <ProjectTeamMatrix projectId={projectId} />
 
       {/* A — Résumé + synthèse décisionnelle + arbitrage CODIR */}
       <Card size="sm">

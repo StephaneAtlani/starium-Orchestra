@@ -22,11 +22,18 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects.query.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectsService } from './projects.service';
+import { ProjectTeamService } from './project-team.service';
+import { CreateProjectTeamRoleDto } from './dto/create-project-team-role.dto';
+import { UpdateProjectTeamRoleDto } from './dto/update-project-team-role.dto';
+import { AddProjectTeamMemberDto } from './dto/add-project-team-member.dto';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly projectTeamService: ProjectTeamService,
+  ) {}
 
   @Get('portfolio-summary')
   @RequirePermissions('projects.read')
@@ -59,6 +66,69 @@ export class ProjectsController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.projectsService.create(clientId!, dto, context);
+  }
+
+  @Get('team-roles')
+  @RequirePermissions('projects.read')
+  listTeamRoles(@ActiveClientId() clientId: string | undefined) {
+    return this.projectTeamService.listRoles(clientId!);
+  }
+
+  @Post('team-roles')
+  @RequirePermissions('projects.update')
+  createTeamRole(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: CreateProjectTeamRoleDto,
+  ) {
+    return this.projectTeamService.createRole(clientId!, dto);
+  }
+
+  @Patch('team-roles/:roleId')
+  @RequirePermissions('projects.update')
+  updateTeamRole(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('roleId') roleId: string,
+    @Body() dto: UpdateProjectTeamRoleDto,
+  ) {
+    return this.projectTeamService.updateRole(clientId!, roleId, dto);
+  }
+
+  @Delete('team-roles/:roleId')
+  @RequirePermissions('projects.update')
+  deleteTeamRole(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('roleId') roleId: string,
+  ) {
+    return this.projectTeamService.deleteRole(clientId!, roleId);
+  }
+
+  @Get(':projectId/team')
+  @RequirePermissions('projects.read')
+  getProjectTeam(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+  ) {
+    return this.projectTeamService.getTeam(clientId!, projectId);
+  }
+
+  @Post(':projectId/team')
+  @RequirePermissions('projects.update')
+  addProjectTeamMember(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Body() dto: AddProjectTeamMemberDto,
+  ) {
+    return this.projectTeamService.addMember(clientId!, projectId, dto);
+  }
+
+  @Delete(':projectId/team/:memberId')
+  @RequirePermissions('projects.update')
+  removeProjectTeamMember(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.projectTeamService.removeMember(clientId!, projectId, memberId);
   }
 
   @Get(':id')

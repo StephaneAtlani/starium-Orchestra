@@ -176,6 +176,27 @@ export type ProjectCopilRecommendation =
   | 'REPORTER'
   | 'AJUSTER_CADRAGE';
 
+export type ProjectTeamRoleSystemKind = 'SPONSOR' | 'OWNER';
+
+export type ProjectTeamRoleApi = {
+  id: string;
+  clientId: string;
+  name: string;
+  sortOrder: number;
+  systemKind: ProjectTeamRoleSystemKind | null;
+};
+
+export type ProjectTeamMemberApi = {
+  id: string;
+  projectId: string;
+  roleId: string;
+  roleName: string;
+  systemKind: ProjectTeamRoleSystemKind | null;
+  userId: string;
+  displayName: string;
+  email: string;
+};
+
 export type ProjectSheetRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export type TowsActionsPayload = {

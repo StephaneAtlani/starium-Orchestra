@@ -82,6 +82,8 @@ model Client {
   projectRisks     ProjectRisk[]
   projectMilestones  ProjectMilestone[]
   projectBudgetLinks ProjectBudgetLink[]
+  projectTeamRoles   ProjectTeamRole[]
+  projectTeamMembers ProjectTeamMember[]
 }
 
 model User {
@@ -107,6 +109,7 @@ model User {
   ownedProjects              Project[]           @relation("ProjectOwner")
   assignedProjectTasks       ProjectTask[]
   ownedProjectRisks          ProjectRisk[]
+  projectTeamMembers         ProjectTeamMember[]
 }
 
 model ClientUser {
@@ -329,6 +332,12 @@ enum ProjectCopilRecommendation {
   AJUSTER_CADRAGE
 }
 
+/** Rôle catalogue équipe projet — aligné sur Project.sponsorUserId / ownerUserId lorsque renseigné. */
+enum ProjectTeamRoleSystemKind {
+  SPONSOR
+  OWNER
+}
+
 model Project {
   id        String  @id @default(cuid())
   clientId  String
@@ -394,12 +403,53 @@ model Project {
   risks       ProjectRisk[]
   milestones  ProjectMilestone[]
   budgetLinks ProjectBudgetLink[]
+  teamMembers ProjectTeamMember[]
 
   @@unique([clientId, code])
   @@index([clientId])
   @@index([clientId, status])
   @@index([clientId, kind])
   @@index([targetEndDate])
+}
+
+/// Catalogue des rôles d’équipe projet (par client).
+model ProjectTeamRole {
+  id          String   @id @default(cuid())
+  clientId    String
+  name        String   @db.VarChar(200)
+  sortOrder   Int      @default(0)
+  /// Si défini, synchronisé avec Project.sponsorUserId ou ownerUserId (une personne « officielle »).
+  systemKind  ProjectTeamRoleSystemKind?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  members ProjectTeamMember[]
+
+  @@unique([clientId, name])
+  @@index([clientId])
+}
+
+/// Affectation utilisateur à un rôle sur un projet.
+model ProjectTeamMember {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+  roleId    String
+  userId    String
+
+  createdAt DateTime @default(now())
+
+  client  Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role    ProjectTeamRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, roleId, userId])
+  @@index([clientId])
+  @@index([clientId, projectId])
+  @@index([roleId])
 }
 
 model ProjectBudgetLink {
