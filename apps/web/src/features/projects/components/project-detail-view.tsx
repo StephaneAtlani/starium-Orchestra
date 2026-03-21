@@ -29,6 +29,7 @@ import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { projectsList } from '../constants/project-routes';
 import { ChevronLeft } from 'lucide-react';
+import { ProjectBudgetSection } from './project-budget-section';
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -164,6 +165,8 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           </CardContent>
         </Card>
       </div>
+
+      <ProjectBudgetSection projectId={projectId} />
 
       <Card size="sm">
         <CardHeader>

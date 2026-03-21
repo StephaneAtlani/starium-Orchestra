@@ -1792,9 +1792,9 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ---
 
-## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|risks|milestones`
+## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|risks|milestones|budget-links`
 
-Référence : **RFC-PROJ-001**, détail produit et technique : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
 ### Guards et headers
 
@@ -1835,4 +1835,12 @@ Référence : **RFC-PROJ-001**, détail produit et technique : [docs/modules/pro
 - **PATCH /api/projects/:projectId/milestones/:id** — **`projects.update`**
 - **DELETE /api/projects/:projectId/milestones/:id** — **`projects.update`**
 
-**Erreurs courantes :** 401, 403 (module inactif ou permission manquante), 404 (projet ou sous-ressource hors périmètre client), 409 (ex. code projet déjà utilisé).
+### Liens projet ↔ ligne budgétaire (RFC-PROJ-010) — module Nest `project-budget`
+
+- **GET /api/projects/:projectId/budget-links** — Liste paginée des liens (`query` : `limit` défaut 20 max 100, `offset`). Réponse `{ items, total, limit, offset }`. **`projects.read`**
+- **POST /api/projects/:projectId/budget-links** — Création d’un lien (`budgetLineId`, `allocationType` : `FULL` \| `PERCENTAGE` \| `FIXED`, champs optionnels `percentage` / `amount` selon le mode). **`projects.update`**
+- **DELETE /api/project-budget-links/:id** — Suppression (204 si OK). **`projects.update`**
+
+**Erreurs :** 400 (invariant allocation, DTO), 409 (budget/exercice fermé, ligne non ACTIVE, doublon `(projectId, budgetLineId)`, suppression laissant un résidu incohérent), 404 (hors scope client).
+
+**Erreurs courantes (reste du module projets) :** 401, 403 (module inactif ou permission manquante), 404 (projet ou sous-ressource hors périmètre client), 409 (ex. code projet déjà utilisé).

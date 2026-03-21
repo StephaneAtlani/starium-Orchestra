@@ -5,6 +5,7 @@ export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT_TASK: 'project_task',
   PROJECT_RISK: 'project_risk',
   PROJECT_MILESTONE: 'project_milestone',
+  PROJECT_BUDGET_LINK: 'project_budget_link',
 } as const;
 
 /** Actions exactes RFC-PROJ-009 */
@@ -30,4 +31,7 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_MILESTONE_CREATED: 'project_milestone.created',
   PROJECT_MILESTONE_UPDATED: 'project_milestone.updated',
   PROJECT_MILESTONE_DELETED: 'project_milestone.deleted',
+
+  PROJECT_BUDGET_LINK_CREATED: 'project.budget_link.created',
+  PROJECT_BUDGET_LINK_DELETED: 'project.budget_link.deleted',
 } as const;

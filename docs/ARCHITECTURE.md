@@ -413,6 +413,7 @@ Core budgétaire / financier
 
 Autres domaines
 ├── projects
+├── project-budget (RFC-PROJ-010 — liens Project ↔ BudgetLine)
 ├── contracts
 ├── licenses
 ├── applications
@@ -420,6 +421,8 @@ Autres domaines
 ```
 
 **Module `projects` (MVP — RFC-PROJ-001)** : API `/api/projects` (+ tâches, risques, jalons), pilotage calculé dans `projects-pilotage.service.ts`, UI `/projects` côté Next.js. Détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+
+**Module `project-budget` (RFC-PROJ-010)** : API `/api/projects/:projectId/budget-links` (liste paginée) et `POST`, `/api/project-budget-links/:id` (`DELETE`), isolation `clientId`, invariants d’allocation sur les liens projet ↔ ligne budgétaire. Enregistré dans `app.module.ts` à côté de `ProjectsModule`.
 
 L’architecture consolidée décrit bien ce découpage modulaire côté NestJS. 
 

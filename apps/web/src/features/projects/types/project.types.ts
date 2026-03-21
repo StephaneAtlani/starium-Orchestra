@@ -106,3 +106,37 @@ export type ProjectMilestoneApi = {
   actualDate: string | null;
   status: string;
 };
+
+/** RFC-PROJ-010 — liaisons budget */
+export type ProjectBudgetAllocationType = 'FULL' | 'PERCENTAGE' | 'FIXED';
+
+export type ProjectBudgetLinkItem = {
+  id: string;
+  projectId: string;
+  budgetLineId: string;
+  allocationType: ProjectBudgetAllocationType;
+  percentage: string | null;
+  amount: string | null;
+  createdAt: string;
+  budgetLine: {
+    id: string;
+    code: string;
+    name: string;
+    budgetId: string;
+    status: string;
+  };
+};
+
+export type ProjectBudgetLinksPage = {
+  items: ProjectBudgetLinkItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type CreateProjectBudgetLinkPayload = {
+  budgetLineId: string;
+  allocationType: ProjectBudgetAllocationType;
+  percentage?: number;
+  amount?: number;
+};

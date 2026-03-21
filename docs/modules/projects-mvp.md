@@ -2,7 +2,7 @@
 
 Ce document décrit l’implémentation **MVP** du module Projets : modèle de données, API, pilotage backend et UI. Il complète la RFC produit [RFC-PROJ-001](../RFC/RFC-PROJ-001%20%E2%80%94%20Cadrage%20fonctionnel%20du%20module%20Projets.md).
 
-**Périmètre MVP** : pas d’objet métier `Activity` ; pas de Gantt ; pas de ticketing ; pas de lien budget/fournisseur avancé (hors champs optionnels sur `Project`). Les anciennes pistes « PortfolioItem » / portefeuille projets+activités du [plan de déploiement Projet](../RFC/_Plan%20de%20déploiment%20-%20Projet.md) sont **remplacées** pour le MVP par le modèle **`Project`** + sous-ressources ci-dessous.
+**Périmètre MVP** : pas d’objet métier `Activity` ; pas de Gantt ; pas de ticketing. Les **liens projet ↔ lignes budgétaires** sont couverts par **RFC-PROJ-010** (module `project-budget`, modèle `ProjectBudgetLink`). Pas de lien fournisseur avancé sur le projet (hors champs optionnels). Les anciennes pistes « PortfolioItem » / portefeuille projets+activités du [plan de déploiement Projet](../RFC/_Plan%20de%20déploiment%20-%20Projet.md) sont **remplacées** pour le MVP par le modèle **`Project`** + sous-ressources ci-dessous.
 
 ---
 
@@ -16,6 +16,7 @@ Modèles (`apps/api/prisma/schema.prisma`) :
 | **ProjectTask** | Tâche rattachée à un projet (`clientId` + `projectId`). |
 | **ProjectRisk** | Risque avec `ProjectRiskProbability` et `ProjectRiskImpact` (criticité **dérivée** du score P×I, pas de champ redondant). |
 | **ProjectMilestone** | Jalon avec statut (dont `DELAYED`). |
+| **ProjectBudgetLink** | Liaison projet ↔ ligne budgétaire (`clientId`, mode d’allocation FULL / PERCENTAGE / FIXED) — RFC-PROJ-010. |
 
 **Non persisté au MVP** : `computedHealth`, `signals`, `warnings`, `derivedProgressPercent` (calculs à la lecture dans `projects-pilotage.service.ts`).
 
@@ -26,12 +27,13 @@ Enums principaux : `ProjectStatus` (dont actifs : `PLANNED`, `IN_PROGRESS`, `ON_
 ## 2. Backend NestJS
 
 - **Module** : `apps/api/src/modules/projects/`
+- **Module** : `apps/api/src/modules/project-budget/` (RFC-PROJ-010) — `ProjectBudgetLinksService` : liens `ProjectBudgetLink`, validation d’invariants, transactions sur création/suppression, audit `project.budget_link.*`
 - **Services** :
   - `projects.service.ts` — CRUD projet, liste enrichie (pilotage), `getPortfolioSummary`
   - `projects-pilotage.service.ts` — `computedHealth`, signaux, warnings, compteurs, `derivedProgressPercent` à partir des tâches, criticité risque (scores 1–9 ; **HIGH = scores 7–9**)
   - `project-tasks.service.ts`, `project-risks.service.ts`, `project-milestones.service.ts` — sous-ressources
-- **Guards** (tous les contrôleurs du module) : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
-- **Audit** : création / mise à jour / suppression projet et sous-ressources tracées où implémenté
+- **Guards** (tous les contrôleurs des modules ci-dessus) : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- **Audit** : création / mise à jour / suppression projet et sous-ressources tracées où implémenté ; liens budget projet en complément (`project_budget_link`)
 
 ---
 
@@ -50,6 +52,9 @@ Permissions métier : `projects.read`, `projects.create`, `projects.update`, `pr
 | DELETE | `/projects/:id` | `projects.delete` |
 | GET | `/projects/:projectId/tasks` \| `…/risks` \| `…/milestones` | `projects.read` |
 | POST/PATCH/DELETE | sous-ressources `tasks`, `risks`, `milestones` | `projects.update` |
+| GET | `/projects/:projectId/budget-links` | `projects.read` — liste paginée des liens projet ↔ ligne budgétaire (`limit`, `offset`) |
+| POST | `/projects/:projectId/budget-links` | `projects.update` — corps : `budgetLineId`, `allocationType`, `percentage` / `amount` selon mode |
+| DELETE | `/project-budget-links/:id` | `projects.update` |
 
 Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
@@ -65,7 +70,7 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 ## 5. Frontend
 
-- **Feature** : `apps/web/src/features/projects/` (API client, hooks React Query, types, composants)
+- **Feature** : `apps/web/src/features/projects/` (API client, hooks React Query, types, composants) — section **Budget** sur le détail projet (`ProjectBudgetSection`, RFC-PROJ-010)
 - **Routes** : `apps/web/src/app/(protected)/projects/` — `/projects`, `/projects/new`, `/projects/[projectId]`
 - **Navigation** : `apps/web/src/config/navigation.ts` — entrée « Projets », `moduleCode: 'projects'`, `requiredPermissions: ['projects.read']`
 - **Sécurité UI** : `RequireActiveClient`, `PermissionGate`, données via `authFetch` + TanStack Query — **pas** de calcul cockpit de santé côté client (affichage des champs renvoyés par l’API)
@@ -90,4 +95,5 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 ## 8. Évolutions documentées ailleurs
 
-Les RFC numérotées RFC-PROJ-002 … dans les roadmaps historiques peuvent rester des **extensions** futures (liens budget, fournisseurs, ressources, cockpit avancé). Le MVP actuel les **recouvre partiellement** sous RFC-PROJ-001 sans les publier comme RFC séparées.
+- **Lien projet ↔ budget (lignes)** : RFC-PROJ-010 — implémenté (`project-budget`).
+- Autres RFC numérotées RFC-PROJ-002 … dans les roadmaps historiques peuvent rester des **extensions** futures (fournisseurs, ressources, cockpit avancé). Le MVP actuel les **recouvre partiellement** sous RFC-PROJ-001 sans les publier comme RFC séparées partout.

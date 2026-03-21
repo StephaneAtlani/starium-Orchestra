@@ -2,7 +2,26 @@
 
 ## Statut
 
-❌ À faire (CRITIQUE PRODUIT — FORECAST)
+✅ **Implémenté (MVP)** — backend + UI sur la fiche projet (`project-budget`).
+
+**Hors périmètre livré** (toujours prévu ailleurs) : génération automatique de `FinancialEvent` depuis les tâches / jalons (→ RFC-PROJ-011), liste des projets sur l’écran **BudgetLine** (§8.2), KPI cockpit consolidés (§8.3).
+
+---
+
+## Implémentation (référence repo)
+
+| Élément | Détail |
+|--------|--------|
+| **Prisma** | `ProjectBudgetAllocationType`, modèle `ProjectBudgetLink`, relations `Project` / `BudgetLine` / `Client`, `@@unique([projectId, budgetLineId])` |
+| **Module NestJS** | `apps/api/src/modules/project-budget/` — `ProjectBudgetLinksService`, contrôleurs `projects/:projectId/budget-links` et `project-budget-links/:id` |
+| **Isolation** | Toutes les requêtes filtrent par `clientId` du client actif ; projet / ligne / lien résolus avec `findFirst` + scope |
+| **Transactions** | `POST` et `DELETE` dans `prisma.$transaction` (lecture des liens → validation d’invariant → écriture) |
+| **Invariants** | Un seul mode d’allocation par projet (FULL / PERCENTAGE / FIXED) ; 0 lien valide ; PERCENTAGE somme 100 % (± epsilon) ; FULL max 1 lien ; FIXED montants > 0 ; suppression refusée (`409`) si le résidu violerait l’invariant |
+| **Verrous création** | `BudgetLine` = `ACTIVE` ; `Budget` non `LOCKED` / `ARCHIVED` ; `BudgetExercise` non `CLOSED` / `ARCHIVED` (les statuts exacts sont ceux du schéma Prisma — pas de `CLOSED` sur `Budget`, utiliser `LOCKED`) |
+| **GET liste** | Pagination : `limit` (déf. 20, max 100), `offset` — réponse `{ items, total, limit, offset }` |
+| **Financial core** | Aucun `FinancialEvent` créé ici ; convention future : `sourceType = PROJECT`, `sourceId = projectId` (RFC-PROJ-011) |
+| **Audit** | `project.budget_link.created` / `project.budget_link.deleted`, `resourceType` `project_budget_link`, payload avec `projectId`, `budgetLineId`, `allocationType`, `percentage`, `amount` |
+| **Frontend** | `apps/web/src/features/projects/` — API `project-budget.api.ts`, hooks, `ProjectBudgetSection` sur le détail projet |
 
 ---
 
@@ -285,8 +304,10 @@ POST /api/projects/:id/budget-links
 ### Lister les liens
 
 ```
-GET /api/projects/:id/budget-links
+GET /api/projects/:id/budget-links?limit=20&offset=0
 ```
+
+Réponse paginée : `{ "items": [...], "total": number, "limit": number, "offset": number }`.
 
 ---
 
@@ -313,10 +334,14 @@ PermissionsGuard
 
 ## 7.3 Permissions
 
+RFC initiale :
+
 ```
 projects.update
 budgets.read
 ```
+
+**Implémentation** : le `PermissionsGuard` n’autorise qu’**un seul préfixe de module** par route. Les endpoints utilisent **`projects.read`** (GET) et **`projects.update`** (POST, DELETE), comme les autres sous-ressources projet. La consultation des lignes budgétaires pour choisir une ligne reste couverte par les routes budget (`budgets.read`) côté module Budget.
 
 ---
 
@@ -335,6 +360,8 @@ Ajouter :
 * onglet **Budget**
 * sélection BudgetLine
 * répartition (% ou montant)
+
+**État actuel (MVP)** : section **Budget** sur la page détail projet (liste des liens + formulaire d’ajout : budget → ligne ACTIVE → mode FULL / PERCENTAGE / FIXED). Pas d’onglet navigation dédié séparé.
 
 ---
 

@@ -19,7 +19,7 @@
 
 | Ordre | RFC              | Nom                | Description                                    | État      | Commentaire       |
 | ----- | ---------------- | ------------------ | ---------------------------------------------- | --------- | ----------------- |
-| 9     | **RFC-PROJ-010** | Project ↔ Budget   | Lier projets aux lignes/enveloppes budgétaires | ❌ À faire | critique forecast |
+| 9     | **RFC-PROJ-010** | Project ↔ Budget   | Lier projets aux lignes/enveloppes budgétaires | ✅ Couvert  | MVP `project-budget` + UI fiche projet |
 | 10    | **RFC-PROJ-011** | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire | vision transverse |
 
 ---
@@ -42,7 +42,7 @@
 | 15    | **RFC-FE-PROJ-003** | Tasks UI          | Interface gestion tâches                       | ✅ Couvert | stable          |
 | 16    | **RFC-FE-PROJ-004** | Risks UI          | Interface gestion risques                      | ✅ Couvert | stable          |
 | 17    | **RFC-FE-PROJ-005** | Resources UI      | Vue ressources projet + affectations           | ❌ À faire | dépend RES      |
-| 18    | **RFC-FE-PROJ-006** | Budget Links UI   | Visualiser budgets liés au projet              | ❌ À faire | dépend PROJ-010 |
+| 18    | **RFC-FE-PROJ-006** | Budget Links UI   | Visualiser budgets liés au projet              | ⚠️ Partiel | section Budget sur détail projet ; pas liste inverse sur ligne |
 | 19    | **RFC-FE-PROJ-007** | Supplier Links UI | Visualiser fournisseurs liés                   | ❌ À faire | dépend PROJ-011 |
 | 20    | **RFC-FE-PROJ-011** | Project Health UI | Indicateurs santé projet (badges, score)       | ✅ Couvert | OK              |
 
@@ -104,10 +104,10 @@
 
 | RFC                     | Pourquoi                           |
 | ----------------------- | ---------------------------------- |
-| **PROJ-010**            | lien projet ↔ budget = clé produit |
-| **PROJ-011**            | vision fournisseur                 |
+| **PROJ-011**            | événements financiers projet / fournisseur |
+| **PROJ-010 suite**      | §8.2 liste projets sur BudgetLine, §8.3 KPI (optionnel) |
 | **RES-001 / 002**       | pilotage équipes                   |
-| **FE-PROJ-005/006/007** | cockpit complet                    |
+| **FE-PROJ-005/007**     | cockpit / ressources (006 partiel) |
 
 ---
 

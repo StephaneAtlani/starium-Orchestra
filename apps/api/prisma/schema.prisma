@@ -84,24 +84,6 @@ model Client {
   projectBudgetLinks ProjectBudgetLink[]
 }
 
-model ProjectBudgetLink {
-  id             String                      @id @default(cuid())
-  clientId       String
-  projectId      String
-  budgetLineId   String
-  allocationType ProjectBudgetAllocationType
-  percentage     Decimal?                    @db.Decimal(5, 2)
-  amount         Decimal?                    @db.Decimal(18, 2)
-  createdAt      DateTime                    @default(now())
-
-  client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
-
-  @@unique([projectId, budgetLineId])
-  @@index([clientId])
-}
-
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -365,6 +347,24 @@ model Project {
   @@index([clientId, status])
   @@index([clientId, kind])
   @@index([targetEndDate])
+}
+
+model ProjectBudgetLink {
+  id             String                      @id @default(cuid())
+  clientId       String
+  projectId      String
+  budgetLineId   String
+  allocationType ProjectBudgetAllocationType
+  percentage     Decimal?                    @db.Decimal(5, 2)
+  amount         Decimal?                    @db.Decimal(18, 2)
+  createdAt      DateTime                    @default(now())
+
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, budgetLineId])
+  @@index([clientId])
 }
 
 model ProjectTask {
@@ -768,6 +768,7 @@ model BudgetLine {
   invoices                  Invoice[]
   reallocationsAsSource     BudgetReallocation[]      @relation("ReallocationSource")
   reallocationsAsTarget     BudgetReallocation[]      @relation("ReallocationTarget")
+  projectBudgetLinks        ProjectBudgetLink[]
 
   @@unique([clientId, budgetId, code])
   @@index([clientId])
