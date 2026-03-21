@@ -258,10 +258,18 @@ export async function getProjectTeam(
   return res.json() as Promise<ProjectTeamMemberApi[]>;
 }
 
+export type AddProjectTeamMemberPayload =
+  | { roleId: string; userId: string }
+  | {
+      roleId: string;
+      freeLabel: string;
+      affiliation: 'INTERNAL' | 'EXTERNAL';
+    };
+
 export async function addProjectTeamMember(
   authFetch: AuthFetch,
   projectId: string,
-  body: { roleId: string; userId: string },
+  body: AddProjectTeamMemberPayload,
 ): Promise<ProjectTeamMemberApi> {
   const res = await authFetch(`${BASE}/${projectId}/team`, {
     method: 'POST',

@@ -338,6 +338,12 @@ enum ProjectTeamRoleSystemKind {
   OWNER
 }
 
+/// Interne (client / équipe) vs externe (prestataire, partenaire) pour les noms libres.
+enum ProjectTeamMemberAffiliation {
+  INTERNAL
+  EXTERNAL
+}
+
 model Project {
   id        String  @id @default(cuid())
   clientId  String
@@ -431,22 +437,29 @@ model ProjectTeamRole {
   @@index([clientId])
 }
 
-/// Affectation utilisateur à un rôle sur un projet.
+/// Membre d’équipe projet : utilisateur plateforme ou nom libre (prestataire / contact externe).
 model ProjectTeamMember {
   id        String @id @default(cuid())
   clientId  String
   projectId String
   roleId    String
-  userId    String
+  /// Compte Starium du client ; vide si entrée libre uniquement.
+  userId    String?
+  /// Nom affiché lorsqu’il n’y a pas de `userId` (personne hors plateforme).
+  freeLabel String? @db.VarChar(200)
+  /// Interne vs externe (surtout pour les noms libres).
+  affiliation ProjectTeamMemberAffiliation?
+  /// Clé d’unicité : `u:<userId>` ou `n:<normalisation du nom>` pour les entrées libres.
+  identityKey String @db.VarChar(150)
 
   createdAt DateTime @default(now())
 
   client  Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   role    ProjectTeamRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([projectId, roleId, userId])
+  @@unique([projectId, roleId, identityKey])
   @@index([clientId])
   @@index([clientId, projectId])
   @@index([roleId])

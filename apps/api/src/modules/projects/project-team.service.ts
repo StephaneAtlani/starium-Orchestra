@@ -7,6 +7,7 @@ import {
 import {
   ClientUserStatus,
   Prisma,
+  ProjectTeamMemberAffiliation,
   ProjectTeamRoleSystemKind,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -28,14 +29,57 @@ export type ProjectTeamMemberResponse = {
   roleId: string;
   roleName: string;
   systemKind: ProjectTeamRoleSystemKind | null;
-  userId: string;
+  memberKind: 'USER' | 'NAMED';
+  userId: string | null;
   displayName: string;
   email: string;
+  affiliation: ProjectTeamMemberAffiliation | null;
 };
+
+function normalizeFreeIdentityKey(freeLabel: string): string {
+  const n = freeLabel.trim().replace(/\s+/g, ' ').toLowerCase();
+  if (!n.length) {
+    throw new BadRequestException('Le nom est requis');
+  }
+  return `n:${n.slice(0, 120)}`;
+}
 
 @Injectable()
 export class ProjectTeamService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private mapMemberRow(m: {
+    id: string;
+    projectId: string;
+    roleId: string;
+    userId: string | null;
+    freeLabel: string | null;
+    affiliation: ProjectTeamMemberAffiliation | null;
+    role: { name: string; systemKind: ProjectTeamRoleSystemKind | null };
+    user: {
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+    } | null;
+  }): ProjectTeamMemberResponse {
+    const isUser = m.userId != null && m.user != null;
+    const displayName = isUser
+      ? [m.user!.firstName, m.user!.lastName].filter(Boolean).join(' ').trim() ||
+        m.user!.email
+      : (m.freeLabel?.trim() ?? '—');
+    return {
+      id: m.id,
+      projectId: m.projectId,
+      roleId: m.roleId,
+      roleName: m.role.name,
+      systemKind: m.role.systemKind,
+      memberKind: isUser ? 'USER' : 'NAMED',
+      userId: m.userId,
+      displayName,
+      email: isUser ? m.user!.email : '',
+      affiliation: m.affiliation ?? null,
+    };
+  }
 
   /** Rôles par défaut pour un nouveau client (idempotent si déjà présents). */
   async seedDefaultRolesForClient(clientId: string): Promise<void> {
@@ -209,18 +253,7 @@ export class ProjectTeamService {
       },
       orderBy: [{ role: { sortOrder: 'asc' } }, { createdAt: 'asc' }],
     });
-    return members.map((m) => ({
-      id: m.id,
-      projectId: m.projectId,
-      roleId: m.roleId,
-      roleName: m.role.name,
-      systemKind: m.role.systemKind,
-      userId: m.userId,
-      email: m.user.email,
-      displayName:
-        [m.user.firstName, m.user.lastName].filter(Boolean).join(' ').trim() ||
-        m.user.email,
-    }));
+    return members.map((m) => this.mapMemberRow(m));
   }
 
   private async syncProjectSponsorOwner(
@@ -240,14 +273,14 @@ export class ProjectTeamService {
 
     if (sponsorRole) {
       const first = await tx.projectTeamMember.findFirst({
-        where: { projectId, roleId: sponsorRole.id },
+        where: { projectId, roleId: sponsorRole.id, userId: { not: null } },
         orderBy: { createdAt: 'asc' },
       });
       sponsorUserId = first?.userId ?? null;
     }
     if (ownerRole) {
       const first = await tx.projectTeamMember.findFirst({
-        where: { projectId, roleId: ownerRole.id },
+        where: { projectId, roleId: ownerRole.id, userId: { not: null } },
         orderBy: { createdAt: 'asc' },
       });
       ownerUserId = first?.userId ?? null;
@@ -271,36 +304,84 @@ export class ProjectTeamService {
     if (!role) {
       throw new NotFoundException('Team role not found');
     }
-    await this.assertActiveClientUser(clientId, dto.userId);
 
-    const member = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.projectTeamMember.create({
-        data: {
-          clientId,
-          projectId,
-          roleId: dto.roleId,
-          userId: dto.userId,
-        },
-        include: { role: true, user: true },
-      });
-      await this.syncProjectSponsorOwner(tx, projectId, clientId);
-      return created;
-    });
+    const userIdTrim = dto.userId?.trim();
+    const freeTrim = dto.freeLabel?.trim();
+    const hasUser = Boolean(userIdTrim);
+    const hasFree = Boolean(freeTrim);
 
-    return {
-      id: member.id,
-      projectId: member.projectId,
-      roleId: member.roleId,
-      roleName: member.role.name,
-      systemKind: member.role.systemKind,
-      userId: member.userId,
-      email: member.user.email,
-      displayName:
-        [member.user.firstName, member.user.lastName]
-          .filter(Boolean)
-          .join(' ')
-          .trim() || member.user.email,
+    if (hasUser === hasFree) {
+      throw new BadRequestException(
+        'Indiquez soit un utilisateur de la liste, soit un nom libre avec interne / externe',
+      );
+    }
+
+    let identityKey: string;
+    let data: {
+      clientId: string;
+      projectId: string;
+      roleId: string;
+      userId: string | null;
+      freeLabel: string | null;
+      affiliation: ProjectTeamMemberAffiliation | null;
+      identityKey: string;
     };
+
+    if (hasUser) {
+      await this.assertActiveClientUser(clientId, userIdTrim!);
+      identityKey = `u:${userIdTrim}`;
+      data = {
+        clientId,
+        projectId,
+        roleId: dto.roleId,
+        userId: userIdTrim!,
+        freeLabel: null,
+        affiliation: null,
+        identityKey,
+      };
+    } else {
+      if (
+        dto.affiliation !== ProjectTeamMemberAffiliation.INTERNAL &&
+        dto.affiliation !== ProjectTeamMemberAffiliation.EXTERNAL
+      ) {
+        throw new BadRequestException(
+          'Pour un nom libre, choisissez interne ou externe',
+        );
+      }
+      const label = freeTrim!.slice(0, 200);
+      identityKey = normalizeFreeIdentityKey(label);
+      data = {
+        clientId,
+        projectId,
+        roleId: dto.roleId,
+        userId: null,
+        freeLabel: label,
+        affiliation: dto.affiliation,
+        identityKey,
+      };
+    }
+
+    try {
+      const member = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.projectTeamMember.create({
+          data,
+          include: { role: true, user: true },
+        });
+        await this.syncProjectSponsorOwner(tx, projectId, clientId);
+        return created;
+      });
+      return this.mapMemberRow(member);
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Cette personne est déjà affectée à ce rôle pour ce projet',
+        );
+      }
+      throw e;
+    }
   }
 
   async removeMember(

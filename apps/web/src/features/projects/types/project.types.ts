@@ -186,15 +186,21 @@ export type ProjectTeamRoleApi = {
   systemKind: ProjectTeamRoleSystemKind | null;
 };
 
+export type ProjectTeamMemberKind = 'USER' | 'NAMED';
+
+export type ProjectTeamMemberAffiliationApi = 'INTERNAL' | 'EXTERNAL';
+
 export type ProjectTeamMemberApi = {
   id: string;
   projectId: string;
   roleId: string;
   roleName: string;
   systemKind: ProjectTeamRoleSystemKind | null;
-  userId: string;
+  memberKind: ProjectTeamMemberKind;
+  userId: string | null;
   displayName: string;
   email: string;
+  affiliation: ProjectTeamMemberAffiliationApi | null;
 };
 
 export type ProjectSheetRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
