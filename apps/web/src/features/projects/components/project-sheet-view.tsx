@@ -943,7 +943,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ben">Impact attendu</Label>
+            <Label htmlFor="ben">Gains attendus</Label>
             <textarea
               id="ben"
               className={textareaClass}

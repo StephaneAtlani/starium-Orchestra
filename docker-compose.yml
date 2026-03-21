@@ -39,12 +39,12 @@ services:
       - standard
 
   # api-dev : JWT etc. via env_file ; DATABASE_URL et PORT forcés ici (environment écrase env_file).
-  # Schéma Prisma modifié : régénérer le client dans le conteneur puis redémarrer api-dev (commande en infobulle, README § Docker dev).
+  # Entrypoint : cd apps/api puis migrate deploy + generate (indispensable : le schéma Prisma est dans ce dossier).
   api-dev:
     build:
       context: .
       dockerfile: apps/api/Dockerfile.dev
-    command: sh -c "pnpm exec prisma generate && pnpm start:dev"
+    command: ["sh", "/app/apps/api/docker-entrypoint-dev.sh"]
     env_file:
       - apps/api/.env
     environment:
