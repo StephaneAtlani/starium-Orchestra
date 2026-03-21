@@ -1,10 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronDown, ChevronLeft, Info, LayoutDashboard, Plus, Trash2 } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  Info,
+  LayoutDashboard,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +54,7 @@ import {
 } from '../api/projects.api';
 import { projectDetail, projectsList } from '../constants/project-routes';
 import {
+  MILESTONE_STATUS_LABEL,
   PROJECT_KIND_LABEL,
   PROJECT_PRIORITY_LABEL,
   PROJECT_STATUS_LABEL,
@@ -52,15 +62,19 @@ import {
 } from '../constants/project-enum-labels';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
+import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
 import {
   computeProjectSheetPriorityScorePreview,
   computeRoiFromCostGain,
   effectiveRiskLevelForSheetPreview,
 } from '../lib/project-sheet-priority-preview';
+import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import type {
   ProjectArbitrationStatus,
+  ProjectCopilRecommendation,
+  ProjectMilestoneApi,
   ProjectSheet,
   ProjectSheetRiskLevel,
   UpdateProjectSheetPayload,
@@ -84,77 +98,37 @@ const ARBITRATION_LABEL: Record<ProjectArbitrationStatus, string> = {
   REJECTED: 'Refusé',
 };
 
+const COPIL_LABEL: Record<ProjectCopilRecommendation, string> = {
+  NOT_SET: 'Non renseigné',
+  POURSUIVRE: 'Poursuivre',
+  NE_PAS_ENGAGER: 'Ne pas engager',
+  SOUS_RESERVE: 'Sous réserve / conditions',
+  REPORTER: 'Reporter / ajourner',
+  AJUSTER_CADRAGE: 'Ajuster le cadrage / approfondir',
+};
+
 /** Valeur Select stable (évite uncontrolled → controlled si `undefined` au 1er rendu) */
 const RISK_UNSET = '__unset__';
-
-const GO_PRIORITY_SCORE_THRESHOLD = 5;
 
 function scoreOutOf5(n: number | null | undefined): string {
   if (n == null || n === undefined) return '—';
   return `${n} / 5`;
 }
 
-type DecisionCockpit = {
-  badge: 'GO' | 'NO GO' | 'À ANALYSER' | 'À COMPLÉTER';
-  message: string;
-  badgeClassName: string;
-};
-
-function cockpitDecision(
-  sheet: ProjectSheet,
-  priorityScoreEffective: number | null,
-): DecisionCockpit {
-  const costMissing = sheet.estimatedCost == null;
-  const gainMissing = sheet.estimatedGain == null;
-  if (costMissing || gainMissing) {
-    return {
-      badge: 'À COMPLÉTER',
-      message: 'Coût ou gain non renseigné',
-      badgeClassName:
-        'border-transparent bg-muted text-muted-foreground hover:bg-muted',
-    };
-  }
-  const roi = sheet.roi;
-  if (roi != null && roi < 0) {
-    return {
-      badge: 'NO GO',
-      message: 'ROI négatif',
-      badgeClassName: 'border-transparent bg-red-600 text-white hover:bg-red-600',
-    };
-  }
-  const ps = priorityScoreEffective;
-  if (roi != null && roi > 0 && ps != null && ps >= GO_PRIORITY_SCORE_THRESHOLD) {
-    return {
-      badge: 'GO',
-      message: 'Projet rentable et prioritaire',
-      badgeClassName:
-        'border-transparent bg-emerald-600 text-white hover:bg-emerald-600',
-    };
-  }
-  return {
-    badge: 'À ANALYSER',
-    message: 'Critères à affiner ou risque à intégrer',
-    badgeClassName:
-      'border-transparent bg-orange-500 text-white hover:bg-orange-500',
-  };
-}
-
-/** Critères cockpit — alignés sur les champs du formulaire pour mise à jour immédiate (sans attendre l’enregistrement). */
+/** Critères cockpit — formulaire + repli fiche (objectif métier déjà enregistré). Le gain n’est pas obligatoire (parcours ROE). */
 function cockpitMissingLinesFromForm(params: {
   cost: number | undefined;
-  gain: number | undefined;
   bv: number | undefined;
   sa: number | undefined;
   us: number | undefined;
-  problem: string;
+  problemFilled: boolean;
 }): string[] {
   const lines: string[] = [];
   if (params.cost === undefined) lines.push('Coût manquant');
-  if (params.gain === undefined) lines.push('Gain manquant');
   if (params.bv === undefined) lines.push('Valeur (score) manquant');
   if (params.sa === undefined) lines.push('Alignement manquant');
   if (params.us === undefined) lines.push('Urgence manquant');
-  if (!params.problem.trim()) lines.push('Objectif métier (pourquoi) absent');
+  if (!params.problemFilled) lines.push('Objectif métier (pourquoi) absent');
   return lines;
 }
 
@@ -238,6 +212,26 @@ function numOrUndef(s: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** Même logique que l’aperçu / décision : champs formulaire, sinon valeurs fiche déjà enregistrées (évite écran serveur vs calcul local). */
+function effectiveNumFromFormOrSheet(
+  formStr: string,
+  server: number | null | undefined,
+): number | undefined {
+  const fromForm = numOrUndef(formStr);
+  if (fromForm !== undefined) return fromForm;
+  if (server == null || server === undefined) return undefined;
+  const n = Number(server);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function formatMilestoneDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('fr-FR');
+  } catch {
+    return '—';
+  }
+}
+
 const textareaClass = cn(
   'min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm',
   'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
@@ -267,6 +261,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const [gain, setGain] = useState('');
   const [risk, setRisk] = useState<string>(RISK_UNSET);
   const [arbDraft, setArbDraft] = useState<ProjectArbitrationStatus>('DRAFT');
+  const [copilDraft, setCopilDraft] = useState<ProjectCopilRecommendation>('NOT_SET');
 
   const [description, setDescription] = useState('');
   const [problem, setProblem] = useState('');
@@ -297,6 +292,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     setGain(sheet.estimatedGain != null ? String(sheet.estimatedGain) : '');
     setRisk(sheet.riskLevel ?? RISK_UNSET);
     setArbDraft(sheet.arbitrationStatus ?? 'DRAFT');
+    setCopilDraft(sheet.copilRecommendation ?? 'NOT_SET');
     setDescription(sheet.description ?? '');
     setProblem(sheet.businessProblem ?? '');
     setBenefits(sheet.businessBenefits ?? '');
@@ -336,6 +332,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       if (risk && risk !== RISK_UNSET) {
         payload.riskLevel = risk as ProjectSheetRiskLevel;
       }
+      payload.copilRecommendation = copilDraft;
       if (problem.trim()) payload.businessProblem = problem.trim();
       if (benefits.trim()) payload.businessBenefits = benefits.trim();
       payload.businessSuccessKpis = kpiLines.map((s) => s.trim()).filter(Boolean);
@@ -365,6 +362,22 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     },
   });
 
+  const copilSaveMutation = useMutation({
+    mutationFn: (value: ProjectCopilRecommendation) =>
+      updateProjectSheet(authFetch, projectId, { copilRecommendation: value }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.sheet(clientId, projectId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.detail(clientId, projectId),
+      });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || 'Impossible d’enregistrer la recommandation');
+    },
+  });
+
   const arbitrationMutation = useMutation({
     mutationFn: (status: ProjectArbitrationStatus) =>
       postProjectArbitration(authFetch, projectId, status),
@@ -383,12 +396,20 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   });
 
   const risksQuery = useProjectRisksQuery(projectId);
+  const milestonesQuery = useProjectMilestonesQuery(projectId);
+  const milestonesSorted = useMemo((): ProjectMilestoneApi[] => {
+    const items = milestonesQuery.data ?? [];
+    return [...items].sort(
+      (a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime(),
+    );
+  }, [milestonesQuery.data]);
   const [newRiskTitle, setNewRiskTitle] = useState('');
   const [newRiskProb, setNewRiskProb] = useState<ProjectSheetRiskLevel>('MEDIUM');
   const [newRiskImpact, setNewRiskImpact] = useState<ProjectSheetRiskLevel>('MEDIUM');
   const [deletingRiskId, setDeletingRiskId] = useState<string | null>(null);
-  /** Panneau « Détail des risques » : fermé par défaut (état contrôlé pour éviter ouverture fantôme). */
-  const [risksDetailOpen, setRisksDetailOpen] = useState(false);
+  /** Panneau « Détail des risques » : ouvert par défaut (état contrôlé). */
+  const [risksDetailOpen, setRisksDetailOpen] = useState(true);
+  const [retroplanOpen, setRetroplanOpen] = useState(false);
 
   const createRiskMutation = useMutation({
     mutationFn: (vars: {
@@ -443,7 +464,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   });
 
   useEffect(() => {
-    setRisksDetailOpen(false);
+    setRisksDetailOpen(true);
   }, [projectId]);
 
   if (!projectId) {
@@ -478,36 +499,46 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     ? risksQuery.data.filter((r) => riskCriticalityForRisk(r) === 'HIGH').length
     : null;
 
-  const priorityScoreDisplayed =
-    sheet.priorityScore ??
-    computeProjectSheetPriorityScorePreview({
-      businessValueScore: numOrUndef(bv),
-      strategicAlignment: numOrUndef(sa),
-      urgencyScore: numOrUndef(us),
-      effectiveRiskLevel: effectiveRiskLevelForSheetPreview(
-        risk,
-        RISK_UNSET,
-        risksQuery.data,
-      ),
-      roi: computeRoiFromCostGain(numOrUndef(cost), numOrUndef(gain)),
-    });
+  const bvEff = effectiveNumFromFormOrSheet(bv, sheet.businessValueScore);
+  const saEff = effectiveNumFromFormOrSheet(sa, sheet.strategicAlignment);
+  const usEff = effectiveNumFromFormOrSheet(us, sheet.urgencyScore);
+  const costEff = effectiveNumFromFormOrSheet(cost, sheet.estimatedCost);
+  const gainEff = effectiveNumFromFormOrSheet(gain, sheet.estimatedGain);
+  const roiEff = computeRoiFromCostGain(costEff, gainEff);
 
-  const decision = cockpitDecision(sheet, priorityScoreDisplayed);
-  const missingCritical = cockpitMissingLinesFromForm({
-    cost: numOrUndef(cost),
-    gain: numOrUndef(gain),
-    bv: numOrUndef(bv),
-    sa: numOrUndef(sa),
-    us: numOrUndef(us),
-    problem,
+  /** Aperçu : scores effectifs (formulaire + repli fiche). */
+  const priorityScorePreview = computeProjectSheetPriorityScorePreview({
+    businessValueScore: bvEff,
+    strategicAlignment: saEff,
+    urgencyScore: usEff,
+    effectiveRiskLevel: effectiveRiskLevelForSheetPreview(
+      risk,
+      RISK_UNSET,
+      risksQuery.data,
+    ),
+    roi: roiEff,
   });
-  const costOrGainMissing =
-    sheet.estimatedCost == null || sheet.estimatedGain == null;
-  const roiHint = costOrGainMissing
-    ? 'ROI non calculable (coût ou gain manquant)'
-    : sheet.roi == null
-      ? 'ROI non calculable (coût nul ou données insuffisantes)'
-      : null;
+  const priorityScoreDisplayed =
+    priorityScorePreview !== null ? priorityScorePreview : sheet.priorityScore ?? null;
+
+  const problemFilled =
+    Boolean(problem.trim()) || Boolean(sheet.businessProblem?.trim());
+  const missingCritical = cockpitMissingLinesFromForm({
+    cost: costEff,
+    bv: bvEff,
+    sa: saEff,
+    us: usEff,
+    problemFilled,
+  });
+  const roiDisplayed = roiEff ?? sheet.roi ?? null;
+  const roiHint =
+    costEff === undefined
+      ? 'ROI non calculable (coût manquant)'
+      : gainEff === undefined
+        ? 'Sans gain financier : pas de ROI — la priorité suit les critères valeur (ROE)'
+        : roiEff == null && sheet.roi == null
+          ? 'ROI non calculable (coût nul ou données insuffisantes)'
+          : null;
 
   return (
     <div className="space-y-6">
@@ -564,13 +595,20 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           </div>
 
           <div className="border-t border-border pt-6">
+            <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+              Indicateurs de lecture :{' '}
+              <span className="font-medium text-foreground">ROI financier</span> (tuile 1),{' '}
+              <span className="font-medium text-foreground">score de priorité</span> (tuile 2),{' '}
+              <span className="font-medium text-foreground">ROE</span> (tuile 3). Pas de GO automatique
+              — la recommandation COPIL / COPRO (tuile 4) s’enregistre automatiquement à la sélection.
+            </p>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  1. ROI
+                  1. ROI financier
                 </p>
                 <p className="mt-2 flex items-center gap-1.5 text-2xl font-semibold tabular-nums">
-                  {fmtRoi(sheet.roi)}
+                  {fmtRoi(roiDisplayed)}
                   {roiHint ? (
                     <span className="inline-flex" title={roiHint}>
                       <Info className="size-4 text-muted-foreground" aria-hidden />
@@ -578,10 +616,18 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                   ) : null}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {sheet.roi != null
-                    ? '(Gain − coût) / coût — calcul serveur'
+                  {roiDisplayed != null
+                    ? roiEff != null
+                      ? '(Gain − coût) / coût — coût & gain (champs ou fiche)'
+                      : '(Gain − coût) / coût — calcul serveur'
                     : roiHint ?? ''}
                 </p>
+                {roiDisplayed != null ? (
+                  <p className="mt-2 border-t border-border/60 pt-2 text-[11px] leading-snug text-muted-foreground">
+                    Le ROE (tuile 3) et le risque sont aussi pris en compte dans le score de priorité
+                    (tuile 2).
+                  </p>
+                ) : null}
               </div>
               <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -599,31 +645,71 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               </div>
               <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  3. Critères valeur
+                  3. ROE — critères valeur
+                </p>
+                <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                  Retour sur engagement : scores 1–5, pondérés avec le ROI et le risque dans la
+                  priorité (tuile 2).
                 </p>
                 <div className="mt-2 space-y-1.5 text-sm">
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Valeur</span>
-                    <span className="font-medium tabular-nums">{scoreOutOf5(sheet.businessValueScore)}</span>
+                    <span className="font-medium tabular-nums">{scoreOutOf5(bvEff)}</span>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Alignement</span>
-                    <span className="font-medium tabular-nums">{scoreOutOf5(sheet.strategicAlignment)}</span>
+                    <span className="font-medium tabular-nums">{scoreOutOf5(saEff)}</span>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Urgence</span>
-                    <span className="font-medium tabular-nums">{scoreOutOf5(sheet.urgencyScore)}</span>
+                    <span className="font-medium tabular-nums">{scoreOutOf5(usEff)}</span>
                   </div>
                 </div>
               </div>
               <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  4. Recommandation
+                  4. Recommandation COPIL / COPRO
                 </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge className={decision.badgeClassName}>{decision.badge}</Badge>
+                <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                  Choix du collège (copilotage / coprojet), distinct des indicateurs ci-contre. Aucun
+                  verdict automatique — vous sélectionnez la position retenue.
+                </p>
+                <div className="mt-3 space-y-2">
+                  <Label htmlFor="copil-rec" className="text-xs font-normal text-muted-foreground">
+                    Position retenue
+                  </Label>
+                  <Select
+                    value={copilDraft}
+                    onValueChange={(v) => {
+                      const next = v as ProjectCopilRecommendation;
+                      const prev = copilDraft;
+                      if (next === prev) return;
+                      setCopilDraft(next);
+                      copilSaveMutation.mutate(next, {
+                        onError: () => setCopilDraft(prev),
+                      });
+                    }}
+                    disabled={!canEdit || copilSaveMutation.isPending}
+                  >
+                    <SelectTrigger
+                      id="copil-rec"
+                      className="w-full text-left"
+                      aria-busy={copilSaveMutation.isPending}
+                    >
+                      <SelectValue>{COPIL_LABEL[copilDraft]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(COPIL_LABEL) as ProjectCopilRecommendation[]).map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {COPIL_LABEL[k]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Enregistrement automatique à la sélection.
+                  </p>
                 </div>
-                <p className="mt-2 text-xs leading-snug text-muted-foreground">{decision.message}</p>
               </div>
             </div>
           </div>
@@ -671,11 +757,13 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             {canEdit ? (
               <Button
                 type="button"
-                className="mt-3"
-                variant="secondary"
+                variant="default"
+                size="sm"
+                className="mt-3 w-full gap-1.5 sm:w-auto"
                 disabled={arbitrationMutation.isPending}
                 onClick={() => arbitrationMutation.mutate(arbDraft)}
               >
+                <Check className="size-4 shrink-0" aria-hidden />
                 {arbitrationMutation.isPending ? 'Application…' : 'Appliquer le statut'}
               </Button>
             ) : null}
@@ -939,12 +1027,27 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               />
             </div>
             <div className="space-y-2">
-              <div>
-                <Label htmlFor="gain">Gain estimé</Label>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Ne s&apos;applique pas à tous les cas — laisser vide si sans objet.
-                </p>
-              </div>
+              <TooltipProvider delay={200}>
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="gain">Gain estimé</Label>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          className="inline-flex shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          aria-label="Aide : gain estimé"
+                        />
+                      }
+                    >
+                      <Info className="size-3.5" aria-hidden />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      Ne s&apos;applique pas à tous les cas — laisser vide si sans objet.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
               <Input
                 id="gain"
                 type="number"
@@ -1053,7 +1156,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                               className={cn(
                                 'cursor-help',
                                 crit === 'LOW' &&
-                                  'border-emerald-500/50 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
+                                  'border-emerald-600/45 bg-emerald-500/10 text-emerald-950 dark:text-emerald-500',
                                 crit === 'MEDIUM' &&
                                   'border-amber-500/50 bg-amber-500/10 text-amber-950 dark:text-amber-600',
                                 crit === 'HIGH' &&
@@ -1196,7 +1299,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-0 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] p-4 shadow-sm dark:bg-emerald-500/10">
               <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-emerald-500/20 pb-2">
-                <span className="text-lg font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+                <span className="text-lg font-bold tabular-nums text-emerald-950 dark:text-emerald-500">
                   S
                 </span>
                 <span className="font-semibold text-foreground">Forces</span>
@@ -1292,7 +1395,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             {/* Ligne S — SO | ST */}
             <div className="space-y-0 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4 shadow-sm dark:bg-emerald-500/10">
               <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-emerald-500/25 pb-2">
-                <span className="text-lg font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+                <span className="text-lg font-bold tabular-nums text-emerald-950 dark:text-emerald-500">
                   SO
                 </span>
                 <span className="font-semibold text-foreground">Accélérer</span>
@@ -1370,6 +1473,93 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* H — Rétroplanning macro (jalons) */}
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="text-base">H. Rétroplanning macro</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Jalons du projet (chronologie) — générables par rétroplan à partir d&apos;une date de fin et
+            d&apos;écarts en jours.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {milestonesQuery.isLoading ? (
+            <LoadingState rows={3} />
+          ) : milestonesSorted.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Aucun jalon — les jalons créés ici ou depuis le détail projet apparaissent dans ce
+              planning.
+            </p>
+          ) : (
+            <div className="max-h-[min(24rem,55vh)] overflow-y-auto rounded-lg border border-border/60 bg-muted/10 px-3 py-4 sm:px-4">
+              <ol className="list-none space-y-0 p-0" aria-label="Ligne de temps des jalons">
+                {milestonesSorted.map((m, idx) => (
+                  <li key={m.id} className="flex gap-3">
+                    <div className="flex w-4 shrink-0 flex-col items-center pt-1">
+                      <span
+                        className="size-3.5 shrink-0 rounded-full border-2 border-primary bg-background shadow-sm ring-2 ring-background"
+                        aria-hidden
+                      />
+                      {idx < milestonesSorted.length - 1 ? (
+                        <span
+                          className="mt-2 block min-h-[2.75rem] w-px shrink-0 bg-border"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </div>
+                    <div
+                      className={cn(
+                        'min-w-0 flex-1 pb-6',
+                        idx === milestonesSorted.length - 1 && 'pb-0',
+                      )}
+                    >
+                      <time
+                        dateTime={m.targetDate}
+                        className="block text-xs font-medium tabular-nums text-muted-foreground"
+                      >
+                        {formatMilestoneDate(m.targetDate)}
+                      </time>
+                      <p className="mt-1 font-medium leading-snug text-foreground">{m.name}</p>
+                      <Badge variant="outline" className="mt-2 text-xs font-normal">
+                        {MILESTONE_STATUS_LABEL[m.status] ?? m.status}
+                      </Badge>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Assistant : plusieurs jalons en une fois à partir d&apos;une date de fin et de jours
+              avant cette fin.
+            </p>
+            {canEdit ? (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="w-full gap-1.5 sm:w-auto"
+                onClick={() => setRetroplanOpen(true)}
+              >
+                <Pencil className="size-4 shrink-0" aria-hidden />
+                Éditer
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">Lecture seule — pas de création.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <ProjectRetroplanMacroDialog
+        projectId={projectId}
+        defaultAnchorDate={sheet.targetEndDate}
+        open={retroplanOpen}
+        onOpenChange={setRetroplanOpen}
+      />
 
       {canEdit && (
         <div className="flex justify-end">

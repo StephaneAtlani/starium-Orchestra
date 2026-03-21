@@ -16,8 +16,9 @@ import { ProjectsService } from './projects.service';
 @Module({
   imports: [PrismaModule, AuditLogsModule],
   controllers: [
-    ProjectsController,
+    /** Routes `projects/:id/...` (ex. project-sheet) avant `projects/:id` pour éviter les collisions de matching. */
     ProjectSheetController,
+    ProjectsController,
     ProjectTasksController,
     ProjectRisksController,
     ProjectMilestonesController,

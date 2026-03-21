@@ -1,9 +1,11 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
 import type {
+  CreateRetroplanMacroPayload,
   ProjectArbitrationStatus,
   ProjectAssignableUser,
   ProjectDetail,
+  ProjectMilestoneApi,
   ProjectRiskApi,
   ProjectSheet,
   ProjectsListResponse,
@@ -149,6 +151,20 @@ export async function listMilestones(authFetch: AuthFetch, projectId: string) {
   const res = await authFetch(`${BASE}/${projectId}/milestones`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<unknown[]>;
+}
+
+export async function createRetroplanMacro(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: CreateRetroplanMacroPayload,
+): Promise<ProjectMilestoneApi[]> {
+  const res = await authFetch(`${BASE}/${projectId}/milestones/retroplan-macro`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectMilestoneApi[]>;
 }
 
 export async function getProjectSheet(

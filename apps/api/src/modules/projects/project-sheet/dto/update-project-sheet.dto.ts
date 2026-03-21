@@ -14,7 +14,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { ProjectRiskLevel } from '@prisma/client';
+import { ProjectCopilRecommendation, ProjectRiskLevel } from '@prisma/client';
 import { TowsActionsPatchDto } from './tows-actions.dto';
 
 /** Trim + retire les entrées vides ; [] reste []. */
@@ -104,6 +104,11 @@ export class UpdateProjectSheetDto {
   @IsOptional()
   @IsEnum(ProjectRiskLevel)
   riskLevel?: ProjectRiskLevel;
+
+  /** Recommandation COPIL / COPRO (saisie humaine, non dérivée des indicateurs). */
+  @IsOptional()
+  @IsEnum(ProjectCopilRecommendation)
+  copilRecommendation?: ProjectCopilRecommendation;
 
   /** Description courte du projet (champ `Project.description`) */
   @IsOptional()

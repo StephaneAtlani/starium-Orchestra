@@ -11,6 +11,7 @@ import {
   MinLength,
 } from 'class-validator';
 import {
+  ProjectCopilRecommendation,
   ProjectCriticality,
   ProjectPriority,
   ProjectStatus,
@@ -87,4 +88,9 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsString()
   pilotNotes?: string;
+
+  /** Fiche projet — recommandation COPIL/COPRO (acceptée aussi sur PATCH /projects/:id pour alignement clients). */
+  @IsOptional()
+  @IsEnum(ProjectCopilRecommendation)
+  copilRecommendation?: ProjectCopilRecommendation;
 }

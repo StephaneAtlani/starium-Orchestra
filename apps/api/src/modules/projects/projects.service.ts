@@ -463,6 +463,9 @@ export class ProjectsService {
     if (dto.pilotNotes !== undefined) {
       data.pilotNotes = dto.pilotNotes?.trim() ?? null;
     }
+    if (dto.copilRecommendation !== undefined) {
+      data.copilRecommendation = dto.copilRecommendation;
+    }
 
     const updated = await this.prisma.project.update({
       where: { id },

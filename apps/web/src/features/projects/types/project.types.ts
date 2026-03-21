@@ -107,6 +107,17 @@ export type ProjectMilestoneApi = {
   status: string;
 };
 
+/** POST /projects/:id/milestones/retroplan-macro */
+export type RetroplanMacroStepInput = {
+  name: string;
+  daysBeforeEnd: number;
+};
+
+export type CreateRetroplanMacroPayload = {
+  anchorEndDate: string;
+  steps: RetroplanMacroStepInput[];
+};
+
 /** RFC-PROJ-010 — liaisons budget */
 export type ProjectBudgetAllocationType = 'FULL' | 'PERCENTAGE' | 'FIXED';
 
@@ -156,6 +167,15 @@ export type ProjectArbitrationStatus =
   | 'VALIDATED'
   | 'REJECTED';
 
+/** Recommandation saisie par le COPIL / COPRO (RFC-PROJ-012) */
+export type ProjectCopilRecommendation =
+  | 'NOT_SET'
+  | 'POURSUIVRE'
+  | 'NE_PAS_ENGAGER'
+  | 'SOUS_RESERVE'
+  | 'REPORTER'
+  | 'AJUSTER_CADRAGE';
+
 export type ProjectSheetRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export type TowsActionsPayload = {
@@ -188,6 +208,7 @@ export type ProjectSheet = {
   riskLevel: ProjectSheetRiskLevel | null;
   priorityScore: number | null;
   arbitrationStatus: ProjectArbitrationStatus | null;
+  copilRecommendation: ProjectCopilRecommendation;
   businessProblem: string | null;
   businessBenefits: string | null;
   businessSuccessKpis: string[];
@@ -216,6 +237,7 @@ export type UpdateProjectSheetPayload = {
   estimatedCost?: number;
   estimatedGain?: number;
   riskLevel?: ProjectSheetRiskLevel;
+  copilRecommendation?: ProjectCopilRecommendation;
   businessProblem?: string;
   businessBenefits?: string;
   businessSuccessKpis?: string[];

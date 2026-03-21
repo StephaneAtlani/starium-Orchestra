@@ -1,5 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, Project, ProjectRisk, ProjectRiskLevel } from '@prisma/client';
+import {
+  Prisma,
+  Project,
+  ProjectCopilRecommendation,
+  ProjectRisk,
+  ProjectRiskLevel,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import type { AuditContext } from '../../budget-management/types/audit-context';
@@ -55,6 +61,7 @@ export type ProjectSheetResponseDto = {
   riskLevel: string | null;
   priorityScore: number | null;
   arbitrationStatus: string | null;
+  copilRecommendation: string;
   businessProblem: string | null;
   businessBenefits: string | null;
   businessSuccessKpis: string[];
@@ -157,6 +164,7 @@ export class ProjectSheetService {
       riskLevel: effectiveRiskLevel,
       priorityScore: decimalToNumber(priorityScoreForResponse),
       arbitrationStatus: p.arbitrationStatus ?? null,
+      copilRecommendation: p.copilRecommendation,
       businessProblem: p.businessProblem ?? null,
       businessBenefits: p.businessBenefits ?? null,
       businessSuccessKpis: parseJsonStringArray(p.businessSuccessKpis) ?? [],
@@ -230,6 +238,7 @@ export class ProjectSheetService {
       roi,
       riskLevel: merged.riskLevel,
       priorityScore,
+      copilRecommendation: merged.copilRecommendation,
       businessProblem: merged.businessProblem,
       businessBenefits: merged.businessBenefits,
       businessSuccessKpis:
@@ -359,6 +368,7 @@ export class ProjectSheetService {
     estimatedCost: Prisma.Decimal | null;
     estimatedGain: Prisma.Decimal | null;
     riskLevel: Project['riskLevel'];
+    copilRecommendation: ProjectCopilRecommendation;
     businessProblem: string | null;
     businessBenefits: string | null;
     businessSuccessKpis: string[] | null;
@@ -388,6 +398,10 @@ export class ProjectSheetService {
         : project.estimatedGain;
     const riskLevel =
       dto.riskLevel !== undefined ? dto.riskLevel : project.riskLevel;
+    const copilRecommendation =
+      dto.copilRecommendation !== undefined
+        ? dto.copilRecommendation
+        : project.copilRecommendation;
 
     const name =
       dto.name !== undefined
@@ -484,6 +498,7 @@ export class ProjectSheetService {
       estimatedCost,
       estimatedGain,
       riskLevel,
+      copilRecommendation,
       businessProblem,
       businessBenefits,
       businessSuccessKpis,

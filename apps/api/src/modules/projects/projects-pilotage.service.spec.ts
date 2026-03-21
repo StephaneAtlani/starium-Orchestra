@@ -1,4 +1,5 @@
 import {
+  ProjectCopilRecommendation,
   ProjectCriticality,
   ProjectKind,
   ProjectPriority,
@@ -47,6 +48,7 @@ describe('ProjectsPilotageService', () => {
     riskLevel: null,
     priorityScore: null,
     arbitrationStatus: null,
+    copilRecommendation: ProjectCopilRecommendation.NOT_SET,
     businessProblem: null,
     businessBenefits: null,
     businessSuccessKpis: null,

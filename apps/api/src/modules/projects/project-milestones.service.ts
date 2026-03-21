@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
@@ -12,7 +12,12 @@ import {
 } from './project-audit-serialize';
 import { ProjectsService } from './projects.service';
 import { CreateProjectMilestoneDto } from './dto/create-project-milestone.dto';
+import { CreateRetroplanMacroDto } from './dto/create-retroplan-macro.dto';
 import { UpdateProjectMilestoneDto } from './dto/update-project-milestone.dto';
+import {
+  parseIsoDateOnly,
+  subtractCalendarDaysFromUtcNoon,
+} from './lib/project-retroplan-macro.util';
 
 @Injectable()
 export class ProjectMilestonesService {
@@ -60,6 +65,61 @@ export class ProjectMilestonesService {
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     });
+
+    return created;
+  }
+
+  /**
+   * Crée plusieurs jalons à partir d’une date de fin et d’écarts en jours avant cette fin
+   * (rétroplanning macro). Chaque jalon est persisté comme un `ProjectMilestone` standard.
+   */
+  async createRetroplanMacro(
+    clientId: string,
+    projectId: string,
+    dto: CreateRetroplanMacroDto,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+
+    let anchor: Date;
+    try {
+      anchor = parseIsoDateOnly(dto.anchorEndDate);
+    } catch {
+      throw new BadRequestException('Invalid anchorEndDate');
+    }
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const rows = [];
+      for (const step of dto.steps) {
+        const targetDate = subtractCalendarDaysFromUtcNoon(anchor, step.daysBeforeEnd);
+        const row = await tx.projectMilestone.create({
+          data: {
+            clientId,
+            projectId,
+            name: step.name.trim(),
+            targetDate,
+            actualDate: null,
+            status: 'PLANNED',
+          },
+        });
+        rows.push(row);
+      }
+      return rows;
+    });
+
+    for (const row of created) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_MILESTONE_CREATED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_MILESTONE,
+        resourceId: row.id,
+        newValue: projectMilestoneEntityAuditSnapshot(row),
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
+    }
 
     return created;
   }

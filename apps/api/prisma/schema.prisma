@@ -319,6 +319,16 @@ enum ProjectArbitrationStatus {
   REJECTED
 }
 
+/** Recommandation saisie par le COPIL / COPRO (pas dérivée automatiquement des indicateurs). */
+enum ProjectCopilRecommendation {
+  NOT_SET
+  POURSUIVRE
+  NE_PAS_ENGAGER
+  SOUS_RESERVE
+  REPORTER
+  AJUSTER_CADRAGE
+}
+
 model Project {
   id        String  @id @default(cuid())
   clientId  String
@@ -354,6 +364,7 @@ model Project {
   riskLevel         ProjectRiskLevel?
   priorityScore     Decimal? @db.Decimal(5, 2)
   arbitrationStatus ProjectArbitrationStatus?
+  copilRecommendation ProjectCopilRecommendation @default(NOT_SET)
 
   /// Cadrage OQQCQPC (fiche projet)
   cadreLocation String? @db.VarChar(500)

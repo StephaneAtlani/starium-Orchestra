@@ -18,6 +18,7 @@ import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import { CreateProjectMilestoneDto } from './dto/create-project-milestone.dto';
+import { CreateRetroplanMacroDto } from './dto/create-retroplan-macro.dto';
 import { UpdateProjectMilestoneDto } from './dto/update-project-milestone.dto';
 import { ProjectMilestonesService } from './project-milestones.service';
 
@@ -33,6 +34,19 @@ export class ProjectMilestonesController {
     @Param('projectId') projectId: string,
   ) {
     return this.milestonesService.list(clientId!, projectId);
+  }
+
+  @Post('retroplan-macro')
+  @RequirePermissions('projects.update')
+  createRetroplanMacro(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateRetroplanMacroDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.milestonesService.createRetroplanMacro(clientId!, projectId, dto, context);
   }
 
   @Post()
