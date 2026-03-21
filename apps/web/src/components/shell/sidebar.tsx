@@ -8,6 +8,8 @@ import { navigation } from '../../config/navigation';
 import type { NavigationItem } from '../../config/navigation';
 import { useAuth } from '../../context/auth-context';
 import { useActiveClient } from '../../hooks/use-active-client';
+import { usePermissions } from '../../hooks/use-permissions';
+import { PermissionGate } from '../PermissionGate';
 import { SidebarSection } from './sidebar-section';
 import { SidebarItem } from './sidebar-item';
 import {
@@ -17,11 +19,24 @@ import {
   useSidebarDropdownPanel,
 } from './sidebar-dropdown';
 
-function visible(item: NavigationItem, platformRole: string | null, clientRole: string | null): boolean {
+function visible(
+  item: NavigationItem,
+  platformRole: string | null,
+  clientRole: string | null,
+  has: (code: string) => boolean,
+  /** GET /me/permissions a réussi pour le client actif — sans ça on ne montre pas les entrées à permissions. */
+  permsSuccess: boolean,
+): boolean {
   if (item.platformOnly && platformRole !== 'PLATFORM_ADMIN') return false;
   if (item.clientAdminOnly && clientRole !== 'CLIENT_ADMIN') return false;
   if (item.allowedClientRoles != null) {
     if (clientRole == null || !item.allowedClientRoles.includes(clientRole)) return false;
+  }
+  if (item.requiredPermissions?.length) {
+    if (!permsSuccess) return false;
+    for (const code of item.requiredPermissions) {
+      if (!has(code)) return false;
+    }
   }
   return true;
 }
@@ -33,6 +48,7 @@ export function Sidebar() {
   const { panel, contextValue } = useSidebarDropdownPanel();
   const platformRole = user?.platformRole ?? null;
   const clientRole = activeClient?.role ?? null;
+  const { has, isSuccess: permsSuccess } = usePermissions();
 
   return (
     <aside className="starium-sidebar relative z-10 hidden h-full min-h-0 shrink-0 flex-col border-r border-white/10 md:flex">
@@ -46,7 +62,7 @@ export function Sidebar() {
         <nav className="starium-sidebar-nav min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
         {navigation.map((section) => {
           const items = section.items.filter((item) =>
-            visible(item, platformRole, clientRole),
+            visible(item, platformRole, clientRole, has, permsSuccess),
           );
           if (items.length === 0) return null;
           return (
@@ -107,13 +123,27 @@ export function Sidebar() {
                 }
 
                 if (item.href) {
-                  return (
+                  const link = (
                     <SidebarItem
-                      key={item.href}
                       label={item.label}
                       href={item.href}
                       icon={item.icon}
                     />
+                  );
+                  if (item.requiredPermissions?.length) {
+                    return (
+                      <PermissionGate
+                        key={item.href}
+                        permissions={item.requiredPermissions}
+                      >
+                        {link}
+                      </PermissionGate>
+                    );
+                  }
+                  return (
+                    <React.Fragment key={item.href}>
+                      {link}
+                    </React.Fragment>
                   );
                 }
 

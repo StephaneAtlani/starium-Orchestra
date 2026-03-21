@@ -16,7 +16,7 @@ export function SidebarItem({ label, href, icon: Icon }: SidebarItemProps) {
   const pathname = usePathname();
   const isActive =
     pathname === href ||
-    (href !== '/' && pathname?.startsWith(href) && !pathname?.startsWith(`${href}/`));
+    (href !== '/' && pathname != null && pathname.startsWith(`${href}/`));
 
   return (
     <Link

@@ -14,10 +14,6 @@
       "procurement.read",
       "procurement.create",
       "procurement.update",
-      "projects.read",
-      "projects.create",
-      "projects.update",
-      "projects.delete",
       "budgets.cost-centers.read",
       "budgets.cost-centers.create",
       "budgets.cost-centers.update",
@@ -37,11 +33,19 @@
       "budgets.create",
       "procurement.read",
       "procurement.create",
-      "projects.read",
-      "projects.create",
       "budgets.cost-centers.read",
       "budgets.general-ledger-accounts.read",
       "budgets.analytical-ledger-accounts.read"
+    ]
+  },
+  {
+    "name": "Chef de projet",
+    "description": "Pilotage complet du portefeuille projets (CRUD, tâches, risques, jalons)",
+    "permissionCodes": [
+      "projects.read",
+      "projects.create",
+      "projects.update",
+      "projects.delete"
     ]
   },
   {

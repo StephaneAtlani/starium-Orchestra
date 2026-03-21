@@ -8,15 +8,16 @@ import { projectQueryKeys } from '../lib/project-query-keys';
 
 const STALE = 30_000;
 
-export function usePortfolioSummaryQuery() {
+export function usePortfolioSummaryQuery(options?: { enabled?: boolean }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+  const allow = options?.enabled !== false;
 
   return useQuery({
     queryKey: projectQueryKeys.summary(clientId),
     queryFn: () => getPortfolioSummary(authFetch),
-    enabled: !!clientId,
+    enabled: !!clientId && allow,
     staleTime: STALE,
   });
 }
