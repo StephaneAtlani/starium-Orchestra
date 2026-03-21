@@ -11,37 +11,37 @@ function validate(dto: UpdateProjectSheetDto) {
 }
 
 describe('UpdateProjectSheetDto — SWOT/TOWS', () => {
-  it('rejette SWOT > 3 éléments', () => {
+  it('rejette SWOT > 200 éléments', () => {
     const dto = plainToInstance(UpdateProjectSheetDto, {
-      swotStrengths: ['a', 'b', 'c', 'd'],
+      swotStrengths: Array.from({ length: 201 }, (_, i) => `s${i}`),
     });
     expect(validate(dto).length).toBeGreaterThan(0);
   });
 
-  it('accepte SWOT ≤ 3', () => {
+  it('accepte SWOT liste longue (≤ 200)', () => {
     const dto = plainToInstance(UpdateProjectSheetDto, {
-      swotStrengths: ['a', 'b', 'c'],
+      swotStrengths: ['a', 'b', 'c', 'd'],
     });
     expect(validate(dto)).toHaveLength(0);
   });
 
-  it('rejette SWOT vide si fourni', () => {
+  it('accepte SWOT [] (effacement)', () => {
     const dto = plainToInstance(UpdateProjectSheetDto, {
       swotStrengths: [],
     });
-    expect(validate(dto).length).toBeGreaterThan(0);
+    expect(validate(dto)).toHaveLength(0);
   });
 
-  it('rejette TOWS > 2 par quadrant', () => {
+  it('rejette TOWS > 200 par quadrant', () => {
     const dto = plainToInstance(UpdateProjectSheetDto, {
-      towsActions: { SO: ['a', 'b', 'c'] },
+      towsActions: { SO: Array.from({ length: 201 }, (_, i) => `x${i}`) },
     });
     expect(validate(dto).length).toBeGreaterThan(0);
   });
 
-  it('accepte TOWS ≤ 2 par quadrant', () => {
+  it('accepte TOWS plusieurs lignes par quadrant', () => {
     const dto = plainToInstance(UpdateProjectSheetDto, {
-      towsActions: { SO: ['x', 'y'], WT: ['z'] },
+      towsActions: { SO: ['x', 'y', 'z'], WT: ['a', 'b'] },
     });
     expect(validate(dto)).toHaveLength(0);
   });

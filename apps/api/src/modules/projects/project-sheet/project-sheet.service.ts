@@ -319,19 +319,27 @@ export class ProjectSheetService {
 
     const swotStrengths =
       dto.swotStrengths !== undefined
-        ? dto.swotStrengths
+        ? dto.swotStrengths.length > 0
+          ? dto.swotStrengths
+          : null
         : parseJsonStringArray(project.swotStrengths);
     const swotWeaknesses =
       dto.swotWeaknesses !== undefined
-        ? dto.swotWeaknesses
+        ? dto.swotWeaknesses.length > 0
+          ? dto.swotWeaknesses
+          : null
         : parseJsonStringArray(project.swotWeaknesses);
     const swotOpportunities =
       dto.swotOpportunities !== undefined
-        ? dto.swotOpportunities
+        ? dto.swotOpportunities.length > 0
+          ? dto.swotOpportunities
+          : null
         : parseJsonStringArray(project.swotOpportunities);
     const swotThreats =
       dto.swotThreats !== undefined
-        ? dto.swotThreats
+        ? dto.swotThreats.length > 0
+          ? dto.swotThreats
+          : null
         : parseJsonStringArray(project.swotThreats);
 
     const towsActions = this.mergeTows(project, dto);

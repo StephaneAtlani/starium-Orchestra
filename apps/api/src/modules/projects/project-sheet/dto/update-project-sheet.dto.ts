@@ -1,7 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
-  ArrayMinSize,
   IsArray,
   IsEnum,
   IsInt,
@@ -16,7 +15,7 @@ import {
 import { ProjectRiskLevel } from '@prisma/client';
 import { TowsActionsPatchDto } from './tows-actions.dto';
 
-/** Trim + retire les entrées vides ; [] devient [] (rejeté par ArrayMinSize(1) si champ fourni). */
+/** Trim + retire les entrées vides ; [] reste []. */
 function trimStringArray() {
   return Transform(({ value }) => {
     if (value === undefined || value === null) return undefined;
@@ -109,33 +108,33 @@ export class UpdateProjectSheetDto {
   @IsOptional()
   @trimStringArray()
   @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(200)
   @IsString({ each: true })
+  @MaxLength(5000, { each: true })
   swotStrengths?: string[];
 
   @IsOptional()
   @trimStringArray()
   @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(200)
   @IsString({ each: true })
+  @MaxLength(5000, { each: true })
   swotWeaknesses?: string[];
 
   @IsOptional()
   @trimStringArray()
   @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(200)
   @IsString({ each: true })
+  @MaxLength(5000, { each: true })
   swotOpportunities?: string[];
 
   @IsOptional()
   @trimStringArray()
   @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(200)
   @IsString({ each: true })
+  @MaxLength(5000, { each: true })
   swotThreats?: string[];
 
   @IsOptional()

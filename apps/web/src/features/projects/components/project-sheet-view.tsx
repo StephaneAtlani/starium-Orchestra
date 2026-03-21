@@ -38,7 +38,6 @@ import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import type {
   ProjectArbitrationStatus,
   ProjectSheetRiskLevel,
-  TowsActionsPayload,
   UpdateProjectSheetPayload,
 } from '../types/project.types';
 
@@ -66,26 +65,78 @@ const ARBITRATION_RECOMMENDATION: Record<ProjectArbitrationStatus, string> = {
 /** Valeur Select stable (évite uncontrolled → controlled si `undefined` au 1er rendu) */
 const RISK_UNSET = '__unset__';
 
-function pad3(arr: string[]): [string, string, string] {
-  const a = [...arr];
-  while (a.length < 3) a.push('');
-  return [(a[0] ?? '').slice(0, 2000), (a[1] ?? '').slice(0, 2000), (a[2] ?? '').slice(0, 2000)];
+/** Une ligne vide minimum en formulaire ; données API → lignes éditables */
+function linesForForm(arr: string[] | undefined): string[] {
+  if (!arr?.length) return [''];
+  return arr.map((s) => s.slice(0, 5000));
 }
 
-function from3(s0: string, s1: string, s2: string): string[] | undefined {
-  const o = [s0, s1, s2].map((x) => x.trim()).filter(Boolean);
-  return o.length ? o.slice(0, 3) : undefined;
+function trimLinesToPayload(lines: string[]): string[] {
+  return lines.map((s) => s.trim()).filter(Boolean);
 }
 
-function pad2(arr: string[]): [string, string] {
-  const a = [...arr];
-  while (a.length < 2) a.push('');
-  return [(a[0] ?? '').slice(0, 2000), (a[1] ?? '').slice(0, 2000)];
-}
-
-function from2(s0: string, s1: string): string[] | undefined {
-  const o = [s0, s1].map((x) => x.trim()).filter(Boolean);
-  return o.length ? o.slice(0, 2) : undefined;
+function DynamicLinesField({
+  lines,
+  onLinesChange,
+  canEdit,
+  placeholder,
+  inputClassName,
+}: {
+  lines: string[];
+  onLinesChange: (next: string[]) => void;
+  canEdit: boolean;
+  placeholder: (index: number) => string;
+  inputClassName?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      {lines.map((line, i) => (
+        <div key={i} className="flex gap-2">
+          <Input
+            className={cn('min-w-0 flex-1', inputClassName)}
+            disabled={!canEdit}
+            value={line}
+            placeholder={placeholder(i)}
+            onChange={(e) => {
+              const next = [...lines];
+              next[i] = e.target.value;
+              onLinesChange(next);
+            }}
+          />
+          {canEdit && lines.length > 1 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0 text-muted-foreground hover:text-destructive"
+              aria-label={`Supprimer la ligne ${i + 1}`}
+              onClick={() =>
+                onLinesChange(
+                  lines.filter((_, j) => j !== i).length
+                    ? lines.filter((_, j) => j !== i)
+                    : [''],
+                )
+              }
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          ) : null}
+        </div>
+      ))}
+      {canEdit ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto"
+          onClick={() => onLinesChange([...lines, ''])}
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          Ajouter une ligne
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 function numOrUndef(s: string): number | undefined {
@@ -123,15 +174,15 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const [benefits, setBenefits] = useState('');
   const [kpiLines, setKpiLines] = useState<string[]>(['']);
 
-  const [swS, setSwS] = useState(['', '', '']);
-  const [swW, setSwW] = useState(['', '', '']);
-  const [swO, setSwO] = useState(['', '', '']);
-  const [swT, setSwT] = useState(['', '', '']);
+  const [swS, setSwS] = useState<string[]>(['']);
+  const [swW, setSwW] = useState<string[]>(['']);
+  const [swO, setSwO] = useState<string[]>(['']);
+  const [swT, setSwT] = useState<string[]>(['']);
 
-  const [tSO, setTSO] = useState(['', '']);
-  const [tST, setTST] = useState(['', '']);
-  const [tWO, setTWO] = useState(['', '']);
-  const [tWT, setTWT] = useState(['', '']);
+  const [tSO, setTSO] = useState<string[]>(['']);
+  const [tST, setTST] = useState<string[]>(['']);
+  const [tWO, setTWO] = useState<string[]>(['']);
+  const [tWT, setTWT] = useState<string[]>(['']);
 
   useEffect(() => {
     if (!sheet) return;
@@ -147,15 +198,15 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     setBenefits(sheet.businessBenefits ?? '');
     const kpis = sheet.businessSuccessKpis?.filter(Boolean) ?? [];
     setKpiLines(kpis.length ? kpis : ['']);
-    setSwS(pad3(sheet.swotStrengths ?? []));
-    setSwW(pad3(sheet.swotWeaknesses ?? []));
-    setSwO(pad3(sheet.swotOpportunities ?? []));
-    setSwT(pad3(sheet.swotThreats ?? []));
+    setSwS(linesForForm(sheet.swotStrengths));
+    setSwW(linesForForm(sheet.swotWeaknesses));
+    setSwO(linesForForm(sheet.swotOpportunities));
+    setSwT(linesForForm(sheet.swotThreats));
     const t = sheet.towsActions;
-    setTSO(pad2(t?.SO ?? []));
-    setTST(pad2(t?.ST ?? []));
-    setTWO(pad2(t?.WO ?? []));
-    setTWT(pad2(t?.WT ?? []));
+    setTSO(linesForForm(t?.SO));
+    setTST(linesForForm(t?.ST));
+    setTWO(linesForForm(t?.WO));
+    setTWT(linesForForm(t?.WT));
   }, [sheet]);
 
   const saveMutation = useMutation({
@@ -178,24 +229,16 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       if (problem.trim()) payload.businessProblem = problem.trim();
       if (benefits.trim()) payload.businessBenefits = benefits.trim();
       payload.businessSuccessKpis = kpiLines.map((s) => s.trim()).filter(Boolean);
-      const aS = from3(swS[0], swS[1], swS[2]);
-      const aW = from3(swW[0], swW[1], swW[2]);
-      const aO = from3(swO[0], swO[1], swO[2]);
-      const aT = from3(swT[0], swT[1], swT[2]);
-      if (aS) payload.swotStrengths = aS;
-      if (aW) payload.swotWeaknesses = aW;
-      if (aO) payload.swotOpportunities = aO;
-      if (aT) payload.swotThreats = aT;
-      const tows: TowsActionsPayload = {};
-      const so = from2(tSO[0], tSO[1]);
-      const st = from2(tST[0], tST[1]);
-      const wo = from2(tWO[0], tWO[1]);
-      const wt = from2(tWT[0], tWT[1]);
-      if (so) tows.SO = so;
-      if (st) tows.ST = st;
-      if (wo) tows.WO = wo;
-      if (wt) tows.WT = wt;
-      if (Object.keys(tows).length > 0) payload.towsActions = tows;
+      payload.swotStrengths = trimLinesToPayload(swS);
+      payload.swotWeaknesses = trimLinesToPayload(swW);
+      payload.swotOpportunities = trimLinesToPayload(swO);
+      payload.swotThreats = trimLinesToPayload(swT);
+      payload.towsActions = {
+        SO: trimLinesToPayload(tSO),
+        ST: trimLinesToPayload(tST),
+        WO: trimLinesToPayload(tWO),
+        WT: trimLinesToPayload(tWT),
+      };
       return updateProjectSheet(authFetch, projectId, payload);
     },
     onSuccess: () => {
@@ -626,7 +669,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
         <CardHeader>
           <CardTitle className="text-base">F. Analyse stratégique (SWOT)</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Matrice : interne / externe × favorable / défavorable — max. 3 points par quadrant
+            Matrice : interne / externe × favorable / défavorable — lignes libres par quadrant
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -644,23 +687,14 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 <span className="font-semibold text-foreground">Forces</span>
                 <span className="text-xs text-muted-foreground">Interne</span>
               </div>
-              <div className="space-y-2">
-                <Label className="sr-only">Forces — points</Label>
-                {[0, 1, 2].map((i) => (
-                  <Input
-                    key={i}
-                    disabled={!canEdit}
-                    className="border-emerald-500/20 bg-background/80"
-                    value={swS[i]}
-                    onChange={(e) => {
-                      const next = [...swS] as [string, string, string];
-                      next[i] = e.target.value;
-                      setSwS(next);
-                    }}
-                    placeholder={`Atout ${i + 1}`}
-                  />
-                ))}
-              </div>
+              <Label className="sr-only">Forces — points</Label>
+              <DynamicLinesField
+                lines={swS}
+                onLinesChange={setSwS}
+                canEdit={canEdit}
+                placeholder={(i) => `Atout ${i + 1}`}
+                inputClassName="border-emerald-500/20 bg-background/80"
+              />
             </div>
 
             <div className="space-y-0 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4 shadow-sm dark:bg-amber-500/10">
@@ -671,23 +705,14 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 <span className="font-semibold text-foreground">Faiblesses</span>
                 <span className="text-xs text-muted-foreground">Interne</span>
               </div>
-              <div className="space-y-2">
-                <Label className="sr-only">Faiblesses — points</Label>
-                {[0, 1, 2].map((i) => (
-                  <Input
-                    key={i}
-                    disabled={!canEdit}
-                    className="border-amber-500/20 bg-background/80"
-                    value={swW[i]}
-                    onChange={(e) => {
-                      const next = [...swW] as [string, string, string];
-                      next[i] = e.target.value;
-                      setSwW(next);
-                    }}
-                    placeholder={`Limite ${i + 1}`}
-                  />
-                ))}
-              </div>
+              <Label className="sr-only">Faiblesses — points</Label>
+              <DynamicLinesField
+                lines={swW}
+                onLinesChange={setSwW}
+                canEdit={canEdit}
+                placeholder={(i) => `Limite ${i + 1}`}
+                inputClassName="border-amber-500/20 bg-background/80"
+              />
             </div>
 
             <div className="space-y-0 rounded-xl border border-sky-500/25 bg-sky-500/[0.07] p-4 shadow-sm dark:bg-sky-500/10">
@@ -698,23 +723,14 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 <span className="font-semibold text-foreground">Opportunités</span>
                 <span className="text-xs text-muted-foreground">Externe</span>
               </div>
-              <div className="space-y-2">
-                <Label className="sr-only">Opportunités — points</Label>
-                {[0, 1, 2].map((i) => (
-                  <Input
-                    key={i}
-                    disabled={!canEdit}
-                    className="border-sky-500/20 bg-background/80"
-                    value={swO[i]}
-                    onChange={(e) => {
-                      const next = [...swO] as [string, string, string];
-                      next[i] = e.target.value;
-                      setSwO(next);
-                    }}
-                    placeholder={`Opportunité ${i + 1}`}
-                  />
-                ))}
-              </div>
+              <Label className="sr-only">Opportunités — points</Label>
+              <DynamicLinesField
+                lines={swO}
+                onLinesChange={setSwO}
+                canEdit={canEdit}
+                placeholder={(i) => `Opportunité ${i + 1}`}
+                inputClassName="border-sky-500/20 bg-background/80"
+              />
             </div>
 
             <div className="space-y-0 rounded-xl border border-rose-500/25 bg-rose-500/[0.07] p-4 shadow-sm dark:bg-rose-500/10">
@@ -725,23 +741,14 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 <span className="font-semibold text-foreground">Menaces</span>
                 <span className="text-xs text-muted-foreground">Externe</span>
               </div>
-              <div className="space-y-2">
-                <Label className="sr-only">Menaces — points</Label>
-                {[0, 1, 2].map((i) => (
-                  <Input
-                    key={i}
-                    disabled={!canEdit}
-                    className="border-rose-500/20 bg-background/80"
-                    value={swT[i]}
-                    onChange={(e) => {
-                      const next = [...swT] as [string, string, string];
-                      next[i] = e.target.value;
-                      setSwT(next);
-                    }}
-                    placeholder={`Menace ${i + 1}`}
-                  />
-                ))}
-              </div>
+              <Label className="sr-only">Menaces — points</Label>
+              <DynamicLinesField
+                lines={swT}
+                onLinesChange={setSwT}
+                canEdit={canEdit}
+                placeholder={(i) => `Menace ${i + 1}`}
+                inputClassName="border-rose-500/20 bg-background/80"
+              />
             </div>
           </div>
 
@@ -751,40 +758,101 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      {/* G — TOWS */}
+      {/* G — TOWS (matrice S×O / S×T / W×O / W×T) */}
       <Card size="sm">
         <CardHeader>
           <CardTitle className="text-base">G. Décisions recommandées (TOWS)</CardTitle>
           <p className="text-xs text-muted-foreground">
-            SO accélérer · ST sécuriser · WO corriger · WT réduire / stopper — max. 2 par quadrant
+            Croisement forces-faiblesses (lignes) × opportunités-menaces (colonnes) — stratégies par quadrant,
+            lignes libres
           </p>
         </CardHeader>
-        <CardContent className="grid gap-6 sm:grid-cols-2">
-          {(
-            [
-              ['SO — Accélérer', tSO, setTSO] as const,
-              ['ST — Sécuriser', tST, setTST] as const,
-              ['WO — Corriger', tWO, setTWO] as const,
-              ['WT — Réduire / stopper', tWT, setTWT] as const,
-            ] as const
-          ).map(([label, vals, setVals]) => (
-            <div key={label} className="space-y-2">
-              <Label>{label}</Label>
-              {[0, 1].map((i) => (
-                <Input
-                  key={i}
-                  disabled={!canEdit}
-                  value={vals[i]}
-                  onChange={(e) => {
-                    const next = [...vals] as [string, string];
-                    next[i] = e.target.value;
-                    setVals(next);
-                  }}
-                  placeholder={`Action ${i + 1}`}
-                />
-              ))}
+        <CardContent className="space-y-4">
+          <div className="hidden text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-2 sm:gap-3">
+            <span className="rounded-md bg-muted/50 py-1.5">Opportunités (O)</span>
+            <span className="rounded-md bg-muted/50 py-1.5">Menaces (T)</span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {/* Ligne S — SO | ST */}
+            <div className="space-y-0 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4 shadow-sm dark:bg-emerald-500/10">
+              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-emerald-500/25 pb-2">
+                <span className="text-lg font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+                  SO
+                </span>
+                <span className="font-semibold text-foreground">Accélérer</span>
+                <span className="text-xs text-muted-foreground">S × O · offensif</span>
+              </div>
+              <Label className="sr-only">SO — actions</Label>
+              <DynamicLinesField
+                lines={tSO}
+                onLinesChange={setTSO}
+                canEdit={canEdit}
+                placeholder={(i) => `Action ${i + 1}`}
+                inputClassName="border-emerald-500/20 bg-background/80"
+              />
             </div>
-          ))}
+
+            <div className="space-y-0 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] p-4 shadow-sm dark:bg-amber-500/10">
+              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-amber-500/25 pb-2">
+                <span className="text-lg font-bold tabular-nums text-amber-800 dark:text-amber-400">
+                  ST
+                </span>
+                <span className="font-semibold text-foreground">Sécuriser</span>
+                <span className="text-xs text-muted-foreground">S × T · diversifier / réduire l’exposition</span>
+              </div>
+              <Label className="sr-only">ST — actions</Label>
+              <DynamicLinesField
+                lines={tST}
+                onLinesChange={setTST}
+                canEdit={canEdit}
+                placeholder={(i) => `Action ${i + 1}`}
+                inputClassName="border-amber-500/20 bg-background/80"
+              />
+            </div>
+
+            {/* Ligne W — WO | WT */}
+            <div className="space-y-0 rounded-xl border border-sky-500/30 bg-sky-500/[0.07] p-4 shadow-sm dark:bg-sky-500/10">
+              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-sky-500/25 pb-2">
+                <span className="text-lg font-bold tabular-nums text-sky-800 dark:text-sky-400">
+                  WO
+                </span>
+                <span className="font-semibold text-foreground">Corriger</span>
+                <span className="text-xs text-muted-foreground">W × O · renforcer / pivoter</span>
+              </div>
+              <Label className="sr-only">WO — actions</Label>
+              <DynamicLinesField
+                lines={tWO}
+                onLinesChange={setTWO}
+                canEdit={canEdit}
+                placeholder={(i) => `Action ${i + 1}`}
+                inputClassName="border-sky-500/20 bg-background/80"
+              />
+            </div>
+
+            <div className="space-y-0 rounded-xl border border-rose-500/30 bg-rose-500/[0.07] p-4 shadow-sm dark:bg-rose-500/10">
+              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-rose-500/25 pb-2">
+                <span className="text-lg font-bold tabular-nums text-rose-800 dark:text-rose-400">
+                  WT
+                </span>
+                <span className="font-semibold text-foreground">Réduire / stopper</span>
+                <span className="text-xs text-muted-foreground">W × T · défensif</span>
+              </div>
+              <Label className="sr-only">WT — actions</Label>
+              <DynamicLinesField
+                lines={tWT}
+                onLinesChange={setTWT}
+                canEdit={canEdit}
+                placeholder={(i) => `Action ${i + 1}`}
+                inputClassName="border-rose-500/20 bg-background/80"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center text-[11px] text-muted-foreground sm:justify-between">
+            <span className="sm:hidden">Haut : ligne S (forces) · bas : ligne W (faiblesses)</span>
+            <span className="hidden sm:inline">Ligne du haut : stratégies à partir des forces · ligne du bas : à partir des faiblesses</span>
+          </div>
         </CardContent>
       </Card>
 
