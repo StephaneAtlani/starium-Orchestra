@@ -116,9 +116,9 @@ export function ProjectBudgetHierarchyCombobox({
           onFocus={() => {
             if (disabled || loading) return;
             setOpen(true);
-            setQuery(
-              value === noneId ? '' : selectedLabel,
-            );
+            // Ne pas préremplir avec le libellé sélectionné : le filtre « includes »
+            // masquerait toutes les autres options. Liste complète + saisie pour filtrer.
+            setQuery('');
           }}
         />
         <button
@@ -130,8 +130,10 @@ export function ProjectBudgetHierarchyCombobox({
           onMouseDown={(e) => {
             e.preventDefault();
             if (disabled || loading) return;
+            const wasOpen = open;
             setOpen((o) => !o);
-            if (!open) setQuery(selectedLabel);
+            if (wasOpen) return;
+            setQuery('');
           }}
         >
           <ChevronDown className="size-4 opacity-70" />

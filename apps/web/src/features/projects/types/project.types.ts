@@ -123,6 +123,7 @@ export type ProjectBudgetLinkItem = {
     code: string;
     name: string;
     budgetId: string;
+    envelopeId: string;
     status: string;
   };
 };
@@ -142,6 +143,8 @@ export type CreateProjectBudgetLinkPayload = {
 };
 
 export type UpdateProjectBudgetLinkPayload = {
+  budgetLineId?: string;
+  allocationType?: ProjectBudgetAllocationType;
   percentage?: number;
   amount?: number;
 };

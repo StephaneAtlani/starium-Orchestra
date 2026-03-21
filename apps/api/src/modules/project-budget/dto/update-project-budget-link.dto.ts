@@ -1,8 +1,17 @@
+import { ProjectBudgetAllocationType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
 
-/** PATCH — uniquement pourcentage ou montant selon le mode existant du lien. */
+/** PATCH — ligne, mode (si un seul lien) et détail ; fusion côté service avec l’existant. */
 export class UpdateProjectBudgetLinkDto {
+  @IsOptional()
+  @IsString()
+  budgetLineId?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectBudgetAllocationType)
+  allocationType?: ProjectBudgetAllocationType;
+
   @IsOptional()
   @IsNumber()
   @Type(() => Number)

@@ -145,35 +145,124 @@ export class ProjectBudgetLinksService {
     }
   }
 
-  private assertUpdateDtoForLink(
-    existing: { allocationType: ProjectBudgetAllocationType },
+  /**
+   * Répartition des montants FIXED en pourcentages (somme = 100).
+   */
+  private fixedAmountsToPercentages(
+    amounts: Prisma.Decimal[],
+  ): Prisma.Decimal[] {
+    const sum = amounts.reduce(
+      (acc, x) => acc.plus(x),
+      new Prisma.Decimal(0),
+    );
+    if (sum.lte(0)) {
+      throw new BadRequestException(
+        'Impossible de passer en pourcentages : somme des montants nulle ou négative.',
+      );
+    }
+    const n = amounts.length;
+    const pcts: Prisma.Decimal[] = [];
+    let accPct = new Prisma.Decimal(0);
+    for (let i = 0; i < n - 1; i++) {
+      const p = amounts[i]!.div(sum).times(100);
+      const rounded = p.toDecimalPlaces(4, Prisma.Decimal.ROUND_HALF_UP);
+      pcts.push(rounded);
+      accPct = accPct.plus(rounded);
+    }
+    pcts.push(new Prisma.Decimal(100).minus(accPct));
+    return pcts;
+  }
+
+  /**
+   * Calcule l’état cible du lien après PATCH (fusion dto + existant).
+   * Changement de mode avec plusieurs liens : traité par `updateAllocationModeForAllLinks` avant appel.
+   */
+  private computeNextLinkState(
+    existing: {
+      budgetLineId: string;
+      allocationType: ProjectBudgetAllocationType;
+      percentage: Prisma.Decimal | null;
+      amount: Prisma.Decimal | null;
+    },
     dto: UpdateProjectBudgetLinkDto,
-  ): void {
-    if (existing.allocationType === ProjectBudgetAllocationType.FULL) {
+    linkCount: number,
+  ): {
+    budgetLineId: string;
+    allocationType: ProjectBudgetAllocationType;
+    percentage: Prisma.Decimal | null;
+    amount: Prisma.Decimal | null;
+  } {
+    const budgetLineId = dto.budgetLineId ?? existing.budgetLineId;
+
+    let allocationType = existing.allocationType;
+    if (dto.allocationType !== undefined) {
+      if (dto.allocationType !== existing.allocationType) {
+        if (linkCount > 1) {
+          throw new BadRequestException(
+            'Le mode d’allocation ne peut pas être modifié tant qu’il existe plusieurs liens sur ce projet.',
+          );
+        }
+        allocationType = dto.allocationType;
+      } else {
+        allocationType = dto.allocationType;
+      }
+    }
+
+    if (allocationType === ProjectBudgetAllocationType.FULL) {
       if (dto.percentage != null || dto.amount != null) {
         throw new BadRequestException(
-          'Un lien FULL ne peut pas recevoir de pourcentage ni de montant',
+          'Un lien FULL ne doit pas inclure de pourcentage ni de montant',
         );
       }
-      return;
+      return {
+        budgetLineId,
+        allocationType,
+        percentage: null,
+        amount: null,
+      };
     }
-    if (existing.allocationType === ProjectBudgetAllocationType.PERCENTAGE) {
-      if (dto.percentage == null) {
-        throw new BadRequestException('Le pourcentage est requis pour un lien PERCENTAGE');
+
+    if (allocationType === ProjectBudgetAllocationType.PERCENTAGE) {
+      const pct =
+        dto.percentage !== undefined
+          ? new Prisma.Decimal(dto.percentage)
+          : existing.allocationType === ProjectBudgetAllocationType.PERCENTAGE &&
+              existing.percentage != null
+            ? existing.percentage
+            : null;
+      if (pct == null) {
+        throw new BadRequestException('Le pourcentage est requis en mode PERCENTAGE');
       }
       if (dto.amount != null) {
-        throw new BadRequestException('Ne pas envoyer de montant pour un lien PERCENTAGE');
+        throw new BadRequestException('Ne pas envoyer de montant en mode PERCENTAGE');
       }
-      return;
+      return {
+        budgetLineId,
+        allocationType,
+        percentage: pct,
+        amount: null,
+      };
     }
-    if (existing.allocationType === ProjectBudgetAllocationType.FIXED) {
-      if (dto.amount == null) {
-        throw new BadRequestException('Le montant est requis pour un lien FIXED');
-      }
-      if (dto.percentage != null) {
-        throw new BadRequestException('Ne pas envoyer de pourcentage pour un lien FIXED');
-      }
+
+    const amt =
+      dto.amount !== undefined
+        ? new Prisma.Decimal(dto.amount)
+        : existing.allocationType === ProjectBudgetAllocationType.FIXED &&
+            existing.amount != null
+          ? existing.amount
+          : null;
+    if (amt == null) {
+      throw new BadRequestException('Le montant est requis en mode FIXED');
     }
+    if (dto.percentage != null) {
+      throw new BadRequestException('Ne pas envoyer de pourcentage en mode FIXED');
+    }
+    return {
+      budgetLineId,
+      allocationType,
+      percentage: null,
+      amount: amt,
+    };
   }
 
   private candidateFromDto(
@@ -256,6 +345,7 @@ export class ProjectBudgetLinksService {
       code: string;
       name: string;
       budgetId: string;
+      envelopeId: string;
       status: BudgetLineStatus;
     },
   ) {
@@ -272,6 +362,7 @@ export class ProjectBudgetLinksService {
         code: budgetLine.code,
         name: budgetLine.name,
         budgetId: budgetLine.budgetId,
+        envelopeId: budgetLine.envelopeId,
         status: budgetLine.status,
       },
     };
@@ -321,6 +412,7 @@ export class ProjectBudgetLinksService {
               code: true,
               name: true,
               budgetId: true,
+              envelopeId: true,
               status: true,
             },
           },
@@ -376,6 +468,7 @@ export class ProjectBudgetLinksService {
                 code: true,
                 name: true,
                 budgetId: true,
+                envelopeId: true,
                 status: true,
               },
             },
@@ -470,6 +563,196 @@ export class ProjectBudgetLinksService {
     });
   }
 
+  /**
+   * Plusieurs liens : changement de mode global (PERCENTAGE ↔ FIXED) avec conversion des valeurs.
+   * FULL interdit si plus d’un lien. Ne pas combiner avec un changement de ligne sur ce PATCH.
+   */
+  private async updateAllocationModeForAllLinks(
+    clientId: string,
+    linkId: string,
+    existingLink: {
+      id: string;
+      projectId: string;
+      budgetLineId: string;
+      allocationType: ProjectBudgetAllocationType;
+      percentage: Prisma.Decimal | null;
+      amount: Prisma.Decimal | null;
+      budgetLine: {
+        id: string;
+        code: string;
+        name: string;
+        budgetId: string;
+        envelopeId: string;
+        status: BudgetLineStatus;
+      };
+    },
+    dto: UpdateProjectBudgetLinkDto,
+    context?: AuditContext,
+  ) {
+    const newType = dto.allocationType!;
+    const projectId = existingLink.projectId;
+
+    if (newType === ProjectBudgetAllocationType.FULL) {
+      throw new BadRequestException(
+        'Le mode « 100 % sur la ligne » n’est possible qu’avec un seul lien budgétaire.',
+      );
+    }
+
+    if (
+      dto.budgetLineId != null &&
+      dto.budgetLineId !== existingLink.budgetLineId
+    ) {
+      throw new BadRequestException(
+        'Enregistrez d’abord le changement de ligne budgétaire, puis le mode d’allocation.',
+      );
+    }
+
+    const links = await this.prisma.projectBudgetLink.findMany({
+      where: { clientId, projectId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        budgetLine: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            budgetId: true,
+            envelopeId: true,
+            status: true,
+            revisedAmount: true,
+          },
+        },
+      },
+    });
+
+    const oldType = existingLink.allocationType;
+    if (!links.every((l) => l.allocationType === oldType)) {
+      throw new BadRequestException('État des liens incohérent (modes mélangés).');
+    }
+
+    if (oldType === newType) {
+      throw new BadRequestException('Aucun changement de mode.');
+    }
+
+    if (oldType === ProjectBudgetAllocationType.FULL) {
+      throw new BadRequestException(
+        'Changement de mode depuis FULL : un seul lien attendu.',
+      );
+    }
+
+    const snapshots = new Map(
+      links.map((l) => [l.id, this.auditPayload(l)] as const),
+    );
+
+    const rowsForInvariant: ProjectBudgetLinkInvariantRow[] = [];
+
+    if (
+      oldType === ProjectBudgetAllocationType.PERCENTAGE &&
+      newType === ProjectBudgetAllocationType.FIXED
+    ) {
+      for (const row of links) {
+        const pct = row.percentage!;
+        const rev = row.budgetLine.revisedAmount;
+        let amt = pct.div(100).times(rev);
+        if (amt.lte(0)) {
+          amt = new Prisma.Decimal('0.01');
+        }
+        rowsForInvariant.push({
+          allocationType: ProjectBudgetAllocationType.FIXED,
+          percentage: null,
+          amount: amt,
+        });
+      }
+    } else if (
+      oldType === ProjectBudgetAllocationType.FIXED &&
+      newType === ProjectBudgetAllocationType.PERCENTAGE
+    ) {
+      const amounts = links.map((l) => l.amount!);
+      const pcts = this.fixedAmountsToPercentages(amounts);
+      for (let i = 0; i < links.length; i++) {
+        rowsForInvariant.push({
+          allocationType: ProjectBudgetAllocationType.PERCENTAGE,
+          percentage: pcts[i]!,
+          amount: null,
+        });
+      }
+    } else {
+      throw new BadRequestException(
+        'Changement de mode non pris en charge pour cette combinaison.',
+      );
+    }
+
+    this.validateProjectLinksInvariant(rowsForInvariant);
+
+    try {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        for (let i = 0; i < links.length; i++) {
+          const row = links[i]!;
+          const inv = rowsForInvariant[i]!;
+          await tx.projectBudgetLink.update({
+            where: { id: row.id },
+            data: {
+              allocationType: inv.allocationType,
+              percentage: inv.percentage,
+              amount: inv.amount,
+            },
+          });
+        }
+
+        return tx.projectBudgetLink.findFirstOrThrow({
+          where: { id: linkId, clientId },
+          include: {
+            budgetLine: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                budgetId: true,
+                envelopeId: true,
+                status: true,
+              },
+            },
+          },
+        });
+      });
+
+      const meta = {
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      };
+
+      for (const row of links) {
+        const fresh = await this.prisma.projectBudgetLink.findFirst({
+          where: { id: row.id, clientId },
+        });
+        if (!fresh) continue;
+        await this.auditLogs.create({
+          clientId,
+          userId: context?.actorUserId,
+          action: PROJECT_AUDIT_ACTION.PROJECT_BUDGET_LINK_UPDATED,
+          resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_BUDGET_LINK,
+          resourceId: row.id,
+          oldValue: snapshots.get(row.id),
+          newValue: this.auditPayload(fresh),
+          ...meta,
+        });
+      }
+
+      return this.serializeLink(updated, updated.budgetLine);
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Un lien existe déjà pour cette combinaison projet / ligne budgétaire',
+        );
+      }
+      throw err;
+    }
+  }
+
   async update(
     clientId: string,
     linkId: string,
@@ -485,6 +768,7 @@ export class ProjectBudgetLinksService {
             code: true,
             name: true,
             budgetId: true,
+            envelopeId: true,
             status: true,
           },
         },
@@ -494,79 +778,112 @@ export class ProjectBudgetLinksService {
       throw new NotFoundException('Project budget link not found');
     }
 
-    this.assertUpdateDtoForLink(existingLink, dto);
+    const allBefore = await this.prisma.projectBudgetLink.findMany({
+      where: { clientId, projectId: existingLink.projectId },
+    });
+    const linkCount = allBefore.length;
 
-    if (existingLink.allocationType === ProjectBudgetAllocationType.FULL) {
-      throw new BadRequestException(
-        'Aucun champ modifiable pour un lien en mode FULL',
+    const wantsModeChange =
+      dto.allocationType !== undefined &&
+      dto.allocationType !== existingLink.allocationType;
+
+    if (linkCount > 1 && wantsModeChange && dto.allocationType != null) {
+      return this.updateAllocationModeForAllLinks(
+        clientId,
+        linkId,
+        existingLink,
+        dto,
+        context,
       );
     }
 
-    const newPercentage =
-      existingLink.allocationType === ProjectBudgetAllocationType.PERCENTAGE
-        ? new Prisma.Decimal(dto.percentage!)
-        : existingLink.percentage;
-    const newAmount =
-      existingLink.allocationType === ProjectBudgetAllocationType.FIXED
-        ? new Prisma.Decimal(dto.amount!)
-        : existingLink.amount;
+    const next = this.computeNextLinkState(existingLink, dto, linkCount);
+
+    if (next.budgetLineId !== existingLink.budgetLineId) {
+      await this.assertBudgetLineLinkable(clientId, next.budgetLineId);
+      const dup = allBefore.find(
+        (l) =>
+          l.id !== linkId &&
+          l.budgetLineId === next.budgetLineId,
+      );
+      if (dup) {
+        throw new ConflictException(
+          'Un lien existe déjà pour cette combinaison projet / ligne budgétaire',
+        );
+      }
+    }
 
     const snapshot = this.auditPayload(existingLink);
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const all = await tx.projectBudgetLink.findMany({
-        where: { clientId, projectId: existingLink.projectId },
-      });
+    try {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const all = await tx.projectBudgetLink.findMany({
+          where: { clientId, projectId: existingLink.projectId },
+        });
 
-      const merged = all.map((row) => {
-        if (row.id !== linkId) {
-          return this.rowFromEntity(row);
-        }
-        return {
-          allocationType: row.allocationType,
-          percentage: newPercentage,
-          amount: newAmount,
-        };
-      });
-      this.validateProjectLinksInvariant(merged);
+        const merged = all.map((row) => {
+          if (row.id !== linkId) {
+            return this.rowFromEntity(row);
+          }
+          return {
+            allocationType: next.allocationType,
+            percentage: next.percentage,
+            amount: next.amount,
+          };
+        });
+        this.validateProjectLinksInvariant(merged);
 
-      return tx.projectBudgetLink.update({
-        where: { id: linkId },
-        data: {
-          percentage: newPercentage,
-          amount: newAmount,
-        },
-        include: {
-          budgetLine: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              budgetId: true,
-              status: true,
+        return tx.projectBudgetLink.update({
+          where: { id: linkId },
+          data: {
+            budgetLineId: next.budgetLineId,
+            allocationType: next.allocationType,
+            percentage: next.percentage,
+            amount: next.amount,
+          },
+          include: {
+            budgetLine: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                budgetId: true,
+                envelopeId: true,
+                status: true,
+              },
             },
           },
-        },
+        });
       });
-    });
 
-    const meta = {
-      ipAddress: context?.meta?.ipAddress,
-      userAgent: context?.meta?.userAgent,
-      requestId: context?.meta?.requestId,
-    };
+      const meta = {
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      };
 
-    await this.auditLogs.create({
-      clientId,
-      userId: context?.actorUserId,
-      action: PROJECT_AUDIT_ACTION.PROJECT_BUDGET_LINK_UPDATED,
-      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_BUDGET_LINK,
-      resourceId: linkId,
-      oldValue: snapshot,
-      newValue: this.auditPayload(updated),
-      ...meta,
-    });
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_BUDGET_LINK_UPDATED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_BUDGET_LINK,
+        resourceId: linkId,
+        oldValue: snapshot,
+        newValue: this.auditPayload(updated),
+        ...meta,
+      });
 
-    return this.serializeLink(updated, updated.budgetLine);
+      return this.serializeLink(updated, updated.budgetLine);
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Un lien existe déjà pour cette combinaison projet / ligne budgétaire',
+        );
+      }
+      throw err;
+    }
   }
 }

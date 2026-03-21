@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { ChevronDown, Trash2 } from 'lucide-react';
+import { ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,16 +31,14 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectBudgetLinksQuery } from '../hooks/use-project-budget-links-query';
 import { useCreateProjectBudgetLink } from '../hooks/use-create-project-budget-link';
 import { useDeleteProjectBudgetLink } from '../hooks/use-delete-project-budget-link';
-import { useUpdateProjectBudgetLink } from '../hooks/use-update-project-budget-link';
 import { useCreateBudgetLineInline } from '../hooks/use-create-budget-line-inline';
 import { cn } from '@/lib/utils';
 import { ProjectBudgetHierarchyCombobox } from './project-budget-hierarchy-combobox';
 import type {
   CreateProjectBudgetLinkPayload,
   ProjectBudgetAllocationType,
-  ProjectBudgetLinkItem,
-  UpdateProjectBudgetLinkPayload,
 } from '../types/project.types';
+import { ProjectBudgetLinkEditDialog } from './project-budget-link-edit-dialog';
 
 const ALLOCATION_LABEL: Record<ProjectBudgetAllocationType, string> = {
   FULL: '100 % sur la ligne',
@@ -79,33 +77,6 @@ function formatLineOptionLabel(l: { code: string | null; name: string }): string
   return l.code ? `${l.code} — ${l.name}` : l.name;
 }
 
-function parseDetailPayload(
-  row: ProjectBudgetLinkItem,
-  raw: string,
-): UpdateProjectBudgetLinkPayload | null {
-  if (row.allocationType === 'FULL') return null;
-  const n = Number(raw.replace(',', '.').trim());
-  if (Number.isNaN(n)) return null;
-  if (row.allocationType === 'PERCENTAGE') return { percentage: n };
-  if (row.allocationType === 'FIXED') return { amount: n };
-  return null;
-}
-
-function detailUnchanged(
-  row: ProjectBudgetLinkItem,
-  payload: UpdateProjectBudgetLinkPayload,
-): boolean {
-  if (payload.percentage != null) {
-    const cur = row.percentage != null ? Number(row.percentage) : NaN;
-    return !Number.isNaN(cur) && Math.abs(cur - payload.percentage) < 0.005;
-  }
-  if (payload.amount != null) {
-    const cur = row.amount != null ? Number(row.amount) : NaN;
-    return !Number.isNaN(cur) && Math.abs(cur - payload.amount) < 0.0001;
-  }
-  return true;
-}
-
 export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   const { has } = usePermissions();
   const canCreateBudgetLine = has('budgets.create');
@@ -141,8 +112,8 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
 
   const createMut = useCreateProjectBudgetLink(projectId);
   const deleteMut = useDeleteProjectBudgetLink(projectId);
-  const updateLinkMut = useUpdateProjectBudgetLink(projectId);
   const createLineMut = useCreateBudgetLineInline();
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
 
   const selectedBudget = useMemo(
     () => (budgetsQuery.data?.items ?? []).find((b) => b.id === budgetId),
@@ -302,6 +273,11 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
     }
   };
 
+  const editingLink =
+    editingLinkId == null
+      ? null
+      : (linksQuery.data?.items ?? []).find((l) => l.id === editingLinkId) ?? null;
+
   return (
     <Card size="sm">
       <CardHeader>
@@ -324,7 +300,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                     <TableHead>Ligne</TableHead>
                     <TableHead>Mode</TableHead>
                     <TableHead>Détail</TableHead>
-                    <TableHead className="w-[72px]" />
+                    <TableHead className="w-[104px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -337,88 +313,47 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       <TableCell className="text-sm">
                         {ALLOCATION_LABEL[row.allocationType]}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="text-sm tabular-nums">
                         {row.allocationType === 'FULL' && (
                           <span className="text-muted-foreground">—</span>
                         )}
-                        {row.allocationType === 'PERCENTAGE' &&
-                          (canEditBudgetLinks ? (
-                            <div className="flex max-w-[140px] items-center gap-1">
-                              <Input
-                                key={`${row.id}-pct-${row.percentage ?? ''}`}
-                                className="h-8 w-20 tabular-nums"
-                                defaultValue={row.percentage ?? ''}
-                                inputMode="decimal"
-                                autoComplete="off"
-                                disabled={updateLinkMut.isPending}
-                                aria-label="Pourcentage sur la ligne"
-                                onBlur={(e) => {
-                                  const payload = parseDetailPayload(row, e.target.value);
-                                  if (!payload || detailUnchanged(row, payload)) return;
-                                  updateLinkMut.mutate(
-                                    { linkId: row.id, payload },
-                                    {
-                                      onError: (err: unknown) => {
-                                        const msg = isApiFormError(err)
-                                          ? err.message
-                                          : 'Mise à jour impossible.';
-                                        toast.error(msg);
-                                      },
-                                    },
-                                  );
-                                }}
-                              />
-                              <span className="shrink-0 text-muted-foreground">%</span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              {row.percentage != null ? `${row.percentage} %` : '—'}
-                            </span>
-                          ))}
-                        {row.allocationType === 'FIXED' &&
-                          (canEditBudgetLinks ? (
-                            <Input
-                              key={`${row.id}-amt-${row.amount ?? ''}`}
-                              className="h-8 w-28 max-w-full tabular-nums"
-                              defaultValue={row.amount ?? ''}
-                              inputMode="decimal"
-                              autoComplete="off"
-                              disabled={updateLinkMut.isPending}
-                              aria-label="Montant sur la ligne"
-                              onBlur={(e) => {
-                                const payload = parseDetailPayload(row, e.target.value);
-                                if (!payload || detailUnchanged(row, payload)) return;
-                                updateLinkMut.mutate(
-                                  { linkId: row.id, payload },
-                                  {
-                                    onError: (err: unknown) => {
-                                      const msg = isApiFormError(err)
-                                        ? err.message
-                                        : 'Mise à jour impossible.';
-                                      toast.error(msg);
-                                    },
-                                  },
-                                );
-                              }}
-                            />
-                          ) : (
-                            <span className="text-muted-foreground">
-                              {row.amount != null ? row.amount : '—'}
-                            </span>
-                          ))}
+                        {row.allocationType === 'PERCENTAGE' && (
+                          <span className="text-muted-foreground">
+                            {row.percentage != null ? `${row.percentage} %` : '—'}
+                          </span>
+                        )}
+                        {row.allocationType === 'FIXED' && (
+                          <span className="text-muted-foreground">
+                            {row.amount != null ? row.amount : '—'}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          disabled={deleteMut.isPending}
-                          onClick={() => onDelete(row.id)}
-                          aria-label="Supprimer le lien"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-0.5">
+                          {canEditBudgetLinks ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-foreground"
+                              onClick={() => setEditingLinkId(row.id)}
+                              aria-label="Modifier le lien budgétaire"
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                          ) : null}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            disabled={deleteMut.isPending}
+                            onClick={() => onDelete(row.id)}
+                            aria-label="Supprimer le lien"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -738,6 +673,16 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
             </div>
           </>
         )}
+
+        <ProjectBudgetLinkEditDialog
+          projectId={projectId}
+          link={editingLink}
+          open={editingLinkId !== null && editingLink !== null}
+          onOpenChange={(o) => {
+            if (!o) setEditingLinkId(null);
+          }}
+          totalLinks={linksQuery.data?.items.length ?? 0}
+        />
       </CardContent>
     </Card>
   );
