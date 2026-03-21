@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronLeft, Info, LayoutDashboard, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Info, LayoutDashboard, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { LoadingState } from '@/components/feedback/loading-state';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -43,7 +49,6 @@ import {
   PROJECT_PRIORITY_LABEL,
   PROJECT_STATUS_LABEL,
   PROJECT_TYPE_LABEL,
-  RISK_STATUS_LABEL,
 } from '../constants/project-enum-labels';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
@@ -371,6 +376,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const [newRiskProb, setNewRiskProb] = useState<ProjectSheetRiskLevel>('MEDIUM');
   const [newRiskImpact, setNewRiskImpact] = useState<ProjectSheetRiskLevel>('MEDIUM');
   const [deletingRiskId, setDeletingRiskId] = useState<string | null>(null);
+  /** Panneau « Détail des risques » : fermé par défaut (état contrôlé pour éviter ouverture fantôme). */
+  const [risksDetailOpen, setRisksDetailOpen] = useState(false);
 
   const createRiskMutation = useMutation({
     mutationFn: (vars: {
@@ -418,6 +425,10 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     },
   });
 
+  useEffect(() => {
+    setRisksDetailOpen(false);
+  }, [projectId]);
+
   if (!projectId) {
     return (
       <p className="text-sm text-destructive">Identifiant de projet manquant.</p>
@@ -453,6 +464,11 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     : sheet.roi == null
       ? 'ROI non calculable (coût nul ou données insuffisantes)'
       : null;
+
+  const risksLoaded = !risksQuery.isLoading && risksQuery.data !== undefined;
+  const criticalRiskCount = risksLoaded
+    ? risksQuery.data.filter((r) => riskCriticalityForRisk(r) === 'HIGH').length
+    : null;
 
   return (
     <div className="space-y-6">
@@ -907,101 +923,91 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       <Card size="sm">
         <CardHeader>
           <CardTitle className="text-base">E. Risque, priorité et risques projet</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Synthèse fiche (agrégée) · risques métier saisis sur ce projet
-          </p>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Synthèse fiche (calcul serveur)
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm text-muted-foreground">Niveau de risque</span>
-              {sheet.riskLevel ? (
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    sheet.riskLevel === 'LOW' && 'border-emerald-500/50 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
-                    sheet.riskLevel === 'MEDIUM' &&
-                      'border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200',
-                    sheet.riskLevel === 'HIGH' &&
-                      'border-red-500/50 bg-red-500/10 text-red-800 dark:text-red-300',
-                  )}
-                >
-                  {RISK_LABEL[sheet.riskLevel]}
-                </Badge>
-              ) : (
-                <span className="text-sm text-muted-foreground">—</span>
-              )}
+        <CardContent className="space-y-5">
+          {/* Synthèse CODIR */}
+          <div className="space-y-1.5 text-sm">
+            <div>
+              <span className="text-muted-foreground">Risque global : </span>
+              <span className="font-semibold tabular-nums text-foreground">
+                {sheet.riskLevel != null ? RISK_LABEL[sheet.riskLevel] : '—'}
+              </span>
             </div>
-            <div className="text-sm">
-              <span className="text-muted-foreground">Score de priorité (calculé) : </span>
-              <span className="font-medium tabular-nums text-foreground">
+            <div>
+              <span className="text-muted-foreground">Priorité : </span>
+              <span className="font-semibold tabular-nums text-foreground">
                 {sheet.priorityScore != null ? fmt(sheet.priorityScore) : '—'}
               </span>
             </div>
-            <div className="space-y-2">
-              <Label>Modifier le niveau de risque</Label>
-              <Select
-                value={risk}
-                onValueChange={(v) => setRisk(v ?? RISK_UNSET)}
-                disabled={!canEdit}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={RISK_UNSET}>—</SelectItem>
-                  {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
-                    <SelectItem key={k} value={k}>
-                      {RISK_LABEL[k]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {criticalRiskCount != null && criticalRiskCount > 0 ? (
+              <p className="pt-0.5 text-sm font-medium text-amber-800 dark:text-amber-200">
+                ⚠️{' '}
+                {criticalRiskCount === 1
+                  ? '1 risque critique'
+                  : `${criticalRiskCount} risques critiques`}
+              </p>
+            ) : null}
           </div>
 
-          <div className="border-t border-border pt-6">
-            <div className="mb-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Risques identifiés
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Probabilité × impact → criticité (aligné portefeuille)
-              </p>
-            </div>
+          {/* Paramétrage fiche (opérationnel) */}
+          <div className="space-y-2 border-t border-border pt-4">
+            <Label className="text-muted-foreground">Niveau de risque (fiche)</Label>
+            <Select
+              value={risk}
+              onValueChange={(v) => setRisk(v ?? RISK_UNSET)}
+              disabled={!canEdit}
+            >
+              <SelectTrigger className="max-w-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={RISK_UNSET}>Non renseigné</SelectItem>
+                {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
+                  <SelectItem key={k} value={k}>
+                    {RISK_LABEL[k]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-            {risksQuery.isLoading ? (
-              <LoadingState rows={2} />
-            ) : !risksQuery.data?.length ? (
-              <p className="text-sm text-muted-foreground">Aucun risque — ajoutez-en ci-dessous.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-lg border border-border/60">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Titre</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead>Criticité</TableHead>
-                      <TableHead>P / I</TableHead>
-                      {canEdit ? <TableHead className="w-[52px] text-right" /> : null}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {risksQuery.data.map((r) => {
-                      const crit = riskCriticalityForRisk(r);
-                      return (
-                        <TableRow key={r.id}>
-                          <TableCell className="max-w-[220px] font-medium">{r.title}</TableCell>
-                          <TableCell className="text-sm">
-                            {RISK_STATUS_LABEL[r.status] ?? r.status}
-                          </TableCell>
-                          <TableCell>
+          {/* Détail opérationnel */}
+          <details
+            className="group rounded-lg border border-border/60"
+            open={risksDetailOpen}
+            onToggle={(e) => setRisksDetailOpen(e.currentTarget.open)}
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+              <span>Détail des risques</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+            </summary>
+            <div className="border-t border-border/60 px-3 pb-3 pt-2">
+              <TooltipProvider delay={250}>
+                {risksQuery.isLoading ? (
+                  <LoadingState rows={2} />
+                ) : !risksQuery.data?.length ? (
+                  <p className="text-sm text-muted-foreground">Aucun risque enregistré.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Titre</TableHead>
+                          <TableHead className="w-[140px]">Criticité</TableHead>
+                          {canEdit ? (
+                            <TableHead className="w-[44px] p-2 text-right" />
+                          ) : null}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {risksQuery.data.map((r) => {
+                          const crit = riskCriticalityForRisk(r);
+                          const piHint = `Probabilité : ${riskTierFr(r.probability)} · Impact : ${riskTierFr(r.impact)}`;
+                          const critBadge = (
                             <Badge
                               variant="outline"
                               className={cn(
+                                'cursor-help',
                                 crit === 'LOW' &&
                                   'border-emerald-500/50 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
                                 crit === 'MEDIUM' &&
@@ -1012,110 +1018,119 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                             >
                               {riskTierFr(crit)}
                             </Badge>
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                            {riskTierFr(r.probability)} / {riskTierFr(r.impact)}
-                          </TableCell>
-                          {canEdit ? (
-                            <TableCell className="text-right">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                disabled={
-                                  deleteRiskMutation.isPending && deletingRiskId === r.id
-                                }
-                                aria-label={`Supprimer le risque ${r.title}`}
-                                onClick={() => deleteRiskMutation.mutate(r.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          ) : null}
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+                          );
+                          return (
+                            <TableRow key={r.id}>
+                              <TableCell className="max-w-[min(100%,280px)] font-medium">
+                                {r.title}
+                              </TableCell>
+                              <TableCell>
+                                <Tooltip>
+                                  <TooltipTrigger render={<span className="inline-flex" />}>
+                                    {critBadge}
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    {piHint}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TableCell>
+                              {canEdit ? (
+                                <TableCell className="p-2 text-right">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    disabled={
+                                      deleteRiskMutation.isPending && deletingRiskId === r.id
+                                    }
+                                    aria-label={`Supprimer le risque ${r.title}`}
+                                    onClick={() => deleteRiskMutation.mutate(r.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              ) : null}
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TooltipProvider>
+            </div>
+          </details>
 
-            <div className="mt-4 space-y-3">
-              <p className="text-xs font-medium text-muted-foreground">Ajouter un risque</p>
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Label htmlFor="new-risk-title">Titre</Label>
-                  <Input
-                    id="new-risk-title"
-                    value={newRiskTitle}
-                    onChange={(e) => setNewRiskTitle(e.target.value)}
-                    disabled={!canEdit || createRiskMutation.isPending}
-                    placeholder="ex. Dépendance fournisseur unique"
-                    maxLength={500}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3 sm:w-auto sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Probabilité</Label>
-                    <Select
-                      value={newRiskProb}
-                      onValueChange={(v) => setNewRiskProb(v as ProjectSheetRiskLevel)}
-                      disabled={!canEdit || createRiskMutation.isPending}
-                    >
-                      <SelectTrigger className="w-full min-w-[120px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
-                          <SelectItem key={k} value={k}>
-                            {RISK_LABEL[k]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Impact</Label>
-                    <Select
-                      value={newRiskImpact}
-                      onValueChange={(v) => setNewRiskImpact(v as ProjectSheetRiskLevel)}
-                      disabled={!canEdit || createRiskMutation.isPending}
-                    >
-                      <SelectTrigger className="w-full min-w-[120px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
-                          <SelectItem key={k} value={k}>
-                            {RISK_LABEL[k]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  disabled={
-                    !canEdit || createRiskMutation.isPending || !newRiskTitle.trim()
-                  }
-                  onClick={() => {
-                    if (!newRiskTitle.trim()) {
-                      toast.error('Titre requis');
-                      return;
-                    }
-                    createRiskMutation.mutate({
-                      title: newRiskTitle,
-                      probability: newRiskProb,
-                      impact: newRiskImpact,
-                    });
-                  }}
+          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="min-w-0 flex-1 space-y-2">
+              <Label htmlFor="new-risk-title">Titre</Label>
+              <Input
+                id="new-risk-title"
+                value={newRiskTitle}
+                onChange={(e) => setNewRiskTitle(e.target.value)}
+                disabled={!canEdit || createRiskMutation.isPending}
+                placeholder="ex. Dépendance fournisseur unique"
+                maxLength={500}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:w-auto sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Probabilité</Label>
+                <Select
+                  value={newRiskProb}
+                  onValueChange={(v) => setNewRiskProb(v as ProjectSheetRiskLevel)}
+                  disabled={!canEdit || createRiskMutation.isPending}
                 >
-                  {createRiskMutation.isPending ? 'Enregistrement…' : 'Ajouter'}
-                </Button>
+                  <SelectTrigger className="w-full min-w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {RISK_LABEL[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Impact</Label>
+                <Select
+                  value={newRiskImpact}
+                  onValueChange={(v) => setNewRiskImpact(v as ProjectSheetRiskLevel)}
+                  disabled={!canEdit || createRiskMutation.isPending}
+                >
+                  <SelectTrigger className="w-full min-w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {RISK_LABEL[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+            <Button
+              type="button"
+              disabled={!canEdit || createRiskMutation.isPending || !newRiskTitle.trim()}
+              onClick={() => {
+                if (!newRiskTitle.trim()) {
+                  toast.error('Titre requis');
+                  return;
+                }
+                createRiskMutation.mutate({
+                  title: newRiskTitle,
+                  probability: newRiskProb,
+                  impact: newRiskImpact,
+                });
+              }}
+            >
+              {createRiskMutation.isPending ? 'Enregistrement…' : 'Ajouter un risque'}
+            </Button>
           </div>
         </CardContent>
       </Card>
