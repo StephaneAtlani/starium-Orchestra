@@ -448,16 +448,18 @@ Ce positionnement est déjà compatible avec l’architecture frontend feature-f
 
 ## 15. RFC filles à prévoir
 
-Après RFC-PROJ-001, je recommande ce découpage :
+Le **MVP implémenté** (§18) regroupe en pratique les briques ci-dessous sous une seule livraison (modèle `Project` + API + pilotage + UI portefeuille). Documentation technique de référence : **[docs/modules/projects-mvp.md](../modules/projects-mvp.md)**.
 
-* **RFC-PROJ-002** — Modèle de données Prisma Projects
-* **RFC-PROJ-003** — API Backend Projects CRUD
-* **RFC-PROJ-004** — Project Tasks Backend
-* **RFC-PROJ-005** — Project Risks Backend
-* **RFC-PROJ-006** — Project Reporting / Cockpit API
-* **RFC-PROJ-FE-001** — Projects List UI
-* **RFC-PROJ-FE-002** — Project Detail UI
-* **RFC-PROJ-FE-003** — Tasks & Risks UI
+Pour la suite (extensions non MVP), un découpage possible reste :
+
+* **RFC-PROJ-002** — Modèle de données Prisma Projects *(MVP : couvert par schéma actuel `Project` / enfants)*
+* **RFC-PROJ-003** — API Backend Projects CRUD *(MVP : couvert)*
+* **RFC-PROJ-004** — Project Tasks Backend *(MVP : couvert)*
+* **RFC-PROJ-005** — Project Risks Backend *(MVP : couvert)*
+* **RFC-PROJ-006** — Project Reporting / Cockpit API *(MVP : `portfolio-summary` + liste enrichie ; extensions possibles)*
+* **RFC-PROJ-FE-001** — Projects List UI *(MVP : `/projects`)*
+* **RFC-PROJ-FE-002** — Project Detail UI *(MVP : `/projects/[projectId]`)*
+* **RFC-PROJ-FE-003** — Tasks & Risks UI *(MVP : sections liste sur la fiche projet)*
 
 ---
 

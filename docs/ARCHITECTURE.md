@@ -419,6 +419,8 @@ Autres domaines
 └── ...
 ```
 
+**Module `projects` (MVP — RFC-PROJ-001)** : API `/api/projects` (+ tâches, risques, jalons), pilotage calculé dans `projects-pilotage.service.ts`, UI `/projects` côté Next.js. Détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+
 L’architecture consolidée décrit bien ce découpage modulaire côté NestJS. 
 
 ---

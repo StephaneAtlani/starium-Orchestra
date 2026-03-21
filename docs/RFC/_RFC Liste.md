@@ -9,6 +9,8 @@ Objectif :
 
 # 🧭 ROADMAP PRIORISÉE — PROJET → BUDGET PRÉVISIONNEL
 
+Documentation technique du **MVP Projets** (alignée RFC-PROJ-001) : **[docs/modules/projects-mvp.md](../modules/projects-mvp.md)**. Les RFC numérotées PROJ-002 à PROJ-008 dans le tableau ci‑dessous correspondent à un **découpage historique** ; le socle est **largement livré** sous le module `Project` + `/api/projects` (voir ce document).
+
 ---
 
 ## 🔥 NIVEAU 1 — MODULE PROJET (CRITIQUE PRODUIT)
@@ -26,13 +28,13 @@ Objectif :
 | Ordre | RFC              | Nom                             | Objectif          | Résultat concret                 | Priorité | État    |
 | ----- | ---------------- | ------------------------------- | ----------------- | -------------------------------- | -------- | ------- |
 | **1** | **RFC-PROJ-001** | Cadrage fonctionnel             | Définir périmètre | Vision claire projet vs activité | 🔥🔥🔥   | Implémenté (MVP) |
-| **2** | **RFC-PROJ-002** | Prisma Schema Portefeuille      | Modèle de données | `PortfolioItem`, `Task`, `Risk`  | 🔥🔥🔥   | À faire |
-| **3** | **RFC-PROJ-003** | Règles métier                   | Cohérence backend | validations, health, statuts     | 🔥🔥🔥   | À faire |
-| **4** | **RFC-PROJ-004** | Portfolio Management Backend    | CRUD portefeuille | API `/portfolio-items`           | 🔥🔥🔥   | À faire |
-| **5** | **RFC-PROJ-005** | Tasks Backend                   | Exécution         | API tâches                       | 🔥🔥🔥   | À faire |
-| **6** | **RFC-PROJ-006** | Risks Backend                   | Pilotage risques  | API risques                      | 🔥🔥🔥   | À faire |
-| **7** | **RFC-PROJ-008** | Permissions & Module Activation | Sécuriser         | RBAC                             | 🔥🔥🔥   | À faire |
-| **8** | **RFC-PROJ-009** | Audit Logs Projet               | Traçabilité       | audit complet                    | 🔥🔥🔥   | À faire |
+| **2** | **RFC-PROJ-002** | Prisma Schema Portefeuille      | Modèle de données | Schéma MVP : `Project`, `ProjectTask`, `ProjectRisk`, `ProjectMilestone`  | 🔥🔥🔥   | Couvert (MVP) |
+| **3** | **RFC-PROJ-003** | Règles métier                   | Cohérence backend | `projects-pilotage.service.ts` (health, signaux)     | 🔥🔥🔥   | Couvert (MVP) |
+| **4** | **RFC-PROJ-004** | Portfolio Management Backend    | CRUD portefeuille | API `/api/projects` (+ portfolio-summary)           | 🔥🔥🔥   | Couvert (MVP) |
+| **5** | **RFC-PROJ-005** | Tasks Backend                   | Exécution         | API `/api/projects/:id/tasks`                       | 🔥🔥🔥   | Couvert (MVP) |
+| **6** | **RFC-PROJ-006** | Risks Backend                   | Pilotage risques  | API `/api/projects/:id/risks`                      | 🔥🔥🔥   | Couvert (MVP) |
+| **7** | **RFC-PROJ-008** | Permissions & Module Activation | Sécuriser         | `projects.*`, module `projects`                     | 🔥🔥🔥   | Couvert (MVP) |
+| **8** | **RFC-PROJ-009** | Audit Logs Projet               | Traçabilité       | Audit créations / MAJ projet & sous-ressources      | 🔥🔥🔥   | Partiel (MVP) |
 
 ---
 
@@ -58,16 +60,16 @@ Objectif :
 
 ### 🖥️ FRONTEND — SOCLE PROJET
 
-| Ordre  | RFC                         | Nom                   | Objectif            | Résultat concret   | Priorité |
-| ------ | --------------------------- | --------------------- | ------------------- | ------------------ | -------- |
-| **13** | **RFC-FE-PROJ-001** *(NEW)* | Portfolio List UI     | Vue globale         | `/portfolio`       | 🔥🔥🔥   |
-| **14** | **RFC-FE-PROJ-002** *(NEW)* | Portfolio Detail UI   | Cockpit projet      | `/portfolio/[id]`  | 🔥🔥🔥   |
-| **15** | **RFC-FE-PROJ-003** *(NEW)* | Tasks Tab UI          | Pilotage exécution  | tâches             | 🔥🔥🔥   |
-| **16** | **RFC-FE-PROJ-004** *(NEW)* | Risks Tab UI          | Pilotage risques    | risques            | 🔥🔥🔥   |
-| **17** | **RFC-FE-PROJ-005** *(NEW)* | Resources Tab UI      | Pilotage ressources | affectations       | 🔥🔥🔥   |
-| **18** | **RFC-FE-PROJ-006** *(NEW)* | Budget Links Tab UI   | Voir budget lié     | liens budget       | 🔥🔥🔥   |
-| **19** | **RFC-FE-PROJ-007** *(NEW)* | Supplier Links Tab UI | Voir fournisseurs   | liens fournisseurs | 🔥🔥🔥   |
-| **20** | **RFC-FE-PROJ-011** *(NEW)* | Project Health UI     | Statut projet       | badge santé        | 🔥🔥🔥   |
+| Ordre  | RFC                         | Nom                   | Objectif            | Résultat concret   | Priorité | État    |
+| ------ | --------------------------- | --------------------- | ------------------- | ------------------ | -------- | ------- |
+| **13** | **RFC-FE-PROJ-001** *(NEW)* | Portfolio List UI     | Vue globale         | `/projects`       | 🔥🔥🔥   | Couvert (MVP) |
+| **14** | **RFC-FE-PROJ-002** *(NEW)* | Portfolio Detail UI   | Cockpit projet      | `/projects/[projectId]`  | 🔥🔥🔥   | Couvert (MVP) |
+| **15** | **RFC-FE-PROJ-003** *(NEW)* | Tasks Tab UI          | Pilotage exécution  | section fiche tâches             | 🔥🔥🔥   | Couvert (MVP) |
+| **16** | **RFC-FE-PROJ-004** *(NEW)* | Risks Tab UI          | Pilotage risques    | section fiche risques            | 🔥🔥🔥   | Couvert (MVP) |
+| **17** | **RFC-FE-PROJ-005** *(NEW)* | Resources Tab UI      | Pilotage ressources | affectations       | 🔥🔥🔥   | À faire |
+| **18** | **RFC-FE-PROJ-006** *(NEW)* | Budget Links Tab UI   | Voir budget lié     | liens budget       | 🔥🔥🔥   | À faire |
+| **19** | **RFC-FE-PROJ-007** *(NEW)* | Supplier Links Tab UI | Voir fournisseurs   | liens fournisseurs | 🔥🔥🔥   | À faire |
+| **20** | **RFC-FE-PROJ-011** *(NEW)* | Project Health UI     | Statut projet       | badges liste + fiche        | 🔥🔥🔥   | Couvert (MVP) |
 
 ---
 

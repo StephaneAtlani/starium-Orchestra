@@ -1,5 +1,7 @@
 # Plan de développement — Module Portefeuille Projets & Activités
 
+> **Note (2026-03)** : le **MVP livré** suit **RFC-PROJ-001** avec l’entité **`Project`** (et tâches / risques / jalons), pas le modèle historique « `PortfolioItem` » / projet+activité décrit plus bas. Synthèse implémentation : [docs/modules/projects-mvp.md](../modules/projects-mvp.md). Ce document reste une **vision long terme** et un ordre de travail ; les lignes « À faire » du tableau en fin de fichier ne reflètent pas l’état du MVP déjà mergé.
+
 ## Vue d’ensemble
 
 Le module doit couvrir 4 besoins :
@@ -828,28 +830,28 @@ C’est plus fidèle à ton besoin réel.
 
 | RFC             | Nom                             | Objectif                                | Priorité      | État    |
 | --------------- | ------------------------------- | --------------------------------------- | ------------- | ------- |
-| RFC-PROJ-001    | Cadrage fonctionnel             | Définir le périmètre du module          | Haute         | À faire |
-| RFC-PROJ-002    | Prisma Schema Portefeuille      | Modèle de données principal             | Haute         | À faire |
-| RFC-PROJ-003    | Règles métier                   | Normaliser validations et comportements | Haute         | À faire |
-| RFC-PROJ-004    | Portfolio Management Backend    | CRUD portefeuille                       | Haute         | À faire |
-| RFC-PROJ-005    | Tasks Backend                   | Gestion des tâches                      | Haute         | À faire |
-| RFC-PROJ-006    | Risks Backend                   | Gestion des risques                     | Haute         | À faire |
-| RFC-PROJ-007    | Milestones Backend              | Jalons et échéances macro               | Moyenne/Haute | À faire |
-| RFC-PROJ-008    | Permissions & Module Activation | RBAC et activation module               | Haute         | À faire |
-| RFC-PROJ-009    | Audit Logs Projet               | Traçabilité métier                      | Haute         | À faire |
+| RFC-PROJ-001    | Cadrage fonctionnel             | Définir le périmètre du module          | Haute         | Implémenté (MVP) |
+| RFC-PROJ-002    | Prisma Schema Portefeuille      | Modèle de données principal             | Haute         | Remplacé par schéma MVP `Project` + enfants — [projects-mvp.md](../modules/projects-mvp.md) |
+| RFC-PROJ-003    | Règles métier                   | Normaliser validations et comportements | Haute         | Couvert (MVP) — `projects-pilotage.service.ts` |
+| RFC-PROJ-004    | Portfolio Management Backend    | CRUD portefeuille                       | Haute         | Couvert (MVP) — `GET/POST/PATCH/DELETE /api/projects` |
+| RFC-PROJ-005    | Tasks Backend                   | Gestion des tâches                      | Haute         | Couvert (MVP) |
+| RFC-PROJ-006    | Risks Backend                   | Gestion des risques                     | Haute         | Couvert (MVP) |
+| RFC-PROJ-007    | Milestones Backend              | Jalons et échéances macro               | Moyenne/Haute | Couvert (MVP) |
+| RFC-PROJ-008    | Permissions & Module Activation | RBAC et activation module               | Haute         | Couvert (MVP) — `projects.*` |
+| RFC-PROJ-009    | Audit Logs Projet               | Traçabilité métier                      | Haute         | Partiel (MVP) — audit créations / mises à jour projet et sous-ressources |
 | RFC-PROJ-010    | Budget Links                    | Liens vers module budget                | Haute         | À faire |
 | RFC-PROJ-011    | Supplier Links                  | Liens vers module fournisseur           | Haute         | À faire |
 | RFC-PROJ-012    | Documents & Attachments Links   | Documents liés                          | Moyenne       | À faire |
 | RFC-RES-001     | Resource Registry Foundations   | Registre ressource générique            | Haute         | À faire |
 | RFC-RES-002     | Resource Assignment Backend     | Affectations ressources                 | Haute         | À faire |
 | RFC-RES-003     | Resource Types Metadata         | Métadonnées spécialisées                | Moyenne       | À faire |
-| RFC-FE-PROJ-001 | Portfolio List UI               | Vue portefeuille                        | Haute         | À faire |
-| RFC-FE-PROJ-002 | Portfolio Detail UI             | Vue détail                              | Haute         | À faire |
-| RFC-FE-PROJ-003 | Tasks Tab UI                    | Onglet tâches                           | Haute         | À faire |
-| RFC-FE-PROJ-004 | Risks Tab UI                    | Onglet risques                          | Haute         | À faire |
+| RFC-FE-PROJ-001 | Portfolio List UI               | Vue portefeuille                        | Haute         | Couvert (MVP) — `/projects` |
+| RFC-FE-PROJ-002 | Portfolio Detail UI             | Vue détail                              | Haute         | Couvert (MVP) — `/projects/[projectId]` |
+| RFC-FE-PROJ-003 | Tasks Tab UI                    | Onglet tâches                           | Haute         | Couvert (MVP) — section fiche |
+| RFC-FE-PROJ-004 | Risks Tab UI                    | Onglet risques                          | Haute         | Couvert (MVP) — section fiche |
 | RFC-FE-PROJ-005 | Resources Tab UI                | Onglet ressources                       | Moyenne/Haute | À faire |
 | RFC-FE-PROJ-006 | Budget Links Tab UI             | Onglet budget                           | Moyenne/Haute | À faire |
 | RFC-FE-PROJ-007 | Supplier Links Tab UI           | Onglet fournisseurs                     | Moyenne/Haute | À faire |
-| RFC-PROJ-013    | Portfolio Dashboard API         | KPI portefeuille                        | Haute         | À faire |
-| RFC-FE-PROJ-008 | Portfolio Cockpit UI            | Cockpit pilotage                        | Haute         | À faire |
+| RFC-PROJ-013    | Portfolio Dashboard API         | KPI portefeuille                        | Haute         | Couvert (MVP) — `GET /api/projects/portfolio-summary` |
+| RFC-FE-PROJ-008 | Portfolio Cockpit UI            | Cockpit pilotage                        | Haute         | Couvert (MVP) — bandeau KPI `/projects` |
 | RFC-PROJ-014    | Alerts & Integrity Rules        | Alertes et cohérence                    | Moyenne/Haute | À faire |

@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 (Client RBAC Administration).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 (Client RBAC Administration), RFC-PROJ-001 (module Projets MVP).
 
 ---
 
@@ -1789,3 +1789,49 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 - **GET /api/budgets/:id/compare?targetBudgetId=...** — Comparaison entre deux versions du même set. Query requise : `targetBudgetId`. Réponse : `sourceBudgetId`, `targetBudgetId`, `lines` (diff par code de ligne : source, target, delta des montants). Permission `budgets.read`.
 
 **Erreurs :** 400 (budget déjà versionné, pas le même set pour compare, archivage baseline unique, etc.), 401, 403, 404.
+
+---
+
+## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|risks|milestones`
+
+Référence : **RFC-PROJ-001**, détail produit et technique : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+
+### Guards et headers
+
+- **Headers** : `Authorization: Bearer <accessToken>`, `X-Client-Id` (client actif)
+- **Guards** : JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard
+- **Module** : code `projects` (activation par client)
+
+### Projets — `/api/projects`
+
+- **GET /api/projects** — Liste **paginée et enrichie** (pilotage calculé côté serveur : `derivedProgressPercent`, `computedHealth`, `signals`, `warnings`, compteurs).  
+  Query : `page`, `limit`, `search`, `status`, `priority`, `criticality`, `sortBy` (`name` \| `targetEndDate` \| `status` \| `priority` \| `criticality` \| `computedHealth` \| `progressPercent`), `sortOrder` (`asc` \| `desc`), `atRiskOnly` (booléen).  
+  Réponse : `{ items, total, page, limit }`. Permission **`projects.read`**.
+- **GET /api/projects/portfolio-summary** — KPI agrégés sur **tous** les projets du client actif (sans pagination liste). Permission **`projects.read`**.
+- **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, etc.). Permission **`projects.create`**.
+- **GET /api/projects/:id** — Détail enrichi (même enrichissement pilotage que la liste + champs étendus description, notes, etc.). Permission **`projects.read`**.
+- **PATCH /api/projects/:id** — Mise à jour partielle. Permission **`projects.update`**.
+- **DELETE /api/projects/:id** — Suppression. Permission **`projects.delete`**.
+
+### Tâches — `/api/projects/:projectId/tasks`
+
+- **GET** — Liste des tâches du projet. **`projects.read`**
+- **POST** — Création. **`projects.update`** (mutation du périmètre projet)
+- **PATCH /api/projects/:projectId/tasks/:id** — **`projects.update`**
+- **DELETE /api/projects/:projectId/tasks/:id** — **`projects.update`**
+
+### Risques — `/api/projects/:projectId/risks`
+
+- **GET** — Liste. **`projects.read`**
+- **POST** — **`projects.update`**
+- **PATCH /api/projects/:projectId/risks/:id** — **`projects.update`**
+- **DELETE /api/projects/:projectId/risks/:id** — **`projects.update`**
+
+### Jalons — `/api/projects/:projectId/milestones`
+
+- **GET** — Liste. **`projects.read`**
+- **POST** — **`projects.update`**
+- **PATCH /api/projects/:projectId/milestones/:id** — **`projects.update`**
+- **DELETE /api/projects/:projectId/milestones/:id** — **`projects.update`**
+
+**Erreurs courantes :** 401, 403 (module inactif ou permission manquante), 404 (projet ou sous-ressource hors périmètre client), 409 (ex. code projet déjà utilisé).
