@@ -377,6 +377,8 @@ model Project {
   estimatedGain     Decimal? @db.Decimal(18, 2)
   roi               Decimal? @db.Decimal(10, 2)
   riskLevel         ProjectRiskLevel?
+  /// Réponse au risque : traitement, mitigation, plan d’action (texte libre, fiche CODIR)
+  riskResponse      String?
   priorityScore     Decimal? @db.Decimal(5, 2)
   arbitrationStatus ProjectArbitrationStatus?
   copilRecommendation ProjectCopilRecommendation @default(NOT_SET)
@@ -384,6 +386,9 @@ model Project {
   /// Cadrage OQQCQPC (fiche projet)
   cadreLocation String? @db.VarChar(500)
   cadreQui      String? @db.VarChar(500)
+
+  /// Équipes / directions impliquées (texte libre, fiche projet)
+  involvedTeams String? @db.VarChar(2000)
 
   /// RFC-PROJ-012 — objectif métier (texte MVP)
   businessProblem   String?

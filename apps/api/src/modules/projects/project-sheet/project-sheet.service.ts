@@ -45,6 +45,7 @@ export type ProjectSheetResponseDto = {
   description: string | null;
   cadreLocation: string | null;
   cadreQui: string | null;
+  involvedTeams: string | null;
   startDate: string | null;
   targetEndDate: string | null;
   kind: string;
@@ -59,6 +60,7 @@ export type ProjectSheetResponseDto = {
   estimatedGain: number | null;
   roi: number | null;
   riskLevel: string | null;
+  riskResponse: string | null;
   priorityScore: number | null;
   arbitrationStatus: string | null;
   copilRecommendation: string;
@@ -148,6 +150,7 @@ export class ProjectSheetService {
       description: p.description ?? null,
       cadreLocation: p.cadreLocation ?? null,
       cadreQui: p.cadreQui ?? null,
+      involvedTeams: p.involvedTeams ?? null,
       startDate: p.startDate?.toISOString() ?? null,
       targetEndDate: p.targetEndDate?.toISOString() ?? null,
       kind: p.kind,
@@ -162,6 +165,7 @@ export class ProjectSheetService {
       estimatedGain: decimalToNumber(p.estimatedGain),
       roi: decimalToNumber(roiForResponse),
       riskLevel: effectiveRiskLevel,
+      riskResponse: p.riskResponse ?? null,
       priorityScore: decimalToNumber(priorityScoreForResponse),
       arbitrationStatus: p.arbitrationStatus ?? null,
       copilRecommendation: p.copilRecommendation,
@@ -228,6 +232,7 @@ export class ProjectSheetService {
       description: merged.description,
       cadreLocation: merged.cadreLocation,
       cadreQui: merged.cadreQui,
+      involvedTeams: merged.involvedTeams,
       startDate: merged.startDate,
       targetEndDate: merged.targetEndDate,
       businessValueScore: merged.businessValueScore,
@@ -237,6 +242,7 @@ export class ProjectSheetService {
       estimatedGain: merged.estimatedGain,
       roi,
       riskLevel: merged.riskLevel,
+      riskResponse: merged.riskResponse,
       priorityScore,
       copilRecommendation: merged.copilRecommendation,
       businessProblem: merged.businessProblem,
@@ -360,6 +366,7 @@ export class ProjectSheetService {
     description: string | null;
     cadreLocation: string | null;
     cadreQui: string | null;
+    involvedTeams: string | null;
     startDate: Date | null;
     targetEndDate: Date | null;
     businessValueScore: number | null;
@@ -368,6 +375,7 @@ export class ProjectSheetService {
     estimatedCost: Prisma.Decimal | null;
     estimatedGain: Prisma.Decimal | null;
     riskLevel: Project['riskLevel'];
+    riskResponse: string | null;
     copilRecommendation: ProjectCopilRecommendation;
     businessProblem: string | null;
     businessBenefits: string | null;
@@ -398,6 +406,12 @@ export class ProjectSheetService {
         : project.estimatedGain;
     const riskLevel =
       dto.riskLevel !== undefined ? dto.riskLevel : project.riskLevel;
+    const riskResponse =
+      dto.riskResponse !== undefined
+        ? dto.riskResponse == null || dto.riskResponse.trim() === ''
+          ? null
+          : dto.riskResponse.trim()
+        : project.riskResponse;
     const copilRecommendation =
       dto.copilRecommendation !== undefined
         ? dto.copilRecommendation
@@ -421,6 +435,13 @@ export class ProjectSheetService {
           ? null
           : dto.cadreQui.trim()
         : project.cadreQui;
+
+    const involvedTeams =
+      dto.involvedTeams !== undefined
+        ? dto.involvedTeams == null || dto.involvedTeams.trim() === ''
+          ? null
+          : dto.involvedTeams.trim()
+        : project.involvedTeams;
 
     const startDate =
       dto.startDate !== undefined
@@ -490,6 +511,7 @@ export class ProjectSheetService {
       description,
       cadreLocation,
       cadreQui,
+      involvedTeams,
       startDate,
       targetEndDate,
       businessValueScore,
@@ -498,6 +520,7 @@ export class ProjectSheetService {
       estimatedCost,
       estimatedGain,
       riskLevel,
+      riskResponse,
       copilRecommendation,
       businessProblem,
       businessBenefits,

@@ -58,6 +58,13 @@ export class UpdateProjectSheetDto {
   @MaxLength(500)
   cadreQui?: string | null;
 
+  /** Équipes / directions impliquées (texte libre) — null efface */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(2000)
+  involvedTeams?: string | null;
+
   @IsOptional()
   @ValidateIf((_, v) => v !== null && v !== undefined)
   @IsDateString()
@@ -104,6 +111,13 @@ export class UpdateProjectSheetDto {
   @IsOptional()
   @IsEnum(ProjectRiskLevel)
   riskLevel?: ProjectRiskLevel;
+
+  /** Réponse au risque (mitigation, plan d’action) — null efface */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(20000)
+  riskResponse?: string | null;
 
   /** Recommandation COPIL / COPRO (saisie humaine, non dérivée des indicateurs). */
   @IsOptional()

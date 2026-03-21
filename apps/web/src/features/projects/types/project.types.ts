@@ -219,6 +219,8 @@ export type ProjectSheet = {
   description: string | null;
   cadreLocation: string | null;
   cadreQui: string | null;
+  /** Équipes / directions impliquées (texte libre) */
+  involvedTeams: string | null;
   startDate: string | null;
   targetEndDate: string | null;
   kind: string;
@@ -233,6 +235,8 @@ export type ProjectSheet = {
   estimatedGain: number | null;
   roi: number | null;
   riskLevel: ProjectSheetRiskLevel | null;
+  /** Réponse au risque (mitigation, plan d’action) */
+  riskResponse: string | null;
   priorityScore: number | null;
   arbitrationStatus: ProjectArbitrationStatus | null;
   copilRecommendation: ProjectCopilRecommendation;
@@ -255,6 +259,7 @@ export type UpdateProjectSheetPayload = {
   name?: string;
   cadreLocation?: string | null;
   cadreQui?: string | null;
+  involvedTeams?: string | null;
   startDate?: string | null;
   targetEndDate?: string | null;
   description?: string;
@@ -264,6 +269,7 @@ export type UpdateProjectSheetPayload = {
   estimatedCost?: number;
   estimatedGain?: number;
   riskLevel?: ProjectSheetRiskLevel;
+  riskResponse?: string | null;
   copilRecommendation?: ProjectCopilRecommendation;
   businessProblem?: string;
   businessBenefits?: string;

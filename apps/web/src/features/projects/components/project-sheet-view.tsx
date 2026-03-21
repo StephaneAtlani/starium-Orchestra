@@ -268,6 +268,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const [cadreWho, setCadreWho] = useState('');
   const [cadreStart, setCadreStart] = useState('');
   const [cadreEnd, setCadreEnd] = useState('');
+  const [involvedTeams, setInvolvedTeams] = useState('');
 
   const [bv, setBv] = useState('');
   const [sa, setSa] = useState('');
@@ -275,6 +276,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const [cost, setCost] = useState('');
   const [gain, setGain] = useState('');
   const [risk, setRisk] = useState<string>(RISK_UNSET);
+  const [riskResponse, setRiskResponse] = useState('');
   const [arbDraft, setArbDraft] = useState<ProjectArbitrationStatus>('DRAFT');
   const [copilDraft, setCopilDraft] = useState<ProjectCopilRecommendation>('NOT_SET');
 
@@ -314,12 +316,14 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     setCadreWho(sheet.cadreQui ?? '');
     setCadreStart(sheet.startDate ? sheet.startDate.slice(0, 10) : '');
     setCadreEnd(sheet.targetEndDate ? sheet.targetEndDate.slice(0, 10) : '');
+    setInvolvedTeams(sheet.involvedTeams ?? '');
     setBv(sheet.businessValueScore != null ? String(sheet.businessValueScore) : '');
     setSa(sheet.strategicAlignment != null ? String(sheet.strategicAlignment) : '');
     setUs(sheet.urgencyScore != null ? String(sheet.urgencyScore) : '');
     setCost(sheet.estimatedCost != null ? String(sheet.estimatedCost) : '');
     setGain(sheet.estimatedGain != null ? String(sheet.estimatedGain) : '');
     setRisk(sheet.riskLevel ?? RISK_UNSET);
+    setRiskResponse(sheet.riskResponse ?? '');
     setArbDraft(sheet.arbitrationStatus ?? 'DRAFT');
     setCopilDraft(sheet.copilRecommendation ?? 'NOT_SET');
     setDescription(sheet.description ?? '');
@@ -344,6 +348,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     payload.name = projectName.trim() || sheet.name;
     payload.cadreLocation = cadreWhere.trim() ? cadreWhere.trim() : null;
     payload.cadreQui = cadreWho.trim() ? cadreWho.trim() : null;
+    payload.involvedTeams = involvedTeams.trim() ? involvedTeams.trim() : null;
     payload.startDate = cadreStart.trim() ? cadreStart : null;
     payload.targetEndDate = cadreEnd.trim() ? cadreEnd : null;
     payload.description = description.trim();
@@ -360,6 +365,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     if (risk && risk !== RISK_UNSET) {
       payload.riskLevel = risk as ProjectSheetRiskLevel;
     }
+    payload.riskResponse = riskResponse.trim() ? riskResponse.trim() : null;
     payload.copilRecommendation = copilDraft;
     if (problem.trim()) payload.businessProblem = problem.trim();
     if (benefits.trim()) payload.businessBenefits = benefits.trim();
@@ -382,6 +388,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     cadreWho,
     cadreStart,
     cadreEnd,
+    involvedTeams,
     description,
     bv,
     sa,
@@ -389,6 +396,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     cost,
     gain,
     risk,
+    riskResponse,
     copilDraft,
     problem,
     benefits,
@@ -442,6 +450,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     cadreWho,
     cadreStart,
     cadreEnd,
+    involvedTeams,
     description,
     bv,
     sa,
@@ -449,6 +458,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     cost,
     gain,
     risk,
+    riskResponse,
     copilDraft,
     problem,
     benefits,
@@ -668,6 +678,27 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       </div>
 
       <ProjectTeamMatrix projectId={projectId} />
+
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="text-base">Équipes impliquées</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Directions, services ou équipes concernés par le projet (hors rôles nominatifs ci-dessus).
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Input
+            id="involved-teams"
+            disabled={!canEdit}
+            value={involvedTeams}
+            onChange={(e) => setInvolvedTeams(e.target.value)}
+            placeholder="Ex. : DSI, RH, Achats, Finance, équipe métier…"
+            maxLength={2000}
+            className="w-full"
+            aria-label="Équipes impliquées"
+          />
+        </CardContent>
+      </Card>
 
       {/* A — Résumé + synthèse décisionnelle + arbitrage CODIR */}
       <Card size="sm">
@@ -1175,13 +1206,13 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           {/* Synthèse CODIR */}
           <div className="space-y-1.5 text-sm">
             <div>
-              <span className="text-muted-foreground">Risque global : </span>
+              <span className="text-muted-foreground">Niveau de risque (affiché) : </span>
               <span className="font-semibold tabular-nums text-foreground">
                 {sheet.riskLevel != null ? RISK_LABEL[sheet.riskLevel] : '—'}
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground">Priorité (score calculé) : </span>
+              <span className="text-muted-foreground">Score de priorité (calculé) : </span>
               <span className="font-semibold tabular-nums text-foreground">
                 {priorityScoreDisplayed != null ? fmt(priorityScoreDisplayed) : '—'}
               </span>
@@ -1198,13 +1229,21 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
           {/* Paramétrage fiche (opérationnel) */}
           <div className="space-y-2 border-t border-border pt-4">
-            <Label className="text-muted-foreground">Niveau de risque (fiche)</Label>
+            <div className="space-y-1">
+              <Label htmlFor="sheet-risk-level" className="text-muted-foreground">
+                Niveau de risque — saisie fiche (CODIR)
+              </Label>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Appréciation du risque du projet (faible / moyen / élevé). Ce n’est pas la priorité
+                dans le portefeuille ni le score de priorité affiché ci-dessus.
+              </p>
+            </div>
             <Select
               value={risk}
               onValueChange={(v) => setRisk(v ?? RISK_UNSET)}
               disabled={!canEdit}
             >
-              <SelectTrigger className="max-w-xs">
+              <SelectTrigger id="sheet-risk-level" className="max-w-xs">
                 <SelectValue placeholder="Non renseigné">
                   {risk === RISK_UNSET
                     ? 'Non renseigné'
@@ -1220,6 +1259,24 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 ))}
               </SelectContent>
             </Select>
+            <div className="space-y-1.5 pt-2">
+              <Label htmlFor="sheet-risk-response" className="text-muted-foreground">
+                Réponse au risque
+              </Label>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Mesures envisagées : réduction, transfert, acceptation, plan de contingence, etc.
+              </p>
+              <textarea
+                id="sheet-risk-response"
+                className={cn(textareaClass, 'min-h-[88px]')}
+                disabled={!canEdit}
+                value={riskResponse}
+                onChange={(e) => setRiskResponse(e.target.value)}
+                placeholder="Ex. : plan de reprise, renfort MOA, revue architecture, assurance…"
+                maxLength={20000}
+                aria-label="Réponse au risque"
+              />
+            </div>
           </div>
 
           {/* Détail opérationnel */}
