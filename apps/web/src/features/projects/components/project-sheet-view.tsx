@@ -621,38 +621,133 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      {/* F — SWOT */}
+      {/* F — SWOT (matrice classique 2×2) */}
       <Card size="sm">
         <CardHeader>
           <CardTitle className="text-base">F. Analyse stratégique (SWOT)</CardTitle>
-          <p className="text-xs text-muted-foreground">Max. 3 points par bloc</p>
+          <p className="text-xs text-muted-foreground">
+            Matrice : interne / externe × favorable / défavorable — max. 3 points par quadrant
+          </p>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {(
-            [
-              ['Forces', swS, setSwS] as const,
-              ['Faiblesses', swW, setSwW] as const,
-              ['Opportunités', swO, setSwO] as const,
-              ['Menaces', swT, setSwT] as const,
-            ] as const
-          ).map(([label, vals, setVals]) => (
-            <div key={label} className="space-y-2">
-              <Label>{label}</Label>
-              {[0, 1, 2].map((i) => (
-                <Input
-                  key={i}
-                  disabled={!canEdit}
-                  value={vals[i]}
-                  onChange={(e) => {
-                    const next = [...vals] as [string, string, string];
-                    next[i] = e.target.value;
-                    setVals(next);
-                  }}
-                  placeholder={`Point ${i + 1}`}
-                />
-              ))}
+        <CardContent className="space-y-4">
+          <div className="hidden text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-2 sm:gap-3">
+            <span className="rounded-md bg-muted/50 py-1.5">Favorable</span>
+            <span className="rounded-md bg-muted/50 py-1.5">Défavorable</span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-0 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] p-4 shadow-sm dark:bg-emerald-500/10">
+              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-emerald-500/20 pb-2">
+                <span className="text-lg font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+                  S
+                </span>
+                <span className="font-semibold text-foreground">Forces</span>
+                <span className="text-xs text-muted-foreground">Interne</span>
+              </div>
+              <div className="space-y-2">
+                <Label className="sr-only">Forces — points</Label>
+                {[0, 1, 2].map((i) => (
+                  <Input
+                    key={i}
+                    disabled={!canEdit}
+                    className="border-emerald-500/20 bg-background/80"
+                    value={swS[i]}
+                    onChange={(e) => {
+                      const next = [...swS] as [string, string, string];
+                      next[i] = e.target.value;
+                      setSwS(next);
+                    }}
+                    placeholder={`Atout ${i + 1}`}
+                  />
+                ))}
+              </div>
             </div>
-          ))}
+
+            <div className="space-y-0 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4 shadow-sm dark:bg-amber-500/10">
+              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-amber-500/20 pb-2">
+                <span className="text-lg font-bold tabular-nums text-amber-800 dark:text-amber-400">
+                  W
+                </span>
+                <span className="font-semibold text-foreground">Faiblesses</span>
+                <span className="text-xs text-muted-foreground">Interne</span>
+              </div>
+              <div className="space-y-2">
+                <Label className="sr-only">Faiblesses — points</Label>
+                {[0, 1, 2].map((i) => (
+                  <Input
+                    key={i}
+                    disabled={!canEdit}
+                    className="border-amber-500/20 bg-background/80"
+                    value={swW[i]}
+                    onChange={(e) => {
+                      const next = [...swW] as [string, string, string];
+                      next[i] = e.target.value;
+                      setSwW(next);
+                    }}
+                    placeholder={`Limite ${i + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-0 rounded-xl border border-sky-500/25 bg-sky-500/[0.07] p-4 shadow-sm dark:bg-sky-500/10">
+              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-sky-500/20 pb-2">
+                <span className="text-lg font-bold tabular-nums text-sky-800 dark:text-sky-400">
+                  O
+                </span>
+                <span className="font-semibold text-foreground">Opportunités</span>
+                <span className="text-xs text-muted-foreground">Externe</span>
+              </div>
+              <div className="space-y-2">
+                <Label className="sr-only">Opportunités — points</Label>
+                {[0, 1, 2].map((i) => (
+                  <Input
+                    key={i}
+                    disabled={!canEdit}
+                    className="border-sky-500/20 bg-background/80"
+                    value={swO[i]}
+                    onChange={(e) => {
+                      const next = [...swO] as [string, string, string];
+                      next[i] = e.target.value;
+                      setSwO(next);
+                    }}
+                    placeholder={`Opportunité ${i + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-0 rounded-xl border border-rose-500/25 bg-rose-500/[0.07] p-4 shadow-sm dark:bg-rose-500/10">
+              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-rose-500/20 pb-2">
+                <span className="text-lg font-bold tabular-nums text-rose-800 dark:text-rose-400">
+                  T
+                </span>
+                <span className="font-semibold text-foreground">Menaces</span>
+                <span className="text-xs text-muted-foreground">Externe</span>
+              </div>
+              <div className="space-y-2">
+                <Label className="sr-only">Menaces — points</Label>
+                {[0, 1, 2].map((i) => (
+                  <Input
+                    key={i}
+                    disabled={!canEdit}
+                    className="border-rose-500/20 bg-background/80"
+                    value={swT[i]}
+                    onChange={(e) => {
+                      const next = [...swT] as [string, string, string];
+                      next[i] = e.target.value;
+                      setSwT(next);
+                    }}
+                    placeholder={`Menace ${i + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-center text-[11px] text-muted-foreground sm:hidden">
+            Ligne du haut : interne · ligne du bas : externe
+          </p>
         </CardContent>
       </Card>
 
