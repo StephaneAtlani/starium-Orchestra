@@ -1,18 +1,3 @@
-Oui. Voici un **plan de développement structuré avec RFC** pour ton module **Portefeuille Projets & Activités**, en restant cohérent avec Starium Orchestra :
-
-* module orienté **pilotage**
-* **budget** reste source de vérité financière
-* **fournisseurs** reste source de vérité achats/partenaires
-* le module projet possède seulement :
-
-  * portefeuille
-  * exécution
-  * risques
-  * affectations de ressources
-  * liens vers les autres modules
-
----
-
 # Plan de développement — Module Portefeuille Projets & Activités
 
 ## Vue d’ensemble
