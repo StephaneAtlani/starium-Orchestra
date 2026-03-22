@@ -25,7 +25,8 @@ import {
 import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
 import {
   GANTT_DAY_MS,
-  GANTT_PX_PER_DAY_BY_SCALE,
+  GANTT_MIN_TIMELINE_PX,
+  GANTT_PX_PER_DAY,
   GANTT_ROW_PX,
   computeTimelineBounds,
   dateMsToPx,
@@ -102,8 +103,6 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const [showMilestones, setShowMilestones] = useState(true);
   const [timelineViewportW, setTimelineViewportW] = useState(0);
 
-  const pxPerDay = GANTT_PX_PER_DAY_BY_SCALE[timelineScale];
-
   const updateTask = useUpdateProjectTaskMutation(projectId);
   const updateMilestone = useUpdateProjectMilestoneMutation(projectId);
 
@@ -144,10 +143,37 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     return computeTimelineBounds(payload.tasks, milestoneTimes);
   }, [payload, milestoneTimes]);
 
+  /** Durée affichée (jours) entre min et max de la frise. */
+  const spanDays = useMemo(() => {
+    if (!bounds) return 0;
+    return (bounds.max - bounds.min) / GANTT_DAY_MS;
+  }, [bounds]);
+
+  /**
+   * Pixels par jour : dérivés de la largeur visible pour que [bounds.min, bounds.max] occupe
+   * toute la zone (sauf vue « Jour » = zoom avant avec défilement).
+   * Semaine = ajuster à la largeur ; Mois = zoom arrière ; si le résultat est plus étroit que
+   * la zone, on étire pour remplir (alignement dates / barres / en-têtes).
+   */
+  const pxPerDay = useMemo(() => {
+    if (!bounds || spanDays <= 0) return GANTT_PX_PER_DAY;
+    const vw = Math.max(timelineViewportW, GANTT_MIN_TIMELINE_PX);
+    const zoom =
+      timelineScale === 'day' ? 1.35 : timelineScale === 'month' ? 0.62 : 1;
+    let px = (vw / spanDays) * zoom;
+    const contentW = spanDays * px;
+    if (contentW < vw) {
+      px = vw / spanDays;
+    }
+    return px;
+  }, [bounds, spanDays, timelineViewportW, timelineScale]);
+
   const layout = useMemo(() => {
-    if (!bounds) return null;
-    return dateRangeToTimelineLayout(bounds, pxPerDay);
-  }, [bounds, pxPerDay]);
+    if (!bounds || spanDays <= 0) return null;
+    const base = dateRangeToTimelineLayout(bounds, pxPerDay);
+    const w = spanDays * pxPerDay;
+    return { ...base, widthPx: w };
+  }, [bounds, pxPerDay, spanDays]);
 
   const sortedMilestones = useMemo(() => {
     const m = payload?.milestones ?? [];
@@ -470,7 +496,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     ro.observe(el);
     setTimelineViewportW(el.clientWidth);
     return () => ro.disconnect();
-  }, [layout]);
+  }, [bounds]);
 
   if (ganttQuery.isLoading) {
     return <LoadingState rows={6} />;
@@ -582,7 +608,6 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   }
 
   const { widthPx, monthBands, weekBands, todayPx } = layout;
-  const friseWidthPx = Math.max(widthPx, timelineViewportW || 0);
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -622,15 +647,15 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           >
             <div
               className="relative flex min-w-full flex-col"
-              style={{ width: friseWidthPx, minWidth: friseWidthPx }}
+              style={{ width: widthPx, minWidth: widthPx }}
             >
               <div
                 className="border-border/40 bg-muted/30 sticky top-0 z-20 border-b"
-                style={{ width: friseWidthPx }}
+                style={{ width: widthPx }}
               >
                 <div
                   className="border-border/40 relative border-b"
-                  style={{ height: GANTT_ROW_PX, width: friseWidthPx }}
+                  style={{ height: GANTT_ROW_PX, width: widthPx }}
                 >
                   {monthBands.map((b, i) => (
                     <div
@@ -642,7 +667,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     </div>
                   ))}
                 </div>
-                <div className="relative" style={{ height: GANTT_ROW_PX, width: friseWidthPx }}>
+                <div className="relative" style={{ height: GANTT_ROW_PX, width: widthPx }}>
                   {weekBands.map((b, i) => (
                     <div
                       key={`w-${i}-${b.label}-${b.leftPx}`}
@@ -658,7 +683,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
               <div
                 ref={timelineBodyRef}
                 className="relative"
-                style={{ width: friseWidthPx, minHeight: timelineBodyHeightPx }}
+                style={{ width: widthPx, minHeight: timelineBodyHeightPx }}
               >
                 <svg
                   className="text-muted-foreground pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible"
@@ -711,7 +736,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                       hsl(var(--border) / 0.4) ${Math.max(0, pxPerDay - 1)}px,
                       hsl(var(--border) / 0.4) ${pxPerDay}px
                     )`,
-                    width: friseWidthPx,
+                    width: widthPx,
                   }}
                 />
                 {todayPx !== null && (
@@ -746,7 +771,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     <div
                       key={row.id}
                       className="border-border/40 relative z-[2] shrink-0 border-b"
-                      style={{ height: GANTT_ROW_PX, width: friseWidthPx }}
+                      style={{ height: GANTT_ROW_PX, width: widthPx }}
                     >
                       {eligible && dates && (
                         <ProjectGanttTaskBar
@@ -772,7 +797,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     <div
                       key={m.id}
                       className="border-border/40 relative z-[2] shrink-0 border-b"
-                      style={{ height: GANTT_ROW_PX, width: friseWidthPx }}
+                      style={{ height: GANTT_ROW_PX, width: widthPx }}
                     >
                       <div
                         className={
