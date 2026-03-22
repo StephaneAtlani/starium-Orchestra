@@ -26,11 +26,7 @@ function TooltipTrigger({
   ...props
 }: TooltipPrimitive.Trigger.Props) {
   return (
-    <TooltipPrimitive.Trigger
-      data-slot="tooltip-trigger"
-      asChild
-      {...props}
-    >
+    <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props}>
       {children}
     </TooltipPrimitive.Trigger>
   )
