@@ -76,8 +76,8 @@ export const WARNING_CODE_LABEL: Record<string, string> = {
 
 /** RFC-PROJ-013 */
 export const PROJECT_REVIEW_TYPE_LABEL: Record<string, string> = {
-  COPIL: 'COPIL',
-  COPRO: 'COPRO',
+  COPIL: 'Revue COPIL',
+  COPRO: 'Revue COPRO',
   CODIR_REVIEW: 'Revue CODIR',
   RISK_REVIEW: 'Revue risques',
   MILESTONE_REVIEW: 'Revue jalons',
@@ -88,4 +88,13 @@ export const PROJECT_REVIEW_STATUS_LABEL: Record<string, string> = {
   DRAFT: 'Brouillon',
   FINALIZED: 'Finalisé',
   CANCELLED: 'Annulé',
+};
+
+/** Aligné fiche projet — statuts d’arbitrage par niveau (lecture seule dans l’éditeur de point). */
+export const ARBITRATION_LEVEL_STATUS_LABEL: Record<string, string> = {
+  BROUILLON: 'Proposition de projet',
+  EN_COURS: 'En préparation',
+  SOUMIS_VALIDATION: 'Soumis à validation',
+  VALIDE: 'Validé',
+  REFUSE: 'Refusé',
 };
