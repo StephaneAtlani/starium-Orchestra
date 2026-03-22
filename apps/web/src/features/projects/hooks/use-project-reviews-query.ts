@@ -9,7 +9,10 @@ import type { ProjectReviewListItem } from '../types/project.types';
 
 const STALE = 30_000;
 
-export function useProjectReviewsQuery(projectId: string) {
+export function useProjectReviewsQuery(
+  projectId: string,
+  options?: { enabled?: boolean },
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -20,7 +23,7 @@ export function useProjectReviewsQuery(projectId: string) {
       const res = await listProjectReviews(authFetch, projectId);
       return res.items as ProjectReviewListItem[];
     },
-    enabled: !!clientId && !!projectId,
+    enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
   });
 }

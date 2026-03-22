@@ -2,21 +2,27 @@
 
 import Link from 'next/link';
 import {
-  CalendarRange,
+  AlertTriangle,
+  CalendarClock,
   CloudRain,
   CloudSun,
   Database,
-  FileText,
+  Flag,
+  History,
   Info,
   ListChecks,
   ListTodo,
   Scale,
+  Sparkles,
   Sun,
+  Target,
+  TrendingUp,
   Users,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -31,17 +37,30 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { cn } from '@/lib/utils';
 import {
   ARBITRATION_LEVEL_STATUS_LABEL,
+  PROJECT_CRITICALITY_LABEL,
   PROJECT_REVIEW_STATUS_LABEL,
   PROJECT_REVIEW_TYPE_LABEL,
   TASK_STATUS_LABEL,
+  WARNING_CODE_LABEL,
 } from '../constants/project-enum-labels';
+import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { projectSheet } from '../constants/project-routes';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
+import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectReviewDetailQuery } from '../hooks/use-project-review-detail-query';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
+import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
+import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
-import type { ProjectDetail, ProjectReviewType, ProjectSheet } from '../types/project.types';
+import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
+import type {
+  ProjectDetail,
+  ProjectReviewActionItemApi,
+  ProjectReviewListItem,
+  ProjectReviewType,
+  ProjectSheet,
+} from '../types/project.types';
 
 const textareaClass = cn(
   'min-h-[100px] w-full resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm transition-colors outline-none',
@@ -190,24 +209,83 @@ function readCommitteeMood(raw: unknown): CommitteeMood | null {
   return null;
 }
 
-/** Bandeau compact en tête : santé + signaux + chiffres clés (lecture seule). */
+/** Bandeau indicateurs — carte légère, alignée FRONTEND_UI-UX §2. */
 function ProjectMeteoInline({ project }: { project: ProjectDetail }) {
   const av =
     project.derivedProgressPercent ?? project.progressPercent ?? null;
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border/60 bg-muted/25 px-3 py-2 text-xs">
-      <span className="font-medium text-muted-foreground">Indicateurs projet</span>
-      <HealthBadge health={project.computedHealth} compact />
-      <ProjectPortfolioBadges signals={project.signals} />
-      <span className="hidden text-border sm:inline">|</span>
-      <span className="tabular-nums text-muted-foreground">
-        Av. {av != null ? `${av} %` : '—'}
-      </span>
-      <span className="tabular-nums text-muted-foreground">
-        T·R·J {project.openTasksCount}/{project.openRisksCount}/{project.delayedMilestonesCount}
-      </span>
+    <div className="rounded-xl border border-border/70 border-l-4 border-l-sky-500/50 bg-card p-3 shadow-sm">
+      <p className="mb-2.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+        Indicateurs projet
+      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <HealthBadge health={project.computedHealth} compact />
+          <ProjectPortfolioBadges signals={project.signals} />
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/50 pt-3 text-xs sm:border-t-0 sm:pt-0">
+          <span className="tabular-nums text-muted-foreground">
+            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground/90">
+              Avancement{' '}
+            </span>
+            <span className="font-semibold text-foreground">
+              {av != null ? `${av} %` : '—'}
+            </span>
+          </span>
+          <span className="hidden h-4 w-px bg-border/70 sm:block" aria-hidden />
+          <span className="tabular-nums text-muted-foreground" title="Tâches · Risques · Jalons en retard">
+            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground/90">
+              T·R·J{' '}
+            </span>
+            <span className="font-semibold text-foreground">
+              {project.openTasksCount}/{project.openRisksCount}/{project.delayedMilestonesCount}
+            </span>
+          </span>
+        </div>
+      </div>
     </div>
   );
+}
+
+function pickPreviousReviewId(
+  items: ProjectReviewListItem[],
+  currentId: string,
+): string | null {
+  const sorted = [...items].sort(
+    (a, b) => new Date(b.reviewDate).getTime() - new Date(a.reviewDate).getTime(),
+  );
+  const idx = sorted.findIndex((x) => x.id === currentId);
+  if (idx === -1 || idx >= sorted.length - 1) return null;
+  return sorted[idx + 1]?.id ?? null;
+}
+
+function classifyPrevReviewAction(
+  a: ProjectReviewActionItemApi,
+): 'done' | 'in_progress' | 'late' {
+  const done = a.status === 'DONE' || a.status === 'CANCELLED';
+  if (done) return 'done';
+  const due = a.dueDate ? new Date(a.dueDate).getTime() : null;
+  if (due != null && due < Date.now()) return 'late';
+  return 'in_progress';
+}
+
+function formatReviewDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('fr-FR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch {
+    return '—';
+  }
+}
+
+function formatDateOnly(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('fr-FR');
+  } catch {
+    return '—';
+  }
 }
 
 const MOOD_CARDS: {
@@ -372,6 +450,17 @@ export function ProjectReviewEditorDialog({
   const detailQuery = useProjectReviewDetailQuery(projectId, reviewId);
   const projectQuery = useProjectDetailQuery(projectId);
   const sheetQuery = useProjectSheetQuery(projectId, { enabled: open });
+  const reviewsListQuery = useProjectReviewsQuery(projectId, { enabled: open });
+  const previousReviewId = useMemo(() => {
+    if (!open || !reviewId || !reviewsListQuery.data?.length) return null;
+    return pickPreviousReviewId(reviewsListQuery.data, reviewId);
+  }, [open, reviewId, reviewsListQuery.data]);
+
+  const previousDetailQuery = useProjectReviewDetailQuery(projectId, previousReviewId);
+  const milestonesQuery = useProjectMilestonesQuery(projectId, { enabled: open });
+  const risksQuery = useProjectRisksQuery(projectId, { enabled: open });
+  const tasksQuery = useProjectTasksQuery(projectId, { enabled: open });
+
   const { update, finalize, cancel } = useProjectReviewMutations(projectId);
 
   const [reviewDate, setReviewDate] = useState('');
@@ -446,6 +535,37 @@ export function ProjectReviewEditorDialog({
   const isDraft = d?.status === 'DRAFT';
   const editable = canEdit && isDraft;
 
+  const pilotageSinceLast = useMemo(() => {
+    const prev = previousDetailQuery.data;
+    const tasks = tasksQuery.data;
+    if (!prev || !tasks) return null;
+    const t0 = new Date(prev.finalizedAt ?? prev.reviewDate).getTime();
+    const tasksDoneSince = tasks.filter(
+      (x) =>
+        x.completedAt &&
+        new Date(x.completedAt).getTime() >= t0 &&
+        (x.status === 'DONE' || x.status === 'CANCELLED'),
+    );
+    return {
+      tasksDoneSinceCount: tasksDoneSince.length,
+      openRisksCount: risksQuery.data?.filter((r) => r.status === 'OPEN').length ?? 0,
+    };
+  }, [previousDetailQuery.data, tasksQuery.data, risksQuery.data]);
+
+  const actionFormAlerts = useMemo(() => {
+    const filled = actions.filter((a) => a.title.trim());
+    const msgs: string[] = [];
+    if (editable && filled.length === 0) {
+      msgs.push('Aucune action enregistrée pour ce point — une réunion sans sortie est difficile à piloter.');
+    }
+    for (const a of filled) {
+      if (!a.dueDate.trim()) {
+        msgs.push(`Échéance manquante : « ${a.title.length > 48 ? `${a.title.slice(0, 48)}…` : a.title} »`);
+      }
+    }
+    return msgs;
+  }, [actions, editable]);
+
   const buildPatchBody = () => {
     const parts = participants
       .filter((p) => p.displayName.trim() || p.userId.trim())
@@ -511,31 +631,59 @@ export function ProjectReviewEditorDialog({
         showCloseButton
         className="flex h-[min(92vh,900px)] w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[90vw]"
       >
-        <DialogHeader className="border-b border-border/60 px-4 py-4 sm:px-6">
-          <DialogTitle className="text-left">
-            {d ? (
-              <>
-                Point projet —{' '}
-                {PROJECT_REVIEW_TYPE_LABEL[d.reviewType] ?? d.reviewType}
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({PROJECT_REVIEW_STATUS_LABEL[d.status] ?? d.status})
-                </span>
-              </>
-            ) : (
-              'Point projet'
-            )}
-          </DialogTitle>
-          <p className="text-left text-xs text-muted-foreground">
-            Complétez le compte rendu, vérifiez l’arbitrage sur la fiche, puis enregistrez et finalisez
-            pour figer le snapshot.
-          </p>
-          {open && projectQuery.isLoading && (
+        <DialogHeader className="shrink-0 space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/35 via-background to-background px-4 py-5 sm:px-6">
+          <div className="flex flex-wrap items-start gap-4">
             <div
-              className="mt-3 h-24 animate-pulse rounded-xl border border-border/50 bg-muted/40"
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/50 text-sky-700 shadow-inner dark:text-sky-400"
               aria-hidden
-            />
-          )}
-          {open && projectQuery.data && <ProjectMeteoInline project={projectQuery.data} />}
+            >
+              <CalendarClock className="size-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <DialogTitle className="text-left text-xl font-semibold leading-snug tracking-tight text-foreground">
+                    {d ? (
+                      PROJECT_REVIEW_TYPE_LABEL[d.reviewType] ?? d.reviewType
+                    ) : (
+                      'Point projet'
+                    )}
+                  </DialogTitle>
+                  {d && projectQuery.data?.name && (
+                    <p className="mt-1 text-sm font-medium text-foreground/90">
+                      {projectQuery.data.name}
+                    </p>
+                  )}
+                  {d && !projectQuery.data?.name && (
+                    <p className="mt-1 text-sm text-muted-foreground">Projet</p>
+                  )}
+                  {d && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+                        {formatReviewDateTime(d.reviewDate)}
+                      </span>
+                      {d.title ? (
+                        <span className="text-xs text-muted-foreground">
+                          <span className="text-muted-foreground/80">Objet : </span>
+                          <span className="font-medium text-foreground">{d.title}</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs italic text-muted-foreground">Sans titre de séance</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {d && (
+                  <Badge
+                    variant={d.status === 'FINALIZED' ? 'secondary' : 'outline'}
+                    className="shrink-0 border-border/70 px-2.5 py-0.5 text-xs font-medium"
+                  >
+                    {PROJECT_REVIEW_STATUS_LABEL[d.status] ?? d.status}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 px-4 py-5 sm:px-6">
@@ -544,29 +692,18 @@ export function ProjectReviewEditorDialog({
           ) : detailQuery.error || !d ? (
             <p className="text-sm text-destructive">Impossible de charger ce point.</p>
           ) : (
-            <div className="mx-auto flex max-w-4xl flex-col gap-6">
-              <ReviewFormSection
-                sectionId="pr-section-ident"
-                title="Identification"
-                description="Date, type de comité et libellé du point. Planifiez le prochain rendez-vous si besoin."
-                icon={CalendarRange}
-                accent="sky"
-              >
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="pr-ed-date">Date du point</Label>
-                    <Input
-                      id="pr-ed-date"
-                      type="datetime-local"
-                      value={reviewDate}
-                      disabled={!editable}
-                      onChange={(e) => setReviewDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="pr-ed-type">Type de point</Label>
+            <div className="mx-auto flex max-w-4xl flex-col gap-5">
+              <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Paramètres du point
+                </p>
+                <div className="grid gap-4 sm:grid-cols-12">
+                  <div className="grid gap-1.5 sm:col-span-4 lg:col-span-3">
+                    <Label htmlFor="pr-ed-type-h" className="text-xs font-medium text-foreground">
+                      Type de revue
+                    </Label>
                     <select
-                      id="pr-ed-type"
+                      id="pr-ed-type-h"
                       className={selectFieldClass}
                       value={reviewType}
                       disabled={!editable}
@@ -579,18 +716,65 @@ export function ProjectReviewEditorDialog({
                       ))}
                     </select>
                   </div>
-                  <div className="grid gap-1.5 sm:col-span-2">
-                    <Label htmlFor="pr-ed-title">Titre</Label>
+                  <div className="grid gap-1.5 sm:col-span-4 lg:col-span-4">
+                    <Label htmlFor="pr-ed-date-h" className="text-xs font-medium text-foreground">
+                      Date et heure
+                    </Label>
                     <Input
-                      id="pr-ed-title"
+                      id="pr-ed-date-h"
+                      type="datetime-local"
+                      value={reviewDate}
+                      disabled={!editable}
+                      onChange={(e) => setReviewDate(e.target.value)}
+                      className="border-border/70"
+                    />
+                  </div>
+                  <div className="grid gap-1.5 sm:col-span-12 lg:col-span-5">
+                    <Label htmlFor="pr-ed-title-h" className="text-xs font-medium text-foreground">
+                      Titre de la séance
+                    </Label>
+                    <Input
+                      id="pr-ed-title-h"
                       value={title}
                       disabled={!editable}
                       onChange={(e) => setTitle(e.target.value)}
                       maxLength={500}
                       placeholder="Ex. COPIL — revue budget T2"
+                      className="border-border/70"
                     />
                   </div>
-                  <div className="grid gap-1.5 sm:col-span-2">
+                </div>
+              </div>
+
+              {projectQuery.isLoading && (
+                <div
+                  className="h-24 animate-pulse rounded-xl border border-border/50 bg-muted/40"
+                  aria-hidden
+                />
+              )}
+              {projectQuery.data && <ProjectMeteoInline project={projectQuery.data} />}
+
+              <ReviewFormSection
+                sectionId="pr-section-summary"
+                title="Résumé exécutif"
+                description="Faits marquants, alertes, décisions clés — ce que le comité doit retenir."
+                icon={Sparkles}
+                accent="emerald"
+              >
+                <div className="grid gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="pr-ed-summary">Synthèse du point</Label>
+                    <textarea
+                      id="pr-ed-summary"
+                      className={textareaClass}
+                      value={executiveSummary}
+                      disabled={!editable}
+                      onChange={(e) => setExecutiveSummary(e.target.value)}
+                      placeholder="Ce qui s’est passé, ce qui bloque, ce qu’on décide — faits marquants, alertes, décisions clés…"
+                      maxLength={20000}
+                    />
+                  </div>
+                  <div className="grid gap-1.5 sm:max-w-md">
                     <Label htmlFor="pr-ed-next">Prochain point (optionnel)</Label>
                     <Input
                       id="pr-ed-next"
@@ -601,6 +785,277 @@ export function ProjectReviewEditorDialog({
                     />
                   </div>
                 </div>
+              </ReviewFormSection>
+
+              {(!!projectQuery.data?.warnings?.length || actionFormAlerts.length > 0) && (
+                <div className="space-y-2">
+                  {projectQuery.data?.warnings?.map((w) => (
+                    <Alert key={w} variant="default" className="border-amber-300/60 bg-amber-50/90 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90 dark:text-foreground">
+                      <AlertTriangle className="size-4" aria-hidden />
+                      <AlertDescription className="text-sm">
+                        {WARNING_CODE_LABEL[w] ?? w}
+                      </AlertDescription>
+                    </Alert>
+                  ))}
+                  {actionFormAlerts.map((msg, i) => (
+                    <Alert key={`act-${i}`} className="border-border/70 bg-muted/40">
+                      <Info className="size-4 text-muted-foreground" aria-hidden />
+                      <AlertDescription className="text-xs text-muted-foreground">{msg}</AlertDescription>
+                    </Alert>
+                  ))}
+                </div>
+              )}
+
+              {previousReviewId != null && (
+                <ReviewFormSection
+                  sectionId="pr-section-since"
+                  title="Depuis le dernier point"
+                  description="Indicateurs projet et activité depuis la clôture du point précédent (référence temporelle : date du point précédent)."
+                  icon={TrendingUp}
+                  accent="sky"
+                >
+                  {previousDetailQuery.isLoading || tasksQuery.isLoading ? (
+                    <LoadingState rows={2} />
+                  ) : pilotageSinceLast ? (
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+                        <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Tâches terminées (période)
+                        </p>
+                        <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                          {pilotageSinceLast.tasksDoneSinceCount}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+                        <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Risques ouverts
+                        </p>
+                        <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                          {pilotageSinceLast.openRisksCount}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+                        <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Jalons en retard (projet)
+                        </p>
+                        <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                          {projectQuery.data?.delayedMilestonesCount ?? '—'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Données projet indisponibles.</p>
+                  )}
+                </ReviewFormSection>
+              )}
+
+              <ReviewFormSection
+                sectionId="pr-section-prev-actions"
+                title="Suivi des actions du point précédent"
+                description="Actions issues du dernier point enregistré (statut et échéances)."
+                icon={History}
+                accent="amber"
+              >
+                {!previousReviewId ? (
+                  <p className="rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
+                    Aucun point antérieur sur ce projet — premier comité ou historique vide.
+                  </p>
+                ) : previousDetailQuery.isLoading ? (
+                  <LoadingState rows={2} />
+                ) : previousDetailQuery.error || !previousDetailQuery.data ? (
+                  <p className="text-xs text-destructive">Impossible de charger le point précédent.</p>
+                ) : previousDetailQuery.data.actionItems.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Le point précédent ne comporte pas d’actions enregistrées.
+                  </p>
+                ) : (
+                  (() => {
+                    const buckets = { done: [] as ProjectReviewActionItemApi[], in_progress: [] as ProjectReviewActionItemApi[], late: [] as ProjectReviewActionItemApi[] };
+                    for (const a of previousDetailQuery.data.actionItems) {
+                      const k = classifyPrevReviewAction(a);
+                      if (k === 'done') buckets.done.push(a);
+                      else if (k === 'late') buckets.late.push(a);
+                      else buckets.in_progress.push(a);
+                    }
+                    const Row = ({ a }: { a: ProjectReviewActionItemApi }) => (
+                      <li className="rounded-md border border-border/60 bg-background/80 px-2 py-1.5 text-xs">
+                        <span className="font-medium text-foreground">{a.title}</span>
+                        <span className="ml-2 text-muted-foreground">
+                          {TASK_STATUS_LABEL[a.status] ?? a.status}
+                          {a.dueDate
+                            ? ` · ${formatReviewDateTime(a.dueDate)}`
+                            : ''}
+                        </span>
+                      </li>
+                    );
+                    return (
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div>
+                          <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+                            Terminées ({buckets.done.length})
+                          </p>
+                          <ul className="space-y-1.5">
+                            {buckets.done.map((a) => (
+                              <Row key={a.id} a={a} />
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-300">
+                            En cours ({buckets.in_progress.length})
+                          </p>
+                          <ul className="space-y-1.5">
+                            {buckets.in_progress.map((a) => (
+                              <Row key={a.id} a={a} />
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-300">
+                            En retard ({buckets.late.length})
+                          </p>
+                          <ul className="space-y-1.5">
+                            {buckets.late.map((a) => (
+                              <Row key={a.id} a={a} />
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+              </ReviewFormSection>
+
+              <ReviewFormSection
+                sectionId="pr-section-progress"
+                title="Avancement projet"
+                description="Vue consolidée : avancement, jalons atteints / à venir / en dérive."
+                icon={Target}
+                accent="sky"
+              >
+                {milestonesQuery.isLoading ? (
+                  <LoadingState rows={2} />
+                ) : (
+                  <div className="grid gap-3">
+                    <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm">
+                      <span className="text-muted-foreground">Avancement global (manuel / dérivé) : </span>
+                      <span className="font-medium tabular-nums text-foreground">
+                        {projectQuery.data?.progressPercent != null
+                          ? `${projectQuery.data.progressPercent} %`
+                          : '—'}
+                        {' / '}
+                        {projectQuery.data?.derivedProgressPercent != null
+                          ? `${projectQuery.data.derivedProgressPercent} %`
+                          : '—'}
+                      </span>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <div>
+                        <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Jalons atteints
+                        </p>
+                        <ul className="space-y-1 text-xs text-foreground">
+                          {(milestonesQuery.data ?? [])
+                            .filter((m) => m.status === 'REACHED')
+                            .slice(0, 6)
+                            .map((m) => (
+                              <li key={m.id} className="truncate">
+                                {m.name}
+                              </li>
+                            ))}
+                          {(milestonesQuery.data ?? []).filter((m) => m.status === 'REACHED').length ===
+                            0 && <li className="text-muted-foreground">—</li>}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Prochains jalons
+                        </p>
+                        <ul className="space-y-1 text-xs text-foreground">
+                          {(milestonesQuery.data ?? [])
+                            .filter((m) => m.status === 'PLANNED')
+                            .slice(0, 6)
+                            .map((m) => (
+                              <li key={m.id} className="truncate">
+                                {m.name}
+                                {m.targetDate ? ` · ${formatDateOnly(m.targetDate)}` : ''}
+                              </li>
+                            ))}
+                          {(milestonesQuery.data ?? []).filter((m) => m.status === 'PLANNED').length ===
+                            0 && <li className="text-muted-foreground">—</li>}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Dérives
+                        </p>
+                        <ul className="space-y-1 text-xs text-foreground">
+                          {(milestonesQuery.data ?? [])
+                            .filter((m) => m.status === 'DELAYED')
+                            .slice(0, 6)
+                            .map((m) => (
+                              <li key={m.id} className="truncate text-amber-900 dark:text-amber-200">
+                                {m.name}
+                              </li>
+                            ))}
+                          {(milestonesQuery.data ?? []).filter((m) => m.status === 'DELAYED').length ===
+                            0 && <li className="text-muted-foreground">—</li>}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </ReviewFormSection>
+
+              <ReviewFormSection
+                sectionId="pr-section-risks"
+                title="Risques et blocages"
+                description="Risques ouverts : criticité (probabilité × impact), plan d’action."
+                icon={Flag}
+                accent="violet"
+              >
+                {risksQuery.isLoading ? (
+                  <LoadingState rows={2} />
+                ) : !risksQuery.data?.length ? (
+                  <p className="text-xs text-muted-foreground">Aucun risque enregistré sur le projet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {risksQuery.data
+                      .filter((r) => r.status === 'OPEN')
+                      .map((r) => {
+                        const crit = riskCriticalityForRisk(r);
+                        return (
+                          <li
+                            key={r.id}
+                            className="rounded-lg border border-border/70 bg-muted/30 p-3 text-sm"
+                          >
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                              <span className="font-medium text-foreground">{r.title}</span>
+                              <span className="text-xs text-muted-foreground">
+                                Criticité : {PROJECT_CRITICALITY_LABEL[crit] ?? crit}
+                              </span>
+                            </div>
+                            {r.description ? (
+                              <p className="mt-1 text-xs text-muted-foreground">{r.description}</p>
+                            ) : null}
+                            {r.actionPlan ? (
+                              <p className="mt-2 border-t border-border/50 pt-2 text-xs text-foreground">
+                                <span className="font-medium">Plan d’action : </span>
+                                {r.actionPlan}
+                              </p>
+                            ) : (
+                              <p className="mt-2 text-xs font-medium text-amber-950 dark:text-amber-100">
+                                Plan d’action non renseigné
+                              </p>
+                            )}
+                          </li>
+                        );
+                      })}
+                    {risksQuery.data.filter((r) => r.status === 'OPEN').length === 0 && (
+                      <p className="text-xs text-muted-foreground">Aucun risque au statut ouvert.</p>
+                    )}
+                  </ul>
+                )}
               </ReviewFormSection>
 
               <ReviewFormSection
@@ -632,27 +1087,6 @@ export function ProjectReviewEditorDialog({
                     Fiche projet indisponible — ouvrez la fiche projet pour consulter l’arbitrage.
                   </p>
                 )}
-              </ReviewFormSection>
-
-              <ReviewFormSection
-                sectionId="pr-section-summary"
-                title="Compte rendu"
-                description="Synthèse exécutive : ordre du jour, décisions clés, arbitrages évoqués."
-                icon={FileText}
-                accent="emerald"
-              >
-                <div className="grid gap-1.5">
-                  <Label htmlFor="pr-ed-summary">Texte</Label>
-                  <textarea
-                    id="pr-ed-summary"
-                    className={textareaClass}
-                    value={executiveSummary}
-                    disabled={!editable}
-                    onChange={(e) => setExecutiveSummary(e.target.value)}
-                    placeholder="Ordre du jour, décisions clés, sujets arbitrés…"
-                    maxLength={20000}
-                  />
-                </div>
               </ReviewFormSection>
 
               <ReviewFormSection

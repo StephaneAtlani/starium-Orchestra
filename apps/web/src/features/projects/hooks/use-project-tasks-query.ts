@@ -9,7 +9,10 @@ import type { ProjectTaskApi } from '../types/project.types';
 
 const STALE = 30_000;
 
-export function useProjectTasksQuery(projectId: string) {
+export function useProjectTasksQuery(
+  projectId: string,
+  options?: { enabled?: boolean },
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -17,7 +20,7 @@ export function useProjectTasksQuery(projectId: string) {
   return useQuery({
     queryKey: projectQueryKeys.tasks(clientId, projectId),
     queryFn: async () => (await listTasks(authFetch, projectId)) as ProjectTaskApi[],
-    enabled: !!clientId && !!projectId,
+    enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
   });
 }
