@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
+  AlertTriangle,
   Briefcase,
   Building2,
   ChevronDown,
@@ -23,7 +24,8 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
-import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -69,7 +71,7 @@ import {
   listProjectSheetDecisionSnapshots,
   updateProjectSheet,
 } from '../api/projects.api';
-import { projectDetail, projectsList } from '../constants/project-routes';
+import { projectsList } from '../constants/project-routes';
 import {
   MILESTONE_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
@@ -77,12 +79,15 @@ import {
   PROJECT_PRIORITY_LABEL,
   PROJECT_STATUS_LABEL,
   PROJECT_TYPE_LABEL,
+  WARNING_CODE_LABEL,
 } from '../constants/project-enum-labels';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
+import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
 import { ProjectTeamMatrix } from './project-team-matrix';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
+import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { computeRoiFromCostGain } from '../lib/project-sheet-priority-preview';
 import { mapAuditPayloadToProjectSheet } from '../lib/map-audit-payload-to-project-sheet';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
@@ -417,9 +422,9 @@ const textareaClass = cn(
   'disabled:cursor-not-allowed disabled:opacity-50',
 );
 
-/** Scope fiche projet : filets gris (tokens) plutôt que bordures trop contrastées. */
+/** Scope fiche projet : filets gris (tokens) plutôt que bordures trop contrastées. Carte navigation (onglets) exclue : même trait que la synthèse. */
 const projectSheetChromeClass = cn(
-  '[&_[data-slot=card]]:border-border/65',
+  '[&_[data-slot=card]:not([data-workspace-tabs])]:border-border/65',
   '[&_[data-slot=input]]:border-border/70',
   '[&_[data-slot=select-trigger]]:border-border/70',
   '[&_textarea]:border-border/70',
@@ -477,6 +482,8 @@ export function ProjectSheetView({
     enabled: !sheetReadOnlyOverride,
   });
   const sheet = sheetReadOnlyOverride ?? querySheet;
+
+  const projectDetailQuery = useProjectDetailQuery(projectId);
 
   const [projectName, setProjectName] = useState('');
   const [priority, setPriority] = useState<string>('MEDIUM');
@@ -1050,38 +1057,105 @@ export function ProjectSheetView({
   return (
     <div className={cn('space-y-6', projectSheetChromeClass)}>
       {embedMode === 'page' ? (
-        <div>
-          <div className="mb-3 flex flex-wrap items-center gap-3">
-            <Link
-              href={projectsList()}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ChevronLeft className="size-4" />
-              Portefeuille
-            </Link>
-            <span className="text-muted-foreground">·</span>
-            <Link
-              href={projectDetail(projectId)}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ChevronLeft className="size-4" />
-              Projet
-            </Link>
-          </div>
+        <div className="space-y-5">
+          <header className="flex flex-col gap-5">
+            <div className="space-y-3">
+              <Link
+                href={projectsList()}
+                className={cn(
+                  buttonVariants({ variant: 'ghost', size: 'sm' }),
+                  '-ml-2 w-fit gap-1 text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <ChevronLeft className="size-4" />
+                Portefeuille projets
+              </Link>
+              <PageHeader
+                title={
+                  projectDetailQuery.data?.name ??
+                  (projectName.trim() || sheet.name)
+                }
+                description={
+                  projectDetailQuery.data?.code
+                    ? `Code : ${projectDetailQuery.data.code}`
+                    : sheet.code
+                      ? `Code : ${sheet.code}`
+                      : undefined
+                }
+                actions={
+                  <div className="flex flex-wrap items-center gap-2">
+                    {projectDetailQuery.data ? (
+                      <HealthBadge health={projectDetailQuery.data.computedHealth} />
+                    ) : projectDetailQuery.isLoading ? (
+                      <span
+                        className="text-xs text-muted-foreground"
+                        aria-live="polite"
+                      >
+                        Chargement santé…
+                      </span>
+                    ) : null}
+                  </div>
+                }
+              />
+            </div>
+
+            {projectDetailQuery.data ? (
+              <>
+                <div className="min-w-0">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">
+                    Signaux portefeuille
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <ProjectPortfolioBadges signals={projectDetailQuery.data.signals} />
+                  </div>
+                </div>
+                {projectDetailQuery.data.warnings.length > 0 ? (
+                  <Alert
+                    className="border-amber-500/35 bg-amber-500/5 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-600"
+                    role="status"
+                  >
+                    <AlertTriangle
+                      className="text-amber-800 dark:text-amber-600"
+                      aria-hidden
+                    />
+                    <AlertTitle className="font-semibold text-amber-950 dark:text-amber-600">
+                      Alertes projet
+                    </AlertTitle>
+                    <AlertDescription className="text-amber-950/95 dark:text-amber-600/95">
+                      {projectDetailQuery.data.warnings
+                        .map((w) => WARNING_CODE_LABEL[w] ?? w)
+                        .join(' · ')}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+              </>
+            ) : null}
+          </header>
+
           <Suspense
             fallback={
-              <div
-                className="h-11 w-full animate-pulse rounded-xl bg-muted/60 ring-1 ring-border/50"
+              <Card
+                size="sm"
+                data-workspace-tabs=""
+                className="min-w-0 overflow-hidden py-0 shadow-sm"
                 aria-hidden
-              />
+              >
+                <CardHeader className="space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
+                  <div className="h-11 w-full animate-pulse rounded-xl bg-muted/60 ring-1 ring-border/50" />
+                </CardHeader>
+              </Card>
             }
           >
-            <ProjectWorkspaceTabs projectId={projectId} />
+            <Card
+              size="sm"
+              data-workspace-tabs=""
+              className="min-w-0 overflow-hidden py-0 shadow-sm"
+            >
+              <CardHeader className="space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
+                <ProjectWorkspaceTabs projectId={projectId} />
+              </CardHeader>
+            </Card>
           </Suspense>
-          <PageHeader
-            title={`Fiche projet : ${projectName || sheet.name}`}
-            description="Cadrage projet"
-          />
         </div>
       ) : null}
 

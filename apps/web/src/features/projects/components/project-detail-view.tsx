@@ -65,7 +65,7 @@ function ProjectDetailTabbedContent({
   const showPoints = searchParams.get('tab') === 'points';
 
   return (
-    <Card size="sm" className="min-w-0 overflow-hidden shadow-sm">
+    <Card size="sm" className="min-w-0 overflow-hidden py-0 shadow-sm">
       <CardHeader className="space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
         <ProjectWorkspaceTabs projectId={projectId} />
       </CardHeader>
@@ -370,12 +370,14 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
 
         {project.warnings.length > 0 && (
           <Alert
-            className="border-amber-500/35 bg-amber-500/5 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+            className="border-amber-500/35 bg-amber-500/5 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-600"
             role="status"
           >
-            <AlertTriangle className="text-amber-700 dark:text-amber-400" aria-hidden />
-            <AlertTitle className="text-amber-950 dark:text-amber-100">Alertes projet</AlertTitle>
-            <AlertDescription className="text-amber-950/90 dark:text-amber-100/90">
+            <AlertTriangle className="text-amber-800 dark:text-amber-600" aria-hidden />
+            <AlertTitle className="font-semibold text-amber-950 dark:text-amber-600">
+              Alertes projet
+            </AlertTitle>
+            <AlertDescription className="text-amber-950/95 dark:text-amber-600/95">
               {project.warnings.map((w) => WARNING_CODE_LABEL[w] ?? w).join(' · ')}
             </AlertDescription>
           </Alert>

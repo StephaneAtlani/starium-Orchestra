@@ -17,8 +17,12 @@ function tabLinkClass(active: boolean) {
   );
 }
 
+const tablistClassName =
+  'grid h-11 min-w-[min(100%,18rem)] grid-cols-3 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/40 sm:min-w-0';
+
 /**
  * Navigation principale projet : Synthèse (détail) · Fiche projet (/sheet) · Points projet (?tab=points).
+ * À placer dans un `CardHeader` (même structure que le détail : `Card` + header dégradé).
  */
 export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
   const pathname = usePathname();
@@ -36,7 +40,7 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       <div
         role="tablist"
         aria-label="Navigation projet"
-        className="grid h-11 min-w-[min(100%,18rem)] grid-cols-3 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/50 sm:min-w-0"
+        className={tablistClassName}
       >
       <Link
         href={detailHref}
