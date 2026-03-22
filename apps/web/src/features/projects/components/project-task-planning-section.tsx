@@ -29,6 +29,10 @@ import {
   useUpdateProjectTaskMutation,
   useUpdateProjectMilestoneMutation,
 } from '../hooks/use-project-planning-mutations';
+import {
+  computeIndentPatch,
+  computeOutdentPatch,
+} from '../lib/project-task-indent';
 import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
 import { GANTT_ROW_PX } from '../lib/gantt-timeline-layout';
 import {
@@ -46,6 +50,7 @@ import type {
 import { cn } from '@/lib/utils';
 import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
 import { TaskFormDialogFields } from './task-form-dialog-fields';
+import { TaskIndentActions } from './task-indent-actions';
 
 function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -198,6 +203,42 @@ export const ProjectTaskPlanningSection = forwardRef<
     return treeRows.filter((r) => r.status === ganttTaskStatusFilter);
   }, [treeRows, isGanttVariant, ganttTaskStatusFilter]);
 
+  const isGantt = isGanttVariant;
+  /** Même source que la grille / table visible (après filtre Gantt si applicable). */
+  const displayedRows = isGantt ? ganttTreeRows : treeRows;
+
+  const handleTaskIndent = useCallback(
+    (taskId: string) => {
+      const patch = computeIndentPatch(displayedRows, taskId);
+      if (!patch) return;
+      updateMut.mutate({
+        taskId,
+        body: { parentTaskId: patch.parentTaskId, sortOrder: patch.sortOrder },
+        silentToast: true,
+      });
+    },
+    [displayedRows, updateMut],
+  );
+
+  const handleTaskOutdent = useCallback(
+    (taskId: string) => {
+      const patch = computeOutdentPatch(displayedRows, taskId);
+      if (!patch) return;
+      updateMut.mutate({
+        taskId,
+        body: { parentTaskId: patch.parentTaskId, sortOrder: patch.sortOrder },
+        silentToast: true,
+      });
+    },
+    [displayedRows, updateMut],
+  );
+
+  const isTaskUpdatePending = useCallback(
+    (taskId: string) =>
+      updateMut.isPending && updateMut.variables?.taskId === taskId,
+    [updateMut.isPending, updateMut.variables?.taskId],
+  );
+
   const assignableOptions = useMemo(
     () =>
       (assignableQuery.data ?? []).map((u) => ({
@@ -298,8 +339,6 @@ export const ProjectTaskPlanningSection = forwardRef<
     }
   };
 
-  const isGantt = isGanttVariant;
-
   return (
     <div
       className={cn(
@@ -382,7 +421,10 @@ export const ProjectTaskPlanningSection = forwardRef<
                       Statut
                     </TableHead>
                     {canEdit && (
-                      <TableHead className="w-[72px] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
+                      <TableHead
+                        className="min-w-[8.5rem] py-1.5 text-xs"
+                        style={{ height: GANTT_ROW_PX }}
+                      >
                         {' '}
                       </TableHead>
                     )}
@@ -406,12 +448,12 @@ export const ProjectTaskPlanningSection = forwardRef<
                   <TableHead>Fin planifiée</TableHead>
                   <TableHead>Progression</TableHead>
                   <TableHead>Dépend de</TableHead>
-                  {canEdit && <TableHead className="w-[100px]">Actions</TableHead>}
+                  {canEdit && <TableHead className="min-w-[10rem]">Actions</TableHead>}
                 </TableRow>
               )}
             </TableHeader>
             <TableBody>
-              {(isGantt ? ganttTreeRows : treeRows).map((row) => {
+              {displayedRows.map((row) => {
                 const pred = row.dependsOnTaskId
                   ? byId.get(row.dependsOnTaskId)
                   : undefined;
@@ -531,15 +573,26 @@ export const ProjectTaskPlanningSection = forwardRef<
                       </TableCell>
                       {canEdit && (
                         <TableCell className="py-1 align-middle">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-1.5 text-[11px]"
-                            onClick={() => openEdit(row)}
-                          >
-                            Fiche
-                          </Button>
+                          <div className="flex items-center justify-end gap-0.5">
+                            <TaskIndentActions
+                              displayedRows={displayedRows}
+                              taskId={row.id}
+                              isPending={isTaskUpdatePending(row.id)}
+                              onIndent={handleTaskIndent}
+                              onOutdent={handleTaskOutdent}
+                              compact
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 shrink-0 px-1.5 text-[11px]"
+                              disabled={isTaskUpdatePending(row.id)}
+                              onClick={() => openEdit(row)}
+                            >
+                              Fiche
+                            </Button>
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>
@@ -568,14 +621,24 @@ export const ProjectTaskPlanningSection = forwardRef<
                     </TableCell>
                     {canEdit && (
                       <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(row)}
-                        >
-                          Modifier
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <TaskIndentActions
+                            displayedRows={displayedRows}
+                            taskId={row.id}
+                            isPending={isTaskUpdatePending(row.id)}
+                            onIndent={handleTaskIndent}
+                            onOutdent={handleTaskOutdent}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={isTaskUpdatePending(row.id)}
+                            onClick={() => openEdit(row)}
+                          >
+                            Modifier
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
