@@ -113,6 +113,23 @@ function clampTimeZoom(z: number): number {
   return Math.min(GANTT_TIME_ZOOM_MAX, Math.max(GANTT_TIME_ZOOM_MIN, z));
 }
 
+const GANTT_SIDEBAR_MIN_PX = 240;
+const GANTT_SIDEBAR_MAX_PX = 720;
+const GANTT_SIDEBAR_DEFAULT_PX = 380;
+const GANTT_SIDEBAR_STORAGE_KEY = 'starium.gantt.sidebarWidthPx';
+
+function clampSidebarWidthPx(width: number, containerWidth: number): number {
+  const max = Math.min(
+    GANTT_SIDEBAR_MAX_PX,
+    Math.max(GANTT_SIDEBAR_MIN_PX, Math.floor(containerWidth * 0.65)),
+  );
+  return Math.min(max, Math.max(GANTT_SIDEBAR_MIN_PX, width));
+}
+
+/** Écart libellé après la barre ; un peu plus si pas de prédécesseur (évite le trait SVG). */
+const GANTT_LABEL_AFTER_BAR_GAP_PX = 6;
+const GANTT_LABEL_EXTRA_GAP_WHEN_NO_PREDECESSOR_PX = 14;
+
 export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const depMarkerId = useId().replace(/:/g, '');
   const { has } = usePermissions();
@@ -138,6 +155,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   /** Multiplicateur utilisateur ; 100 % = `GANTT_TIME_ZOOM_BASELINE`× la densité de base calculée. */
   const [timeZoom, setTimeZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [sidebarWidthPx, setSidebarWidthPx] = useState(GANTT_SIDEBAR_DEFAULT_PX);
+  const ganttSplitRowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onFs = () => {
@@ -612,6 +631,63 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     return () => el.removeEventListener('wheel', onWheel);
   }, [bounds, layout]);
 
+  useLayoutEffect(() => {
+    if (!bounds || !layout) return;
+    try {
+      const raw = localStorage.getItem(GANTT_SIDEBAR_STORAGE_KEY);
+      const n = raw ? parseInt(raw, 10) : NaN;
+      if (!Number.isFinite(n)) return;
+      const row = ganttSplitRowRef.current;
+      const cw = row?.clientWidth ?? 1200;
+      setSidebarWidthPx(clampSidebarWidthPx(n, cw));
+    } catch {
+      /* ignore */
+    }
+  }, [bounds, layout]);
+
+  useLayoutEffect(() => {
+    if (!bounds || !layout) return;
+    const row = ganttSplitRowRef.current;
+    if (!row) return;
+    const ro = new ResizeObserver(() => {
+      setSidebarWidthPx((w) => clampSidebarWidthPx(w, row.clientWidth));
+    });
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, [bounds, layout]);
+
+  const beginSidebarResize = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidthPx;
+
+    const onMove = (ev: PointerEvent) => {
+      const row = ganttSplitRowRef.current;
+      const cw = row?.clientWidth ?? 1200;
+      setSidebarWidthPx(clampSidebarWidthPx(startWidth + ev.clientX - startX, cw));
+    };
+
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setSidebarWidthPx((w) => {
+        try {
+          localStorage.setItem(GANTT_SIDEBAR_STORAGE_KEY, String(w));
+        } catch {
+          /* ignore */
+        }
+        return w;
+      });
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [sidebarWidthPx]);
+
   if (ganttQuery.isLoading) {
     return <LoadingState rows={6} />;
   }
@@ -849,22 +925,45 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           ref={ganttVerticalScrollRef}
           className="flex min-h-0 flex-1 flex-row overflow-y-auto overflow-x-hidden"
         >
-          <div className="border-border/60 flex min-h-0 w-[min(42%,380px)] min-w-[240px] shrink-0 flex-col border-r border-border/60">
-            <ProjectTaskPlanningSection
-              ref={planningRef}
-              projectId={projectId}
-              variant="gantt-sidebar"
-              hideToolbar
-              milestoneRows={milestoneSidebarRows}
-              ganttTaskStatusFilter={taskStatusFilter}
-              ganttExtraHeaderRows={showDayHeaders ? 1 : 0}
-            />
-          </div>
-
           <div
-            ref={timelineScrollRef}
-            className="bg-muted/5 min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-visible"
+            ref={ganttSplitRowRef}
+            className="flex min-h-0 min-w-0 flex-1 flex-row"
           >
+            <div
+              className="border-border/60 flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden border-r border-border/60"
+              style={{
+                width: sidebarWidthPx,
+                minWidth: GANTT_SIDEBAR_MIN_PX,
+              }}
+            >
+              <ProjectTaskPlanningSection
+                ref={planningRef}
+                projectId={projectId}
+                variant="gantt-sidebar"
+                hideToolbar
+                milestoneRows={milestoneSidebarRows}
+                ganttTaskStatusFilter={taskStatusFilter}
+                ganttExtraHeaderRows={showDayHeaders ? 1 : 0}
+              />
+            </div>
+
+            <button
+              type="button"
+              aria-label="Redimensionner la colonne planification et la frise"
+              title="Glisser pour ajuster la largeur"
+              className="group bg-border/0 hover:bg-border/90 relative z-10 flex w-1 shrink-0 cursor-col-resize touch-none items-stretch justify-center border-0 p-0 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              onPointerDown={beginSidebarResize}
+            >
+              <span
+                className="bg-border group-hover:bg-primary/50 group-active:bg-primary/70 w-px flex-1"
+                aria-hidden
+              />
+            </button>
+
+            <div
+              ref={timelineScrollRef}
+              className="bg-muted/5 min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-visible"
+            >
             <div
               className="relative flex min-w-full flex-col"
               style={{ width: widthPx, minWidth: widthPx }}
@@ -1131,7 +1230,13 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                         <div
                           className="pointer-events-none absolute z-[3] flex max-w-[min(18rem,45vw)] flex-col justify-center gap-0.5 text-left leading-tight"
                           style={{
-                            left: leftPx + barW + 6,
+                            left:
+                              leftPx +
+                              barW +
+                              GANTT_LABEL_AFTER_BAR_GAP_PX +
+                              (row.dependsOnTaskId
+                                ? 0
+                                : GANTT_LABEL_EXTRA_GAP_WHEN_NO_PREDECESSOR_PX),
                             top: rollupBounds && bounds ? 21 : 18,
                             transform: 'translateY(-50%)',
                           }}
@@ -1174,6 +1279,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                   );
                 })}
               </div>
+            </div>
             </div>
           </div>
         </div>
