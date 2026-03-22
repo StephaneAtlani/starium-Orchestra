@@ -9,7 +9,10 @@ import type { ProjectMilestoneApi } from '../types/project.types';
 
 const STALE = 30_000;
 
-export function useProjectMilestonesQuery(projectId: string) {
+export function useProjectMilestonesQuery(
+  projectId: string,
+  options?: { enabled?: boolean },
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -17,7 +20,7 @@ export function useProjectMilestonesQuery(projectId: string) {
   return useQuery({
     queryKey: projectQueryKeys.milestones(clientId, projectId),
     queryFn: async () => (await listMilestones(authFetch, projectId)) as ProjectMilestoneApi[],
-    enabled: !!clientId && !!projectId,
+    enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
   });
 }

@@ -84,6 +84,7 @@ model Client {
   projectBudgetLinks ProjectBudgetLink[]
   projectTeamRoles   ProjectTeamRole[]
   projectTeamMembers ProjectTeamMember[]
+  projectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
 }
 
 model User {
@@ -110,6 +111,7 @@ model User {
   assignedProjectTasks       ProjectTask[]
   ownedProjectRisks          ProjectRisk[]
   projectTeamMembers         ProjectTeamMember[]
+  createdProjectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[] @relation("ProjectSheetDecisionSnapshotCreatedBy")
 }
 
 model ClientUser {
@@ -342,6 +344,13 @@ enum ProjectCopilRecommendation {
   AJUSTER_CADRAGE
 }
 
+/** Instantané fiche projet lors d’une validation d’arbitrage (niveau passé à VALIDE). */
+enum ProjectSheetDecisionLevel {
+  METIER
+  COMITE
+  CODIR
+}
+
 /** Rôle catalogue équipe projet — aligné sur Project.sponsorUserId / ownerUserId lorsque renseigné. */
 enum ProjectTeamRoleSystemKind {
   SPONSOR
@@ -434,12 +443,31 @@ model Project {
   milestones  ProjectMilestone[]
   budgetLinks ProjectBudgetLink[]
   teamMembers ProjectTeamMember[]
+  sheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
 
   @@unique([clientId, code])
   @@index([clientId])
   @@index([clientId, status])
   @@index([clientId, kind])
   @@index([targetEndDate])
+}
+
+/// Historique des décisions — snapshot de fiche projet au passage d’un niveau d’arbitrage à VALIDE.
+model ProjectSheetDecisionSnapshot {
+  id        String   @id @default(cuid())
+  clientId  String
+  projectId String
+  createdAt DateTime @default(now())
+  createdByUserId String?
+  decisionLevel ProjectSheetDecisionLevel
+  sheetPayload Json
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("ProjectSheetDecisionSnapshotCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, projectId, createdAt])
+  @@index([projectId, createdAt])
 }
 
 /// Catalogue des rôles d’équipe projet (par client).

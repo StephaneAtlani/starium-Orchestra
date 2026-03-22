@@ -23,4 +23,12 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'team-roles', clientId] as const,
   team: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'team', clientId, projectId] as const,
+  sheetDecisionSnapshots: (
+    clientId: string,
+    projectId: string,
+    params: { limit: number; offset: number },
+  ) =>
+    [...projectQueryKeys.all, 'project', projectId, 'sheet-decision-snapshots', clientId, params] as const,
+  sheetDecisionSnapshot: (clientId: string, projectId: string, snapshotId: string) =>
+    [...projectQueryKeys.all, 'project', projectId, 'sheet-decision-snapshot', snapshotId, clientId] as const,
 };

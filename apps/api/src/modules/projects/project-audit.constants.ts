@@ -40,4 +40,5 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_SHEET_UPDATED: 'project.sheet.updated',
   PROJECT_ARBITRATION_VALIDATED: 'project.arbitration.validated',
   PROJECT_ARBITRATION_REJECTED: 'project.arbitration.rejected',
+  PROJECT_SHEET_DECISION_SNAPSHOT_CREATED: 'project.sheet.decision_snapshot.created',
 } as const;

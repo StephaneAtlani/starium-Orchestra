@@ -12,6 +12,8 @@ import type {
   ProjectTeamRoleApi,
   ProjectsListResponse,
   ProjectsPortfolioSummary,
+  ProjectSheetDecisionSnapshotDetail,
+  ProjectSheetDecisionSnapshotListResponse,
   UpdateProjectSheetPayload,
 } from '../types/project.types';
 
@@ -190,6 +192,33 @@ export async function updateProjectSheet(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectSheet>;
+}
+
+export async function listProjectSheetDecisionSnapshots(
+  authFetch: AuthFetch,
+  projectId: string,
+  params?: { limit?: number; offset?: number },
+): Promise<ProjectSheetDecisionSnapshotListResponse> {
+  const res = await authFetch(
+    `${BASE}/${projectId}/project-sheet/decision-snapshots${qs({
+      limit: params?.limit,
+      offset: params?.offset,
+    })}`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectSheetDecisionSnapshotListResponse>;
+}
+
+export async function getProjectSheetDecisionSnapshot(
+  authFetch: AuthFetch,
+  projectId: string,
+  snapshotId: string,
+): Promise<ProjectSheetDecisionSnapshotDetail> {
+  const res = await authFetch(
+    `${BASE}/${projectId}/project-sheet/decision-snapshots/${snapshotId}`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectSheetDecisionSnapshotDetail>;
 }
 
 export async function postProjectArbitration(

@@ -313,4 +313,27 @@ export type UpdateProjectSheetPayload = {
   swotOpportunities?: string[];
   swotThreats?: string[];
   towsActions?: TowsActionsPayload;
+  /** Si true et passage d’un niveau d’arbitrage à VALIDE, créer un snapshot par niveau. */
+  recordDecisionSnapshot?: boolean;
+};
+
+/** Métadonnée liste — historique des décisions (snapshots fiche). */
+export type ProjectSheetDecisionSnapshotListItem = {
+  id: string;
+  projectId: string;
+  clientId: string;
+  createdAt: string;
+  createdByUserId: string | null;
+  decisionLevel: string;
+};
+
+export type ProjectSheetDecisionSnapshotListResponse = {
+  items: ProjectSheetDecisionSnapshotListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type ProjectSheetDecisionSnapshotDetail = ProjectSheetDecisionSnapshotListItem & {
+  sheetPayload: Record<string, unknown>;
 };

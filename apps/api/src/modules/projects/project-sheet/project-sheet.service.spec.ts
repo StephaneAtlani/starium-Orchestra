@@ -24,6 +24,7 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
     };
   };
   let auditLogs: { create: jest.Mock };
+  let decisionSnapshots: { createSnapshotsAfterSheetUpdateIfNeeded: jest.Mock };
 
   const clientId = 'c1';
   const projectId = 'p1';
@@ -94,9 +95,13 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
       },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
+    decisionSnapshots = {
+      createSnapshotsAfterSheetUpdateIfNeeded: jest.fn().mockResolvedValue(undefined),
+    };
     service = new ProjectSheetService(
       prisma as any,
       auditLogs as unknown as AuditLogsService,
+      decisionSnapshots as any,
     );
   });
 

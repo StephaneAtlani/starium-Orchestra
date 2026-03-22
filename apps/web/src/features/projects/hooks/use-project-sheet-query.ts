@@ -8,7 +8,10 @@ import { projectQueryKeys } from '../lib/project-query-keys';
 
 const STALE = 30_000;
 
-export function useProjectSheetQuery(projectId: string) {
+export function useProjectSheetQuery(
+  projectId: string,
+  options?: { enabled?: boolean },
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -16,7 +19,7 @@ export function useProjectSheetQuery(projectId: string) {
   return useQuery({
     queryKey: projectQueryKeys.sheet(clientId, projectId),
     queryFn: () => getProjectSheet(authFetch, projectId),
-    enabled: !!clientId && !!projectId,
+    enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
   });
 }

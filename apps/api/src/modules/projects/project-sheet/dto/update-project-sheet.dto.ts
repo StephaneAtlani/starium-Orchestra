@@ -2,6 +2,7 @@ import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -263,4 +264,9 @@ export class UpdateProjectSheetDto {
   @ValidateNested()
   @Type(() => TowsActionsPatchDto)
   towsActions?: TowsActionsPatchDto;
+
+  /** Si true et transition d’arbitrage vers Validé ou Refusé, créer un snapshot par niveau concerné (voir RFC fiche décision). */
+  @IsOptional()
+  @IsBoolean()
+  recordDecisionSnapshot?: boolean;
 }

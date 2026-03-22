@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   Briefcase,
@@ -25,6 +26,14 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -56,6 +65,8 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import {
   createProjectRisk,
   deleteProjectRisk,
+  getProjectSheetDecisionSnapshot,
+  listProjectSheetDecisionSnapshots,
   updateProjectSheet,
 } from '../api/projects.api';
 import { projectDetail, projectsList } from '../constants/project-routes';
@@ -72,6 +83,7 @@ import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
 import { ProjectTeamMatrix } from './project-team-matrix';
 import { computeRoiFromCostGain } from '../lib/project-sheet-priority-preview';
+import { mapAuditPayloadToProjectSheet } from '../lib/map-audit-payload-to-project-sheet';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
@@ -126,6 +138,12 @@ const LEVEL_STATUS_ORDER: ProjectArbitrationLevelStatus[] = [
   'VALIDE',
   'REFUSE',
 ];
+
+const DECISION_LEVEL_LABEL: Record<string, string> = {
+  METIER: 'Métier',
+  COMITE: 'Comité de projet',
+  CODIR: 'Sponsor / CODIR',
+};
 
 /** Carte mise en avant : premier niveau non « Validé », sinon dernier actif. */
 function arbitrationFocusStep(
@@ -418,15 +436,27 @@ function ScoreMiniBar({ value }: { value: number | undefined }) {
   );
 }
 
-export function ProjectSheetView({ projectId }: { projectId: string }) {
+export function ProjectSheetView({
+  projectId,
+  sheetReadOnlyOverride,
+  embedMode = 'page',
+}: {
+  projectId: string;
+  /** Affiche la fiche figée (snapshot audit) sans requête GET sheet ni édition. */
+  sheetReadOnlyOverride?: ProjectSheet;
+  embedMode?: 'page' | 'snapshotModal';
+}) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const queryClient = useQueryClient();
   const { has } = usePermissions();
-  const canEdit = has('projects.update');
+  const canEdit = has('projects.update') && !sheetReadOnlyOverride;
 
-  const { data: sheet, isLoading, error } = useProjectSheetQuery(projectId);
+  const { data: querySheet, isLoading, error } = useProjectSheetQuery(projectId, {
+    enabled: !sheetReadOnlyOverride,
+  });
+  const sheet = sheetReadOnlyOverride ?? querySheet;
 
   const [projectName, setProjectName] = useState('');
   const [priority, setPriority] = useState<string>('MEDIUM');
@@ -476,6 +506,19 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   /** Après hydratation, ignore une exécution du debounce (évite un POST au chargement). */
   const suppressNextSheetAutosaveRef = useRef(false);
   const [lastSheetSavedAt, setLastSheetSavedAt] = useState<number | null>(null);
+
+  const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
+  const [pendingArbValidation, setPendingArbValidation] = useState<{
+    level: 0 | 1 | 2;
+    next: ProjectArbitrationLevelStatus;
+  } | null>(null);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
+  /** Modale pleine fiche (lecture seule) pour un snapshot sélectionné dans l’historique. */
+  const [snapshotSheetViewerOpen, setSnapshotSheetViewerOpen] = useState(false);
+
+  const pendingArbValidationRef = useRef(pendingArbValidation);
+  pendingArbValidationRef.current = pendingArbValidation;
 
   useEffect(() => {
     hydratedProjectIdRef.current = null;
@@ -638,6 +681,36 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const buildProjectSheetPayloadRef = useRef(buildProjectSheetPayload);
   buildProjectSheetPayloadRef.current = buildProjectSheetPayload;
 
+  const applyArbitrationSelectChange = useCallback(
+    (i: 0 | 1 | 2, next: ProjectArbitrationLevelStatus) => {
+      if (i === 0) {
+        setArbMetier(next);
+        if (next !== 'REFUSE') setArbMetierRefusalNote('');
+        if (next !== 'VALIDE') {
+          setArbComite(null);
+          setArbCodir(null);
+          setArbComiteRefusalNote('');
+          setArbCodirRefusalNote('');
+        } else {
+          setArbComite((c) => c ?? 'BROUILLON');
+        }
+      } else if (i === 1) {
+        setArbComite(next);
+        if (next !== 'REFUSE') setArbComiteRefusalNote('');
+        if (next !== 'VALIDE') {
+          setArbCodir(null);
+          setArbCodirRefusalNote('');
+        } else {
+          setArbCodir((d) => d ?? 'BROUILLON');
+        }
+      } else {
+        setArbCodir(next);
+        if (next !== 'REFUSE') setArbCodirRefusalNote('');
+      }
+    },
+    [],
+  );
+
   /** Une seule clé dérivée pour l’autosave : le useEffect garde un deps de taille fixe (évite erreur React si la liste change / HMR). */
   const autosaveFormSnapshotKey = useMemo(
     () =>
@@ -722,8 +795,14 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   );
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      return updateProjectSheet(authFetch, projectId, buildProjectSheetPayloadRef.current());
+    mutationFn: async (opts?: { recordDecisionSnapshot?: boolean }) => {
+      const base = buildProjectSheetPayloadRef.current();
+      return updateProjectSheet(authFetch, projectId, {
+        ...base,
+        ...(opts && 'recordDecisionSnapshot' in opts
+          ? { recordDecisionSnapshot: opts.recordDecisionSnapshot }
+          : {}),
+      });
     },
     onSuccess: () => {
       setLastSheetSavedAt(Date.now());
@@ -733,25 +812,58 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       void queryClient.invalidateQueries({
         queryKey: projectQueryKeys.detail(clientId, projectId),
       });
+      void queryClient.invalidateQueries({
+        queryKey: ['projects', 'project', projectId, 'sheet-decision-snapshots'],
+      });
     },
     onError: (e: Error) => {
       toast.error(e.message || 'Erreur enregistrement');
     },
   });
 
+  /** Après confirmation : applique le statut arbitrage + enregistre un snapshot dans l’historique. */
+  const confirmPendingArbitrationDecision = useCallback(() => {
+    const p = pendingArbValidationRef.current;
+    if (!p) return;
+    setSnapshotDialogOpen(false);
+    setPendingArbValidation(null);
+    flushSync(() => {
+      applyArbitrationSelectChange(p.level, p.next);
+    });
+    suppressNextSheetAutosaveRef.current = true;
+    saveMutation.mutate({ recordDecisionSnapshot: true });
+  }, [applyArbitrationSelectChange, saveMutation]);
+
+  const snapshotsListQuery = useQuery({
+    queryKey: projectQueryKeys.sheetDecisionSnapshots(clientId, projectId, { limit: 50, offset: 0 }),
+    queryFn: () =>
+      listProjectSheetDecisionSnapshots(authFetch, projectId, { limit: 50, offset: 0 }),
+    enabled: Boolean(historyDialogOpen && clientId && projectId),
+  });
+
+  const snapshotDetailQuery = useQuery({
+    queryKey: projectQueryKeys.sheetDecisionSnapshot(clientId, projectId, selectedSnapshotId ?? ''),
+    queryFn: () =>
+      getProjectSheetDecisionSnapshot(authFetch, projectId, selectedSnapshotId!),
+    enabled: Boolean(
+      snapshotSheetViewerOpen && selectedSnapshotId && clientId && projectId,
+    ),
+  });
+
   useEffect(() => {
+    if (sheetReadOnlyOverride) return;
     if (!canEdit || !sheet) return;
     if (suppressNextSheetAutosaveRef.current) {
       suppressNextSheetAutosaveRef.current = false;
       return;
     }
     const id = window.setTimeout(() => {
-      saveMutation.mutate();
+      saveMutation.mutate(undefined);
     }, SHEET_AUTOSAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(id);
     // sheet / refetch exclus : évite un POST à chaque invalidation ; mutationFn lit l’état courant.
     // Champs suivis via autosaveFormSnapshotKey (deps de taille fixe).
-  }, [canEdit, sheet?.id, projectId, autosaveFormSnapshotKey]);
+  }, [sheetReadOnlyOverride, canEdit, sheet?.id, projectId, autosaveFormSnapshotKey]);
 
   const copilSaveMutation = useMutation({
     mutationFn: (value: ProjectCopilRecommendation) =>
@@ -772,8 +884,10 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     },
   });
 
-  const risksQuery = useProjectRisksQuery(projectId);
-  const milestonesQuery = useProjectMilestonesQuery(projectId);
+  const risksQuery = useProjectRisksQuery(projectId, { enabled: !sheetReadOnlyOverride });
+  const milestonesQuery = useProjectMilestonesQuery(projectId, {
+    enabled: !sheetReadOnlyOverride,
+  });
   const milestonesSorted = useMemo((): ProjectMilestoneApi[] => {
     const items = milestonesQuery.data ?? [];
     return [...items].sort(
@@ -850,16 +964,22 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     );
   }
 
-  if (isLoading) {
-    return <LoadingState rows={6} />;
+  if (!sheetReadOnlyOverride) {
+    if (isLoading) {
+      return <LoadingState rows={6} />;
+    }
+
+    if (error || !querySheet) {
+      return (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          Fiche introuvable ou accès refusé.
+        </div>
+      );
+    }
   }
 
-  if (error || !sheet) {
-    return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-        Fiche introuvable ou accès refusé.
-      </div>
-    );
+  if (!sheet) {
+    return <LoadingState rows={6} />;
   }
 
   const fmtRoi = (n: number | null) =>
@@ -867,11 +987,14 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       ? '—'
       : new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 }).format(n);
 
-  const risksLoaded = !risksQuery.isLoading && risksQuery.data !== undefined;
+  const risksLoaded =
+    !sheetReadOnlyOverride && !risksQuery.isLoading && risksQuery.data !== undefined;
   /** Risques métier (GET /risks) en criticité HIGH — même grille P×I que le pilotage ; indépendant du niveau fiche. */
-  const criticalRiskCount = risksLoaded
-    ? risksQuery.data.filter((r) => riskCriticalityForRisk(r) === 'HIGH').length
-    : null;
+  const criticalRiskCount = sheetReadOnlyOverride
+    ? null
+    : risksLoaded
+      ? risksQuery.data.filter((r) => riskCriticalityForRisk(r) === 'HIGH').length
+      : null;
 
   const bvEff = effectiveNumFromFormOrSheet(bv, sheet.businessValueScore);
   const saEff = effectiveNumFromFormOrSheet(sa, sheet.strategicAlignment);
@@ -901,31 +1024,33 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
   return (
     <div className={cn('space-y-6', projectSheetChromeClass)}>
-      <div>
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <Link
-            href={projectsList()}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="size-4" />
-            Portefeuille
-          </Link>
-          <span className="text-muted-foreground">·</span>
-          <Link
-            href={projectDetail(projectId)}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="size-4" />
-            Projet
-          </Link>
+      {embedMode === 'page' ? (
+        <div>
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <Link
+              href={projectsList()}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="size-4" />
+              Portefeuille
+            </Link>
+            <span className="text-muted-foreground">·</span>
+            <Link
+              href={projectDetail(projectId)}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="size-4" />
+              Projet
+            </Link>
+          </div>
+          <PageHeader
+            title={`Fiche projet : ${projectName || sheet.name}`}
+            description="Cadrage projet"
+          />
         </div>
-        <PageHeader
-          title={`Fiche projet : ${projectName || sheet.name}`}
-          description="Cadrage projet"
-        />
-      </div>
+      ) : null}
 
-      <ProjectTeamMatrix projectId={projectId} />
+      {embedMode === 'page' ? <ProjectTeamMatrix projectId={projectId} /> : null}
 
       {/* A — Équipes impliquées */}
       <Card size="sm">
@@ -1357,7 +1482,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                             onChange={(e) => setCopilNote(e.target.value)}
                             onBlur={() => {
                               if (!canEdit || !sheet) return;
-                              saveMutation.mutate();
+                              saveMutation.mutate(undefined);
                             }}
                             placeholder="Précisions, conditions, contexte pour la position retenue…"
                             maxLength={4000}
@@ -1388,16 +1513,31 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
           <div className="border-t border-border/70 pt-8">
             <div className="mb-5 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h4 className="text-sm font-semibold tracking-tight text-foreground">Arbitrage</h4>
-                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
-                  3 niveaux
-                </Badge>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="text-sm font-semibold tracking-tight text-foreground">Arbitrage</h4>
+                  <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                    3 niveaux
+                  </Badge>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    setSelectedSnapshotId(null);
+                    setHistoryDialogOpen(true);
+                  }}
+                >
+                  Voir l’historique des décisions
+                </Button>
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
                 Métier → comité de projet → sponsor / CODIR. Statuts : proposition de projet, en préparation,
                 soumis à validation, validé, refusé. Le niveau suivant s’ouvre après « Validé » sur le
-                précédent. Sauvegarde avec la fiche (automatique).
+                précédent. Choisir « Validé » ou « Refusé » ouvre une confirmation : en continuant, la fiche
+                est enregistrée dans l&apos;historique des décisions. Sauvegarde avec la fiche (automatique).
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -1467,30 +1607,18 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                           value={value}
                           onValueChange={(v) => {
                             const next = v as ProjectArbitrationLevelStatus;
-                            if (i === 0) {
-                              setArbMetier(next);
-                              if (next !== 'REFUSE') setArbMetierRefusalNote('');
-                              if (next !== 'VALIDE') {
-                                setArbComite(null);
-                                setArbCodir(null);
-                                setArbComiteRefusalNote('');
-                                setArbCodirRefusalNote('');
-                              } else {
-                                setArbComite((c) => c ?? 'BROUILLON');
-                              }
-                            } else if (i === 1) {
-                              setArbComite(next);
-                              if (next !== 'REFUSE') setArbComiteRefusalNote('');
-                              if (next !== 'VALIDE') {
-                                setArbCodir(null);
-                                setArbCodirRefusalNote('');
-                              } else {
-                                setArbCodir((d) => d ?? 'BROUILLON');
-                              }
-                            } else {
-                              setArbCodir(next);
-                              if (next !== 'REFUSE') setArbCodirRefusalNote('');
+                            const isTerminalDecision =
+                              (next === 'VALIDE' && value !== 'VALIDE') ||
+                              (next === 'REFUSE' && value !== 'REFUSE');
+                            if (isTerminalDecision) {
+                              setPendingArbValidation({
+                                level: i as 0 | 1 | 2,
+                                next,
+                              });
+                              setSnapshotDialogOpen(true);
+                              return;
                             }
+                            applyArbitrationSelectChange(i as 0 | 1 | 2, next);
                           }}
                           disabled={saveMutation.isPending}
                         >
@@ -1821,7 +1949,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             </div>
           </div>
 
-          {/* Saisie nouveau risque — au-dessus du détail liste */}
+          {/* Saisie nouveau risque — au-dessus du détail liste (hors snapshot figé) */}
+          {!sheetReadOnlyOverride ? (
           <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="min-w-0 flex-1 space-y-2">
               <Label htmlFor="new-risk-title">Titre</Label>
@@ -1892,8 +2021,10 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               {createRiskMutation.isPending ? 'Enregistrement…' : 'Ajouter un risque'}
             </Button>
           </div>
+          ) : null}
 
           {/* Détail opérationnel — liste */}
+          {!sheetReadOnlyOverride ? (
           <details
             className="group rounded-lg border border-border/60"
             open={risksDetailOpen}
@@ -1983,6 +2114,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               </TooltipProvider>
             </div>
           </details>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -2272,6 +2404,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
+      {!sheetReadOnlyOverride ? (
+      <>
       {/* H — Rétroplanning macro (jalons) */}
       <Card size="sm">
         <CardHeader>
@@ -2351,13 +2485,157 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           </div>
         </CardContent>
       </Card>
+      </>
+      ) : null}
 
-      <ProjectRetroplanMacroDialog
-        projectId={projectId}
-        defaultAnchorDate={sheet.targetEndDate}
-        open={retroplanOpen}
-        onOpenChange={setRetroplanOpen}
-      />
+      {embedMode === 'page' ? (
+        <>
+          <Dialog
+            open={snapshotDialogOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                setSnapshotDialogOpen(false);
+                setPendingArbValidation(null);
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Confirmer la décision</DialogTitle>
+                <DialogDescription>
+                  <span className="block space-y-2">
+                    <span className="block">
+                      Vous allez enregistrer le statut «{' '}
+                      {pendingArbValidation?.next === 'VALIDE' ? 'Validé' : 'Refusé'} » pour ce niveau
+                      d&apos;arbitrage.
+                    </span>
+                    <span className="block">
+                      La version actuelle de la fiche sera ajoutée à l&apos;historique des décisions.
+                      Souhaitez-vous continuer ?
+                    </span>
+                  </span>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setSnapshotDialogOpen(false);
+                    setPendingArbValidation(null);
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button type="button" onClick={confirmPendingArbitrationDecision}>
+                  Continuer
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog
+            open={historyDialogOpen}
+            onOpenChange={(open) => {
+              setHistoryDialogOpen(open);
+              if (!open && !snapshotSheetViewerOpen) {
+                setSelectedSnapshotId(null);
+              }
+            }}
+          >
+            <DialogContent className="max-h-[min(90vh,720px)] overflow-hidden sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Historique des décisions</DialogTitle>
+                <DialogDescription>
+                  Snapshots de la fiche au moment où un niveau d&apos;arbitrage passe à « Validé » ou « Refusé
+                  ». Sélectionnez une entrée pour ouvrir la fiche complète en lecture seule.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[min(60vh,480px)] space-y-2 overflow-y-auto">
+                {snapshotsListQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Chargement…</p>
+                ) : snapshotsListQuery.isError ? (
+                  <p className="text-sm text-destructive">Impossible de charger la liste.</p>
+                ) : (snapshotsListQuery.data?.items.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucun snapshot enregistré.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {snapshotsListQuery.data?.items.map((row) => (
+                      <li key={row.id}>
+                        <button
+                          type="button"
+                          className={cn(
+                            'w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors',
+                            'border-border/70 hover:bg-muted/40',
+                          )}
+                          onClick={() => {
+                            setSelectedSnapshotId(row.id);
+                            setSnapshotSheetViewerOpen(true);
+                            setHistoryDialogOpen(false);
+                          }}
+                        >
+                          <span className="font-medium text-foreground">
+                            {DECISION_LEVEL_LABEL[row.decisionLevel] ?? row.decisionLevel}
+                          </span>
+                          <span className="mt-0.5 block text-muted-foreground">
+                            {new Date(row.createdAt).toLocaleString('fr-FR')}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog
+            open={snapshotSheetViewerOpen && !!selectedSnapshotId}
+            onOpenChange={(open) => {
+              if (!open) {
+                setSnapshotSheetViewerOpen(false);
+                setSelectedSnapshotId(null);
+              }
+            }}
+          >
+            <DialogContent className="flex max-h-[92vh] max-w-[min(100vw-2rem,56rem)] flex-col gap-0 overflow-hidden p-0">
+              <DialogHeader className="shrink-0 space-y-1 border-b border-border/60 px-6 py-4">
+                <DialogTitle>Fiche projet — version historisée</DialogTitle>
+                <DialogDescription>
+                  {snapshotDetailQuery.data
+                    ? `${DECISION_LEVEL_LABEL[snapshotDetailQuery.data.decisionLevel] ?? snapshotDetailQuery.data.decisionLevel} · ${new Date(snapshotDetailQuery.data.createdAt).toLocaleString('fr-FR')}`
+                    : 'Chargement…'}{' '}
+                  — lecture seule.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2 sm:px-6">
+                {snapshotDetailQuery.isLoading ? (
+                  <LoadingState rows={10} />
+                ) : snapshotDetailQuery.isError || !snapshotDetailQuery.data ? (
+                  <p className="text-sm text-destructive">Impossible d&apos;afficher cette version.</p>
+                ) : (
+                  <ProjectSheetView
+                    key={selectedSnapshotId}
+                    projectId={projectId}
+                    embedMode="snapshotModal"
+                    sheetReadOnlyOverride={mapAuditPayloadToProjectSheet(
+                      { id: sheet.id, code: sheet.code, kind: sheet.kind },
+                      snapshotDetailQuery.data.sheetPayload,
+                    )}
+                  />
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <ProjectRetroplanMacroDialog
+            projectId={projectId}
+            defaultAnchorDate={sheet.targetEndDate}
+            open={retroplanOpen}
+            onOpenChange={setRetroplanOpen}
+          />
+        </>
+      ) : null}
 
       {canEdit && (
         <div className="flex flex-col items-end gap-0.5 text-right">

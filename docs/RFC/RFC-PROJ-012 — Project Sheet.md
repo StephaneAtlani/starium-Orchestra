@@ -233,6 +233,8 @@ Chaque niveau (métier → comité → sponsor / CODIR) a un statut `ProjectArbi
 |--------|--------|------------|
 | GET | `/projects/:id/project-sheet` | `projects.read` |
 | PATCH | `/projects/:id/project-sheet` | `projects.update` |
+| GET | `/projects/:id/project-sheet/decision-snapshots` | `projects.read` |
+| GET | `/projects/:id/project-sheet/decision-snapshots/:snapshotId` | `projects.read` |
 | POST | `/projects/:id/arbitration` | `projects.update` |
 
 ## 7.1 Update fiche projet
@@ -249,6 +251,7 @@ Body (champs **tous optionnels** ; liste indicative — voir `UpdateProjectSheet
 * scores & financier : `businessValueScore`, `strategicAlignment`, `urgencyScore`, `estimatedCost`, `estimatedGain`, `riskLevel`, `riskResponse`
 * COPIL : `copilRecommendation`
 * arbitrage multi-niveaux : `arbitrationMetierStatus`, `arbitrationComiteStatus`, `arbitrationCodirStatus`, et si refus : `arbitrationMetierRefusalNote`, `arbitrationComiteRefusalNote`, `arbitrationCodirRefusalNote`
+* **historique des décisions** : `recordDecisionSnapshot` (booléen optionnel). Si `true` et qu’au moins un niveau passe à `VALIDE` dans ce PATCH, le serveur crée un enregistrement `ProjectSheetDecisionSnapshot` par niveau ainsi validé (payload fiche = `projectSheetFieldsAuditSnapshot` post-update). Si `true` sans transition vers `VALIDE`, le flag est ignoré.
 * cadrage métier / SWOT-TOWS : `businessProblem`, `businessBenefits`, `businessSuccessKpis`, `swotStrengths`, …, `towsActions`
 
 Le serveur recalcule **ROI** et **priorityScore** selon les règles du service (risque effectif, etc.).
@@ -305,7 +308,16 @@ Retour (extrait — la réponse inclut l’ensemble des champs fiche, dont `kind
 
 ---
 
-## 7.3 Changer statut arbitrage (legacy)
+## 7.3 Historique des décisions (snapshots)
+
+* **Liste** : `GET /api/projects/:id/project-sheet/decision-snapshots?limit=&offset=` — réponse `{ items, total, limit, offset }`, tri `createdAt` décroissant.
+* **Détail** : `GET /api/projects/:id/project-sheet/decision-snapshots/:snapshotId` — métadonnées + `sheetPayload` (JSON aligné sur l’audit fiche).
+
+Modèle Prisma : `ProjectSheetDecisionSnapshot` (`decisionLevel` : `METIER` | `COMITE` | `CODIR`, `sheetPayload` Json, scoping `clientId` + `projectId`).
+
+---
+
+## 7.4 Changer statut arbitrage (legacy)
 
 ```
 POST /api/projects/:id/arbitration

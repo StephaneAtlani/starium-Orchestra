@@ -30,6 +30,7 @@ import {
 } from './calculators/project-sheet-calculators';
 import { SetArbitrationDto } from './dto/set-arbitration.dto';
 import { UpdateProjectSheetDto } from './dto/update-project-sheet.dto';
+import { ProjectSheetDecisionSnapshotsService } from './project-sheet-decision-snapshots.service';
 import {
   parseJsonStringArray,
   parseTowsActions,
@@ -129,6 +130,7 @@ export class ProjectSheetService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly decisionSnapshots: ProjectSheetDecisionSnapshotsService,
   ) {}
 
   /**
@@ -387,6 +389,13 @@ export class ProjectSheetService {
         ...meta,
       });
     }
+
+    await this.decisionSnapshots.createSnapshotsAfterSheetUpdateIfNeeded(
+      existing,
+      updated,
+      dto.recordDecisionSnapshot,
+      context,
+    );
 
     return this.mapToSheetResponse(updated, risks);
   }

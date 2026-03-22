@@ -9,7 +9,10 @@ import type { ProjectRiskApi } from '../types/project.types';
 
 const STALE = 30_000;
 
-export function useProjectRisksQuery(projectId: string) {
+export function useProjectRisksQuery(
+  projectId: string,
+  options?: { enabled?: boolean },
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -17,7 +20,7 @@ export function useProjectRisksQuery(projectId: string) {
   return useQuery({
     queryKey: projectQueryKeys.risks(clientId, projectId),
     queryFn: async () => (await listRisks(authFetch, projectId)) as ProjectRiskApi[],
-    enabled: !!clientId && !!projectId,
+    enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
   });
 }
