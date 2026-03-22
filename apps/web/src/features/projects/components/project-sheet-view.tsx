@@ -9,9 +9,13 @@ import {
   ChevronLeft,
   Info,
   LayoutDashboard,
+  Layers3,
+  MessagesSquare,
   Pencil,
+  Percent,
   Plus,
   Trash2,
+  TrendingUp,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -304,6 +308,22 @@ function formatSavedClock(ts: number): string {
   } catch {
     return '';
   }
+}
+
+/** Barre 0–5 pour lecture rapide (tuile ROE). */
+function ScoreMiniBar({ value }: { value: number | undefined }) {
+  const pct =
+    value != null && Number.isFinite(value)
+      ? Math.min(100, Math.max(0, (value / 5) * 100))
+      : 0;
+  return (
+    <div className="h-1 w-full overflow-hidden rounded-full bg-muted/80">
+      <div
+        className="h-full rounded-full bg-violet-500/75 transition-[width] duration-300"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
 }
 
 export function ProjectSheetView({ projectId }: { projectId: string }) {
@@ -1011,56 +1031,91 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             </div>
           </div>
 
-          <div className="border-t border-border pt-6">
-            <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
-              Indicateurs de lecture :{' '}
-              <span className="font-medium text-foreground">ROI financier</span> (tuile 1),{' '}
-              <span className="font-medium text-foreground">priorité projet</span> (tuile 2),{' '}
-              <span className="font-medium text-foreground">ROE</span> (tuile 3). Pas de GO automatique
-              — la recommandation COPIL / COPRO (tuile 4) s’enregistre automatiquement à la sélection.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  1. ROI financier
-                </p>
-                <p className="mt-2 flex items-center gap-1.5 text-2xl font-semibold tabular-nums">
-                  {fmtRoi(roiDisplayed)}
+          <div className="border-t border-border pt-8">
+            <div className="mb-5 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold tracking-tight text-foreground">
+                  Indicateurs de lecture
+                </h4>
+                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                  Décision
+                </Badge>
+              </div>
+              <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                Vue synthétique pour l’arbitrage : rentabilité, priorité portefeuille, critères valeur et
+                position COPIL. Aucun GO automatique — la recommandation COPIL s’enregistre à la
+                sélection.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-emerald-500/70',
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                      <Percent className="size-4" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        ROI financier
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Gain − coût / coût</p>
+                    </div>
+                  </div>
                   {roiHint ? (
-                    <span className="inline-flex" title={roiHint}>
+                    <span className="inline-flex shrink-0" title={roiHint}>
                       <Info className="size-4 text-muted-foreground" aria-hidden />
                     </span>
                   ) : null}
+                </div>
+                <p className="mt-3 flex items-baseline gap-1.5 text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+                  {fmtRoi(roiDisplayed)}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-2 min-h-[2.5rem] text-[11px] leading-snug text-muted-foreground">
                   {roiDisplayed != null
                     ? roiEff != null
-                      ? '(Gain − coût) / coût — coût & gain (champs ou fiche)'
-                      : '(Gain − coût) / coût — calcul serveur'
-                    : roiHint ?? ''}
+                      ? 'Données issues des champs coût / gain (ou fiche enregistrée).'
+                      : 'Valeur calculée côté serveur à partir de la fiche.'
+                    : roiHint ?? '—'}
                 </p>
                 {roiDisplayed != null ? (
-                  <p className="mt-2 border-t border-border/60 pt-2 text-[11px] leading-snug text-muted-foreground">
-                    Le ROE (tuile 3) et le risque complètent la lecture pour la décision — distincts de
-                    la priorité portefeuille (tuile 2).
+                  <p className="mt-3 border-t border-border/60 pt-3 text-[10px] leading-snug text-muted-foreground">
+                    Croiser avec le ROE et la criticité — la priorité portefeuille est une autre lecture.
                   </p>
                 ) : null}
               </div>
-              <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  2. Priorité projet (portefeuille)
-                </p>
-                <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                  Basse, moyenne ou haute — référence CODIR / portefeuille (pas un score calculé).
-                </p>
+
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-sky-500/70',
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-400">
+                    <Layers3 className="size-4" aria-hidden />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Priorité portefeuille
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Référence CODIR — pas un score calculé</p>
+                  </div>
+                </div>
                 <Select
                   value={priority}
-                  onValueChange={(v) => setPriority(v)}
-                  disabled={!canEdit}
+                  onValueChange={(v) => {
+                    if (v != null) setPriority(v);
+                  }}
+                  disabled={!canEdit || saveMutation.isPending}
                 >
                   <SelectTrigger
                     id="sheet-priority"
-                    className="mt-3 w-full text-left"
+                    className="mt-4 w-full text-left"
                     aria-label="Priorité projet"
                   >
                     <SelectValue>
@@ -1077,43 +1132,68 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                     )}
                   </SelectContent>
                 </Select>
-                <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-                  Enregistrée avec le reste de la fiche (automatique).
+                <p className="mt-3 border-t border-border/60 pt-3 text-[10px] text-muted-foreground">
+                  Sauvegardée avec la fiche (automatique).
                 </p>
               </div>
-              <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  3. ROE — critères valeur
-                </p>
-                <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                  Retour sur engagement : scores 1–5, avec le ROI et le risque pour éclairer la
-                  décision (hors priorité portefeuille — tuile 2).
-                </p>
-                <div className="mt-2 space-y-1.5 text-sm">
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Valeur</span>
-                    <span className="font-medium tabular-nums">{scoreOutOf5(bvEff)}</span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Alignement</span>
-                    <span className="font-medium tabular-nums">{scoreOutOf5(saEff)}</span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Urgence</span>
-                    <span className="font-medium tabular-nums">{scoreOutOf5(usEff)}</span>
+
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-violet-500/70',
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-700 dark:text-violet-400">
+                    <TrendingUp className="size-4" aria-hidden />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      ROE — critères valeur
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Scores 1 à 5 (valeur / alignement / urgence)</p>
                   </div>
                 </div>
+                <div className="mt-4 space-y-3">
+                  {(
+                    [
+                      { label: 'Valeur', v: bvEff },
+                      { label: 'Alignement', v: saEff },
+                      { label: 'Urgence', v: usEff },
+                    ] as const
+                  ).map((row) => (
+                    <div key={row.label} className="space-y-1">
+                      <div className="flex items-center justify-between gap-2 text-sm">
+                        <span className="text-muted-foreground">{row.label}</span>
+                        <span className="font-medium tabular-nums text-foreground">
+                          {scoreOutOf5(row.v)}
+                        </span>
+                      </div>
+                      <ScoreMiniBar value={row.v} />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  4. Recommandation COPIL / COPRO
-                </p>
-                <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                  Choix du collège (copilotage / coprojet), distinct des indicateurs ci-contre. Aucun
-                  verdict automatique — vous sélectionnez la position retenue.
-                </p>
-                <div className="mt-3 space-y-2">
-                  <Label htmlFor="copil-rec" className="text-xs font-normal text-muted-foreground">
+
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-amber-500/70',
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-400">
+                    <MessagesSquare className="size-4" aria-hidden />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      COPIL / COPRO
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Position du collège — pas de verdict auto</p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="copil-rec" className="text-xs text-muted-foreground">
                     Position retenue
                   </Label>
                   <Select
