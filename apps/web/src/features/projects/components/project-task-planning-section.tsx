@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -44,6 +45,7 @@ import type {
   UpdateProjectTaskPayload,
 } from '../api/projects.api';
 import { cn } from '@/lib/utils';
+import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
 
 const DEP_TYPES = [
   { value: '', label: '—' },
@@ -909,100 +911,20 @@ export const ProjectTaskPlanningSection = forwardRef<
       </Dialog>
 
       <Dialog open={milestoneDialogOpen} onOpenChange={setMilestoneDialogOpen}>
-        <DialogContent className="sm:max-w-md" showCloseButton>
+        <DialogContent className="sm:max-w-lg" showCloseButton>
           <DialogHeader>
             <DialogTitle>Modifier le jalon</DialogTitle>
+            <DialogDescription>
+              Mettre à jour le repère temporel et, si besoin, la liaison avec une tâche du projet.
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="gantt-ms-name">Nom</Label>
-              <Input
-                id="gantt-ms-name"
-                value={milestoneForm.name}
-                onChange={(e) => setMilestoneForm({ ...milestoneForm, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="gantt-ms-desc">Description</Label>
-              <textarea
-                id="gantt-ms-desc"
-                className="border-input bg-background min-h-[64px] w-full rounded-lg border px-3 py-2 text-sm"
-                value={milestoneForm.description ?? ''}
-                onChange={(e) =>
-                  setMilestoneForm({ ...milestoneForm, description: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="gantt-ms-target">Date cible</Label>
-                <Input
-                  id="gantt-ms-target"
-                  type="date"
-                  value={isoToDateInput(milestoneForm.targetDate)}
-                  onChange={(e) =>
-                    setMilestoneForm({
-                      ...milestoneForm,
-                      targetDate: dateInputToIso(e.target.value) ?? milestoneForm.targetDate,
-                    })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Statut</Label>
-                <select
-                  className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-                  value={milestoneForm.status ?? 'PLANNED'}
-                  onChange={(e) =>
-                    setMilestoneForm({ ...milestoneForm, status: e.target.value })
-                  }
-                >
-                  {Object.keys(MILESTONE_STATUS_LABEL).map((k) => (
-                    <option key={k} value={k}>
-                      {MILESTONE_STATUS_LABEL[k]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="gantt-ms-achieved">Date d’atteinte (optionnel)</Label>
-              <Input
-                id="gantt-ms-achieved"
-                type="date"
-                value={isoToDateInput(milestoneForm.achievedDate)}
-                onChange={(e) =>
-                  setMilestoneForm({
-                    ...milestoneForm,
-                    achievedDate: e.target.value
-                      ? dateInputToIso(e.target.value)
-                      : undefined,
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tâche liée</Label>
-              <select
-                className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-                value={milestoneForm.linkedTaskId ?? ''}
-                onChange={(e) =>
-                  setMilestoneForm({
-                    ...milestoneForm,
-                    linkedTaskId: e.target.value || null,
-                  })
-                }
-              >
-                <option value="">—</option>
-                {taskOptionsForMilestone.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="max-h-[min(60vh,440px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
+            <MilestoneFormDialogFields
+              form={milestoneForm}
+              onPatch={(p) => setMilestoneForm({ ...milestoneForm, ...p })}
+              taskOptions={taskOptionsForMilestone}
+              fieldIdPrefix="gantt-ms"
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setMilestoneDialogOpen(false)}>

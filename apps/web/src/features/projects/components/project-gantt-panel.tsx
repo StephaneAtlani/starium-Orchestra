@@ -23,6 +23,12 @@ import {
   rowCenterY,
   type GanttTaskRowGeom,
 } from '../lib/gantt-dependency-geometry';
+import {
+  buildTaskRootIdMap,
+  orderedRootIdsFromRows,
+  resolveGanttBarTone,
+  type GanttBarColorMode,
+} from '../lib/gantt-bar-palette';
 import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
 import {
   GANTT_DAY_MS,
@@ -43,6 +49,7 @@ import {
 } from '../lib/gantt-timeline-layout';
 import { TASK_STATUS_LABEL } from '../constants/project-enum-labels';
 import { cn } from '@/lib/utils';
+import { GanttBarColorLegend } from './gantt-bar-color-legend';
 import {
   ProjectTaskPlanningSection,
   type ProjectTaskPlanningSectionHandle,
@@ -116,6 +123,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const [timelineScale, setTimelineScale] = useState<GanttTimelineScale>('day');
   const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | string>('all');
   const [showMilestones, setShowMilestones] = useState(true);
+  /** Couleur des barres tâches : défaut, priorité, statut ou regroupement par racine. */
+  const [barColorMode, setBarColorMode] = useState<GanttBarColorMode>('default');
   const [timelineViewportW, setTimelineViewportW] = useState(0);
   /** Multiplicateur utilisateur ; 100 % = `GANTT_TIME_ZOOM_BASELINE`× la densité de base calculée. */
   const [timeZoom, setTimeZoom] = useState(1);
@@ -155,6 +164,20 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     if (taskStatusFilter === 'all') return treeRows;
     return treeRows.filter((r) => r.status === taskStatusFilter);
   }, [treeRows, taskStatusFilter]);
+
+  const taskRootIdMap = useMemo(
+    () => buildTaskRootIdMap(payload?.tasks ?? []),
+    [payload?.tasks],
+  );
+
+  const rootIndexByRootId = useMemo(() => {
+    const ordered = orderedRootIdsFromRows(displayTreeRows, (id) => taskRootIdMap.get(id) ?? id);
+    const m = new Map<string, number>();
+    ordered.forEach((rid, i) => {
+      m.set(rid, i);
+    });
+    return m;
+  }, [displayTreeRows, taskRootIdMap]);
 
   const unplannedCount = useMemo(() => {
     if (!payload?.tasks) return 0;
@@ -562,7 +585,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   };
 
   const toolbar = (
-    <div className="bg-muted/30 flex min-h-10 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/60 px-3 py-2">
+    <div className="bg-muted/30 flex min-w-0 flex-col border-b border-border/60">
+      <div className="flex min-h-10 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2">
       <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs">
         <div className="flex items-center gap-1.5">
           <span className="text-muted-foreground shrink-0">Échelle</span>
@@ -650,13 +674,26 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           />
           <span className="text-muted-foreground">Jalons</span>
         </label>
+        <div
+          className="flex items-center gap-1.5 border-border/60 border-l pl-3"
+          title="Couleur des barres sur la frise (lecture seule, ne modifie pas les données)"
+        >
+          <span className="text-muted-foreground shrink-0">Couleur barres</span>
+          <select
+            className="border-input bg-background h-8 max-w-[10rem] rounded-md border px-2 text-[11px]"
+            value={barColorMode}
+            onChange={(e) => setBarColorMode(e.target.value as GanttBarColorMode)}
+            aria-label="Mode de couleur des barres tâches"
+          >
+            <option value="default">Par défaut (thème)</option>
+            <option value="priority">Priorité</option>
+            <option value="status">Statut</option>
+            <option value="group">Arborescence (racine)</option>
+          </select>
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <span className="text-muted-foreground hidden text-[10px] sm:inline">
-          {pxPerDay.toFixed(2)} px/j · mois + semaines
-          {layout?.showDayHeaders ? ' + jours' : ''} en tête
-        </span>
-        {canEdit && (
+      {canEdit ? (
+        <div className="flex shrink-0 items-center gap-2">
           <Button
             type="button"
             size="sm"
@@ -664,8 +701,10 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           >
             Nouvelle tâche
           </Button>
-        )}
+        </div>
+      ) : null}
       </div>
+      <GanttBarColorLegend mode={barColorMode} />
     </div>
   );
 
@@ -919,6 +958,13 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                           showLinkPorts={canEdit}
                           onPointerDownBar={(mode, ev) => beginTaskDrag(row, mode, ev)}
                           onLinkOutPointerDown={(ev) => beginLinkOut(row.id, ev)}
+                          tone={resolveGanttBarTone(barColorMode, row, {
+                            rootId: taskRootIdMap.get(row.id) ?? row.id,
+                            rootIndex:
+                              rootIndexByRootId.get(
+                                taskRootIdMap.get(row.id) ?? row.id,
+                              ) ?? 0,
+                          })}
                         />
                       )}
                     </div>

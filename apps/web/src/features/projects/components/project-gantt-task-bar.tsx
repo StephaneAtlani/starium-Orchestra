@@ -1,6 +1,10 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import {
+  GANTT_BAR_TONE_DEFAULT,
+  type GanttBarTone,
+} from '../lib/gantt-bar-palette';
 
 const HANDLE_MAX_PX = 8;
 const LINK_PORT_PX = 6;
@@ -17,6 +21,7 @@ export function ProjectGanttTaskBar({
   onPointerDownBar,
   onLinkOutPointerDown,
   showLinkPorts,
+  tone = GANTT_BAR_TONE_DEFAULT,
 }: {
   taskId: string;
   leftPx: number;
@@ -29,18 +34,20 @@ export function ProjectGanttTaskBar({
   onLinkOutPointerDown?: (e: React.PointerEvent) => void;
   /** Afficher ports lien (entrée gauche / sortie droite du bloc central) */
   showLinkPorts?: boolean;
+  /** Couleurs barre / poignées (priorité, statut, groupe, etc.) */
+  tone?: GanttBarTone;
 }) {
   const linkHandles = Boolean(canEdit && showLinkPorts && onLinkOutPointerDown);
 
   if (!canEdit) {
     return (
       <div
-        className="bg-primary/15 absolute top-2 bottom-2 rounded-sm"
+        className={cn(tone.track, 'absolute top-2 bottom-2 rounded-sm')}
         style={{ left: leftPx, width: barW }}
         title={title}
       >
         <div
-          className="bg-primary/75 h-full rounded-sm"
+          className={cn(tone.progress, 'h-full rounded-sm')}
           style={{ width: `${Math.min(100, progress)}%` }}
         />
       </div>
@@ -61,7 +68,8 @@ export function ProjectGanttTaskBar({
         role="separator"
         aria-label="Ajuster le début"
         className={cn(
-          'bg-primary/35 hover:bg-primary/55 z-[3] shrink-0 cursor-ew-resize rounded-l-sm border-r border-primary/30',
+          'z-[3] shrink-0 cursor-ew-resize rounded-l-sm',
+          tone.handleLeft,
         )}
         style={{ width: handleW, minWidth: handleW }}
         onPointerDown={(e) => {
@@ -74,16 +82,22 @@ export function ProjectGanttTaskBar({
           data-gantt-link-in=""
           data-task-id={taskId}
           aria-label="Port entrée lien"
-          className="bg-primary/10 hover:bg-primary/25 z-[4] shrink-0 cursor-cell border-y border-primary/20"
+          className={cn(
+            'z-[4] shrink-0 cursor-cell border-y',
+            tone.linkPort,
+          )}
           style={{ width: LINK_PORT_PX, minWidth: LINK_PORT_PX }}
         />
       )}
       <div
-        className="bg-primary/15 min-w-0 flex-1 cursor-grab active:cursor-grabbing"
+        className={cn(
+          tone.track,
+          'min-w-0 flex-1 cursor-grab active:cursor-grabbing',
+        )}
         onPointerDown={(e) => onPointerDownBar('move', e)}
       >
         <div
-          className="bg-primary/75 h-full rounded-sm"
+          className={cn(tone.progress, 'h-full rounded-sm')}
           style={{ width: `${Math.min(100, progress)}%` }}
         />
       </div>
@@ -92,7 +106,10 @@ export function ProjectGanttTaskBar({
           data-gantt-link-out=""
           data-task-id={taskId}
           aria-label="Port sortie lien"
-          className="bg-primary/10 hover:bg-primary/25 z-[4] shrink-0 cursor-crosshair border-y border-primary/20"
+          className={cn(
+            'z-[4] shrink-0 cursor-crosshair border-y',
+            tone.linkPort,
+          )}
           style={{ width: LINK_PORT_PX, minWidth: LINK_PORT_PX }}
           onPointerDown={(e) => {
             e.stopPropagation();
@@ -104,7 +121,8 @@ export function ProjectGanttTaskBar({
         role="separator"
         aria-label="Ajuster la fin"
         className={cn(
-          'bg-primary/35 hover:bg-primary/55 z-[3] shrink-0 cursor-ew-resize rounded-r-sm border-l border-primary/30',
+          'z-[3] shrink-0 cursor-ew-resize rounded-r-sm',
+          tone.handleRight,
         )}
         style={{ width: handleW, minWidth: handleW }}
         onPointerDown={(e) => {

@@ -5,12 +5,11 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -33,20 +32,7 @@ import type {
   CreateProjectMilestonePayload,
   UpdateProjectMilestonePayload,
 } from '../api/projects.api';
-
-function isoToDateInput(iso: string | null | undefined): string {
-  if (!iso) return '';
-  try {
-    return new Date(iso).toISOString().slice(0, 10);
-  } catch {
-    return '';
-  }
-}
-
-function dateInputToIso(s: string): string | undefined {
-  if (!s.trim()) return undefined;
-  return new Date(`${s}T12:00:00.000Z`).toISOString();
-}
+import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
 
 function emptyCreate(): CreateProjectMilestonePayload {
   const today = new Date().toISOString().slice(0, 10);
@@ -185,93 +171,22 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md" showCloseButton>
+        <DialogContent className="sm:max-w-lg" showCloseButton>
           <DialogHeader>
             <DialogTitle>{editing ? 'Modifier le jalon' : 'Nouveau jalon'}</DialogTitle>
+            <DialogDescription>
+              {editing
+                ? 'Mettre à jour le repère temporel et la liaison éventuelle avec une tâche.'
+                : 'Définir un jalon sur la ligne de temps du projet ; liaison avec une tâche optionnelle.'}
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="ms-name">Nom</Label>
-              <Input
-                id="ms-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ms-desc">Description</Label>
-              <textarea
-                id="ms-desc"
-                className="border-input bg-background min-h-[64px] w-full rounded-lg border px-3 py-2 text-sm"
-                value={form.description ?? ''}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="ms-target">Date cible</Label>
-                <Input
-                  id="ms-target"
-                  type="date"
-                  value={isoToDateInput(form.targetDate)}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      targetDate: dateInputToIso(e.target.value) ?? form.targetDate,
-                    })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Statut</Label>
-                <select
-                  className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-                  value={form.status ?? 'PLANNED'}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                >
-                  {Object.keys(MILESTONE_STATUS_LABEL).map((k) => (
-                    <option key={k} value={k}>
-                      {MILESTONE_STATUS_LABEL[k]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ms-achieved">Date d’atteinte (optionnel)</Label>
-              <Input
-                id="ms-achieved"
-                type="date"
-                value={isoToDateInput(form.achievedDate)}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    achievedDate: e.target.value
-                      ? dateInputToIso(e.target.value)
-                      : undefined,
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tâche liée</Label>
-              <select
-                className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-                value={form.linkedTaskId ?? ''}
-                onChange={(e) =>
-                  setForm({ ...form, linkedTaskId: e.target.value || null })
-                }
-              >
-                <option value="">—</option>
-                {taskOptions.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="max-h-[min(60vh,440px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
+            <MilestoneFormDialogFields
+              form={form}
+              onPatch={(p) => setForm({ ...form, ...p })}
+              taskOptions={taskOptions}
+              fieldIdPrefix="ms"
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
