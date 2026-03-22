@@ -23,6 +23,7 @@ export function ProjectGanttTaskBar({
   showLinkPorts,
   tone = GANTT_BAR_TONE_DEFAULT,
   summaryStacked = false,
+  statusLabel,
 }: {
   taskId: string;
   leftPx: number;
@@ -42,16 +43,19 @@ export function ProjectGanttTaskBar({
    * (style MS Project).
    */
   summaryStacked?: boolean;
+  /** Libellé statut pour le tooltip (affichage texte à droite de la barre géré par le panneau). */
+  statusLabel?: string;
 }) {
   const linkHandles = Boolean(canEdit && showLinkPorts && onLinkOutPointerDown);
   const barInset = summaryStacked ? 'top-3 bottom-1.5' : 'top-2 bottom-2';
+  const tip = `${title} — ${progress} %${statusLabel ? ` — ${statusLabel}` : ''}`;
 
   if (!canEdit) {
     return (
       <div
         className={cn(tone.track, 'absolute rounded-sm', barInset)}
         style={{ left: leftPx, width: barW }}
-        title={title}
+        title={tip}
       >
         <div
           className={cn(tone.progress, 'h-full rounded-sm')}
@@ -67,7 +71,7 @@ export function ProjectGanttTaskBar({
     <div
       className={cn('absolute flex touch-none rounded-sm', barInset)}
       style={{ left: leftPx, width: barW }}
-      title={`${title} — glisser pour déplacer, poignées pour ajuster les dates${
+      title={`${tip} — glisser pour déplacer, poignées pour ajuster les dates${
         linkHandles ? ' ; ports lien au centre gauche/droite' : ''
       }`}
     >
@@ -99,7 +103,7 @@ export function ProjectGanttTaskBar({
       <div
         className={cn(
           tone.track,
-          'min-w-0 flex-1 cursor-grab active:cursor-grabbing',
+          'relative min-w-0 flex-1 cursor-grab active:cursor-grabbing',
         )}
         onPointerDown={(e) => onPointerDownBar('move', e)}
       >

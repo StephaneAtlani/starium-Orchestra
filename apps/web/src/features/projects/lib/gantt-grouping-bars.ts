@@ -72,3 +72,26 @@ export function taskHasVisibleChildren(
 ): boolean {
   return (childrenMap.get(taskId)?.length ?? 0) > 0;
 }
+
+/**
+ * Moyenne des `progress` (0–100) pour la tâche et tous ses descendants visibles.
+ * `null` si aucune entrée.
+ */
+export function computeVisibleSubtreeRollupProgress(
+  taskId: string,
+  rowsById: Map<string, Pick<ProjectTaskApi, 'progress'>>,
+  childrenMap: Map<string, string[]>,
+): number | null {
+  const desc = collectVisibleDescendantIds(taskId, childrenMap);
+  const ids = [taskId, ...desc];
+  let sum = 0;
+  let n = 0;
+  for (const id of ids) {
+    const t = rowsById.get(id);
+    if (!t) continue;
+    sum += Math.min(100, Math.max(0, t.progress ?? 0));
+    n++;
+  }
+  if (n === 0) return null;
+  return Math.round(sum / n);
+}

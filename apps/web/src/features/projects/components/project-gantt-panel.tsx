@@ -32,6 +32,7 @@ import {
 import {
   buildVisibleChildrenMap,
   computeVisibleSubtreeRollupBounds,
+  computeVisibleSubtreeRollupProgress,
   taskHasVisibleChildren,
 } from '../lib/gantt-grouping-bars';
 import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
@@ -60,7 +61,7 @@ import {
   type ProjectTaskPlanningSectionHandle,
 } from './project-task-planning-section';
 import { ProjectGanttTaskBar } from './project-gantt-task-bar';
-import { Info, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Info, Maximize2, Minimize2, Minus, Plus, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 type BarMode = 'move' | 'resize-start' | 'resize-end';
@@ -117,6 +118,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
   const planningRef = useRef<ProjectTaskPlanningSectionHandle>(null);
+  const ganttRootRef = useRef<HTMLDivElement>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
   const ganttVerticalScrollRef = useRef<HTMLDivElement>(null);
   const timelineBodyRef = useRef<HTMLDivElement>(null);
@@ -128,11 +130,36 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const [timelineScale, setTimelineScale] = useState<GanttTimelineScale>('day');
   const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | string>('all');
   const [showMilestones, setShowMilestones] = useState(true);
+  /** Nom, % et statut sur les barres de la frise (style MS Project). */
+  const [showGanttBarLabels, setShowGanttBarLabels] = useState(true);
   /** Couleur des barres tâches : défaut, priorité, statut ou regroupement par racine. */
   const [barColorMode, setBarColorMode] = useState<GanttBarColorMode>('default');
   const [timelineViewportW, setTimelineViewportW] = useState(0);
   /** Multiplicateur utilisateur ; 100 % = `GANTT_TIME_ZOOM_BASELINE`× la densité de base calculée. */
   const [timeZoom, setTimeZoom] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onFs = () => {
+      setIsFullscreen(document.fullscreenElement === ganttRootRef.current);
+    };
+    document.addEventListener('fullscreenchange', onFs);
+    return () => document.removeEventListener('fullscreenchange', onFs);
+  }, []);
+
+  const toggleGanttFullscreen = useCallback(async () => {
+    const el = ganttRootRef.current;
+    if (!el) return;
+    try {
+      if (!document.fullscreenElement) {
+        await el.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      toast.error('Plein écran indisponible sur ce navigateur.');
+    }
+  }, []);
 
   const zoomTimeIn = useCallback(() => {
     setTimeZoom((z) => clampTimeZoom(z * GANTT_TIME_ZOOM_STEP));
@@ -691,6 +718,15 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           />
           <span className="text-muted-foreground">Jalons</span>
         </label>
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            className="border-input size-3.5 rounded"
+            checked={showGanttBarLabels}
+            onChange={(e) => setShowGanttBarLabels(e.target.checked)}
+          />
+          <span className="text-muted-foreground">Libellés frise</span>
+        </label>
         <div
           className="flex items-center gap-1.5 border-border/60 border-l pl-3"
           title="Couleur des barres sur la frise (lecture seule, ne modifie pas les données)"
@@ -709,8 +745,21 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           </select>
         </div>
       </div>
-      {canEdit ? (
-        <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          className="gap-1.5"
+          onClick={toggleGanttFullscreen}
+          aria-label={isFullscreen ? 'Quitter le plein écran' : 'Afficher le planning en plein écran'}
+          title={isFullscreen ? 'Quitter le plein écran (Échap)' : 'Plein écran'}
+        >
+          {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+          <span className="hidden sm:inline">
+            {isFullscreen ? 'Quitter' : 'Plein écran'}
+          </span>
+        </Button>
+        {canEdit ? (
           <Button
             type="button"
             size="sm"
@@ -718,8 +767,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           >
             Nouvelle tâche
           </Button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
       </div>
       <GanttBarColorLegend mode={barColorMode} />
     </div>
@@ -727,7 +776,13 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
 
   if (!bounds || !layout) {
     return (
-      <div className="flex min-w-0 flex-col gap-3">
+      <div
+        ref={ganttRootRef}
+        className={cn(
+          'flex min-w-0 flex-col gap-3',
+          isFullscreen && 'box-border min-h-screen overflow-hidden bg-background p-3 sm:p-4',
+        )}
+      >
         <Alert>
           <Info className="size-4" />
           <AlertTitle>Aucune date à afficher</AlertTitle>
@@ -736,9 +791,14 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
             cible. Vous pouvez créer des tâches ci-dessous.
           </AlertDescription>
         </Alert>
-        <div className="border-border/60 overflow-hidden rounded-lg border">
+        <div
+          className={cn(
+            'border-border/60 overflow-hidden rounded-lg border',
+            isFullscreen && 'flex min-h-0 flex-1 flex-col',
+          )}
+        >
           {toolbar}
-          <div className="p-2">
+          <div className={cn('p-2', isFullscreen && 'min-h-0 flex-1')}>
             <ProjectTaskPlanningSection
               ref={planningRef}
               projectId={projectId}
@@ -758,7 +818,13 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const headerTimelineRows = showDayHeaders ? 3 : 2;
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div
+      ref={ganttRootRef}
+      className={cn(
+        'flex min-w-0 flex-col gap-3',
+        isFullscreen && 'box-border min-h-screen overflow-hidden bg-background p-3 sm:p-4',
+      )}
+    >
       {unplannedCount > 0 && (
         <Alert className="border-amber-500/40 bg-amber-500/5">
           <Info className="size-4 text-amber-800 dark:text-amber-600" />
@@ -772,7 +838,12 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         </Alert>
       )}
 
-      <div className="border-border/60 flex min-h-[min(85vh,900px)] min-w-0 flex-col overflow-hidden rounded-lg border">
+      <div
+        className={cn(
+          'border-border/60 flex min-w-0 flex-col overflow-hidden rounded-lg border',
+          isFullscreen ? 'min-h-0 flex-1' : 'min-h-[min(85vh,900px)]',
+        )}
+      >
         {toolbar}
         <div
           ref={ganttVerticalScrollRef}
@@ -983,6 +1054,18 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                         )
                       : 0;
 
+                  const rollupProgressPct =
+                    rollupBounds && bounds
+                      ? computeVisibleSubtreeRollupProgress(
+                          row.id,
+                          displayRowsById,
+                          visibleChildrenMap,
+                        )
+                      : null;
+
+                  const statusLabel =
+                    TASK_STATUS_LABEL[row.status] ?? row.status;
+
                   return (
                     <div
                       key={row.id}
@@ -990,12 +1073,37 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                       style={{ height: GANTT_ROW_PX, width: widthPx }}
                     >
                       {rollupBounds && bounds && (
-                        <div
-                          className="pointer-events-none absolute top-1 z-[1] h-1.5 rounded-sm border border-primary/35 bg-primary/20 shadow-sm"
-                          style={{ left: rollupLeftPx, width: rollupW }}
-                          title={`Résumé du groupe (${row.name} et sous-tâches affichées) : ${new Date(rollupBounds.startMs).toLocaleDateString('fr-FR')} → ${new Date(rollupBounds.endMs).toLocaleDateString('fr-FR')}`}
-                          aria-hidden
-                        />
+                        <>
+                          <div
+                            className="pointer-events-none absolute top-1 z-[1] h-1.5 rounded-sm border border-primary/35 bg-primary/20 shadow-sm"
+                            style={{ left: rollupLeftPx, width: rollupW }}
+                            title={`Résumé du groupe (${row.name} et sous-tâches affichées) : ${new Date(rollupBounds.startMs).toLocaleDateString('fr-FR')} → ${new Date(rollupBounds.endMs).toLocaleDateString('fr-FR')}${
+                              rollupProgressPct != null
+                                ? ` — avancement moyen ${rollupProgressPct} %`
+                                : ''
+                            }`}
+                            aria-hidden
+                          />
+                          {showGanttBarLabels && (
+                            <div
+                              className="pointer-events-none absolute top-0.5 z-[3] max-w-[min(14rem,38vw)] truncate text-[9px] font-medium leading-tight text-muted-foreground"
+                              style={{ left: rollupLeftPx + rollupW + 4 }}
+                              title={`${row.name} (résumé)${
+                                rollupProgressPct != null
+                                  ? ` — ${rollupProgressPct} %`
+                                  : ''
+                              }`}
+                            >
+                              <span className="text-foreground">{row.name}</span>
+                              <span className="ml-0.5 opacity-75">(résumé)</span>
+                              {rollupProgressPct != null ? (
+                                <span className="ml-1 tabular-nums opacity-90">
+                                  · {rollupProgressPct} %
+                                </span>
+                              ) : null}
+                            </div>
+                          )}
+                        </>
                       )}
                       {eligible && dates && (
                         <ProjectGanttTaskBar
@@ -1005,6 +1113,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                           progress={row.progress}
                           canEdit={canEdit}
                           title={row.name}
+                          statusLabel={statusLabel}
                           showLinkPorts={canEdit}
                           summaryStacked={Boolean(rollupBounds && bounds)}
                           onPointerDownBar={(mode, ev) => beginTaskDrag(row, mode, ev)}
@@ -1017,6 +1126,24 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                               ) ?? 0,
                           })}
                         />
+                      )}
+                      {eligible && dates && showGanttBarLabels && (
+                        <div
+                          className="pointer-events-none absolute z-[3] flex max-w-[min(18rem,45vw)] flex-col justify-center gap-0.5 text-left leading-tight"
+                          style={{
+                            left: leftPx + barW + 6,
+                            top: rollupBounds && bounds ? 21 : 18,
+                            transform: 'translateY(-50%)',
+                          }}
+                          title={`${row.name} — ${row.progress} % — ${statusLabel}`}
+                        >
+                          <span className="truncate text-[10px] font-semibold text-foreground">
+                            {row.name}
+                          </span>
+                          <span className="text-[9px] text-muted-foreground">
+                            {row.progress} % · {statusLabel}
+                          </span>
+                        </div>
                       )}
                     </div>
                   );
