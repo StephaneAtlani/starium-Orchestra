@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -1068,7 +1068,16 @@ export function ProjectSheetView({
               Projet
             </Link>
           </div>
-          <ProjectWorkspaceTabs projectId={projectId} />
+          <Suspense
+            fallback={
+              <div
+                className="h-11 w-full animate-pulse rounded-xl bg-muted/60 ring-1 ring-border/50"
+                aria-hidden
+              />
+            }
+          >
+            <ProjectWorkspaceTabs projectId={projectId} />
+          </Suspense>
           <PageHeader
             title={`Fiche projet : ${projectName || sheet.name}`}
             description="Cadrage projet"

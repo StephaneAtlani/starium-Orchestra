@@ -4,6 +4,8 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -30,7 +32,8 @@ import {
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { projectsList } from '../constants/project-routes';
-import { ChevronLeft } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { AlertCircle, AlertTriangle, ChevronLeft, LayoutDashboard } from 'lucide-react';
 import { ProjectBudgetSection } from './project-budget-section';
 import { ProjectReviewsTab } from './project-reviews-tab';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
@@ -63,7 +66,7 @@ function ProjectDetailTabbedContent({
 
   return (
     <Card size="sm" className="min-w-0 overflow-hidden shadow-sm">
-      <CardHeader className="space-y-0 border-b border-border/70 bg-gradient-to-b from-muted/60 to-muted/25 px-3 py-3.5 sm:px-5">
+      <CardHeader className="space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
         <ProjectWorkspaceTabs projectId={projectId} />
       </CardHeader>
       <CardContent
@@ -78,12 +81,28 @@ function ProjectDetailTabbedContent({
         ) : (
           <>
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card size="sm" className="min-w-0 lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Informations</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+          <section
+            className={cn(
+              'min-w-0 rounded-xl border border-border/70 bg-card p-4 shadow-sm lg:col-span-2',
+              'border-l-[3px] border-l-sky-500/70',
+            )}
+            aria-labelledby="project-detail-info-heading"
+          >
+            <div className="mb-3 flex items-center gap-2.5">
+              <div
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-sky-500/10 text-sky-800 shadow-inner dark:text-sky-300"
+                aria-hidden
+              >
+                <LayoutDashboard className="size-4" />
+              </div>
+              <h2
+                id="project-detail-info-heading"
+                className="text-sm font-semibold tracking-tight text-foreground"
+              >
+                Informations
+              </h2>
+            </div>
+            <div className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
                 <div className="min-w-0">
                   <span className="text-muted-foreground">Nature : </span>
                   {PROJECT_KIND_LABEL[project.kind as keyof typeof PROJECT_KIND_LABEL] ??
@@ -125,19 +144,20 @@ function ProjectDetailTabbedContent({
                     {project.targetBudgetAmount}
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <Card
-            size="sm"
-            className="min-w-0 gap-0 py-0 lg:col-span-1 data-[size=sm]:gap-0 data-[size=sm]:py-0"
+          <section
+            className="min-w-0 rounded-lg border border-border bg-transparent px-3 py-2.5 lg:col-span-1"
+            aria-labelledby="project-detail-kpi-heading"
           >
-            <CardContent className="flex flex-col gap-3 px-4 py-3 group-data-[size=sm]/card:px-4 group-data-[size=sm]/card:py-3">
-              <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Compteurs
-              </span>
-              <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-2 sm:justify-end lg:flex-col lg:items-stretch lg:gap-3">
+            <h2
+              id="project-detail-kpi-heading"
+              className="mb-2 border-b border-border/70 pb-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              Compteurs
+            </h2>
+            <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-2 sm:justify-end lg:flex-col lg:items-stretch lg:gap-3">
                 <span
                   className="inline-flex items-baseline gap-1.5 tabular-nums"
                   title="Tâches ouvertes"
@@ -166,21 +186,22 @@ function ProjectDetailTabbedContent({
                   <span className="text-xs text-muted-foreground">Jalons ret.</span>
                 </span>
               </div>
-            </CardContent>
-          </Card>
+          </section>
         </div>
 
         <ProjectBudgetSection projectId={projectId} />
 
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>Tâches</CardTitle>
+        <Card size="sm" className="overflow-hidden shadow-sm">
+          <CardHeader className="border-b border-border/60 pb-3">
+            <CardTitle className="text-sm font-medium">Tâches</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {tasks.isLoading ? (
-              <LoadingState rows={2} />
+              <div className="p-4">
+                <LoadingState rows={2} />
+              </div>
             ) : !tasks.data?.length ? (
-              <p className="text-sm text-muted-foreground">Aucune tâche.</p>
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">Aucune tâche.</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -206,15 +227,17 @@ function ProjectDetailTabbedContent({
           </CardContent>
         </Card>
 
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>Risques</CardTitle>
+        <Card size="sm" className="overflow-hidden shadow-sm">
+          <CardHeader className="border-b border-border/60 pb-3">
+            <CardTitle className="text-sm font-medium">Risques</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {risks.isLoading ? (
-              <LoadingState rows={2} />
+              <div className="p-4">
+                <LoadingState rows={2} />
+              </div>
             ) : !risks.data?.length ? (
-              <p className="text-sm text-muted-foreground">Aucun risque.</p>
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">Aucun risque.</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -245,15 +268,17 @@ function ProjectDetailTabbedContent({
           </CardContent>
         </Card>
 
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>Jalons</CardTitle>
+        <Card size="sm" className="overflow-hidden shadow-sm">
+          <CardHeader className="border-b border-border/60 pb-3">
+            <CardTitle className="text-sm font-medium">Jalons</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {milestones.isLoading ? (
-              <LoadingState rows={2} />
+              <div className="p-4">
+                <LoadingState rows={2} />
+              </div>
             ) : !milestones.data?.length ? (
-              <p className="text-sm text-muted-foreground">Aucun jalon.</p>
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">Aucun jalon.</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -301,19 +326,26 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
 
   if (error || !project) {
     return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-        Projet introuvable ou accès refusé.
-      </div>
+      <Alert variant="destructive" className="border-destructive/40">
+        <AlertCircle aria-hidden />
+        <AlertTitle>Projet introuvable</AlertTitle>
+        <AlertDescription>
+          Vous n’avez pas accès à ce projet ou il n’existe plus.
+        </AlertDescription>
+      </Alert>
     );
   }
 
   return (
     <>
-      <header className="flex flex-col gap-4">
-        <div>
+      <header className="flex flex-col gap-5">
+        <div className="space-y-3">
           <Link
             href={projectsList()}
-            className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              '-ml-2 w-fit gap-1 text-muted-foreground hover:text-foreground',
+            )}
           >
             <ChevronLeft className="size-4" />
             Portefeuille projets
@@ -329,22 +361,31 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <ProjectPortfolioBadges signals={project.signals} />
+        <div className="min-w-0">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">Signaux portefeuille</p>
+          <div className="flex flex-wrap gap-2">
+            <ProjectPortfolioBadges signals={project.signals} />
+          </div>
         </div>
 
         {project.warnings.length > 0 && (
-          <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90">
-            <span className="font-medium">Alertes : </span>
-            {project.warnings.map((w) => WARNING_CODE_LABEL[w] ?? w).join(' · ')}
-          </div>
+          <Alert
+            className="border-amber-500/35 bg-amber-500/5 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+            role="status"
+          >
+            <AlertTriangle className="text-amber-700 dark:text-amber-400" aria-hidden />
+            <AlertTitle className="text-amber-950 dark:text-amber-100">Alertes projet</AlertTitle>
+            <AlertDescription className="text-amber-950/90 dark:text-amber-100/90">
+              {project.warnings.map((w) => WARNING_CODE_LABEL[w] ?? w).join(' · ')}
+            </AlertDescription>
+          </Alert>
         )}
       </header>
 
       <Suspense
         fallback={
           <Card size="sm" className="min-w-0 overflow-hidden shadow-sm">
-            <CardHeader className="border-b border-border/70 bg-gradient-to-b from-muted/60 to-muted/25 px-3 py-3.5 sm:px-5">
+            <CardHeader className="border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
               <LoadingState rows={1} />
             </CardHeader>
             <CardContent className="p-4 sm:p-6">

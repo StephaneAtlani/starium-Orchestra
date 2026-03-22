@@ -32,15 +32,16 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
   const pointsHref = `${detailHref}?tab=points`;
 
   return (
-    <div
-      role="tablist"
-      aria-label="Navigation projet"
-      className="grid h-11 w-full min-w-0 grid-cols-3 gap-1 rounded-xl bg-muted p-1 shadow-inner ring-1 ring-border/40"
-    >
+    <div className="min-w-0 overflow-x-auto [-webkit-overflow-scrolling:touch]">
+      <div
+        role="tablist"
+        aria-label="Navigation projet"
+        className="grid h-11 min-w-[min(100%,18rem)] grid-cols-3 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/50 sm:min-w-0"
+      >
       <Link
         href={detailHref}
         role="tab"
-        aria-selected={isSynth}
+        aria-current={isSynth ? 'page' : undefined}
         className={tabLinkClass(isSynth)}
       >
         <LayoutDashboard className="size-4 shrink-0 opacity-70" />
@@ -49,7 +50,7 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       <Link
         href={projectSheet(projectId)}
         role="tab"
-        aria-selected={isSheet}
+        aria-current={isSheet ? 'page' : undefined}
         className={tabLinkClass(isSheet)}
       >
         <Layers3 className="size-4 shrink-0 opacity-70" />
@@ -58,12 +59,13 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       <Link
         href={pointsHref}
         role="tab"
-        aria-selected={isPoints}
+        aria-current={isPoints ? 'page' : undefined}
         className={tabLinkClass(isPoints)}
       >
         <ClipboardList className="size-4 shrink-0 opacity-70" />
         Points projet
       </Link>
+      </div>
     </div>
   );
 }

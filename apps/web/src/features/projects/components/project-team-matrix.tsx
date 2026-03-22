@@ -3,10 +3,18 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Trash2, Users } from 'lucide-react';
+import { AlertCircle, Plus, Trash2, Users } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { LoadingState } from '@/components/feedback/loading-state';
 import {
   Dialog,
   DialogContent,
@@ -194,28 +202,49 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
 
   return (
     <>
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="size-4 text-muted-foreground" aria-hidden />
-            Composition de l&apos;équipe
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Rôles du client (Sponsor, Responsable, Métier, rôles personnalisés) et personnes
-            affectées. Les rôles système synchronisent le portefeuille (sponsor / responsable).
-          </p>
+      <Card
+        size="sm"
+        className="overflow-hidden border-l-[3px] border-l-violet-500/70 shadow-sm"
+      >
+        <CardHeader className="border-b border-border/60 pb-4">
+          <div className="flex gap-3">
+            <div
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-violet-500/10 text-violet-800 shadow-inner dark:text-violet-300"
+              aria-hidden
+            >
+              <Users className="size-5" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <CardTitle
+                id="project-team-matrix-title"
+                className="text-base font-semibold tracking-tight text-foreground"
+              >
+                Composition de l&apos;équipe
+              </CardTitle>
+              <CardDescription className="text-xs leading-relaxed text-muted-foreground">
+                Rôles du client (Sponsor, Responsable, Métier, rôles personnalisés) et personnes
+                affectées. Les rôles système synchronisent le portefeuille (sponsor / responsable).
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="min-w-0 space-y-4">
+        <CardContent className="min-w-0 space-y-4 pt-4">
           {rolesQuery.isLoading || teamQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Chargement…</p>
+            <LoadingState rows={5} />
           ) : rolesQuery.error || teamQuery.error ? (
-            <p className="text-sm text-destructive">Impossible de charger l&apos;équipe.</p>
+            <Alert variant="destructive" className="border-destructive/40">
+              <AlertCircle aria-hidden />
+              <AlertTitle>Équipe indisponible</AlertTitle>
+              <AlertDescription>
+                Impossible de charger les rôles ou les membres. Réessayez plus tard.
+              </AlertDescription>
+            </Alert>
           ) : (
-            <div className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border/80 bg-card shadow-sm">
+            <div className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border/70 bg-card shadow-sm">
               {/* En-tête (desktop) */}
               <div
                 className={cn(
-                  'hidden gap-4 border-b border-border/70 bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground lg:grid lg:items-center',
+                  'hidden gap-4 border-b border-border/60 bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground lg:grid lg:items-center',
                   canEdit
                     ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_auto_auto]'
                     : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]',
@@ -232,7 +261,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                 ) : null}
               </div>
 
-              <ul className="divide-y divide-border/70">
+              <ul className="divide-y divide-border/60" aria-labelledby="project-team-matrix-title">
                 {sortedRoles.map((role: ProjectTeamRoleApi, idx: number) => {
                   const rowMembers = byRole.get(role.id) ?? [];
                   const busy =
@@ -250,7 +279,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                         canEdit
                           ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_auto_auto]'
                           : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]',
-                        idx % 2 === 1 && 'bg-muted/20',
+                        idx % 2 === 1 && 'bg-muted/25',
                       )}
                     >
                       {/* Mobile : rôle + suppression sur une ligne ; desktop : col. 1 */}
@@ -295,7 +324,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                           {rowMembers.map((m) => (
                             <li
                               key={m.id}
-                              className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/80 bg-muted/35 px-2 py-1 text-xs"
+                              className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/70 bg-muted/30 px-2 py-1 text-xs"
                             >
                               <span className="min-w-0 truncate" title={m.displayName}>
                                 {m.displayName}
@@ -396,15 +425,10 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
               type="button"
               variant="default"
               size="sm"
-              className={cn(
-                'gap-1.5 border-transparent shadow-sm',
-                'bg-violet-600 text-white hover:bg-violet-700 hover:text-white',
-                'focus-visible:border-violet-500 focus-visible:ring-violet-500/35',
-                'dark:bg-violet-500 dark:hover:bg-violet-600',
-              )}
+              className="gap-1.5 shadow-sm"
               onClick={() => setRoleDialogOpen(true)}
             >
-              <Plus className="size-4" />
+              <Plus className="size-4" aria-hidden />
               Ajouter un rôle
             </Button>
           ) : null}
