@@ -25,6 +25,7 @@ import {
   PROJECT_STATUS_LABEL,
   PROJECT_TYPE_LABEL,
   TASK_STATUS_LABEL,
+  TASK_PRIORITY_LABEL,
   RISK_STATUS_LABEL,
   MILESTONE_STATUS_LABEL,
   WARNING_CODE_LABEL,
@@ -200,7 +201,7 @@ function ProjectDetailTabbedContent({
               <div className="p-4">
                 <LoadingState rows={2} />
               </div>
-            ) : !tasks.data?.length ? (
+            ) : !tasks.data?.items?.length ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">Aucune tâche.</p>
             ) : (
               <Table>
@@ -209,16 +210,18 @@ function ProjectDetailTabbedContent({
                     <TableHead>Titre</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Priorité</TableHead>
-                    <TableHead>Échéance</TableHead>
+                    <TableHead>Fin planifiée</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tasks.data.map((t) => (
+                  {tasks.data.items.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>{t.title}</TableCell>
+                      <TableCell>{t.name}</TableCell>
                       <TableCell>{TASK_STATUS_LABEL[t.status] ?? t.status}</TableCell>
-                      <TableCell>{t.priority}</TableCell>
-                      <TableCell>{formatDate(t.dueDate)}</TableCell>
+                      <TableCell>
+                        {TASK_PRIORITY_LABEL[t.priority] ?? t.priority}
+                      </TableCell>
+                      <TableCell>{formatDate(t.plannedEndDate)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -277,7 +280,7 @@ function ProjectDetailTabbedContent({
               <div className="p-4">
                 <LoadingState rows={2} />
               </div>
-            ) : !milestones.data?.length ? (
+            ) : !milestones.data?.items?.length ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">Aucun jalon.</p>
             ) : (
               <Table>
@@ -289,7 +292,7 @@ function ProjectDetailTabbedContent({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {milestones.data.map((m) => (
+                  {milestones.data.items.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell>{m.name}</TableCell>
                       <TableCell>{MILESTONE_STATUS_LABEL[m.status] ?? m.status}</TableCell>

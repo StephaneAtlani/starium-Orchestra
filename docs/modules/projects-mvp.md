@@ -2,7 +2,7 @@
 
 Ce document décrit l’implémentation **MVP** du module Projets : modèle de données, API, pilotage backend et UI. Il complète la RFC produit [RFC-PROJ-001](../RFC/RFC-PROJ-001%20%E2%80%94%20Cadrage%20fonctionnel%20du%20module%20Projets.md).
 
-**Périmètre MVP** : pas d’objet métier `Activity` ; pas de Gantt ; pas de ticketing. Les **liens projet ↔ lignes budgétaires** sont couverts par **RFC-PROJ-010** (module `project-budget`, modèle `ProjectBudgetLink`). Pas de lien fournisseur avancé sur le projet (hors champs optionnels). Les anciennes pistes « PortfolioItem » / portefeuille projets+activités du [plan de déploiement Projet](../RFC/_Plan%20de%20déploiment%20-%20Projet.md) sont **remplacées** pour le MVP par le modèle **`Project`** + sous-ressources ci-dessous.
+**Périmètre MVP initial** : pas de ticketing. Les **liens projet ↔ lignes budgétaires** sont couverts par **RFC-PROJ-010** (module `project-budget`, modèle `ProjectBudgetLink`). Pas de lien fournisseur avancé sur le projet (hors champs optionnels). Les **tâches structurées, activités dérivées, jalons enrichis et endpoint Gantt backend** sont couverts par **[RFC-PROJ-011](../RFC/RFC-PROJ-011%20%E2%80%94%20T%C3%A2ches%20%20activit%C3%A9s%20jalons%20et%20base%20Gantt.md)** (pas d’**UI Gantt** visuelle au MVP — prévu hors scope RFC §5). Les anciennes pistes « PortfolioItem » / portefeuille projets+activités du [plan de déploiement Projet](../RFC/_Plan%20de%20déploiment%20-%20Projet.md) sont **remplacées** pour le MVP par le modèle **`Project`** + sous-ressources ci-dessous.
 
 ---
 
@@ -13,15 +13,16 @@ Modèles (`apps/api/prisma/schema.prisma`) :
 | Modèle | Rôle |
 |--------|------|
 | **Project** | Projet client-scopé (`clientId`), code unique par client, type / statut / priorité / criticité, dates, `progressPercent` manuel (0–100), budget cible optionnel, notes pilotage. |
-| **ProjectTask** | Tâche rattachée à un projet (`clientId` + `projectId`). |
+| **ProjectTask** | Tâche planifiable (`clientId` + `projectId`) : nom, dates planifiées/réelles, `progress`, hiérarchie parent/enfant, dépendance simple (`dependsOnTaskId`), responsable `ownerUserId`, lien budget optionnel — **RFC-PROJ-011**. |
 | **ProjectRisk** | Risque avec `ProjectRiskProbability` et `ProjectRiskImpact` (criticité **dérivée** du score P×I, pas de champ redondant). |
-| **ProjectMilestone** | Jalon avec statut (dont `DELAYED`). |
+| **ProjectMilestone** | Jalon sans durée (`targetDate`, `achievedDate`, lien tâche optionnel `linkedTaskId`, statut dont `ACHIEVED`, `DELAYED`) — **RFC-PROJ-011**. |
+| **ProjectActivity** | Activité dérivée d’une tâche source, `projectId` obligatoire (MVP), hors payload Gantt — **RFC-PROJ-011**. |
 | **ProjectBudgetLink** | Liaison projet ↔ ligne budgétaire (`clientId`, mode d’allocation FULL / PERCENTAGE / FIXED) — RFC-PROJ-010. |
 | **ProjectReview** (+ participants, décisions, action items) | Point projet COPIL/COPRO (RFC-PROJ-013) : statut brouillon / finalisé / annulé, `contentPayload` / `executiveSummary`, `snapshotPayload` à la finalisation, isolation `clientId` + `projectId`. |
 
 **Non persisté au MVP** : `computedHealth`, `signals`, `warnings`, `derivedProgressPercent` (calculs à la lecture dans `projects-pilotage.service.ts`).
 
-Enums principaux : `ProjectStatus` (dont actifs : `PLANNED`, `IN_PROGRESS`, `ON_HOLD`), `ProjectType`, `ProjectPriority`, `ProjectCriticality`, statuts tâche / risque / jalon.
+Enums principaux : `ProjectStatus` (dont actifs : `PLANNED`, `IN_PROGRESS`, `ON_HOLD`), `ProjectType`, `ProjectPriority`, `ProjectCriticality`, statuts tâche (dont `DRAFT`) / risque / jalon (jalon : `ACHIEVED` remplace l’ancien `REACHED` en base).
 
 ---
 
@@ -31,8 +32,8 @@ Enums principaux : `ProjectStatus` (dont actifs : `PLANNED`, `IN_PROGRESS`, `ON_
 - **Module** : `apps/api/src/modules/project-budget/` (RFC-PROJ-010) — `ProjectBudgetLinksService` : liens `ProjectBudgetLink`, validation d’invariants, transactions sur création/suppression, audit `project.budget_link.*`
 - **Services** :
   - `projects.service.ts` — CRUD projet, liste enrichie (pilotage), `getPortfolioSummary`
-  - `projects-pilotage.service.ts` — `computedHealth`, signaux, warnings, compteurs, `derivedProgressPercent` à partir des tâches, criticité risque (scores 1–9 ; **HIGH = scores 7–9**)
-  - `project-tasks.service.ts`, `project-risks.service.ts`, `project-milestones.service.ts` — sous-ressources
+  - `projects-pilotage.service.ts` — `computedHealth`, signaux, warnings, compteurs, `derivedProgressPercent` comme **moyenne des `progress`** sur les tâches non annulées (RFC-PROJ-011), criticité risque (scores 1–9 ; **HIGH = scores 7–9**)
+  - `project-tasks.service.ts`, `project-risks.service.ts`, `project-milestones.service.ts`, `project-activities.service.ts`, `project-gantt.service.ts` — sous-ressources (RFC-PROJ-011 pour tâches/jalons enrichis, activités, Gantt-ready)
   - `project-reviews.service.ts` — points projet COPIL/COPRO (RFC-PROJ-013), snapshot à la finalisation, audit `project.review.*`
 - **Guards** (tous les contrôleurs des modules ci-dessus) : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
 - **Audit** : création / mise à jour / suppression projet et sous-ressources tracées où implémenté ; liens budget projet en complément (`project_budget_link`)
@@ -41,7 +42,7 @@ Enums principaux : `ProjectStatus` (dont actifs : `PLANNED`, `IN_PROGRESS`, `ON_
 
 ## 3. API REST (préfixe `/api`)
 
-Permissions métier : `projects.read`, `projects.create`, `projects.update`, `projects.delete`. Les **créations / modifications / suppressions** de tâches, risques et jalons passent par **`projects.update`** (pas de codes `projects.tasks.*` au MVP).
+Permissions métier : `projects.read`, `projects.create`, `projects.update`, `projects.delete`. Les **créations / modifications** de tâches, risques, jalons, activités passent par **`projects.update`** (pas de codes `projects.tasks.*` au MVP). **Tâches (RFC-PROJ-011)** : pas de **`DELETE`** sur tâche au MVP (annulation via statut si besoin).
 
 | Méthode | Route | Permission |
 |---------|--------|------------|
@@ -52,8 +53,14 @@ Permissions métier : `projects.read`, `projects.create`, `projects.update`, `pr
 | GET | `/projects/:id` | `projects.read` |
 | PATCH | `/projects/:id` | `projects.update` |
 | DELETE | `/projects/:id` | `projects.delete` |
-| GET | `/projects/:projectId/tasks` \| `…/risks` \| `…/milestones` | `projects.read` |
-| POST/PATCH/DELETE | sous-ressources `tasks`, `risks`, `milestones` | `projects.update` |
+| GET | `/projects/:projectId/tasks` | `projects.read` — liste paginée `{ items, total, limit, offset }` (filtres RFC-PROJ-011) |
+| POST | `/projects/:projectId/tasks` | `projects.update` |
+| GET | `/projects/:projectId/tasks/:id` | `projects.read` |
+| PATCH | `/projects/:projectId/tasks/:id` | `projects.update` |
+| GET | `/projects/:projectId/gantt` | `projects.read` — payload **uniquement** tâches + jalons (pas d’activités) — RFC-PROJ-011 |
+| GET \| POST \| PATCH | `/projects/:projectId/activities` et `…/activities/:id` | `projects.read` / `projects.update` — RFC-PROJ-011 |
+| GET | `/projects/:projectId/risks` \| `…/milestones` | `projects.read` — jalons : liste paginée `{ items, total, limit, offset }` |
+| POST/PATCH/DELETE | sous-ressources `risks`, `milestones` | `projects.update` |
 | GET | `/projects/:projectId/budget-links` | `projects.read` — liste paginée des liens projet ↔ ligne budgétaire (`limit`, `offset`) |
 | POST | `/projects/:projectId/budget-links` | `projects.update` — corps : `budgetLineId`, `allocationType`, `percentage` / `amount` selon mode |
 | DELETE | `/project-budget-links/:id` | `projects.update` |

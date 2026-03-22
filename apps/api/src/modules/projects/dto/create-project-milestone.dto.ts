@@ -1,4 +1,12 @@
-import { IsDateString, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { ProjectMilestoneStatus } from '@prisma/client';
 
 export class CreateProjectMilestoneDto {
@@ -6,14 +14,35 @@ export class CreateProjectMilestoneDto {
   @MinLength(1)
   name!: string;
 
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  code?: string;
+
   @IsDateString()
   targetDate!: string;
 
   @IsOptional()
   @IsDateString()
-  actualDate?: string;
+  achievedDate?: string;
 
   @IsOptional()
   @IsEnum(ProjectMilestoneStatus)
   status?: ProjectMilestoneStatus;
+
+  @IsOptional()
+  @IsString()
+  linkedTaskId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  ownerUserId?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
 }

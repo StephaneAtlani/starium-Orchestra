@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { ProjectActivitiesController } from './project-activities.controller';
+import { ProjectActivitiesService } from './project-activities.service';
+import { ProjectGanttController } from './project-gantt.controller';
+import { ProjectGanttService } from './project-gantt.service';
 import { ProjectMilestonesController } from './project-milestones.controller';
 import { ProjectMilestonesService } from './project-milestones.service';
 import { ProjectRisksController } from './project-risks.controller';
@@ -27,6 +31,8 @@ import { ProjectTeamService } from './project-team.service';
     ProjectReviewsController,
     ProjectsController,
     ProjectTasksController,
+    ProjectActivitiesController,
+    ProjectGanttController,
     ProjectRisksController,
     ProjectMilestonesController,
   ],
@@ -37,6 +43,8 @@ import { ProjectTeamService } from './project-team.service';
     ProjectSheetDecisionSnapshotsService,
     ProjectReviewsService,
     ProjectTasksService,
+    ProjectActivitiesService,
+    ProjectGanttService,
     ProjectRisksService,
     ProjectMilestonesService,
     ProjectTeamService,

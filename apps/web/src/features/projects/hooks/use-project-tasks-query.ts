@@ -5,7 +5,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { listTasks } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
-import type { ProjectTaskApi } from '../types/project.types';
+import type { PaginatedList, ProjectTaskApi } from '../types/project.types';
 
 const STALE = 30_000;
 
@@ -19,7 +19,7 @@ export function useProjectTasksQuery(
 
   return useQuery({
     queryKey: projectQueryKeys.tasks(clientId, projectId),
-    queryFn: async () => (await listTasks(authFetch, projectId)) as ProjectTaskApi[],
+    queryFn: async () => listTasks(authFetch, projectId) as Promise<PaginatedList<ProjectTaskApi>>,
     enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
   });

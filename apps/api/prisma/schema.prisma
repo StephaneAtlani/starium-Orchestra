@@ -89,6 +89,7 @@ model Client {
   projectReviewParticipants     ProjectReviewParticipant[]
   projectReviewDecisions        ProjectReviewDecision[]
   projectReviewActionItems      ProjectReviewActionItem[]
+  projectActivities             ProjectActivity[]
 }
 
 model User {
@@ -112,7 +113,15 @@ model User {
   createdBudgetImportJobs    BudgetImportJob[]
   sponsoredProjects          Project[]           @relation("ProjectSponsor")
   ownedProjects              Project[]           @relation("ProjectOwner")
-  assignedProjectTasks       ProjectTask[]
+  ownedProjectTasks          ProjectTask[]       @relation("ProjectTaskOwner")
+  createdProjectTasks        ProjectTask[]       @relation("ProjectTaskCreatedBy")
+  updatedProjectTasks        ProjectTask[]       @relation("ProjectTaskUpdatedBy")
+  ownedProjectMilestones     ProjectMilestone[]  @relation("ProjectMilestoneOwner")
+  createdProjectMilestones   ProjectMilestone[]  @relation("ProjectMilestoneCreatedBy")
+  updatedProjectMilestones   ProjectMilestone[]  @relation("ProjectMilestoneUpdatedBy")
+  ownedProjectActivities     ProjectActivity[]   @relation("ProjectActivityOwner")
+  createdProjectActivities   ProjectActivity[]   @relation("ProjectActivityCreatedBy")
+  updatedProjectActivities   ProjectActivity[]   @relation("ProjectActivityUpdatedBy")
   ownedProjectRisks          ProjectRisk[]
   projectTeamMembers         ProjectTeamMember[]
   createdProjectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[] @relation("ProjectSheetDecisionSnapshotCreatedBy")
@@ -271,6 +280,7 @@ enum ProjectCriticality {
 }
 
 enum ProjectTaskStatus {
+  DRAFT
   TODO
   IN_PROGRESS
   BLOCKED
@@ -282,6 +292,31 @@ enum ProjectTaskPriority {
   LOW
   MEDIUM
   HIGH
+  CRITICAL
+}
+
+/// RFC-PROJ-011 — dépendance simple entre tâches (MVP)
+enum ProjectTaskDependencyType {
+  FINISH_TO_START
+  START_TO_START
+  FINISH_TO_FINISH
+}
+
+/// RFC-PROJ-011 — activité dérivée d’une tâche
+enum ProjectActivityFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum ProjectActivityStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
 }
 
 enum ProjectRiskStatus {
@@ -305,7 +340,7 @@ enum ProjectRiskImpact {
 
 enum ProjectMilestoneStatus {
   PLANNED
-  REACHED
+  ACHIEVED
   DELAYED
   CANCELLED
 }
@@ -464,6 +499,7 @@ model Project {
   tasks       ProjectTask[]
   risks       ProjectRisk[]
   milestones  ProjectMilestone[]
+  activities  ProjectActivity[]
   budgetLinks ProjectBudgetLink[]
   teamMembers ProjectTeamMember[]
   sheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
@@ -656,33 +692,67 @@ model ProjectBudgetLink {
   @@index([clientId])
 }
 
+/// RFC-PROJ-011 — tâche projet planifiable (Gantt-ready)
 model ProjectTask {
-  id        String @id @default(cuid())
-  clientId  String
-  projectId String
+  id              String @id @default(cuid())
+  clientId        String
+  projectId       String
 
-  title       String
+  parentTaskId    String?
+  dependsOnTaskId String?
+
+  code        String?
+  name        String
   description String?
 
-  assigneeUserId String?
+  status   ProjectTaskStatus   @default(TODO)
+  priority ProjectTaskPriority @default(MEDIUM)
+  progress Int                 @default(0)
 
-  status   ProjectTaskStatus
-  priority ProjectTaskPriority
+  plannedStartDate DateTime?
+  plannedEndDate   DateTime?
+  actualStartDate  DateTime?
+  actualEndDate    DateTime?
 
-  dueDate      DateTime?
-  completedAt  DateTime?
-  sortOrder    Int      @default(0)
+  sortOrder Int @default(0)
+
+  dependencyType ProjectTaskDependencyType?
+
+  ownerUserId   String?
+  budgetLineId  String?
+
+  createdByUserId String?
+  updatedByUserId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee User?   @relation(fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  budgetLine BudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+
+  parentTask    ProjectTask?  @relation("ProjectTaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks    ProjectTask[]   @relation("ProjectTaskHierarchy")
+  dependsOnTask ProjectTask?  @relation("ProjectTaskDependency", fields: [dependsOnTaskId], references: [id], onDelete: SetNull)
+  dependentTasks ProjectTask[]  @relation("ProjectTaskDependency")
+
+  ownerUser          User? @relation("ProjectTaskOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUser      User? @relation("ProjectTaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser      User? @relation("ProjectTaskUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  activities               ProjectActivity[]
+  milestones               ProjectMilestone[]
   projectReviewActionItems ProjectReviewActionItem[]
 
   @@index([clientId])
   @@index([projectId])
+  @@index([clientId, projectId])
+  @@index([parentTaskId])
+  @@index([dependsOnTaskId])
+  @@index([status])
+  @@index([priority])
+  @@index([plannedStartDate])
+  @@index([plannedEndDate])
 }
 
 model ProjectRisk {
@@ -713,25 +783,86 @@ model ProjectRisk {
   @@index([projectId])
 }
 
+/// RFC-PROJ-011 — jalon (sans durée)
 model ProjectMilestone {
-  id        String @id @default(cuid())
-  clientId  String
-  projectId String
+  id           String @id @default(cuid())
+  clientId     String
+  projectId    String
+  linkedTaskId String?
 
-  name       String
-  targetDate DateTime
-  actualDate DateTime?
+  code        String?
+  name        String
+  description String?
 
-  status ProjectMilestoneStatus
+  status       ProjectMilestoneStatus @default(PLANNED)
+  targetDate   DateTime
+  achievedDate DateTime?
+
+  sortOrder Int @default(0)
+
+  ownerUserId String?
+
+  createdByUserId String?
+  updatedByUserId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  linkedTask ProjectTask? @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+
+  ownerUser     User? @relation("ProjectMilestoneOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUser User? @relation("ProjectMilestoneCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User? @relation("ProjectMilestoneUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([projectId])
+  @@index([linkedTaskId])
+  @@index([targetDate])
+  @@index([status])
+}
+
+/// RFC-PROJ-011 — activité dérivée d’une tâche (hors Gantt MVP)
+model ProjectActivity {
+  id           String @id @default(cuid())
+  clientId     String
+  projectId    String
+  sourceTaskId String
+
+  name        String
+  description String?
+
+  status    ProjectActivityStatus    @default(ACTIVE)
+  frequency ProjectActivityFrequency
+  customRrule String?
+
+  nextExecutionDate DateTime?
+  lastExecutionDate DateTime?
+
+  ownerUserId  String?
+  budgetLineId String?
+
+  createdByUserId String?
+  updatedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceTask ProjectTask @relation(fields: [sourceTaskId], references: [id], onDelete: Restrict)
+  budgetLine BudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+
+  ownerUser     User? @relation("ProjectActivityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUser User? @relation("ProjectActivityCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User? @relation("ProjectActivityUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectId])
+  @@index([sourceTaskId])
+  @@index([status])
+  @@index([nextExecutionDate])
 }
 
 // --- Budget MVP (RFC-015-1A) ---
@@ -1059,6 +1190,8 @@ model BudgetLine {
   reallocationsAsSource     BudgetReallocation[]      @relation("ReallocationSource")
   reallocationsAsTarget     BudgetReallocation[]      @relation("ReallocationTarget")
   projectBudgetLinks        ProjectBudgetLink[]
+  projectTasks              ProjectTask[]
+  projectActivities         ProjectActivity[]
 
   @@unique([clientId, budgetId, code])
   @@index([clientId])

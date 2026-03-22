@@ -37,7 +37,15 @@ export const PROJECT_CRITICALITY_LABEL: Record<string, string> = {
   HIGH: 'Haute',
 };
 
+export const TASK_PRIORITY_LABEL: Record<string, string> = {
+  LOW: 'Basse',
+  MEDIUM: 'Moyenne',
+  HIGH: 'Haute',
+  CRITICAL: 'Critique',
+};
+
 export const TASK_STATUS_LABEL: Record<string, string> = {
+  DRAFT: 'Brouillon',
   TODO: 'À faire',
   IN_PROGRESS: 'En cours',
   BLOCKED: 'Bloquée',
@@ -54,7 +62,7 @@ export const RISK_STATUS_LABEL: Record<string, string> = {
 
 export const MILESTONE_STATUS_LABEL: Record<string, string> = {
   PLANNED: 'Planifié',
-  REACHED: 'Atteint',
+  ACHIEVED: 'Atteint',
   DELAYED: 'En retard',
   CANCELLED: 'Annulé',
 };

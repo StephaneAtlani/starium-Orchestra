@@ -90,8 +90,9 @@ La fiche projet doit consolider au minimum :
 | Ordre | RFC              | Nom                | Description                                    | État       | Commentaire                                |
 | ----- | ---------------- | ------------------ | ---------------------------------------------- | ---------- | ------------------------------------------ |
 | 14    | **RFC-PROJ-010** | Project ↔ Budget   | Lier projets aux lignes/enveloppes budgétaires | ✅ Couvert  | MVP `project-budget` + base fiche projet   |
-| 15    | **RFC-PROJ-011** | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire  | vision transverse                          |
+| 15    | **RFC-PROJ-011** | Tâches, activités, jalons, Gantt backend | Tâches structurées, `ProjectActivity`, jalons enrichis, `GET …/gantt` (pas d’UI Gantt au MVP) | ✅ Couvert | [RFC-PROJ-011](RFC-PROJ-011%20%E2%80%94%20T%C3%A2ches%20%20activit%C3%A9s%20jalons%20et%20base%20Gantt.md) ; isolation client |
 | 16    | **RFC-PROJ-010** | Project Budget KPI | Exposer les KPI budget projet pour la fiche    | ⚠️ Partiel | nécessaire pour coût projet / dérive / ROI |
+| —     | *(future)*       | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire  | RFC à numéroter — **ne pas confondre** avec RFC-PROJ-011 |
 
 ---
 
@@ -116,7 +117,7 @@ La fiche projet doit consolider au minimum :
 | 24    | **RFC-FE-PROJ-004** | Risks UI          | Interface gestion risques                      | ✅ Couvert  | stable                           |
 | 25    | **RFC-FE-PROJ-005** | Resources UI      | Vue ressources projet + affectations           | ❌ À faire  | dépend RES                       |
 | 26    | **RFC-FE-PROJ-006** | Budget Links UI   | Visualiser budgets liés au projet              | ⚠️ Partiel | section Budget sur détail projet |
-| 27    | **RFC-FE-PROJ-007** | Supplier Links UI | Visualiser fournisseurs liés                   | ❌ À faire  | dépend PROJ-011                  |
+| 27    | **RFC-FE-PROJ-007** | Supplier Links UI | Visualiser fournisseurs liés                   | ❌ À faire  | dépend future RFC projet ↔ fournisseur |
 | 28    | **RFC-FE-PROJ-011** | Project Health UI | Indicateurs santé projet (badges, score)       | ✅ Couvert  | OK                               |
 
 ### Contenu attendu côté UI — Fiche Projet
@@ -204,7 +205,7 @@ La fiche projet doit afficher :
 | **RFC-FE-PROJ-014**     | UI d’arbitrage CODIR / DAF / DSI                           |
 | **RFC-PROJ-010 suite**  | alimenter la fiche avec les KPI budget projet              |
 | **RFC-RES-001 / 002**   | calcul charge / coût ressources                            |
-| **RFC-PROJ-011**        | vue transverse projet / fournisseurs                       |
+| *(future RFC)*          | vue transverse projet / fournisseurs (pas RFC-PROJ-011)    |
 | **RFC-FE-PROJ-005/007** | cockpit ressources / fournisseurs                          |
 
 ---

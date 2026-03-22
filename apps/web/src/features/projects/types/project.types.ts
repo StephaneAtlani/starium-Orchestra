@@ -74,17 +74,33 @@ export type ProjectDetail = ProjectListItem & {
   updatedAt: string;
 };
 
-/** Réponses API Prisma (dates ISO). */
+/** Liste paginée RFC-PROJ-011 */
+export type PaginatedList<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+/** Réponses API Prisma (dates ISO). RFC-PROJ-011 */
 export type ProjectTaskApi = {
   id: string;
-  title: string;
+  name: string;
+  code: string | null;
   description: string | null;
   status: string;
   priority: string;
-  dueDate: string | null;
-  completedAt: string | null;
+  progress: number;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
   sortOrder: number;
-  assigneeUserId: string | null;
+  parentTaskId: string | null;
+  dependsOnTaskId: string | null;
+  dependencyType: string | null;
+  ownerUserId: string | null;
+  budgetLineId: string | null;
 };
 
 export type ProjectRiskApi = {
@@ -102,9 +118,33 @@ export type ProjectRiskApi = {
 export type ProjectMilestoneApi = {
   id: string;
   name: string;
+  code: string | null;
+  description: string | null;
   targetDate: string;
-  actualDate: string | null;
+  achievedDate: string | null;
   status: string;
+  linkedTaskId: string | null;
+  ownerUserId: string | null;
+  sortOrder: number;
+};
+
+/** RFC-PROJ-011 — activité (hors Gantt) */
+export type ProjectActivityApi = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  sourceTaskId: string;
+  name: string;
+  description: string | null;
+  status: string;
+  frequency: string;
+  customRrule: string | null;
+  nextExecutionDate: string | null;
+  lastExecutionDate: string | null;
+  ownerUserId: string | null;
+  budgetLineId: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 /** POST /projects/:id/milestones/retroplan-macro */

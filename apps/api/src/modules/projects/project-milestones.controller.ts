@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -19,6 +20,7 @@ import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import { CreateProjectMilestoneDto } from './dto/create-project-milestone.dto';
 import { CreateRetroplanMacroDto } from './dto/create-retroplan-macro.dto';
+import { ListProjectMilestonesQueryDto } from './dto/list-project-milestones.query.dto';
 import { UpdateProjectMilestoneDto } from './dto/update-project-milestone.dto';
 import { ProjectMilestonesService } from './project-milestones.service';
 
@@ -32,8 +34,9 @@ export class ProjectMilestonesController {
   list(
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
+    @Query() query: ListProjectMilestonesQueryDto,
   ) {
-    return this.milestonesService.list(clientId!, projectId);
+    return this.milestonesService.list(clientId!, projectId, query);
   }
 
   @Post('retroplan-macro')
@@ -46,7 +49,13 @@ export class ProjectMilestonesController {
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.milestonesService.createRetroplanMacro(clientId!, projectId, dto, context);
+    return this.milestonesService.createRetroplanMacro(
+      clientId!,
+      projectId,
+      dto,
+      context,
+      actorUserId,
+    );
   }
 
   @Post()
@@ -59,7 +68,17 @@ export class ProjectMilestonesController {
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.milestonesService.create(clientId!, projectId, dto, context);
+    return this.milestonesService.create(clientId!, projectId, dto, context, actorUserId);
+  }
+
+  @Get(':id')
+  @RequirePermissions('projects.read')
+  getOne(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+  ) {
+    return this.milestonesService.getOne(clientId!, projectId, id);
   }
 
   @Patch(':id')
@@ -73,7 +92,7 @@ export class ProjectMilestonesController {
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.milestonesService.update(clientId!, projectId, id, dto, context);
+    return this.milestonesService.update(clientId!, projectId, id, dto, context, actorUserId);
   }
 
   @Delete(':id')

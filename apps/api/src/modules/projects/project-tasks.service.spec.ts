@@ -15,7 +15,11 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
   let service: ProjectTasksService;
   let prisma: any;
   let auditLogs: { create: jest.Mock };
-  let projects: { getProjectForScope: jest.Mock; assertClientUser: jest.Mock };
+  let projects: {
+    getProjectForScope: jest.Mock;
+    assertClientUser: jest.Mock;
+    assertBudgetLineInClient: jest.Mock;
+  };
 
   const clientId = 'c1';
   const projectId = 'p1';
@@ -26,13 +30,23 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       id: taskId,
       clientId,
       projectId,
-      title: 'Tâche',
+      name: 'Tâche',
+      code: null,
       description: null,
-      assigneeUserId: null,
+      ownerUserId: null,
       status: ProjectTaskStatus.TODO,
       priority: ProjectTaskPriority.MEDIUM,
-      dueDate: null,
-      completedAt: null,
+      progress: 0,
+      plannedStartDate: null,
+      plannedEndDate: null,
+      actualStartDate: null,
+      actualEndDate: null,
+      parentTaskId: null,
+      dependsOnTaskId: null,
+      dependencyType: null,
+      budgetLineId: null,
+      createdByUserId: null,
+      updatedByUserId: null,
       sortOrder: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -53,6 +67,7 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     projects = {
       getProjectForScope: jest.fn().mockResolvedValue({ id: projectId }),
       assertClientUser: jest.fn().mockResolvedValue(undefined),
+      assertBudgetLineInClient: jest.fn().mockResolvedValue(undefined),
     };
     service = new ProjectTasksService(
       prisma,
@@ -62,8 +77,8 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
   });
 
   it('update sans granulaire : uniquement project_task.updated', async () => {
-    const existing = baseTask({ title: 'A' });
-    const updated = { ...existing, title: 'B' };
+    const existing = baseTask({ name: 'A' });
+    const updated = { ...existing, name: 'B' };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
 
@@ -71,8 +86,9 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       clientId,
       projectId,
       taskId,
-      { title: 'B' },
+      { name: 'B' },
       { actorUserId: 'u1', meta: {} },
+      'u1',
     );
 
     expect(auditLogs.create).toHaveBeenCalledTimes(1);
@@ -81,15 +97,19 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
         action: PROJECT_AUDIT_ACTION.PROJECT_TASK_UPDATED,
         resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_TASK,
         resourceId: taskId,
-        oldValue: { title: 'A' },
-        newValue: { title: 'B' },
+        oldValue: { name: 'A' },
+        newValue: { name: 'B' },
       }),
     );
   });
 
   it('changement de statut seul : uniquement project_task.status.updated', async () => {
     const existing = baseTask({ status: ProjectTaskStatus.TODO });
-    const updated = { ...existing, status: ProjectTaskStatus.IN_PROGRESS };
+    const updated = {
+      ...existing,
+      status: ProjectTaskStatus.IN_PROGRESS,
+      progress: 0,
+    };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
 
@@ -99,6 +119,7 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       taskId,
       { status: ProjectTaskStatus.IN_PROGRESS },
       { actorUserId: 'u1', meta: {} },
+      'u1',
     );
 
     expect(auditLogs.create).toHaveBeenCalledTimes(1);
@@ -112,9 +133,9 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     );
   });
 
-  it('changement assignee seul : uniquement project_task.assigned', async () => {
-    const existing = baseTask({ assigneeUserId: null });
-    const updated = { ...existing, assigneeUserId: 'u99' };
+  it('changement owner seul : uniquement project_task.assigned', async () => {
+    const existing = baseTask({ ownerUserId: null });
+    const updated = { ...existing, ownerUserId: 'u99' };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
 
@@ -122,8 +143,9 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       clientId,
       projectId,
       taskId,
-      { assigneeUserId: 'u99' },
+      { ownerUserId: 'u99' },
       { actorUserId: 'u1', meta: {} },
+      'u1',
     );
 
     expect(auditLogs.create).toHaveBeenCalledTimes(1);
@@ -131,23 +153,24 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       expect.objectContaining({
         action: PROJECT_AUDIT_ACTION.PROJECT_TASK_ASSIGNED,
         resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_TASK,
-        oldValue: { assigneeUserId: null },
-        newValue: { assigneeUserId: 'u99' },
+        oldValue: { ownerUserId: null },
+        newValue: { ownerUserId: 'u99' },
       }),
     );
   });
 
-  it('titre + statut + assignation : trois logs (updated sans status/assignee redondants)', async () => {
+  it('nom + statut + owner : trois logs (updated sans status/owner redondants)', async () => {
     const existing = baseTask({
-      title: 'A',
+      name: 'A',
       status: ProjectTaskStatus.TODO,
-      assigneeUserId: null,
+      ownerUserId: null,
     });
     const updated = {
       ...existing,
-      title: 'B',
+      name: 'B',
       status: ProjectTaskStatus.DONE,
-      assigneeUserId: 'u2',
+      progress: 100,
+      ownerUserId: 'u2',
     };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
@@ -157,11 +180,12 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       projectId,
       taskId,
       {
-        title: 'B',
+        name: 'B',
         status: ProjectTaskStatus.DONE,
-        assigneeUserId: 'u2',
+        ownerUserId: 'u2',
       },
       { actorUserId: 'u1', meta: {} },
+      'u1',
     );
 
     expect(auditLogs.create).toHaveBeenCalledTimes(3);
@@ -170,8 +194,8 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       expect.objectContaining({
         action: PROJECT_AUDIT_ACTION.PROJECT_TASK_UPDATED,
         resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_TASK,
-        oldValue: { title: 'A' },
-        newValue: { title: 'B' },
+        oldValue: { name: 'A', progress: 0 },
+        newValue: { name: 'B', progress: 100 },
       }),
     );
     expect(auditLogs.create).toHaveBeenNthCalledWith(
@@ -186,8 +210,8 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       3,
       expect.objectContaining({
         action: PROJECT_AUDIT_ACTION.PROJECT_TASK_ASSIGNED,
-        oldValue: { assigneeUserId: null },
-        newValue: { assigneeUserId: 'u2' },
+        oldValue: { ownerUserId: null },
+        newValue: { ownerUserId: 'u2' },
       }),
     );
   });
@@ -196,7 +220,7 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     prisma.projectTask.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.update(clientId, projectId, taskId, { title: 'x' }),
+      service.update(clientId, projectId, taskId, { name: 'x' }),
     ).rejects.toThrow(NotFoundException);
     expect(auditLogs.create).not.toHaveBeenCalled();
   });

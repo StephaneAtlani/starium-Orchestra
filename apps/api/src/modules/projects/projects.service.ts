@@ -169,6 +169,20 @@ export class ProjectsService {
     }
   }
 
+  /** RFC-PROJ-011 — ligne budgétaire doit appartenir au client actif */
+  async assertBudgetLineInClient(
+    clientId: string,
+    budgetLineId: string | null | undefined,
+  ) {
+    if (!budgetLineId) return;
+    const bl = await this.prisma.budgetLine.findFirst({
+      where: { id: budgetLineId, clientId },
+    });
+    if (!bl) {
+      throw new BadRequestException('Budget line not found for this client');
+    }
+  }
+
   /**
    * Membres actifs du client pour désigner un responsable (sans exiger le rôle client admin).
    */

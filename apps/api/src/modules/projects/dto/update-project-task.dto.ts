@@ -5,23 +5,29 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Max,
+  Min,
   MinLength,
 } from 'class-validator';
-import { ProjectTaskPriority, ProjectTaskStatus } from '@prisma/client';
+import {
+  ProjectTaskDependencyType,
+  ProjectTaskPriority,
+  ProjectTaskStatus,
+} from '@prisma/client';
 
 export class UpdateProjectTaskDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
-  title?: string;
+  name?: string;
 
   @IsOptional()
   @IsString()
-  description?: string;
+  description?: string | null;
 
   @IsOptional()
   @IsString()
-  assigneeUserId?: string;
+  code?: string | null;
 
   @IsOptional()
   @IsEnum(ProjectTaskStatus)
@@ -32,12 +38,47 @@ export class UpdateProjectTaskDto {
   priority?: ProjectTaskPriority;
 
   @IsOptional()
-  @IsDateString()
-  dueDate?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  progress?: number;
 
   @IsOptional()
   @IsDateString()
-  completedAt?: string;
+  plannedStartDate?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  plannedEndDate?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  actualStartDate?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  actualEndDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  parentTaskId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  dependsOnTaskId?: string | null;
+
+  @IsOptional()
+  @IsEnum(ProjectTaskDependencyType)
+  dependencyType?: ProjectTaskDependencyType | null;
+
+  @IsOptional()
+  @IsString()
+  ownerUserId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  budgetLineId?: string | null;
 
   @IsOptional()
   @Type(() => Number)

@@ -2,12 +2,15 @@ import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
 import type {
   CreateRetroplanMacroPayload,
+  PaginatedList,
+  ProjectActivityApi,
   ProjectArbitrationStatus,
   ProjectAssignableUser,
   ProjectDetail,
   ProjectMilestoneApi,
   ProjectRiskApi,
   ProjectSheet,
+  ProjectTaskApi,
   ProjectTeamMemberApi,
   ProjectTeamRoleApi,
   ProjectsListResponse,
@@ -106,10 +109,13 @@ export async function deleteProject(authFetch: AuthFetch, id: string): Promise<v
   if (!res.ok) throw await parseApiFormError(res);
 }
 
-export async function listTasks(authFetch: AuthFetch, projectId: string) {
+export async function listTasks(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<PaginatedList<ProjectTaskApi>> {
   const res = await authFetch(`${BASE}/${projectId}/tasks`);
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json() as Promise<unknown[]>;
+  return res.json() as Promise<PaginatedList<ProjectTaskApi>>;
 }
 
 export async function listRisks(authFetch: AuthFetch, projectId: string) {
@@ -151,10 +157,58 @@ export async function deleteProjectRisk(
   if (!res.ok) throw await parseApiFormError(res);
 }
 
-export async function listMilestones(authFetch: AuthFetch, projectId: string) {
+export async function listMilestones(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<PaginatedList<ProjectMilestoneApi>> {
   const res = await authFetch(`${BASE}/${projectId}/milestones`);
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json() as Promise<unknown[]>;
+  return res.json() as Promise<PaginatedList<ProjectMilestoneApi>>;
+}
+
+export type ProjectGanttPayload = {
+  projectId: string;
+  tasks: Array<{
+    id: string;
+    parentTaskId: string | null;
+    dependsOnTaskId: string | null;
+    dependencyType: string | null;
+    name: string;
+    status: string;
+    priority: string;
+    progress: number;
+    plannedStartDate: string | null;
+    plannedEndDate: string | null;
+    actualStartDate: string | null;
+    actualEndDate: string | null;
+    sortOrder: number;
+  }>;
+  milestones: Array<{
+    id: string;
+    name: string;
+    status: string;
+    targetDate: string;
+    linkedTaskId: string | null;
+    sortOrder: number;
+  }>;
+};
+
+export async function getProjectGantt(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectGanttPayload> {
+  const res = await authFetch(`${BASE}/${projectId}/gantt`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectGanttPayload>;
+}
+
+export async function listActivities(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<PaginatedList<ProjectActivityApi>> {
+  const res = await authFetch(`${BASE}/${projectId}/activities`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PaginatedList<ProjectActivityApi>>;
 }
 
 export async function createRetroplanMacro(

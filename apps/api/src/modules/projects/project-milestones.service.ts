@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
@@ -10,14 +11,16 @@ import {
   diffAuditSnapshots,
   projectMilestoneEntityAuditSnapshot,
 } from './project-audit-serialize';
-import { ProjectsService } from './projects.service';
 import { CreateProjectMilestoneDto } from './dto/create-project-milestone.dto';
 import { CreateRetroplanMacroDto } from './dto/create-retroplan-macro.dto';
+import { ListProjectMilestonesQueryDto } from './dto/list-project-milestones.query.dto';
 import { UpdateProjectMilestoneDto } from './dto/update-project-milestone.dto';
+import { normalizeListPagination } from './lib/paginated-list.util';
 import {
   parseIsoDateOnly,
   subtractCalendarDaysFromUtcNoon,
 } from './lib/project-retroplan-macro.util';
+import { ProjectsService } from './projects.service';
 
 @Injectable()
 export class ProjectMilestonesService {
@@ -27,12 +30,50 @@ export class ProjectMilestonesService {
     private readonly projects: ProjectsService,
   ) {}
 
-  async list(clientId: string, projectId: string) {
+  async list(
+    clientId: string,
+    projectId: string,
+    query: ListProjectMilestonesQueryDto,
+  ) {
     await this.projects.getProjectForScope(clientId, projectId);
-    return this.prisma.projectMilestone.findMany({
-      where: { clientId, projectId },
-      orderBy: { targetDate: 'asc' },
+    const { limit, offset } = normalizeListPagination(query.offset, query.limit);
+
+    const where: Prisma.ProjectMilestoneWhereInput = {
+      clientId,
+      projectId,
+    };
+    if (query.status) where.status = query.status;
+    if (query.linkedTaskId) where.linkedTaskId = query.linkedTaskId;
+    if (query.dateFrom || query.dateTo) {
+      where.targetDate = {};
+      if (query.dateFrom) {
+        where.targetDate.gte = new Date(query.dateFrom);
+      }
+      if (query.dateTo) {
+        where.targetDate.lte = new Date(query.dateTo);
+      }
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.projectMilestone.findMany({
+        where,
+        orderBy: [{ sortOrder: 'asc' }, { targetDate: 'asc' }],
+        skip: offset,
+        take: limit,
+      }),
+      this.prisma.projectMilestone.count({ where }),
+    ]);
+
+    return { items, total, limit, offset };
+  }
+
+  async getOne(clientId: string, projectId: string, milestoneId: string) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const m = await this.prisma.projectMilestone.findFirst({
+      where: { id: milestoneId, clientId, projectId },
     });
+    if (!m) throw new NotFoundException('Milestone not found');
+    return m;
   }
 
   async create(
@@ -40,17 +81,27 @@ export class ProjectMilestonesService {
     projectId: string,
     dto: CreateProjectMilestoneDto,
     context?: AuditContext,
+    actorUserId?: string,
   ) {
     await this.projects.getProjectForScope(clientId, projectId);
+    await this.projects.assertClientUser(clientId, dto.ownerUserId);
+    await this.validateLinkedTask(clientId, projectId, dto.linkedTaskId ?? null);
 
     const created = await this.prisma.projectMilestone.create({
       data: {
         clientId,
         projectId,
         name: dto.name.trim(),
+        description: dto.description?.trim() ?? null,
+        code: dto.code?.trim() ?? null,
         targetDate: new Date(dto.targetDate),
-        actualDate: dto.actualDate ? new Date(dto.actualDate) : null,
+        achievedDate: dto.achievedDate ? new Date(dto.achievedDate) : null,
         status: dto.status ?? 'PLANNED',
+        linkedTaskId: dto.linkedTaskId ?? null,
+        ownerUserId: dto.ownerUserId ?? null,
+        sortOrder: dto.sortOrder ?? 0,
+        createdByUserId: actorUserId ?? null,
+        updatedByUserId: actorUserId ?? null,
       },
     });
 
@@ -69,15 +120,12 @@ export class ProjectMilestonesService {
     return created;
   }
 
-  /**
-   * Crée plusieurs jalons à partir d’une date de fin et d’écarts en jours avant cette fin
-   * (rétroplanning macro). Chaque jalon est persisté comme un `ProjectMilestone` standard.
-   */
   async createRetroplanMacro(
     clientId: string,
     projectId: string,
     dto: CreateRetroplanMacroDto,
     context?: AuditContext,
+    actorUserId?: string,
   ) {
     await this.projects.getProjectForScope(clientId, projectId);
 
@@ -98,8 +146,11 @@ export class ProjectMilestonesService {
             projectId,
             name: step.name.trim(),
             targetDate,
-            actualDate: null,
+            achievedDate: null,
             status: 'PLANNED',
+            sortOrder: 0,
+            createdByUserId: actorUserId ?? null,
+            updatedByUserId: actorUserId ?? null,
           },
         });
         rows.push(row);
@@ -130,6 +181,7 @@ export class ProjectMilestonesService {
     milestoneId: string,
     dto: UpdateProjectMilestoneDto,
     context?: AuditContext,
+    actorUserId?: string,
   ) {
     await this.projects.getProjectForScope(clientId, projectId);
     const existing = await this.prisma.projectMilestone.findFirst({
@@ -138,18 +190,32 @@ export class ProjectMilestonesService {
     if (!existing) {
       throw new NotFoundException('Milestone not found');
     }
+    if (dto.ownerUserId !== undefined) {
+      await this.projects.assertClientUser(clientId, dto.ownerUserId);
+    }
+    const nextLinked =
+      dto.linkedTaskId !== undefined ? dto.linkedTaskId : existing.linkedTaskId;
+    await this.validateLinkedTask(clientId, projectId, nextLinked);
 
     const updated = await this.prisma.projectMilestone.update({
       where: { id: milestoneId },
       data: {
         ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.description !== undefined && {
+          description: dto.description?.trim() ?? null,
+        }),
+        ...(dto.code !== undefined && { code: dto.code?.trim() ?? null }),
         ...(dto.targetDate !== undefined && {
           targetDate: new Date(dto.targetDate),
         }),
-        ...(dto.actualDate !== undefined && {
-          actualDate: dto.actualDate ? new Date(dto.actualDate) : null,
+        ...(dto.achievedDate !== undefined && {
+          achievedDate: dto.achievedDate ? new Date(dto.achievedDate) : null,
         }),
         ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.linkedTaskId !== undefined && { linkedTaskId: dto.linkedTaskId }),
+        ...(dto.ownerUserId !== undefined && { ownerUserId: dto.ownerUserId }),
+        ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+        updatedByUserId: actorUserId ?? null,
       },
     });
 
@@ -201,5 +267,19 @@ export class ProjectMilestonesService {
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     });
+  }
+
+  private async validateLinkedTask(
+    clientId: string,
+    projectId: string,
+    linkedTaskId: string | null,
+  ) {
+    if (!linkedTaskId) return;
+    const t = await this.prisma.projectTask.findFirst({
+      where: { id: linkedTaskId, clientId, projectId },
+    });
+    if (!t) {
+      throw new BadRequestException('Linked task not found in this project');
+    }
   }
 }

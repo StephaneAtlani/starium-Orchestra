@@ -23,8 +23,8 @@ function startOfTodayUtc(): Date {
 
 function isTaskLate(t: ProjectTask): boolean {
   if (t.status === 'DONE' || t.status === 'CANCELLED') return false;
-  if (!t.dueDate) return false;
-  return new Date(t.dueDate) < startOfTodayUtc();
+  if (!t.plannedEndDate) return false;
+  return new Date(t.plannedEndDate) < startOfTodayUtc();
 }
 
 export type ProjectReviewSnapshotBudgetLine = {

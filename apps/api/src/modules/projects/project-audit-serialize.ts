@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import type {
   Project,
+  ProjectActivity,
   ProjectMilestone,
   ProjectRisk,
   ProjectTask,
@@ -148,13 +149,21 @@ export function projectTaskEntityAuditSnapshot(
 ): Record<string, unknown> {
   return {
     projectId: t.projectId,
-    title: t.title,
+    name: t.name,
+    code: t.code ?? null,
     description: t.description ?? null,
-    assigneeUserId: t.assigneeUserId ?? null,
+    parentTaskId: t.parentTaskId ?? null,
+    dependsOnTaskId: t.dependsOnTaskId ?? null,
+    dependencyType: t.dependencyType ?? null,
+    ownerUserId: t.ownerUserId ?? null,
+    budgetLineId: t.budgetLineId ?? null,
     status: t.status,
     priority: t.priority,
-    dueDate: toAuditJson(t.dueDate),
-    completedAt: toAuditJson(t.completedAt),
+    progress: t.progress,
+    plannedStartDate: toAuditJson(t.plannedStartDate),
+    plannedEndDate: toAuditJson(t.plannedEndDate),
+    actualStartDate: toAuditJson(t.actualStartDate),
+    actualEndDate: toAuditJson(t.actualEndDate),
     sortOrder: t.sortOrder,
   };
 }
@@ -188,8 +197,31 @@ export function projectMilestoneEntityAuditSnapshot(
   return {
     projectId: m.projectId,
     name: m.name,
+    code: m.code ?? null,
+    description: m.description ?? null,
+    linkedTaskId: m.linkedTaskId ?? null,
+    ownerUserId: m.ownerUserId ?? null,
     targetDate: toAuditJson(m.targetDate),
-    actualDate: toAuditJson(m.actualDate),
+    achievedDate: toAuditJson(m.achievedDate),
     status: m.status,
+    sortOrder: m.sortOrder,
+  };
+}
+
+export function projectActivityEntityAuditSnapshot(
+  a: ProjectActivity,
+): Record<string, unknown> {
+  return {
+    projectId: a.projectId,
+    sourceTaskId: a.sourceTaskId,
+    name: a.name,
+    description: a.description ?? null,
+    status: a.status,
+    frequency: a.frequency,
+    customRrule: a.customRrule ?? null,
+    nextExecutionDate: toAuditJson(a.nextExecutionDate),
+    lastExecutionDate: toAuditJson(a.lastExecutionDate),
+    ownerUserId: a.ownerUserId ?? null,
+    budgetLineId: a.budgetLineId ?? null,
   };
 }

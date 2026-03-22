@@ -733,13 +733,13 @@ export function ProjectReviewEditorDialog({
 
   const pilotageSinceLast = useMemo(() => {
     const prev = previousDetailQuery.data;
-    const tasks = tasksQuery.data;
+    const tasks = tasksQuery.data?.items;
     if (!prev || !tasks) return null;
     const t0 = new Date(prev.finalizedAt ?? prev.reviewDate).getTime();
     const tasksDoneSince = tasks.filter(
       (x) =>
-        x.completedAt &&
-        new Date(x.completedAt).getTime() >= t0 &&
+        x.actualEndDate &&
+        new Date(x.actualEndDate).getTime() >= t0 &&
         (x.status === 'DONE' || x.status === 'CANCELLED'),
     );
     return {
@@ -1406,15 +1406,15 @@ export function ProjectReviewEditorDialog({
                           Jalons atteints
                         </p>
                         <ul className="space-y-1 text-xs text-foreground">
-                          {(milestonesQuery.data ?? [])
-                            .filter((m) => m.status === 'REACHED')
+                          {(milestonesQuery.data?.items ?? [])
+                            .filter((m) => m.status === 'ACHIEVED')
                             .slice(0, 6)
                             .map((m) => (
                               <li key={m.id} className="truncate">
                                 {m.name}
                               </li>
                             ))}
-                          {(milestonesQuery.data ?? []).filter((m) => m.status === 'REACHED').length ===
+                          {(milestonesQuery.data?.items ?? []).filter((m) => m.status === 'ACHIEVED').length ===
                             0 && <li className="text-muted-foreground">—</li>}
                         </ul>
                       </div>
@@ -1423,7 +1423,7 @@ export function ProjectReviewEditorDialog({
                           Prochains jalons
                         </p>
                         <ul className="space-y-1 text-xs text-foreground">
-                          {(milestonesQuery.data ?? [])
+                          {(milestonesQuery.data?.items ?? [])
                             .filter((m) => m.status === 'PLANNED')
                             .slice(0, 6)
                             .map((m) => (
@@ -1432,7 +1432,7 @@ export function ProjectReviewEditorDialog({
                                 {m.targetDate ? ` · ${formatDateOnly(m.targetDate)}` : ''}
                               </li>
                             ))}
-                          {(milestonesQuery.data ?? []).filter((m) => m.status === 'PLANNED').length ===
+                          {(milestonesQuery.data?.items ?? []).filter((m) => m.status === 'PLANNED').length ===
                             0 && <li className="text-muted-foreground">—</li>}
                         </ul>
                       </div>
@@ -1441,7 +1441,7 @@ export function ProjectReviewEditorDialog({
                           Dérives
                         </p>
                         <ul className="space-y-1 text-xs text-foreground">
-                          {(milestonesQuery.data ?? [])
+                          {(milestonesQuery.data?.items ?? [])
                             .filter((m) => m.status === 'DELAYED')
                             .slice(0, 6)
                             .map((m) => (
@@ -1449,7 +1449,7 @@ export function ProjectReviewEditorDialog({
                                 {m.name}
                               </li>
                             ))}
-                          {(milestonesQuery.data ?? []).filter((m) => m.status === 'DELAYED').length ===
+                          {(milestonesQuery.data?.items ?? []).filter((m) => m.status === 'DELAYED').length ===
                             0 && <li className="text-muted-foreground">—</li>}
                         </ul>
                       </div>

@@ -17,24 +17,24 @@ import { ActiveClientId } from '../../common/decorators/active-client.decorator'
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../budget-management/types/audit-context';
-import { CreateProjectTaskDto } from './dto/create-project-task.dto';
-import { ListProjectTasksQueryDto } from './dto/list-project-tasks.query.dto';
-import { UpdateProjectTaskDto } from './dto/update-project-task.dto';
-import { ProjectTasksService } from './project-tasks.service';
+import { CreateProjectActivityDto } from './dto/create-project-activity.dto';
+import { ListProjectActivitiesQueryDto } from './dto/list-project-activities.query.dto';
+import { UpdateProjectActivityDto } from './dto/update-project-activity.dto';
+import { ProjectActivitiesService } from './project-activities.service';
 
-@Controller('projects/:projectId/tasks')
+@Controller('projects/:projectId/activities')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
-export class ProjectTasksController {
-  constructor(private readonly tasksService: ProjectTasksService) {}
+export class ProjectActivitiesController {
+  constructor(private readonly activitiesService: ProjectActivitiesService) {}
 
   @Get()
   @RequirePermissions('projects.read')
   list(
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
-    @Query() query: ListProjectTasksQueryDto,
+    @Query() query: ListProjectActivitiesQueryDto,
   ) {
-    return this.tasksService.list(clientId!, projectId, query);
+    return this.activitiesService.list(clientId!, projectId, query);
   }
 
   @Post()
@@ -42,12 +42,12 @@ export class ProjectTasksController {
   create(
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
-    @Body() dto: CreateProjectTaskDto,
+    @Body() dto: CreateProjectActivityDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.tasksService.create(clientId!, projectId, dto, context, actorUserId);
+    return this.activitiesService.create(clientId!, projectId, dto, context, actorUserId);
   }
 
   @Get(':id')
@@ -57,7 +57,7 @@ export class ProjectTasksController {
     @Param('projectId') projectId: string,
     @Param('id') id: string,
   ) {
-    return this.tasksService.getOne(clientId!, projectId, id);
+    return this.activitiesService.getOne(clientId!, projectId, id);
   }
 
   @Patch(':id')
@@ -66,11 +66,11 @@ export class ProjectTasksController {
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
     @Param('id') id: string,
-    @Body() dto: UpdateProjectTaskDto,
+    @Body() dto: UpdateProjectActivityDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.tasksService.update(clientId!, projectId, id, dto, context, actorUserId);
+    return this.activitiesService.update(clientId!, projectId, id, dto, context, actorUserId);
   }
 }

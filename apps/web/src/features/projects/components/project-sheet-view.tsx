@@ -921,7 +921,7 @@ export function ProjectSheetView({
     enabled: !sheetReadOnlyOverride,
   });
   const milestonesSorted = useMemo((): ProjectMilestoneApi[] => {
-    const items = milestonesQuery.data ?? [];
+    const items = milestonesQuery.data?.items ?? [];
     return [...items].sort(
       (a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime(),
     );

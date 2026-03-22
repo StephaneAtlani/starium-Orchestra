@@ -63,11 +63,12 @@ export function riskCriticalityForRisk(r: ProjectRisk): 'LOW' | 'MEDIUM' | 'HIGH
   return riskCriticalityFromScore(riskScore(r.probability, r.impact));
 }
 
+/** RFC-PROJ-011 — moyenne des `progress` (0–100) sur les tâches non annulées */
 export function derivedProgressPercentFromTasks(tasks: ProjectTask[]): number | null {
   const relevant = tasks.filter((t) => t.status !== 'CANCELLED');
   if (relevant.length === 0) return null;
-  const done = relevant.filter((t) => t.status === 'DONE').length;
-  return Math.round((done / relevant.length) * 100);
+  const sum = relevant.reduce((acc, t) => acc + t.progress, 0);
+  return Math.round(sum / relevant.length);
 }
 
 function startOfTodayUtc(): Date {

@@ -1792,9 +1792,9 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ---
 
-## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|risks|milestones|budget-links|project-sheet|reviews`
+## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|gantt|activities|risks|milestones|budget-links|project-sheet|reviews`
 
-Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-012** (fiche décisionnelle), **RFC-PROJ-013** (points projet COPIL/COPRO), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload Gantt backend — pas d’UI Gantt au MVP), **RFC-PROJ-012** (fiche décisionnelle), **RFC-PROJ-013** (points projet COPIL/COPRO), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
 ### Guards et headers
 
@@ -1833,12 +1833,27 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 
 Audits complémentaires : **`project.review.created`**, **`project.review.updated`**.
 
-### Tâches — `/api/projects/:projectId/tasks`
+### Tâches — `/api/projects/:projectId/tasks` (RFC-PROJ-011)
 
-- **GET** — Liste des tâches du projet. **`projects.read`**
+Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord jalons / revues / activités). Listes paginées : réponse `{ items, total, limit, offset }` (query filtres selon implémentation : statut, parent, dates, etc.).
+
+- **GET** — Liste paginée des tâches du projet. **`projects.read`**
 - **POST** — Création. **`projects.update`** (mutation du périmètre projet)
+- **GET /api/projects/:projectId/tasks/:id** — Détail d’une tâche. **`projects.read`**
 - **PATCH /api/projects/:projectId/tasks/:id** — **`projects.update`**
-- **DELETE /api/projects/:projectId/tasks/:id** — **`projects.update`**
+
+### Gantt-ready — `/api/projects/:projectId/gantt` (RFC-PROJ-011)
+
+- **GET** — Agrégat **tâches + jalons** pour un affichage type diagramme de Gantt côté client (les **activités** ne font pas partie de ce payload). **`projects.read`**
+
+### Activités — `/api/projects/:projectId/activities` (RFC-PROJ-011)
+
+`ProjectActivity` : `projectId` obligatoire (MVP), dérivée d’une tâche source ; hors payload `/gantt`.
+
+- **GET** — Liste paginée `{ items, total, limit, offset }`. **`projects.read`**
+- **POST** — Création. **`projects.update`**
+- **GET /api/projects/:projectId/activities/:id** — Détail. **`projects.read`**
+- **PATCH /api/projects/:projectId/activities/:id** — **`projects.update`**
 
 ### Risques — `/api/projects/:projectId/risks`
 
@@ -1849,7 +1864,7 @@ Audits complémentaires : **`project.review.created`**, **`project.review.update
 
 ### Jalons — `/api/projects/:projectId/milestones`
 
-- **GET** — Liste. **`projects.read`**
+- **GET** — Liste paginée `{ items, total, limit, offset }` (RFC-PROJ-011). **`projects.read`**
 - **POST** — **`projects.update`**
 - **PATCH /api/projects/:projectId/milestones/:id** — **`projects.update`**
 - **DELETE /api/projects/:projectId/milestones/:id** — **`projects.update`**

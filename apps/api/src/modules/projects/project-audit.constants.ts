@@ -3,6 +3,7 @@
 export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT: 'project',
   PROJECT_TASK: 'project_task',
+  PROJECT_ACTIVITY: 'project_activity',
   PROJECT_RISK: 'project_risk',
   PROJECT_MILESTONE: 'project_milestone',
   PROJECT_BUDGET_LINK: 'project_budget_link',
@@ -24,6 +25,9 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_TASK_DELETED: 'project_task.deleted',
   PROJECT_TASK_STATUS_UPDATED: 'project_task.status.updated',
   PROJECT_TASK_ASSIGNED: 'project_task.assigned',
+
+  PROJECT_ACTIVITY_CREATED: 'project_activity.created',
+  PROJECT_ACTIVITY_UPDATED: 'project_activity.updated',
 
   PROJECT_RISK_CREATED: 'project_risk.created',
   PROJECT_RISK_UPDATED: 'project_risk.updated',

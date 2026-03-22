@@ -131,19 +131,29 @@ describe('ProjectsPilotageService', () => {
       expect(h).toBe('ORANGE');
     });
 
-    it('derivedProgressPercent from tasks', () => {
+    it('derivedProgressPercent from tasks (moyenne progress)', () => {
       const tasks = [
         {
           id: 't1',
           clientId: 'c1',
           projectId: 'p1',
-          title: 'T',
+          name: 'T',
+          code: null,
           description: null,
-          assigneeUserId: null,
+          ownerUserId: null,
           status: 'DONE' as ProjectTaskStatus,
           priority: 'LOW' as ProjectTaskPriority,
-          dueDate: null,
-          completedAt: null,
+          progress: 100,
+          plannedStartDate: null,
+          plannedEndDate: null,
+          actualStartDate: null,
+          actualEndDate: null,
+          parentTaskId: null,
+          dependsOnTaskId: null,
+          dependencyType: null,
+          budgetLineId: null,
+          createdByUserId: null,
+          updatedByUserId: null,
           sortOrder: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -152,19 +162,29 @@ describe('ProjectsPilotageService', () => {
           id: 't2',
           clientId: 'c1',
           projectId: 'p1',
-          title: 'T2',
+          name: 'T2',
+          code: null,
           description: null,
-          assigneeUserId: null,
+          ownerUserId: null,
           status: 'TODO' as ProjectTaskStatus,
           priority: 'LOW' as ProjectTaskPriority,
-          dueDate: null,
-          completedAt: null,
+          progress: 0,
+          plannedStartDate: null,
+          plannedEndDate: null,
+          actualStartDate: null,
+          actualEndDate: null,
+          parentTaskId: null,
+          dependsOnTaskId: null,
+          dependencyType: null,
+          budgetLineId: null,
+          createdByUserId: null,
+          updatedByUserId: null,
           sortOrder: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
       ];
-      expect(derivedProgressPercentFromTasks(tasks)).toBe(50);
+      expect(derivedProgressPercentFromTasks(tasks as any)).toBe(50);
     });
   });
 
