@@ -106,6 +106,7 @@ const ARBITRATION_LEVEL_STEPS = [
 const LEVEL_STATUS_LABEL: Record<ProjectArbitrationLevelStatus, string> = {
   BROUILLON: 'Brouillon',
   EN_COURS: 'En cours',
+  SOUMIS_VALIDATION: 'Soumis à validation',
   VALIDE: 'Validé',
   REFUSE: 'Refusé',
 };
@@ -113,6 +114,7 @@ const LEVEL_STATUS_LABEL: Record<ProjectArbitrationLevelStatus, string> = {
 const LEVEL_STATUS_ORDER: ProjectArbitrationLevelStatus[] = [
   'BROUILLON',
   'EN_COURS',
+  'SOUMIS_VALIDATION',
   'VALIDE',
   'REFUSE',
 ];
@@ -140,6 +142,8 @@ function arbitrationLevelCardTone(
       return 'border-emerald-500/20 bg-emerald-500/[0.04] dark:border-emerald-500/25 dark:bg-emerald-500/[0.07]';
     case 'REFUSE':
       return 'border-red-500/20 bg-red-500/[0.04] dark:border-red-500/25 dark:bg-red-500/[0.07]';
+    case 'SOUMIS_VALIDATION':
+      return 'border-amber-500/25 bg-amber-500/[0.08] dark:border-amber-500/35 dark:bg-amber-500/[0.1]';
     case 'EN_COURS':
       return 'border-blue-500/20 bg-blue-500/[0.04] dark:border-blue-500/25 dark:bg-blue-500/[0.07]';
     default:
@@ -795,9 +799,10 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
       <ProjectTeamMatrix projectId={projectId} />
 
+      {/* A — Équipes impliquées */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="text-base">Équipes impliquées</CardTitle>
+          <CardTitle className="text-base">A. Équipes impliquées</CardTitle>
           <p className="text-xs text-muted-foreground">
             Directions, services ou équipes concernés par le projet (hors rôles nominatifs ci-dessus).
           </p>
@@ -816,16 +821,67 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      {/* A — Résumé + synthèse décisionnelle + arbitrage CODIR */}
+      {/* B — Résumé + synthèse décisionnelle + arbitrage CODIR */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="text-base">A. Résumé projet & synthèse décisionnelle</CardTitle>
+          <CardTitle className="text-base">B. Résumé projet & synthèse décisionnelle</CardTitle>
           <p className="text-xs text-muted-foreground">
             Lecture cockpit — décision en 2 minutes
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-3 text-sm sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="sheet-project-name">Nom du projet</Label>
+              <Input
+                id="sheet-project-name"
+                disabled={!canEdit}
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="Nom du projet"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sheet-cadre-qui">Qui</Label>
+              <Input
+                id="sheet-cadre-qui"
+                disabled={!canEdit}
+                value={cadreWho}
+                onChange={(e) => setCadreWho(e.target.value)}
+                placeholder="Ex : responsable métier, sponsor…"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sheet-cadre-ou">Où</Label>
+              <Input
+                id="sheet-cadre-ou"
+                disabled={!canEdit}
+                value={cadreWhere}
+                onChange={(e) => setCadreWhere(e.target.value)}
+                placeholder="Périmètre, site, région…"
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Quand (début — fin cible)</Label>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  type="date"
+                  disabled={!canEdit}
+                  className="min-w-0 flex-1"
+                  value={cadreStart}
+                  onChange={(e) => setCadreStart(e.target.value)}
+                  aria-label="Date de début"
+                />
+                <Input
+                  type="date"
+                  disabled={!canEdit}
+                  className="min-w-0 flex-1"
+                  value={cadreEnd}
+                  onChange={(e) => setCadreEnd(e.target.value)}
+                  aria-label="Date de fin cible"
+                />
+              </div>
+            </div>
             <div>
               <span className="text-muted-foreground">Code : </span>
               {sheet.code}
@@ -1110,9 +1166,10 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             <div className="mb-4">
               <h3 className="text-base font-semibold tracking-tight text-foreground">Arbitrage</h3>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Trois niveaux : métier, comité de projet, puis sponsor / CODIR. Chaque niveau a son
-                statut (brouillon, en cours, validé, refusé). Le niveau suivant n’est modifiable qu’après
-                « Validé » sur le précédent. Enregistrement avec le reste de la fiche (automatique).
+                Trois niveaux : métier, comité de projet, puis sponsor / CODIR. Statuts possibles : brouillon,
+                en cours, soumis à validation (en attente de décision), validé, refusé. Le niveau suivant
+                n’est modifiable qu’après « Validé » sur le précédent. Enregistrement avec le reste de la fiche
+                (automatique).
               </p>
             </div>
             <div className="mb-5 grid gap-3 sm:grid-cols-3">
@@ -1244,104 +1301,6 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                   </div>
                 );
               })}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* B — Cadrage OQQCQPC */}
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="text-base">B. Cadrage projet (OQQCQPC)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="cadre-quoi">Quoi</Label>
-              <Input
-                id="cadre-quoi"
-                disabled={!canEdit}
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                placeholder="Nom du projet"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cadre-qui">Qui</Label>
-              <Input
-                id="cadre-qui"
-                disabled={!canEdit}
-                value={cadreWho}
-                onChange={(e) => setCadreWho(e.target.value)}
-                placeholder="Ex : responsable métier, sponsor…"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cadre-ou">Où</Label>
-              <Input
-                id="cadre-ou"
-                disabled={!canEdit}
-                value={cadreWhere}
-                onChange={(e) => setCadreWhere(e.target.value)}
-                placeholder="Périmètre, site, région…"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Quand</Label>
-              <div className="flex flex-wrap gap-2">
-                <Input
-                  type="date"
-                  disabled={!canEdit}
-                  className="min-w-0 flex-1"
-                  value={cadreStart}
-                  onChange={(e) => setCadreStart(e.target.value)}
-                  aria-label="Date de début"
-                />
-                <Input
-                  type="date"
-                  disabled={!canEdit}
-                  className="min-w-0 flex-1"
-                  value={cadreEnd}
-                  onChange={(e) => setCadreEnd(e.target.value)}
-                  aria-label="Date de fin cible"
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cadre-pourquoi">Pourquoi</Label>
-              <textarea
-                id="cadre-pourquoi"
-                className={cn(textareaClass, 'min-h-[56px]')}
-                disabled={!canEdit}
-                rows={2}
-                value={problem}
-                onChange={(e) => setProblem(e.target.value)}
-                placeholder="Ex : réduire les coûts IT"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cadre-combien">Budget</Label>
-              <Input
-                id="cadre-combien"
-                type="number"
-                min={0}
-                step="0.01"
-                disabled={!canEdit}
-                value={cost}
-                onChange={(e) => setCost(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="cadre-comment">Comment : les principales étapes</Label>
-              <textarea
-                id="cadre-comment"
-                className={cn(textareaClass, 'min-h-[72px]')}
-                disabled={!canEdit}
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex : migration progressive, phase pilote…"
-              />
             </div>
           </div>
         </CardContent>

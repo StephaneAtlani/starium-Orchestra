@@ -122,6 +122,54 @@ export function Sidebar() {
                   );
                 }
 
+                const isProjets = item.label === 'Projets';
+                if (isProjets) {
+                  const projectsChildren = [
+                    { label: 'Portefeuille projet', href: '/projects' },
+                    { label: 'Option', href: '/projects/options' },
+                  ];
+
+                  const isProjectsChildActive = (href: string) => {
+                    if (!pathname) return false;
+                    if (href === '/projects/options') {
+                      return pathname === '/projects/options' || pathname.startsWith('/projects/options/');
+                    }
+                    if (href === '/projects') {
+                      if (pathname === '/projects') return true;
+                      if (pathname.startsWith('/projects/new')) return true;
+                      if (pathname.startsWith('/projects/options')) return false;
+                      return /^\/projects\/[^/]+/.test(pathname);
+                    }
+                    return false;
+                  };
+
+                  return (
+                    <SidebarDropdown
+                      key="dropdown-projects"
+                      label={item.label}
+                      icon={item.icon}
+                    >
+                      {projectsChildren.map((child) => {
+                        const isActive = isProjectsChildActive(child.href);
+
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            role="menuitem"
+                            className={cn(
+                              'block px-3 py-2 text-sm starium-dropdown-link',
+                              isActive && 'starium-dropdown-link-active',
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                    </SidebarDropdown>
+                  );
+                }
+
                 if (item.href) {
                   const link = (
                     <SidebarItem

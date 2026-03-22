@@ -171,6 +171,7 @@ export type ProjectArbitrationStatus =
 export type ProjectArbitrationLevelStatus =
   | 'BROUILLON'
   | 'EN_COURS'
+  | 'SOUMIS_VALIDATION'
   | 'VALIDE'
   | 'REFUSE';
 

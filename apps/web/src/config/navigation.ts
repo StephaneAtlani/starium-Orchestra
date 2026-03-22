@@ -64,12 +64,25 @@ export const navigation: NavigationSection[] = [
       },
       {
         label: 'Projets',
-        href: '/projects',
         icon: FolderKanban,
         scope: 'client',
         moduleCode: 'projects',
         requiredPermissions: ['projects.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+        children: [
+          {
+            label: 'Portefeuille projet',
+            href: '/projects',
+            scope: 'client',
+            requiredPermissions: ['projects.read'],
+          },
+          {
+            label: 'Option',
+            href: '/projects/options',
+            scope: 'client',
+            requiredPermissions: ['projects.read'],
+          },
+        ],
       },
     ],
   },

@@ -661,7 +661,7 @@ export class ProjectSheetService {
   ): ProjectArbitrationStatus {
     if (codir === 'REFUSE') return 'REJECTED';
     if (codir === 'VALIDE') return 'VALIDATED';
-    if (metier === 'VALIDE') return 'TO_REVIEW';
+    if (metier === 'VALIDE' || metier === 'SOUMIS_VALIDATION') return 'TO_REVIEW';
     return 'DRAFT';
   }
 

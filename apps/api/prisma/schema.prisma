@@ -326,6 +326,8 @@ enum ProjectArbitrationStatus {
 enum ProjectArbitrationLevelStatus {
   BROUILLON
   EN_COURS
+  /// Dossier transmis ; en attente de décision (visa) avant validation ou refus.
+  SOUMIS_VALIDATION
   VALIDE
   REFUSE
 }
