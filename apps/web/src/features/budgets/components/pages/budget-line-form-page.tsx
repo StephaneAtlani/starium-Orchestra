@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BudgetPageHeader } from '../budget-page-header';
 import { BudgetEmptyState } from '../budget-empty-state';
@@ -41,7 +41,7 @@ export function BudgetLineFormPage({
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
 
-  const { data: line, isLoading, error, refetch } = useQuery({
+  const { data: line, isLoading, error } = useQuery({
     queryKey: ['budget-line-detail', clientId, lineId],
     queryFn: () => getLine(authFetch, lineId!),
     enabled: mode === 'edit' && !!lineId && !!clientId,
@@ -119,9 +119,6 @@ export function BudgetLineFormPage({
 
   const cancelHref = budgetDetail(resolvedBudgetId);
   const budgetLabel = budget?.name ?? resolvedBudgetId;
-
-  const effectiveLineId: string | null =
-    (isEdit ? lineId ?? line?.id : (createMutation.data as { id?: string } | undefined)?.id) ?? null;
 
   return (
     <>
