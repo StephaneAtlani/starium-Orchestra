@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
+  Briefcase,
+  Building2,
   ChevronDown,
   ChevronLeft,
   Info,
@@ -16,6 +18,7 @@ import {
   Plus,
   Trash2,
   TrendingUp,
+  UsersRound,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -134,26 +137,53 @@ function arbitrationFocusStep(
   return 2;
 }
 
-/** Fond / bordure selon le statut du niveau (niveau verrouillé → neutre). */
-function arbitrationLevelCardTone(
+/** Carte arbitrage : même langage que les indicateurs (bordure gauche + fond léger selon statut). */
+function arbitrationLevelCardClasses(
   status: ProjectArbitrationLevelStatus | null,
+  focus: boolean,
 ): string {
+  const ring = focus ? 'ring-2 ring-primary/20' : '';
   if (status == null) {
-    return 'border-border/50 bg-muted/20 opacity-[0.95]';
+    return cn(
+      'border border-border/80 border-l-[3px] border-l-muted-foreground/30 bg-muted/15 opacity-[0.98]',
+      ring,
+    );
   }
   switch (status) {
     case 'VALIDE':
-      return 'border-emerald-500/20 bg-emerald-500/[0.04] dark:border-emerald-500/25 dark:bg-emerald-500/[0.07]';
+      return cn(
+        'border border-border/80 border-l-[3px] border-l-emerald-500/70 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.06]',
+        ring,
+      );
     case 'REFUSE':
-      return 'border-red-500/20 bg-red-500/[0.04] dark:border-red-500/25 dark:bg-red-500/[0.07]';
+      return cn(
+        'border border-border/80 border-l-[3px] border-l-red-500/70 bg-red-500/[0.04] dark:bg-red-500/[0.06]',
+        ring,
+      );
     case 'SOUMIS_VALIDATION':
-      return 'border-amber-500/25 bg-amber-500/[0.08] dark:border-amber-500/35 dark:bg-amber-500/[0.1]';
+      return cn(
+        'border border-border/80 border-l-[3px] border-l-amber-500/70 bg-amber-500/[0.07] dark:bg-amber-500/[0.09]',
+        ring,
+      );
     case 'EN_COURS':
-      return 'border-blue-500/20 bg-blue-500/[0.04] dark:border-blue-500/25 dark:bg-blue-500/[0.07]';
+      return cn(
+        'border border-border/80 border-l-[3px] border-l-blue-500/70 bg-blue-500/[0.04] dark:bg-blue-500/[0.06]',
+        ring,
+      );
     default:
-      return 'border-border/80 bg-muted/15';
+      return cn(
+        'border border-border/80 border-l-[3px] border-l-border/70 bg-muted/15',
+        ring,
+      );
   }
 }
+
+const ARBITRATION_STEP_ICONS = [Briefcase, UsersRound, Building2] as const;
+const ARBITRATION_STEP_ICON_BGS = [
+  'bg-teal-500/10 text-teal-700 dark:text-teal-400',
+  'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400',
+  'bg-rose-500/10 text-rose-700 dark:text-rose-400',
+] as const;
 
 const COPIL_LABEL: Record<ProjectCopilRecommendation, string> = {
   NOT_SET: 'Non renseigné',
@@ -861,26 +891,6 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 placeholder="Nom du projet"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="sheet-cadre-qui">Qui</Label>
-              <Input
-                id="sheet-cadre-qui"
-                disabled={!canEdit}
-                value={cadreWho}
-                onChange={(e) => setCadreWho(e.target.value)}
-                placeholder="Ex : responsable métier, sponsor…"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="sheet-cadre-ou">Où</Label>
-              <Input
-                id="sheet-cadre-ou"
-                disabled={!canEdit}
-                value={cadreWhere}
-                onChange={(e) => setCadreWhere(e.target.value)}
-                placeholder="Périmètre, site, région…"
-              />
-            </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Quand (début — fin cible)</Label>
               <div className="flex flex-wrap gap-2">
@@ -1242,18 +1252,23 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             </div>
           ) : null}
 
-          <div className="border-t border-border pt-6">
-            <div className="mb-4">
-              <h3 className="text-base font-semibold tracking-tight text-foreground">Arbitrage</h3>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Trois niveaux : métier, comité de projet, puis sponsor / CODIR. Statuts possibles : brouillon,
-                en cours, soumis à validation (en attente de décision), validé, refusé. Le niveau suivant
-                n’est modifiable qu’après « Validé » sur le précédent. Enregistrement avec le reste de la fiche
-                (automatique).
+          <div className="border-t border-border pt-8">
+            <div className="mb-5 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold tracking-tight text-foreground">Arbitrage</h4>
+                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                  3 niveaux
+                </Badge>
+              </div>
+              <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                Métier → comité de projet → sponsor / CODIR. Statuts : brouillon, en cours, soumis à
+                validation, validé, refusé. Le niveau suivant s’ouvre après « Validé » sur le précédent.
+                Sauvegarde avec la fiche (automatique).
               </p>
             </div>
-            <div className="mb-5 grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               {ARBITRATION_LEVEL_STEPS.map((step, i) => {
+                const StepIcon = ARBITRATION_STEP_ICONS[i];
                 const unlocked =
                   i === 0 ||
                   (i === 1 && arbMetier === 'VALIDE') ||
@@ -1272,27 +1287,48 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                     : i === 1
                       ? arbComiteRefusalNote
                       : arbCodirRefusalNote;
-                const toneStatus: ProjectArbitrationLevelStatus | null = unlocked
-                  ? value
-                  : null;
+                const toneStatus: ProjectArbitrationLevelStatus | null = unlocked ? value : null;
                 return (
                   <div
                     key={step.title}
                     className={cn(
-                      'rounded-lg border p-3 transition-colors',
-                      arbitrationLevelCardTone(toneStatus),
-                      focus && 'ring-1 ring-primary/20 shadow-sm',
+                      'relative overflow-hidden rounded-xl p-4 shadow-sm transition-colors',
+                      arbitrationLevelCardClasses(toneStatus, focus),
                     )}
                     aria-current={focus ? 'step' : undefined}
                   >
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Niveau {i + 1}
-                    </p>
-                    <p className="mt-1.5 text-sm font-medium text-foreground">{step.title}</p>
-                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{step.body}</p>
+                    <div className="flex gap-3">
+                      <span
+                        className={cn(
+                          'flex size-9 shrink-0 items-center justify-center rounded-lg',
+                          ARBITRATION_STEP_ICON_BGS[i],
+                        )}
+                      >
+                        <StepIcon className="size-4" aria-hidden />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Niveau {i + 1}
+                          </p>
+                          {!unlocked ? (
+                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                              Verrouillé
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <p className="mt-0.5 text-sm font-semibold leading-snug text-foreground">
+                          {step.title}
+                        </p>
+                        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{step.body}</p>
+                      </div>
+                    </div>
+
                     {canEdit && unlocked ? (
-                      <div className="mt-3 space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Statut</Label>
+                      <div className="mt-4 space-y-1.5 border-t border-border/50 pt-4">
+                        <Label className="text-xs text-muted-foreground" htmlFor={`project-arb-status-${i}`}>
+                          Statut
+                        </Label>
                         <Select
                           value={value}
                           onValueChange={(v) => {
@@ -1324,7 +1360,10 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                           }}
                           disabled={saveMutation.isPending}
                         >
-                          <SelectTrigger className="w-full text-left">
+                          <SelectTrigger
+                            id={`project-arb-status-${i}`}
+                            className="w-full text-left"
+                          >
                             <SelectValue>{LEVEL_STATUS_LABEL[value]}</SelectValue>
                           </SelectTrigger>
                           <SelectContent>
@@ -1338,17 +1377,20 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                       </div>
                     ) : null}
                     {canEdit && !unlocked ? (
-                      <p className="mt-3 text-[11px] italic text-muted-foreground">
+                      <p className="mt-4 border-t border-border/50 pt-4 text-[11px] leading-snug text-muted-foreground">
                         Débloqué lorsque le niveau précédent est « Validé ».
                       </p>
                     ) : null}
                     {!canEdit && unlocked ? (
-                      <p className="mt-3 text-sm font-medium text-foreground">
-                        {LEVEL_STATUS_LABEL[value]}
-                      </p>
+                      <div className="mt-4 border-t border-border/50 pt-4">
+                        <p className="text-xs text-muted-foreground">Statut</p>
+                        <p className="mt-1 text-sm font-medium text-foreground">
+                          {LEVEL_STATUS_LABEL[value]}
+                        </p>
+                      </div>
                     ) : null}
                     {unlocked && value === 'REFUSE' ? (
-                      <div className="mt-2 space-y-1.5">
+                      <div className="mt-4 space-y-1.5 border-t border-border/50 pt-4">
                         <Label
                           className="text-xs text-muted-foreground"
                           htmlFor={canEdit ? `project-arb-refusal-${i}` : undefined}
@@ -1661,7 +1703,79 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             </div>
           </div>
 
-          {/* Détail opérationnel */}
+          {/* Saisie nouveau risque — au-dessus du détail liste */}
+          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="min-w-0 flex-1 space-y-2">
+              <Label htmlFor="new-risk-title">Titre</Label>
+              <Input
+                id="new-risk-title"
+                value={newRiskTitle}
+                onChange={(e) => setNewRiskTitle(e.target.value)}
+                disabled={!canEdit || createRiskMutation.isPending}
+                placeholder="ex. Dépendance fournisseur unique"
+                maxLength={500}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:w-auto sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Probabilité</Label>
+                <Select
+                  value={newRiskProb}
+                  onValueChange={(v) => setNewRiskProb(v as ProjectSheetRiskLevel)}
+                  disabled={!canEdit || createRiskMutation.isPending}
+                >
+                  <SelectTrigger className="w-full min-w-[120px]">
+                    <SelectValue>{RISK_LABEL[newRiskProb]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {RISK_LABEL[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Impact</Label>
+                <Select
+                  value={newRiskImpact}
+                  onValueChange={(v) => setNewRiskImpact(v as ProjectSheetRiskLevel)}
+                  disabled={!canEdit || createRiskMutation.isPending}
+                >
+                  <SelectTrigger className="w-full min-w-[120px]">
+                    <SelectValue>{RISK_LABEL[newRiskImpact]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {RISK_LABEL[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button
+              type="button"
+              disabled={!canEdit || createRiskMutation.isPending || !newRiskTitle.trim()}
+              onClick={() => {
+                if (!newRiskTitle.trim()) {
+                  toast.error('Titre requis');
+                  return;
+                }
+                createRiskMutation.mutate({
+                  title: newRiskTitle,
+                  probability: newRiskProb,
+                  impact: newRiskImpact,
+                });
+              }}
+            >
+              {createRiskMutation.isPending ? 'Enregistrement…' : 'Ajouter un risque'}
+            </Button>
+          </div>
+
+          {/* Détail opérationnel — liste */}
           <details
             className="group rounded-lg border border-border/60"
             open={risksDetailOpen}
@@ -1751,77 +1865,6 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               </TooltipProvider>
             </div>
           </details>
-
-          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="min-w-0 flex-1 space-y-2">
-              <Label htmlFor="new-risk-title">Titre</Label>
-              <Input
-                id="new-risk-title"
-                value={newRiskTitle}
-                onChange={(e) => setNewRiskTitle(e.target.value)}
-                disabled={!canEdit || createRiskMutation.isPending}
-                placeholder="ex. Dépendance fournisseur unique"
-                maxLength={500}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:w-auto sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Probabilité</Label>
-                <Select
-                  value={newRiskProb}
-                  onValueChange={(v) => setNewRiskProb(v as ProjectSheetRiskLevel)}
-                  disabled={!canEdit || createRiskMutation.isPending}
-                >
-                  <SelectTrigger className="w-full min-w-[120px]">
-                    <SelectValue>{RISK_LABEL[newRiskProb]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {RISK_LABEL[k]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Impact</Label>
-                <Select
-                  value={newRiskImpact}
-                  onValueChange={(v) => setNewRiskImpact(v as ProjectSheetRiskLevel)}
-                  disabled={!canEdit || createRiskMutation.isPending}
-                >
-                  <SelectTrigger className="w-full min-w-[120px]">
-                    <SelectValue>{RISK_LABEL[newRiskImpact]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {RISK_LABEL[k]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <Button
-              type="button"
-              disabled={!canEdit || createRiskMutation.isPending || !newRiskTitle.trim()}
-              onClick={() => {
-                if (!newRiskTitle.trim()) {
-                  toast.error('Titre requis');
-                  return;
-                }
-                createRiskMutation.mutate({
-                  title: newRiskTitle,
-                  probability: newRiskProb,
-                  impact: newRiskImpact,
-                });
-              }}
-            >
-              {createRiskMutation.isPending ? 'Enregistrement…' : 'Ajouter un risque'}
-            </Button>
-          </div>
         </CardContent>
       </Card>
 

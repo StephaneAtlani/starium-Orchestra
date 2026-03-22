@@ -394,9 +394,14 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
           {canEdit ? (
             <Button
               type="button"
-              variant="outline"
+              variant="default"
               size="sm"
-              className="gap-1.5"
+              className={cn(
+                'gap-1.5 border-transparent shadow-sm',
+                'bg-violet-600 text-white hover:bg-violet-700 hover:text-white',
+                'focus-visible:border-violet-500 focus-visible:ring-violet-500/35',
+                'dark:bg-violet-500 dark:hover:bg-violet-600',
+              )}
               onClick={() => setRoleDialogOpen(true)}
             >
               <Plus className="size-4" />

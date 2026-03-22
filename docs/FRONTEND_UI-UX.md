@@ -22,6 +22,7 @@ Fichiers clés : `apps/web/src/app/globals.css`, `apps/web/src/styles/tokens.css
 
 - Couleurs : **tokens** (`bg-background`, `text-muted-foreground`, `border-border`, `bg-card`, etc.) — pas d’hex arbitraires dans les pages.
 - **Bordures / cadres** : ne jamais se contenter de la classe **`border`** seule — sans couleur explicite, Tailwind applique souvent une couleur de bordure **trop contrastée** (effet « noir » sur fond clair). Toujours combiner avec un token : **`border-border`**, **`border-border/60`**, **`border-border/70`**, **`border-input`** (champs), ou **`border-dashed border-border/80`** (zones vides). Les **`Card`** utilisent déjà `.starium-card` (`var(--starium-border)`). Pour un **sous-bloc** dans une carte (formulaire, encart), préférer par ex. `rounded-lg border border-border/70 bg-muted/30 p-4` — filet **gris** cohérent avec le reste de l’UI, pas un trait noir.
+- **Cartes « synthèse »** (KPI, indicateurs, arbitrage) : pattern récurrent **`rounded-xl border bg-card p-4 shadow-sm`** avec **accent latéral** `border-l-[3px] border-l-…/70` (emerald, sky, violet, amber, etc.) + icône Lucide dans un carré **`rounded-lg bg-…/10`** — voir fiche projet **§11.2**.
 - Structure : **pas de HTML “layout” bricolé** ; utiliser `components/ui/*`, `components/layout/*`, `components/feedback/*`, `components/shell/*`.
 - Chaque écran de données : états **loading**, **error**, **empty**, **success** explicites.
 - **Query keys** métier : toujours inclure `clientId` (voir architecture).
@@ -51,6 +52,13 @@ export function PageContainer({ children, className }: PageContainerProps) {
   return <div className={className ?? 'space-y-6'}>{children}</div>;
 }
 ```
+
+### 3.1 Sidebar — menus à panneau (Budgets, Projets)
+
+- Implémentation : `apps/web/src/components/shell/sidebar.tsx` + `sidebar-dropdown.tsx` (`SidebarDropdown`, `SidebarDropdownLayer` — panneau fixe au survol du libellé parent).
+- **Budgets** et **Projets** : pas de `href` sur l’entrée parente dans `config/navigation.ts` ; les cibles sont des sous-liens. Le parent reste filtré par `moduleCode` + `requiredPermissions` comme les autres entrées module.
+- **Projets** : sous-entrées **Portefeuille projet** → `/projects`, **Option** → `/projects/options` (placeholder). Logique d’état actif par route (`pathname`) dans `sidebar.tsx` (même idée que pour Budgets : enfant actif si la route courante correspond au sous-lien ou à un préfixe métier).
+- **Éviter** de dupliquer un panneau scroll : le contenu principal reste dans `<main>` ; le panneau latéral du dropdown est uniquement pour la navigation.
 
 ---
 
@@ -298,6 +306,25 @@ Feature : `features/projects/` (hooks, `project-query-keys`, API).
 - **`ProjectCreateForm`** : une **`Card`** avec en-tête descriptif, **`CardContent`** en sections (titres + icônes Lucide : identité, classification, planning), **Nature** (projet / activité), **code** optionnel (génération auto si vide), **responsable** (`GET /api/projects/assignable-users`, pas `GET /api/users` client-admin), **`textarea`** pour la description, **`CardFooter`** avec fond `bg-muted/20` : rappel (nom obligatoire ; code auto) + **Annuler** + **Créer le projet** (`Button` désactivé si nom vide).
 - Absence de permission `projects.create` : **`Alert`** (pas seulement un paragraphe).
 
+### 11.2 Détail projet — fiche décisionnelle (`ProjectSheetView`)
+
+Route typique : `app/(protected)/projects/[projectId]/page.tsx` — composant **`ProjectSheetView`** (`features/projects/components/project-sheet-view.tsx`). Données via **`GET/PATCH /api/projects/:id/project-sheet`** (TanStack Query, autosave debounced) — pas de calcul ROI / priorité côté client (affichage des valeurs API).
+
+**Structure UX (blocs successifs dans des `Card size="sm"`)** : sections étiquetées **A–H** (équipes, résumé & indicateurs, valeur métier, financier, risques, SWOT, TOWS, rétroplanning) ; titres **`CardTitle`** + séparateurs **`border-t border-border`** entre zones denses dans une même carte.
+
+**Indicateurs de lecture** (sous-bloc dans la carte « Résumé ») :
+
+- En-tête de zone : **`h4`** + **`Badge variant="secondary"`** (ex. libellé « Décision ») + paragraphe **`text-xs text-muted-foreground`** (max ~2 lignes).
+- Grille **`grid gap-3 sm:grid-cols-2 xl:grid-cols-4`** : quatre cartes avec **bandeau gauche** coloré par axe (ROI, priorité portefeuille, ROE / scores, COPIL), icônes Lucide, **séparateur** `border-t border-border/60` avant le pied d’encart si besoin.
+- Barres mini optionnelles pour les scores (ROE) : même fichier, composant local **`ScoreMiniBar`**.
+
+**Arbitrage** (trois niveaux métier / comité / CODIR) :
+
+- Même langage visuel : **`pt-8`**, titre **`h4`** + badge **« 3 niveaux »**, grille **`sm:grid-cols-3`**.
+- Carte par niveau : **`rounded-xl p-4 shadow-sm`**, accent **`border-l-[3px]`** + fond léger selon **statut** (validé / refus / soumis à validation / en cours / brouillon) ; **badge « Verrouillé »** si le niveau précédent n’est pas validé ; **icônes** distinctes par niveau ; **séparateurs** `border-t border-border/50` avant statut, motif de refus ou message de lecture seule.
+
+**Référence** : RFC-PROJ-012, [docs/modules/projects-mvp.md](./modules/projects-mvp.md).
+
 ---
 
 ## 12. Typographie (rappel)
@@ -314,7 +341,8 @@ Feature : `features/projects/` (hooks, `project-query-keys`, API).
 | Architecture complète | [FRONTEND_ARCHITECTURE.md](./FRONTEND_ARCHITECTURE.md) |
 | Module Projets (structure, query keys) | §30.6 dans FRONTEND_ARCHITECTURE.md |
 | Budget frontend | [docs/modules/budget-frontend.md](./modules/budget-frontend.md) |
+| Fiche projet décisionnelle (RFC-PROJ-012) | [docs/modules/projects-mvp.md](./modules/projects-mvp.md), [RFC-PROJ-012 — Project Sheet.md](./RFC/RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) |
 
 ---
 
-*Dernière mise à jour : cockpit Projets (KPI compact §6.1, filtres Nature, liste §8.1 tooltips, formulaire création 2 colonnes, `HealthBadge` compact).*
+*Dernière mise à jour : sidebar menus déroulants §3.1 ; fiche projet `ProjectSheetView` §11.2 (indicateurs de lecture, arbitrage 3 niveaux, cartes `border-l` + badges) ; cockpit Projets §6.1 / §7 / §8.1 / §11.1 inchangés en substance.*

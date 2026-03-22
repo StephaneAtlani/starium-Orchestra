@@ -420,7 +420,7 @@ Autres domaines
 └── ...
 ```
 
-**Module `projects` (MVP — RFC-PROJ-001)** : API `/api/projects` (+ tâches, risques, jalons, **fiche décisionnelle** `GET|PATCH /api/projects/:id/project-sheet`, **arbitrage legacy** `POST /api/projects/:id/arbitration`), pilotage calculé dans `projects-pilotage.service.ts`, sous-module `project-sheet/` (RFC-PROJ-012), UI `/projects` côté Next.js. Détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+**Module `projects` (MVP — RFC-PROJ-001)** : API `/api/projects` (+ tâches, risques, jalons, **fiche décisionnelle** `GET|PATCH /api/projects/:id/project-sheet`, **arbitrage legacy** `POST /api/projects/:id/arbitration`), pilotage calculé dans `projects-pilotage.service.ts`, sous-module `project-sheet/` (RFC-PROJ-012), UI Next.js (`/projects`, détail projet, placeholder `/projects/options`). Détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
 **Module `project-budget` (RFC-PROJ-010)** : API `/api/projects/:projectId/budget-links` (liste paginée) et `POST`, `/api/project-budget-links/:id` (`DELETE`), isolation `clientId`, invariants d’allocation sur les liens projet ↔ ligne budgétaire. Enregistré dans `app.module.ts` à côté de `ProjectsModule`.
 

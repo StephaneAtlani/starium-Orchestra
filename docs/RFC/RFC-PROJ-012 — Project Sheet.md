@@ -4,7 +4,7 @@
 
 **Partiellement implémenté** — priorité produit maintenue.
 
-**Réalisé dans le repo** : module `apps/api/src/modules/projects/project-sheet/` (`ProjectSheetController`, `ProjectSheetService`, DTO `UpdateProjectSheetDto`) ; schéma Prisma `Project` étendu (cadrage, SWOT/TOWS, arbitrage à trois niveaux + champs optionnels de motif si statut `REFUSE`, etc.) ; UI fiche sur le détail projet (`ProjectSheetView`) avec autosave, édition **type** et **statut** cycle de vie (`ProjectType` / `ProjectStatus`) sous `projects.update`. Données strictement scopées `clientId` via guards existants.
+**Réalisé dans le repo** : module `apps/api/src/modules/projects/project-sheet/` (`ProjectSheetController`, `ProjectSheetService`, DTO `UpdateProjectSheetDto`) ; schéma Prisma `Project` étendu (cadrage, SWOT/TOWS, arbitrage à trois niveaux + statuts par niveau dont `SOUMIS_VALIDATION` + motifs de refus si `REFUSE`, etc.) ; UI fiche sur le détail projet (`ProjectSheetView`) avec autosave, édition **type** et **statut** cycle de vie (`ProjectType` / `ProjectStatus`) sous `projects.update`. **Navigation** : entrée **Projets** en menu déroulant (Portefeuille `/projects`, page placeholder **Option** `/projects/options`) — `apps/web/src/config/navigation.ts` + `sidebar.tsx`. Données strictement scopées `clientId` via guards existants.
 
 **Encore couvert par la vision RFC mais non exhaustivement dans ce fichier** : métriques portefeuille agrégées, règles de décision « APPROVED / ON_HOLD » au-delà du modèle arbitrage actuel, page dédiée `/projects/[id]/sheet` isolée (la fiche est intégrée au détail projet).
 
@@ -142,6 +142,15 @@ enum ProjectArbitrationStatus {
   VALIDATED
   REJECTED
 }
+
+/** Par niveau (métier → comité → sponsor / CODIR) — schéma réel : `schema.prisma`. */
+enum ProjectArbitrationLevelStatus {
+  BROUILLON
+  EN_COURS
+  SOUMIS_VALIDATION
+  VALIDE
+  REFUSE
+}
 ```
 
 ---
@@ -203,9 +212,9 @@ priorityScore =
 
 ### Arbitrage à trois niveaux (implémenté)
 
-Chaque niveau (métier → comité → sponsor / CODIR) a un statut `ProjectArbitrationLevelStatus` (`BROUILLON`, `EN_COURS`, `VALIDE`, `REFUSE`). Le niveau suivant n’est éditable qu’après validation du précédent. En cas de `REFUSE`, des champs texte optionnels **motif du refus** (un par niveau concerné) peuvent être renseignés ; ils sont effacés côté serveur si le statut du niveau n’est plus `REFUSE`.
+Chaque niveau (métier → comité → sponsor / CODIR) a un statut `ProjectArbitrationLevelStatus` : `BROUILLON`, `EN_COURS`, `SOUMIS_VALIDATION` (soumis à validation / en attente de décision), `VALIDE`, `REFUSE`. Le niveau suivant n’est éditable qu’après **`VALIDE`** sur le précédent (`SOUMIS_VALIDATION` ne déverrouille pas le niveau suivant). En cas de `REFUSE`, des champs texte optionnels **motif du refus** (un par niveau concerné) peuvent être renseignés ; ils sont effacés côté serveur si le statut du niveau n’est plus `REFUSE`.
 
-`PATCH /api/projects/:id/project-sheet` met à jour ces niveaux et dérive `arbitrationStatus` pour rétrocompatibilité / exports.
+`PATCH /api/projects/:id/project-sheet` met à jour ces niveaux et dérive `arbitrationStatus` (legacy) pour rétrocompatibilité / exports — notamment `SOUMIS_VALIDATION` et `VALIDE` au niveau métier peuvent mapper vers `TO_REVIEW` selon la logique serveur actuelle.
 
 ---
 
@@ -381,6 +390,8 @@ Deux options :
 # 10. Impact frontend
 
 **Implémenté** : la fiche est intégrée au **détail projet** (`/projects/[projectId]`), composant `ProjectSheetView`, avec autosave sur les champs (dont type, statut, arbitrage, motifs de refus).
+
+**UX** : blocs **A–H** (équipes, résumé & indicateurs de lecture, valeur métier, financier, risques, SWOT, TOWS, rétroplanning) ; **indicateurs de lecture** regroupent en cartes synthétiques le ROI, la priorité portefeuille, les critères valeur (ROE / scores) et la recommandation COPIL.
 
 **Piste optionnelle** : route dédiée `/projects/[id]/sheet` si l’on veut une page plein écran plus tard.
 
