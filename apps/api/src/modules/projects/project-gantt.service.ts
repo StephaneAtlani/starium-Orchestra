@@ -44,6 +44,7 @@ export class ProjectGanttService {
         actualStartDate: t.actualStartDate?.toISOString() ?? null,
         actualEndDate: t.actualEndDate?.toISOString() ?? null,
         sortOrder: t.sortOrder,
+        createdAt: t.createdAt.toISOString(),
       })),
       milestones: milestones.map((m) => ({
         id: m.id,

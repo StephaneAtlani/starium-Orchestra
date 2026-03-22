@@ -18,3 +18,10 @@ export function projectDetail(id: string): string {
 export function projectSheet(projectId: string): string {
   return `/projects/${projectId}/sheet`;
 }
+
+/** Cockpit Planning : tâches, jalons, Gantt (RFC-PROJ-012). */
+export function projectPlanning(projectId: string, sub?: 'tasks' | 'milestones' | 'gantt'): string {
+  const base = `/projects/${projectId}/planning`;
+  if (!sub || sub === 'tasks') return `${base}?sub=tasks`;
+  return `${base}?sub=${sub}`;
+}

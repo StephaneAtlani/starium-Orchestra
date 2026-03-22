@@ -118,6 +118,63 @@ export async function listTasks(
   return res.json() as Promise<PaginatedList<ProjectTaskApi>>;
 }
 
+export type CreateProjectTaskPayload = {
+  name: string;
+  description?: string;
+  code?: string;
+  status?: string;
+  priority?: string;
+  progress?: number;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+  parentTaskId?: string | null;
+  dependsOnTaskId?: string | null;
+  dependencyType?: string | null;
+  ownerUserId?: string | null;
+  budgetLineId?: string | null;
+  sortOrder?: number;
+};
+
+export type UpdateProjectTaskPayload = Partial<CreateProjectTaskPayload> & {
+  description?: string | null;
+  code?: string | null;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
+  actualStartDate?: string | null;
+  actualEndDate?: string | null;
+};
+
+export async function createProjectTask(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: CreateProjectTaskPayload,
+): Promise<ProjectTaskApi> {
+  const res = await authFetch(`${BASE}/${projectId}/tasks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTaskApi>;
+}
+
+export async function updateProjectTask(
+  authFetch: AuthFetch,
+  projectId: string,
+  taskId: string,
+  body: UpdateProjectTaskPayload,
+): Promise<ProjectTaskApi> {
+  const res = await authFetch(`${BASE}/${projectId}/tasks/${taskId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTaskApi>;
+}
+
 export async function listRisks(authFetch: AuthFetch, projectId: string) {
   const res = await authFetch(`${BASE}/${projectId}/risks`);
   if (!res.ok) throw await parseApiFormError(res);
@@ -166,6 +223,53 @@ export async function listMilestones(
   return res.json() as Promise<PaginatedList<ProjectMilestoneApi>>;
 }
 
+export type CreateProjectMilestonePayload = {
+  name: string;
+  description?: string;
+  code?: string;
+  targetDate: string;
+  achievedDate?: string;
+  status?: string;
+  linkedTaskId?: string | null;
+  ownerUserId?: string | null;
+  sortOrder?: number;
+};
+
+export type UpdateProjectMilestonePayload = Partial<CreateProjectMilestonePayload> & {
+  description?: string | null;
+  code?: string | null;
+  achievedDate?: string | null;
+};
+
+export async function createProjectMilestone(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: CreateProjectMilestonePayload,
+): Promise<ProjectMilestoneApi> {
+  const res = await authFetch(`${BASE}/${projectId}/milestones`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectMilestoneApi>;
+}
+
+export async function updateProjectMilestone(
+  authFetch: AuthFetch,
+  projectId: string,
+  milestoneId: string,
+  body: UpdateProjectMilestonePayload,
+): Promise<ProjectMilestoneApi> {
+  const res = await authFetch(`${BASE}/${projectId}/milestones/${milestoneId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectMilestoneApi>;
+}
+
 export type ProjectGanttPayload = {
   projectId: string;
   tasks: Array<{
@@ -182,6 +286,7 @@ export type ProjectGanttPayload = {
     actualStartDate: string | null;
     actualEndDate: string | null;
     sortOrder: number;
+    createdAt: string;
   }>;
   milestones: Array<{
     id: string;

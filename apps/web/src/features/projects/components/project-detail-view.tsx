@@ -17,24 +17,19 @@ import {
 } from '@/components/ui/table';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
-import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
-import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import {
   PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
   PROJECT_TYPE_LABEL,
-  TASK_STATUS_LABEL,
-  TASK_PRIORITY_LABEL,
   RISK_STATUS_LABEL,
-  MILESTONE_STATUS_LABEL,
   WARNING_CODE_LABEL,
 } from '../constants/project-enum-labels';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
-import { projectsList } from '../constants/project-routes';
+import { projectsList, projectPlanning } from '../constants/project-routes';
 import { cn } from '@/lib/utils';
-import { AlertCircle, AlertTriangle, ChevronLeft, LayoutDashboard } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CalendarRange, ChevronLeft, LayoutDashboard } from 'lucide-react';
 import { ProjectBudgetSection } from './project-budget-section';
 import { ProjectReviewsTab } from './project-reviews-tab';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
@@ -52,15 +47,11 @@ function formatDate(iso: string | null) {
 function ProjectDetailTabbedContent({
   projectId,
   project,
-  tasks,
   risks,
-  milestones,
 }: {
   projectId: string;
   project: ProjectDetail;
-  tasks: ReturnType<typeof useProjectTasksQuery>;
   risks: ReturnType<typeof useProjectRisksQuery>;
-  milestones: ReturnType<typeof useProjectMilestonesQuery>;
 }) {
   const searchParams = useSearchParams();
   const showPoints = searchParams.get('tab') === 'points';
@@ -193,40 +184,25 @@ function ProjectDetailTabbedContent({
         <ProjectBudgetSection projectId={projectId} />
 
         <Card size="sm" className="overflow-hidden shadow-sm">
-          <CardHeader className="border-b border-border/60 pb-3">
-            <CardTitle className="text-sm font-medium">Tâches</CardTitle>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+            <CardTitle className="text-sm font-medium">Planning</CardTitle>
+            <Link
+              href={projectPlanning(projectId)}
+              className={cn(
+                buttonVariants({ variant: 'default', size: 'sm' }),
+                'gap-2',
+              )}
+            >
+              <CalendarRange className="size-4" aria-hidden />
+              Ouvrir le planning
+            </Link>
           </CardHeader>
-          <CardContent className="p-0">
-            {tasks.isLoading ? (
-              <div className="p-4">
-                <LoadingState rows={2} />
-              </div>
-            ) : !tasks.data?.items?.length ? (
-              <p className="px-4 py-8 text-center text-sm text-muted-foreground">Aucune tâche.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Titre</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Priorité</TableHead>
-                    <TableHead>Fin planifiée</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tasks.data.items.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell>{t.name}</TableCell>
-                      <TableCell>{TASK_STATUS_LABEL[t.status] ?? t.status}</TableCell>
-                      <TableCell>
-                        {TASK_PRIORITY_LABEL[t.priority] ?? t.priority}
-                      </TableCell>
-                      <TableCell>{formatDate(t.plannedEndDate)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+          <CardContent className="px-4 py-4 text-sm text-muted-foreground">
+            <p>
+              Tâches, jalons et Gantt sont gérés dans l’onglet{' '}
+              <span className="font-medium text-foreground">Planning</span> (création, édition,
+              vue temporelle).
+            </p>
           </CardContent>
         </Card>
 
@@ -271,39 +247,6 @@ function ProjectDetailTabbedContent({
           </CardContent>
         </Card>
 
-        <Card size="sm" className="overflow-hidden shadow-sm">
-          <CardHeader className="border-b border-border/60 pb-3">
-            <CardTitle className="text-sm font-medium">Jalons</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {milestones.isLoading ? (
-              <div className="p-4">
-                <LoadingState rows={2} />
-              </div>
-            ) : !milestones.data?.items?.length ? (
-              <p className="px-4 py-8 text-center text-sm text-muted-foreground">Aucun jalon.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nom</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Date cible</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {milestones.data.items.map((m) => (
-                    <TableRow key={m.id}>
-                      <TableCell>{m.name}</TableCell>
-                      <TableCell>{MILESTONE_STATUS_LABEL[m.status] ?? m.status}</TableCell>
-                      <TableCell>{formatDate(m.targetDate)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
           </>
         )}
       </CardContent>
@@ -313,9 +256,7 @@ function ProjectDetailTabbedContent({
 
 export function ProjectDetailView({ projectId }: { projectId: string }) {
   const { data: project, isLoading, error } = useProjectDetailQuery(projectId);
-  const tasks = useProjectTasksQuery(projectId);
   const risks = useProjectRisksQuery(projectId);
-  const milestones = useProjectMilestonesQuery(projectId);
 
   if (!projectId) {
     return (
@@ -402,9 +343,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         <ProjectDetailTabbedContent
           projectId={projectId}
           project={project}
-          tasks={tasks}
           risks={risks}
-          milestones={milestones}
         />
       </Suspense>
     </>

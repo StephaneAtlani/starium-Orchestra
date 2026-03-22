@@ -101,6 +101,8 @@ export type ProjectTaskApi = {
   dependencyType: string | null;
   ownerUserId: string | null;
   budgetLineId: string | null;
+  /** Présent sur les réponses API liste ; utilisé pour tri client (RFC-PROJ-012). */
+  createdAt?: string;
 };
 
 export type ProjectRiskApi = {

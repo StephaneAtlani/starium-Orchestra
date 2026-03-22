@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   ProjectTaskPriority,
   ProjectTaskStatus,
@@ -223,5 +223,28 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       service.update(clientId, projectId, taskId, { name: 'x' }),
     ).rejects.toThrow(NotFoundException);
     expect(auditLogs.create).not.toHaveBeenCalled();
+  });
+
+  describe('validation dates / progress (RFC-PROJ-012)', () => {
+    it('create rejette progress > 100', async () => {
+      await expect(
+        service.create(clientId, projectId, {
+          name: 'x',
+          progress: 101,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.projectTask.create).not.toHaveBeenCalled();
+    });
+
+    it('create rejette fin planifiée avant début', async () => {
+      await expect(
+        service.create(clientId, projectId, {
+          name: 'x',
+          plannedStartDate: '2026-01-10T00:00:00.000Z',
+          plannedEndDate: '2026-01-01T00:00:00.000Z',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.projectTask.create).not.toHaveBeenCalled();
+    });
   });
 });

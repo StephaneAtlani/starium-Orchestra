@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { ClipboardList, LayoutDashboard, Layers3 } from 'lucide-react';
+import { CalendarRange, ClipboardList, LayoutDashboard, Layers3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { projectDetail, projectSheet } from '../constants/project-routes';
+import { projectDetail, projectPlanning, projectSheet } from '../constants/project-routes';
 
 function tabLinkClass(active: boolean) {
   return cn(
@@ -18,10 +18,10 @@ function tabLinkClass(active: boolean) {
 }
 
 const tablistClassName =
-  'grid h-11 min-w-[min(100%,18rem)] grid-cols-3 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/40 sm:min-w-0';
+  'grid h-11 min-w-[min(100%,22rem)] grid-cols-2 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/40 sm:min-w-0 sm:grid-cols-4';
 
 /**
- * Navigation principale projet : Synthèse (détail) · Fiche projet (/sheet) · Points projet (?tab=points).
+ * Navigation principale projet : Synthèse · Planning · Fiche projet · Points projet.
  * À placer dans un `CardHeader` (même structure que le détail : `Card` + header dégradé).
  */
 export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
@@ -29,11 +29,13 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
   const tab = searchParams.get('tab');
   const isSheet = pathname?.includes('/sheet');
+  const isPlanning = pathname?.includes('/planning');
   const isPoints = tab === 'points';
-  const isSynth = !isSheet && !isPoints;
+  const isSynth = !isSheet && !isPoints && !isPlanning;
 
   const detailHref = projectDetail(projectId);
   const pointsHref = `${detailHref}?tab=points`;
+  const planningHref = projectPlanning(projectId);
 
   return (
     <div className="min-w-0 overflow-x-auto [-webkit-overflow-scrolling:touch]">
@@ -50,6 +52,15 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       >
         <LayoutDashboard className="size-4 shrink-0 opacity-70" />
         Synthèse
+      </Link>
+      <Link
+        href={planningHref}
+        role="tab"
+        aria-current={isPlanning ? 'page' : undefined}
+        className={tabLinkClass(isPlanning)}
+      >
+        <CalendarRange className="size-4 shrink-0 opacity-70" />
+        Planning
       </Link>
       <Link
         href={projectSheet(projectId)}
