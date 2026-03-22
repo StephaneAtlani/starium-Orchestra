@@ -1,30 +1,95 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectGanttQuery } from '../hooks/use-project-gantt-query';
+import {
+  useUpdateProjectMilestoneMutation,
+  useUpdateProjectTaskMutation,
+} from '../hooks/use-project-planning-mutations';
+import {
+  buildDependencyPaths,
+  rowCenterY,
+  type GanttTaskRowGeom,
+} from '../lib/gantt-dependency-geometry';
 import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
 import {
+  GANTT_DAY_MS,
   GANTT_PX_PER_DAY,
   GANTT_ROW_PX,
   computeTimelineBounds,
   dateMsToPx,
   dateRangeToTimelineLayout,
+  resizeTaskRange,
+  shiftTaskRangeByDays,
+  toPlannedDateIsoUtcNoon,
   type TimelineBounds,
 } from '../lib/gantt-timeline-layout';
 import {
   ProjectTaskPlanningSection,
   type ProjectTaskPlanningSectionHandle,
 } from './project-task-planning-section';
+import { ProjectGanttTaskBar } from './project-gantt-task-bar';
 import { Info } from 'lucide-react';
+import { toast } from 'sonner';
+
+type BarMode = 'move' | 'resize-start' | 'resize-end';
+
+type TaskDragRef = {
+  kind: 'task';
+  taskId: string;
+  mode: BarMode;
+  originStartMs: number;
+  originEndMs: number;
+  anchorClientX: number;
+  anchorScrollLeft: number;
+};
+
+type MilestoneDragRef = {
+  kind: 'milestone';
+  milestoneId: string;
+  originTargetMs: number;
+  anchorClientX: number;
+  anchorScrollLeft: number;
+};
+
+type DragRef = TaskDragRef | MilestoneDragRef;
+
+type PreviewState =
+  | { type: 'task'; id: string; startMs: number; endMs: number }
+  | { type: 'milestone'; id: string; targetMs: number }
+  | null;
+
+type LinkDraftRef = { fromTaskId: string; fromX: number; fromY: number };
+
+function deltaPxInTimeline(
+  clientX: number,
+  scrollEl: HTMLDivElement,
+  anchorClientX: number,
+  anchorScrollLeft: number,
+): number {
+  return clientX - anchorClientX + (scrollEl.scrollLeft - anchorScrollLeft);
+}
 
 export function ProjectGanttPanel({ projectId }: { projectId: string }) {
+  const depMarkerId = useId().replace(/:/g, '');
   const { has } = usePermissions();
   const canEdit = has('projects.update');
   const planningRef = useRef<ProjectTaskPlanningSectionHandle>(null);
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
+  const ganttVerticalScrollRef = useRef<HTMLDivElement>(null);
+  const timelineBodyRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragRef | null>(null);
+  const linkDraftRef = useRef<LinkDraftRef | null>(null);
+  const [preview, setPreview] = useState<PreviewState>(null);
+  const [linkDraft, setLinkDraft] = useState<LinkDraftRef | null>(null);
+  const [linkPointer, setLinkPointer] = useState<{ x: number; y: number } | null>(null);
+
+  const updateTask = useUpdateProjectTaskMutation(projectId);
+  const updateMilestone = useUpdateProjectMilestoneMutation(projectId);
 
   const ganttQuery = useProjectGanttQuery(projectId);
   const payload = ganttQuery.data;
@@ -75,6 +140,295 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const milestoneSidebarRows = useMemo(
     () => sortedMilestones.map((m) => ({ id: m.id, name: m.name })),
     [sortedMilestones],
+  );
+
+  const resolveTaskDates = useCallback(
+    (
+      taskId: string,
+      plannedStartDate: string | null,
+      plannedEndDate: string | null,
+    ): { startMs: number; endMs: number } | null => {
+      if (preview?.type === 'task' && preview.id === taskId) {
+        return { startMs: preview.startMs, endMs: preview.endMs };
+      }
+      if (plannedStartDate && plannedEndDate) {
+        return {
+          startMs: new Date(plannedStartDate).getTime(),
+          endMs: new Date(plannedEndDate).getTime(),
+        };
+      }
+      return null;
+    },
+    [preview],
+  );
+
+  const resolveMilestoneDate = useCallback(
+    (milestoneId: string, targetDate: string): number => {
+      if (preview?.type === 'milestone' && preview.id === milestoneId) {
+        return preview.targetMs;
+      }
+      return new Date(targetDate).getTime();
+    },
+    [preview],
+  );
+
+  const taskRowGeoms = useMemo((): GanttTaskRowGeom[] => {
+    if (!bounds) return [];
+    return treeRows
+      .map((row, rowIndex) => {
+        const dates = resolveTaskDates(
+          row.id,
+          row.plannedStartDate,
+          row.plannedEndDate,
+        );
+        if (!dates) return null;
+        const leftPx = dateMsToPx(dates.startMs, bounds, GANTT_PX_PER_DAY);
+        const barW = Math.max(
+          2,
+          dateMsToPx(dates.endMs, bounds, GANTT_PX_PER_DAY) - leftPx,
+        );
+        return {
+          taskId: row.id,
+          rowIndex,
+          leftPx,
+          barW,
+          startMs: dates.startMs,
+          endMs: dates.endMs,
+          dependsOnTaskId: row.dependsOnTaskId ?? null,
+          dependencyType: row.dependencyType ?? null,
+        } satisfies GanttTaskRowGeom;
+      })
+      .filter((r): r is GanttTaskRowGeom => r !== null);
+  }, [treeRows, bounds, resolveTaskDates]);
+
+  const dependencyPaths = useMemo(
+    () => buildDependencyPaths(taskRowGeoms, GANTT_ROW_PX),
+    [taskRowGeoms],
+  );
+
+  const timelineBodyHeightPx =
+    (treeRows.length + sortedMilestones.length) * GANTT_ROW_PX;
+
+  const beginLinkOut = useCallback(
+    (fromTaskId: string, e: React.PointerEvent) => {
+      if (!canEdit || !bounds) return;
+      const row = treeRows.find((r) => r.id === fromTaskId);
+      if (!row) return;
+      const dates = resolveTaskDates(
+        row.id,
+        row.plannedStartDate,
+        row.plannedEndDate,
+      );
+      if (!dates) return;
+      const rowIndex = treeRows.findIndex((r) => r.id === fromTaskId);
+      const fromX = dateMsToPx(dates.endMs, bounds, GANTT_PX_PER_DAY);
+      const fromY = rowCenterY(rowIndex, GANTT_ROW_PX);
+      const draft: LinkDraftRef = { fromTaskId, fromX, fromY };
+      linkDraftRef.current = draft;
+      setLinkDraft(draft);
+      setLinkPointer({ x: fromX, y: fromY });
+      e.preventDefault();
+
+      const bodyEl = timelineBodyRef.current;
+      const scrollH = timelineScrollRef.current;
+
+      const toLocal = (ev: PointerEvent) => {
+        if (!bodyEl || !scrollH) return { x: draft.fromX, y: draft.fromY };
+        const r = bodyEl.getBoundingClientRect();
+        return {
+          x: ev.clientX - r.left + scrollH.scrollLeft,
+          y: ev.clientY - r.top,
+        };
+      };
+
+      const onMove = (ev: PointerEvent) => {
+        setLinkPointer(toLocal(ev));
+      };
+
+      const onUp = (ev: PointerEvent) => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        const d = linkDraftRef.current;
+        linkDraftRef.current = null;
+        setLinkDraft(null);
+        setLinkPointer(null);
+        if (!d) return;
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const linkIn = el?.closest?.('[data-gantt-link-in]') as HTMLElement | null;
+        const succId = linkIn?.dataset.taskId;
+        if (!succId || succId === d.fromTaskId) return;
+        updateTask.mutate(
+          {
+            taskId: succId,
+            body: {
+              dependsOnTaskId: d.fromTaskId,
+              dependencyType: 'FINISH_TO_START',
+            },
+            silentToast: true,
+          },
+          {
+            onSuccess: () => {
+              toast.success('Dépendance enregistrée');
+            },
+          },
+        );
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    },
+    [canEdit, bounds, treeRows, resolveTaskDates, updateTask],
+  );
+
+  const beginTaskDrag = useCallback(
+    (
+      row: (typeof treeRows)[number],
+      mode: BarMode,
+      e: React.PointerEvent,
+    ) => {
+      if (!canEdit || !row.plannedStartDate || !row.plannedEndDate) return;
+      const scrollEl = timelineScrollRef.current;
+      if (!scrollEl) return;
+
+      const originStartMs = new Date(row.plannedStartDate).getTime();
+      const originEndMs = new Date(row.plannedEndDate).getTime();
+
+      dragRef.current = {
+        kind: 'task',
+        taskId: row.id,
+        mode,
+        originStartMs,
+        originEndMs,
+        anchorClientX: e.clientX,
+        anchorScrollLeft: scrollEl.scrollLeft,
+      };
+      setPreview({
+        type: 'task',
+        id: row.id,
+        startMs: originStartMs,
+        endMs: originEndMs,
+      });
+      e.preventDefault();
+
+      const computeTaskRange = (ev: PointerEvent) => {
+        const d = dragRef.current;
+        if (!d || d.kind !== 'task') return null;
+        const deltaPx = deltaPxInTimeline(
+          ev.clientX,
+          scrollEl,
+          d.anchorClientX,
+          d.anchorScrollLeft,
+        );
+        const deltaDays = Math.round(deltaPx / GANTT_PX_PER_DAY);
+        if (d.mode === 'move') {
+          return shiftTaskRangeByDays(d.originStartMs, d.originEndMs, deltaDays);
+        }
+        if (d.mode === 'resize-start') {
+          return resizeTaskRange(
+            d.originStartMs,
+            d.originEndMs,
+            'resize-start',
+            deltaDays,
+          );
+        }
+        return resizeTaskRange(d.originStartMs, d.originEndMs, 'resize-end', deltaDays);
+      };
+
+      const onMove = (ev: PointerEvent) => {
+        const next = computeTaskRange(ev);
+        if (!next) return;
+        const d = dragRef.current;
+        if (!d || d.kind !== 'task') return;
+        setPreview({
+          type: 'task',
+          id: d.taskId,
+          startMs: next.startMs,
+          endMs: next.endMs,
+        });
+      };
+
+      const onUp = (ev: PointerEvent) => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        const next = computeTaskRange(ev);
+        const d = dragRef.current;
+        dragRef.current = null;
+        setPreview(null);
+        if (!next || !d || d.kind !== 'task') return;
+        if (next.startMs === d.originStartMs && next.endMs === d.originEndMs) return;
+        updateTask.mutate({
+          taskId: d.taskId,
+          body: {
+            plannedStartDate: toPlannedDateIsoUtcNoon(next.startMs),
+            plannedEndDate: toPlannedDateIsoUtcNoon(next.endMs),
+          },
+          silentToast: true,
+        });
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    },
+    [canEdit, updateTask],
+  );
+
+  const beginMilestoneDrag = useCallback(
+    (milestone: (typeof sortedMilestones)[number], e: React.PointerEvent) => {
+      if (!canEdit) return;
+      const scrollEl = timelineScrollRef.current;
+      if (!scrollEl) return;
+
+      const originTargetMs = new Date(milestone.targetDate).getTime();
+      dragRef.current = {
+        kind: 'milestone',
+        milestoneId: milestone.id,
+        originTargetMs,
+        anchorClientX: e.clientX,
+        anchorScrollLeft: scrollEl.scrollLeft,
+      };
+      setPreview({ type: 'milestone', id: milestone.id, targetMs: originTargetMs });
+      e.preventDefault();
+
+      const computeTarget = (ev: PointerEvent) => {
+        const d = dragRef.current;
+        if (!d || d.kind !== 'milestone') return null;
+        const deltaPx = deltaPxInTimeline(
+          ev.clientX,
+          scrollEl,
+          d.anchorClientX,
+          d.anchorScrollLeft,
+        );
+        const deltaDays = Math.round(deltaPx / GANTT_PX_PER_DAY);
+        return d.originTargetMs + deltaDays * GANTT_DAY_MS;
+      };
+
+      const onMove = (ev: PointerEvent) => {
+        const targetMs = computeTarget(ev);
+        const d = dragRef.current;
+        if (targetMs === null || !d || d.kind !== 'milestone') return;
+        setPreview({ type: 'milestone', id: d.milestoneId, targetMs });
+      };
+
+      const onUp = (ev: PointerEvent) => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        const targetMs = computeTarget(ev);
+        const d = dragRef.current;
+        dragRef.current = null;
+        setPreview(null);
+        if (targetMs === null || !d || d.kind !== 'milestone') return;
+        if (targetMs === d.originTargetMs) return;
+        updateMilestone.mutate({
+          milestoneId: d.milestoneId,
+          body: { targetDate: toPlannedDateIsoUtcNoon(targetMs) },
+          silentToast: true,
+        });
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    },
+    [canEdit, updateMilestone],
   );
 
   if (ganttQuery.isLoading) {
@@ -146,13 +500,17 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
       )}
 
       <p className="text-muted-foreground text-xs">
-        Frise en lecture seule (MVP) — échelle fixe {GANTT_PX_PER_DAY}px/j. Aide : survol des
-        jalons pour la date.
+        {canEdit
+          ? `Frise interactive — ${GANTT_PX_PER_DAY}px/j : barres et jalons déplaçables ; poignées latérales pour les dates ; ports lien (centre gauche/droite) pour tirer une dépendance Fin → début.`
+          : `Échelle fixe ${GANTT_PX_PER_DAY}px/j (lecture seule).`}
       </p>
 
       <div className="border-border/60 flex min-h-[min(85vh,900px)] min-w-0 flex-col overflow-hidden rounded-lg border">
         {toolbar}
-        <div className="flex min-h-0 flex-1 flex-row overflow-y-auto overflow-x-hidden">
+        <div
+          ref={ganttVerticalScrollRef}
+          className="flex min-h-0 flex-1 flex-row overflow-y-auto overflow-x-hidden"
+        >
           <div className="border-border/60 flex min-h-0 w-[min(42%,380px)] min-w-[240px] shrink-0 flex-col border-r border-border/60">
             <ProjectTaskPlanningSection
               ref={planningRef}
@@ -163,7 +521,10 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
             />
           </div>
 
-          <div className="bg-muted/5 min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-visible">
+          <div
+            ref={timelineScrollRef}
+            className="bg-muted/5 min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-visible"
+          >
             <div
               className="relative flex flex-col"
               style={{ width: widthPx, minWidth: widthPx }}
@@ -199,7 +560,52 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                 </div>
               </div>
 
-              <div className="relative" style={{ width: widthPx }}>
+              <div
+                ref={timelineBodyRef}
+                className="relative"
+                style={{ width: widthPx, minHeight: timelineBodyHeightPx }}
+              >
+                <svg
+                  className="text-muted-foreground pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible"
+                  aria-hidden
+                >
+                  <defs>
+                    <marker
+                      id={depMarkerId}
+                      markerWidth="8"
+                      markerHeight="8"
+                      refX="0"
+                      refY="4"
+                      orient="auto"
+                      markerUnits="userSpaceOnUse"
+                    >
+                      <path d="M0,0 L8,4 L0,8 z" className="fill-muted-foreground" />
+                    </marker>
+                  </defs>
+                  {dependencyPaths.map((p) => (
+                    <path
+                      key={p.id}
+                      d={p.path}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.25}
+                      strokeOpacity={0.9}
+                      markerEnd={`url(#${depMarkerId})`}
+                    />
+                  ))}
+                  {linkDraft && linkPointer && (
+                    <line
+                      x1={linkDraft.fromX}
+                      y1={linkDraft.fromY}
+                      x2={linkPointer.x}
+                      y2={linkPointer.y}
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      strokeDasharray="4 3"
+                      strokeOpacity={0.95}
+                    />
+                  )}
+                </svg>
                 <div
                   className="pointer-events-none absolute inset-0 z-0 opacity-[0.35]"
                   style={{
@@ -223,12 +629,17 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                 {treeRows.map((row) => {
                   const eligible =
                     row.plannedStartDate && row.plannedEndDate && bounds;
-                  const startMs = eligible
-                    ? new Date(row.plannedStartDate!).getTime()
+                  const dates = resolveTaskDates(
+                    row.id,
+                    row.plannedStartDate,
+                    row.plannedEndDate,
+                  );
+                  const startMs = dates?.startMs ?? 0;
+                  const endMs = dates?.endMs ?? 0;
+                  const leftPx = eligible && dates
+                    ? dateMsToPx(startMs, bounds, GANTT_PX_PER_DAY)
                     : 0;
-                  const endMs = eligible ? new Date(row.plannedEndDate!).getTime() : 0;
-                  const leftPx = eligible ? dateMsToPx(startMs, bounds, GANTT_PX_PER_DAY) : 0;
-                  const barW = eligible
+                  const barW = eligible && dates
                     ? Math.max(
                         2,
                         dateMsToPx(endMs, bounds, GANTT_PX_PER_DAY) -
@@ -242,27 +653,26 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                       className="border-border/40 relative z-[2] shrink-0 border-b"
                       style={{ height: GANTT_ROW_PX, width: widthPx }}
                     >
-                      {eligible && (
-                        <div
-                          className="bg-primary/15 absolute top-2 bottom-2 rounded-sm"
-                          style={{
-                            left: leftPx,
-                            width: barW,
-                          }}
-                        >
-                          <div
-                            className="bg-primary/75 h-full rounded-sm"
-                            style={{ width: `${Math.min(100, row.progress)}%` }}
-                          />
-                        </div>
+                      {eligible && dates && (
+                        <ProjectGanttTaskBar
+                          taskId={row.id}
+                          leftPx={leftPx}
+                          barW={barW}
+                          progress={row.progress}
+                          canEdit={canEdit}
+                          title={row.name}
+                          showLinkPorts={canEdit}
+                          onPointerDownBar={(mode, ev) => beginTaskDrag(row, mode, ev)}
+                          onLinkOutPointerDown={(ev) => beginLinkOut(row.id, ev)}
+                        />
                       )}
                     </div>
                   );
                 })}
 
                 {sortedMilestones.map((m) => {
-                  const d = new Date(m.targetDate).getTime();
-                  const leftPx = dateMsToPx(d, bounds, GANTT_PX_PER_DAY);
+                  const tMs = resolveMilestoneDate(m.id, m.targetDate);
+                  const leftPx = dateMsToPx(tMs, bounds, GANTT_PX_PER_DAY);
                   return (
                     <div
                       key={m.id}
@@ -270,9 +680,16 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                       style={{ height: GANTT_ROW_PX, width: widthPx }}
                     >
                       <div
-                        className="bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm"
+                        className={
+                          canEdit
+                            ? 'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm hover:bg-amber-400 cursor-grab touch-none active:cursor-grabbing'
+                            : 'bg-amber-500 pointer-events-none absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm'
+                        }
                         style={{ left: leftPx }}
-                        title={`${m.name} — ${new Date(m.targetDate).toLocaleDateString('fr-FR')}`}
+                        title={`${m.name} — ${new Date(tMs).toLocaleDateString('fr-FR')}`}
+                        onPointerDown={
+                          canEdit ? (e) => beginMilestoneDrag(m, e) : undefined
+                        }
                       />
                     </div>
                   );

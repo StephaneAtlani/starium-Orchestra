@@ -2,7 +2,7 @@
 
 ## Statut
 
-Implémenté (MVP web) — frise **lecture seule** ; création / édition des tâches via le panneau gauche (mêmes hooks et API que l’onglet Tâches). **Ne pas confondre** avec [RFC-PROJ-012 — Project Sheet](RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) (fiche projet décisionnelle, autre document).
+Implémenté (web) — avec `projects.update` : **frise interactive** (déplacement et redimensionnement des barres, jalons déplaçables, **liens de dépendance** en SVG + création **Fin → début** par drag entre ports) ; création / édition des tâches via le panneau gauche (mêmes hooks et API que l’onglet Tâches). Échelle **px/jour fixe** (pas de zoom utilisateur dans cette version). **Ne pas confondre** avec [RFC-PROJ-012 — Project Sheet](RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) (fiche projet décisionnelle, autre document).
 
 ## Priorité
 
@@ -55,11 +55,11 @@ Mettre en place un **système de planification projet** permettant :
 * dates prévues et réelles
 * progression
 * endpoint Gantt
-* affichage Gantt (lecture)
+* affichage Gantt interactif (frise + grille)
 
 ## Exclus MVP
 
-* drag & drop
+* zoom temporel utilisateur (jour / semaine / mois) — prévu pour évolution
 * autoscheduling
 * multi-dépendances
 * charge / ressources
@@ -317,12 +317,13 @@ Projet
 ### Gauche
 
 * grille des tâches (hiérarchie, actions CRUD si `projects.update`) — même logique métier que l’onglet Tâches (`ProjectTaskPlanningSection`, variant `gantt-sidebar`)
-* lignes jalons en lecture seule en bas de grille (alignées avec la frise)
+* lignes jalons en bas de grille (alignées avec la frise) ; date cible éditable par drag sur la frise si `projects.update`
 
 ### Droite
 
-* frise temporelle : en-têtes mois / semaines (agrégation automatique si la plage est longue), grille au pas **jour** (échelle **px/jour fixe** en MVP, pas de zoom utilisateur)
-* barres tâches (dates planifiées début / fin), remplissage = progression
+* frise temporelle : en-têtes mois / semaines (agrégation automatique si la plage est longue), grille au pas **jour** (échelle **px/jour fixe**, pas de zoom utilisateur dans cette version)
+* barres tâches (dates planifiées début / fin), remplissage = progression ; si `projects.update` : **déplacer** la barre (translation des dates), **redimensionner** début / fin (poignées latérales)
+* **Liens** : affichage SVG des dépendances selon `dependencyType` (ancres prédécesseur / successeur) ; **création / remplacement** d’une dépendance **Fin → début** par drag du port sortie (fin de barre) vers le port entrée (début de barre cible) — les autres types restent éditables via le formulaire tâche
 * marqueurs jalons sur la date cible, ligne « aujourd’hui »
 * scroll **vertical** : une seule zone (conteneur commun grille + frise) ; scroll **horizontal** : uniquement sur la frise
 
@@ -333,7 +334,7 @@ Projet
 * tâche → barre
 * progression → remplissage
 * jalon → point
-* dépendance → lien (**hors MVP UI** : pas de traits / flèches entre tâches sur la frise)
+* dépendance → lien **tracé sur la frise** (chemin orthogonal, flèche) ; création FS par drag entre ports ; **suppression** de dépendance via formulaire tâche (pas de geste dédié sur la flèche dans cette version)
 
 ---
 
@@ -366,6 +367,7 @@ project_milestone.updated
 * dépendances
 * hiérarchie
 * calcul layout frise (bornes, largeur, positionnement px) — `gantt-timeline-layout.spec.ts`
+* géométrie des liens de dépendance — `gantt-dependency-geometry.spec.ts`
 
 ## Intégration
 
@@ -380,15 +382,19 @@ project_milestone.updated
 
 **Frontend** (`apps/web/src/features/projects/`) :
 
-* [`components/project-gantt-panel.tsx`](../../apps/web/src/features/projects/components/project-gantt-panel.tsx) — split grille gauche / frise droite, permission `projects.update` pour « Nouvelle tâche », données via `useProjectGanttQuery`
+* [`components/project-gantt-panel.tsx`](../../apps/web/src/features/projects/components/project-gantt-panel.tsx) — split grille gauche / frise droite ; `projects.update` pour « Nouvelle tâche », drag barres / jalons, calque SVG des dépendances, ligne élastique en drag de lien ; `useProjectGanttQuery`
+* [`components/project-gantt-task-bar.tsx`](../../apps/web/src/features/projects/components/project-gantt-task-bar.tsx) — barre (move / resize / ports lien)
 * [`components/project-task-planning-section.tsx`](../../apps/web/src/features/projects/components/project-task-planning-section.tsx) — formulaire et mutations partagés (`useCreateProjectTaskMutation`, `useUpdateProjectTaskMutation`, DTO identiques à l’onglet Tâches) ; variants `full-table` / `gantt-sidebar`
 * [`components/project-planning-tasks-tab.tsx`](../../apps/web/src/features/projects/components/project-planning-tasks-tab.tsx) — enveloppe mince vers `ProjectTaskPlanningSection` (`full-table`)
-* [`lib/gantt-timeline-layout.ts`](../../apps/web/src/features/projects/lib/gantt-timeline-layout.ts) — bornes temporelles, largeur px, bandeaux mois/semaines, positionnement px (base jour)
+* [`lib/gantt-timeline-layout.ts`](../../apps/web/src/features/projects/lib/gantt-timeline-layout.ts) — bornes temporelles, largeur px, bandeaux mois/semaines, positionnement px, helpers drag (`shiftTaskRangeByDays`, `resizeTaskRange`, `toPlannedDateIsoUtcNoon`, …)
 * [`lib/gantt-timeline-layout.spec.ts`](../../apps/web/src/features/projects/lib/gantt-timeline-layout.spec.ts) — tests Vitest sur le calcul de layout
+* [`lib/gantt-dependency-geometry.ts`](../../apps/web/src/features/projects/lib/gantt-dependency-geometry.ts) — chemins SVG des liens selon `dependencyType`, `buildDependencyPaths`
+* [`lib/gantt-dependency-geometry.spec.ts`](../../apps/web/src/features/projects/lib/gantt-dependency-geometry.spec.ts) — tests Vitest sur la géométrie des dépendances
+* [`hooks/use-project-planning-mutations.ts`](../../apps/web/src/features/projects/hooks/use-project-planning-mutations.ts) — option `silentToast` sur `useUpdateProjectTaskMutation` / `useUpdateProjectMilestoneMutation` pour limiter les toasts lors des gestes sur la frise (succès dédié pour le lien « Dépendance enregistrée » dans le panneau Gantt)
 
-**Backend** : inchangé par rapport à la RFC — `GET /api/projects/:projectId/gantt` et isolation client (pas de `clientId` arbitraire côté client).
+**Backend** : inchangé par rapport à la RFC — `GET /api/projects/:projectId/gantt`, `PATCH` tâche / jalon ; isolation client (pas de `clientId` arbitraire côté client). Les rejets métier (ex. cycle de dépendance) sont renvoyés par l’API et affichés via toast.
 
-**Performance (MVP)** : calculs de layout et arbres mémoïsés côté React ; virtualisation possible en phase 2 si volumétrie importante.
+**Performance** : calculs de layout, géométrie des liens et arbres mémoïsés côté React ; virtualisation possible en phase 2 si volumétrie importante.
 
 ---
 

@@ -45,6 +45,53 @@ export function dateMsToPx(
   return ((dateMs - bounds.min) / GANTT_DAY_MS) * pxPerDay;
 }
 
+/** Inverse de `dateMsToPx` : position horizontale dans la frise → timestamp. */
+export function dateMsFromPx(
+  px: number,
+  bounds: TimelineBounds,
+  pxPerDay: number,
+): number {
+  return bounds.min + (px / pxPerDay) * GANTT_DAY_MS;
+}
+
+/** Aligner un instant sur le jour civil UTC (midi) pour cohérence avec les formulaires tâche. */
+export function toPlannedDateIsoUtcNoon(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return new Date(`${y}-${m}-${day}T12:00:00.000Z`).toISOString();
+}
+
+/** Applique un décalage en jours entiers (UTC) à une paire début/fin en conservant la durée. */
+export function shiftTaskRangeByDays(
+  startMs: number,
+  endMs: number,
+  deltaDays: number,
+): { startMs: number; endMs: number } {
+  const d = deltaDays * GANTT_DAY_MS;
+  return { startMs: startMs + d, endMs: endMs + d };
+}
+
+/** Redimensionne la plage ; durée minimale un jour civil. */
+export function resizeTaskRange(
+  startMs: number,
+  endMs: number,
+  mode: 'resize-start' | 'resize-end',
+  deltaDays: number,
+): { startMs: number; endMs: number } {
+  if (mode === 'resize-start') {
+    let ns = startMs + deltaDays * GANTT_DAY_MS;
+    const maxStart = endMs - GANTT_DAY_MS;
+    if (ns > maxStart) ns = maxStart;
+    return { startMs: ns, endMs };
+  }
+  let ne = endMs + deltaDays * GANTT_DAY_MS;
+  const minEnd = startMs + GANTT_DAY_MS;
+  if (ne < minEnd) ne = minEnd;
+  return { startMs, endMs: ne };
+}
+
 export function timelineWidthPx(bounds: TimelineBounds, pxPerDay: number): number {
   const spanDays = (bounds.max - bounds.min) / GANTT_DAY_MS;
   return Math.max(GANTT_MIN_TIMELINE_PX, spanDays * pxPerDay);

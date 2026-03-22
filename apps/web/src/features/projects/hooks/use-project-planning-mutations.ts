@@ -61,13 +61,13 @@ export function useUpdateProjectTaskMutation(projectId: string) {
   return useMutation<
     ProjectTaskApi,
     ApiFormError,
-    { taskId: string; body: UpdateProjectTaskPayload }
+    { taskId: string; body: UpdateProjectTaskPayload; silentToast?: boolean }
   >({
     mutationFn: ({ taskId, body }) =>
       updateProjectTask(authFetch, projectId, taskId, body),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       invalidate();
-      toast.success('Tâche mise à jour.');
+      if (!variables.silentToast) toast.success('Tâche mise à jour.');
     },
     onError: (err) => toast.error(err.message),
   });
@@ -94,13 +94,13 @@ export function useUpdateProjectMilestoneMutation(projectId: string) {
   return useMutation<
     ProjectMilestoneApi,
     ApiFormError,
-    { milestoneId: string; body: UpdateProjectMilestonePayload }
+    { milestoneId: string; body: UpdateProjectMilestonePayload; silentToast?: boolean }
   >({
     mutationFn: ({ milestoneId, body }) =>
       updateProjectMilestone(authFetch, projectId, milestoneId, body),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       invalidate();
-      toast.success('Jalon mis à jour.');
+      if (!variables.silentToast) toast.success('Jalon mis à jour.');
     },
     onError: (err) => toast.error(err.message),
   });

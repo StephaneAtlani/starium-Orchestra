@@ -3,8 +3,11 @@ import {
   GANTT_DAY_MS,
   GANTT_PX_PER_DAY,
   computeTimelineBounds,
+  dateMsFromPx,
   dateMsToPx,
   dateRangeToTimelineLayout,
+  resizeTaskRange,
+  shiftTaskRangeByDays,
   spanDays,
   timelineWidthPx,
 } from './gantt-timeline-layout';
@@ -48,5 +51,35 @@ describe('gantt-timeline-layout', () => {
   it('spanDays cohérent avec bounds', () => {
     const b = { min: 0, max: 10 * GANTT_DAY_MS };
     expect(spanDays(b)).toBe(10);
+  });
+
+  it('dateMsFromPx et dateMsToPx sont inverses (approximation)', () => {
+    const b = computeTimelineBounds(
+      [
+        {
+          plannedStartDate: '2025-06-01T12:00:00.000Z',
+          plannedEndDate: '2025-06-10T12:00:00.000Z',
+        },
+      ],
+      [],
+    )!;
+    const px = dateMsToPx(new Date('2025-06-05T12:00:00.000Z').getTime(), b, GANTT_PX_PER_DAY);
+    const back = dateMsFromPx(px, b, GANTT_PX_PER_DAY);
+    expect(Math.abs(back - new Date('2025-06-05T12:00:00.000Z').getTime())).toBeLessThan(1);
+  });
+
+  it('shiftTaskRangeByDays conserve la durée en jours', () => {
+    const s = 1000 * GANTT_DAY_MS;
+    const e = 1005 * GANTT_DAY_MS;
+    const r = shiftTaskRangeByDays(s, e, 3);
+    expect(r.endMs - r.startMs).toBe(e - s);
+    expect(r.startMs).toBe(s + 3 * GANTT_DAY_MS);
+  });
+
+  it('resizeTaskRange impose au moins un jour', () => {
+    const s = 1000 * GANTT_DAY_MS;
+    const e = 1001 * GANTT_DAY_MS;
+    const r = resizeTaskRange(s, e, 'resize-end', -5);
+    expect(r.endMs - r.startMs).toBe(GANTT_DAY_MS);
   });
 });

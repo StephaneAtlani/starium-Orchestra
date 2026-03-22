@@ -2,7 +2,7 @@
 
 ## Statut
 
-Implémenté (backend + migration Prisma + adaptation web listes paginées). **UI Gantt** (MVP lecture seule sur la frise, détail dans [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md)) — **ne pas confondre** avec [RFC-PROJ-012 — Project Sheet](RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md).
+Implémenté (backend + migration Prisma + adaptation web listes paginées). **UI Gantt** (frise interactive : barres / jalons, liens de dépendance sur la frise — détail dans [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md)) — **ne pas confondre** avec [RFC-PROJ-012 — Project Sheet](RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md).
 
 ## Priorité
 
@@ -153,7 +153,7 @@ Un jalon :
 
 ## Exclus du MVP
 
-* moteur Gantt **avancé** (drag & drop sur la frise, liens de dépendance graphiques, zoom libre, etc.) — l’UI Gantt **minimale** est suivie dans [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), hors périmètre de code de la présente RFC
+* **code frontend** du Gantt (grille + frise, interactions) — périmètre [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), hors périmètre de la présente RFC
 * ordonnancement automatique avancé
 * moteur PERT / CPM
 * gestion multi-dépendances complexes
