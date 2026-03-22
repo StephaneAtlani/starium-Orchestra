@@ -265,7 +265,7 @@ export class UpdateProjectSheetDto {
   @Type(() => TowsActionsPatchDto)
   towsActions?: TowsActionsPatchDto;
 
-  /** Si true et transition d’arbitrage vers Validé ou Refusé, créer un snapshot par niveau concerné (voir RFC fiche décision). */
+  /** Si true et changement de statut impliquant Validé ou Refusé (y compris sortie depuis ces statuts), créer un snapshot par niveau concerné (voir RFC fiche décision). */
   @IsOptional()
   @IsBoolean()
   recordDecisionSnapshot?: boolean;

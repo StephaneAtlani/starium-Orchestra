@@ -511,6 +511,7 @@ export function ProjectSheetView({
   const [pendingArbValidation, setPendingArbValidation] = useState<{
     level: 0 | 1 | 2;
     next: ProjectArbitrationLevelStatus;
+    previousValue: ProjectArbitrationLevelStatus;
   } | null>(null);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
@@ -831,7 +832,11 @@ export function ProjectSheetView({
       applyArbitrationSelectChange(p.level, p.next);
     });
     suppressNextSheetAutosaveRef.current = true;
-    saveMutation.mutate({ recordDecisionSnapshot: true });
+    // `buildProjectSheetPayloadRef` doit refléter l’état post-flushSync ; un `mutate` synchrone
+    // lisait encore l’ancienne closure et envoyait l’ancien arbitrage au PATCH.
+    queueMicrotask(() => {
+      saveMutation.mutate({ recordDecisionSnapshot: true });
+    });
   }, [applyArbitrationSelectChange, saveMutation]);
 
   const snapshotsListQuery = useQuery({
@@ -1440,57 +1445,80 @@ export function ProjectSheetView({
                   </Select>
                   {copilDraft !== 'NOT_SET' ? (
                     <div className="mt-3 space-y-2">
-                      <Button
-                        type="button"
-                        variant="default"
-                        size="sm"
-                        className={cn(
-                          'w-full justify-between gap-2 sm:w-auto',
-                          'border-transparent shadow-sm',
-                          'bg-violet-600 text-white hover:bg-violet-700 hover:text-white',
-                          'focus-visible:border-violet-500 focus-visible:ring-violet-500/35',
-                          'dark:bg-violet-500 dark:hover:bg-violet-600',
-                        )}
-                        disabled={!canEdit}
-                        aria-expanded={copilNoteOpen}
-                        onClick={() => setCopilNoteOpen((o) => !o)}
-                      >
-                        <span className="inline-flex items-center gap-1.5">
-                          <Pencil className="size-3.5 shrink-0" aria-hidden />
-                          {copilNote.trim()
-                            ? copilNoteOpen
-                              ? 'Masquer l’annotation'
-                              : 'Voir / modifier l’annotation'
-                            : 'Ajouter une annotation'}
-                        </span>
-                        {copilNoteOpen ? (
-                          <ChevronUp className="size-4 shrink-0 text-white/90" aria-hidden />
-                        ) : (
-                          <ChevronDown className="size-4 shrink-0 text-white/90" aria-hidden />
-                        )}
-                      </Button>
-                      {copilNoteOpen ? (
-                        <div className="space-y-1.5">
-                          <Label htmlFor="copil-note" className="sr-only">
-                            Annotation COPIL
-                          </Label>
-                          <textarea
-                            id="copil-note"
-                            className={textareaClass}
-                            disabled={!canEdit}
-                            value={copilNote}
-                            onChange={(e) => setCopilNote(e.target.value)}
-                            onBlur={() => {
-                              if (!canEdit || !sheet) return;
-                              saveMutation.mutate(undefined);
-                            }}
-                            placeholder="Précisions, conditions, contexte pour la position retenue…"
-                            maxLength={4000}
-                            rows={4}
-                            aria-label="Annotation liée à la position COPIL"
-                          />
-                        </div>
-                      ) : null}
+                      {!canEdit && !copilNote.trim() ? (
+                        <p className="text-xs text-muted-foreground">Aucune annotation.</p>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            variant={canEdit ? 'default' : 'outline'}
+                            size="sm"
+                            className={cn(
+                              'w-full justify-between gap-2 sm:w-auto',
+                              canEdit &&
+                                cn(
+                                  'border-transparent shadow-sm',
+                                  'bg-violet-600 text-white hover:bg-violet-700 hover:text-white',
+                                  'focus-visible:border-violet-500 focus-visible:ring-violet-500/35',
+                                  'dark:bg-violet-500 dark:hover:bg-violet-600',
+                                ),
+                            )}
+                            disabled={copilSaveMutation.isPending}
+                            aria-expanded={copilNoteOpen}
+                            onClick={() => setCopilNoteOpen((o) => !o)}
+                          >
+                            <span className="inline-flex items-center gap-1.5">
+                              {canEdit ? <Pencil className="size-3.5 shrink-0" aria-hidden /> : null}
+                              {copilNote.trim()
+                                ? copilNoteOpen
+                                  ? 'Masquer l’annotation'
+                                  : canEdit
+                                    ? 'Voir / modifier l’annotation'
+                                    : 'Voir l’annotation'
+                                : 'Ajouter une annotation'}
+                            </span>
+                            {copilNoteOpen ? (
+                              <ChevronUp
+                                className={cn(
+                                  'size-4 shrink-0',
+                                  canEdit ? 'text-white/90' : 'text-muted-foreground',
+                                )}
+                                aria-hidden
+                              />
+                            ) : (
+                              <ChevronDown
+                                className={cn(
+                                  'size-4 shrink-0',
+                                  canEdit ? 'text-white/90' : 'text-muted-foreground',
+                                )}
+                                aria-hidden
+                              />
+                            )}
+                          </Button>
+                          {copilNoteOpen ? (
+                            <div className="space-y-1.5">
+                              <Label htmlFor="copil-note" className="sr-only">
+                                Annotation COPIL
+                              </Label>
+                              <textarea
+                                id="copil-note"
+                                className={textareaClass}
+                                disabled={!canEdit}
+                                value={copilNote}
+                                onChange={(e) => setCopilNote(e.target.value)}
+                                onBlur={() => {
+                                  if (!canEdit || !sheet) return;
+                                  saveMutation.mutate(undefined);
+                                }}
+                                placeholder="Précisions, conditions, contexte pour la position retenue…"
+                                maxLength={4000}
+                                rows={4}
+                                aria-label="Annotation liée à la position COPIL"
+                              />
+                            </div>
+                          ) : null}
+                        </>
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -1520,24 +1548,27 @@ export function ProjectSheetView({
                     3 niveaux
                   </Badge>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => {
-                    setSelectedSnapshotId(null);
-                    setHistoryDialogOpen(true);
-                  }}
-                >
-                  Voir l’historique des décisions
-                </Button>
+                {!sheetReadOnlyOverride ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => {
+                      setSelectedSnapshotId(null);
+                      setHistoryDialogOpen(true);
+                    }}
+                  >
+                    Voir l’historique des décisions
+                  </Button>
+                ) : null}
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
                 Métier → comité de projet → sponsor / CODIR. Statuts : proposition de projet, en préparation,
                 soumis à validation, validé, refusé. Le niveau suivant s’ouvre après « Validé » sur le
-                précédent. Choisir « Validé » ou « Refusé » ouvre une confirmation : en continuant, la fiche
-                est enregistrée dans l&apos;historique des décisions. Sauvegarde avec la fiche (automatique).
+                précédent. Tout changement impliquant « Validé » ou « Refusé » (y compris en sortir) ouvre une
+                confirmation : en continuant, la fiche est enregistrée dans l&apos;historique des décisions.
+                Sauvegarde avec la fiche (automatique).
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -1607,13 +1638,15 @@ export function ProjectSheetView({
                           value={value}
                           onValueChange={(v) => {
                             const next = v as ProjectArbitrationLevelStatus;
-                            const isTerminalDecision =
-                              (next === 'VALIDE' && value !== 'VALIDE') ||
-                              (next === 'REFUSE' && value !== 'REFUSE');
-                            if (isTerminalDecision) {
+                            const terminal = (s: ProjectArbitrationLevelStatus) =>
+                              s === 'VALIDE' || s === 'REFUSE';
+                            const arbitrationChangeNeedsConfirmation =
+                              next !== value && (terminal(value) || terminal(next));
+                            if (arbitrationChangeNeedsConfirmation) {
                               setPendingArbValidation({
                                 level: i as 0 | 1 | 2,
                                 next,
+                                previousValue: value,
                               });
                               setSnapshotDialogOpen(true);
                               return;
@@ -2505,8 +2538,8 @@ export function ProjectSheetView({
                 <DialogDescription>
                   <span className="block space-y-2">
                     <span className="block">
-                      Vous allez enregistrer le statut «{' '}
-                      {pendingArbValidation?.next === 'VALIDE' ? 'Validé' : 'Refusé'} » pour ce niveau
+                      Changement : « {LEVEL_STATUS_LABEL[pendingArbValidation?.previousValue ?? 'BROUILLON']} » → «{' '}
+                      {LEVEL_STATUS_LABEL[pendingArbValidation?.next ?? 'BROUILLON']} » pour ce niveau
                       d&apos;arbitrage.
                     </span>
                     <span className="block">
@@ -2543,12 +2576,12 @@ export function ProjectSheetView({
               }
             }}
           >
-            <DialogContent className="max-h-[min(90vh,720px)] overflow-hidden sm:max-w-lg">
+            <DialogContent className="max-h-[min(90vh,720px)] w-[75vw] max-w-[75vw] overflow-hidden sm:max-w-[75vw]">
               <DialogHeader>
                 <DialogTitle>Historique des décisions</DialogTitle>
                 <DialogDescription>
-                  Snapshots de la fiche au moment où un niveau d&apos;arbitrage passe à « Validé » ou « Refusé
-                  ». Sélectionnez une entrée pour ouvrir la fiche complète en lecture seule.
+                  Snapshots lors d&apos;un changement de statut impliquant « Validé » ou « Refusé » (entrée ou
+                  sortie). Sélectionnez une entrée pour ouvrir la fiche complète en lecture seule.
                 </DialogDescription>
               </DialogHeader>
               <div className="max-h-[min(60vh,480px)] space-y-2 overflow-y-auto">
@@ -2598,7 +2631,7 @@ export function ProjectSheetView({
               }
             }}
           >
-            <DialogContent className="flex max-h-[92vh] max-w-[min(100vw-2rem,56rem)] flex-col gap-0 overflow-hidden p-0">
+            <DialogContent className="flex max-h-[92vh] w-[75vw] max-w-[75vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[75vw]">
               <DialogHeader className="shrink-0 space-y-1 border-b border-border/60 px-6 py-4">
                 <DialogTitle>Fiche projet — version historisée</DialogTitle>
                 <DialogDescription>

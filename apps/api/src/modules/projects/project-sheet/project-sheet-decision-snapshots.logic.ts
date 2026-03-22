@@ -1,21 +1,21 @@
 import type { Project, ProjectSheetDecisionLevel } from '@prisma/client';
 
 /**
- * Indique si un niveau passe à une décision terminale (Validé ou Refusé).
+ * Snapshot si le statut du niveau change et qu’au moins l’ancien ou le nouveau est Validé / Refusé
+ * (arrivée sur une décision terminale, sortie, ou bascule Validé ↔ Refusé).
  */
-function isNewTerminalDecision(
+function isLevelSnapshotWorthy(
   before: Project['arbitrationMetierStatus'] | null | undefined,
   after: Project['arbitrationMetierStatus'] | null | undefined,
 ): boolean {
-  if (after == null) return false;
-  const toValide = before !== 'VALIDE' && after === 'VALIDE';
-  const toRefuse = before !== 'REFUSE' && after === 'REFUSE';
-  return toValide || toRefuse;
+  if (before === after) return false;
+  const terminal = (s: typeof before) => s === 'VALIDE' || s === 'REFUSE';
+  return Boolean(terminal(before) || terminal(after));
 }
 
 /**
- * Détecte les niveaux dont le statut passe à VALIDE ou REFUSE (état persisté avant vs après PATCH).
- * Un snapshot est créé par niveau ainsi « décidé » dans le même PATCH.
+ * Détecte les niveaux dont le statut d’arbitrage change avec implication Validé/Refusé (état avant vs après PATCH).
+ * Un snapshot est créé par niveau concerné dans le même PATCH.
  */
 export function detectArbitrationTransitionsForSnapshot(
   before: Pick<
@@ -28,17 +28,17 @@ export function detectArbitrationTransitionsForSnapshot(
   >,
 ): ProjectSheetDecisionLevel[] {
   const out: ProjectSheetDecisionLevel[] = [];
-  if (isNewTerminalDecision(before.arbitrationMetierStatus, after.arbitrationMetierStatus)) {
+  if (isLevelSnapshotWorthy(before.arbitrationMetierStatus, after.arbitrationMetierStatus)) {
     out.push('METIER');
   }
   const cBefore = before.arbitrationComiteStatus ?? null;
   const cAfter = after.arbitrationComiteStatus ?? null;
-  if (isNewTerminalDecision(cBefore, cAfter)) {
+  if (isLevelSnapshotWorthy(cBefore, cAfter)) {
     out.push('COMITE');
   }
   const dBefore = before.arbitrationCodirStatus ?? null;
   const dAfter = after.arbitrationCodirStatus ?? null;
-  if (isNewTerminalDecision(dBefore, dAfter)) {
+  if (isLevelSnapshotWorthy(dBefore, dAfter)) {
     out.push('CODIR');
   }
   return out;

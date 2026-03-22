@@ -70,6 +70,40 @@ describe('detectArbitrationTransitionsForSnapshot', () => {
     ).toEqual([]);
   });
 
+  it('retourne METIER quand métier quitte VALIDE vers un autre statut', () => {
+    expect(
+      detectArbitrationTransitionsForSnapshot(
+        {
+          arbitrationMetierStatus: ProjectArbitrationLevelStatus.VALIDE,
+          arbitrationComiteStatus: null,
+          arbitrationCodirStatus: null,
+        },
+        {
+          arbitrationMetierStatus: ProjectArbitrationLevelStatus.EN_COURS,
+          arbitrationComiteStatus: null,
+          arbitrationCodirStatus: null,
+        },
+      ),
+    ).toEqual(['METIER']);
+  });
+
+  it('ne retourne rien si passage EN_COURS → SOUMIS_VALIDATION (sans Validé/Refusé)', () => {
+    expect(
+      detectArbitrationTransitionsForSnapshot(
+        {
+          arbitrationMetierStatus: ProjectArbitrationLevelStatus.EN_COURS,
+          arbitrationComiteStatus: null,
+          arbitrationCodirStatus: null,
+        },
+        {
+          arbitrationMetierStatus: ProjectArbitrationLevelStatus.SOUMIS_VALIDATION,
+          arbitrationComiteStatus: null,
+          arbitrationCodirStatus: null,
+        },
+      ),
+    ).toEqual([]);
+  });
+
   it('retourne METIER, COMITE, CODIR si les trois passent à VALIDE dans le même état', () => {
     expect(
       detectArbitrationTransitionsForSnapshot(

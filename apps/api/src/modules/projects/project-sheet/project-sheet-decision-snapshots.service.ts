@@ -34,7 +34,8 @@ export class ProjectSheetDecisionSnapshotsService {
   ) {}
 
   /**
-   * Après mise à jour réussie du projet : si demandé et passage à Validé ou Refusé, un snapshot par niveau concerné.
+   * Après mise à jour réussie du projet : si demandé et changement d’arbitrage impliquant Validé/Refusé
+   * (entrée ou sortie), un snapshot par niveau concerné.
    */
   async createSnapshotsAfterSheetUpdateIfNeeded(
     existing: Project,
