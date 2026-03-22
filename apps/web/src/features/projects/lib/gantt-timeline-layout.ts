@@ -1,8 +1,22 @@
 /** Constantes MVP : échelle fixe (pas de zoom utilisateur). */
 export const GANTT_ROW_PX = 36;
 export const GANTT_DAY_MS = 86_400_000;
+/** Densité par défaut (vue jour). */
 export const GANTT_PX_PER_DAY = 4;
 export const GANTT_MIN_TIMELINE_PX = 640;
+
+/** Échelle temporelle de la frise (densité horizontale). */
+export type GanttTimelineScale = 'day' | 'week' | 'month';
+
+/** Pixels par jour selon l’échelle (zoom lecture / édition). */
+export const GANTT_PX_PER_DAY_BY_SCALE: Record<GanttTimelineScale, number> = {
+  /** Détail jour — aligné avec l’ancien MVP. */
+  day: 4,
+  /** Vue semaine — plus compact. */
+  week: 1.35,
+  /** Vue mois — panorama. */
+  month: 0.42,
+};
 
 /** Au-delà de ce nombre de jours, les en-têtes passent en libellés semaine/mois plus compacts. */
 export const GANTT_READABILITY_DAY_THRESHOLD = 90;

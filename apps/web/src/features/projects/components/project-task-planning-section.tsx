@@ -263,6 +263,43 @@ function milestoneFormFromApi(m: ProjectMilestoneApi): CreateProjectMilestonePay
   };
 }
 
+/** Après édition d’un champ date dans la grille Gantt : cohérence début/fin (API : fin ≥ début). */
+function mergePlannedDatesAfterEdit(
+  row: Pick<ProjectTaskApi, 'plannedStartDate' | 'plannedEndDate'>,
+  field: 'plannedStartDate' | 'plannedEndDate',
+  raw: string,
+): UpdateProjectTaskPayload {
+  const hasValue = raw.trim().length > 0;
+  const iso = hasValue ? dateInputToIso(raw) : undefined;
+
+  let nextStart =
+    field === 'plannedStartDate' ? (iso ?? null) : (row.plannedStartDate ?? null);
+  let nextEnd =
+    field === 'plannedEndDate' ? (iso ?? null) : (row.plannedEndDate ?? null);
+
+  if (field === 'plannedStartDate' && !hasValue) nextStart = null;
+  if (field === 'plannedEndDate' && !hasValue) nextEnd = null;
+
+  if (!nextStart && !nextEnd) {
+    return { plannedStartDate: null, plannedEndDate: null };
+  }
+  if (nextStart && !nextEnd) nextEnd = nextStart;
+  if (!nextStart && nextEnd) nextStart = nextEnd;
+
+  if (nextStart && nextEnd && new Date(nextEnd) < new Date(nextStart)) {
+    if (field === 'plannedStartDate') nextEnd = nextStart;
+    else nextStart = nextEnd;
+  }
+
+  return {
+    plannedStartDate: nextStart ?? undefined,
+    plannedEndDate: nextEnd ?? undefined,
+  };
+}
+
+const ganttDateInputClass =
+  'h-7 max-w-[7rem] min-w-0 px-1.5 py-0 text-[11px] leading-tight shadow-none';
+
 export type ProjectTaskPlanningSectionProps = {
   projectId: string;
   variant: 'full-table' | 'gantt-sidebar';
@@ -270,6 +307,8 @@ export type ProjectTaskPlanningSectionProps = {
   milestoneRows?: { id: string; name: string }[];
   /** Masque la barre « Nouvelle tâche » (ex. Gantt : bouton hors zone scroll via ref). */
   hideToolbar?: boolean;
+  /** Filtre statut des lignes tâches (Gantt uniquement), aligné avec la frise. */
+  ganttTaskStatusFilter?: 'all' | string;
 };
 
 export type ProjectTaskPlanningSectionHandle = {
@@ -280,7 +319,13 @@ export const ProjectTaskPlanningSection = forwardRef<
   ProjectTaskPlanningSectionHandle,
   ProjectTaskPlanningSectionProps
 >(function ProjectTaskPlanningSection(
-  { projectId, variant, milestoneRows = [], hideToolbar = false },
+  {
+    projectId,
+    variant,
+    milestoneRows = [],
+    hideToolbar = false,
+    ganttTaskStatusFilter = 'all',
+  },
   ref,
 ) {
   const { has } = usePermissions();
@@ -320,6 +365,11 @@ export const ProjectTaskPlanningSection = forwardRef<
     }));
     return buildProjectTaskTreeRows(sources);
   }, [items]);
+
+  const ganttTreeRows = useMemo(() => {
+    if (!isGanttVariant || ganttTaskStatusFilter === 'all') return treeRows;
+    return treeRows.filter((r) => r.status === ganttTaskStatusFilter);
+  }, [treeRows, isGanttVariant, ganttTaskStatusFilter]);
 
   const assignableOptions = useMemo(
     () =>
@@ -443,8 +493,9 @@ export const ProjectTaskPlanningSection = forwardRef<
             </p>
           )}
           {isGantt && (
-            <p className="text-muted-foreground max-w-[min(100%,20rem)] text-xs leading-snug">
-              Création et édition des tâches — alignées avec la frise à droite.
+            <p className="text-muted-foreground max-w-[min(100%,22rem)] text-xs leading-snug">
+              Planification : dates modifiables ici (début / fin) et sur la frise ; jalons : date
+              cible et statut.
             </p>
           )}
           {canEdit && !hideToolbar && (
@@ -459,16 +510,17 @@ export const ProjectTaskPlanningSection = forwardRef<
         <LoadingState rows={isGantt ? 3 : 4} />
       ) : tasksQuery.isError ? (
         <p className="text-destructive text-sm">Impossible de charger les tâches.</p>
-      ) : treeRows.length === 0 && milestoneRows.length === 0 ? (
+      ) : ganttTreeRows.length === 0 && milestoneRows.length === 0 ? (
         <p className="text-muted-foreground py-4 text-center text-sm">Aucune tâche.</p>
       ) : (
         <div
           className={cn(
             !isGantt && 'max-h-[min(70vh,560px)] overflow-auto rounded-lg border border-border/60',
-            isGantt && 'min-h-0 w-full overflow-visible',
+            isGantt &&
+              'bg-card/40 min-h-0 w-full overflow-auto rounded-lg border border-border/60',
           )}
         >
-          <Table className={isGantt ? 'text-xs' : undefined}>
+          <Table className={isGantt ? 'text-xs [&_input[type=date]]:cursor-text' : undefined}>
             <TableHeader
               className={isGantt ? 'bg-muted/30 sticky top-0 z-10 [&_tr]:border-border/60' : undefined}
             >
@@ -480,20 +532,26 @@ export const ProjectTaskPlanningSection = forwardRef<
                       className="text-muted-foreground py-1.5 text-[10px] font-medium uppercase tracking-wide"
                       style={{ height: GANTT_ROW_PX }}
                     >
-                      Grille tâches
+                      Planification
                     </TableHead>
                   </TableRow>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
-                      Tâche
+                    <TableHead className="min-w-[5rem] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
+                      Tâche / jalon
                     </TableHead>
-                    <TableHead className="w-[4.5rem] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
+                    <TableHead
+                      className="w-[7rem] min-w-[6.5rem] py-1.5 text-xs"
+                      style={{ height: GANTT_ROW_PX }}
+                    >
                       Début
                     </TableHead>
-                    <TableHead className="w-[4.5rem] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
-                      Fin
+                    <TableHead
+                      className="w-[7rem] min-w-[6.5rem] py-1.5 text-xs"
+                      style={{ height: GANTT_ROW_PX }}
+                    >
+                      Fin / cible
                     </TableHead>
-                    <TableHead className="w-[5rem] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
+                    <TableHead className="min-w-[4.5rem] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
                       Statut
                     </TableHead>
                     {canEdit && (
@@ -516,7 +574,7 @@ export const ProjectTaskPlanningSection = forwardRef<
               )}
             </TableHeader>
             <TableBody>
-              {treeRows.map((row) => {
+              {(isGantt ? ganttTreeRows : treeRows).map((row) => {
                 const pred = row.dependsOnTaskId
                   ? byId.get(row.dependsOnTaskId)
                   : undefined;
@@ -528,34 +586,111 @@ export const ProjectTaskPlanningSection = forwardRef<
                       style={{ height: GANTT_ROW_PX }}
                     >
                       <TableCell className="py-1 align-middle">
-                        <span
-                          style={{ paddingLeft: `${row.depth * 10}px` }}
-                          className="inline-block max-w-[10rem] truncate"
-                          title={row.name}
-                        >
-                          {row.name}
-                        </span>
+                        {canEdit ? (
+                          <button
+                            type="button"
+                            className="hover:text-primary inline-block max-w-[11rem] cursor-pointer truncate text-left"
+                            style={{ paddingLeft: `${row.depth * 10}px` }}
+                            title={`${row.name} — ouvrir la fiche`}
+                            onClick={() => openEdit(row)}
+                          >
+                            {row.name}
+                          </button>
+                        ) : (
+                          <span
+                            style={{ paddingLeft: `${row.depth * 10}px` }}
+                            className="inline-block max-w-[11rem] truncate"
+                            title={row.name}
+                          >
+                            {row.name}
+                          </span>
+                        )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground py-1 align-middle tabular-nums">
-                        {row.plannedStartDate
-                          ? new Date(row.plannedStartDate).toLocaleDateString('fr-FR', {
-                              day: '2-digit',
-                              month: '2-digit',
-                            })
-                          : '—'}
+                      <TableCell className="py-0.5 align-middle">
+                        {canEdit ? (
+                          <Input
+                            type="date"
+                            className={cn(ganttDateInputClass, 'bg-background/80')}
+                            value={isoToDateInput(row.plannedStartDate)}
+                            onChange={(e) => {
+                              const body = mergePlannedDatesAfterEdit(
+                                row,
+                                'plannedStartDate',
+                                e.target.value,
+                              );
+                              updateMut.mutate({
+                                taskId: row.id,
+                                body,
+                                silentToast: true,
+                              });
+                            }}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground tabular-nums">
+                            {row.plannedStartDate
+                              ? new Date(row.plannedStartDate).toLocaleDateString('fr-FR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                })
+                              : '—'}
+                          </span>
+                        )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground py-1 align-middle tabular-nums">
-                        {row.plannedEndDate
-                          ? new Date(row.plannedEndDate).toLocaleDateString('fr-FR', {
-                              day: '2-digit',
-                              month: '2-digit',
-                            })
-                          : '—'}
+                      <TableCell className="py-0.5 align-middle">
+                        {canEdit ? (
+                          <Input
+                            type="date"
+                            className={cn(ganttDateInputClass, 'bg-background/80')}
+                            value={isoToDateInput(row.plannedEndDate)}
+                            onChange={(e) => {
+                              const body = mergePlannedDatesAfterEdit(
+                                row,
+                                'plannedEndDate',
+                                e.target.value,
+                              );
+                              updateMut.mutate({
+                                taskId: row.id,
+                                body,
+                                silentToast: true,
+                              });
+                            }}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground tabular-nums">
+                            {row.plannedEndDate
+                              ? new Date(row.plannedEndDate).toLocaleDateString('fr-FR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                })
+                              : '—'}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="py-1 align-middle">
-                        <span className="truncate" title={TASK_STATUS_LABEL[row.status]}>
-                          {TASK_STATUS_LABEL[row.status] ?? row.status}
-                        </span>
+                        {canEdit ? (
+                          <select
+                            className="border-input bg-background h-7 max-w-[5.75rem] rounded-md border px-1 text-[10px] leading-tight"
+                            value={row.status}
+                            title={TASK_STATUS_LABEL[row.status]}
+                            onChange={(e) => {
+                              updateMut.mutate({
+                                taskId: row.id,
+                                body: { status: e.target.value as ProjectTaskApi['status'] },
+                                silentToast: true,
+                              });
+                            }}
+                          >
+                            {Object.keys(TASK_STATUS_LABEL).map((k) => (
+                              <option key={k} value={k}>
+                                {TASK_STATUS_LABEL[k]}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="truncate" title={TASK_STATUS_LABEL[row.status]}>
+                            {TASK_STATUS_LABEL[row.status] ?? row.status}
+                          </span>
+                        )}
                       </TableCell>
                       {canEdit && (
                         <TableCell className="py-1 align-middle">
@@ -566,7 +701,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                             className="h-7 px-1.5 text-[11px]"
                             onClick={() => openEdit(row)}
                           >
-                            Modifier
+                            Fiche
                           </Button>
                         </TableCell>
                       )}
@@ -610,23 +745,119 @@ export const ProjectTaskPlanningSection = forwardRef<
                 );
               })}
               {isGantt &&
-                milestoneRows.map((m) => (
-                  <TableRow
-                    key={`ms-${m.id}`}
-                    className={cn(
-                      'bg-muted/10 text-muted-foreground italic',
-                      canEdit && 'cursor-pointer hover:bg-muted/25',
-                    )}
-                    style={{ height: GANTT_ROW_PX }}
-                    onClick={canEdit ? () => openMilestoneEdit(m.id) : undefined}
-                  >
-                    <TableCell className="py-1 align-middle" colSpan={canEdit ? 5 : 4}>
-                      <span className="truncate" title={m.name}>
-                        ◆ {m.name}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                milestoneRows.map((m) => {
+                  const ms = milestoneItems.find((x) => x.id === m.id);
+                  return (
+                    <TableRow
+                      key={`ms-${m.id}`}
+                      className="bg-amber-500/5 text-muted-foreground"
+                      style={{ height: GANTT_ROW_PX }}
+                    >
+                      <TableCell className="py-1 align-middle">
+                        {canEdit && ms ? (
+                          <button
+                            type="button"
+                            className="hover:text-primary inline-flex max-w-[11rem] cursor-pointer items-center gap-1 truncate text-left italic"
+                            title={`${m.name} — ouvrir la fiche jalon`}
+                            onClick={() => openMilestoneEdit(ms.id)}
+                          >
+                            <span className="text-amber-600 dark:text-amber-500" aria-hidden>
+                              ◆
+                            </span>
+                            <span>{m.name}</span>
+                          </button>
+                        ) : (
+                          <span
+                            className="inline-flex max-w-[11rem] items-center gap-1 truncate italic"
+                            title={m.name}
+                          >
+                            <span className="text-amber-600 dark:text-amber-500" aria-hidden>
+                              ◆
+                            </span>
+                            <span>{m.name}</span>
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground/70 py-1 align-middle text-[10px]">
+                        —
+                      </TableCell>
+                      <TableCell className="py-0.5 align-middle">
+                        {ms && canEdit ? (
+                          <Input
+                            type="date"
+                            required
+                            className={cn(ganttDateInputClass, 'bg-background/80')}
+                            value={isoToDateInput(ms.targetDate)}
+                            onChange={(e) => {
+                              const v = e.target.value.trim();
+                              if (!v) return;
+                              const iso = dateInputToIso(v);
+                              if (!iso) return;
+                              updateMilestoneMut.mutate({
+                                milestoneId: ms.id,
+                                body: { targetDate: iso },
+                                silentToast: true,
+                              });
+                            }}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground tabular-nums italic">
+                            {ms
+                              ? new Date(ms.targetDate).toLocaleDateString('fr-FR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                })
+                              : milestonesQuery.isLoading
+                                ? '…'
+                                : '—'}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-1 align-middle">
+                        {ms && canEdit ? (
+                          <select
+                            className="border-input bg-background h-7 max-w-[5.75rem] rounded-md border px-1 text-[10px] leading-tight italic"
+                            value={ms.status}
+                            title={MILESTONE_STATUS_LABEL[ms.status]}
+                            onChange={(e) => {
+                              updateMilestoneMut.mutate({
+                                milestoneId: ms.id,
+                                body: {
+                                  status: e.target.value as ProjectMilestoneApi['status'],
+                                },
+                                silentToast: true,
+                              });
+                            }}
+                          >
+                            {Object.keys(MILESTONE_STATUS_LABEL).map((k) => (
+                              <option key={k} value={k}>
+                                {MILESTONE_STATUS_LABEL[k]}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="truncate italic">
+                            {ms ? (MILESTONE_STATUS_LABEL[ms.status] ?? ms.status) : '—'}
+                          </span>
+                        )}
+                      </TableCell>
+                      {canEdit && (
+                        <TableCell className="py-1 align-middle">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-1.5 text-[11px]"
+                            disabled={!ms}
+                            onClick={() => ms && openMilestoneEdit(ms.id)}
+                          >
+                            Fiche
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
             </TableBody>
           </Table>
         </div>

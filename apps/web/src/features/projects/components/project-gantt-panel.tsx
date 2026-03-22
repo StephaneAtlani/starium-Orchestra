@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useId, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/feedback/loading-state';
@@ -18,7 +25,7 @@ import {
 import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
 import {
   GANTT_DAY_MS,
-  GANTT_PX_PER_DAY,
+  GANTT_PX_PER_DAY_BY_SCALE,
   GANTT_ROW_PX,
   computeTimelineBounds,
   dateMsToPx,
@@ -26,8 +33,11 @@ import {
   resizeTaskRange,
   shiftTaskRangeByDays,
   toPlannedDateIsoUtcNoon,
+  type GanttTimelineScale,
   type TimelineBounds,
 } from '../lib/gantt-timeline-layout';
+import { TASK_STATUS_LABEL } from '../constants/project-enum-labels';
+import { cn } from '@/lib/utils';
 import {
   ProjectTaskPlanningSection,
   type ProjectTaskPlanningSectionHandle,
@@ -87,6 +97,12 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const [preview, setPreview] = useState<PreviewState>(null);
   const [linkDraft, setLinkDraft] = useState<LinkDraftRef | null>(null);
   const [linkPointer, setLinkPointer] = useState<{ x: number; y: number } | null>(null);
+  const [timelineScale, setTimelineScale] = useState<GanttTimelineScale>('day');
+  const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | string>('all');
+  const [showMilestones, setShowMilestones] = useState(true);
+  const [timelineViewportW, setTimelineViewportW] = useState(0);
+
+  const pxPerDay = GANTT_PX_PER_DAY_BY_SCALE[timelineScale];
 
   const updateTask = useUpdateProjectTaskMutation(projectId);
   const updateMilestone = useUpdateProjectMilestoneMutation(projectId);
@@ -111,6 +127,11 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     return buildProjectTaskTreeRows(sources);
   }, [payload?.tasks]);
 
+  const displayTreeRows = useMemo(() => {
+    if (taskStatusFilter === 'all') return treeRows;
+    return treeRows.filter((r) => r.status === taskStatusFilter);
+  }, [treeRows, taskStatusFilter]);
+
   const unplannedCount = useMemo(() => {
     if (!payload?.tasks) return 0;
     return payload.tasks.filter(
@@ -125,8 +146,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
 
   const layout = useMemo(() => {
     if (!bounds) return null;
-    return dateRangeToTimelineLayout(bounds, GANTT_PX_PER_DAY);
-  }, [bounds]);
+    return dateRangeToTimelineLayout(bounds, pxPerDay);
+  }, [bounds, pxPerDay]);
 
   const sortedMilestones = useMemo(() => {
     const m = payload?.milestones ?? [];
@@ -137,9 +158,14 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     );
   }, [payload?.milestones]);
 
+  const visibleMilestones = useMemo(
+    () => (showMilestones ? sortedMilestones : []),
+    [sortedMilestones, showMilestones],
+  );
+
   const milestoneSidebarRows = useMemo(
-    () => sortedMilestones.map((m) => ({ id: m.id, name: m.name })),
-    [sortedMilestones],
+    () => visibleMilestones.map((m) => ({ id: m.id, name: m.name })),
+    [visibleMilestones],
   );
 
   const resolveTaskDates = useCallback(
@@ -174,7 +200,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
 
   const taskRowGeoms = useMemo((): GanttTaskRowGeom[] => {
     if (!bounds) return [];
-    return treeRows
+    return displayTreeRows
       .map((row, rowIndex) => {
         const dates = resolveTaskDates(
           row.id,
@@ -182,10 +208,10 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           row.plannedEndDate,
         );
         if (!dates) return null;
-        const leftPx = dateMsToPx(dates.startMs, bounds, GANTT_PX_PER_DAY);
+        const leftPx = dateMsToPx(dates.startMs, bounds, pxPerDay);
         const barW = Math.max(
           2,
-          dateMsToPx(dates.endMs, bounds, GANTT_PX_PER_DAY) - leftPx,
+          dateMsToPx(dates.endMs, bounds, pxPerDay) - leftPx,
         );
         return {
           taskId: row.id,
@@ -199,7 +225,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         } satisfies GanttTaskRowGeom;
       })
       .filter((r): r is GanttTaskRowGeom => r !== null);
-  }, [treeRows, bounds, resolveTaskDates]);
+  }, [displayTreeRows, bounds, resolveTaskDates, pxPerDay]);
 
   const dependencyPaths = useMemo(
     () => buildDependencyPaths(taskRowGeoms, GANTT_ROW_PX),
@@ -207,12 +233,12 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   );
 
   const timelineBodyHeightPx =
-    (treeRows.length + sortedMilestones.length) * GANTT_ROW_PX;
+    (displayTreeRows.length + visibleMilestones.length) * GANTT_ROW_PX;
 
   const beginLinkOut = useCallback(
     (fromTaskId: string, e: React.PointerEvent) => {
       if (!canEdit || !bounds) return;
-      const row = treeRows.find((r) => r.id === fromTaskId);
+      const row = displayTreeRows.find((r) => r.id === fromTaskId);
       if (!row) return;
       const dates = resolveTaskDates(
         row.id,
@@ -220,8 +246,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         row.plannedEndDate,
       );
       if (!dates) return;
-      const rowIndex = treeRows.findIndex((r) => r.id === fromTaskId);
-      const fromX = dateMsToPx(dates.endMs, bounds, GANTT_PX_PER_DAY);
+      const rowIndex = displayTreeRows.findIndex((r) => r.id === fromTaskId);
+      const fromX = dateMsToPx(dates.endMs, bounds, pxPerDay);
       const fromY = rowCenterY(rowIndex, GANTT_ROW_PX);
       const draft: LinkDraftRef = { fromTaskId, fromX, fromY };
       linkDraftRef.current = draft;
@@ -277,12 +303,12 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
     },
-    [canEdit, bounds, treeRows, resolveTaskDates, updateTask],
+    [canEdit, bounds, displayTreeRows, resolveTaskDates, updateTask, pxPerDay],
   );
 
   const beginTaskDrag = useCallback(
     (
-      row: (typeof treeRows)[number],
+      row: (typeof displayTreeRows)[number],
       mode: BarMode,
       e: React.PointerEvent,
     ) => {
@@ -319,7 +345,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           d.anchorClientX,
           d.anchorScrollLeft,
         );
-        const deltaDays = Math.round(deltaPx / GANTT_PX_PER_DAY);
+        const deltaDays = Math.round(deltaPx / pxPerDay);
         if (d.mode === 'move') {
           return shiftTaskRangeByDays(d.originStartMs, d.originEndMs, deltaDays);
         }
@@ -369,11 +395,11 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
     },
-    [canEdit, updateTask],
+    [canEdit, updateTask, pxPerDay],
   );
 
   const beginMilestoneDrag = useCallback(
-    (milestone: (typeof sortedMilestones)[number], e: React.PointerEvent) => {
+    (milestone: (typeof visibleMilestones)[number], e: React.PointerEvent) => {
       if (!canEdit) return;
       const scrollEl = timelineScrollRef.current;
       if (!scrollEl) return;
@@ -398,7 +424,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           d.anchorClientX,
           d.anchorScrollLeft,
         );
-        const deltaDays = Math.round(deltaPx / GANTT_PX_PER_DAY);
+        const deltaDays = Math.round(deltaPx / pxPerDay);
         return d.originTargetMs + deltaDays * GANTT_DAY_MS;
       };
 
@@ -428,8 +454,23 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
     },
-    [canEdit, updateMilestone],
+    [canEdit, updateMilestone, pxPerDay],
   );
+
+  /** Largeur utile de la zone frise : au minimum la zone scrollable visible (évite un bandeau mois/semaines coincé à 640px). */
+  useLayoutEffect(() => {
+    const el = timelineScrollRef.current;
+    if (!el) {
+      setTimelineViewportW(0);
+      return;
+    }
+    const ro = new ResizeObserver(() => {
+      setTimelineViewportW(el.clientWidth);
+    });
+    ro.observe(el);
+    setTimelineViewportW(el.clientWidth);
+    return () => ro.disconnect();
+  }, [layout]);
 
   if (ganttQuery.isLoading) {
     return <LoadingState rows={6} />;
@@ -441,17 +482,74 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     );
   }
 
+  const scaleLabels: Record<GanttTimelineScale, string> = {
+    day: 'Jour',
+    week: 'Semaine',
+    month: 'Mois',
+  };
+
   const toolbar = (
-    <div className="bg-muted/30 flex h-9 shrink-0 items-center justify-end border-b border-border/60 px-3">
-      {canEdit && (
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => planningRef.current?.openCreate()}
-        >
-          Nouvelle tâche
-        </Button>
-      )}
+    <div className="bg-muted/30 flex min-h-10 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/60 px-3 py-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground shrink-0">Échelle</span>
+          <div className="bg-background/80 inline-flex rounded-md border p-0.5 shadow-sm">
+            {(['day', 'week', 'month'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={cn(
+                  'rounded px-2.5 py-1 text-[11px] font-medium transition-colors',
+                  timelineScale === s
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
+                )}
+                onClick={() => setTimelineScale(s)}
+              >
+                {scaleLabels[s]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground shrink-0">État</span>
+          <select
+            className="border-input bg-background h-8 max-w-[9rem] rounded-md border px-2 text-[11px]"
+            value={taskStatusFilter}
+            onChange={(e) => setTaskStatusFilter(e.target.value)}
+          >
+            <option value="all">Tous</option>
+            {Object.keys(TASK_STATUS_LABEL).map((k) => (
+              <option key={k} value={k}>
+                {TASK_STATUS_LABEL[k]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            className="border-input size-3.5 rounded"
+            checked={showMilestones}
+            onChange={(e) => setShowMilestones(e.target.checked)}
+          />
+          <span className="text-muted-foreground">Jalons</span>
+        </label>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-muted-foreground hidden text-[10px] sm:inline">
+          {pxPerDay.toFixed(2)} px/j · mois + semaines en tête
+        </span>
+        {canEdit && (
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => planningRef.current?.openCreate()}
+          >
+            Nouvelle tâche
+          </Button>
+        )}
+      </div>
     </div>
   );
 
@@ -475,6 +573,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
               variant="gantt-sidebar"
               hideToolbar
               milestoneRows={milestoneSidebarRows}
+              ganttTaskStatusFilter={taskStatusFilter}
             />
           </div>
         </div>
@@ -483,6 +582,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   }
 
   const { widthPx, monthBands, weekBands, todayPx } = layout;
+  const friseWidthPx = Math.max(widthPx, timelineViewportW || 0);
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -499,12 +599,6 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         </Alert>
       )}
 
-      <p className="text-muted-foreground text-xs">
-        {canEdit
-          ? `Frise interactive — ${GANTT_PX_PER_DAY}px/j : barres et jalons déplaçables ; poignées latérales pour les dates ; ports lien (centre gauche/droite) pour tirer une dépendance Fin → début.`
-          : `Échelle fixe ${GANTT_PX_PER_DAY}px/j (lecture seule).`}
-      </p>
-
       <div className="border-border/60 flex min-h-[min(85vh,900px)] min-w-0 flex-col overflow-hidden rounded-lg border">
         {toolbar}
         <div
@@ -518,6 +612,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
               variant="gantt-sidebar"
               hideToolbar
               milestoneRows={milestoneSidebarRows}
+              ganttTaskStatusFilter={taskStatusFilter}
             />
           </div>
 
@@ -526,16 +621,16 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
             className="bg-muted/5 min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-visible"
           >
             <div
-              className="relative flex flex-col"
-              style={{ width: widthPx, minWidth: widthPx }}
+              className="relative flex min-w-full flex-col"
+              style={{ width: friseWidthPx, minWidth: friseWidthPx }}
             >
               <div
                 className="border-border/40 bg-muted/30 sticky top-0 z-20 border-b"
-                style={{ width: widthPx }}
+                style={{ width: friseWidthPx }}
               >
                 <div
                   className="border-border/40 relative border-b"
-                  style={{ height: GANTT_ROW_PX, width: widthPx }}
+                  style={{ height: GANTT_ROW_PX, width: friseWidthPx }}
                 >
                   {monthBands.map((b, i) => (
                     <div
@@ -547,7 +642,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     </div>
                   ))}
                 </div>
-                <div className="relative" style={{ height: GANTT_ROW_PX, width: widthPx }}>
+                <div className="relative" style={{ height: GANTT_ROW_PX, width: friseWidthPx }}>
                   {weekBands.map((b, i) => (
                     <div
                       key={`w-${i}-${b.label}-${b.leftPx}`}
@@ -563,7 +658,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
               <div
                 ref={timelineBodyRef}
                 className="relative"
-                style={{ width: widthPx, minHeight: timelineBodyHeightPx }}
+                style={{ width: friseWidthPx, minHeight: timelineBodyHeightPx }}
               >
                 <svg
                   className="text-muted-foreground pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible"
@@ -612,11 +707,11 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     backgroundImage: `repeating-linear-gradient(
                       to right,
                       transparent,
-                      transparent ${GANTT_PX_PER_DAY - 1}px,
-                      hsl(var(--border) / 0.4) ${GANTT_PX_PER_DAY - 1}px,
-                      hsl(var(--border) / 0.4) ${GANTT_PX_PER_DAY}px
+                      transparent ${Math.max(0, pxPerDay - 1)}px,
+                      hsl(var(--border) / 0.4) ${Math.max(0, pxPerDay - 1)}px,
+                      hsl(var(--border) / 0.4) ${pxPerDay}px
                     )`,
-                    width: widthPx,
+                    width: friseWidthPx,
                   }}
                 />
                 {todayPx !== null && (
@@ -626,7 +721,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                   />
                 )}
 
-                {treeRows.map((row) => {
+                {displayTreeRows.map((row) => {
                   const eligible =
                     row.plannedStartDate && row.plannedEndDate && bounds;
                   const dates = resolveTaskDates(
@@ -637,13 +732,13 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                   const startMs = dates?.startMs ?? 0;
                   const endMs = dates?.endMs ?? 0;
                   const leftPx = eligible && dates
-                    ? dateMsToPx(startMs, bounds, GANTT_PX_PER_DAY)
+                    ? dateMsToPx(startMs, bounds, pxPerDay)
                     : 0;
                   const barW = eligible && dates
                     ? Math.max(
                         2,
-                        dateMsToPx(endMs, bounds, GANTT_PX_PER_DAY) -
-                          dateMsToPx(startMs, bounds, GANTT_PX_PER_DAY),
+                        dateMsToPx(endMs, bounds, pxPerDay) -
+                          dateMsToPx(startMs, bounds, pxPerDay),
                       )
                     : 0;
 
@@ -651,7 +746,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     <div
                       key={row.id}
                       className="border-border/40 relative z-[2] shrink-0 border-b"
-                      style={{ height: GANTT_ROW_PX, width: widthPx }}
+                      style={{ height: GANTT_ROW_PX, width: friseWidthPx }}
                     >
                       {eligible && dates && (
                         <ProjectGanttTaskBar
@@ -670,14 +765,14 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                   );
                 })}
 
-                {sortedMilestones.map((m) => {
+                {visibleMilestones.map((m) => {
                   const tMs = resolveMilestoneDate(m.id, m.targetDate);
-                  const leftPx = dateMsToPx(tMs, bounds, GANTT_PX_PER_DAY);
+                  const leftPx = dateMsToPx(tMs, bounds, pxPerDay);
                   return (
                     <div
                       key={m.id}
                       className="border-border/40 relative z-[2] shrink-0 border-b"
-                      style={{ height: GANTT_ROW_PX, width: widthPx }}
+                      style={{ height: GANTT_ROW_PX, width: friseWidthPx }}
                     >
                       <div
                         className={
