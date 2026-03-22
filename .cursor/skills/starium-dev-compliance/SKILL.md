@@ -78,6 +78,6 @@ Si l’utilisateur cite une RFC (ex. `docs/RFC/RFC-PROJ-009 — …`) :
 - Lire les objectifs, modèle de données, endpoints, permissions, critères de done de cette RFC.
 - Ajouter une sous-section **Conformité RFC-XXX** avec les points spécifiques non couverts par les listes génériques ci-dessus.
 
-## Si « avec » était incomplet
+## Si le périmètre n’est pas précisé
 
 Demander en une phrase : *« Conformité par rapport à quoi en priorité : une RFC précise, un module (ex. projets, budgets), ou uniquement les règles globales du repo ? »* Puis combiner cette skill avec la lecture ciblée du document.
