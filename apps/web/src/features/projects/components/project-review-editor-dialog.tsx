@@ -6,7 +6,6 @@ import {
   CalendarClock,
   CloudRain,
   CloudSun,
-  Database,
   Flag,
   History,
   Info,
@@ -1826,20 +1825,6 @@ export function ProjectReviewEditorDialog({
                 onChange={setCommitteeMood}
                 disabled={!editable}
               />
-
-              {d.snapshotPayload != null && (
-                <ReviewFormSection
-                  sectionId="pr-section-snapshot"
-                  title="Snapshot figé"
-                  description="État projet figé à la finalisation (lecture seule)."
-                  icon={Database}
-                  accent="slate"
-                >
-                  <pre className="max-h-48 overflow-auto rounded-lg border border-border/60 bg-muted/40 p-3 text-xs">
-                    {JSON.stringify(d.snapshotPayload, null, 2)}
-                  </pre>
-                </ReviewFormSection>
-              )}
             </div>
           )}
         </div>
