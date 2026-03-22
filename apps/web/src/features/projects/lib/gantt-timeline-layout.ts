@@ -21,6 +21,15 @@ export const GANTT_PX_PER_DAY_BY_SCALE: Record<GanttTimelineScale, number> = {
 /** Au-delà de ce nombre de jours, les en-têtes passent en libellés semaine/mois plus compacts. */
 export const GANTT_READABILITY_DAY_THRESHOLD = 90;
 
+/**
+ * Au-dessus de ce px/j, on affiche une ligne « jours » sous les semaines (zoom suffisant).
+ */
+export const GANTT_DAY_HEADER_MIN_PX_PER_DAY = 6;
+
+export function shouldShowDayHeaderRow(pxPerDay: number): boolean {
+  return pxPerDay >= GANTT_DAY_HEADER_MIN_PX_PER_DAY;
+}
+
 export type TimelineBounds = { min: number; max: number };
 
 export type GanttTaskLike = {
@@ -113,6 +122,7 @@ export function timelineWidthPx(bounds: TimelineBounds, pxPerDay: number): numbe
 
 export type MonthBand = { leftPx: number; widthPx: number; label: string };
 export type WeekBand = { leftPx: number; widthPx: number; label: string };
+export type DayBand = { leftPx: number; widthPx: number; label: string };
 
 function startOfMonth(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
@@ -184,6 +194,72 @@ export function buildWeekBands(
       });
     }
     weekStart = weekEnd;
+  }
+  return bands;
+}
+
+/** Début du jour civil UTC (minuit) pour un instant. */
+function startOfUtcDay(ms: number): number {
+  const d = new Date(ms);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+/** Bandeaux jour (un libellé par jour civil UTC dans la plage). */
+export function buildDayBands(bounds: TimelineBounds, pxPerDay: number): DayBand[] {
+  const bands: DayBand[] = [];
+  let t = startOfUtcDay(bounds.min);
+  const end = bounds.max;
+  while (t < end) {
+    const dayEnd = t + GANTT_DAY_MS;
+    const segStart = Math.max(bounds.min, t);
+    const segEnd = Math.min(end, dayEnd);
+    if (segEnd > segStart) {
+      const leftPx = dateMsToPx(segStart, bounds, pxPerDay);
+      const rightPx = dateMsToPx(segEnd, bounds, pxPerDay);
+      const widthPx = Math.max(0, rightPx - leftPx);
+      const d = new Date(segStart);
+      const longLabel = d.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'UTC',
+      });
+      const shortLabel = String(d.getUTCDate());
+      bands.push({
+        leftPx,
+        widthPx,
+        label: widthPx >= 22 ? longLabel : shortLabel,
+      });
+    }
+    t = dayEnd;
+  }
+  return bands;
+}
+
+export type WeekendBand = { leftPx: number; widthPx: number };
+
+/**
+ * Bandeaux samedi–dimanche (UTC) pour fond uniquement (repère visuel, pas la timezone locale).
+ */
+export function buildWeekendBands(bounds: TimelineBounds, pxPerDay: number): WeekendBand[] {
+  const bands: WeekendBand[] = [];
+  let t = startOfUtcDay(bounds.min);
+  const end = bounds.max;
+  while (t < end) {
+    const dayEnd = t + GANTT_DAY_MS;
+    const dow = new Date(t).getUTCDay(); // 0 = dimanche, 6 = samedi
+    if (dow === 0 || dow === 6) {
+      const segStart = Math.max(bounds.min, t);
+      const segEnd = Math.min(end, dayEnd);
+      if (segEnd > segStart) {
+        const leftPx = dateMsToPx(segStart, bounds, pxPerDay);
+        const rightPx = dateMsToPx(segEnd, bounds, pxPerDay);
+        bands.push({
+          leftPx,
+          widthPx: Math.max(0, rightPx - leftPx),
+        });
+      }
+    }
+    t = dayEnd;
   }
   return bands;
 }

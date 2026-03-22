@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  GANTT_DAY_HEADER_MIN_PX_PER_DAY,
   GANTT_DAY_MS,
   GANTT_PX_PER_DAY,
+  buildDayBands,
+  buildWeekendBands,
   computeTimelineBounds,
   dateMsFromPx,
   dateMsToPx,
   dateRangeToTimelineLayout,
   resizeTaskRange,
   shiftTaskRangeByDays,
+  shouldShowDayHeaderRow,
   spanDays,
   timelineWidthPx,
 } from './gantt-timeline-layout';
@@ -81,5 +85,30 @@ describe('gantt-timeline-layout', () => {
     const e = 1001 * GANTT_DAY_MS;
     const r = resizeTaskRange(s, e, 'resize-end', -5);
     expect(r.endMs - r.startMs).toBe(GANTT_DAY_MS);
+  });
+
+  it('shouldShowDayHeaderRow dépend du seuil px/j', () => {
+    expect(shouldShowDayHeaderRow(GANTT_DAY_HEADER_MIN_PX_PER_DAY - 0.01)).toBe(false);
+    expect(shouldShowDayHeaderRow(GANTT_DAY_HEADER_MIN_PX_PER_DAY)).toBe(true);
+  });
+
+  it('buildDayBands couvre chaque jour UTC de la plage', () => {
+    const b = computeTimelineBounds([t1], [])!;
+    const px = 8;
+    const bands = buildDayBands(b, px);
+    const span = spanDays(b);
+    expect(bands.length).toBe(Math.ceil(span));
+    expect(bands[0]!.leftPx).toBeGreaterThanOrEqual(0);
+    expect(bands.every((x) => x.widthPx > 0)).toBe(true);
+  });
+
+  it('buildWeekendBands ne retient que samedi–dimanche UTC', () => {
+    const b = {
+      min: Date.UTC(2025, 5, 7, 0, 0, 0, 0),
+      max: Date.UTC(2025, 5, 10, 0, 0, 0, 0),
+    };
+    const w = buildWeekendBands(b, 10);
+    expect(w.length).toBe(2);
+    expect(w.every((x) => x.widthPx > 0)).toBe(true);
   });
 });

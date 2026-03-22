@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -28,9 +29,12 @@ import {
   GANTT_MIN_TIMELINE_PX,
   GANTT_PX_PER_DAY,
   GANTT_ROW_PX,
+  buildDayBands,
+  buildWeekendBands,
   computeTimelineBounds,
   dateMsToPx,
   dateRangeToTimelineLayout,
+  shouldShowDayHeaderRow,
   resizeTaskRange,
   shiftTaskRangeByDays,
   toPlannedDateIsoUtcNoon,
@@ -44,7 +48,7 @@ import {
   type ProjectTaskPlanningSectionHandle,
 } from './project-task-planning-section';
 import { ProjectGanttTaskBar } from './project-gantt-task-bar';
-import { Info } from 'lucide-react';
+import { Info, Minus, Plus, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 type BarMode = 'move' | 'resize-start' | 'resize-end';
@@ -85,6 +89,17 @@ function deltaPxInTimeline(
   return clientX - anchorClientX + (scrollEl.scrollLeft - anchorScrollLeft);
 }
 
+/** Zoom sur l’échelle temps (multiplicateur sur px/j). */
+const GANTT_TIME_ZOOM_MIN = 0.2;
+const GANTT_TIME_ZOOM_MAX = 5;
+const GANTT_TIME_ZOOM_STEP = 1.12;
+/** 100 % affiché = densité de l’ancien zoom 400 % (×4 sur px/j à timeZoom 1). */
+const GANTT_TIME_ZOOM_BASELINE = 4;
+
+function clampTimeZoom(z: number): number {
+  return Math.min(GANTT_TIME_ZOOM_MAX, Math.max(GANTT_TIME_ZOOM_MIN, z));
+}
+
 export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const depMarkerId = useId().replace(/:/g, '');
   const { has } = usePermissions();
@@ -102,6 +117,16 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | string>('all');
   const [showMilestones, setShowMilestones] = useState(true);
   const [timelineViewportW, setTimelineViewportW] = useState(0);
+  /** Multiplicateur utilisateur ; 100 % = `GANTT_TIME_ZOOM_BASELINE`× la densité de base calculée. */
+  const [timeZoom, setTimeZoom] = useState(1);
+
+  const zoomTimeIn = useCallback(() => {
+    setTimeZoom((z) => clampTimeZoom(z * GANTT_TIME_ZOOM_STEP));
+  }, []);
+  const zoomTimeOut = useCallback(() => {
+    setTimeZoom((z) => clampTimeZoom(z / GANTT_TIME_ZOOM_STEP));
+  }, []);
+  const resetTimeZoom = useCallback(() => setTimeZoom(1), []);
 
   const updateTask = useUpdateProjectTaskMutation(projectId);
   const updateMilestone = useUpdateProjectMilestoneMutation(projectId);
@@ -156,7 +181,9 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
    * la zone, on étire pour remplir (alignement dates / barres / en-têtes).
    */
   const pxPerDay = useMemo(() => {
-    if (!bounds || spanDays <= 0) return GANTT_PX_PER_DAY;
+    if (!bounds || spanDays <= 0) {
+      return GANTT_PX_PER_DAY * timeZoom * GANTT_TIME_ZOOM_BASELINE;
+    }
     const vw = Math.max(timelineViewportW, GANTT_MIN_TIMELINE_PX);
     const zoom =
       timelineScale === 'day' ? 1.35 : timelineScale === 'month' ? 0.62 : 1;
@@ -165,14 +192,17 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     if (contentW < vw) {
       px = vw / spanDays;
     }
-    return px;
-  }, [bounds, spanDays, timelineViewportW, timelineScale]);
+    return px * timeZoom * GANTT_TIME_ZOOM_BASELINE;
+  }, [bounds, spanDays, timelineViewportW, timelineScale, timeZoom]);
 
   const layout = useMemo(() => {
     if (!bounds || spanDays <= 0) return null;
     const base = dateRangeToTimelineLayout(bounds, pxPerDay);
     const w = spanDays * pxPerDay;
-    return { ...base, widthPx: w };
+    const showDayHeaders = shouldShowDayHeaderRow(pxPerDay);
+    const dayBands = showDayHeaders ? buildDayBands(bounds, pxPerDay) : [];
+    const weekendBands = buildWeekendBands(bounds, pxPerDay);
+    return { ...base, widthPx: w, dayBands, showDayHeaders, weekendBands };
   }, [bounds, pxPerDay, spanDays]);
 
   const sortedMilestones = useMemo(() => {
@@ -498,6 +528,23 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     return () => ro.disconnect();
   }, [bounds]);
 
+  /** Zoom temps : molette + Ctrl/Cmd sur la zone frise (scroll horizontal inchangé sans modificateur). */
+  useEffect(() => {
+    const el = timelineScrollRef.current;
+    if (!el || !bounds) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const delta = e.deltaY;
+      setTimeZoom((z) => {
+        const next = delta > 0 ? z / GANTT_TIME_ZOOM_STEP : z * GANTT_TIME_ZOOM_STEP;
+        return clampTimeZoom(next);
+      });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [bounds, layout]);
+
   if (ganttQuery.isLoading) {
     return <LoadingState rows={6} />;
   }
@@ -537,6 +584,48 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
             ))}
           </div>
         </div>
+        <div
+          className="flex items-center gap-1 border-border/60 border-l pl-3"
+          title="Ctrl + molette sur la frise pour zoomer"
+        >
+          <span className="text-muted-foreground shrink-0">Zoom temps</span>
+          <div className="bg-background/80 inline-flex items-center rounded-md border shadow-sm">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-r-none"
+              onClick={zoomTimeOut}
+              aria-label="Zoom arrière sur la frise"
+            >
+              <Minus className="size-3.5" />
+            </Button>
+            <span className="text-muted-foreground min-w-[2.75rem] px-1 text-center text-[11px] tabular-nums">
+              {Math.round(timeZoom * 100)}%
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-none border-x border-border/60"
+              onClick={zoomTimeIn}
+              aria-label="Zoom avant sur la frise"
+            >
+              <Plus className="size-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-l-none"
+              onClick={resetTimeZoom}
+              aria-label="Réinitialiser le zoom temps"
+              title="100 %"
+            >
+              <RotateCcw className="size-3.5" />
+            </Button>
+          </div>
+        </div>
         <div className="flex items-center gap-1.5">
           <span className="text-muted-foreground shrink-0">État</span>
           <select
@@ -564,7 +653,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className="text-muted-foreground hidden text-[10px] sm:inline">
-          {pxPerDay.toFixed(2)} px/j · mois + semaines en tête
+          {pxPerDay.toFixed(2)} px/j · mois + semaines
+          {layout?.showDayHeaders ? ' + jours' : ''} en tête
         </span>
         {canEdit && (
           <Button
@@ -607,7 +697,9 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     );
   }
 
-  const { widthPx, monthBands, weekBands, todayPx } = layout;
+  const { widthPx, monthBands, weekBands, dayBands, showDayHeaders, weekendBands, todayPx } =
+    layout;
+  const headerTimelineRows = showDayHeaders ? 3 : 2;
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -638,6 +730,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
               hideToolbar
               milestoneRows={milestoneSidebarRows}
               ganttTaskStatusFilter={taskStatusFilter}
+              ganttExtraHeaderRows={showDayHeaders ? 1 : 0}
             />
           </div>
 
@@ -650,11 +743,27 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
               style={{ width: widthPx, minWidth: widthPx }}
             >
               <div
-                className="border-border/40 bg-muted/30 sticky top-0 z-20 border-b"
+                className="border-border/40 bg-muted/30 sticky top-0 z-20 relative border-b"
                 style={{ width: widthPx }}
               >
                 <div
-                  className="border-border/40 relative border-b"
+                  className="pointer-events-none absolute top-0 left-0 z-0"
+                  aria-hidden
+                  style={{
+                    width: widthPx,
+                    height: headerTimelineRows * GANTT_ROW_PX,
+                  }}
+                >
+                  {weekendBands.map((b, i) => (
+                    <div
+                      key={`wknd-h-${i}-${b.leftPx}`}
+                      className="bg-muted/55 dark:bg-muted/40 absolute top-0 bottom-0"
+                      style={{ left: b.leftPx, width: b.widthPx }}
+                    />
+                  ))}
+                </div>
+                <div
+                  className="border-border/40 relative z-[1] border-b"
                   style={{ height: GANTT_ROW_PX, width: widthPx }}
                 >
                   {monthBands.map((b, i) => (
@@ -667,7 +776,10 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     </div>
                   ))}
                 </div>
-                <div className="relative" style={{ height: GANTT_ROW_PX, width: widthPx }}>
+                <div
+                  className="border-border/30 relative z-[1] border-b"
+                  style={{ height: GANTT_ROW_PX, width: widthPx }}
+                >
                   {weekBands.map((b, i) => (
                     <div
                       key={`w-${i}-${b.label}-${b.leftPx}`}
@@ -678,6 +790,20 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     </div>
                   ))}
                 </div>
+                {showDayHeaders && (
+                  <div className="relative z-[1]" style={{ height: GANTT_ROW_PX, width: widthPx }}>
+                    {dayBands.map((b, i) => (
+                      <div
+                        key={`d-${i}-${b.label}-${b.leftPx}`}
+                        className="border-border/25 absolute top-0 bottom-0 flex items-center justify-center border-r px-0.5 text-[8px] leading-none text-muted-foreground"
+                        style={{ left: b.leftPx, width: b.widthPx }}
+                        title={b.label}
+                      >
+                        <span className="truncate">{b.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div
@@ -685,6 +811,15 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                 className="relative"
                 style={{ width: widthPx, minHeight: timelineBodyHeightPx }}
               >
+                <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
+                  {weekendBands.map((b, i) => (
+                    <div
+                      key={`wknd-b-${i}-${b.leftPx}`}
+                      className="bg-muted/55 dark:bg-muted/40 absolute top-0 bottom-0"
+                      style={{ left: b.leftPx, width: b.widthPx }}
+                    />
+                  ))}
+                </div>
                 <svg
                   className="text-muted-foreground pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible"
                   aria-hidden

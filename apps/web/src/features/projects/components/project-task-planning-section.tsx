@@ -309,6 +309,11 @@ export type ProjectTaskPlanningSectionProps = {
   hideToolbar?: boolean;
   /** Filtre statut des lignes tâches (Gantt uniquement), aligné avec la frise. */
   ganttTaskStatusFilter?: 'all' | string;
+  /**
+   * Lignes d’en-tête sous les colonnes (hauteur = `GANTT_ROW_PX` chacune), pour aligner avec la frise
+   * (ex. ligne « jours » affichée au zoom).
+   */
+  ganttExtraHeaderRows?: number;
 };
 
 export type ProjectTaskPlanningSectionHandle = {
@@ -325,6 +330,7 @@ export const ProjectTaskPlanningSection = forwardRef<
     milestoneRows = [],
     hideToolbar = false,
     ganttTaskStatusFilter = 'all',
+    ganttExtraHeaderRows = 0,
   },
   ref,
 ) {
@@ -560,6 +566,16 @@ export const ProjectTaskPlanningSection = forwardRef<
                       </TableHead>
                     )}
                   </TableRow>
+                  {ganttExtraHeaderRows > 0 && (
+                    <TableRow className="border-border/40 hover:bg-transparent border-b bg-muted/30">
+                      <TableHead
+                        colSpan={canEdit ? 5 : 4}
+                        className="p-0"
+                        style={{ height: GANTT_ROW_PX * ganttExtraHeaderRows }}
+                        aria-hidden
+                      />
+                    </TableRow>
+                  )}
                 </>
               ) : (
                 <TableRow>
