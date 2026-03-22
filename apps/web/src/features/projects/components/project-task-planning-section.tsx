@@ -11,7 +11,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -46,13 +45,7 @@ import type {
 } from '../api/projects.api';
 import { cn } from '@/lib/utils';
 import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
-
-const DEP_TYPES = [
-  { value: '', label: '—' },
-  { value: 'FINISH_TO_START', label: 'Fin → début' },
-  { value: 'START_TO_START', label: 'Début → début' },
-  { value: 'FINISH_TO_FINISH', label: 'Fin → fin' },
-];
+import { TaskFormDialogFields } from './task-form-dialog-fields';
 
 function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -66,180 +59,6 @@ function isoToDateInput(iso: string | null | undefined): string {
 function dateInputToIso(s: string): string | undefined {
   if (!s.trim()) return undefined;
   return new Date(`${s}T12:00:00.000Z`).toISOString();
-}
-
-function TaskFormFields({
-  form,
-  setForm,
-  tasksForParent,
-  tasksForDepends,
-  assignableOptions,
-}: {
-  form: CreateProjectTaskPayload;
-  setForm: (f: CreateProjectTaskPayload) => void;
-  tasksForParent: { id: string; name: string }[];
-  tasksForDepends: { id: string; name: string }[];
-  assignableOptions: { id: string; label: string }[];
-}) {
-  return (
-    <div className="grid max-h-[min(70vh,480px)] gap-3 overflow-y-auto pr-1">
-      <div className="space-y-1.5">
-        <Label htmlFor="task-name">Nom</Label>
-        <Input
-          id="task-name"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          required
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="task-desc">Description</Label>
-        <textarea
-          id="task-desc"
-          className="border-input bg-background min-h-[72px] w-full rounded-lg border px-3 py-2 text-sm"
-          value={form.description ?? ''}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label>Statut</Label>
-          <select
-            className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-            value={form.status ?? 'TODO'}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
-          >
-            {Object.keys(TASK_STATUS_LABEL).map((k) => (
-              <option key={k} value={k}>
-                {TASK_STATUS_LABEL[k]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Priorité</Label>
-          <select
-            className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-            value={form.priority ?? 'MEDIUM'}
-            onChange={(e) => setForm({ ...form, priority: e.target.value })}
-          >
-            {Object.keys(TASK_PRIORITY_LABEL).map((k) => (
-              <option key={k} value={k}>
-                {TASK_PRIORITY_LABEL[k]}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="task-progress">Progression (0–100)</Label>
-        <Input
-          id="task-progress"
-          type="number"
-          min={0}
-          max={100}
-          value={form.progress ?? 0}
-          onChange={(e) =>
-            setForm({ ...form, progress: Number.parseInt(e.target.value, 10) || 0 })
-          }
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="d1">Début planifié</Label>
-          <Input
-            id="d1"
-            type="date"
-            value={isoToDateInput(form.plannedStartDate)}
-            onChange={(e) =>
-              setForm({ ...form, plannedStartDate: dateInputToIso(e.target.value) })
-            }
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="d2">Fin planifiée</Label>
-          <Input
-            id="d2"
-            type="date"
-            value={isoToDateInput(form.plannedEndDate)}
-            onChange={(e) =>
-              setForm({ ...form, plannedEndDate: dateInputToIso(e.target.value) })
-            }
-          />
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Tâche parente</Label>
-        <select
-          className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-          value={form.parentTaskId ?? ''}
-          onChange={(e) =>
-            setForm({ ...form, parentTaskId: e.target.value || null })
-          }
-        >
-          <option value="">— Aucune</option>
-          {tasksForParent.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Dépend de (prédécesseur)</Label>
-        <select
-          className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-          value={form.dependsOnTaskId ?? ''}
-          onChange={(e) =>
-            setForm({ ...form, dependsOnTaskId: e.target.value || null })
-          }
-        >
-          <option value="">— Aucune</option>
-          {tasksForDepends.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Type de dépendance</Label>
-        <select
-          className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-          value={form.dependencyType ?? ''}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              dependencyType: e.target.value || null,
-            })
-          }
-        >
-          {DEP_TYPES.map((d) => (
-            <option key={d.value || 'none'} value={d.value}>
-              {d.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Responsable</Label>
-        <select
-          className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-          value={form.ownerUserId ?? ''}
-          onChange={(e) =>
-            setForm({ ...form, ownerUserId: e.target.value || null })
-          }
-        >
-          <option value="">—</option>
-          {assignableOptions.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.label}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
 }
 
 function emptyCreateForm(): CreateProjectTaskPayload {
@@ -882,17 +701,33 @@ export const ProjectTaskPlanningSection = forwardRef<
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg" showCloseButton>
+        <DialogContent
+          className="max-w-[min(80vw,72rem)] sm:max-w-[min(80vw,72rem)]"
+          showCloseButton
+        >
           <DialogHeader>
             <DialogTitle>{editing ? 'Modifier la tâche' : 'Nouvelle tâche'}</DialogTitle>
+            <DialogDescription>
+              {editing
+                ? 'Mettre à jour les informations de la tâche, le planning et les dépendances.'
+                : 'Créer une nouvelle tâche dans le planning du projet.'}
+            </DialogDescription>
           </DialogHeader>
-          <TaskFormFields
-            form={createForm}
-            setForm={setCreateForm}
-            tasksForParent={tasksForParent}
-            tasksForDepends={tasksForDepends}
-            assignableOptions={assignableOptions}
-          />
+          <div className="max-h-[min(65vh,520px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
+            <TaskFormDialogFields
+              form={createForm}
+              onPatch={(patch) =>
+                setCreateForm((prev) => ({
+                  ...prev,
+                  ...patch,
+                }))
+              }
+              tasksForParent={tasksForParent}
+              tasksForDepends={tasksForDepends}
+              assignableOptions={assignableOptions}
+              fieldIdPrefix="planning-task"
+            />
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
               Annuler
