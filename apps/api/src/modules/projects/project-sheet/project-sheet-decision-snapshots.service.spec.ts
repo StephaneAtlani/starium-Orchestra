@@ -179,9 +179,14 @@ describe('ProjectSheetDecisionSnapshotsService', () => {
         clientId,
         projectId,
         createdAt: new Date('2025-01-02'),
-        createdByUserId: null,
+        createdByUserId: 'u1',
         decisionLevel: 'METIER',
         sheetPayload: {},
+        createdBy: {
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@example.com',
+        },
       },
     ];
     const prisma = {
@@ -205,11 +210,17 @@ describe('ProjectSheetDecisionSnapshotsService', () => {
     expect(out.total).toBe(1);
     expect(out.items).toHaveLength(1);
     expect(out.items[0].decisionLevel).toBe('METIER');
+    expect(out.items[0].createdByDisplayName).toBe('Jane Doe');
     expect(prisma.projectSheetDecisionSnapshot.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: { createdAt: 'desc' },
         take: 10,
         skip: 0,
+        include: {
+          createdBy: {
+            select: { firstName: true, lastName: true, email: true },
+          },
+        },
       }),
     );
   });

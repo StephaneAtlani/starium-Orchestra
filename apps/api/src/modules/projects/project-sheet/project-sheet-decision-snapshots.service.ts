@@ -13,12 +13,22 @@ import { detectArbitrationTransitionsForSnapshot } from './project-sheet-decisio
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
 
+function createdByDisplayNameFromRow(
+  u: { firstName: string | null; lastName: string | null; email: string } | null,
+): string | null {
+  if (!u) return null;
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  return name || u.email;
+}
+
 export type DecisionSnapshotListItemDto = {
   id: string;
   projectId: string;
   clientId: string;
   createdAt: string;
   createdByUserId: string | null;
+  /** Prénom + nom, ou email si pas de nom. */
+  createdByDisplayName: string | null;
   decisionLevel: string;
 };
 
@@ -115,6 +125,11 @@ export class ProjectSheetDecisionSnapshotsService {
         orderBy: { createdAt: 'desc' },
         take: limit,
         skip: offset,
+        include: {
+          createdBy: {
+            select: { firstName: true, lastName: true, email: true },
+          },
+        },
       }),
       this.prisma.projectSheetDecisionSnapshot.count({ where }),
     ]);
@@ -125,6 +140,7 @@ export class ProjectSheetDecisionSnapshotsService {
       clientId: r.clientId,
       createdAt: r.createdAt.toISOString(),
       createdByUserId: r.createdByUserId,
+      createdByDisplayName: createdByDisplayNameFromRow(r.createdBy),
       decisionLevel: r.decisionLevel,
     }));
 
@@ -138,6 +154,11 @@ export class ProjectSheetDecisionSnapshotsService {
   ): Promise<DecisionSnapshotDetailDto> {
     const row = await this.prisma.projectSheetDecisionSnapshot.findFirst({
       where: { id: snapshotId, clientId, projectId },
+      include: {
+        createdBy: {
+          select: { firstName: true, lastName: true, email: true },
+        },
+      },
     });
     if (!row) {
       throw new NotFoundException('Snapshot not found');
@@ -148,6 +169,7 @@ export class ProjectSheetDecisionSnapshotsService {
       clientId: row.clientId,
       createdAt: row.createdAt.toISOString(),
       createdByUserId: row.createdByUserId,
+      createdByDisplayName: createdByDisplayNameFromRow(row.createdBy),
       decisionLevel: row.decisionLevel,
       sheetPayload: row.sheetPayload,
     };

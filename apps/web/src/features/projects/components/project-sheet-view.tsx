@@ -145,6 +145,25 @@ const DECISION_LEVEL_LABEL: Record<string, string> = {
   CODIR: 'Sponsor / CODIR',
 };
 
+/** Liste historique snapshots : date lisible (jour, heure). */
+function formatSnapshotHistoryDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const s = new Intl.DateTimeFormat('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).format(d);
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  } catch {
+    return iso;
+  }
+}
+
 /** Carte mise en avant : premier niveau non « Validé », sinon dernier actif. */
 function arbitrationFocusStep(
   m: ProjectArbitrationLevelStatus,
@@ -1790,7 +1809,7 @@ export function ProjectSheetView({
           </div>
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <Label>KPI de succès</Label>
+              <Label>Indicateurs de réussite</Label>
               {canEdit ? (
                 <Button
                   type="button"
@@ -2598,7 +2617,7 @@ export function ProjectSheetView({
                         <button
                           type="button"
                           className={cn(
-                            'w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors',
+                            'w-full rounded-lg border px-3 py-2.5 text-left text-xs transition-colors',
                             'border-border/70 hover:bg-muted/40',
                           )}
                           onClick={() => {
@@ -2607,11 +2626,23 @@ export function ProjectSheetView({
                             setHistoryDialogOpen(false);
                           }}
                         >
-                          <span className="font-medium text-foreground">
+                          <span className="font-semibold text-foreground">
                             {DECISION_LEVEL_LABEL[row.decisionLevel] ?? row.decisionLevel}
                           </span>
-                          <span className="mt-0.5 block text-muted-foreground">
-                            {new Date(row.createdAt).toLocaleString('fr-FR')}
+                          <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">
+                            {formatSnapshotHistoryDate(row.createdAt)}
+                          </span>
+                          {row.createdByDisplayName ? (
+                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                              Par {row.createdByDisplayName}
+                            </span>
+                          ) : (
+                            <span className="mt-0.5 block text-[11px] italic text-muted-foreground/85">
+                              Auteur inconnu
+                            </span>
+                          )}
+                          <span className="mt-1 block font-mono text-[10px] text-muted-foreground/70">
+                            Réf. {row.id}
                           </span>
                         </button>
                       </li>
@@ -2635,10 +2666,23 @@ export function ProjectSheetView({
               <DialogHeader className="shrink-0 space-y-1 border-b border-border/60 px-6 py-4">
                 <DialogTitle>Fiche projet — version historisée</DialogTitle>
                 <DialogDescription>
-                  {snapshotDetailQuery.data
-                    ? `${DECISION_LEVEL_LABEL[snapshotDetailQuery.data.decisionLevel] ?? snapshotDetailQuery.data.decisionLevel} · ${new Date(snapshotDetailQuery.data.createdAt).toLocaleString('fr-FR')}`
-                    : 'Chargement…'}{' '}
-                  — lecture seule.
+                  {snapshotDetailQuery.data ? (
+                    <span className="block space-y-0.5">
+                      <span className="block">
+                        {DECISION_LEVEL_LABEL[snapshotDetailQuery.data.decisionLevel] ??
+                          snapshotDetailQuery.data.decisionLevel}{' '}
+                        · {formatSnapshotHistoryDate(snapshotDetailQuery.data.createdAt)}
+                      </span>
+                      {snapshotDetailQuery.data.createdByDisplayName ? (
+                        <span className="block text-muted-foreground">
+                          Par {snapshotDetailQuery.data.createdByDisplayName}
+                        </span>
+                      ) : null}
+                      <span className="block text-muted-foreground">Lecture seule.</span>
+                    </span>
+                  ) : (
+                    'Chargement…'
+                  )}
                 </DialogDescription>
               </DialogHeader>
               <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2 sm:px-6">

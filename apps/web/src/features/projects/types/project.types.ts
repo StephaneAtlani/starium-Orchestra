@@ -324,6 +324,8 @@ export type ProjectSheetDecisionSnapshotListItem = {
   clientId: string;
   createdAt: string;
   createdByUserId: string | null;
+  /** Prénom + nom, ou email (aligné API). */
+  createdByDisplayName: string | null;
   decisionLevel: string;
 };
 
