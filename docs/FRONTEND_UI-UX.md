@@ -26,7 +26,7 @@ Fichiers clés : `apps/web/src/app/globals.css`, `apps/web/src/styles/tokens.css
 - Structure : **pas de HTML “layout” bricolé** ; utiliser `components/ui/*`, `components/layout/*`, `components/feedback/*`, `components/shell/*`.
 - Chaque écran de données : états **loading**, **error**, **empty**, **success** explicites.
 - **Query keys** métier : toujours inclure `clientId` (voir architecture).
-- **Texte de vigilance (ambre / jaune)** : pour signaler une donnée manquante ou une alerte non bloquante dans un bloc carte, privilégier un **contraste lisible** — par ex. **`font-medium text-amber-950 dark:text-amber-100`** (ou `text-amber-900` / `dark:text-amber-200`). Éviter les combinaisons trop pâles seules (`text-amber-300`, `text-amber-800` isolés) sur fond `bg-muted/30` ou `bg-card`.
+- **Texte de vigilance (ambre / jaune)** : pour signaler une donnée manquante ou une alerte non bloquante dans un bloc carte, privilégier un **contraste lisible** — par ex. **`font-semibold text-yellow-950 dark:text-amber-400`** (jaune très foncé en clair, ambre plus saturé en dark) ; variante **`font-medium text-amber-950 dark:text-amber-100`**. Éviter les combinaisons trop pâles seules (`text-amber-300`, `text-amber-800` isolés) sur fond `bg-muted/30` ou `bg-card`.
 
 ---
 

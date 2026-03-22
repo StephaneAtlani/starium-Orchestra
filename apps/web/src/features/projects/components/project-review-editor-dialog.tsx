@@ -474,6 +474,8 @@ export function ProjectReviewEditorDialog({
   const [committeeMood, setCommitteeMood] = useState<CommitteeMood | null>(null);
 
   const lastInitRef = useRef<string | null>(null);
+  /** Snapshot JSON de `buildPatchBody()` — évite les PATCH inutiles et sert de ligne de base après init. */
+  const lastSavedSerializedRef = useRef<string | null>(null);
 
   const initFromDetail = useCallback(() => {
     const d = detailQuery.data;
@@ -521,8 +523,13 @@ export function ProjectReviewEditorDialog({
   useEffect(() => {
     if (!open) {
       lastInitRef.current = null;
+      lastSavedSerializedRef.current = null;
     }
   }, [open]);
+
+  useEffect(() => {
+    lastSavedSerializedRef.current = null;
+  }, [reviewId]);
 
   useEffect(() => {
     if (!open || !reviewId || !detailQuery.data || detailQuery.data.id !== reviewId) return;
@@ -534,37 +541,6 @@ export function ProjectReviewEditorDialog({
   const d = detailQuery.data;
   const isDraft = d?.status === 'DRAFT';
   const editable = canEdit && isDraft;
-
-  const pilotageSinceLast = useMemo(() => {
-    const prev = previousDetailQuery.data;
-    const tasks = tasksQuery.data;
-    if (!prev || !tasks) return null;
-    const t0 = new Date(prev.finalizedAt ?? prev.reviewDate).getTime();
-    const tasksDoneSince = tasks.filter(
-      (x) =>
-        x.completedAt &&
-        new Date(x.completedAt).getTime() >= t0 &&
-        (x.status === 'DONE' || x.status === 'CANCELLED'),
-    );
-    return {
-      tasksDoneSinceCount: tasksDoneSince.length,
-      openRisksCount: risksQuery.data?.filter((r) => r.status === 'OPEN').length ?? 0,
-    };
-  }, [previousDetailQuery.data, tasksQuery.data, risksQuery.data]);
-
-  const actionFormAlerts = useMemo(() => {
-    const filled = actions.filter((a) => a.title.trim());
-    const msgs: string[] = [];
-    if (editable && filled.length === 0) {
-      msgs.push('Aucune action enregistrée pour ce point — une réunion sans sortie est difficile à piloter.');
-    }
-    for (const a of filled) {
-      if (!a.dueDate.trim()) {
-        msgs.push(`Échéance manquante : « ${a.title.length > 48 ? `${a.title.slice(0, 48)}…` : a.title} »`);
-      }
-    }
-    return msgs;
-  }, [actions, editable]);
 
   const buildPatchBody = () => {
     const parts = participants
@@ -607,14 +583,90 @@ export function ProjectReviewEditorDialog({
     };
   };
 
+  /** Sauvegarde automatique du brouillon (debounce) — pas de clic « Enregistrer » requis. */
+  useEffect(() => {
+    if (!open || !editable || !d || !reviewId) return;
+    if (lastInitRef.current !== reviewId) return;
+
+    const t = window.setTimeout(() => {
+      const body = buildPatchBody();
+      const s = JSON.stringify(body);
+      if (lastSavedSerializedRef.current === null) {
+        lastSavedSerializedRef.current = s;
+        return;
+      }
+      if (s === lastSavedSerializedRef.current) return;
+      update.mutate(
+        { reviewId: d.id, body },
+        {
+          onSuccess: () => {
+            lastSavedSerializedRef.current = s;
+          },
+        },
+      );
+    }, 1200);
+
+    return () => window.clearTimeout(t);
+  }, [
+    open,
+    editable,
+    d,
+    reviewId,
+    reviewDate,
+    reviewType,
+    title,
+    executiveSummary,
+    nextReviewDate,
+    participants,
+    decisions,
+    actions,
+    committeeMood,
+    update,
+  ]);
+
+  const pilotageSinceLast = useMemo(() => {
+    const prev = previousDetailQuery.data;
+    const tasks = tasksQuery.data;
+    if (!prev || !tasks) return null;
+    const t0 = new Date(prev.finalizedAt ?? prev.reviewDate).getTime();
+    const tasksDoneSince = tasks.filter(
+      (x) =>
+        x.completedAt &&
+        new Date(x.completedAt).getTime() >= t0 &&
+        (x.status === 'DONE' || x.status === 'CANCELLED'),
+    );
+    return {
+      tasksDoneSinceCount: tasksDoneSince.length,
+      openRisksCount: risksQuery.data?.filter((r) => r.status === 'OPEN').length ?? 0,
+    };
+  }, [previousDetailQuery.data, tasksQuery.data, risksQuery.data]);
+
+  const actionFormAlerts = useMemo(() => {
+    const filled = actions.filter((a) => a.title.trim());
+    const msgs: string[] = [];
+    if (editable && filled.length === 0) {
+      msgs.push('Aucune action enregistrée pour ce point — une réunion sans sortie est difficile à piloter.');
+    }
+    for (const a of filled) {
+      if (!a.dueDate.trim()) {
+        msgs.push(`Échéance manquante : « ${a.title.length > 48 ? `${a.title.slice(0, 48)}…` : a.title} »`);
+      }
+    }
+    return msgs;
+  }, [actions, editable]);
+
   const onSave = async () => {
     if (!d || !editable) return;
-    await update.mutateAsync({ reviewId: d.id, body: buildPatchBody() });
+    const body = buildPatchBody();
+    await update.mutateAsync({ reviewId: d.id, body });
+    lastSavedSerializedRef.current = JSON.stringify(body);
   };
 
   const onFinalize = async () => {
     if (!d || !editable) return;
-    await update.mutateAsync({ reviewId: d.id, body: buildPatchBody() });
+    const body = buildPatchBody();
+    await update.mutateAsync({ reviewId: d.id, body });
+    lastSavedSerializedRef.current = JSON.stringify(body);
     await finalize.mutateAsync(d.id);
     onOpenChange(false);
   };
@@ -754,39 +806,6 @@ export function ProjectReviewEditorDialog({
               )}
               {projectQuery.data && <ProjectMeteoInline project={projectQuery.data} />}
 
-              <ReviewFormSection
-                sectionId="pr-section-summary"
-                title="Résumé exécutif"
-                description="Faits marquants, alertes, décisions clés — ce que le comité doit retenir."
-                icon={Sparkles}
-                accent="emerald"
-              >
-                <div className="grid gap-3">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="pr-ed-summary">Synthèse du point</Label>
-                    <textarea
-                      id="pr-ed-summary"
-                      className={textareaClass}
-                      value={executiveSummary}
-                      disabled={!editable}
-                      onChange={(e) => setExecutiveSummary(e.target.value)}
-                      placeholder="Ce qui s’est passé, ce qui bloque, ce qu’on décide — faits marquants, alertes, décisions clés…"
-                      maxLength={20000}
-                    />
-                  </div>
-                  <div className="grid gap-1.5 sm:max-w-md">
-                    <Label htmlFor="pr-ed-next">Prochain point (optionnel)</Label>
-                    <Input
-                      id="pr-ed-next"
-                      type="datetime-local"
-                      value={nextReviewDate}
-                      disabled={!editable}
-                      onChange={(e) => setNextReviewDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </ReviewFormSection>
-
               {(!!projectQuery.data?.warnings?.length || actionFormAlerts.length > 0) && (
                 <div className="space-y-2">
                   {projectQuery.data?.warnings?.map((w) => (
@@ -805,6 +824,116 @@ export function ProjectReviewEditorDialog({
                   ))}
                 </div>
               )}
+
+              <ReviewFormSection
+                sectionId="pr-section-participants"
+                title="Parties prenantes"
+                description="Présents au comité : rattachement compte optionnel, nom affiché, présence et obligation."
+                icon={Users}
+                accent="amber"
+              >
+                <div className="flex justify-end">
+                  {editable && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setParticipants((prev) => [
+                          ...prev,
+                          { displayName: '', userId: '', attended: true, isRequired: false },
+                        ])
+                      }
+                    >
+                      Ajouter un participant
+                    </Button>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  {participants.map((p, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg border border-border/70 bg-muted/30 p-3"
+                    >
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="grid gap-1.5">
+                          <Label>Nom affiché</Label>
+                          <Input
+                            value={p.displayName}
+                            disabled={!editable}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setParticipants((prev) =>
+                                prev.map((x, j) => (j === i ? { ...x, displayName: v } : x)),
+                              );
+                            }}
+                            placeholder="Nom, rôle…"
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label className="text-muted-foreground">ID utilisateur (optionnel)</Label>
+                          <Input
+                            value={p.userId}
+                            disabled={!editable}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setParticipants((prev) =>
+                                prev.map((x, j) => (j === i ? { ...x, userId: v } : x)),
+                              );
+                            }}
+                            placeholder="Si membre du client sur la plateforme"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-4">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border border-input"
+                            checked={p.attended}
+                            disabled={!editable}
+                            onChange={(e) => {
+                              const v = e.target.checked;
+                              setParticipants((prev) =>
+                                prev.map((x, j) => (j === i ? { ...x, attended: v } : x)),
+                              );
+                            }}
+                          />
+                          Présent
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border border-input"
+                            checked={p.isRequired}
+                            disabled={!editable}
+                            onChange={(e) => {
+                              const v = e.target.checked;
+                              setParticipants((prev) =>
+                                prev.map((x, j) => (j === i ? { ...x, isRequired: v } : x)),
+                              );
+                            }}
+                          />
+                          Requis
+                        </label>
+                        {editable && participants.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
+                            onClick={() =>
+                              setParticipants((prev) => prev.filter((_, j) => j !== i))
+                            }
+                          >
+                            Retirer
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ReviewFormSection>
 
               {previousReviewId != null && (
                 <ReviewFormSection
@@ -1044,7 +1173,7 @@ export function ProjectReviewEditorDialog({
                                 {r.actionPlan}
                               </p>
                             ) : (
-                              <p className="mt-2 text-xs font-medium text-amber-950 dark:text-amber-100">
+                              <p className="mt-2 text-xs font-semibold text-yellow-950 dark:text-amber-400">
                                 Plan d’action non renseigné
                               </p>
                             )}
@@ -1087,116 +1216,6 @@ export function ProjectReviewEditorDialog({
                     Fiche projet indisponible — ouvrez la fiche projet pour consulter l’arbitrage.
                   </p>
                 )}
-              </ReviewFormSection>
-
-              <ReviewFormSection
-                sectionId="pr-section-participants"
-                title="Parties prenantes"
-                description="Présents au comité : rattachement compte optionnel, nom affiché, présence et obligation."
-                icon={Users}
-                accent="amber"
-              >
-                <div className="flex justify-end">
-                  {editable && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setParticipants((prev) => [
-                          ...prev,
-                          { displayName: '', userId: '', attended: true, isRequired: false },
-                        ])
-                      }
-                    >
-                      Ajouter un participant
-                    </Button>
-                  )}
-                </div>
-                <div className="space-y-3">
-                  {participants.map((p, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg border border-border/70 bg-muted/30 p-3"
-                    >
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="grid gap-1.5">
-                          <Label>Nom affiché</Label>
-                          <Input
-                            value={p.displayName}
-                            disabled={!editable}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setParticipants((prev) =>
-                                prev.map((x, j) => (j === i ? { ...x, displayName: v } : x)),
-                              );
-                            }}
-                            placeholder="Nom, rôle…"
-                          />
-                        </div>
-                        <div className="grid gap-1.5">
-                          <Label className="text-muted-foreground">ID utilisateur (optionnel)</Label>
-                          <Input
-                            value={p.userId}
-                            disabled={!editable}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setParticipants((prev) =>
-                                prev.map((x, j) => (j === i ? { ...x, userId: v } : x)),
-                              );
-                            }}
-                            placeholder="Si membre du client sur la plateforme"
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-4">
-                        <label className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border border-input"
-                            checked={p.attended}
-                            disabled={!editable}
-                            onChange={(e) => {
-                              const v = e.target.checked;
-                              setParticipants((prev) =>
-                                prev.map((x, j) => (j === i ? { ...x, attended: v } : x)),
-                              );
-                            }}
-                          />
-                          Présent
-                        </label>
-                        <label className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border border-input"
-                            checked={p.isRequired}
-                            disabled={!editable}
-                            onChange={(e) => {
-                              const v = e.target.checked;
-                              setParticipants((prev) =>
-                                prev.map((x, j) => (j === i ? { ...x, isRequired: v } : x)),
-                              );
-                            }}
-                          />
-                          Requis
-                        </label>
-                        {editable && participants.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive"
-                            onClick={() =>
-                              setParticipants((prev) => prev.filter((_, j) => j !== i))
-                            }
-                          >
-                            Retirer
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </ReviewFormSection>
 
               <ReviewFormSection
@@ -1376,6 +1395,39 @@ export function ProjectReviewEditorDialog({
                 </div>
               </ReviewFormSection>
 
+              <ReviewFormSection
+                sectionId="pr-section-summary"
+                title="Résumé exécutif"
+                description="Faits marquants, alertes, décisions clés — ce que le comité doit retenir."
+                icon={Sparkles}
+                accent="emerald"
+              >
+                <div className="grid gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="pr-ed-summary">Synthèse du point</Label>
+                    <textarea
+                      id="pr-ed-summary"
+                      className={textareaClass}
+                      value={executiveSummary}
+                      disabled={!editable}
+                      onChange={(e) => setExecutiveSummary(e.target.value)}
+                      placeholder="Ce qui s’est passé, ce qui bloque, ce qu’on décide — faits marquants, alertes, décisions clés…"
+                      maxLength={20000}
+                    />
+                  </div>
+                  <div className="grid gap-1.5 sm:max-w-md">
+                    <Label htmlFor="pr-ed-next">Prochain point (optionnel)</Label>
+                    <Input
+                      id="pr-ed-next"
+                      type="datetime-local"
+                      value={nextReviewDate}
+                      disabled={!editable}
+                      onChange={(e) => setNextReviewDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </ReviewFormSection>
+
               <CommitteeMoodPicker
                 value={committeeMood}
                 onChange={setCommitteeMood}
@@ -1400,21 +1452,28 @@ export function ProjectReviewEditorDialog({
         </div>
 
         {d && (
-          <DialogFooter className="border-t border-border/60 bg-muted/20 px-4 py-3 sm:px-6">
+          <DialogFooter className="border-t border-border/60 bg-muted/20 px-4 pt-3 pb-5 sm:px-6 sm:pb-6">
             <div className="flex w-full flex-wrap items-center justify-between gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Fermer
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Fermer
+                </Button>
+                {editable && (
+                  <span className="text-xs text-muted-foreground" aria-live="polite">
+                    {update.isPending ? 'Enregistrement…' : 'Brouillon synchronisé automatiquement'}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2">
                 {editable && (
                   <>
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="outline"
                       onClick={() => void onSave()}
                       disabled={update.isPending}
                     >
-                      {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
+                      {update.isPending ? 'Enregistrement…' : 'Enregistrer maintenant'}
                     </Button>
                     <Button
                       type="button"
