@@ -320,9 +320,17 @@ function formatMilestoneDate(iso: string): string {
 }
 
 const textareaClass = cn(
-  'min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm',
+  'min-h-[72px] w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm',
   'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
   'disabled:cursor-not-allowed disabled:opacity-50',
+);
+
+/** Scope fiche projet : filets gris (tokens) plutôt que bordures trop contrastées. */
+const projectSheetChromeClass = cn(
+  '[&_[data-slot=card]]:border-border/65',
+  '[&_[data-slot=input]]:border-border/70',
+  '[&_[data-slot=select-trigger]]:border-border/70',
+  '[&_textarea]:border-border/70',
 );
 
 /** Délai après la dernière frappe avant envoi API (sauvegarde automatique fiche projet). */
@@ -822,7 +830,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           : null;
 
   return (
-    <div className="space-y-6">
+    <div className={cn('space-y-6', projectSheetChromeClass)}>
       <div>
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <Link
@@ -1041,7 +1049,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             </div>
           </div>
 
-          <div className="border-t border-border pt-8">
+          <div className="border-t border-border/70 pt-8">
             <div className="mb-5 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="text-sm font-semibold tracking-tight text-foreground">
@@ -1060,7 +1068,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div
                 className={cn(
-                  'relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm',
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
                   'border-l-[3px] border-l-emerald-500/70',
                 )}
               >
@@ -1101,7 +1109,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
               <div
                 className={cn(
-                  'relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm',
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
                   'border-l-[3px] border-l-sky-500/70',
                 )}
               >
@@ -1149,7 +1157,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
               <div
                 className={cn(
-                  'relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm',
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
                   'border-l-[3px] border-l-violet-500/70',
                 )}
               >
@@ -1187,7 +1195,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
               <div
                 className={cn(
-                  'relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm',
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
                   'border-l-[3px] border-l-amber-500/70',
                 )}
               >
@@ -1252,7 +1260,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             </div>
           ) : null}
 
-          <div className="border-t border-border pt-8">
+          <div className="border-t border-border/70 pt-8">
             <div className="mb-5 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="text-sm font-semibold tracking-tight text-foreground">Arbitrage</h4>
@@ -1652,7 +1660,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           </div>
 
           {/* Paramétrage fiche (opérationnel) */}
-          <div className="space-y-2 border-t border-border pt-4">
+          <div className="space-y-2 border-t border-border/70 pt-4">
             <div className="space-y-1">
               <Label htmlFor="sheet-risk-level" className="text-muted-foreground">
                 Niveau de risque — saisie fiche (CODIR)
@@ -1704,7 +1712,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           </div>
 
           {/* Saisie nouveau risque — au-dessus du détail liste */}
-          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="min-w-0 flex-1 space-y-2">
               <Label htmlFor="new-risk-title">Titre</Label>
               <Input
@@ -1872,93 +1880,140 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       <Card size="sm">
         <CardHeader>
           <CardTitle className="text-base">F. Analyse stratégique (SWOT)</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Matrice : interne / externe × favorable / défavorable — lignes libres par quadrant
-          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="hidden text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-2 sm:gap-3">
-            <span className="rounded-md bg-muted/50 py-1.5">Favorable</span>
-            <span className="rounded-md bg-muted/50 py-1.5">Défavorable</span>
+        <CardContent className="space-y-6">
+          <div className="border-t border-border/70 pt-8">
+            <div className="mb-5 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold tracking-tight text-foreground">Matrice SWOT</h4>
+                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                  Stratégie
+                </Badge>
+              </div>
+              <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                Interne / externe × favorable / défavorable — lignes libres par quadrant.
+              </p>
+            </div>
+
+            <div className="mb-3 hidden text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-2 sm:gap-3">
+              <span className="rounded-md bg-muted/50 py-1.5">Favorable</span>
+              <span className="rounded-md bg-muted/50 py-1.5">Défavorable</span>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-emerald-500/70',
+                )}
+              >
+                <div className="mb-4 flex items-start gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                    <span className="text-sm font-bold tabular-nums">S</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Forces
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Interne · favorable</p>
+                  </div>
+                </div>
+                <Label className="sr-only">Forces — points</Label>
+                <DynamicLinesField
+                  lines={swS}
+                  onLinesChange={setSwS}
+                  canEdit={canEdit}
+                  placeholder={(i) => `Atout ${i + 1}`}
+                  inputClassName="border-border/70 bg-background"
+                />
+              </div>
+
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-amber-500/70',
+                )}
+              >
+                <div className="mb-4 flex items-start gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-500">
+                    <span className="text-sm font-bold tabular-nums">W</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Faiblesses
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Interne · défavorable</p>
+                  </div>
+                </div>
+                <Label className="sr-only">Faiblesses — points</Label>
+                <DynamicLinesField
+                  lines={swW}
+                  onLinesChange={setSwW}
+                  canEdit={canEdit}
+                  placeholder={(i) => `Limite ${i + 1}`}
+                  inputClassName="border-border/70 bg-background"
+                />
+              </div>
+
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-sky-500/70',
+                )}
+              >
+                <div className="mb-4 flex items-start gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-800 dark:text-sky-400">
+                    <span className="text-sm font-bold tabular-nums">O</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Opportunités
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Externe · favorable</p>
+                  </div>
+                </div>
+                <Label className="sr-only">Opportunités — points</Label>
+                <DynamicLinesField
+                  lines={swO}
+                  onLinesChange={setSwO}
+                  canEdit={canEdit}
+                  placeholder={(i) => `Opportunité ${i + 1}`}
+                  inputClassName="border-border/70 bg-background"
+                />
+              </div>
+
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-rose-500/70',
+                )}
+              >
+                <div className="mb-4 flex items-start gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/10 text-rose-800 dark:text-rose-400">
+                    <span className="text-sm font-bold tabular-nums">T</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Menaces
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Externe · défavorable</p>
+                  </div>
+                </div>
+                <Label className="sr-only">Menaces — points</Label>
+                <DynamicLinesField
+                  lines={swT}
+                  onLinesChange={setSwT}
+                  canEdit={canEdit}
+                  placeholder={(i) => `Menace ${i + 1}`}
+                  inputClassName="border-border/70 bg-background"
+                />
+              </div>
+            </div>
+
+            <p className="mt-4 text-center text-[11px] text-muted-foreground sm:hidden">
+              Ligne du haut : interne · ligne du bas : externe
+            </p>
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-0 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] p-4 shadow-sm dark:bg-emerald-500/10">
-              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-emerald-500/20 pb-2">
-                <span className="text-lg font-bold tabular-nums text-emerald-950 dark:text-emerald-500">
-                  S
-                </span>
-                <span className="font-semibold text-foreground">Forces</span>
-                <span className="text-xs text-muted-foreground">Interne</span>
-              </div>
-              <Label className="sr-only">Forces — points</Label>
-              <DynamicLinesField
-                lines={swS}
-                onLinesChange={setSwS}
-                canEdit={canEdit}
-                placeholder={(i) => `Atout ${i + 1}`}
-                inputClassName="border-emerald-500/20 bg-background/80"
-              />
-            </div>
-
-            <div className="space-y-0 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4 shadow-sm dark:bg-amber-500/10">
-              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-amber-500/20 pb-2">
-                <span className="text-lg font-bold tabular-nums text-amber-950 dark:text-amber-600">
-                  W
-                </span>
-                <span className="font-semibold text-foreground">Faiblesses</span>
-                <span className="text-xs text-muted-foreground">Interne</span>
-              </div>
-              <Label className="sr-only">Faiblesses — points</Label>
-              <DynamicLinesField
-                lines={swW}
-                onLinesChange={setSwW}
-                canEdit={canEdit}
-                placeholder={(i) => `Limite ${i + 1}`}
-                inputClassName="border-amber-500/20 bg-background/80"
-              />
-            </div>
-
-            <div className="space-y-0 rounded-xl border border-sky-500/25 bg-sky-500/[0.07] p-4 shadow-sm dark:bg-sky-500/10">
-              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-sky-500/20 pb-2">
-                <span className="text-lg font-bold tabular-nums text-sky-800 dark:text-sky-400">
-                  O
-                </span>
-                <span className="font-semibold text-foreground">Opportunités</span>
-                <span className="text-xs text-muted-foreground">Externe</span>
-              </div>
-              <Label className="sr-only">Opportunités — points</Label>
-              <DynamicLinesField
-                lines={swO}
-                onLinesChange={setSwO}
-                canEdit={canEdit}
-                placeholder={(i) => `Opportunité ${i + 1}`}
-                inputClassName="border-sky-500/20 bg-background/80"
-              />
-            </div>
-
-            <div className="space-y-0 rounded-xl border border-rose-500/25 bg-rose-500/[0.07] p-4 shadow-sm dark:bg-rose-500/10">
-              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-rose-500/20 pb-2">
-                <span className="text-lg font-bold tabular-nums text-rose-800 dark:text-rose-400">
-                  T
-                </span>
-                <span className="font-semibold text-foreground">Menaces</span>
-                <span className="text-xs text-muted-foreground">Externe</span>
-              </div>
-              <Label className="sr-only">Menaces — points</Label>
-              <DynamicLinesField
-                lines={swT}
-                onLinesChange={setSwT}
-                canEdit={canEdit}
-                placeholder={(i) => `Menace ${i + 1}`}
-                inputClassName="border-rose-500/20 bg-background/80"
-              />
-            </div>
-          </div>
-
-          <p className="text-center text-[11px] text-muted-foreground sm:hidden">
-            Ligne du haut : interne · ligne du bas : externe
-          </p>
         </CardContent>
       </Card>
 
@@ -1966,96 +2021,143 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       <Card size="sm">
         <CardHeader>
           <CardTitle className="text-base">G. Décisions recommandées (TOWS)</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Croisement forces-faiblesses (lignes) × opportunités-menaces (colonnes) — stratégies par quadrant,
-            lignes libres
-          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="hidden text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-2 sm:gap-3">
-            <span className="rounded-md bg-muted/50 py-1.5">Opportunités (O)</span>
-            <span className="rounded-md bg-muted/50 py-1.5">Menaces (T)</span>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            {/* Ligne S — SO | ST */}
-            <div className="space-y-0 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4 shadow-sm dark:bg-emerald-500/10">
-              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-emerald-500/25 pb-2">
-                <span className="text-lg font-bold tabular-nums text-emerald-950 dark:text-emerald-500">
-                  SO
-                </span>
-                <span className="font-semibold text-foreground">Accélérer</span>
-                <span className="text-xs text-muted-foreground">S × O · offensif</span>
+        <CardContent className="space-y-6">
+          <div className="border-t border-border/70 pt-8">
+            <div className="mb-5 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold tracking-tight text-foreground">Matrice TOWS</h4>
+                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                  Décision
+                </Badge>
               </div>
-              <Label className="sr-only">SO — actions</Label>
-              <DynamicLinesField
-                lines={tSO}
-                onLinesChange={setTSO}
-                canEdit={canEdit}
-                placeholder={(i) => `Action ${i + 1}`}
-                inputClassName="border-emerald-500/20 bg-background/80"
-              />
+              <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                Croisement forces-faiblesses (lignes) × opportunités-menaces (colonnes) — stratégies par
+                quadrant, lignes libres.
+              </p>
             </div>
 
-            <div className="space-y-0 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] p-4 shadow-sm dark:bg-amber-500/10">
-              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-amber-500/25 pb-2">
-                <span className="text-lg font-bold tabular-nums text-amber-950 dark:text-amber-600">
-                  ST
-                </span>
-                <span className="font-semibold text-foreground">Sécuriser</span>
-                <span className="text-xs text-muted-foreground">S × T · diversifier / réduire l’exposition</span>
-              </div>
-              <Label className="sr-only">ST — actions</Label>
-              <DynamicLinesField
-                lines={tST}
-                onLinesChange={setTST}
-                canEdit={canEdit}
-                placeholder={(i) => `Action ${i + 1}`}
-                inputClassName="border-amber-500/20 bg-background/80"
-              />
+            <div className="mb-3 hidden text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-2 sm:gap-3">
+              <span className="rounded-md bg-muted/50 py-1.5">Opportunités (O)</span>
+              <span className="rounded-md bg-muted/50 py-1.5">Menaces (T)</span>
             </div>
 
-            {/* Ligne W — WO | WT */}
-            <div className="space-y-0 rounded-xl border border-sky-500/30 bg-sky-500/[0.07] p-4 shadow-sm dark:bg-sky-500/10">
-              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-sky-500/25 pb-2">
-                <span className="text-lg font-bold tabular-nums text-sky-800 dark:text-sky-400">
-                  WO
-                </span>
-                <span className="font-semibold text-foreground">Corriger</span>
-                <span className="text-xs text-muted-foreground">W × O · renforcer / pivoter</span>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-emerald-500/70',
+                )}
+              >
+                <div className="mb-4 flex items-start gap-2">
+                  <span className="flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 px-1 text-emerald-700 dark:text-emerald-400">
+                    <span className="text-[10px] font-bold leading-none tabular-nums">SO</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Accélérer
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">S × O · offensif</p>
+                  </div>
+                </div>
+                <Label className="sr-only">SO — actions</Label>
+                <DynamicLinesField
+                  lines={tSO}
+                  onLinesChange={setTSO}
+                  canEdit={canEdit}
+                  placeholder={(i) => `Action ${i + 1}`}
+                  inputClassName="border-border/70 bg-background"
+                />
               </div>
-              <Label className="sr-only">WO — actions</Label>
-              <DynamicLinesField
-                lines={tWO}
-                onLinesChange={setTWO}
-                canEdit={canEdit}
-                placeholder={(i) => `Action ${i + 1}`}
-                inputClassName="border-sky-500/20 bg-background/80"
-              />
+
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-amber-500/70',
+                )}
+              >
+                <div className="mb-4 flex items-start gap-2">
+                  <span className="flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 px-1 text-amber-800 dark:text-amber-500">
+                    <span className="text-[10px] font-bold leading-none tabular-nums">ST</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Sécuriser
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">S × T · diversifier / réduire l’exposition</p>
+                  </div>
+                </div>
+                <Label className="sr-only">ST — actions</Label>
+                <DynamicLinesField
+                  lines={tST}
+                  onLinesChange={setTST}
+                  canEdit={canEdit}
+                  placeholder={(i) => `Action ${i + 1}`}
+                  inputClassName="border-border/70 bg-background"
+                />
+              </div>
+
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-sky-500/70',
+                )}
+              >
+                <div className="mb-4 flex items-start gap-2">
+                  <span className="flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 px-1 text-sky-800 dark:text-sky-400">
+                    <span className="text-[10px] font-bold leading-none tabular-nums">WO</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Corriger
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">W × O · renforcer / pivoter</p>
+                  </div>
+                </div>
+                <Label className="sr-only">WO — actions</Label>
+                <DynamicLinesField
+                  lines={tWO}
+                  onLinesChange={setTWO}
+                  canEdit={canEdit}
+                  placeholder={(i) => `Action ${i + 1}`}
+                  inputClassName="border-border/70 bg-background"
+                />
+              </div>
+
+              <div
+                className={cn(
+                  'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+                  'border-l-[3px] border-l-rose-500/70',
+                )}
+              >
+                <div className="mb-4 flex items-start gap-2">
+                  <span className="flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/10 px-1 text-rose-800 dark:text-rose-400">
+                    <span className="text-[10px] font-bold leading-none tabular-nums">WT</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Réduire / stopper
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">W × T · défensif</p>
+                  </div>
+                </div>
+                <Label className="sr-only">WT — actions</Label>
+                <DynamicLinesField
+                  lines={tWT}
+                  onLinesChange={setTWT}
+                  canEdit={canEdit}
+                  placeholder={(i) => `Action ${i + 1}`}
+                  inputClassName="border-border/70 bg-background"
+                />
+              </div>
             </div>
 
-            <div className="space-y-0 rounded-xl border border-rose-500/30 bg-rose-500/[0.07] p-4 shadow-sm dark:bg-rose-500/10">
-              <div className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-rose-500/25 pb-2">
-                <span className="text-lg font-bold tabular-nums text-rose-800 dark:text-rose-400">
-                  WT
-                </span>
-                <span className="font-semibold text-foreground">Réduire / stopper</span>
-                <span className="text-xs text-muted-foreground">W × T · défensif</span>
-              </div>
-              <Label className="sr-only">WT — actions</Label>
-              <DynamicLinesField
-                lines={tWT}
-                onLinesChange={setTWT}
-                canEdit={canEdit}
-                placeholder={(i) => `Action ${i + 1}`}
-                inputClassName="border-rose-500/20 bg-background/80"
-              />
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center text-[11px] text-muted-foreground sm:justify-between">
+              <span className="sm:hidden">Haut : ligne S (forces) · bas : ligne W (faiblesses)</span>
+              <span className="hidden sm:inline">
+                Ligne du haut : stratégies à partir des forces · ligne du bas : à partir des faiblesses
+              </span>
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center text-[11px] text-muted-foreground sm:justify-between">
-            <span className="sm:hidden">Haut : ligne S (forces) · bas : ligne W (faiblesses)</span>
-            <span className="hidden sm:inline">Ligne du haut : stratégies à partir des forces · ligne du bas : à partir des faiblesses</span>
           </div>
         </CardContent>
       </Card>
@@ -2117,7 +2219,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             </div>
           )}
 
-          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               Assistant : plusieurs jalons en une fois à partir d&apos;une date de fin et de jours
               avant cette fin.
