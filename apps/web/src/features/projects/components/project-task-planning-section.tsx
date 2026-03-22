@@ -22,19 +22,27 @@ import {
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
+import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import {
   useCreateProjectTaskMutation,
   useUpdateProjectTaskMutation,
+  useUpdateProjectMilestoneMutation,
 } from '../hooks/use-project-planning-mutations';
 import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
 import { GANTT_ROW_PX } from '../lib/gantt-timeline-layout';
 import {
+  MILESTONE_STATUS_LABEL,
   TASK_PRIORITY_LABEL,
   TASK_STATUS_LABEL,
 } from '../constants/project-enum-labels';
-import type { ProjectTaskApi } from '../types/project.types';
-import type { CreateProjectTaskPayload, UpdateProjectTaskPayload } from '../api/projects.api';
+import type { ProjectMilestoneApi, ProjectTaskApi } from '../types/project.types';
+import type {
+  CreateProjectMilestonePayload,
+  CreateProjectTaskPayload,
+  UpdateProjectMilestonePayload,
+  UpdateProjectTaskPayload,
+} from '../api/projects.api';
 import { cn } from '@/lib/utils';
 
 const DEP_TYPES = [
@@ -241,10 +249,24 @@ function emptyCreateForm(): CreateProjectTaskPayload {
   };
 }
 
+function milestoneFormFromApi(m: ProjectMilestoneApi): CreateProjectMilestonePayload {
+  return {
+    name: m.name,
+    description: m.description ?? undefined,
+    code: m.code ?? undefined,
+    targetDate: m.targetDate,
+    achievedDate: m.achievedDate ?? undefined,
+    status: m.status,
+    linkedTaskId: m.linkedTaskId,
+    ownerUserId: m.ownerUserId,
+    sortOrder: m.sortOrder,
+  };
+}
+
 export type ProjectTaskPlanningSectionProps = {
   projectId: string;
   variant: 'full-table' | 'gantt-sidebar';
-  /** Jalons en fin de liste (lecture seule) pour aligner avec la frise Gantt. */
+  /** Jalons en fin de liste pour aligner avec la frise Gantt ; clic → édition si `projects.update`. */
   milestoneRows?: { id: string; name: string }[];
   /** Masque la barre « Nouvelle tâche » (ex. Gantt : bouton hors zone scroll via ref). */
   hideToolbar?: boolean;
@@ -265,12 +287,24 @@ export const ProjectTaskPlanningSection = forwardRef<
   const canEdit = has('projects.update');
 
   const tasksQuery = useProjectTasksQuery(projectId);
+  const isGanttVariant = variant === 'gantt-sidebar';
+  const milestonesQuery = useProjectMilestonesQuery(projectId, {
+    enabled: isGanttVariant,
+  });
   const assignableQuery = useProjectAssignableUsers({ enabled: canEdit });
   const createMut = useCreateProjectTaskMutation(projectId);
   const updateMut = useUpdateProjectTaskMutation(projectId);
+  const updateMilestoneMut = useUpdateProjectMilestoneMutation(projectId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectTaskApi | null>(null);
+  const [milestoneDialogOpen, setMilestoneDialogOpen] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<ProjectMilestoneApi | null>(null);
+  const [milestoneForm, setMilestoneForm] = useState<CreateProjectMilestonePayload>({
+    name: '',
+    targetDate: new Date().toISOString(),
+    status: 'PLANNED',
+  });
 
   const items = tasksQuery.data?.items ?? [];
 
@@ -305,6 +339,33 @@ export const ProjectTaskPlanningSection = forwardRef<
   }, []);
 
   useImperativeHandle(ref, () => ({ openCreate }), [openCreate]);
+
+  const milestoneItems = milestonesQuery.data?.items ?? [];
+
+  const taskOptionsForMilestone = useMemo(
+    () => [...items].sort((a, b) => a.name.localeCompare(b.name)),
+    [items],
+  );
+
+  const openMilestoneEdit = useCallback(
+    (milestoneId: string) => {
+      const m = milestoneItems.find((x) => x.id === milestoneId);
+      if (!m) return;
+      setEditingMilestone(m);
+      setMilestoneForm(milestoneFormFromApi(m));
+      setMilestoneDialogOpen(true);
+    },
+    [milestoneItems],
+  );
+
+  const submitMilestone = () => {
+    if (!milestoneForm.name.trim() || !editingMilestone) return;
+    const body: UpdateProjectMilestonePayload = { ...milestoneForm };
+    updateMilestoneMut.mutate(
+      { milestoneId: editingMilestone.id, body },
+      { onSuccess: () => setMilestoneDialogOpen(false) },
+    );
+  };
 
   const openEdit = (t: ProjectTaskApi) => {
     setEditing(t);
@@ -360,7 +421,7 @@ export const ProjectTaskPlanningSection = forwardRef<
     }
   };
 
-  const isGantt = variant === 'gantt-sidebar';
+  const isGantt = isGanttVariant;
 
   return (
     <div
@@ -552,8 +613,12 @@ export const ProjectTaskPlanningSection = forwardRef<
                 milestoneRows.map((m) => (
                   <TableRow
                     key={`ms-${m.id}`}
-                    className="bg-muted/10 text-muted-foreground italic"
+                    className={cn(
+                      'bg-muted/10 text-muted-foreground italic',
+                      canEdit && 'cursor-pointer hover:bg-muted/25',
+                    )}
                     style={{ height: GANTT_ROW_PX }}
+                    onClick={canEdit ? () => openMilestoneEdit(m.id) : undefined}
                   >
                     <TableCell className="py-1 align-middle" colSpan={canEdit ? 5 : 4}>
                       <span className="truncate" title={m.name}>
@@ -591,6 +656,121 @@ export const ProjectTaskPlanningSection = forwardRef<
               }
             >
               {editing ? 'Enregistrer' : 'Créer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={milestoneDialogOpen} onOpenChange={setMilestoneDialogOpen}>
+        <DialogContent className="sm:max-w-md" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Modifier le jalon</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="gantt-ms-name">Nom</Label>
+              <Input
+                id="gantt-ms-name"
+                value={milestoneForm.name}
+                onChange={(e) => setMilestoneForm({ ...milestoneForm, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gantt-ms-desc">Description</Label>
+              <textarea
+                id="gantt-ms-desc"
+                className="border-input bg-background min-h-[64px] w-full rounded-lg border px-3 py-2 text-sm"
+                value={milestoneForm.description ?? ''}
+                onChange={(e) =>
+                  setMilestoneForm({ ...milestoneForm, description: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="gantt-ms-target">Date cible</Label>
+                <Input
+                  id="gantt-ms-target"
+                  type="date"
+                  value={isoToDateInput(milestoneForm.targetDate)}
+                  onChange={(e) =>
+                    setMilestoneForm({
+                      ...milestoneForm,
+                      targetDate: dateInputToIso(e.target.value) ?? milestoneForm.targetDate,
+                    })
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Statut</Label>
+                <select
+                  className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
+                  value={milestoneForm.status ?? 'PLANNED'}
+                  onChange={(e) =>
+                    setMilestoneForm({ ...milestoneForm, status: e.target.value })
+                  }
+                >
+                  {Object.keys(MILESTONE_STATUS_LABEL).map((k) => (
+                    <option key={k} value={k}>
+                      {MILESTONE_STATUS_LABEL[k]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gantt-ms-achieved">Date d’atteinte (optionnel)</Label>
+              <Input
+                id="gantt-ms-achieved"
+                type="date"
+                value={isoToDateInput(milestoneForm.achievedDate)}
+                onChange={(e) =>
+                  setMilestoneForm({
+                    ...milestoneForm,
+                    achievedDate: e.target.value
+                      ? dateInputToIso(e.target.value)
+                      : undefined,
+                  })
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tâche liée</Label>
+              <select
+                className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
+                value={milestoneForm.linkedTaskId ?? ''}
+                onChange={(e) =>
+                  setMilestoneForm({
+                    ...milestoneForm,
+                    linkedTaskId: e.target.value || null,
+                  })
+                }
+              >
+                <option value="">—</option>
+                {taskOptionsForMilestone.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setMilestoneDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              onClick={submitMilestone}
+              disabled={
+                !milestoneForm.name.trim() ||
+                updateMilestoneMut.isPending ||
+                milestonesQuery.isLoading
+              }
+            >
+              Enregistrer
             </Button>
           </DialogFooter>
         </DialogContent>
