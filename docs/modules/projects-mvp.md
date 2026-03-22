@@ -55,6 +55,9 @@ Permissions métier : `projects.read`, `projects.create`, `projects.update`, `pr
 | GET | `/projects/:projectId/budget-links` | `projects.read` — liste paginée des liens projet ↔ ligne budgétaire (`limit`, `offset`) |
 | POST | `/projects/:projectId/budget-links` | `projects.update` — corps : `budgetLineId`, `allocationType`, `percentage` / `amount` selon mode |
 | DELETE | `/project-budget-links/:id` | `projects.update` |
+| GET | `/projects/:id/project-sheet` | `projects.read` — fiche projet décisionnelle (RFC-PROJ-012), scope client actif |
+| PATCH | `/projects/:id/project-sheet` | `projects.update` — champs fiche (cadrage, scores, ROI/priorité dérivés côté serveur, `type` / `status` projet, arbitrage 3 niveaux, motifs de refus si refus) ; audit `project.sheet.updated` |
+| POST | `/projects/:id/arbitration` | `projects.update` — mise à jour du statut d’arbitrage **legacy** (`ProjectArbitrationStatus`) ; audit dédié validé / refusé |
 
 Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
@@ -70,7 +73,7 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 ## 5. Frontend
 
-- **Feature** : `apps/web/src/features/projects/` (API client, hooks React Query, types, composants) — section **Budget** sur le détail projet (`ProjectBudgetSection`, RFC-PROJ-010)
+- **Feature** : `apps/web/src/features/projects/` (API client, hooks React Query, types, composants) — section **Budget** sur le détail projet (`ProjectBudgetSection`, RFC-PROJ-010) ; **fiche décisionnelle** sur le détail (`ProjectSheetView`, `GET/PATCH …/project-sheet`, autosave)
 - **Routes** : `apps/web/src/app/(protected)/projects/` — `/projects`, `/projects/new`, `/projects/[projectId]`
 - **Navigation** : `apps/web/src/config/navigation.ts` — entrée « Projets », `moduleCode: 'projects'`, `requiredPermissions: ['projects.read']`
 - **Sécurité UI** : `RequireActiveClient`, `PermissionGate`, données via `authFetch` + TanStack Query — **pas** de calcul cockpit de santé côté client (affichage des champs renvoyés par l’API)

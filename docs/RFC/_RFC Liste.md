@@ -8,7 +8,7 @@
 | 2     | **RFC-PROJ-002** | Prisma Schema       | Modélisation DB : Project, Task, Risk, Milestone                       | ✅ Couvert | Structure OK                                 |
 | 3     | **RFC-PROJ-003** | Règles métier       | Calcul health, statuts, cohérence projet                               | ✅ Couvert | Service existant                             |
 | 4     | **RFC-PROJ-004** | Portfolio API       | CRUD projets + agrégats portefeuille                                   | ✅ Couvert | `/api/projects` OK                           |
-| 5     | **RFC-PROJ-012** | Project Sheet       | Fiche projet décisionnelle pour arbitrer : valeur, coût, ROI, priorité | ❌ À faire | **urgence absolue** — couche arbitrage CODIR |
+| 5     | **RFC-PROJ-012** | Project Sheet       | Fiche projet décisionnelle pour arbitrer : valeur, coût, ROI, priorité | 🟡 En cours | API + UI fiche sur détail projet ; métriques portefeuille / règles avancées à compléter |
 | 6     | **RFC-PROJ-005** | Tasks Backend       | Gestion exécution (tâches projet)                                      | ✅ Couvert | OK                                           |
 | 7     | **RFC-PROJ-006** | Risks Backend       | Gestion risques (probabilité, impact)                                  | ✅ Couvert | OK                                           |
 | 8     | **RFC-PROJ-008** | Permissions         | RBAC projet (`projects.*`)                                             | ✅ Couvert | OK                                           |
@@ -20,10 +20,10 @@
 
 | Ordre | RFC              | Nom                    | Description                                                           | État      | Commentaire                                 |
 | ----- | ---------------- | ---------------------- | --------------------------------------------------------------------- | --------- | ------------------------------------------- |
-| 10    | **RFC-PROJ-012** | Project Sheet          | Objet décisionnel lié au projet                                       | ❌ À faire | doit compléter `Project`, pas le remplacer  |
-| 11    | **RFC-PROJ-012** | Project Sheet API      | `GET /api/projects/:id/sheet`, `PATCH /api/projects/:id/sheet`, liste | ❌ À faire | vue arbitrage portefeuille                  |
-| 12    | **RFC-PROJ-012** | Project Sheet Metrics  | Calcul backend : coût total, budget, forecast, resource cost, ROI     | ❌ À faire | aucun calcul critique côté frontend         |
-| 13    | **RFC-PROJ-012** | Project Decision Rules | Règles d’arbitrage : APPROVED / REJECTED / ON_HOLD / TO_VALIDATE      | ❌ À faire | blocage tant que données minimales absentes |
+| 10    | **RFC-PROJ-012** | Project Sheet          | Objet décisionnel lié au projet                                       | 🟡 En cours | modèle `Project` étendu en base (fiche + arbitrage) |
+| 11    | **RFC-PROJ-012** | Project Sheet API      | `GET /api/projects/:id/project-sheet`, `PATCH` même route, `POST …/arbitration` (legacy) | 🟡 En cours | permissions `projects.read` / `projects.update` |
+| 12    | **RFC-PROJ-012** | Project Sheet Metrics  | Calcul backend : coût total, budget, forecast, resource cost, ROI     | ❌ À faire | ROI / priorité fiche OK ; agrégats portefeuille à compléter |
+| 13    | **RFC-PROJ-012** | Project Decision Rules | Règles d’arbitrage : APPROVED / REJECTED / ON_HOLD / TO_VALIDATE      | ❌ À faire | cohérence partielle (3 niveaux + legacy) ; garde-fous métier à cadrer |
 
 ### Contenu attendu de la fiche projet
 

@@ -2,7 +2,11 @@
 
 ## Statut
 
-Draft — **priorité critique produit**
+**Partiellement implémenté** — priorité produit maintenue.
+
+**Réalisé dans le repo** : module `apps/api/src/modules/projects/project-sheet/` (`ProjectSheetController`, `ProjectSheetService`, DTO `UpdateProjectSheetDto`) ; schéma Prisma `Project` étendu (cadrage, SWOT/TOWS, arbitrage à trois niveaux + champs optionnels de motif si statut `REFUSE`, etc.) ; UI fiche sur le détail projet (`ProjectSheetView`) avec autosave, édition **type** et **statut** cycle de vie (`ProjectType` / `ProjectStatus`) sous `projects.update`. Données strictement scopées `clientId` via guards existants.
+
+**Encore couvert par la vision RFC mais non exhaustivement dans ce fichier** : métriques portefeuille agrégées, règles de décision « APPROVED / ON_HOLD » au-delà du modèle arbitrage actuel, page dédiée `/projects/[id]/sheet` isolée (la fiche est intégrée au détail projet).
 
 ---
 
@@ -119,6 +123,8 @@ model Project {
 }
 ```
 
+**Note** : le bloc ci-dessus est la **vision initiale** de la RFC. Le schéma effectif et les champs à jour sont dans `apps/api/prisma/schema.prisma` (modèle `Project` : entre autres `targetEndDate`, `arbitrationMetierStatus` / `arbitrationComiteStatus` / `arbitrationCodirStatus`, notes de refus, `copilRecommendation`, champs cadrage, SWOT/TOWS, etc.).
+
 ---
 
 ## 5.2 Enums
@@ -186,12 +192,20 @@ priorityScore =
 
 ## 6.3 Statut d’arbitrage
 
+### Champ legacy `Project.arbitrationStatus`
+
 | Statut    | Signification |
 | --------- | ------------- |
 | DRAFT     | en cours      |
 | TO_REVIEW | prêt CODIR    |
 | VALIDATED | validé        |
 | REJECTED  | refusé        |
+
+### Arbitrage à trois niveaux (implémenté)
+
+Chaque niveau (métier → comité → sponsor / CODIR) a un statut `ProjectArbitrationLevelStatus` (`BROUILLON`, `EN_COURS`, `VALIDE`, `REFUSE`). Le niveau suivant n’est éditable qu’après validation du précédent. En cas de `REFUSE`, des champs texte optionnels **motif du refus** (un par niveau concerné) peuvent être renseignés ; ils sont effacés côté serveur si le statut du niveau n’est plus `REFUSE`.
+
+`PATCH /api/projects/:id/project-sheet` met à jour ces niveaux et dérive `arbitrationStatus` pour rétrocompatibilité / exports.
 
 ---
 
@@ -204,13 +218,31 @@ priorityScore =
 
 # 7. API
 
+**Préfixe global** : `/api`. **Isolation** : toutes les routes ci-dessous passent par `ActiveClientGuard` ; le projet doit appartenir au client actif.
+
+| Méthode | Route | Permission |
+|--------|--------|------------|
+| GET | `/projects/:id/project-sheet` | `projects.read` |
+| PATCH | `/projects/:id/project-sheet` | `projects.update` |
+| POST | `/projects/:id/arbitration` | `projects.update` |
+
 ## 7.1 Update fiche projet
 
 ```
 PATCH /api/projects/:id/project-sheet
 ```
 
-Body :
+Body (champs **tous optionnels** ; liste indicative — voir `UpdateProjectSheetDto`) :
+
+* identité / cadrage : `name`, `description`, `cadreLocation`, `cadreQui`, `involvedTeams`, `startDate`, `targetEndDate`
+* **cycle de vie** : `type` (`ProjectType`), `status` (`ProjectStatus`)
+* portefeuille : `priority`, `criticality`
+* scores & financier : `businessValueScore`, `strategicAlignment`, `urgencyScore`, `estimatedCost`, `estimatedGain`, `riskLevel`, `riskResponse`
+* COPIL : `copilRecommendation`
+* arbitrage multi-niveaux : `arbitrationMetierStatus`, `arbitrationComiteStatus`, `arbitrationCodirStatus`, et si refus : `arbitrationMetierRefusalNote`, `arbitrationComiteRefusalNote`, `arbitrationCodirRefusalNote`
+* cadrage métier / SWOT-TOWS : `businessProblem`, `businessBenefits`, `businessSuccessKpis`, `swotStrengths`, …, `towsActions`
+
+Le serveur recalcule **ROI** et **priorityScore** selon les règles du service (risque effectif, etc.).
 
 ```json
 {
@@ -219,7 +251,11 @@ Body :
   "urgencyScore": 3,
   "estimatedCost": 50000,
   "estimatedGain": 120000,
-  "riskLevel": "MEDIUM"
+  "riskLevel": "MEDIUM",
+  "type": "TRANSFORMATION",
+  "status": "IN_PROGRESS",
+  "arbitrationMetierStatus": "VALIDE",
+  "arbitrationMetierRefusalNote": null
 }
 ```
 
@@ -231,12 +267,14 @@ Body :
 GET /api/projects/:id/project-sheet
 ```
 
-Retour :
+Retour (extrait — la réponse inclut l’ensemble des champs fiche, dont `kind`, `type`, `status`, `code`, arbitrage multi-niveaux, notes de refus, SWOT/TOWS, etc.) :
 
 ```json
 {
   "id": "proj_123",
   "name": "Migration ERP",
+  "type": "TRANSFORMATION",
+  "status": "IN_PROGRESS",
 
   "businessValueScore": 4,
   "strategicAlignment": 5,
@@ -249,19 +287,22 @@ Retour :
   "riskLevel": "MEDIUM",
 
   "priorityScore": 6.2,
-  "arbitrationStatus": "TO_REVIEW"
+  "arbitrationStatus": "TO_REVIEW",
+  "arbitrationMetierStatus": "VALIDE",
+  "arbitrationComiteStatus": null,
+  "arbitrationCodirStatus": null
 }
 ```
 
 ---
 
-## 7.3 Changer statut arbitrage
+## 7.3 Changer statut arbitrage (legacy)
 
 ```
 POST /api/projects/:id/arbitration
 ```
 
-Body :
+Met à jour **`Project.arbitrationStatus`** (flux legacy distinct du PATCH fiche). Body :
 
 ```json
 {
@@ -339,20 +380,18 @@ Deux options :
 
 # 10. Impact frontend
 
-Nouvelle page :
+**Implémenté** : la fiche est intégrée au **détail projet** (`/projects/[projectId]`), composant `ProjectSheetView`, avec autosave sur les champs (dont type, statut, arbitrage, motifs de refus).
 
-```
-/projects/[id]/sheet
-```
+**Piste optionnelle** : route dédiée `/projects/[id]/sheet` si l’on veut une page plein écran plus tard.
 
-Contenu :
+Contenu visé :
 
 * scorecards
 * ROI
 * coût vs gain
 * niveau de risque
 * score global
-* bouton validation
+* arbitrage multi-niveaux
 
 Objectif :
 
