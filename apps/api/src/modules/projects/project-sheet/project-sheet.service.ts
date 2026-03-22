@@ -77,6 +77,7 @@ export type ProjectSheetResponseDto = {
   arbitrationComiteRefusalNote: string | null;
   arbitrationCodirRefusalNote: string | null;
   copilRecommendation: string;
+  copilRecommendationNote: string | null;
   businessProblem: string | null;
   businessBenefits: string | null;
   businessSuccessKpis: string[];
@@ -189,6 +190,7 @@ export class ProjectSheetService {
       arbitrationComiteRefusalNote: p.arbitrationComiteRefusalNote ?? null,
       arbitrationCodirRefusalNote: p.arbitrationCodirRefusalNote ?? null,
       copilRecommendation: p.copilRecommendation,
+      copilRecommendationNote: p.copilRecommendationNote ?? null,
       businessProblem: p.businessProblem ?? null,
       businessBenefits: p.businessBenefits ?? null,
       businessSuccessKpis: parseJsonStringArray(p.businessSuccessKpis) ?? [],
@@ -332,6 +334,7 @@ export class ProjectSheetService {
           }
         : {}),
       copilRecommendation: merged.copilRecommendation,
+      copilRecommendationNote: merged.copilRecommendationNote,
       businessProblem: merged.businessProblem,
       businessBenefits: merged.businessBenefits,
       businessSuccessKpis:
@@ -486,6 +489,7 @@ export class ProjectSheetService {
     criticality: ProjectCriticality;
     riskResponse: string | null;
     copilRecommendation: ProjectCopilRecommendation;
+    copilRecommendationNote: string | null;
     businessProblem: string | null;
     businessBenefits: string | null;
     businessSuccessKpis: string[] | null;
@@ -529,6 +533,16 @@ export class ProjectSheetService {
       dto.copilRecommendation !== undefined
         ? dto.copilRecommendation
         : project.copilRecommendation;
+
+    const copilRecommendationNoteRaw =
+      dto.copilRecommendationNote !== undefined
+        ? dto.copilRecommendationNote == null ||
+          dto.copilRecommendationNote.trim() === ''
+          ? null
+          : dto.copilRecommendationNote.trim()
+        : project.copilRecommendationNote;
+    const copilRecommendationNote =
+      copilRecommendation === 'NOT_SET' ? null : copilRecommendationNoteRaw;
 
     const name =
       dto.name !== undefined
@@ -643,6 +657,7 @@ export class ProjectSheetService {
       criticality,
       riskResponse,
       copilRecommendation,
+      copilRecommendationNote,
       businessProblem,
       businessBenefits,
       businessSuccessKpis,

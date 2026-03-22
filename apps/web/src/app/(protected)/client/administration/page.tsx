@@ -4,7 +4,12 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users, Shield } from 'lucide-react';
 
-export default function ClientAdministrationPage() {
+export default async function ClientAdministrationPage({
+  params,
+}: {
+  params: Promise<Record<string, string | string[]>>;
+}) {
+  await params;
   return (
     <PageContainer>
       <PageHeader

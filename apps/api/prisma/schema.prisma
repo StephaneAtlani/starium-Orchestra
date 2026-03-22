@@ -399,6 +399,8 @@ model Project {
   arbitrationComiteRefusalNote  String? @db.VarChar(2000)
   arbitrationCodirRefusalNote   String? @db.VarChar(2000)
   copilRecommendation ProjectCopilRecommendation @default(NOT_SET)
+  /// Commentaire libre associé à la position COPIL (visible sur demande à l’UI).
+  copilRecommendationNote String? @db.VarChar(4000)
 
   /// Cadrage OQQCQPC (fiche projet)
   cadreLocation String? @db.VarChar(500)

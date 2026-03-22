@@ -257,6 +257,8 @@ export type ProjectSheet = {
   arbitrationComiteRefusalNote: string | null;
   arbitrationCodirRefusalNote: string | null;
   copilRecommendation: ProjectCopilRecommendation;
+  /** Commentaire libre lié à la position COPIL */
+  copilRecommendationNote: string | null;
   businessProblem: string | null;
   businessBenefits: string | null;
   businessSuccessKpis: string[];
@@ -296,6 +298,7 @@ export type UpdateProjectSheetPayload = {
   /** Cycle de vie (DRAFT, IN_PROGRESS, …) */
   status?: string;
   copilRecommendation?: ProjectCopilRecommendation;
+  copilRecommendationNote?: string | null;
   arbitrationMetierStatus?: ProjectArbitrationLevelStatus;
   arbitrationComiteStatus?: ProjectArbitrationLevelStatus | null;
   arbitrationCodirStatus?: ProjectArbitrationLevelStatus | null;

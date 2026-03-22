@@ -68,6 +68,7 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
       arbitrationComiteRefusalNote: null,
       arbitrationCodirRefusalNote: null,
       copilRecommendation: ProjectCopilRecommendation.NOT_SET,
+      copilRecommendationNote: null,
       businessProblem: null,
       businessBenefits: null,
       businessSuccessKpis: null,

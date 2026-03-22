@@ -152,6 +152,13 @@ export class UpdateProjectSheetDto {
   @IsEnum(ProjectCopilRecommendation)
   copilRecommendation?: ProjectCopilRecommendation;
 
+  /** Annotation libre liée à la position COPIL — null efface. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(4000)
+  copilRecommendationNote?: string | null;
+
   /** Arbitrage — niveau Métier (toujours renseigné côté serveur après merge). */
   @IsOptional()
   @IsEnum(ProjectArbitrationLevelStatus)

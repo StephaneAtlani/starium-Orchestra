@@ -8,6 +8,7 @@ import {
   Briefcase,
   Building2,
   ChevronDown,
+  ChevronUp,
   ChevronLeft,
   Info,
   LayoutDashboard,
@@ -111,8 +112,8 @@ const ARBITRATION_LEVEL_STEPS = [
 ] as const;
 
 const LEVEL_STATUS_LABEL: Record<ProjectArbitrationLevelStatus, string> = {
-  BROUILLON: 'Brouillon',
-  EN_COURS: 'En cours',
+  BROUILLON: 'Proposition de projet',
+  EN_COURS: 'En préparation',
   SOUMIS_VALIDATION: 'Soumis à validation',
   VALIDE: 'Validé',
   REFUSE: 'Refusé',
@@ -196,6 +197,59 @@ const COPIL_LABEL: Record<ProjectCopilRecommendation, string> = {
 
 /** Valeur Select stable (évite uncontrolled → controlled si `undefined` au 1er rendu) */
 const RISK_UNSET = '__unset__';
+
+const SCORE_1_5_UNSET = '__score_1_5_unset__';
+
+function scoreStringFromSheet(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return '';
+  const x = Math.round(Number(n));
+  if (x < 1 || x > 5) return '';
+  return String(x);
+}
+
+function Score15Field({
+  id,
+  label,
+  value,
+  onValueChange,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onValueChange: (next: string) => void;
+  disabled: boolean;
+}) {
+  const normalized = /^[1-5]$/.test(value.trim()) ? value.trim() : '';
+  const selectValue = normalized === '' ? SCORE_1_5_UNSET : normalized;
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Select
+        value={selectValue}
+        onValueChange={(v) => {
+          const s = v ?? SCORE_1_5_UNSET;
+          onValueChange(s === SCORE_1_5_UNSET ? '' : s);
+        }}
+        disabled={disabled}
+      >
+        <SelectTrigger id={id} className="w-full" aria-label={label}>
+          <SelectValue>
+            {normalized === '' ? 'Non renseigné' : `${normalized} / 5`}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={SCORE_1_5_UNSET}>Non renseigné</SelectItem>
+          {(['1', '2', '3', '4', '5'] as const).map((n) => (
+            <SelectItem key={n} value={n}>
+              {n} / 5
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 function scoreOutOf5(n: number | null | undefined): string {
   if (n == null || n === undefined) return '—';
@@ -399,6 +453,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const [arbComiteRefusalNote, setArbComiteRefusalNote] = useState('');
   const [arbCodirRefusalNote, setArbCodirRefusalNote] = useState('');
   const [copilDraft, setCopilDraft] = useState<ProjectCopilRecommendation>('NOT_SET');
+  const [copilNote, setCopilNote] = useState('');
+  const [copilNoteOpen, setCopilNoteOpen] = useState(false);
 
   const [description, setDescription] = useState('');
   const [problem, setProblem] = useState('');
@@ -441,9 +497,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     setCadreStart(sheet.startDate ? sheet.startDate.slice(0, 10) : '');
     setCadreEnd(sheet.targetEndDate ? sheet.targetEndDate.slice(0, 10) : '');
     setInvolvedTeams(sheet.involvedTeams ?? '');
-    setBv(sheet.businessValueScore != null ? String(sheet.businessValueScore) : '');
-    setSa(sheet.strategicAlignment != null ? String(sheet.strategicAlignment) : '');
-    setUs(sheet.urgencyScore != null ? String(sheet.urgencyScore) : '');
+    setBv(scoreStringFromSheet(sheet.businessValueScore));
+    setSa(scoreStringFromSheet(sheet.strategicAlignment));
+    setUs(scoreStringFromSheet(sheet.urgencyScore));
     setCost(sheet.estimatedCost != null ? String(sheet.estimatedCost) : '');
     setGain(sheet.estimatedGain != null ? String(sheet.estimatedGain) : '');
     setRisk(sheet.riskLevel ?? RISK_UNSET);
@@ -455,6 +511,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     setArbComiteRefusalNote(sheet.arbitrationComiteRefusalNote ?? '');
     setArbCodirRefusalNote(sheet.arbitrationCodirRefusalNote ?? '');
     setCopilDraft(sheet.copilRecommendation ?? 'NOT_SET');
+    setCopilNote(sheet.copilRecommendationNote ?? '');
+    setCopilNoteOpen(false);
     setDescription(sheet.description ?? '');
     setProblem(sheet.businessProblem ?? '');
     setBenefits(sheet.businessBenefits ?? '');
@@ -500,6 +558,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     }
     payload.riskResponse = riskResponse.trim() ? riskResponse.trim() : null;
     payload.copilRecommendation = copilDraft;
+    payload.copilRecommendationNote =
+      copilDraft === 'NOT_SET' ? null : copilNote.trim() ? copilNote.trim() : null;
     if (problem.trim()) payload.businessProblem = problem.trim();
     if (benefits.trim()) payload.businessBenefits = benefits.trim();
     payload.businessSuccessKpis = kpiLines.map((s) => s.trim()).filter(Boolean);
@@ -560,6 +620,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     risk,
     riskResponse,
     copilDraft,
+    copilNote,
     problem,
     benefits,
     kpiLines,
@@ -572,6 +633,10 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     tWO,
     tWT,
   ]);
+
+  /** Toujours la dernière fonction de payload (évite closure stale dans `useMutation` au moment du debounce). */
+  const buildProjectSheetPayloadRef = useRef(buildProjectSheetPayload);
+  buildProjectSheetPayloadRef.current = buildProjectSheetPayload;
 
   /** Une seule clé dérivée pour l’autosave : le useEffect garde un deps de taille fixe (évite erreur React si la liste change / HMR). */
   const autosaveFormSnapshotKey = useMemo(
@@ -596,8 +661,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
         risk,
         riskResponse,
         copilDraft,
+        copilNote,
         problem,
-        benefits,
+      benefits,
         kpiLines,
         swS,
         swW,
@@ -634,6 +700,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       risk,
       riskResponse,
       copilDraft,
+      copilNote,
       problem,
       benefits,
       kpiLines,
@@ -656,7 +723,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      return updateProjectSheet(authFetch, projectId, buildProjectSheetPayload());
+      return updateProjectSheet(authFetch, projectId, buildProjectSheetPayloadRef.current());
     },
     onSuccess: () => {
       setLastSheetSavedAt(Date.now());
@@ -688,7 +755,10 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
   const copilSaveMutation = useMutation({
     mutationFn: (value: ProjectCopilRecommendation) =>
-      updateProjectSheet(authFetch, projectId, { copilRecommendation: value }),
+      updateProjectSheet(authFetch, projectId, {
+        copilRecommendation: value,
+        ...(value === 'NOT_SET' ? { copilRecommendationNote: null } : {}),
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: projectQueryKeys.sheet(clientId, projectId),
@@ -1221,6 +1291,7 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                       const prev = copilDraft;
                       if (next === prev) return;
                       setCopilDraft(next);
+                      if (next === 'NOT_SET') setCopilNote('');
                       copilSaveMutation.mutate(next, {
                         onError: () => setCopilDraft(prev),
                       });
@@ -1242,6 +1313,61 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                       ))}
                     </SelectContent>
                   </Select>
+                  {copilDraft !== 'NOT_SET' ? (
+                    <div className="mt-3 space-y-2">
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        className={cn(
+                          'w-full justify-between gap-2 sm:w-auto',
+                          'border-transparent shadow-sm',
+                          'bg-violet-600 text-white hover:bg-violet-700 hover:text-white',
+                          'focus-visible:border-violet-500 focus-visible:ring-violet-500/35',
+                          'dark:bg-violet-500 dark:hover:bg-violet-600',
+                        )}
+                        disabled={!canEdit}
+                        aria-expanded={copilNoteOpen}
+                        onClick={() => setCopilNoteOpen((o) => !o)}
+                      >
+                        <span className="inline-flex items-center gap-1.5">
+                          <Pencil className="size-3.5 shrink-0" aria-hidden />
+                          {copilNote.trim()
+                            ? copilNoteOpen
+                              ? 'Masquer l’annotation'
+                              : 'Voir / modifier l’annotation'
+                            : 'Ajouter une annotation'}
+                        </span>
+                        {copilNoteOpen ? (
+                          <ChevronUp className="size-4 shrink-0 text-white/90" aria-hidden />
+                        ) : (
+                          <ChevronDown className="size-4 shrink-0 text-white/90" aria-hidden />
+                        )}
+                      </Button>
+                      {copilNoteOpen ? (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="copil-note" className="sr-only">
+                            Annotation COPIL
+                          </Label>
+                          <textarea
+                            id="copil-note"
+                            className={textareaClass}
+                            disabled={!canEdit}
+                            value={copilNote}
+                            onChange={(e) => setCopilNote(e.target.value)}
+                            onBlur={() => {
+                              if (!canEdit || !sheet) return;
+                              saveMutation.mutate();
+                            }}
+                            placeholder="Précisions, conditions, contexte pour la position retenue…"
+                            maxLength={4000}
+                            rows={4}
+                            aria-label="Annotation liée à la position COPIL"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -1269,9 +1395,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 </Badge>
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
-                Métier → comité de projet → sponsor / CODIR. Statuts : brouillon, en cours, soumis à
-                validation, validé, refusé. Le niveau suivant s’ouvre après « Validé » sur le précédent.
-                Sauvegarde avec la fiche (automatique).
+                Métier → comité de projet → sponsor / CODIR. Statuts : proposition de projet, en préparation,
+                soumis à validation, validé, refusé. Le niveau suivant s’ouvre après « Validé » sur le
+                précédent. Sauvegarde avec la fiche (automatique).
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -1411,7 +1537,6 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                             className={cn(textareaClass, 'min-h-[56px]')}
                             rows={2}
                             maxLength={2000}
-                            disabled={saveMutation.isPending}
                             value={refusalNote}
                             onChange={(e) => {
                               const t = e.target.value;
@@ -1458,42 +1583,27 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="bv">Valeur métier (1–5)</Label>
-              <Input
-                id="bv"
-                type="number"
-                min={1}
-                max={5}
-                disabled={!canEdit}
-                value={bv}
-                onChange={(e) => setBv(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sa">Alignement stratégique (1–5)</Label>
-              <Input
-                id="sa"
-                type="number"
-                min={1}
-                max={5}
-                disabled={!canEdit}
-                value={sa}
-                onChange={(e) => setSa(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="us">Urgence (1–5)</Label>
-              <Input
-                id="us"
-                type="number"
-                min={1}
-                max={5}
-                disabled={!canEdit}
-                value={us}
-                onChange={(e) => setUs(e.target.value)}
-              />
-            </div>
+            <Score15Field
+              id="bv"
+              label="Valeur métier (1–5)"
+              value={bv}
+              onValueChange={setBv}
+              disabled={!canEdit}
+            />
+            <Score15Field
+              id="sa"
+              label="Alignement stratégique (1–5)"
+              value={sa}
+              onValueChange={setSa}
+              disabled={!canEdit}
+            />
+            <Score15Field
+              id="us"
+              label="Urgence (1–5)"
+              value={us}
+              onValueChange={setUs}
+              disabled={!canEdit}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="prob">Objectif métier</Label>

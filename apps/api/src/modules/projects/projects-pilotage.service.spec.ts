@@ -57,6 +57,7 @@ describe('ProjectsPilotageService', () => {
     arbitrationComiteRefusalNote: null,
     arbitrationCodirRefusalNote: null,
     copilRecommendation: ProjectCopilRecommendation.NOT_SET,
+    copilRecommendationNote: null,
     businessProblem: null,
     businessBenefits: null,
     businessSuccessKpis: null,
