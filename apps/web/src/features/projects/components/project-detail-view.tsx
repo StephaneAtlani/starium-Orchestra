@@ -28,7 +28,7 @@ import {
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { projectSheet, projectsList } from '../constants/project-routes';
-import { ChevronLeft, LayoutDashboard } from 'lucide-react';
+import { ChevronLeft, ClipboardList, LayoutDashboard } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectBudgetSection } from './project-budget-section';
 import { ProjectReviewsTab } from './project-reviews-tab';
@@ -110,12 +110,20 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
       {/* Onglets : Card + liste segmentée (FRONTEND_UI-UX §8, aligné project-team-matrix) */}
       <Card size="sm" className="min-w-0 overflow-hidden shadow-sm">
         <Tabs defaultValue="synthèse" className="flex w-full min-w-0 flex-col">
-          <CardHeader className="space-y-0 border-b border-border/60 px-3 py-3 sm:px-4">
-            <TabsList className="grid h-9 w-full min-w-0 grid-cols-2 gap-0.5 p-0.5">
-              <TabsTrigger value="synthèse" className="text-sm">
+          <CardHeader className="space-y-0 border-b border-border/70 bg-gradient-to-b from-muted/60 to-muted/25 px-3 py-3.5 sm:px-5">
+            <TabsList className="grid h-11 w-full min-w-0 grid-cols-2 gap-1 rounded-xl p-1 shadow-inner ring-1 ring-border/40">
+              <TabsTrigger
+                value="synthèse"
+                className="group gap-2 text-sm font-medium data-active:font-semibold data-active:shadow-sm"
+              >
+                <LayoutDashboard className="size-4 shrink-0 opacity-70 transition-opacity group-data-[active]:opacity-100" />
                 Synthèse
               </TabsTrigger>
-              <TabsTrigger value="points" className="text-sm">
+              <TabsTrigger
+                value="points"
+                className="group gap-2 text-sm font-medium data-active:font-semibold data-active:shadow-sm"
+              >
+                <ClipboardList className="size-4 shrink-0 opacity-70 transition-opacity group-data-[active]:opacity-100" />
                 Points projet
               </TabsTrigger>
             </TabsList>

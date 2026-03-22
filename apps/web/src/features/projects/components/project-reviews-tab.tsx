@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -33,7 +34,77 @@ import type {
   ProjectReviewListItem,
   ProjectReviewType,
 } from '../types/project.types';
+import { cn } from '@/lib/utils';
+import { CalendarRange, Users } from 'lucide-react';
+import type { ComponentType } from 'react';
 import { ProjectReviewEditorDialog } from './project-review-editor-dialog';
+
+const selectFieldClass = cn(
+  'border-input bg-background h-9 w-full rounded-md border border-border/70 px-2.5 text-sm shadow-xs',
+  'transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+  'disabled:cursor-not-allowed disabled:opacity-50',
+);
+
+const CREATE_SECTION_ACCENTS = {
+  sky: {
+    bar: 'border-l-[3px] border-l-sky-500/70',
+    icon: 'bg-sky-500/10 text-sky-800 dark:text-sky-300',
+  },
+  amber: {
+    bar: 'border-l-[3px] border-l-amber-500/70',
+    icon: 'bg-amber-500/15 text-amber-950 dark:text-amber-300',
+  },
+} as const;
+
+function CreateReviewFormSection({
+  sectionId,
+  title,
+  description,
+  icon: Icon,
+  accent,
+  children,
+}: {
+  sectionId: string;
+  title: string;
+  description?: string;
+  icon: ComponentType<{ className?: string }>;
+  accent: keyof typeof CREATE_SECTION_ACCENTS;
+  children: ReactNode;
+}) {
+  const a = CREATE_SECTION_ACCENTS[accent];
+  return (
+    <section
+      className={cn(
+        'rounded-xl border border-border/70 bg-card p-4 shadow-sm',
+        a.bar,
+      )}
+      aria-labelledby={sectionId}
+    >
+      <div className="mb-4 flex gap-3">
+        <div
+          className={cn(
+            'flex size-9 shrink-0 items-center justify-center rounded-lg',
+            a.icon,
+          )}
+        >
+          <Icon className="size-4" aria-hidden />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2
+            id={sectionId}
+            className="text-sm font-semibold tracking-tight text-foreground"
+          >
+            {title}
+          </h2>
+          {description ? (
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
 
 const REVIEW_TYPES: ProjectReviewType[] = [
   'COPIL',
@@ -197,54 +268,78 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
           if (o) resetCreateForm();
         }}
       >
-        <DialogContent className="flex max-h-[min(90vh,720px)] flex-col gap-0 overflow-hidden sm:max-w-lg">
-          <DialogHeader className="shrink-0">
-            <DialogTitle>Nouveau point projet</DialogTitle>
-          </DialogHeader>
-          <p className="shrink-0 text-xs text-muted-foreground">
-            Date, type, parties prenantes. Vous compléterez le compte rendu (synthèse, décisions,
-            actions) à l’étape suivante.
-          </p>
-          <div className="min-h-0 flex-1 overflow-y-auto py-2">
-            <div className="grid gap-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="pr-date">Date du point</Label>
-                <Input
-                  id="pr-date"
-                  type="datetime-local"
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="pr-type">Type</Label>
-                <select
-                  id="pr-type"
-                  className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
-                  value={formType}
-                  onChange={(e) => setFormType(e.target.value as ProjectReviewType)}
-                >
-                  {REVIEW_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="pr-title">Titre (optionnel)</Label>
-                <Input
-                  id="pr-title"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  maxLength={500}
-                  placeholder="Ex. COPIL mensuel — arbitrage budget"
-                />
-              </div>
+        <DialogContent
+          className={cn(
+            'flex max-h-[min(92vh,900px)] w-[min(90vw,calc(100%-2rem))] max-w-[min(90vw,calc(100%-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(90vw,calc(100%-2rem))]',
+          )}
+        >
+          <div className="shrink-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-5 py-4 sm:px-6">
+            <DialogHeader className="gap-2 space-y-0">
+              <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
+                Nouveau point projet
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed">
+                Date, type et parties prenantes. Vous compléterez le compte rendu (synthèse,
+                décisions, actions) dans l’éditeur juste après la création.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-              <div className="border-t border-border/60 pt-3">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <Label className="text-foreground">Parties prenantes</Label>
+          <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 px-5 py-5 sm:px-6">
+            <div className="mx-auto flex max-w-4xl flex-col gap-5">
+              <CreateReviewFormSection
+                sectionId="create-pr-ident"
+                title="Identification"
+                description="Contexte du point : date, nature de la revue, libellé libre optionnel."
+                icon={CalendarRange}
+                accent="sky"
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="pr-date">Date du point</Label>
+                    <Input
+                      id="pr-date"
+                      type="datetime-local"
+                      value={formDate}
+                      onChange={(e) => setFormDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="pr-type">Type</Label>
+                    <select
+                      id="pr-type"
+                      className={selectFieldClass}
+                      value={formType}
+                      onChange={(e) => setFormType(e.target.value as ProjectReviewType)}
+                    >
+                      {REVIEW_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid gap-1.5 sm:col-span-2">
+                    <Label htmlFor="pr-title">Titre (optionnel)</Label>
+                    <Input
+                      id="pr-title"
+                      value={formTitle}
+                      onChange={(e) => setFormTitle(e.target.value)}
+                      maxLength={500}
+                      placeholder="Ex. COPIL mensuel — arbitrage budget"
+                    />
+                  </div>
+                </div>
+              </CreateReviewFormSection>
+
+              <CreateReviewFormSection
+                sectionId="create-pr-participants"
+                title="Parties prenantes"
+                description="Rattachez un membre du client ou saisissez un nom (invité, MOA…). Au moins le nom ou le compte doit être renseigné par ligne."
+                icon={Users}
+                accent="amber"
+              >
+                <div className="flex justify-end">
                   <Button
                     type="button"
                     variant="outline"
@@ -261,13 +356,9 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
                       ])
                     }
                   >
-                    Ajouter
+                    Ajouter un participant
                   </Button>
                 </div>
-                <p className="mb-2 text-[0.7rem] text-muted-foreground">
-                  Rattachez un membre du client ou saisissez un nom (invité, MOA…). Au moins le nom
-                  ou le compte doit être renseigné.
-                </p>
                 {assignable.isLoading ? (
                   <p className="text-xs text-muted-foreground">Chargement des membres…</p>
                 ) : (
@@ -275,13 +366,13 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
                     {createParticipants.map((row, i) => (
                       <div
                         key={i}
-                        className="rounded-lg border border-border/70 bg-muted/20 p-3"
+                        className="rounded-lg border border-border/70 bg-muted/30 p-3"
                       >
                         <div className="grid gap-2">
                           <div className="grid gap-1.5">
                             <Label className="text-xs">Membre du client (optionnel)</Label>
                             <select
-                              className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+                              className={selectFieldClass}
                               value={row.userId}
                               onChange={(e) => {
                                 const id = e.target.value;
@@ -377,10 +468,10 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
                     ))}
                   </div>
                 )}
-              </div>
+              </CreateReviewFormSection>
             </div>
           </div>
-          <DialogFooter className="shrink-0 border-t border-border/60 pt-3">
+          <DialogFooter className="!mx-0 !mb-0 shrink-0 rounded-b-xl border-t border-border/60 bg-muted/30 px-5 py-3.5 sm:px-6 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
               Annuler
             </Button>
