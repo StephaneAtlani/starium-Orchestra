@@ -123,8 +123,15 @@ function mergePlannedDatesAfterEdit(
   };
 }
 
-const ganttDateInputClass =
-  'h-7 max-w-[7rem] min-w-0 px-1.5 py-0 text-[11px] leading-tight shadow-none';
+/** Champs date sidebar Gantt : compacts, alignés sur la hauteur de ligne. */
+const ganttDateInputClass = cn(
+  'h-6 w-[5.5rem] max-w-[5.75rem] shrink-0 min-w-0 px-1 py-0',
+  'text-[10px] leading-none tabular-nums tracking-tight md:text-[10px]',
+  'rounded-md border border-border/50 bg-muted/35 shadow-none',
+  'transition-[color,background-color,border-color,box-shadow]',
+  'hover:border-border/70 hover:bg-muted/50',
+  'focus-visible:border-ring focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring/30',
+);
 
 export type ProjectTaskPlanningSectionProps = {
   projectId: string;
@@ -386,7 +393,13 @@ export const ProjectTaskPlanningSection = forwardRef<
               'bg-card/40 min-h-0 w-full overflow-auto rounded-lg border border-border/60',
           )}
         >
-          <Table className={isGantt ? 'text-xs [&_input[type=date]]:cursor-text' : undefined}>
+          <Table
+            className={
+              isGantt
+                ? 'text-xs [&_input[type=date]]:cursor-text [&_input[type=date]]:font-medium'
+                : undefined
+            }
+          >
             <TableHeader
               className={isGantt ? 'bg-muted/30 sticky top-0 z-10 [&_tr]:border-border/60' : undefined}
             >
@@ -406,13 +419,13 @@ export const ProjectTaskPlanningSection = forwardRef<
                       Tâche / jalon
                     </TableHead>
                     <TableHead
-                      className="w-[7rem] min-w-[6.5rem] py-1.5 text-xs"
+                      className="w-[5.75rem] min-w-[5.25rem] py-1 text-[10px] font-medium"
                       style={{ height: GANTT_ROW_PX }}
                     >
                       Début
                     </TableHead>
                     <TableHead
-                      className="w-[7rem] min-w-[6.5rem] py-1.5 text-xs"
+                      className="w-[5.75rem] min-w-[5.25rem] py-1 text-[10px] font-medium"
                       style={{ height: GANTT_ROW_PX }}
                     >
                       Fin / cible
@@ -485,11 +498,11 @@ export const ProjectTaskPlanningSection = forwardRef<
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="py-0.5 align-middle">
+                      <TableCell className="py-0 align-middle">
                         {canEdit ? (
                           <Input
                             type="date"
-                            className={cn(ganttDateInputClass, 'bg-background/80')}
+                            className={ganttDateInputClass}
                             value={isoToDateInput(row.plannedStartDate)}
                             onChange={(e) => {
                               const body = mergePlannedDatesAfterEdit(
@@ -515,11 +528,11 @@ export const ProjectTaskPlanningSection = forwardRef<
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="py-0.5 align-middle">
+                      <TableCell className="py-0 align-middle">
                         {canEdit ? (
                           <Input
                             type="date"
-                            className={cn(ganttDateInputClass, 'bg-background/80')}
+                            className={ganttDateInputClass}
                             value={isoToDateInput(row.plannedEndDate)}
                             onChange={(e) => {
                               const body = mergePlannedDatesAfterEdit(
@@ -686,7 +699,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                           <Input
                             type="date"
                             required
-                            className={cn(ganttDateInputClass, 'bg-background/80')}
+                            className={ganttDateInputClass}
                             value={isoToDateInput(ms.targetDate)}
                             onChange={(e) => {
                               const v = e.target.value.trim();

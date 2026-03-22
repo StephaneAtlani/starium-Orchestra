@@ -38,6 +38,16 @@ export function GanttBarColorLegend({ mode }: { mode: GanttBarColorMode }) {
           (ordre des racines dans la liste)
         </span>
       )}
+      <span
+        className="inline-flex items-center gap-1.5 border-l border-border/50 pl-3"
+        title="Sur la ligne d’une tâche parente : fine barre de résumé au-dessus (plage min–max, tâche + sous-tâches affichées), style MS Project"
+      >
+        <span
+          className="h-1.5 w-8 shrink-0 rounded-sm border border-primary/35 bg-primary/20 shadow-sm"
+          aria-hidden
+        />
+        <span>Résumé (au-dessus)</span>
+      </span>
     </div>
   );
 }

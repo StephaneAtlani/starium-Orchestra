@@ -22,6 +22,7 @@ export function ProjectGanttTaskBar({
   onLinkOutPointerDown,
   showLinkPorts,
   tone = GANTT_BAR_TONE_DEFAULT,
+  summaryStacked = false,
 }: {
   taskId: string;
   leftPx: number;
@@ -36,13 +37,19 @@ export function ProjectGanttTaskBar({
   showLinkPorts?: boolean;
   /** Couleurs barre / poignées (priorité, statut, groupe, etc.) */
   tone?: GanttBarTone;
+  /**
+   * Barre de regroupement (résumé) affichée juste au-dessus : décale la barre tâche vers le bas
+   * (style MS Project).
+   */
+  summaryStacked?: boolean;
 }) {
   const linkHandles = Boolean(canEdit && showLinkPorts && onLinkOutPointerDown);
+  const barInset = summaryStacked ? 'top-3 bottom-1.5' : 'top-2 bottom-2';
 
   if (!canEdit) {
     return (
       <div
-        className={cn(tone.track, 'absolute top-2 bottom-2 rounded-sm')}
+        className={cn(tone.track, 'absolute rounded-sm', barInset)}
         style={{ left: leftPx, width: barW }}
         title={title}
       >
@@ -58,7 +65,7 @@ export function ProjectGanttTaskBar({
 
   return (
     <div
-      className="absolute top-2 bottom-2 flex touch-none rounded-sm"
+      className={cn('absolute flex touch-none rounded-sm', barInset)}
       style={{ left: leftPx, width: barW }}
       title={`${title} — glisser pour déplacer, poignées pour ajuster les dates${
         linkHandles ? ' ; ports lien au centre gauche/droite' : ''

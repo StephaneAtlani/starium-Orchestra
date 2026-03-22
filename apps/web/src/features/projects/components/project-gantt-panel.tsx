@@ -29,6 +29,11 @@ import {
   resolveGanttBarTone,
   type GanttBarColorMode,
 } from '../lib/gantt-bar-palette';
+import {
+  buildVisibleChildrenMap,
+  computeVisibleSubtreeRollupBounds,
+  taskHasVisibleChildren,
+} from '../lib/gantt-grouping-bars';
 import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
 import {
   GANTT_DAY_MS,
@@ -178,6 +183,18 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     });
     return m;
   }, [displayTreeRows, taskRootIdMap]);
+
+  /** Regroupement Gantt : sous-arbre visible uniquement (aligné sidebar / filtre). */
+  const visibleChildrenMap = useMemo(
+    () => buildVisibleChildrenMap(displayTreeRows),
+    [displayTreeRows],
+  );
+
+  const displayRowsById = useMemo(() => {
+    const m = new Map<string, (typeof displayTreeRows)[number]>();
+    for (const r of displayTreeRows) m.set(r.id, r);
+    return m;
+  }, [displayTreeRows]);
 
   const unplannedCount = useMemo(() => {
     if (!payload?.tasks) return 0;
@@ -941,12 +958,45 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                       )
                     : 0;
 
+                  const hasVisibleChildren = taskHasVisibleChildren(
+                    row.id,
+                    visibleChildrenMap,
+                  );
+                  const rollupBounds =
+                    hasVisibleChildren && bounds
+                      ? computeVisibleSubtreeRollupBounds(
+                          row.id,
+                          displayRowsById,
+                          visibleChildrenMap,
+                        )
+                      : null;
+                  const rollupLeftPx =
+                    rollupBounds && bounds
+                      ? dateMsToPx(rollupBounds.startMs, bounds, pxPerDay)
+                      : 0;
+                  const rollupW =
+                    rollupBounds && bounds
+                      ? Math.max(
+                          2,
+                          dateMsToPx(rollupBounds.endMs, bounds, pxPerDay) -
+                            rollupLeftPx,
+                        )
+                      : 0;
+
                   return (
                     <div
                       key={row.id}
                       className="border-border/40 relative z-[2] shrink-0 border-b"
                       style={{ height: GANTT_ROW_PX, width: widthPx }}
                     >
+                      {rollupBounds && bounds && (
+                        <div
+                          className="pointer-events-none absolute top-1 z-[1] h-1.5 rounded-sm border border-primary/35 bg-primary/20 shadow-sm"
+                          style={{ left: rollupLeftPx, width: rollupW }}
+                          title={`Résumé du groupe (${row.name} et sous-tâches affichées) : ${new Date(rollupBounds.startMs).toLocaleDateString('fr-FR')} → ${new Date(rollupBounds.endMs).toLocaleDateString('fr-FR')}`}
+                          aria-hidden
+                        />
+                      )}
                       {eligible && dates && (
                         <ProjectGanttTaskBar
                           taskId={row.id}
@@ -956,6 +1006,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                           canEdit={canEdit}
                           title={row.name}
                           showLinkPorts={canEdit}
+                          summaryStacked={Boolean(rollupBounds && bounds)}
                           onPointerDownBar={(mode, ev) => beginTaskDrag(row, mode, ev)}
                           onLinkOutPointerDown={(ev) => beginLinkOut(row.id, ev)}
                           tone={resolveGanttBarTone(barColorMode, row, {
