@@ -314,6 +314,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
   const [projectName, setProjectName] = useState('');
   const [priority, setPriority] = useState<string>('MEDIUM');
+  const [projectType, setProjectType] = useState<string>('TRANSFORMATION');
+  const [projectStatus, setProjectStatus] = useState<string>('DRAFT');
   const [criticality, setCriticality] = useState<string>('MEDIUM');
   const [cadreWhere, setCadreWhere] = useState('');
   const [cadreWho, setCadreWho] = useState('');
@@ -331,6 +333,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const [arbMetier, setArbMetier] = useState<ProjectArbitrationLevelStatus>('BROUILLON');
   const [arbComite, setArbComite] = useState<ProjectArbitrationLevelStatus | null>(null);
   const [arbCodir, setArbCodir] = useState<ProjectArbitrationLevelStatus | null>(null);
+  const [arbMetierRefusalNote, setArbMetierRefusalNote] = useState('');
+  const [arbComiteRefusalNote, setArbComiteRefusalNote] = useState('');
+  const [arbCodirRefusalNote, setArbCodirRefusalNote] = useState('');
   const [copilDraft, setCopilDraft] = useState<ProjectCopilRecommendation>('NOT_SET');
 
   const [description, setDescription] = useState('');
@@ -366,6 +371,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
 
     setProjectName(sheet.name);
     setPriority(sheet.priority);
+    setProjectType(sheet.type);
+    setProjectStatus(sheet.status);
     setCriticality(sheet.criticality);
     setCadreWhere(sheet.cadreLocation ?? '');
     setCadreWho(sheet.cadreQui ?? '');
@@ -382,6 +389,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     setArbMetier(sheet.arbitrationMetierStatus ?? 'BROUILLON');
     setArbComite(sheet.arbitrationComiteStatus ?? null);
     setArbCodir(sheet.arbitrationCodirStatus ?? null);
+    setArbMetierRefusalNote(sheet.arbitrationMetierRefusalNote ?? '');
+    setArbComiteRefusalNote(sheet.arbitrationComiteRefusalNote ?? '');
+    setArbCodirRefusalNote(sheet.arbitrationCodirRefusalNote ?? '');
     setCopilDraft(sheet.copilRecommendation ?? 'NOT_SET');
     setDescription(sheet.description ?? '');
     setProblem(sheet.businessProblem ?? '');
@@ -404,6 +414,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     const payload: UpdateProjectSheetPayload = {};
     payload.name = projectName.trim() || sheet.name;
     payload.priority = priority as 'LOW' | 'MEDIUM' | 'HIGH';
+    payload.type = projectType;
+    payload.status = projectStatus;
     payload.criticality = criticality as 'LOW' | 'MEDIUM' | 'HIGH';
     payload.cadreLocation = cadreWhere.trim() ? cadreWhere.trim() : null;
     payload.cadreQui = cadreWho.trim() ? cadreWho.trim() : null;
@@ -448,15 +460,30 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       payload.arbitrationComiteStatus = c;
       payload.arbitrationCodirStatus = c === 'VALIDE' ? (arbCodir ?? 'BROUILLON') : null;
     }
+    payload.arbitrationMetierRefusalNote =
+      arbMetier === 'REFUSE' ? (arbMetierRefusalNote.trim() || null) : null;
+    payload.arbitrationComiteRefusalNote =
+      arbMetier === 'VALIDE' && arbComite === 'REFUSE'
+        ? (arbComiteRefusalNote.trim() || null)
+        : null;
+    payload.arbitrationCodirRefusalNote =
+      arbMetier === 'VALIDE' && arbComite === 'VALIDE' && arbCodir === 'REFUSE'
+        ? (arbCodirRefusalNote.trim() || null)
+        : null;
     return payload;
   }, [
     sheet,
     projectName,
     priority,
+    projectType,
+    projectStatus,
     criticality,
     arbMetier,
     arbComite,
     arbCodir,
+    arbMetierRefusalNote,
+    arbComiteRefusalNote,
+    arbCodirRefusalNote,
     cadreWhere,
     cadreWho,
     cadreStart,
@@ -490,6 +517,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       JSON.stringify({
         projectName,
         priority,
+        projectType,
+        projectStatus,
         criticality,
         cadreWhere,
         cadreWho,
@@ -519,10 +548,15 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
         arbMetier,
         arbComite,
         arbCodir,
+        arbMetierRefusalNote,
+        arbComiteRefusalNote,
+        arbCodirRefusalNote,
       }),
     [
       projectName,
       priority,
+      projectType,
+      projectStatus,
       criticality,
       cadreWhere,
       cadreWho,
@@ -552,6 +586,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       arbMetier,
       arbComite,
       arbCodir,
+      arbMetierRefusalNote,
+      arbComiteRefusalNote,
+      arbCodirRefusalNote,
     ],
   );
 
@@ -793,17 +830,83 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               <span className="text-muted-foreground">Code : </span>
               {sheet.code}
             </div>
-            <div>
-              <span className="text-muted-foreground">Type : </span>
-              {PROJECT_TYPE_LABEL[sheet.type] ?? sheet.type}
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+              <span className="text-sm text-muted-foreground shrink-0">Type :</span>
+              {canEdit ? (
+                <Select
+                  value={projectType}
+                  onValueChange={(v) => {
+                    if (v != null) setProjectType(v);
+                  }}
+                  disabled={saveMutation.isPending}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    id="sheet-project-type"
+                    className="w-full min-w-[12rem] max-w-xs sm:w-auto"
+                    aria-label="Type de projet"
+                  >
+                    <SelectValue>
+                      {PROJECT_TYPE_LABEL[projectType] ?? projectType}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(
+                      Object.keys(PROJECT_TYPE_LABEL) as Array<keyof typeof PROJECT_TYPE_LABEL>
+                    ).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {PROJECT_TYPE_LABEL[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="text-sm font-medium text-foreground">
+                  {PROJECT_TYPE_LABEL[projectType] ?? projectType}
+                </span>
+              )}
             </div>
             <div>
               <span className="text-muted-foreground">Nature : </span>
               {PROJECT_KIND_LABEL[sheet.kind] ?? sheet.kind}
             </div>
-            <div>
-              <span className="text-muted-foreground">Statut : </span>
-              {PROJECT_STATUS_LABEL[sheet.status] ?? sheet.status}
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+              <span className="text-sm text-muted-foreground shrink-0">Statut :</span>
+              {canEdit ? (
+                <Select
+                  value={projectStatus}
+                  onValueChange={(v) => {
+                    if (v != null) setProjectStatus(v);
+                  }}
+                  disabled={saveMutation.isPending}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    id="sheet-project-status"
+                    className="w-full min-w-[12rem] max-w-xs sm:w-auto"
+                    aria-label="Statut du projet"
+                  >
+                    <SelectValue>
+                      {PROJECT_STATUS_LABEL[projectStatus] ?? projectStatus}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(
+                      Object.keys(PROJECT_STATUS_LABEL) as Array<
+                        keyof typeof PROJECT_STATUS_LABEL
+                      >
+                    ).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {PROJECT_STATUS_LABEL[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="text-sm font-medium text-foreground">
+                  {PROJECT_STATUS_LABEL[projectStatus] ?? projectStatus}
+                </span>
+              )}
             </div>
             <div className="sm:col-span-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
@@ -811,7 +914,13 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                   Criticité (impact / enjeu) :
                 </span>
                 {canEdit ? (
-                  <Select value={criticality} onValueChange={(v) => setCriticality(v)}>
+                  <Select
+                    value={criticality}
+                    onValueChange={(v) => {
+                      if (v != null) setCriticality(v);
+                    }}
+                    disabled={saveMutation.isPending}
+                  >
                     <SelectTrigger
                       id="sheet-criticality"
                       size="sm"
@@ -1020,6 +1129,12 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                     : i === 1
                       ? (arbComite ?? 'BROUILLON')
                       : (arbCodir ?? 'BROUILLON');
+                const refusalNote =
+                  i === 0
+                    ? arbMetierRefusalNote
+                    : i === 1
+                      ? arbComiteRefusalNote
+                      : arbCodirRefusalNote;
                 const toneStatus: ProjectArbitrationLevelStatus | null = unlocked
                   ? value
                   : null;
@@ -1047,21 +1162,27 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                             const next = v as ProjectArbitrationLevelStatus;
                             if (i === 0) {
                               setArbMetier(next);
+                              if (next !== 'REFUSE') setArbMetierRefusalNote('');
                               if (next !== 'VALIDE') {
                                 setArbComite(null);
                                 setArbCodir(null);
+                                setArbComiteRefusalNote('');
+                                setArbCodirRefusalNote('');
                               } else {
                                 setArbComite((c) => c ?? 'BROUILLON');
                               }
                             } else if (i === 1) {
                               setArbComite(next);
+                              if (next !== 'REFUSE') setArbComiteRefusalNote('');
                               if (next !== 'VALIDE') {
                                 setArbCodir(null);
+                                setArbCodirRefusalNote('');
                               } else {
                                 setArbCodir((d) => d ?? 'BROUILLON');
                               }
                             } else {
                               setArbCodir(next);
+                              if (next !== 'REFUSE') setArbCodirRefusalNote('');
                             }
                           }}
                           disabled={saveMutation.isPending}
@@ -1088,6 +1209,37 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                       <p className="mt-3 text-sm font-medium text-foreground">
                         {LEVEL_STATUS_LABEL[value]}
                       </p>
+                    ) : null}
+                    {unlocked && value === 'REFUSE' ? (
+                      <div className="mt-2 space-y-1.5">
+                        <Label
+                          className="text-xs text-muted-foreground"
+                          htmlFor={canEdit ? `project-arb-refusal-${i}` : undefined}
+                        >
+                          Motif du refus
+                        </Label>
+                        {canEdit ? (
+                          <textarea
+                            id={`project-arb-refusal-${i}`}
+                            className={cn(textareaClass, 'min-h-[56px]')}
+                            rows={2}
+                            maxLength={2000}
+                            disabled={saveMutation.isPending}
+                            value={refusalNote}
+                            onChange={(e) => {
+                              const t = e.target.value;
+                              if (i === 0) setArbMetierRefusalNote(t);
+                              else if (i === 1) setArbComiteRefusalNote(t);
+                              else setArbCodirRefusalNote(t);
+                            }}
+                            placeholder="Précisez le motif…"
+                          />
+                        ) : refusalNote.trim() ? (
+                          <p className="text-sm whitespace-pre-wrap text-foreground">{refusalNote}</p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Non renseigné</p>
+                        )}
+                      </div>
                     ) : null}
                   </div>
                 );

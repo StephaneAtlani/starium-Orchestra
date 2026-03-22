@@ -103,6 +103,8 @@ export function projectEntityAuditSnapshot(p: Project): Record<string, unknown> 
 export function projectSheetFieldsAuditSnapshot(p: Project): Record<string, unknown> {
   return {
     name: p.name,
+    type: p.type,
+    status: p.status,
     priority: p.priority,
     criticality: p.criticality,
     cadreLocation: p.cadreLocation ?? null,
@@ -124,6 +126,9 @@ export function projectSheetFieldsAuditSnapshot(p: Project): Record<string, unkn
     arbitrationMetierStatus: p.arbitrationMetierStatus ?? null,
     arbitrationComiteStatus: p.arbitrationComiteStatus ?? null,
     arbitrationCodirStatus: p.arbitrationCodirStatus ?? null,
+    arbitrationMetierRefusalNote: p.arbitrationMetierRefusalNote ?? null,
+    arbitrationComiteRefusalNote: p.arbitrationComiteRefusalNote ?? null,
+    arbitrationCodirRefusalNote: p.arbitrationCodirRefusalNote ?? null,
     copilRecommendation: p.copilRecommendation ?? null,
     businessProblem: p.businessProblem ?? null,
     businessBenefits: p.businessBenefits ?? null,

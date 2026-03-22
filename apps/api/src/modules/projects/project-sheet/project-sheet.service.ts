@@ -9,6 +9,8 @@ import {
   ProjectPriority,
   ProjectRisk,
   ProjectRiskLevel,
+  ProjectStatus,
+  ProjectType,
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
@@ -295,6 +297,8 @@ export class ProjectSheetService {
 
     const data: Prisma.ProjectUncheckedUpdateInput = {
       name: merged.name,
+      type: merged.type,
+      status: merged.status,
       description: merged.description,
       cadreLocation: merged.cadreLocation,
       cadreQui: merged.cadreQui,
@@ -464,6 +468,8 @@ export class ProjectSheetService {
     dto: UpdateProjectSheetDto,
   ): {
     name: string;
+    type: ProjectType;
+    status: ProjectStatus;
     description: string | null;
     cadreLocation: string | null;
     cadreQui: string | null;
@@ -613,8 +619,14 @@ export class ProjectSheetService {
 
     const towsActions = this.mergeTows(project, dto);
 
+    const type: ProjectType = dto.type !== undefined ? dto.type : project.type;
+    const status: ProjectStatus =
+      dto.status !== undefined ? dto.status : project.status;
+
     return {
       name,
+      type,
+      status,
       description,
       cadreLocation,
       cadreQui,

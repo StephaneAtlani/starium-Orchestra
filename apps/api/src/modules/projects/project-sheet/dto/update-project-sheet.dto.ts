@@ -20,6 +20,8 @@ import {
   ProjectCriticality,
   ProjectPriority,
   ProjectRiskLevel,
+  ProjectStatus,
+  ProjectType,
 } from '@prisma/client';
 import { TowsActionsPatchDto } from './tows-actions.dto';
 
@@ -127,6 +129,16 @@ export class UpdateProjectSheetDto {
   @IsOptional()
   @IsEnum(ProjectCriticality)
   criticality?: ProjectCriticality;
+
+  /** Typologie projet (transformation, infra, etc.) */
+  @IsOptional()
+  @IsEnum(ProjectType)
+  type?: ProjectType;
+
+  /** Cycle de vie (brouillon, en cours, terminé…) */
+  @IsOptional()
+  @IsEnum(ProjectStatus)
+  status?: ProjectStatus;
 
   /** Réponse au risque (mitigation, plan d’action) — null efface */
   @IsOptional()

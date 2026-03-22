@@ -290,6 +290,10 @@ export type UpdateProjectSheetPayload = {
   priority?: string;
   /** Criticité projet */
   criticality?: string;
+  /** Typologie (TRANSFORMATION, INFRASTRUCTURE, …) */
+  type?: string;
+  /** Cycle de vie (DRAFT, IN_PROGRESS, …) */
+  status?: string;
   copilRecommendation?: ProjectCopilRecommendation;
   arbitrationMetierStatus?: ProjectArbitrationLevelStatus;
   arbitrationComiteStatus?: ProjectArbitrationLevelStatus | null;
