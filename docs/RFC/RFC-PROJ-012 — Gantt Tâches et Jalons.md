@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémenté (MVP web) — frise **lecture seule** ; création / édition des tâches via le panneau gauche (mêmes hooks et API que l’onglet Tâches). **Ne pas confondre** avec [RFC-PROJ-012 — Project Sheet](RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) (fiche projet décisionnelle, autre document).
 
 ## Priorité
 
@@ -298,7 +298,7 @@ Projet
 ## 7.2 Onglet Tâches
 
 * création via bouton
-* édition via drawer
+* édition via dialogue modal (création / modification)
 * tableau structuré
 * sous-tâches visibles
 
@@ -316,13 +316,15 @@ Projet
 
 ### Gauche
 
-* arbre des tâches
+* grille des tâches (hiérarchie, actions CRUD si `projects.update`) — même logique métier que l’onglet Tâches (`ProjectTaskPlanningSection`, variant `gantt-sidebar`)
+* lignes jalons en lecture seule en bas de grille (alignées avec la frise)
 
 ### Droite
 
-* timeline
-* barres tâches
-* jalons
+* frise temporelle : en-têtes mois / semaines (agrégation automatique si la plage est longue), grille au pas **jour** (échelle **px/jour fixe** en MVP, pas de zoom utilisateur)
+* barres tâches (dates planifiées début / fin), remplissage = progression
+* marqueurs jalons sur la date cible, ligne « aujourd’hui »
+* scroll **vertical** : une seule zone (conteneur commun grille + frise) ; scroll **horizontal** : uniquement sur la frise
 
 ---
 
@@ -331,7 +333,7 @@ Projet
 * tâche → barre
 * progression → remplissage
 * jalon → point
-* dépendance → lien
+* dépendance → lien (**hors MVP UI** : pas de traits / flèches entre tâches sur la frise)
 
 ---
 
@@ -363,6 +365,7 @@ project_milestone.updated
 * dates
 * dépendances
 * hiérarchie
+* calcul layout frise (bornes, largeur, positionnement px) — `gantt-timeline-layout.spec.ts`
 
 ## Intégration
 
@@ -373,7 +376,23 @@ project_milestone.updated
 
 ---
 
-# 11. Résultat attendu
+# 11. Implémentation dans le dépôt (référence)
+
+**Frontend** (`apps/web/src/features/projects/`) :
+
+* [`components/project-gantt-panel.tsx`](../../apps/web/src/features/projects/components/project-gantt-panel.tsx) — split grille gauche / frise droite, permission `projects.update` pour « Nouvelle tâche », données via `useProjectGanttQuery`
+* [`components/project-task-planning-section.tsx`](../../apps/web/src/features/projects/components/project-task-planning-section.tsx) — formulaire et mutations partagés (`useCreateProjectTaskMutation`, `useUpdateProjectTaskMutation`, DTO identiques à l’onglet Tâches) ; variants `full-table` / `gantt-sidebar`
+* [`components/project-planning-tasks-tab.tsx`](../../apps/web/src/features/projects/components/project-planning-tasks-tab.tsx) — enveloppe mince vers `ProjectTaskPlanningSection` (`full-table`)
+* [`lib/gantt-timeline-layout.ts`](../../apps/web/src/features/projects/lib/gantt-timeline-layout.ts) — bornes temporelles, largeur px, bandeaux mois/semaines, positionnement px (base jour)
+* [`lib/gantt-timeline-layout.spec.ts`](../../apps/web/src/features/projects/lib/gantt-timeline-layout.spec.ts) — tests Vitest sur le calcul de layout
+
+**Backend** : inchangé par rapport à la RFC — `GET /api/projects/:projectId/gantt` et isolation client (pas de `clientId` arbitraire côté client).
+
+**Performance (MVP)** : calculs de layout et arbres mémoïsés côté React ; virtualisation possible en phase 2 si volumétrie importante.
+
+---
+
+# 12. Résultat attendu
 
 Après implémentation :
 

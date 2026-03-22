@@ -2,7 +2,7 @@
 
 ## Statut
 
-Implémenté (backend + migration Prisma + adaptation web listes paginées ; **pas** d’UI Gantt visuelle — conforme §5 Exclus MVP)
+Implémenté (backend + migration Prisma + adaptation web listes paginées). **UI Gantt** (MVP lecture seule sur la frise, détail dans [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md)) — **ne pas confondre** avec [RFC-PROJ-012 — Project Sheet](RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md).
 
 ## Priorité
 
@@ -153,7 +153,7 @@ Un jalon :
 
 ## Exclus du MVP
 
-* moteur visuel Gantt frontend
+* moteur Gantt **avancé** (drag & drop sur la frise, liens de dépendance graphiques, zoom libre, etc.) — l’UI Gantt **minimale** est suivie dans [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), hors périmètre de code de la présente RFC
 * ordonnancement automatique avancé
 * moteur PERT / CPM
 * gestion multi-dépendances complexes
@@ -968,7 +968,7 @@ Ce découpage est cohérent avec le frontend cockpit et la structuration par fea
 
 **Backend** : `apps/api/src/modules/projects/` — `project-tasks.service.ts`, `project-milestones.service.ts`, `project-activities.service.ts`, `project-gantt.service.ts` ; contrôleurs `project-tasks`, `project-milestones`, `project-activities`, `project-gantt` ; `projects.module.ts`. **Isolation** : `clientId` actif + `getProjectForScope` ; pas de `clientId` dans les corps. **MVP** : **pas de `DELETE`** sur les tâches (éviter effets de bord jalons / action items revue / activités) ; listes paginées `{ items, total, limit, offset }` pour tâches, activités, jalons. **`GET /api/projects/:projectId/gantt`** : uniquement `ProjectTask` + `ProjectMilestone` (pas d’activités). Permissions : sous-ressources en `projects.read` / `projects.update` (aligné module existant).
 
-**Frontend** : `apps/web/src/features/projects/` — types et API adaptés (pagination, champs `name` / `plannedEndDate` / `achievedDate`, statut jalon `ACHIEVED`). **Pas** d’UI Gantt dans ce périmètre.
+**Frontend** : `apps/web/src/features/projects/` — types et API adaptés (pagination, champs `name` / `plannedEndDate` / `achievedDate`, statut jalon `ACHIEVED`). **UI Gantt** : voir [RFC-PROJ-012 — Gantt Tâches et Jalons §11](RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) (`project-gantt-panel.tsx`, `project-task-planning-section.tsx`, `gantt-timeline-layout.ts`).
 
 **Tests** : specs sous `apps/api/src/modules/projects/` (dont `project-tasks.service.spec.ts`, `projects-pilotage.service.spec.ts`).
 

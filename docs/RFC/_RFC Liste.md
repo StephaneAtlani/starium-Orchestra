@@ -90,7 +90,7 @@ La fiche projet doit consolider au minimum :
 | Ordre | RFC              | Nom                | Description                                    | État       | Commentaire                                |
 | ----- | ---------------- | ------------------ | ---------------------------------------------- | ---------- | ------------------------------------------ |
 | 14    | **RFC-PROJ-010** | Project ↔ Budget   | Lier projets aux lignes/enveloppes budgétaires | ✅ Couvert  | MVP `project-budget` + base fiche projet   |
-| 15    | **RFC-PROJ-011** | Tâches, activités, jalons, Gantt backend | Tâches structurées, `ProjectActivity`, jalons enrichis, `GET …/gantt` (pas d’UI Gantt au MVP) | ✅ Couvert | [RFC-PROJ-011](RFC-PROJ-011%20%E2%80%94%20T%C3%A2ches%20%20activit%C3%A9s%20jalons%20et%20base%20Gantt.md) ; isolation client |
+| 15    | **RFC-PROJ-011** | Tâches, activités, jalons, Gantt backend | Tâches structurées, `ProjectActivity`, jalons enrichis, `GET …/gantt` | ✅ Couvert | [RFC-PROJ-011](RFC-PROJ-011%20%E2%80%94%20T%C3%A2ches%20%20activit%C3%A9s%20jalons%20et%20base%20Gantt.md) ; isolation client ; **UI Gantt MVP** : [RFC-PROJ-012 — Gantt](RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) (**≠** [Project Sheet](RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md)) |
 | 16    | **RFC-PROJ-010** | Project Budget KPI | Exposer les KPI budget projet pour la fiche    | ⚠️ Partiel | nécessaire pour coût projet / dérive / ROI |
 | —     | *(future)*       | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire  | RFC à numéroter — **ne pas confondre** avec RFC-PROJ-011 |
 
@@ -114,6 +114,7 @@ La fiche projet doit consolider au minimum :
 | 21    | **RFC-FE-PROJ-002** | Project Detail UI | Cockpit projet (vue détaillée)                 | ✅ Couvert  | OK                               |
 | 22    | **RFC-FE-PROJ-014** | Project Sheet UI  | Fiche projet décisionnelle pour arbitrer       | ❌ À faire  | **urgence absolue**              |
 | 23    | **RFC-FE-PROJ-003** | Tasks UI          | Interface gestion tâches                       | ✅ Couvert  | stable                           |
+| 23a   | **RFC-PROJ-012**    | Gantt UI (planning) | Grille tâches + frise type planning (MVP)    | ✅ Couvert  | [RFC-PROJ-012 — Gantt](RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) — **ne pas confondre** avec RFC-PROJ-012 Project Sheet |
 | 24    | **RFC-FE-PROJ-004** | Risks UI          | Interface gestion risques                      | ✅ Couvert  | stable                           |
 | 25    | **RFC-FE-PROJ-005** | Resources UI      | Vue ressources projet + affectations           | ❌ À faire  | dépend RES                       |
 | 26    | **RFC-FE-PROJ-006** | Budget Links UI   | Visualiser budgets liés au projet              | ⚠️ Partiel | section Budget sur détail projet |
