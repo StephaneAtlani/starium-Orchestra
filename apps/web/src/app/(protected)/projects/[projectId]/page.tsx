@@ -11,7 +11,7 @@ export default function ProjectDetailPage() {
 
   return (
     <RequireActiveClient>
-      <PageContainer>
+      <PageContainer className="flex min-h-0 w-full flex-col gap-6">
         <ProjectDetailView projectId={projectId} />
       </PageContainer>
     </RequireActiveClient>

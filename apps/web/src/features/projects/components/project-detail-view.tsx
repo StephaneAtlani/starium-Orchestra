@@ -67,52 +67,63 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link
-          href={projectsList()}
-          className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" />
-          Portefeuille projets
-        </Link>
-        <PageHeader
-          title={project.name}
-          description={project.code ? `Code : ${project.code}` : undefined}
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href={projectSheet(projectId)}
-                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <LayoutDashboard className="size-4" />
-                Fiche projet
-              </Link>
-              <HealthBadge health={project.computedHealth} />
-            </div>
-          }
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <ProjectPortfolioBadges signals={project.signals} />
-      </div>
-
-      {project.warnings.length > 0 && (
-        <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90">
-          <span className="font-medium">Alertes : </span>
-          {project.warnings.map((w) => WARNING_CODE_LABEL[w] ?? w).join(' · ')}
+    <>
+      <header className="flex flex-col gap-4">
+        <div>
+          <Link
+            href={projectsList()}
+            className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft className="size-4" />
+            Portefeuille projets
+          </Link>
+          <PageHeader
+            title={project.name}
+            description={project.code ? `Code : ${project.code}` : undefined}
+            actions={
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={projectSheet(projectId)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <LayoutDashboard className="size-4" />
+                  Fiche projet
+                </Link>
+                <HealthBadge health={project.computedHealth} />
+              </div>
+            }
+          />
         </div>
-      )}
 
-      <Tabs defaultValue="synthèse" className="w-full min-w-0">
-        <TabsList variant="line" className="w-full max-w-md">
-          <TabsTrigger value="synthèse">Synthèse</TabsTrigger>
-          <TabsTrigger value="points">Points projet</TabsTrigger>
-        </TabsList>
-        <TabsContent value="synthèse" className="mt-4 space-y-6">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card size="sm" className="lg:col-span-2 w-full min-w-0">
+        <div className="flex flex-wrap gap-2">
+          <ProjectPortfolioBadges signals={project.signals} />
+        </div>
+
+        {project.warnings.length > 0 && (
+          <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90">
+            <span className="font-medium">Alertes : </span>
+            {project.warnings.map((w) => WARNING_CODE_LABEL[w] ?? w).join(' · ')}
+          </div>
+        )}
+      </header>
+
+      {/* Onglets : Card + liste segmentée (FRONTEND_UI-UX §8, aligné project-team-matrix) */}
+      <Card size="sm" className="min-w-0 overflow-hidden shadow-sm">
+        <Tabs defaultValue="synthèse" className="flex w-full min-w-0 flex-col">
+          <CardHeader className="space-y-0 border-b border-border/60 px-3 py-3 sm:px-4">
+            <TabsList className="grid h-9 w-full min-w-0 grid-cols-2 gap-0.5 p-0.5">
+              <TabsTrigger value="synthèse" className="text-sm">
+                Synthèse
+              </TabsTrigger>
+              <TabsTrigger value="points" className="text-sm">
+                Points projet
+              </TabsTrigger>
+            </TabsList>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+        <TabsContent value="synthèse" className="mt-0 flex w-full min-w-0 flex-col gap-6 outline-none">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card size="sm" className="min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle>Informations</CardTitle>
           </CardHeader>
@@ -165,13 +176,13 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
 
         <Card
           size="sm"
-          className="lg:col-span-2 w-full min-w-0 gap-0 py-0 data-[size=sm]:gap-0 data-[size=sm]:py-0"
+          className="min-w-0 gap-0 py-0 lg:col-span-1 data-[size=sm]:gap-0 data-[size=sm]:py-0"
         >
-          <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-1.5 px-4 py-2 !pt-2 !pb-2 sm:gap-x-10 group-data-[size=sm]/card:px-4 group-data-[size=sm]/card:!py-2">
+          <CardContent className="flex flex-col gap-3 px-4 py-3 group-data-[size=sm]/card:px-4 group-data-[size=sm]/card:py-3">
             <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Compteurs
             </span>
-            <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-start gap-x-6 gap-y-1 sm:justify-end">
+            <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-2 sm:justify-end lg:flex-col lg:items-stretch lg:gap-3">
               <span
                 className="inline-flex items-baseline gap-1.5 tabular-nums"
                 title="Tâches ouvertes"
@@ -311,10 +322,12 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
         </TabsContent>
-        <TabsContent value="points" className="mt-4">
+        <TabsContent value="points" className="mt-0 w-full min-w-0 outline-none">
           <ProjectReviewsTab projectId={projectId} />
         </TabsContent>
-      </Tabs>
-    </div>
+          </CardContent>
+        </Tabs>
+      </Card>
+    </>
   );
 }
