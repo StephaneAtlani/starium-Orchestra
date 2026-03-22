@@ -17,6 +17,8 @@ export type SidebarDropdownPanelState = {
 
 export const SidebarDropdownContext = React.createContext<{
   setPanel: (state: SidebarDropdownPanelState | null) => void;
+  /** Libellé du dernier dropdown qui a posé le panneau — évite qu’un mouseLeave tardif efface le menu du suivant. */
+  panelOwnerLabelRef: React.MutableRefObject<string | null>;
 } | null>(null);
 
 function useSidebarDropdownContext() {
@@ -32,7 +34,7 @@ interface SidebarDropdownProps {
 }
 
 export function SidebarDropdown({ label, icon: Icon, children }: SidebarDropdownProps) {
-  const { setPanel } = useSidebarDropdownContext();
+  const { setPanel, panelOwnerLabelRef } = useSidebarDropdownContext();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const openT = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -58,9 +60,13 @@ export function SidebarDropdown({ label, icon: Icon, children }: SidebarDropdown
     clear();
     closeT.current = setTimeout(() => {
       setOpen(false);
-      setPanel(null);
+      // Ne pas vider le panneau global si un autre dropdown a pris la main entre-temps.
+      if (panelOwnerLabelRef.current === label) {
+        setPanel(null);
+        panelOwnerLabelRef.current = null;
+      }
     }, CLOSE_DELAY_MS);
-  }, [clear, setPanel]);
+  }, [clear, label, panelOwnerLabelRef, setPanel]);
 
   const openDropdown = useCallback(() => {
     clear();
@@ -68,6 +74,7 @@ export function SidebarDropdown({ label, icon: Icon, children }: SidebarDropdown
       if (!triggerRef.current) return;
       const r = triggerRef.current.getBoundingClientRect();
       setOpen(true);
+      panelOwnerLabelRef.current = label;
       setPanel({
         content: children,
         position: { top: r.top, left: r.right + 6 },
@@ -75,7 +82,7 @@ export function SidebarDropdown({ label, icon: Icon, children }: SidebarDropdown
         onPanelLeave: scheduleClose,
       });
     }, OPEN_DELAY_MS);
-  }, [children, clear, keepOpen, scheduleClose, setPanel]);
+  }, [children, clear, keepOpen, label, panelOwnerLabelRef, scheduleClose, setPanel]);
 
   const closeDropdown = useCallback(() => {
     scheduleClose();
@@ -127,6 +134,10 @@ export function SidebarDropdownLayer({ panel }: { panel: SidebarDropdownPanelSta
 
 export function useSidebarDropdownPanel() {
   const [panel, setPanel] = useState<SidebarDropdownPanelState | null>(null);
-  const value = React.useMemo(() => ({ setPanel }), []);
+  const panelOwnerLabelRef = useRef<string | null>(null);
+  const value = React.useMemo(
+    () => ({ setPanel, panelOwnerLabelRef }),
+    [],
+  );
   return { panel, setPanel, contextValue: value };
 }
