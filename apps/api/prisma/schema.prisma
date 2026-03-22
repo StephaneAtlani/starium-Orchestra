@@ -85,6 +85,10 @@ model Client {
   projectTeamRoles   ProjectTeamRole[]
   projectTeamMembers ProjectTeamMember[]
   projectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
+  projectReviews                ProjectReview[]
+  projectReviewParticipants     ProjectReviewParticipant[]
+  projectReviewDecisions        ProjectReviewDecision[]
+  projectReviewActionItems      ProjectReviewActionItem[]
 }
 
 model User {
@@ -112,6 +116,9 @@ model User {
   ownedProjectRisks          ProjectRisk[]
   projectTeamMembers         ProjectTeamMember[]
   createdProjectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[] @relation("ProjectSheetDecisionSnapshotCreatedBy")
+  facilitatedProjectReviews          ProjectReview[]                  @relation("ProjectReviewFacilitator")
+  finalizedProjectReviews            ProjectReview[]                  @relation("ProjectReviewFinalizedBy")
+  projectReviewParticipants          ProjectReviewParticipant[]
 }
 
 model ClientUser {
@@ -363,6 +370,22 @@ enum ProjectTeamMemberAffiliation {
   EXTERNAL
 }
 
+/// RFC-PROJ-013 — point projet (COPIL / COPRO / …)
+enum ProjectReviewType {
+  COPIL
+  COPRO
+  CODIR_REVIEW
+  RISK_REVIEW
+  MILESTONE_REVIEW
+  AD_HOC
+}
+
+enum ProjectReviewStatus {
+  DRAFT
+  FINALIZED
+  CANCELLED
+}
+
 model Project {
   id        String  @id @default(cuid())
   clientId  String
@@ -444,6 +467,8 @@ model Project {
   budgetLinks ProjectBudgetLink[]
   teamMembers ProjectTeamMember[]
   sheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
+  projectReviews         ProjectReview[]
+  projectReviewActionItems ProjectReviewActionItem[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -468,6 +493,102 @@ model ProjectSheetDecisionSnapshot {
 
   @@index([clientId, projectId, createdAt])
   @@index([projectId, createdAt])
+}
+
+/// RFC-PROJ-013 — point projet (COPIL-COPRO), historisé.
+model ProjectReview {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  reviewDate   DateTime
+  reviewType   ProjectReviewType
+  status       ProjectReviewStatus @default(DRAFT)
+
+  title             String?
+  executiveSummary  String?
+  contentPayload    Json?
+
+  facilitatorUserId String?
+  finalizedAt       DateTime?
+  finalizedByUserId String?
+
+  nextReviewDate DateTime?
+
+  snapshotPayload Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  facilitator User?   @relation("ProjectReviewFacilitator", fields: [facilitatorUserId], references: [id], onDelete: SetNull)
+  finalizedBy User?   @relation("ProjectReviewFinalizedBy", fields: [finalizedByUserId], references: [id], onDelete: SetNull)
+
+  participants ProjectReviewParticipant[]
+  decisions    ProjectReviewDecision[]
+  actionItems  ProjectReviewActionItem[]
+
+  @@index([clientId, projectId, reviewDate])
+  @@index([clientId, projectId, status])
+  @@index([projectId, reviewDate])
+}
+
+model ProjectReviewParticipant {
+  id              String @id @default(cuid())
+  clientId        String
+  projectReviewId String
+
+  userId      String?
+  displayName String?
+
+  attended   Boolean @default(true)
+  isRequired Boolean @default(false)
+
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectReview ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectReviewId])
+}
+
+model ProjectReviewDecision {
+  id              String @id @default(cuid())
+  clientId        String
+  projectReviewId String
+
+  title       String
+  description String?
+
+  createdAt DateTime @default(now())
+
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectReview ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([projectReviewId])
+}
+
+model ProjectReviewActionItem {
+  id              String @id @default(cuid())
+  clientId        String
+  projectReviewId String
+  projectId       String
+
+  title        String
+  status       ProjectTaskStatus
+  dueDate      DateTime?
+  linkedTaskId String?
+
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectReview ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  linkedTask    ProjectTask?  @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([clientId, projectId])
+  @@index([projectReviewId])
 }
 
 /// Catalogue des rôles d’équipe projet (par client).
@@ -558,6 +679,7 @@ model ProjectTask {
   client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assignee User?   @relation(fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  projectReviewActionItems ProjectReviewActionItem[]
 
   @@index([clientId])
   @@index([projectId])

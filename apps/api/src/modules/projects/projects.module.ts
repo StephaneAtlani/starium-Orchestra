@@ -9,6 +9,8 @@ import { ProjectSheetDecisionSnapshotsController } from './project-sheet/project
 import { ProjectSheetDecisionSnapshotsService } from './project-sheet/project-sheet-decision-snapshots.service';
 import { ProjectSheetController } from './project-sheet/project-sheet.controller';
 import { ProjectSheetService } from './project-sheet/project-sheet.service';
+import { ProjectReviewsController } from './project-reviews/project-reviews.controller';
+import { ProjectReviewsService } from './project-reviews/project-reviews.service';
 import { ProjectTasksController } from './project-tasks.controller';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsController } from './projects.controller';
@@ -22,6 +24,7 @@ import { ProjectTeamService } from './project-team.service';
     /** Routes `projects/:id/...` (ex. project-sheet) avant `projects/:id` pour éviter les collisions de matching. */
     ProjectSheetController,
     ProjectSheetDecisionSnapshotsController,
+    ProjectReviewsController,
     ProjectsController,
     ProjectTasksController,
     ProjectRisksController,
@@ -32,6 +35,7 @@ import { ProjectTeamService } from './project-team.service';
     ProjectsPilotageService,
     ProjectSheetService,
     ProjectSheetDecisionSnapshotsService,
+    ProjectReviewsService,
     ProjectTasksService,
     ProjectRisksService,
     ProjectMilestonesService,

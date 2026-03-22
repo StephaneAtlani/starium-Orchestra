@@ -44,6 +44,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile.dev
+    restart: unless-stopped
     command: ["sh", "/app/apps/api/docker-entrypoint-dev.sh"]
     env_file:
       - apps/api/.env
@@ -53,6 +54,8 @@ services:
     ports:
       - "3001:3001"
     volumes:
+      # Script non monté avant : image cache ancienne → « can't open docker-entrypoint-dev.sh »
+      - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
       - ./apps/api/src:/app/apps/api/src
       - ./apps/api/prisma:/app/apps/api/prisma
     depends_on:

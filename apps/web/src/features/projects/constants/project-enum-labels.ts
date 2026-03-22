@@ -73,3 +73,19 @@ export const WARNING_CODE_LABEL: Record<string, string> = {
   PLANNING_DRIFT: 'Dérive planning',
   BLOCKED: 'Bloqué',
 };
+
+/** RFC-PROJ-013 */
+export const PROJECT_REVIEW_TYPE_LABEL: Record<string, string> = {
+  COPIL: 'COPIL',
+  COPRO: 'COPRO',
+  CODIR_REVIEW: 'Revue CODIR',
+  RISK_REVIEW: 'Revue risques',
+  MILESTONE_REVIEW: 'Revue jalons',
+  AD_HOC: 'Ad hoc',
+};
+
+export const PROJECT_REVIEW_STATUS_LABEL: Record<string, string> = {
+  DRAFT: 'Brouillon',
+  FINALIZED: 'Finalisé',
+  CANCELLED: 'Annulé',
+};

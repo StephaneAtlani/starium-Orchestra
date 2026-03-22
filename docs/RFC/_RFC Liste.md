@@ -13,6 +13,7 @@
 | 7     | **RFC-PROJ-006** | Risks Backend       | Gestion risques (probabilité, impact)                                  | ✅ Couvert | OK                                           |
 | 8     | **RFC-PROJ-008** | Permissions         | RBAC projet (`projects.*`)                                             | ✅ Couvert | OK                                           |
 | 9     | **RFC-PROJ-009** | Audit Logs Projet   | Traçabilité actions projet (create/update/delete)                      | ✅ Couvert | backend — actions granulaires                |
+| 10    | **RFC-PROJ-013** | Points projet COPIL/COPRO | Historique comités, snapshot à la finalisation, actions/décisions | ✅ Couvert | `ProjectReview*` + `/api/projects/:projectId/reviews` + onglet détail |
 
 ---
 

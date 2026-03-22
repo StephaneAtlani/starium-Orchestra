@@ -339,3 +339,84 @@ export type ProjectSheetDecisionSnapshotListResponse = {
 export type ProjectSheetDecisionSnapshotDetail = ProjectSheetDecisionSnapshotListItem & {
   sheetPayload: Record<string, unknown>;
 };
+
+/** RFC-PROJ-013 — points projet */
+export type ProjectReviewType =
+  | 'COPIL'
+  | 'COPRO'
+  | 'CODIR_REVIEW'
+  | 'RISK_REVIEW'
+  | 'MILESTONE_REVIEW'
+  | 'AD_HOC';
+
+export type ProjectReviewStatus = 'DRAFT' | 'FINALIZED' | 'CANCELLED';
+
+export type ProjectReviewListItem = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  reviewDate: string;
+  reviewType: ProjectReviewType;
+  status: ProjectReviewStatus;
+  title: string | null;
+  executiveSummary: string | null;
+  facilitatorUserId: string | null;
+  nextReviewDate: string | null;
+  finalizedAt: string | null;
+  finalizedByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  participantsCount: number;
+  decisionsCount: number;
+  actionItemsCount: number;
+};
+
+export type ProjectReviewListResponse = {
+  items: ProjectReviewListItem[];
+};
+
+export type ProjectReviewParticipantApi = {
+  id: string;
+  userId: string | null;
+  displayName: string | null;
+  attended: boolean;
+  isRequired: boolean;
+};
+
+export type ProjectReviewDecisionApi = {
+  id: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+};
+
+export type ProjectReviewActionItemApi = {
+  id: string;
+  title: string;
+  status: string;
+  dueDate: string | null;
+  linkedTaskId: string | null;
+};
+
+export type ProjectReviewDetail = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  reviewDate: string;
+  reviewType: ProjectReviewType;
+  status: ProjectReviewStatus;
+  title: string | null;
+  executiveSummary: string | null;
+  contentPayload: unknown;
+  facilitatorUserId: string | null;
+  nextReviewDate: string | null;
+  finalizedAt: string | null;
+  finalizedByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  participants: ProjectReviewParticipantApi[];
+  decisions: ProjectReviewDecisionApi[];
+  actionItems: ProjectReviewActionItemApi[];
+  /** Toujours présent ; `null` si status !== FINALIZED */
+  snapshotPayload: Record<string, unknown> | null;
+};

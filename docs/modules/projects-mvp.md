@@ -17,6 +17,7 @@ Modèles (`apps/api/prisma/schema.prisma`) :
 | **ProjectRisk** | Risque avec `ProjectRiskProbability` et `ProjectRiskImpact` (criticité **dérivée** du score P×I, pas de champ redondant). |
 | **ProjectMilestone** | Jalon avec statut (dont `DELAYED`). |
 | **ProjectBudgetLink** | Liaison projet ↔ ligne budgétaire (`clientId`, mode d’allocation FULL / PERCENTAGE / FIXED) — RFC-PROJ-010. |
+| **ProjectReview** (+ participants, décisions, action items) | Point projet COPIL/COPRO (RFC-PROJ-013) : statut brouillon / finalisé / annulé, `contentPayload` / `executiveSummary`, `snapshotPayload` à la finalisation, isolation `clientId` + `projectId`. |
 
 **Non persisté au MVP** : `computedHealth`, `signals`, `warnings`, `derivedProgressPercent` (calculs à la lecture dans `projects-pilotage.service.ts`).
 
@@ -32,6 +33,7 @@ Enums principaux : `ProjectStatus` (dont actifs : `PLANNED`, `IN_PROGRESS`, `ON_
   - `projects.service.ts` — CRUD projet, liste enrichie (pilotage), `getPortfolioSummary`
   - `projects-pilotage.service.ts` — `computedHealth`, signaux, warnings, compteurs, `derivedProgressPercent` à partir des tâches, criticité risque (scores 1–9 ; **HIGH = scores 7–9**)
   - `project-tasks.service.ts`, `project-risks.service.ts`, `project-milestones.service.ts` — sous-ressources
+  - `project-reviews.service.ts` — points projet COPIL/COPRO (RFC-PROJ-013), snapshot à la finalisation, audit `project.review.*`
 - **Guards** (tous les contrôleurs des modules ci-dessus) : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
 - **Audit** : création / mise à jour / suppression projet et sous-ressources tracées où implémenté ; liens budget projet en complément (`project_budget_link`)
 
@@ -58,6 +60,12 @@ Permissions métier : `projects.read`, `projects.create`, `projects.update`, `pr
 | GET | `/projects/:id/project-sheet` | `projects.read` — fiche projet décisionnelle (RFC-PROJ-012), scope client actif |
 | PATCH | `/projects/:id/project-sheet` | `projects.update` — champs fiche (cadrage, scores, ROI/priorité dérivés côté serveur, `type` / `status` projet, arbitrage 3 niveaux, motifs de refus si refus) ; audit `project.sheet.updated` |
 | POST | `/projects/:id/arbitration` | `projects.update` — mise à jour du statut d’arbitrage **legacy** (`ProjectArbitrationStatus`) ; audit dédié validé / refusé |
+| GET | `/projects/:projectId/reviews` | `projects.read` — liste des points projet (sans `snapshotPayload` dans les items) |
+| POST | `/projects/:projectId/reviews` | `projects.update` — création point (brouillon) |
+| GET | `/projects/:projectId/reviews/:reviewId` | `projects.read` — détail (`snapshotPayload` toujours présent, `null` si non finalisé) |
+| PATCH | `/projects/:projectId/reviews/:reviewId` | `projects.update` — mise à jour brouillon uniquement |
+| POST | `/projects/:projectId/reviews/:reviewId/finalize` | `projects.update` — finalisation + snapshot serveur (transaction) |
+| POST | `/projects/:projectId/reviews/:reviewId/cancel` | `projects.update` — annulation depuis brouillon |
 
 Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
@@ -73,7 +81,7 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 ## 5. Frontend
 
-- **Feature** : `apps/web/src/features/projects/` (API client, hooks React Query, types, composants) — section **Budget** sur le détail projet (`ProjectBudgetSection`, RFC-PROJ-010) ; **fiche décisionnelle** sur le détail (`ProjectSheetView`, `GET/PATCH …/project-sheet`, autosave)
+- **Feature** : `apps/web/src/features/projects/` (API client, hooks React Query, types, composants) — section **Budget** sur le détail projet (`ProjectBudgetSection`, RFC-PROJ-010) ; **fiche décisionnelle** sur le détail (`ProjectSheetView`, `GET/PATCH …/project-sheet`, autosave) ; onglet **Points projet** (`ProjectReviewsTab`, RFC-PROJ-013) sur `/projects/[projectId]`
 - **Routes** : `apps/web/src/app/(protected)/projects/` — `/projects`, `/projects/new`, `/projects/[projectId]`, `/projects/options` (placeholder **Option** module Projets)
 - **Navigation** : `apps/web/src/config/navigation.ts` — entrée **Projets** en sous-menu (survol, même principe que Budgets) : **Portefeuille projet** → `/projects`, **Option** → `/projects/options` ; implémentation `apps/web/src/components/shell/sidebar.tsx`. `moduleCode: 'projects'`, `requiredPermissions: ['projects.read']`
 - **Sécurité UI** : `RequireActiveClient`, `PermissionGate`, données via `authFetch` + TanStack Query — **pas** de calcul cockpit de santé côté client (affichage des champs renvoyés par l’API)

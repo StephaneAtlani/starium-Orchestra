@@ -2,7 +2,17 @@
 
 ## Statut
 
-Draft
+Implémenté
+
+## Implémentation (référence code)
+
+- **Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — `ProjectReviewType`, `ProjectReviewStatus`, `ProjectReview`, `ProjectReviewParticipant`, `ProjectReviewDecision`, `ProjectReviewActionItem`. Extensions par rapport au bloc §6 initial : `contentPayload Json?` (brouillon structuré), `nextReviewDate`, participants `isRequired`, `linkedTaskId` optionnel sur les actions (référence `ProjectTask` même scope), index complémentaires `@@index([clientId, projectId, status])` et `@@index([projectId, reviewDate])`.
+- **Backend** : [`apps/api/src/modules/projects/project-reviews/`](../../apps/api/src/modules/projects/project-reviews/) — `ProjectReviewsService`, `ProjectReviewsController`, `project-reviews-snapshot.builder.ts`, DTOs dans `dto/`. Enregistrement dans [`projects.module.ts`](../../apps/api/src/modules/projects/projects.module.ts). Toutes les opérations filtrent par `clientId` + `projectId` (via `getProjectForScope`) ; le seul `reviewId` ne suffit pas à cibler une ressource.
+- **API** (préfixe `/api`) : `GET` / `POST` `/projects/:projectId/reviews`, `GET` / `PATCH` `/projects/:projectId/reviews/:reviewId`, `POST` `…/finalize`, `POST` `…/cancel`. Permissions : `projects.read` (lectures), `projects.update` (écritures). Réponse **détail** : `snapshotPayload` toujours présent dans le JSON — `null` si `status !== FINALIZED`, objet figé si `FINALIZED`. Liste : items sans charge `snapshotPayload`.
+- **Snapshot** : généré uniquement au `finalize` dans une transaction ; contrat léger (projet, health, arbitrage, compteurs tâches, risques + top 5, jalons max 5, budget synthèse, `generatedAt`).
+- **Audit** : `project.review.created`, `project.review.updated`, `project.review.finalized`, `project.review.cancelled` ; `resourceType` `project_review`.
+- **Frontend** : onglet **Points projet** sur le détail projet — [`project-detail-view.tsx`](../../apps/web/src/features/projects/components/project-detail-view.tsx) (onglets Synthèse / Points projet), [`project-reviews-tab.tsx`](../../apps/web/src/features/projects/components/project-reviews-tab.tsx), [`project-reviews.api.ts`](../../apps/web/src/features/projects/api/project-reviews.api.ts), types et clés React Query dans `project.types.ts` / `project-query-keys.ts`.
+- **Tests** : [`project-reviews.service.spec.ts`](../../apps/api/src/modules/projects/project-reviews/project-reviews.service.spec.ts).
 
 ## Dépendances
 
@@ -391,11 +401,12 @@ Depuis :
 
 # 12. Audit
 
-Ajouter :
+Émis côté implémentation :
 
-`project.review.created`
-`project.review.updated`
-`project.review.finalized`
+* `project.review.created`
+* `project.review.updated`
+* `project.review.finalized`
+* `project.review.cancelled`
 
 ---
 

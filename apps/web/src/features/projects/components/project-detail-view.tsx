@@ -29,7 +29,9 @@ import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { projectSheet, projectsList } from '../constants/project-routes';
 import { ChevronLeft, LayoutDashboard } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectBudgetSection } from './project-budget-section';
+import { ProjectReviewsTab } from './project-reviews-tab';
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -103,6 +105,12 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         </div>
       )}
 
+      <Tabs defaultValue="synthèse" className="w-full min-w-0">
+        <TabsList variant="line" className="w-full max-w-md">
+          <TabsTrigger value="synthèse">Synthèse</TabsTrigger>
+          <TabsTrigger value="points">Points projet</TabsTrigger>
+        </TabsList>
+        <TabsContent value="synthèse" className="mt-4 space-y-6">
       <div className="grid gap-4 lg:grid-cols-2">
         <Card size="sm" className="lg:col-span-2 w-full min-w-0">
           <CardHeader>
@@ -302,6 +310,11 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+        <TabsContent value="points" className="mt-4">
+          <ProjectReviewsTab projectId={projectId} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

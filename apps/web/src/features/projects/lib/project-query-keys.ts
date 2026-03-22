@@ -31,4 +31,9 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'project', projectId, 'sheet-decision-snapshots', clientId, params] as const,
   sheetDecisionSnapshot: (clientId: string, projectId: string, snapshotId: string) =>
     [...projectQueryKeys.all, 'project', projectId, 'sheet-decision-snapshot', snapshotId, clientId] as const,
+  /** RFC-PROJ-013 */
+  reviews: (clientId: string, projectId: string) =>
+    ['project', projectId, 'reviews', clientId] as const,
+  review: (clientId: string, projectId: string, reviewId: string) =>
+    ['project', projectId, 'review', reviewId, clientId] as const,
 };

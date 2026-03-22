@@ -679,6 +679,8 @@ Objectif : passer du CRUD au vrai pilotage.
 
 ### **RFC-PROJ-013 — Portfolio Dashboard API**
 
+> **Note (numérotation)** : dans le dépôt, **RFC-PROJ-013** correspond au document [RFC-PROJ-013 — Points Projet COPIL-COPRO et Historisation](RFC-PROJ-013%20—%20Points%20Projet%20COPIL-COPRO%20et%20Historisation.md). La section ci-dessous décrit les **KPI portefeuille** déjà exposés par `GET /api/projects/portfolio-summary` (voir RFC-PROJ-004 / module projets) ; conserver ce titre évite de renumérer toute la roadmap historique du fichier.
+
 **Objectif**
 Exposer les KPI du portefeuille.
 
