@@ -636,18 +636,18 @@ export class ProjectBudgetLinksService {
       orderBy: { createdAt: 'asc' },
       include: {
         budgetLine: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              budgetId: true,
-              envelopeId: true,
-              status: true,
-              committedAmount: true,
-              consumedAmount: true,
-              expenseType: true,
-              revisedAmount: true,
-            },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            budgetId: true,
+            envelopeId: true,
+            status: true,
+            committedAmount: true,
+            consumedAmount: true,
+            expenseType: true,
+            revisedAmount: true,
+          },
         },
       },
     });
