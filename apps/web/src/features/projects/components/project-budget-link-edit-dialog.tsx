@@ -12,13 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useBudgetsList } from '@/features/budgets/hooks/use-budgets';
 import { useBudgetLinesByBudget } from '@/features/budgets/hooks/use-budget-lines';
 import { useBudgetEnvelopesAll } from '@/features/budgets/hooks/use-budget-envelopes';
@@ -26,20 +19,9 @@ import type { ApiFormError } from '@/features/budgets/api/types';
 import { useUpdateProjectBudgetLink } from '../hooks/use-update-project-budget-link';
 import { ProjectBudgetHierarchyCombobox } from './project-budget-hierarchy-combobox';
 import type {
-  ProjectBudgetAllocationType,
   ProjectBudgetLinkItem,
   UpdateProjectBudgetLinkPayload,
 } from '../types/project.types';
-
-const ALLOCATION_LABEL: Record<ProjectBudgetAllocationType, string> = {
-  FULL: '100 % sur la ligne',
-  PERCENTAGE: 'Pourcentages (somme ≤ 100 %)',
-  FIXED: 'Montants fixes',
-};
-
-const ALLOCATION_TYPE_KEYS = Object.keys(
-  ALLOCATION_LABEL,
-) as ProjectBudgetAllocationType[];
 
 const SELECT_NONE = '__none__';
 
@@ -72,7 +54,6 @@ type Props = {
   link: ProjectBudgetLinkItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  totalLinks: number;
 };
 
 export function ProjectBudgetLinkEditDialog({
@@ -80,15 +61,11 @@ export function ProjectBudgetLinkEditDialog({
   link,
   open,
   onOpenChange,
-  totalLinks,
 }: Props) {
   const budgetsQuery = useBudgetsList({ limit: 100 });
   const [budgetId, setBudgetId] = useState<string>(SELECT_NONE);
   const [envelopeId, setEnvelopeId] = useState<string>(SELECT_NONE);
   const [budgetLineId, setBudgetLineId] = useState<string>(SELECT_NONE);
-  const [allocationType, setAllocationType] =
-    useState<ProjectBudgetAllocationType>('FULL');
-  const [percentage, setPercentage] = useState('');
   const [amount, setAmount] = useState('');
 
   const linesQuery = useBudgetLinesByBudget(
@@ -104,8 +81,6 @@ export function ProjectBudgetLinkEditDialog({
     setBudgetId(link.budgetLine.budgetId);
     setEnvelopeId(link.budgetLine.envelopeId || SELECT_NONE);
     setBudgetLineId(link.budgetLineId);
-    setAllocationType(link.allocationType);
-    setPercentage(link.percentage ?? '');
     setAmount(link.amount ?? '');
   }, [open, link]);
 
@@ -170,17 +145,6 @@ export function ProjectBudgetLinkEditDialog({
     (linesQuery.isPending ||
       (linesQuery.isFetching && linesQuery.data === undefined));
 
-  /** Plusieurs liens + changement de mode : le backend convertit tous les liens (PAS → montants ou l’inverse). */
-  const bulkModeChange =
-    totalLinks > 1 && allocationType !== link?.allocationType;
-
-  const allocationKeysForSelect = useMemo(() => {
-    if (totalLinks > 1) {
-      return ALLOCATION_TYPE_KEYS.filter((k) => k !== 'FULL');
-    }
-    return ALLOCATION_TYPE_KEYS;
-  }, [totalLinks]);
-
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!link) return;
@@ -189,48 +153,18 @@ export function ProjectBudgetLinkEditDialog({
       return;
     }
 
-    if (bulkModeChange) {
-      if (budgetLineId !== link.budgetLineId) {
-        toast.error(
-          'Enregistrez d’abord le changement de ligne budgétaire, puis le mode d’allocation.',
-        );
-        return;
-      }
-      try {
-        await updateMut.mutateAsync({
-          linkId: link.id,
-          payload: { allocationType },
-        });
-        toast.success('Mode d’allocation mis à jour pour tous les liens.');
-        onOpenChange(false);
-      } catch (err: unknown) {
-        const msg = isApiFormError(err) ? err.message : 'Mise à jour impossible.';
-        toast.error(msg);
-      }
+    const a = Number(amount.replace(',', '.'));
+    if (Number.isNaN(a)) {
+      toast.error('Montant invalide.');
       return;
     }
 
     const payload: UpdateProjectBudgetLinkPayload = {};
     if (budgetLineId !== link.budgetLineId) payload.budgetLineId = budgetLineId;
-    if (allocationType !== link.allocationType) {
-      payload.allocationType = allocationType;
+    if (link.allocationType !== 'FIXED') {
+      payload.allocationType = 'FIXED';
     }
-    if (allocationType === 'PERCENTAGE') {
-      const p = Number(percentage.replace(',', '.'));
-      if (Number.isNaN(p)) {
-        toast.error('Pourcentage invalide.');
-        return;
-      }
-      payload.percentage = p;
-    }
-    if (allocationType === 'FIXED') {
-      const a = Number(amount.replace(',', '.'));
-      if (Number.isNaN(a)) {
-        toast.error('Montant invalide.');
-        return;
-      }
-      payload.amount = a;
-    }
+    payload.amount = a;
 
     try {
       await updateMut.mutateAsync({ linkId: link.id, payload });
@@ -248,9 +182,7 @@ export function ProjectBudgetLinkEditDialog({
         <DialogHeader>
           <DialogTitle>Modifier le lien budgétaire</DialogTitle>
           <DialogDescription>
-            Ligne, mode d’allocation et détail. Plusieurs liens : un changement de mode
-            (pourcentages ↔ montants fixes) s’applique à tout le projet ; les valeurs sont
-            recalculées à partir des données actuelles.
+            Ligne budgétaire et montant fixe alloué sur cette ligne.
           </DialogDescription>
         </DialogHeader>
 
@@ -334,58 +266,21 @@ export function ProjectBudgetLinkEditDialog({
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Mode</Label>
-                <Select
-                  modal={false}
-                  value={allocationType}
-                  onValueChange={(v) =>
-                    setAllocationType((v ?? 'FULL') as ProjectBudgetAllocationType)
-                  }
-                >
-                  <SelectTrigger className="h-9 w-full min-w-0">
-                    <SelectValue placeholder="Mode d’allocation">
-                      {ALLOCATION_LABEL[allocationType]}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allocationKeysForSelect.map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {ALLOCATION_LABEL[k]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {allocationType === 'PERCENTAGE' && (
-                <div className="space-y-2">
-                  <Label htmlFor="pb-edit-pct">Pourcentage sur cette ligne</Label>
-                  <Input
-                    id="pb-edit-pct"
-                    inputMode="decimal"
-                    placeholder="ex. 40"
-                    value={percentage}
-                    onChange={(ev) => setPercentage(ev.target.value)}
-                    className="h-9"
-                  />
-                </div>
-              )}
-              {allocationType === 'FIXED' && (
-                <div className="space-y-2">
-                  <Label htmlFor="pb-edit-amt">
-                    Montant ({selectedBudget?.currency ?? 'EUR'})
-                  </Label>
-                  <Input
-                    id="pb-edit-amt"
-                    inputMode="decimal"
-                    placeholder="ex. 12000"
-                    value={amount}
-                    onChange={(ev) => setAmount(ev.target.value)}
-                    className="h-9"
-                  />
-                </div>
-              )}
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Affectation : montants fixes sur la ligne sélectionnée.
+              </p>
+              <Label htmlFor="pb-edit-amt">
+                Montant ({selectedBudget?.currency ?? 'EUR'})
+              </Label>
+              <Input
+                id="pb-edit-amt"
+                inputMode="decimal"
+                placeholder="ex. 12000"
+                value={amount}
+                onChange={(ev) => setAmount(ev.target.value)}
+                className="h-9 max-w-md"
+              />
             </div>
 
             <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">

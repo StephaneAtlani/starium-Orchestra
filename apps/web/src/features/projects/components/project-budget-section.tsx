@@ -32,6 +32,7 @@ import { useGeneralLedgerAccountOptions } from '@/features/budgets/hooks/use-gen
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectBudgetLinksQuery } from '../hooks/use-project-budget-links-query';
+import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import { useCreateProjectBudgetLink } from '../hooks/use-create-project-budget-link';
 import { useDeleteProjectBudgetLink } from '../hooks/use-delete-project-budget-link';
 import { useCreateBudgetLineInline } from '../hooks/use-create-budget-line-inline';
@@ -42,16 +43,6 @@ import type {
   ProjectBudgetAllocationType,
 } from '../types/project.types';
 import { ProjectBudgetLinkEditDialog } from './project-budget-link-edit-dialog';
-
-const ALLOCATION_LABEL: Record<ProjectBudgetAllocationType, string> = {
-  FULL: '100 % sur la ligne',
-  PERCENTAGE: 'Pourcentages (somme ≤ 100 %)',
-  FIXED: 'Montants fixes',
-};
-
-const ALLOCATION_TYPE_KEYS = Object.keys(
-  ALLOCATION_LABEL,
-) as ProjectBudgetAllocationType[];
 
 /** Valeur réservée pour « aucune sélection » — évite value undefined (Select contrôlé stable). */
 const SELECT_NONE = '__none__';
@@ -78,17 +69,6 @@ function formatEnvelopeOptionLabel(e: {
 
 function formatLineOptionLabel(l: { code: string | null; name: string }): string {
   return l.code ? `${l.code} — ${l.name}` : l.name;
-}
-
-/** Affichage cohérent avec @db.Decimal(5,2) — la part est (montant_i / Σ montants)×100 en mode % dérivé des FIXED. */
-function formatProjectBudgetPercentage(value: string | null | undefined): string {
-  if (value == null || value === '') return '—';
-  const n = Number(String(value).replace(',', '.'));
-  if (Number.isNaN(n)) return `${value} %`;
-  return `${new Intl.NumberFormat('fr-FR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(n)} %`;
 }
 
 type BuildLinkResult =
@@ -125,6 +105,21 @@ function buildCreateLinkPayload(
   return { ok: true, payload };
 }
 
+function parseFixedLinkAmount(amount: string | null): number | null {
+  if (amount == null || amount === '') return null;
+  const n = Number(String(amount).replace(',', '.'));
+  return Number.isNaN(n) ? null : n;
+}
+
+function formatCurrencyEur(value: number): string {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   const { has } = usePermissions();
   const { activeClient } = useActiveClient();
@@ -134,6 +129,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   const generalLedgerQuery = useGeneralLedgerAccountOptions();
 
   const linksQuery = useProjectBudgetLinksQuery(projectId);
+  const sheetQuery = useProjectSheetQuery(projectId);
   const budgetsQuery = useBudgetsList({ limit: 100 });
   const [budgetId, setBudgetId] = useState<string>(SELECT_NONE);
   const [envelopeId, setEnvelopeId] = useState<string>(SELECT_NONE);
@@ -144,10 +140,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
     budgetId === SELECT_NONE ? null : budgetId,
   );
 
-  const [allocationType, setAllocationType] =
-    useState<ProjectBudgetAllocationType>('FULL');
   const [budgetLineId, setBudgetLineId] = useState<string>(SELECT_NONE);
-  const [percentage, setPercentage] = useState('');
   const [amount, setAmount] = useState('');
 
   const [newLineName, setNewLineName] = useState('');
@@ -231,7 +224,6 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
 
   const resetForm = () => {
     setBudgetLineId(SELECT_NONE);
-    setPercentage('');
     setAmount('');
   };
 
@@ -287,12 +279,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
       setNewLineGeneralLedgerId(SELECT_NONE);
       setShowNewLineForm(false);
 
-      const built = buildCreateLinkPayload(
-        line.id,
-        allocationType,
-        percentage,
-        amount,
-      );
+      const built = buildCreateLinkPayload(line.id, 'FIXED', '', amount);
       if (!built.ok) {
         toast.warning('Ligne créée et sélectionnée', {
           description: `${built.message} Complétez l’allocation ci-dessus, puis « Ajouter le lien ».`,
@@ -311,12 +298,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const built = buildCreateLinkPayload(
-      budgetLineId,
-      allocationType,
-      percentage,
-      amount,
-    );
+    const built = buildCreateLinkPayload(budgetLineId, 'FIXED', '', amount);
     if (!built.ok) {
       toast.error(built.message);
       return;
@@ -352,6 +334,46 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
       ? null
       : (linksQuery.data?.items ?? []).find((l) => l.id === editingLinkId) ?? null;
 
+  const fixedBudgetLinks = useMemo(
+    () =>
+      (linksQuery.data?.items ?? []).filter(
+        (row) => row.allocationType === 'FIXED',
+      ),
+    [linksQuery.data?.items],
+  );
+
+  const totalFixedAllocated = useMemo(() => {
+    let sum = 0;
+    for (const row of fixedBudgetLinks) {
+      const v = parseFixedLinkAmount(row.amount);
+      if (v != null) sum += v;
+    }
+    return sum;
+  }, [fixedBudgetLinks]);
+
+  const sheetForecastCost = sheetQuery.data?.estimatedCost ?? null;
+  const forecastVsAllocatedGap =
+    sheetForecastCost != null
+      ? sheetForecastCost - totalFixedAllocated
+      : null;
+
+  const lineKpisFromFixedLinks = useMemo(() => {
+    let committed = 0;
+    let consumed = 0;
+    let imputedCapex = 0;
+    let imputedOpex = 0;
+    for (const row of fixedBudgetLinks) {
+      committed += row.budgetLine.committedAmount ?? 0;
+      consumed += row.budgetLine.consumedAmount ?? 0;
+      const fixed = parseFixedLinkAmount(row.amount);
+      if (fixed == null) continue;
+      const et = row.budgetLine.expenseType;
+      if (et === 'CAPEX') imputedCapex += fixed;
+      else imputedOpex += fixed;
+    }
+    return { committed, consumed, imputedCapex, imputedOpex };
+  }, [fixedBudgetLinks]);
+
   return (
     <Card size="sm">
       <CardHeader>
@@ -365,42 +387,30 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
           <LoadingState rows={2} />
         ) : (
           <>
-            {!linksQuery.data?.items.length ? (
-              <p className="text-sm text-muted-foreground">Aucun lien budgétaire.</p>
+            {!fixedBudgetLinks.length ? (
+              <p className="text-sm text-muted-foreground">
+                Aucun lien en montants fixes.
+              </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Ligne</TableHead>
-                    <TableHead>Mode</TableHead>
-                    <TableHead>Détail</TableHead>
+                    <TableHead>Montant</TableHead>
                     <TableHead className="w-[104px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {linksQuery.data.items.map((row) => (
+                  {fixedBudgetLinks.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>
                         <span className="font-medium">{row.budgetLine.code}</span>{' '}
                         <span className="text-muted-foreground">{row.budgetLine.name}</span>
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {ALLOCATION_LABEL[row.allocationType]}
-                      </TableCell>
                       <TableCell className="text-sm tabular-nums">
-                        {row.allocationType === 'FULL' && (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                        {row.allocationType === 'PERCENTAGE' && (
-                          <span className="text-muted-foreground">
-                            {formatProjectBudgetPercentage(row.percentage)}
-                          </span>
-                        )}
-                        {row.allocationType === 'FIXED' && (
-                          <span className="text-muted-foreground">
-                            {row.amount != null ? row.amount : '—'}
-                          </span>
-                        )}
+                        <span className="text-muted-foreground">
+                          {row.amount != null ? row.amount : '—'}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-0.5">
@@ -434,6 +444,105 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                 </TableBody>
               </Table>
             )}
+
+            <div
+              className="rounded-lg border border-border/60 bg-muted/25 px-3 py-3 sm:px-4"
+              aria-live="polite"
+            >
+              <dl className="grid gap-3 sm:grid-cols-3 sm:gap-4">
+                <div className="min-w-0 space-y-0.5">
+                  <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Coût prévisionnel (fiche projet)
+                  </dt>
+                  <dd className="text-base font-semibold tabular-nums text-foreground">
+                    {sheetQuery.isLoading ? (
+                      <span className="text-muted-foreground">Chargement…</span>
+                    ) : sheetQuery.isError ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : sheetForecastCost != null ? (
+                      formatCurrencyEur(sheetForecastCost)
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </dd>
+                </div>
+                <div className="min-w-0 space-y-0.5">
+                  <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Total imputé (montants fixes)
+                  </dt>
+                  <dd className="text-base font-semibold tabular-nums text-foreground">
+                    {formatCurrencyEur(totalFixedAllocated)}
+                  </dd>
+                </div>
+                <div className="min-w-0 space-y-0.5">
+                  <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Écart (prévisionnel − imputé)
+                  </dt>
+                  <dd
+                    className={cn(
+                      'text-base font-semibold tabular-nums',
+                      forecastVsAllocatedGap == null
+                        ? 'text-muted-foreground'
+                        : forecastVsAllocatedGap < 0
+                          ? 'text-destructive'
+                          : forecastVsAllocatedGap > 0
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : 'text-foreground',
+                    )}
+                  >
+                    {sheetQuery.isLoading ? (
+                      <span className="font-normal text-muted-foreground">
+                        Chargement…
+                      </span>
+                    ) : sheetForecastCost == null || sheetQuery.isError ? (
+                      '—'
+                    ) : (
+                      formatCurrencyEur(forecastVsAllocatedGap)
+                    )}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="mt-3 border-t border-border/50 pt-3">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Lignes budgétaires liées
+                </p>
+                <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
+                  <div className="min-w-0 space-y-0.5">
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Engagé (lignes)
+                    </dt>
+                    <dd className="text-base font-semibold tabular-nums text-foreground">
+                      {formatCurrencyEur(lineKpisFromFixedLinks.committed)}
+                    </dd>
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Consommé (lignes)
+                    </dt>
+                    <dd className="text-base font-semibold tabular-nums text-foreground">
+                      {formatCurrencyEur(lineKpisFromFixedLinks.consumed)}
+                    </dd>
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      CAPEX (imputé)
+                    </dt>
+                    <dd className="text-base font-semibold tabular-nums text-foreground">
+                      {formatCurrencyEur(lineKpisFromFixedLinks.imputedCapex)}
+                    </dd>
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      OPEX (imputé)
+                    </dt>
+                    <dd className="text-base font-semibold tabular-nums text-foreground">
+                      {formatCurrencyEur(lineKpisFromFixedLinks.imputedOpex)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
 
             <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm dark:bg-card">
               <button
@@ -558,59 +667,22 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
               </div>
 
               <div className="border-t border-border/60 pt-5">
-                <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                   Allocation sur la ligne choisie ou à créer
                 </p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Mode</Label>
-                    <Select
-                      modal={false}
-                      value={allocationType}
-                      onValueChange={(v) =>
-                        setAllocationType((v ?? 'FULL') as ProjectBudgetAllocationType)
-                      }
-                    >
-                      <SelectTrigger className="h-9 w-full min-w-0">
-                        <SelectValue placeholder="Mode d’allocation">
-                          {ALLOCATION_LABEL[allocationType]}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ALLOCATION_TYPE_KEYS.map((k) => (
-                          <SelectItem key={k} value={k}>
-                            {ALLOCATION_LABEL[k]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {allocationType === 'PERCENTAGE' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="pb-pct">Pourcentage sur cette ligne</Label>
-                      <Input
-                        id="pb-pct"
-                        inputMode="decimal"
-                        placeholder="ex. 40"
-                        value={percentage}
-                        onChange={(ev) => setPercentage(ev.target.value)}
-                        className="h-9"
-                      />
-                    </div>
-                  )}
-                  {allocationType === 'FIXED' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="pb-amt">Montant (devise budget)</Label>
-                      <Input
-                        id="pb-amt"
-                        inputMode="decimal"
-                        placeholder="ex. 12000"
-                        value={amount}
-                        onChange={(ev) => setAmount(ev.target.value)}
-                        className="h-9"
-                      />
-                    </div>
-                  )}
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Montants fixes sur la ligne sélectionnée.
+                </p>
+                <div className="max-w-md space-y-2">
+                  <Label htmlFor="pb-amt">Montant (devise budget)</Label>
+                  <Input
+                    id="pb-amt"
+                    inputMode="decimal"
+                    placeholder="ex. 12000"
+                    value={amount}
+                    onChange={(ev) => setAmount(ev.target.value)}
+                    className="h-9"
+                  />
                 </div>
               </div>
 
@@ -643,7 +715,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       <div>
                         <p className="text-sm font-medium">Nouvelle ligne dans cette enveloppe</p>
                         <p className="text-xs text-muted-foreground">
-                          Définissez l’allocation (mode, % ou montant) au-dessus. Création rapide
+                          Indiquez le montant fixe au-dessus. Création rapide
                           sans quitter la fiche projet (permission budgets.create).
                         </p>
                       </div>
@@ -804,7 +876,6 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
           onOpenChange={(o) => {
             if (!o) setEditingLinkId(null);
           }}
-          totalLinks={linksQuery.data?.items.length ?? 0}
         />
       </CardContent>
     </Card>

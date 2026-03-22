@@ -20,6 +20,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { fromDecimal } from '../budget-management/helpers/decimal.helper';
 import {
   BudgetExerciseStatus,
   BudgetLineStatus,
@@ -352,6 +353,9 @@ export class ProjectBudgetLinksService {
       budgetId: string;
       envelopeId: string;
       status: BudgetLineStatus;
+      committedAmount: Prisma.Decimal | null;
+      consumedAmount: Prisma.Decimal | null;
+      expenseType: string;
     },
   ) {
     return {
@@ -375,6 +379,9 @@ export class ProjectBudgetLinksService {
         budgetId: budgetLine.budgetId,
         envelopeId: budgetLine.envelopeId,
         status: budgetLine.status,
+        committedAmount: fromDecimal(budgetLine.committedAmount),
+        consumedAmount: fromDecimal(budgetLine.consumedAmount),
+        expenseType: budgetLine.expenseType,
       },
     };
   }
@@ -425,6 +432,9 @@ export class ProjectBudgetLinksService {
               budgetId: true,
               envelopeId: true,
               status: true,
+              committedAmount: true,
+              consumedAmount: true,
+              expenseType: true,
             },
           },
         },
@@ -481,6 +491,9 @@ export class ProjectBudgetLinksService {
                 budgetId: true,
                 envelopeId: true,
                 status: true,
+                committedAmount: true,
+                consumedAmount: true,
+                expenseType: true,
               },
             },
           },
@@ -623,15 +636,18 @@ export class ProjectBudgetLinksService {
       orderBy: { createdAt: 'asc' },
       include: {
         budgetLine: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            budgetId: true,
-            envelopeId: true,
-            status: true,
-            revisedAmount: true,
-          },
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              budgetId: true,
+              envelopeId: true,
+              status: true,
+              committedAmount: true,
+              consumedAmount: true,
+              expenseType: true,
+              revisedAmount: true,
+            },
         },
       },
     });
@@ -723,6 +739,9 @@ export class ProjectBudgetLinksService {
                 budgetId: true,
                 envelopeId: true,
                 status: true,
+                committedAmount: true,
+                consumedAmount: true,
+                expenseType: true,
               },
             },
           },
@@ -783,6 +802,9 @@ export class ProjectBudgetLinksService {
             budgetId: true,
             envelopeId: true,
             status: true,
+            committedAmount: true,
+            consumedAmount: true,
+            expenseType: true,
           },
         },
       },
@@ -863,6 +885,9 @@ export class ProjectBudgetLinksService {
                 budgetId: true,
                 envelopeId: true,
                 status: true,
+                committedAmount: true,
+                consumedAmount: true,
+                expenseType: true,
               },
             },
           },

@@ -136,6 +136,10 @@ export type ProjectBudgetLinkItem = {
     budgetId: string;
     envelopeId: string;
     status: string;
+    /** Agrégats ligne (Financial Core) — montants sur toute la ligne budgétaire. */
+    committedAmount?: number;
+    consumedAmount?: number;
+    expenseType?: string;
   };
 };
 
