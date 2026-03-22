@@ -87,10 +87,14 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       openRisksCount: jest.fn().mockReturnValue(0),
       delayedMilestonesCount: jest.fn().mockReturnValue(0),
     };
+    const projectTeam = {
+      syncTeamMembersFromProjectSponsorOwner: jest.fn().mockResolvedValue(undefined),
+    };
     service = new ProjectsService(
       prisma,
       auditLogs as unknown as AuditLogsService,
       pilotage as ProjectsPilotageService,
+      projectTeam as any,
     );
   });
 

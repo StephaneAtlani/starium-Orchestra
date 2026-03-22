@@ -31,6 +31,7 @@ import {
   ProjectsPilotageService,
   derivedProgressPercentFromTasks,
 } from './projects-pilotage.service';
+import { ProjectTeamService } from './project-team.service';
 import type { ComputedHealth } from './projects.types';
 
 const projectIncludeList = {
@@ -91,6 +92,7 @@ export class ProjectsService {
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly pilotage: ProjectsPilotageService,
+    private readonly projectTeam: ProjectTeamService,
   ) {}
 
   private ownerDisplayName(owner: {
@@ -397,6 +399,13 @@ export class ProjectsService {
       requestId: context?.meta?.requestId,
     });
 
+    await this.projectTeam.syncTeamMembersFromProjectSponsorOwner(
+      clientId,
+      created.id,
+      created.sponsorUserId,
+      created.ownerUserId,
+    );
+
     return this.getById(clientId, created.id);
   }
 
@@ -525,6 +534,15 @@ export class ProjectsService {
         newValue: { ownerUserId: updated.ownerUserId ?? null },
         ...meta,
       });
+    }
+
+    if (dto.sponsorUserId !== undefined || dto.ownerUserId !== undefined) {
+      await this.projectTeam.syncTeamMembersFromProjectSponsorOwner(
+        clientId,
+        id,
+        updated.sponsorUserId,
+        updated.ownerUserId,
+      );
     }
 
     return this.getById(clientId, id);

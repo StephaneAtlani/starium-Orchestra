@@ -253,6 +253,71 @@ export class ProjectTeamService {
     return members.map((m) => this.mapMemberRow(m));
   }
 
+  /**
+   * Aligne les membres **utilisateur** des rôles système Sponsor / Responsable projet
+   * sur les champs `Project.sponsorUserId` / `ownerUserId` (saisie fiche ou API projet).
+   * Les entrées « nom libre » sur ces rôles ne sont pas supprimées.
+   */
+  async syncTeamMembersFromProjectSponsorOwner(
+    clientId: string,
+    projectId: string,
+    sponsorUserId: string | null,
+    ownerUserId: string | null,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.replaceSystemRoleUserMember(
+        tx,
+        clientId,
+        projectId,
+        ProjectTeamRoleSystemKind.SPONSOR,
+        sponsorUserId,
+      );
+      await this.replaceSystemRoleUserMember(
+        tx,
+        clientId,
+        projectId,
+        ProjectTeamRoleSystemKind.OWNER,
+        ownerUserId,
+      );
+      await this.syncProjectSponsorOwner(tx, projectId, clientId);
+    });
+  }
+
+  private async replaceSystemRoleUserMember(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+    projectId: string,
+    systemKind: ProjectTeamRoleSystemKind,
+    userId: string | null,
+  ): Promise<void> {
+    const role = await tx.projectTeamRole.findFirst({
+      where: { clientId, systemKind },
+    });
+    if (!role) return;
+
+    await tx.projectTeamMember.deleteMany({
+      where: {
+        projectId,
+        roleId: role.id,
+        userId: { not: null },
+      },
+    });
+
+    if (userId) {
+      await tx.projectTeamMember.create({
+        data: {
+          clientId,
+          projectId,
+          roleId: role.id,
+          userId,
+          freeLabel: null,
+          affiliation: null,
+          identityKey: `u:${userId}`,
+        },
+      });
+    }
+  }
+
   private async syncProjectSponsorOwner(
     tx: Prisma.TransactionClient,
     projectId: string,

@@ -81,6 +81,9 @@ export function projectEntityAuditSnapshot(p: Project): Record<string, unknown> 
     riskResponse: p.riskResponse ?? null,
     priorityScore: toAuditJson(p.priorityScore) as string | null,
     arbitrationStatus: p.arbitrationStatus ?? null,
+    arbitrationMetierStatus: p.arbitrationMetierStatus ?? null,
+    arbitrationComiteStatus: p.arbitrationComiteStatus ?? null,
+    arbitrationCodirStatus: p.arbitrationCodirStatus ?? null,
     copilRecommendation: p.copilRecommendation ?? null,
     businessProblem: p.businessProblem ?? null,
     businessBenefits: p.businessBenefits ?? null,
@@ -100,6 +103,8 @@ export function projectEntityAuditSnapshot(p: Project): Record<string, unknown> 
 export function projectSheetFieldsAuditSnapshot(p: Project): Record<string, unknown> {
   return {
     name: p.name,
+    priority: p.priority,
+    criticality: p.criticality,
     cadreLocation: p.cadreLocation ?? null,
     cadreQui: p.cadreQui ?? null,
     involvedTeams: p.involvedTeams ?? null,
@@ -116,6 +121,9 @@ export function projectSheetFieldsAuditSnapshot(p: Project): Record<string, unkn
     riskResponse: p.riskResponse ?? null,
     priorityScore: toAuditJson(p.priorityScore),
     arbitrationStatus: p.arbitrationStatus ?? null,
+    arbitrationMetierStatus: p.arbitrationMetierStatus ?? null,
+    arbitrationComiteStatus: p.arbitrationComiteStatus ?? null,
+    arbitrationCodirStatus: p.arbitrationCodirStatus ?? null,
     copilRecommendation: p.copilRecommendation ?? null,
     businessProblem: p.businessProblem ?? null,
     businessBenefits: p.businessBenefits ?? null,

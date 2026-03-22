@@ -59,4 +59,18 @@ describe('UpdateProjectSheetDto — SWOT/TOWS', () => {
     });
     expect(validate(dto)).toHaveLength(0);
   });
+
+  it('accepte priority (portefeuille) — whitelist forbidNonWhitelisted', () => {
+    const dto = plainToInstance(UpdateProjectSheetDto, {
+      priority: 'HIGH',
+    });
+    expect(validate(dto)).toHaveLength(0);
+  });
+
+  it('accepte criticality — whitelist forbidNonWhitelisted', () => {
+    const dto = plainToInstance(UpdateProjectSheetDto, {
+      criticality: 'HIGH',
+    });
+    expect(validate(dto)).toHaveLength(0);
+  });
 });

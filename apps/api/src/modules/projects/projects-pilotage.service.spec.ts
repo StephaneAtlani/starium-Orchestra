@@ -1,4 +1,5 @@
 import {
+  ProjectArbitrationLevelStatus,
   ProjectCopilRecommendation,
   ProjectCriticality,
   ProjectKind,
@@ -49,6 +50,9 @@ describe('ProjectsPilotageService', () => {
     riskResponse: null,
     priorityScore: null,
     arbitrationStatus: null,
+    arbitrationMetierStatus: ProjectArbitrationLevelStatus.BROUILLON,
+    arbitrationComiteStatus: null,
+    arbitrationCodirStatus: null,
     copilRecommendation: ProjectCopilRecommendation.NOT_SET,
     businessProblem: null,
     businessBenefits: null,

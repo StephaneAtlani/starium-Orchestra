@@ -14,7 +14,13 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { ProjectCopilRecommendation, ProjectRiskLevel } from '@prisma/client';
+import {
+  ProjectArbitrationLevelStatus,
+  ProjectCopilRecommendation,
+  ProjectCriticality,
+  ProjectPriority,
+  ProjectRiskLevel,
+} from '@prisma/client';
 import { TowsActionsPatchDto } from './tows-actions.dto';
 
 /** Trim + retire les entrées vides ; [] reste []. */
@@ -112,6 +118,16 @@ export class UpdateProjectSheetDto {
   @IsEnum(ProjectRiskLevel)
   riskLevel?: ProjectRiskLevel;
 
+  /** Priorité projet (portefeuille) */
+  @IsOptional()
+  @IsEnum(ProjectPriority)
+  priority?: ProjectPriority;
+
+  /** Criticité projet (impact / enjeu) */
+  @IsOptional()
+  @IsEnum(ProjectCriticality)
+  criticality?: ProjectCriticality;
+
   /** Réponse au risque (mitigation, plan d’action) — null efface */
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
@@ -123,6 +139,42 @@ export class UpdateProjectSheetDto {
   @IsOptional()
   @IsEnum(ProjectCopilRecommendation)
   copilRecommendation?: ProjectCopilRecommendation;
+
+  /** Arbitrage — niveau Métier (toujours renseigné côté serveur après merge). */
+  @IsOptional()
+  @IsEnum(ProjectArbitrationLevelStatus)
+  arbitrationMetierStatus?: ProjectArbitrationLevelStatus;
+
+  /** Arbitrage — Comité (débloqué seulement si Métier = VALIDE). */
+  @IsOptional()
+  @IsEnum(ProjectArbitrationLevelStatus)
+  arbitrationComiteStatus?: ProjectArbitrationLevelStatus;
+
+  /** Arbitrage — Sponsor / CODIR (débloqué seulement si Comité = VALIDE). */
+  @IsOptional()
+  @IsEnum(ProjectArbitrationLevelStatus)
+  arbitrationCodirStatus?: ProjectArbitrationLevelStatus;
+
+  /** Motif si statut « Refusé » — Métier (null efface). */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(2000)
+  arbitrationMetierRefusalNote?: string | null;
+
+  /** Motif si statut « Refusé » — Comité. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(2000)
+  arbitrationComiteRefusalNote?: string | null;
+
+  /** Motif si statut « Refusé » — Sponsor / CODIR. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(2000)
+  arbitrationCodirRefusalNote?: string | null;
 
   /** Description courte du projet (champ `Project.description`) */
   @IsOptional()

@@ -1,8 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   Prisma,
   Project,
+  ProjectArbitrationLevelStatus,
+  ProjectArbitrationStatus,
   ProjectCopilRecommendation,
+  ProjectCriticality,
+  ProjectPriority,
   ProjectRisk,
   ProjectRiskLevel,
 } from '@prisma/client';
@@ -52,6 +56,7 @@ export type ProjectSheetResponseDto = {
   type: string;
   status: string;
   priority: string;
+  criticality: string;
   targetBudgetAmount: number | null;
   businessValueScore: number | null;
   strategicAlignment: number | null;
@@ -63,6 +68,12 @@ export type ProjectSheetResponseDto = {
   riskResponse: string | null;
   priorityScore: number | null;
   arbitrationStatus: string | null;
+  arbitrationMetierStatus: string;
+  arbitrationComiteStatus: string | null;
+  arbitrationCodirStatus: string | null;
+  arbitrationMetierRefusalNote: string | null;
+  arbitrationComiteRefusalNote: string | null;
+  arbitrationCodirRefusalNote: string | null;
   copilRecommendation: string;
   businessProblem: string | null;
   businessBenefits: string | null;
@@ -157,6 +168,7 @@ export class ProjectSheetService {
       type: p.type,
       status: p.status,
       priority: p.priority,
+      criticality: p.criticality,
       targetBudgetAmount: decimalToNumber(p.targetBudgetAmount),
       businessValueScore: p.businessValueScore ?? null,
       strategicAlignment: p.strategicAlignment ?? null,
@@ -168,6 +180,12 @@ export class ProjectSheetService {
       riskResponse: p.riskResponse ?? null,
       priorityScore: decimalToNumber(priorityScoreForResponse),
       arbitrationStatus: p.arbitrationStatus ?? null,
+      arbitrationMetierStatus: p.arbitrationMetierStatus,
+      arbitrationComiteStatus: p.arbitrationComiteStatus ?? null,
+      arbitrationCodirStatus: p.arbitrationCodirStatus ?? null,
+      arbitrationMetierRefusalNote: p.arbitrationMetierRefusalNote ?? null,
+      arbitrationComiteRefusalNote: p.arbitrationComiteRefusalNote ?? null,
+      arbitrationCodirRefusalNote: p.arbitrationCodirRefusalNote ?? null,
       copilRecommendation: p.copilRecommendation,
       businessProblem: p.businessProblem ?? null,
       businessBenefits: p.businessBenefits ?? null,
@@ -208,6 +226,45 @@ export class ProjectSheetService {
     }
 
     const merged = this.mergeSheetState(existing, dto);
+    const hasArbPatch =
+      dto.arbitrationMetierStatus !== undefined ||
+      dto.arbitrationComiteStatus !== undefined ||
+      dto.arbitrationCodirStatus !== undefined;
+    const hasArbNotePatch =
+      dto.arbitrationMetierRefusalNote !== undefined ||
+      dto.arbitrationComiteRefusalNote !== undefined ||
+      dto.arbitrationCodirRefusalNote !== undefined;
+    const arbitrationMerged = hasArbPatch
+      ? this.mergeArbitrationLevels(existing, dto)
+      : null;
+
+    const effMetier = arbitrationMerged?.metier ?? existing.arbitrationMetierStatus;
+    const effComite = arbitrationMerged?.comite ?? existing.arbitrationComiteStatus;
+    const effCodir = arbitrationMerged?.codir ?? existing.arbitrationCodirStatus;
+
+    const trimRefusal = (s: string | null | undefined): string | null => {
+      if (s == null) return null;
+      const t = s.trim();
+      return t.length ? t : null;
+    };
+    const metierRefusalNote =
+      effMetier !== 'REFUSE'
+        ? null
+        : dto.arbitrationMetierRefusalNote !== undefined
+          ? trimRefusal(dto.arbitrationMetierRefusalNote)
+          : existing.arbitrationMetierRefusalNote;
+    const comiteRefusalNote =
+      effComite !== 'REFUSE'
+        ? null
+        : dto.arbitrationComiteRefusalNote !== undefined
+          ? trimRefusal(dto.arbitrationComiteRefusalNote)
+          : existing.arbitrationComiteRefusalNote;
+    const codirRefusalNote =
+      effCodir !== 'REFUSE'
+        ? null
+        : dto.arbitrationCodirRefusalNote !== undefined
+          ? trimRefusal(dto.arbitrationCodirRefusalNote)
+          : existing.arbitrationCodirRefusalNote;
     const risks = await this.risksForProject(clientId, projectId);
     const effectiveRiskLevel = effectiveSheetRiskLevel(
       merged.riskLevel,
@@ -227,6 +284,15 @@ export class ProjectSheetService {
         ? Prisma.JsonNull
         : (merged.towsActions as unknown as Prisma.InputJsonValue);
 
+    const legacyArbitration =
+      arbitrationMerged != null
+        ? this.deriveLegacyArbitrationStatus(
+            arbitrationMerged.metier,
+            arbitrationMerged.comite,
+            arbitrationMerged.codir,
+          )
+        : undefined;
+
     const data: Prisma.ProjectUncheckedUpdateInput = {
       name: merged.name,
       description: merged.description,
@@ -243,7 +309,24 @@ export class ProjectSheetService {
       roi,
       riskLevel: merged.riskLevel,
       riskResponse: merged.riskResponse,
+      priority: merged.priority,
+      criticality: merged.criticality,
       priorityScore,
+      ...(arbitrationMerged != null
+        ? {
+            arbitrationMetierStatus: arbitrationMerged.metier,
+            arbitrationComiteStatus: arbitrationMerged.comite,
+            arbitrationCodirStatus: arbitrationMerged.codir,
+            arbitrationStatus: legacyArbitration,
+          }
+        : {}),
+      ...(hasArbPatch || hasArbNotePatch
+        ? {
+            arbitrationMetierRefusalNote: metierRefusalNote,
+            arbitrationComiteRefusalNote: comiteRefusalNote,
+            arbitrationCodirRefusalNote: codirRefusalNote,
+          }
+        : {}),
       copilRecommendation: merged.copilRecommendation,
       businessProblem: merged.businessProblem,
       businessBenefits: merged.businessBenefits,
@@ -314,9 +397,17 @@ export class ProjectSheetService {
       throw new NotFoundException('Project not found');
     }
 
+    const { metier, comite, codir } = this.mapLegacyArbitrationToLevels(dto.status);
+    const legacy = this.deriveLegacyArbitrationStatus(metier, comite, codir);
+
     const updated = await this.prisma.project.update({
       where: { id: projectId },
-      data: { arbitrationStatus: dto.status },
+      data: {
+        arbitrationMetierStatus: metier,
+        arbitrationComiteStatus: comite,
+        arbitrationCodirStatus: codir,
+        arbitrationStatus: legacy,
+      },
     });
 
     const meta = {
@@ -326,9 +417,9 @@ export class ProjectSheetService {
     };
 
     let action: string;
-    if (dto.status === 'VALIDATED') {
+    if (legacy === 'VALIDATED') {
       action = PROJECT_AUDIT_ACTION.PROJECT_ARBITRATION_VALIDATED;
-    } else if (dto.status === 'REJECTED') {
+    } else if (legacy === 'REJECTED') {
       action = PROJECT_AUDIT_ACTION.PROJECT_ARBITRATION_REJECTED;
     } else {
       action = PROJECT_AUDIT_ACTION.PROJECT_SHEET_UPDATED;
@@ -340,8 +431,18 @@ export class ProjectSheetService {
       action,
       resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
       resourceId: projectId,
-      oldValue: { arbitrationStatus: existing.arbitrationStatus ?? null },
-      newValue: { arbitrationStatus: dto.status },
+      oldValue: {
+        arbitrationStatus: existing.arbitrationStatus ?? null,
+        arbitrationMetierStatus: existing.arbitrationMetierStatus,
+        arbitrationComiteStatus: existing.arbitrationComiteStatus ?? null,
+        arbitrationCodirStatus: existing.arbitrationCodirStatus ?? null,
+      },
+      newValue: {
+        arbitrationStatus: legacy,
+        arbitrationMetierStatus: metier,
+        arbitrationComiteStatus: comite,
+        arbitrationCodirStatus: codir,
+      },
       ...meta,
     });
 
@@ -375,6 +476,8 @@ export class ProjectSheetService {
     estimatedCost: Prisma.Decimal | null;
     estimatedGain: Prisma.Decimal | null;
     riskLevel: Project['riskLevel'];
+    priority: ProjectPriority;
+    criticality: ProjectCriticality;
     riskResponse: string | null;
     copilRecommendation: ProjectCopilRecommendation;
     businessProblem: string | null;
@@ -406,6 +509,10 @@ export class ProjectSheetService {
         : project.estimatedGain;
     const riskLevel =
       dto.riskLevel !== undefined ? dto.riskLevel : project.riskLevel;
+    const priority: ProjectPriority =
+      dto.priority !== undefined ? dto.priority : project.priority;
+    const criticality: ProjectCriticality =
+      dto.criticality !== undefined ? dto.criticality : project.criticality;
     const riskResponse =
       dto.riskResponse !== undefined
         ? dto.riskResponse == null || dto.riskResponse.trim() === ''
@@ -520,6 +627,8 @@ export class ProjectSheetService {
       estimatedCost,
       estimatedGain,
       riskLevel,
+      priority,
+      criticality,
       riskResponse,
       copilRecommendation,
       businessProblem,
@@ -531,6 +640,115 @@ export class ProjectSheetService {
       swotThreats,
       towsActions,
     };
+  }
+
+  private deriveLegacyArbitrationStatus(
+    metier: ProjectArbitrationLevelStatus,
+    comite: ProjectArbitrationLevelStatus | null,
+    codir: ProjectArbitrationLevelStatus | null,
+  ): ProjectArbitrationStatus {
+    if (codir === 'REFUSE') return 'REJECTED';
+    if (codir === 'VALIDE') return 'VALIDATED';
+    if (metier === 'VALIDE') return 'TO_REVIEW';
+    return 'DRAFT';
+  }
+
+  private mapLegacyArbitrationToLevels(status: ProjectArbitrationStatus): {
+    metier: ProjectArbitrationLevelStatus;
+    comite: ProjectArbitrationLevelStatus | null;
+    codir: ProjectArbitrationLevelStatus | null;
+  } {
+    switch (status) {
+      case 'DRAFT':
+        return { metier: 'BROUILLON', comite: null, codir: null };
+      case 'TO_REVIEW':
+        return {
+          metier: 'VALIDE',
+          comite: 'EN_COURS',
+          codir: null,
+        };
+      case 'VALIDATED':
+        return {
+          metier: 'VALIDE',
+          comite: 'VALIDE',
+          codir: 'VALIDE',
+        };
+      case 'REJECTED':
+        return {
+          metier: 'VALIDE',
+          comite: 'VALIDE',
+          codir: 'REFUSE',
+        };
+      default:
+        return { metier: 'BROUILLON', comite: null, codir: null };
+    }
+  }
+
+  private mergeArbitrationLevels(
+    project: Project,
+    dto: UpdateProjectSheetDto,
+  ): {
+    metier: ProjectArbitrationLevelStatus;
+    comite: ProjectArbitrationLevelStatus | null;
+    codir: ProjectArbitrationLevelStatus | null;
+  } {
+    const metier =
+      dto.arbitrationMetierStatus !== undefined
+        ? dto.arbitrationMetierStatus
+        : project.arbitrationMetierStatus;
+    let comite =
+      dto.arbitrationComiteStatus !== undefined
+        ? dto.arbitrationComiteStatus
+        : project.arbitrationComiteStatus;
+    let codir =
+      dto.arbitrationCodirStatus !== undefined
+        ? dto.arbitrationCodirStatus
+        : project.arbitrationCodirStatus;
+
+    /** `null` explicite dans le JSON = effacement autorisé ; on bloque seulement une valeur de statut réelle sans prérequis. */
+    if (
+      dto.arbitrationComiteStatus !== undefined &&
+      dto.arbitrationComiteStatus !== null &&
+      metier !== 'VALIDE'
+    ) {
+      throw new BadRequestException(
+        'Le niveau « Comité de projet » n’est modifiable qu’après validation du niveau « Métier ».',
+      );
+    }
+    if (
+      dto.arbitrationCodirStatus !== undefined &&
+      dto.arbitrationCodirStatus !== null &&
+      metier !== 'VALIDE'
+    ) {
+      throw new BadRequestException(
+        'Le niveau « Sponsor / CODIR » n’est modifiable qu’après validation du niveau « Métier ».',
+      );
+    }
+    if (
+      dto.arbitrationCodirStatus !== undefined &&
+      dto.arbitrationCodirStatus !== null &&
+      comite !== 'VALIDE'
+    ) {
+      throw new BadRequestException(
+        'Le niveau « Sponsor / CODIR » n’est modifiable qu’après validation du niveau « Comité de projet ».',
+      );
+    }
+
+    if (metier !== 'VALIDE') {
+      comite = null;
+      codir = null;
+    } else if (comite !== 'VALIDE') {
+      codir = null;
+    }
+
+    if (metier === 'VALIDE' && comite === null) {
+      comite = 'BROUILLON';
+    }
+    if (metier === 'VALIDE' && comite === 'VALIDE' && codir === null) {
+      codir = 'BROUILLON';
+    }
+
+    return { metier, comite, codir };
   }
 
   private mergeTows(

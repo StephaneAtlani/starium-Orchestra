@@ -167,6 +167,13 @@ export type ProjectArbitrationStatus =
   | 'VALIDATED'
   | 'REJECTED';
 
+/** Statut par niveau d’arbitrage (Métier → Comité → Sponsor/CODIR). */
+export type ProjectArbitrationLevelStatus =
+  | 'BROUILLON'
+  | 'EN_COURS'
+  | 'VALIDE'
+  | 'REFUSE';
+
 /** Recommandation saisie par le COPIL / COPRO (RFC-PROJ-012) */
 export type ProjectCopilRecommendation =
   | 'NOT_SET'
@@ -227,6 +234,8 @@ export type ProjectSheet = {
   type: string;
   status: string;
   priority: string;
+  /** Criticité (impact / enjeu) */
+  criticality: string;
   targetBudgetAmount: number | null;
   businessValueScore: number | null;
   strategicAlignment: number | null;
@@ -239,6 +248,13 @@ export type ProjectSheet = {
   riskResponse: string | null;
   priorityScore: number | null;
   arbitrationStatus: ProjectArbitrationStatus | null;
+  arbitrationMetierStatus: ProjectArbitrationLevelStatus;
+  arbitrationComiteStatus: ProjectArbitrationLevelStatus | null;
+  arbitrationCodirStatus: ProjectArbitrationLevelStatus | null;
+  /** Motif si statut « Refusé » — Métier */
+  arbitrationMetierRefusalNote: string | null;
+  arbitrationComiteRefusalNote: string | null;
+  arbitrationCodirRefusalNote: string | null;
   copilRecommendation: ProjectCopilRecommendation;
   businessProblem: string | null;
   businessBenefits: string | null;
@@ -270,7 +286,17 @@ export type UpdateProjectSheetPayload = {
   estimatedGain?: number;
   riskLevel?: ProjectSheetRiskLevel;
   riskResponse?: string | null;
+  /** Priorité portefeuille (LOW | MEDIUM | HIGH) */
+  priority?: string;
+  /** Criticité projet */
+  criticality?: string;
   copilRecommendation?: ProjectCopilRecommendation;
+  arbitrationMetierStatus?: ProjectArbitrationLevelStatus;
+  arbitrationComiteStatus?: ProjectArbitrationLevelStatus | null;
+  arbitrationCodirStatus?: ProjectArbitrationLevelStatus | null;
+  arbitrationMetierRefusalNote?: string | null;
+  arbitrationComiteRefusalNote?: string | null;
+  arbitrationCodirRefusalNote?: string | null;
   businessProblem?: string;
   businessBenefits?: string;
   businessSuccessKpis?: string[];

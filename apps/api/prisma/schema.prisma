@@ -322,6 +322,14 @@ enum ProjectArbitrationStatus {
   REJECTED
 }
 
+/** Statut par niveau d’arbitrage (Métier → Comité → Sponsor/CODIR). */
+enum ProjectArbitrationLevelStatus {
+  BROUILLON
+  EN_COURS
+  VALIDE
+  REFUSE
+}
+
 /** Recommandation saisie par le COPIL / COPRO (pas dérivée automatiquement des indicateurs). */
 enum ProjectCopilRecommendation {
   NOT_SET
@@ -380,7 +388,14 @@ model Project {
   /// Réponse au risque : traitement, mitigation, plan d’action (texte libre, fiche CODIR)
   riskResponse      String?
   priorityScore     Decimal? @db.Decimal(5, 2)
+  /// Dérivé des trois niveaux (rétrocompat lecture / exports).
   arbitrationStatus ProjectArbitrationStatus?
+  arbitrationMetierStatus  ProjectArbitrationLevelStatus @default(BROUILLON)
+  arbitrationComiteStatus    ProjectArbitrationLevelStatus?
+  arbitrationCodirStatus     ProjectArbitrationLevelStatus?
+  arbitrationMetierRefusalNote  String? @db.VarChar(2000)
+  arbitrationComiteRefusalNote  String? @db.VarChar(2000)
+  arbitrationCodirRefusalNote   String? @db.VarChar(2000)
   copilRecommendation ProjectCopilRecommendation @default(NOT_SET)
 
   /// Cadrage OQQCQPC (fiche projet)

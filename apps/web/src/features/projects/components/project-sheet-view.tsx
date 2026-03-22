@@ -48,12 +48,12 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import {
   createProjectRisk,
   deleteProjectRisk,
-  postProjectArbitration,
   updateProjectSheet,
 } from '../api/projects.api';
 import { projectDetail, projectsList } from '../constants/project-routes';
 import {
   MILESTONE_STATUS_LABEL,
+  PROJECT_CRITICALITY_LABEL,
   PROJECT_KIND_LABEL,
   PROJECT_PRIORITY_LABEL,
   PROJECT_STATUS_LABEL,
@@ -63,16 +63,12 @@ import { projectQueryKeys } from '../lib/project-query-keys';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
 import { ProjectTeamMatrix } from './project-team-matrix';
-import {
-  computeProjectSheetPriorityScorePreview,
-  computeRoiFromCostGain,
-  effectiveRiskLevelForSheetPreview,
-} from '../lib/project-sheet-priority-preview';
+import { computeRoiFromCostGain } from '../lib/project-sheet-priority-preview';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import type {
-  ProjectArbitrationStatus,
+  ProjectArbitrationLevelStatus,
   ProjectCopilRecommendation,
   ProjectMilestoneApi,
   ProjectSheet,
@@ -91,12 +87,65 @@ function riskTierFr(t: string): string {
   return t;
 }
 
-const ARBITRATION_LABEL: Record<ProjectArbitrationStatus, string> = {
-  DRAFT: 'Brouillon',
-  TO_REVIEW: 'À revue CODIR',
-  VALIDATED: 'Validé',
-  REJECTED: 'Refusé',
+/** Niveaux d’arbitrage — titres des cartes. */
+const ARBITRATION_LEVEL_STEPS = [
+  {
+    title: 'Métier',
+    body: 'Cadrage, arbitrage initial et alignement avec la ligne métier.',
+  },
+  {
+    title: 'Comité de projet',
+    body: 'Revue collégiale, arbitrage inter-directions avant escalade.',
+  },
+  {
+    title: 'Sponsor / CODIR',
+    body: 'Décision de sponsorisation et arbitrage CODIR / direction.',
+  },
+] as const;
+
+const LEVEL_STATUS_LABEL: Record<ProjectArbitrationLevelStatus, string> = {
+  BROUILLON: 'Brouillon',
+  EN_COURS: 'En cours',
+  VALIDE: 'Validé',
+  REFUSE: 'Refusé',
 };
+
+const LEVEL_STATUS_ORDER: ProjectArbitrationLevelStatus[] = [
+  'BROUILLON',
+  'EN_COURS',
+  'VALIDE',
+  'REFUSE',
+];
+
+/** Carte mise en avant : premier niveau non « Validé », sinon dernier actif. */
+function arbitrationFocusStep(
+  m: ProjectArbitrationLevelStatus,
+  c: ProjectArbitrationLevelStatus | null,
+  _d: ProjectArbitrationLevelStatus | null,
+): 0 | 1 | 2 {
+  if (m !== 'VALIDE') return 0;
+  if (c !== 'VALIDE') return 1;
+  return 2;
+}
+
+/** Fond / bordure selon le statut du niveau (niveau verrouillé → neutre). */
+function arbitrationLevelCardTone(
+  status: ProjectArbitrationLevelStatus | null,
+): string {
+  if (status == null) {
+    return 'border-border/50 bg-muted/20 opacity-[0.95]';
+  }
+  switch (status) {
+    case 'VALIDE':
+      return 'border-emerald-500/20 bg-emerald-500/[0.04] dark:border-emerald-500/25 dark:bg-emerald-500/[0.07]';
+    case 'REFUSE':
+      return 'border-red-500/20 bg-red-500/[0.04] dark:border-red-500/25 dark:bg-red-500/[0.07]';
+    case 'EN_COURS':
+      return 'border-blue-500/20 bg-blue-500/[0.04] dark:border-blue-500/25 dark:bg-blue-500/[0.07]';
+    default:
+      return 'border-border/80 bg-muted/15';
+  }
+}
 
 const COPIL_LABEL: Record<ProjectCopilRecommendation, string> = {
   NOT_SET: 'Non renseigné',
@@ -264,6 +313,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const { data: sheet, isLoading, error } = useProjectSheetQuery(projectId);
 
   const [projectName, setProjectName] = useState('');
+  const [priority, setPriority] = useState<string>('MEDIUM');
+  const [criticality, setCriticality] = useState<string>('MEDIUM');
   const [cadreWhere, setCadreWhere] = useState('');
   const [cadreWho, setCadreWho] = useState('');
   const [cadreStart, setCadreStart] = useState('');
@@ -277,7 +328,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const [gain, setGain] = useState('');
   const [risk, setRisk] = useState<string>(RISK_UNSET);
   const [riskResponse, setRiskResponse] = useState('');
-  const [arbDraft, setArbDraft] = useState<ProjectArbitrationStatus>('DRAFT');
+  const [arbMetier, setArbMetier] = useState<ProjectArbitrationLevelStatus>('BROUILLON');
+  const [arbComite, setArbComite] = useState<ProjectArbitrationLevelStatus | null>(null);
+  const [arbCodir, setArbCodir] = useState<ProjectArbitrationLevelStatus | null>(null);
   const [copilDraft, setCopilDraft] = useState<ProjectCopilRecommendation>('NOT_SET');
 
   const [description, setDescription] = useState('');
@@ -312,6 +365,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     suppressNextSheetAutosaveRef.current = true;
 
     setProjectName(sheet.name);
+    setPriority(sheet.priority);
+    setCriticality(sheet.criticality);
     setCadreWhere(sheet.cadreLocation ?? '');
     setCadreWho(sheet.cadreQui ?? '');
     setCadreStart(sheet.startDate ? sheet.startDate.slice(0, 10) : '');
@@ -324,7 +379,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     setGain(sheet.estimatedGain != null ? String(sheet.estimatedGain) : '');
     setRisk(sheet.riskLevel ?? RISK_UNSET);
     setRiskResponse(sheet.riskResponse ?? '');
-    setArbDraft(sheet.arbitrationStatus ?? 'DRAFT');
+    setArbMetier(sheet.arbitrationMetierStatus ?? 'BROUILLON');
+    setArbComite(sheet.arbitrationComiteStatus ?? null);
+    setArbCodir(sheet.arbitrationCodirStatus ?? null);
     setCopilDraft(sheet.copilRecommendation ?? 'NOT_SET');
     setDescription(sheet.description ?? '');
     setProblem(sheet.businessProblem ?? '');
@@ -346,6 +403,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     if (!sheet) throw new Error('Fiche indisponible');
     const payload: UpdateProjectSheetPayload = {};
     payload.name = projectName.trim() || sheet.name;
+    payload.priority = priority as 'LOW' | 'MEDIUM' | 'HIGH';
+    payload.criticality = criticality as 'LOW' | 'MEDIUM' | 'HIGH';
     payload.cadreLocation = cadreWhere.trim() ? cadreWhere.trim() : null;
     payload.cadreQui = cadreWho.trim() ? cadreWho.trim() : null;
     payload.involvedTeams = involvedTeams.trim() ? involvedTeams.trim() : null;
@@ -380,10 +439,24 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
       WO: trimLinesToPayload(tWO),
       WT: trimLinesToPayload(tWT),
     };
+    payload.arbitrationMetierStatus = arbMetier;
+    if (arbMetier !== 'VALIDE') {
+      payload.arbitrationComiteStatus = null;
+      payload.arbitrationCodirStatus = null;
+    } else {
+      const c = arbComite ?? 'BROUILLON';
+      payload.arbitrationComiteStatus = c;
+      payload.arbitrationCodirStatus = c === 'VALIDE' ? (arbCodir ?? 'BROUILLON') : null;
+    }
     return payload;
   }, [
     sheet,
     projectName,
+    priority,
+    criticality,
+    arbMetier,
+    arbComite,
+    arbCodir,
     cadreWhere,
     cadreWho,
     cadreStart,
@@ -410,6 +483,77 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     tWO,
     tWT,
   ]);
+
+  /** Une seule clé dérivée pour l’autosave : le useEffect garde un deps de taille fixe (évite erreur React si la liste change / HMR). */
+  const autosaveFormSnapshotKey = useMemo(
+    () =>
+      JSON.stringify({
+        projectName,
+        priority,
+        criticality,
+        cadreWhere,
+        cadreWho,
+        cadreStart,
+        cadreEnd,
+        involvedTeams,
+        description,
+        bv,
+        sa,
+        us,
+        cost,
+        gain,
+        risk,
+        riskResponse,
+        copilDraft,
+        problem,
+        benefits,
+        kpiLines,
+        swS,
+        swW,
+        swO,
+        swT,
+        tSO,
+        tST,
+        tWO,
+        tWT,
+        arbMetier,
+        arbComite,
+        arbCodir,
+      }),
+    [
+      projectName,
+      priority,
+      criticality,
+      cadreWhere,
+      cadreWho,
+      cadreStart,
+      cadreEnd,
+      involvedTeams,
+      description,
+      bv,
+      sa,
+      us,
+      cost,
+      gain,
+      risk,
+      riskResponse,
+      copilDraft,
+      problem,
+      benefits,
+      kpiLines,
+      swS,
+      swW,
+      swO,
+      swT,
+      tSO,
+      tST,
+      tWO,
+      tWT,
+      arbMetier,
+      arbComite,
+      arbCodir,
+    ],
+  );
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -440,38 +584,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     }, SHEET_AUTOSAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(id);
     // sheet / refetch exclus : évite un POST à chaque invalidation ; mutationFn lit l’état courant.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- champs formulaire uniquement
-  }, [
-    canEdit,
-    sheet?.id,
-    projectId,
-    projectName,
-    cadreWhere,
-    cadreWho,
-    cadreStart,
-    cadreEnd,
-    involvedTeams,
-    description,
-    bv,
-    sa,
-    us,
-    cost,
-    gain,
-    risk,
-    riskResponse,
-    copilDraft,
-    problem,
-    benefits,
-    kpiLines,
-    swS,
-    swW,
-    swO,
-    swT,
-    tSO,
-    tST,
-    tWO,
-    tWT,
-  ]);
+    // Champs suivis via autosaveFormSnapshotKey (deps de taille fixe).
+  }, [canEdit, sheet?.id, projectId, autosaveFormSnapshotKey]);
 
   const copilSaveMutation = useMutation({
     mutationFn: (value: ProjectCopilRecommendation) =>
@@ -486,23 +600,6 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     },
     onError: (e: Error) => {
       toast.error(e.message || 'Impossible d’enregistrer la recommandation');
-    },
-  });
-
-  const arbitrationMutation = useMutation({
-    mutationFn: (status: ProjectArbitrationStatus) =>
-      postProjectArbitration(authFetch, projectId, status),
-    onSuccess: () => {
-      toast.success('Statut d’arbitrage mis à jour');
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.sheet(clientId, projectId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.detail(clientId, projectId),
-      });
-    },
-    onError: (e: Error) => {
-      toast.error(e.message || 'Erreur arbitrage');
     },
   });
 
@@ -596,9 +693,6 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
     );
   }
 
-  const fmt = (n: number | null) =>
-    n == null ? '—' : new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(n);
-
   const fmtRoi = (n: number | null) =>
     n == null
       ? '—'
@@ -616,21 +710,6 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
   const costEff = effectiveNumFromFormOrSheet(cost, sheet.estimatedCost);
   const gainEff = effectiveNumFromFormOrSheet(gain, sheet.estimatedGain);
   const roiEff = computeRoiFromCostGain(costEff, gainEff);
-
-  /** Aperçu : scores effectifs (formulaire + repli fiche). */
-  const priorityScorePreview = computeProjectSheetPriorityScorePreview({
-    businessValueScore: bvEff,
-    strategicAlignment: saEff,
-    urgencyScore: usEff,
-    effectiveRiskLevel: effectiveRiskLevelForSheetPreview(
-      risk,
-      RISK_UNSET,
-      risksQuery.data,
-    ),
-    roi: roiEff,
-  });
-  const priorityScoreDisplayed =
-    priorityScorePreview !== null ? priorityScorePreview : sheet.priorityScore ?? null;
 
   const problemFilled =
     Boolean(problem.trim()) || Boolean(sheet.businessProblem?.trim());
@@ -726,13 +805,52 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               <span className="text-muted-foreground">Statut : </span>
               {PROJECT_STATUS_LABEL[sheet.status] ?? sheet.status}
             </div>
+            <div className="sm:col-span-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                <span className="text-sm text-muted-foreground shrink-0">
+                  Criticité (impact / enjeu) :
+                </span>
+                {canEdit ? (
+                  <Select value={criticality} onValueChange={(v) => setCriticality(v)}>
+                    <SelectTrigger
+                      id="sheet-criticality"
+                      size="sm"
+                      className="w-full min-w-[12rem] max-w-xs sm:w-auto"
+                      aria-label="Criticité du projet"
+                    >
+                      <SelectValue>
+                        {PROJECT_CRITICALITY_LABEL[criticality] ?? criticality}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(
+                        Object.keys(PROJECT_CRITICALITY_LABEL) as Array<
+                          keyof typeof PROJECT_CRITICALITY_LABEL
+                        >
+                      ).map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {PROJECT_CRITICALITY_LABEL[k]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="text-sm font-medium text-foreground">
+                    {PROJECT_CRITICALITY_LABEL[criticality] ?? criticality}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                Distincte de la priorité portefeuille — enregistrée avec la fiche.
+              </p>
+            </div>
           </div>
 
           <div className="border-t border-border pt-6">
             <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
               Indicateurs de lecture :{' '}
               <span className="font-medium text-foreground">ROI financier</span> (tuile 1),{' '}
-              <span className="font-medium text-foreground">score de priorité</span> (tuile 2),{' '}
+              <span className="font-medium text-foreground">priorité projet</span> (tuile 2),{' '}
               <span className="font-medium text-foreground">ROE</span> (tuile 3). Pas de GO automatique
               — la recommandation COPIL / COPRO (tuile 4) s’enregistre automatiquement à la sélection.
             </p>
@@ -758,23 +876,44 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 </p>
                 {roiDisplayed != null ? (
                   <p className="mt-2 border-t border-border/60 pt-2 text-[11px] leading-snug text-muted-foreground">
-                    Le ROE (tuile 3) et le risque sont aussi pris en compte dans le score de priorité
-                    (tuile 2).
+                    Le ROE (tuile 3) et le risque complètent la lecture pour la décision — distincts de
+                    la priorité portefeuille (tuile 2).
                   </p>
                 ) : null}
               </div>
               <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  2. Priorité décisionnelle
+                  2. Priorité projet (portefeuille)
                 </p>
-                <p className="mt-2 text-2xl font-semibold tabular-nums">
-                  {fmt(priorityScoreDisplayed)}
+                <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                  Basse, moyenne ou haute — référence CODIR / portefeuille (pas un score calculé).
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Priorité réf. :{' '}
-                  <span className="font-medium text-foreground">
-                    {PROJECT_PRIORITY_LABEL[sheet.priority] ?? sheet.priority}
-                  </span>
+                <Select
+                  value={priority}
+                  onValueChange={(v) => setPriority(v)}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger
+                    id="sheet-priority"
+                    className="mt-3 w-full text-left"
+                    aria-label="Priorité projet"
+                  >
+                    <SelectValue>
+                      {PROJECT_PRIORITY_LABEL[priority] ?? priority}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(PROJECT_PRIORITY_LABEL) as Array<keyof typeof PROJECT_PRIORITY_LABEL>).map(
+                      (k) => (
+                        <SelectItem key={k} value={k}>
+                          {PROJECT_PRIORITY_LABEL[k]}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+                  Enregistrée avec le reste de la fiche (automatique).
                 </p>
               </div>
               <div className="rounded-lg border border-border/80 bg-muted/20 p-4">
@@ -782,8 +921,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                   3. ROE — critères valeur
                 </p>
                 <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                  Retour sur engagement : scores 1–5, pondérés avec le ROI et le risque dans la
-                  priorité (tuile 2).
+                  Retour sur engagement : scores 1–5, avec le ROI et le risque pour éclairer la
+                  décision (hors priorité portefeuille — tuile 2).
                 </p>
                 <div className="mt-2 space-y-1.5 text-sm">
                   <div className="flex justify-between gap-2">
@@ -840,9 +979,6 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    Enregistrement automatique à la sélection.
-                  </p>
                 </div>
               </div>
             </div>
@@ -862,45 +998,100 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
           ) : null}
 
           <div className="border-t border-border pt-6">
-            <p className="mb-3 text-sm font-medium">Arbitrage CODIR</p>
-            <div className="mb-4 text-sm text-muted-foreground">
-              Priorité projet (réf.) :{' '}
-              <span className="font-medium text-foreground">
-                {PROJECT_PRIORITY_LABEL[sheet.priority] ?? sheet.priority}
-              </span>
+            <div className="mb-4">
+              <h3 className="text-base font-semibold tracking-tight text-foreground">Arbitrage</h3>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Trois niveaux : métier, comité de projet, puis sponsor / CODIR. Chaque niveau a son
+                statut (brouillon, en cours, validé, refusé). Le niveau suivant n’est modifiable qu’après
+                « Validé » sur le précédent. Enregistrement avec le reste de la fiche (automatique).
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="arb">Statut d’arbitrage</Label>
-              <Select
-                value={arbDraft}
-                onValueChange={(v) => {
-                  const next = v as ProjectArbitrationStatus;
-                  const prev = arbDraft;
-                  if (next === prev) return;
-                  setArbDraft(next);
-                  if (!canEdit) return;
-                  arbitrationMutation.mutate(next, {
-                    onError: () => setArbDraft(prev),
-                  });
-                }}
-                disabled={!canEdit || arbitrationMutation.isPending}
-              >
-                <SelectTrigger id="arb" aria-busy={arbitrationMutation.isPending}>
-                  <SelectValue>{ARBITRATION_LABEL[arbDraft]}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(ARBITRATION_LABEL) as ProjectArbitrationStatus[]).map((k) => (
-                    <SelectItem key={k} value={k}>
-                      {ARBITRATION_LABEL[k]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {canEdit ? (
-                <p className="text-[11px] leading-snug text-muted-foreground">
-                  Enregistrement automatique à la sélection.
-                </p>
-              ) : null}
+            <div className="mb-5 grid gap-3 sm:grid-cols-3">
+              {ARBITRATION_LEVEL_STEPS.map((step, i) => {
+                const unlocked =
+                  i === 0 ||
+                  (i === 1 && arbMetier === 'VALIDE') ||
+                  (i === 2 && arbMetier === 'VALIDE' && arbComite === 'VALIDE');
+                const focus =
+                  arbitrationFocusStep(arbMetier, arbComite, arbCodir) === i;
+                const value: ProjectArbitrationLevelStatus =
+                  i === 0
+                    ? arbMetier
+                    : i === 1
+                      ? (arbComite ?? 'BROUILLON')
+                      : (arbCodir ?? 'BROUILLON');
+                const toneStatus: ProjectArbitrationLevelStatus | null = unlocked
+                  ? value
+                  : null;
+                return (
+                  <div
+                    key={step.title}
+                    className={cn(
+                      'rounded-lg border p-3 transition-colors',
+                      arbitrationLevelCardTone(toneStatus),
+                      focus && 'ring-1 ring-primary/20 shadow-sm',
+                    )}
+                    aria-current={focus ? 'step' : undefined}
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Niveau {i + 1}
+                    </p>
+                    <p className="mt-1.5 text-sm font-medium text-foreground">{step.title}</p>
+                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{step.body}</p>
+                    {canEdit && unlocked ? (
+                      <div className="mt-3 space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Statut</Label>
+                        <Select
+                          value={value}
+                          onValueChange={(v) => {
+                            const next = v as ProjectArbitrationLevelStatus;
+                            if (i === 0) {
+                              setArbMetier(next);
+                              if (next !== 'VALIDE') {
+                                setArbComite(null);
+                                setArbCodir(null);
+                              } else {
+                                setArbComite((c) => c ?? 'BROUILLON');
+                              }
+                            } else if (i === 1) {
+                              setArbComite(next);
+                              if (next !== 'VALIDE') {
+                                setArbCodir(null);
+                              } else {
+                                setArbCodir((d) => d ?? 'BROUILLON');
+                              }
+                            } else {
+                              setArbCodir(next);
+                            }
+                          }}
+                          disabled={saveMutation.isPending}
+                        >
+                          <SelectTrigger className="w-full text-left">
+                            <SelectValue>{LEVEL_STATUS_LABEL[value]}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LEVEL_STATUS_ORDER.map((k) => (
+                              <SelectItem key={k} value={k}>
+                                {LEVEL_STATUS_LABEL[k]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
+                    {canEdit && !unlocked ? (
+                      <p className="mt-3 text-[11px] italic text-muted-foreground">
+                        Débloqué lorsque le niveau précédent est « Validé ».
+                      </p>
+                    ) : null}
+                    {!canEdit && unlocked ? (
+                      <p className="mt-3 text-sm font-medium text-foreground">
+                        {LEVEL_STATUS_LABEL[value]}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </CardContent>
@@ -1212,9 +1403,9 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground">Score de priorité (calculé) : </span>
-              <span className="font-semibold tabular-nums text-foreground">
-                {priorityScoreDisplayed != null ? fmt(priorityScoreDisplayed) : '—'}
+              <span className="text-muted-foreground">Priorité projet (portefeuille) : </span>
+              <span className="font-semibold text-foreground">
+                {PROJECT_PRIORITY_LABEL[priority] ?? priority}
               </span>
             </div>
             {criticalRiskCount != null && criticalRiskCount > 0 ? (
@@ -1234,8 +1425,8 @@ export function ProjectSheetView({ projectId }: { projectId: string }) {
                 Niveau de risque — saisie fiche (CODIR)
               </Label>
               <p className="text-[11px] leading-snug text-muted-foreground">
-                Appréciation du risque du projet (faible / moyen / élevé). Ce n’est pas la priorité
-                dans le portefeuille ni le score de priorité affiché ci-dessus.
+                Appréciation du risque du projet (faible / moyen / élevé). Distinct de la priorité
+                portefeuille (section A et ligne ci-dessus).
               </p>
             </div>
             <Select
