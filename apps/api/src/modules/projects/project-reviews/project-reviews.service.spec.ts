@@ -236,4 +236,53 @@ describe('ProjectReviewsService (RFC-PROJ-013)', () => {
       service.cancel(clientId, projectId, reviewId, {}),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('update avec nextReviewDate crée un brouillon à cette date avec les participants du point', async () => {
+    const existing = draftReview({
+      participants: [
+        {
+          id: 'pp1',
+          clientId,
+          projectReviewId: reviewId,
+          userId: 'u1',
+          displayName: 'Alice',
+          attended: true,
+          isRequired: false,
+        },
+      ],
+    });
+    prisma.projectReview.findFirst
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce(null);
+    prisma.projectReview.update.mockResolvedValue({});
+    prisma.projectReview.create.mockResolvedValue({ id: 'rev2' });
+    prisma.projectReview.findFirstOrThrow.mockResolvedValue({
+      ...existing,
+      nextReviewDate: new Date('2025-07-01T10:00:00.000Z'),
+    });
+
+    await service.update(clientId, projectId, reviewId, {
+      nextReviewDate: '2025-07-01T10:00:00.000Z',
+    });
+
+    expect(prisma.projectReview.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reviewDate: new Date('2025-07-01T10:00:00.000Z'),
+          status: ProjectReviewStatus.DRAFT,
+          participants: expect.objectContaining({
+            create: expect.arrayContaining([
+              expect.objectContaining({ userId: 'u1', displayName: 'Alice' }),
+            ]),
+          }),
+        }),
+      }),
+    );
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_CREATED,
+        resourceId: 'rev2',
+      }),
+    );
+  });
 });

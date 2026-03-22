@@ -24,7 +24,10 @@ export function useProjectTeamRolesQuery() {
   });
 }
 
-export function useProjectTeamQuery(projectId: string) {
+export function useProjectTeamQuery(
+  projectId: string,
+  options?: { enabled?: boolean },
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -32,7 +35,7 @@ export function useProjectTeamQuery(projectId: string) {
   return useQuery({
     queryKey: projectQueryKeys.team(clientId, projectId),
     queryFn: () => getProjectTeam(authFetch, projectId),
-    enabled: !!clientId && !!projectId,
+    enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
   });
 }

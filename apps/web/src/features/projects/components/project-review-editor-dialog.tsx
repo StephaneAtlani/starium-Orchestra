@@ -21,31 +21,46 @@ import {
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { LoadingState } from '@/components/feedback/loading-state';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { usePermissions } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import {
   ARBITRATION_LEVEL_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
   PROJECT_REVIEW_STATUS_LABEL,
   PROJECT_REVIEW_TYPE_LABEL,
+  PROJECT_STATUS_LABEL,
   TASK_STATUS_LABEL,
   WARNING_CODE_LABEL,
 } from '../constants/project-enum-labels';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { projectSheet } from '../constants/project-routes';
+import { updateProject } from '../api/projects.api';
+import { projectQueryKeys } from '../lib/project-query-keys';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectReviewDetailQuery } from '../hooks/use-project-review-detail-query';
@@ -54,12 +69,16 @@ import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
+import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
+import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
 import type {
+  ProjectAssignableUser,
   ProjectDetail,
   ProjectReviewActionItemApi,
   ProjectReviewListItem,
   ProjectReviewType,
   ProjectSheet,
+  ProjectTeamMemberApi,
 } from '../types/project.types';
 
 const textareaClass = cn(
@@ -175,12 +194,56 @@ function fromLocalDatetimeInput(local: string): string {
   return new Date(local).toISOString();
 }
 
+function formatLocalDatetimeFr(local: string): string {
+  if (!local.trim()) return '';
+  try {
+    return new Date(local).toLocaleString('fr-FR', {
+      dateStyle: 'full',
+      timeStyle: 'short',
+    });
+  } catch {
+    return local;
+  }
+}
+
 type ParticipantRow = {
   displayName: string;
   userId: string;
   attended: boolean;
   isRequired: boolean;
+  /** Membre matrice équipe projet vs saisie libre (interne / externe). */
+  source: 'team' | 'free';
+  /** `ProjectTeamMemberApi.id` si `source === 'team'`. */
+  teamMemberId?: string;
+  /** Fonction sur le projet (affichage, issu de la matrice). */
+  projectRoleName?: string | null;
 };
+
+function formatAssignableUserLabel(u: ProjectAssignableUser): string {
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  return name ? `${name} (${u.email})` : u.email;
+}
+
+function displayNameFromAssignable(u: ProjectAssignableUser): string {
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  return name || u.email;
+}
+
+function teamMembersSorted(team: ProjectTeamMemberApi[]): ProjectTeamMemberApi[] {
+  return [...team].sort((a, b) => {
+    const r = a.roleName.localeCompare(b.roleName, 'fr');
+    if (r !== 0) return r;
+    return a.displayName.localeCompare(b.displayName, 'fr');
+  });
+}
+
+function affiliationLabel(
+  a: ProjectTeamMemberApi['affiliation'],
+): string | null {
+  if (a === 'INTERNAL') return 'Interne';
+  if (a === 'EXTERNAL') return 'Externe';
+  return null;
+}
 
 type DecisionRow = { title: string; description: string };
 
@@ -460,14 +523,35 @@ export function ProjectReviewEditorDialog({
   const milestonesQuery = useProjectMilestonesQuery(projectId, { enabled: open });
   const risksQuery = useProjectRisksQuery(projectId, { enabled: open });
   const tasksQuery = useProjectTasksQuery(projectId, { enabled: open });
+  const teamQuery = useProjectTeamQuery(projectId, { enabled: open });
+  const assignableUsersQuery = useProjectAssignableUsers({ enabled: open });
 
   const { update, finalize, cancel } = useProjectReviewMutations(projectId);
+
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+  const { has } = usePermissions();
+  const canUpdateProject = has('projects.update');
+  const updateProjectStatusMutation = useMutation({
+    mutationFn: (status: string) => updateProject(authFetch, projectId, { status }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.detail(clientId, projectId),
+      });
+    },
+  });
 
   const [reviewDate, setReviewDate] = useState('');
   const [reviewType, setReviewType] = useState<ProjectReviewType>('COPIL');
   const [title, setTitle] = useState('');
   const [executiveSummary, setExecutiveSummary] = useState('');
+  /** Saisie locale (datetime-local) — peut différer du créneau validé pour l’API. */
   const [nextReviewDate, setNextReviewDate] = useState('');
+  /** Créneau du prochain point accepté : envoyé au PATCH et déclenche la création du brouillon côté API. */
+  const [committedNextReviewDate, setCommittedNextReviewDate] = useState<string | null>(null);
+  const [confirmNextOpen, setConfirmNextOpen] = useState(false);
   const [participants, setParticipants] = useState<ParticipantRow[]>([]);
   const [decisions, setDecisions] = useState<DecisionRow[]>([]);
   const [actions, setActions] = useState<ActionRow[]>([]);
@@ -484,7 +568,9 @@ export function ProjectReviewEditorDialog({
     setReviewType(d.reviewType);
     setTitle(d.title ?? '');
     setExecutiveSummary(d.executiveSummary ?? '');
-    setNextReviewDate(d.nextReviewDate ? toLocalDatetimeInput(d.nextReviewDate) : '');
+    const nextLocal = d.nextReviewDate ? toLocalDatetimeInput(d.nextReviewDate) : '';
+    setNextReviewDate(nextLocal);
+    setCommittedNextReviewDate(nextLocal === '' ? null : nextLocal);
     setParticipants(
       d.participants.length
         ? d.participants.map((p) => ({
@@ -492,8 +578,21 @@ export function ProjectReviewEditorDialog({
             userId: p.userId ?? '',
             attended: p.attended,
             isRequired: p.isRequired,
+            source: 'free' as const,
+            teamMemberId: undefined,
+            projectRoleName: null,
           }))
-        : [{ displayName: '', userId: '', attended: true, isRequired: false }],
+        : [
+            {
+              displayName: '',
+              userId: '',
+              attended: true,
+              isRequired: false,
+              source: 'team',
+              teamMemberId: '',
+              projectRoleName: null,
+            },
+          ],
     );
     setDecisions(
       d.decisions.length
@@ -524,6 +623,7 @@ export function ProjectReviewEditorDialog({
     if (!open) {
       lastInitRef.current = null;
       lastSavedSerializedRef.current = null;
+      setConfirmNextOpen(false);
     }
   }, [open]);
 
@@ -542,7 +642,11 @@ export function ProjectReviewEditorDialog({
   const isDraft = d?.status === 'DRAFT';
   const editable = canEdit && isDraft;
 
-  const buildPatchBody = () => {
+  const buildPatchBody = (opts?: { committedNextReviewOverride?: string | null }) => {
+    const committedForApi =
+      opts?.committedNextReviewOverride !== undefined
+        ? opts.committedNextReviewOverride
+        : committedNextReviewDate;
     const parts = participants
       .filter((p) => p.displayName.trim() || p.userId.trim())
       .map((p) => ({
@@ -575,7 +679,10 @@ export function ProjectReviewEditorDialog({
       reviewType,
       title: title.trim() || null,
       executiveSummary: executiveSummary.trim() || null,
-      nextReviewDate: nextReviewDate ? fromLocalDatetimeInput(nextReviewDate) : null,
+      nextReviewDate:
+        committedForApi && committedForApi.trim()
+          ? fromLocalDatetimeInput(committedForApi)
+          : null,
       participants: parts,
       decisions: dec,
       actionItems: act,
@@ -616,7 +723,7 @@ export function ProjectReviewEditorDialog({
     reviewType,
     title,
     executiveSummary,
-    nextReviewDate,
+    committedNextReviewDate,
     participants,
     decisions,
     actions,
@@ -641,6 +748,42 @@ export function ProjectReviewEditorDialog({
     };
   }, [previousDetailQuery.data, tasksQuery.data, risksQuery.data]);
 
+  const needsNextPointConfirmation = useMemo(
+    () =>
+      Boolean(
+        editable &&
+          nextReviewDate.trim() !== '' &&
+          nextReviewDate !== (committedNextReviewDate ?? ''),
+      ),
+    [editable, nextReviewDate, committedNextReviewDate],
+  );
+
+  const nextReviewParticipantPreview = useMemo(() => {
+    return participants
+      .filter((p) => p.displayName.trim() || p.userId.trim())
+      .map((p, i) => ({
+        key: `${p.userId}-${p.displayName}-${i}`,
+        label: p.displayName.trim() || p.userId.trim(),
+        attended: p.attended,
+        isRequired: p.isRequired,
+      }));
+  }, [participants]);
+
+  const handleConfirmNextReview = async () => {
+    if (!d || !editable) return;
+    const nextCommit = nextReviewDate.trim();
+    if (!nextCommit) return;
+    const body = buildPatchBody({ committedNextReviewOverride: nextCommit });
+    try {
+      await update.mutateAsync({ reviewId: d.id, body });
+      setCommittedNextReviewDate(nextCommit);
+      lastSavedSerializedRef.current = JSON.stringify(body);
+      setConfirmNextOpen(false);
+    } catch {
+      /* erreur affichée par la mutation / boundary */
+    }
+  };
+
   const actionFormAlerts = useMemo(() => {
     const filled = actions.filter((a) => a.title.trim());
     const msgs: string[] = [];
@@ -664,6 +807,10 @@ export function ProjectReviewEditorDialog({
 
   const onFinalize = async () => {
     if (!d || !editable) return;
+    if (needsNextPointConfirmation) {
+      setConfirmNextOpen(true);
+      return;
+    }
     const body = buildPatchBody();
     await update.mutateAsync({ reviewId: d.id, body });
     lastSavedSerializedRef.current = JSON.stringify(body);
@@ -678,6 +825,7 @@ export function ProjectReviewEditorDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
@@ -828,100 +976,74 @@ export function ProjectReviewEditorDialog({
               <ReviewFormSection
                 sectionId="pr-section-participants"
                 title="Parties prenantes"
-                description="Présents au comité : rattachement compte optionnel, nom affiché, présence et obligation."
+                description="Choisissez des membres dans la matrice équipe projet (nom + fonction) ou ajoutez des collaborateurs internes / externes hors matrice."
                 icon={Users}
                 accent="amber"
               >
-                <div className="flex justify-end">
+                <div className="flex flex-wrap justify-end gap-2">
                   {editable && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setParticipants((prev) => [
-                          ...prev,
-                          { displayName: '', userId: '', attended: true, isRequired: false },
-                        ])
-                      }
-                    >
-                      Ajouter un participant
-                    </Button>
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setParticipants((prev) => [
+                            ...prev,
+                            {
+                              displayName: '',
+                              userId: '',
+                              attended: true,
+                              isRequired: false,
+                              source: 'team',
+                              teamMemberId: '',
+                              projectRoleName: null,
+                            },
+                          ])
+                        }
+                      >
+                        Ajouter (équipe projet)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setParticipants((prev) => [
+                            ...prev,
+                            {
+                              displayName: '',
+                              userId: '',
+                              attended: true,
+                              isRequired: false,
+                              source: 'free',
+                              teamMemberId: undefined,
+                              projectRoleName: null,
+                            },
+                          ])
+                        }
+                      >
+                        Ajouter (autre collaborateur)
+                      </Button>
+                    </>
                   )}
                 </div>
                 <div className="space-y-3">
                   {participants.map((p, i) => (
                     <div
                       key={i}
-                      className="rounded-lg border border-border/70 bg-muted/30 p-3"
+                      className="rounded-lg border border-border/70 bg-muted/30 p-3 sm:p-4"
                     >
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="grid gap-1.5">
-                          <Label>Nom affiché</Label>
-                          <Input
-                            value={p.displayName}
-                            disabled={!editable}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setParticipants((prev) =>
-                                prev.map((x, j) => (j === i ? { ...x, displayName: v } : x)),
-                              );
-                            }}
-                            placeholder="Nom, rôle…"
-                          />
-                        </div>
-                        <div className="grid gap-1.5">
-                          <Label className="text-muted-foreground">ID utilisateur (optionnel)</Label>
-                          <Input
-                            value={p.userId}
-                            disabled={!editable}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setParticipants((prev) =>
-                                prev.map((x, j) => (j === i ? { ...x, userId: v } : x)),
-                              );
-                            }}
-                            placeholder="Si membre du client sur la plateforme"
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-4">
-                        <label className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border border-input"
-                            checked={p.attended}
-                            disabled={!editable}
-                            onChange={(e) => {
-                              const v = e.target.checked;
-                              setParticipants((prev) =>
-                                prev.map((x, j) => (j === i ? { ...x, attended: v } : x)),
-                              );
-                            }}
-                          />
-                          Présent
-                        </label>
-                        <label className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border border-input"
-                            checked={p.isRequired}
-                            disabled={!editable}
-                            onChange={(e) => {
-                              const v = e.target.checked;
-                              setParticipants((prev) =>
-                                prev.map((x, j) => (j === i ? { ...x, isRequired: v } : x)),
-                              );
-                            }}
-                          />
-                          Requis
-                        </label>
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
+                        <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Participant {i + 1}
+                        </span>
                         {editable && participants.length > 1 && (
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="text-destructive"
+                            className="h-7 text-destructive"
                             onClick={() =>
                               setParticipants((prev) => prev.filter((_, j) => j !== i))
                             }
@@ -929,6 +1051,206 @@ export function ProjectReviewEditorDialog({
                             Retirer
                           </Button>
                         )}
+                      </div>
+
+                      <div className="grid gap-3">
+                        <div className="grid gap-1.5 sm:max-w-md">
+                          <Label htmlFor={`pr-part-source-${i}`}>Origine</Label>
+                          <select
+                            id={`pr-part-source-${i}`}
+                            className={selectFieldClass}
+                            value={p.source}
+                            disabled={!editable}
+                            onChange={(e) => {
+                              const src = e.target.value as 'team' | 'free';
+                              setParticipants((prev) =>
+                                prev.map((x, j) =>
+                                  j === i
+                                    ? {
+                                        ...x,
+                                        source: src,
+                                        teamMemberId: src === 'team' ? '' : undefined,
+                                        projectRoleName: null,
+                                        displayName: src === 'team' ? '' : x.displayName,
+                                        userId: src === 'team' ? '' : x.userId,
+                                      }
+                                    : x,
+                                ),
+                              );
+                            }}
+                          >
+                            <option value="team">Membre de l’équipe projet (matrice)</option>
+                            <option value="free">Autre collaborateur (interne ou externe)</option>
+                          </select>
+                        </div>
+
+                        {p.source === 'team' ? (
+                          <div className="grid gap-2">
+                            <div className="grid gap-1.5">
+                              <Label htmlFor={`pr-part-team-${i}`}>
+                                Membre et fonction sur le projet
+                              </Label>
+                              {teamQuery.isLoading ? (
+                                <p className="text-xs text-muted-foreground">
+                                  Chargement de l’équipe…
+                                </p>
+                              ) : (
+                                <select
+                                  id={`pr-part-team-${i}`}
+                                  className={selectFieldClass}
+                                  value={p.teamMemberId ?? ''}
+                                  disabled={!editable}
+                                  onChange={(e) => {
+                                    const id = e.target.value;
+                                    const m = teamQuery.data?.find((x) => x.id === id);
+                                    setParticipants((prev) =>
+                                      prev.map((x, j) =>
+                                        j === i
+                                          ? {
+                                              ...x,
+                                              teamMemberId: id,
+                                              userId: m?.userId ?? '',
+                                              displayName: m?.displayName ?? '',
+                                              projectRoleName: m?.roleName ?? null,
+                                            }
+                                          : x,
+                                      ),
+                                    );
+                                  }}
+                                >
+                                  <option value="">— Choisir dans la matrice équipe —</option>
+                                  {teamMembersSorted(teamQuery.data ?? []).map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.displayName} — {m.roleName} ({m.email})
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                            {(() => {
+                              const tm = teamQuery.data?.find((x) => x.id === p.teamMemberId);
+                              const aff =
+                                tm?.affiliation != null
+                                  ? affiliationLabel(tm.affiliation)
+                                  : null;
+                              if (!p.projectRoleName && !aff) return null;
+                              return (
+                                <p className="text-xs text-muted-foreground">
+                                  {p.projectRoleName ? (
+                                    <>
+                                      <span className="font-medium text-foreground">
+                                        Fonction :{' '}
+                                      </span>
+                                      {p.projectRoleName}
+                                    </>
+                                  ) : null}
+                                  {aff ? (
+                                    <span>
+                                      {p.projectRoleName ? ' · ' : null}
+                                      {aff}
+                                    </span>
+                                  ) : null}
+                                </p>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="grid gap-1.5 sm:col-span-2">
+                              <Label htmlFor={`pr-part-name-${i}`}>Nom affiché</Label>
+                              <Input
+                                id={`pr-part-name-${i}`}
+                                value={p.displayName}
+                                disabled={!editable}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setParticipants((prev) =>
+                                    prev.map((x, j) =>
+                                      j === i ? { ...x, displayName: v } : x,
+                                    ),
+                                  );
+                                }}
+                                placeholder="Nom, organisation, rôle invité…"
+                              />
+                            </div>
+                            <div className="grid gap-1.5 sm:col-span-2">
+                              <Label htmlFor={`pr-part-assign-${i}`}>
+                                Compte utilisateur (optionnel)
+                              </Label>
+                              <select
+                                id={`pr-part-assign-${i}`}
+                                className={selectFieldClass}
+                                value={p.userId}
+                                disabled={!editable}
+                                onChange={(e) => {
+                                  const id = e.target.value;
+                                  const u = assignableUsersQuery.data?.find((x) => x.id === id);
+                                  setParticipants((prev) =>
+                                    prev.map((x, j) =>
+                                      j === i
+                                        ? {
+                                            ...x,
+                                            userId: id,
+                                            displayName: u
+                                              ? displayNameFromAssignable(u)
+                                              : x.displayName,
+                                          }
+                                        : x,
+                                    ),
+                                  );
+                                }}
+                              >
+                                <option value="">— Aucun compte / saisie manuelle du nom —</option>
+                                {assignableUsersQuery.data?.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {formatAssignableUserLabel(u)}
+                                  </option>
+                                ))}
+                              </select>
+                              <p className="text-[0.7rem] text-muted-foreground">
+                                Rattachez un compte client si la personne existe sur la plateforme ;
+                                sinon laissez vide pour un externe ou un invité.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-4 border-t border-border/50 pt-3">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border border-border/70"
+                              checked={p.attended}
+                              disabled={!editable}
+                              onChange={(e) => {
+                                const v = e.target.checked;
+                                setParticipants((prev) =>
+                                  prev.map((x, j) =>
+                                    j === i ? { ...x, attended: v } : x,
+                                  ),
+                                );
+                              }}
+                            />
+                            Présent
+                          </label>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border border-border/70"
+                              checked={p.isRequired}
+                              disabled={!editable}
+                              onChange={(e) => {
+                                const v = e.target.checked;
+                                setParticipants((prev) =>
+                                  prev.map((x, j) =>
+                                    j === i ? { ...x, isRequired: v } : x,
+                                  ),
+                                );
+                              }}
+                            />
+                            Requis
+                          </label>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1415,15 +1737,86 @@ export function ProjectReviewEditorDialog({
                       maxLength={20000}
                     />
                   </div>
-                  <div className="grid gap-1.5 sm:max-w-md">
+                  {projectQuery.data && (
+                    <div className="grid gap-1.5 sm:max-w-md">
+                      <Label htmlFor="pr-project-status">Changer le statut du projet</Label>
+                      <Select
+                        value={projectQuery.data.status}
+                        onValueChange={(v) => {
+                          if (v && canUpdateProject) {
+                            updateProjectStatusMutation.mutate(v);
+                          }
+                        }}
+                        disabled={!canUpdateProject || updateProjectStatusMutation.isPending}
+                      >
+                        <SelectTrigger
+                          id="pr-project-status"
+                          size="sm"
+                          className="h-9 w-full border-border/70"
+                        >
+                          <SelectValue placeholder="Statut" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(PROJECT_STATUS_LABEL).map(([k, label]) => (
+                            <SelectItem key={k} value={k}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {!canUpdateProject ? (
+                        <p className="text-[0.7rem] text-muted-foreground">
+                          Permission « mise à jour projets » requise pour modifier le statut.
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                  <div className="grid gap-1.5 sm:max-w-xl">
                     <Label htmlFor="pr-ed-next">Prochain point (optionnel)</Label>
                     <Input
                       id="pr-ed-next"
                       type="datetime-local"
                       value={nextReviewDate}
                       disabled={!editable}
-                      onChange={(e) => setNextReviewDate(e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setNextReviewDate(v);
+                        if (!v.trim()) {
+                          setCommittedNextReviewDate(null);
+                        }
+                      }}
                     />
+                    {editable && needsNextPointConfirmation ? (
+                      <p className="text-[0.7rem] font-medium text-amber-700 dark:text-amber-400">
+                        Créneau saisi mais non confirmé — validez pour créer ou mettre à jour le brouillon du
+                        prochain point avec les participants ci-dessous.
+                      </p>
+                    ) : null}
+                    {editable &&
+                    !needsNextPointConfirmation &&
+                    committedNextReviewDate &&
+                    committedNextReviewDate.trim() ? (
+                      <p className="text-[0.7rem] text-emerald-700 dark:text-emerald-400">
+                        Créneau confirmé : le brouillon du prochain point sera créé ou synchronisé avec les
+                        participants de ce point à l’enregistrement.
+                      </p>
+                    ) : null}
+                    <p className="text-[0.7rem] text-muted-foreground">
+                      Après confirmation, un brouillon est créé ou mis à jour à la date choisie (participants =
+                      section Participants de ce point).
+                    </p>
+                    {editable && needsNextPointConfirmation ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="w-fit"
+                        disabled={update.isPending}
+                        onClick={() => setConfirmNextOpen(true)}
+                      >
+                        Confirmer le créneau et les participants
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               </ReviewFormSection>
@@ -1500,5 +1893,60 @@ export function ProjectReviewEditorDialog({
         )}
       </DialogContent>
     </Dialog>
+
+    <Dialog open={confirmNextOpen} onOpenChange={setConfirmNextOpen}>
+      <DialogContent className="z-[90] max-h-[min(85vh,560px)] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Confirmer le prochain point</DialogTitle>
+          <DialogDescription>
+            Un brouillon de point sera créé ou mis à jour à la date ci-dessous. Les personnes suivantes y
+            seront associées (copie depuis ce point).
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 text-sm">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Créneau</p>
+            <p className="mt-1 font-medium text-foreground">
+              {nextReviewDate.trim() ? formatLocalDatetimeFr(nextReviewDate) : '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Participants associés ({nextReviewParticipantPreview.length})
+            </p>
+            {nextReviewParticipantPreview.length === 0 ? (
+              <p className="mt-2 rounded-md border border-dashed border-border/80 bg-muted/30 px-3 py-2 text-muted-foreground">
+                Aucun participant renseigné dans ce point — complétez la section « Participants » avant de
+                confirmer, ou validez quand même pour un brouillon sans liste.
+              </p>
+            ) : (
+              <ul className="mt-2 max-h-40 list-inside list-disc space-y-1 overflow-y-auto rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+                {nextReviewParticipantPreview.map((p) => (
+                  <li key={p.key}>
+                    <span className="font-medium text-foreground">{p.label}</span>
+                    {p.isRequired ? (
+                      <span className="ml-1 text-xs text-muted-foreground">(requis)</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:justify-end">
+          <Button type="button" variant="outline" onClick={() => setConfirmNextOpen(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void handleConfirmNextReview()}
+            disabled={!nextReviewDate.trim() || update.isPending}
+          >
+            {update.isPending ? 'Enregistrement…' : 'Confirmer et créer le brouillon'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

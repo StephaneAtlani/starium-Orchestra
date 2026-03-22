@@ -82,6 +82,7 @@ import { projectQueryKeys } from '../lib/project-query-keys';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
 import { ProjectTeamMatrix } from './project-team-matrix';
+import { ProjectWorkspaceTabs } from './project-workspace-tabs';
 import { computeRoiFromCostGain } from '../lib/project-sheet-priority-preview';
 import { mapAuditPayloadToProjectSheet } from '../lib/map-audit-payload-to-project-sheet';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
@@ -1067,6 +1068,7 @@ export function ProjectSheetView({
               Projet
             </Link>
           </div>
+          <ProjectWorkspaceTabs projectId={projectId} />
           <PageHeader
             title={`Fiche projet : ${projectName || sheet.name}`}
             description="Cadrage projet"

@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProjectReviewStatus } from '@prisma/client';
+import { Prisma, ProjectReviewStatus, ProjectReviewType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import type { AuditContext } from '../../budget-management/types/audit-context';
@@ -64,6 +64,120 @@ export class ProjectReviewsService {
   ): Promise<void> {
     if (facilitatorUserId == null || facilitatorUserId === '') return;
     await this.projects.assertClientUser(clientId, facilitatorUserId);
+  }
+
+  /** Participants à recopier sur le brouillon « prochain point » (PATCH complet ou état existant). */
+  private resolveParticipantsForSpawn(
+    dto: UpdateProjectReviewDto,
+    existing: ReviewWithChildren,
+  ): Array<{
+    userId: string | null;
+    displayName: string | null;
+    attended: boolean;
+    isRequired: boolean;
+  }> {
+    if (dto.participants !== undefined) {
+      return dto.participants.map((p) => ({
+        userId: p.userId ?? null,
+        displayName: p.displayName?.trim() ?? null,
+        attended: p.attended ?? true,
+        isRequired: p.isRequired ?? false,
+      }));
+    }
+    return existing.participants.map((p) => ({
+      userId: p.userId,
+      displayName: p.displayName,
+      attended: p.attended,
+      isRequired: p.isRequired,
+    }));
+  }
+
+  /**
+   * Si `nextReviewDate` est renseigné : crée un brouillon à cette date (ou resynchronise les participants
+   * si un brouillon existe déjà à cette date). Ne modifie pas un point déjà finalisé à cette date.
+   */
+  private async upsertSpawnedNextReview(
+    tx: Prisma.TransactionClient,
+    args: {
+      clientId: string;
+      projectId: string;
+      currentReviewId: string;
+      nextReviewDate: Date;
+      reviewType: ProjectReviewType;
+      facilitatorUserId: string | null;
+      participants: Array<{
+        userId: string | null;
+        displayName: string | null;
+        attended: boolean;
+        isRequired: boolean;
+      }>;
+    },
+  ): Promise<string | null> {
+    const { clientId, projectId, currentReviewId, nextReviewDate } = args;
+    const rows = args.participants.filter(
+      (p) => (p.displayName?.trim() ?? '') !== '' || (p.userId?.trim() ?? '') !== '',
+    );
+
+    const dup = await tx.projectReview.findFirst({
+      where: {
+        clientId,
+        projectId,
+        id: { not: currentReviewId },
+        reviewDate: nextReviewDate,
+      },
+    });
+
+    if (!dup) {
+      const created = await tx.projectReview.create({
+        data: {
+          clientId,
+          projectId,
+          reviewDate: nextReviewDate,
+          reviewType: args.reviewType,
+          status: ProjectReviewStatus.DRAFT,
+          facilitatorUserId: args.facilitatorUserId,
+          participants: rows.length
+            ? {
+                create: rows.map((p) => ({
+                  clientId,
+                  userId: p.userId,
+                  displayName: p.displayName?.trim() ?? null,
+                  attended: p.attended,
+                  isRequired: p.isRequired,
+                })),
+              }
+            : undefined,
+        },
+      });
+      return created.id;
+    }
+
+    if (dup.status === ProjectReviewStatus.DRAFT) {
+      await tx.projectReviewParticipant.deleteMany({
+        where: { projectReviewId: dup.id, clientId },
+      });
+      if (rows.length > 0) {
+        await tx.projectReviewParticipant.createMany({
+          data: rows.map((p) => ({
+            clientId,
+            projectReviewId: dup.id,
+            userId: p.userId,
+            displayName: p.displayName?.trim() ?? null,
+            attended: p.attended,
+            isRequired: p.isRequired,
+          })),
+        });
+      }
+      await tx.projectReview.update({
+        where: { id: dup.id },
+        data: {
+          reviewType: args.reviewType,
+          facilitatorUserId: args.facilitatorUserId,
+        },
+      });
+    }
+
+    return null;
   }
 
   private async validateParticipantUsers(
@@ -288,6 +402,16 @@ export class ProjectReviewsService {
       await this.validateLinkedTasks(clientId, projectId, dto.actionItems);
     }
 
+    if (dto.nextReviewDate !== undefined && dto.nextReviewDate !== null) {
+      const nextAt = new Date(dto.nextReviewDate);
+      const effectiveReviewDate =
+        dto.reviewDate !== undefined ? new Date(dto.reviewDate) : existing.reviewDate;
+      if (nextAt.getTime() !== effectiveReviewDate.getTime()) {
+        const participantsForSpawn = this.resolveParticipantsForSpawn(dto, existing);
+        await this.validateParticipantUsers(clientId, participantsForSpawn);
+      }
+    }
+
     const data: Prisma.ProjectReviewUncheckedUpdateInput = {};
     if (dto.reviewDate !== undefined) data.reviewDate = new Date(dto.reviewDate);
     if (dto.reviewType !== undefined) data.reviewType = dto.reviewType;
@@ -310,72 +434,97 @@ export class ProjectReviewsService {
         : null;
     }
 
-    const updated = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      if (Object.keys(data).length > 0) {
-        await tx.projectReview.update({
-          where: { id: reviewId },
-          data,
-        });
-      }
-
-      if (dto.participants !== undefined) {
-        await tx.projectReviewParticipant.deleteMany({
-          where: { projectReviewId: reviewId, clientId },
-        });
-        if (dto.participants.length > 0) {
-          await tx.projectReviewParticipant.createMany({
-            data: dto.participants.map((p) => ({
-              clientId,
-              projectReviewId: reviewId,
-              userId: p.userId ?? null,
-              displayName: p.displayName?.trim() ?? null,
-              attended: p.attended ?? true,
-              isRequired: p.isRequired ?? false,
-            })),
+    const { row: updated, spawnedReviewId } = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        if (Object.keys(data).length > 0) {
+          await tx.projectReview.update({
+            where: { id: reviewId },
+            data,
           });
         }
-      }
 
-      if (dto.decisions !== undefined) {
-        await tx.projectReviewDecision.deleteMany({
-          where: { projectReviewId: reviewId, clientId },
-        });
-        if (dto.decisions.length > 0) {
-          await tx.projectReviewDecision.createMany({
-            data: dto.decisions.map((d) => ({
-              clientId,
-              projectReviewId: reviewId,
-              title: d.title.trim(),
-              description: d.description?.trim() ?? null,
-            })),
+        if (dto.participants !== undefined) {
+          await tx.projectReviewParticipant.deleteMany({
+            where: { projectReviewId: reviewId, clientId },
           });
+          if (dto.participants.length > 0) {
+            await tx.projectReviewParticipant.createMany({
+              data: dto.participants.map((p) => ({
+                clientId,
+                projectReviewId: reviewId,
+                userId: p.userId ?? null,
+                displayName: p.displayName?.trim() ?? null,
+                attended: p.attended ?? true,
+                isRequired: p.isRequired ?? false,
+              })),
+            });
+          }
         }
-      }
 
-      if (dto.actionItems !== undefined) {
-        await tx.projectReviewActionItem.deleteMany({
-          where: { projectReviewId: reviewId, clientId },
-        });
-        if (dto.actionItems.length > 0) {
-          await tx.projectReviewActionItem.createMany({
-            data: dto.actionItems.map((a) => ({
+        if (dto.decisions !== undefined) {
+          await tx.projectReviewDecision.deleteMany({
+            where: { projectReviewId: reviewId, clientId },
+          });
+          if (dto.decisions.length > 0) {
+            await tx.projectReviewDecision.createMany({
+              data: dto.decisions.map((d) => ({
+                clientId,
+                projectReviewId: reviewId,
+                title: d.title.trim(),
+                description: d.description?.trim() ?? null,
+              })),
+            });
+          }
+        }
+
+        if (dto.actionItems !== undefined) {
+          await tx.projectReviewActionItem.deleteMany({
+            where: { projectReviewId: reviewId, clientId },
+          });
+          if (dto.actionItems.length > 0) {
+            await tx.projectReviewActionItem.createMany({
+              data: dto.actionItems.map((a) => ({
+                clientId,
+                projectReviewId: reviewId,
+                projectId,
+                title: a.title.trim(),
+                status: a.status,
+                dueDate: a.dueDate ? new Date(a.dueDate) : null,
+                linkedTaskId: a.linkedTaskId ?? null,
+              })),
+            });
+          }
+        }
+
+        let spawnedReviewId: string | null = null;
+        if (dto.nextReviewDate !== undefined && dto.nextReviewDate !== null) {
+          const nextAt = new Date(dto.nextReviewDate);
+          const effectiveReviewDate =
+            dto.reviewDate !== undefined ? new Date(dto.reviewDate) : existing.reviewDate;
+          if (nextAt.getTime() !== effectiveReviewDate.getTime()) {
+            const participantsForSpawn = this.resolveParticipantsForSpawn(dto, existing);
+            spawnedReviewId = await this.upsertSpawnedNextReview(tx, {
               clientId,
-              projectReviewId: reviewId,
               projectId,
-              title: a.title.trim(),
-              status: a.status,
-              dueDate: a.dueDate ? new Date(a.dueDate) : null,
-              linkedTaskId: a.linkedTaskId ?? null,
-            })),
-          });
+              currentReviewId: reviewId,
+              nextReviewDate: nextAt,
+              reviewType: dto.reviewType ?? existing.reviewType,
+              facilitatorUserId:
+                dto.facilitatorUserId !== undefined
+                  ? dto.facilitatorUserId
+                  : existing.facilitatorUserId,
+              participants: participantsForSpawn,
+            });
+          }
         }
-      }
 
-      return tx.projectReview.findFirstOrThrow({
-        where: { id: reviewId, clientId, projectId },
-        include: reviewInclude,
-      });
-    });
+        const row = await tx.projectReview.findFirstOrThrow({
+          where: { id: reviewId, clientId, projectId },
+          include: reviewInclude,
+        });
+        return { row, spawnedReviewId };
+      },
+    );
 
     const meta = {
       ipAddress: context?.meta?.ipAddress,
@@ -391,6 +540,22 @@ export class ProjectReviewsService {
       newValue: { projectId, status: updated.status },
       ...meta,
     });
+
+    if (spawnedReviewId) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_CREATED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+        resourceId: spawnedReviewId,
+        newValue: {
+          projectId,
+          reviewType: dto.reviewType ?? existing.reviewType,
+          status: ProjectReviewStatus.DRAFT,
+        },
+        ...meta,
+      });
+    }
 
     return this.mapReviewToDetail(updated);
   }

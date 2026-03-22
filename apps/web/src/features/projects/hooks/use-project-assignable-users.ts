@@ -8,7 +8,7 @@ import { projectQueryKeys } from '../lib/project-query-keys';
 
 const STALE = 60_000;
 
-export function useProjectAssignableUsers() {
+export function useProjectAssignableUsers(options?: { enabled?: boolean }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -16,7 +16,7 @@ export function useProjectAssignableUsers() {
   return useQuery({
     queryKey: projectQueryKeys.assignableUsers(clientId),
     queryFn: () => listAssignableUsers(authFetch),
-    enabled: !!clientId,
+    enabled: (options?.enabled !== false) && !!clientId,
     staleTime: STALE,
   });
 }

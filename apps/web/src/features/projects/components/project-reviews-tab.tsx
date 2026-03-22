@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,10 +29,12 @@ import {
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
+import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
 import type {
   ProjectAssignableUser,
   ProjectReviewListItem,
   ProjectReviewType,
+  ProjectTeamMemberApi,
 } from '../types/project.types';
 import { cn } from '@/lib/utils';
 import { CalendarRange, Users } from 'lucide-react';
@@ -147,33 +149,105 @@ type CreateParticipantRow = {
   isRequired: boolean;
 };
 
+const emptyParticipantRow = (): CreateParticipantRow => ({
+  displayName: '',
+  userId: '',
+  attended: true,
+  isRequired: false,
+});
+
+/** Une ligne par membre de l’équipe projet (compte client si présent, sinon nom libre). */
+function createParticipantsFromProjectTeam(
+  team: ProjectTeamMemberApi[],
+  assignable: ProjectAssignableUser[] | undefined,
+): CreateParticipantRow[] {
+  if (!team.length) {
+    return [emptyParticipantRow()];
+  }
+  return team.map((m) => {
+    const uid = m.userId?.trim() ?? '';
+    if (uid && assignable?.length) {
+      const u = assignable.find((a) => a.id === uid);
+      return {
+        userId: uid,
+        displayName: u ? displayNameFromUser(u) : m.displayName.trim() || m.email,
+        attended: true,
+        isRequired: false,
+      };
+    }
+    return {
+      userId: '',
+      displayName: m.displayName.trim() || m.email,
+      attended: true,
+      isRequired: false,
+    };
+  });
+}
+
 export function ProjectReviewsTab({ projectId }: { projectId: string }) {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
-
-  const list = useProjectReviewsQuery(projectId);
-  const assignable = useProjectAssignableUsers();
-  const { create } = useProjectReviewMutations(projectId);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editorReviewId, setEditorReviewId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
 
+  const list = useProjectReviewsQuery(projectId);
+  const assignable = useProjectAssignableUsers();
+  const teamForCreate = useProjectTeamQuery(projectId, { enabled: createOpen });
+  const { create } = useProjectReviewMutations(projectId);
+
   const [formDate, setFormDate] = useState(defaultDatetimeLocal);
   const [formType, setFormType] = useState<ProjectReviewType>('COPIL');
   const [formTitle, setFormTitle] = useState('');
   const [createParticipants, setCreateParticipants] = useState<CreateParticipantRow[]>([
-    { displayName: '', userId: '', attended: true, isRequired: false },
+    emptyParticipantRow(),
   ]);
 
-  const resetCreateForm = useCallback(() => {
+  const createFormSeededRef = useRef(false);
+
+  const resetCreateFormFields = useCallback(() => {
     setFormDate(defaultDatetimeLocal());
     setFormType('COPIL');
     setFormTitle('');
-    setCreateParticipants([
-      { displayName: '', userId: '', attended: true, isRequired: false },
-    ]);
   }, []);
+
+  useEffect(() => {
+    if (!createOpen) {
+      createFormSeededRef.current = false;
+      return;
+    }
+    if (createFormSeededRef.current) return;
+    if (teamForCreate.isLoading) return;
+
+    if (teamForCreate.isError) {
+      createFormSeededRef.current = true;
+      setCreateParticipants([emptyParticipantRow()]);
+      return;
+    }
+    if (!teamForCreate.isSuccess) return;
+
+    const team = teamForCreate.data ?? [];
+    if (team.length === 0) {
+      createFormSeededRef.current = true;
+      setCreateParticipants([emptyParticipantRow()]);
+      return;
+    }
+
+    const needsAssignable = team.some((m) => (m.userId?.trim() ?? '') !== '');
+    if (needsAssignable && assignable.isLoading) return;
+
+    createFormSeededRef.current = true;
+    setCreateParticipants(createParticipantsFromProjectTeam(team, assignable.data));
+  }, [
+    createOpen,
+    teamForCreate.isLoading,
+    teamForCreate.isSuccess,
+    teamForCreate.isError,
+    teamForCreate.data,
+    assignable.isLoading,
+    assignable.data,
+  ]);
 
   const openEditor = (id: string) => {
     setEditorReviewId(id);
@@ -265,7 +339,7 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
         open={createOpen}
         onOpenChange={(o) => {
           setCreateOpen(o);
-          if (o) resetCreateForm();
+          if (o) resetCreateFormFields();
         }}
       >
         <DialogContent
@@ -335,7 +409,7 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
               <CreateReviewFormSection
                 sectionId="create-pr-participants"
                 title="Parties prenantes"
-                description="Rattachez un membre du client ou saisissez un nom (invité, MOA…). Au moins le nom ou le compte doit être renseigné par ligne."
+                description="L’équipe projet est préremplie à l’ouverture. Vous pouvez ajuster, retirer ou ajouter des personnes (membre client ou nom libre)."
                 icon={Users}
                 accent="amber"
               >
@@ -345,36 +419,32 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      setCreateParticipants((prev) => [
-                        ...prev,
-                        {
-                          displayName: '',
-                          userId: '',
-                          attended: true,
-                          isRequired: false,
-                        },
-                      ])
+                      setCreateParticipants((prev) => [...prev, emptyParticipantRow()])
                     }
                   >
                     Ajouter un participant
                   </Button>
                 </div>
+                {teamForCreate.isLoading ? (
+                  <p className="text-xs text-muted-foreground">Chargement de l’équipe projet…</p>
+                ) : null}
                 {assignable.isLoading ? (
-                  <p className="text-xs text-muted-foreground">Chargement des membres…</p>
-                ) : (
-                  <div className="space-y-3">
-                    {createParticipants.map((row, i) => (
-                      <div
-                        key={i}
-                        className="rounded-lg border border-border/70 bg-muted/30 p-3"
-                      >
-                        <div className="grid gap-2">
-                          <div className="grid gap-1.5">
-                            <Label className="text-xs">Membre du client (optionnel)</Label>
-                            <select
-                              className={selectFieldClass}
-                              value={row.userId}
-                              onChange={(e) => {
+                  <p className="text-xs text-muted-foreground">Chargement de la liste des membres du client…</p>
+                ) : null}
+                <div className="space-y-3">
+                  {createParticipants.map((row, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg border border-border/70 bg-muted/30 p-3"
+                    >
+                      <div className="grid gap-2">
+                        <div className="grid gap-1.5">
+                          <Label className="text-xs">Membre du client (optionnel)</Label>
+                          <select
+                            className={selectFieldClass}
+                            disabled={assignable.isLoading}
+                            value={row.userId}
+                            onChange={(e) => {
                                 const id = e.target.value;
                                 const u = assignable.data?.find((x) => x.id === id);
                                 setCreateParticipants((prev) =>
@@ -466,8 +536,7 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
+                </div>
               </CreateReviewFormSection>
             </div>
           </div>
