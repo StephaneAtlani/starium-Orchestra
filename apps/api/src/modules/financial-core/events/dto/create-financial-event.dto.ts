@@ -1,10 +1,10 @@
 import {
   IsDate,
+  IsBoolean,
   IsEnum,
-  IsNumber,
   IsOptional,
+  IsNumberString,
   IsString,
-  Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { FinancialEventType, FinancialSourceType } from '@prisma/client';
@@ -28,9 +28,38 @@ export class CreateFinancialEventDto {
   @IsEnum(FinancialEventType)
   eventType!: FinancialEventType;
 
-  @IsNumber()
-  @Min(0)
-  amount!: number;
+  /**
+   * Saisie fiscale HT/TTC (strict RFC FC-006).
+   * Combinaisons autorisées côté backend :
+   * - amountHt + taxRate
+   * - amountTtc + taxRate
+   * - amountHt + taxAmount + amountTtc
+   *
+   * Note: validation stricte des combinaisons effectuée dans le service.
+   */
+  @IsOptional()
+  @IsNumberString()
+  amountHt?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  amountTtc?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  taxRate?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  taxAmount?: string;
+
+  /**
+   * Permet d'utiliser explicitement le `Client.defaultTaxRate` si `taxRate` n'est pas fourni.
+   * Le backend doit le rendre traçable.
+   */
+  @IsOptional()
+  @IsBoolean()
+  useDefaultTaxRate?: boolean;
 
   @IsString()
   currency!: string;

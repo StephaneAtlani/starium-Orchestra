@@ -6,7 +6,8 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { getMyPermissions } from '@/services/me';
 
-const PERMISSIONS_QUERY_KEY = ['me', 'permissions'] as const;
+/** Clé partagée pour invalider le cache après changement de rôles (ex. client RBAC). */
+export const PERMISSIONS_QUERY_KEY = ['me', 'permissions'] as const;
 
 /**
  * Hook générique : charge les codes de permission de l'utilisateur pour le client actif
@@ -17,7 +18,7 @@ export function usePermissions() {
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isSuccess, isError } = useQuery({
     queryKey: [...PERMISSIONS_QUERY_KEY, clientId],
     queryFn: () => getMyPermissions(authFetch),
     enabled: !!clientId,
@@ -32,5 +33,12 @@ export function usePermissions() {
 
   const has = (code: string): boolean => set.has(code);
 
-  return { permissionCodes, has, isLoading };
+  return {
+    permissionCodes,
+    has,
+    isLoading,
+    /** True only after a successful GET /me/permissions for le client actif (requis pour la nav filtrée). */
+    isSuccess,
+    isError,
+  };
 }

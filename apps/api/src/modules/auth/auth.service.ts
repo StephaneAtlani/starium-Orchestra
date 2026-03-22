@@ -115,11 +115,13 @@ export class AuthService {
     });
     if (!record || record.expiresAt < new Date()) {
       if (record) {
-        await this.prisma.refreshToken.delete({ where: { id: record.id } });
+        // idempotent: évite P2025 si le token a déjà été supprimé (refresh concurrent, retry, etc.)
+        await this.prisma.refreshToken.deleteMany({ where: { id: record.id } });
       }
       throw new UnauthorizedException('Refresh token invalide ou expiré');
     }
-    await this.prisma.refreshToken.delete({ where: { id: record.id } });
+    // idempotent: évite P2025 si le token est supprimé entre findFirst et delete
+    await this.prisma.refreshToken.deleteMany({ where: { id: record.id } });
     const tokens = await this.issueTokenPair(record.userId);
 
     await this.securityLogs.create({

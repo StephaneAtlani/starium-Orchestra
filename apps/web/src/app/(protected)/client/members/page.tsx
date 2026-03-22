@@ -1,5 +1,10 @@
 import { MembersList } from '@/features/client-rbac/components/members-list';
 
-export default function ClientMembersPage() {
+export default async function ClientMembersPage({
+  params,
+}: {
+  params: Promise<Record<string, string | string[]>>;
+}) {
+  await params;
   return <MembersList />;
 }

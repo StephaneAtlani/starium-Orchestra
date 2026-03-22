@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { DefaultProfilesService } from '../roles/default-profiles.service';
 import { ClientsService } from './clients.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { ProjectTeamService } from '../projects/project-team.service';
 
 describe('ClientsService', () => {
   let service: ClientsService;
@@ -43,6 +44,12 @@ describe('ClientsService', () => {
           provide: DefaultProfilesService,
           useValue: {
             applyForClient: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: ProjectTeamService,
+          useValue: {
+            seedDefaultRolesForClient: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -88,6 +95,10 @@ describe('ClientsService', () => {
           { provide: PrismaService, useValue: prisma },
           { provide: AuditLogsService, useValue: { create: jest.fn() } },
           { provide: DefaultProfilesService, useValue: defaultProfiles },
+          {
+            provide: ProjectTeamService,
+            useValue: { seedDefaultRolesForClient: jest.fn().mockResolvedValue(undefined) },
+          },
         ],
       }).compile();
       const svc = testModule.get<ClientsService>(ClientsService);
@@ -104,6 +115,8 @@ describe('ClientsService', () => {
         data: { name: dto.name, slug: dto.slug },
       });
       expect(defaultProfiles.applyForClient).toHaveBeenCalledWith(mockClient.id);
+      const projectTeam = testModule.get(ProjectTeamService);
+      expect(projectTeam.seedDefaultRolesForClient).toHaveBeenCalledWith(mockClient.id);
       expect(result).toEqual({
         id: mockClient.id,
         name: mockClient.name,

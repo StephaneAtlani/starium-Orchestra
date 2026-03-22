@@ -18,6 +18,7 @@ describe('Budget dashboard integration', () => {
     budgetLine: { findMany: jest.Mock };
     financialAllocation: { findMany: jest.Mock };
     financialEvent: { findMany: jest.Mock };
+    client: { findUnique: jest.Mock };
   };
 
   const clientA = 'client-A';
@@ -44,6 +45,7 @@ describe('Budget dashboard integration', () => {
       budgetLine: { findMany: jest.fn() },
       financialAllocation: { findMany: jest.fn() },
       financialEvent: { findMany: jest.fn() },
+      client: { findUnique: jest.fn().mockResolvedValue({ defaultTaxRate: null }) },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -85,6 +87,13 @@ describe('Budget dashboard integration', () => {
       expect(result.exercise.id).toBe(exerciseId);
       expect(result.budget.id).toBe(budgetId);
       expect(result.kpis).toBeDefined();
+      expect(result.runBuildDistribution).toEqual({ run: 0, build: 0, transverse: 0 });
+      expect(result.alertsSummary).toEqual({
+        negativeRemaining: 0,
+        overCommitted: 0,
+        overConsumed: 0,
+        forecastOverBudget: 0,
+      });
       expect(result.capexOpexDistribution).toBeDefined();
       expect(result.monthlyTrend).toEqual([]);
     });

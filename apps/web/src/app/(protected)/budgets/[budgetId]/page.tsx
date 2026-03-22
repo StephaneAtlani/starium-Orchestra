@@ -9,6 +9,7 @@ import { BudgetPageHeader } from '@/features/budgets/components/budget-page-head
 import { BudgetKpiCards } from '@/features/budgets/components/budget-kpi-cards';
 import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
 import { BudgetToolbar } from '@/features/budgets/components/budget-toolbar';
+import { BudgetExplorerToolbar } from '@/features/budgets/components/budget-explorer-toolbar';
 import { BudgetExplorerTable } from '@/features/budgets/components/budget-explorer-table';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer';
@@ -26,24 +27,34 @@ import {
 } from '@/features/budgets/constants/budget-routes';
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
-import { formatAmount } from '@/features/budgets/lib/budget-formatters';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import type { BudgetExplorerFilters } from '@/features/budgets/types/budget-explorer.types';
+import { BudgetLineIntelligenceDrawer, type BudgetLineDrawerTab } from '@/features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer';
+import type { BudgetEnvelope, BudgetLine } from '@/features/budgets/types/budget-management.types';
+import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
+import { formatTaxAwareAmount } from '@/lib/format-tax-aware-amount';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { saveBudgetCockpitSelection } from '@/features/budgets/lib/budget-cockpit-selection-storage';
+import {
+  collectEnvelopeIdsWithFilteredChildren,
+  hasActiveBudgetExplorerFilters,
+} from '@/features/budgets/lib/filter-budget-tree';
 
 export default function BudgetDetailPage() {
-  const params = useParams();
-  const budgetId = typeof params.budgetId === 'string' ? params.budgetId : null;
+  const budgetId = (() => {
+    const p = useParams();
+    return typeof p.budgetId === 'string' ? p.budgetId : null;
+  })();
 
   const { budget, envelopes, lines, isLoading, error, refetch } =
     useBudgetExplorer(budgetId);
+
+  const { taxDisplayMode, setTaxDisplayMode, isLoading: isTaxLoading } =
+    useTaxDisplayMode();
+
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedBudgetLineId, setSelectedBudgetLineId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<BudgetLineDrawerTab>('overview');
 
   const [filters, setFilters] = useState<BudgetExplorerFilters>({});
   const { tree, filteredTree } = useBudgetExplorerTree(
@@ -54,18 +65,23 @@ export default function BudgetDetailPage() {
   );
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const prevFiltersActiveRef = useRef(false);
   const [editableLineId, setEditableLineId] = useState<string | null>(null);
   const hasInitializedExpanded = useRef(false);
 
-  useEffect(() => {
-    if (tree.length > 0 && !hasInitializedExpanded.current) {
-      const rootEnvelopeIds = tree
-        .filter((n) => n.type === 'envelope')
-        .map((n) => n.id);
-      setExpandedIds(new Set(rootEnvelopeIds));
-      hasInitializedExpanded.current = true;
+  const onBudgetLineClick = useCallback((lineId: string) => {
+    setSelectedBudgetLineId(lineId);
+    setIsDrawerOpen(true);
+    setActiveTab('overview');
+  }, []);
+
+  const onDrawerOpenChange = useCallback((nextOpen: boolean) => {
+    setIsDrawerOpen(nextOpen);
+    if (!nextOpen) {
+      setSelectedBudgetLineId(null);
+      setActiveTab('overview');
     }
-  }, [tree]);
+  }, []);
 
   const onToggleExpand = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -77,6 +93,39 @@ export default function BudgetDetailPage() {
   }, []);
 
   const { data: summary } = useBudgetSummary(budgetId);
+  const { activeClient } = useActiveClient();
+
+  useEffect(() => {
+    if (!activeClient?.id || !budget?.id || !budget.exerciseId) return;
+    saveBudgetCockpitSelection(activeClient.id, {
+      exerciseId: budget.exerciseId,
+      budgetId: budget.id,
+    });
+  }, [activeClient?.id, budget?.id, budget?.exerciseId]);
+
+  useEffect(() => {
+    const active = hasActiveBudgetExplorerFilters(filters);
+    if (active) {
+      setExpandedIds(collectEnvelopeIdsWithFilteredChildren(filteredTree));
+    } else if (prevFiltersActiveRef.current) {
+      setExpandedIds(new Set());
+    }
+    prevFiltersActiveRef.current = active;
+  }, [filters, filteredTree]);
+
+  useEffect(() => {
+    if (tree.length > 0 && !hasInitializedExpanded.current) {
+      const rootEnvelopeIds = tree
+        .filter((n) => n.type === 'envelope')
+        .map((n) => n.id);
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of rootEnvelopeIds) next.add(id);
+        return next;
+      });
+      hasInitializedExpanded.current = true;
+    }
+  }, [tree]);
 
   if (isLoading) {
     return (
@@ -102,18 +151,73 @@ export default function BudgetDetailPage() {
 
   const kpi = summary?.kpi;
   const currency = budget.currency;
+  const isBudgetTtcProjection = taxDisplayMode === 'TTC' && budget.taxMode !== taxDisplayMode;
   const kpiItems = kpi
     ? [
-        { label: 'Initial', value: formatAmount(kpi.totalInitialAmount, currency) },
-        { label: 'Révisé', value: formatAmount(kpi.totalRevisedAmount, currency) },
-        { label: 'Engagé', value: formatAmount(kpi.totalCommittedAmount, currency) },
-        { label: 'Consommé', value: formatAmount(kpi.totalConsumedAmount, currency) },
-        { label: 'Restant', value: formatAmount(kpi.totalRemainingAmount, currency) },
+        {
+          label: 'Initial',
+          value: formatTaxAwareAmount({
+            htValue: kpi.totalInitialAmount,
+            ttcValue: kpi.totalInitialAmountTtc ?? null,
+            currency,
+            mode: taxDisplayMode,
+            isApproximation: isBudgetTtcProjection,
+          }),
+        },
+        {
+          label: 'Révisé',
+          value: formatTaxAwareAmount({
+            htValue: kpi.totalRevisedAmount,
+            ttcValue: kpi.totalRevisedAmountTtc ?? null,
+            currency,
+            mode: taxDisplayMode,
+            isApproximation: isBudgetTtcProjection,
+          }),
+        },
+        {
+          label: 'Engagé',
+          value: formatTaxAwareAmount({
+            htValue: kpi.totalCommittedAmount,
+            ttcValue: kpi.totalCommittedAmountTtc ?? null,
+            currency,
+            mode: taxDisplayMode,
+            isApproximation: isBudgetTtcProjection,
+          }),
+        },
+        {
+          label: 'Consommé',
+          value: formatTaxAwareAmount({
+            htValue: kpi.totalConsumedAmount,
+            ttcValue: kpi.totalConsumedAmountTtc ?? null,
+            currency,
+            mode: taxDisplayMode,
+            isApproximation: isBudgetTtcProjection,
+          }),
+        },
+        {
+          label: 'Restant',
+          value: formatTaxAwareAmount({
+            htValue: kpi.totalRemainingAmount,
+            ttcValue: kpi.totalRemainingAmountTtc ?? null,
+            currency,
+            mode: taxDisplayMode,
+            isApproximation: isBudgetTtcProjection,
+          }),
+        },
       ]
     : [];
 
   const isEmptyGlobal = tree.length === 0;
   const isEmptyFiltered = filteredTree.length === 0 && tree.length > 0;
+
+  const selectedLine = (lines ?? []).find((l: BudgetLine) => l.id === selectedBudgetLineId) ?? null;
+  const selectedEnvelope =
+    selectedLine && envelopes
+      ? (envelopes as BudgetEnvelope[]).find((e) => e.id === selectedLine.envelopeId) ?? null
+      : null;
+  const envelopeName = selectedEnvelope?.name ?? null;
+  const envelopeCode = selectedEnvelope?.code ?? null;
+  const envelopeType = selectedEnvelope?.type ?? null;
 
   return (
     <RequireActiveClient>
@@ -141,14 +245,6 @@ export default function BudgetDetailPage() {
                   Nouvelle enveloppe
                 </Link>
               </PermissionGate>
-              <PermissionGate permission="budgets.create">
-                <Link
-                  href={budgetLineNew(budgetId!)}
-                  className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
-                >
-                  Nouvelle ligne
-                </Link>
-              </PermissionGate>
             </div>
           }
         />
@@ -162,54 +258,13 @@ export default function BudgetDetailPage() {
         )}
 
         <BudgetToolbar className="mb-4">
-          <div className="flex flex-1 flex-wrap items-center gap-2">
-            <Input
-              placeholder="Rechercher (nom, code)…"
-              value={filters.search ?? ''}
-              onChange={(e) =>
-                setFilters((f) => ({ ...f, search: e.target.value || undefined }))
-              }
-              className="max-w-xs"
-              data-testid="explorer-search"
-            />
-            <Select
-              value={filters.envelopeType ?? '__all__'}
-              onValueChange={(v) =>
-                setFilters((f) => ({
-                  ...f,
-                  envelopeType: v === '__all__' || !v ? undefined : v,
-                }))
-              }
-            >
-              <SelectTrigger size="sm" className="w-[140px]" data-testid="explorer-envelope-type">
-                <SelectValue placeholder="Type enveloppe" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Tous les types</SelectItem>
-                <SelectItem value="RUN">RUN</SelectItem>
-                <SelectItem value="BUILD">BUILD</SelectItem>
-                <SelectItem value="TRANSVERSE">TRANSVERSE</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.expenseType ?? '__all__'}
-              onValueChange={(v) =>
-                setFilters((f) => ({
-                  ...f,
-                  expenseType: v === '__all__' || !v ? undefined : v,
-                }))
-              }
-            >
-              <SelectTrigger size="sm" className="w-[120px]" data-testid="explorer-expense-type">
-                <SelectValue placeholder="OPEX/CAPEX" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Tous</SelectItem>
-                <SelectItem value="OPEX">OPEX</SelectItem>
-                <SelectItem value="CAPEX">CAPEX</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <BudgetExplorerToolbar
+            filters={filters}
+            setFilters={setFilters}
+            taxDisplayMode={taxDisplayMode}
+            setTaxDisplayMode={setTaxDisplayMode}
+            isTaxLoading={isTaxLoading}
+          />
         </BudgetToolbar>
 
         {isEmptyGlobal && (
@@ -231,6 +286,9 @@ export default function BudgetDetailPage() {
                 budgetId={budgetId!}
                 editableLineId={editableLineId}
                 onToggleEditable={setEditableLineId}
+                onBudgetLineClick={onBudgetLineClick}
+                taxDisplayMode={taxDisplayMode}
+                budgetTaxMode={budget.taxMode}
                 emptyMessage="Aucune enveloppe."
                 emptyFilteredMessage="Aucun résultat pour ces filtres."
                 isFilteredEmpty={isEmptyFiltered}
@@ -282,6 +340,18 @@ export default function BudgetDetailPage() {
           </CardContent>
         </Card>
 
+        <BudgetLineIntelligenceDrawer
+          open={isDrawerOpen}
+          onOpenChange={onDrawerOpenChange}
+          budgetId={budgetId!}
+          budgetName={budget.name}
+          envelopeName={envelopeName}
+          envelopeCode={envelopeCode}
+          envelopeType={envelopeType}
+          budgetLineId={selectedBudgetLineId}
+          activeTab={activeTab}
+          onActiveTabChange={setActiveTab}
+        />
       </PageContainer>
     </RequireActiveClient>
   );

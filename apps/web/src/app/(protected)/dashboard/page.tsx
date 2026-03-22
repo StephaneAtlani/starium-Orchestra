@@ -1,14 +1,12 @@
 'use client';
 
 import React from 'react';
-import { DollarSign, Users, Building2, TrendingUp } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { TableToolbar } from '@/components/layout/table-toolbar';
 import { Button } from '@/components/ui/button';
-import { KpiCard } from '@/components/ui/kpi-card';
 import {
   Card,
   CardContent,
@@ -16,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { DashboardBudgetKpiWidget } from '@/features/dashboard/components/dashboard-budget-kpi-widget';
 
 export default function DashboardPage() {
   return (
@@ -26,37 +25,7 @@ export default function DashboardPage() {
           description="Vue d’ensemble du cockpit."
         />
 
-        <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Vue d’ensemble
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCard
-              title="Total Revenue"
-              value="—"
-              subtitle="Ce mois"
-              icon={<DollarSign className="h-4 w-4" />}
-            />
-            <KpiCard
-              title="New Customers"
-              value="—"
-              subtitle="30 jours"
-              icon={<Users className="h-4 w-4" />}
-            />
-            <KpiCard
-              title="Active Accounts"
-              value="—"
-              subtitle="30 jours"
-              icon={<Building2 className="h-4 w-4" />}
-            />
-            <KpiCard
-              title="Growth Rate"
-              value="—"
-              subtitle="30 jours"
-              icon={<TrendingUp className="h-4 w-4" />}
-            />
-          </div>
-        </section>
+        <DashboardBudgetKpiWidget />
 
         <section className="space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

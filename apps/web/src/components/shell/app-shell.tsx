@@ -13,15 +13,13 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="starium-main min-h-screen w-full">
-      <div className="flex min-h-screen w-full">
-        <Sidebar />
-        <div className="relative z-0 flex min-w-0 flex-1 flex-col">
-          <WorkspaceHeader contentClassName={CONTENT_WRAPPER} />
-          <main className="starium-main min-h-0 flex-1 overflow-auto">
-            <div className={`${CONTENT_WRAPPER} py-6 sm:py-8`}>{children}</div>
-          </main>
-        </div>
+    <div className="starium-main flex h-[100dvh] min-h-0 w-full flex-row overflow-hidden">
+      <Sidebar />
+      <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <WorkspaceHeader contentClassName={CONTENT_WRAPPER} />
+        <main className="starium-main min-h-0 flex-1 overflow-auto">
+          <div className={`${CONTENT_WRAPPER} py-6 sm:py-8`}>{children}</div>
+        </main>
       </div>
     </div>
   );

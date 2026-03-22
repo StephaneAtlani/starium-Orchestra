@@ -67,3 +67,34 @@ export function filterBudgetTree(
   }
   return filterNodes(tree, filters);
 }
+
+/** Aligné sur la condition d’application de `filterBudgetTree`. */
+export function hasActiveBudgetExplorerFilters(
+  filters: BudgetExplorerFilters,
+): boolean {
+  return !!(
+    filters.search?.trim() ||
+    filters.envelopeType ||
+    filters.expenseType
+  );
+}
+
+/**
+ * Enveloppes à développer pour rendre visibles tous les nœuds d’un arbre déjà filtré
+ * (chaîne enveloppe → enfants non vide).
+ */
+export function collectEnvelopeIdsWithFilteredChildren(
+  nodes: ExplorerNode[],
+): Set<string> {
+  const ids = new Set<string>();
+  const walk = (list: ExplorerNode[]) => {
+    for (const n of list) {
+      if (n.type === 'envelope' && n.children.length > 0) {
+        ids.add(n.id);
+        walk(n.children);
+      }
+    }
+  };
+  walk(nodes);
+  return ids;
+}

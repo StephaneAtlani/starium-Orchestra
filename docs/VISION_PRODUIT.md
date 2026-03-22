@@ -147,6 +147,8 @@ Mais certains module peuvent etre en commun
 - tâches
 - risques
 
+Implémentation MVP (cockpit portefeuille, API) : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+
 ## Gestion des équipes
 
 - collaborateurs

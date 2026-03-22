@@ -2,6 +2,8 @@
 
 ## Architecture Frontend — Starium Orchestra
 
+> **UI/UX (patterns visuels, extraits de code)** : voir [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md).
+
 ---
 
 ## 1. Objectif
@@ -252,7 +254,7 @@ Administration plateforme
 * affichage selon scope et permissions
 * état actif visible
 * profil utilisateur en bas
-* version mobile via drawer
+* version mobile via drawer (ex. drawer “Budget Line Intelligence” : RFC-FE-ADD-006)
 
 ### Important
 
@@ -306,9 +308,9 @@ Le workspace est la zone de travail métier.
 
 ```text
 PageHeader
-KPI row (composant KpiCard dans components/ui/kpi-card.tsx : title, value, subtitle, trend?, icon?)
-Toolbar (filtres, recherche, actions)
-Contenu principal (table, cards, détails)
+KPI row (`KpiCard` : `variant="default"` pour un hero, `variant="dense"` + icônes pour les grilles portefeuille — voir §30.6 Projets)
+Toolbar (filtres, recherche, actions — souvent dans un panneau `rounded-xl border bg-muted/30`)
+Contenu principal (`Card` + en-tête + table dans `data-slot="table-container"` si débordement horizontal)
 Pagination / résumé
 ```
 
@@ -830,7 +832,7 @@ Aucune couleur métier ne doit être codée en dur dans les composants hors desi
 
 Les pages doivent utiliser **uniquement** les composants des dossiers suivants :
 
-* `components/ui/*` — composants shadcn (dont `KpiCard` pour les indicateurs dashboard)
+* `components/ui/*` — composants shadcn (dont `KpiCard` pour les indicateurs dashboard — prop `variant="dense"` pour les grilles multi-KPI cockpit)
 * `components/layout/*` — PageContainer, PageHeader, TableToolbar
 * `components/feedback/*` — LoadingState, EmptyState, ErrorState
 * `components/data-table/*` — DataTable
@@ -1133,6 +1135,54 @@ body {
 - Titres de cards / sections : `text-base` ou `text-sm` selon le contexte.
 
 **Règle :** pour du texte courant (lignes de tableau, labels de formulaire, descriptions), rester sur `text-sm` ou moins ; réserver `text-lg`+ aux titres vraiment structurants.
+
+### 30.6 Module Projets — cockpit portefeuille (`/projects`)
+
+Écran de référence pour un **cockpit dense multi-indicateurs** côté client (RFC-PROJ-001, MVP).
+
+**Structure UX**
+
+1. **PageHeader** — titre « Projets », description courte, action primaire : `Link` + `buttonVariants({ variant: 'default', size: 'sm' })` « Nouveau projet » (même pattern que les pages RBAC client) derrière `PermissionGate` (`projects.create`).
+2. **KPI** — `features/projects/components/projects-portfolio-kpi.tsx` :
+   * **pas** de `KpiCard` : trois bandeaux compacts (`Stat`) regroupés en sections (`Volume`, `Risques & échéances`, `Complétude`) ;
+   * **couleurs sémantiques sur les chiffres** (`text-primary`, `emerald`, `yellow-800` / `dark:yellow-400`, `destructive`) — détail [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §6.1 ;
+   * données issues de `GET /api/projects/portfolio-summary` (`usePortfolioSummaryQuery`).
+3. **Filtres** — `ProjectsToolbar` dans un **panneau** `rounded-xl border border-border/80 bg-muted/30`, titre « Filtres & tri », `role="search"` ; grille **quatre colonnes** sur `lg` incluant **Nature** (projet / activité, paramètre URL `kind`) ; autres filtres synchronisés URL (`useProjectsListFilters`).
+4. **Liste** — `Card size="sm"` : `CardHeader` (titre + description), **`CardContent` en `p-0`** + `ProjectsListTable` — le composant **`Table`** porte déjà `overflow-x-auto` / `data-slot="table-container"` : **ne pas** ajouter un second wrapper scroll.
+5. **Tableau** — `HealthBadge` avec **`compact`** en liste ; colonne **Avancement** fusionnée (manuel + dérivé) ; **T · R · J** ; signaux via `ProjectPortfolioBadges` **sans** ligne de texte répétant les `warnings` ; tooltips : helpers **`HeaderTip` / `CellTip`** + `TooltipProvider` dans `projects-list-table.tsx`.
+6. **États** — `LoadingState`, bloc d’erreur API (codes HTTP), **`EmptyState`** si liste vide (CTA création si `projects.create`).
+7. **Pagination** — `CardFooter` + `PaginationSummary` (feature budgets) + boutons Précédent / Suivant.
+
+**Création** (`/projects/new`) — `ProjectCreateForm` : grille **deux colonnes** `lg` ; responsable via **`GET /api/projects/assignable-users`** (`useProjectAssignableUsersQuery`).
+
+**Arborescence `features/projects/` (extraits)**
+
+```text
+features/projects/
+├── api/projects.api.ts
+├── hooks/
+│   ├── use-projects-list-filters.ts
+│   ├── use-projects-list-query.ts
+│   ├── use-portfolio-summary-query.ts
+│   ├── use-project-assignable-users.ts
+│   ├── use-create-project.ts
+│   ├── use-project-detail-query.ts
+│   ├── use-project-tasks-query.ts
+│   ├── use-project-risks-query.ts
+│   └── use-project-milestones-query.ts
+├── components/
+│   ├── projects-portfolio-kpi.tsx
+│   ├── projects-toolbar.tsx
+│   ├── projects-list-table.tsx
+│   ├── project-badges.tsx          # HealthBadge, ProjectPortfolioBadges
+│   ├── project-create-form.tsx
+│   └── project-detail-view.tsx
+├── types/project.types.ts
+├── lib/project-query-keys.ts
+└── constants/project-routes.ts
+```
+
+**Query keys** — toute donnée métier inclut `clientId` (ex. `projectQueryKeys.list(clientId, params)`).
 
 ---
 

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetStatus } from '@prisma/client';
+import { BudgetStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -49,6 +49,9 @@ export class BudgetsService {
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
+        include: {
+          exercise: { select: { name: true, code: true } },
+        },
       }),
       this.prisma.budget.count({ where }),
     ]);
@@ -64,6 +67,9 @@ export class BudgetsService {
   async getById(clientId: string, id: string): Promise<BudgetWithNumbers> {
     const budget = await this.prisma.budget.findFirst({
       where: { id, clientId },
+      include: {
+        exercise: { select: { name: true, code: true } },
+      },
     });
     if (!budget) {
       throw new NotFoundException('Budget not found');
@@ -124,6 +130,13 @@ export class BudgetsService {
         currency: dto.currency,
         status: dto.status ?? BudgetStatus.DRAFT,
         ownerUserId: dto.ownerUserId ?? null,
+        ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
+        ...(dto.defaultTaxRate !== undefined
+          ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
+          : {}),
+      },
+      include: {
+        exercise: { select: { name: true, code: true } },
       },
     });
 
@@ -140,6 +153,8 @@ export class BudgetsService {
         exerciseId: created.exerciseId,
         currency: created.currency,
         status: created.status,
+        taxMode: created.taxMode,
+        defaultTaxRate: created.defaultTaxRate ? Number(created.defaultTaxRate) : null,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -219,6 +234,13 @@ export class BudgetsService {
         ...(dto.ownerUserId !== undefined && {
           ownerUserId: dto.ownerUserId || null,
         }),
+        ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
+        ...(dto.defaultTaxRate !== undefined
+          ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
+          : {}),
+      },
+      include: {
+        exercise: { select: { name: true, code: true } },
       },
     });
 
@@ -232,11 +254,15 @@ export class BudgetsService {
         name: existing.name,
         code: existing.code,
         status: existing.status,
+        taxMode: existing.taxMode,
+        defaultTaxRate: existing.defaultTaxRate ? Number(existing.defaultTaxRate) : null,
       },
       newValue: {
         name: updated.name,
         code: updated.code,
         status: updated.status,
+        taxMode: updated.taxMode,
+        defaultTaxRate: updated.defaultTaxRate ? Number(updated.defaultTaxRate) : null,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -261,10 +287,24 @@ export class BudgetsService {
 }
 
 type BudgetRow = Awaited<ReturnType<PrismaService['budget']['findFirst']>>;
-type BudgetWithNumbers = Omit<NonNullable<BudgetRow>, never> & {
-  // Budget has no Decimal in schema, keep as-is
+type BudgetWithNumbers = Omit<NonNullable<BudgetRow>, 'defaultTaxRate' | 'exercise'> & {
+  defaultTaxRate: number | null;
+  exerciseName?: string;
+  exerciseCode?: string | null;
 };
 
-function toResponse(row: NonNullable<BudgetRow>): BudgetWithNumbers {
-  return { ...row };
+function toResponse(
+  row: NonNullable<BudgetRow> & {
+    exercise?: { name: string; code: string } | null;
+  },
+): BudgetWithNumbers {
+  const { exercise, defaultTaxRate, ...rest } = row;
+  return {
+    ...rest,
+    defaultTaxRate: defaultTaxRate ? Number(defaultTaxRate) : null,
+    ...(exercise && {
+      exerciseName: exercise.name,
+      exerciseCode: exercise.code,
+    }),
+  };
 }

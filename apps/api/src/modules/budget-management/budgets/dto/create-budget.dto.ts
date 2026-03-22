@@ -4,8 +4,9 @@ import {
   IsString,
   IsNotEmpty,
   MaxLength,
+  IsNumberString,
 } from 'class-validator';
-import { BudgetStatus } from '@prisma/client';
+import { BudgetStatus, BudgetTaxMode } from '@prisma/client';
 
 export class CreateBudgetDto {
   @IsString()
@@ -38,4 +39,12 @@ export class CreateBudgetDto {
   @IsOptional()
   @IsString()
   ownerUserId?: string;
+
+  @IsOptional()
+  @IsEnum(BudgetTaxMode)
+  taxMode?: BudgetTaxMode;
+
+  @IsOptional()
+  @IsNumberString()
+  defaultTaxRate?: string;
 }

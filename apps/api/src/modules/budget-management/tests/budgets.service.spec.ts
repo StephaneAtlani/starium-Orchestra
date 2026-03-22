@@ -51,6 +51,7 @@ describe('BudgetsService', () => {
         status: BudgetStatus.DRAFT,
         createdAt: new Date(),
         updatedAt: new Date(),
+        exercise: { name: 'Ex', code: 'EX' },
       });
 
       const result = await service.create(

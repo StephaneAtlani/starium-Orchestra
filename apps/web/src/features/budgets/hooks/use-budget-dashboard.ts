@@ -7,14 +7,21 @@ import { budgetQueryKeys } from '../lib/budget-query-keys';
 import { getDashboard } from '../api/budget-dashboard.api';
 import type { BudgetDashboardQueryParams } from '../types/budget-dashboard.types';
 
-export function useBudgetDashboardQuery(params?: BudgetDashboardQueryParams) {
+export function useBudgetDashboardQuery(
+  params?: BudgetDashboardQueryParams,
+  options?: { enabled?: boolean },
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+  const extraEnabled = options?.enabled ?? true;
 
   return useQuery({
     queryKey: budgetQueryKeys.dashboard(clientId, params),
     queryFn: () => getDashboard(authFetch, params),
-    enabled: !!clientId,
+    enabled: !!clientId && extraEnabled,
   });
 }
+
+/** Alias RFC-FE-002 — même comportement que useBudgetDashboardQuery. */
+export const useBudgetDashboard = useBudgetDashboardQuery;

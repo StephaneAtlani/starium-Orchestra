@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Building2,
+  FolderKanban,
   LayoutDashboard,
   Settings,
   Shield,
@@ -59,6 +60,28 @@ export const navigation: NavigationSection[] = [
           { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Budget', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Configuration', href: '/budgets/configuration', scope: 'client', requiredPermissions: ['budgets.read'] },
+        ],
+      },
+      {
+        label: 'Projets',
+        icon: FolderKanban,
+        scope: 'client',
+        moduleCode: 'projects',
+        requiredPermissions: ['projects.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+        children: [
+          {
+            label: 'Portefeuille projet',
+            href: '/projects',
+            scope: 'client',
+            requiredPermissions: ['projects.read'],
+          },
+          {
+            label: 'Option',
+            href: '/projects/options',
+            scope: 'client',
+            requiredPermissions: ['projects.read'],
+          },
         ],
       },
     ],

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import type { ExplorerNode } from '../types/budget-explorer.types';
 import { BudgetExplorerRow } from './budget-explorer-row';
+import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 
 interface BudgetExplorerTableProps {
   nodes: ExplorerNode[];
@@ -20,6 +21,9 @@ interface BudgetExplorerTableProps {
   budgetId: string;
   editableLineId?: string | null;
   onToggleEditable?: (lineId: string | null) => void;
+  onBudgetLineClick?: (lineId: string) => void;
+  taxDisplayMode: TaxDisplayMode;
+  budgetTaxMode: TaxDisplayMode;
   emptyMessage?: string;
   emptyFilteredMessage?: string;
   /** true quand l’arbre affiché est filtré et vide (tree.length > 0 mais nodes.length === 0) */
@@ -37,6 +41,9 @@ export function BudgetExplorerTable({
   budgetId,
   editableLineId,
   onToggleEditable,
+  onBudgetLineClick,
+  taxDisplayMode,
+  budgetTaxMode,
   emptyMessage = DEFAULT_EMPTY,
   emptyFilteredMessage = DEFAULT_FILTERED_EMPTY,
   isFilteredEmpty = false,
@@ -57,6 +64,9 @@ export function BudgetExplorerTable({
     <Table data-testid="budget-explorer-table">
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10 min-w-10 p-2 text-center">
+            <span className="sr-only">Actions</span>
+          </TableHead>
           <TableHead>Sous-budget</TableHead>
           <TableHead>Responsable</TableHead>
           <TableHead>Type</TableHead>
@@ -68,7 +78,7 @@ export function BudgetExplorerTable({
           <TableHead className="text-right">Engagé</TableHead>
           <TableHead className="text-right">Consommé</TableHead>
           <TableHead className="text-right">Solde</TableHead>
-          <TableHead className="text-right">Planning</TableHead>
+          <TableHead className="text-right pr-0 w-[100px]">Progression</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -83,6 +93,9 @@ export function BudgetExplorerTable({
             budgetId={budgetId}
             editableLineId={editableLineId}
             onToggleEditable={onToggleEditable}
+            onBudgetLineClick={onBudgetLineClick}
+            taxDisplayMode={taxDisplayMode}
+            budgetTaxMode={budgetTaxMode}
           />
         ))}
       </TableBody>

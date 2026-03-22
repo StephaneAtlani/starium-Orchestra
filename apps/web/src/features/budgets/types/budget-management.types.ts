@@ -30,9 +30,14 @@ export interface Budget {
   description: string | null;
   currency: string;
   status: string;
+  taxMode: 'HT' | 'TTC';
+  defaultTaxRate: number | null;
   ownerUserId: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Présent quand l’API joint l’exercice (liste / détail budgets). */
+  exerciseName?: string;
+  exerciseCode?: string | null;
 }
 
 export interface BudgetEnvelope {
@@ -43,10 +48,19 @@ export interface BudgetEnvelope {
   code: string | null;
   description: string | null;
   type: string;
+  status: string;
   parentId: string | null;
   sortOrder: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BudgetLineCostCenterSplit {
+  id: string;
+  costCenterId: string;
+  costCenterCode: string;
+  costCenterName: string;
+  percentage: number;
 }
 
 export interface BudgetLine {
@@ -58,9 +72,15 @@ export interface BudgetLine {
   code: string | null;
   description: string | null;
   expenseType: string;
-  generalLedgerAccountId: string;
+  generalLedgerAccountId: string | null;
+  /** Présents quand l’API joint les comptes (GET ligne). */
+  generalLedgerAccountCode?: string;
+  generalLedgerAccountName?: string;
   analyticalLedgerAccountId: string | null;
+  analyticalLedgerAccountCode?: string | null;
+  analyticalLedgerAccountName?: string | null;
   allocationScope: string;
+  costCenterSplits?: BudgetLineCostCenterSplit[];
   initialAmount: number;
   revisedAmount: number;
   forecastAmount: number;
@@ -68,6 +88,19 @@ export interface BudgetLine {
   consumedAmount: number;
   remainingAmount: number;
   currency: string;
+  taxRate?: number | null;
+  initialTaxAmount?: number | null;
+  initialAmountTtc?: number | null;
+  revisedTaxAmount?: number | null;
+  revisedAmountTtc?: number | null;
+  forecastTaxAmount?: number | null;
+  forecastAmountTtc?: number | null;
+  committedTaxAmount?: number | null;
+  committedAmountTtc?: number | null;
+  consumedTaxAmount?: number | null;
+  consumedAmountTtc?: number | null;
+  remainingTaxAmount?: number | null;
+  remainingAmountTtc?: number | null;
   status: string;
   createdAt: string;
   updatedAt: string;

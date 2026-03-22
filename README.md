@@ -92,6 +92,7 @@ docker compose --profile dev up --build
 - **API (api-dev)** : http://localhost:3001 — hot reload (volumes `src`, `prisma`)
 - **Web (web-dev)** : http://localhost:3000 — proxy /api/* vers l’API (3001). Hot reload activé via `WATCHPACK_POLLING` et `CHOKIDAR_USEPOLLING` (détection des changements de fichiers dans le conteneur).
 - **PostgreSQL** : localhost:5432 (user `starium`, db `starium`)
+- **Prisma** : si le schéma change, <abbr title="docker compose --profile dev exec api-dev sh -c &quot;cd /app/apps/api && pnpm exec prisma generate&quot;">régénérez le client dans le conteneur</abbr> puis `docker compose --profile dev restart api-dev`.
 
 ### Mode standard — api + web sans hot reload
 

@@ -22,6 +22,9 @@ export const budgetQueryKeys = {
   budgetDetail: (clientId: string, budgetId: string) =>
     ['budgets', clientId, 'budget-detail', budgetId] as const,
 
+  budgetEnvelopeDetail: (clientId: string, envelopeId: string) =>
+    ['budgets', clientId, 'budget-envelope-detail', envelopeId] as const,
+
   /** options.full === true pour l’explorer (toutes les enveloppes) ; sans options = listes paginées */
   budgetEnvelopes: (
     clientId: string,
@@ -38,6 +41,29 @@ export const budgetQueryKeys = {
 
   budgetSummary: (clientId: string, budgetId: string) =>
     ['budgets', clientId, 'budget-summary', budgetId] as const,
+
+  // Drawer ligne budgétaire (RFC-FE-ADD-006)
+  budgetLineDetail: (clientId: string, budgetLineId: string) =>
+    ['budgets', clientId, 'budget-line-detail', budgetLineId] as const,
+
+  budgetLineEvents: (clientId: string, budgetLineId: string, filters?: object) =>
+    ['budgets', clientId, 'budget-line-events', budgetLineId, filters] as const,
+
+  budgetLineAllocations: (clientId: string, budgetLineId: string, filters?: object) =>
+    ['budgets', clientId, 'budget-line-allocations', budgetLineId, filters] as const,
+
+  /**
+   * RFC-FE-026 — préfixe timeline (sous-clés : events, allocations, purchase-orders, invoices).
+   * Invalider ce préfixe rafraîchit les 4 sources agrégées.
+   */
+  timeline: (clientId: string, budgetLineId: string) =>
+    ['budgets', clientId, 'timeline', budgetLineId] as const,
+
+  budgetLinePurchaseOrders: (clientId: string, budgetLineId: string, filters?: object) =>
+    ['budgets', clientId, 'budget-line-purchase-orders', budgetLineId, filters] as const,
+
+  budgetLineInvoices: (clientId: string, budgetLineId: string, filters?: object) =>
+    ['budgets', clientId, 'budget-line-invoices', budgetLineId, filters] as const,
 
   budgetLinePlanning: (clientId: string, lineId: string) =>
     ['budgets', clientId, 'budget-line', lineId, 'planning'] as const,

@@ -67,7 +67,14 @@ export function BudgetsToolbar() {
           onValueChange={handleExerciseChange}
         >
           <SelectTrigger size="sm" className="w-[180px]" data-testid="budgets-exercise">
-            <SelectValue placeholder="Exercice" />
+            <SelectValue placeholder="Exercice">
+              {(v) => {
+                if (v === '__all__' || v == null) return 'Tous les exercices';
+                const ex = exerciseOptions.find((e) => e.id === v);
+                if (!ex) return String(v);
+                return `${ex.name}${ex.code ? ` (${ex.code})` : ''}`.trim();
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">Tous les exercices</SelectItem>
@@ -80,7 +87,10 @@ export function BudgetsToolbar() {
         </Select>
         <Select value={filters.status ?? 'ALL'} onValueChange={handleStatusChange}>
           <SelectTrigger size="sm" className="w-[140px]" data-testid="budgets-status">
-            <SelectValue placeholder="Statut" />
+            <SelectValue placeholder="Statut">
+              {BUDGET_STATUS_OPTIONS.find((o) => o.value === (filters.status ?? 'ALL'))
+                ?.label ?? (filters.status ?? 'ALL')}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {BUDGET_STATUS_OPTIONS.map((opt) => (
@@ -92,7 +102,7 @@ export function BudgetsToolbar() {
         </Select>
         <Select value={String(filters.limit ?? 20)} onValueChange={handleLimitChange}>
           <SelectTrigger size="sm" className="w-[100px]" data-testid="budgets-limit">
-            <SelectValue />
+            <SelectValue>{`${filters.limit ?? 20} / page`}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {LIMIT_OPTIONS.map((n) => (

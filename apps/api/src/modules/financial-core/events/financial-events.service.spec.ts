@@ -1,5 +1,5 @@
-import { NotFoundException } from '@nestjs/common';
-import { FinancialEventType } from '@prisma/client';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { FinancialEventType, Prisma } from '@prisma/client';
 import { FinancialEventsService } from './financial-events.service';
 import { CreateFinancialEventDto } from './dto/create-financial-event.dto';
 import * as budgetLineHelper from '../helpers/budget-line.helper';
@@ -37,7 +37,10 @@ describe('FinancialEventsService', () => {
         id: 'evt-1',
         budgetLineId,
         eventType: FinancialEventType.COMMITMENT_REGISTERED,
-        amount: 50,
+        amountHt: new Prisma.Decimal(50),
+        taxRate: new Prisma.Decimal(20),
+        taxAmount: new Prisma.Decimal(10),
+        amountTtc: new Prisma.Decimal(60),
         currency: 'EUR',
         eventDate: new Date(),
         label: 'Commitment',
@@ -49,7 +52,8 @@ describe('FinancialEventsService', () => {
         sourceType: 'ORDER' as any,
         sourceId: 'ord-1',
         eventType: FinancialEventType.COMMITMENT_REGISTERED,
-        amount: 50,
+        amountHt: '50',
+        taxRate: '20',
         currency: 'EUR',
         eventDate: new Date(),
         label: 'Commitment',
@@ -67,10 +71,16 @@ describe('FinancialEventsService', () => {
       );
       expect(auditLogs.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'financial_event.created',
+          action: 'financial-event.created',
           resourceType: 'financial_event',
           resourceId: created.id,
           clientId,
+          newValue: expect.objectContaining({
+            amountHt: 50,
+            taxRate: 20,
+            taxAmount: 10,
+            amountTtc: 60,
+          }),
         }),
       );
       expect(result).toEqual(created);
@@ -82,7 +92,10 @@ describe('FinancialEventsService', () => {
         id: 'evt-2',
         budgetLineId,
         eventType: FinancialEventType.LINE_CREATED,
-        amount: 0,
+        amountHt: new Prisma.Decimal(0),
+        taxRate: new Prisma.Decimal(0),
+        taxAmount: new Prisma.Decimal(0),
+        amountTtc: new Prisma.Decimal(0),
         currency: 'EUR',
         eventDate: new Date(),
         label: 'Line created',
@@ -93,7 +106,8 @@ describe('FinancialEventsService', () => {
         budgetLineId,
         sourceType: 'MANUAL' as any,
         eventType: FinancialEventType.LINE_CREATED,
-        amount: 0,
+        amountHt: '0',
+        taxRate: '0',
         currency: 'EUR',
         eventDate: new Date(),
         label: 'Line created',
@@ -105,6 +119,186 @@ describe('FinancialEventsService', () => {
       expect(auditLogs.create).toHaveBeenCalled();
     });
 
+    it('combo1 amountHt + taxRate calc taxAmount + amountTtc', async () => {
+      jest.spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient').mockResolvedValue({} as any);
+
+      prisma.financialEvent.create.mockResolvedValue({
+        id: 'evt-3',
+        budgetLineId,
+        eventType: FinancialEventType.LINE_CREATED,
+        amountHt: new Prisma.Decimal(50),
+        taxRate: new Prisma.Decimal(20),
+        taxAmount: new Prisma.Decimal(10),
+        amountTtc: new Prisma.Decimal(60),
+        currency: 'EUR',
+        eventDate: new Date(),
+        label: 'Combo1',
+      });
+
+      const dto: CreateFinancialEventDto = {
+        budgetLineId,
+        sourceType: 'MANUAL' as any,
+        eventType: FinancialEventType.LINE_CREATED,
+        amountHt: '50',
+        taxRate: '20',
+        currency: 'EUR',
+        eventDate: new Date(),
+        label: 'Combo1',
+      };
+
+      await service.create(clientId, dto);
+
+      const call = prisma.financialEvent.create.mock.calls[0][0];
+      expect(Number(call.data.amountHt)).toBe(50);
+      expect(Number(call.data.taxRate)).toBe(20);
+      expect(Number(call.data.taxAmount)).toBe(10);
+      expect(Number(call.data.amountTtc)).toBe(60);
+    });
+
+    it('combo2 amountTtc + taxRate calc amountHt + taxAmount', async () => {
+      jest.spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient').mockResolvedValue({} as any);
+
+      prisma.financialEvent.create.mockResolvedValue({
+        id: 'evt-4',
+        budgetLineId,
+        eventType: FinancialEventType.LINE_CREATED,
+        amountHt: new Prisma.Decimal(100),
+        taxRate: new Prisma.Decimal(20),
+        taxAmount: new Prisma.Decimal(20),
+        amountTtc: new Prisma.Decimal(120),
+        currency: 'EUR',
+        eventDate: new Date(),
+        label: 'Combo2',
+      });
+
+      const dto: CreateFinancialEventDto = {
+        budgetLineId,
+        sourceType: 'MANUAL' as any,
+        eventType: FinancialEventType.LINE_CREATED,
+        amountTtc: '120',
+        taxRate: '20',
+        currency: 'EUR',
+        eventDate: new Date(),
+        label: 'Combo2',
+      };
+
+      await service.create(clientId, dto);
+
+      const call = prisma.financialEvent.create.mock.calls[0][0];
+      expect(Number(call.data.amountHt)).toBe(100);
+      expect(Number(call.data.taxAmount)).toBe(20);
+      expect(Number(call.data.amountTtc)).toBe(120);
+    });
+
+    it('combo3 amountHt + taxAmount + amountTtc calc taxRate dérivé', async () => {
+      jest.spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient').mockResolvedValue({} as any);
+
+      prisma.financialEvent.create.mockResolvedValue({
+        id: 'evt-5',
+        budgetLineId,
+        eventType: FinancialEventType.LINE_CREATED,
+        amountHt: new Prisma.Decimal(100),
+        taxRate: new Prisma.Decimal(20),
+        taxAmount: new Prisma.Decimal(20),
+        amountTtc: new Prisma.Decimal(120),
+        currency: 'EUR',
+        eventDate: new Date(),
+        label: 'Combo3',
+      });
+
+      const dto: CreateFinancialEventDto = {
+        budgetLineId,
+        sourceType: 'MANUAL' as any,
+        eventType: FinancialEventType.LINE_CREATED,
+        amountHt: '100',
+        taxAmount: '20',
+        amountTtc: '120',
+        currency: 'EUR',
+        eventDate: new Date(),
+        label: 'Combo3',
+      };
+
+      await service.create(clientId, dto);
+
+      const call = prisma.financialEvent.create.mock.calls[0][0];
+      expect(Number(call.data.taxRate)).toBe(20);
+      expect(Number(call.data.taxAmount)).toBe(20);
+      expect(Number(call.data.amountTtc)).toBe(120);
+    });
+
+    it('taxRate=0 calc taxe nulle', async () => {
+      jest.spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient').mockResolvedValue({} as any);
+
+      prisma.financialEvent.create.mockResolvedValue({
+        id: 'evt-6',
+        budgetLineId,
+        eventType: FinancialEventType.LINE_CREATED,
+        amountHt: new Prisma.Decimal(99.99),
+        taxRate: new Prisma.Decimal(0),
+        taxAmount: new Prisma.Decimal(0),
+        amountTtc: new Prisma.Decimal(99.99),
+        currency: 'EUR',
+        eventDate: new Date(),
+        label: 'taxRate0',
+      });
+
+      const dto: CreateFinancialEventDto = {
+        budgetLineId,
+        sourceType: 'MANUAL' as any,
+        eventType: FinancialEventType.LINE_CREATED,
+        amountHt: '99.99',
+        taxRate: '0',
+        currency: 'EUR',
+        eventDate: new Date(),
+        label: 'taxRate0',
+      };
+
+      await service.create(clientId, dto);
+
+      const call = prisma.financialEvent.create.mock.calls[0][0];
+      expect(Number(call.data.taxAmount)).toBe(0);
+      expect(Number(call.data.amountTtc)).toBe(99.99);
+    });
+
+    it('rejette une incohérence combo3 (amountTtc mismatch)', async () => {
+      jest.spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient').mockResolvedValue({} as any);
+
+      const dto: CreateFinancialEventDto = {
+        budgetLineId,
+        sourceType: 'MANUAL' as any,
+        eventType: FinancialEventType.LINE_CREATED,
+        amountHt: '100',
+        taxAmount: '20',
+        amountTtc: '119.99',
+        currency: 'EUR',
+        eventDate: new Date(),
+        label: 'bad-combo3',
+      };
+
+      await expect(service.create(clientId, dto)).rejects.toThrow(BadRequestException);
+      expect(prisma.financialEvent.create).not.toHaveBeenCalled();
+      expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+
+    it('rejette une saisie ambiguë (amountHt + amountTtc + taxRate)', async () => {
+      jest.spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient').mockResolvedValue({} as any);
+
+      const dto: CreateFinancialEventDto = {
+        budgetLineId,
+        sourceType: 'MANUAL' as any,
+        eventType: FinancialEventType.LINE_CREATED,
+        amountHt: '100',
+        amountTtc: '120',
+        taxRate: '20',
+        currency: 'EUR',
+        eventDate: new Date(),
+        label: 'ambiguous',
+      };
+
+      await expect(service.create(clientId, dto)).rejects.toThrow(BadRequestException);
+      expect(prisma.financialEvent.create).not.toHaveBeenCalled();
+    });
+
     it('isolation client : budgetLine d\'un autre client → NotFoundException', async () => {
       jest
         .spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient')
@@ -114,7 +308,8 @@ describe('FinancialEventsService', () => {
         budgetLineId: 'line-other',
         sourceType: 'MANUAL' as any,
         eventType: FinancialEventType.ADJUSTMENT,
-        amount: 10,
+        amountHt: '10',
+        taxRate: '0',
         currency: 'EUR',
         eventDate: new Date(),
         label: 'Adjustment',

@@ -24,6 +24,21 @@ enum ClientUserStatus {
   INVITED
 }
 
+enum TaxDisplayMode {
+  HT
+  TTC
+}
+
+enum TaxInputMode {
+  HT
+  TTC
+}
+
+enum BudgetTaxMode {
+  HT
+  TTC
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -36,6 +51,9 @@ model Client {
   createdAt                  DateTime                  @default(now())
   updatedAt                  DateTime                  @updatedAt
   budgetAccountingEnabled    Boolean                   @default(false)
+  taxDisplayMode            TaxDisplayMode           @default(HT)
+  taxInputMode              TaxInputMode             @default(HT)
+  defaultTaxRate            Decimal?                  @db.Decimal(5, 2)
   clientUsers                ClientUser[]
   clientModules              ClientModule[]
   roles                      Role[]
@@ -46,6 +64,9 @@ model Client {
   budgetLines                BudgetLine[]
   financialAllocations       FinancialAllocation[]
   financialEvents            FinancialEvent[]
+  suppliers                  Supplier[]
+  purchaseOrders             PurchaseOrder[]
+  invoices                   Invoice[]
   budgetSnapshots            BudgetSnapshot[]
   budgetReallocations        BudgetReallocation[]
   budgetImportMappings       BudgetImportMapping[]
@@ -56,6 +77,19 @@ model Client {
   analyticalLedgerAccounts   AnalyticalLedgerAccount[]
   costCenters                CostCenter[]
   budgetLineCostCenterSplits BudgetLineCostCenterSplit[]
+  projects         Project[]
+  projectTasks     ProjectTask[]
+  projectRisks     ProjectRisk[]
+  projectMilestones  ProjectMilestone[]
+  projectBudgetLinks ProjectBudgetLink[]
+  projectTeamRoles   ProjectTeamRole[]
+  projectTeamMembers ProjectTeamMember[]
+  projectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
+  projectReviews                ProjectReview[]
+  projectReviewParticipants     ProjectReviewParticipant[]
+  projectReviewDecisions        ProjectReviewDecision[]
+  projectReviewActionItems      ProjectReviewActionItem[]
+  projectActivities             ProjectActivity[]
   budgetLinePlanningMonths   BudgetLinePlanningMonth[]
   budgetLinePlanningScenarios BudgetLinePlanningScenario[]
 }
@@ -79,6 +113,23 @@ model User {
   budgetReallocationsCreated BudgetReallocation[]
   createdBudgetImportMappings BudgetImportMapping[]
   createdBudgetImportJobs    BudgetImportJob[]
+  sponsoredProjects          Project[]           @relation("ProjectSponsor")
+  ownedProjects              Project[]           @relation("ProjectOwner")
+  ownedProjectTasks          ProjectTask[]       @relation("ProjectTaskOwner")
+  createdProjectTasks        ProjectTask[]       @relation("ProjectTaskCreatedBy")
+  updatedProjectTasks        ProjectTask[]       @relation("ProjectTaskUpdatedBy")
+  ownedProjectMilestones     ProjectMilestone[]  @relation("ProjectMilestoneOwner")
+  createdProjectMilestones   ProjectMilestone[]  @relation("ProjectMilestoneCreatedBy")
+  updatedProjectMilestones   ProjectMilestone[]  @relation("ProjectMilestoneUpdatedBy")
+  ownedProjectActivities     ProjectActivity[]   @relation("ProjectActivityOwner")
+  createdProjectActivities   ProjectActivity[]   @relation("ProjectActivityCreatedBy")
+  updatedProjectActivities   ProjectActivity[]   @relation("ProjectActivityUpdatedBy")
+  ownedProjectRisks          ProjectRisk[]
+  projectTeamMembers         ProjectTeamMember[]
+  createdProjectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[] @relation("ProjectSheetDecisionSnapshotCreatedBy")
+  facilitatedProjectReviews          ProjectReview[]                  @relation("ProjectReviewFacilitator")
+  finalizedProjectReviews            ProjectReview[]                  @relation("ProjectReviewFinalizedBy")
+  projectReviewParticipants          ProjectReviewParticipant[]
 }
 
 model ClientUser {
@@ -189,6 +240,633 @@ enum ClientModuleStatus {
   DISABLED
 }
 
+// --- Projects MVP (RFC-PROJ-001) ---
+
+/** Projet structuré vs activité de suivi plus légère (même entité `Project` côté SI). */
+enum ProjectKind {
+  PROJECT
+  ACTIVITY
+}
+
+enum ProjectType {
+  TRANSFORMATION
+  INFRASTRUCTURE
+  APPLICATION
+  CYBERSECURITY
+  COMPLIANCE
+  ORGANIZATION
+  PROCUREMENT
+  GOVERNANCE
+}
+
+enum ProjectStatus {
+  DRAFT
+  PLANNED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectCriticality {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectTaskStatus {
+  DRAFT
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum ProjectTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+/// RFC-PROJ-011 — dépendance simple entre tâches (MVP)
+enum ProjectTaskDependencyType {
+  FINISH_TO_START
+  START_TO_START
+  FINISH_TO_FINISH
+}
+
+/// RFC-PROJ-011 — activité dérivée d’une tâche
+enum ProjectActivityFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum ProjectActivityStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectRiskStatus {
+  OPEN
+  MITIGATED
+  CLOSED
+  ACCEPTED
+}
+
+enum ProjectRiskProbability {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectRiskImpact {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectMilestoneStatus {
+  PLANNED
+  ACHIEVED
+  DELAYED
+  CANCELLED
+}
+
+/** RFC-PROJ-010 — liaison projet ↔ ligne budgétaire */
+enum ProjectBudgetAllocationType {
+  FULL
+  PERCENTAGE
+  FIXED
+}
+
+/** RFC-PROJ-012 — fiche projet décisionnelle */
+enum ProjectRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectArbitrationStatus {
+  DRAFT
+  TO_REVIEW
+  VALIDATED
+  REJECTED
+}
+
+/** Statut par niveau d’arbitrage (Métier → Comité → Sponsor/CODIR). */
+enum ProjectArbitrationLevelStatus {
+  BROUILLON
+  EN_COURS
+  /// Dossier transmis ; en attente de décision (visa) avant validation ou refus.
+  SOUMIS_VALIDATION
+  VALIDE
+  REFUSE
+}
+
+/** Recommandation saisie par le COPIL / COPRO (pas dérivée automatiquement des indicateurs). */
+enum ProjectCopilRecommendation {
+  NOT_SET
+  POURSUIVRE
+  NE_PAS_ENGAGER
+  SOUS_RESERVE
+  REPORTER
+  AJUSTER_CADRAGE
+}
+
+/** Instantané fiche projet lors d’une validation d’arbitrage (niveau passé à VALIDE). */
+enum ProjectSheetDecisionLevel {
+  METIER
+  COMITE
+  CODIR
+}
+
+/** Rôle catalogue équipe projet — aligné sur Project.sponsorUserId / ownerUserId lorsque renseigné. */
+enum ProjectTeamRoleSystemKind {
+  SPONSOR
+  OWNER
+}
+
+/// Interne (client / équipe) vs externe (prestataire, partenaire) pour les noms libres.
+enum ProjectTeamMemberAffiliation {
+  INTERNAL
+  EXTERNAL
+}
+
+/// RFC-PROJ-013 — point projet (COPIL / COPRO / …)
+enum ProjectReviewType {
+  COPIL
+  COPRO
+  CODIR_REVIEW
+  RISK_REVIEW
+  MILESTONE_REVIEW
+  AD_HOC
+}
+
+enum ProjectReviewStatus {
+  DRAFT
+  FINALIZED
+  CANCELLED
+}
+
+model Project {
+  id        String  @id @default(cuid())
+  clientId  String
+  name      String
+  code      String
+  description String?
+
+  kind         ProjectKind @default(PROJECT)
+  type         ProjectType
+  status       ProjectStatus
+  priority     ProjectPriority
+
+  sponsorUserId String?
+  ownerUserId   String?
+
+  startDate      DateTime?
+  targetEndDate  DateTime?
+  actualEndDate  DateTime?
+
+  criticality     ProjectCriticality
+  progressPercent Int?
+
+  targetBudgetAmount Decimal? @db.Decimal(18, 2)
+  pilotNotes         String?
+
+  businessValueScore   Int?
+  strategicAlignment   Int?
+  urgencyScore         Int?
+
+  estimatedCost     Decimal? @db.Decimal(18, 2)
+  estimatedGain     Decimal? @db.Decimal(18, 2)
+  roi               Decimal? @db.Decimal(10, 2)
+  riskLevel         ProjectRiskLevel?
+  /// Réponse au risque : traitement, mitigation, plan d’action (texte libre, fiche CODIR)
+  riskResponse      String?
+  priorityScore     Decimal? @db.Decimal(5, 2)
+  /// Dérivé des trois niveaux (rétrocompat lecture / exports).
+  arbitrationStatus ProjectArbitrationStatus?
+  arbitrationMetierStatus  ProjectArbitrationLevelStatus @default(BROUILLON)
+  arbitrationComiteStatus    ProjectArbitrationLevelStatus?
+  arbitrationCodirStatus     ProjectArbitrationLevelStatus?
+  arbitrationMetierRefusalNote  String? @db.VarChar(2000)
+  arbitrationComiteRefusalNote  String? @db.VarChar(2000)
+  arbitrationCodirRefusalNote   String? @db.VarChar(2000)
+  copilRecommendation ProjectCopilRecommendation @default(NOT_SET)
+  /// Commentaire libre associé à la position COPIL (visible sur demande à l’UI).
+  copilRecommendationNote String? @db.VarChar(4000)
+
+  /// Cadrage OQQCQPC (fiche projet)
+  cadreLocation String? @db.VarChar(500)
+  cadreQui      String? @db.VarChar(500)
+
+  /// Équipes / directions impliquées (texte libre, fiche projet)
+  involvedTeams String? @db.VarChar(2000)
+
+  /// RFC-PROJ-012 — objectif métier (texte MVP)
+  businessProblem   String?
+  businessBenefits  String?
+  /// KPI de succès — liste de lignes (JSON string[])
+  businessSuccessKpis Json?
+
+  /// SWOT / TOWS — JSON (tableaux de strings ; contraintes en DTO)
+  swotStrengths     Json?
+  swotWeaknesses    Json?
+  swotOpportunities Json?
+  swotThreats       Json?
+  towsActions       Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sponsor  User?  @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
+  owner    User?  @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  tasks       ProjectTask[]
+  risks       ProjectRisk[]
+  milestones  ProjectMilestone[]
+  activities  ProjectActivity[]
+  budgetLinks ProjectBudgetLink[]
+  teamMembers ProjectTeamMember[]
+  sheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
+  projectReviews         ProjectReview[]
+  projectReviewActionItems ProjectReviewActionItem[]
+
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([clientId, status])
+  @@index([clientId, kind])
+  @@index([targetEndDate])
+}
+
+/// Historique des décisions — snapshot de fiche projet au passage d’un niveau d’arbitrage à VALIDE.
+model ProjectSheetDecisionSnapshot {
+  id        String   @id @default(cuid())
+  clientId  String
+  projectId String
+  createdAt DateTime @default(now())
+  createdByUserId String?
+  decisionLevel ProjectSheetDecisionLevel
+  sheetPayload Json
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("ProjectSheetDecisionSnapshotCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, projectId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+/// RFC-PROJ-013 — point projet (COPIL-COPRO), historisé.
+model ProjectReview {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  reviewDate   DateTime
+  reviewType   ProjectReviewType
+  status       ProjectReviewStatus @default(DRAFT)
+
+  title             String?
+  executiveSummary  String?
+  contentPayload    Json?
+
+  facilitatorUserId String?
+  finalizedAt       DateTime?
+  finalizedByUserId String?
+
+  nextReviewDate DateTime?
+
+  snapshotPayload Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  facilitator User?   @relation("ProjectReviewFacilitator", fields: [facilitatorUserId], references: [id], onDelete: SetNull)
+  finalizedBy User?   @relation("ProjectReviewFinalizedBy", fields: [finalizedByUserId], references: [id], onDelete: SetNull)
+
+  participants ProjectReviewParticipant[]
+  decisions    ProjectReviewDecision[]
+  actionItems  ProjectReviewActionItem[]
+
+  @@index([clientId, projectId, reviewDate])
+  @@index([clientId, projectId, status])
+  @@index([projectId, reviewDate])
+}
+
+model ProjectReviewParticipant {
+  id              String @id @default(cuid())
+  clientId        String
+  projectReviewId String
+
+  userId      String?
+  displayName String?
+
+  attended   Boolean @default(true)
+  isRequired Boolean @default(false)
+
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectReview ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectReviewId])
+}
+
+model ProjectReviewDecision {
+  id              String @id @default(cuid())
+  clientId        String
+  projectReviewId String
+
+  title       String
+  description String?
+
+  createdAt DateTime @default(now())
+
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectReview ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([projectReviewId])
+}
+
+model ProjectReviewActionItem {
+  id              String @id @default(cuid())
+  clientId        String
+  projectReviewId String
+  projectId       String
+
+  title        String
+  status       ProjectTaskStatus
+  dueDate      DateTime?
+  linkedTaskId String?
+
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectReview ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  linkedTask    ProjectTask?  @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([clientId, projectId])
+  @@index([projectReviewId])
+}
+
+/// Catalogue des rôles d’équipe projet (par client).
+model ProjectTeamRole {
+  id          String   @id @default(cuid())
+  clientId    String
+  name        String   @db.VarChar(200)
+  sortOrder   Int      @default(0)
+  /// Si défini, synchronisé avec Project.sponsorUserId ou ownerUserId (une personne « officielle »).
+  systemKind  ProjectTeamRoleSystemKind?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  members ProjectTeamMember[]
+
+  @@unique([clientId, name])
+  @@index([clientId])
+}
+
+/// Membre d’équipe projet : utilisateur plateforme ou nom libre (prestataire / contact externe).
+model ProjectTeamMember {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+  roleId    String
+  /// Compte Starium du client ; vide si entrée libre uniquement.
+  userId    String?
+  /// Nom affiché lorsqu’il n’y a pas de `userId` (personne hors plateforme).
+  freeLabel String? @db.VarChar(200)
+  /// Interne vs externe (surtout pour les noms libres).
+  affiliation ProjectTeamMemberAffiliation?
+  /// Clé d’unicité : `u:<userId>` ou `n:<normalisation du nom>` pour les entrées libres.
+  identityKey String @db.VarChar(150)
+
+  createdAt DateTime @default(now())
+
+  client  Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role    ProjectTeamRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  user    User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, roleId, identityKey])
+  @@index([clientId])
+  @@index([clientId, projectId])
+  @@index([roleId])
+}
+
+model ProjectBudgetLink {
+  id             String                      @id @default(cuid())
+  clientId       String
+  projectId      String
+  budgetLineId   String
+  allocationType ProjectBudgetAllocationType
+  percentage     Decimal?                    @db.Decimal(5, 2)
+  amount         Decimal?                    @db.Decimal(18, 2)
+  createdAt      DateTime                    @default(now())
+
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, budgetLineId])
+  @@index([clientId])
+}
+
+/// RFC-PROJ-011 — tâche projet planifiable (Gantt-ready)
+model ProjectTask {
+  id              String @id @default(cuid())
+  clientId        String
+  projectId       String
+
+  parentTaskId    String?
+  dependsOnTaskId String?
+
+  code        String?
+  name        String
+  description String?
+
+  status   ProjectTaskStatus   @default(TODO)
+  priority ProjectTaskPriority @default(MEDIUM)
+  progress Int                 @default(0)
+
+  plannedStartDate DateTime?
+  plannedEndDate   DateTime?
+  actualStartDate  DateTime?
+  actualEndDate    DateTime?
+
+  sortOrder Int @default(0)
+
+  dependencyType ProjectTaskDependencyType?
+
+  ownerUserId   String?
+  budgetLineId  String?
+
+  createdByUserId String?
+  updatedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  budgetLine BudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+
+  parentTask    ProjectTask?  @relation("ProjectTaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks    ProjectTask[]   @relation("ProjectTaskHierarchy")
+  dependsOnTask ProjectTask?  @relation("ProjectTaskDependency", fields: [dependsOnTaskId], references: [id], onDelete: SetNull)
+  dependentTasks ProjectTask[]  @relation("ProjectTaskDependency")
+
+  ownerUser          User? @relation("ProjectTaskOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUser      User? @relation("ProjectTaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser      User? @relation("ProjectTaskUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  activities               ProjectActivity[]
+  milestones               ProjectMilestone[]
+  projectReviewActionItems ProjectReviewActionItem[]
+
+  @@index([clientId])
+  @@index([projectId])
+  @@index([clientId, projectId])
+  @@index([parentTaskId])
+  @@index([dependsOnTaskId])
+  @@index([status])
+  @@index([priority])
+  @@index([plannedStartDate])
+  @@index([plannedEndDate])
+}
+
+model ProjectRisk {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  title       String
+  description String?
+
+  probability ProjectRiskProbability
+  impact      ProjectRiskImpact
+
+  actionPlan   String?
+  ownerUserId  String?
+
+  status     ProjectRiskStatus
+  reviewDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner   User?   @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectId])
+}
+
+/// RFC-PROJ-011 — jalon (sans durée)
+model ProjectMilestone {
+  id           String @id @default(cuid())
+  clientId     String
+  projectId    String
+  linkedTaskId String?
+
+  code        String?
+  name        String
+  description String?
+
+  status       ProjectMilestoneStatus @default(PLANNED)
+  targetDate   DateTime
+  achievedDate DateTime?
+
+  sortOrder Int @default(0)
+
+  ownerUserId String?
+
+  createdByUserId String?
+  updatedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  linkedTask ProjectTask? @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+
+  ownerUser     User? @relation("ProjectMilestoneOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUser User? @relation("ProjectMilestoneCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User? @relation("ProjectMilestoneUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectId])
+  @@index([linkedTaskId])
+  @@index([targetDate])
+  @@index([status])
+}
+
+/// RFC-PROJ-011 — activité dérivée d’une tâche (hors Gantt MVP)
+model ProjectActivity {
+  id           String @id @default(cuid())
+  clientId     String
+  projectId    String
+  sourceTaskId String
+
+  name        String
+  description String?
+
+  status    ProjectActivityStatus    @default(ACTIVE)
+  frequency ProjectActivityFrequency
+  customRrule String?
+
+  nextExecutionDate DateTime?
+  lastExecutionDate DateTime?
+
+  ownerUserId  String?
+  budgetLineId String?
+
+  createdByUserId String?
+  updatedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceTask ProjectTask @relation(fields: [sourceTaskId], references: [id], onDelete: Restrict)
+  budgetLine BudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+
+  ownerUser     User? @relation("ProjectActivityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUser User? @relation("ProjectActivityCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User? @relation("ProjectActivityUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectId])
+  @@index([sourceTaskId])
+  @@index([status])
+  @@index([nextExecutionDate])
+}
+
 // --- Budget MVP (RFC-015-1A) ---
 
 enum BudgetExerciseStatus {
@@ -199,6 +877,13 @@ enum BudgetExerciseStatus {
 }
 
 enum BudgetStatus {
+  DRAFT
+  ACTIVE
+  LOCKED
+  ARCHIVED
+}
+
+enum BudgetEnvelopeStatus {
   DRAFT
   ACTIVE
   LOCKED
@@ -248,6 +933,30 @@ enum FinancialSourceType {
   APPLICATION
   ASSET
   MANUAL
+  PURCHASE_ORDER
+  INVOICE
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ISSUED
+  APPROVED
+  PARTIALLY_INVOICED
+  FULLY_INVOICED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  RECEIVED
+  VALIDATED
+  PAID
+  CANCELLED
 }
 
 enum AllocationType {
@@ -325,6 +1034,8 @@ model Budget {
   description   String?
   currency      String
   status        BudgetStatus @default(DRAFT)
+  taxMode       BudgetTaxMode @default(HT)
+  defaultTaxRate Decimal?    @db.Decimal(5, 2)
   ownerUserId   String?
   versionSetId  String?
   versionNumber Int?
@@ -373,6 +1084,7 @@ model BudgetEnvelope {
   sortOrder   Int                @default(0)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
+  status      BudgetEnvelopeStatus @default(ACTIVE)
   client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
   budget      Budget             @relation(fields: [budgetId], references: [id], onDelete: Cascade)
   parent      BudgetEnvelope?    @relation("EnvelopeHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
@@ -383,6 +1095,7 @@ model BudgetEnvelope {
   @@index([clientId])
   @@index([budgetId])
   @@index([parentId])
+  @@index([status])
 }
 
 enum BudgetLineAllocationScope {
@@ -464,6 +1177,7 @@ model BudgetLine {
   expenseType              ExpenseType
   status                   BudgetLineStatus           @default(DRAFT)
   currency                 String
+  taxRate                  Decimal?                   @db.Decimal(5, 2)
   initialAmount            Decimal                    @db.Decimal(18, 2) @default(0)
   revisedAmount            Decimal                    @db.Decimal(18, 2) @default(0)
   forecastAmount           Decimal                    @db.Decimal(18, 2) @default(0)
@@ -485,8 +1199,13 @@ model BudgetLine {
   costCenterSplits         BudgetLineCostCenterSplit[]
   allocations               FinancialAllocation[]
   financialEvents           FinancialEvent[]
+  purchaseOrders            PurchaseOrder[]
+  invoices                  Invoice[]
   reallocationsAsSource     BudgetReallocation[]      @relation("ReallocationSource")
   reallocationsAsTarget     BudgetReallocation[]      @relation("ReallocationTarget")
+  projectBudgetLinks        ProjectBudgetLink[]
+  projectTasks              ProjectTask[]
+  projectActivities         ProjectActivity[]
   planningMonths            BudgetLinePlanningMonth[]
   planningScenarios         BudgetLinePlanningScenario[]
 
@@ -653,19 +1372,23 @@ model FinancialAllocation {
 model FinancialEvent {
   id            String              @id @default(cuid())
   clientId      String
-  budgetLineId String
-  sourceType   FinancialSourceType
-  sourceId     String?
-  eventType    FinancialEventType
-  amount       Decimal             @db.Decimal(18, 2)
-  currency     String
-  eventDate    DateTime
-  label        String
-  description  String?
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  budgetLine   BudgetLine          @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+  budgetLineId  String
+  sourceType    FinancialSourceType
+  sourceId      String?
+  eventType     FinancialEventType
+  amount        Decimal             @db.Decimal(18, 2)
+  amountHt      Decimal             @db.Decimal(18, 2)
+  taxRate       Decimal?            @db.Decimal(5, 2)
+  taxAmount     Decimal?            @db.Decimal(18, 2)
+  amountTtc     Decimal?            @db.Decimal(18, 2)
+  currency      String
+  eventDate     DateTime
+  label         String
+  description   String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  client        Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budgetLine    BudgetLine          @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
   @@index([budgetLineId])
@@ -697,6 +1420,80 @@ model BudgetReallocation {
   @@index([sourceLineId])
   @@index([targetLineId])
   @@index([createdAt])
+}
+
+model Supplier {
+  id             String         @id @default(cuid())
+  clientId       String
+  name           String
+  code           String?
+  siret          String?
+  vatNumber      String?
+  status         SupplierStatus @default(ACTIVE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+  invoices       Invoice[]
+
+  @@unique([clientId, name])
+  @@index([clientId])
+  @@index([clientId, name])
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  clientId     String
+  supplierId   String
+  budgetLineId String?
+  reference    String
+  label        String
+  amountHt     Decimal             @db.Decimal(18, 2)
+  taxRate      Decimal?            @db.Decimal(5, 2)
+  taxAmount    Decimal?            @db.Decimal(18, 2)
+  amountTtc    Decimal?            @db.Decimal(18, 2)
+  orderDate    DateTime
+  status       PurchaseOrderStatus @default(APPROVED)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplier     Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  budgetLine   BudgetLine?         @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  invoices     Invoice[]
+
+  @@unique([clientId, reference])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([budgetLineId])
+  @@index([clientId, supplierId])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  clientId        String
+  supplierId      String
+  budgetLineId    String?
+  purchaseOrderId String?
+  invoiceNumber   String
+  label           String
+  amountHt        Decimal       @db.Decimal(18, 2)
+  taxRate         Decimal?      @db.Decimal(5, 2)
+  taxAmount       Decimal?      @db.Decimal(18, 2)
+  amountTtc       Decimal?      @db.Decimal(18, 2)
+  invoiceDate     DateTime
+  status          InvoiceStatus @default(VALIDATED)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplier        Supplier      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  budgetLine      BudgetLine?   @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, invoiceNumber, supplierId])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([budgetLineId])
+  @@index([clientId, supplierId])
 }
 
 // --- Budget Import (RFC-018) ---

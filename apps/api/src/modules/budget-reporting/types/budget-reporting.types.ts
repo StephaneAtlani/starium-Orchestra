@@ -9,6 +9,14 @@ export interface BudgetSummaryKpi {
   totalCommittedAmount: number;
   totalConsumedAmount: number;
   totalRemainingAmount: number;
+  // Projections TTC (montants budgétés) pour affichage uniquement.
+  // Si au moins une ligne ne permet pas d'établir un taux effectif, alors ces valeurs sont à `null`.
+  totalInitialAmountTtc?: number | null;
+  totalRevisedAmountTtc?: number | null;
+  totalForecastAmountTtc?: number | null;
+  totalCommittedAmountTtc?: number | null;
+  totalConsumedAmountTtc?: number | null;
+  totalRemainingAmountTtc?: number | null;
   consumptionRate: number;
   commitmentRate: number;
   forecastRate: number;

@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { BudgetLineAllocationScope, BudgetLineStatus, BudgetStatus } from '@prisma/client';
+import { BudgetLineAllocationScope, BudgetLineStatus, BudgetStatus, BudgetTaxMode } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
@@ -12,6 +12,7 @@ import { AuditContext, ListResult } from '../types/audit-context';
 import { CreateBudgetLineDto } from './dto/create-budget-line.dto';
 import { ListBudgetLinesQueryDto } from './dto/list-budget-lines.query.dto';
 import { UpdateBudgetLineDto } from './dto/update-budget-line.dto';
+import { TaxCalculator } from '../../financial-core/helpers/tax-calculator';
 
 export interface CostCenterSplitResponse {
   id: string;
@@ -32,12 +33,29 @@ export interface BudgetLineResponse {
   expenseType: string;
   status: string;
   currency: string;
+  /**
+   * TVA en %.
+   * - null => TTC budgétaire indisponible (projection impossible)
+   */
+  taxRate: number | null;
   initialAmount: number;
+  initialTaxAmount: number | null;
+  initialAmountTtc: number | null;
   revisedAmount: number;
+  revisedTaxAmount: number | null;
+  revisedAmountTtc: number | null;
   forecastAmount: number;
+  forecastTaxAmount: number | null;
+  forecastAmountTtc: number | null;
   committedAmount: number;
+  committedTaxAmount: number | null;
+  committedAmountTtc: number | null;
   consumedAmount: number;
+  consumedTaxAmount: number | null;
+  consumedAmountTtc: number | null;
   remainingAmount: number;
+  remainingTaxAmount: number | null;
+  remainingAmountTtc: number | null;
   generalLedgerAccountId: string | null;
   generalLedgerAccountCode: string;
   generalLedgerAccountName: string;
@@ -238,14 +256,48 @@ export class BudgetLinesService {
       );
     }
 
-    const revisedAmount =
+    const revisedAmountInput =
       dto.revisedAmount !== undefined && dto.revisedAmount !== null
         ? dto.revisedAmount
         : dto.initialAmount;
+
     const forecastAmount = 0;
     const committedAmount = 0;
     const consumedAmount = 0;
-    const remainingAmount = revisedAmount;
+
+    const clientTax = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { defaultTaxRate: true },
+    });
+
+    // Hiérarchie des taux (TTC budgété / conversion) :
+    // BudgetLine.taxRate > Budget.defaultTaxRate > Client.defaultTaxRate
+    const taxRateToPersist =
+      dto.taxRate !== undefined
+        ? toDecimal(dto.taxRate)
+        : budget.defaultTaxRate ?? clientTax?.defaultTaxRate ?? null;
+
+    // Normalisation interne : stocker en HT.
+    let initialAmountStored = toDecimal(dto.initialAmount);
+    let revisedAmountStored = toDecimal(revisedAmountInput);
+
+    if (budget.taxMode === BudgetTaxMode.TTC) {
+      if (taxRateToPersist == null) {
+        throw new BadRequestException(
+          'Budget en mode TTC : tax rate requis (BudgetLine.taxRate ou Budget.defaultTaxRate ou Client.defaultTaxRate).',
+        );
+      }
+      initialAmountStored = TaxCalculator.fromTtcAndTaxRate({
+        amountTtc: initialAmountStored,
+        taxRate: taxRateToPersist,
+      }).amountHt;
+      revisedAmountStored = TaxCalculator.fromTtcAndTaxRate({
+        amountTtc: revisedAmountStored,
+        taxRate: taxRateToPersist,
+      }).amountHt;
+    }
+
+    const remainingAmountStored = revisedAmountStored;
 
     let code = dto.code?.trim();
     if (!code) {
@@ -282,12 +334,13 @@ export class BudgetLinesService {
           generalLedgerAccountId: dto.generalLedgerAccountId,
           analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
           allocationScope,
-          initialAmount: toDecimal(dto.initialAmount),
-          revisedAmount: toDecimal(revisedAmount),
+          initialAmount: initialAmountStored,
+          revisedAmount: revisedAmountStored,
           forecastAmount: toDecimal(forecastAmount),
           committedAmount: toDecimal(committedAmount),
           consumedAmount: toDecimal(consumedAmount),
-          remainingAmount: toDecimal(remainingAmount),
+          remainingAmount: remainingAmountStored,
+          taxRate: taxRateToPersist,
         },
       });
       if (allocationScope === BudgetLineAllocationScope.ANALYTICAL && costCenterSplits.length > 0) {
@@ -323,8 +376,8 @@ export class BudgetLinesService {
         generalLedgerAccountId: created!.generalLedgerAccountId,
         analyticalLedgerAccountId: created!.analyticalLedgerAccountId,
         allocationScope: created!.allocationScope,
-        initialAmount: dto.initialAmount,
-        revisedAmount,
+        initialAmount: fromDecimal(initialAmountStored),
+        revisedAmount: fromDecimal(revisedAmountStored),
         currency: created!.currency,
         status: created!.status,
         costCenterSplitsSummary: costCenterSplits.map((s) => ({
@@ -473,13 +526,49 @@ export class BudgetLinesService {
           analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
         }),
         ...(dto.allocationScope != null && { allocationScope: dto.allocationScope }),
+        ...(dto.taxRate !== undefined && { taxRate: toDecimal(dto.taxRate) }),
       };
 
       if (dto.revisedAmount !== undefined && dto.revisedAmount !== null) {
         const committed = Number(existing.committedAmount);
         const consumed = Number(existing.consumedAmount);
-        const remaining = dto.revisedAmount - committed - consumed;
-        baseData.revisedAmount = toDecimal(dto.revisedAmount);
+
+        let revisedAmountStoredHt: Prisma.Decimal;
+        if (existing.budget.taxMode === BudgetTaxMode.TTC) {
+          const effectiveTaxRate =
+            dto.taxRate !== undefined
+              ? toDecimal(dto.taxRate)
+              : existing.taxRate ??
+                existing.budget.defaultTaxRate ??
+                (
+                  await tx.client.findUnique({
+                    where: { id: clientId },
+                    select: { defaultTaxRate: true },
+                  })
+                )?.defaultTaxRate ??
+                null;
+
+          if (effectiveTaxRate == null) {
+            throw new BadRequestException(
+              'Budget en mode TTC : tax rate requis (BudgetLine.taxRate ou Budget.defaultTaxRate ou Client.defaultTaxRate).',
+            );
+          }
+
+          if (dto.taxRate === undefined && existing.taxRate == null) {
+            // Permet de mémoriser le taux utilisé pour convertir l’entrée TTC -> HT.
+            baseData.taxRate = effectiveTaxRate;
+          }
+
+          revisedAmountStoredHt = TaxCalculator.fromTtcAndTaxRate({
+            amountTtc: toDecimal(dto.revisedAmount),
+            taxRate: effectiveTaxRate,
+          }).amountHt;
+        } else {
+          revisedAmountStoredHt = toDecimal(dto.revisedAmount);
+        }
+
+        const remaining = Number(revisedAmountStoredHt) - committed - consumed;
+        baseData.revisedAmount = revisedAmountStoredHt;
         baseData.remainingAmount = toDecimal(Math.max(0, remaining));
       }
 
@@ -625,6 +714,66 @@ type BudgetLineRowWithAnalytics = Prisma.BudgetLineGetPayload<{
 }>;
 
 function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
+  const taxRateDec = row.taxRate ?? null;
+  const taxRate = taxRateDec != null ? fromDecimal(taxRateDec) : null;
+
+  let initialTaxAmount: number | null = null;
+  let initialAmountTtc: number | null = null;
+  let revisedTaxAmount: number | null = null;
+  let revisedAmountTtc: number | null = null;
+  let forecastTaxAmount: number | null = null;
+  let forecastAmountTtc: number | null = null;
+  let committedTaxAmount: number | null = null;
+  let committedAmountTtc: number | null = null;
+  let consumedTaxAmount: number | null = null;
+  let consumedAmountTtc: number | null = null;
+  let remainingTaxAmount: number | null = null;
+  let remainingAmountTtc: number | null = null;
+
+  if (taxRateDec != null) {
+    const calcInitial = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.initialAmount,
+      taxRate: taxRateDec,
+    });
+    initialTaxAmount = fromDecimal(calcInitial.taxAmount);
+    initialAmountTtc = fromDecimal(calcInitial.amountTtc);
+
+    const calcRevised = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.revisedAmount,
+      taxRate: taxRateDec,
+    });
+    revisedTaxAmount = fromDecimal(calcRevised.taxAmount);
+    revisedAmountTtc = fromDecimal(calcRevised.amountTtc);
+
+    const calcForecast = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.forecastAmount,
+      taxRate: taxRateDec,
+    });
+    forecastTaxAmount = fromDecimal(calcForecast.taxAmount);
+    forecastAmountTtc = fromDecimal(calcForecast.amountTtc);
+
+    const calcCommitted = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.committedAmount,
+      taxRate: taxRateDec,
+    });
+    committedTaxAmount = fromDecimal(calcCommitted.taxAmount);
+    committedAmountTtc = fromDecimal(calcCommitted.amountTtc);
+
+    const calcConsumed = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.consumedAmount,
+      taxRate: taxRateDec,
+    });
+    consumedTaxAmount = fromDecimal(calcConsumed.taxAmount);
+    consumedAmountTtc = fromDecimal(calcConsumed.amountTtc);
+
+    const calcRemaining = TaxCalculator.fromHtAndTaxRate({
+      amountHt: row.remainingAmount,
+      taxRate: taxRateDec,
+    });
+    remainingTaxAmount = fromDecimal(calcRemaining.taxAmount);
+    remainingAmountTtc = fromDecimal(calcRemaining.amountTtc);
+  }
+
   return {
     id: row.id,
     clientId: row.clientId,
@@ -636,12 +785,25 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
     expenseType: row.expenseType,
     status: row.status,
     currency: row.currency,
+    taxRate,
     initialAmount: fromDecimal(row.initialAmount),
+    initialTaxAmount,
+    initialAmountTtc,
     revisedAmount: fromDecimal(row.revisedAmount),
+    revisedTaxAmount,
+    revisedAmountTtc,
     forecastAmount: fromDecimal(row.forecastAmount),
+    forecastTaxAmount,
+    forecastAmountTtc,
     committedAmount: fromDecimal(row.committedAmount),
+    committedTaxAmount,
+    committedAmountTtc,
     consumedAmount: fromDecimal(row.consumedAmount),
+    consumedTaxAmount,
+    consumedAmountTtc,
     remainingAmount: fromDecimal(row.remainingAmount),
+    remainingTaxAmount,
+    remainingAmountTtc,
     generalLedgerAccountId: row.generalLedgerAccountId ?? null,
     generalLedgerAccountCode: row.generalLedgerAccount?.code ?? '',
     generalLedgerAccountName: row.generalLedgerAccount?.name ?? '',

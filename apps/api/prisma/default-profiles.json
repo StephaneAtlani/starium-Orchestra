@@ -2,7 +2,7 @@
   {
     "name": "Directeur",
     "description": "Visualisation budget et reporting (lecture seule)",
-    "permissionCodes": ["budgets.read"]
+    "permissionCodes": ["budgets.read", "projects.read"]
   },
   {
     "name": "Responsable Budgets",
@@ -11,6 +11,9 @@
       "budgets.read",
       "budgets.create",
       "budgets.update",
+      "procurement.read",
+      "procurement.create",
+      "procurement.update",
       "budgets.cost-centers.read",
       "budgets.cost-centers.create",
       "budgets.cost-centers.update",
@@ -28,9 +31,32 @@
     "permissionCodes": [
       "budgets.read",
       "budgets.create",
+      "procurement.read",
+      "procurement.create",
       "budgets.cost-centers.read",
       "budgets.general-ledger-accounts.read",
       "budgets.analytical-ledger-accounts.read"
+    ]
+  },
+  {
+    "name": "Chef de projet",
+    "description": "Pilotage complet du portefeuille projets (CRUD, tâches, risques, jalons)",
+    "permissionCodes": [
+      "projects.read",
+      "projects.create",
+      "projects.update",
+      "projects.delete"
+    ]
+  },
+  {
+    "name": "Gestionnaire Procurement",
+    "description": "Gestion fournisseurs/commandes/factures avec lecture budget",
+    "permissionCodes": [
+      "budgets.read",
+      "procurement.read",
+      "procurement.create",
+      "procurement.update",
+      "projects.read"
     ]
   }
 ]

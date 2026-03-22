@@ -12,6 +12,18 @@ import type {
 
 const ORPHAN_LINES_NODE_ID = '__orphan_lines__';
 
+function sumAllKnownOrNull(values: Array<number | null | undefined>): number | null {
+  if (values.length === 0) return 0;
+  for (const v of values) {
+    if (v == null) return null;
+  }
+  let sum = 0;
+  for (const v of values) {
+    sum += v as number;
+  }
+  return sum;
+}
+
 function bySortOrderThenName(a: { sortOrder: number | null; name: string }, b: typeof a): number {
   const sa = a.sortOrder ?? 0;
   const sb = b.sortOrder ?? 0;
@@ -39,9 +51,13 @@ function lineToNode(line: BudgetLine, depth: number, sortOrder: number): Explore
     expenseType: line.expenseType,
     status: line.status,
     revisedAmount: line.revisedAmount ?? 0,
+    revisedAmountTtc: line.revisedAmountTtc ?? null,
     committedAmount: line.committedAmount ?? 0,
+    committedAmountTtc: line.committedAmountTtc ?? null,
     consumedAmount: line.consumedAmount ?? 0,
+    consumedAmountTtc: line.consumedAmountTtc ?? null,
     remainingAmount: line.remainingAmount ?? 0,
+    remainingAmountTtc: line.remainingAmountTtc ?? null,
     currency: line.currency,
     children: [],
   };
@@ -111,6 +127,28 @@ export function buildBudgetTree(
     const capexAmount = directLines
       .filter((l) => l.expenseType === 'CAPEX')
       .reduce((s, l) => s + (l.revisedAmount ?? 0), 0);
+    const totalRevisedTtc = sumAllKnownOrNull(
+      directLines.map((l) => l.revisedAmountTtc ?? null),
+    );
+    const totalCommittedTtc = sumAllKnownOrNull(
+      directLines.map((l) => l.committedAmountTtc ?? null),
+    );
+    const totalConsumedTtc = sumAllKnownOrNull(
+      directLines.map((l) => l.consumedAmountTtc ?? null),
+    );
+    const totalRemainingTtc = sumAllKnownOrNull(
+      directLines.map((l) => l.remainingAmountTtc ?? null),
+    );
+    const opexAmountTtc = sumAllKnownOrNull(
+      directLines
+        .filter((l) => l.expenseType === 'OPEX')
+        .map((l) => l.revisedAmountTtc ?? null),
+    );
+    const capexAmountTtc = sumAllKnownOrNull(
+      directLines
+        .filter((l) => l.expenseType === 'CAPEX')
+        .map((l) => l.revisedAmountTtc ?? null),
+    );
     const percentOfBudget =
       totalBudgetRevised === 0 ? 0 : (totalRevised / totalBudgetRevised) * 100;
 
@@ -123,13 +161,20 @@ export function buildBudgetTree(
       name: env.name,
       code: env.code,
       envelopeType: env.type,
+      status: env.status,
       lineCount: directLines.length,
       totalRevised,
       totalCommitted,
       totalConsumed,
       totalRemaining,
+      totalRevisedTtc,
+      totalCommittedTtc,
+      totalConsumedTtc,
+      totalRemainingTtc,
       opexAmount,
       capexAmount,
+      opexAmountTtc,
+      capexAmountTtc,
       percentOfBudget,
       children: childNodes,
     };
@@ -152,6 +197,28 @@ export function buildBudgetTree(
     const capexAmount = orphanLines
       .filter((l) => l.expenseType === 'CAPEX')
       .reduce((s, l) => s + (l.revisedAmount ?? 0), 0);
+    const totalRevisedTtc = sumAllKnownOrNull(
+      orphanLines.map((l) => l.revisedAmountTtc ?? null),
+    );
+    const totalCommittedTtc = sumAllKnownOrNull(
+      orphanLines.map((l) => l.committedAmountTtc ?? null),
+    );
+    const totalConsumedTtc = sumAllKnownOrNull(
+      orphanLines.map((l) => l.consumedAmountTtc ?? null),
+    );
+    const totalRemainingTtc = sumAllKnownOrNull(
+      orphanLines.map((l) => l.remainingAmountTtc ?? null),
+    );
+    const opexAmountTtc = sumAllKnownOrNull(
+      orphanLines
+        .filter((l) => l.expenseType === 'OPEX')
+        .map((l) => l.revisedAmountTtc ?? null),
+    );
+    const capexAmountTtc = sumAllKnownOrNull(
+      orphanLines
+        .filter((l) => l.expenseType === 'CAPEX')
+        .map((l) => l.revisedAmountTtc ?? null),
+    );
     const percentOfBudget =
       totalBudgetRevised === 0 ? 0 : (totalRevised / totalBudgetRevised) * 100;
 
@@ -164,13 +231,20 @@ export function buildBudgetTree(
       name: 'Lignes sans enveloppe',
       code: null,
       envelopeType: 'TRANSVERSE',
+      status: 'DRAFT',
       lineCount: orphanLineNodes.length,
       totalRevised,
       totalCommitted,
       totalConsumed,
       totalRemaining,
+      totalRevisedTtc,
+      totalCommittedTtc,
+      totalConsumedTtc,
+      totalRemainingTtc,
       opexAmount,
       capexAmount,
+      opexAmountTtc,
+      capexAmountTtc,
       percentOfBudget,
       children: orphanLineNodes,
     });

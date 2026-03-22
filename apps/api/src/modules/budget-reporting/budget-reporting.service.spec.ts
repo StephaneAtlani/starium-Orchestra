@@ -13,6 +13,7 @@ describe('BudgetReportingService', () => {
       count: jest.Mock;
     };
     budgetLine: { findMany: jest.Mock; count: jest.Mock };
+    client: { findUnique: jest.Mock };
   };
 
   const clientId = 'client-A';
@@ -27,6 +28,7 @@ describe('BudgetReportingService', () => {
         count: jest.fn(),
       },
       budgetLine: { findMany: jest.fn(), count: jest.fn() },
+      client: { findUnique: jest.fn() },
     };
     service = new BudgetReportingService(prisma as unknown as PrismaService);
   });
@@ -69,6 +71,8 @@ describe('BudgetReportingService', () => {
         { currency: 'USD', initialAmount: 0, revisedAmount: 50, forecastAmount: 0, committedAmount: 0, consumedAmount: 0, remainingAmount: 50 },
       ]);
       prisma.budgetEnvelope.count.mockResolvedValue(1);
+      prisma.client.findUnique.mockResolvedValue({ defaultTaxRate: null });
+      prisma.budget.findMany.mockResolvedValue([{ id: 'b1', defaultTaxRate: null }]);
       await expect(
         service.getExerciseSummary(clientId, 'ex-1'),
       ).rejects.toThrow(BadRequestException);

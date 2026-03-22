@@ -1,0 +1,41 @@
+import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
+
+export const projectQueryKeys = {
+  all: ['projects'] as const,
+  summary: (clientId: string) => [...projectQueryKeys.all, 'summary', clientId] as const,
+  assignableUsers: (clientId: string) =>
+    [...projectQueryKeys.all, 'assignable-users', clientId] as const,
+  list: (clientId: string, params: ProjectsListFilters | Record<string, unknown>) =>
+    [...projectQueryKeys.all, 'list', clientId, params] as const,
+  detail: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'detail', clientId, projectId] as const,
+  sheet: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'sheet', clientId, projectId] as const,
+  tasks: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'tasks', clientId, projectId] as const,
+  risks: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'risks', clientId, projectId] as const,
+  milestones: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'milestones', clientId, projectId] as const,
+  gantt: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'gantt', clientId, projectId] as const,
+  budgetLinks: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'budget-links', clientId, projectId] as const,
+  teamRoles: (clientId: string) =>
+    [...projectQueryKeys.all, 'team-roles', clientId] as const,
+  team: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'team', clientId, projectId] as const,
+  sheetDecisionSnapshots: (
+    clientId: string,
+    projectId: string,
+    params: { limit: number; offset: number },
+  ) =>
+    [...projectQueryKeys.all, 'project', projectId, 'sheet-decision-snapshots', clientId, params] as const,
+  sheetDecisionSnapshot: (clientId: string, projectId: string, snapshotId: string) =>
+    [...projectQueryKeys.all, 'project', projectId, 'sheet-decision-snapshot', snapshotId, clientId] as const,
+  /** RFC-PROJ-013 */
+  reviews: (clientId: string, projectId: string) =>
+    ['project', projectId, 'reviews', clientId] as const,
+  review: (clientId: string, projectId: string, reviewId: string) =>
+    ['project', projectId, 'review', reviewId, clientId] as const,
+};

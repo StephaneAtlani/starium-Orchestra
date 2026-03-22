@@ -36,45 +36,53 @@ export class BudgetLineCalculatorService {
       }),
       client.financialEvent.findMany({
         where: { budgetLineId, clientId },
-        select: { eventType: true, amount: true },
+        select: { eventType: true, amountHt: true },
       }),
     ]);
 
-    const revisedAmount = Number(line.revisedAmount);
+    const zero = new Prisma.Decimal(0);
+
+    const revisedAmount = line.revisedAmount;
     const reallocationDelta = events
       .filter((e) => e.eventType === FinancialEventType.REALLOCATION_DONE)
-      .reduce((sum, e) => sum + Number(e.amount), 0);
-    const effectiveBudgetBase = revisedAmount + reallocationDelta;
+      .reduce((sum, e) => sum.plus(e.amountHt), zero);
+    const effectiveBudgetBase = revisedAmount.plus(reallocationDelta);
 
     const forecastAmount = allocations
       .filter((a) => a.allocationType === AllocationType.FORECAST)
-      .reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
+      .reduce((sum, a) => sum.plus(a.allocatedAmount), zero);
 
     const committedAlloc = allocations
       .filter((a) => a.allocationType === AllocationType.COMMITTED)
-      .reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
+      .reduce((sum, a) => sum.plus(a.allocatedAmount), zero);
     const committedEvents = events
-      .filter((e) => e.eventType === FinancialEventType.COMMITMENT_REGISTERED)
-      .reduce((sum, e) => sum + Number(e.amount), 0);
-    const committedAmount = committedAlloc + committedEvents;
+      .filter(
+        (e) => e.eventType === FinancialEventType.COMMITMENT_REGISTERED,
+      )
+      .reduce((sum, e) => sum.plus(e.amountHt), zero);
+    const committedAmount = committedAlloc.plus(committedEvents);
 
     const consumedAlloc = allocations
       .filter((a) => a.allocationType === AllocationType.CONSUMED)
-      .reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
+      .reduce((sum, a) => sum.plus(a.allocatedAmount), zero);
     const consumedEvents = events
-      .filter((e) => e.eventType === FinancialEventType.CONSUMPTION_REGISTERED)
-      .reduce((sum, e) => sum + Number(e.amount), 0);
-    const consumedAmount = consumedAlloc + consumedEvents;
+      .filter(
+        (e) => e.eventType === FinancialEventType.CONSUMPTION_REGISTERED,
+      )
+      .reduce((sum, e) => sum.plus(e.amountHt), zero);
+    const consumedAmount = consumedAlloc.plus(consumedEvents);
 
-    const remainingAmount = effectiveBudgetBase - committedAmount - consumedAmount;
+    const remainingAmount = effectiveBudgetBase
+      .minus(committedAmount)
+      .minus(consumedAmount);
 
     await client.budgetLine.update({
       where: { id: budgetLineId },
       data: {
-        forecastAmount: new Prisma.Decimal(forecastAmount),
-        committedAmount: new Prisma.Decimal(committedAmount),
-        consumedAmount: new Prisma.Decimal(consumedAmount),
-        remainingAmount: new Prisma.Decimal(remainingAmount),
+        forecastAmount: forecastAmount.toDecimalPlaces(2),
+        committedAmount: committedAmount.toDecimalPlaces(2),
+        consumedAmount: consumedAmount.toDecimalPlaces(2),
+        remainingAmount: remainingAmount.toDecimalPlaces(2),
       },
     });
   }

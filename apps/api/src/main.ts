@@ -22,8 +22,9 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  const port = process.env.PORT ?? 3001;
-  await app.listen(port);
+  const port = Number(process.env.PORT ?? 3001);
+  // Docker / réseau bridge : écouter explicitement sur toutes les interfaces (pas seulement 127.0.0.1).
+  await app.listen(port, '0.0.0.0');
 }
 
 bootstrap();

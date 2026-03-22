@@ -1,23 +1,33 @@
 import { Module } from '@nestjs/common';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
+import { ActiveClientGuard } from '../../common/guards/active-client.guard';
+import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { RolesModule } from '../roles/roles.module';
+import { ProjectsModule } from '../projects/projects.module';
 import { ClientsController } from './clients.controller';
 import { ClientMembershipService } from './client-membership.service';
 import { ClientsService } from './clients.service';
 import { ClientModulesController } from './client-modules.controller';
 import { ClientModulesService } from './client-modules.service';
+import { ClientTaxSettingsController } from './client-tax-settings.controller';
+import { ClientTaxSettingsService } from './client-tax-settings.service';
 
 @Module({
-  imports: [AuthModule, PrismaModule, AuditLogsModule, RolesModule],
-  controllers: [ClientsController, ClientModulesController],
+  imports: [AuthModule, PrismaModule, AuditLogsModule, RolesModule, ProjectsModule],
+  controllers: [ClientsController, ClientModulesController, ClientTaxSettingsController],
   providers: [
     ClientsService,
     ClientMembershipService,
     ClientModulesService,
     PlatformAdminGuard,
+    ClientTaxSettingsService,
+    ActiveClientGuard,
+    ModuleAccessGuard,
+    PermissionsGuard,
   ],
   exports: [ClientsService, ClientMembershipService, ClientModulesService],
 })

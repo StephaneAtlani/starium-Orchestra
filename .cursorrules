@@ -605,3 +605,5 @@ A task is done only if:
 6. Testability
 7. Clear API design
 8. Multi-client fractional CIO workflow
+
+Dans les inputs met les nom (value) et pas les id en affichage

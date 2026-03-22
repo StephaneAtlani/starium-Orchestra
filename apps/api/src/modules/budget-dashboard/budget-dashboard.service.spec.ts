@@ -31,8 +31,9 @@ const mockVersionSet = {
 function mockLine(overrides: Partial<{
   id: string;
   envelopeId: string;
-  envelope: { id: string; code: string; name: string };
+  envelope: { id: string; code: string; name: string; type: string };
   revisedAmount: number;
+  committedAmount: number;
   remainingAmount: number;
   consumedAmount: number;
   forecastAmount: number;
@@ -44,13 +45,14 @@ function mockLine(overrides: Partial<{
     id: 'line-1',
     envelopeId: 'env-1',
     revisedAmount: 1000,
+    committedAmount: 300,
     remainingAmount: 600,
     consumedAmount: 400,
     forecastAmount: 450,
     expenseType: 'OPEX',
     code: 'L1',
     name: 'Ligne 1',
-    envelope: { id: 'env-1', code: 'E1', name: 'Enveloppe 1' },
+    envelope: { id: 'env-1', code: 'E1', name: 'Enveloppe 1', type: 'RUN' },
     ...overrides,
   };
 }
@@ -64,6 +66,7 @@ describe('BudgetDashboardService', () => {
     budgetLine: { findMany: jest.Mock };
     financialAllocation: { findMany: jest.Mock };
     financialEvent: { findMany: jest.Mock };
+    client: { findUnique: jest.Mock };
   };
 
   beforeEach(() => {
@@ -74,6 +77,7 @@ describe('BudgetDashboardService', () => {
       budgetLine: { findMany: jest.fn() },
       financialAllocation: { findMany: jest.fn() },
       financialEvent: { findMany: jest.fn() },
+      client: { findUnique: jest.fn().mockResolvedValue({ defaultTaxRate: null }) },
     };
     service = new BudgetDashboardService(prisma as unknown as PrismaService);
   });
@@ -126,7 +130,10 @@ describe('BudgetDashboardService', () => {
       } as DashboardQueryDto);
 
       expect(result.budget.id).toBe(budgetId);
-      expect(prisma.budget.findFirst).not.toHaveBeenCalled();
+      expect(prisma.budget.findFirst).toHaveBeenCalledWith({
+        where: { id: budgetId, clientId },
+        select: { defaultTaxRate: true },
+      });
     });
 
     it('404 si aucun budget pour l’exercice', async () => {
@@ -191,19 +198,19 @@ describe('BudgetDashboardService', () => {
       prisma.budgetLine.findMany.mockResolvedValue([
         mockLine({
           envelopeId: 'e1',
-          envelope: { id: 'e1', code: 'E1', name: 'E1' },
+          envelope: { id: 'e1', code: 'E1', name: 'E1', type: 'RUN' },
           revisedAmount: 100,
           forecastAmount: 50,
         }),
         mockLine({
           envelopeId: 'e2',
-          envelope: { id: 'e2', code: 'E2', name: 'E2' },
+          envelope: { id: 'e2', code: 'E2', name: 'E2', type: 'RUN' },
           revisedAmount: 100,
           forecastAmount: 80,
         }),
         mockLine({
           envelopeId: 'e3',
-          envelope: { id: 'e3', code: 'E3', name: 'E3' },
+          envelope: { id: 'e3', code: 'E3', name: 'E3', type: 'RUN' },
           revisedAmount: 100,
           forecastAmount: 95,
         }),
@@ -264,6 +271,7 @@ describe('BudgetDashboardService', () => {
       } as DashboardQueryDto);
 
       expect(result.topBudgetLines).toBeUndefined();
+      expect(result.criticalBudgetLines).toBeUndefined();
     });
   });
 
@@ -275,7 +283,12 @@ describe('BudgetDashboardService', () => {
         mockLine({
           id: `line-${i}`,
           envelopeId: `env-${i}`,
-          envelope: { id: `env-${i}`, code: `E${i}`, name: `Env ${i}` },
+          envelope: {
+            id: `env-${i}`,
+            code: `E${i}`,
+            name: `Env ${i}`,
+            type: 'RUN',
+          },
         }),
       );
       prisma.budgetLine.findMany.mockResolvedValue(manyLines);
@@ -306,6 +319,129 @@ describe('BudgetDashboardService', () => {
       } as DashboardQueryDto);
 
       expect(result.topBudgetLines!.length).toBeLessThanOrEqual(10);
+    });
+  });
+
+  describe('runBuildDistribution et alertsSummary', () => {
+    it('agrège RUN / BUILD / TRANSVERSE sur revisedAmount', async () => {
+      prisma.budget.findFirst.mockResolvedValue(mockBudget);
+      prisma.budgetExercise.findFirst.mockResolvedValue(mockExercise);
+      prisma.budgetLine.findMany.mockResolvedValue([
+        mockLine({
+          revisedAmount: 100,
+          envelope: { id: 'a', code: 'A', name: 'A', type: 'RUN' },
+        }),
+        mockLine({
+          revisedAmount: 200,
+          envelope: { id: 'b', code: 'B', name: 'B', type: 'BUILD' },
+        }),
+        mockLine({
+          revisedAmount: 50,
+          envelope: { id: 'c', code: 'C', name: 'C', type: 'TRANSVERSE' },
+        }),
+      ]);
+      prisma.financialAllocation.findMany.mockResolvedValue([]);
+      prisma.financialEvent.findMany.mockResolvedValue([]);
+
+      const result = await service.getDashboard(clientId, {
+        budgetId,
+      } as DashboardQueryDto);
+
+      expect(result.runBuildDistribution).toEqual({
+        run: 100,
+        build: 200,
+        transverse: 50,
+      });
+    });
+
+    it('alertsSummary compte les lignes selon les règles', async () => {
+      prisma.budget.findFirst.mockResolvedValue(mockBudget);
+      prisma.budgetExercise.findFirst.mockResolvedValue(mockExercise);
+      prisma.budgetLine.findMany.mockResolvedValue([
+        mockLine({
+          id: 'l1',
+          remainingAmount: -10,
+          revisedAmount: 100,
+          committedAmount: 50,
+          consumedAmount: 30,
+          forecastAmount: 40,
+        }),
+        mockLine({
+          id: 'l2',
+          remainingAmount: 20,
+          revisedAmount: 100,
+          committedAmount: 150,
+          consumedAmount: 50,
+          forecastAmount: 40,
+        }),
+        mockLine({
+          id: 'l3',
+          remainingAmount: 20,
+          revisedAmount: 100,
+          committedAmount: 50,
+          consumedAmount: 120,
+          forecastAmount: 40,
+        }),
+        mockLine({
+          id: 'l4',
+          remainingAmount: 20,
+          revisedAmount: 100,
+          committedAmount: 50,
+          consumedAmount: 30,
+          forecastAmount: 150,
+        }),
+      ]);
+      prisma.financialAllocation.findMany.mockResolvedValue([]);
+      prisma.financialEvent.findMany.mockResolvedValue([]);
+
+      const result = await service.getDashboard(clientId, {
+        budgetId,
+      } as DashboardQueryDto);
+
+      expect(result.alertsSummary.negativeRemaining).toBe(1);
+      expect(result.alertsSummary.overCommitted).toBe(1);
+      expect(result.alertsSummary.overConsumed).toBe(1);
+      expect(result.alertsSummary.forecastOverBudget).toBe(1);
+    });
+
+    it('criticalBudgetLines exclut les lignes OK', async () => {
+      prisma.budget.findFirst.mockResolvedValue(mockBudget);
+      prisma.budgetExercise.findFirst.mockResolvedValue(mockExercise);
+      prisma.budgetLine.findMany.mockResolvedValue([
+        mockLine({
+          id: 'ok',
+          name: 'OK',
+          revisedAmount: 1000,
+          committedAmount: 100,
+          consumedAmount: 50,
+          forecastAmount: 80,
+          remainingAmount: 900,
+        }),
+        mockLine({
+          id: 'crit',
+          name: 'Crit',
+          revisedAmount: 100,
+          committedAmount: 50,
+          consumedAmount: 30,
+          forecastAmount: 150,
+          remainingAmount: 70,
+        }),
+      ]);
+      prisma.financialAllocation.findMany.mockResolvedValue([]);
+      prisma.financialEvent.findMany.mockResolvedValue([]);
+
+      const result = await service.getDashboard(clientId, {
+        budgetId,
+        includeLines: true,
+      } as DashboardQueryDto);
+
+      expect(result.criticalBudgetLines!.some((l) => l.lineId === 'ok')).toBe(
+        false,
+      );
+      expect(result.criticalBudgetLines!.some((l) => l.lineId === 'crit')).toBe(
+        true,
+      );
+      expect(result.criticalBudgetLines![0].lineRiskLevel).toBe('CRITICAL');
     });
   });
 });

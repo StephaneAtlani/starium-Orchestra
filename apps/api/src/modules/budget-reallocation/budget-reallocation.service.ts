@@ -152,6 +152,11 @@ export class BudgetReallocationService {
           sourceType: FinancialSourceType.MANUAL,
           sourceId: reallocation.id,
           eventType: FinancialEventType.REALLOCATION_DONE,
+          amountHt: new Prisma.Decimal(-dto.amount),
+          taxRate: null,
+          taxAmount: null,
+          amountTtc: null,
+          // Legacy : amount = amountHt
           amount: new Prisma.Decimal(-dto.amount),
           currency,
           eventDate: now,
@@ -166,6 +171,11 @@ export class BudgetReallocationService {
           sourceType: FinancialSourceType.MANUAL,
           sourceId: reallocation.id,
           eventType: FinancialEventType.REALLOCATION_DONE,
+          amountHt: new Prisma.Decimal(dto.amount),
+          taxRate: null,
+          taxAmount: null,
+          amountTtc: null,
+          // Legacy : amount = amountHt
           amount: new Prisma.Decimal(dto.amount),
           currency,
           eventDate: now,

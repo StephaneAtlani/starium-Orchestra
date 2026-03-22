@@ -123,6 +123,21 @@ export function BudgetEnvelopeForm({
             </select>
             {errors.type && <p className="text-sm text-destructive">{errors.type.message}</p>}
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="status">État *</Label>
+            <select
+              id="status"
+              className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              {...register('status')}
+              aria-invalid={!!errors.status}
+            >
+              <option value="DRAFT">Brouillon</option>
+              <option value="ACTIVE">Actif</option>
+              <option value="CLOSED">Clôturé</option>
+              <option value="ARCHIVED">Archivé</option>
+            </select>
+            {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
+          </div>
         </CardContent>
       </Card>
 

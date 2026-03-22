@@ -14,6 +14,10 @@ import { useRoles } from '../hooks/use-roles';
 import { useUserRoles } from '../hooks/use-user-roles';
 import { useUpdateUserRoles } from '../hooks/use-update-user-roles';
 import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { PERMISSIONS_QUERY_KEY } from '@/hooks/use-permissions';
+import { useAuth } from '@/context/auth-context';
 
 export interface UserRolesDialogProps {
   userId: string;
@@ -32,6 +36,9 @@ export function UserRolesDialog({
     isLoading: userRolesLoading,
     error: userRolesError,
   } = useUserRoles(open ? userId : undefined);
+  const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
+  const { activeClient } = useActiveClient();
   const updateUserRoles = useUpdateUserRoles(userId);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
 
@@ -58,6 +65,12 @@ export function UserRolesDialog({
       { roleIds: Array.from(selectedRoleIds) },
       {
         onSuccess: () => {
+          const cid = activeClient?.id;
+          if (cid && authUser?.id === userId) {
+            void queryClient.invalidateQueries({
+              queryKey: [...PERMISSIONS_QUERY_KEY, cid],
+            });
+          }
           onOpenChange(false);
         },
       },

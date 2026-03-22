@@ -9,11 +9,15 @@ import type {
   BudgetExercise,
   BudgetLine,
   ListBudgetEnvelopesQuery,
-  ListBudgetExercisesQuery,
   ListBudgetLinesQuery,
+  ListBudgetExercisesQuery,
   ListBudgetsQuery,
   PaginatedResponse,
 } from '../types/budget-management.types';
+import type {
+  BudgetEnvelopeDetail,
+  BudgetEnvelopeLineItem,
+} from '../types/budget-envelope-detail.types';
 
 export type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
@@ -44,30 +48,46 @@ async function handleResponse<T>(res: Response): Promise<T> {
  * Parse une réponse non ok en ApiFormError (contrat unique formulaires).
  */
 export async function parseApiFormError(res: Response): Promise<ApiFormError> {
-  let message = 'Impossible d\'enregistrer les modifications.';
+  const defaultMessage = 'Impossible d\'enregistrer les modifications.';
+  let message = defaultMessage;
   let fieldErrors: Record<string, string> | undefined;
-  try {
-    const body = (await res.json()) as {
-      message?: string | string[];
-      statusCode?: number;
-      errors?: Array<{ property?: string; message?: string }>;
-    };
-    if (Array.isArray(body.message)) {
-      message = body.message[0] ?? message;
-      if (body.errors?.length) {
-        fieldErrors = {};
-        for (const e of body.errors) {
-          if (e.property) fieldErrors[e.property] = e.message ?? '';
-        }
-      }
-    } else if (typeof body.message === 'string') {
-      message = body.message;
-    }
+
+  const text = await res.text();
+  if (!text.trim()) {
     if (res.status === 403) message = 'Vous n\'avez pas les droits nécessaires.';
-    if (res.status === 404) message = 'L\'objet demandé est introuvable.';
-  } catch {
-    // keep default message
+    else if (res.status === 404) message = 'L\'objet demandé est introuvable.';
+    return { status: res.status, message, fieldErrors };
   }
+
+  let body: {
+    message?: string | string[];
+    statusCode?: number;
+    errors?: Array<{ property?: string; message?: string }>;
+  };
+  try {
+    body = JSON.parse(text) as typeof body;
+  } catch {
+    const snippet = text.replace(/\s+/g, ' ').trim().slice(0, 280);
+    return {
+      status: res.status,
+      message: snippet || defaultMessage,
+      fieldErrors,
+    };
+  }
+
+  if (Array.isArray(body.message)) {
+    message = body.message[0] ?? message;
+    if (body.errors?.length) {
+      fieldErrors = {};
+      for (const e of body.errors) {
+        if (e.property) fieldErrors[e.property] = e.message ?? '';
+      }
+    }
+  } else if (typeof body.message === 'string') {
+    message = body.message;
+  }
+  if (res.status === 403) message = 'Vous n\'avez pas les droits nécessaires.';
+  if (res.status === 404) message = 'L\'objet demandé est introuvable.';
   return { status: res.status, message, fieldErrors };
 }
 
@@ -121,6 +141,14 @@ export async function getEnvelope(authFetch: AuthFetch, id: string): Promise<Bud
   return handleResponse<BudgetEnvelope>(res);
 }
 
+export async function getBudgetEnvelopeDetail(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<BudgetEnvelopeDetail> {
+  const res = await authFetch(`${BASE_ENVELOPES}/${id}`);
+  return handleResponse<BudgetEnvelopeDetail>(res);
+}
+
 // ——— Lignes ———
 export async function listLines(
   authFetch: AuthFetch,
@@ -129,6 +157,27 @@ export async function listLines(
   const qs = buildQueryString(query as Record<string, string | number | boolean | undefined>);
   const res = await authFetch(`${BASE_LINES}${qs}`);
   return handleResponse<PaginatedResponse<BudgetLine>>(res);
+}
+
+export async function listEnvelopeLines(
+  authFetch: AuthFetch,
+  envelopeId: string,
+  params?: {
+    offset?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  },
+): Promise<PaginatedResponse<BudgetEnvelopeLineItem>> {
+  const qs = buildQueryString({
+    envelopeId,
+    offset: params?.offset,
+    limit: params?.limit,
+    search: params?.search?.trim() || undefined,
+    status: params?.status?.trim() || undefined,
+  });
+  const res = await authFetch(`${BASE_LINES}${qs}`);
+  return handleResponse<PaginatedResponse<BudgetEnvelopeLineItem>>(res);
 }
 
 export async function getLine(authFetch: AuthFetch, id: string): Promise<BudgetLine> {
@@ -189,6 +238,8 @@ export interface CreateBudgetPayload {
   currency: string;
   status?: string;
   ownerUserId?: string;
+  taxMode?: 'HT' | 'TTC';
+  defaultTaxRate?: string;
 }
 
 export interface UpdateBudgetPayload {
@@ -198,6 +249,8 @@ export interface UpdateBudgetPayload {
   currency?: string;
   status?: string;
   ownerUserId?: string;
+  taxMode?: 'HT' | 'TTC';
+  defaultTaxRate?: string;
 }
 
 export async function createBudget(
@@ -233,6 +286,7 @@ export interface CreateEnvelopePayload {
   code?: string;
   description?: string;
   type: string;
+  status?: string;
   parentId?: string;
   sortOrder?: number;
 }
@@ -242,6 +296,7 @@ export interface UpdateEnvelopePayload {
   code?: string;
   description?: string;
   type?: string;
+  status?: string;
   parentId?: string;
   sortOrder?: number;
 }

@@ -41,7 +41,7 @@
   --input: #E6E8EF;
   --ring: #6F4BB8;
 
-  --sidebar: #6F4BB8;
+  --sidebar: #4a2f7a;
   --sidebar-foreground: #FFFFFF;
   --sidebar-primary: #6F4BB8;
   --sidebar-primary-foreground: #FFFFFF;
@@ -56,11 +56,25 @@
 .starium-sidebar {
   width: 12rem;
   min-width: 12rem;
+  /* Colonne gauche : même fond du haut au bas (y compris scroll long) */
+  min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--sidebar);
+  /* Dégradé violet (marque) — étiré sur toute la hauteur de l’aside */
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: var(--sidebar-foreground);
+}
+/* Bandeau logo — pas de fond opaque : le dégradé parent reste visible */
+.starium-sidebar-header {
+  flex-shrink: 0;
+  background-color: transparent;
   color: var(--sidebar-foreground);
 }
 .starium-sidebar-nav {
-  background-color: var(--sidebar);
+  flex: 1 1 0%;
+  min-height: 0;
+  background-color: transparent;
   color: var(--sidebar-foreground);
 }
 .starium-sidebar-brand {
@@ -92,8 +106,30 @@
 }
 .starium-dropdown-panel {
   background-color: var(--starium-surface);
-  border: 1px solid var(--starium-border);
+  border: 1px solid transparent;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.06),
+    0 10px 24px -8px rgb(15 23 42 / 0.12);
   color: var(--starium-text);
+}
+/* Sous-menu latéral (ex. Budget) : même univers violet que la sidebar, sans fond/bordure gris. */
+.starium-dropdown-panel--sidebar {
+  background-color: var(--starium-sidebar-bg);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  color: #ffffff;
+}
+.starium-dropdown-panel--sidebar .starium-dropdown-link {
+  color: rgba(255, 255, 255, 0.92);
+}
+.starium-dropdown-panel--sidebar .starium-dropdown-link:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+.starium-dropdown-panel--sidebar .starium-dropdown-link-active {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-weight: 600;
 }
 .starium-dropdown-link {
   color: var(--starium-text);
@@ -159,6 +195,9 @@ body {
   --color-background: #F8F9FC;
   --color-foreground: #1B1B1B;
   --color-card: #FFFFFF;
+  /* Aligné sur :root --popover ; sans ça, bg-popover ne colore pas le panneau (Select, etc.). */
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #1B1B1B;
   --color-primary: #6F4BB8;
   --color-primary-foreground: #FFFFFF;
   --color-muted: #F3F4F8;

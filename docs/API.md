@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 (Client RBAC Administration).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 (Client RBAC Administration), RFC-PROJ-001 (module Projets MVP).
 
 ---
 
@@ -1312,6 +1312,8 @@ Liste les événements financiers du client actif.
 
 Crée un événement financier ; si le type est `COMMITMENT_REGISTERED` ou `CONSUMPTION_REGISTERED`, les montants de la ligne sont recalculés.
 
+Saisie fiscale strictement validée selon RFC FC-006 (HT/TVA/TTC explicites). Le champ legacy `amount` n’est pas utilisé comme source de vérité.
+
 **Body (JSON)**
 
 | Champ           | Type   | Obligatoire | Description |
@@ -1320,7 +1322,11 @@ Crée un événement financier ; si le type est `COMMITMENT_REGISTERED` ou `CONS
 | `sourceType`   | enum   | oui         | FinancialSourceType |
 | `sourceId`     | string | non         | Référence (optionnel pour MANUAL / types techniques) |
 | `eventType`    | enum   | oui         | FinancialEventType |
-| `amount`       | number | oui         | Montant ≥ 0 |
+| `amountHt`     | string (number) | optionnel | Montant HT (≥ 0). |
+| `amountTtc`    | string (number) | optionnel | Montant TTC (≥ 0). |
+| `taxRate`      | string (number) | optionnel | TVA % (ex: `20.00`). |
+| `taxAmount`    | string (number) | optionnel | Montant TVA (≥ 0). |
+| `useDefaultTaxRate` | boolean | optionnel | Si `taxRate` n’est pas fourni, utiliser explicitement `Client.defaultTaxRate`. |
 | `currency`     | string | oui         | Devise |
 | `eventDate`    | string (ISO) | oui  | Date de l’événement |
 | `label`        | string | oui         | Libellé |
@@ -1498,7 +1504,9 @@ Liste paginée des lignes de l’enveloppe avec montants, ratios et indicateurs 
 
 ## 18.1 Budget Dashboard API — GET /api/budget-dashboard
 
-Référence : **RFC-022** (Budget Dashboard API). Module **budget-dashboard** : cockpit de pilotage budgétaire en **lecture seule**. Retourne une vue synthétique (KPI, répartition CAPEX/OPEX, tendance mensuelle, top enveloppes, enveloppes à risque, top lignes) pour alimenter le dashboard Finance. Données dérivées de BudgetLine, FinancialAllocation et FinancialEvent ; scopées par client actif.
+Référence : **RFC-022** (Budget Dashboard API). Module **budget-dashboard** : cockpit de pilotage budgétaire en **lecture seule**. Retourne une vue synthétique (KPI, RUN/BUILD/TRANSVERSE, compteurs d’alertes par ligne, répartition CAPEX/OPEX, tendance mensuelle, top enveloppes, enveloppes à risque, top lignes, lignes critiques) pour alimenter le dashboard Finance. Données dérivées de BudgetLine et FinancialEvent (tendance) ; scopées par client actif.
+
+**Frontend** : consommation par `GET /api/budget-dashboard`, page `/budgets/dashboard` — voir [docs/modules/budget-cockpit.md](modules/budget-cockpit.md) (KPI, tableaux, ouverture du panneau intelligence ligne sur les lignes `topBudgetLines` / `criticalBudgetLines`).
 
 ### Guards et headers
 
@@ -1518,7 +1526,7 @@ Retourne la vue globale du cockpit budgétaire pour un budget résolu (ou l’ex
 | `exerciseId`        | string  | ID de l’exercice. Si fourni avec `budgetId`, `budgetId` est prioritaire. |
 | `budgetId`          | string  | ID du budget. Si fourni, l’exercice est déduit du budget. |
 | `includeEnvelopes`  | boolean | Inclure `topEnvelopes` et `riskEnvelopes`. Défaut : true. En query, passer `true`/`false` (chaîne convertie en booléen). |
-| `includeLines`      | boolean | Inclure `topBudgetLines`. Défaut : true. |
+| `includeLines`      | boolean | Inclure `topBudgetLines` et `criticalBudgetLines`. Défaut : true. |
 
 **Résolution du budget**
 
@@ -1549,6 +1557,13 @@ Retourne la vue globale du cockpit budgétaire pour un budget résolu (ou l’ex
     "forecast": 0,
     "remaining": 0,
     "consumptionRate": 0
+  },
+  "runBuildDistribution": { "run": 0, "build": 0, "transverse": 0 },
+  "alertsSummary": {
+    "negativeRemaining": 0,
+    "overCommitted": 0,
+    "overConsumed": 0,
+    "forecastOverBudget": 0
   },
   "capexOpexDistribution": { "capex": 0, "opex": 0 },
   "monthlyTrend": [
@@ -1581,19 +1596,39 @@ Retourne la vue globale du cockpit budgétaire pour un budget résolu (ou l’ex
       "code": "string | null",
       "name": "string",
       "envelopeName": "string | null",
+      "revisedAmount": 0,
+      "committed": 0,
       "consumed": 0,
       "forecast": 0,
-      "remaining": 0
+      "remaining": 0,
+      "lineRiskLevel": "OK | WARNING | CRITICAL"
+    }
+  ],
+  "criticalBudgetLines": [
+    {
+      "lineId": "string",
+      "code": "string | null",
+      "name": "string",
+      "envelopeName": "string | null",
+      "revisedAmount": 0,
+      "committed": 0,
+      "consumed": 0,
+      "forecast": 0,
+      "remaining": 0,
+      "lineRiskLevel": "WARNING | CRITICAL"
     }
   ]
 }
 ```
 
 - `topEnvelopes` et `riskEnvelopes` sont **absents** si `includeEnvelopes=false`.
-- `topBudgetLines` est **absent** si `includeLines=false`.
-- KPI : `totalBudget` = SUM(BudgetLine.revisedAmount), `remaining` = SUM(BudgetLine.remainingAmount), committed/consumed/forecast = agrégats FinancialAllocation, `consumptionRate` = consumed / totalBudget (0 si totalBudget = 0).
-- Risk : `riskRatio` = forecast / budgetAmount par enveloppe ; LOW &lt; 0,70, MEDIUM 0,70–0,90, HIGH &gt; 0,90.
-- Top enveloppes et top lignes : tri par consommé décroissant, au plus 10 éléments chacun.
+- `topBudgetLines` et `criticalBudgetLines` sont **absents** si `includeLines=false`.
+- KPI : `totalBudget` = SUM(BudgetLine.revisedAmount), `remaining` = SUM(BudgetLine.remainingAmount), committed/consumed/forecast = SUM des montants sur BudgetLine, `consumptionRate` = consumed / totalBudget (0 si totalBudget = 0).
+- `runBuildDistribution` : sommes de `revisedAmount` par `BudgetEnvelope.type` (RUN / BUILD / TRANSVERSE).
+- `alertsSummary` : nombre de lignes vérifiant respectivement `remaining < 0`, `committed > revisedAmount`, `consumed > revisedAmount`, `forecast > revisedAmount`.
+- `lineRiskLevel` (ligne) : CRITICAL si reste négatif, consommé ou forecast au-dessus du révisé ; WARNING si engagé au-dessus du révisé sans condition CRITICAL ; sinon OK.
+- Risk (enveloppe) : `riskRatio` = forecast / budgetAmount par enveloppe ; LOW &lt; 0,70, MEDIUM 0,70–0,90, HIGH &gt; 0,90.
+- Top enveloppes et top lignes : tri par consommé décroissant, au plus 10 éléments chacun. `criticalBudgetLines` : lignes non OK, tri gravité puis consommation, au plus 10.
 
 **Erreurs :** 401, 403, 404 (exercice ou budget introuvable dans le scope client).
 
@@ -1754,3 +1789,92 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 - **GET /api/budgets/:id/compare?targetBudgetId=...** — Comparaison entre deux versions du même set. Query requise : `targetBudgetId`. Réponse : `sourceBudgetId`, `targetBudgetId`, `lines` (diff par code de ligne : source, target, delta des montants). Permission `budgets.read`.
 
 **Erreurs :** 400 (budget déjà versionné, pas le même set pour compare, archivage baseline unique, etc.), 401, 403, 404.
+
+---
+
+## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|gantt|activities|risks|milestones|budget-links|project-sheet|reviews`
+
+Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload Gantt backend — pas d’UI Gantt au MVP), **RFC-PROJ-012** (fiche décisionnelle), **RFC-PROJ-013** (points projet COPIL/COPRO), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+
+### Guards et headers
+
+- **Headers** : `Authorization: Bearer <accessToken>`, `X-Client-Id` (client actif)
+- **Guards** : JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard
+- **Module** : code `projects` (activation par client)
+
+### Projets — `/api/projects`
+
+- **GET /api/projects** — Liste **paginée et enrichie** (pilotage calculé côté serveur : `derivedProgressPercent`, `computedHealth`, `signals`, `warnings`, compteurs).  
+  Query : `page`, `limit`, `search`, `status`, `priority`, `criticality`, `sortBy` (`name` \| `targetEndDate` \| `status` \| `priority` \| `criticality` \| `computedHealth` \| `progressPercent`), `sortOrder` (`asc` \| `desc`), `atRiskOnly` (booléen).  
+  Réponse : `{ items, total, page, limit }`. Permission **`projects.read`**.
+- **GET /api/projects/portfolio-summary** — KPI agrégés sur **tous** les projets du client actif (sans pagination liste). Permission **`projects.read`**.
+- **GET /api/projects/assignable-users** — Membres **actifs** du client (id, email, nom) pour désigner un responsable projet sans exiger le rôle client admin. Permission **`projects.read`**.
+- **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, `ownerUserId`, etc.). Permission **`projects.create`**.
+- **GET /api/projects/:id** — Détail enrichi (même enrichissement pilotage que la liste + champs étendus description, notes, etc.). Permission **`projects.read`**.
+- **PATCH /api/projects/:id** — Mise à jour partielle. Permission **`projects.update`**.
+- **DELETE /api/projects/:id** — Suppression. Permission **`projects.delete`**.
+
+### Fiche projet décisionnelle (RFC-PROJ-012) — `/api/projects/:id/project-sheet`
+
+- **GET /api/projects/:id/project-sheet** — Fiche enrichie (scores, ROI, priorité, cadrage, SWOT/TOWS, arbitrage multi-niveaux, etc.). Isolation **client actif**. Permission **`projects.read`**.
+- **PATCH /api/projects/:id/project-sheet** — Mise à jour partielle (`UpdateProjectSheetDto`) : champs fiche, dont `type` / `status` projet, arbitrage à trois niveaux (`ProjectArbitrationLevelStatus` : notamment `BROUILLON`, `EN_COURS`, `SOUMIS_VALIDATION`, `VALIDE`, `REFUSE`) et motifs de refus si refus ; recalcul serveur de ROI / `priorityScore` selon règles du service. Audit **`project.sheet.updated`** si diff. Permission **`projects.update`**.
+- **POST /api/projects/:id/arbitration** — Mise à jour du statut d’arbitrage **legacy** (`ProjectArbitrationStatus`). Audits **`project.arbitration.validated`** / **`project.arbitration.rejected`** selon cas. Permission **`projects.update`**.
+
+### Points projet (RFC-PROJ-013) — `/api/projects/:projectId/reviews`
+
+Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne suffit pas à cibler une ressource.
+
+- **GET /api/projects/:projectId/reviews** — Liste des points (tri par `reviewDate` desc, `createdAt` desc). Items **sans** `snapshotPayload` (charge allégée). **`projects.read`**
+- **POST /api/projects/:projectId/reviews** — Création en brouillon (`ProjectReviewType`, `reviewDate`, `title`, `executiveSummary`, `contentPayload` optionnel, participants, etc.). **`projects.update`**
+- **GET /api/projects/:projectId/reviews/:reviewId** — Détail. `snapshotPayload` **toujours présent** dans le JSON : `null` si `status !== FINALIZED`, objet figé si finalisé. **`projects.read`**
+- **PATCH /api/projects/:projectId/reviews/:reviewId** — Mise à jour **uniquement** en statut brouillon. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/finalize** — Finalisation : snapshot serveur en transaction, statut `FINALIZED`. Audits **`project.review.finalized`**. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation depuis brouillon. Audit **`project.review.cancelled`**. **`projects.update`**
+
+Audits complémentaires : **`project.review.created`**, **`project.review.updated`**.
+
+### Tâches — `/api/projects/:projectId/tasks` (RFC-PROJ-011)
+
+Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord jalons / revues / activités). Listes paginées : réponse `{ items, total, limit, offset }` (query filtres selon implémentation : statut, parent, dates, etc.).
+
+- **GET** — Liste paginée des tâches du projet. **`projects.read`**
+- **POST** — Création. **`projects.update`** (mutation du périmètre projet)
+- **GET /api/projects/:projectId/tasks/:id** — Détail d’une tâche. **`projects.read`**
+- **PATCH /api/projects/:projectId/tasks/:id** — **`projects.update`**
+
+### Gantt-ready — `/api/projects/:projectId/gantt` (RFC-PROJ-011)
+
+- **GET** — Agrégat **tâches + jalons** pour un affichage type diagramme de Gantt côté client (les **activités** ne font pas partie de ce payload). **`projects.read`**
+
+### Activités — `/api/projects/:projectId/activities` (RFC-PROJ-011)
+
+`ProjectActivity` : `projectId` obligatoire (MVP), dérivée d’une tâche source ; hors payload `/gantt`.
+
+- **GET** — Liste paginée `{ items, total, limit, offset }`. **`projects.read`**
+- **POST** — Création. **`projects.update`**
+- **GET /api/projects/:projectId/activities/:id** — Détail. **`projects.read`**
+- **PATCH /api/projects/:projectId/activities/:id** — **`projects.update`**
+
+### Risques — `/api/projects/:projectId/risks`
+
+- **GET** — Liste. **`projects.read`**
+- **POST** — **`projects.update`**
+- **PATCH /api/projects/:projectId/risks/:id** — **`projects.update`**
+- **DELETE /api/projects/:projectId/risks/:id** — **`projects.update`**
+
+### Jalons — `/api/projects/:projectId/milestones`
+
+- **GET** — Liste paginée `{ items, total, limit, offset }` (RFC-PROJ-011). **`projects.read`**
+- **POST** — **`projects.update`**
+- **PATCH /api/projects/:projectId/milestones/:id** — **`projects.update`**
+- **DELETE /api/projects/:projectId/milestones/:id** — **`projects.update`**
+
+### Liens projet ↔ ligne budgétaire (RFC-PROJ-010) — module Nest `project-budget`
+
+- **GET /api/projects/:projectId/budget-links** — Liste paginée des liens (`query` : `limit` défaut 20 max 100, `offset`). Réponse `{ items, total, limit, offset }`. **`projects.read`**
+- **POST /api/projects/:projectId/budget-links** — Création d’un lien (`budgetLineId`, `allocationType` : `FULL` \| `PERCENTAGE` \| `FIXED`, champs optionnels `percentage` / `amount` selon le mode). **`projects.update`**
+- **DELETE /api/project-budget-links/:id** — Suppression (204 si OK). **`projects.update`**
+
+**Erreurs :** 400 (invariant allocation, DTO), 409 (budget/exercice fermé, ligne non ACTIVE, doublon `(projectId, budgetLineId)`, suppression laissant un résidu incohérent), 404 (hors scope client).
+
+**Erreurs courantes (reste du module projets) :** 401, 403 (module inactif ou permission manquante), 404 (projet ou sous-ressource hors périmètre client), 409 (ex. code projet déjà utilisé).

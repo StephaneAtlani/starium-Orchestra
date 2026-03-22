@@ -23,15 +23,18 @@ Le catalogue est défini dans **`apps/api/prisma/default-profiles.json`**. Chaqu
 
 | Profil | Description | Permissions principales |
 |--------|-------------|--------------------------|
-| **Directeur** | Visualisation budget et reporting (lecture seule) | `budgets.read` |
-| **Responsable Budgets** | Pilotage complet des budgets | `budgets.read`, `budgets.create`, `budgets.update` + cost-centers, general-ledger-accounts, analytical-ledger-accounts (read/create/update) |
-| **Contributeur Budgets** | Saisie et consultation | `budgets.read`, `budgets.create` + lecture des référentiels (cost-centers, general-ledger-accounts, analytical-ledger-accounts) |
+| **Directeur** | Visualisation budget et reporting (lecture seule) | `budgets.read`, `projects.read` |
+| **Responsable Budgets** | Pilotage complet des budgets | `budgets.*`, procurement, `projects.*`, référentiels budgétaires (voir JSON) |
+| **Contributeur Budgets** | Saisie et consultation | `budgets.read/create`, procurement lecture & création, `projects.read/create`, référentiels en lecture |
+| **Chef de projet** | Portefeuille et fiches projets (cockpit) | `projects.read`, `projects.create`, `projects.update`, `projects.delete` |
+| **Gestionnaire Procurement** | Fournisseurs / commandes / factures | `budgets.read`, `procurement.*`, `projects.read` |
 
 Détail des permissions par profil :
 
 - **Directeur** : dashboard budgets, listes exercices/budgets/enveloppes/lignes, reporting, historique versions (tout en GET). Aucune création ni modification.
 - **Responsable Budgets** : tout ce qui précède + création/modification des budgets, lignes, enveloppes, réallocations, versions, imports, et gestion des centres de coûts, plans comptables et comptes analytiques.
 - **Contributeur Budgets** : lecture complète + création de budgets/lignes/enveloppes ; pas de modification des référentiels ni de réallocations/versions.
+- **Chef de projet** : accès complet au module Projets (liste cockpit, création, modification, suppression) ; pas de permission budgets ni procurement par défaut.
 
 ---
 

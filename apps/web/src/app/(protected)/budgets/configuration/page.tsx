@@ -4,7 +4,12 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Calendar, FileSpreadsheet } from 'lucide-react';
 
-export default function BudgetsConfigurationPage() {
+export default async function BudgetsConfigurationPage({
+  params,
+}: {
+  params: Promise<Record<string, string | string[]>>;
+}) {
+  await params;
   return (
     <PageContainer>
       <PageHeader

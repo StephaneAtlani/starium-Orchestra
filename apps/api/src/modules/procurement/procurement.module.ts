@@ -1,0 +1,27 @@
+import { Module } from '@nestjs/common';
+import { PrismaModule } from '../../prisma/prisma.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { FinancialCoreModule } from '../financial-core/financial-core.module';
+import { SuppliersController } from './suppliers/suppliers.controller';
+import { SuppliersService } from './suppliers/suppliers.service';
+import { PurchaseOrdersController } from './purchase-orders/purchase-orders.controller';
+import { PurchaseOrdersService } from './purchase-orders/purchase-orders.service';
+import { InvoicesController } from './invoices/invoices.controller';
+import { InvoicesService } from './invoices/invoices.service';
+import { BudgetLinesProcurementController } from './budget-lines-procurement.controller';
+import { SuppliersProcurementController } from './suppliers-procurement.controller';
+
+@Module({
+  imports: [PrismaModule, AuditLogsModule, FinancialCoreModule],
+  controllers: [
+    SuppliersController,
+    PurchaseOrdersController,
+    InvoicesController,
+    BudgetLinesProcurementController,
+    SuppliersProcurementController,
+  ],
+  providers: [SuppliersService, PurchaseOrdersService, InvoicesService],
+  exports: [SuppliersService, PurchaseOrdersService, InvoicesService],
+})
+export class ProcurementModule {}
+

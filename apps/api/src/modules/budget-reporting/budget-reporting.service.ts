@@ -3,9 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
 import { aggregateLinesToKpi, lineToReportItem, groupLinesByEnvelopeType } from './mappers/kpi.mapper';
+import { TaxCalculator } from '../financial-core/helpers/tax-calculator';
 import type { LineAmountsInput } from './types/budget-reporting.types';
 import type {
   BudgetSummaryKpi,
@@ -35,6 +37,108 @@ function toLineAmounts(row: {
     committedAmount: fromDecimal(row.committedAmount as Parameters<typeof fromDecimal>[0]),
     consumedAmount: fromDecimal(row.consumedAmount as Parameters<typeof fromDecimal>[0]),
     remainingAmount: fromDecimal(row.remainingAmount as Parameters<typeof fromDecimal>[0]),
+  };
+}
+
+type BudgetLineForTtc = {
+  budgetId: string;
+  taxRate: Prisma.Decimal | null;
+  initialAmount: Prisma.Decimal;
+  revisedAmount: Prisma.Decimal;
+  forecastAmount: Prisma.Decimal;
+  committedAmount: Prisma.Decimal;
+  consumedAmount: Prisma.Decimal;
+  remainingAmount: Prisma.Decimal;
+};
+
+function computeTtcTotalsOrNull(params: {
+  lines: BudgetLineForTtc[];
+  clientDefaultTaxRate: Prisma.Decimal | null;
+  budgetDefaultTaxRateByBudgetId: Map<string, Prisma.Decimal | null>;
+}): {
+  totalInitialAmountTtc: number | null;
+  totalRevisedAmountTtc: number | null;
+  totalForecastAmountTtc: number | null;
+  totalCommittedAmountTtc: number | null;
+  totalConsumedAmountTtc: number | null;
+  totalRemainingAmountTtc: number | null;
+} {
+  const {
+    lines,
+    clientDefaultTaxRate,
+    budgetDefaultTaxRateByBudgetId,
+  } = params;
+
+  let totalInitialAmountTtc = 0;
+  let totalRevisedAmountTtc = 0;
+  let totalForecastAmountTtc = 0;
+  let totalCommittedAmountTtc = 0;
+  let totalConsumedAmountTtc = 0;
+  let totalRemainingAmountTtc = 0;
+
+  for (const line of lines) {
+    const effectiveTaxRate =
+      line.taxRate ??
+      budgetDefaultTaxRateByBudgetId.get(line.budgetId) ??
+      clientDefaultTaxRate ??
+      null;
+
+    if (effectiveTaxRate == null) {
+      return {
+        totalInitialAmountTtc: null,
+        totalRevisedAmountTtc: null,
+        totalForecastAmountTtc: null,
+        totalCommittedAmountTtc: null,
+        totalConsumedAmountTtc: null,
+        totalRemainingAmountTtc: null,
+      };
+    }
+
+    totalInitialAmountTtc += fromDecimal(
+      TaxCalculator.fromHtAndTaxRate({
+        amountHt: line.initialAmount,
+        taxRate: effectiveTaxRate,
+      }).amountTtc,
+    );
+    totalRevisedAmountTtc += fromDecimal(
+      TaxCalculator.fromHtAndTaxRate({
+        amountHt: line.revisedAmount,
+        taxRate: effectiveTaxRate,
+      }).amountTtc,
+    );
+    totalForecastAmountTtc += fromDecimal(
+      TaxCalculator.fromHtAndTaxRate({
+        amountHt: line.forecastAmount,
+        taxRate: effectiveTaxRate,
+      }).amountTtc,
+    );
+    totalCommittedAmountTtc += fromDecimal(
+      TaxCalculator.fromHtAndTaxRate({
+        amountHt: line.committedAmount,
+        taxRate: effectiveTaxRate,
+      }).amountTtc,
+    );
+    totalConsumedAmountTtc += fromDecimal(
+      TaxCalculator.fromHtAndTaxRate({
+        amountHt: line.consumedAmount,
+        taxRate: effectiveTaxRate,
+      }).amountTtc,
+    );
+    totalRemainingAmountTtc += fromDecimal(
+      TaxCalculator.fromHtAndTaxRate({
+        amountHt: line.remainingAmount,
+        taxRate: effectiveTaxRate,
+      }).amountTtc,
+    );
+  }
+
+  return {
+    totalInitialAmountTtc,
+    totalRevisedAmountTtc,
+    totalForecastAmountTtc,
+    totalCommittedAmountTtc,
+    totalConsumedAmountTtc,
+    totalRemainingAmountTtc,
   };
 }
 
@@ -125,13 +229,48 @@ export class BudgetReportingService {
         envelopeCount,
       });
     }
+    const [clientTax, budgetsDefaults] = await Promise.all([
+      this.prisma.client.findUnique({
+        where: { id: clientId },
+        select: { defaultTaxRate: true },
+      }),
+      this.prisma.budget.findMany({
+        where: { clientId, id: { in: budgetIds } },
+        select: { id: true, defaultTaxRate: true },
+      }),
+    ]);
+
+    const clientDefaultTaxRate = clientTax?.defaultTaxRate ?? null;
+    const budgetDefaultTaxRateByBudgetId = new Map(
+      budgetsDefaults.map((b) => [b.id, b.defaultTaxRate]),
+    );
+
     const currencies = lines.map((l) => l.currency);
     assertSingleCurrency(currencies, lines.length);
     const amounts = lines.map((l) => toLineAmounts(l));
-    return aggregateLinesToKpi(amounts, lines[0].currency, {
+    const kpi = aggregateLinesToKpi(amounts, lines[0].currency, {
       budgetCount: budgetIds.length,
       envelopeCount,
     });
+
+    const linesForTtc: BudgetLineForTtc[] = lines.map((l) => ({
+      budgetId: l.budgetId,
+      taxRate: l.taxRate,
+      initialAmount: l.initialAmount,
+      revisedAmount: l.revisedAmount,
+      forecastAmount: l.forecastAmount,
+      committedAmount: l.committedAmount,
+      consumedAmount: l.consumedAmount,
+      remainingAmount: l.remainingAmount,
+    }));
+
+    const ttcTotals = computeTtcTotalsOrNull({
+      lines: linesForTtc,
+      clientDefaultTaxRate,
+      budgetDefaultTaxRateByBudgetId,
+    });
+
+    return { ...kpi, ...ttcTotals };
   }
 
   async getBudgetSummary(
@@ -156,12 +295,40 @@ export class BudgetReportingService {
       });
       return kpi;
     }
+    const clientTax = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { defaultTaxRate: true },
+    });
+    const clientDefaultTaxRate = clientTax?.defaultTaxRate ?? null;
+    const budgetDefaultTaxRateByBudgetId = new Map([
+      [budget.id, budget.defaultTaxRate],
+    ]);
+
     const currencies = lines.map((l) => l.currency);
     assertSingleCurrency(currencies, lines.length);
     const amounts = lines.map((l) => toLineAmounts(l));
-    return aggregateLinesToKpi(amounts, lines[0].currency, {
+    const kpi = aggregateLinesToKpi(amounts, lines[0].currency, {
       envelopeCount,
     });
+
+    const linesForTtc: BudgetLineForTtc[] = lines.map((l) => ({
+      budgetId: l.budgetId,
+      taxRate: l.taxRate,
+      initialAmount: l.initialAmount,
+      revisedAmount: l.revisedAmount,
+      forecastAmount: l.forecastAmount,
+      committedAmount: l.committedAmount,
+      consumedAmount: l.consumedAmount,
+      remainingAmount: l.remainingAmount,
+    }));
+
+    const ttcTotals = computeTtcTotalsOrNull({
+      lines: linesForTtc,
+      clientDefaultTaxRate,
+      budgetDefaultTaxRateByBudgetId,
+    });
+
+    return { ...kpi, ...ttcTotals };
   }
 
   async getEnvelopeSummary(
@@ -171,7 +338,7 @@ export class BudgetReportingService {
   ): Promise<BudgetSummaryKpi> {
     const envelope = await this.prisma.budgetEnvelope.findFirst({
       where: { id: envelopeId, clientId },
-      include: { budget: { select: { currency: true } } },
+      include: { budget: { select: { currency: true, defaultTaxRate: true } } },
     });
     if (!envelope) {
       throw new NotFoundException('Budget envelope not found');
@@ -195,7 +362,35 @@ export class BudgetReportingService {
     const currencies = lines.map((l) => l.currency);
     assertSingleCurrency(currencies, lines.length);
     const amounts = lines.map((l) => toLineAmounts(l));
-    return aggregateLinesToKpi(amounts, lines[0].currency);
+    const kpi = aggregateLinesToKpi(amounts, lines[0].currency);
+
+    const clientTax = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { defaultTaxRate: true },
+    });
+    const clientDefaultTaxRate = clientTax?.defaultTaxRate ?? null;
+    const budgetDefaultTaxRateByBudgetId = new Map([
+      [envelope.budgetId, envelope.budget?.defaultTaxRate ?? null],
+    ]);
+
+    const linesForTtc: BudgetLineForTtc[] = lines.map((l) => ({
+      budgetId: l.budgetId,
+      taxRate: l.taxRate,
+      initialAmount: l.initialAmount,
+      revisedAmount: l.revisedAmount,
+      forecastAmount: l.forecastAmount,
+      committedAmount: l.committedAmount,
+      consumedAmount: l.consumedAmount,
+      remainingAmount: l.remainingAmount,
+    }));
+
+    const ttcTotals = computeTtcTotalsOrNull({
+      lines: linesForTtc,
+      clientDefaultTaxRate,
+      budgetDefaultTaxRateByBudgetId,
+    });
+
+    return { ...kpi, ...ttcTotals };
   }
 
   async listBudgetsForExercise(
@@ -241,6 +436,14 @@ export class BudgetReportingService {
         offset,
       };
     }
+    const clientTax = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { defaultTaxRate: true },
+    });
+    const clientDefaultTaxRate = clientTax?.defaultTaxRate ?? null;
+    const budgetDefaultTaxRateByBudgetId = new Map(
+      budgets.map((b) => [b.id, b.defaultTaxRate]),
+    );
     const [allLines, allEnvelopes] = await Promise.all([
       this.prisma.budgetLine.findMany({
         where: { clientId, budgetId: { in: budgetIds } },
@@ -276,6 +479,32 @@ export class BudgetReportingService {
       const amounts = lines.map((l) => toLineAmounts(l));
       const envelopeCount = envelopeCountByBudget.get(budget.id) ?? 0;
       const kpi = aggregateLinesToKpi(amounts, currency, { envelopeCount });
+
+      const ttcTotals =
+        lines.length === 0
+          ? {
+              totalInitialAmountTtc: null,
+              totalRevisedAmountTtc: null,
+              totalForecastAmountTtc: null,
+              totalCommittedAmountTtc: null,
+              totalConsumedAmountTtc: null,
+              totalRemainingAmountTtc: null,
+            }
+          : computeTtcTotalsOrNull({
+              lines: lines.map((l) => ({
+                budgetId: l.budgetId,
+                taxRate: l.taxRate,
+                initialAmount: l.initialAmount,
+                revisedAmount: l.revisedAmount,
+                forecastAmount: l.forecastAmount,
+                committedAmount: l.committedAmount,
+                consumedAmount: l.consumedAmount,
+                remainingAmount: l.remainingAmount,
+              })),
+              clientDefaultTaxRate,
+              budgetDefaultTaxRateByBudgetId,
+            });
+
       return {
         id: budget.id,
         clientId: budget.clientId,
@@ -285,7 +514,7 @@ export class BudgetReportingService {
         description: budget.description,
         currency: budget.currency,
         status: budget.status,
-        kpi,
+        kpi: { ...kpi, ...ttcTotals },
       };
     });
     return { items, total, limit, offset };
@@ -302,6 +531,14 @@ export class BudgetReportingService {
     if (!budget) {
       throw new NotFoundException('Budget not found');
     }
+    const clientTax = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { defaultTaxRate: true },
+    });
+    const clientDefaultTaxRate = clientTax?.defaultTaxRate ?? null;
+    const budgetDefaultTaxRateByBudgetId = new Map([
+      [budget.id, budget.defaultTaxRate],
+    ]);
     const allEnvelopes = await this.prisma.budgetEnvelope.findMany({
       where: { clientId, budgetId },
       orderBy: { sortOrder: 'asc', createdAt: 'asc' },
@@ -352,6 +589,32 @@ export class BudgetReportingService {
       }
       const amounts = envelopeLines.map((l) => toLineAmounts(l));
       const kpi = aggregateLinesToKpi(amounts, currency);
+
+      const ttcTotals =
+        envelopeLines.length === 0
+          ? {
+              totalInitialAmountTtc: null,
+              totalRevisedAmountTtc: null,
+              totalForecastAmountTtc: null,
+              totalCommittedAmountTtc: null,
+              totalConsumedAmountTtc: null,
+              totalRemainingAmountTtc: null,
+            }
+          : computeTtcTotalsOrNull({
+              lines: envelopeLines.map((l) => ({
+                budgetId: l.budgetId,
+                taxRate: l.taxRate,
+                initialAmount: l.initialAmount,
+                revisedAmount: l.revisedAmount,
+                forecastAmount: l.forecastAmount,
+                committedAmount: l.committedAmount,
+                consumedAmount: l.consumedAmount,
+                remainingAmount: l.remainingAmount,
+              })),
+              clientDefaultTaxRate,
+              budgetDefaultTaxRateByBudgetId,
+            });
+
       return {
         id: envelope.id,
         clientId: envelope.clientId,
@@ -362,7 +625,7 @@ export class BudgetReportingService {
         type: envelope.type,
         description: envelope.description,
         sortOrder: envelope.sortOrder,
-        kpi,
+        kpi: { ...kpi, ...ttcTotals },
       };
     });
     return { items, total, limit, offset };

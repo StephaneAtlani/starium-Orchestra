@@ -20,6 +20,9 @@ import { BudgetImportModule } from './modules/budget-import/budget-import.module
 import { BudgetVersioningModule } from './modules/budget-versioning/budget-versioning.module';
 import { BudgetDashboardModule } from './modules/budget-dashboard/budget-dashboard.module';
 import { SecurityLogsModule } from './modules/security-logs/security-logs.module';
+import { ProcurementModule } from './modules/procurement/procurement.module';
+import { ProjectsModule } from './modules/projects/projects.module';
+import { ProjectBudgetModule } from './modules/project-budget/project-budget.module';
 
 @Module({
   imports: [
@@ -48,6 +51,9 @@ import { SecurityLogsModule } from './modules/security-logs/security-logs.module
     BudgetVersioningModule,
     BudgetDashboardModule,
     SecurityLogsModule,
+    ProcurementModule,
+    ProjectsModule,
+    ProjectBudgetModule,
   ],
 })
 export class AppModule {}

@@ -4,17 +4,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetStatus } from '@prisma/client';
+import { BudgetStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
   CreateAuditLogInput,
 } from '../../audit-logs/audit-logs.service';
 import { generateEnvelopeCode } from '../helpers/code-generator.helper';
+import { fromDecimal } from '../helpers/decimal.helper';
 import { AuditContext, ListResult } from '../types/audit-context';
 import { CreateBudgetEnvelopeDto } from './dto/create-budget-envelope.dto';
 import { ListBudgetEnvelopesQueryDto } from './dto/list-budget-envelopes.query.dto';
 import { UpdateBudgetEnvelopeDto } from './dto/update-budget-envelope.dto';
+import type { BudgetEnvelopeDetailResponseDto } from './dto/budget-envelope-detail-response.dto';
 
 @Injectable()
 export class BudgetEnvelopesService {
@@ -62,14 +64,77 @@ export class BudgetEnvelopesService {
   async getById(
     clientId: string,
     id: string,
-  ): Promise<EnvelopeWithNumbers> {
+  ): Promise<BudgetEnvelopeDetailResponseDto> {
+    // #region agent log
+    // Diagnostic temporaire pour comprendre les 404 sur GET /api/budget-envelopes/:id
+    console.log('[BudgetEnvelopesService.getById] called', {
+      clientId,
+      id,
+    });
+    // #endregion agent log
+
     const envelope = await this.prisma.budgetEnvelope.findFirst({
       where: { id, clientId },
+      include: { budget: true },
     });
     if (!envelope) {
+      // #region agent log
+      console.log('[BudgetEnvelopesService.getById] envelope not found', {
+        clientId,
+        id,
+      });
+      // #endregion agent log
       throw new NotFoundException('Budget envelope not found');
     }
-    return toResponse(envelope);
+
+    // #region agent log
+    console.log('[BudgetEnvelopesService.getById] envelope found', {
+      clientId,
+      id,
+      budgetId: envelope.budgetId,
+    });
+    // #endregion agent log
+
+    const sums = await this.prisma.budgetLine.aggregate({
+      where: {
+        clientId,
+        envelopeId: id,
+      },
+      _sum: {
+        initialAmount: true,
+        revisedAmount: true,
+        forecastAmount: true,
+        committedAmount: true,
+        consumedAmount: true,
+        remainingAmount: true,
+      },
+    });
+
+    const sum = sums._sum as {
+      initialAmount: Prisma.Decimal | null;
+      revisedAmount: Prisma.Decimal | null;
+      forecastAmount: Prisma.Decimal | null;
+      committedAmount: Prisma.Decimal | null;
+      consumedAmount: Prisma.Decimal | null;
+      remainingAmount: Prisma.Decimal | null;
+    };
+
+    return {
+      id: envelope.id,
+      budgetId: envelope.budgetId,
+      budgetName: envelope.budget.name,
+      code: envelope.code,
+      name: envelope.name,
+      description: envelope.description ?? null,
+      status: envelope.status,
+      currency: envelope.budget.currency,
+      initialAmount: fromDecimal(sum.initialAmount),
+      revisedAmount: fromDecimal(sum.revisedAmount),
+      forecastAmount: fromDecimal(sum.forecastAmount),
+      committedAmount: fromDecimal(sum.committedAmount),
+      consumedAmount: fromDecimal(sum.consumedAmount),
+      remainingAmount: fromDecimal(sum.remainingAmount),
+    };
   }
 
   async create(
@@ -148,6 +213,7 @@ export class BudgetEnvelopesService {
         description: dto.description ?? null,
         parentId: dto.parentId ?? null,
         sortOrder: dto.sortOrder ?? 0,
+        status: dto.status ?? BudgetStatus.DRAFT,
       },
     });
 
@@ -249,6 +315,7 @@ export class BudgetEnvelopesService {
         ...(dto.code != null && { code: dto.code }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.type != null && { type: dto.type }),
+        ...(dto.status != null && { status: dto.status }),
         ...(dto.parentId !== undefined && {
           parentId: dto.parentId || null,
         }),

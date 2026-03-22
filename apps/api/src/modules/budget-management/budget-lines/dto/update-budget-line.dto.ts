@@ -55,6 +55,11 @@ export class UpdateBudgetLineDto {
   revisedAmount?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  taxRate?: number;
+
+  @IsOptional()
   @IsString()
   @MaxLength(8)
   currency?: string;

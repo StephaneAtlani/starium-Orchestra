@@ -54,6 +54,8 @@ interface BudgetLineFormProps {
   /** true quand la requête enveloppes a réussi (évite d’afficher l’alerte pendant le chargement ou si la query est désactivée). */
   envelopeOptionsSuccess?: boolean;
   generalLedgerOptions: GeneralLedgerAccountOption[];
+  /** Interprétation côté backend des montants saisis (conversion TTC -> HT si besoin). */
+  budgetTaxMode?: 'HT' | 'TTC';
   /** Afficher l'icône calculette (planning) à côté des montants. */
   hasPlanning?: boolean;
   /** Callback pour ouvrir la calculette de planning. */
@@ -75,6 +77,7 @@ export function BudgetLineForm({
   envelopeOptionsLoading = false,
   envelopeOptionsSuccess = false,
   generalLedgerOptions,
+  budgetTaxMode = 'HT',
   hasPlanning = false,
   onOpenPlanning,
 }: BudgetLineFormProps) {
@@ -326,7 +329,9 @@ export function BudgetLineForm({
             <div className="space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="initialAmount">Montant initial *</Label>
+                  <Label htmlFor="initialAmount">
+                    {budgetTaxMode === 'TTC' ? 'Montant initial TTC *' : 'Montant initial HT *'}
+                  </Label>
                   {hasPlanning && (
                     <button
                       type="button"
@@ -350,8 +355,10 @@ export function BudgetLineForm({
                 {errors.initialAmount && <p className="text-sm text-destructive">{errors.initialAmount.message}</p>}
               </div>
               <div className="space-y-2">
-                <div className="flex items_center justify-between gap-2">
-                  <Label htmlFor="revisedAmount">Montant révisé</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="revisedAmount">
+                    {budgetTaxMode === 'TTC' ? 'Montant révisé TTC' : 'Montant révisé HT'}
+                  </Label>
                   {hasPlanning && (
                     <button
                       type="button"

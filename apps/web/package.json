@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "echo OK",
+    "test": "vitest run",
     "clean": "rm -rf .next node_modules/.cache"
   },
   "dependencies": {
@@ -36,6 +36,7 @@
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.0.0",
     "postcss": "^8.4.49",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "3.2.4"
   }
 }

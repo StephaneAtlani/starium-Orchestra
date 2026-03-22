@@ -12,6 +12,7 @@ import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { DefaultProfilesService } from '../roles/default-profiles.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { ProjectTeamService } from '../projects/project-team.service';
 
 /** Réponse client pour GET /clients (liste). */
 export interface ClientListItem {
@@ -38,6 +39,7 @@ export class ClientsService {
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly defaultProfiles: DefaultProfilesService,
+    private readonly projectTeam: ProjectTeamService,
   ) {}
 
   /**
@@ -80,6 +82,7 @@ export class ClientsService {
     });
 
     await this.defaultProfiles.applyForClient(client.id);
+    await this.projectTeam.seedDefaultRolesForClient(client.id);
 
     await this.logClientEvent('client.created', {
       clientId: client.id,

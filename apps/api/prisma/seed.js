@@ -63,6 +63,7 @@ async function upsertModulesAndPermissions() {
     { code: 'projects', name: 'Projets', description: 'Gestion des projets IT' },
     { code: 'contracts', name: 'Contrats', description: 'Gestion des contrats' },
     { code: 'suppliers', name: 'Fournisseurs', description: 'Gestion des fournisseurs' },
+    { code: 'procurement', name: 'Procurement', description: 'Fournisseurs, commandes, factures' },
     { code: 'licenses', name: 'Licences', description: 'Gestion des licences' },
     { code: 'audit_logs', name: 'Audit logs', description: 'Traçabilité des actions métier' },
   ];
@@ -72,6 +73,7 @@ async function upsertModulesAndPermissions() {
     projects: ['read', 'create', 'update', 'delete'],
     contracts: ['read', 'create', 'update', 'delete'],
     suppliers: ['read', 'create', 'update', 'delete'],
+    procurement: ['read', 'create', 'update'],
     licenses: ['read', 'create', 'update', 'delete'],
     audit_logs: ['read', 'export', 'delete'],
   };
@@ -226,6 +228,12 @@ async function upsertSitralAndClientAdmin() {
   const budgetModule = await prisma.module.findUnique({
     where: { code: 'budgets' },
   });
+  const procurementModule = await prisma.module.findUnique({
+    where: { code: 'procurement' },
+  });
+  const projectsModule = await prisma.module.findUnique({
+    where: { code: 'projects' },
+  });
   if (budgetModule) {
     await prisma.clientModule.upsert({
       where: {
@@ -235,6 +243,32 @@ async function upsertSitralAndClientAdmin() {
       create: {
         clientId: client.id,
         moduleId: budgetModule.id,
+        status: 'ENABLED',
+      },
+    });
+  }
+  if (procurementModule) {
+    await prisma.clientModule.upsert({
+      where: {
+        clientId_moduleId: { clientId: client.id, moduleId: procurementModule.id },
+      },
+      update: { status: 'ENABLED' },
+      create: {
+        clientId: client.id,
+        moduleId: procurementModule.id,
+        status: 'ENABLED',
+      },
+    });
+  }
+  if (projectsModule) {
+    await prisma.clientModule.upsert({
+      where: {
+        clientId_moduleId: { clientId: client.id, moduleId: projectsModule.id },
+      },
+      update: { status: 'ENABLED' },
+      create: {
+        clientId: client.id,
+        moduleId: projectsModule.id,
         status: 'ENABLED',
       },
     });
@@ -277,8 +311,40 @@ async function upsertSitralAndClientAdmin() {
   console.log(
     'Seed OK: client Sitral + admin',
     SITRAL_CLIENT_ADMIN.email,
-    '(CLIENT_ADMIN, module budgets activé).',
+    '(CLIENT_ADMIN, modules budgets + procurement + projects activés).',
   );
+}
+
+/**
+ * Attache l’admin Sitral au rôle « Responsable Budgets » (permissions métier dont projects.*).
+ */
+async function linkSitralAdminToResponsableRole() {
+  const client = await prisma.client.findUnique({
+    where: { slug: 'sitral' },
+  });
+  if (!client) return;
+  const user = await prisma.user.findUnique({
+    where: { email: SITRAL_CLIENT_ADMIN.email },
+  });
+  if (!user) return;
+  const role = await prisma.role.findFirst({
+    where: { clientId: client.id, name: 'Responsable Budgets' },
+  });
+  if (!role) {
+    console.log('Seed: rôle Responsable Budgets introuvable, skip UserRole admin Sitral.');
+    return;
+  }
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: { userId: user.id, roleId: role.id },
+    },
+    update: {},
+    create: {
+      userId: user.id,
+      roleId: role.id,
+    },
+  });
+  console.log('Seed OK: UserRole admin Sitral → Responsable Budgets.');
 }
 
 async function main() {
@@ -286,6 +352,7 @@ async function main() {
   await upsertModulesAndPermissions();
   await upsertSitralAndClientAdmin();
   await applyDefaultProfilesForAllClients();
+  await linkSitralAdminToResponsableRole();
 }
 
 main()

@@ -26,6 +26,11 @@ import { PencilIcon } from 'lucide-react';
 
 type ClientRole = 'CLIENT_ADMIN' | 'CLIENT_USER';
 
+const CLIENT_ROLE_LABEL: Record<ClientRole, string> = {
+  CLIENT_USER: 'Utilisateur client',
+  CLIENT_ADMIN: 'Administrateur client',
+};
+
 interface UserClientAssignment {
   clientId: string;
   role: ClientRole;
@@ -256,14 +261,16 @@ export function ManageUserClientsDialog({
                               size="sm"
                               className="w-full justify-between text-xs"
                             >
-                              <SelectValue placeholder="Choisir un rôle" />
+                              <SelectValue placeholder="Choisir un rôle">
+                                {CLIENT_ROLE_LABEL[current?.role ?? 'CLIENT_USER']}
+                              </SelectValue>
                             </SelectTrigger>
                             <SelectContent side="bottom" align="start">
                               <SelectItem value="CLIENT_USER">
-                                Client user
+                                {CLIENT_ROLE_LABEL.CLIENT_USER}
                               </SelectItem>
                               <SelectItem value="CLIENT_ADMIN">
-                                Client admin
+                                {CLIENT_ROLE_LABEL.CLIENT_ADMIN}
                               </SelectItem>
                             </SelectContent>
                           </Select>
