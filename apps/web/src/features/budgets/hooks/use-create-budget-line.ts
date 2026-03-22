@@ -6,8 +6,8 @@ import { toast } from 'sonner';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { budgetQueryKeys } from '../lib/budget-query-keys';
-import { createLine } from '../api/budget-management.api';
 import { budgetDetail } from '../constants/budget-routes';
+import { createLine } from '../api/budget-management.api';
 import type { BudgetLineFormValues } from '../schemas/budget-line-form.schema';
 import { lineFormToCreatePayload } from '../mappers/budget-form.mappers';
 import type { ApiFormError } from '../api/types';
@@ -29,9 +29,9 @@ export function useCreateBudgetLine(budgetId: string | null) {
       if (bid) {
         queryClient.invalidateQueries({ queryKey: budgetQueryKeys.budgetLinesByBudget(clientId, bid) });
         queryClient.invalidateQueries({ queryKey: budgetQueryKeys.budgetDetail(clientId, bid) });
+        router.push(budgetDetail(bid));
       }
       toast.success('Ligne créée.');
-      if (bid) router.push(budgetDetail(bid));
     },
     onError: (err: ApiFormError) => {
       throw err;

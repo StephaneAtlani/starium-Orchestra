@@ -58,14 +58,17 @@ function RoleActions({
         <Tooltip>
           <TooltipTrigger render={<span className="inline-block" />}>
             <Button
+              asChild
               variant="ghost"
               size="sm"
               disabled={!canDelete}
               onClick={() => onDelete(role.id)}
               className="text-destructive hover:text-destructive"
             >
-              <Trash2 className="size-4" />
-              <span className="sr-only">Supprimer</span>
+              <span>
+                <Trash2 className="size-4" />
+                <span className="sr-only">Supprimer</span>
+              </span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>{deleteTooltip}</TooltipContent>

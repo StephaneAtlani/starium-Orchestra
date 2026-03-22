@@ -48,6 +48,7 @@ export interface BudgetEnvelope {
   code: string | null;
   description: string | null;
   type: string;
+  status: string;
   parentId: string | null;
   sortOrder: number | null;
   createdAt: string;

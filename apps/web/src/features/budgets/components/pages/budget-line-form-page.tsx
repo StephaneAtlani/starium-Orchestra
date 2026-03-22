@@ -1,12 +1,13 @@
 'use client';
 
+import React, { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { BudgetPageHeader } from '../budget-page-header';
 import { BudgetEmptyState } from '../budget-empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { BudgetLineForm } from '../forms/budget-line-form';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { useQuery } from '@tanstack/react-query';
 import { getLine } from '../../api/budget-management.api';
 import { useBudgetEnvelopesAll } from '../../hooks/use-budget-envelopes';
 import { useBudgetDetail } from '../../hooks/use-budgets';
@@ -17,15 +18,25 @@ import { lineApiToForm } from '../../mappers/budget-form.mappers';
 import { budgetDetail } from '../../constants/budget-routes';
 import type { BudgetLineFormValues } from '../../schemas/budget-line-form.schema';
 import type { ApiFormError } from '../../api/types';
+// Ancienne zone de "planning détaillé" désactivée : la calculette rapide embarque désormais la logique principale.
 
 interface BudgetLineFormPageProps {
   mode: 'create' | 'edit';
   budgetId?: string;
   envelopeId?: string;
   lineId?: string;
+  variant?: 'page' | 'embedded';
+  onCloseEmbedded?: () => void;
 }
 
-export function BudgetLineFormPage({ mode, budgetId, envelopeId, lineId }: BudgetLineFormPageProps) {
+export function BudgetLineFormPage({
+  mode,
+  budgetId,
+  envelopeId,
+  lineId,
+  variant = 'page',
+  onCloseEmbedded,
+}: BudgetLineFormPageProps) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -53,30 +64,44 @@ export function BudgetLineFormPage({ mode, budgetId, envelopeId, lineId }: Budge
   const submitError: ApiFormError | null =
     (createMutation.error as ApiFormError) ?? (updateMutation.error as ApiFormError) ?? null;
 
+  // Ancien état du planning détaillé (grille + moteurs avancés) supprimé au profit de la calculette rapide.
+
   if (isEdit && isLoading) {
     return (
-      <>
-        <BudgetPageHeader title="Modifier la ligne" description="Chargement…" />
+      variant === 'page' ? (
+        <>
+          <BudgetPageHeader title="Modifier la ligne" description="Chargement…" />
+          <LoadingState rows={3} />
+        </>
+      ) : (
         <LoadingState rows={3} />
-      </>
+      )
     );
   }
 
   if (isEdit && (error || (!isLoading && !line))) {
     return (
-      <>
-        <BudgetPageHeader title="Modifier la ligne" />
+      variant === 'page' ? (
+        <>
+          <BudgetPageHeader title="Modifier la ligne" />
+          <BudgetEmptyState title="Aucune ligne à afficher" description="" />
+        </>
+      ) : (
         <BudgetEmptyState title="Aucune ligne à afficher" description="" />
-      </>
+      )
     );
   }
 
   if (!resolvedBudgetId) {
     return (
-      <>
-        <BudgetPageHeader title="Ligne" />
+      variant === 'page' ? (
+        <>
+          <BudgetPageHeader title="Ligne" />
+          <BudgetEmptyState title="Aucun budget à afficher" description="" />
+        </>
+      ) : (
         <BudgetEmptyState title="Aucun budget à afficher" description="" />
-      </>
+      )
     );
   }
 
@@ -95,27 +120,36 @@ export function BudgetLineFormPage({ mode, budgetId, envelopeId, lineId }: Budge
   const cancelHref = budgetDetail(resolvedBudgetId);
   const budgetLabel = budget?.name ?? resolvedBudgetId;
 
+  const effectiveLineId: string | null =
+    (isEdit ? lineId ?? line?.id : (createMutation.data as { id?: string } | undefined)?.id) ?? null;
+
   return (
     <>
-      <BudgetPageHeader
-        title={isEdit ? 'Modifier la ligne' : 'Nouvelle ligne budgétaire'}
-        description={isEdit && line ? line.name : 'Créez une ligne pour ce budget.'}
-      />
-      <BudgetLineForm
-        defaultValues={defaultValues}
-        onSubmit={handleSubmit}
-        isSubmitting={createMutation.isPending || updateMutation.isPending}
-        cancelHref={cancelHref}
-        submitError={submitError}
-        budgetId={resolvedBudgetId}
-        budgetLabel={budgetLabel}
-        isEdit={isEdit}
-        budgetTaxMode={budget?.taxMode ?? 'HT'}
-        envelopeOptions={envelopeOptions.map((e) => ({ id: e.id, name: e.name }))}
-        envelopeOptionsLoading={isEnvelopeOptionsLoading}
-        envelopeOptionsSuccess={isEnvelopeOptionsSuccess}
-        generalLedgerOptions={generalLedgerOptions}
-      />
+      {variant === 'page' && (
+        <BudgetPageHeader
+          title={isEdit ? 'Modifier la ligne' : 'Nouvelle ligne budgétaire'}
+          description={isEdit && line ? line.name : 'Créez une ligne pour ce budget.'}
+        />
+      )}
+      <div className="space-y-6">
+        <BudgetLineForm
+          defaultValues={defaultValues}
+          onSubmit={handleSubmit}
+          isSubmitting={createMutation.isPending || updateMutation.isPending}
+          cancelHref={variant === 'page' ? cancelHref : undefined}
+          onCancel={variant === 'embedded' ? onCloseEmbedded : undefined}
+          submitError={submitError}
+          budgetId={resolvedBudgetId}
+          budgetLabel={budgetLabel}
+          isEdit={isEdit}
+          budgetTaxMode={budget?.taxMode ?? 'HT'}
+          envelopeOptions={envelopeOptions.map((e) => ({ id: e.id, name: e.name }))}
+          envelopeOptionsLoading={isEnvelopeOptionsLoading}
+          envelopeOptionsSuccess={isEnvelopeOptionsSuccess}
+          generalLedgerOptions={generalLedgerOptions}
+          hasPlanning
+        />
+      </div>
     </>
   );
 }

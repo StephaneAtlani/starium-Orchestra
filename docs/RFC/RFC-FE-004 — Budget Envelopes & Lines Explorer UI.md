@@ -171,19 +171,20 @@ Budget
 
 Le tableau contient les colonnes suivantes.
 
-| Colonne     | Description              |
-| ----------- | ------------------------ |
-| Sous-budget | nom enveloppe            |
-| Responsable | owner                    |
-| Type        | RUN / BUILD              |
-| Budget      | montant total            |
-| % budget    | poids dans budget        |
-| Lignes      | nombre de lignes         |
-| OPEX        | dépenses opérationnelles |
-| CAPEX       | investissements          |
-| Engagé      | dépenses engagées        |
-| Consommé    | dépenses consommées      |
-| Solde       | budget restant           |
+| Colonne | Description                                      |
+| ------- | ------------------------------------------------ |
+| État    | statut de l’enveloppe ou de la ligne (badge UI) |
+| Sous-budget | nom enveloppe / nom ligne                   |
+| Responsable | owner                                        |
+| Type    | RUN / BUILD (enveloppe) ou OPEX/CAPEX (ligne)   |
+| Budget  | montant total                                   |
+| % budget | poids dans budget                              |
+| Lignes  | nombre de lignes                                |
+| OPEX    | dépenses opérationnelles                        |
+| CAPEX   | investissements                                 |
+| Engagé  | dépenses engagées                               |
+| Consommé | dépenses consommées                            |
+| Solde   | budget restant                                  |
 
 ---
 

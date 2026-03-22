@@ -90,6 +90,8 @@ model Client {
   projectReviewDecisions        ProjectReviewDecision[]
   projectReviewActionItems      ProjectReviewActionItem[]
   projectActivities             ProjectActivity[]
+  budgetLinePlanningMonths   BudgetLinePlanningMonth[]
+  budgetLinePlanningScenarios BudgetLinePlanningScenario[]
 }
 
 model User {
@@ -1093,11 +1095,21 @@ model BudgetEnvelope {
   @@index([clientId])
   @@index([budgetId])
   @@index([parentId])
+  @@index([status])
 }
 
 enum BudgetLineAllocationScope {
   ENTERPRISE
   ANALYTICAL
+}
+
+enum BudgetLinePlanningMode {
+  MANUAL
+  ANNUAL_SPREAD
+  QUARTERLY_SPREAD
+  ONE_SHOT
+  GROWTH
+  CALCULATED
 }
 
 model GeneralLedgerAccount {
@@ -1175,6 +1187,8 @@ model BudgetLine {
   generalLedgerAccountId   String?
   analyticalLedgerAccountId String?
   allocationScope          BudgetLineAllocationScope  @default(ENTERPRISE)
+  planningMode             BudgetLinePlanningMode?
+  planningTotalAmount      Decimal?                   @db.Decimal(18, 2)
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
   client                   Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -1192,12 +1206,45 @@ model BudgetLine {
   projectBudgetLinks        ProjectBudgetLink[]
   projectTasks              ProjectTask[]
   projectActivities         ProjectActivity[]
+  planningMonths            BudgetLinePlanningMonth[]
+  planningScenarios         BudgetLinePlanningScenario[]
 
   @@unique([clientId, budgetId, code])
   @@index([clientId])
   @@index([budgetId])
   @@index([envelopeId])
   @@index([status])
+}
+
+model BudgetLinePlanningMonth {
+  id           String   @id @default(cuid())
+  clientId     String
+  budgetLineId String
+  monthIndex   Int
+  amount       Decimal  @db.Decimal(18, 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client      Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  budgetLine  BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetLineId, monthIndex])
+  @@index([clientId, budgetLineId])
+}
+
+model BudgetLinePlanningScenario {
+  id           String                 @id @default(cuid())
+  clientId     String
+  budgetLineId String
+  mode         BudgetLinePlanningMode
+  inputJson    Json
+  createdById  String?
+  createdAt    DateTime               @default(now())
+
+  client      Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  budgetLine  BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, budgetLineId, createdAt])
 }
 
 model BudgetLineCostCenterSplit {

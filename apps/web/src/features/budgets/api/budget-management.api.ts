@@ -286,6 +286,7 @@ export interface CreateEnvelopePayload {
   code?: string;
   description?: string;
   type: string;
+  status?: string;
   parentId?: string;
   sortOrder?: number;
 }
@@ -295,6 +296,7 @@ export interface UpdateEnvelopePayload {
   code?: string;
   description?: string;
   type?: string;
+  status?: string;
   parentId?: string;
   sortOrder?: number;
 }
@@ -350,6 +352,7 @@ export interface UpdateLinePayload {
   analyticalLedgerAccountId?: string | null;
   revisedAmount?: number;
   currency?: string;
+  expenseType?: string;
 }
 
 export async function createLine(

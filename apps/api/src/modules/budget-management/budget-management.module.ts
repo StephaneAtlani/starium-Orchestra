@@ -9,6 +9,8 @@ import { BudgetEnvelopesController } from './budget-envelopes/budget-envelopes.c
 import { BudgetEnvelopesService } from './budget-envelopes/budget-envelopes.service';
 import { BudgetLinesController } from './budget-lines/budget-lines.controller';
 import { BudgetLinesService } from './budget-lines/budget-lines.service';
+import { BudgetLinePlanningController } from './budget-lines/budget-line-planning.controller';
+import { BudgetLinePlanningService } from './budget-lines/budget-line-planning.service';
 import { GeneralLedgerAccountsController } from './general-ledger-accounts/general-ledger-accounts.controller';
 import { GeneralLedgerAccountsService } from './general-ledger-accounts/general-ledger-accounts.service';
 import { AnalyticalLedgerAccountsController } from './analytical-ledger-accounts/analytical-ledger-accounts.controller';
@@ -23,6 +25,7 @@ import { CostCentersService } from './cost-centers/cost-centers.service';
     BudgetsController,
     BudgetEnvelopesController,
     BudgetLinesController,
+    BudgetLinePlanningController,
     GeneralLedgerAccountsController,
     AnalyticalLedgerAccountsController,
     CostCentersController,
@@ -32,6 +35,7 @@ import { CostCentersService } from './cost-centers/cost-centers.service';
     BudgetsService,
     BudgetEnvelopesService,
     BudgetLinesService,
+    BudgetLinePlanningService,
     GeneralLedgerAccountsService,
     AnalyticalLedgerAccountsService,
     CostCentersService,

@@ -1,5 +1,6 @@
 "use client"
 
+import type { ElementType } from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -44,21 +45,23 @@ const buttonVariants = cva(
 type ButtonProps = ButtonPrimitive.Props &
   VariantProps<typeof buttonVariants> & {
     /**
-     * Compat shadcn/Radix : ne pas transmettre au DOM (Base UI n’utilise pas `asChild`).
-     * Pour un lien stylé bouton : `Link` + `buttonVariants({ ... })`.
+     * Quand `true`, on rend un `span` avec les styles bouton (évite les `<button>` imbriqués).
+     * Compat shadcn : ne pas transmettre d’autres props invalides au DOM.
      */
-    asChild?: boolean;
-  };
+    asChild?: boolean
+  }
 
 function Button({
   className,
   variant = "default",
   size = "default",
-  asChild: _asChild,
+  asChild,
   ...props
 }: ButtonProps) {
+  const Comp: ElementType = asChild ? "span" : ButtonPrimitive
+
   return (
-    <ButtonPrimitive
+    <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}

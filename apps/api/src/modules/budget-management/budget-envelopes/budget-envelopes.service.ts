@@ -213,6 +213,7 @@ export class BudgetEnvelopesService {
         description: dto.description ?? null,
         parentId: dto.parentId ?? null,
         sortOrder: dto.sortOrder ?? 0,
+        status: dto.status ?? BudgetStatus.DRAFT,
       },
     });
 
@@ -314,6 +315,7 @@ export class BudgetEnvelopesService {
         ...(dto.code != null && { code: dto.code }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.type != null && { type: dto.type }),
+        ...(dto.status != null && { status: dto.status }),
         ...(dto.parentId !== undefined && {
           parentId: dto.parentId || null,
         }),

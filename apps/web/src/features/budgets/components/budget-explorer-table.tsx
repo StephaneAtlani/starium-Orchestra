@@ -18,6 +18,9 @@ interface BudgetExplorerTableProps {
   currency: string;
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
+  budgetId: string;
+  editableLineId?: string | null;
+  onToggleEditable?: (lineId: string | null) => void;
   onBudgetLineClick?: (lineId: string) => void;
   taxDisplayMode: TaxDisplayMode;
   budgetTaxMode: TaxDisplayMode;
@@ -35,6 +38,9 @@ export function BudgetExplorerTable({
   currency,
   expandedIds,
   onToggleExpand,
+  budgetId,
+  editableLineId,
+  onToggleEditable,
   onBudgetLineClick,
   taxDisplayMode,
   budgetTaxMode,
@@ -84,6 +90,9 @@ export function BudgetExplorerTable({
             expandedIds={expandedIds}
             onToggleExpand={onToggleExpand}
             currency={currency}
+            budgetId={budgetId}
+            editableLineId={editableLineId}
+            onToggleEditable={onToggleEditable}
             onBudgetLineClick={onBudgetLineClick}
             taxDisplayMode={taxDisplayMode}
             budgetTaxMode={budgetTaxMode}

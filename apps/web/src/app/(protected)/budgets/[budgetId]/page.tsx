@@ -66,6 +66,8 @@ export default function BudgetDetailPage() {
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const prevFiltersActiveRef = useRef(false);
+  const [editableLineId, setEditableLineId] = useState<string | null>(null);
+  const hasInitializedExpanded = useRef(false);
 
   const onBudgetLineClick = useCallback((lineId: string) => {
     setSelectedBudgetLineId(lineId);
@@ -110,6 +112,20 @@ export default function BudgetDetailPage() {
     }
     prevFiltersActiveRef.current = active;
   }, [filters, filteredTree]);
+
+  useEffect(() => {
+    if (tree.length > 0 && !hasInitializedExpanded.current) {
+      const rootEnvelopeIds = tree
+        .filter((n) => n.type === 'envelope')
+        .map((n) => n.id);
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of rootEnvelopeIds) next.add(id);
+        return next;
+      });
+      hasInitializedExpanded.current = true;
+    }
+  }, [tree]);
 
   if (isLoading) {
     return (
@@ -229,14 +245,6 @@ export default function BudgetDetailPage() {
                   Nouvelle enveloppe
                 </Link>
               </PermissionGate>
-              <PermissionGate permission="budgets.create">
-                <Link
-                  href={budgetLineNew(budgetId!)}
-                  className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
-                >
-                  Nouvelle ligne
-                </Link>
-              </PermissionGate>
             </div>
           }
         />
@@ -275,6 +283,9 @@ export default function BudgetDetailPage() {
                 currency={currency}
                 expandedIds={expandedIds}
                 onToggleExpand={onToggleExpand}
+                budgetId={budgetId!}
+                editableLineId={editableLineId}
+                onToggleEditable={setEditableLineId}
                 onBudgetLineClick={onBudgetLineClick}
                 taxDisplayMode={taxDisplayMode}
                 budgetTaxMode={budget.taxMode}

@@ -65,6 +65,9 @@ export const budgetQueryKeys = {
   budgetLineInvoices: (clientId: string, budgetLineId: string, filters?: object) =>
     ['budgets', clientId, 'budget-line-invoices', budgetLineId, filters] as const,
 
+  budgetLinePlanning: (clientId: string, lineId: string) =>
+    ['budgets', clientId, 'budget-line', lineId, 'planning'] as const,
+
   dashboard: (clientId: string, params?: object) =>
     ['budgets', clientId, 'dashboard', params] as const,
 
