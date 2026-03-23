@@ -60,7 +60,7 @@ services:
     environment:
       <<: *web-base-env
     ports:
-      - "3002:3002"
+      - "3000:3000"
     depends_on:
       - api
 
