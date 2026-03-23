@@ -15,6 +15,14 @@ x-api-base-env: &api-base-env
   JWT_ACCESS_EXPIRATION: 900
   JWT_REFRESH_EXPIRATION: 604800
 
+x-web-base-env: &web-base-env
+  DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
+  PORT: 3001
+  JWT_SECRET: "9f8d7s6f5d4s3f2d1s0f9d8s7f6d5s4f"
+  JWT_ACCESS_EXPIRATION: 900
+  JWT_REFRESH_EXPIRATION: 604800
+  NEXT_PUBLIC_API_URL: http://localhost:3001
+
 x-depends-postgres-healthy: &depends-postgres-healthy
   postgres:
     condition: service_healthy
@@ -50,7 +58,7 @@ services:
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
+      <<: *web-base-env
     ports:
       - "3002:3000"
     depends_on:
