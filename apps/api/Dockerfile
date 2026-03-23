@@ -1,14 +1,18 @@
-FROM node:20-alpine
+FROM node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
 WORKDIR /app
+
+FROM base AS builder
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build
 RUN pnpm --filter @starium-orchestra/api exec prisma generate
-# Forcer la création des node_modules du package api (résolution require() depuis dist/)
-WORKDIR /app/apps/api
-RUN pnpm install --frozen-lockfile || pnpm install
-# Vérifier que xlsx et csv-parse sont résolubles (évite MODULE_NOT_FOUND au runtime)
-RUN node -e "require('xlsx'); require('csv-parse/sync'); console.log('modules OK');"
+RUN pnpm --filter @starium-orchestra/api build
+
+FROM base AS runner
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=builder /app /app
+
 EXPOSE 3001
-CMD ["pnpm", "start:dev"]
+CMD ["node", "apps/api/dist/main.js"]
