@@ -51,6 +51,7 @@ import type {
   ProjectTeamMemberAffiliationApi,
   ProjectTeamMemberApi,
   ProjectTeamRoleApi,
+  ProjectTeamRoleSystemKind,
 } from '../types/project.types';
 
 const NONE = '__none__';
@@ -58,6 +59,12 @@ const NONE = '__none__';
 const AFFILIATION_LABEL: Record<ProjectTeamMemberAffiliationApi, string> = {
   INTERNAL: 'Interne',
   EXTERNAL: 'Externe',
+};
+
+/** Aligné sur `ProjectTeamRoleSystemKind` — une ligne par rôle système (sync sponsor / responsable). */
+const SYSTEM_ROLE_BADGE: Record<ProjectTeamRoleSystemKind, string> = {
+  SPONSOR: 'Sponsor — synchronisé portefeuille',
+  OWNER: 'Responsable projet — synchronisé portefeuille',
 };
 
 function formatUserLabel(m: ProjectAssignableUser): string {
@@ -111,7 +118,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
 
   const roles = rolesQuery.data ?? [];
   const members = teamQuery.data ?? [];
-  const assignable = assignableQuery.data ?? [];
+  const assignable = assignableQuery.data?.users ?? [];
   const byRole = useMemo(() => membersByRole(members), [members]);
 
   const invalidate = () => {
@@ -222,8 +229,11 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                 Composition de l&apos;équipe
               </CardTitle>
               <CardDescription className="text-xs leading-relaxed text-muted-foreground">
-                Rôles du client (Sponsor, Responsable, Métier, rôles personnalisés) et personnes
-                affectées. Les rôles système synchronisent le portefeuille (sponsor / responsable).
+                Chaque ligne est un <strong>rôle équipe</strong> du client. Les deux rôles{' '}
+                <strong>système</strong> (créés à la création du client) sont{' '}
+                <strong>Sponsor</strong> et <strong>Responsable de projet</strong> : repérez-les au
+                badge dédié — ils restent alignés sur les champs sponsor / responsable du
+                portefeuille. Les autres lignes sont des rôles métier ou personnalisés.
               </CardDescription>
             </div>
           </div>
@@ -292,8 +302,8 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                             {role.name}
                           </span>
                           {role.systemKind ? (
-                            <Badge variant="secondary" className="w-fit text-[10px] font-normal">
-                              Rôle système
+                            <Badge variant="secondary" className="w-fit max-w-full text-left text-[10px] font-normal leading-snug">
+                              {SYSTEM_ROLE_BADGE[role.systemKind]}
                             </Badge>
                           ) : null}
                         </div>

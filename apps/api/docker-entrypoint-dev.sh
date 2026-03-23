@@ -15,5 +15,9 @@ echo "[api-dev] prisma generate..."
 pnpm exec prisma generate
 echo "[api-dev] prisma db seed..."
 pnpm exec prisma db seed
+# dist/ persiste dans le conteneur entre restarts : sans ça, Nest peut servir un vieux
+# projects.service.js (ex. ownerFreeLabel dans project.create) alors que src/ est à jour.
+echo "[api-dev] rm -rf dist (rebuild propre depuis src monté)..."
+rm -rf dist
 echo "[api-dev] nest start --watch"
 exec pnpm run start:dev

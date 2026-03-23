@@ -152,23 +152,41 @@ export function ProjectCreateForm() {
   const [ownerUserId, setOwnerUserId] = useState('');
   const [ownerMode, setOwnerMode] = useState<OwnerAssignMode>('user');
   const [ownerDialogOpen, setOwnerDialogOpen] = useState(false);
+  const [ownerFreeLabel, setOwnerFreeLabel] = useState('');
+  const [ownerAffiliation, setOwnerAffiliation] = useState<'INTERNAL' | 'EXTERNAL'>('INTERNAL');
+  /** Sélection catalogue équipe (`identityKey`) ou saisie libre (`custom`). */
+  const [freePick, setFreePick] = useState<string>('');
 
   const {
-    data: members = [],
+    data: assignablePayload,
     isLoading: membersLoading,
     isError: membersError,
   } = useProjectAssignableUsers();
 
+  const members = assignablePayload?.users ?? [];
+  const freePersons = assignablePayload?.freePersons ?? [];
+
   const groupedMembers = useMemo(() => groupAssignableMembers(members), [members]);
 
   const ownerTriggerLabel = useMemo(() => {
-    if (ownerMode === 'free') return null;
+    if (ownerMode === 'free') {
+      const t = ownerFreeLabel.trim();
+      return t || null;
+    }
     if (!ownerUserId) return null;
     const m = members.find((x) => x.id === ownerUserId);
     return m ? formatAssignableUserLabel(m) : ownerUserId;
-  }, [ownerMode, ownerUserId, members]);
+  }, [ownerMode, ownerUserId, members, ownerFreeLabel]);
 
   const ownerSummaryLine = useMemo(() => {
+    if (ownerMode === 'free') {
+      const t = ownerFreeLabel.trim();
+      if (!t) {
+        return 'Personne nom libre — choisissez ou saisissez dans la modale.';
+      }
+      const aff = ownerAffiliation === 'EXTERNAL' ? 'Externe' : 'Interne';
+      return `${t} · ${aff} (nom libre)`;
+    }
     if (membersLoading) return 'Chargement des membres…';
     if (membersError) return 'Liste indisponible — vous pourrez définir le responsable plus tard.';
     if (ownerUserId) {
@@ -177,9 +195,6 @@ export function ProjectCreateForm() {
         ? `${formatAssignableUserLabel(m)} · ${m.email}`
         : ownerUserId;
     }
-    if (ownerMode === 'free') {
-      return 'Ajouter un compte — interne / externe depuis la fiche → Équipe.';
-    }
     return 'Aucun responsable désigné.';
   }, [
     membersLoading,
@@ -187,6 +202,8 @@ export function ProjectCreateForm() {
     ownerUserId,
     ownerMode,
     members,
+    ownerFreeLabel,
+    ownerAffiliation,
   ]);
 
   const year = new Date().getFullYear();
@@ -220,7 +237,16 @@ export function ProjectCreateForm() {
     }
     if (startDate) body.startDate = startDate;
     if (targetEndDate) body.targetEndDate = targetEndDate;
-    if (ownerUserId) body.ownerUserId = ownerUserId;
+    if (ownerMode === 'user' && ownerUserId) {
+      body.ownerUserId = ownerUserId;
+    }
+    if (ownerMode === 'free') {
+      const t = ownerFreeLabel.trim();
+      if (t) {
+        body.ownerFreeLabel = t;
+        body.ownerAffiliation = ownerAffiliation;
+      }
+    }
 
     create.mutate(body);
   };
@@ -300,7 +326,7 @@ export function ProjectCreateForm() {
               </div>
             </div>
             <div className={field}>
-              <Label htmlFor="p-owner-trigger">Responsable</Label>
+              <Label htmlFor="p-owner-trigger">Responsable de projets</Label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">
                 <div className="flex min-h-9 min-w-0 flex-1 items-center rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
                   <p
@@ -320,11 +346,14 @@ export function ProjectCreateForm() {
                   onClick={() => setOwnerDialogOpen(true)}
                 >
                   <UserCog className="size-3.5 text-muted-foreground" aria-hidden />
-                  {ownerUserId || ownerMode === 'free' ? 'Modifier' : 'Définir'}
+                  {ownerUserId || (ownerMode === 'free' && ownerFreeLabel.trim())
+                    ? 'Modifier'
+                    : 'Définir'}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Pilotage du projet ou de l’activité (compte client ou hors compte via la fiche).
+                Pilotage du projet ou de l’activité : compte client, ou personne nom libre issue du
+                répertoire équipe (projets du client).
               </p>
               {membersError ? (
                 <p className="text-xs text-destructive">
@@ -340,7 +369,7 @@ export function ProjectCreateForm() {
                 >
                   <DialogHeader className="space-y-2 text-left">
                     <DialogTitle className="text-lg font-semibold tracking-tight">
-                      Responsable
+                      Responsable de projets
                     </DialogTitle>
                     <DialogDescription className="text-sm leading-relaxed">
                       Choisissez un membre du client avec compte, ou indiquez que vous compléterez
@@ -355,6 +384,11 @@ export function ProjectCreateForm() {
                       const next = v as OwnerAssignMode;
                       setOwnerMode(next);
                       if (next === 'free') setOwnerUserId('');
+                      if (next === 'user') {
+                        setOwnerFreeLabel('');
+                        setOwnerAffiliation('INTERNAL');
+                        setFreePick('');
+                      }
                     }}
                     className="w-full items-start gap-0"
                   >
@@ -451,24 +485,100 @@ export function ProjectCreateForm() {
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="free" className="mt-0">
-                      <div className="flex gap-3 rounded-xl border border-border/70 border-l-[3px] border-l-sky-500/55 bg-muted/20 p-4 shadow-sm">
-                        <div
-                          className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-sky-500/10 text-sky-800 dark:text-sky-300"
-                          aria-hidden
-                        >
-                          <Users className="size-5" />
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <p className="text-sm font-medium text-foreground">Ajouter un compte</p>
-                          <p className="text-xs leading-relaxed text-muted-foreground">
-                            Après création du projet, ouvrez la <strong>fiche projet</strong> →{' '}
-                            <strong>Équipe</strong> : personne en <strong>nom libre</strong>, portée{' '}
-                            <strong>interne</strong> ou <strong>externe</strong>. Le champ
-                            responsable reste vide à cette étape.
+                    <TabsContent value="free" className="mt-0 w-full min-w-0 space-y-3">
+                      {membersLoading ? (
+                        <p className="text-xs text-muted-foreground">Chargement du répertoire…</p>
+                      ) : null}
+
+                      {freePersons.length > 0 ? (
+                        <div className={cn(field, 'w-full')}>
+                          <Label htmlFor="p-owner-free-pick">Personne (répertoire équipe)</Label>
+                          <Select
+                            value={freePick || undefined}
+                            onValueChange={(v) => {
+                              const next = v ?? '';
+                              setFreePick(next);
+                              if (next === 'custom') {
+                                setOwnerFreeLabel('');
+                                setOwnerAffiliation('INTERNAL');
+                                return;
+                              }
+                              const p = freePersons.find((x) => x.identityKey === next);
+                              if (p) {
+                                setOwnerFreeLabel(p.label);
+                                setOwnerAffiliation(p.affiliation);
+                              }
+                            }}
+                          >
+                            <SelectTrigger id="p-owner-free-pick" size="sm" className="w-full">
+                              <SelectValue placeholder="Choisir une personne connue, ou saisie libre…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {freePersons.map((p) => (
+                                <SelectItem key={p.identityKey} value={p.identityKey}>
+                                  {p.label} · {p.affiliation === 'INTERNAL' ? 'Interne' : 'Externe'}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="custom">Autre personne (saisie libre)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Liste déduite des noms libres déjà utilisés en équipe projet sur ce
+                            client.
                           </p>
                         </div>
-                      </div>
+                      ) : null}
+
+                      {(freePick === 'custom' || freePersons.length === 0) && !membersLoading ? (
+                        <div className="w-full min-w-0 rounded-xl border border-border/70 border-l-[3px] border-l-sky-500/55 bg-white p-4 shadow-sm dark:bg-card">
+                          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
+                            <div
+                              className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-sky-500/10 text-sky-800 dark:text-sky-300 sm:mt-0.5"
+                              aria-hidden
+                            >
+                              <Users className="size-5" />
+                            </div>
+                            <div className="min-w-0 w-full flex-1 space-y-3 sm:min-w-0">
+                              <p className="text-sm font-medium text-foreground">
+                                {freePersons.length === 0
+                                  ? 'Saisie libre'
+                                  : 'Nouvelle personne (hors liste)'}
+                              </p>
+                              <div className={field}>
+                                <Label htmlFor="p-owner-free-name">Nom affiché</Label>
+                                <Input
+                                  id="p-owner-free-name"
+                                  value={ownerFreeLabel}
+                                  onChange={(e) => setOwnerFreeLabel(e.target.value)}
+                                  autoComplete="off"
+                                  maxLength={200}
+                                  placeholder="Ex. Marie Durand (prestataire)"
+                                  className="w-full"
+                                />
+                              </div>
+                              <div className={field}>
+                                <Label htmlFor="p-owner-free-aff">Portée</Label>
+                                <Select
+                                  value={ownerAffiliation}
+                                  onValueChange={(v) =>
+                                    setOwnerAffiliation((v as 'INTERNAL' | 'EXTERNAL') ?? 'INTERNAL')
+                                  }
+                                >
+                                  <SelectTrigger id="p-owner-free-aff" size="sm" className="w-full">
+                                    <SelectValue>
+                                      {ownerAffiliation === 'EXTERNAL' ? 'Externe' : 'Interne'}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="INTERNAL">Interne</SelectItem>
+                                    <SelectItem value="EXTERNAL">Externe</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                     </TabsContent>
                   </Tabs>
 

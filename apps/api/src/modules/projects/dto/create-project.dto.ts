@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -13,6 +14,7 @@ import {
   ProjectCriticality,
   ProjectPriority,
   ProjectStatus,
+  ProjectTeamMemberAffiliation,
   ProjectType,
 } from '@prisma/client';
 import { Type } from 'class-transformer';
@@ -51,6 +53,17 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   ownerUserId?: string;
+
+  /** Responsable nom libre (ressource « personne » déjà vue en équipe projet). Exclu si `ownerUserId`. */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  ownerFreeLabel?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectTeamMemberAffiliation)
+  ownerAffiliation?: ProjectTeamMemberAffiliation;
 
   @IsOptional()
   @IsDateString()

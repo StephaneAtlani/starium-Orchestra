@@ -202,7 +202,8 @@ export class ProjectsPilotageService {
     return {
       isLate,
       isBlocked: blocked,
-      hasNoOwner: project.ownerUserId === null,
+      hasNoOwner:
+        project.ownerUserId === null && !project.ownerFreeLabel?.trim(),
       hasNoTasks,
       hasNoRisks,
       hasNoMilestones,

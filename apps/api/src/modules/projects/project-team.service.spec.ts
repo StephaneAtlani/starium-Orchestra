@@ -71,33 +71,35 @@ describe('ProjectTeamService', () => {
     jest.clearAllMocks();
   });
 
-  describe('seedDefaultRolesForClient', () => {
-    it('crée 3 rôles si catalogue vide', async () => {
-      prisma.projectTeamRole.count.mockResolvedValue(0);
-      prisma.projectTeamRole.createMany.mockResolvedValue({ count: 3 });
+  describe('ensureDefaultTeamRolesForClient', () => {
+    it('crée Sponsor / Responsable / Référent si absents', async () => {
+      prisma.projectTeamRole.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      prisma.projectTeamRole.create.mockResolvedValue({});
 
-      await service.seedDefaultRolesForClient(clientId);
+      await service.ensureDefaultTeamRolesForClient(clientId);
 
-      expect(prisma.projectTeamRole.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            clientId,
-            systemKind: ProjectTeamRoleSystemKind.SPONSOR,
-          }),
-          expect.objectContaining({
-            systemKind: ProjectTeamRoleSystemKind.OWNER,
-          }),
-          expect.objectContaining({ systemKind: null }),
-        ]),
+      expect(prisma.projectTeamRole.create).toHaveBeenCalledTimes(3);
+      expect(prisma.projectTeamRole.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          clientId,
+          systemKind: ProjectTeamRoleSystemKind.SPONSOR,
+          name: 'Sponsor',
+        }),
       });
     });
 
-    it('ne fait rien si rôles déjà présents', async () => {
-      prisma.projectTeamRole.count.mockResolvedValue(3);
+    it('ne recrée pas les rôles système déjà présents', async () => {
+      prisma.projectTeamRole.findFirst
+        .mockResolvedValueOnce({ id: 'r1' })
+        .mockResolvedValueOnce({ id: 'r2' })
+        .mockResolvedValueOnce({ id: 'r3' });
 
-      await service.seedDefaultRolesForClient(clientId);
+      await service.ensureDefaultTeamRolesForClient(clientId);
 
-      expect(prisma.projectTeamRole.createMany).not.toHaveBeenCalled();
+      expect(prisma.projectTeamRole.create).not.toHaveBeenCalled();
     });
   });
 

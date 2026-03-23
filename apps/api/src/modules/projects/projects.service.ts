@@ -11,6 +11,8 @@ import {
   ProjectMilestone,
   ProjectRisk,
   ProjectTask,
+  ProjectTeamMemberAffiliation,
+  ProjectTeamRoleSystemKind,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -106,6 +108,30 @@ export class ProjectsService {
     return owner.email;
   }
 
+  /** Responsable : compte client ou personne nom libre (dénormalisé sur Project). */
+  private ownerDisplayResolved(
+    project: Project & {
+      owner: {
+        firstName: string | null;
+        lastName: string | null;
+        email: string;
+      } | null;
+    },
+  ): string | null {
+    if (project.ownerUserId) {
+      return this.ownerDisplayName(project.owner);
+    }
+    const label = project.ownerFreeLabel?.trim();
+    if (!label) return null;
+    if (project.ownerAffiliation === 'EXTERNAL') {
+      return `${label} · Externe`;
+    }
+    if (project.ownerAffiliation === 'INTERNAL') {
+      return `${label} · Interne`;
+    }
+    return label;
+  }
+
   private toListItem(
     project: Project & {
       tasks: ProjectTask[];
@@ -146,7 +172,7 @@ export class ProjectsService {
       computedHealth: health,
       targetEndDate: project.targetEndDate?.toISOString() ?? null,
       ownerUserId: project.ownerUserId,
-      ownerDisplayName: this.ownerDisplayName(project.owner),
+      ownerDisplayName: this.ownerDisplayResolved(project),
       openTasksCount: this.pilotage.openTasksCount(project.tasks),
       openRisksCount: this.pilotage.openRisksCount(project.risks),
       delayedMilestonesCount: this.pilotage.delayedMilestonesCount(
@@ -199,6 +225,48 @@ export class ProjectsService {
       role: cu.role,
       status: cu.status,
     }));
+  }
+
+  /**
+   * Personnes « nom libre » déjà rencontrées sur l’équipe projet du client (dédoublonnées par identityKey).
+   * Sert au choix responsable à la création projet.
+   */
+  async listAssignableFreePersons(clientId: string) {
+    const rows = await this.prisma.projectTeamMember.findMany({
+      where: {
+        clientId,
+        userId: null,
+        freeLabel: { not: null },
+      },
+      select: {
+        freeLabel: true,
+        affiliation: true,
+        identityKey: true,
+      },
+      orderBy: [{ freeLabel: 'asc' }],
+    });
+    const seen = new Set<string>();
+    const out: {
+      label: string;
+      affiliation: ProjectTeamMemberAffiliation;
+      identityKey: string;
+    }[] = [];
+    for (const r of rows) {
+      if (!r.freeLabel || seen.has(r.identityKey)) continue;
+      seen.add(r.identityKey);
+      if (
+        r.affiliation !== ProjectTeamMemberAffiliation.INTERNAL &&
+        r.affiliation !== ProjectTeamMemberAffiliation.EXTERNAL
+      ) {
+        continue;
+      }
+      out.push({
+        label: r.freeLabel,
+        affiliation: r.affiliation,
+        identityKey: r.identityKey,
+      });
+    }
+    return out;
   }
 
   async list(
@@ -365,8 +433,29 @@ export class ProjectsService {
     dto: CreateProjectDto,
     context?: AuditContext,
   ) {
+    await this.projectTeam.ensureDefaultTeamRolesForClient(clientId);
     await this.assertClientUser(clientId, dto.sponsorUserId);
     await this.assertClientUser(clientId, dto.ownerUserId);
+
+    const hasOwnerUser = Boolean(dto.ownerUserId?.trim());
+    const freeTrim = dto.ownerFreeLabel?.trim();
+    const hasFree = Boolean(freeTrim);
+
+    if (hasOwnerUser && hasFree) {
+      throw new BadRequestException(
+        'Indiquez soit un responsable avec compte client, soit une personne nom libre.',
+      );
+    }
+    if (hasFree) {
+      if (
+        dto.ownerAffiliation !== ProjectTeamMemberAffiliation.INTERNAL &&
+        dto.ownerAffiliation !== ProjectTeamMemberAffiliation.EXTERNAL
+      ) {
+        throw new BadRequestException(
+          'Pour une personne nom libre, choisissez interne ou externe.',
+        );
+      }
+    }
 
     const existing = await this.prisma.project.findUnique({
       where: { clientId_code: { clientId, code: dto.code.trim() } },
@@ -375,29 +464,57 @@ export class ProjectsService {
       throw new ConflictException(`Project code "${dto.code}" already exists`);
     }
 
+    let ownerRoleIdForFree: string | null = null;
+    if (hasFree) {
+      const ownerRole = await this.prisma.projectTeamRole.findFirst({
+        where: { clientId, systemKind: ProjectTeamRoleSystemKind.OWNER },
+      });
+      if (!ownerRole) {
+        throw new BadRequestException(
+          'Rôle « Responsable projet » introuvable pour ce client.',
+        );
+      }
+      ownerRoleIdForFree = ownerRole.id;
+    }
+
+    const ownerFreeLabel =
+      hasFree && !hasOwnerUser ? freeTrim!.slice(0, 200) : null;
+    const ownerAffiliation =
+      hasFree && !hasOwnerUser ? dto.ownerAffiliation! : null;
+
+    /** Sans clés ownerFree* : conteneurs Prisma générés avant migration `project_owner_free_label`. */
+    const baseCreate = {
+      clientId,
+      name: dto.name.trim(),
+      code: dto.code.trim(),
+      description: dto.description?.trim() ?? null,
+      kind: dto.kind ?? 'PROJECT',
+      type: dto.type,
+      status: dto.status ?? 'DRAFT',
+      priority: dto.priority,
+      sponsorUserId: dto.sponsorUserId ?? null,
+      ownerUserId: dto.ownerUserId ?? null,
+      startDate: dto.startDate ? new Date(dto.startDate) : null,
+      targetEndDate: dto.targetEndDate ? new Date(dto.targetEndDate) : null,
+      actualEndDate: dto.actualEndDate ? new Date(dto.actualEndDate) : null,
+      criticality: dto.criticality,
+      progressPercent: dto.progressPercent ?? null,
+      targetBudgetAmount:
+        dto.targetBudgetAmount !== undefined
+          ? new Prisma.Decimal(dto.targetBudgetAmount)
+          : null,
+      pilotNotes: dto.pilotNotes?.trim() ?? null,
+    } satisfies Prisma.ProjectUncheckedCreateInput;
+
     const created = await this.prisma.project.create({
-      data: {
-        clientId,
-        name: dto.name.trim(),
-        code: dto.code.trim(),
-        description: dto.description?.trim() ?? null,
-        kind: dto.kind ?? 'PROJECT',
-        type: dto.type,
-        status: dto.status ?? 'DRAFT',
-        priority: dto.priority,
-        sponsorUserId: dto.sponsorUserId ?? null,
-        ownerUserId: dto.ownerUserId ?? null,
-        startDate: dto.startDate ? new Date(dto.startDate) : null,
-        targetEndDate: dto.targetEndDate ? new Date(dto.targetEndDate) : null,
-        actualEndDate: dto.actualEndDate ? new Date(dto.actualEndDate) : null,
-        criticality: dto.criticality,
-        progressPercent: dto.progressPercent ?? null,
-        targetBudgetAmount:
-          dto.targetBudgetAmount !== undefined
-            ? new Prisma.Decimal(dto.targetBudgetAmount)
-            : null,
-        pilotNotes: dto.pilotNotes?.trim() ?? null,
-      },
+      data:
+        hasFree && !hasOwnerUser && ownerFreeLabel != null && ownerAffiliation != null
+          ? {
+              ...baseCreate,
+              ownerFreeLabel,
+              ownerAffiliation,
+            }
+          : baseCreate,
       include: projectIncludeList,
     });
 
@@ -419,6 +536,14 @@ export class ProjectsService {
       created.sponsorUserId,
       created.ownerUserId,
     );
+
+    if (hasFree && ownerRoleIdForFree) {
+      await this.projectTeam.addMember(clientId, created.id, {
+        roleId: ownerRoleIdForFree,
+        freeLabel: freeTrim!,
+        affiliation: dto.ownerAffiliation!,
+      });
+    }
 
     return this.getById(clientId, created.id);
   }
@@ -463,6 +588,13 @@ export class ProjectsService {
     }
     if (dto.ownerUserId !== undefined) {
       data.ownerUserId = dto.ownerUserId ?? null;
+      if (
+        'ownerFreeLabel' in existing &&
+        'ownerAffiliation' in existing
+      ) {
+        data.ownerFreeLabel = null;
+        data.ownerAffiliation = null;
+      }
     }
     if (dto.startDate !== undefined) {
       data.startDate = dto.startDate ? new Date(dto.startDate) : null;

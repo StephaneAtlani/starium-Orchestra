@@ -65,6 +65,8 @@ export function projectEntityAuditSnapshot(p: Project): Record<string, unknown> 
     priority: p.priority,
     sponsorUserId: p.sponsorUserId ?? null,
     ownerUserId: p.ownerUserId ?? null,
+    ownerFreeLabel: p.ownerFreeLabel ?? null,
+    ownerAffiliation: p.ownerAffiliation ?? null,
     startDate: toAuditJson(p.startDate),
     targetEndDate: toAuditJson(p.targetEndDate),
     actualEndDate: toAuditJson(p.actualEndDate),

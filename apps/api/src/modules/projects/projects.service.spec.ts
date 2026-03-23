@@ -88,6 +88,7 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       delayedMilestonesCount: jest.fn().mockReturnValue(0),
     };
     const projectTeam = {
+      ensureDefaultTeamRolesForClient: jest.fn().mockResolvedValue(undefined),
       syncTeamMembersFromProjectSponsorOwner: jest.fn().mockResolvedValue(undefined),
     };
     service = new ProjectsService(

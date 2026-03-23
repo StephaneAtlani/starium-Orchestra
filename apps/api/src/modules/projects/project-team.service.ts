@@ -81,35 +81,97 @@ export class ProjectTeamService {
     };
   }
 
-  /** Rôles par défaut pour un nouveau client (idempotent si déjà présents). */
-  async seedDefaultRolesForClient(clientId: string): Promise<void> {
-    const existing = await this.prisma.projectTeamRole.count({
-      where: { clientId },
-    });
-    if (existing > 0) return;
+  /**
+   * Rôles catalogue par défaut (Sponsor, Responsable de projet, Référent métier).
+   * Idempotent : complète par `systemKind` / nom même si le client avait déjà d’autres rôles
+   * (l’ancienne seed ne s’exécutait que sur catalogue vide).
+   */
+  async ensureDefaultTeamRolesForClient(clientId: string): Promise<void> {
+    await this.ensureSystemTeamRole(
+      clientId,
+      ProjectTeamRoleSystemKind.SPONSOR,
+      'Sponsor',
+      0,
+    );
+    await this.ensureSystemTeamRole(
+      clientId,
+      ProjectTeamRoleSystemKind.OWNER,
+      'Responsable de projet',
+      1,
+    );
+    await this.ensureMetierDefaultRole(clientId);
+  }
 
-    await this.prisma.projectTeamRole.createMany({
-      data: [
-        {
+  /** @deprecated alias — utiliser `ensureDefaultTeamRolesForClient` */
+  async seedDefaultRolesForClient(clientId: string): Promise<void> {
+    await this.ensureDefaultTeamRolesForClient(clientId);
+  }
+
+  private async ensureSystemTeamRole(
+    clientId: string,
+    kind: ProjectTeamRoleSystemKind,
+    defaultName: string,
+    sortOrder: number,
+  ): Promise<void> {
+    const found = await this.prisma.projectTeamRole.findFirst({
+      where: { clientId, systemKind: kind },
+    });
+    if (found) return;
+
+    try {
+      await this.prisma.projectTeamRole.create({
+        data: {
           clientId,
-          name: 'Sponsor',
-          sortOrder: 0,
-          systemKind: ProjectTeamRoleSystemKind.SPONSOR,
+          name: defaultName,
+          sortOrder,
+          systemKind: kind,
         },
-        {
+      });
+    } catch (e: unknown) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        const clash = await this.prisma.projectTeamRole.findUnique({
+          where: { clientId_name: { clientId, name: defaultName } },
+        });
+        if (clash && clash.systemKind == null) {
+          await this.prisma.projectTeamRole.update({
+            where: { id: clash.id },
+            data: { systemKind: kind, sortOrder },
+          });
+        }
+        return;
+      }
+      throw e;
+    }
+  }
+
+  private async ensureMetierDefaultRole(clientId: string): Promise<void> {
+    const name = 'Référent métier';
+    const found = await this.prisma.projectTeamRole.findFirst({
+      where: { clientId, name },
+    });
+    if (found) return;
+
+    try {
+      await this.prisma.projectTeamRole.create({
+        data: {
           clientId,
-          name: 'Responsable de projet',
-          sortOrder: 1,
-          systemKind: ProjectTeamRoleSystemKind.OWNER,
-        },
-        {
-          clientId,
-          name: 'Référent métier',
+          name,
           sortOrder: 2,
           systemKind: null,
         },
-      ],
-    });
+      });
+    } catch (e: unknown) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        return;
+      }
+      throw e;
+    }
   }
 
   private async assertActiveClientUser(
@@ -143,6 +205,7 @@ export class ProjectTeamService {
   }
 
   async listRoles(clientId: string): Promise<ProjectTeamRoleResponse[]> {
+    await this.ensureDefaultTeamRolesForClient(clientId);
     const rows = await this.prisma.projectTeamRole.findMany({
       where: { clientId },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
@@ -242,6 +305,7 @@ export class ProjectTeamService {
     projectId: string,
   ): Promise<ProjectTeamMemberResponse[]> {
     await this.getProjectOrThrow(clientId, projectId);
+    await this.ensureDefaultTeamRolesForClient(clientId);
     const members = await this.prisma.projectTeamMember.findMany({
       where: { clientId, projectId },
       include: {

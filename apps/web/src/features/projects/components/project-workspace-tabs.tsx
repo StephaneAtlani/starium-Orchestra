@@ -21,7 +21,7 @@ const tablistClassName =
   'grid h-11 min-w-[min(100%,22rem)] grid-cols-2 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/40 sm:min-w-0 sm:grid-cols-4';
 
 /**
- * Navigation principale projet : Synthèse · Planning · Fiche projet · Points projet.
+ * Navigation principale projet : Synthèse · Fiche projet · Planning · Points projet.
  * À placer dans un `CardHeader` (même structure que le détail : `Card` + header dégradé).
  */
 export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
@@ -54,15 +54,6 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
         Synthèse
       </Link>
       <Link
-        href={planningHref}
-        role="tab"
-        aria-current={isPlanning ? 'page' : undefined}
-        className={tabLinkClass(isPlanning)}
-      >
-        <CalendarRange className="size-4 shrink-0 opacity-70" />
-        Planning
-      </Link>
-      <Link
         href={projectSheet(projectId)}
         role="tab"
         aria-current={isSheet ? 'page' : undefined}
@@ -70,6 +61,15 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       >
         <Layers3 className="size-4 shrink-0 opacity-70" />
         Fiche projet
+      </Link>
+      <Link
+        href={planningHref}
+        role="tab"
+        aria-current={isPlanning ? 'page' : undefined}
+        className={tabLinkClass(isPlanning)}
+      >
+        <CalendarRange className="size-4 shrink-0 opacity-70" />
+        Planning
       </Link>
       <Link
         href={pointsHref}

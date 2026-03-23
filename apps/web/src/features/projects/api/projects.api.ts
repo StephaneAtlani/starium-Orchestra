@@ -5,6 +5,7 @@ import type {
   PaginatedList,
   ProjectActivityApi,
   ProjectArbitrationStatus,
+  AssignableUsersResponse,
   ProjectAssignableUser,
   ProjectDetail,
   ProjectMilestoneApi,
@@ -42,10 +43,14 @@ export async function getPortfolioSummary(
 
 export async function listAssignableUsers(
   authFetch: AuthFetch,
-): Promise<ProjectAssignableUser[]> {
+): Promise<AssignableUsersResponse> {
   const res = await authFetch(`${BASE}/assignable-users`);
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json() as Promise<ProjectAssignableUser[]>;
+  const raw: unknown = await res.json();
+  if (Array.isArray(raw)) {
+    return { users: raw as ProjectAssignableUser[], freePersons: [] };
+  }
+  return raw as AssignableUsersResponse;
 }
 
 export async function listProjects(

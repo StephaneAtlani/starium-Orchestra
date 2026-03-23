@@ -41,10 +41,16 @@ export class ProjectsController {
     return this.projectsService.getPortfolioSummary(clientId!);
   }
 
+  /** Membres client + répertoire personnes nom libre (équipe projet). Une seule route pour éviter la collision avec `GET :id`. */
   @Get('assignable-users')
   @RequirePermissions('projects.read')
-  assignableUsers(@ActiveClientId() clientId: string | undefined) {
-    return this.projectsService.listAssignableUsers(clientId!);
+  async assignableUsers(@ActiveClientId() clientId: string | undefined) {
+    const cid = clientId!;
+    const [users, freePersons] = await Promise.all([
+      this.projectsService.listAssignableUsers(cid),
+      this.projectsService.listAssignableFreePersons(cid),
+    ]);
+    return { users, freePersons };
   }
 
   @Get()

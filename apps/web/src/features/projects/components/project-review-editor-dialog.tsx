@@ -1183,7 +1183,7 @@ export function ProjectReviewEditorDialog({
                                 disabled={!editable}
                                 onChange={(e) => {
                                   const id = e.target.value;
-                                  const u = assignableUsersQuery.data?.find((x) => x.id === id);
+                                  const u = assignableUsersQuery.data?.users?.find((x) => x.id === id);
                                   setParticipants((prev) =>
                                     prev.map((x, j) =>
                                       j === i
@@ -1200,7 +1200,7 @@ export function ProjectReviewEditorDialog({
                                 }}
                               >
                                 <option value="">— Aucun compte / saisie manuelle du nom —</option>
-                                {assignableUsersQuery.data?.map((u) => (
+                                {assignableUsersQuery.data?.users?.map((u) => (
                                   <option key={u.id} value={u.id}>
                                     {formatAssignableUserLabel(u)}
                                   </option>

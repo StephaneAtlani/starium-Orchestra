@@ -238,7 +238,7 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
     if (needsAssignable && assignable.isLoading) return;
 
     createFormSeededRef.current = true;
-    setCreateParticipants(createParticipantsFromProjectTeam(team, assignable.data));
+    setCreateParticipants(createParticipantsFromProjectTeam(team, assignable.data?.users));
   }, [
     createOpen,
     teamForCreate.isLoading,
@@ -446,7 +446,7 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
                             value={row.userId}
                             onChange={(e) => {
                                 const id = e.target.value;
-                                const u = assignable.data?.find((x) => x.id === id);
+                                const u = assignable.data?.users?.find((x) => x.id === id);
                                 setCreateParticipants((prev) =>
                                   prev.map((p, j) =>
                                     j === i
@@ -463,7 +463,7 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
                               }}
                             >
                               <option value="">— Choisir dans la liste —</option>
-                              {assignable.data?.map((u) => (
+                              {assignable.data?.users?.map((u) => (
                                 <option key={u.id} value={u.id}>
                                   {formatAssignableUser(u)}
                                 </option>

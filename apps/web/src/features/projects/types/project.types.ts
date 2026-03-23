@@ -8,6 +8,19 @@ export type ProjectAssignableUser = {
   status: string;
 };
 
+/** Personnes nom libre déjà vues en équipe projet (GET /api/projects/assignable-users → freePersons). */
+export type ProjectFreePerson = {
+  label: string;
+  affiliation: 'INTERNAL' | 'EXTERNAL';
+  identityKey: string;
+};
+
+/** Réponse GET /api/projects/assignable-users (objet ; rétrocompat tableau = users seuls). */
+export type AssignableUsersResponse = {
+  users: ProjectAssignableUser[];
+  freePersons: ProjectFreePerson[];
+};
+
 export type ComputedHealth = 'GREEN' | 'ORANGE' | 'RED';
 
 export type ProjectSignals = {

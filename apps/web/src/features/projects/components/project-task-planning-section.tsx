@@ -251,11 +251,11 @@ export const ProjectTaskPlanningSection = forwardRef<
 
   const assignableOptions = useMemo(
     () =>
-      (assignableQuery.data ?? []).map((u) => ({
+      (assignableQuery.data?.users ?? []).map((u) => ({
         id: u.id,
         label: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
       })),
-    [assignableQuery.data],
+    [assignableQuery.data?.users],
   );
 
   const [createForm, setCreateForm] = useState<CreateProjectTaskPayload>(emptyCreateForm);
