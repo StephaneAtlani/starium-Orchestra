@@ -8,8 +8,10 @@
 #         (voir README) en pointant DATABASE_URL sur cette base.
 #
 #   docker compose --profile standard up -d
-#       → PostgreSQL + API (3001) + Web (3000), images buildées (prod-like),
-#         pas de bind mount. NEXT_PUBLIC_API_URL=http://localhost:3001 pour le navigateur.
+#       → PostgreSQL + API (3001) + Web (hôte 3002 → conteneur 3000), images
+#         buildées (prod-like), pas de bind mount. Le port hôte 3002 est volontaire
+#         (évite un conflit avec un autre process sur :3000). Le navigateur appelle
+#         l’API sur :3001 ; NEXT_PUBLIC_API_URL=http://localhost:3001.
 #
 # Hot reload : hors Docker (`pnpm` dans apps/api et apps/web), pas de service dédié.
 # =============================================================================
@@ -63,6 +65,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
     ports:
+      # 3002 hôte → 3000 conteneur (volontaire : libère :3000 sur la machine)
       - "3002:3000"
     depends_on:
       - api

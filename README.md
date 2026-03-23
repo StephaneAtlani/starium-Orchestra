@@ -37,7 +37,7 @@ docker compose --profile standard up --build -d
 ```
 
 - **API** : `http://localhost:3001` — préfixe `/api`
-- **Web** : `http://localhost:3000`
+- **Web** : `http://localhost:3002` (mapping Docker `3002:3000`, volontaire pour ne pas occuper `:3000` sur l’hôte)
 - **PostgreSQL** : `localhost:5432` (user `starium`, db `starium`)
 
 Migrations / seed depuis un conteneur one-shot (image API, `WORKDIR` = `apps/api`) :
