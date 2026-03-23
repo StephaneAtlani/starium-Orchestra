@@ -1,12 +1,14 @@
 import type { PrismaService } from '../../../prisma/prisma.service';
 
+type ProjectTaskGraphPrisma = Pick<PrismaService, 'projectTask'>;
+
 /**
  * Détection de cycle sur la chaîne dependsOnTaskId (MVP : une seule dépendance par tâche).
  * Si on pose dependsOnTaskId = pred pour taskId, on suit les prédécesseurs depuis pred :
  * si on atteint taskId, c’est un cycle.
  */
 export async function wouldTaskDependencyCreateCycle(
-  prisma: PrismaService,
+  prisma: ProjectTaskGraphPrisma,
   clientId: string,
   projectId: string,
   taskId: string,
@@ -33,7 +35,7 @@ export async function wouldTaskDependencyCreateCycle(
 
 /** Boucle hiérarchique : enfant ne peut pas être ancêtre du parent choisi */
 export async function wouldTaskParentCreateCycle(
-  prisma: PrismaService,
+  prisma: ProjectTaskGraphPrisma,
   clientId: string,
   projectId: string,
   taskId: string,

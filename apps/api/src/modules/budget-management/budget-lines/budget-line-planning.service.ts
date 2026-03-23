@@ -541,7 +541,7 @@ export class BudgetLinePlanningService {
             clientId,
             budgetLineId: lineId,
             mode,
-            inputJson: scenarioInput as Prisma.JsonValue,
+            inputJson: scenarioInput as Prisma.InputJsonValue,
             createdById: context?.actorUserId,
           },
         });
@@ -607,11 +607,15 @@ export class BudgetLinePlanningService {
     context: AuditContext | undefined,
     lineId: string,
     action: string,
-    months: { monthIndex: number; amount: number }[],
+    months: { monthIndex: number; amount: number }[] | number[],
     mode: BudgetLinePlanningMode,
     total: number,
     inputJson?: unknown,
   ) {
+    const normalizedMonths = Array.isArray(months) && typeof months[0] === 'number'
+      ? (months as number[]).map((amount, idx) => ({ monthIndex: idx + 1, amount }))
+      : (months as { monthIndex: number; amount: number }[]);
+
     const input: CreateAuditLogInput = {
       clientId,
       userId: context?.actorUserId,
@@ -621,7 +625,7 @@ export class BudgetLinePlanningService {
       newValue: {
         mode,
         planningTotalAmount: total,
-        months,
+        months: normalizedMonths,
         input: inputJson,
       },
       ipAddress: context?.meta?.ipAddress,

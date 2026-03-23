@@ -518,7 +518,6 @@ export class BudgetLinesService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.status != null && { status: dto.status }),
         ...(dto.currency != null && { currency: dto.currency }),
-        ...(dto.expenseType != null && { expenseType: dto.expenseType }),
         ...(dto.generalLedgerAccountId !== undefined && {
           generalLedgerAccountId: dto.generalLedgerAccountId,
         }),
@@ -528,6 +527,9 @@ export class BudgetLinesService {
         ...(dto.allocationScope != null && { allocationScope: dto.allocationScope }),
         ...(dto.taxRate !== undefined && { taxRate: toDecimal(dto.taxRate) }),
       };
+      if (dto.expenseType != null) {
+        baseData.expenseType = dto.expenseType as Prisma.BudgetLineUpdateInput['expenseType'];
+      }
 
       if (dto.revisedAmount !== undefined && dto.revisedAmount !== null) {
         const committed = Number(existing.committedAmount);
