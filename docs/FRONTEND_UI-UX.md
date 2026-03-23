@@ -365,6 +365,25 @@ Implémentation : **`ProjectCreateForm`** — ouverture depuis le résumé + bou
 | Panneau « nom libre » | Encart **`border-l-[3px] border-l-sky-500/55`** + icône **`Users`** dans un carré `rounded-lg bg-sky-500/10` (aligné §11.2 / accent latéral) ; texte court, pas de **50 %** de largeur qui casse la lecture. |
 | Pied | `DialogFooter` + **Terminé** (`type="button"`) — ne pas soumettre le formulaire parent. |
 
+### 12.3 Modale — catalogue Personne (équipe projet & création projet)
+
+Composant partagé : **`PersonCatalogPickerDialog`** (`features/projects/components/person-catalog-picker-dialog.tsx`) — tableau filtrable, création **Nouvelle personne**, `Alert` catalogue, `LoadingState` / `EmptyState`. Filtre recherche : `personResourceMatchesSearch` dans `features/projects/lib/person-resource-search.ts`.
+
+**Usages** :
+
+- **Équipe projet** : **`ProjectTeamMatrix`** — `footerVariant="confirm-and-close"` (Fermer + **Ajouter**), `filterFetchedResources` pour exclure les emails déjà sur le rôle, `queryKey` inclut `clientId`.
+- **Création projet** : **`ProjectCreateForm`** — `footerVariant="done-only"` (**Terminé**), `allowEmpty` + libellé « Aucun responsable », `dialogContentClassName` en `sm:max-w-lg` (formulaire court, §12.2).
+
+| Élément | Pattern |
+|--------|---------|
+| Largeur | **`sm:max-w-5xl`** + `max-h-[min(90vh,800px)] overflow-y-auto` — tableau multi-colonnes (liste cockpit, pas formulaire court seul). |
+| En-tête | Comme §12.2 : `DialogTitle` `text-lg font-semibold tracking-tight` + `DialogDescription` courte ; **`showCloseButton`**. |
+| Erreur catalogue | **`Alert`** avec icône : `Info` + ambre pour **403** (§9), `AlertCircle` + `destructive` pour **5xx/404** ; message secondaire permission `resources.read` si 403. |
+| Bloc liste | Encart **`rounded-xl border border-border/70 bg-card p-4 shadow-sm`** (§2) ; aide **`text-xs`** + `aria-describedby` sur le champ filtre. |
+| Tableau | **`Table`** avec **`min-w-[56rem]`** (§8.1 — scroll horizontal) ; zone **`max-h` + `overflow-auto`** + bordure **`border-border/60`** sur le conteneur scroll (évite double scroll inutile avec le shell `Table`). |
+| États | **`LoadingState`** (§10) ; vide : **`EmptyState`** dans l’encart. |
+| Pied | **`DialogFooter`** — **Fermer** + **Ajouter** (pas de submit parent). |
+
 ---
 
 ## 13. Liens utiles
@@ -378,4 +397,4 @@ Implémentation : **`ProjectCreateForm`** — ouverture depuis le résumé + bou
 
 ---
 
-*Dernière mise à jour : §12.2 modale responsable projet (largeur `max-w-lg`, onglets line, `Alert`, encart accent) ; §12.1 2FA ; `dialog.tsx` (Fermer) ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*
+*Dernière mise à jour : §12.3 `PersonCatalogPickerDialog` (équipe + création projet) ; §12.2 modale responsable projet (historique onglets — remplacé par tableau partagé) ; §12.1 2FA ; `dialog.tsx` (Fermer) ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*

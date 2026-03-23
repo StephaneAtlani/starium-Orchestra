@@ -7,7 +7,6 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -37,28 +36,15 @@ import {
   PROJECT_PRIORITY_LABEL,
   PROJECT_CRITICALITY_LABEL,
 } from '../constants/project-enum-labels';
-import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { formatResourceDisplayName } from '@/lib/resource-labels';
-import { tryListResources, type ResourceListItem } from '@/services/resources';
-import { NewResourceForm } from '@/app/(protected)/resources/_components/new-resource-form';
+import type { ResourceListItem } from '@/services/resources';
+import { PersonCatalogPickerDialog } from './person-catalog-picker-dialog';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  AlertCircle,
   CalendarRange,
   FolderKanban,
-  Info,
   Layers,
   SlidersHorizontal,
   UserCog,
-  UserPlus,
 } from 'lucide-react';
 
 const textareaClass = cn(
@@ -130,73 +116,20 @@ export function ProjectCreateForm() {
   const [startDate, setStartDate] = useState('');
   const [targetEndDate, setTargetEndDate] = useState('');
   const [ownerDialogOpen, setOwnerDialogOpen] = useState(false);
-  const [newPersonDialogOpen, setNewPersonDialogOpen] = useState(false);
   const [ownerResourceId, setOwnerResourceId] = useState('');
   /** Détails pour libellé / soumission (liste ou ressource tout juste créée). */
   const [ownerResourceDetails, setOwnerResourceDetails] = useState<ResourceListItem | null>(null);
-  const [resourceSearch, setResourceSearch] = useState('');
-
-  const authFetch = useAuthenticatedFetch();
-
-  const {
-    data: resourcesOutcome,
-    isLoading: resourcesLoading,
-    refetch: refetchHumanResources,
-  } = useQuery({
-    queryKey: ['resources', 'human', 'project-owner'],
-    queryFn: () => tryListResources(authFetch, { type: 'HUMAN', limit: 100, offset: 0 }),
-    enabled: ownerDialogOpen,
-  });
-
-  const humanResources = resourcesOutcome?.ok ? resourcesOutcome.data.items : [];
-  const resourcesBlock =
-    resourcesOutcome && !resourcesOutcome.ok ? resourcesOutcome : null;
-  /** Liste ou création impossible (HTTP en erreur) — pas seulement « chargement ». */
-  const resourceCatalogDenied = Boolean(resourcesBlock);
-
-  const filteredHumanResources = useMemo(() => {
-    const q = resourceSearch.trim().toLowerCase();
-    if (!q) return humanResources;
-    return humanResources.filter((r) => {
-      const label = formatResourceDisplayName(r).toLowerCase();
-      const hay = [label, r.email ?? '', r.code ?? '', r.companyName ?? ''].join(' ').toLowerCase();
-      return hay.includes(q);
-    });
-  }, [humanResources, resourceSearch]);
-
-  const ownerTriggerLabel = useMemo(() => {
-    if (!ownerResourceId) return null;
-    const r =
-      ownerResourceDetails ?? humanResources.find((x) => x.id === ownerResourceId);
-    return r ? formatResourceDisplayName(r) : ownerResourceId;
-  }, [ownerResourceId, ownerResourceDetails, humanResources]);
-
   const ownerSummaryLine = useMemo(() => {
-    if (resourcesLoading && ownerDialogOpen) {
-      return 'Chargement du catalogue personnes…';
-    }
-    if (resourcesBlock && !ownerResourceId) {
-      if (resourcesBlock.status === 403) {
-        return 'Catalogue personnes : accès refusé — droit lecture ressources ou module désactivé.';
-      }
-      return 'Catalogue personnes indisponible — voir la modale (détail).';
-    }
     if (!ownerResourceId) {
       return 'Personne du catalogue — choisissez ou créez dans la modale.';
     }
-    const r =
-      ownerResourceDetails ?? humanResources.find((x) => x.id === ownerResourceId);
-    if (!r) return ownerResourceId;
+    const r = ownerResourceDetails;
+    if (!r || r.id !== ownerResourceId) {
+      return 'Responsable sélectionné — ouvre la modale pour vérifier le détail.';
+    }
     const aff = r.affiliation === 'EXTERNAL' ? 'Externe' : 'Interne';
     return `${formatResourceDisplayName(r)} · ${aff} (catalogue ressources)`;
-  }, [
-    ownerResourceId,
-    ownerResourceDetails,
-    humanResources,
-    resourcesLoading,
-    ownerDialogOpen,
-    resourcesBlock,
-  ]);
+  }, [ownerResourceId, ownerResourceDetails]);
 
   const year = new Date().getFullYear();
 
@@ -229,13 +162,10 @@ export function ProjectCreateForm() {
     }
     if (startDate) body.startDate = startDate;
     if (targetEndDate) body.targetEndDate = targetEndDate;
-    if (ownerResourceId) {
-      const r =
-        ownerResourceDetails ?? humanResources.find((x) => x.id === ownerResourceId);
-      if (r) {
-        body.ownerFreeLabel = formatResourceDisplayName(r).slice(0, 200);
-        body.ownerAffiliation = r.affiliation === 'EXTERNAL' ? 'EXTERNAL' : 'INTERNAL';
-      }
+    if (ownerResourceId && ownerResourceDetails?.id === ownerResourceId) {
+      const r = ownerResourceDetails;
+      body.ownerFreeLabel = formatResourceDisplayName(r).slice(0, 200);
+      body.ownerAffiliation = r.affiliation === 'EXTERNAL' ? 'EXTERNAL' : 'INTERNAL';
     }
 
     create.mutate(body);
@@ -344,197 +274,59 @@ export function ProjectCreateForm() {
                 avec la fiche ressource et l’équipe projet.
               </p>
 
-              <Dialog
+              <PersonCatalogPickerDialog
                 open={ownerDialogOpen}
-                onOpenChange={(open) => {
-                  setOwnerDialogOpen(open);
-                  if (!open) setResourceSearch('');
+                onOpenChange={setOwnerDialogOpen}
+                queryKey={['resources', 'human', 'project-owner']}
+                title="Responsable de projets"
+                description={
+                  <>
+                    Choisis une ressource <strong>Personne</strong> du catalogue ou crée-en une. Le
+                    responsable est enregistré comme nom libre aligné sur la ressource (équipe
+                    projet).
+                  </>
+                }
+                selectedResourceId={ownerResourceId}
+                selectedResourceDetails={ownerResourceDetails}
+                onSelectionChange={(id, resource) => {
+                  setOwnerResourceId(id);
+                  setOwnerResourceDetails(resource);
                 }}
-              >
-                <DialogContent
-                  className="max-h-[min(85vh,640px)] w-full max-w-lg overflow-y-auto sm:max-w-lg"
-                  showCloseButton
-                >
-                  <DialogHeader className="space-y-2 text-left">
-                    <DialogTitle className="text-lg font-semibold tracking-tight">
-                      Responsable de projets
-                    </DialogTitle>
-                    <DialogDescription className="text-sm leading-relaxed">
-                      Choisissez une ressource <strong>Personne</strong> du catalogue ou créez-en une.
-                      Le responsable est enregistré comme nom libre aligné sur la ressource (équipe
-                      projet).
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="w-full min-w-0 space-y-3">
-                      {resourcesBlock ? (
-                        <Alert
-                          variant={
-                            resourcesBlock.status === 404 || resourcesBlock.status >= 500
-                              ? 'destructive'
-                              : 'default'
-                          }
-                          className={
-                            resourcesBlock.status === 403
-                              ? 'border-amber-500/45 bg-amber-500/[0.07] text-foreground [&_[data-slot=alert-description]]:text-muted-foreground'
-                              : resourcesBlock.status === 401
-                                ? 'border-border'
-                                : resourcesBlock.status === 404 || resourcesBlock.status >= 500
-                                  ? 'border-destructive/35'
-                                  : 'border-border'
-                          }
-                        >
-                          {resourcesBlock.status === 403 || resourcesBlock.status === 401 ? (
-                            <Info
-                              className="size-4 text-amber-700 dark:text-amber-400"
-                              aria-hidden
-                            />
-                          ) : (
-                            <AlertCircle className="size-4" aria-hidden />
-                          )}
-                          <AlertTitle>
-                            {resourcesBlock.status === 403
-                              ? 'Accès au catalogue restreint'
-                              : resourcesBlock.status === 401
-                                ? 'Authentification requise'
-                                : resourcesBlock.status === 404
-                                  ? 'API ressources introuvable'
-                                  : 'Catalogue indisponible'}
-                          </AlertTitle>
-                          <AlertDescription>
-                            {resourcesBlock.message}
-                            {resourcesBlock.status === 403 ? (
-                              <span className="mt-2 block text-xs text-muted-foreground">
-                                Demandez la permission{' '}
-                                <strong className="font-medium">resources.read</strong> ou vérifiez
-                                que le module Ressources est activé pour ce client. Vous pourrez
-                                définir le responsable plus tard depuis la fiche projet.
-                              </span>
-                            ) : null}
-                          </AlertDescription>
-                        </Alert>
-                      ) : null}
-
-                      <p className="text-xs text-muted-foreground">
-                        Liste des ressources de type <strong>Personne</strong> du client actif.
-                      </p>
-
-                      <div className={cn(field, 'w-full')}>
-                        <Label htmlFor="p-owner-resource-search">Filtrer</Label>
-                        <Input
-                          id="p-owner-resource-search"
-                          value={resourceSearch}
-                          onChange={(e) => setResourceSearch(e.target.value)}
-                          placeholder="Nom, email, code…"
-                          autoComplete="off"
-                          className="w-full"
-                          disabled={resourcesLoading || resourceCatalogDenied}
-                        />
-                      </div>
-
-                      <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <Label htmlFor="p-owner-resource" className="text-sm font-medium">
-                              Personne
-                            </Label>
-                            <Select
-                              value={ownerResourceId || '__none__'}
-                              onValueChange={(v) => {
-                                if (v === '__none__' || v == null) {
-                                  setOwnerResourceId('');
-                                  setOwnerResourceDetails(null);
-                                  return;
-                                }
-                                const picked =
-                                  filteredHumanResources.find((x) => x.id === v) ??
-                                  humanResources.find((x) => x.id === v);
-                                setOwnerResourceId(v);
-                                setOwnerResourceDetails(picked ?? null);
-                              }}
-                              disabled={resourcesLoading || resourceCatalogDenied}
-                            >
-                              <SelectTrigger id="p-owner-resource" size="sm" className="w-full">
-                                <SelectValue placeholder="Choisir une personne…">
-                                  {resourcesLoading
-                                    ? 'Chargement…'
-                                    : ownerTriggerLabel ?? 'Aucune'}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">Aucune</SelectItem>
-                                {filteredHumanResources.map((r) => (
-                                  <SelectItem key={r.id} value={r.id}>
-                                    {formatResourceDisplayName(r)}
-                                    {r.email ? ` · ${r.email}` : ''}
-                                    {r.affiliation
-                                      ? ` · ${r.affiliation === 'EXTERNAL' ? 'Externe' : 'Interne'}`
-                                      : ''}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground">
-                              Même référentiel que la page Ressources — le projet enregistre le nom
-                              affiché comme responsable hors compte.
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            className="h-9 shrink-0 gap-1.5 sm:mt-6"
-                            disabled={resourceCatalogDenied}
-                            onClick={() => setNewPersonDialogOpen(true)}
-                          >
-                            <UserPlus className="size-3.5" aria-hidden />
-                            Créer une personne
-                          </Button>
-                        </div>
-                      </div>
-                  </div>
-
-                  <DialogFooter showCloseButton={false}>
-                    <Button
-                      type="button"
-                      variant="default"
-                      onClick={() => setOwnerDialogOpen(false)}
-                    >
-                      Terminé
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-
-              <Dialog open={newPersonDialogOpen} onOpenChange={setNewPersonDialogOpen}>
-                <DialogContent
-                  className="max-h-[min(90vh,720px)] w-full max-w-lg overflow-y-auto sm:max-w-lg"
-                  showCloseButton
-                >
-                  <DialogHeader className="space-y-2 text-left">
-                    <DialogTitle className="text-lg font-semibold tracking-tight">
-                      Nouvelle personne
-                    </DialogTitle>
-                    <DialogDescription className="text-sm leading-relaxed">
-                      Création dans le catalogue ressources (client actif), puis sélection comme
-                      responsable de projet.
-                    </DialogDescription>
-                  </DialogHeader>
-                  {newPersonDialogOpen ? (
-                    <NewResourceForm
-                      formIdPrefix="project-create-owner-person"
-                      forceType="HUMAN"
-                      className="w-full max-w-full space-y-4"
-                      onSuccess={(created) => {
-                        setOwnerResourceId(created.id);
-                        setOwnerResourceDetails(created);
-                        void refetchHumanResources();
-                        setNewPersonDialogOpen(false);
-                      }}
-                    />
-                  ) : null}
-                </DialogContent>
-              </Dialog>
+                allowEmpty
+                emptySelectionLabel="Aucun responsable"
+                footerVariant="done-only"
+                doneLabel="Terminé"
+                newPersonFormPrefix="project-create-owner-person"
+                newPersonDialogDescription={
+                  <>
+                    Création dans le catalogue ressources (client actif), puis sélection comme
+                    responsable de projet.
+                  </>
+                }
+                catalogIntro={
+                  <>
+                    Liste des ressources de type <strong>Personne</strong> du client actif — même
+                    référentiel que la page Ressources.
+                  </>
+                }
+                filterHint={
+                  <>
+                    Clique une ligne pour sélectionner le responsable, ou utilise{' '}
+                    <strong>Aucun responsable</strong> pour ne pas en définir. Valide avec{' '}
+                    <strong>Terminé</strong>.
+                  </>
+                }
+                emptyStateNoFilter={{
+                  title: 'Aucune personne dans le catalogue',
+                  description:
+                    'Crée une ressource Personne ou vérifie les droits de lecture du module Ressources.',
+                }}
+                emptyStateFiltered={{
+                  title: 'Aucun résultat',
+                  description: 'Aucune personne ne correspond à ce filtre.',
+                }}
+                dialogContentClassName="max-h-[min(85vh,800px)] w-full max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)]"
+              />
             </div>
             <div className={field}>
               <Label htmlFor="p-desc">Description</Label>

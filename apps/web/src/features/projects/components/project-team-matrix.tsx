@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertCircle, Plus, Trash2, UserPlus, Users } from 'lucide-react';
+import { AlertCircle, Plus, Trash2, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,27 +18,19 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { formatResourceDisplayName } from '@/lib/resource-labels';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { tryListResources, type ResourceListItem } from '@/services/resources';
-import { NewResourceForm } from '@/app/(protected)/resources/_components/new-resource-form';
+import type { ResourceListItem } from '@/services/resources';
+import { PersonCatalogPickerDialog } from './person-catalog-picker-dialog';
 import {
   addProjectTeamMember,
   createProjectTeamRole,
@@ -53,39 +45,6 @@ import type {
   ProjectTeamRoleApi,
   ProjectTeamRoleSystemKind,
 } from '../types/project.types';
-
-const RESOURCE_NONE = '__none__';
-const TEAM_PERSON_SELECT_PLACEHOLDER = 'Choisir une personne';
-
-/** Filtre catalogue personnes : accents ignorés, plusieurs mots (tous requis). */
-function normalizeSearchText(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase();
-}
-
-function personResourceMatchesSearch(r: ResourceListItem, rawQuery: string): boolean {
-  const q = rawQuery.trim();
-  if (!q) return true;
-  const hay = [
-    formatResourceDisplayName(r),
-    r.firstName ?? '',
-    r.name,
-    r.email ?? '',
-    r.code ?? '',
-    r.companyName ?? '',
-    r.role?.name ?? '',
-    r.role?.code ?? '',
-  ]
-    .join(' ')
-    .trim();
-  const nh = normalizeSearchText(hay);
-  const tokens = normalizeSearchText(q)
-    .split(/\s+/)
-    .filter(Boolean);
-  return tokens.every((t) => nh.includes(t));
-}
 
 /** Aligné sur `ProjectTeamRoleSystemKind` — une ligne par rôle système (sync sponsor / responsable). */
 const SYSTEM_ROLE_BADGE: Record<ProjectTeamRoleSystemKind, string> = {
@@ -119,29 +78,13 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [addMemberDialogRoleId, setAddMemberDialogRoleId] = useState<string | null>(null);
   const [newRoleName, setNewRoleName] = useState('');
-  const [teamResourceSearch, setTeamResourceSearch] = useState('');
   const [teamOwnerResourceId, setTeamOwnerResourceId] = useState('');
   const [teamOwnerResourceDetails, setTeamOwnerResourceDetails] =
     useState<ResourceListItem | null>(null);
-  const [newPersonDialogOpen, setNewPersonDialogOpen] = useState(false);
 
   const roles = rolesQuery.data ?? [];
   const members = teamQuery.data ?? [];
 
-  const {
-    data: resourcesOutcome,
-    isLoading: resourcesLoading,
-    refetch: refetchHumanResources,
-  } = useQuery({
-    queryKey: ['resources', 'human', 'project-team-add', clientId],
-    queryFn: () => tryListResources(authFetch, { type: 'HUMAN', limit: 100, offset: 0 }),
-    enabled: !!clientId && addMemberDialogRoleId !== null,
-  });
-
-  const humanResources = resourcesOutcome?.ok ? resourcesOutcome.data.items : [];
-  const resourcesBlock =
-    resourcesOutcome && !resourcesOutcome.ok ? resourcesOutcome : null;
-  const resourceCatalogDenied = Boolean(resourcesBlock);
   const byRole = useMemo(() => membersByRole(members), [members]);
 
   const invalidate = () => {
@@ -192,7 +135,6 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
     onSuccess: () => {
       toast.success('Membre ajouté');
       setAddMemberDialogRoleId(null);
-      setTeamResourceSearch('');
       setTeamOwnerResourceId('');
       setTeamOwnerResourceDetails(null);
       invalidate();
@@ -233,40 +175,15 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
     );
   }, [membersInAddRole]);
 
-  const availableHumanResources = useMemo(() => {
-    return humanResources.filter(
-      (r) => !r.email?.trim() || !takenEmailsInRole.has(r.email.trim().toLowerCase()),
-    );
-  }, [humanResources, takenEmailsInRole]);
-
-  const filteredTeamResources = useMemo(() => {
-    return availableHumanResources.filter((r) =>
-      personResourceMatchesSearch(r, teamResourceSearch),
-    );
-  }, [availableHumanResources, teamResourceSearch]);
-
-  /** Résolution catalogue + détails (ex. personne créée juste avant le refetch). */
-  const selectedTeamPerson = useMemo((): ResourceListItem | null => {
-    if (!teamOwnerResourceId || teamOwnerResourceId === RESOURCE_NONE) return null;
-    return (
-      humanResources.find((x) => x.id === teamOwnerResourceId) ??
-      (teamOwnerResourceDetails?.id === teamOwnerResourceId ? teamOwnerResourceDetails : null)
-    );
-  }, [teamOwnerResourceId, humanResources, teamOwnerResourceDetails]);
-
-  const teamPersonTriggerLabel = useMemo(() => {
-    if (!selectedTeamPerson) return null;
-    return `${formatResourceDisplayName(selectedTeamPerson)}${selectedTeamPerson.email ? ` · ${selectedTeamPerson.email}` : ''}`;
-  }, [selectedTeamPerson]);
-
-  /** Garde un SelectItem pour la valeur courante même si le filtre masque la ligne (sinon l’ID s’affiche). */
-  const resourcesForSelectDropdown = useMemo(() => {
-    const ids = new Set(filteredTeamResources.map((r) => r.id));
-    if (selectedTeamPerson && !ids.has(selectedTeamPerson.id)) {
-      return [selectedTeamPerson, ...filteredTeamResources];
-    }
-    return filteredTeamResources;
-  }, [filteredTeamResources, selectedTeamPerson]);
+  const filterTeamCatalogResources = useCallback(
+    (items: ResourceListItem[]) =>
+      items.filter(
+        (r) =>
+          !r.email?.trim() ||
+          !takenEmailsInRole.has(r.email.trim().toLowerCase()),
+      ),
+    [takenEmailsInRole],
+  );
 
   return (
     <>
@@ -443,7 +360,6 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                               disabled={busy}
                               aria-label={`Affecter une personne au rôle ${role.name}`}
                               onClick={() => {
-                                setTeamResourceSearch('');
                                 setTeamOwnerResourceId('');
                                 setTeamOwnerResourceDetails(null);
                                 setAddMemberDialogRoleId(role.id);
@@ -463,7 +379,6 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                               title={`Affecter une personne — ${role.name}`}
                               aria-label={`Affecter une personne au rôle ${role.name}`}
                               onClick={() => {
-                                setTeamResourceSearch('');
                                 setTeamOwnerResourceId('');
                                 setTeamOwnerResourceDetails(null);
                                 setAddMemberDialogRoleId(role.id);
@@ -546,198 +461,90 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <PersonCatalogPickerDialog
         open={addMemberDialogRoleId !== null}
         onOpenChange={(open) => {
           if (!open) {
             setAddMemberDialogRoleId(null);
-            setTeamResourceSearch('');
             setTeamOwnerResourceId('');
             setTeamOwnerResourceDetails(null);
           }
         }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Affecter une personne</DialogTitle>
-            <DialogDescription>
-              Sélectionne une personne du catalogue (ressource type Personne). Tu peux en créer une
-              nouvelle si besoin.
-            </DialogDescription>
-          </DialogHeader>
-
-          {addMemberDialogRole ? (
-            <div className="space-y-4">
-              <div className="text-xs text-muted-foreground">
-                Rôle :{' '}
-                <span className="font-medium text-foreground">{addMemberDialogRole.name}</span>
-              </div>
-
-              {resourcesBlock ? (
-                <Alert variant="destructive">
-                  <AlertTitle>Impossible de charger le catalogue</AlertTitle>
-                  <AlertDescription>
-                    {resourcesBlock.status === 403
-                      ? 'Tu n’as pas la permission de consulter le catalogue des ressources.'
-                      : resourcesBlock.message}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="team-person-search">Personne</Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => setNewPersonDialogOpen(true)}
-                    disabled={resourceCatalogDenied}
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Nouvelle personne
-                  </Button>
-                </div>
-                <Input
-                  id="team-person-search"
-                  value={teamResourceSearch}
-                  onChange={(e) => setTeamResourceSearch(e.target.value)}
-                  placeholder="Filtrer par nom, email, code…"
-                  autoComplete="off"
-                  disabled={resourceCatalogDenied}
-                />
-                <Select
-                  value={teamOwnerResourceId || RESOURCE_NONE}
-                  onValueChange={(v) => {
-                    const next = v ?? RESOURCE_NONE;
-                    setTeamOwnerResourceId(next === RESOURCE_NONE ? '' : next);
-                    if (next === RESOURCE_NONE) {
-                      setTeamOwnerResourceDetails(null);
-                      return;
-                    }
-                    const r =
-                      humanResources.find((x) => x.id === next) ??
-                      (teamOwnerResourceDetails?.id === next ? teamOwnerResourceDetails : null);
-                    setTeamOwnerResourceDetails(r);
-                  }}
-                  disabled={resourceCatalogDenied || resourcesLoading}
-                >
-                  <SelectTrigger id="team-person-select" size="sm" className="h-auto min-h-8 w-full max-w-full min-w-0">
-                    {/*
-                      Base UI : si les enfants ne sont pas une fonction, le libellé peut retomber sur
-                      `resolveSelectedLabel` et afficher la valeur brute `__none__` tant que les items
-                      ne sont pas enregistrés — fonction = libellé toujours contrôlé.
-                    */}
-                    <SelectValue
-                      placeholder={
-                        resourcesLoading ? 'Chargement…' : TEAM_PERSON_SELECT_PLACEHOLDER
-                      }
-                    >
-                      {(storeValue) => {
-                        if (resourcesLoading) return 'Chargement…';
-                        if (
-                          storeValue == null ||
-                          storeValue === RESOURCE_NONE ||
-                          (typeof storeValue === 'string' && storeValue === '')
-                        ) {
-                          return TEAM_PERSON_SELECT_PLACEHOLDER;
-                        }
-                        return teamPersonTriggerLabel ?? 'Personne';
-                      }}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={RESOURCE_NONE}>— Choisir dans la liste —</SelectItem>
-                    {resourcesForSelectDropdown.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {formatResourceDisplayName(r)}
-                        {r.email ? ` · ${r.email}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {teamOwnerResourceDetails?.email ? (
-                  <p className="text-xs text-muted-foreground">
-                    Email : {teamOwnerResourceDetails.email}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setAddMemberDialogRoleId(null);
-                    setTeamResourceSearch('');
-                    setTeamOwnerResourceId('');
-                    setTeamOwnerResourceDetails(null);
-                  }}
-                >
-                  Fermer
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    const roleId = addMemberDialogRole.id;
-                    if (!teamOwnerResourceId || teamOwnerResourceId === RESOURCE_NONE) {
-                      toast.error('Choisis une personne dans le catalogue');
-                      return;
-                    }
-                    const r =
-                      humanResources.find((x) => x.id === teamOwnerResourceId) ??
-                      teamOwnerResourceDetails;
-                    if (!r) {
-                      toast.error('Personne introuvable');
-                      return;
-                    }
-                    const freeLabel = formatResourceDisplayName(r);
-                    const maxLen = 200;
-                    const label =
-                      freeLabel.length > maxLen ? `${freeLabel.slice(0, maxLen - 1)}…` : freeLabel;
-                    addMemberMutation.mutate({
-                      roleId,
-                      freeLabel: label,
-                      affiliation: r.affiliation === 'EXTERNAL' ? 'EXTERNAL' : 'INTERNAL',
-                    });
-                  }}
-                  disabled={addMemberMutation.isPending || resourceCatalogDenied}
-                >
-                  Ajouter
-                </Button>
-              </div>
+        queryKey={['resources', 'human', 'project-team-add', clientId]}
+        queryEnabled={!!clientId}
+        title="Affecter une personne"
+        description={
+          <>
+            Choisis une personne du catalogue <strong>Personne</strong> du client actif ou crée-en une.
+          </>
+        }
+        contextSlot={
+          addMemberDialogRole ? (
+            <div className="text-xs text-muted-foreground">
+              Rôle :{' '}
+              <span className="font-medium text-foreground">{addMemberDialogRole.name}</span>
             </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={newPersonDialogOpen} onOpenChange={setNewPersonDialogOpen}>
-        <DialogContent
-          className="max-h-[min(90vh,720px)] w-full max-w-lg overflow-y-auto sm:max-w-lg"
-          showCloseButton
-        >
-          <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-lg font-semibold tracking-tight">Nouvelle personne</DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed">
-              Création dans le catalogue ressources (client actif), puis affectation au rôle d’équipe.
-            </DialogDescription>
-          </DialogHeader>
-          {newPersonDialogOpen ? (
-            <NewResourceForm
-              formIdPrefix="project-team-new-person"
-              forceType="HUMAN"
-              className="w-full max-w-full space-y-4"
-              onSuccess={(created) => {
-                setTeamOwnerResourceId(created.id);
-                setTeamOwnerResourceDetails(created);
-                void refetchHumanResources();
-                setNewPersonDialogOpen(false);
-              }}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
+          ) : null
+        }
+        filterFetchedResources={filterTeamCatalogResources}
+        selectedResourceId={teamOwnerResourceId}
+        selectedResourceDetails={teamOwnerResourceDetails}
+        onSelectionChange={(id, resource) => {
+          setTeamOwnerResourceId(id);
+          setTeamOwnerResourceDetails(resource);
+        }}
+        footerVariant="confirm-and-close"
+        confirmLabel="Ajouter"
+        confirmDisabled={addMemberMutation.isPending}
+        onConfirm={() => {
+          if (!addMemberDialogRole) return;
+          const roleId = addMemberDialogRole.id;
+          if (!teamOwnerResourceId) {
+            toast.error('Choisis une personne dans le catalogue');
+            return;
+          }
+          const r = teamOwnerResourceDetails;
+          if (!r || r.id !== teamOwnerResourceId) {
+            toast.error('Personne introuvable');
+            return;
+          }
+          const freeLabel = formatResourceDisplayName(r);
+          const maxLen = 200;
+          const label =
+            freeLabel.length > maxLen ? `${freeLabel.slice(0, maxLen - 1)}…` : freeLabel;
+          addMemberMutation.mutate({
+            roleId,
+            freeLabel: label,
+            affiliation: r.affiliation === 'EXTERNAL' ? 'EXTERNAL' : 'INTERNAL',
+          });
+        }}
+        newPersonFormPrefix="project-team-new-person"
+        newPersonDialogDescription={
+          <>
+            Création dans le catalogue ressources (client actif), puis affectation au rôle d’équipe.
+          </>
+        }
+        catalogIntro={
+          <>
+            Ressources <strong>Personne</strong> du catalogue — même référentiel que la page
+            Ressources.
+          </>
+        }
+        filterHint={
+          <>
+            Clique une ligne pour sélectionner, puis valide avec <strong>Ajouter</strong>.
+          </>
+        }
+        emptyStateNoFilter={{
+          title: 'Aucune personne disponible',
+          description:
+            'Aucune ressource Personne n’est disponible pour ce rôle (ou déjà affectée).',
+        }}
+        emptyStateFiltered={{
+          title: 'Aucun résultat',
+          description: 'Aucune personne ne correspond à ce filtre pour ce rôle.',
+        }}
+      />
     </>
   );
 }

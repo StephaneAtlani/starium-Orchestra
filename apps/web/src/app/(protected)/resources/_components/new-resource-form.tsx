@@ -191,7 +191,7 @@ export function NewResourceForm({
                 id={pid('companyName')}
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="Employeur ou structure"
+                placeholder="Société"
                 maxLength={200}
                 autoComplete="organization"
               />
