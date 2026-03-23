@@ -60,6 +60,14 @@ export class MeService {
    * (via UserRole → Role → RolePermission → Permission.code). Utilisé par le frontend pour afficher/masquer les actions.
    */
   async getPermissionCodes(userId: string, clientId: string): Promise<string[]> {
+    const enabledClientModules = await this.prisma.clientModule.findMany({
+      where: { clientId, status: 'ENABLED' },
+      select: { moduleId: true },
+    });
+    const enabledModuleIds = new Set(
+      enabledClientModules.map((cm) => cm.moduleId),
+    );
+
     const userRoles = await this.prisma.userRole.findMany({
       where: {
         userId,
@@ -69,7 +77,11 @@ export class MeService {
         role: {
           include: {
             rolePermissions: {
-              include: { permission: true },
+              include: {
+                permission: {
+                  include: { module: true },
+                },
+              },
             },
           },
         },
@@ -78,9 +90,11 @@ export class MeService {
     const codes = new Set<string>();
     for (const ur of userRoles) {
       for (const rp of ur.role.rolePermissions) {
-        if (rp.permission?.code) {
-          codes.add(rp.permission.code);
-        }
+        const p = rp.permission;
+        if (!p?.code || !p.module) continue;
+        if (!p.module.isActive) continue;
+        if (!enabledModuleIds.has(p.moduleId)) continue;
+        codes.add(p.code);
       }
     }
     return Array.from(codes);

@@ -5,8 +5,9 @@
 # Ports hôte (si 5432 / 3001 déjà pris) :
 #   POSTGRES_PUBLISH_PORT=5433 API_PUBLISH_PORT=3002 docker compose up -d
 #
-# Build web : NEXT_PUBLIC_API_URL doit être défini au build (rewrites + bundle).
-#   NEXT_PUBLIC_API_URL=https://api.starium.fr docker compose build web
+# Build web : INTERNAL_API_URL = URL API vue par le conteneur web (rewrites). NEXT_PUBLIC_* = bundle client.
+#   Production : NEXT_PUBLIC_API_URL=https://api.starium.fr INTERNAL_API_URL=https://api.starium.fr docker compose build web
+#   Local Docker : défauts ci-dessous (api:3001 pour les rewrites, localhost pour le navigateur).
 # =============================================================================
 
 x-postgres-healthcheck: &postgres-healthcheck
@@ -28,7 +29,10 @@ x-web-base-env: &web-base-env
   JWT_SECRET: "9f8d7s6f5d4s3f2d1s0f9d8s7f6d5s4f"
   JWT_ACCESS_EXPIRATION: 900
   JWT_REFRESH_EXPIRATION: 604800
-  NEXT_PUBLIC_API_URL: https://api.starium.fr
+  # Navigateur / bundle : localhost si ports mappés ; surchargez en prod (ex. https://api.starium.fr).
+  NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+  # Optionnel au runtime (les rewrites sont surtout figés au build ; voir build.args).
+  INTERNAL_API_URL: ${INTERNAL_API_URL:-http://api:3001}
 
 x-depends-postgres-healthy: &depends-postgres-healthy
   postgres:
@@ -64,7 +68,8 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.starium.fr}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        INTERNAL_API_URL: ${INTERNAL_API_URL:-http://api:3001}
     restart: unless-stopped
     environment:
       <<: *web-base-env

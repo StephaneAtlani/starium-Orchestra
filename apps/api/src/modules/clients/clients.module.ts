@@ -8,6 +8,7 @@ import { AuthModule } from '../auth/auth.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { RolesModule } from '../roles/roles.module';
 import { ProjectsModule } from '../projects/projects.module';
+import { ResourcesModule } from '../resources/resources.module';
 import { ClientsController } from './clients.controller';
 import { ClientMembershipService } from './client-membership.service';
 import { ClientsService } from './clients.service';
@@ -17,7 +18,14 @@ import { ClientTaxSettingsController } from './client-tax-settings.controller';
 import { ClientTaxSettingsService } from './client-tax-settings.service';
 
 @Module({
-  imports: [AuthModule, PrismaModule, AuditLogsModule, RolesModule, ProjectsModule],
+  imports: [
+    AuthModule,
+    PrismaModule,
+    AuditLogsModule,
+    RolesModule,
+    ProjectsModule,
+    ResourcesModule,
+  ],
   controllers: [ClientsController, ClientModulesController, ClientTaxSettingsController],
   providers: [
     ClientsService,

@@ -9,6 +9,7 @@ import {
   CreateAuditLogInput,
 } from '../audit-logs/audit-logs.service';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
+import { ResourcesModuleBootstrapService } from '../resources/resources-module-bootstrap.service';
 
 export interface ModuleCatalogueItem {
   id: string;
@@ -34,6 +35,7 @@ export class ClientModulesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly resourcesBootstrap: ResourcesModuleBootstrapService,
   ) {}
 
   async listCatalogue(): Promise<ModuleCatalogueItem[]> {
@@ -106,6 +108,16 @@ export class ClientModulesService {
       throw new BadRequestException('Module inactif sur la plateforme');
     }
 
+    const existingCm = await prisma.clientModule.findUnique({
+      where: {
+        clientId_moduleId: {
+          clientId,
+          moduleId: module.id,
+        },
+      },
+    });
+    const wasEnabled = existingCm?.status === 'ENABLED';
+
     const clientModule = await prisma.clientModule.upsert({
       where: {
         clientId_moduleId: {
@@ -122,6 +134,14 @@ export class ClientModulesService {
         status: 'ENABLED',
       },
     });
+
+    if (
+      moduleCode === 'resources' &&
+      clientModule.status === 'ENABLED' &&
+      !wasEnabled
+    ) {
+      await this.resourcesBootstrap.bootstrapForClient(clientId);
+    }
 
     const result: ClientModuleItem = {
       id: module.id,
@@ -161,6 +181,16 @@ export class ClientModulesService {
       throw new BadRequestException('Module inactif sur la plateforme');
     }
 
+    const existingCm = await prisma.clientModule.findUnique({
+      where: {
+        clientId_moduleId: {
+          clientId,
+          moduleId: module.id,
+        },
+      },
+    });
+    const wasEnabled = existingCm?.status === 'ENABLED';
+
     const clientModule = await prisma.clientModule.upsert({
       where: {
         clientId_moduleId: {
@@ -175,6 +205,14 @@ export class ClientModulesService {
       },
       update: { status },
     });
+
+    if (
+      moduleCode === 'resources' &&
+      status === 'ENABLED' &&
+      !wasEnabled
+    ) {
+      await this.resourcesBootstrap.bootstrapForClient(clientId);
+    }
 
     const result: ClientModuleItem = {
       id: module.id,

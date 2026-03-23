@@ -104,6 +104,8 @@ model Client {
   projectActivities             ProjectActivity[]
   budgetLinePlanningMonths   BudgetLinePlanningMonth[]
   budgetLinePlanningScenarios BudgetLinePlanningScenario[]
+  resourceRoles                 ResourceRole[]
+  resources                     Resource[]
 }
 
 model User {
@@ -263,6 +265,64 @@ model UserRole {
 enum ClientModuleStatus {
   ENABLED
   DISABLED
+}
+
+// --- Resources (RFC-RES-001) ---
+
+enum ResourceType {
+  HUMAN
+  MATERIAL
+  LICENSE
+}
+
+/// Portée ressource humaine (aligné équipe projet : interne / externe).
+enum ResourceAffiliation {
+  INTERNAL
+  EXTERNAL
+}
+
+/// Rôle métier catalogue (humain) — distinct du RBAC `Role`.
+model ResourceRole {
+  id        String     @id @default(cuid())
+  clientId  String
+  name      String
+  code      String?
+  client    Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  resources Resource[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([clientId, name])
+  @@index([clientId])
+}
+
+model Resource {
+  id         String       @id @default(cuid())
+  clientId   String
+  name       String
+  /// Réservé au type HUMAN (optionnel).
+  firstName  String?
+  code       String?
+  type       ResourceType
+  email        String?
+  roleId       String?
+  affiliation  ResourceAffiliation?
+  /// Société / employeur — pertinent si portée EXTERNE (HUMAN).
+  companyName    String?
+  dailyRate    Decimal?     @db.Decimal(12, 2)
+  metadata     Json?
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  resourceRole ResourceRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, email])
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([clientId, type])
+  @@index([clientId, isActive])
 }
 
 // --- Projects MVP (RFC-PROJ-001) ---

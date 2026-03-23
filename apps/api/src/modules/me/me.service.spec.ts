@@ -32,6 +32,12 @@ describe('MeService', () => {
         updateMany: jest.fn(),
         update: jest.fn(),
       },
+      clientModule: {
+        findMany: jest.fn(),
+      },
+      userRole: {
+        findMany: jest.fn(),
+      },
       refreshToken: { deleteMany: jest.fn() },
       $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     } as unknown as jest.Mocked<PrismaService>;
@@ -205,6 +211,74 @@ describe('MeService', () => {
         service.setDefaultClient('user-1', 'client-2'),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getPermissionCodes', () => {
+    it('retourne les codes si module plateforme actif et ClientModule ENABLED', async () => {
+      prisma.clientModule.findMany.mockResolvedValue([{ moduleId: 'm-budgets' }]);
+      prisma.userRole.findMany.mockResolvedValue([
+        {
+          role: {
+            rolePermissions: [
+              {
+                permission: {
+                  code: 'budgets.read',
+                  moduleId: 'm-budgets',
+                  module: { isActive: true },
+                },
+              },
+            ],
+          },
+        },
+      ] as any);
+
+      const codes = await service.getPermissionCodes('user-1', 'client-1');
+      expect(codes).toEqual(['budgets.read']);
+    });
+
+    it('exclut si Module.isActive est false', async () => {
+      prisma.clientModule.findMany.mockResolvedValue([{ moduleId: 'm-x' }]);
+      prisma.userRole.findMany.mockResolvedValue([
+        {
+          role: {
+            rolePermissions: [
+              {
+                permission: {
+                  code: 'x.read',
+                  moduleId: 'm-x',
+                  module: { isActive: false },
+                },
+              },
+            ],
+          },
+        },
+      ] as any);
+
+      const codes = await service.getPermissionCodes('user-1', 'client-1');
+      expect(codes).toEqual([]);
+    });
+
+    it('exclut si aucun ClientModule ENABLED pour ce module', async () => {
+      prisma.clientModule.findMany.mockResolvedValue([]);
+      prisma.userRole.findMany.mockResolvedValue([
+        {
+          role: {
+            rolePermissions: [
+              {
+                permission: {
+                  code: 'budgets.read',
+                  moduleId: 'm-budgets',
+                  module: { isActive: true },
+                },
+              },
+            ],
+          },
+        },
+      ] as any);
+
+      const codes = await service.getPermissionCodes('user-1', 'client-1');
+      expect(codes).toEqual([]);
     });
   });
 });

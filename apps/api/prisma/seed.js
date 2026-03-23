@@ -61,6 +61,7 @@ async function upsertModulesAndPermissions() {
   const modules = [
     { code: 'budgets', name: 'Budgets', description: 'Gestion des budgets IT' },
     { code: 'projects', name: 'Projets', description: 'Gestion des projets IT' },
+    { code: 'resources', name: 'Ressources', description: 'Catalogue ressources humaines et matériel (RFC-RES-001)' },
     { code: 'contracts', name: 'Contrats', description: 'Gestion des contrats' },
     { code: 'suppliers', name: 'Fournisseurs', description: 'Gestion des fournisseurs' },
     { code: 'procurement', name: 'Procurement', description: 'Fournisseurs, commandes, factures' },
@@ -71,6 +72,7 @@ async function upsertModulesAndPermissions() {
   const permsByModule = {
     budgets: ['read', 'create', 'update', 'delete'],
     projects: ['read', 'create', 'update', 'delete'],
+    resources: ['read', 'create', 'update'],
     contracts: ['read', 'create', 'update', 'delete'],
     suppliers: ['read', 'create', 'update', 'delete'],
     procurement: ['read', 'create', 'update'],
@@ -234,6 +236,9 @@ async function upsertSitralAndClientAdmin() {
   const projectsModule = await prisma.module.findUnique({
     where: { code: 'projects' },
   });
+  const resourcesModule = await prisma.module.findUnique({
+    where: { code: 'resources' },
+  });
   if (budgetModule) {
     await prisma.clientModule.upsert({
       where: {
@@ -273,6 +278,20 @@ async function upsertSitralAndClientAdmin() {
       },
     });
   }
+  if (resourcesModule) {
+    await prisma.clientModule.upsert({
+      where: {
+        clientId_moduleId: { clientId: client.id, moduleId: resourcesModule.id },
+      },
+      update: { status: 'ENABLED' },
+      create: {
+        clientId: client.id,
+        moduleId: resourcesModule.id,
+        status: 'ENABLED',
+      },
+    });
+    await bootstrapResourcesForClient(client.id);
+  }
 
   const passwordHash = await bcrypt.hash(SITRAL_CLIENT_ADMIN.password, 10);
   const user = await prisma.user.upsert({
@@ -311,8 +330,65 @@ async function upsertSitralAndClientAdmin() {
   console.log(
     'Seed OK: client Sitral + admin',
     SITRAL_CLIENT_ADMIN.email,
-    '(CLIENT_ADMIN, modules budgets + procurement + projects activés).',
+    '(CLIENT_ADMIN, modules budgets + procurement + projects + resources activés).',
   );
+}
+
+/** Aligné sur ResourcesModuleBootstrapService (RFC-RES-001). */
+async function bootstrapResourcesForClient(clientId) {
+  const perms = await prisma.permission.findMany({
+    where: {
+      code: {
+        in: ['resources.read', 'resources.create', 'resources.update'],
+      },
+    },
+    select: { id: true, code: true },
+  });
+  const byCode = Object.fromEntries(perms.map((p) => [p.code, p.id]));
+
+  async function ensureRole(name, permissionCodes) {
+    const permissionIds = permissionCodes.map((c) => byCode[c]).filter(Boolean);
+    let role = await prisma.role.findFirst({ where: { clientId, name } });
+    if (!role) {
+      role = await prisma.role.create({
+        data: { clientId, name, isSystem: true },
+      });
+    }
+    const existing = await prisma.rolePermission.findMany({
+      where: { roleId: role.id },
+      select: { permissionId: true },
+    });
+    const have = new Set(existing.map((e) => e.permissionId));
+    const toAdd = permissionIds.filter((id) => !have.has(id));
+    if (toAdd.length) {
+      await prisma.rolePermission.createMany({
+        data: toAdd.map((permissionId) => ({ roleId: role.id, permissionId })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  await ensureRole('Resource Manager', [
+    'resources.read',
+    'resources.create',
+    'resources.update',
+  ]);
+  await ensureRole('Resource Viewer', ['resources.read']);
+
+  const defaultNames = [
+    'Project Manager',
+    'Developer',
+    'Architect',
+    'DSI',
+    'Consultant',
+  ];
+  for (const name of defaultNames) {
+    await prisma.resourceRole.upsert({
+      where: { clientId_name: { clientId, name } },
+      update: {},
+      create: { clientId, name },
+    });
+  }
 }
 
 /**

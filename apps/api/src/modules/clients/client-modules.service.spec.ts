@@ -18,6 +18,7 @@ describe('ClientModulesService', () => {
         findUnique: jest.fn(),
       },
       clientModule: {
+        findUnique: jest.fn(),
         upsert: jest.fn(),
       },
     };
@@ -26,7 +27,15 @@ describe('ClientModulesService', () => {
       create: jest.fn(),
     };
 
-    service = new ClientModulesService(prisma, auditLogs as AuditLogsService);
+    const resourcesBootstrap = {
+      bootstrapForClient: jest.fn().mockResolvedValue(undefined),
+    };
+
+    service = new ClientModulesService(
+      prisma,
+      auditLogs as AuditLogsService,
+      resourcesBootstrap as any,
+    );
   });
 
   it('should be defined', () => {
@@ -162,6 +171,7 @@ describe('ClientModulesService', () => {
     it('crée ou met à jour le ClientModule avec statut ENABLED', async () => {
       prisma.client.findUnique.mockResolvedValue({ id: clientId });
       prisma.module.findUnique.mockResolvedValue(moduleRecord);
+      prisma.clientModule.findUnique.mockResolvedValue(null);
       prisma.clientModule.upsert.mockResolvedValue({
         id: 'cm-1',
         clientId,
@@ -213,6 +223,9 @@ describe('ClientModulesService', () => {
     it('met à jour le statut demandé', async () => {
       prisma.client.findUnique.mockResolvedValue({ id: clientId });
       prisma.module.findUnique.mockResolvedValue(moduleRecord);
+      prisma.clientModule.findUnique.mockResolvedValue({
+        status: 'ENABLED',
+      });
       prisma.clientModule.upsert.mockResolvedValue({
         id: 'cm-1',
         clientId,

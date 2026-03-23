@@ -1,0 +1,397 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  Prisma,
+  Resource,
+  ResourceAffiliation,
+  ResourceType,
+} from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import type { AuditContext } from '../budget-management/types/audit-context';
+import { CreateResourceDto } from './dto/create-resource.dto';
+import { ListResourcesQueryDto } from './dto/list-resources.query.dto';
+import { UpdateResourceDto } from './dto/update-resource.dto';
+
+export type ResourceRoleEmbed = {
+  id: string;
+  name: string;
+  code: string | null;
+};
+
+export type ResourceListItemDto = {
+  id: string;
+  name: string;
+  firstName: string | null;
+  code: string | null;
+  type: ResourceType;
+  isActive: boolean;
+  email: string | null;
+  affiliation: ResourceAffiliation | null;
+  companyName: string | null;
+  dailyRate: string | null;
+  metadata: unknown | null;
+  createdAt: string;
+  updatedAt: string;
+  role: ResourceRoleEmbed | null;
+};
+
+export type ResourceDetailDto = ResourceListItemDto;
+
+@Injectable()
+export class ResourcesService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogs: AuditLogsService,
+  ) {}
+
+  private hasPresentKey(raw: Record<string, unknown>, key: string): boolean {
+    return Object.prototype.hasOwnProperty.call(raw, key);
+  }
+
+  private decimalToString(d: Prisma.Decimal | null | undefined): string | null {
+    if (d === null || d === undefined) return null;
+    return d.toString();
+  }
+
+  private toDetail(
+    r: Resource & { resourceRole: { id: string; name: string; code: string | null } | null },
+  ): ResourceDetailDto {
+    return {
+      id: r.id,
+      name: r.name,
+      firstName: r.firstName ?? null,
+      code: r.code,
+      type: r.type,
+      isActive: r.isActive,
+      email: r.email,
+      affiliation: r.affiliation ?? null,
+      companyName: r.companyName ?? null,
+      dailyRate: this.decimalToString(r.dailyRate as unknown as Prisma.Decimal),
+      metadata: r.metadata,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+      role:
+        r.type === 'HUMAN' && r.resourceRole
+          ? {
+              id: r.resourceRole.id,
+              name: r.resourceRole.name,
+              code: r.resourceRole.code,
+            }
+          : null,
+    };
+  }
+
+  private validateTypeRules(
+    type: ResourceType,
+    raw: Record<string, unknown>,
+    mode: 'create' | 'update',
+  ): void {
+    const forbidden = [
+      'email',
+      'roleId',
+      'dailyRate',
+      'affiliation',
+      'firstName',
+      'companyName',
+    ] as const;
+    if (type === 'MATERIAL' || type === 'LICENSE') {
+      for (const key of forbidden) {
+        if (this.hasPresentKey(raw, key)) {
+          throw new BadRequestException(
+            `Le champ "${key}" n'est pas autorisé pour le type ${type}`,
+          );
+        }
+      }
+    }
+    if (type === 'HUMAN' && this.hasPresentKey(raw, 'metadata')) {
+      throw new BadRequestException(
+        'Le champ "metadata" n\'est pas autorisé pour le type HUMAN',
+      );
+    }
+  }
+
+  /** roleId défini : ResourceRole doit exister et être du même client — sinon 404 (RFC). */
+  private async assertResourceRoleForClient(
+    clientId: string,
+    roleId: string | null | undefined,
+  ): Promise<void> {
+    if (roleId === undefined || roleId === null || roleId === '') return;
+    const rr = await this.prisma.resourceRole.findFirst({
+      where: { id: roleId, clientId },
+    });
+    if (!rr) {
+      throw new NotFoundException('Rôle métier introuvable');
+    }
+  }
+
+  async list(
+    clientId: string,
+    query: ListResourcesQueryDto,
+  ): Promise<{
+    items: ResourceListItemDto[];
+    total: number;
+    limit: number;
+    offset: number;
+  }> {
+    const offset = query.offset ?? 0;
+    const limit = query.limit ?? 50;
+    const where: Prisma.ResourceWhereInput = { clientId };
+    if (query.type) where.type = query.type;
+    if (query.isActive !== undefined) where.isActive = query.isActive;
+    if (query.search?.trim()) {
+      const s = query.search.trim();
+      where.OR = [
+        { name: { contains: s, mode: 'insensitive' } },
+        { firstName: { contains: s, mode: 'insensitive' } },
+        { code: { contains: s, mode: 'insensitive' } },
+        { email: { contains: s, mode: 'insensitive' } },
+        { companyName: { contains: s, mode: 'insensitive' } },
+      ];
+    }
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.resource.count({ where }),
+      this.prisma.resource.findMany({
+        where,
+        include: { resourceRole: true },
+        orderBy: { name: 'asc' },
+        skip: offset,
+        take: limit,
+      }),
+    ]);
+    return {
+      items: rows.map((r) => this.toDetail(r)),
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  async getById(clientId: string, id: string): Promise<ResourceDetailDto> {
+    const r = await this.prisma.resource.findFirst({
+      where: { id, clientId },
+      include: { resourceRole: true },
+    });
+    if (!r) {
+      throw new NotFoundException('Ressource introuvable');
+    }
+    return this.toDetail(r);
+  }
+
+  async create(
+    clientId: string,
+    dto: CreateResourceDto,
+    rawBody: Record<string, unknown>,
+    context: AuditContext,
+  ): Promise<ResourceDetailDto> {
+    this.validateTypeRules(dto.type, rawBody, 'create');
+    if (dto.roleId) {
+      await this.assertResourceRoleForClient(clientId, dto.roleId);
+    }
+    try {
+      const createData: Prisma.ResourceCreateInput = {
+        client: { connect: { id: clientId } },
+        name: dto.name.trim(),
+        code: dto.code?.trim() || null,
+        type: dto.type,
+        isActive: true,
+      };
+      if (dto.type === 'HUMAN') {
+        createData.firstName = dto.firstName?.trim() || null;
+        createData.email = dto.email ?? null;
+        const aff = dto.affiliation ?? ResourceAffiliation.INTERNAL;
+        createData.affiliation = aff;
+        createData.companyName =
+          aff === ResourceAffiliation.EXTERNAL
+            ? dto.companyName?.trim() || null
+            : null;
+        createData.dailyRate =
+          dto.dailyRate != null ? new Prisma.Decimal(dto.dailyRate) : null;
+        if (dto.roleId) {
+          createData.resourceRole = { connect: { id: dto.roleId } };
+        }
+      }
+      if (dto.type === 'MATERIAL' || dto.type === 'LICENSE') {
+        if (dto.metadata !== undefined) {
+          createData.metadata =
+            dto.metadata === null
+              ? Prisma.JsonNull
+              : (dto.metadata as Prisma.InputJsonValue);
+        }
+      }
+      const created = await this.prisma.resource.create({
+        data: createData,
+        include: { resourceRole: true },
+      });
+      await this.auditLogs.create({
+        clientId,
+        userId: context.actorUserId,
+        action: 'resource.created',
+        resourceType: 'resource',
+        resourceId: created.id,
+        newValue: { name: created.name, type: created.type },
+        ipAddress: context.meta?.ipAddress,
+        userAgent: context.meta?.userAgent,
+        requestId: context.meta?.requestId,
+      });
+      return this.toDetail(created);
+    } catch (e) {
+      this.rethrowUnique(e);
+      throw e;
+    }
+  }
+
+  async update(
+    clientId: string,
+    id: string,
+    dto: UpdateResourceDto,
+    rawBody: Record<string, unknown>,
+    context: AuditContext,
+  ): Promise<ResourceDetailDto> {
+    const existing = await this.prisma.resource.findFirst({
+      where: { id, clientId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Ressource introuvable');
+    }
+    this.validateTypeRules(existing.type, rawBody, 'update');
+    const data: Prisma.ResourceUpdateInput = {};
+    if (dto.name !== undefined) data.name = dto.name.trim();
+    if (dto.code !== undefined) data.code = dto.code?.trim() || null;
+    if (dto.firstName !== undefined) {
+      if (existing.type !== 'HUMAN') {
+        throw new BadRequestException('firstName réservé au type HUMAN');
+      }
+      data.firstName = dto.firstName?.trim() || null;
+    }
+    if (dto.email !== undefined) {
+      if (existing.type !== 'HUMAN') {
+        throw new BadRequestException('email réservé au type HUMAN');
+      }
+      data.email = dto.email;
+    }
+    if (dto.roleId !== undefined) {
+      if (existing.type !== 'HUMAN') {
+        throw new BadRequestException('roleId réservé au type HUMAN');
+      }
+      await this.assertResourceRoleForClient(clientId, dto.roleId || undefined);
+      data.resourceRole = dto.roleId
+        ? { connect: { id: dto.roleId } }
+        : { disconnect: true };
+    }
+    if (dto.dailyRate !== undefined) {
+      if (existing.type !== 'HUMAN') {
+        throw new BadRequestException('dailyRate réservé au type HUMAN');
+      }
+      data.dailyRate =
+        dto.dailyRate == null ? null : new Prisma.Decimal(dto.dailyRate);
+    }
+    if (dto.affiliation !== undefined) {
+      if (existing.type !== 'HUMAN') {
+        throw new BadRequestException('affiliation réservée au type HUMAN');
+      }
+      data.affiliation = dto.affiliation;
+      if (dto.affiliation !== ResourceAffiliation.EXTERNAL) {
+        data.companyName = null;
+      }
+    }
+    if (dto.companyName !== undefined) {
+      if (existing.type !== 'HUMAN') {
+        throw new BadRequestException('companyName réservé au type HUMAN');
+      }
+      const effAff =
+        (dto.affiliation !== undefined
+          ? dto.affiliation
+          : existing.affiliation) ?? ResourceAffiliation.INTERNAL;
+      data.companyName =
+        effAff === ResourceAffiliation.EXTERNAL
+          ? dto.companyName?.trim() || null
+          : null;
+    }
+    if (dto.metadata !== undefined) {
+      if (existing.type === 'HUMAN') {
+        throw new BadRequestException('metadata réservé aux types MATERIAL et LICENSE');
+      }
+      data.metadata =
+        dto.metadata === null
+          ? Prisma.JsonNull
+          : (dto.metadata as Prisma.InputJsonValue);
+    }
+    if (Object.keys(data).length === 0) {
+      const r = await this.prisma.resource.findFirst({
+        where: { id, clientId },
+        include: { resourceRole: true },
+      });
+      if (!r) throw new NotFoundException('Ressource introuvable');
+      return this.toDetail(r);
+    }
+    try {
+      const updated = await this.prisma.resource.update({
+        where: { id },
+        data,
+        include: { resourceRole: true },
+      });
+      await this.auditLogs.create({
+        clientId,
+        userId: context.actorUserId,
+        action: 'resource.updated',
+        resourceType: 'resource',
+        resourceId: updated.id,
+        oldValue: { name: existing.name },
+        newValue: { name: updated.name },
+        ipAddress: context.meta?.ipAddress,
+        userAgent: context.meta?.userAgent,
+        requestId: context.meta?.requestId,
+      });
+      return this.toDetail(updated);
+    } catch (e) {
+      this.rethrowUnique(e);
+      throw e;
+    }
+  }
+
+  async deactivate(
+    clientId: string,
+    id: string,
+    context: AuditContext,
+  ): Promise<ResourceDetailDto> {
+    const existing = await this.prisma.resource.findFirst({
+      where: { id, clientId },
+      include: { resourceRole: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Ressource introuvable');
+    }
+    const updated = await this.prisma.resource.update({
+      where: { id },
+      data: { isActive: false },
+      include: { resourceRole: true },
+    });
+    await this.auditLogs.create({
+      clientId,
+      userId: context.actorUserId,
+      action: 'resource.deactivated',
+      resourceType: 'resource',
+      resourceId: updated.id,
+      oldValue: { isActive: true },
+      newValue: { isActive: false },
+      ipAddress: context.meta?.ipAddress,
+      userAgent: context.meta?.userAgent,
+      requestId: context.meta?.requestId,
+    });
+    return this.toDetail(updated);
+  }
+
+  private rethrowUnique(e: unknown): void {
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === 'P2002'
+    ) {
+      throw new ConflictException('Contrainte d\'unicité (email ou code)');
+    }
+  }
+}

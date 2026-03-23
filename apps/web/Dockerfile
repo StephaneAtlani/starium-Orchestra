@@ -5,6 +5,9 @@ WORKDIR /app
 FROM base AS builder
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+# Rewrites serveur → API (bridge Docker : http://api:3001). Build-time : doit être défini avant `next build`.
+ARG INTERNAL_API_URL=http://api:3001
+ENV INTERNAL_API_URL=${INTERNAL_API_URL}
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build

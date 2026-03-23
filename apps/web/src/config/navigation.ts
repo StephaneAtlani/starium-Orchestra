@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Building2,
+  Boxes,
   FolderKanban,
   LayoutDashboard,
   Settings,
@@ -82,6 +83,20 @@ export const navigation: NavigationSection[] = [
             requiredPermissions: ['projects.read'],
           },
         ],
+      },
+    ],
+  },
+  {
+    section: 'Organisation',
+    items: [
+      {
+        label: 'Ressources',
+        href: '/resources',
+        icon: Boxes,
+        scope: 'client',
+        moduleCode: 'resources',
+        requiredPermissions: ['resources.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
     ],
   },

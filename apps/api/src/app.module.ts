@@ -23,6 +23,7 @@ import { SecurityLogsModule } from './modules/security-logs/security-logs.module
 import { ProcurementModule } from './modules/procurement/procurement.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { ProjectBudgetModule } from './modules/project-budget/project-budget.module';
+import { ResourcesModule } from './modules/resources/resources.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { ProjectBudgetModule } from './modules/project-budget/project-budget.mod
     ProcurementModule,
     ProjectsModule,
     ProjectBudgetModule,
+    ResourcesModule,
   ],
 })
 export class AppModule {}
