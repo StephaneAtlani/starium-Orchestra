@@ -1,22 +1,12 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine
 RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
 WORKDIR /app
-
-FROM base AS builder
-# Build-time : URL publique de l’API pour le bundle client (défaut localhost en stack standard).
-ARG NEXT_PUBLIC_API_URL=http://localhost:3001
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build
-RUN pnpm --filter @starium-orchestra/web build
-
-FROM base AS runner
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=builder /app/apps/web/.next/standalone ./
-COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
-COPY --from=builder /app/apps/web/public ./apps/web/public
-WORKDIR /app/apps/web
+# next dev (HMR) sur le port 3000 pour correspondre au mapping docker-compose
+# Avec le volume mount ./apps/web:/app/apps/web, le node_modules du build est masqué :
+# on réinstalle au démarrage pour que le montage ait bien ses deps (ex. sonner).
+WORKDIR /app
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "pnpm install --frozen-lockfile 2>/dev/null || pnpm install && cd apps/web && pnpm exec next dev -p 3000"]
