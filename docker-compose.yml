@@ -1,19 +1,5 @@
 # =============================================================================
-# Starium Orchestra — Docker Compose
-# =============================================================================
-#
-# Usage :
-#   docker compose up -d
-#       → PostgreSQL uniquement (port 5432). Lancer API/Web en local avec pnpm
-#         (voir README) en pointant DATABASE_URL sur cette base.
-#
-#   docker compose --profile standard up -d
-#       → PostgreSQL + API (3001) + Web (hôte 3002 → conteneur 3000), images
-#         buildées (prod-like), pas de bind mount. Le port hôte 3002 est volontaire
-#         (évite un conflit avec un autre process sur :3000). Le navigateur appelle
-#         l’API sur :3001 ; NEXT_PUBLIC_API_URL=http://localhost:3001.
-#
-# Hot reload : hors Docker (`pnpm` dans apps/api et apps/web), pas de service dédié.
+# Starium Orchestra — Docker Compose (FIX JWT + Dokploy)
 # =============================================================================
 
 x-postgres-healthcheck: &postgres-healthcheck
@@ -23,9 +9,9 @@ x-postgres-healthcheck: &postgres-healthcheck
   retries: 5
 
 x-api-base-env: &api-base-env
-  DATABASE_URL: ${DATABASE_URL}
+  DATABASE_URL: ${DATABASE_URL:-postgresql://starium:starium@postgres:5432/starium}
   PORT: ${PORT:-3001}
-  JWT_SECRET: ${JWT_SECRET}
+  JWT_SECRET: ${JWT_SECRET:-dev_fallback_secret_please_change}
   JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-900}
   JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800}
 
@@ -66,7 +52,6 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
     ports:
-      # 3002 hôte → 3000 conteneur (volontaire : libère :3000 sur la machine)
       - "3002:3000"
     depends_on:
       - api
