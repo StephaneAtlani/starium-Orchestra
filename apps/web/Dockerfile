@@ -19,4 +19,5 @@ WORKDIR /app
 COPY --from=builder /app /app
 
 EXPOSE 3000
-CMD ["node", "apps/web/.next/standalone/server.js"]
+# Next 15 + monorepo : le point d’entrée standalone n’est pas à la racine de `.next/standalone`
+CMD ["node", "apps/web/.next/standalone/apps/web/server.js"]
