@@ -55,6 +55,37 @@ import type {
 } from '../types/project.types';
 
 const RESOURCE_NONE = '__none__';
+const TEAM_PERSON_SELECT_PLACEHOLDER = 'Choisir une personne';
+
+/** Filtre catalogue personnes : accents ignorés, plusieurs mots (tous requis). */
+function normalizeSearchText(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase();
+}
+
+function personResourceMatchesSearch(r: ResourceListItem, rawQuery: string): boolean {
+  const q = rawQuery.trim();
+  if (!q) return true;
+  const hay = [
+    formatResourceDisplayName(r),
+    r.firstName ?? '',
+    r.name,
+    r.email ?? '',
+    r.code ?? '',
+    r.companyName ?? '',
+    r.role?.name ?? '',
+    r.role?.code ?? '',
+  ]
+    .join(' ')
+    .trim();
+  const nh = normalizeSearchText(hay);
+  const tokens = normalizeSearchText(q)
+    .split(/\s+/)
+    .filter(Boolean);
+  return tokens.every((t) => nh.includes(t));
+}
 
 /** Aligné sur `ProjectTeamRoleSystemKind` — une ligne par rôle système (sync sponsor / responsable). */
 const SYSTEM_ROLE_BADGE: Record<ProjectTeamRoleSystemKind, string> = {
@@ -209,15 +240,9 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
   }, [humanResources, takenEmailsInRole]);
 
   const filteredTeamResources = useMemo(() => {
-    const q = teamResourceSearch.trim().toLowerCase();
-    if (!q) return availableHumanResources;
-    return availableHumanResources.filter((r) => {
-      const label = formatResourceDisplayName(r).toLowerCase();
-      const hay = [label, r.email ?? '', r.code ?? '', r.companyName ?? '']
-        .join(' ')
-        .toLowerCase();
-      return hay.includes(q);
-    });
+    return availableHumanResources.filter((r) =>
+      personResourceMatchesSearch(r, teamResourceSearch),
+    );
   }, [availableHumanResources, teamResourceSearch]);
 
   /** Résolution catalogue + détails (ex. personne créée juste avant le refetch). */
@@ -564,7 +589,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                   <Label htmlFor="team-person-search">Personne</Label>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     className="gap-1.5"
                     onClick={() => setNewPersonDialogOpen(true)}
@@ -579,6 +604,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                   value={teamResourceSearch}
                   onChange={(e) => setTeamResourceSearch(e.target.value)}
                   placeholder="Filtrer par nom, email, code…"
+                  autoComplete="off"
                   disabled={resourceCatalogDenied}
                 />
                 <Select
@@ -598,14 +624,27 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                   disabled={resourceCatalogDenied || resourcesLoading}
                 >
                   <SelectTrigger id="team-person-select" size="sm" className="h-auto min-h-8 w-full max-w-full min-w-0">
+                    {/*
+                      Base UI : si les enfants ne sont pas une fonction, le libellé peut retomber sur
+                      `resolveSelectedLabel` et afficher la valeur brute `__none__` tant que les items
+                      ne sont pas enregistrés — fonction = libellé toujours contrôlé.
+                    */}
                     <SelectValue
-                      placeholder={resourcesLoading ? 'Chargement…' : 'Choisir une personne'}
+                      placeholder={
+                        resourcesLoading ? 'Chargement…' : TEAM_PERSON_SELECT_PLACEHOLDER
+                      }
                     >
-                      {resourcesLoading
-                        ? 'Chargement…'
-                        : teamOwnerResourceId
-                          ? (teamPersonTriggerLabel ?? 'Personne')
-                          : undefined}
+                      {(storeValue) => {
+                        if (resourcesLoading) return 'Chargement…';
+                        if (
+                          storeValue == null ||
+                          storeValue === RESOURCE_NONE ||
+                          (typeof storeValue === 'string' && storeValue === '')
+                        ) {
+                          return TEAM_PERSON_SELECT_PLACEHOLDER;
+                        }
+                        return teamPersonTriggerLabel ?? 'Personne';
+                      }}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
