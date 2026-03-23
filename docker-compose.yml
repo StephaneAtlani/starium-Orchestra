@@ -1,6 +1,13 @@
 # =============================================================================
 # Starium Orchestra — Docker Compose (FIX JWT HARD)
 # =============================================================================
+#
+# Ports hôte (si 5432 / 3001 déjà pris) :
+#   POSTGRES_PUBLISH_PORT=5433 API_PUBLISH_PORT=3002 docker compose up -d
+#
+# Build web : NEXT_PUBLIC_API_URL doit être défini au build (rewrites + bundle).
+#   NEXT_PUBLIC_API_URL=https://api.starium.fr docker compose build web
+# =============================================================================
 
 x-postgres-healthcheck: &postgres-healthcheck
   test: ["CMD-SHELL", "pg_isready -U starium -d starium"]
@@ -36,7 +43,7 @@ services:
       POSTGRES_PASSWORD: starium
       POSTGRES_DB: starium
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PUBLISH_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck: *postgres-healthcheck
@@ -49,13 +56,15 @@ services:
     environment:
       <<: *api-base-env
     ports:
-      - "3001:3001"
+      - "${API_PUBLISH_PORT:-3001}:3001"
     depends_on: *depends-postgres-healthy
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.starium.fr}
     restart: unless-stopped
     environment:
       <<: *web-base-env
