@@ -190,7 +190,10 @@ export const ProjectTaskPlanningSection = forwardRef<
     status: 'PLANNED',
   });
 
-  const items = tasksQuery.data?.items ?? [];
+  const items = useMemo(
+    () => tasksQuery.data?.items ?? [],
+    [tasksQuery.data?.items],
+  );
 
   const byId = useMemo(() => new Map(items.map((t) => [t.id, t])), [items]);
 
@@ -265,7 +268,10 @@ export const ProjectTaskPlanningSection = forwardRef<
 
   useImperativeHandle(ref, () => ({ openCreate }), [openCreate]);
 
-  const milestoneItems = milestonesQuery.data?.items ?? [];
+  const milestoneItems = useMemo(
+    () => milestonesQuery.data?.items ?? [],
+    [milestonesQuery.data?.items],
+  );
 
   const taskOptionsForMilestone = useMemo(
     () => [...items].sort((a, b) => a.name.localeCompare(b.name)),
