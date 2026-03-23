@@ -1,9 +1,33 @@
-# Environnements (un seul profil à la fois) :
-#   docker compose up                      → postgres seul
-#   docker compose --profile standard up   → postgres + api (3001) + web (3000)
-#   docker compose --profile dev up        → postgres + api-dev (3001) + web-dev (3000), hot reload
-#   (web-dev attend api-dev healthy pour éviter proxy /api/* → ECONNREFUSED au démarrage)
-#   Ports identiques dev/prod : API 3001, Web 3000.
+# =============================================================================
+# Starium Orchestra — Docker Compose
+# =============================================================================
+#
+# Usage :
+#   docker compose up -d
+#       → PostgreSQL uniquement (port 5432). Lancer API/Web en local avec pnpm
+#         (voir README) en pointant DATABASE_URL sur cette base.
+#
+#   docker compose --profile standard up -d
+#       → PostgreSQL + API (3001) + Web (3000), images buildées (prod-like),
+#         pas de bind mount. NEXT_PUBLIC_API_URL=http://localhost:3001 pour le navigateur.
+#
+# Hot reload : hors Docker (`pnpm` dans apps/api et apps/web), pas de service dédié.
+# =============================================================================
+
+x-postgres-healthcheck: &postgres-healthcheck
+  test: ["CMD-SHELL", "pg_isready -U starium -d starium"]
+  interval: 2s
+  timeout: 5s
+  retries: 5
+
+x-api-base-env: &api-base-env
+  DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
+  PORT: "3001"
+
+x-depends-postgres-healthy: &depends-postgres-healthy
+  postgres:
+    condition: service_healthy
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -16,11 +40,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U starium -d starium"]
-      interval: 2s
-      timeout: 5s
-      retries: 5
+    healthcheck: *postgres-healthcheck
 
   api:
     build:
@@ -28,54 +48,12 @@ services:
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
-      PORT: "3001"
+      <<: *api-base-env
     ports:
       - "3001:3001"
-    depends_on:
-      postgres:
-        condition: service_healthy
+    depends_on: *depends-postgres-healthy
     profiles:
       - standard
-
-  # api-dev : JWT etc. via env_file ; DATABASE_URL et PORT forcés ici (environment écrase env_file).
-  # Entrypoint : cd apps/api puis migrate deploy + generate (indispensable : le schéma Prisma est dans ce dossier).
-  api-dev:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile.dev
-    restart: unless-stopped
-    command: ["sh", "/app/apps/api/docker-entrypoint-dev.sh"]
-    env_file:
-      - apps/api/.env
-    environment:
-      DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
-      PORT: "3001"
-    ports:
-      - "3001:3001"
-    volumes:
-      # Script non monté avant : image cache ancienne → « can't open docker-entrypoint-dev.sh »
-      - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
-      - ./apps/api/src:/app/apps/api/src
-      - ./apps/api/prisma:/app/apps/api/prisma
-    depends_on:
-      postgres:
-        condition: service_healthy
-    # Évite ECONNREFUSED côté web-dev (proxy Next → api-dev) : Nest peut mettre 30–90 s au premier démarrage.
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "require('http').get('http://127.0.0.1:3001/api/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 90s
-    profiles:
-      - dev
 
   web:
     build:
@@ -85,41 +63,11 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
     ports:
-      - "3000:3000"
+      - "3002:3000"
     depends_on:
       - api
     profiles:
       - standard
 
-  # Full-stack dev : le proxy Next (côté serveur) appelle l’API via le nom de service (api-dev:3001).
-  # NEXT_PUBLIC_* est lu au build ; le navigateur appelle toujours /api/* sur la même origine (Next).
-  web-dev:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile.dev
-    environment:
-      # Proxy /api/* vers l’API depuis le conteneur (réseau Docker).
-      NEXT_PUBLIC_API_URL: http://api-dev:3001
-      # Détection des changements de fichiers dans le conteneur → hot reload sans redémarrage.
-      WATCHPACK_POLLING: "true"
-      CHOKIDAR_USEPOLLING: "true"
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./apps/web:/app/apps/web
-      # .next hors bind mount : évite cache Next corrompu (ENOENT routes-manifest.json, chunks *.js manquants)
-      # quand l’hôte et le conteneur se marchent dessus ou après rm partiel du cache.
-      # Si erreurs MODULE_NOT_FOUND (ex. vendor-chunks/@swc+helpers, ./5783.js) : le volume nommé peut être
-      # désynchronisé après upgrade Next/pnpm ou arrêt brutal. Purger puis relancer :
-      #   ./scripts/docker-clear-web-next-cache.sh
-      # ou : docker compose --profile dev stop web-dev && docker volume rm $(docker volume ls -q | grep web_next_cache) && docker compose --profile dev up -d web-dev
-      - web_next_cache:/app/apps/web/.next
-    depends_on:
-      api-dev:
-        condition: service_healthy
-    profiles:
-      - dev
-
 volumes:
   postgres_data: {}
-  web_next_cache: {}

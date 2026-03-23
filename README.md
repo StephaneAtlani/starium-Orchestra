@@ -16,93 +16,50 @@ pnpm install
 
 ## Démarrage rapide environnement de dev
 
-### Option 1 — Tout via Docker (recommandé)
+### Option 1 — Hot reload (recommandé) : Postgres Docker + API/Web en local (pnpm)
 
 ```bash
-# À la racine du repo
 cp .env.example .env
 cp .env.example apps/api/.env
-
-docker compose --profile dev up --build
-```
-
-- Postgres, API Nest (`api-dev`) et Web (`web-dev`) sont lancés.
-- API dev : `http://localhost:3001/api`
-- Web dev : `http://localhost:3000` (pointe sur `api-dev`)
-
-### Option 2 — Tout dans Docker (migrations/seed compris)
-
-> Recommandé si tu ne veux **jamais** installer Node/pnpm en local pour l’API.
-
-```bash
-# 1. Préparer les fichiers d'environnement
-cp .env.example .env
-cp .env.example apps/api/.env
-
-# 2. Lancer Postgres + api-dev + web-dev (profil dev)
-docker compose --profile dev up -d
-
-# 3. Migrations et seed (conteneur api-dev)
-docker compose --profile dev run --rm api-dev pnpm exec prisma migrate deploy
-docker compose --profile dev run --rm api-dev pnpm exec prisma db seed
-```
-
-L’API dev tourne sur `http://localhost:3001/api`, le web sur `http://localhost:3000`.
-
-Tu peux tester la santé avec :
-
-```bash
-curl http://localhost:3001/api/health
-```
-
-### Option 3 — API en local, Postgres via Docker
-
-```bash
-# 1. Lancer Postgres
 docker compose up postgres -d
-
-# 2. Créer et remplir apps/api/.env (à partir de .env.example)
-cd apps/api
-
-# 3. Synchroniser le schéma et lancer le seed
-docker compose --profile dev exec api-dev pnpm prisma migrate dev --name init   # ou prisma db push en dev
-docker compose --profile dev exec api-dev pnpm prisma db seed
-
-# 4. Démarrer l'API Nest
-docker compose --profile dev exec api-dev pnpm start:dev
+cd apps/api && pnpm prisma migrate dev && pnpm prisma db seed && pnpm start:dev
+# autre terminal : pnpm --filter @starium-orchestra/web run dev
 ```
 
-L’API est alors disponible sur `http://localhost:3001/api`.  
-Tu peux tester la santé avec :
+- API : `http://localhost:3001/api`, Web : `http://localhost:3000`, Postgres : `localhost:5432`.
+
+### Option 2 — Tout dans Docker (images prod-like, pas de hot reload)
 
 ```bash
-curl http://localhost:3001/api/health
+cp .env.example .env
+cp .env.example apps/api/.env
+docker compose --profile standard up --build -d
+```
+
+- **API** : `http://localhost:3001` — préfixe `/api`
+- **Web** : `http://localhost:3000`
+- **PostgreSQL** : `localhost:5432` (user `starium`, db `starium`)
+
+Migrations / seed depuis un conteneur one-shot (image API, `WORKDIR` = `apps/api`) :
+
+```bash
+docker compose --profile standard run --rm api sh -c "npx prisma migrate deploy && npx prisma db seed"
+```
+
+### Option 3 — Postgres seul, tout le reste en local
+
+```bash
+docker compose up postgres -d
+# puis suivre la section « Développement sans Docker » ci-dessous
 ```
 
 ## Démarrage en local avec Docker
 
-### Mode dev (recommandé) — hot reload API + front câblé sur api-dev
-
-```bash
-cp .env.example .env
-cp .env.example apps/api/.env
-docker compose --profile dev up --build
-```
-
-- **API (api-dev)** : http://localhost:3001 — hot reload (volumes `src`, `prisma`)
-- **Web (web-dev)** : http://localhost:3000 — proxy /api/* vers l’API (3001). Hot reload activé via `WATCHPACK_POLLING` et `CHOKIDAR_USEPOLLING` (détection des changements de fichiers dans le conteneur).
-- **PostgreSQL** : localhost:5432 (user `starium`, db `starium`)
-- **Prisma** : si le schéma change, <abbr title="docker compose --profile dev exec api-dev sh -c &quot;cd /app/apps/api && pnpm exec prisma generate&quot;">régénérez le client dans le conteneur</abbr> puis `docker compose --profile dev restart api-dev`.
-
-### Mode standard — api + web sans hot reload
+Le profil **`standard`** lance API + Web buildés (multi-stage), comme une stack locale proche de la prod. Pour le **hot reload**, utilise l’option 1 ci-dessus (`pnpm` sur la machine).
 
 ```bash
 docker compose --profile standard up --build
 ```
-
-- **API** : http://localhost:3001 — préfixe `/api` (ex. `GET http://localhost:3001/api/health`)
-- **Web** : http://localhost:3000
-- **PostgreSQL** : localhost:5432 (user `starium`, db `starium`)
 
 Sans profil, `docker compose up` ne démarre que Postgres.
 
@@ -120,7 +77,7 @@ Réponse attendue (ex.) : `{"status":"ok","database":"connected","timestamp":"..
 
 Endpoints : `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`. JWT access token (15 min) + refresh token (7 jours), hash bcrypt des mots de passe, hash SHA-256 des refresh tokens en base.
 
-Après avoir exécuté le seed (`pnpm prisma db seed` depuis `apps/api`, ou `docker compose --profile dev run --rm api-dev pnpm exec prisma db seed`), les utilisateurs de test suivants sont disponibles :
+Après avoir exécuté le seed (`pnpm prisma db seed` depuis `apps/api`, ou la commande `docker compose --profile standard run --rm api …` ci-dessus), les utilisateurs de test suivants sont disponibles :
 
 - **Platform Admin** : `admin@starium.fr` / `mot de passe` (aucun client rattaché)
 - **Client Admin (client Sitral)** : `satlani@outlook.com` / `password`

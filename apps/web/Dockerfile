@@ -3,8 +3,7 @@ RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
 WORKDIR /app
 
 FROM base AS builder
-# Pour Docker dev : le proxy Next doit appeler l’API via le nom de service (api-dev:3001).
-# Passé en build arg par docker-compose pour web-dev ; défaut pour profile standard.
+# Build-time : URL publique de l’API pour le bundle client (défaut localhost en stack standard).
 ARG NEXT_PUBLIC_API_URL=http://localhost:3001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY . .
