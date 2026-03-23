@@ -9,6 +9,7 @@ import {
   JWT_REFRESH_EXPIRATION,
   parseExpiration,
 } from './auth.constants';
+import { resolveJwtSecret } from './auth-env.utils';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { SecurityLogsService } from '../security-logs/security-logs.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -19,10 +20,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => {
-        const secret = config.get<string>('JWT_SECRET');
-        if (!secret) {
-          throw new Error('JWT_SECRET must be set');
-        }
+        const secret = resolveJwtSecret(config);
         const expiresIn = parseExpiration(
           config.get<string | number>('JWT_ACCESS_EXPIRATION'),
           900,
