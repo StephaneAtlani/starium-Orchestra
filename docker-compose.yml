@@ -17,7 +17,7 @@ x-api-base-env: &api-base-env
 
 x-web-base-env: &web-base-env
   DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
-  PORT: 3001
+  PORT: 3000
   JWT_SECRET: "9f8d7s6f5d4s3f2d1s0f9d8s7f6d5s4f"
   JWT_ACCESS_EXPIRATION: 900
   JWT_REFRESH_EXPIRATION: 604800
@@ -59,8 +59,8 @@ services:
     restart: unless-stopped
     environment:
       <<: *web-base-env
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     depends_on:
       - api
 
