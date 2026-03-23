@@ -436,6 +436,28 @@ export class UsersService {
       throw new NotFoundException('Utilisateur non rattaché à ce client');
     }
 
+    if (
+      context?.actorUserId &&
+      context.actorUserId === userId &&
+      dto.status !== undefined &&
+      dto.status !== clientUser.status
+    ) {
+      throw new BadRequestException(
+        'Vous ne pouvez pas modifier le statut de votre propre compte depuis cette interface.',
+      );
+    }
+
+    if (
+      context?.actorUserId &&
+      context.actorUserId === userId &&
+      dto.role !== undefined &&
+      dto.role !== clientUser.role
+    ) {
+      throw new BadRequestException(
+        'Vous ne pouvez pas modifier le rôle de votre propre compte depuis cette interface.',
+      );
+    }
+
     // Règle métier : le dernier CLIENT_ADMIN ne peut pas être rétrogradé via le flux client actif.
     if (dto.role !== undefined && dto.role !== clientUser.role) {
       if (clientUser.role === ClientUserRole.CLIENT_ADMIN) {

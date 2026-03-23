@@ -271,6 +271,60 @@ describe('UsersService', () => {
         service.update(clientId, mockUser.id, { firstName: 'X' }),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('should forbid self to change own ClientUser status', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue(
+        mockClientUser,
+      );
+
+      await expect(
+        service.update(
+          clientId,
+          mockUser.id,
+          { status: ClientUserStatus.SUSPENDED },
+          { actorUserId: mockUser.id },
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.clientUser.update).not.toHaveBeenCalled();
+    });
+
+    it('should forbid self to change own ClientUser role', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue(
+        mockClientUser,
+      );
+
+      await expect(
+        service.update(
+          clientId,
+          mockUser.id,
+          { role: ClientUserRole.CLIENT_USER },
+          { actorUserId: mockUser.id },
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.clientUser.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow self to update name without changing status', async () => {
+      const updatedUser = { ...mockUser, firstName: 'Me' };
+      const updatedClientUser = { ...mockClientUser };
+      (prisma.user.findUnique as jest.Mock)
+        .mockResolvedValueOnce(mockUser)
+        .mockResolvedValueOnce(updatedUser);
+      (prisma.clientUser.findUnique as jest.Mock)
+        .mockResolvedValueOnce(mockClientUser)
+        .mockResolvedValueOnce(updatedClientUser);
+      (prisma.user.update as jest.Mock).mockResolvedValue(updatedUser);
+
+      const result = await service.update(
+        clientId,
+        mockUser.id,
+        { firstName: 'Me' },
+        { actorUserId: mockUser.id },
+      );
+      expect(result.firstName).toBe('Me');
+    });
   });
 
   describe('remove', () => {

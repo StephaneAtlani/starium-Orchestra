@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +17,7 @@ import {
 import { useClientMembers } from '../hooks/use-client-members';
 import { UserRolesDialog } from './user-roles-dialog';
 import { AddMemberDialog } from './add-member-dialog';
+import { EditMemberDialog } from './edit-member-dialog';
 import type { ClientMember } from '../api/user-roles';
 
 const CLIENT_ROLE_LABEL: Record<string, string> = {
@@ -24,8 +26,24 @@ const CLIENT_ROLE_LABEL: Record<string, string> = {
 };
 
 export function MembersList() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editFromUrl = searchParams.get('edit');
+
   const { data: members = [], isLoading, error, refetch } = useClientMembers();
-  const [dialogUserId, setDialogUserId] = useState<string | null>(null);
+  const [rolesUserId, setRolesUserId] = useState<string | null>(null);
+  const [editMember, setEditMember] = useState<ClientMember | null>(null);
+
+  useEffect(() => {
+    if (!editFromUrl || isLoading) return;
+    const found = members.find((m) => m.id === editFromUrl);
+    if (found) {
+      setEditMember(found);
+      router.replace('/client/members', { scroll: false });
+    } else if (members.length > 0) {
+      router.replace('/client/members', { scroll: false });
+    }
+  }, [editFromUrl, members, isLoading, router]);
 
   return (
     <PageContainer>
@@ -82,13 +100,22 @@ export function MembersList() {
                         : '—'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDialogUserId(member.id)}
-                      >
-                        Rôles
-                      </Button>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditMember(member)}
+                        >
+                          Modifier
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRolesUserId(member.id)}
+                        >
+                          Rôles
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -97,15 +124,22 @@ export function MembersList() {
           )}
         </CardContent>
       </Card>
-      {dialogUserId && (
+      <EditMemberDialog
+        member={editMember}
+        open={editMember !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditMember(null);
+        }}
+      />
+      {rolesUserId ? (
         <UserRolesDialog
-          userId={dialogUserId}
-          open={!!dialogUserId}
+          userId={rolesUserId}
+          open={!!rolesUserId}
           onOpenChange={(open) => {
-            if (!open) setDialogUserId(null);
+            if (!open) setRolesUserId(null);
           }}
         />
-      )}
+      ) : null}
     </PageContainer>
   );
 }

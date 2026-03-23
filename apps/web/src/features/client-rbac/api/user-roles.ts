@@ -15,8 +15,8 @@ export interface ClientMember {
   email: string;
   firstName: string | null;
   lastName: string | null;
-  role: string;
-  status: string;
+  role: 'CLIENT_ADMIN' | 'CLIENT_USER' | string;
+  status: 'ACTIVE' | 'SUSPENDED' | 'INVITED' | string;
   [key: string]: unknown;
 }
 
@@ -49,6 +49,27 @@ export type CreateClientMemberPayload = {
 };
 
 /** POST /api/users — crée l’utilisateur ou rattache un compte existant au client. */
+export type UpdateClientMemberPayload = {
+  firstName?: string;
+  lastName?: string;
+  role?: 'CLIENT_ADMIN' | 'CLIENT_USER';
+  status?: 'ACTIVE' | 'SUSPENDED' | 'INVITED';
+};
+
+/** PATCH /api/users/:id — prénom, nom, rôle et statut sur ce client. */
+export async function updateClientMember(
+  authFetch: AuthFetch,
+  userId: string,
+  payload: UpdateClientMemberPayload,
+): Promise<ClientMember> {
+  const res = await authFetch(`/api/users/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<ClientMember>(res);
+}
+
 export async function createClientMember(
   authFetch: AuthFetch,
   payload: CreateClientMemberPayload,

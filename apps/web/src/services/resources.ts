@@ -14,7 +14,6 @@ export type ResourceListItem = {
   firstName: string | null;
   code: string | null;
   type: ResourceType;
-  isActive: boolean;
   email: string | null;
   affiliation: ResourceAffiliation | null;
   companyName: string | null;
@@ -23,6 +22,8 @@ export type ResourceListItem = {
   createdAt: string;
   updatedAt: string;
   role: { id: string; name: string; code: string | null } | null;
+  /** Même email qu’un membre client : identité modifiable depuis Membres. */
+  linkedUserId: string | null;
 };
 
 export type Paginated<T> = {
@@ -40,21 +41,24 @@ export type ResourceRoleItem = {
   updatedAt: string;
 };
 
-export async function listResources(
+/** Résultat HTTP explicite — pour les écrans qui ne doivent pas traiter un 403 comme une « panne ». */
+export type ListResourcesOutcome =
+  | { ok: true; data: Paginated<ResourceListItem> }
+  | { ok: false; status: number; message: string };
+
+export async function tryListResources(
   authFetch: AuthFetch,
   params: {
     offset?: number;
     limit?: number;
     type?: ResourceType;
-    isActive?: boolean;
     search?: string;
   },
-): Promise<Paginated<ResourceListItem>> {
+): Promise<ListResourcesOutcome> {
   const sp = new URLSearchParams();
   if (params.offset != null) sp.set('offset', String(params.offset));
   if (params.limit != null) sp.set('limit', String(params.limit));
   if (params.type) sp.set('type', params.type);
-  if (params.isActive !== undefined) sp.set('isActive', String(params.isActive));
   if (params.search) sp.set('search', params.search);
   const q = sp.toString();
   const res = await authFetch(`/api/resources${q ? `?${q}` : ''}`);
@@ -79,9 +83,24 @@ export async function listResources(
     if (res.status === 401) {
       msg = 'Session expirée ou non authentifié. Reconnectez-vous.';
     }
-    throw new Error(msg);
+    return { ok: false, status: res.status, message: msg };
   }
-  return res.json();
+  const data = (await res.json()) as Paginated<ResourceListItem>;
+  return { ok: true, data };
+}
+
+export async function listResources(
+  authFetch: AuthFetch,
+  params: {
+    offset?: number;
+    limit?: number;
+    type?: ResourceType;
+    search?: string;
+  },
+): Promise<Paginated<ResourceListItem>> {
+  const out = await tryListResources(authFetch, params);
+  if (!out.ok) throw new Error(out.message);
+  return out.data;
 }
 
 export async function getResource(
@@ -123,15 +142,6 @@ export async function updateResource(
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { message?: string }).message ?? 'Mise à jour impossible');
   }
-  return res.json();
-}
-
-export async function deactivateResource(
-  authFetch: AuthFetch,
-  id: string,
-): Promise<ResourceListItem> {
-  const res = await authFetch(`/api/resources/${id}/deactivate`, { method: 'POST' });
-  if (!res.ok) throw new Error('Désactivation impossible');
   return res.json();
 }
 

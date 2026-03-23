@@ -7,6 +7,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -22,13 +23,10 @@ import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { useCreateProject } from '../hooks/use-create-project';
 import { projectsList } from '../constants/project-routes';
@@ -39,8 +37,10 @@ import {
   PROJECT_PRIORITY_LABEL,
   PROJECT_CRITICALITY_LABEL,
 } from '../constants/project-enum-labels';
-import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
-import type { ProjectAssignableUser } from '../types/project.types';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { formatResourceDisplayName } from '@/lib/resource-labels';
+import { tryListResources, type ResourceListItem } from '@/services/resources';
+import { NewResourceForm } from '@/app/(protected)/resources/_components/new-resource-form';
 import {
   Dialog,
   DialogContent,
@@ -54,10 +54,11 @@ import {
   AlertCircle,
   CalendarRange,
   FolderKanban,
+  Info,
   Layers,
   SlidersHorizontal,
   UserCog,
-  Users,
+  UserPlus,
 } from 'lucide-react';
 
 const textareaClass = cn(
@@ -115,27 +116,6 @@ function generateAutoProjectCode(kind: 'PROJECT' | 'ACTIVITY'): string {
   return `${prefix}-${y}-${suffix}`;
 }
 
-function formatAssignableUserLabel(m: ProjectAssignableUser): string {
-  const n = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
-  return n || m.email;
-}
-
-/** Même distinction que la matrice équipe : comptes plateforme vs nom libre (fiche → Équipe). */
-type OwnerAssignMode = 'user' | 'free';
-
-function groupAssignableMembers(members: ProjectAssignableUser[]) {
-  const sorted = [...members].sort((a, b) =>
-    formatAssignableUserLabel(a).localeCompare(formatAssignableUserLabel(b), 'fr'),
-  );
-  return {
-    clientUsers: sorted.filter((m) => m.role === 'CLIENT_USER'),
-    clientAdmins: sorted.filter((m) => m.role === 'CLIENT_ADMIN'),
-    other: sorted.filter(
-      (m) => m.role !== 'CLIENT_USER' && m.role !== 'CLIENT_ADMIN',
-    ),
-  };
-}
-
 export function ProjectCreateForm() {
   const create = useCreateProject();
   const [name, setName] = useState('');
@@ -149,61 +129,73 @@ export function ProjectCreateForm() {
   const [progressPercent, setProgressPercent] = useState<string>('');
   const [startDate, setStartDate] = useState('');
   const [targetEndDate, setTargetEndDate] = useState('');
-  const [ownerUserId, setOwnerUserId] = useState('');
-  const [ownerMode, setOwnerMode] = useState<OwnerAssignMode>('user');
   const [ownerDialogOpen, setOwnerDialogOpen] = useState(false);
-  const [ownerFreeLabel, setOwnerFreeLabel] = useState('');
-  const [ownerAffiliation, setOwnerAffiliation] = useState<'INTERNAL' | 'EXTERNAL'>('INTERNAL');
-  /** Sélection catalogue équipe (`identityKey`) ou saisie libre (`custom`). */
-  const [freePick, setFreePick] = useState<string>('');
+  const [newPersonDialogOpen, setNewPersonDialogOpen] = useState(false);
+  const [ownerResourceId, setOwnerResourceId] = useState('');
+  /** Détails pour libellé / soumission (liste ou ressource tout juste créée). */
+  const [ownerResourceDetails, setOwnerResourceDetails] = useState<ResourceListItem | null>(null);
+  const [resourceSearch, setResourceSearch] = useState('');
+
+  const authFetch = useAuthenticatedFetch();
 
   const {
-    data: assignablePayload,
-    isLoading: membersLoading,
-    isError: membersError,
-  } = useProjectAssignableUsers();
+    data: resourcesOutcome,
+    isLoading: resourcesLoading,
+    refetch: refetchHumanResources,
+  } = useQuery({
+    queryKey: ['resources', 'human', 'project-owner'],
+    queryFn: () => tryListResources(authFetch, { type: 'HUMAN', limit: 100, offset: 0 }),
+    enabled: ownerDialogOpen,
+  });
 
-  const members = assignablePayload?.users ?? [];
-  const freePersons = assignablePayload?.freePersons ?? [];
+  const humanResources = resourcesOutcome?.ok ? resourcesOutcome.data.items : [];
+  const resourcesBlock =
+    resourcesOutcome && !resourcesOutcome.ok ? resourcesOutcome : null;
+  /** Liste ou création impossible (HTTP en erreur) — pas seulement « chargement ». */
+  const resourceCatalogDenied = Boolean(resourcesBlock);
 
-  const groupedMembers = useMemo(() => groupAssignableMembers(members), [members]);
+  const filteredHumanResources = useMemo(() => {
+    const q = resourceSearch.trim().toLowerCase();
+    if (!q) return humanResources;
+    return humanResources.filter((r) => {
+      const label = formatResourceDisplayName(r).toLowerCase();
+      const hay = [label, r.email ?? '', r.code ?? '', r.companyName ?? ''].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [humanResources, resourceSearch]);
 
   const ownerTriggerLabel = useMemo(() => {
-    if (ownerMode === 'free') {
-      const t = ownerFreeLabel.trim();
-      return t || null;
-    }
-    if (!ownerUserId) return null;
-    const m = members.find((x) => x.id === ownerUserId);
-    return m ? formatAssignableUserLabel(m) : ownerUserId;
-  }, [ownerMode, ownerUserId, members, ownerFreeLabel]);
+    if (!ownerResourceId) return null;
+    const r =
+      ownerResourceDetails ?? humanResources.find((x) => x.id === ownerResourceId);
+    return r ? formatResourceDisplayName(r) : ownerResourceId;
+  }, [ownerResourceId, ownerResourceDetails, humanResources]);
 
   const ownerSummaryLine = useMemo(() => {
-    if (ownerMode === 'free') {
-      const t = ownerFreeLabel.trim();
-      if (!t) {
-        return 'Personne nom libre — choisissez ou saisissez dans la modale.';
+    if (resourcesLoading && ownerDialogOpen) {
+      return 'Chargement du catalogue personnes…';
+    }
+    if (resourcesBlock && !ownerResourceId) {
+      if (resourcesBlock.status === 403) {
+        return 'Catalogue personnes : accès refusé — droit lecture ressources ou module désactivé.';
       }
-      const aff = ownerAffiliation === 'EXTERNAL' ? 'Externe' : 'Interne';
-      return `${t} · ${aff} (nom libre)`;
+      return 'Catalogue personnes indisponible — voir la modale (détail).';
     }
-    if (membersLoading) return 'Chargement des membres…';
-    if (membersError) return 'Liste indisponible — vous pourrez définir le responsable plus tard.';
-    if (ownerUserId) {
-      const m = members.find((x) => x.id === ownerUserId);
-      return m
-        ? `${formatAssignableUserLabel(m)} · ${m.email}`
-        : ownerUserId;
+    if (!ownerResourceId) {
+      return 'Personne du catalogue — choisissez ou créez dans la modale.';
     }
-    return 'Aucun responsable désigné.';
+    const r =
+      ownerResourceDetails ?? humanResources.find((x) => x.id === ownerResourceId);
+    if (!r) return ownerResourceId;
+    const aff = r.affiliation === 'EXTERNAL' ? 'Externe' : 'Interne';
+    return `${formatResourceDisplayName(r)} · ${aff} (catalogue ressources)`;
   }, [
-    membersLoading,
-    membersError,
-    ownerUserId,
-    ownerMode,
-    members,
-    ownerFreeLabel,
-    ownerAffiliation,
+    ownerResourceId,
+    ownerResourceDetails,
+    humanResources,
+    resourcesLoading,
+    ownerDialogOpen,
+    resourcesBlock,
   ]);
 
   const year = new Date().getFullYear();
@@ -237,14 +229,12 @@ export function ProjectCreateForm() {
     }
     if (startDate) body.startDate = startDate;
     if (targetEndDate) body.targetEndDate = targetEndDate;
-    if (ownerMode === 'user' && ownerUserId) {
-      body.ownerUserId = ownerUserId;
-    }
-    if (ownerMode === 'free') {
-      const t = ownerFreeLabel.trim();
-      if (t) {
-        body.ownerFreeLabel = t;
-        body.ownerAffiliation = ownerAffiliation;
+    if (ownerResourceId) {
+      const r =
+        ownerResourceDetails ?? humanResources.find((x) => x.id === ownerResourceId);
+      if (r) {
+        body.ownerFreeLabel = formatResourceDisplayName(r).slice(0, 200);
+        body.ownerAffiliation = r.affiliation === 'EXTERNAL' ? 'EXTERNAL' : 'INTERNAL';
       }
     }
 
@@ -346,23 +336,21 @@ export function ProjectCreateForm() {
                   onClick={() => setOwnerDialogOpen(true)}
                 >
                   <UserCog className="size-3.5 text-muted-foreground" aria-hidden />
-                  {ownerUserId || (ownerMode === 'free' && ownerFreeLabel.trim())
-                    ? 'Modifier'
-                    : 'Définir'}
+                  {ownerResourceId ? 'Modifier' : 'Définir'}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Pilotage du projet ou de l’activité : compte client, ou personne nom libre issue du
-                répertoire équipe (projets du client).
+                Ressource <strong>Personne</strong> du catalogue (sélection ou création) — alignée
+                avec la fiche ressource et l’équipe projet.
               </p>
-              {membersError ? (
-                <p className="text-xs text-destructive">
-                  Impossible de charger les membres du client — création sans responsable, ou
-                  réessayez plus tard.
-                </p>
-              ) : null}
 
-              <Dialog open={ownerDialogOpen} onOpenChange={setOwnerDialogOpen}>
+              <Dialog
+                open={ownerDialogOpen}
+                onOpenChange={(open) => {
+                  setOwnerDialogOpen(open);
+                  if (!open) setResourceSearch('');
+                }}
+              >
                 <DialogContent
                   className="max-h-[min(85vh,640px)] w-full max-w-lg overflow-y-auto sm:max-w-lg"
                   showCloseButton
@@ -372,215 +360,139 @@ export function ProjectCreateForm() {
                       Responsable de projets
                     </DialogTitle>
                     <DialogDescription className="text-sm leading-relaxed">
-                      Choisissez un membre du client avec compte, ou indiquez que vous compléterez
-                      depuis la fiche projet (équipe, nom libre interne / externe).
+                      Choisissez une ressource <strong>Personne</strong> du catalogue ou créez-en une.
+                      Le responsable est enregistré comme nom libre aligné sur la ressource (équipe
+                      projet).
                     </DialogDescription>
                   </DialogHeader>
 
-                  <Tabs
-                    orientation="horizontal"
-                    value={ownerMode}
-                    onValueChange={(v) => {
-                      const next = v as OwnerAssignMode;
-                      setOwnerMode(next);
-                      if (next === 'free') setOwnerUserId('');
-                      if (next === 'user') {
-                        setOwnerFreeLabel('');
-                        setOwnerAffiliation('INTERNAL');
-                        setFreePick('');
-                      }
-                    }}
-                    className="w-full items-start gap-0"
-                  >
-                    <TabsList
-                      variant="line"
-                      className="mb-3 inline-flex h-9 w-full shrink-0 flex-row items-center justify-start gap-6 rounded-none border-0 border-b border-border/70 bg-transparent p-0"
-                    >
-                      <TabsTrigger
-                        value="user"
-                        className="!h-9 min-h-9 max-h-9 flex-none px-0.5 py-0 text-sm"
-                      >
-                        Compte client
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="free"
-                        className="!h-9 min-h-9 max-h-9 flex-none px-0.5 py-0 text-sm"
-                      >
-                        Nom libre
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="user" className="mt-0 space-y-3">
-                      {membersError ? (
-                        <Alert variant="destructive" className="border-destructive/35">
-                          <AlertCircle className="size-4" aria-hidden />
-                          <AlertTitle>Membres indisponibles</AlertTitle>
+                  <div className="w-full min-w-0 space-y-3">
+                      {resourcesBlock ? (
+                        <Alert
+                          variant={
+                            resourcesBlock.status === 404 || resourcesBlock.status >= 500
+                              ? 'destructive'
+                              : 'default'
+                          }
+                          className={
+                            resourcesBlock.status === 403
+                              ? 'border-amber-500/45 bg-amber-500/[0.07] text-foreground [&_[data-slot=alert-description]]:text-muted-foreground'
+                              : resourcesBlock.status === 401
+                                ? 'border-border'
+                                : resourcesBlock.status === 404 || resourcesBlock.status >= 500
+                                  ? 'border-destructive/35'
+                                  : 'border-border'
+                          }
+                        >
+                          {resourcesBlock.status === 403 || resourcesBlock.status === 401 ? (
+                            <Info
+                              className="size-4 text-amber-700 dark:text-amber-400"
+                              aria-hidden
+                            />
+                          ) : (
+                            <AlertCircle className="size-4" aria-hidden />
+                          )}
+                          <AlertTitle>
+                            {resourcesBlock.status === 403
+                              ? 'Accès au catalogue restreint'
+                              : resourcesBlock.status === 401
+                                ? 'Authentification requise'
+                                : resourcesBlock.status === 404
+                                  ? 'API ressources introuvable'
+                                  : 'Catalogue indisponible'}
+                          </AlertTitle>
                           <AlertDescription>
-                            Impossible de charger la liste. Vous pouvez fermer et créer le projet
-                            sans responsable, puis l’assigner plus tard.
+                            {resourcesBlock.message}
+                            {resourcesBlock.status === 403 ? (
+                              <span className="mt-2 block text-xs text-muted-foreground">
+                                Demandez la permission{' '}
+                                <strong className="font-medium">resources.read</strong> ou vérifiez
+                                que le module Ressources est activé pour ce client. Vous pourrez
+                                définir le responsable plus tard depuis la fiche projet.
+                              </span>
+                            ) : null}
                           </AlertDescription>
                         </Alert>
                       ) : null}
 
-                      <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-                        <Label htmlFor="p-owner" className="text-sm font-medium">
-                          Membre du client
-                        </Label>
-                        <Select
-                          value={ownerUserId || '__none__'}
-                          onValueChange={(v) =>
-                            setOwnerUserId(v == null || v === '__none__' ? '' : v)
-                          }
-                          disabled={membersLoading || membersError}
-                        >
-                          <SelectTrigger
-                            id="p-owner"
-                            size="sm"
-                            className="mt-2 w-full"
-                            aria-describedby="p-owner-hint"
-                          >
-                            <SelectValue placeholder="Choisir un responsable…">
-                              {membersLoading
-                                ? 'Chargement des membres…'
-                                : ownerTriggerLabel ?? 'Aucun'}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">Aucun</SelectItem>
-                            {groupedMembers.clientUsers.length > 0 && (
-                              <SelectGroup>
-                                <SelectLabel>Utilisateurs client</SelectLabel>
-                                {groupedMembers.clientUsers.map((m) => (
-                                  <SelectItem key={m.id} value={m.id}>
-                                    {`${formatAssignableUserLabel(m)} · ${m.email}`}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            )}
-                            {groupedMembers.clientAdmins.length > 0 && (
-                              <SelectGroup>
-                                <SelectLabel>Administrateurs client</SelectLabel>
-                                {groupedMembers.clientAdmins.map((m) => (
-                                  <SelectItem key={m.id} value={m.id}>
-                                    {`${formatAssignableUserLabel(m)} · ${m.email}`}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            )}
-                            {groupedMembers.other.length > 0 && (
-                              <SelectGroup>
-                                <SelectLabel>Autres rattachements</SelectLabel>
-                                {groupedMembers.other.map((m) => (
-                                  <SelectItem key={m.id} value={m.id}>
-                                    {`${formatAssignableUserLabel(m)} · ${m.email}`}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <p id="p-owner-hint" className="mt-2 text-xs text-muted-foreground">
-                          Liste identique à la fiche projet → Équipe (comptes actifs du client).
-                        </p>
+                      <p className="text-xs text-muted-foreground">
+                        Liste des ressources de type <strong>Personne</strong> du client actif.
+                      </p>
+
+                      <div className={cn(field, 'w-full')}>
+                        <Label htmlFor="p-owner-resource-search">Filtrer</Label>
+                        <Input
+                          id="p-owner-resource-search"
+                          value={resourceSearch}
+                          onChange={(e) => setResourceSearch(e.target.value)}
+                          placeholder="Nom, email, code…"
+                          autoComplete="off"
+                          className="w-full"
+                          disabled={resourcesLoading || resourceCatalogDenied}
+                        />
                       </div>
-                    </TabsContent>
 
-                    <TabsContent value="free" className="mt-0 w-full min-w-0 space-y-3">
-                      {membersLoading ? (
-                        <p className="text-xs text-muted-foreground">Chargement du répertoire…</p>
-                      ) : null}
-
-                      {freePersons.length > 0 ? (
-                        <div className={cn(field, 'w-full')}>
-                          <Label htmlFor="p-owner-free-pick">Personne (répertoire équipe)</Label>
-                          <Select
-                            value={freePick || undefined}
-                            onValueChange={(v) => {
-                              const next = v ?? '';
-                              setFreePick(next);
-                              if (next === 'custom') {
-                                setOwnerFreeLabel('');
-                                setOwnerAffiliation('INTERNAL');
-                                return;
-                              }
-                              const p = freePersons.find((x) => x.identityKey === next);
-                              if (p) {
-                                setOwnerFreeLabel(p.label);
-                                setOwnerAffiliation(p.affiliation);
-                              }
-                            }}
-                          >
-                            <SelectTrigger id="p-owner-free-pick" size="sm" className="w-full">
-                              <SelectValue placeholder="Choisir une personne connue, ou saisie libre…" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {freePersons.map((p) => (
-                                <SelectItem key={p.identityKey} value={p.identityKey}>
-                                  {p.label} · {p.affiliation === 'INTERNAL' ? 'Interne' : 'Externe'}
-                                </SelectItem>
-                              ))}
-                              <SelectItem value="custom">Autre personne (saisie libre)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-muted-foreground">
-                            Liste déduite des noms libres déjà utilisés en équipe projet sur ce
-                            client.
-                          </p>
-                        </div>
-                      ) : null}
-
-                      {(freePick === 'custom' || freePersons.length === 0) && !membersLoading ? (
-                        <div className="w-full min-w-0 rounded-xl border border-border/70 border-l-[3px] border-l-sky-500/55 bg-white p-4 shadow-sm dark:bg-card">
-                          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
-                            <div
-                              className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-sky-500/10 text-sky-800 dark:text-sky-300 sm:mt-0.5"
-                              aria-hidden
+                      <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <Label htmlFor="p-owner-resource" className="text-sm font-medium">
+                              Personne
+                            </Label>
+                            <Select
+                              value={ownerResourceId || '__none__'}
+                              onValueChange={(v) => {
+                                if (v === '__none__' || v == null) {
+                                  setOwnerResourceId('');
+                                  setOwnerResourceDetails(null);
+                                  return;
+                                }
+                                const picked =
+                                  filteredHumanResources.find((x) => x.id === v) ??
+                                  humanResources.find((x) => x.id === v);
+                                setOwnerResourceId(v);
+                                setOwnerResourceDetails(picked ?? null);
+                              }}
+                              disabled={resourcesLoading || resourceCatalogDenied}
                             >
-                              <Users className="size-5" />
-                            </div>
-                            <div className="min-w-0 w-full flex-1 space-y-3 sm:min-w-0">
-                              <p className="text-sm font-medium text-foreground">
-                                {freePersons.length === 0
-                                  ? 'Saisie libre'
-                                  : 'Nouvelle personne (hors liste)'}
-                              </p>
-                              <div className={field}>
-                                <Label htmlFor="p-owner-free-name">Nom affiché</Label>
-                                <Input
-                                  id="p-owner-free-name"
-                                  value={ownerFreeLabel}
-                                  onChange={(e) => setOwnerFreeLabel(e.target.value)}
-                                  autoComplete="off"
-                                  maxLength={200}
-                                  placeholder="Ex. Marie Durand (prestataire)"
-                                  className="w-full"
-                                />
-                              </div>
-                              <div className={field}>
-                                <Label htmlFor="p-owner-free-aff">Portée</Label>
-                                <Select
-                                  value={ownerAffiliation}
-                                  onValueChange={(v) =>
-                                    setOwnerAffiliation((v as 'INTERNAL' | 'EXTERNAL') ?? 'INTERNAL')
-                                  }
-                                >
-                                  <SelectTrigger id="p-owner-free-aff" size="sm" className="w-full">
-                                    <SelectValue>
-                                      {ownerAffiliation === 'EXTERNAL' ? 'Externe' : 'Interne'}
-                                    </SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="INTERNAL">Interne</SelectItem>
-                                    <SelectItem value="EXTERNAL">Externe</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
+                              <SelectTrigger id="p-owner-resource" size="sm" className="w-full">
+                                <SelectValue placeholder="Choisir une personne…">
+                                  {resourcesLoading
+                                    ? 'Chargement…'
+                                    : ownerTriggerLabel ?? 'Aucune'}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">Aucune</SelectItem>
+                                {filteredHumanResources.map((r) => (
+                                  <SelectItem key={r.id} value={r.id}>
+                                    {formatResourceDisplayName(r)}
+                                    {r.email ? ` · ${r.email}` : ''}
+                                    {r.affiliation
+                                      ? ` · ${r.affiliation === 'EXTERNAL' ? 'Externe' : 'Interne'}`
+                                      : ''}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                              Même référentiel que la page Ressources — le projet enregistre le nom
+                              affiché comme responsable hors compte.
+                            </p>
                           </div>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-9 shrink-0 gap-1.5 sm:mt-6"
+                            disabled={resourceCatalogDenied}
+                            onClick={() => setNewPersonDialogOpen(true)}
+                          >
+                            <UserPlus className="size-3.5" aria-hidden />
+                            Créer une personne
+                          </Button>
                         </div>
-                      ) : null}
-                    </TabsContent>
-                  </Tabs>
+                      </div>
+                  </div>
 
                   <DialogFooter showCloseButton={false}>
                     <Button
@@ -591,6 +503,36 @@ export function ProjectCreateForm() {
                       Terminé
                     </Button>
                   </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={newPersonDialogOpen} onOpenChange={setNewPersonDialogOpen}>
+                <DialogContent
+                  className="max-h-[min(90vh,720px)] w-full max-w-lg overflow-y-auto sm:max-w-lg"
+                  showCloseButton
+                >
+                  <DialogHeader className="space-y-2 text-left">
+                    <DialogTitle className="text-lg font-semibold tracking-tight">
+                      Nouvelle personne
+                    </DialogTitle>
+                    <DialogDescription className="text-sm leading-relaxed">
+                      Création dans le catalogue ressources (client actif), puis sélection comme
+                      responsable de projet.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {newPersonDialogOpen ? (
+                    <NewResourceForm
+                      formIdPrefix="project-create-owner-person"
+                      forceType="HUMAN"
+                      className="w-full max-w-full space-y-4"
+                      onSuccess={(created) => {
+                        setOwnerResourceId(created.id);
+                        setOwnerResourceDetails(created);
+                        void refetchHumanResources();
+                        setNewPersonDialogOpen(false);
+                      }}
+                    />
+                  ) : null}
                 </DialogContent>
               </Dialog>
             </div>

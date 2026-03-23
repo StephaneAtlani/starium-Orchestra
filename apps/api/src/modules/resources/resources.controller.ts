@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  HttpCode,
   Param,
   Patch,
   Post,
@@ -86,19 +85,5 @@ export class ResourcesController {
       req.body as Record<string, unknown>,
       context,
     );
-  }
-
-  @Post(':id/deactivate')
-  @HttpCode(200)
-  @RequirePermissions('resources.update')
-  deactivate(
-    @ActiveClientId() clientId: string | undefined,
-    @Param('id') id: string,
-    @RequestUserId() actorUserId: string | undefined,
-    @RequestMeta()
-    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
-  ) {
-    const context: AuditContext = { actorUserId, meta };
-    return this.resourcesService.deactivate(clientId!, id, context);
   }
 }

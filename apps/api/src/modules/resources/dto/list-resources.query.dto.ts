@@ -1,14 +1,5 @@
 import { Type } from 'class-transformer';
-import { Transform } from 'class-transformer';
-import {
-  IsBoolean,
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { ResourceType } from '@prisma/client';
 
 export class ListResourcesQueryDto {
@@ -28,14 +19,6 @@ export class ListResourcesQueryDto {
   @IsOptional()
   @IsEnum(ResourceType)
   type?: ResourceType;
-
-  @IsOptional()
-  @Transform(({ value }) => {
-    if (value === undefined || value === '') return undefined;
-    return value === true || value === 'true';
-  })
-  @IsBoolean()
-  isActive?: boolean;
 
   @IsOptional()
   @IsString()

@@ -311,7 +311,6 @@ model Resource {
   companyName    String?
   dailyRate    Decimal?     @db.Decimal(12, 2)
   metadata     Json?
-  isActive   Boolean      @default(true)
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
@@ -322,7 +321,6 @@ model Resource {
   @@unique([clientId, code])
   @@index([clientId])
   @@index([clientId, type])
-  @@index([clientId, isActive])
 }
 
 // --- Projects MVP (RFC-PROJ-001) ---

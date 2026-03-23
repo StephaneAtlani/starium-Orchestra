@@ -29,7 +29,6 @@ export type ResourceListItemDto = {
   firstName: string | null;
   code: string | null;
   type: ResourceType;
-  isActive: boolean;
   email: string | null;
   affiliation: ResourceAffiliation | null;
   companyName: string | null;
@@ -38,6 +37,8 @@ export type ResourceListItemDto = {
   createdAt: string;
   updatedAt: string;
   role: ResourceRoleEmbed | null;
+  /** Si non null : ressource HUMAN alignée sur un membre client (même email) — identité en lecture seule côté catalogue. */
+  linkedUserId: string | null;
 };
 
 export type ResourceDetailDto = ResourceListItemDto;
@@ -60,6 +61,7 @@ export class ResourcesService {
 
   private toDetail(
     r: Resource & { resourceRole: { id: string; name: string; code: string | null } | null },
+    linkedUserId: string | null = null,
   ): ResourceDetailDto {
     return {
       id: r.id,
@@ -67,7 +69,6 @@ export class ResourcesService {
       firstName: r.firstName ?? null,
       code: r.code,
       type: r.type,
-      isActive: r.isActive,
       email: r.email,
       affiliation: r.affiliation ?? null,
       companyName: r.companyName ?? null,
@@ -83,7 +84,40 @@ export class ResourcesService {
               code: r.resourceRole.code,
             }
           : null,
+      linkedUserId,
     };
+  }
+
+  /** Membre client dont l’email correspond à la ressource HUMAN (compte plateforme rattaché au client). */
+  private async resolveLinkedUserId(
+    clientId: string,
+    r: { type: ResourceType; email: string | null },
+  ): Promise<string | null> {
+    if (r.type !== ResourceType.HUMAN || !r.email?.trim()) {
+      return null;
+    }
+    const cu = await this.prisma.clientUser.findFirst({
+      where: {
+        clientId,
+        user: {
+          email: { equals: r.email.trim(), mode: 'insensitive' },
+        },
+      },
+      select: { userId: true },
+    });
+    return cu?.userId ?? null;
+  }
+
+  private async emailToLinkedUserIdMap(clientId: string): Promise<Map<string, string>> {
+    const rows = await this.prisma.clientUser.findMany({
+      where: { clientId },
+      select: { userId: true, user: { select: { email: true } } },
+    });
+    const m = new Map<string, string>();
+    for (const cu of rows) {
+      m.set(cu.user.email.trim().toLowerCase(), cu.userId);
+    }
+    return m;
   }
 
   private validateTypeRules(
@@ -142,7 +176,6 @@ export class ResourcesService {
     const limit = query.limit ?? 50;
     const where: Prisma.ResourceWhereInput = { clientId };
     if (query.type) where.type = query.type;
-    if (query.isActive !== undefined) where.isActive = query.isActive;
     if (query.search?.trim()) {
       const s = query.search.trim();
       where.OR = [
@@ -163,8 +196,15 @@ export class ResourcesService {
         take: limit,
       }),
     ]);
+    const emailMap = await this.emailToLinkedUserIdMap(clientId);
     return {
-      items: rows.map((r) => this.toDetail(r)),
+      items: rows.map((r) => {
+        const linked =
+          r.type === ResourceType.HUMAN && r.email?.trim()
+            ? emailMap.get(r.email.trim().toLowerCase()) ?? null
+            : null;
+        return this.toDetail(r, linked);
+      }),
       total,
       limit,
       offset,
@@ -179,7 +219,8 @@ export class ResourcesService {
     if (!r) {
       throw new NotFoundException('Ressource introuvable');
     }
-    return this.toDetail(r);
+    const linked = await this.resolveLinkedUserId(clientId, r);
+    return this.toDetail(r, linked);
   }
 
   async create(
@@ -198,7 +239,6 @@ export class ResourcesService {
         name: dto.name.trim(),
         code: dto.code?.trim() || null,
         type: dto.type,
-        isActive: true,
       };
       if (dto.type === 'HUMAN') {
         createData.firstName = dto.firstName?.trim() || null;
@@ -238,7 +278,8 @@ export class ResourcesService {
         userAgent: context.meta?.userAgent,
         requestId: context.meta?.requestId,
       });
-      return this.toDetail(created);
+      const linked = await this.resolveLinkedUserId(clientId, created);
+      return this.toDetail(created, linked);
     } catch (e) {
       this.rethrowUnique(e);
       throw e;
@@ -259,6 +300,31 @@ export class ResourcesService {
       throw new NotFoundException('Ressource introuvable');
     }
     this.validateTypeRules(existing.type, rawBody, 'update');
+
+    const linkedUserId = await this.resolveLinkedUserId(clientId, existing);
+    const identityLocked =
+      linkedUserId !== null && existing.type === ResourceType.HUMAN;
+    if (identityLocked) {
+      const identityMsg =
+        'Nom, prénom et email sont gérés depuis le membre client : modifiez le membre correspondant.';
+      if (dto.name !== undefined && dto.name.trim() !== existing.name.trim()) {
+        throw new BadRequestException(identityMsg);
+      }
+      if (
+        dto.firstName !== undefined &&
+        (dto.firstName?.trim() ?? '') !== (existing.firstName?.trim() ?? '')
+      ) {
+        throw new BadRequestException(identityMsg);
+      }
+      if (dto.email !== undefined) {
+        const cur = existing.email?.trim().toLowerCase() ?? '';
+        const next = (dto.email as string)?.trim().toLowerCase() ?? '';
+        if (cur !== next) {
+          throw new BadRequestException(identityMsg);
+        }
+      }
+    }
+
     const data: Prisma.ResourceUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.code !== undefined) data.code = dto.code?.trim() || null;
@@ -327,7 +393,8 @@ export class ResourcesService {
         include: { resourceRole: true },
       });
       if (!r) throw new NotFoundException('Ressource introuvable');
-      return this.toDetail(r);
+      const linked = await this.resolveLinkedUserId(clientId, r);
+      return this.toDetail(r, linked);
     }
     try {
       const updated = await this.prisma.resource.update({
@@ -347,43 +414,12 @@ export class ResourcesService {
         userAgent: context.meta?.userAgent,
         requestId: context.meta?.requestId,
       });
-      return this.toDetail(updated);
+      const linkedAfter = await this.resolveLinkedUserId(clientId, updated);
+      return this.toDetail(updated, linkedAfter);
     } catch (e) {
       this.rethrowUnique(e);
       throw e;
     }
-  }
-
-  async deactivate(
-    clientId: string,
-    id: string,
-    context: AuditContext,
-  ): Promise<ResourceDetailDto> {
-    const existing = await this.prisma.resource.findFirst({
-      where: { id, clientId },
-      include: { resourceRole: true },
-    });
-    if (!existing) {
-      throw new NotFoundException('Ressource introuvable');
-    }
-    const updated = await this.prisma.resource.update({
-      where: { id },
-      data: { isActive: false },
-      include: { resourceRole: true },
-    });
-    await this.auditLogs.create({
-      clientId,
-      userId: context.actorUserId,
-      action: 'resource.deactivated',
-      resourceType: 'resource',
-      resourceId: updated.id,
-      oldValue: { isActive: true },
-      newValue: { isActive: false },
-      ipAddress: context.meta?.ipAddress,
-      userAgent: context.meta?.userAgent,
-      requestId: context.meta?.requestId,
-    });
-    return this.toDetail(updated);
   }
 
   private rethrowUnique(e: unknown): void {

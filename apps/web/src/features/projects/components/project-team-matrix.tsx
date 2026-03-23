@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertCircle, Plus, Trash2, Users } from 'lucide-react';
+import { AlertCircle, Plus, Trash2, UserPlus, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -31,11 +32,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { formatResourceDisplayName } from '@/lib/resource-labels';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { tryListResources, type ResourceListItem } from '@/services/resources';
+import { NewResourceForm } from '@/app/(protected)/resources/_components/new-resource-form';
 import {
   addProjectTeamMember,
   createProjectTeamRole,
@@ -44,43 +47,20 @@ import {
   type AddProjectTeamMemberPayload,
 } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
-import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectTeamQuery, useProjectTeamRolesQuery } from '../hooks/use-project-team-queries';
 import type {
-  ProjectAssignableUser,
-  ProjectTeamMemberAffiliationApi,
   ProjectTeamMemberApi,
   ProjectTeamRoleApi,
   ProjectTeamRoleSystemKind,
 } from '../types/project.types';
 
-const NONE = '__none__';
-
-const AFFILIATION_LABEL: Record<ProjectTeamMemberAffiliationApi, string> = {
-  INTERNAL: 'Interne',
-  EXTERNAL: 'Externe',
-};
+const RESOURCE_NONE = '__none__';
 
 /** Aligné sur `ProjectTeamRoleSystemKind` — une ligne par rôle système (sync sponsor / responsable). */
 const SYSTEM_ROLE_BADGE: Record<ProjectTeamRoleSystemKind, string> = {
   SPONSOR: 'Sponsor — synchronisé portefeuille',
   OWNER: 'Responsable projet — synchronisé portefeuille',
 };
-
-function formatUserLabel(m: ProjectAssignableUser): string {
-  const n = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
-  return n || m.email;
-}
-
-/** Libellé affiché dans le select utilisateur (jamais l’id ni la sentinelle __none__). */
-function userPickLabel(
-  pick: string,
-  assignable: ProjectAssignableUser[],
-): string {
-  if (pick === NONE) return '— Choisir dans la liste';
-  const u = assignable.find((x) => x.id === pick);
-  return u ? formatUserLabel(u) : 'Compte non disponible dans la liste';
-}
 
 function membersByRole(
   members: ProjectTeamMemberApi[],
@@ -104,21 +84,33 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
 
   const rolesQuery = useProjectTeamRolesQuery();
   const teamQuery = useProjectTeamQuery(projectId);
-  const assignableQuery = useProjectAssignableUsers();
 
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [addMemberDialogRoleId, setAddMemberDialogRoleId] = useState<string | null>(null);
   const [newRoleName, setNewRoleName] = useState('');
-  const [pickUserByRole, setPickUserByRole] = useState<Record<string, string>>({});
-  const [assignModeByRole, setAssignModeByRole] = useState<Record<string, 'user' | 'free'>>({});
-  const [freeNameByRole, setFreeNameByRole] = useState<Record<string, string>>({});
-  const [freeAffiliationByRole, setFreeAffiliationByRole] = useState<
-    Record<string, ProjectTeamMemberAffiliationApi>
-  >({});
+  const [teamResourceSearch, setTeamResourceSearch] = useState('');
+  const [teamOwnerResourceId, setTeamOwnerResourceId] = useState('');
+  const [teamOwnerResourceDetails, setTeamOwnerResourceDetails] =
+    useState<ResourceListItem | null>(null);
+  const [newPersonDialogOpen, setNewPersonDialogOpen] = useState(false);
 
   const roles = rolesQuery.data ?? [];
   const members = teamQuery.data ?? [];
-  const assignable = assignableQuery.data?.users ?? [];
+
+  const {
+    data: resourcesOutcome,
+    isLoading: resourcesLoading,
+    refetch: refetchHumanResources,
+  } = useQuery({
+    queryKey: ['resources', 'human', 'project-team-add', clientId],
+    queryFn: () => tryListResources(authFetch, { type: 'HUMAN', limit: 100, offset: 0 }),
+    enabled: !!clientId && addMemberDialogRoleId !== null,
+  });
+
+  const humanResources = resourcesOutcome?.ok ? resourcesOutcome.data.items : [];
+  const resourcesBlock =
+    resourcesOutcome && !resourcesOutcome.ok ? resourcesOutcome : null;
+  const resourceCatalogDenied = Boolean(resourcesBlock);
   const byRole = useMemo(() => membersByRole(members), [members]);
 
   const invalidate = () => {
@@ -168,8 +160,10 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
     },
     onSuccess: () => {
       toast.success('Membre ajouté');
-      setPickUserByRole((prev) => ({ ...prev }));
       setAddMemberDialogRoleId(null);
+      setTeamResourceSearch('');
+      setTeamOwnerResourceId('');
+      setTeamOwnerResourceDetails(null);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message || 'Erreur'),
@@ -195,17 +189,59 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
     [sortedRoles, addMemberDialogRoleId],
   );
 
-  const userIdsInRole = (roleId: string) =>
-    new Set(
-      (byRole.get(roleId) ?? [])
-        .filter((m) => m.memberKind === 'USER' && m.userId)
-        .map((m) => m.userId as string),
-    );
+  const membersInAddRole = useMemo(() => {
+    if (!addMemberDialogRoleId) return [];
+    return members.filter((m) => m.roleId === addMemberDialogRoleId);
+  }, [members, addMemberDialogRoleId]);
 
-  const selectableUsersForRole = (roleId: string) => {
-    const taken = userIdsInRole(roleId);
-    return assignable.filter((u) => !taken.has(u.id));
-  };
+  const takenEmailsInRole = useMemo(() => {
+    return new Set(
+      membersInAddRole
+        .map((m) => m.email?.trim().toLowerCase())
+        .filter(Boolean) as string[],
+    );
+  }, [membersInAddRole]);
+
+  const availableHumanResources = useMemo(() => {
+    return humanResources.filter(
+      (r) => !r.email?.trim() || !takenEmailsInRole.has(r.email.trim().toLowerCase()),
+    );
+  }, [humanResources, takenEmailsInRole]);
+
+  const filteredTeamResources = useMemo(() => {
+    const q = teamResourceSearch.trim().toLowerCase();
+    if (!q) return availableHumanResources;
+    return availableHumanResources.filter((r) => {
+      const label = formatResourceDisplayName(r).toLowerCase();
+      const hay = [label, r.email ?? '', r.code ?? '', r.companyName ?? '']
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [availableHumanResources, teamResourceSearch]);
+
+  /** Résolution catalogue + détails (ex. personne créée juste avant le refetch). */
+  const selectedTeamPerson = useMemo((): ResourceListItem | null => {
+    if (!teamOwnerResourceId || teamOwnerResourceId === RESOURCE_NONE) return null;
+    return (
+      humanResources.find((x) => x.id === teamOwnerResourceId) ??
+      (teamOwnerResourceDetails?.id === teamOwnerResourceId ? teamOwnerResourceDetails : null)
+    );
+  }, [teamOwnerResourceId, humanResources, teamOwnerResourceDetails]);
+
+  const teamPersonTriggerLabel = useMemo(() => {
+    if (!selectedTeamPerson) return null;
+    return `${formatResourceDisplayName(selectedTeamPerson)}${selectedTeamPerson.email ? ` · ${selectedTeamPerson.email}` : ''}`;
+  }, [selectedTeamPerson]);
+
+  /** Garde un SelectItem pour la valeur courante même si le filtre masque la ligne (sinon l’ID s’affiche). */
+  const resourcesForSelectDropdown = useMemo(() => {
+    const ids = new Set(filteredTeamResources.map((r) => r.id));
+    if (selectedTeamPerson && !ids.has(selectedTeamPerson.id)) {
+      return [selectedTeamPerson, ...filteredTeamResources];
+    }
+    return filteredTeamResources;
+  }, [filteredTeamResources, selectedTeamPerson]);
 
   return (
     <>
@@ -381,7 +417,12 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                               className="w-full gap-2 sm:w-auto"
                               disabled={busy}
                               aria-label={`Affecter une personne au rôle ${role.name}`}
-                              onClick={() => setAddMemberDialogRoleId(role.id)}
+                              onClick={() => {
+                                setTeamResourceSearch('');
+                                setTeamOwnerResourceId('');
+                                setTeamOwnerResourceDetails(null);
+                                setAddMemberDialogRoleId(role.id);
+                              }}
                             >
                               <Plus className="size-4 shrink-0" aria-hidden />
                               Affecter une personne
@@ -396,7 +437,12 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                               disabled={busy}
                               title={`Affecter une personne — ${role.name}`}
                               aria-label={`Affecter une personne au rôle ${role.name}`}
-                              onClick={() => setAddMemberDialogRoleId(role.id)}
+                              onClick={() => {
+                                setTeamResourceSearch('');
+                                setTeamOwnerResourceId('');
+                                setTeamOwnerResourceDetails(null);
+                                setAddMemberDialogRoleId(role.id);
+                              }}
                             >
                               <Plus className="size-4" />
                             </Button>
@@ -478,214 +524,181 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
       <Dialog
         open={addMemberDialogRoleId !== null}
         onOpenChange={(open) => {
-          if (!open) setAddMemberDialogRoleId(null);
+          if (!open) {
+            setAddMemberDialogRoleId(null);
+            setTeamResourceSearch('');
+            setTeamOwnerResourceId('');
+            setTeamOwnerResourceDetails(null);
+          }
         }}
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Affecter une personne</DialogTitle>
-            {addMemberDialogRole ? (
-              <p className="text-sm text-muted-foreground">
+            <DialogDescription>
+              Sélectionne une personne du catalogue (ressource type Personne). Tu peux en créer une
+              nouvelle si besoin.
+            </DialogDescription>
+          </DialogHeader>
+
+          {addMemberDialogRole ? (
+            <div className="space-y-4">
+              <div className="text-xs text-muted-foreground">
                 Rôle :{' '}
                 <span className="font-medium text-foreground">{addMemberDialogRole.name}</span>
-              </p>
-            ) : null}
+              </div>
+
+              {resourcesBlock ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Impossible de charger le catalogue</AlertTitle>
+                  <AlertDescription>
+                    {resourcesBlock.status === 403
+                      ? 'Tu n’as pas la permission de consulter le catalogue des ressources.'
+                      : resourcesBlock.message}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="team-person-search">Personne</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setNewPersonDialogOpen(true)}
+                    disabled={resourceCatalogDenied}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Nouvelle personne
+                  </Button>
+                </div>
+                <Input
+                  id="team-person-search"
+                  value={teamResourceSearch}
+                  onChange={(e) => setTeamResourceSearch(e.target.value)}
+                  placeholder="Filtrer par nom, email, code…"
+                  disabled={resourceCatalogDenied}
+                />
+                <Select
+                  value={teamOwnerResourceId || RESOURCE_NONE}
+                  onValueChange={(v) => {
+                    const next = v ?? RESOURCE_NONE;
+                    setTeamOwnerResourceId(next === RESOURCE_NONE ? '' : next);
+                    if (next === RESOURCE_NONE) {
+                      setTeamOwnerResourceDetails(null);
+                      return;
+                    }
+                    const r =
+                      humanResources.find((x) => x.id === next) ??
+                      (teamOwnerResourceDetails?.id === next ? teamOwnerResourceDetails : null);
+                    setTeamOwnerResourceDetails(r);
+                  }}
+                  disabled={resourceCatalogDenied || resourcesLoading}
+                >
+                  <SelectTrigger id="team-person-select" size="sm" className="h-auto min-h-8 w-full max-w-full min-w-0">
+                    <SelectValue
+                      placeholder={resourcesLoading ? 'Chargement…' : 'Choisir une personne'}
+                    >
+                      {resourcesLoading
+                        ? 'Chargement…'
+                        : teamOwnerResourceId
+                          ? (teamPersonTriggerLabel ?? 'Personne')
+                          : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={RESOURCE_NONE}>— Choisir dans la liste —</SelectItem>
+                    {resourcesForSelectDropdown.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {formatResourceDisplayName(r)}
+                        {r.email ? ` · ${r.email}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {teamOwnerResourceDetails?.email ? (
+                  <p className="text-xs text-muted-foreground">
+                    Email : {teamOwnerResourceDetails.email}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setAddMemberDialogRoleId(null);
+                    setTeamResourceSearch('');
+                    setTeamOwnerResourceId('');
+                    setTeamOwnerResourceDetails(null);
+                  }}
+                >
+                  Fermer
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const roleId = addMemberDialogRole.id;
+                    if (!teamOwnerResourceId || teamOwnerResourceId === RESOURCE_NONE) {
+                      toast.error('Choisis une personne dans le catalogue');
+                      return;
+                    }
+                    const r =
+                      humanResources.find((x) => x.id === teamOwnerResourceId) ??
+                      teamOwnerResourceDetails;
+                    if (!r) {
+                      toast.error('Personne introuvable');
+                      return;
+                    }
+                    const freeLabel = formatResourceDisplayName(r);
+                    const maxLen = 200;
+                    const label =
+                      freeLabel.length > maxLen ? `${freeLabel.slice(0, maxLen - 1)}…` : freeLabel;
+                    addMemberMutation.mutate({
+                      roleId,
+                      freeLabel: label,
+                      affiliation: r.affiliation === 'EXTERNAL' ? 'EXTERNAL' : 'INTERNAL',
+                    });
+                  }}
+                  disabled={addMemberMutation.isPending || resourceCatalogDenied}
+                >
+                  Ajouter
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={newPersonDialogOpen} onOpenChange={setNewPersonDialogOpen}>
+        <DialogContent
+          className="max-h-[min(90vh,720px)] w-full max-w-lg overflow-y-auto sm:max-w-lg"
+          showCloseButton
+        >
+          <DialogHeader className="space-y-2 text-left">
+            <DialogTitle className="text-lg font-semibold tracking-tight">Nouvelle personne</DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed">
+              Création dans le catalogue ressources (client actif), puis affectation au rôle d’équipe.
+            </DialogDescription>
           </DialogHeader>
-          {addMemberDialogRole ? (
-            <AddMemberToRoleForm
-              role={addMemberDialogRole}
-              pick={pickUserByRole[addMemberDialogRole.id] ?? NONE}
-              mode={assignModeByRole[addMemberDialogRole.id] ?? 'user'}
-              freeName={freeNameByRole[addMemberDialogRole.id] ?? ''}
-              freeAff={
-                freeAffiliationByRole[addMemberDialogRole.id] ??
-                ('INTERNAL' as ProjectTeamMemberAffiliationApi)
-              }
-              assignable={assignable}
-              busy={addMemberMutation.isPending || removeMemberMutation.isPending}
-              selectableUsersForRole={selectableUsersForRole}
-              onModeChange={(next) =>
-                setAssignModeByRole((prev) => ({
-                  ...prev,
-                  [addMemberDialogRole.id]: next,
-                }))
-              }
-              onPickChange={(v) =>
-                setPickUserByRole((prev) => ({
-                  ...prev,
-                  [addMemberDialogRole.id]: v ?? NONE,
-                }))
-              }
-              onFreeNameChange={(value) =>
-                setFreeNameByRole((prev) => ({
-                  ...prev,
-                  [addMemberDialogRole.id]: value,
-                }))
-              }
-              onFreeAffChange={(v) =>
-                setFreeAffiliationByRole((prev) => ({
-                  ...prev,
-                  [addMemberDialogRole.id]: (v ?? 'INTERNAL') as ProjectTeamMemberAffiliationApi,
-                }))
-              }
-              onAddUser={() => {
-                const rid = addMemberDialogRole.id;
-                const p = pickUserByRole[rid] ?? NONE;
-                if (p === NONE || !p) return;
-                addMemberMutation.mutate(
-                  { roleId: rid, userId: p },
-                  {
-                    onSettled: () =>
-                      setPickUserByRole((prev) => ({
-                        ...prev,
-                        [rid]: NONE,
-                      })),
-                  },
-                );
-              }}
-              onAddFree={() => {
-                const rid = addMemberDialogRole.id;
-                const label = (freeNameByRole[rid] ?? '').trim();
-                if (!label) return;
-                const aff =
-                  freeAffiliationByRole[rid] ?? ('INTERNAL' as ProjectTeamMemberAffiliationApi);
-                addMemberMutation.mutate(
-                  {
-                    roleId: rid,
-                    freeLabel: label,
-                    affiliation: aff,
-                  },
-                  {
-                    onSettled: () =>
-                      setFreeNameByRole((prev) => ({
-                        ...prev,
-                        [rid]: '',
-                      })),
-                  },
-                );
+          {newPersonDialogOpen ? (
+            <NewResourceForm
+              formIdPrefix="project-team-new-person"
+              forceType="HUMAN"
+              className="w-full max-w-full space-y-4"
+              onSuccess={(created) => {
+                setTeamOwnerResourceId(created.id);
+                setTeamOwnerResourceDetails(created);
+                void refetchHumanResources();
+                setNewPersonDialogOpen(false);
               }}
             />
           ) : null}
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-type AddMemberToRoleFormProps = {
-  role: ProjectTeamRoleApi;
-  pick: string;
-  mode: 'user' | 'free';
-  freeName: string;
-  freeAff: ProjectTeamMemberAffiliationApi;
-  assignable: ProjectAssignableUser[];
-  busy: boolean;
-  selectableUsersForRole: (roleId: string) => ProjectAssignableUser[];
-  onModeChange: (mode: 'user' | 'free') => void;
-  onPickChange: (v: string | null) => void;
-  onFreeNameChange: (value: string) => void;
-  onFreeAffChange: (v: string | null) => void;
-  onAddUser: () => void;
-  onAddFree: () => void;
-};
-
-function AddMemberToRoleForm({
-  role,
-  pick,
-  mode,
-  freeName,
-  freeAff,
-  assignable,
-  busy,
-  selectableUsersForRole,
-  onModeChange,
-  onPickChange,
-  onFreeNameChange,
-  onFreeAffChange,
-  onAddUser,
-  onAddFree,
-}: AddMemberToRoleFormProps) {
-  return (
-    <Tabs value={mode} onValueChange={(v) => onModeChange(v as 'user' | 'free')} className="w-full">
-      <TabsList className="mb-3 grid h-9 w-full grid-cols-2">
-        <TabsTrigger value="user" className="text-xs">
-          Utilisateur
-        </TabsTrigger>
-        <TabsTrigger value="free" className="text-xs">
-          Nom libre
-        </TabsTrigger>
-      </TabsList>
-      <TabsContent value="user" className="mt-0 space-y-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <Select value={pick} onValueChange={onPickChange}>
-            <SelectTrigger className="h-9 w-full min-w-0 text-left text-sm sm:min-w-[12rem]">
-              <SelectValue placeholder="Choisir un utilisateur…">
-                {userPickLabel(pick, assignable)}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>— Choisir dans la liste</SelectItem>
-              {selectableUsersForRole(role.id).map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {formatUserLabel(u)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 shrink-0 gap-1.5"
-            disabled={busy || pick === NONE || !pick}
-            onClick={onAddUser}
-          >
-            <Plus className="size-3.5" aria-hidden />
-            Ajouter
-          </Button>
-        </div>
-      </TabsContent>
-      <TabsContent value="free" className="mt-0 space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="min-w-0 flex-1 space-y-1.5 sm:min-w-[12rem]">
-            <Label htmlFor={`free-name-modal-${role.id}`} className="text-xs text-muted-foreground">
-              Nom affiché
-            </Label>
-            <Input
-              id={`free-name-modal-${role.id}`}
-              className="h-9"
-              placeholder="Ex. prestataire, MOA…"
-              value={freeName}
-              maxLength={200}
-              autoComplete="off"
-              onChange={(e) => onFreeNameChange(e.target.value)}
-            />
-          </div>
-          <div className="w-full space-y-1.5 sm:w-36">
-            <Label className="text-xs text-muted-foreground">Portée</Label>
-            <Select value={freeAff} onValueChange={onFreeAffChange}>
-              <SelectTrigger className="h-9 w-full">
-                <SelectValue placeholder="Interne ou externe…">
-                  {AFFILIATION_LABEL[freeAff]}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="INTERNAL">Interne</SelectItem>
-                <SelectItem value="EXTERNAL">Externe</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 gap-1.5 sm:shrink-0"
-            disabled={busy || !freeName.trim()}
-            onClick={onAddFree}
-          >
-            <Plus className="size-3.5" aria-hidden />
-            Ajouter
-          </Button>
-        </div>
-      </TabsContent>
-    </Tabs>
   );
 }

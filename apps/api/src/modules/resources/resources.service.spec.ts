@@ -21,6 +21,10 @@ describe('ResourcesService', () => {
       resourceRole: {
         findFirst: jest.fn(),
       },
+      clientUser: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     };
     service = new ResourcesService(
@@ -107,6 +111,66 @@ describe('ResourcesService', () => {
           { actorUserId: 'u1', meta: {} },
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('update — identité liée membre', () => {
+    const humanExisting = {
+      id: 'res-1',
+      clientId: 'c1',
+      name: 'Dupont',
+      firstName: 'Jean',
+      email: 'j@client.fr',
+      type: ResourceType.HUMAN,
+      code: null,
+      affiliation: 'INTERNAL',
+      companyName: null,
+      dailyRate: null,
+      metadata: null,
+      roleId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('rejette changement de nom si ressource alignée sur un membre (email)', async () => {
+      prisma.resource.findFirst.mockResolvedValue(humanExisting);
+      prisma.clientUser.findFirst.mockResolvedValue({ userId: 'user-mem' });
+
+      await expect(
+        service.update(
+          'c1',
+          'res-1',
+          { name: 'Autre' },
+          { name: 'Autre' },
+          { actorUserId: 'u1', meta: {} },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.resource.update).not.toHaveBeenCalled();
+    });
+
+    it('autorise mise à jour TJ si identité liée membre', async () => {
+      prisma.resource.findFirst
+        .mockResolvedValueOnce(humanExisting)
+        .mockResolvedValueOnce({
+          ...humanExisting,
+          resourceRole: null,
+        });
+      prisma.clientUser.findFirst.mockResolvedValue({ userId: 'user-mem' });
+      prisma.resource.update.mockResolvedValue({
+        ...humanExisting,
+        dailyRate: { toString: () => '500' },
+        resourceRole: null,
+      });
+
+      await service.update(
+        'c1',
+        'res-1',
+        { dailyRate: 500 },
+        { dailyRate: 500 },
+        { actorUserId: 'u1', meta: {} },
+      );
+
+      expect(prisma.resource.update).toHaveBeenCalled();
     });
   });
 });
