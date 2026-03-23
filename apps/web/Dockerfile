@@ -10,9 +10,11 @@ RUN pnpm --filter @starium-orchestra/web build
 
 FROM base AS runner
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 WORKDIR /app
 
 COPY --from=builder /app /app
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@starium-orchestra/web", "start", "--", "-H", "0.0.0.0", "-p", "3000"]
+CMD ["pnpm", "--filter", "@starium-orchestra/web", "exec", "next", "start", "-H", "0.0.0.0", "-p", "3000"]
