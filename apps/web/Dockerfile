@@ -1,12 +1,13 @@
 FROM node:20-alpine
 RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
 WORKDIR /app
+
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build
-# next dev (HMR) sur le port 3000 pour correspondre au mapping docker-compose
-# Avec le volume mount ./apps/web:/app/apps/web, le node_modules du build est masqué :
-# on réinstalle au démarrage pour que le montage ait bien ses deps (ex. sonner).
-WORKDIR /app
+RUN pnpm --filter @starium-orchestra/web build
+
+WORKDIR /app/apps/web
+ENV NODE_ENV=production
 EXPOSE 3000
-CMD ["sh", "-c", "pnpm install --frozen-lockfile 2>/dev/null || pnpm install && cd apps/web && pnpm exec next dev -p 3000"]
+CMD ["pnpm", "start"]

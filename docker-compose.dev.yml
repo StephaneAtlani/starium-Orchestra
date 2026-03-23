@@ -1,0 +1,102 @@
+# =============================================================================
+# Starium Orchestra — Docker Compose (Dev)
+# =============================================================================
+#
+# Objectif : lancer un environnement dev avec hot reload côté Docker
+# (Nest watch + Next dev), sans utiliser les `profiles`.
+#
+# Usage :
+#   docker compose -f docker-compose.dev.yml up -d --build
+#
+# Ports :
+#   - Web (Next dev)  : http://localhost:3000
+#   - API (Nest dev)  : http://localhost:3001/api
+#   - Postgres         : localhost:5432
+#
+# Notes :
+# - Le fichier .env n'est pas packagé dans l'image (voir .dockerignore).
+#   Compose injecte `apps/api/.env` via `env_file`.
+# =============================================================================
+
+x-postgres-healthcheck: &postgres-healthcheck
+  test: ["CMD-SHELL", "pg_isready -U starium -d starium"]
+  interval: 2s
+  timeout: 5s
+  retries: 5
+
+x-api-base-env: &api-base-env
+  DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
+  PORT: "3001"
+
+x-depends-postgres-healthy: &depends-postgres-healthy
+  postgres:
+    condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: starium
+      POSTGRES_PASSWORD: starium
+      POSTGRES_DB: starium
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck: *postgres-healthcheck
+
+  api-dev:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    restart: unless-stopped
+    command: ["sh", "/app/apps/api/docker-entrypoint-dev.sh"]
+    env_file:
+      - apps/api/.env
+    environment:
+      # Écrase le DATABASE_URL/PORT pour le réseau Docker.
+      <<: *api-base-env
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/prisma:/app/apps/api/prisma
+    depends_on: *depends-postgres-healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3001/api/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  web-dev:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      # Proxy /api/* vers l’API depuis le conteneur Docker.
+      NEXT_PUBLIC_API_URL: http://api-dev:3001
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app/apps/web
+      - web_next_cache:/app/apps/web/.next
+    depends_on:
+      api-dev:
+        condition: service_healthy
+
+volumes:
+  postgres_data: {}
+  web_next_cache: {}
+
