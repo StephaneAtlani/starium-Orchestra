@@ -21,7 +21,7 @@ x-web-base-env: &web-base-env
   JWT_SECRET: "9f8d7s6f5d4s3f2d1s0f9d8s7f6d5s4f"
   JWT_ACCESS_EXPIRATION: 900
   JWT_REFRESH_EXPIRATION: 604800
-  NEXT_PUBLIC_API_URL: http://localhost:3001
+  NEXT_PUBLIC_API_URL: https://api.starium.fr
 
 x-depends-postgres-healthy: &depends-postgres-healthy
   postgres:
