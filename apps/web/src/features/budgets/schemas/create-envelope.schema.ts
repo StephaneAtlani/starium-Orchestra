@@ -11,4 +11,4 @@ export const createEnvelopeSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
 });
 
-export type CreateEnvelopeInput = z.infer<typeof createEnvelopeSchema>;
+export type CreateEnvelopeInput = z.input<typeof createEnvelopeSchema>;

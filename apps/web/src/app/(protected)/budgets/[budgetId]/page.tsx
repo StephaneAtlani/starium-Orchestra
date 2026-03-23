@@ -41,10 +41,8 @@ import {
 } from '@/features/budgets/lib/filter-budget-tree';
 
 export default function BudgetDetailPage() {
-  const budgetId = (() => {
-    const p = useParams();
-    return typeof p.budgetId === 'string' ? p.budgetId : null;
-  })();
+  const p = useParams();
+  const budgetId = typeof p.budgetId === 'string' ? p.budgetId : null;
 
   const { budget, envelopes, lines, isLoading, error, refetch } =
     useBudgetExplorer(budgetId);

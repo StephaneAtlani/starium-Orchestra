@@ -22,10 +22,8 @@ const DEFAULT_LIMIT = 20;
 const SEARCH_DEBOUNCE_MS = 300;
 
 export default function BudgetEnvelopeDetailPage() {
-  const envelopeId = (() => {
-    const p = useParams();
-    return typeof p.envelopeId === 'string' ? p.envelopeId : null;
-  })();
+  const p = useParams();
+  const envelopeId = typeof p.envelopeId === 'string' ? p.envelopeId : null;
 
   const [offset, setOffset] = React.useState(0);
   const [searchInput, setSearchInput] = React.useState('');

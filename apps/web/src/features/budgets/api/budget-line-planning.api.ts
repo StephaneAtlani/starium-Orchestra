@@ -24,7 +24,6 @@ async function handleJsonOrFormError<T>(res: Response): Promise<T> {
 // On réutilise le parser d'erreur de budget-management.api pour garder un format homogène.
 // Import circulaire à éviter, donc on redéfinit la signature et on laisse l'implémentation réelle dans budget-management.api.
 // Le bundler fusionnera correctement si utilisé depuis les hooks.
-// eslint-disable-next-line @typescript-eslint/no-use-before-define
 async function parseApiFormError(res: Response): Promise<ApiFormError> {
   const mod = await import('./budget-management.api');
   return mod.parseApiFormError(res);

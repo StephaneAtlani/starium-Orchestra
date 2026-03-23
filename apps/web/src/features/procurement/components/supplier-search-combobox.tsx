@@ -69,11 +69,11 @@ export const SupplierSearchCombobox = React.forwardRef<
   const items: Supplier[] = query.data?.items ?? [];
   const normalizedValue = value.trim().replace(/\s+/g, ' ');
   const suggestionsQuery = useSuppliersDropdownQuery(normalizedValue, parentOpen, 2);
-  const candidateItems = suggestionsQuery.data?.items ?? [];
 
   const closestCandidates = useMemo(() => {
     if (!normalizedValue) return [];
     const inputN = normalizeSupplierName(normalizedValue);
+    const candidateItems = suggestionsQuery.data?.items ?? [];
     return candidateItems
       .map((s) => {
         const n = normalizeSupplierName(s.name);
@@ -86,7 +86,7 @@ export const SupplierSearchCombobox = React.forwardRef<
       .sort((a, b) => a.rank - b.rank)
       .slice(0, 3)
       .map((x) => x.s);
-  }, [candidateItems, normalizedValue]);
+  }, [suggestionsQuery.data?.items, normalizedValue]);
 
   const handlePick = (s: Supplier) => {
     onChange(s.name);
@@ -185,7 +185,7 @@ export const SupplierSearchCombobox = React.forwardRef<
                   onRequestQuickCreate(normalizedValue);
                 }}
               >
-                Créer "{normalizedValue}"
+                Créer &quot;{normalizedValue}&quot;
               </Button>
             )}
           </div>
@@ -251,7 +251,7 @@ export const SupplierSearchCombobox = React.forwardRef<
                   onRequestQuickCreate(pickerSearch.trim());
                 }}
               >
-                Créer "{pickerSearch.trim()}"
+                Créer &quot;{pickerSearch.trim()}&quot;
               </Button>
             )}
           </DialogFooter>

@@ -115,6 +115,7 @@ export function CreateOrderDialog({
     }
     try {
       const supplierNameValue = values.supplierName.trim();
+      const referenceValue = values.reference?.trim() ?? '';
       let supplierId = resolvedSupplier?.id;
       if (!supplierId && activeClient?.id) {
         const searchRes = await listSuppliers(authFetch, {
@@ -138,8 +139,8 @@ export function CreateOrderDialog({
       await createOrder.mutateAsync({
         supplierId,
         budgetLineId: line.id,
-        ...(values.reference.trim()
-          ? { reference: values.reference.trim() }
+        ...(referenceValue
+          ? { reference: referenceValue }
           : {}),
         label: values.label,
         amountHt: values.amountHtInput.toFixed(2),

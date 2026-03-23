@@ -455,7 +455,7 @@ export function DashboardBudgetKpiWidget() {
   const query = useBudgetDashboardQuery(dashboardParams);
 
   const data = query.data;
-  const err = query.error instanceof Error ? query.message : null;
+  const err = query.error instanceof Error ? query.error.message : null;
   const alertCount = data ? totalBudgetAlerts(data.alertsSummary) : 0;
 
   if (!hydrated) {
