@@ -1,5 +1,5 @@
 import { TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from '../constants/project-enum-labels';
-import type { TaskTreeRow } from './project-task-tree';
+import type { TaskTreeRow, TaskTreeSource } from './project-task-tree';
 import type { ProjectTaskApi } from '../types/project.types';
 
 /** Mode de coloration des barres sur la frise Gantt. */
@@ -224,7 +224,7 @@ export function buildTaskRootIdMap(
 }
 
 /** Ordre stable des racines (ordre d’apparition dans la liste affichée). */
-export function orderedRootIdsFromRows<T extends { id: string }>(
+export function orderedRootIdsFromRows<T extends TaskTreeSource>(
   rows: TaskTreeRow<T>[],
   rootIdOf: (taskId: string) => string,
 ): string[] {

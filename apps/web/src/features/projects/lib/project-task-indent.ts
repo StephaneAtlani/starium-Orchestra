@@ -3,13 +3,12 @@
  * sortOrder = M + 1 avec M = max(sortOrder) des frères affichés sous le parent cible (hors tâche déplacée).
  */
 
-import type { TaskTreeRow } from './project-task-tree';
-
 /** Champs minimaux pour le helper (aligné `ProjectTaskApi`). */
 export type ProjectTaskIndentRow = {
   id: string;
   parentTaskId: string | null;
   sortOrder: number;
+  depth: number;
 };
 
 function parentKey(r: ProjectTaskIndentRow): string | null {
@@ -20,10 +19,10 @@ function parentKey(r: ProjectTaskIndentRow): string | null {
  * Frères affichés sous `parentTarget` (null = racines), en excluant la tâche déplacée.
  */
 function siblingRows(
-  displayedRows: TaskTreeRow<ProjectTaskIndentRow>[],
+  displayedRows: ProjectTaskIndentRow[],
   taskId: string,
   parentTarget: string | null,
-): TaskTreeRow<ProjectTaskIndentRow>[] {
+): ProjectTaskIndentRow[] {
   return displayedRows.filter((r) => {
     if (r.id === taskId) return false;
     return parentKey(r) === parentTarget;
@@ -34,7 +33,7 @@ function siblingRows(
  * sortOrder = max(sortOrder des frères affichés sous ce parent, hors taskId) + 1.
  */
 export function computeSortOrderForParent(
-  displayedRows: TaskTreeRow<ProjectTaskIndentRow>[],
+  displayedRows: ProjectTaskIndentRow[],
   taskId: string,
   parentTarget: string | null,
 ): number {
@@ -53,7 +52,7 @@ export type TaskHierarchyPatch = {
  * Indenter : parent = ligne précédente affichée ; sortOrder = dernier enfant du nouveau parent + 1.
  */
 export function computeIndentPatch(
-  displayedRows: TaskTreeRow<ProjectTaskIndentRow>[],
+  displayedRows: ProjectTaskIndentRow[],
   taskId: string,
 ): TaskHierarchyPatch | null {
   const i = displayedRows.findIndex((r) => r.id === taskId);
@@ -68,7 +67,7 @@ export function computeIndentPatch(
  * Si la ligne parent n’est pas dans `displayedRows`, impossible (pas de résolution sans liste complète).
  */
 export function computeOutdentPatch(
-  displayedRows: TaskTreeRow<ProjectTaskIndentRow>[],
+  displayedRows: ProjectTaskIndentRow[],
   taskId: string,
 ): TaskHierarchyPatch | null {
   const i = displayedRows.findIndex((r) => r.id === taskId);

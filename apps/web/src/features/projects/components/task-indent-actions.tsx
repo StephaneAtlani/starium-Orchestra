@@ -7,11 +7,10 @@ import {
   computeIndentPatch,
   computeOutdentPatch,
 } from '../lib/project-task-indent';
-import type { TaskTreeRow } from '../lib/project-task-tree';
-import type { ProjectTaskApi } from '../types/project.types';
+import type { TaskTreeRow, TaskTreeSource } from '../lib/project-task-tree';
 
 export type TaskIndentActionsProps = {
-  displayedRows: TaskTreeRow<ProjectTaskApi>[];
+  displayedRows: TaskTreeRow<TaskTreeSource>[];
   taskId: string;
   isPending: boolean;
   onIndent: (taskId: string) => void;

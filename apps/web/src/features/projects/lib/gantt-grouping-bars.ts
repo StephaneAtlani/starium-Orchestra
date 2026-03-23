@@ -3,12 +3,12 @@
  * pour une tâche et ses descendants **visibles** (même liste que la sidebar).
  */
 
-import type { TaskTreeRow } from './project-task-tree';
+import type { TaskTreeRow, TaskTreeSource } from './project-task-tree';
 import type { ProjectTaskApi } from '../types/project.types';
 
 /** Enfants directs dont le parent est dans la liste affichée. */
 export function buildVisibleChildrenMap(
-  rows: TaskTreeRow<{ id: string; parentTaskId: string | null }>[],
+  rows: TaskTreeRow<TaskTreeSource>[],
 ): Map<string, string[]> {
   const ids = new Set(rows.map((r) => r.id));
   const m = new Map<string, string[]>();
