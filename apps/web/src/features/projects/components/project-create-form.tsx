@@ -22,10 +22,13 @@ import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { useCreateProject } from '../hooks/use-create-project';
 import { projectsList } from '../constants/project-routes';
@@ -38,7 +41,24 @@ import {
 } from '../constants/project-enum-labels';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import type { ProjectAssignableUser } from '../types/project.types';
-import { CalendarRange, FolderKanban, Layers, SlidersHorizontal } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertCircle,
+  CalendarRange,
+  FolderKanban,
+  Layers,
+  SlidersHorizontal,
+  UserCog,
+  Users,
+} from 'lucide-react';
 
 const textareaClass = cn(
   'min-h-[100px] w-full resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm transition-colors outline-none',
@@ -100,6 +120,22 @@ function formatAssignableUserLabel(m: ProjectAssignableUser): string {
   return n || m.email;
 }
 
+/** Même distinction que la matrice équipe : comptes plateforme vs nom libre (fiche → Équipe). */
+type OwnerAssignMode = 'user' | 'free';
+
+function groupAssignableMembers(members: ProjectAssignableUser[]) {
+  const sorted = [...members].sort((a, b) =>
+    formatAssignableUserLabel(a).localeCompare(formatAssignableUserLabel(b), 'fr'),
+  );
+  return {
+    clientUsers: sorted.filter((m) => m.role === 'CLIENT_USER'),
+    clientAdmins: sorted.filter((m) => m.role === 'CLIENT_ADMIN'),
+    other: sorted.filter(
+      (m) => m.role !== 'CLIENT_USER' && m.role !== 'CLIENT_ADMIN',
+    ),
+  };
+}
+
 export function ProjectCreateForm() {
   const create = useCreateProject();
   const [name, setName] = useState('');
@@ -114,6 +150,8 @@ export function ProjectCreateForm() {
   const [startDate, setStartDate] = useState('');
   const [targetEndDate, setTargetEndDate] = useState('');
   const [ownerUserId, setOwnerUserId] = useState('');
+  const [ownerMode, setOwnerMode] = useState<OwnerAssignMode>('user');
+  const [ownerDialogOpen, setOwnerDialogOpen] = useState(false);
 
   const {
     data: members = [],
@@ -121,17 +159,35 @@ export function ProjectCreateForm() {
     isError: membersError,
   } = useProjectAssignableUsers();
 
-  const sortedMembers = useMemo(() => {
-    return [...members].sort((a, b) =>
-      formatAssignableUserLabel(a).localeCompare(formatAssignableUserLabel(b), 'fr'),
-    );
-  }, [members]);
+  const groupedMembers = useMemo(() => groupAssignableMembers(members), [members]);
 
   const ownerTriggerLabel = useMemo(() => {
+    if (ownerMode === 'free') return null;
     if (!ownerUserId) return null;
-    const m = sortedMembers.find((x) => x.id === ownerUserId);
+    const m = members.find((x) => x.id === ownerUserId);
     return m ? formatAssignableUserLabel(m) : ownerUserId;
-  }, [ownerUserId, sortedMembers]);
+  }, [ownerMode, ownerUserId, members]);
+
+  const ownerSummaryLine = useMemo(() => {
+    if (membersLoading) return 'Chargement des membres…';
+    if (membersError) return 'Liste indisponible — vous pourrez définir le responsable plus tard.';
+    if (ownerUserId) {
+      const m = members.find((x) => x.id === ownerUserId);
+      return m
+        ? `${formatAssignableUserLabel(m)} · ${m.email}`
+        : ownerUserId;
+    }
+    if (ownerMode === 'free') {
+      return 'Ajouter un compte — interne / externe depuis la fiche → Équipe.';
+    }
+    return 'Aucun responsable désigné.';
+  }, [
+    membersLoading,
+    membersError,
+    ownerUserId,
+    ownerMode,
+    members,
+  ]);
 
   const year = new Date().getFullYear();
 
@@ -244,40 +300,189 @@ export function ProjectCreateForm() {
               </div>
             </div>
             <div className={field}>
-              <Label htmlFor="p-owner">Responsable</Label>
-              <Select
-                value={ownerUserId || '__none__'}
-                onValueChange={(v) =>
-                  setOwnerUserId(v == null || v === '__none__' ? '' : v)
-                }
-                disabled={membersLoading || membersError}
-              >
-                <SelectTrigger id="p-owner" size="sm" className="w-full">
-                  <SelectValue placeholder="Choisir un responsable…">
-                    {membersLoading
-                      ? 'Chargement des membres…'
-                      : ownerTriggerLabel ?? 'Aucun'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Aucun</SelectItem>
-                  {sortedMembers.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {`${formatAssignableUserLabel(m)} · ${m.email}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="p-owner-trigger">Responsable</Label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">
+                <div className="flex min-h-9 min-w-0 flex-1 items-center rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
+                  <p
+                    id="p-owner-summary"
+                    className="truncate text-sm text-foreground"
+                    title={ownerSummaryLine}
+                  >
+                    {ownerSummaryLine}
+                  </p>
+                </div>
+                <Button
+                  id="p-owner-trigger"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 gap-1.5 sm:self-center"
+                  onClick={() => setOwnerDialogOpen(true)}
+                >
+                  <UserCog className="size-3.5 text-muted-foreground" aria-hidden />
+                  {ownerUserId || ownerMode === 'free' ? 'Modifier' : 'Définir'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Pilotage du projet ou de l’activité (compte client ou hors compte via la fiche).
+              </p>
               {membersError ? (
                 <p className="text-xs text-destructive">
                   Impossible de charger les membres du client — création sans responsable, ou
                   réessayez plus tard.
                 </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Membre du client actif en charge du pilotage (projet ou activité).
-                </p>
-              )}
+              ) : null}
+
+              <Dialog open={ownerDialogOpen} onOpenChange={setOwnerDialogOpen}>
+                <DialogContent
+                  className="max-h-[min(85vh,640px)] w-full max-w-lg overflow-y-auto sm:max-w-lg"
+                  showCloseButton
+                >
+                  <DialogHeader className="space-y-2 text-left">
+                    <DialogTitle className="text-lg font-semibold tracking-tight">
+                      Responsable
+                    </DialogTitle>
+                    <DialogDescription className="text-sm leading-relaxed">
+                      Choisissez un membre du client avec compte, ou indiquez que vous compléterez
+                      depuis la fiche projet (équipe, nom libre interne / externe).
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <Tabs
+                    orientation="horizontal"
+                    value={ownerMode}
+                    onValueChange={(v) => {
+                      const next = v as OwnerAssignMode;
+                      setOwnerMode(next);
+                      if (next === 'free') setOwnerUserId('');
+                    }}
+                    className="w-full items-start gap-0"
+                  >
+                    <TabsList
+                      variant="line"
+                      className="mb-3 inline-flex h-9 w-full shrink-0 flex-row items-center justify-start gap-6 rounded-none border-0 border-b border-border/70 bg-transparent p-0"
+                    >
+                      <TabsTrigger
+                        value="user"
+                        className="!h-9 min-h-9 max-h-9 flex-none px-0.5 py-0 text-sm"
+                      >
+                        Compte client
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="free"
+                        className="!h-9 min-h-9 max-h-9 flex-none px-0.5 py-0 text-sm"
+                      >
+                        Nom libre
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="user" className="mt-0 space-y-3">
+                      {membersError ? (
+                        <Alert variant="destructive" className="border-destructive/35">
+                          <AlertCircle className="size-4" aria-hidden />
+                          <AlertTitle>Membres indisponibles</AlertTitle>
+                          <AlertDescription>
+                            Impossible de charger la liste. Vous pouvez fermer et créer le projet
+                            sans responsable, puis l’assigner plus tard.
+                          </AlertDescription>
+                        </Alert>
+                      ) : null}
+
+                      <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                        <Label htmlFor="p-owner" className="text-sm font-medium">
+                          Membre du client
+                        </Label>
+                        <Select
+                          value={ownerUserId || '__none__'}
+                          onValueChange={(v) =>
+                            setOwnerUserId(v == null || v === '__none__' ? '' : v)
+                          }
+                          disabled={membersLoading || membersError}
+                        >
+                          <SelectTrigger
+                            id="p-owner"
+                            size="sm"
+                            className="mt-2 w-full"
+                            aria-describedby="p-owner-hint"
+                          >
+                            <SelectValue placeholder="Choisir un responsable…">
+                              {membersLoading
+                                ? 'Chargement des membres…'
+                                : ownerTriggerLabel ?? 'Aucun'}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Aucun</SelectItem>
+                            {groupedMembers.clientUsers.length > 0 && (
+                              <SelectGroup>
+                                <SelectLabel>Utilisateurs client</SelectLabel>
+                                {groupedMembers.clientUsers.map((m) => (
+                                  <SelectItem key={m.id} value={m.id}>
+                                    {`${formatAssignableUserLabel(m)} · ${m.email}`}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            )}
+                            {groupedMembers.clientAdmins.length > 0 && (
+                              <SelectGroup>
+                                <SelectLabel>Administrateurs client</SelectLabel>
+                                {groupedMembers.clientAdmins.map((m) => (
+                                  <SelectItem key={m.id} value={m.id}>
+                                    {`${formatAssignableUserLabel(m)} · ${m.email}`}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            )}
+                            {groupedMembers.other.length > 0 && (
+                              <SelectGroup>
+                                <SelectLabel>Autres rattachements</SelectLabel>
+                                {groupedMembers.other.map((m) => (
+                                  <SelectItem key={m.id} value={m.id}>
+                                    {`${formatAssignableUserLabel(m)} · ${m.email}`}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <p id="p-owner-hint" className="mt-2 text-xs text-muted-foreground">
+                          Liste identique à la fiche projet → Équipe (comptes actifs du client).
+                        </p>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="free" className="mt-0">
+                      <div className="flex gap-3 rounded-xl border border-border/70 border-l-[3px] border-l-sky-500/55 bg-muted/20 p-4 shadow-sm">
+                        <div
+                          className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-sky-500/10 text-sky-800 dark:text-sky-300"
+                          aria-hidden
+                        >
+                          <Users className="size-5" />
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <p className="text-sm font-medium text-foreground">Ajouter un compte</p>
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            Après création du projet, ouvrez la <strong>fiche projet</strong> →{' '}
+                            <strong>Équipe</strong> : personne en <strong>nom libre</strong>, portée{' '}
+                            <strong>interne</strong> ou <strong>externe</strong>. Le champ
+                            responsable reste vide à cette étape.
+                          </p>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+
+                  <DialogFooter showCloseButton={false}>
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={() => setOwnerDialogOpen(false)}
+                    >
+                      Terminé
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
             <div className={field}>
               <Label htmlFor="p-desc">Description</Label>

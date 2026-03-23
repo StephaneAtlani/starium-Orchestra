@@ -6,6 +6,20 @@ import { PrismaService } from '../../prisma/prisma.service';
 describe('MeService', () => {
   let service: MeService;
   let prisma: any;
+  const securityLogs = { create: jest.fn() };
+  const mfa = {
+    getTwoFactorStatus: jest.fn(),
+    startTotpEnrollment: jest.fn(),
+    verifyTotpEnrollment: jest.fn(),
+    disableTotp: jest.fn(),
+  };
+  const avatarStorage = {
+    exists: jest.fn().mockReturnValue(false),
+    write: jest.fn(),
+    remove: jest.fn(),
+    createReadStream: jest.fn(),
+    dir: '/tmp',
+  };
 
   beforeEach(() => {
     prisma = {
@@ -18,9 +32,15 @@ describe('MeService', () => {
         updateMany: jest.fn(),
         update: jest.fn(),
       },
+      refreshToken: { deleteMany: jest.fn() },
       $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     } as unknown as jest.Mocked<PrismaService>;
-    service = new MeService(prisma);
+    service = new MeService(
+      prisma,
+      securityLogs as any,
+      mfa as any,
+      avatarStorage as any,
+    );
   });
 
   describe('getProfile', () => {
@@ -37,6 +57,11 @@ describe('MeService', () => {
         email: 'user@example.com',
         firstName: 'John',
         lastName: 'Doe',
+        department: null,
+        jobTitle: null,
+        company: null,
+        office: null,
+        avatarMimeType: null,
         platformRole: null,
       } as any);
 
@@ -46,6 +71,11 @@ describe('MeService', () => {
         email: 'user@example.com',
         firstName: 'John',
         lastName: 'Doe',
+        department: null,
+        jobTitle: null,
+        company: null,
+        office: null,
+        hasAvatar: false,
         platformRole: null,
       });
     });
@@ -56,6 +86,11 @@ describe('MeService', () => {
         email: 'admin@example.com',
         firstName: 'Admin',
         lastName: 'User',
+        department: null,
+        jobTitle: null,
+        company: null,
+        office: null,
+        avatarMimeType: null,
         platformRole: 'PLATFORM_ADMIN',
       } as any);
 

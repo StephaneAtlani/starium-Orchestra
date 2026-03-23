@@ -60,6 +60,15 @@ services:
     ports:
       - "3001:3001"
     volumes:
+      # Manifestes workspace : sans ça, pnpm install lit le package.json figé dans l’image
+      # (deps ajoutées sur l’hôte invisibles → Nest ne compile pas → rien sur :3001).
+      - ./package.json:/app/package.json:ro
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
+      - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml:ro
+      - ./apps/api/package.json:/app/apps/api/package.json:ro
+      - ./apps/web/package.json:/app/apps/web/package.json:ro
+      - ./packages/types/package.json:/app/packages/types/package.json:ro
+      - ./packages/config/package.json:/app/packages/config/package.json:ro
       - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
       - ./apps/api/src:/app/apps/api/src
       - ./apps/api/prisma:/app/apps/api/prisma

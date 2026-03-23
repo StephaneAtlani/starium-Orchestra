@@ -23,8 +23,10 @@ export interface ClientMember {
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const message =
-      (body as { message?: string })?.message ?? 'Erreur lors de la requête';
+    const raw = (body as { message?: string | string[] })?.message;
+    const message = Array.isArray(raw)
+      ? raw.join(', ')
+      : (raw ?? 'Erreur lors de la requête');
     throw new Error(message);
   }
   return res.json() as Promise<T>;
@@ -35,6 +37,36 @@ export async function getClientMembers(
 ): Promise<ClientMember[]> {
   const res = await authFetch('/api/users');
   return handleResponse<ClientMember[]>(res);
+}
+
+export type CreateClientMemberPayload = {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  role: 'CLIENT_ADMIN' | 'CLIENT_USER';
+  /** Obligatoire si l’email n’existe pas encore dans la plateforme. */
+  password?: string;
+};
+
+/** POST /api/users — crée l’utilisateur ou rattache un compte existant au client. */
+export async function createClientMember(
+  authFetch: AuthFetch,
+  payload: CreateClientMemberPayload,
+): Promise<ClientMember> {
+  const body: Record<string, unknown> = {
+    email: payload.email.trim(),
+    role: payload.role,
+  };
+  if (payload.firstName?.trim()) body.firstName = payload.firstName.trim();
+  if (payload.lastName?.trim()) body.lastName = payload.lastName.trim();
+  if (payload.password?.length) body.password = payload.password;
+
+  const res = await authFetch('/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ClientMember>(res);
 }
 
 export async function getUserRoles(

@@ -7,7 +7,6 @@ import {
   Shield,
   Users,
   FileText,
-  UserCircle,
   Wallet,
 } from 'lucide-react';
 
@@ -109,17 +108,6 @@ export const navigation: NavigationSection[] = [
         icon: FileText,
         scope: 'platform',
         platformOnly: true,
-      },
-    ],
-  },
-  {
-    section: 'Account',
-    items: [
-      {
-        label: 'Compte',
-        href: '/account',
-        icon: UserCircle,
-        scope: 'client',
       },
     ],
   },

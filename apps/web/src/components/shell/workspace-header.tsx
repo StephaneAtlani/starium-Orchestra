@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
 import { useActiveClient } from '../../hooks/use-active-client';
 import { ClientSwitcher } from '../ClientSwitcher';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Bell, Calendar, ChevronDown, FileText, Search } from 'lucide-react';
+import { Bell, Calendar, ChevronDown, FileText, Search, UserCircle } from 'lucide-react';
 
 interface WorkspaceHeaderProps {
   contentClassName?: string;
@@ -74,7 +75,14 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
               </span>
               <ChevronDown className="h-4 w-4 starium-text" />
             </summary>
-            <div className="starium-dropdown-panel absolute right-0 mt-1 min-w-[160px] rounded-lg py-1 text-sm shadow-lg pointer-events-none opacity-0 translate-y-1 scale-95 transition-all duration-150 ease-out group-open/details:pointer-events-auto group-open/details:opacity-100 group-open/details:translate-y-0 group-open/details:scale-100">
+            <div className="starium-dropdown-panel absolute right-0 mt-1 min-w-[180px] rounded-lg py-1 text-sm shadow-lg pointer-events-none opacity-0 translate-y-1 scale-95 transition-all duration-150 ease-out group-open/details:pointer-events-auto group-open/details:opacity-100 group-open/details:translate-y-0 group-open/details:scale-100">
+              <Link
+                href="/account"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm starium-text hover:bg-accent"
+              >
+                <UserCircle className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+                Compte
+              </Link>
               <button
                 type="button"
                 className="flex w-full items-center px-3 py-2 text-left text-sm starium-text hover:bg-accent"

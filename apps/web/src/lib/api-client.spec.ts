@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { getXClientIdHeaderValue } from './api-client';
 
 const clientId = 'client-abc';
@@ -28,6 +29,38 @@ describe('getXClientIdHeaderValue', () => {
   it('returns null for /api/me', () => {
     expect(
       getXClientIdHeaderValue('/api/me', { activeClientId: clientId }),
+    ).toBeNull();
+  });
+
+  it('returns null for /api/me/password (compte global)', () => {
+    expect(
+      getXClientIdHeaderValue('/api/me/password', {
+        activeClientId: clientId,
+      }),
+    ).toBeNull();
+  });
+
+  it('returns null for /api/me/2fa/* (compte global)', () => {
+    expect(
+      getXClientIdHeaderValue('/api/me/2fa/enroll', {
+        activeClientId: clientId,
+      }),
+    ).toBeNull();
+  });
+
+  it('returns null for /api/me/profile', () => {
+    expect(
+      getXClientIdHeaderValue('/api/me/profile', {
+        activeClientId: clientId,
+      }),
+    ).toBeNull();
+  });
+
+  it('returns null for /api/me/avatar', () => {
+    expect(
+      getXClientIdHeaderValue('/api/me/avatar', {
+        activeClientId: clientId,
+      }),
     ).toBeNull();
   });
 

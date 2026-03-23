@@ -15,7 +15,13 @@ import {
 } from '@/components/ui/table';
 import { useClientMembers } from '../hooks/use-client-members';
 import { UserRolesDialog } from './user-roles-dialog';
+import { AddMemberDialog } from './add-member-dialog';
 import type { ClientMember } from '../api/user-roles';
+
+const CLIENT_ROLE_LABEL: Record<string, string> = {
+  CLIENT_ADMIN: 'Administrateur client',
+  CLIENT_USER: 'Utilisateur client',
+};
 
 export function MembersList() {
   const { data: members = [], isLoading, error, refetch } = useClientMembers();
@@ -25,7 +31,8 @@ export function MembersList() {
     <PageContainer>
       <PageHeader
         title="Membres"
-        description="Utilisateurs du client et assignation des rôles."
+        description="Utilisateurs du client et assignation des rôles. Les administrateurs client peuvent ajouter des membres (compte existant ou nouveau)."
+        actions={<AddMemberDialog />}
       />
       <Card>
         <CardContent className="pt-4">
@@ -45,8 +52,9 @@ export function MembersList() {
             </div>
           )}
           {!isLoading && !error && members.length === 0 && (
-            <p className="text-sm text-muted-foreground py-8 text-center">
-              Aucun membre.
+            <p className="text-sm text-muted-foreground py-10 text-center">
+              Aucun membre pour ce client. Utilisez « Ajouter un membre »
+              ci-dessus.
             </p>
           )}
           {!isLoading && !error && members.length > 0 && (
@@ -68,7 +76,11 @@ export function MembersList() {
                         .join(' ') || '—'}
                     </TableCell>
                     <TableCell>{member.email}</TableCell>
-                    <TableCell>{member.role ?? '—'}</TableCell>
+                    <TableCell>
+                      {member.role
+                        ? (CLIENT_ROLE_LABEL[member.role] ?? member.role)
+                        : '—'}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="outline"

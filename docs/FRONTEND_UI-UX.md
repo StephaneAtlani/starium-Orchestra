@@ -335,6 +335,38 @@ Route typique : `app/(protected)/projects/[projectId]/page.tsx` — composant **
 
 ---
 
+## 12.1 Compte — activation 2FA (dialog multi-étapes)
+
+Implémentation : **`EnrollTwoFactorFlow`** dans `features/account/components/account-security-section.tsx` ; déclenché depuis la carte **Sécurité** de la page Compte (`/account`).
+
+| Élément | Pattern |
+|--------|---------|
+| Conteneur | `Dialog` (Base UI) + **`DialogContent`** avec `max-h-[90vh] overflow-y-auto sm:max-w-lg` — évite le débordement sur petits écrans (QR + formulaire). |
+| Fermeture | Bouton **X** en haut à droite (`showCloseButton` par défaut dans `components/ui/dialog.tsx`) ; libellé **assistif** `sr-only` : **« Fermer »** (pas « Close »). Focus trap / `FloatingFocusManager` : comportement natif du popup Base UI. |
+| Étape 1 — QR | Titre `DialogTitle` explicite (ex. scanner Authenticator). QR centré dans un bloc **`rounded-lg border border-border bg-white p-2`** + `<img width={200} height={200} alt="QR code 2FA" />` (data URL API — `no-img-element` ESLint désactivé localement si besoin). |
+| Secret TOTP | Ligne **`text-center text-xs text-muted-foreground`** : texte du type *Secret masqué : ••••••••XXXX* — **l’API ne renvoie pas le secret complet** (suffixe de vérification seulement) ; le secret intégral reste dans le QR. |
+| Saisie | `Label` + `Input` `inputMode="numeric"`, `maxLength={6}`, placeholder type `123456`. |
+| Actions | **`flex justify-end gap-2`** : **Annuler** (`variant="ghost"`, ferme le dialog) + **Activer** (submit, état *Vérification…* si pending). |
+| Étape 2 — secours | Liste **`font-mono`** dans un encart `rounded-md border bg-muted/40 p-3` ; CTA **J’ai noté les codes** pleine largeur. |
+
+**À ne pas faire** : dupliquer un second titre « Close » visible — le seul libellé anglais acceptable était l’ancien `sr-only` sur l’icône ; il doit être en **français** pour cohérence produit.
+
+### 12.2 Modale — responsable projet (création `/projects/new`)
+
+Implémentation : **`ProjectCreateForm`** — ouverture depuis le résumé + bouton **Définir / Modifier** (`features/projects/components/project-create-form.tsx`).
+
+| Élément | Pattern |
+|--------|---------|
+| Largeur | **`max-w-lg`** (≈ 32 rem) + `w-full` — **pas** de modale 90 % de l’écran pour un formulaire court (lisibilité, focus). |
+| En-tête | `DialogTitle` **lisible** (`text-lg font-semibold`) + `DialogDescription` **une phrase** (pas de jargon produit inutile). |
+| Onglets | `TabsList` **`variant="line"`** + soulignement actif (Base UI) ; libellés métier : **Compte client** / **Nom libre**. |
+| Panneau « compte » | Bloc **`rounded-xl border border-border/70 bg-card p-4 shadow-sm`** (§2) ; **`Label`** explicite au-dessus du `Select` ; aide **`text-xs text-muted-foreground`** avec `aria-describedby`. |
+| Erreur chargement | **`Alert` `variant="destructive"`** + `AlertCircle` (§9) — jamais seulement un paragraphe rouge nu. |
+| Panneau « nom libre » | Encart **`border-l-[3px] border-l-sky-500/55`** + icône **`Users`** dans un carré `rounded-lg bg-sky-500/10` (aligné §11.2 / accent latéral) ; texte court, pas de **50 %** de largeur qui casse la lecture. |
+| Pied | `DialogFooter` + **Terminé** (`type="button"`) — ne pas soumettre le formulaire parent. |
+
+---
+
 ## 13. Liens utiles
 
 | Sujet | Document |
@@ -346,4 +378,4 @@ Route typique : `app/(protected)/projects/[projectId]/page.tsx` — composant **
 
 ---
 
-*Dernière mise à jour : sidebar menus déroulants §3.1 ; fiche projet `ProjectSheetView` §11.2 (indicateurs de lecture, arbitrage 3 niveaux, cartes `border-l` + badges) ; cockpit Projets §6.1 / §7 / §8.1 / §11.1 inchangés en substance.*
+*Dernière mise à jour : §12.2 modale responsable projet (largeur `max-w-lg`, onglets line, `Alert`, encart accent) ; §12.1 2FA ; `dialog.tsx` (Fermer) ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*

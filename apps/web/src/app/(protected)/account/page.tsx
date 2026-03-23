@@ -12,6 +12,8 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { AccountProfileSection } from '@/features/account/components/account-profile-section';
+import { AccountSecuritySection } from '@/features/account/components/account-security-section';
 
 export default function AccountPage() {
   const { accessToken } = useAuth();
@@ -63,6 +65,10 @@ export default function AccountPage() {
         title="Compte"
         description="Paramètres de votre compte et client par défaut."
       />
+
+      <AccountProfileSection />
+
+      <AccountSecuritySection />
 
       <Card>
         <CardHeader>

@@ -12,8 +12,30 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { JWT_ACCESS_EXPIRATION, JWT_REFRESH_EXPIRATION } from './auth.constants';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { SecurityLogsService } from '../security-logs/security-logs.service';
+import { MfaService } from '../mfa/mfa.service';
+import { TrustedDeviceService } from './trusted-device.service';
 
 const INVALID_CREDENTIALS = 'Identifiants invalides';
+
+export type LoginResponse =
+  | {
+      status: 'AUTHENTICATED';
+      accessToken: string;
+      refreshToken: string;
+    }
+  | {
+      status: 'MFA_REQUIRED';
+      challengeId: string;
+      expiresAt: string;
+    };
+
+export type AuthTokensResponse = {
+  status: 'AUTHENTICATED';
+  accessToken: string;
+  refreshToken: string;
+  /** Présent si l’utilisateur a demandé à faire confiance à cet appareil (30 j). */
+  trustedDeviceToken?: string;
+};
 
 function hashRefreshToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -31,6 +53,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly securityLogs: SecurityLogsService,
+    private readonly mfa: MfaService,
+    private readonly trustedDevice: TrustedDeviceService,
     @Inject(JWT_ACCESS_EXPIRATION) private readonly accessExpiration: number,
     @Inject(JWT_REFRESH_EXPIRATION) private readonly refreshExpiration: number,
   ) {}
@@ -40,7 +64,8 @@ export class AuthService {
     email: string,
     password: string,
     meta: RequestMeta,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+    trustedDeviceToken?: string | null,
+  ): Promise<LoginResponse> {
     try {
       const user = await this.prisma.user.findUnique({ where: { email } });
       if (!user) {
@@ -78,6 +103,52 @@ export class AuthService {
         throw new UnauthorizedException(INVALID_CREDENTIALS);
       }
 
+      const needsMfa = await this.mfa.isMfaTotpEnabled(user.id);
+      if (needsMfa) {
+        if (
+          trustedDeviceToken &&
+          (await this.trustedDevice.validateAndTouch(user.id, trustedDeviceToken))
+        ) {
+          const tokens = await this.issueTokenPair(user.id);
+          await this.securityLogs.create({
+            event: 'auth.login.trusted_device',
+            userId: user.id,
+            email: user.email,
+            success: true,
+            ipAddress: meta.ipAddress,
+            userAgent: meta.userAgent,
+            requestId: meta.requestId,
+          });
+          await this.securityLogs.create({
+            event: 'auth.login.success',
+            userId: user.id,
+            email: user.email,
+            success: true,
+            ipAddress: meta.ipAddress,
+            userAgent: meta.userAgent,
+            requestId: meta.requestId,
+          });
+          return { status: 'AUTHENTICATED', ...tokens };
+        }
+
+        const { challengeId, expiresAt } =
+          await this.mfa.createLoginChallenge(user.id);
+        await this.securityLogs.create({
+          event: 'auth.login.mfa_required',
+          userId: user.id,
+          email: user.email,
+          success: true,
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+          requestId: meta.requestId,
+        });
+        return {
+          status: 'MFA_REQUIRED',
+          challengeId,
+          expiresAt: expiresAt.toISOString(),
+        };
+      }
+
       const tokens = await this.issueTokenPair(user.id);
 
       await this.securityLogs.create({
@@ -90,7 +161,7 @@ export class AuthService {
         requestId: meta.requestId,
       });
 
-      return tokens;
+      return { status: 'AUTHENTICATED', ...tokens };
     } catch (err) {
       if (err instanceof UnauthorizedException) throw err;
       const msg = (err as Error)?.message ?? String(err);
@@ -137,6 +208,102 @@ export class AuthService {
     return tokens;
   }
 
+  /** Après challenge TOTP (ou code de secours) sur flux login. */
+  async verifyMfaTotpAfterLogin(
+    challengeId: string,
+    otp: string,
+    meta: RequestMeta,
+    trustDevice?: boolean,
+  ): Promise<AuthTokensResponse> {
+    const { userId } = await this.mfa.verifyLoginTotp(challengeId, otp, meta);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    const tokens = await this.issueTokenPair(userId);
+    let trustedDeviceToken: string | undefined;
+    if (trustDevice) {
+      const created = await this.trustedDevice.create(userId, meta);
+      trustedDeviceToken = created.token;
+      await this.securityLogs.create({
+        event: 'auth.trusted_device.created',
+        userId,
+        email: user?.email,
+        success: true,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+      });
+    }
+    await this.securityLogs.create({
+      event: 'auth.login.success',
+      userId,
+      email: user?.email,
+      success: true,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+    });
+    return {
+      status: 'AUTHENTICATED',
+      ...tokens,
+      ...(trustedDeviceToken ? { trustedDeviceToken } : {}),
+    };
+  }
+
+  async sendMfaFallbackEmail(
+    challengeId: string,
+    meta: RequestMeta,
+  ): Promise<void> {
+    await this.mfa.sendLoginEmailOtp(challengeId, meta);
+  }
+
+  async verifyMfaEmailAfterLogin(
+    challengeId: string,
+    code: string,
+    meta: RequestMeta,
+    trustDevice?: boolean,
+  ): Promise<AuthTokensResponse> {
+    const { userId } = await this.mfa.verifyLoginEmailOtp(
+      challengeId,
+      code,
+      meta,
+    );
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    const tokens = await this.issueTokenPair(userId);
+    let trustedDeviceToken: string | undefined;
+    if (trustDevice) {
+      const created = await this.trustedDevice.create(userId, meta);
+      trustedDeviceToken = created.token;
+      await this.securityLogs.create({
+        event: 'auth.trusted_device.created',
+        userId,
+        email: user?.email,
+        success: true,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+      });
+    }
+    await this.securityLogs.create({
+      event: 'auth.login.success',
+      userId,
+      email: user?.email,
+      success: true,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+    });
+    return {
+      status: 'AUTHENTICATED',
+      ...tokens,
+      ...(trustedDeviceToken ? { trustedDeviceToken } : {}),
+    };
+  }
+
   /** Révoque le refresh token (suppression en base). */
   async logout(refreshToken: string, meta: RequestMeta): Promise<void> {
     const tokenHash = hashRefreshToken(refreshToken);
@@ -157,6 +324,11 @@ export class AuthService {
       userAgent: meta.userAgent,
       requestId: meta.requestId,
     });
+  }
+
+  /** Invalide toutes les sessions (refresh tokens) d’un utilisateur. */
+  async revokeAllRefreshTokensForUser(userId: string): Promise<void> {
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
   }
 
   private async issueTokenPair(

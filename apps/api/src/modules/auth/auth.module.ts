@@ -13,9 +13,12 @@ import { resolveJwtSecret } from './auth-env.utils';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { SecurityLogsService } from '../security-logs/security-logs.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { MfaModule } from '../mfa/mfa.module';
+import { TrustedDeviceService } from './trusted-device.service';
 
 @Module({
   imports: [
+    MfaModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -36,6 +39,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   controllers: [AuthController],
   providers: [
     AuthService,
+    TrustedDeviceService,
     JwtStrategy,
     JwtAuthGuard,
     SecurityLogsService,
@@ -52,6 +56,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       inject: [ConfigService],
     },
   ],
-  exports: [JwtAuthGuard, JwtModule],
+  exports: [JwtAuthGuard, JwtModule, MfaModule],
 })
 export class AuthModule {}

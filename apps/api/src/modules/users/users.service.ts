@@ -256,6 +256,7 @@ export class UsersService {
       where: { id: userId },
       data: { passwordHash },
     });
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
   }
 
   /**

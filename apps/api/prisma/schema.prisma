@@ -24,6 +24,18 @@ enum ClientUserStatus {
   INVITED
 }
 
+/// Challenge MFA (login ou enrollment) — identifiant public = `id` (challengeId).
+enum MfaChallengePurpose {
+  LOGIN
+  ENROLL
+}
+
+/// Canal principal du challenge (fallback email stocke le hash OTP dans `otpCodeHash`).
+enum MfaChallengeChannel {
+  TOTP
+  EMAIL
+}
+
 enum TaxDisplayMode {
   HT
   TTC
@@ -100,6 +112,16 @@ model User {
   passwordHash  String
   firstName     String?
   lastName      String?
+  /// Service / département (profil modifiable par l’utilisateur)
+  department    String?
+  /// Intitulé de poste
+  jobTitle      String?
+  /// Société / employeur affiché
+  company       String?
+  /// Bureau / localisation
+  office        String?
+  /// MIME image (ex. image/jpeg) si une photo est enregistrée sur disque
+  avatarMimeType String?
   platformRole  PlatformRole?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -108,6 +130,9 @@ model User {
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
   securityLogs  SecurityLog[]
+  userMfa         UserMfa?
+  mfaChallenges   MfaChallenge[]
+  trustedDevices  TrustedDevice[]
   ownedBudgets Budget[]           @relation("OwnedBudgets")
   createdBudgetSnapshots BudgetSnapshot[]
   budgetReallocationsCreated BudgetReallocation[]
@@ -1604,10 +1629,60 @@ model RefreshToken {
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())
+  revokedAt DateTime?
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([tokenHash])
+}
+
+/// Paramètres 2FA TOTP par utilisateur (un seul enregistrement par user).
+model UserMfa {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Secret TOTP chiffré (AES-256-GCM) — présent dès l’init d’enrollment ou après activation
+  totpSecretEncrypted String?
+  totpPending         Boolean   @default(false)
+  totpEnabledAt       DateTime?
+  /// Codes de secours : tableau JSON de hash bcrypt (jamais en clair)
+  backupCodesHashes   Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model MfaChallenge {
+  id           String               @id @default(cuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose      MfaChallengePurpose
+  channel      MfaChallengeChannel  @default(TOTP)
+  /// OTP email (fallback) : hash du code à usage unique
+  otpCodeHash  String?
+  emailSentAt  DateTime?
+  expiresAt    DateTime
+  attemptCount Int                  @default(0)
+  consumedAt   DateTime?
+  createdAt    DateTime             @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Jeton opaque (hash stocké) : « appareil de confiance » pour éviter la 2FA à chaque login (durée limitée).
+model TrustedDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model AuditLog {

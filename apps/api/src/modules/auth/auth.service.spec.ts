@@ -5,6 +5,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { JWT_ACCESS_EXPIRATION, JWT_REFRESH_EXPIRATION } from './auth.constants';
 import { SecurityLogsService } from '../security-logs/security-logs.service';
+import { MfaService } from '../mfa/mfa.service';
+import { TrustedDeviceService } from './trusted-device.service';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 
 jest.mock('bcrypt', () => {
@@ -20,6 +22,8 @@ describe('AuthService', () => {
   let service: AuthService;
   let prisma: PrismaService;
   let securityLogs: SecurityLogsService;
+  let mfa: MfaService;
+  let trustedDevice: TrustedDeviceService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -36,6 +40,12 @@ describe('AuthService', () => {
               delete: jest.fn(),
               deleteMany: jest.fn(),
               create: jest.fn(),
+            },
+            trustedDevice: {
+              findFirst: jest.fn(),
+              create: jest.fn(),
+              deleteMany: jest.fn(),
+              update: jest.fn(),
             },
           },
         },
@@ -59,12 +69,32 @@ describe('AuthService', () => {
             create: jest.fn(),
           },
         },
+        {
+          provide: MfaService,
+          useValue: {
+            isMfaTotpEnabled: jest.fn().mockResolvedValue(false),
+            verifyLoginTotp: jest.fn(),
+            sendLoginEmailOtp: jest.fn(),
+            verifyLoginEmailOtp: jest.fn(),
+            createLoginChallenge: jest.fn(),
+          },
+        },
+        {
+          provide: TrustedDeviceService,
+          useValue: {
+            validateAndTouch: jest.fn().mockResolvedValue(false),
+            create: jest.fn(),
+            revokeByToken: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     prisma = module.get<PrismaService>(PrismaService);
     securityLogs = module.get<SecurityLogsService>(SecurityLogsService);
+    mfa = module.get<MfaService>(MfaService);
+    trustedDevice = module.get<TrustedDeviceService>(TrustedDeviceService);
   });
 
   const meta: RequestMeta = {
@@ -83,7 +113,7 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true as any);
       jest.spyOn(prisma.refreshToken, 'create').mockResolvedValue({} as any);
 
-      await service.login('test@example.com', 'password', meta);
+      await service.login('test@example.com', 'password', meta, undefined);
 
       expect((securityLogs.create as jest.Mock).mock.calls).toEqual(
         expect.arrayContaining([
@@ -102,11 +132,71 @@ describe('AuthService', () => {
       );
     });
 
+    it('should return MFA_REQUIRED when TOTP 2FA is enabled', async () => {
+      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        passwordHash: 'hash',
+      } as any);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true as any);
+      (mfa.isMfaTotpEnabled as jest.Mock).mockResolvedValue(true);
+      (mfa.createLoginChallenge as jest.Mock).mockResolvedValue({
+        challengeId: 'challenge-1',
+        expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.login('test@example.com', 'password', meta, undefined);
+
+      expect(result).toEqual({
+        status: 'MFA_REQUIRED',
+        challengeId: 'challenge-1',
+        expiresAt: '2030-01-01T00:00:00.000Z',
+      });
+      expect(securityLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'auth.login.mfa_required',
+          userId: 'user-1',
+        }),
+      );
+    });
+
+    it('should skip MFA when trusted device token is valid', async () => {
+      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        passwordHash: 'hash',
+      } as any);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true as any);
+      (mfa.isMfaTotpEnabled as jest.Mock).mockResolvedValue(true);
+      (trustedDevice.validateAndTouch as jest.Mock).mockResolvedValue(true);
+      jest.spyOn(prisma.refreshToken, 'create').mockResolvedValue({} as any);
+
+      const hex64 = 'a'.repeat(64);
+      const result = await service.login(
+        'test@example.com',
+        'password',
+        meta,
+        hex64,
+      );
+
+      expect(result).toMatchObject({
+        status: 'AUTHENTICATED',
+        accessToken: 'jwt-token',
+      });
+      expect(mfa.createLoginChallenge).not.toHaveBeenCalled();
+      expect(securityLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'auth.login.trusted_device',
+          userId: 'user-1',
+        }),
+      );
+    });
+
     it('should log auth.login.failure when user not found', async () => {
       jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(null);
 
       await expect(
-        service.login('unknown@example.com', 'password', meta),
+        service.login('unknown@example.com', 'password', meta, undefined),
       ).rejects.toBeInstanceOf(Error);
 
       expect(securityLogs.create).toHaveBeenCalledWith(
@@ -132,7 +222,9 @@ describe('AuthService', () => {
         expiresAt: future,
         user: { email: 'test@example.com' },
       });
-      (prisma.refreshToken.delete as jest.Mock).mockResolvedValue({});
+      (prisma.refreshToken.deleteMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
       jest.spyOn(prisma.user, 'findUnique' as any).mockResolvedValue({
         platformRole: null,
       });
