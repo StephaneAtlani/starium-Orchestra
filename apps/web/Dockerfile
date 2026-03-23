@@ -3,6 +3,8 @@ RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
 WORKDIR /app
 
 FROM base AS builder
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build
@@ -17,4 +19,4 @@ WORKDIR /app
 COPY --from=builder /app /app
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@starium-orchestra/web", "exec", "next", "start", "-H", "0.0.0.0", "-p", "3000"]
+CMD ["node", "apps/web/.next/standalone/server.js"]
