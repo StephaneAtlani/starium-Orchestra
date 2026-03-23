@@ -6,7 +6,7 @@ import {
 
 function prismaWithDependencyChain(
   rows: Record<string, { dependsOnTaskId: string | null }>,
-): Pick<PrismaService, 'projectTask'> {
+): PrismaService {
   return {
     projectTask: {
       findFirst: jest.fn(
@@ -25,7 +25,7 @@ function prismaWithDependencyChain(
 
 function prismaWithParentChain(
   rows: Record<string, { parentTaskId: string | null }>,
-): Pick<PrismaService, 'projectTask'> {
+): PrismaService {
   return {
     projectTask: {
       findFirst: jest.fn(
