@@ -107,7 +107,7 @@ function mergePlannedDatesAfterEdit(
   if (field === 'plannedEndDate' && !hasValue) nextEnd = null;
 
   if (!nextStart && !nextEnd) {
-    return { plannedStartDate: null, plannedEndDate: null };
+    return { plannedStartDate: undefined, plannedEndDate: undefined };
   }
   if (nextStart && !nextEnd) nextEnd = nextStart;
   if (!nextStart && nextEnd) nextStart = nextEnd;

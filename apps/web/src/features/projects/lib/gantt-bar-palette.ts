@@ -224,8 +224,8 @@ export function buildTaskRootIdMap(
 }
 
 /** Ordre stable des racines (ordre d’apparition dans la liste affichée). */
-export function orderedRootIdsFromRows(
-  rows: TaskTreeRow<ProjectTaskApi>[],
+export function orderedRootIdsFromRows<T extends { id: string }>(
+  rows: TaskTreeRow<T>[],
   rootIdOf: (taskId: string) => string,
 ): string[] {
   const order: string[] = [];

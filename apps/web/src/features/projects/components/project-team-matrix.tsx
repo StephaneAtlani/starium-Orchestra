@@ -572,9 +572,9 @@ type AddMemberToRoleFormProps = {
   busy: boolean;
   selectableUsersForRole: (roleId: string) => ProjectAssignableUser[];
   onModeChange: (mode: 'user' | 'free') => void;
-  onPickChange: (v: string | undefined) => void;
+  onPickChange: (v: string | null) => void;
   onFreeNameChange: (value: string) => void;
-  onFreeAffChange: (v: string | undefined) => void;
+  onFreeAffChange: (v: string | null) => void;
   onAddUser: () => void;
   onAddFree: () => void;
 };

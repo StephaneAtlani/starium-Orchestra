@@ -247,7 +247,9 @@ export function ProjectCreateForm() {
               <Label htmlFor="p-owner">Responsable</Label>
               <Select
                 value={ownerUserId || '__none__'}
-                onValueChange={(v) => setOwnerUserId(v === '__none__' ? '' : v)}
+                onValueChange={(v) =>
+                  setOwnerUserId(v == null || v === '__none__' ? '' : v)
+                }
                 disabled={membersLoading || membersError}
               >
                 <SelectTrigger id="p-owner" size="sm" className="w-full">

@@ -339,6 +339,7 @@ export interface CreateLinePayload {
   analyticalLedgerAccountId?: string | null;
   initialAmount: number;
   revisedAmount?: number;
+  taxRate?: number;
   currency: string;
   status?: string;
 }

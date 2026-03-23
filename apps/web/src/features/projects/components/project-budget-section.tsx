@@ -494,7 +494,9 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       <span className="font-normal text-muted-foreground">
                         Chargement…
                       </span>
-                    ) : sheetForecastCost == null || sheetQuery.isError ? (
+                    ) : sheetForecastCost == null ||
+                      forecastVsAllocatedGap == null ||
+                      sheetQuery.isError ? (
                       '—'
                     ) : (
                       formatCurrencyEur(forecastVsAllocatedGap)
@@ -797,7 +799,9 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                         <Select
                           modal={false}
                           value={newLineGeneralLedgerId}
-                          onValueChange={setNewLineGeneralLedgerId}
+                          onValueChange={(value) =>
+                            setNewLineGeneralLedgerId(value ?? SELECT_NONE)
+                          }
                         >
                           <SelectTrigger id="pb-new-gl" className="h-9 w-full min-w-0">
                             <SelectValue placeholder="Choisir un compte">

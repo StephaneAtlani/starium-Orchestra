@@ -8,7 +8,7 @@ import type { ProjectTaskApi } from '../types/project.types';
 
 /** Enfants directs dont le parent est dans la liste affichée. */
 export function buildVisibleChildrenMap(
-  rows: TaskTreeRow<ProjectTaskApi>[],
+  rows: TaskTreeRow<{ id: string; parentTaskId: string | null }>[],
 ): Map<string, string[]> {
   const ids = new Set(rows.map((r) => r.id));
   const m = new Map<string, string[]>();
