@@ -54,8 +54,6 @@ services:
     ports:
       - "3001:3001"
     depends_on: *depends-postgres-healthy
-    profiles:
-      - standard
 
   web:
     build:
@@ -69,8 +67,6 @@ services:
       - "3002:3000"
     depends_on:
       - api
-    profiles:
-      - standard
 
 volumes:
   postgres_data: {}
