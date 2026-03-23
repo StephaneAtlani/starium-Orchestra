@@ -12,7 +12,16 @@ RUN pnpm --filter @starium-orchestra/api build
 FROM base AS runner
 ENV NODE_ENV=production
 WORKDIR /app
+
 COPY --from=builder /app /app
 
+# 🔴 ENTRYPOINT : garantit JWT_SECRET au runtime
+RUN echo '#!/bin/sh' > /entrypoint.sh \
+ && echo 'export JWT_SECRET=${JWT_SECRET:-hardcoded_dev_secret_123456}' >> /entrypoint.sh \
+ && echo 'echo "JWT_SECRET set: ${JWT_SECRET:+OK}"' >> /entrypoint.sh \
+ && echo 'exec node apps/api/dist/main.js' >> /entrypoint.sh \
+ && chmod +x /entrypoint.sh
+
 EXPOSE 3001
-CMD ["node", "apps/api/dist/main.js"]
+
+CMD ["/entrypoint.sh"]
