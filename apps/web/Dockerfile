@@ -15,4 +15,4 @@ WORKDIR /app
 COPY --from=builder /app /app
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@starium-orchestra/web", "start"]
+CMD ["pnpm", "--filter", "@starium-orchestra/web", "start", "--", "-H", "0.0.0.0", "-p", "3000"]
