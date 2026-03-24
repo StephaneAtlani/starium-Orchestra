@@ -114,12 +114,22 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
       <Table className="min-w-[56rem] text-sm">
       <TableHeader className="bg-muted/50 [&_tr]:border-b-0">
         <TableRow className="border-0 hover:bg-transparent">
-          <TableHead className={cn(th, 'min-w-[11rem] pl-4')}>
+          <TableHead
+            className={cn(
+              th,
+              'sticky left-0 z-30 min-w-[11rem] bg-muted/50 pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
+            )}
+          >
             <HeaderTip tip="Categorie portefeuille rattachee au projet (racine / sous-categorie).">
               Categorie
             </HeaderTip>
           </TableHead>
-          <TableHead className={cn(th, 'min-w-[12rem] pl-4')}>
+          <TableHead
+            className={cn(
+              th,
+              'sticky left-[11rem] z-30 min-w-[12rem] bg-muted/50 pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
+            )}
+          >
             <HeaderTip tip="Nom du projet, code interne, criticité et responsable. Cliquez sur le nom pour ouvrir la fiche.">
               Projet
             </HeaderTip>
@@ -184,7 +194,7 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
       <TableBody>
         {items.map((p) => (
           <TableRow key={p.id} className="group">
-            <TableCell className="align-top py-3 pl-4">
+            <TableCell className="sticky left-0 z-20 align-top bg-background py-3 pl-4 shadow-[1px_0_0_0_hsl(var(--border))]">
               {p.portfolioCategory ? (
                 <CellTip
                   tip={
@@ -207,7 +217,7 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
                 <span className="text-xs text-muted-foreground">—</span>
               )}
             </TableCell>
-            <TableCell className="align-top py-3 pl-4">
+            <TableCell className="sticky left-[11rem] z-20 align-top bg-background py-3 pl-4 shadow-[1px_0_0_0_hsl(var(--border))]">
               <Link
                 href={`/projects/${p.id}`}
                 className="font-medium text-primary hover:underline"
