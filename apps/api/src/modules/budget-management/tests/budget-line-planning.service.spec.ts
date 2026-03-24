@@ -243,6 +243,10 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
     });
 
     it('applyCalculation applique la formule et écrit un audit budget_line_planning.applied_calculation', async () => {
+      prisma.budgetLine.findFirstOrThrow.mockResolvedValue(
+        lineWithPlanning({ planningMode: BudgetLinePlanningMode.CALCULATED }),
+      );
+
       const dto = {
         formulaType: 'QUANTITY_X_UNIT_PRICE',
         quantity: {

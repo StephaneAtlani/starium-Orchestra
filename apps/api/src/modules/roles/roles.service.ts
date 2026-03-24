@@ -124,6 +124,9 @@ export class RolesService {
       }
       throw new NotFoundException('Rôle non trouvé pour ce client');
     }
+    if ((role as any).isSystem) {
+      throw new ForbiddenException('Impossible de modifier un rôle système');
+    }
     const data: { name?: string; description?: string | null } = {};
     if (dto.name !== undefined && dto.name !== role.name) {
       await this.ensureClientRoleNameUnique(clientId, dto.name, id);
@@ -160,6 +163,9 @@ export class RolesService {
         throw new ForbiddenException('Impossible de supprimer un rôle global via ce endpoint');
       }
       throw new NotFoundException('Rôle non trouvé pour ce client');
+    }
+    if ((role as any).isSystem) {
+      throw new ForbiddenException('Impossible de supprimer un rôle système');
     }
     if ((role as any).userRoles?.length > 0) {
       throw new ConflictException(
@@ -244,6 +250,9 @@ export class RolesService {
         );
       }
       throw new NotFoundException('Rôle non trouvé pour ce client');
+    }
+    if ((role as any).isSystem) {
+      throw new ForbiddenException('Impossible de modifier les permissions d’un rôle système');
     }
     const allowedPermissions = await (this.prisma as any).permission.findMany({
       where: {
