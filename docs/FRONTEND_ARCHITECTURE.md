@@ -76,6 +76,20 @@ Conséquences :
 * toutes les requêtes métier envoient `X-Client-Id`
 * aucun mélange de données de plusieurs clients sur un écran métier
 
+### 3.2.1 Rôle global et rôle client (contrat frontend)
+
+Le frontend distingue deux niveaux d’autorisation :
+
+- **Rôle global** : `user.platformRole` (ex. `PLATFORM_ADMIN`) pour le scope plateforme.
+- **Rôle client actif** : `activeClient.role` (ex. `CLIENT_ADMIN`) pour le scope métier du client courant.
+
+Règles :
+
+- Les routes `/admin/*` sont pilotées par `platformRole` et ne dépendent pas de `X-Client-Id`.
+- Les routes métier (`/budgets`, `/projects`, `/client/*`, etc.) dépendent du client actif et envoient `X-Client-Id`.
+- Un utilisateur `PLATFORM_ADMIN` n’est pas automatiquement `CLIENT_ADMIN` dans un client.
+- Un `CLIENT_ADMIN` ne bypass pas les `PermissionGate` sur les actions métier.
+
 ### 3.3 Backend source de vérité
 
 Le frontend peut masquer des actions, mais **seul le backend décide**. 
@@ -704,6 +718,7 @@ La navigation affichée dépend de :
 
 * `platformRole`
 * client actif
+* `activeClient.role`
 * modules activés
 * permissions utiles à l’affichage
 

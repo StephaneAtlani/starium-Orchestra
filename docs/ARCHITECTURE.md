@@ -134,6 +134,20 @@ PostgreSQL
 
 C’est le pipeline métier standard décrit dans l’architecture, avec client actif obligatoire pour les routes métier. 
 
+### 3.1 Modèle des rôles (global vs client actif)
+
+Le modèle d’accès distingue deux niveaux de rôle :
+
+- **Rôle global plateforme** : `User.platformRole` (`PLATFORM_ADMIN` ou `null`).
+- **Rôle de rattachement client** : `ClientUser.role` (`CLIENT_ADMIN` ou `CLIENT_USER`) pour un client donné.
+
+Règles d’architecture :
+
+- Les routes plateforme (`/api/clients`, `/api/platform/*`, `/api/modules`) reposent sur `platformRole` + `PlatformAdminGuard`.
+- Les routes métier client-scopées reposent sur `X-Client-Id` + `ActiveClientGuard` (puis `ClientAdminGuard` ou `PermissionsGuard` selon la ressource).
+- `PLATFORM_ADMIN` ne confère pas automatiquement un rôle `CLIENT_ADMIN` sur un client.
+- `CLIENT_ADMIN` ne confère pas automatiquement toutes les permissions métier (`budgets.*`, `projects.*`, etc.).
+
 ---
 
 ## 4. Schéma de données métier
