@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -39,6 +40,14 @@ import {
 import { EditResourceForm } from './_components/edit-resource-form';
 import { NewResourceForm } from './_components/new-resource-form';
 import { AlertCircle, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
@@ -271,22 +280,28 @@ export default function ResourcesListPage() {
           />
         )}
         {enabled && !isLoading && !error && total > 0 && (
-          <>
-            <div className="overflow-x-auto rounded-md border border-white/10">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/10 text-left">
-                    <th className="p-3 font-medium">Nom</th>
-                    <th className="p-3 font-medium">Type</th>
-                    <th className="p-3 font-medium">Portée</th>
-                    <th className="p-3 font-medium">Société</th>
-                    <th className="p-3 font-medium">Rôle métier</th>
-                  </tr>
-                </thead>
-                <tbody>
+          <Card size="sm" className="overflow-hidden shadow-sm">
+            <CardHeader className="border-b border-border/60 pb-3">
+              <CardTitle className="text-sm font-medium">Liste des ressources</CardTitle>
+              <CardDescription className="text-xs">
+                Cliquez sur un nom pour modifier la ressource (si autorisé).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table className="min-w-[56rem]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="px-3">Nom</TableHead>
+                    <TableHead className="px-3">Type</TableHead>
+                    <TableHead className="px-3">Portée</TableHead>
+                    <TableHead className="px-3">Société</TableHead>
+                    <TableHead className="px-3">Rôle métier</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {items.map((r) => (
-                    <tr key={r.id} className="border-b border-white/5 hover:bg-white/5">
-                      <td className="p-3">
+                    <TableRow key={r.id}>
+                      <TableCell className="px-3">
                         {canUpdateResource ? (
                           <button
                             type="button"
@@ -302,25 +317,25 @@ export default function ResourcesListPage() {
                             {formatResourceDisplayName(r)}
                           </span>
                         )}
-                      </td>
-                      <td className="p-3">{RESOURCE_TYPE_LABEL[r.type]}</td>
-                      <td className="p-3">
+                      </TableCell>
+                      <TableCell className="px-3">{RESOURCE_TYPE_LABEL[r.type]}</TableCell>
+                      <TableCell className="px-3">
                         {r.type === 'HUMAN' && r.affiliation
                           ? RESOURCE_AFFILIATION_LABEL[r.affiliation]
                           : '—'}
-                      </td>
-                      <td className="p-3">
+                      </TableCell>
+                      <TableCell className="px-3">
                         {r.type === 'HUMAN' && r.affiliation === 'EXTERNAL' && r.companyName
                           ? r.companyName
                           : '—'}
-                      </td>
-                      <td className="p-3">{r.role?.name ?? '—'}</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="px-3">{r.role?.name ?? '—'}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex flex-col items-stretch justify-between gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center">
+                </TableBody>
+              </Table>
+            </CardContent>
+            <CardFooter className="flex flex-col items-stretch justify-between gap-3 border-t border-border/60 bg-transparent pt-3 sm:flex-row sm:items-center">
               <p className="text-sm text-muted-foreground">
                 {from}–{to} sur {total}
               </p>
@@ -349,8 +364,8 @@ export default function ResourcesListPage() {
                   <ChevronRight className="size-4" />
                 </Button>
               </div>
-            </div>
-          </>
+            </CardFooter>
+          </Card>
         )}
       </PageContainer>
     </RequireActiveClient>

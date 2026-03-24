@@ -386,6 +386,19 @@ Composant partagé : **`PersonCatalogPickerDialog`** (`features/projects/compone
 
 ---
 
+## 12.4 Page Ressources (`/resources`)
+
+Implémentation : `app/(protected)/resources/page.tsx`.
+
+- **Structure** : `PageHeader` + panneau filtres (recherche / type / pagination) + états `LoadingState` / `Alert` / `EmptyState`.
+- **Liste** : pattern **`Card size="sm"`** + `CardHeader` (titre + description), `CardContent className="p-0"` et composant **`Table`** (`@/components/ui/table`) ; éviter une table HTML brute.
+- **Largeur table** : `min-w-[56rem]` pour préserver la lisibilité des colonnes (`Nom`, `Type`, `Portée`, `Société`, `Rôle métier`) avec scroll horizontal géré par `Table`.
+- **Pagination** : dans `CardFooter`, avec résumé `x–y sur total` et actions précédente/suivante.
+- **Édition** : le nom de ressource est un bouton textuel (`text-primary hover:underline`) uniquement si `resources.update`.
+- **Tokens** : pas de `border-white/*` sur cette liste ; utiliser les tokens de surface/bordure (`border-border/60`, `bg-card`, `text-muted-foreground`).
+
+---
+
 ## 13. Liens utiles
 
 | Sujet | Document |
@@ -397,4 +410,4 @@ Composant partagé : **`PersonCatalogPickerDialog`** (`features/projects/compone
 
 ---
 
-*Dernière mise à jour : §12.3 `PersonCatalogPickerDialog` (équipe + création projet) ; §12.2 modale responsable projet (historique onglets — remplacé par tableau partagé) ; §12.1 2FA ; `dialog.tsx` (Fermer) ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*
+*Dernière mise à jour : §12.4 page `Ressources` (liste en `Card` + `Table`) ; §12.3 `PersonCatalogPickerDialog` (équipe + création projet) ; §12.2 modale responsable projet (historique onglets — remplacé par tableau partagé) ; §12.1 2FA ; `dialog.tsx` (Fermer) ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*

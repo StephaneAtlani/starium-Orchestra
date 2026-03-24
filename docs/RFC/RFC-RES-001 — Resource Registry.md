@@ -523,6 +523,7 @@ L’entrée sidebar “Ressources” n’est visible que si :
 ## 12.5 Pages MVP
 
 * `/resources` → liste filtrable
+* `/resources/new` → création d’une ressource
 * `/resources/[id]` → fiche ressource
 * `/resources/roles` → catalogue des rôles de ressources
 
@@ -651,7 +652,7 @@ Livré :
 * guards standards (`JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`)
 * permissions `resources.read`, `resources.create`, `resources.update`
 * bootstrap des rôles par défaut (`resources_manager`, `resources_viewer`)
-* pages frontend `/resources`, `/resources/[id]`, `/resources/roles`
+* pages frontend `/resources`, `/resources/new`, `/resources/[id]`, `/resources/roles`
 * entrée sidebar “Organisation > Ressources”
 
 Non livré (reste hors scope MVP actuel) :
