@@ -56,6 +56,7 @@ export type ProjectListItem = {
   signals: ProjectSignals;
   warnings: string[];
   tags: ProjectTag[];
+  portfolioCategory: ProjectPortfolioCategoryAssignment | null;
 };
 
 export type ProjectsListResponse = {
@@ -92,6 +93,29 @@ export type ProjectTag = {
   id: string;
   name: string;
   color: string | null;
+};
+
+export type ProjectPortfolioCategoryNode = {
+  id: string;
+  clientId: string;
+  parentId: string | null;
+  name: string;
+  slug: string | null;
+  color: string | null;
+  icon: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  children?: ProjectPortfolioCategoryNode[];
+  parent?: { id: string; name: string } | null;
+};
+
+export type ProjectPortfolioCategoryAssignment = {
+  id: string;
+  name: string;
+  parentId: string | null;
+  parentName: string | null;
 };
 
 /** Liste paginée RFC-PROJ-011 */

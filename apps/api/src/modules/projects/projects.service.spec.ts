@@ -90,6 +90,9 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
         deleteMany: jest.fn(),
         createMany: jest.fn(),
       },
+      projectPortfolioCategory: {
+        findFirst: jest.fn(),
+      },
       $transaction: jest.fn(async (callback) => callback(prisma)),
       clientUser: { findFirst: jest.fn(), findMany: jest.fn() },
     };
@@ -373,6 +376,56 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
         service.update(clientId, projectId, { name: 'x' }),
       ).rejects.toThrow(NotFoundException);
       expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('portfolio categories', () => {
+    it('create refuse une categorie racine', async () => {
+      prisma.projectPortfolioCategory.findFirst.mockResolvedValue({
+        id: 'cat-root',
+        clientId,
+        parentId: null,
+        isActive: true,
+      });
+      await expect(
+        service.create(clientId, {
+          name: 'N',
+          code: 'X1',
+          type: ProjectType.GOVERNANCE,
+          priority: ProjectPriority.MEDIUM,
+          criticality: ProjectCriticality.MEDIUM,
+          portfolioCategoryId: 'cat-root',
+        }),
+      ).rejects.toThrow('level-2 portfolio sub-category');
+    });
+
+    it('update audit le changement de portfolioCategoryId', async () => {
+      const existing = baseProject({ portfolioCategoryId: null });
+      const updated = { ...existing, portfolioCategoryId: 'sub-1' };
+      prisma.projectPortfolioCategory.findFirst.mockResolvedValue({
+        id: 'sub-1',
+        clientId,
+        parentId: 'root-1',
+        isActive: true,
+      });
+      prisma.project.findFirst.mockResolvedValueOnce(existing);
+      prisma.project.update.mockResolvedValue(updated);
+      prisma.project.findFirst.mockResolvedValueOnce(withInclude(updated as any));
+
+      await service.update(
+        clientId,
+        projectId,
+        { portfolioCategoryId: 'sub-1' },
+        { actorUserId: 'u1', meta: {} },
+      );
+
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: PROJECT_AUDIT_ACTION.PROJECT_PORTFOLIO_CATEGORY_UPDATED_ON_PROJECT,
+          oldValue: { portfolioCategoryId: null },
+          newValue: { portfolioCategoryId: 'sub-1' },
+        }),
+      );
     });
   });
 

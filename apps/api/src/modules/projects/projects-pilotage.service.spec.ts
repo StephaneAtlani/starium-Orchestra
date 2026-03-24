@@ -33,6 +33,7 @@ describe('ProjectsPilotageService', () => {
     priority: 'MEDIUM' as ProjectPriority,
     sponsorUserId: null,
     ownerUserId: 'u1',
+    portfolioCategoryId: null,
     ownerFreeLabel: null,
     ownerAffiliation: null,
     startDate: null,

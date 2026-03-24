@@ -59,6 +59,14 @@ const projectIncludeList = {
     },
     orderBy: { createdAt: 'asc' },
   },
+  portfolioCategory: {
+    select: {
+      id: true,
+      name: true,
+      parentId: true,
+      parent: { select: { id: true, name: true } },
+    },
+  },
 } as const;
 
 export type ProjectTagItemDto = {
@@ -88,6 +96,12 @@ export type ProjectListItemDto = {
   signals: ReturnType<ProjectsPilotageService['buildSignals']>;
   warnings: ReturnType<ProjectsPilotageService['buildWarnings']>;
   tags: ProjectTagItemDto[];
+  portfolioCategory: {
+    id: string;
+    name: string;
+    parentId: string | null;
+    parentName: string | null;
+  } | null;
 };
 
 export type ProjectsPortfolioSummaryDto = {
@@ -215,6 +229,12 @@ export class ProjectsService {
       tagAssignments: Array<{
         tag: { id: string; name: string; color: string | null };
       }>;
+      portfolioCategory: {
+        id: string;
+        name: string;
+        parentId: string | null;
+        parent: { id: string; name: string } | null;
+      } | null;
     },
   ): ProjectListItemDto {
     const ownerDisplayName = this.ownerDisplayResolved(project);
@@ -264,7 +284,43 @@ export class ProjectsService {
         name: assignment.tag.name,
         color: assignment.tag.color,
       })),
+      portfolioCategory: project.portfolioCategory
+        ? {
+            id: project.portfolioCategory.id,
+            name: project.portfolioCategory.name,
+            parentId: project.portfolioCategory.parentId,
+            parentName: project.portfolioCategory.parent?.name ?? null,
+          }
+        : null,
     };
+  }
+
+  async assertProjectPortfolioSubCategory(
+    clientId: string,
+    categoryId: string | null | undefined,
+  ) {
+    if (!categoryId) return;
+    const category = await this.prisma.projectPortfolioCategory.findFirst({
+      where: { id: categoryId, clientId },
+      select: {
+        id: true,
+        parentId: true,
+        isActive: true,
+      },
+    });
+    if (!category) {
+      throw new BadRequestException(
+        'Project portfolio category not found for active client',
+      );
+    }
+    if (!category.isActive) {
+      throw new BadRequestException('Inactive categories cannot be assigned');
+    }
+    if (!category.parentId) {
+      throw new BadRequestException(
+        'A project can only be assigned to a level-2 portfolio sub-category',
+      );
+    }
   }
 
   async assertClientUser(clientId: string, userId: string | undefined | null) {
@@ -520,6 +576,7 @@ export class ProjectsService {
     await this.projectTeam.ensureDefaultTeamRolesForClient(clientId);
     await this.assertClientUser(clientId, dto.sponsorUserId);
     await this.assertClientUser(clientId, dto.ownerUserId);
+    await this.assertProjectPortfolioSubCategory(clientId, dto.portfolioCategoryId);
 
     const hasOwnerUser = Boolean(dto.ownerUserId?.trim());
     const freeTrim = dto.ownerFreeLabel?.trim();
@@ -578,6 +635,7 @@ export class ProjectsService {
       priority: dto.priority,
       sponsorUserId: dto.sponsorUserId ?? null,
       ownerUserId: dto.ownerUserId ?? null,
+      portfolioCategoryId: dto.portfolioCategoryId ?? null,
       startDate: dto.startDate ? new Date(dto.startDate) : null,
       targetEndDate: dto.targetEndDate ? new Date(dto.targetEndDate) : null,
       actualEndDate: dto.actualEndDate ? new Date(dto.actualEndDate) : null,
@@ -656,6 +714,7 @@ export class ProjectsService {
 
     await this.assertClientUser(clientId, dto.sponsorUserId);
     await this.assertClientUser(clientId, dto.ownerUserId);
+    await this.assertProjectPortfolioSubCategory(clientId, dto.portfolioCategoryId);
 
     const data: Prisma.ProjectUncheckedUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name.trim();
@@ -679,6 +738,9 @@ export class ProjectsService {
         data.ownerFreeLabel = null;
         data.ownerAffiliation = null;
       }
+    }
+    if (dto.portfolioCategoryId !== undefined) {
+      data.portfolioCategoryId = dto.portfolioCategoryId ?? null;
     }
     if (dto.startDate !== undefined) {
       data.startDate = dto.startDate ? new Date(dto.startDate) : null;
@@ -716,9 +778,12 @@ export class ProjectsService {
     let { oldValue, newValue } = diffAuditSnapshots(oldSnap, newSnap);
     const statusChanged = existing.status !== updated.status;
     const ownerChanged = existing.ownerUserId !== updated.ownerUserId;
+    const portfolioCategoryChanged =
+      existing.portfolioCategoryId !== updated.portfolioCategoryId;
     const keysToOmit: string[] = [];
     if (statusChanged) keysToOmit.push('status');
     if (ownerChanged) keysToOmit.push('ownerUserId');
+    if (portfolioCategoryChanged) keysToOmit.push('portfolioCategoryId');
     ({ oldValue, newValue } = omitKeysFromDiff(oldValue, newValue, keysToOmit));
 
     const meta = {
@@ -762,6 +827,19 @@ export class ProjectsService {
         resourceId: id,
         oldValue: { ownerUserId: existing.ownerUserId ?? null },
         newValue: { ownerUserId: updated.ownerUserId ?? null },
+        ...meta,
+      });
+    }
+
+    if (portfolioCategoryChanged) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_PORTFOLIO_CATEGORY_UPDATED_ON_PROJECT,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+        resourceId: id,
+        oldValue: { portfolioCategoryId: existing.portfolioCategoryId ?? null },
+        newValue: { portfolioCategoryId: updated.portfolioCategoryId ?? null },
         ...meta,
       });
     }

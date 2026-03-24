@@ -7,6 +7,8 @@ import { ProjectGanttController } from './project-gantt.controller';
 import { ProjectGanttService } from './project-gantt.service';
 import { ProjectMilestonesController } from './project-milestones.controller';
 import { ProjectMilestonesService } from './project-milestones.service';
+import { ProjectPortfolioCategoriesController } from './project-portfolio-categories.controller';
+import { ProjectPortfolioCategoriesService } from './project-portfolio-categories.service';
 import { ProjectRisksController } from './project-risks.controller';
 import { ProjectRisksService } from './project-risks.service';
 import { ProjectSheetDecisionSnapshotsController } from './project-sheet/project-sheet-decision-snapshots.controller';
@@ -29,6 +31,7 @@ import { ProjectTeamService } from './project-team.service';
     ProjectSheetController,
     ProjectSheetDecisionSnapshotsController,
     ProjectReviewsController,
+    ProjectPortfolioCategoriesController,
     ProjectsController,
     ProjectTasksController,
     ProjectActivitiesController,
@@ -42,6 +45,7 @@ import { ProjectTeamService } from './project-team.service';
     ProjectSheetService,
     ProjectSheetDecisionSnapshotsService,
     ProjectReviewsService,
+    ProjectPortfolioCategoriesService,
     ProjectTasksService,
     ProjectActivitiesService,
     ProjectGanttService,

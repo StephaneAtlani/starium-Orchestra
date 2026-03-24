@@ -46,6 +46,11 @@ import {
   SlidersHorizontal,
   UserCog,
 } from 'lucide-react';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useQuery } from '@tanstack/react-query';
+import { listProjectPortfolioCategories } from '../api/projects.api';
+import { projectQueryKeys } from '../lib/project-query-keys';
 
 const textareaClass = cn(
   'min-h-[100px] w-full resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm transition-colors outline-none',
@@ -104,6 +109,9 @@ function generateAutoProjectCode(kind: 'PROJECT' | 'ACTIVITY'): string {
 
 export function ProjectCreateForm() {
   const create = useCreateProject();
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
@@ -115,6 +123,7 @@ export function ProjectCreateForm() {
   const [progressPercent, setProgressPercent] = useState<string>('');
   const [startDate, setStartDate] = useState('');
   const [targetEndDate, setTargetEndDate] = useState('');
+  const [portfolioCategoryId, setPortfolioCategoryId] = useState('');
   const [ownerDialogOpen, setOwnerDialogOpen] = useState(false);
   const [ownerResourceId, setOwnerResourceId] = useState('');
   /** Détails pour libellé / soumission (liste ou ressource tout juste créée). */
@@ -132,6 +141,26 @@ export function ProjectCreateForm() {
   }, [ownerResourceId, ownerResourceDetails]);
 
   const year = new Date().getFullYear();
+  const categoriesQuery = useQuery({
+    queryKey: projectQueryKeys.optionsPortfolioCategories(clientId),
+    queryFn: () => listProjectPortfolioCategories(authFetch),
+    enabled: Boolean(clientId),
+  });
+  const selectableSubCategories = useMemo(
+    () =>
+      (categoriesQuery.data ?? [])
+        .filter((root) => root.isActive)
+        .flatMap((root) =>
+          (root.children ?? [])
+            .filter((child) => child.isActive)
+            .map((child) => ({
+              id: child.id,
+              name: child.name,
+              rootName: root.name,
+            })),
+        ),
+    [categoriesQuery.data],
+  );
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -162,6 +191,7 @@ export function ProjectCreateForm() {
     }
     if (startDate) body.startDate = startDate;
     if (targetEndDate) body.targetEndDate = targetEndDate;
+    if (portfolioCategoryId) body.portfolioCategoryId = portfolioCategoryId;
     if (ownerResourceId && ownerResourceDetails?.id === ownerResourceId) {
       const r = ownerResourceDetails;
       body.ownerFreeLabel = formatResourceDisplayName(r).slice(0, 200);
@@ -413,6 +443,28 @@ export function ProjectCreateForm() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className={cn(field, 'sm:col-span-2')}>
+                <Label htmlFor="p-portfolio-category">Sous-categorie portefeuille</Label>
+                <Select
+                  value={portfolioCategoryId || '__none__'}
+                  onValueChange={(v) => setPortfolioCategoryId(v === '__none__' ? '' : v)}
+                >
+                  <SelectTrigger id="p-portfolio-category" size="sm" className="w-full">
+                    <SelectValue placeholder="Selectionner une sous-categorie active" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Aucune</SelectItem>
+                    {selectableSubCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.rootName} / {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Seules les sous-categories actives (niveau 2) sont disponibles.
+                </p>
               </div>
             </div>
           </Section>

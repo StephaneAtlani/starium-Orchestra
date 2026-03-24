@@ -194,6 +194,18 @@ function ProjectDetailTabbedContent({
                 </div>
                 <div className="sm:col-span-2 border-t pt-3">
                   <div className="mb-2 flex items-center gap-2">
+                    <span className="text-muted-foreground">Categorie portefeuille :</span>
+                    {project.portfolioCategory ? (
+                      <Badge variant="outline">
+                        {project.portfolioCategory.parentName
+                          ? `${project.portfolioCategory.parentName} / ${project.portfolioCategory.name}`
+                          : project.portfolioCategory.name}
+                      </Badge>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Non definie</span>
+                    )}
+                  </div>
+                  <div className="mb-2 flex items-center gap-2">
                     <span className="text-muted-foreground">Etiquettes :</span>
                     <Button
                       type="button"

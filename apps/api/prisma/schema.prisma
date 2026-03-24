@@ -109,6 +109,7 @@ model Client {
   projectActivities             ProjectActivity[]
   projectTags                   ProjectTag[]
   projectTagAssignments         ProjectTagAssignment[]
+  projectPortfolioCategories    ProjectPortfolioCategory[]
   budgetLinePlanningMonths   BudgetLinePlanningMonth[]
   budgetLinePlanningScenarios BudgetLinePlanningScenario[]
   resourceRoles                 ResourceRole[]
@@ -530,6 +531,7 @@ model Project {
 
   sponsorUserId String?
   ownerUserId   String?
+  portfolioCategoryId String?
   /// Responsable hors compte (dénormalisé ; aligné avec entrée équipe « Responsable » nom libre).
   ownerFreeLabel    String?                       @db.VarChar(200)
   ownerAffiliation  ProjectTeamMemberAffiliation?
@@ -593,6 +595,7 @@ model Project {
   client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
   sponsor  User?  @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
   owner    User?  @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  portfolioCategory ProjectPortfolioCategory? @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
 
   tasks       ProjectTask[]
   risks       ProjectRisk[]
@@ -609,7 +612,33 @@ model Project {
   @@index([clientId])
   @@index([clientId, status])
   @@index([clientId, kind])
+  @@index([clientId, portfolioCategoryId])
   @@index([targetEndDate])
+}
+
+model ProjectPortfolioCategory {
+  id             String   @id @default(cuid())
+  clientId       String
+  parentId       String?
+  name           String
+  normalizedName String
+  slug           String?
+  color          String?
+  icon           String?
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  parent   ProjectPortfolioCategory?  @relation("ProjectPortfolioCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children ProjectPortfolioCategory[] @relation("ProjectPortfolioCategoryTree")
+  projects Project[]
+
+  @@unique([clientId, parentId, normalizedName])
+  @@index([clientId])
+  @@index([clientId, parentId])
+  @@index([clientId, isActive])
 }
 
 model ProjectTag {

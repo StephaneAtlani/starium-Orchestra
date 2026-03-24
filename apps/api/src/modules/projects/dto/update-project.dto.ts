@@ -58,6 +58,11 @@ export class UpdateProjectDto {
   ownerUserId?: string;
 
   @IsOptional()
+  @IsString()
+  @MinLength(1)
+  portfolioCategoryId?: string | null;
+
+  @IsOptional()
   @IsDateString()
   startDate?: string;
 

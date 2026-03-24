@@ -18,6 +18,7 @@ import type {
   ProjectsPortfolioSummary,
   ProjectSheetDecisionSnapshotDetail,
   ProjectSheetDecisionSnapshotListResponse,
+  ProjectPortfolioCategoryNode,
   ProjectTag,
   UpdateProjectSheetPayload,
 } from '../types/project.types';
@@ -87,6 +88,83 @@ export async function listProjectTags(authFetch: AuthFetch): Promise<ProjectTag[
   const res = await authFetch(`${BASE}/options/tags`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectTag[]>;
+}
+
+export async function listProjectPortfolioCategories(
+  authFetch: AuthFetch,
+): Promise<ProjectPortfolioCategoryNode[]> {
+  const res = await authFetch(`${BASE}/options/portfolio-categories`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectPortfolioCategoryNode[]>;
+}
+
+export async function createProjectPortfolioCategory(
+  authFetch: AuthFetch,
+  body: {
+    name: string;
+    parentId?: string | null;
+    color?: string | null;
+    icon?: string | null;
+    slug?: string | null;
+    sortOrder?: number;
+    isActive?: boolean;
+  },
+): Promise<ProjectPortfolioCategoryNode> {
+  const res = await authFetch(`${BASE}/options/portfolio-categories`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectPortfolioCategoryNode>;
+}
+
+export async function updateProjectPortfolioCategory(
+  authFetch: AuthFetch,
+  categoryId: string,
+  body: {
+    name?: string;
+    parentId?: string | null;
+    color?: string | null;
+    icon?: string | null;
+    slug?: string | null;
+    sortOrder?: number;
+    isActive?: boolean;
+  },
+): Promise<ProjectPortfolioCategoryNode> {
+  const res = await authFetch(`${BASE}/options/portfolio-categories/${categoryId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectPortfolioCategoryNode>;
+}
+
+export async function reorderProjectPortfolioCategories(
+  authFetch: AuthFetch,
+  body: {
+    parentId?: string | null;
+    items: Array<{ id: string; sortOrder: number }>;
+  },
+): Promise<ProjectPortfolioCategoryNode[]> {
+  const res = await authFetch(`${BASE}/options/portfolio-categories/reorder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectPortfolioCategoryNode[]>;
+}
+
+export async function deleteProjectPortfolioCategory(
+  authFetch: AuthFetch,
+  categoryId: string,
+): Promise<void> {
+  const res = await authFetch(`${BASE}/options/portfolio-categories/${categoryId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
 }
 
 export async function createProjectTag(

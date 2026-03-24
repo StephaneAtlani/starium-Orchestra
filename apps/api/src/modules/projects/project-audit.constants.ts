@@ -9,6 +9,7 @@ export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT_BUDGET_LINK: 'project_budget_link',
   /** RFC-PROJ-013 */
   PROJECT_REVIEW: 'project_review',
+  PROJECT_PORTFOLIO_CATEGORY: 'project_portfolio_category',
 } as const;
 
 /** Actions exactes RFC-PROJ-009 */
@@ -19,6 +20,12 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_DELETED: 'project.deleted',
   PROJECT_STATUS_UPDATED: 'project.status.updated',
   PROJECT_OWNER_UPDATED: 'project.owner.updated',
+  PROJECT_PORTFOLIO_CATEGORY_UPDATED: 'project.portfolio_category.updated',
+  PROJECT_PORTFOLIO_CATEGORY_CREATED: 'project.portfolio_category.created',
+  PROJECT_PORTFOLIO_CATEGORY_DELETED: 'project.portfolio_category.deleted',
+  PROJECT_PORTFOLIO_CATEGORY_REORDERED: 'project.portfolio_category.reordered',
+  PROJECT_PORTFOLIO_CATEGORY_UPDATED_ON_PROJECT:
+    'project.portfolio-category.updated',
 
   PROJECT_TASK_CREATED: 'project_task.created',
   PROJECT_TASK_UPDATED: 'project_task.updated',

@@ -54,6 +54,11 @@ export class CreateProjectDto {
   @IsString()
   ownerUserId?: string;
 
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  portfolioCategoryId?: string | null;
+
   /** Responsable nom libre (ressource « personne » déjà vue en équipe projet). Exclu si `ownerUserId`. */
   @IsOptional()
   @IsString()
