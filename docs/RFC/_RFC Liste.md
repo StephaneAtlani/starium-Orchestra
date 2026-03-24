@@ -5,6 +5,9 @@
 | ----- | --------- |
 | Multi-adresses e-mail (`UserEmailIdentity`), défaut par client (`ClientUser.defaultEmailIdentityId`), API `/api/me/email-identities` et enrichissement `GET /api/me/clients` | [docs/ARCHITECTURE.md](../ARCHITECTURE.md) §3.2 et §4.0 ; code `apps/api/src/modules/me/`, `apps/web/src/services/me.ts`, `apps/web/src/lib/me-query-keys.ts` |
 
+
+
+
 ---
 
 # 🔥 PHASE 1 — MODULE PROJET (PRIORITÉ ABSOLUE)
@@ -60,6 +63,24 @@
 | 15    | **RFC-RES-001** | Catalogue ressources | Registre ressources                | 🟡 Partiel | base OK             |
 | 16    | **RFC-RES-002** | Resource Assignment  | Affectation ressources projets     | ❌ À faire  | critique coût réel  |
 | 17    | **RFC-RES-002** | Resource Costing     | Valorisation financière ressources | ❌ À faire  | dépend fiche projet |
+
+---
+
+## 🔌 INTÉGRATION MICROSOFT 365 (RFC-PROJ-INT-xxx)
+
+Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%20—%20Intégration%20Microsoft%20365.md).
+
+| Ordre | RFC | Nom | Description | État | Commentaire |
+| ----- | --- | --- | --- | --- | --- |
+| 1 | **RFC-PROJ-INT-001** | Cadrage M365 | Vision, périmètre MVP, principes | Draft | source de vérité cadrage |
+| 2 | **RFC-PROJ-INT-002** | Prisma Schema | Modèles `MicrosoftConnection`, `ProjectMicrosoftLink`, sync tâches | 🟡 Partiel | `MicrosoftConnection` + enums en base ; `ProjectMicrosoftLink` / sync tâches non migrés |
+| 3 | **RFC-PROJ-INT-003** | Auth OAuth | Flux délégué, tokens backend | ✅ Implémenté | `apps/api/src/modules/microsoft/` ; [docs/API.md](../API.md) |
+| 4 | **RFC-PROJ-INT-004** | Graph Service | Client HTTP Graph v1.0 | Draft | |
+| 5 | **RFC-PROJ-INT-005** | Connexion client | API connexion / révocation | 🟡 Partiel | Routes OAuth + `GET/DELETE /api/microsoft/connection` livrées avec INT-003 ; périmètre métier complet voir RFC-005 |
+| 6 | **RFC-PROJ-INT-006** | Sélection ressources | Teams, canaux, plans — spike requis | Draft | pas de promesse « plan par canal » |
+| 7 | **RFC-PROJ-INT-007** | Lien projet | `ProjectMicrosoftLink` GET/PUT | Draft | |
+| 8 | **RFC-PROJ-INT-008** | Sync tâches → Planner | One-way, mapping | Draft | |
+| 9 | **RFC-PROJ-INT-009** | Sync documents → Teams | Extension | Draft | dépend `ProjectDocument` |
 
 ---
 

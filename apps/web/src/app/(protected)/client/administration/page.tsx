@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, Shield } from 'lucide-react';
+import { Users, Shield, Cloud } from 'lucide-react';
 
 export default async function ClientAdministrationPage({
   params,
@@ -14,9 +14,9 @@ export default async function ClientAdministrationPage({
     <PageContainer>
       <PageHeader
         title="Administration"
-        description="Gestion des membres et des rôles du client."
+        description="Gestion des membres, des rôles et des intégrations du client (ex. Microsoft 365)."
       />
-      <div className="grid gap-4 sm:grid-cols-2 max-w-2xl">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl">
         <Link href="/client/members">
           <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
             <CardContent className="flex items-center gap-4 pt-6">
@@ -42,6 +42,21 @@ export default async function ClientAdministrationPage({
                 <h3 className="font-semibold">Rôles</h3>
                 <p className="text-sm text-muted-foreground">
                   Créer et configurer les rôles métier
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/client/administration/microsoft-365">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <Cloud className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Microsoft 365</h3>
+                <p className="text-sm text-muted-foreground">
+                  Connexion OAuth et tenant pour ce client
                 </p>
               </div>
             </CardContent>

@@ -24,6 +24,7 @@ import { ProcurementModule } from './modules/procurement/procurement.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { ProjectBudgetModule } from './modules/project-budget/project-budget.module';
 import { ResourcesModule } from './modules/resources/resources.module';
+import { MicrosoftModule } from './modules/microsoft/microsoft.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { ResourcesModule } from './modules/resources/resources.module';
     ProjectsModule,
     ProjectBudgetModule,
     ResourcesModule,
+    MicrosoftModule,
   ],
 })
 export class AppModule {}

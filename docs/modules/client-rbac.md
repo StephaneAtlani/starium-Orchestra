@@ -77,8 +77,8 @@ Détail des contrats et codes d’erreur : [API.md §9–12](../API.md#9-gestion
 
 Section **« Administration client »** (visible uniquement si `activeClient?.role === 'CLIENT_ADMIN'`) :
 
-- **Administration** → `/client/administration` (page d’accueil avec deux cartes : Membres, Rôles)
-- Depuis cette page : **Membres** → `/client/members`, **Rôles** → `/client/roles`
+- **Administration** → `/client/administration` (page d’accueil : cartes Membres, Rôles, **Microsoft 365**)
+- Depuis cette page : **Membres** → `/client/members`, **Rôles** → `/client/roles`, **Microsoft 365** → `/client/administration/microsoft-365` (configuration OAuth par client Starium, alignée [RFC-PROJ-INT-003](../RFC/RFC-PROJ-INT-003%20—%20Auth%20Microsoft%20OAuth.md))
 
 Config : [apps/web/src/config/navigation.ts](../../apps/web/src/config/navigation.ts).
 

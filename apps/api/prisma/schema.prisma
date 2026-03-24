@@ -56,6 +56,17 @@ enum BudgetTaxMode {
   TTC
 }
 
+enum MicrosoftConnectionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ERROR
+}
+
+enum MicrosoftAuthMode {
+  DELEGATED
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -114,6 +125,7 @@ model Client {
   budgetLinePlanningScenarios BudgetLinePlanningScenario[]
   resourceRoles                 ResourceRole[]
   resources                     Resource[]
+  microsoftConnections          MicrosoftConnection[]
 }
 
 model User {
@@ -166,6 +178,7 @@ model User {
   finalizedProjectReviews            ProjectReview[]                  @relation("ProjectReviewFinalizedBy")
   projectReviewParticipants          ProjectReviewParticipant[]
   emailIdentities                    UserEmailIdentity[]
+  microsoftConnectionsConnected      MicrosoftConnection[] @relation("MicrosoftConnectedBy")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -1920,4 +1933,27 @@ model SecurityLog {
   @@index([event])
   @@index([userId])
   @@index([createdAt])
+}
+
+/// Connexion OAuth Microsoft 365 par client Starium (tokens chiffrés côté API uniquement).
+model MicrosoftConnection {
+  id                    String                    @id @default(cuid())
+  clientId              String
+  tenantId              String
+  tenantName            String?
+  status                MicrosoftConnectionStatus @default(ACTIVE)
+  authMode              MicrosoftAuthMode         @default(DELEGATED)
+  accessTokenEncrypted  String?
+  refreshTokenEncrypted String?
+  tokenExpiresAt        DateTime?
+  connectedByUserId     String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  client          Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  connectedByUser User?  @relation("MicrosoftConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, tenantId])
+  @@index([clientId])
+  @@index([status])
 }

@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 (Client RBAC Administration), RFC-PROJ-001 (module Projets MVP).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 (Client RBAC Administration), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365).
 
 ---
 
@@ -1895,3 +1895,81 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 **Erreurs :** 400 (invariant allocation, DTO), 409 (budget/exercice fermé, ligne non ACTIVE, doublon `(projectId, budgetLineId)`, suppression laissant un résidu incohérent), 404 (hors scope client).
 
 **Erreurs courantes (reste du module projets) :** 401, 403 (module inactif ou permission manquante), 404 (projet ou sous-ressource hors périmètre client), 409 (ex. code projet déjà utilisé).
+
+---
+
+## Intégration Microsoft 365 — `/api/microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-005)
+
+Toutes les routes ci-dessous sont préfixées par **`/api`**. Les jetons Microsoft (**access** / **refresh**) ne sont **jamais** renvoyés au client : ils sont stockés chiffrés côté serveur et associés au **client Starium** (`clientId` dérivé du contexte actif, pas d’`clientId` dans le body).
+
+**Accès (routes authentifiées ci-dessous)** : **`ClientUserRole.CLIENT_ADMIN`** sur le client actif **ou**, à défaut, module **Projets** actif pour le client + permission métier **`projects.update`** (`MicrosoftIntegrationAccessGuard`).
+
+**UX** : l’écran de configuration côté web est prévu sous **Administration client** → `/client/administration/microsoft-365` (client admin).
+
+### GET /api/microsoft/auth/url
+
+Démarre le flux OAuth délégué : retourne une URL de consentement Microsoft et un `state` signé (JWT Starium + `jti` anti-replay).
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+- `X-Client-Id: <clientId>` (client actif)
+
+**Permission :** `@RequirePermissions('projects.update')` si l’utilisateur n’est pas **client admin** (voir ci-dessus).
+
+**Réponse 200**
+
+```json
+{
+  "authorizationUrl": "https://login.microsoftonline.com/..."
+}
+```
+
+---
+
+### GET /api/microsoft/auth/callback
+
+Callback **public** (redirect navigateur Microsoft). Pas de JWT. Paramètres query : `code`, `state` (succès) ou `error`, `error_description` (échec côté Microsoft). Rate limiting léger par IP. Réponse : **302** vers `MICROSOFT_OAUTH_SUCCESS_URL` ou `MICROSOFT_OAUTH_ERROR_URL` avec paramètres de query contrôlés (`microsoft`, `code`, etc.) — jamais de jetons dans l’URL.
+
+---
+
+### GET /api/microsoft/connection
+
+État de la connexion Microsoft pour le **client actif** (une connexion `ACTIVE` par client en logique métier).
+
+**Headers** : JWT + `X-Client-Id`
+
+**Permission :** même règle que `GET .../auth/url`.
+
+**Réponse 200**
+
+```json
+{
+  "connection": {
+    "id": "…",
+    "tenantId": "…",
+    "tenantName": null,
+    "status": "ACTIVE",
+    "tokenExpiresAt": "2025-01-01T12:00:00.000Z",
+    "connectedByUserId": "…",
+    "createdAt": "…",
+    "updatedAt": "…"
+  }
+}
+```
+
+`connection` peut être `null` si aucune connexion active.
+
+Les champs `accessTokenEncrypted` / `refreshTokenEncrypted` ne figurent **pas** dans la réponse.
+
+---
+
+### DELETE /api/microsoft/connection
+
+Révocation logique de la connexion Microsoft pour le client actif (effacement des jetons en base après overwrite).
+
+**Headers** : JWT + `X-Client-Id`
+
+**Permission :** même règle que `GET .../auth/url`.
+
+**Réponse 204** (No Content), idempotent si déjà absent.
