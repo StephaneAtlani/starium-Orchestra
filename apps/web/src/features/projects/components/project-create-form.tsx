@@ -291,11 +291,12 @@ export function ProjectCreateForm() {
                 onSelectionChange={(id, resource) => {
                   setOwnerResourceId(id);
                   setOwnerResourceDetails(resource);
+                  setOwnerDialogOpen(false);
                 }}
                 allowEmpty
                 emptySelectionLabel="Aucun responsable"
                 footerVariant="done-only"
-                doneLabel="Terminé"
+                doneLabel="Fermer"
                 newPersonFormPrefix="project-create-owner-person"
                 newPersonDialogDescription={
                   <>
@@ -311,9 +312,8 @@ export function ProjectCreateForm() {
                 }
                 filterHint={
                   <>
-                    Clique une ligne pour sélectionner le responsable, ou utilise{' '}
-                    <strong>Aucun responsable</strong> pour ne pas en définir. Valide avec{' '}
-                    <strong>Terminé</strong>.
+                    Clique une ligne pour définir le responsable, ou{' '}
+                    <strong>Aucun responsable</strong> pour ne pas en définir.
                   </>
                 }
                 emptyStateNoFilter={{

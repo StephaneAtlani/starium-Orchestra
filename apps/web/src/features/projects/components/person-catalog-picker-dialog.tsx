@@ -71,6 +71,8 @@ export type PersonCatalogPickerDialogProps = {
   emptyStateFiltered: { title: string; description: string };
   /** Optionnel : classe DialogContent (largeur). */
   dialogContentClassName?: string;
+  /** Désactive le tableau (et « Nouvelle personne ») pendant une mutation (ex. ajout équipe). */
+  tableInteractionDisabled?: boolean;
 };
 
 export function PersonCatalogPickerDialog({
@@ -100,6 +102,7 @@ export function PersonCatalogPickerDialog({
   emptyStateNoFilter,
   emptyStateFiltered,
   dialogContentClassName,
+  tableInteractionDisabled = false,
 }: PersonCatalogPickerDialogProps) {
   const authFetch = useAuthenticatedFetch();
   const baseId = useId();
@@ -222,34 +225,34 @@ export function PersonCatalogPickerDialog({
               <p className="text-xs text-muted-foreground">{catalogIntro}</p>
 
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Label htmlFor={searchId} className="text-sm font-medium">
-                    Filtrer
-                  </Label>
+                <Label htmlFor={searchId} className="text-sm font-medium">
+                  Filtrer
+                </Label>
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   {allowEmpty ? (
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className="h-8 text-xs text-muted-foreground"
-                      disabled={resourceCatalogDenied}
+                      className="h-8 text-xs shadow-sm"
+                      disabled={resourceCatalogDenied || tableInteractionDisabled}
                       onClick={() => onSelectionChange('', null)}
                     >
                       {emptySelectionLabel}
                     </Button>
                   ) : null}
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs shadow-sm"
+                    onClick={() => setNewPersonOpen(true)}
+                    disabled={resourceCatalogDenied || tableInteractionDisabled}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Nouvelle personne
+                  </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => setNewPersonOpen(true)}
-                  disabled={resourceCatalogDenied}
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Nouvelle personne
-                </Button>
               </div>
 
               <Input
@@ -297,11 +300,20 @@ export function PersonCatalogPickerDialog({
                             <TableRow
                               key={r.id}
                               data-state={selected ? 'selected' : undefined}
-                              className="cursor-pointer"
-                              tabIndex={0}
+                              className={cn(
+                                'cursor-pointer',
+                                tableInteractionDisabled &&
+                                  'pointer-events-none cursor-not-allowed opacity-50',
+                              )}
+                              tabIndex={tableInteractionDisabled ? -1 : 0}
                               aria-selected={selected}
-                              onClick={() => onSelectionChange(r.id, r)}
+                              aria-disabled={tableInteractionDisabled}
+                              onClick={() => {
+                                if (tableInteractionDisabled) return;
+                                onSelectionChange(r.id, r);
+                              }}
                               onKeyDown={(e) => {
+                                if (tableInteractionDisabled) return;
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
                                   onSelectionChange(r.id, r);

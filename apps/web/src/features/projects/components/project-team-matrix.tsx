@@ -185,6 +185,23 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
     [takenEmailsInRole],
   );
 
+  const commitTeamMember = useCallback(
+    (resource: ResourceListItem) => {
+      if (!addMemberDialogRole) return;
+      const roleId = addMemberDialogRole.id;
+      const freeLabel = formatResourceDisplayName(resource);
+      const maxLen = 200;
+      const label =
+        freeLabel.length > maxLen ? `${freeLabel.slice(0, maxLen - 1)}…` : freeLabel;
+      addMemberMutation.mutate({
+        roleId,
+        freeLabel: label,
+        affiliation: resource.affiliation === 'EXTERNAL' ? 'EXTERNAL' : 'INTERNAL',
+      });
+    },
+    [addMemberDialogRole, addMemberMutation],
+  );
+
   return (
     <>
       <Card
@@ -492,32 +509,13 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
         onSelectionChange={(id, resource) => {
           setTeamOwnerResourceId(id);
           setTeamOwnerResourceDetails(resource);
-        }}
-        footerVariant="confirm-and-close"
-        confirmLabel="Ajouter"
-        confirmDisabled={addMemberMutation.isPending}
-        onConfirm={() => {
-          if (!addMemberDialogRole) return;
-          const roleId = addMemberDialogRole.id;
-          if (!teamOwnerResourceId) {
-            toast.error('Choisis une personne dans le catalogue');
-            return;
+          if (resource) {
+            commitTeamMember(resource);
           }
-          const r = teamOwnerResourceDetails;
-          if (!r || r.id !== teamOwnerResourceId) {
-            toast.error('Personne introuvable');
-            return;
-          }
-          const freeLabel = formatResourceDisplayName(r);
-          const maxLen = 200;
-          const label =
-            freeLabel.length > maxLen ? `${freeLabel.slice(0, maxLen - 1)}…` : freeLabel;
-          addMemberMutation.mutate({
-            roleId,
-            freeLabel: label,
-            affiliation: r.affiliation === 'EXTERNAL' ? 'EXTERNAL' : 'INTERNAL',
-          });
         }}
+        footerVariant="done-only"
+        doneLabel="Fermer"
+        tableInteractionDisabled={addMemberMutation.isPending}
         newPersonFormPrefix="project-team-new-person"
         newPersonDialogDescription={
           <>
@@ -531,9 +529,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
           </>
         }
         filterHint={
-          <>
-            Clique une ligne pour sélectionner, puis valide avec <strong>Ajouter</strong>.
-          </>
+          <>Clique une ligne pour l’ajouter au rôle (ou crée une personne).</>
         }
         emptyStateNoFilter={{
           title: 'Aucune personne disponible',
