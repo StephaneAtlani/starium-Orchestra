@@ -70,6 +70,20 @@ Invalide le refresh token fourni (révocation côté serveur).
 
 Routes protégées par **JWT** : header `Authorization: Bearer <accessToken>` requis.
 
+### Modèle de rôles (global vs client actif)
+
+Le backend distingue explicitement deux niveaux de rôle, complémentaires et non substituables :
+
+- **Rôle global (`platformRole`)** : porté par `User.platformRole`, actuellement `PLATFORM_ADMIN` ou `null`.
+- **Rôle client (`ClientUser.role`)** : porté par le rattachement au client actif (`CLIENT_ADMIN` ou `CLIENT_USER`).
+
+Règles d’application :
+
+- `platformRole` sert uniquement aux routes plateforme (`/api/clients`, `/api/platform/*`, `/api/modules`).
+- `ClientUser.role` sert uniquement aux routes client-scopées (ex. `/api/users`, `/api/roles`, `/api/permissions` avec `X-Client-Id`).
+- Un `PLATFORM_ADMIN` n’obtient pas automatiquement les droits `CLIENT_ADMIN` dans un client.
+- Un `CLIENT_ADMIN` n’obtient pas automatiquement toutes les permissions métier (`budgets.*`, `projects.*`, etc.) : ces droits restent pilotés par le RBAC métier.
+
 ### GET /api/me
 
 Retourne le profil global de l’utilisateur connecté (données de la table User). Depuis RFC-014-2, la réponse inclut `platformRole` pour piloter la navigation plateforme côté frontend.

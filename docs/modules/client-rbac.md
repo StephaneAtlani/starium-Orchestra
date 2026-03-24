@@ -15,6 +15,14 @@ Permettre au **Client Admin** de :
 
 Le Client Admin ne gère que les rôles de son client ; le backend est la source de vérité (permissions, appartenance client, rôle système).
 
+### 1.1 Positionnement du rôle global
+
+Le module RBAC client ne gère **pas** le rôle global plateforme :
+
+- `User.platformRole` (`PLATFORM_ADMIN` ou `null`) reste géré par les flux plateforme.
+- Les écrans et routes de ce module se basent exclusivement sur le **client actif** (`X-Client-Id`) et le rôle de rattachement (`ClientUser.role`).
+- Un utilisateur `PLATFORM_ADMIN` n’a pas d’élévation automatique sur le RBAC d’un client tant qu’il n’a pas un rattachement actif adapté sur ce client.
+
 ---
 
 ## 2. Règles métier
