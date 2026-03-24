@@ -412,6 +412,7 @@ export class ProjectsService {
   async list(
     clientId: string,
     query: ListProjectsQueryDto,
+    userId?: string,
   ): Promise<{
     items: ProjectListItemDto[];
     total: number;
@@ -421,18 +422,87 @@ export class ProjectsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const where: Prisma.ProjectWhereInput = { clientId };
+    const andFilters: Prisma.ProjectWhereInput[] = [];
 
     if (query.status) where.status = query.status;
     if (query.priority) where.priority = query.priority;
     if (query.criticality) where.criticality = query.criticality;
     if (query.kind) where.kind = query.kind;
+    if (query.portfolioCategoryId) where.portfolioCategoryId = query.portfolioCategoryId;
+    if (query.myProjectsOnly && userId) {
+      const me = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+      const email = me?.email?.trim().toLowerCase();
+      const emailLocalPart = email?.split('@')[0] ?? null;
+      andFilters.push({
+        OR: [
+          { ownerUserId: userId },
+          { sponsorUserId: userId },
+          {
+            teamMembers: {
+              some: {
+                userId,
+              },
+            },
+          },
+          ...(me?.email
+            ? [
+                {
+                  ownerFreeLabel: {
+                    contains: me.email,
+                    mode: 'insensitive' as const,
+                  },
+                },
+                {
+                  teamMembers: {
+                    some: {
+                      freeLabel: {
+                        contains: me.email,
+                        mode: 'insensitive' as const,
+                      },
+                    },
+                  },
+                },
+                ...(emailLocalPart
+                  ? [
+                      {
+                        ownerFreeLabel: {
+                          contains: emailLocalPart,
+                          mode: 'insensitive' as const,
+                        },
+                      },
+                      {
+                        teamMembers: {
+                          some: {
+                            freeLabel: {
+                              contains: emailLocalPart,
+                              mode: 'insensitive' as const,
+                            },
+                          },
+                        },
+                      },
+                    ]
+                  : []),
+              ]
+            : []),
+        ],
+      });
+    }
 
     if (query.search?.trim()) {
       const s = query.search.trim();
-      where.OR = [
-        { name: { contains: s, mode: 'insensitive' } },
-        { code: { contains: s, mode: 'insensitive' } },
-      ];
+      andFilters.push({
+        OR: [
+          { name: { contains: s, mode: 'insensitive' } },
+          { code: { contains: s, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (andFilters.length > 0) {
+      where.AND = andFilters;
     }
 
     const rows = await this.prisma.project.findMany({

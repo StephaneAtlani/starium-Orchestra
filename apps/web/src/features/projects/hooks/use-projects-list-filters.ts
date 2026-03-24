@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useMemo, useState } from 'react';
 
 export const PROJECTS_DEFAULT_PAGE = 1;
 export const PROJECTS_DEFAULT_LIMIT = 20;
@@ -27,9 +26,11 @@ export type ProjectsListFilters = {
   status?: string;
   priority?: string;
   criticality?: string;
+  portfolioCategoryId?: string;
   sortBy: ProjectsSortBy;
   sortOrder: 'asc' | 'desc';
   atRiskOnly: boolean;
+  myProjectsOnly: boolean;
 };
 
 function parseNumber(value: string | null, fallback: number): number {
@@ -55,84 +56,62 @@ export function useProjectsListFilters(): {
   reset: () => void;
   apiParams: Record<string, string | number | boolean | undefined>;
 } {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  const filters = useMemo((): ProjectsListFilters => {
-    const search = searchParams.get('search') ?? undefined;
-    const kind = searchParams.get('kind') ?? undefined;
-    const status = searchParams.get('status') ?? undefined;
-    const priority = searchParams.get('priority') ?? undefined;
-    const criticality = searchParams.get('criticality') ?? undefined;
-    const page = parseNumber(searchParams.get('page'), PROJECTS_DEFAULT_PAGE);
-    const limit = parseNumber(searchParams.get('limit'), PROJECTS_DEFAULT_LIMIT);
-    const sortBy = parseSortBy(searchParams.get('sortBy'));
-    const sortOrder = parseSortOrder(searchParams.get('sortOrder'));
-    const atRiskOnly =
-      searchParams.get('atRisk') === 'true' || searchParams.get('atRiskOnly') === 'true';
-
-    return {
-      search: search || undefined,
-      kind: kind || undefined,
-      status: status || undefined,
-      priority: priority || undefined,
-      criticality: criticality || undefined,
-      page,
-      limit,
-      sortBy,
-      sortOrder,
-      atRiskOnly,
-    };
-  }, [searchParams]);
-
-  const buildUrl = useCallback(
-    (next: ProjectsListFilters) => {
-      const params = new URLSearchParams();
-      if (next.search?.trim()) params.set('search', next.search.trim());
-      if (next.kind) params.set('kind', next.kind);
-      if (next.status) params.set('status', next.status);
-      if (next.priority) params.set('priority', next.priority);
-      if (next.criticality) params.set('criticality', next.criticality);
-      if (next.page != null && next.page !== PROJECTS_DEFAULT_PAGE) {
-        params.set('page', String(next.page));
-      }
-      if (next.limit != null && next.limit !== PROJECTS_DEFAULT_LIMIT) {
-        params.set('limit', String(next.limit));
-      }
-      if (next.sortBy !== 'targetEndDate') params.set('sortBy', next.sortBy);
-      if (next.sortOrder !== 'asc') params.set('sortOrder', next.sortOrder);
-      if (next.atRiskOnly) params.set('atRisk', 'true');
-      const qs = params.toString();
-      return qs ? `${pathname}?${qs}` : pathname;
-    },
-    [pathname],
-  );
+  const [filters, setFiltersState] = useState<ProjectsListFilters>({
+    search: undefined,
+    kind: undefined,
+    status: undefined,
+    priority: undefined,
+    criticality: undefined,
+    portfolioCategoryId: undefined,
+    page: PROJECTS_DEFAULT_PAGE,
+    limit: PROJECTS_DEFAULT_LIMIT,
+    sortBy: 'targetEndDate',
+    sortOrder: 'asc',
+    atRiskOnly: false,
+    myProjectsOnly: false,
+  });
 
   const setFilters = useCallback(
     (updates: Partial<ProjectsListFilters>) => {
-      const next: ProjectsListFilters = { ...filters, ...updates };
-      if (
-        ('search' in updates ||
-          'kind' in updates ||
-          'status' in updates ||
-          'priority' in updates ||
-          'criticality' in updates ||
-          'sortBy' in updates ||
-          'sortOrder' in updates ||
-          'atRiskOnly' in updates) &&
-        updates.page === undefined
-      ) {
-        next.page = PROJECTS_DEFAULT_PAGE;
-      }
-      router.replace(buildUrl(next));
+      setFiltersState((prev) => {
+        const next: ProjectsListFilters = { ...prev, ...updates };
+        if (
+          ('search' in updates ||
+            'kind' in updates ||
+            'status' in updates ||
+            'priority' in updates ||
+            'criticality' in updates ||
+            'portfolioCategoryId' in updates ||
+            'sortBy' in updates ||
+            'sortOrder' in updates ||
+            'atRiskOnly' in updates ||
+            'myProjectsOnly' in updates) &&
+          updates.page === undefined
+        ) {
+          next.page = PROJECTS_DEFAULT_PAGE;
+        }
+        return next;
+      });
     },
-    [filters, buildUrl, router],
+    [],
   );
 
   const reset = useCallback(() => {
-    router.replace(pathname);
-  }, [pathname, router]);
+    setFiltersState({
+      search: undefined,
+      kind: undefined,
+      status: undefined,
+      priority: undefined,
+      criticality: undefined,
+      portfolioCategoryId: undefined,
+      page: PROJECTS_DEFAULT_PAGE,
+      limit: PROJECTS_DEFAULT_LIMIT,
+      sortBy: 'targetEndDate',
+      sortOrder: 'asc',
+      atRiskOnly: false,
+      myProjectsOnly: false,
+    });
+  }, []);
 
   const apiParams = useMemo(() => {
     return {
@@ -143,9 +122,13 @@ export function useProjectsListFilters(): {
       ...(filters.status && { status: filters.status }),
       ...(filters.priority && { priority: filters.priority }),
       ...(filters.criticality && { criticality: filters.criticality }),
+      ...(filters.portfolioCategoryId && {
+        portfolioCategoryId: filters.portfolioCategoryId,
+      }),
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
       ...(filters.atRiskOnly && { atRiskOnly: true }),
+      ...(filters.myProjectsOnly && { myProjectsOnly: true }),
     };
   }, [filters]);
 

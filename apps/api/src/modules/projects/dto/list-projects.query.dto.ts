@@ -8,6 +8,7 @@ import {
   IsString,
   Max,
   Min,
+  MinLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import {
@@ -72,4 +73,14 @@ export class ListProjectsQueryDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   atRiskOnly?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  myProjectsOnly?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  portfolioCategoryId?: string;
 }

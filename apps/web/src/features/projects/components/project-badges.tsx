@@ -18,7 +18,7 @@ export function HealthBadge({
     RED: 'border-destructive/35 bg-destructive/[0.08] text-destructive',
     ORANGE:
       'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
-    GREEN: 'border-border bg-muted/70 text-muted-foreground',
+    GREEN: '!border-emerald-700 !bg-emerald-600 !text-white',
   };
   const labels: Record<typeof health, string> = {
     RED: 'Santé : critique',

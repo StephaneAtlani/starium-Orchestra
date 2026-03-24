@@ -65,9 +65,11 @@ export async function listProjects(
     status?: string;
     priority?: string;
     criticality?: string;
+    portfolioCategoryId?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     atRiskOnly?: boolean;
+    myProjectsOnly?: boolean;
   },
 ): Promise<ProjectsListResponse> {
   const res = await authFetch(`${BASE}${qs(params)}`);

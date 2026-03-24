@@ -182,6 +182,19 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
     (resource: ResourceListItem) => {
       if (!addMemberDialogRole) return;
       const roleId = addMemberDialogRole.id;
+      if (addMemberDialogRole.systemKind === 'SPONSOR') {
+        if (!resource.linkedUserId) {
+          toast.error(
+            "Pour le rôle Sponsor, sélectionnez une personne liée à un utilisateur du client.",
+          );
+          return;
+        }
+        addMemberMutation.mutate({
+          roleId,
+          userId: resource.linkedUserId,
+        });
+        return;
+      }
       const freeLabel = formatResourceDisplayName(resource);
       const maxLen = 200;
       const label =
@@ -485,9 +498,13 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
         }
         contextSlot={
           addMemberDialogRole ? (
-            <div className="text-xs text-muted-foreground">
-              Rôle :{' '}
-              <span className="font-medium text-foreground">{addMemberDialogRole.name}</span>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <div>
+                Rôle : <span className="font-medium text-foreground">{addMemberDialogRole.name}</span>
+              </div>
+              {addMemberDialogRole.systemKind === 'SPONSOR' ? (
+                <div>Le Sponsor doit être lié à un utilisateur du client.</div>
+              ) : null}
             </div>
           ) : null
         }

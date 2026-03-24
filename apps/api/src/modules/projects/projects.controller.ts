@@ -62,8 +62,9 @@ export class ProjectsController {
   list(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListProjectsQueryDto,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.projectsService.list(clientId!, query);
+    return this.projectsService.list(clientId!, query, userId);
   }
 
   @Get('options/tags')

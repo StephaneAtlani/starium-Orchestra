@@ -9,10 +9,7 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -110,9 +107,7 @@ export default function ProjectsPortfolioPage() {
           <>
             <ProjectsPortfolioKpi summary={summary} isLoading={summaryLoading} />
 
-            <ProjectsToolbar filters={filters} setFilters={setFilters} onReset={reset} />
-
-            {isLoading && (
+            {isLoading && !data && (
               <div data-testid="projects-loading">
                 <LoadingState rows={5} />
               </div>
@@ -172,63 +167,71 @@ export default function ProjectsPortfolioPage() {
               </Alert>
             )}
 
-            {!isLoading && !error && data && data.items.length === 0 && (
-              <Card size="sm" className="shadow-sm">
-                <CardContent className="py-10">
-                  <EmptyState
-                    title="Aucun projet"
-                    description="Aucun projet ne correspond à ce périmètre. Élargissez les filtres ou créez un nouveau projet."
-                    action={
-                      has('projects.create') ? (
-                        <Link
-                          href={projectNew()}
-                          className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-                        >
-                          Nouveau projet
-                        </Link>
-                      ) : undefined
-                    }
-                  />
-                </CardContent>
-              </Card>
-            )}
-
-            {!isLoading && !error && data && data.items.length > 0 && (
+            {!error && (
               <Card size="sm" className="overflow-hidden shadow-sm">
-                <CardHeader className="border-b border-border/60 pb-3 pt-4 sm:px-4">
-                  <CardTitle className="text-sm font-medium">Liste des projets</CardTitle>
-                  <CardDescription className="text-xs">
-                    Cliquez sur un nom pour ouvrir la fiche détail.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <ProjectsListTable items={data.items} />
-                </CardContent>
-                <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <PaginationSummary offset={offset} limit={data.limit} total={data.total} />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage <= 1}
-                      onClick={() => setFilters({ page: currentPage - 1 })}
-                      data-testid="projects-pagination-prev"
-                    >
-                      <ChevronLeft className="size-4" />
-                      Précédent
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage >= totalPages}
-                      onClick={() => setFilters({ page: currentPage + 1 })}
-                      data-testid="projects-pagination-next"
-                    >
-                      Suivant
-                      <ChevronRight className="size-4" />
-                    </Button>
-                  </div>
-                </CardFooter>
+                <ProjectsToolbar
+                  filters={filters}
+                  setFilters={setFilters}
+                  onReset={reset}
+                  embedded
+                />
+                {data && data.items.length > 0 ? (
+                  <>
+                    <CardContent className="p-0">
+                      <ProjectsListTable
+                        items={data.items}
+                        filters={filters}
+                        setFilters={setFilters}
+                      />
+                    </CardContent>
+                    <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <PaginationSummary offset={offset} limit={data.limit} total={data.total} />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={currentPage <= 1}
+                          onClick={() => setFilters({ page: currentPage - 1 })}
+                          data-testid="projects-pagination-prev"
+                        >
+                          <ChevronLeft className="size-4" />
+                          Précédent
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={currentPage >= totalPages}
+                          onClick={() => setFilters({ page: currentPage + 1 })}
+                          data-testid="projects-pagination-next"
+                        >
+                          Suivant
+                          <ChevronRight className="size-4" />
+                        </Button>
+                      </div>
+                    </CardFooter>
+                  </>
+                ) : isLoading ? (
+                  <CardContent className="py-8">
+                    <LoadingState rows={4} />
+                  </CardContent>
+                ) : (
+                  <CardContent className="py-10">
+                    <EmptyState
+                      title="Aucun projet"
+                      description="Aucun projet ne correspond à ce périmètre. Élargissez les filtres ou créez un nouveau projet."
+                      action={
+                        has('projects.create') ? (
+                          <Link
+                            href={projectNew()}
+                            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+                          >
+                            Nouveau projet
+                          </Link>
+                        ) : undefined
+                      }
+                    />
+                  </CardContent>
+                )}
               </Card>
             )}
           </>

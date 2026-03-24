@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -16,6 +18,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { ProjectListItem } from '../types/project.types';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -25,6 +38,11 @@ import {
 } from '../constants/project-enum-labels';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { cn } from '@/lib/utils';
+import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { listProjectPortfolioCategories } from '../api/projects.api';
+import { projectQueryKeys } from '../lib/project-query-keys';
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -36,6 +54,15 @@ function formatDate(iso: string | null) {
 }
 
 const th = 'text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground';
+const SORT_LABEL: Record<ProjectsListFilters['sortBy'], string> = {
+  name: 'Nom',
+  targetEndDate: 'Échéance',
+  status: 'Statut',
+  priority: 'Priorité',
+  criticality: 'Criticité',
+  computedHealth: 'Santé',
+  progressPercent: 'Avancement',
+};
 
 function tagBadgeStyle(color: string | null | undefined) {
   const background = color ?? '#64748B';
@@ -84,6 +111,43 @@ function HeaderTip({
   );
 }
 
+function SortHeaderButton({
+  label,
+  sortKey,
+  filters,
+  setFilters,
+}: {
+  label: string;
+  sortKey: ProjectsListFilters['sortBy'];
+  filters: ProjectsListFilters;
+  setFilters: (updates: Partial<ProjectsListFilters>) => void;
+}) {
+  const isActive = filters.sortBy === sortKey;
+  const nextOrder =
+    isActive && filters.sortOrder === 'asc'
+      ? ('desc' as const)
+      : ('asc' as const);
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 hover:text-foreground"
+      onClick={() => setFilters({ sortBy: sortKey, sortOrder: nextOrder })}
+      title={`Trier par ${label}`}
+    >
+      <span>{label}</span>
+      {isActive ? (
+        filters.sortOrder === 'asc' ? (
+          <ArrowUp className="size-3" />
+        ) : (
+          <ArrowDown className="size-3" />
+        )
+      ) : (
+        <ArrowUpDown className="size-3 opacity-60" />
+      )}
+    </button>
+  );
+}
+
 /** Infobulle sur une cellule (ligne de données). */
 function CellTip({
   tip,
@@ -108,7 +172,38 @@ function CellTip({
   );
 }
 
-export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
+export function ProjectsListTable({
+  items,
+  filters,
+  setFilters,
+}: {
+  items: ProjectListItem[];
+  filters: ProjectsListFilters;
+  setFilters: (updates: Partial<ProjectsListFilters>) => void;
+}) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const categoriesQuery = useQuery({
+    queryKey: projectQueryKeys.optionsPortfolioCategories(clientId),
+    queryFn: () => listProjectPortfolioCategories(authFetch),
+    enabled: Boolean(clientId),
+  });
+  const categoryGroups = (categoriesQuery.data ?? []).map((root) => ({
+    rootId: root.id,
+    rootName: root.name,
+    children: (root.children ?? []).map((child) => ({
+      id: child.id,
+      label: child.name,
+      fullLabel: `${root.name} / ${child.name}`,
+    })),
+  }));
+  const categoryOptions = categoryGroups.flatMap((group) =>
+    group.children.map((child) => ({ id: child.id, label: child.fullLabel })),
+  );
+  const categoryKey = filters.portfolioCategoryId ?? '__all__';
+  const kindKey = filters.kind ?? '__all__';
+  const statusKey = filters.status ?? '__all__';
   return (
     <TooltipProvider delay={250}>
       <Table className="min-w-[56rem] text-sm">
@@ -131,7 +226,12 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
             )}
           >
             <HeaderTip tip="Nom du projet, code interne, criticité et responsable. Cliquez sur le nom pour ouvrir la fiche.">
-              Projet
+              <SortHeaderButton
+                label="Projet"
+                sortKey="name"
+                filters={filters}
+                setFilters={setFilters}
+              />
             </HeaderTip>
           </TableHead>
           <TableHead className={cn(th, 'w-[5.5rem]')}>
@@ -141,12 +241,22 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
           </TableHead>
           <TableHead className={cn(th, 'w-[6.5rem]')}>
             <HeaderTip tip="Indicateur de santé calculé (retards, risques, jalons, blocages…).">
-              Santé
+              <SortHeaderButton
+                label="Santé"
+                sortKey="computedHealth"
+                filters={filters}
+                setFilters={setFilters}
+              />
             </HeaderTip>
           </TableHead>
           <TableHead className={cn(th, 'min-w-[7rem]')}>
             <HeaderTip tip="Statut métier du projet dans son cycle de vie (ex. brouillon, en cours, terminé).">
-              Statut
+              <SortHeaderButton
+                label="Statut"
+                sortKey="status"
+                filters={filters}
+                setFilters={setFilters}
+              />
             </HeaderTip>
           </TableHead>
           <TableHead className={cn(th, 'w-[7.5rem] text-right')}>
@@ -156,7 +266,14 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
                 triggerClassName="items-end text-right"
                 contentAlign="end"
               >
-                <span className="block">Avancement</span>
+                <span className="block">
+                  <SortHeaderButton
+                    label="Avancement"
+                    sortKey="progressPercent"
+                    filters={filters}
+                    setFilters={setFilters}
+                  />
+                </span>
                 <span className="block font-normal normal-case tracking-normal text-[0.6rem] text-muted-foreground/90">
                   manuel / dérivé
                 </span>
@@ -165,7 +282,12 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
           </TableHead>
           <TableHead className={cn(th, 'w-[6.5rem]')}>
             <HeaderTip tip="Date cible de fin du projet ou de l’activité.">
-              Échéance
+              <SortHeaderButton
+                label="Échéance"
+                sortKey="targetEndDate"
+                filters={filters}
+                setFilters={setFilters}
+              />
             </HeaderTip>
           </TableHead>
           <TableHead className={cn(th, 'w-[5rem] text-center')}>
@@ -189,6 +311,92 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
               Etiquettes
             </HeaderTip>
           </TableHead>
+        </TableRow>
+        <TableRow className="border-t border-border/50 bg-muted/35 hover:bg-muted/35">
+          <TableHead className="sticky left-0 z-30 bg-muted/35 p-2 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
+            <Select
+              value={categoryKey}
+              onValueChange={(v) =>
+                setFilters({ portfolioCategoryId: v === '__all__' ? undefined : v })
+              }
+            >
+              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+                <SelectValue>
+                  {categoryKey === '__all__'
+                    ? 'Toutes catégories'
+                    : categoryOptions.find((option) => option.id === categoryKey)?.label ?? 'Catégorie'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Toutes catégories</SelectItem>
+                <SelectSeparator />
+                {categoryGroups.map((group) => (
+                  <SelectGroup key={group.rootId}>
+                    <SelectLabel>{group.rootName}</SelectLabel>
+                    {group.children.length === 0 ? (
+                      <SelectItem value={`__empty__${group.rootId}`} disabled>
+                        Aucune sous-catégorie
+                      </SelectItem>
+                    ) : (
+                      group.children.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.label}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+          </TableHead>
+          <TableHead className="sticky left-[11rem] z-30 bg-muted/35 p-2 shadow-[1px_0_0_0_hsl(var(--border))]">
+            <Input
+              value={filters.search ?? ''}
+              onChange={(e) => setFilters({ search: e.target.value || undefined })}
+              placeholder="Rechercher..."
+              className="h-7 text-xs"
+            />
+          </TableHead>
+          <TableHead className="p-2">
+            <Select value={kindKey} onValueChange={(v) => setFilters({ kind: v === '__all__' ? undefined : v })}>
+              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+                <SelectValue>
+                  {kindKey === '__all__' ? 'Toutes' : PROJECT_KIND_LABEL[kindKey] ?? kindKey}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Toutes</SelectItem>
+                <SelectItem value="PROJECT">{PROJECT_KIND_LABEL.PROJECT}</SelectItem>
+                <SelectItem value="ACTIVITY">{PROJECT_KIND_LABEL.ACTIVITY}</SelectItem>
+              </SelectContent>
+            </Select>
+          </TableHead>
+          <TableHead className="p-2" />
+          <TableHead className="p-2">
+            <Select
+              value={statusKey}
+              onValueChange={(v) => setFilters({ status: v === '__all__' ? undefined : v })}
+            >
+              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+                <SelectValue>
+                  {statusKey === '__all__' ? 'Tous' : PROJECT_STATUS_LABEL[statusKey] ?? statusKey}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Tous</SelectItem>
+                {Object.entries(PROJECT_STATUS_LABEL).map(([k, label]) => (
+                  <SelectItem key={k} value={k}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </TableHead>
+          <TableHead className="p-2" />
+          <TableHead className="p-2" />
+          <TableHead className="p-2" />
+          <TableHead className="p-2" />
+          <TableHead className="p-2" />
         </TableRow>
       </TableHeader>
       <TableBody>
