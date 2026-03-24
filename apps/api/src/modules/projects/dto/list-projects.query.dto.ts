@@ -80,6 +80,15 @@ export class ListProjectsQueryDto {
   myProjectsOnly?: boolean;
 
   @IsOptional()
+  @IsIn(['GREEN', 'ORANGE', 'RED'])
+  computedHealth?: 'GREEN' | 'ORANGE' | 'RED';
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  myRole?: string;
+
+  @IsOptional()
   @IsString()
   @MinLength(1)
   portfolioCategoryId?: string;

@@ -204,6 +204,16 @@ export function ProjectsListTable({
   const categoryKey = filters.portfolioCategoryId ?? '__all__';
   const kindKey = filters.kind ?? '__all__';
   const statusKey = filters.status ?? '__all__';
+  const healthKey = filters.computedHealth ?? '__all__';
+  const myRoleKey = filters.myRole ?? '__all__';
+  const myRoleOptions = Array.from(
+    new Set(
+      items
+        .flatMap((item) => item.myRoles ?? (item.myRole ? [item.myRole] : []))
+        .map((role) => role.trim())
+        .filter((value): value is string => Boolean(value && value.length > 0)),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
   return (
     <TooltipProvider delay={250}>
       <Table className="min-w-[56rem] text-sm">
@@ -257,6 +267,11 @@ export function ProjectsListTable({
                 filters={filters}
                 setFilters={setFilters}
               />
+            </HeaderTip>
+          </TableHead>
+          <TableHead className={cn(th, 'min-w-[9rem]')}>
+            <HeaderTip tip="Rôle de l'utilisateur connecté sur ce projet.">
+              Mon rôle
             </HeaderTip>
           </TableHead>
           <TableHead className={cn(th, 'w-[7.5rem] text-right')}>
@@ -313,6 +328,7 @@ export function ProjectsListTable({
           </TableHead>
         </TableRow>
         <TableRow className="border-t border-border/50 bg-muted/35 hover:bg-muted/35">
+          {/* CATEGORIE */}
           <TableHead className="sticky left-0 z-30 bg-muted/35 p-2 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
             <Select
               value={categoryKey}
@@ -349,6 +365,7 @@ export function ProjectsListTable({
               </SelectContent>
             </Select>
           </TableHead>
+          {/* PROJET */}
           <TableHead className="sticky left-[11rem] z-30 bg-muted/35 p-2 shadow-[1px_0_0_0_hsl(var(--border))]">
             <Input
               value={filters.search ?? ''}
@@ -357,6 +374,7 @@ export function ProjectsListTable({
               className="h-7 text-xs"
             />
           </TableHead>
+          {/* NATURE */}
           <TableHead className="p-2">
             <Select value={kindKey} onValueChange={(v) => setFilters({ kind: v === '__all__' ? undefined : v })}>
               <SelectTrigger size="sm" className="h-7 w-full text-xs">
@@ -371,7 +389,36 @@ export function ProjectsListTable({
               </SelectContent>
             </Select>
           </TableHead>
-          <TableHead className="p-2" />
+          {/* SANTE */}
+          <TableHead className="p-2">
+            <Select
+              value={healthKey}
+              onValueChange={(v) =>
+                setFilters({
+                  computedHealth: v === '__all__' ? undefined : (v as 'GREEN' | 'ORANGE' | 'RED'),
+                })
+              }
+            >
+              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+                <SelectValue>
+                  {healthKey === '__all__'
+                    ? 'Toutes'
+                    : healthKey === 'GREEN'
+                      ? 'Bon'
+                      : healthKey === 'ORANGE'
+                        ? 'Attention'
+                        : 'Critique'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Toutes</SelectItem>
+                <SelectItem value="GREEN">Bon</SelectItem>
+                <SelectItem value="ORANGE">Attention</SelectItem>
+                <SelectItem value="RED">Critique</SelectItem>
+              </SelectContent>
+            </Select>
+          </TableHead>
+          {/* STATUT */}
           <TableHead className="p-2">
             <Select
               value={statusKey}
@@ -392,11 +439,31 @@ export function ProjectsListTable({
               </SelectContent>
             </Select>
           </TableHead>
-          <TableHead className="p-2" />
-          <TableHead className="p-2" />
-          <TableHead className="p-2" />
-          <TableHead className="p-2" />
-          <TableHead className="p-2" />
+          {/* MON ROLE */}
+          <TableHead className="p-2">
+            <Select
+              value={myRoleKey}
+              onValueChange={(v) => setFilters({ myRole: v === '__all__' ? undefined : v })}
+            >
+              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+                <SelectValue>{myRoleKey === '__all__' ? 'Tous rôles' : myRoleKey}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Tous rôles</SelectItem>
+                {myRoleOptions.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </TableHead>
+          {/* AVANCEMENT / ECHEANCE / T·R·J / SIGNAUX / ETIQUETTES */}
+          <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">—</TableHead>
+          <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">—</TableHead>
+          <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">—</TableHead>
+          <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">—</TableHead>
+          <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">—</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -465,6 +532,19 @@ export function ProjectsListTable({
             </TableCell>
             <TableCell className="align-top py-3 text-sm">
               {PROJECT_STATUS_LABEL[p.status] ?? p.status}
+            </TableCell>
+            <TableCell className="align-top py-3 text-sm">
+              {(p.myRoles ?? (p.myRole ? [p.myRole] : [])).length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {(p.myRoles ?? (p.myRole ? [p.myRole] : [])).map((role) => (
+                    <Badge key={role} variant="outline" className="font-normal text-xs">
+                      {role}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
             </TableCell>
             <TableCell className="align-top py-3 text-right">
               <CellTip

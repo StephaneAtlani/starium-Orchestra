@@ -42,6 +42,8 @@ export type ProjectListItem = {
   kind: string;
   type: string;
   status: string;
+  myRole?: string | null;
+  myRoles?: string[];
   priority: string;
   criticality: string;
   progressPercent: number | null;

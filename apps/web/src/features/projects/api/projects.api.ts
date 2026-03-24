@@ -66,6 +66,8 @@ export async function listProjects(
     priority?: string;
     criticality?: string;
     portfolioCategoryId?: string;
+    computedHealth?: 'GREEN' | 'ORANGE' | 'RED';
+    myRole?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     atRiskOnly?: boolean;

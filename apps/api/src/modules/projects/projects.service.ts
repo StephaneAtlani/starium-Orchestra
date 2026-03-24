@@ -82,6 +82,8 @@ export type ProjectListItemDto = {
   kind: string;
   type: string;
   status: string;
+  myRole?: string | null;
+  myRoles?: string[];
   priority: string;
   criticality: string;
   progressPercent: number | null;
@@ -145,6 +147,87 @@ export class ProjectsService {
     const parts = [owner.firstName, owner.lastName].filter(Boolean);
     if (parts.length > 0) return parts.join(' ');
     return owner.email;
+  }
+
+  private normalizeIdentity(value: string | null | undefined): string {
+    return (value ?? '').trim().toLowerCase();
+  }
+
+  private identityTokensForUser(user: {
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+  }): string[] {
+    const tokens = new Set<string>();
+    const email = this.normalizeIdentity(user.email);
+    const firstName = this.normalizeIdentity(user.firstName);
+    const lastName = this.normalizeIdentity(user.lastName);
+    if (email) {
+      tokens.add(email);
+      const local = email.split('@')[0];
+      if (local) tokens.add(local);
+    }
+    if (firstName) tokens.add(firstName);
+    if (lastName) tokens.add(lastName);
+    if (firstName && lastName) {
+      tokens.add(`${firstName} ${lastName}`);
+      tokens.add(`${lastName} ${firstName}`);
+    }
+    return Array.from(tokens);
+  }
+
+  private textMatchesIdentity(text: string | null | undefined, tokens: string[]): boolean {
+    const normalized = this.normalizeIdentity(text);
+    if (!normalized || tokens.length === 0) return false;
+    return tokens.some((token) => token.length > 0 && normalized.includes(token));
+  }
+
+  private resolveMyRoles(
+    project: Project & {
+      owner: { email: string; firstName: string | null; lastName: string | null } | null;
+      ownerFreeLabel: string | null;
+      teamMembers: Array<{
+        userId: string | null;
+        freeLabel: string | null;
+        role: { name: string; systemKind: ProjectTeamRoleSystemKind | null };
+        user: { email: string; firstName: string | null; lastName: string | null } | null;
+      }>;
+    },
+    userId?: string,
+    identityTokens: string[] = [],
+  ): string[] {
+    if (!userId) return [];
+    const roles = new Set<string>();
+    const ownerMatchesIdentity =
+      this.textMatchesIdentity(project.owner?.email, identityTokens) ||
+      this.textMatchesIdentity(project.owner?.firstName, identityTokens) ||
+      this.textMatchesIdentity(project.owner?.lastName, identityTokens) ||
+      this.textMatchesIdentity(
+        [project.owner?.firstName, project.owner?.lastName].filter(Boolean).join(' '),
+        identityTokens,
+      ) ||
+      this.textMatchesIdentity(project.ownerFreeLabel, identityTokens);
+
+    if (project.ownerUserId === userId || ownerMatchesIdentity) {
+      roles.add('Responsable projet');
+    }
+    if (project.sponsorUserId === userId) roles.add('Sponsor');
+    for (const member of project.teamMembers) {
+      const isMatchById = member.userId === userId;
+      const isMatchByIdentity =
+        this.textMatchesIdentity(member.freeLabel, identityTokens) ||
+        this.textMatchesIdentity(member.user?.email, identityTokens) ||
+        this.textMatchesIdentity(member.user?.firstName, identityTokens) ||
+        this.textMatchesIdentity(member.user?.lastName, identityTokens) ||
+        this.textMatchesIdentity(
+          [member.user?.firstName, member.user?.lastName].filter(Boolean).join(' '),
+          identityTokens,
+        );
+      if (isMatchById || isMatchByIdentity) {
+        roles.add(member.role.name);
+      }
+    }
+    return Array.from(roles);
   }
 
   /** Responsable : compte client ou personne nom libre (dénormalisé sur Project). */
@@ -429,67 +512,6 @@ export class ProjectsService {
     if (query.criticality) where.criticality = query.criticality;
     if (query.kind) where.kind = query.kind;
     if (query.portfolioCategoryId) where.portfolioCategoryId = query.portfolioCategoryId;
-    if (query.myProjectsOnly && userId) {
-      const me = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-      const email = me?.email?.trim().toLowerCase();
-      const emailLocalPart = email?.split('@')[0] ?? null;
-      andFilters.push({
-        OR: [
-          { ownerUserId: userId },
-          { sponsorUserId: userId },
-          {
-            teamMembers: {
-              some: {
-                userId,
-              },
-            },
-          },
-          ...(me?.email
-            ? [
-                {
-                  ownerFreeLabel: {
-                    contains: me.email,
-                    mode: 'insensitive' as const,
-                  },
-                },
-                {
-                  teamMembers: {
-                    some: {
-                      freeLabel: {
-                        contains: me.email,
-                        mode: 'insensitive' as const,
-                      },
-                    },
-                  },
-                },
-                ...(emailLocalPart
-                  ? [
-                      {
-                        ownerFreeLabel: {
-                          contains: emailLocalPart,
-                          mode: 'insensitive' as const,
-                        },
-                      },
-                      {
-                        teamMembers: {
-                          some: {
-                            freeLabel: {
-                              contains: emailLocalPart,
-                              mode: 'insensitive' as const,
-                            },
-                          },
-                        },
-                      },
-                    ]
-                  : []),
-              ]
-            : []),
-        ],
-      });
-    }
 
     if (query.search?.trim()) {
       const s = query.search.trim();
@@ -510,7 +532,52 @@ export class ProjectsService {
       include: projectIncludeList,
     });
 
-    let enriched = rows.map((p) => this.toListItem(p as any));
+    const me = userId
+      ? await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true, firstName: true, lastName: true },
+        })
+      : null;
+    const identityTokens = me ? this.identityTokensForUser(me) : [];
+
+    let myProjectRows = rows;
+    if (query.myProjectsOnly && userId) {
+      const tokens = identityTokens;
+      myProjectRows = rows.filter((project) => {
+        if (project.ownerUserId === userId || project.sponsorUserId === userId) return true;
+        if (
+          project.teamMembers.some(
+            (member) =>
+              member.userId === userId ||
+              this.textMatchesIdentity(member.user?.email, tokens) ||
+              this.textMatchesIdentity(member.freeLabel, tokens),
+          )
+        ) {
+          return true;
+        }
+        if (this.textMatchesIdentity(project.ownerFreeLabel, tokens)) return true;
+        return false;
+      });
+    }
+
+    let enriched = myProjectRows.map((p) => ({
+      ...this.toListItem(p as any),
+      myRoles: this.resolveMyRoles(p as any, userId, identityTokens),
+    }));
+    enriched = enriched.map((item) => ({
+      ...item,
+      myRole: item.myRoles?.[0] ?? null,
+    }));
+
+    if (query.computedHealth) {
+      enriched = enriched.filter((item) => item.computedHealth === query.computedHealth);
+    }
+    if (query.myRole?.trim()) {
+      const expectedRole = query.myRole.trim().toLowerCase();
+      enriched = enriched.filter((item) =>
+        (item.myRoles ?? []).some((role) => role.toLowerCase().includes(expectedRole)),
+      );
+    }
 
     if (query.atRiskOnly) {
       enriched = enriched.filter(

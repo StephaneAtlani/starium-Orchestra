@@ -27,6 +27,8 @@ export type ProjectsListFilters = {
   priority?: string;
   criticality?: string;
   portfolioCategoryId?: string;
+  computedHealth?: 'GREEN' | 'ORANGE' | 'RED';
+  myRole?: string;
   sortBy: ProjectsSortBy;
   sortOrder: 'asc' | 'desc';
   atRiskOnly: boolean;
@@ -63,6 +65,8 @@ export function useProjectsListFilters(): {
     priority: undefined,
     criticality: undefined,
     portfolioCategoryId: undefined,
+    computedHealth: undefined,
+    myRole: undefined,
     page: PROJECTS_DEFAULT_PAGE,
     limit: PROJECTS_DEFAULT_LIMIT,
     sortBy: 'targetEndDate',
@@ -82,6 +86,8 @@ export function useProjectsListFilters(): {
             'priority' in updates ||
             'criticality' in updates ||
             'portfolioCategoryId' in updates ||
+            'computedHealth' in updates ||
+            'myRole' in updates ||
             'sortBy' in updates ||
             'sortOrder' in updates ||
             'atRiskOnly' in updates ||
@@ -104,6 +110,8 @@ export function useProjectsListFilters(): {
       priority: undefined,
       criticality: undefined,
       portfolioCategoryId: undefined,
+      computedHealth: undefined,
+      myRole: undefined,
       page: PROJECTS_DEFAULT_PAGE,
       limit: PROJECTS_DEFAULT_LIMIT,
       sortBy: 'targetEndDate',
@@ -125,6 +133,8 @@ export function useProjectsListFilters(): {
       ...(filters.portfolioCategoryId && {
         portfolioCategoryId: filters.portfolioCategoryId,
       }),
+      ...(filters.computedHealth && { computedHealth: filters.computedHealth }),
+      ...(filters.myRole && { myRole: filters.myRole }),
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
       ...(filters.atRiskOnly && { atRiskOnly: true }),
