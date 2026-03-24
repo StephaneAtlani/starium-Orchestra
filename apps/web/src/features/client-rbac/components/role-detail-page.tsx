@@ -62,9 +62,7 @@ export function RoleDetailPage() {
   const isReadOnly =
     role.isReadOnly || role.isInherited || role.scope === 'GLOBAL';
   const canDelete = !isReadOnly;
-  const deleteTooltip = isReadOnly
-    ? 'Rôle global hérité : suppression impossible depuis le client.'
-    : 'Impossible de supprimer : rôle encore assigné à au moins un utilisateur.';
+  const deleteTooltip = 'Supprimer ce rôle';
 
   return (
     <PageContainer>
@@ -83,22 +81,23 @@ export function RoleDetailPage() {
             <Link href="/client/roles" className={buttonVariants({ variant: 'outline' })}>
               Retour à la liste
             </Link>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger render={<span className="inline-block" />}>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={!canDelete}
-                    onClick={() => deleteRole.mutate(undefined)}
-                  >
-                    <Trash2 className="size-4" />
-                    Supprimer
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{deleteTooltip}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {canDelete && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger render={<span className="inline-block" />}>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => deleteRole.mutate(undefined)}
+                    >
+                      <Trash2 className="size-4" />
+                      Supprimer
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{deleteTooltip}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         }
       />

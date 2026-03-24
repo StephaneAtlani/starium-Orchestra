@@ -25,7 +25,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { useRoles } from '../hooks/use-roles';
 import { useDeleteRole } from '../hooks/use-delete-role';
 import type { RoleListItem } from '../types';
-import { Pencil, KeyRound, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 
 function RoleActions({
   role,
@@ -51,35 +51,29 @@ function RoleActions({
             <Pencil className="size-4" />
             <span className="sr-only">Modifier</span>
           </Link>
-          <Link
-            href={`/client/roles/${role.id}`}
-            className={buttonVariants({ variant: 'ghost', size: 'sm' })}
-          >
-            <KeyRound className="size-4" />
-            <span className="sr-only">Permissions</span>
-          </Link>
         </>
       )}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger render={<span className="inline-block" />}>
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              disabled={!canDelete}
-              onClick={() => onDelete(role.id)}
-              className="text-destructive hover:text-destructive"
-            >
-              <span>
-                <Trash2 className="size-4" />
-                <span className="sr-only">Supprimer</span>
-              </span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{deleteTooltip}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      {canDelete && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger render={<span className="inline-block" />}>
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                onClick={() => onDelete(role.id)}
+                className="text-destructive hover:text-destructive"
+              >
+                <span>
+                  <Trash2 className="size-4" />
+                  <span className="sr-only">Supprimer</span>
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{deleteTooltip}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
     </div>
   );
 }
