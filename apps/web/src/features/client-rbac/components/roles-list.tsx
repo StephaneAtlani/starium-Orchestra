@@ -135,7 +135,10 @@ export function RolesList() {
               </TableHeader>
               <TableBody>
                 {roles.map((role) => {
-                  const isReadOnly = role.isReadOnly || role.isInherited;
+                  const isReadOnly =
+                    role.isReadOnly ||
+                    role.isInherited ||
+                    role.scope === 'GLOBAL';
                   const canDelete = !isReadOnly;
                   const deleteTooltip = isReadOnly
                     ? 'Rôle global hérité : suppression impossible dans le contexte client.'

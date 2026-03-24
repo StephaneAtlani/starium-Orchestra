@@ -59,7 +59,8 @@ export function RoleDetailPage() {
     );
   }
 
-  const isReadOnly = role.isReadOnly || role.isInherited;
+  const isReadOnly =
+    role.isReadOnly || role.isInherited || role.scope === 'GLOBAL';
   const canDelete = !isReadOnly;
   const deleteTooltip = isReadOnly
     ? 'Rôle global hérité : suppression impossible depuis le client.'
