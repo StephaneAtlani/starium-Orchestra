@@ -100,7 +100,7 @@ La fiche projet doit consolider au minimum :
 
 | Ordre | RFC             | Nom                 | Description                                  | État      | Commentaire                         |
 | ----- | --------------- | ------------------- | -------------------------------------------- | --------- | ----------------------------------- |
-| 17    | **RFC-RES-001** | Resource Registry   | Catalogue ressources (collaborateurs, rôles) | ❌ À faire | fondation staffing                  |
+| 17    | **RFC-RES-001** | Catalogue de ressources | Registre ressources (humaines, matérielles, licences) | 🟡 Partiel | backend + UI livrés ; désactivation/cycle de vie à compléter |
 | 18    | **RFC-RES-002** | Resource Assignment | Affectation ressources aux projets (charge)  | ❌ À faire | indispensable pour coût projet réel |
 | 19    | **RFC-RES-002** | Resource Costing    | Valorisation charge / coût ressource         | ❌ À faire | dépend fiche projet et arbitrage    |
 
@@ -205,7 +205,7 @@ La fiche projet doit afficher :
 | **RFC-PROJ-012**        | **fiche projet décisionnelle** indispensable pour arbitrer |
 | **RFC-FE-PROJ-014**     | UI d’arbitrage CODIR / DAF / DSI                           |
 | **RFC-PROJ-010 suite**  | alimenter la fiche avec les KPI budget projet              |
-| **RFC-RES-001 / 002**   | calcul charge / coût ressources                            |
+| **RFC-RES-002**         | calcul charge / coût ressources (RFC-RES-001 déjà livré en MVP) |
 | *(future RFC)*          | vue transverse projet / fournisseurs (pas RFC-PROJ-011)    |
 | **RFC-FE-PROJ-005/007** | cockpit ressources / fournisseurs                          |
 

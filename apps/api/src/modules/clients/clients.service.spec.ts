@@ -5,6 +5,7 @@ import { DefaultProfilesService } from '../roles/default-profiles.service';
 import { ClientsService } from './clients.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ProjectTeamService } from '../projects/project-team.service';
+import { ResourcesModuleBootstrapService } from '../resources/resources-module-bootstrap.service';
 
 describe('ClientsService', () => {
   let service: ClientsService;
@@ -50,6 +51,12 @@ describe('ClientsService', () => {
           provide: ProjectTeamService,
           useValue: {
             seedDefaultRolesForClient: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: ResourcesModuleBootstrapService,
+          useValue: {
+            bootstrapForClient: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -99,6 +106,10 @@ describe('ClientsService', () => {
             provide: ProjectTeamService,
             useValue: { seedDefaultRolesForClient: jest.fn().mockResolvedValue(undefined) },
           },
+          {
+            provide: ResourcesModuleBootstrapService,
+            useValue: { bootstrapForClient: jest.fn().mockResolvedValue(undefined) },
+          },
         ],
       }).compile();
       const svc = testModule.get<ClientsService>(ClientsService);
@@ -117,6 +128,10 @@ describe('ClientsService', () => {
       expect(defaultProfiles.applyForClient).toHaveBeenCalledWith(mockClient.id);
       const projectTeam = testModule.get(ProjectTeamService);
       expect(projectTeam.seedDefaultRolesForClient).toHaveBeenCalledWith(mockClient.id);
+      const resourcesBootstrap = testModule.get(ResourcesModuleBootstrapService);
+      expect(resourcesBootstrap.bootstrapForClient).toHaveBeenCalledWith(
+        mockClient.id,
+      );
       expect(result).toEqual({
         id: mockClient.id,
         name: mockClient.name,

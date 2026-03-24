@@ -57,7 +57,8 @@ Détail des permissions par profil :
 
 - **Fichier** : `apps/api/prisma/default-profiles.json`
 - **Format** : tableau JSON d’objets `{ "name", "description", "permissionCodes" }`.
-- Les **codes de permission** doivent exister dans la table `Permission` (créés par le seed des modules/permissions). Toute permission inconnue est ignorée (aucune RolePermission ne sera créée pour ce code).
+- Les **codes de permission** doivent exister dans la table `Permission` (créés par le seed des modules/permissions).
+- Si une permission attendue est absente, `DefaultProfilesService.applyForClient()` renvoie une erreur explicite (`500`) et la création client ne continue pas silencieusement avec des rôles vides.
 
 Exemple d’entrée :
 
@@ -89,7 +90,10 @@ Les codes de permission possibles sont ceux du référentiel plateforme (ex. `bu
 
 - **Service** : `apps/api/src/modules/roles/default-profiles.service.ts`
   - `getProfilesDefinition()` : charge et parse le JSON.
-  - `applyForClient(clientId)` : pour chaque profil du catalogue, trouve ou crée le `Role`, puis remplace ses `RolePermission` par celles correspondant aux `permissionCodes`.
+  - `applyForClient(clientId)` :
+    1) valide d'abord que toutes les permissions référencées dans le catalogue existent ;
+    2) pour chaque profil, trouve ou crée le `Role` ;
+    3) remplace ses `RolePermission` par celles correspondant aux `permissionCodes`.
 - **Intégration** :
   - `ClientsService.create()` appelle `defaultProfiles.applyForClient(client.id)` après la création du client.
   - Le seed appelle une logique équivalente (en JS) dans `prisma/seed.js` après `upsertModulesAndPermissions()`.

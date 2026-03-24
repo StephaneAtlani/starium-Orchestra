@@ -433,7 +433,7 @@ Rattacher les documents utiles au projet.
 
 Objectif : préparer le futur sans construire tout le module RH/Assets.
 
-### **RFC-RES-001 — Resource Registry Foundations**
+### **RFC-RES-001 — Catalogue de ressources (fondations)**
 
 **Objectif**
 Créer un registre générique de ressources mobilisables.
@@ -441,26 +441,26 @@ Créer un registre générique de ressources mobilisables.
 **Entité**
 `Resource`
 
-**Champs recommandés**
+**Champs MVP livrés**
 
 * `id`
 * `clientId`
 * `name`
 * `code?`
-* `category`
-* `type`
-* `status`
-* `description?`
+* `firstName?`
+* `type` (`HUMAN` / `MATERIAL` / `LICENSE`)
+* `email?`
+* `roleId?`
+* `affiliation?` (`INTERNAL` / `EXTERNAL`)
+* `companyName?`
+* `dailyRate?`
+* `metadata?`
 * `createdAt`
 * `updatedAt`
 
-**Catégories MVP**
+**État**
 
-* `HUMAN_INTERNAL`
-* `HUMAN_EXTERNAL`
-* `SOFTWARE`
-* `HARDWARE`
-* `OTHER`
+✅ Partiellement implémenté (backend + UI catalogue + RBAC module)
 
 **Résultat concret**
 
@@ -765,7 +765,7 @@ Ajouter de l’intelligence opérationnelle.
 13. **RFC-PROJ-007** — Milestones Backend
 14. **RFC-PROJ-010** — Budget Links
 15. **RFC-PROJ-011** — Supplier Links
-16. **RFC-RES-001** — Resource Registry Foundations
+16. **RFC-RES-001** — Catalogue de ressources (fondations)
 17. **RFC-RES-002** — Resource Assignment Backend
 18. **RFC-FE-PROJ-005** — Resources Tab UI
 19. **RFC-FE-PROJ-006** — Budget Links Tab UI
@@ -837,7 +837,7 @@ C’est plus fidèle à ton besoin réel.
 | RFC-PROJ-010    | Budget Links                    | Liens vers module budget                | Haute         | À faire |
 | RFC-PROJ-011    | Supplier Links                  | Liens vers module fournisseur           | Haute         | À faire |
 | RFC-PROJ-012    | Documents & Attachments Links   | Documents liés                          | Moyenne       | À faire |
-| RFC-RES-001     | Resource Registry Foundations   | Registre ressource générique            | Haute         | À faire |
+| RFC-RES-001     | Catalogue de ressources (fondations) | Registre ressources multi-types (module `resources`) | Haute         | Partiellement implémenté (MVP) |
 | RFC-RES-002     | Resource Assignment Backend     | Affectations ressources                 | Haute         | À faire |
 | RFC-RES-003     | Resource Types Metadata         | Métadonnées spécialisées                | Moyenne       | À faire |
 | RFC-FE-PROJ-001 | Portfolio List UI               | Vue portefeuille                        | Haute         | Couvert (MVP) — `/projects` |

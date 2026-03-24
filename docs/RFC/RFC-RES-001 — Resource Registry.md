@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Partiellement implémenté (MVP)
 
 ## Priorité
 
@@ -169,6 +169,7 @@ model Resource {
   clientId    String
 
   name        String
+  firstName   String?
   code        String?
 
   type        ResourceType
@@ -179,21 +180,22 @@ model Resource {
   roleId      String?
   role        ResourceRole? @relation(fields: [roleId], references: [id])
 
-  dailyRate   Decimal? @db.Decimal(10,2)
+  affiliation ResourceAffiliation?
+  companyName String?
+  dailyRate   Decimal? @db.Decimal(12,2)
 
   // MATERIAL / LICENSE
   metadata    Json?
-
-  isActive    Boolean  @default(true)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   client      Client   @relation(fields: [clientId], references: [id])
 
+  @@unique([clientId, email])
+  @@unique([clientId, code])
   @@index([clientId])
   @@index([clientId, type])
-  @@index([clientId, isActive])
 }
 ```
 
@@ -234,10 +236,10 @@ model ResourceRole {
 (clientId, code) unique si code renseigné
 ```
 
-## 7.3 Inactivation
+## 7.3 Inactivation / suppression
 
-* pas de suppression physique
-* `isActive = false`
+* pas de suppression ou désactivation exposée dans l’API MVP actuelle
+* la gestion de cycle de vie (archive/désactivation) reste à livrer
 
 ## 7.4 Coût
 
@@ -322,12 +324,12 @@ MVP : pas de `resources.delete`.
 
 ## 9.2 Matrice des permissions
 
-| Action               | Permission         |
-| -------------------- | ------------------ |
-| GET                  | `resources.read`   |
-| POST                 | `resources.create` |
-| PATCH                | `resources.update` |
-| POST /:id/deactivate | `resources.update` |
+| Action   | Permission         |
+| -------- | ------------------ |
+| GET      | `resources.read`   |
+| GET /:id | `resources.read`   |
+| POST     | `resources.create` |
+| PATCH    | `resources.update` |
 
 ## 9.3 Endpoints protégés
 
@@ -443,10 +445,10 @@ Exemple `MATERIAL` :
 PATCH /api/resources/:id
 ```
 
-### Désactivation
+### Détails
 
 ```http
-POST /api/resources/:id/deactivate
+GET /api/resources/:id
 ```
 
 ## 11.2 Rôles de ressources
@@ -639,4 +641,20 @@ Un module permettant :
 * est **visible dans la sidebar gauche**
 * est **centré sur la valeur projet**
 
-S
+---
+
+## 20. État d’implémentation constaté (2026-03-24)
+
+Livré :
+
+* module backend `resources` + `resource-roles`
+* guards standards (`JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`)
+* permissions `resources.read`, `resources.create`, `resources.update`
+* bootstrap des rôles par défaut (`resources_manager`, `resources_viewer`)
+* pages frontend `/resources`, `/resources/[id]`, `/resources/roles`
+* entrée sidebar “Organisation > Ressources”
+
+Non livré (reste hors scope MVP actuel) :
+
+* endpoint de désactivation (`POST /api/resources/:id/deactivate`)
+* champ métier `isActive` et filtrage associé

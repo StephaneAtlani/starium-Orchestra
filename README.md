@@ -65,6 +65,26 @@ Sans profil, `docker compose up` ne démarre que Postgres.
 
 Variables d’environnement requises pour l’API : `DATABASE_URL`, `JWT_SECRET` (voir `.env.example` pour `JWT_ACCESS_EXPIRATION`, `JWT_REFRESH_EXPIRATION`).
 
+### Développement 100% Docker avec hot reload (stack `docker-compose.dev.yml`)
+
+Cette stack lance `postgres`, `api-dev` (Nest watch) et `web-dev` (Next dev) avec montages de sources.
+
+```bash
+cp .env.example .env
+cp .env.example apps/api/.env
+docker compose -f docker-compose.dev.yml up -d --build
+```
+
+- Web : `http://localhost:3000`
+- API : `http://localhost:3001/api`
+
+Important en dev Docker:
+- Si `apps/api/package.json` ou `apps/api/prisma/schema.prisma` change, redémarrer `api-dev` pour resynchroniser les dépendances et régénérer le client Prisma.
+
+```bash
+docker compose -f docker-compose.dev.yml up -d --force-recreate api-dev
+```
+
 Vérification de l’endpoint health :
 
 ```bash

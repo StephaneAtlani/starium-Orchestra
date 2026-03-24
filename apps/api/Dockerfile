@@ -17,4 +17,4 @@ WORKDIR /app
 COPY --from=builder /app /app
 
 EXPOSE 3001
-CMD ["node", "apps/api/dist/main.js"]
+CMD ["sh", "-c", "pnpm --filter @starium-orchestra/api prisma:migrate && node apps/api/dist/main.js"]

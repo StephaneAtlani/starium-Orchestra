@@ -295,6 +295,14 @@ Lorsqu’un rôle est assigné à un utilisateur :
 Un rôle marqué `isSystem = true` :
 - ne peut pas être supprimé
 - peut éventuellement être protégé sur certaines modifications
+- est créé automatiquement lors de la création d’un client pour le socle RBAC initial :
+  - `Chef de projet`
+  - `Contributeur Budgets`
+  - `Directeur`
+  - `Gestionnaire Procurement`
+  - `Responsable Budgets`
+  - `Resource Manager`
+  - `Resource Viewer`
 
 ---
 

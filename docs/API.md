@@ -342,6 +342,9 @@ Retourne **tous** les clients, **sans pagination**, **sans filtre**, triés par 
 Crée un client **sans** gérer d’administrateur ou de rattachement utilisateur.  
 Le Platform Admin utilise ensuite les autres endpoints (`/api/platform/users`, `/api/clients/:clientId/users`, `/api/users`) pour rattacher des utilisateurs au client.
 
+Le backend applique immédiatement les profils RBAC système du client (via `DefaultProfilesService`).  
+Pré-requis : le référentiel global des permissions doit être présent (seed modules/permissions).
+
 **Headers**
 
 - `Authorization: Bearer <accessToken>`
@@ -375,7 +378,7 @@ curl -s -X POST http://localhost:3001/api/clients \
 }
 ```
 
-**Erreurs :** 400 (validation), 401, 403, 409 (slug déjà pris).
+**Erreurs :** 400 (validation), 401, 403, 409 (slug déjà pris), 500 (permissions globales manquantes pour initialiser les profils RBAC système).
 
 ---
 

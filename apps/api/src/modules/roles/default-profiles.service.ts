@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -34,6 +34,22 @@ export class DefaultProfilesService {
   async applyForClient(clientId: string): Promise<void> {
     const profiles = this.getProfilesDefinition();
     const prisma = this.prisma as any;
+    const allPermissionCodes = Array.from(
+      new Set(profiles.flatMap((profile) => profile.permissionCodes)),
+    );
+    const existingPermissions = await prisma.permission.findMany({
+      where: { code: { in: allPermissionCodes } },
+      select: { id: true, code: true },
+    });
+    const existingCodes = new Set(
+      existingPermissions.map((p: { code: string }) => p.code),
+    );
+    const missingCodes = allPermissionCodes.filter((code) => !existingCodes.has(code));
+    if (missingCodes.length > 0) {
+      throw new InternalServerErrorException(
+        `Permissions globales manquantes pour les profils par defaut: ${missingCodes.join(', ')}. Lancez le seed des modules/permissions.`,
+      );
+    }
 
     for (const profile of profiles) {
       let role = await prisma.role.findFirst({
@@ -50,11 +66,9 @@ export class DefaultProfilesService {
         });
       }
 
-      const permissions = await prisma.permission.findMany({
-        where: { code: { in: profile.permissionCodes } },
-        select: { id: true },
-      });
-      const permissionIds = permissions.map((p: { id: string }) => p.id);
+      const permissionIds = existingPermissions
+        .filter((p: { code: string }) => profile.permissionCodes.includes(p.code))
+        .map((p: { id: string }) => p.id);
 
       const tx: Promise<unknown>[] = [
         prisma.rolePermission.deleteMany({ where: { roleId: role.id } }),

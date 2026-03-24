@@ -158,6 +158,14 @@ Flux simplifié :
    - Si un client existe déjà avec ce `slug` → **ConflictException (409)**.
 2. Créer le **Client** avec `{ name, slug }`.  
 3. Ne pas créer de `User` ni de `ClientUser` ici : le rattachement des utilisateurs au client est géré par les flux dédiés (RFC-008 et endpoints `/api/platform/users`, `/api/clients/:clientId/users`, `/api/users`).
+4. Initialiser automatiquement les rôles système du client :
+   - `Chef de projet`
+   - `Contributeur Budgets`
+   - `Directeur`
+   - `Gestionnaire Procurement`
+   - `Responsable Budgets`
+   - `Resource Manager`
+   - `Resource Viewer`
 
 ---
 
@@ -209,6 +217,14 @@ Réponse : **204 No Content**.
 - Aucun `User` ni `ClientUser` n’est créé dans `POST /clients`.  
 - Le **Platform Admin** (auteur de la requête) **ne devient jamais** automatiquement CLIENT_ADMIN du client créé.  
 - Conflit slug : vérification explicite avant création → **ConflictException (409)** avec message métier clair.
+- Les rôles système ci-dessous sont créés automatiquement à chaque création client (`isSystem = true`) :
+  - `Chef de projet`
+  - `Contributeur Budgets`
+  - `Directeur`
+  - `Gestionnaire Procurement`
+  - `Responsable Budgets`
+  - `Resource Manager`
+  - `Resource Viewer`
 
 ---
 
@@ -339,6 +355,7 @@ ClientsService.create(dto)
 ↓
   1. Vérifier l’unicité du slug
   2. Client.create (name, slug)
+  3. Bootstrap rôles système (7 rôles)
 ↓
 Retour { id, name, slug }
 ```
@@ -386,6 +403,7 @@ Tests à couvrir :
 La fonctionnalité est validée lorsque :
 
 * un Platform Admin peut créer un client (entité Client seule, sans logique d’admin implicite)
+* la création du client initialise automatiquement les 7 rôles système (`Chef de projet`, `Contributeur Budgets`, `Directeur`, `Gestionnaire Procurement`, `Responsable Budgets`, `Resource Manager`, `Resource Viewer`)
 * un client possède un slug unique
 * POST et PATCH retournent strictement { id, name, slug }
 * un Platform Admin peut modifier un client (409 si slug pris par un autre client)

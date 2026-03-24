@@ -460,35 +460,25 @@ Règle clé :
 
 ---
 
-# 14. Décision fonctionnelle recommandée
+# 14. Décision fonctionnelle
 
-Je te recommande de poser **3 rôles système minimum par client** au bootstrap du client :
+À la création d’un client, le backend initialise automatiquement les rôles système (`isSystem = true`) suivants :
 
-### 1. Administrateur client métier
+* `Chef de projet`
+* `Contributeur Budgets`
+* `Directeur`
+* `Gestionnaire Procurement`
+* `Responsable Budgets`
+* `Resource Manager`
+* `Resource Viewer`
 
-Permissions :
+Objectif :
 
-* toutes les permissions des modules activés du client
+* garantir un socle RBAC immédiatement opérationnel
+* éviter toute intervention manuelle post-création pour disposer des rôles standards
+* garder un comportement homogène entre environnements et entre clients
 
-Usage :
-
-* pour le Client Admin qui doit aussi travailler dans l’outil
-
-### 2. Lecteur transverse
-
-Permissions :
-
-* tous les `*.read` des modules activés
-
-### 3. Gestionnaire budgets
-
-Permissions :
-
-* `budgets.read`
-* `budgets.create`
-* `budgets.update`
-
-Ainsi, ton `CLIENT_ADMIN` garde son pouvoir d’administration, mais tu lui donnes aussi, si besoin, un rôle métier standard immédiatement exploitable.
+Précondition d’implémentation : les permissions globales référencées par ces rôles doivent exister dans le référentiel plateforme. En cas d’absence, la création client doit échouer explicitement (pas de création silencieuse de rôles système sans permissions).
 
 ---
 
