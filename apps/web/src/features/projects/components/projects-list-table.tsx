@@ -333,7 +333,7 @@ export function ProjectsListTable({
             <Select
               value={categoryKey}
               onValueChange={(v) =>
-                setFilters({ portfolioCategoryId: v === '__all__' ? undefined : v })
+                setFilters({ portfolioCategoryId: !v || v === '__all__' ? undefined : v })
               }
             >
               <SelectTrigger size="sm" className="h-7 w-full text-xs">
@@ -376,7 +376,10 @@ export function ProjectsListTable({
           </TableHead>
           {/* NATURE */}
           <TableHead className="p-2">
-            <Select value={kindKey} onValueChange={(v) => setFilters({ kind: v === '__all__' ? undefined : v })}>
+            <Select
+              value={kindKey}
+              onValueChange={(v) => setFilters({ kind: !v || v === '__all__' ? undefined : v })}
+            >
               <SelectTrigger size="sm" className="h-7 w-full text-xs">
                 <SelectValue>
                   {kindKey === '__all__' ? 'Toutes' : PROJECT_KIND_LABEL[kindKey] ?? kindKey}
@@ -395,7 +398,7 @@ export function ProjectsListTable({
               value={healthKey}
               onValueChange={(v) =>
                 setFilters({
-                  computedHealth: v === '__all__' ? undefined : (v as 'GREEN' | 'ORANGE' | 'RED'),
+                  computedHealth: !v || v === '__all__' ? undefined : (v as 'GREEN' | 'ORANGE' | 'RED'),
                 })
               }
             >
@@ -422,7 +425,7 @@ export function ProjectsListTable({
           <TableHead className="p-2">
             <Select
               value={statusKey}
-              onValueChange={(v) => setFilters({ status: v === '__all__' ? undefined : v })}
+              onValueChange={(v) => setFilters({ status: !v || v === '__all__' ? undefined : v })}
             >
               <SelectTrigger size="sm" className="h-7 w-full text-xs">
                 <SelectValue>
@@ -443,7 +446,7 @@ export function ProjectsListTable({
           <TableHead className="p-2">
             <Select
               value={myRoleKey}
-              onValueChange={(v) => setFilters({ myRole: v === '__all__' ? undefined : v })}
+              onValueChange={(v) => setFilters({ myRole: !v || v === '__all__' ? undefined : v })}
             >
               <SelectTrigger size="sm" className="h-7 w-full text-xs">
                 <SelectValue>{myRoleKey === '__all__' ? 'Tous rôles' : myRoleKey}</SelectValue>

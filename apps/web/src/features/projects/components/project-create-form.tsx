@@ -448,7 +448,7 @@ export function ProjectCreateForm() {
                 <Label htmlFor="p-portfolio-category">Sous-categorie portefeuille</Label>
                 <Select
                   value={portfolioCategoryId || '__none__'}
-                  onValueChange={(v) => setPortfolioCategoryId(v === '__none__' ? '' : v)}
+                  onValueChange={(v) => setPortfolioCategoryId(v && v !== '__none__' ? v : '')}
                 >
                   <SelectTrigger id="p-portfolio-category" size="sm" className="w-full">
                     <SelectValue placeholder="Selectionner une sous-categorie active" />

@@ -235,7 +235,7 @@ function ProjectDetailTabbedContent({
                   <span className="text-muted-foreground">Type : </span>
                   {activeInlineEdit === 'type' ? (
                     <div className="mt-1 flex items-center gap-1.5">
-                      <Select value={editableType} onValueChange={setEditableType}>
+                      <Select value={editableType} onValueChange={(value) => setEditableType(value ?? '')}>
                         <SelectTrigger className="h-7 w-[180px] text-xs">
                           <SelectValue>{selectedTypeLabel}</SelectValue>
                         </SelectTrigger>
@@ -288,7 +288,7 @@ function ProjectDetailTabbedContent({
                   <span className="text-muted-foreground">Statut : </span>
                   {activeInlineEdit === 'status' ? (
                     <div className="mt-1 flex items-center gap-1.5">
-                      <Select value={editableStatus} onValueChange={setEditableStatus}>
+                      <Select value={editableStatus} onValueChange={(value) => setEditableStatus(value ?? '')}>
                         <SelectTrigger className="h-7 w-[180px] text-xs">
                           <SelectValue>{selectedStatusLabel}</SelectValue>
                         </SelectTrigger>
@@ -360,7 +360,7 @@ function ProjectDetailTabbedContent({
                       <div className="flex items-center gap-1.5">
                         <Select
                           value={editablePortfolioCategoryId}
-                          onValueChange={setEditablePortfolioCategoryId}
+                          onValueChange={(value) => setEditablePortfolioCategoryId(value ?? '')}
                         >
                           <SelectTrigger className="h-7 w-[260px] text-xs">
                             <SelectValue>{selectedCategoryLabel}</SelectValue>
