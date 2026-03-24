@@ -241,7 +241,7 @@ export function EditResourceForm({
           {!identityFromMember ? (
             <div className="space-y-2">
               <Label>Rôle métier</Label>
-              <Select value={roleId} onValueChange={(v) => setRoleId(v)}>
+              <Select value={roleId} onValueChange={(v) => setRoleId(v ?? ROLE_NONE)}>
                 <SelectTrigger id={pid('roleId')}>
                   <SelectValue>
                     {roleId === ROLE_NONE
