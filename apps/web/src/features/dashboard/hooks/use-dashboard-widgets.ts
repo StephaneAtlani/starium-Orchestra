@@ -8,6 +8,7 @@ import {
   defaultDashboardWidgetsConfig,
   type DashboardBudgetKpiKey,
   type DashboardBudgetWidgetScope,
+  type DashboardProjectKpiKey,
   type DashboardWidgetsConfig,
 } from '../types/dashboard-widgets.types';
 
@@ -119,6 +120,48 @@ export function useDashboardWidgets() {
     }));
   }, [persist]);
 
+  const setProjectKpisVisible = useCallback(
+    (visible: boolean) => {
+      persist((prev) => ({
+        ...prev,
+        projectKpis: { ...prev.projectKpis, visible },
+      }));
+    },
+    [persist],
+  );
+
+  const toggleProjectKpi = useCallback(
+    (key: DashboardProjectKpiKey, checked: boolean) => {
+      persist((prev) => {
+        const current = prev.projectKpis.kpis;
+        let next: DashboardProjectKpiKey[];
+        if (checked) {
+          if (current.includes(key)) return prev;
+          next = [...current, key];
+        } else {
+          if (current.length <= 1) return prev;
+          next = current.filter((k) => k !== key);
+        }
+        return {
+          ...prev,
+          projectKpis: { ...prev.projectKpis, kpis: next },
+        };
+      });
+    },
+    [persist],
+  );
+
+  const resetProjectKpisDefaults = useCallback(() => {
+    const base = defaultDashboardWidgetsConfig();
+    persist((prev) => ({
+      ...prev,
+      projectKpis: {
+        ...base.projectKpis,
+        visible: prev.projectKpis.visible,
+      },
+    }));
+  }, [persist]);
+
   return {
     config,
     hydrated,
@@ -128,5 +171,8 @@ export function useDashboardWidgets() {
     resetBudgetKpisDefaults,
     setBudgetScope,
     resetBudgetScope,
+    setProjectKpisVisible,
+    toggleProjectKpi,
+    resetProjectKpisDefaults,
   };
 }

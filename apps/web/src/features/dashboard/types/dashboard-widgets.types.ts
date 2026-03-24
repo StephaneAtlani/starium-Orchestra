@@ -2,7 +2,7 @@
  * Configuration des widgets de la page `/dashboard` — persistée par utilisateur et client actif.
  */
 
-export const DASHBOARD_WIDGETS_VERSION = 2 as const;
+export const DASHBOARD_WIDGETS_VERSION = 3 as const;
 
 /** Périmètre cockpit pour le widget — vide = résolution serveur (exercice / budget actifs). */
 export interface DashboardBudgetWidgetScope {
@@ -49,9 +49,55 @@ export interface DashboardBudgetWidgetConfig {
   scope?: DashboardBudgetWidgetScope;
 }
 
+/** KPIs portefeuille projets (alignés sur `ProjectsPortfolioSummary`). */
+export type DashboardProjectKpiKey =
+  | 'totalProjects'
+  | 'inProgressProjects'
+  | 'completedProjects'
+  | 'lateProjects'
+  | 'criticalProjects'
+  | 'blockedProjects'
+  | 'noRiskProjects'
+  | 'noOwnerProjects'
+  | 'noMilestoneProjects';
+
+export const DASHBOARD_PROJECT_KPI_OPTIONS: {
+  id: DashboardProjectKpiKey;
+  label: string;
+  /** Infobulle si le libellé est raccourci */
+  title?: string;
+}[] = [
+  { id: 'totalProjects', label: 'Projets' },
+  { id: 'inProgressProjects', label: 'En cours' },
+  { id: 'completedProjects', label: 'Terminés' },
+  { id: 'lateProjects', label: 'En retard' },
+  { id: 'criticalProjects', label: 'Critiques' },
+  { id: 'blockedProjects', label: 'Bloqués' },
+  {
+    id: 'noRiskProjects',
+    label: 'Sans étude de risque',
+    title: 'Aucune étude de risque enregistrée',
+  },
+  { id: 'noOwnerProjects', label: 'Sans responsable', title: 'Sans responsable' },
+  { id: 'noMilestoneProjects', label: 'Sans jalons' },
+];
+
+export const DEFAULT_DASHBOARD_PROJECT_KPIS: DashboardProjectKpiKey[] = [
+  'totalProjects',
+  'inProgressProjects',
+  'completedProjects',
+  'lateProjects',
+];
+
+export interface DashboardProjectWidgetConfig {
+  visible: boolean;
+  kpis: DashboardProjectKpiKey[];
+}
+
 export interface DashboardWidgetsConfig {
   version: typeof DASHBOARD_WIDGETS_VERSION;
   budgetKpis: DashboardBudgetWidgetConfig;
+  projectKpis: DashboardProjectWidgetConfig;
 }
 
 export function defaultDashboardWidgetsConfig(): DashboardWidgetsConfig {
@@ -61,6 +107,10 @@ export function defaultDashboardWidgetsConfig(): DashboardWidgetsConfig {
       visible: true,
       kpis: [...DEFAULT_DASHBOARD_BUDGET_KPIS],
       scope: undefined,
+    },
+    projectKpis: {
+      visible: true,
+      kpis: [...DEFAULT_DASHBOARD_PROJECT_KPIS],
     },
   };
 }
@@ -125,7 +175,7 @@ export function mergeDashboardWidgetsConfig(
   if (!raw || typeof raw !== 'object') return base;
   const o = raw as Record<string, unknown>;
   const v = o.version;
-  if (v !== 1 && v !== 2) return base;
+  if (v !== 1 && v !== 2 && v !== 3) return base;
   const bk = o.budgetKpis as Record<string, unknown> | undefined;
   if (!bk || typeof bk !== 'object') return base;
 
@@ -141,10 +191,27 @@ export function mergeDashboardWidgetsConfig(
   }
 
   const scope =
-    v === 2 ? mergeScope(bk.scope) : undefined;
+    v === 2 || v === 3 ? mergeScope(bk.scope) : undefined;
+
+  let projectKpis = base.projectKpis;
+  const pk = o.projectKpis as Record<string, unknown> | undefined;
+  if (pk && typeof pk === 'object') {
+    const pv = pk.visible === false ? false : true;
+    let pkp: DashboardProjectKpiKey[] = [...DEFAULT_DASHBOARD_PROJECT_KPIS];
+    if (Array.isArray(pk.kpis) && pk.kpis.length > 0) {
+      const allowedP = new Set(DASHBOARD_PROJECT_KPI_OPTIONS.map((x) => x.id));
+      const filteredP = pk.kpis.filter(
+        (k): k is DashboardProjectKpiKey =>
+          typeof k === 'string' && allowedP.has(k as DashboardProjectKpiKey),
+      );
+      if (filteredP.length > 0) pkp = filteredP;
+    }
+    projectKpis = { visible: pv, kpis: pkp };
+  }
 
   return {
     version: DASHBOARD_WIDGETS_VERSION,
     budgetKpis: { visible, kpis, scope },
+    projectKpis,
   };
 }

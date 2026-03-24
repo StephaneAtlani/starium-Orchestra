@@ -175,3 +175,9 @@ Le pipeline (GitHub Actions) exécute sur push/PR vers `main` ou `develop` :
 
 - Lint, typecheck, build
 - Déploiement des migrations Prisma sur une base PostgreSQL de test
+
+
+# DEPLOIEMENT :
+pnpm exec prisma generate --schema=prisma/schema.prisma
+pnpm run prisma:seed
+
