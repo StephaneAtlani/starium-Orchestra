@@ -48,6 +48,16 @@ function normalizeFreeIdentityKey(freeLabel: string): string {
 export class ProjectTeamService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private roleLooksLikeSponsor(name: string): boolean {
+    const n = name.trim().toLowerCase();
+    return n === 'sponsor';
+  }
+
+  private roleLooksLikeOwner(name: string): boolean {
+    const n = name.trim().toLowerCase();
+    return n === 'responsable de projet' || n === 'responsable projet';
+  }
+
   private mapMemberRow(m: {
     id: string;
     projectId: string;
@@ -188,6 +198,19 @@ export class ProjectTeamService {
     }
   }
 
+  private canonicalRoleKind(
+    role: { systemKind: ProjectTeamRoleSystemKind | null; name: string },
+  ): ProjectTeamRoleSystemKind | null {
+    if (role.systemKind != null) return role.systemKind;
+    if (this.roleLooksLikeSponsor(role.name)) return ProjectTeamRoleSystemKind.SPONSOR;
+    if (this.roleLooksLikeOwner(role.name)) return ProjectTeamRoleSystemKind.OWNER;
+    return null;
+  }
+
+  private virtualMemberId(projectId: string, kind: ProjectTeamRoleSystemKind): string {
+    return `virtual:${projectId}:${kind.toLowerCase()}`;
+  }
+
   private mapRole(r: {
     id: string;
     clientId: string;
@@ -304,8 +327,24 @@ export class ProjectTeamService {
     clientId: string,
     projectId: string,
   ): Promise<ProjectTeamMemberResponse[]> {
-    await this.getProjectOrThrow(clientId, projectId);
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, clientId },
+      include: {
+        owner: true,
+        sponsor: true,
+      },
+    });
+    if (!project) throw new NotFoundException('Project not found');
     await this.ensureDefaultTeamRolesForClient(clientId);
+    const roles = await this.prisma.projectTeamRole.findMany({
+      where: { clientId },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+    const ownerRole =
+      roles.find((r) => this.canonicalRoleKind(r) === ProjectTeamRoleSystemKind.OWNER) ?? null;
+    const sponsorRole =
+      roles.find((r) => this.canonicalRoleKind(r) === ProjectTeamRoleSystemKind.SPONSOR) ?? null;
+
     const members = await this.prisma.projectTeamMember.findMany({
       where: { clientId, projectId },
       include: {
@@ -314,7 +353,64 @@ export class ProjectTeamService {
       },
       orderBy: [{ role: { sortOrder: 'asc' } }, { createdAt: 'asc' }],
     });
-    return members.map((m) => this.mapMemberRow(m));
+    const filtered = members.filter(
+      (m) => this.canonicalRoleKind(m.role) == null,
+    );
+    const out = filtered.map((m) => this.mapMemberRow(m));
+
+    if (ownerRole) {
+      if (project.ownerUserId && project.owner) {
+        const display =
+          [project.owner.firstName, project.owner.lastName].filter(Boolean).join(' ').trim() ||
+          project.owner.email;
+        out.unshift({
+          id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER),
+          projectId,
+          roleId: ownerRole.id,
+          roleName: ownerRole.name,
+          systemKind: ownerRole.systemKind,
+          memberKind: 'USER',
+          userId: project.ownerUserId,
+          displayName: display,
+          email: project.owner.email,
+          affiliation: null,
+        });
+      } else if (project.ownerFreeLabel?.trim()) {
+        const label = project.ownerFreeLabel.trim();
+        out.unshift({
+          id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER),
+          projectId,
+          roleId: ownerRole.id,
+          roleName: ownerRole.name,
+          systemKind: ownerRole.systemKind,
+          memberKind: 'NAMED',
+          userId: null,
+          displayName: label,
+          email: '',
+          affiliation: project.ownerAffiliation ?? null,
+        });
+      }
+    }
+
+    if (sponsorRole && project.sponsorUserId && project.sponsor) {
+      const display =
+        [project.sponsor.firstName, project.sponsor.lastName].filter(Boolean).join(' ').trim() ||
+        project.sponsor.email;
+      out.unshift({
+        id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.SPONSOR),
+        projectId,
+        roleId: sponsorRole.id,
+        roleName: sponsorRole.name,
+        systemKind: sponsorRole.systemKind,
+        memberKind: 'USER',
+        userId: project.sponsorUserId,
+        displayName: display,
+        email: project.sponsor.email,
+        affiliation: null,
+      });
+    }
+
+    return out;
   }
 
   /**
@@ -354,9 +450,17 @@ export class ProjectTeamService {
     systemKind: ProjectTeamRoleSystemKind,
     userId: string | null,
   ): Promise<void> {
-    const role = await tx.projectTeamRole.findFirst({
-      where: { clientId, systemKind },
+    const roles = await tx.projectTeamRole.findMany({
+      where: { clientId },
+      select: { id: true, systemKind: true, name: true },
     });
+    const role =
+      roles.find((r) => r.systemKind === systemKind) ??
+      roles.find((r) =>
+        systemKind === ProjectTeamRoleSystemKind.SPONSOR
+          ? this.roleLooksLikeSponsor(r.name)
+          : this.roleLooksLikeOwner(r.name),
+      );
     if (!role) return;
 
     await tx.projectTeamMember.deleteMany({
@@ -387,12 +491,16 @@ export class ProjectTeamService {
     projectId: string,
     clientId: string,
   ): Promise<void> {
-    const sponsorRole = await tx.projectTeamRole.findFirst({
-      where: { clientId, systemKind: ProjectTeamRoleSystemKind.SPONSOR },
+    const roles = await tx.projectTeamRole.findMany({
+      where: { clientId },
+      select: { id: true, systemKind: true, name: true },
     });
-    const ownerRole = await tx.projectTeamRole.findFirst({
-      where: { clientId, systemKind: ProjectTeamRoleSystemKind.OWNER },
-    });
+    const sponsorRole =
+      roles.find((r) => r.systemKind === ProjectTeamRoleSystemKind.SPONSOR) ??
+      roles.find((r) => this.roleLooksLikeSponsor(r.name));
+    const ownerRole =
+      roles.find((r) => r.systemKind === ProjectTeamRoleSystemKind.OWNER) ??
+      roles.find((r) => this.roleLooksLikeOwner(r.name));
 
     let sponsorUserId: string | null = null;
     let ownerUserId: string | null = null;
@@ -430,6 +538,7 @@ export class ProjectTeamService {
     if (!role) {
       throw new NotFoundException('Team role not found');
     }
+    const canonical = this.canonicalRoleKind(role);
 
     const userIdTrim = dto.userId?.trim();
     const freeTrim = dto.freeLabel?.trim();
@@ -488,6 +597,81 @@ export class ProjectTeamService {
     }
 
     try {
+      if (canonical === ProjectTeamRoleSystemKind.SPONSOR) {
+        if (!hasUser) {
+          throw new BadRequestException(
+            'Le rôle Sponsor doit être affecté à un utilisateur du client',
+          );
+        }
+        await this.prisma.project.update({
+          where: { id: projectId },
+          data: { sponsorUserId: userIdTrim! },
+        });
+        const user = await this.prisma.user.findUnique({ where: { id: userIdTrim! } });
+        return {
+          id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.SPONSOR),
+          projectId,
+          roleId: role.id,
+          roleName: role.name,
+          systemKind: role.systemKind,
+          memberKind: 'USER',
+          userId: userIdTrim!,
+          displayName:
+            user
+              ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email
+              : userIdTrim!,
+          email: user?.email ?? '',
+          affiliation: null,
+        };
+      }
+      if (canonical === ProjectTeamRoleSystemKind.OWNER) {
+        if (hasUser) {
+          await this.prisma.project.update({
+            where: { id: projectId },
+            data: {
+              ownerUserId: userIdTrim!,
+              ownerFreeLabel: null,
+              ownerAffiliation: null,
+            },
+          });
+          const user = await this.prisma.user.findUnique({ where: { id: userIdTrim! } });
+          return {
+            id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER),
+            projectId,
+            roleId: role.id,
+            roleName: role.name,
+            systemKind: role.systemKind,
+            memberKind: 'USER',
+            userId: userIdTrim!,
+            displayName:
+              user
+                ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email
+                : userIdTrim!,
+            email: user?.email ?? '',
+            affiliation: null,
+          };
+        }
+        await this.prisma.project.update({
+          where: { id: projectId },
+          data: {
+            ownerUserId: null,
+            ownerFreeLabel: freeTrim!.slice(0, 200),
+            ownerAffiliation: dto.affiliation ?? null,
+          },
+        });
+        return {
+          id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER),
+          projectId,
+          roleId: role.id,
+          roleName: role.name,
+          systemKind: role.systemKind,
+          memberKind: 'NAMED',
+          userId: null,
+          displayName: freeTrim!.slice(0, 200),
+          email: '',
+          affiliation: dto.affiliation ?? null,
+        };
+      }
       const member = await this.prisma.$transaction(async (tx) => {
         const created = await tx.projectTeamMember.create({
           data,
@@ -516,6 +700,24 @@ export class ProjectTeamService {
     memberId: string,
   ): Promise<void> {
     await this.getProjectOrThrow(clientId, projectId);
+    if (memberId === this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER)) {
+      await this.prisma.project.update({
+        where: { id: projectId },
+        data: {
+          ownerUserId: null,
+          ownerFreeLabel: null,
+          ownerAffiliation: null,
+        },
+      });
+      return;
+    }
+    if (memberId === this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.SPONSOR)) {
+      await this.prisma.project.update({
+        where: { id: projectId },
+        data: { sponsorUserId: null },
+      });
+      return;
+    }
     const existing = await this.prisma.projectTeamMember.findFirst({
       where: { id: memberId, clientId, projectId },
     });

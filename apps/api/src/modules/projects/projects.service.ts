@@ -44,6 +44,13 @@ const projectIncludeList = {
   risks: true,
   milestones: true,
   owner: { select: { firstName: true, lastName: true, email: true } },
+  teamMembers: {
+    include: {
+      role: { select: { systemKind: true, name: true } },
+      user: { select: { firstName: true, lastName: true, email: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+  },
   tagAssignments: {
     include: {
       tag: {
@@ -134,6 +141,20 @@ export class ProjectsService {
         lastName: string | null;
         email: string;
       } | null;
+      teamMembers: Array<{
+        userId: string | null;
+        freeLabel: string | null;
+        affiliation: ProjectTeamMemberAffiliation | null;
+        role: {
+          systemKind: ProjectTeamRoleSystemKind | null;
+          name: string;
+        };
+        user: {
+          firstName: string | null;
+          lastName: string | null;
+          email: string;
+        } | null;
+      }>;
     },
   ): string | null {
     if (project.ownerUserId) {
@@ -147,7 +168,24 @@ export class ProjectsService {
     if (project.ownerAffiliation === 'INTERNAL') {
       return `${label} · Interne`;
     }
-    return label;
+    if (label) return label;
+
+    // Filet de sécurité: certains projets legacy ont un responsable porté par l'équipe
+    // sans synchronisation sur Project.ownerUserId / ownerFreeLabel.
+    const ownerMember = project.teamMembers.find((member) => {
+      if (member.role.systemKind === ProjectTeamRoleSystemKind.OWNER) return true;
+      const roleName = member.role.name.trim().toLowerCase();
+      return roleName === 'responsable de projet' || roleName === 'responsable projet';
+    });
+    if (!ownerMember) return null;
+    if (ownerMember.user && ownerMember.userId) {
+      return this.ownerDisplayName(ownerMember.user);
+    }
+    const free = ownerMember.freeLabel?.trim();
+    if (!free) return null;
+    if (ownerMember.affiliation === 'EXTERNAL') return `${free} · Externe`;
+    if (ownerMember.affiliation === 'INTERNAL') return `${free} · Interne`;
+    return free;
   }
 
   private toListItem(
@@ -160,11 +198,26 @@ export class ProjectsService {
         lastName: string | null;
         email: string;
       } | null;
+      teamMembers: Array<{
+        userId: string | null;
+        freeLabel: string | null;
+        affiliation: ProjectTeamMemberAffiliation | null;
+        role: {
+          systemKind: ProjectTeamRoleSystemKind | null;
+          name: string;
+        };
+        user: {
+          firstName: string | null;
+          lastName: string | null;
+          email: string;
+        } | null;
+      }>;
       tagAssignments: Array<{
         tag: { id: string; name: string; color: string | null };
       }>;
     },
   ): ProjectListItemDto {
+    const ownerDisplayName = this.ownerDisplayResolved(project);
     const health = this.pilotage.computedHealth(
       project,
       project.tasks,
@@ -178,7 +231,12 @@ export class ProjectsService {
       project.milestones,
       health,
     );
-    const warnings = this.pilotage.buildWarnings(signals);
+    // Source de vérité UI: si un responsable est affichable, on ne doit jamais lever NO_OWNER.
+    const normalizedSignals = {
+      ...signals,
+      hasNoOwner: ownerDisplayName == null,
+    };
+    const warnings = this.pilotage.buildWarnings(normalizedSignals);
     return {
       id: project.id,
       code: project.code,
@@ -193,13 +251,13 @@ export class ProjectsService {
       computedHealth: health,
       targetEndDate: project.targetEndDate?.toISOString() ?? null,
       ownerUserId: project.ownerUserId,
-      ownerDisplayName: this.ownerDisplayResolved(project),
+      ownerDisplayName,
       openTasksCount: this.pilotage.openTasksCount(project.tasks),
       openRisksCount: this.pilotage.openRisksCount(project.risks),
       delayedMilestonesCount: this.pilotage.delayedMilestonesCount(
         project.milestones,
       ),
-      signals,
+      signals: normalizedSignals,
       warnings,
       tags: project.tagAssignments.map((assignment) => ({
         id: assignment.tag.id,

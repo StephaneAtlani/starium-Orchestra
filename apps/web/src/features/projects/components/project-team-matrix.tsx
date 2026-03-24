@@ -43,14 +43,7 @@ import { useProjectTeamQuery, useProjectTeamRolesQuery } from '../hooks/use-proj
 import type {
   ProjectTeamMemberApi,
   ProjectTeamRoleApi,
-  ProjectTeamRoleSystemKind,
 } from '../types/project.types';
-
-/** Aligné sur `ProjectTeamRoleSystemKind` — une ligne par rôle système (sync sponsor / responsable). */
-const SYSTEM_ROLE_BADGE: Record<ProjectTeamRoleSystemKind, string> = {
-  SPONSOR: 'Sponsor — synchronisé portefeuille',
-  OWNER: 'Responsable projet — synchronisé portefeuille',
-};
 
 function membersByRole(
   members: ProjectTeamMemberApi[],
@@ -296,11 +289,6 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                           <span className="font-medium leading-snug text-foreground">
                             {role.name}
                           </span>
-                          {role.systemKind ? (
-                            <Badge variant="secondary" className="w-fit max-w-full text-left text-[10px] font-normal leading-snug">
-                              {SYSTEM_ROLE_BADGE[role.systemKind]}
-                            </Badge>
-                          ) : null}
                         </div>
                         {canEdit ? (
                           <Button
