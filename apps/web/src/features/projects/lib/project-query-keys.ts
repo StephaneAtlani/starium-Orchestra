@@ -9,6 +9,10 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'list', clientId, params] as const,
   detail: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'detail', clientId, projectId] as const,
+  optionsTags: (clientId: string) =>
+    [...projectQueryKeys.all, 'options-tags', clientId] as const,
+  projectTags: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'project-tags', clientId, projectId] as const,
   sheet: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'sheet', clientId, projectId] as const,
   tasks: (clientId: string, projectId: string) =>

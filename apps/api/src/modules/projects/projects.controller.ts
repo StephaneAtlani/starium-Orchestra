@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -26,6 +27,9 @@ import { ProjectTeamService } from './project-team.service';
 import { CreateProjectTeamRoleDto } from './dto/create-project-team-role.dto';
 import { UpdateProjectTeamRoleDto } from './dto/update-project-team-role.dto';
 import { AddProjectTeamMemberDto } from './dto/add-project-team-member.dto';
+import { CreateProjectTagDto } from './dto/create-project-tag.dto';
+import { UpdateProjectTagDto } from './dto/update-project-tag.dto';
+import { ReplaceProjectTagsDto } from './dto/replace-project-tags.dto';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -60,6 +64,49 @@ export class ProjectsController {
     @Query() query: ListProjectsQueryDto,
   ) {
     return this.projectsService.list(clientId!, query);
+  }
+
+  @Get('options/tags')
+  @RequirePermissions('projects.read')
+  listProjectTags(@ActiveClientId() clientId: string | undefined) {
+    return this.projectsService.listTags(clientId!);
+  }
+
+  @Post('options/tags')
+  @RequirePermissions('projects.update')
+  createProjectTag(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: CreateProjectTagDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectsService.createTag(clientId!, dto, context);
+  }
+
+  @Patch('options/tags/:tagId')
+  @RequirePermissions('projects.update')
+  updateProjectTag(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('tagId') tagId: string,
+    @Body() dto: UpdateProjectTagDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectsService.updateTag(clientId!, tagId, dto, context);
+  }
+
+  @Delete('options/tags/:tagId')
+  @RequirePermissions('projects.update')
+  deleteProjectTag(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('tagId') tagId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectsService.deleteTag(clientId!, tagId, context);
   }
 
   @Post()
@@ -115,6 +162,28 @@ export class ProjectsController {
     @Param('projectId') projectId: string,
   ) {
     return this.projectTeamService.getTeam(clientId!, projectId);
+  }
+
+  @Get(':id/tags')
+  @RequirePermissions('projects.read')
+  getProjectTags(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.projectsService.getProjectTags(clientId!, id);
+  }
+
+  @Put(':id/tags')
+  @RequirePermissions('projects.update')
+  replaceProjectTags(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: ReplaceProjectTagsDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectsService.replaceProjectTags(clientId!, id, dto, context);
   }
 
   @Post(':projectId/team')

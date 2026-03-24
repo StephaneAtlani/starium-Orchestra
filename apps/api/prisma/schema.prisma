@@ -107,6 +107,8 @@ model Client {
   projectReviewDecisions        ProjectReviewDecision[]
   projectReviewActionItems      ProjectReviewActionItem[]
   projectActivities             ProjectActivity[]
+  projectTags                   ProjectTag[]
+  projectTagAssignments         ProjectTagAssignment[]
   budgetLinePlanningMonths   BudgetLinePlanningMonth[]
   budgetLinePlanningScenarios BudgetLinePlanningScenario[]
   resourceRoles                 ResourceRole[]
@@ -598,6 +600,7 @@ model Project {
   activities  ProjectActivity[]
   budgetLinks ProjectBudgetLink[]
   teamMembers ProjectTeamMember[]
+  tagAssignments ProjectTagAssignment[]
   sheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
   projectReviews         ProjectReview[]
   projectReviewActionItems ProjectReviewActionItem[]
@@ -607,6 +610,38 @@ model Project {
   @@index([clientId, status])
   @@index([clientId, kind])
   @@index([targetEndDate])
+}
+
+model ProjectTag {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client      Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignments ProjectTagAssignment[]
+
+  @@unique([clientId, name])
+  @@index([clientId])
+}
+
+model ProjectTagAssignment {
+  id        String   @id @default(cuid())
+  clientId  String
+  projectId String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  client  Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tag     ProjectTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, tagId])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([tagId])
 }
 
 /// Historique des décisions — snapshot de fiche projet au passage d’un niveau d’arbitrage à VALIDE.

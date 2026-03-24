@@ -18,6 +18,7 @@ import type {
   ProjectsPortfolioSummary,
   ProjectSheetDecisionSnapshotDetail,
   ProjectSheetDecisionSnapshotListResponse,
+  ProjectTag,
   UpdateProjectSheetPayload,
 } from '../types/project.types';
 
@@ -80,6 +81,67 @@ export async function getProject(
   const res = await authFetch(`${BASE}/${id}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectDetail>;
+}
+
+export async function listProjectTags(authFetch: AuthFetch): Promise<ProjectTag[]> {
+  const res = await authFetch(`${BASE}/options/tags`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTag[]>;
+}
+
+export async function createProjectTag(
+  authFetch: AuthFetch,
+  body: { name: string; color?: string },
+): Promise<ProjectTag> {
+  const res = await authFetch(`${BASE}/options/tags`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTag>;
+}
+
+export async function updateProjectTag(
+  authFetch: AuthFetch,
+  tagId: string,
+  body: { name?: string; color?: string },
+): Promise<ProjectTag> {
+  const res = await authFetch(`${BASE}/options/tags/${tagId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTag>;
+}
+
+export async function deleteProjectTag(authFetch: AuthFetch, tagId: string): Promise<void> {
+  const res = await authFetch(`${BASE}/options/tags/${tagId}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseApiFormError(res);
+}
+
+export async function getProjectTags(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectTag[]> {
+  const res = await authFetch(`${BASE}/${projectId}/tags`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTag[]>;
+}
+
+export async function replaceProjectTags(
+  authFetch: AuthFetch,
+  projectId: string,
+  tagIds: string[],
+): Promise<ProjectTag[]> {
+  const res = await authFetch(`${BASE}/${projectId}/tags`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tagIds }),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTag[]>;
 }
 
 export async function createProject(

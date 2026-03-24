@@ -37,6 +37,15 @@ function formatDate(iso: string | null) {
 
 const th = 'text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground';
 
+function tagBadgeStyle(color: string | null | undefined) {
+  const background = color ?? '#64748B';
+  return {
+    backgroundColor: background,
+    borderColor: background,
+    color: '#FFFFFF',
+  } as const;
+}
+
 function HeaderTip({
   children,
   tip,
@@ -160,6 +169,11 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
               Signaux
             </HeaderTip>
           </TableHead>
+          <TableHead className={cn(th, 'min-w-[10rem] pr-4')}>
+            <HeaderTip tip="Etiquettes associees au projet.">
+              Etiquettes
+            </HeaderTip>
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -248,6 +262,24 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
               <div className="max-w-[18rem]">
                 <ProjectPortfolioBadges signals={p.signals} />
               </div>
+            </TableCell>
+            <TableCell className="align-top py-3 pr-4">
+              {(p.tags ?? []).length > 0 ? (
+                <div className="flex max-w-[18rem] flex-wrap gap-1">
+                  {(p.tags ?? []).map((tag) => (
+                    <Badge
+                      key={tag.id}
+                      variant="secondary"
+                      className="text-[0.65rem]"
+                      style={tagBadgeStyle(tag.color)}
+                    >
+                      {tag.name}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
             </TableCell>
           </TableRow>
         ))}

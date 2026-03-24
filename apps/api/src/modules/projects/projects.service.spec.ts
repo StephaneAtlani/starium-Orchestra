@@ -64,6 +64,7 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       risks: [],
       milestones: [],
       owner: null,
+      tagAssignments: [],
     };
   }
 
@@ -76,6 +77,20 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
+      projectTag: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+        count: jest.fn(),
+      },
+      projectTagAssignment: {
+        findMany: jest.fn(),
+        deleteMany: jest.fn(),
+        createMany: jest.fn(),
+      },
+      $transaction: jest.fn(async (callback) => callback(prisma)),
       clientUser: { findFirst: jest.fn(), findMany: jest.fn() },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
@@ -358,6 +373,71 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
         service.update(clientId, projectId, { name: 'x' }),
       ).rejects.toThrow(NotFoundException);
       expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('project tags', () => {
+    it('replaceProjectTags refuse un tag hors client', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId, clientId });
+      prisma.projectTag.count.mockResolvedValue(1);
+
+      await expect(
+        service.replaceProjectTags(
+          clientId,
+          projectId,
+          { tagIds: ['tag-1', 'tag-2'] },
+          { actorUserId: 'u1', meta: {} },
+        ),
+      ).rejects.toThrow('One or more tags do not belong to the active client');
+    });
+
+    it('replaceProjectTags est idempotent et audit les tags finaux', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId, clientId });
+      prisma.projectTag.count.mockResolvedValue(2);
+      prisma.projectTagAssignment.findMany.mockResolvedValue([
+        { tag: { id: 't1', name: 'Ops', color: null } },
+        { tag: { id: 't2', name: 'Finance', color: '#111111' } },
+      ]);
+
+      const result = await service.replaceProjectTags(
+        clientId,
+        projectId,
+        { tagIds: ['t1', 't2', 't1'] },
+        { actorUserId: 'u1', meta: {} },
+      );
+
+      expect(prisma.projectTagAssignment.createMany).toHaveBeenCalledWith({
+        data: [
+          { clientId, projectId, tagId: 't1' },
+          { clientId, projectId, tagId: 't2' },
+        ],
+      });
+      expect(result).toHaveLength(2);
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'project_tag.assignment.updated',
+          resourceType: 'project',
+          resourceId: projectId,
+          newValue: { tagIds: ['t1', 't2'] },
+        }),
+      );
+    });
+
+    it('deleteTag supprime assignations + tag dans une transaction', async () => {
+      prisma.projectTag.findFirst.mockResolvedValue({
+        id: 'tag-1',
+        name: 'Legacy',
+        color: null,
+      });
+
+      await service.deleteTag(clientId, 'tag-1', { actorUserId: 'u1', meta: {} });
+
+      expect(prisma.projectTagAssignment.deleteMany).toHaveBeenCalledWith({
+        where: { clientId, tagId: 'tag-1' },
+      });
+      expect(prisma.projectTag.delete).toHaveBeenCalledWith({
+        where: { id: 'tag-1' },
+      });
     });
   });
 });

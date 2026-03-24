@@ -1,11 +1,19 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -34,6 +42,23 @@ import { ProjectBudgetSection } from './project-budget-section';
 import { ProjectReviewsTab } from './project-reviews-tab';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
 import type { ProjectDetail } from '../types/project.types';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  listProjectTags,
+  replaceProjectTags,
+} from '../api/projects.api';
+import { projectQueryKeys } from '../lib/project-query-keys';
+
+function tagBadgeStyle(color: string | null | undefined) {
+  const background = color ?? '#64748B';
+  return {
+    backgroundColor: background,
+    borderColor: background,
+    color: '#FFFFFF',
+  } as const;
+}
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -53,6 +78,49 @@ function ProjectDetailTabbedContent({
   project: ProjectDetail;
   risks: ReturnType<typeof useProjectRisksQuery>;
 }) {
+  const authFetch = useAuthenticatedFetch();
+  const queryClient = useQueryClient();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [tagToAdd, setTagToAdd] = useState<string>('');
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  useEffect(() => {
+    setSelectedTagIds(project.tags.map((tag) => tag.id));
+  }, [project.tags]);
+
+  const optionsTagsQuery = useQuery({
+    queryKey: projectQueryKeys.optionsTags(clientId),
+    queryFn: () => listProjectTags(authFetch),
+    enabled: Boolean(clientId),
+  });
+
+  const replaceTagsMutation = useMutation({
+    mutationFn: (tagIds: string[]) => replaceProjectTags(authFetch, projectId, tagIds),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: projectQueryKeys.detail(clientId, projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: projectQueryKeys.list(clientId, {}),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: projectQueryKeys.projectTags(clientId, projectId),
+        }),
+      ]);
+    },
+  });
+
+  const availableTags = (optionsTagsQuery.data ?? []).filter(
+    (tag) => !selectedTagIds.includes(tag.id),
+  );
+
+  const saveTags = (nextTagIds: string[]) => {
+    setSelectedTagIds(nextTagIds);
+    replaceTagsMutation.mutate(nextTagIds);
+  };
+
   const searchParams = useSearchParams();
   const showPoints = searchParams.get('tab') === 'points';
 
@@ -123,6 +191,69 @@ function ProjectDetailTabbedContent({
                 <div className="min-w-0">
                   <span className="text-muted-foreground">Responsable projet / activité : </span>
                   {project.ownerDisplayName ?? '—'}
+                </div>
+                <div className="sm:col-span-2 border-t pt-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-muted-foreground">Etiquettes :</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => setShowTagPicker((prev) => !prev)}
+                      title="Ajouter une etiquette"
+                    >
+                      +
+                    </Button>
+                    {showTagPicker ? (
+                      <Select
+                        value={tagToAdd}
+                        onValueChange={(value) => {
+                          if (!value) return;
+                          setTagToAdd('');
+                          if (selectedTagIds.includes(value)) return;
+                          saveTags([...selectedTagIds, value]);
+                          setShowTagPicker(false);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-[220px]">
+                          <SelectValue placeholder="Ajouter une etiquette" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableTags.length === 0 ? (
+                            <SelectItem value="__none__" disabled>
+                              Aucune etiquette disponible
+                            </SelectItem>
+                          ) : (
+                            availableTags.map((tag) => (
+                              <SelectItem key={tag.id} value={tag.id}>
+                                {tag.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    ) : project.tags.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">Ajouter une etiquette</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {project.tags.map((tag) => (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() =>
+                              saveTags(selectedTagIds.filter((id) => id !== tag.id))
+                            }
+                            title="Retirer cette etiquette"
+                          >
+                            <Badge variant="secondary" style={tagBadgeStyle(tag.color)}>
+                              {tag.name} ×
+                            </Badge>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {project.pilotNotes && (
                   <p className="sm:col-span-2 mt-1 whitespace-pre-wrap border-t pt-3 text-muted-foreground">

@@ -55,6 +55,7 @@ export type ProjectListItem = {
   delayedMilestonesCount: number;
   signals: ProjectSignals;
   warnings: string[];
+  tags: ProjectTag[];
 };
 
 export type ProjectsListResponse = {
@@ -85,6 +86,12 @@ export type ProjectDetail = ProjectListItem & {
   pilotNotes: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ProjectTag = {
+  id: string;
+  name: string;
+  color: string | null;
 };
 
 /** Liste paginée RFC-PROJ-011 */

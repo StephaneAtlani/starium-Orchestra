@@ -29,6 +29,9 @@ import {
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects.query.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { CreateProjectTagDto } from './dto/create-project-tag.dto';
+import { UpdateProjectTagDto } from './dto/update-project-tag.dto';
+import { ReplaceProjectTagsDto } from './dto/replace-project-tags.dto';
 import {
   ProjectsPilotageService,
   derivedProgressPercentFromTasks,
@@ -41,7 +44,21 @@ const projectIncludeList = {
   risks: true,
   milestones: true,
   owner: { select: { firstName: true, lastName: true, email: true } },
+  tagAssignments: {
+    include: {
+      tag: {
+        select: { id: true, name: true, color: true },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  },
 } as const;
+
+export type ProjectTagItemDto = {
+  id: string;
+  name: string;
+  color: string | null;
+};
 
 export type ProjectListItemDto = {
   id: string;
@@ -63,6 +80,7 @@ export type ProjectListItemDto = {
   delayedMilestonesCount: number;
   signals: ReturnType<ProjectsPilotageService['buildSignals']>;
   warnings: ReturnType<ProjectsPilotageService['buildWarnings']>;
+  tags: ProjectTagItemDto[];
 };
 
 export type ProjectsPortfolioSummaryDto = {
@@ -142,6 +160,9 @@ export class ProjectsService {
         lastName: string | null;
         email: string;
       } | null;
+      tagAssignments: Array<{
+        tag: { id: string; name: string; color: string | null };
+      }>;
     },
   ): ProjectListItemDto {
     const health = this.pilotage.computedHealth(
@@ -180,6 +201,11 @@ export class ProjectsService {
       ),
       signals,
       warnings,
+      tags: project.tagAssignments.map((assignment) => ({
+        id: assignment.tag.id,
+        name: assignment.tag.name,
+        color: assignment.tag.color,
+      })),
     };
   }
 
@@ -719,6 +745,180 @@ export class ProjectsService {
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     });
+  }
+
+  async listTags(clientId: string): Promise<ProjectTagItemDto[]> {
+    const rows = await this.prisma.projectTag.findMany({
+      where: { clientId },
+      orderBy: [{ name: 'asc' }],
+      select: { id: true, name: true, color: true },
+    });
+    return rows;
+  }
+
+  async createTag(
+    clientId: string,
+    dto: CreateProjectTagDto,
+    context?: AuditContext,
+  ): Promise<ProjectTagItemDto> {
+    const name = dto.name.trim();
+    const existing = await this.prisma.projectTag.findFirst({
+      where: { clientId, name: { equals: name, mode: 'insensitive' } },
+    });
+    if (existing) {
+      throw new ConflictException('Tag name already exists for this client');
+    }
+    const created = await this.prisma.projectTag.create({
+      data: { clientId, name, color: dto.color ?? null },
+      select: { id: true, name: true, color: true },
+    });
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: 'project_tag.created',
+      resourceType: 'project_tag',
+      resourceId: created.id,
+      newValue: created,
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+    return created;
+  }
+
+  async updateTag(
+    clientId: string,
+    tagId: string,
+    dto: UpdateProjectTagDto,
+    context?: AuditContext,
+  ): Promise<ProjectTagItemDto> {
+    const existing = await this.prisma.projectTag.findFirst({
+      where: { id: tagId, clientId },
+      select: { id: true, name: true, color: true },
+    });
+    if (!existing) throw new NotFoundException('Project tag not found');
+
+    const data: Prisma.ProjectTagUpdateInput = {};
+    if (dto.name !== undefined) {
+      const name = dto.name.trim();
+      const clash = await this.prisma.projectTag.findFirst({
+        where: {
+          clientId,
+          id: { not: tagId },
+          name: { equals: name, mode: 'insensitive' },
+        },
+      });
+      if (clash) {
+        throw new ConflictException('Tag name already exists for this client');
+      }
+      data.name = name;
+    }
+    if (dto.color !== undefined) data.color = dto.color;
+
+    const updated = await this.prisma.projectTag.update({
+      where: { id: tagId },
+      data,
+      select: { id: true, name: true, color: true },
+    });
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: 'project_tag.updated',
+      resourceType: 'project_tag',
+      resourceId: updated.id,
+      oldValue: existing,
+      newValue: updated,
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+    return updated;
+  }
+
+  async deleteTag(clientId: string, tagId: string, context?: AuditContext): Promise<void> {
+    const existing = await this.prisma.projectTag.findFirst({
+      where: { id: tagId, clientId },
+      select: { id: true, name: true, color: true },
+    });
+    if (!existing) throw new NotFoundException('Project tag not found');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectTagAssignment.deleteMany({
+        where: { clientId, tagId },
+      });
+      await tx.projectTag.delete({
+        where: { id: tagId },
+      });
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: 'project_tag.deleted',
+      resourceType: 'project_tag',
+      resourceId: existing.id,
+      oldValue: existing,
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+  }
+
+  async getProjectTags(clientId: string, projectId: string): Promise<ProjectTagItemDto[]> {
+    await this.getProjectForScope(clientId, projectId);
+    const rows = await this.prisma.projectTagAssignment.findMany({
+      where: { clientId, projectId },
+      include: { tag: { select: { id: true, name: true, color: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => row.tag);
+  }
+
+  async replaceProjectTags(
+    clientId: string,
+    projectId: string,
+    dto: ReplaceProjectTagsDto,
+    context?: AuditContext,
+  ): Promise<ProjectTagItemDto[]> {
+    await this.getProjectForScope(clientId, projectId);
+    const tagIds = Array.from(new Set(dto.tagIds));
+    if (tagIds.length > 0) {
+      const validTags = await this.prisma.projectTag.count({
+        where: { clientId, id: { in: tagIds } },
+      });
+      if (validTags !== tagIds.length) {
+        throw new BadRequestException('One or more tags do not belong to the active client');
+      }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectTagAssignment.deleteMany({
+        where: { clientId, projectId },
+      });
+      if (tagIds.length > 0) {
+        await tx.projectTagAssignment.createMany({
+          data: tagIds.map((tagId) => ({
+            clientId,
+            projectId,
+            tagId,
+          })),
+        });
+      }
+    });
+
+    const tags = await this.getProjectTags(clientId, projectId);
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: 'project_tag.assignment.updated',
+      resourceType: 'project',
+      resourceId: projectId,
+      newValue: { tagIds: tags.map((tag) => tag.id) },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+    return tags;
   }
 
   async getProjectForScope(clientId: string, projectId: string) {
