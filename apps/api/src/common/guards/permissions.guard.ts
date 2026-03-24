@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { RoleScope } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
 import { RequestWithClient } from '../types/request-with-client';
@@ -88,7 +89,12 @@ export class PermissionsGuard implements CanActivate {
     const userRoles = await prisma.userRole.findMany({
       where: {
         userId,
-        role: { clientId },
+        role: {
+          OR: [
+            { scope: RoleScope.CLIENT, clientId },
+            { scope: RoleScope.GLOBAL },
+          ],
+        },
       },
       include: {
         role: {

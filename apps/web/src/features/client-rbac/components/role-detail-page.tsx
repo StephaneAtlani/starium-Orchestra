@@ -79,9 +79,6 @@ export function RoleDetailPage() {
             {role.scope === 'GLOBAL' && (
               <Badge variant="secondary">Global</Badge>
             )}
-            {role.isInherited && (
-              <Badge variant="outline">Hérité</Badge>
-            )}
             <Link href="/client/roles" className={buttonVariants({ variant: 'outline' })}>
               Retour à la liste
             </Link>

@@ -6,7 +6,7 @@ import {
   StreamableFile,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ClientUserStatus } from '@prisma/client';
+import { ClientUserStatus, RoleScope } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SecurityLogsService } from '../security-logs/security-logs.service';
@@ -71,7 +71,12 @@ export class MeService {
     const userRoles = await this.prisma.userRole.findMany({
       where: {
         userId,
-        role: { clientId },
+        role: {
+          OR: [
+            { scope: RoleScope.CLIENT, clientId },
+            { scope: RoleScope.GLOBAL },
+          ],
+        },
       },
       include: {
         role: {

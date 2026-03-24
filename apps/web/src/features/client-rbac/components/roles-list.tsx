@@ -151,11 +151,6 @@ export function RolesList() {
                             Global
                           </Badge>
                         )}
-                        {role.isInherited && (
-                          <Badge variant="outline" className="ml-2">
-                            Hérité
-                          </Badge>
-                        )}
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-muted-foreground">
                         {role.description ?? '—'}
