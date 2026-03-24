@@ -20,6 +20,14 @@ export type UpdateMyProfilePayload = {
   office?: string | null;
 };
 
+export interface MeDefaultEmailIdentity {
+  id: string;
+  email: string;
+  displayName: string | null;
+  isVerified: boolean;
+  isActive: boolean;
+}
+
 export interface MeClient {
   id: string;
   name: string;
@@ -28,6 +36,159 @@ export interface MeClient {
   role: 'CLIENT_ADMIN' | 'CLIENT_USER';
   status: 'ACTIVE' | 'SUSPENDED' | 'INVITED';
   isDefault: boolean;
+  defaultEmailIdentityId: string | null;
+  defaultEmailIdentity: MeDefaultEmailIdentity | null;
+}
+
+export interface MeEmailIdentity {
+  id: string;
+  email: string;
+  displayName: string | null;
+  replyToEmail: string | null;
+  isVerified: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateEmailIdentityPayload = {
+  email: string;
+  displayName?: string | null;
+  replyToEmail?: string | null;
+};
+
+export type UpdateEmailIdentityPayload = {
+  email?: string;
+  displayName?: string | null;
+  replyToEmail?: string | null;
+  isActive?: boolean;
+};
+
+async function readApiErrorMessage(res: Response): Promise<string> {
+  const text = await res.text().catch(() => '');
+  let parsed: { message?: string | string[] } = {};
+  try {
+    if (text) parsed = JSON.parse(text) as { message?: string | string[] };
+  } catch {
+    // corps texte brut (ex. Express « Cannot GET … »)
+  }
+  const msg = Array.isArray(parsed.message)
+    ? parsed.message.join(', ')
+    : parsed.message;
+  if (msg) return msg;
+  const plain = text.trim();
+  if (plain && plain.length < 500) {
+    if (
+      res.status === 404 &&
+      (plain.includes('Cannot GET') || plain.includes('Cannot POST'))
+    ) {
+      return `${plain} — Route absente sur l’API en cours : redémarrer le serveur NestJS après mise à jour, ou vérifier INTERNAL_API_URL / le conteneur « api » (Docker).`;
+    }
+    return plain;
+  }
+  return res.statusText || 'Erreur';
+}
+
+/** GET /me/email-identities */
+export async function getEmailIdentities(
+  authenticatedFetch: (
+    input: RequestInfo,
+    init?: RequestInit,
+  ) => Promise<Response>,
+): Promise<MeEmailIdentity[]> {
+  const res = await authenticatedFetch('/api/me/email-identities');
+  if (!res.ok) {
+    throw new Error(await readApiErrorMessage(res));
+  }
+  return (await res.json()) as MeEmailIdentity[];
+}
+
+/** POST /me/email-identities */
+export async function createEmailIdentity(
+  authenticatedFetch: (
+    input: RequestInfo,
+    init?: RequestInit,
+  ) => Promise<Response>,
+  body: CreateEmailIdentityPayload,
+): Promise<MeEmailIdentity> {
+  const res = await authenticatedFetch('/api/me/email-identities', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiErrorMessage(res));
+  }
+  return (await res.json()) as MeEmailIdentity;
+}
+
+/** PATCH /me/email-identities/:id */
+export async function updateEmailIdentity(
+  authenticatedFetch: (
+    input: RequestInfo,
+    init?: RequestInit,
+  ) => Promise<Response>,
+  identityId: string,
+  body: UpdateEmailIdentityPayload,
+): Promise<MeEmailIdentity> {
+  const res = await authenticatedFetch(
+    `/api/me/email-identities/${encodeURIComponent(identityId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(await readApiErrorMessage(res));
+  }
+  return (await res.json()) as MeEmailIdentity;
+}
+
+/** DELETE /me/email-identities/:id */
+export async function deleteEmailIdentity(
+  authenticatedFetch: (
+    input: RequestInfo,
+    init?: RequestInit,
+  ) => Promise<Response>,
+  identityId: string,
+): Promise<void> {
+  const res = await authenticatedFetch(
+    `/api/me/email-identities/${encodeURIComponent(identityId)}`,
+    { method: 'DELETE' },
+  );
+  if (!res.ok) {
+    throw new Error(await readApiErrorMessage(res));
+  }
+}
+
+export interface SetDefaultEmailIdentityResult {
+  success: true;
+  clientId: string;
+  defaultEmailIdentityId: string;
+}
+
+/** PATCH /me/clients/:clientId/default-email-identity */
+export async function setDefaultEmailIdentityForClient(
+  authenticatedFetch: (
+    input: RequestInfo,
+    init?: RequestInit,
+  ) => Promise<Response>,
+  clientId: string,
+  emailIdentityId: string,
+): Promise<SetDefaultEmailIdentityResult> {
+  const res = await authenticatedFetch(
+    `/api/me/clients/${encodeURIComponent(clientId)}/default-email-identity`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emailIdentityId }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(await readApiErrorMessage(res));
+  }
+  return (await res.json()) as SetDefaultEmailIdentityResult;
 }
 
 export async function getMe(accessToken: string): Promise<MeProfile> {

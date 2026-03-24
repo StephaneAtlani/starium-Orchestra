@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ClientUserRole, ClientUserStatus } from '@prisma/client';
 import { MeService } from './me.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -25,12 +30,21 @@ describe('MeService', () => {
     prisma = {
       user: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
+      },
+      userEmailIdentity: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
       },
       clientUser: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         updateMany: jest.fn(),
         update: jest.fn(),
+        count: jest.fn(),
       },
       clientModule: {
         findMany: jest.fn(),
@@ -112,20 +126,32 @@ describe('MeService', () => {
           role: ClientUserRole.CLIENT_ADMIN,
           status: ClientUserStatus.ACTIVE,
           isDefault: true,
+          defaultEmailIdentityId: 'eid-1',
+          defaultEmailIdentity: {
+            id: 'eid-1',
+            email: 'a@example.com',
+            displayName: 'Travail',
+            isVerified: true,
+            isActive: true,
+          },
           client: {
             id: 'client-1',
             name: 'Client Démo',
             slug: 'client-demo',
+            budgetAccountingEnabled: true,
           },
         },
         {
           role: ClientUserRole.CLIENT_USER,
           status: ClientUserStatus.SUSPENDED,
           isDefault: false,
+          defaultEmailIdentityId: null,
+          defaultEmailIdentity: null,
           client: {
             id: 'client-2',
             name: 'Autre Client',
             slug: 'autre-client',
+            budgetAccountingEnabled: false,
           },
         },
       ] as any);
@@ -136,17 +162,29 @@ describe('MeService', () => {
           id: 'client-1',
           name: 'Client Démo',
           slug: 'client-demo',
+          budgetAccountingEnabled: true,
           role: ClientUserRole.CLIENT_ADMIN,
           status: ClientUserStatus.ACTIVE,
           isDefault: true,
+          defaultEmailIdentityId: 'eid-1',
+          defaultEmailIdentity: {
+            id: 'eid-1',
+            email: 'a@example.com',
+            displayName: 'Travail',
+            isVerified: true,
+            isActive: true,
+          },
         },
         {
           id: 'client-2',
           name: 'Autre Client',
           slug: 'autre-client',
+          budgetAccountingEnabled: false,
           role: ClientUserRole.CLIENT_USER,
           status: ClientUserStatus.SUSPENDED,
           isDefault: false,
+          defaultEmailIdentityId: null,
+          defaultEmailIdentity: null,
         },
       ]);
     });
@@ -157,12 +195,91 @@ describe('MeService', () => {
           role: ClientUserRole.CLIENT_ADMIN,
           status: ClientUserStatus.ACTIVE,
           isDefault: false,
+          defaultEmailIdentityId: null,
+          defaultEmailIdentity: null,
           client: null,
         },
       ] as any);
 
       const result = await service.getClients('user-1');
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('deleteEmailIdentity', () => {
+    it('lève NotFoundException si identité absente', async () => {
+      prisma.userEmailIdentity.findFirst.mockResolvedValue(null);
+      await expect(
+        service.deleteEmailIdentity('user-1', 'eid-x'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('lève ConflictException si identité utilisée comme défaut client', async () => {
+      prisma.userEmailIdentity.findFirst.mockResolvedValue({
+        id: 'eid-1',
+        userId: 'user-1',
+      } as any);
+      prisma.clientUser.count.mockResolvedValue(1);
+      await expect(
+        service.deleteEmailIdentity('user-1', 'eid-1'),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.userEmailIdentity.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setDefaultEmailIdentityForClient', () => {
+    it('lève ForbiddenException si le client n’est pas accessible', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue(null);
+      await expect(
+        service.setDefaultEmailIdentityForClient('user-1', 'c-1', {
+          emailIdentityId: 'eid-1',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('lève BadRequestException si l’identité est inactive', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue({
+        id: 'cu-1',
+        userId: 'user-1',
+        clientId: 'c-1',
+      } as any);
+      prisma.userEmailIdentity.findFirst.mockResolvedValue({
+        id: 'eid-1',
+        userId: 'user-1',
+        isActive: false,
+      } as any);
+      await expect(
+        service.setDefaultEmailIdentityForClient('user-1', 'c-1', {
+          emailIdentityId: 'eid-1',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('met à jour le ClientUser et retourne success', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue({
+        id: 'cu-1',
+        userId: 'user-1',
+        clientId: 'c-1',
+      } as any);
+      prisma.userEmailIdentity.findFirst.mockResolvedValue({
+        id: 'eid-1',
+        userId: 'user-1',
+        isActive: true,
+      } as any);
+      prisma.clientUser.update.mockResolvedValue({} as any);
+
+      const result = await service.setDefaultEmailIdentityForClient('user-1', 'c-1', {
+        emailIdentityId: 'eid-1',
+      });
+      expect(result).toEqual({
+        success: true,
+        clientId: 'c-1',
+        defaultEmailIdentityId: 'eid-1',
+      });
+      expect(prisma.clientUser.update).toHaveBeenCalledWith({
+        where: { id: 'cu-1' },
+        data: { defaultEmailIdentityId: 'eid-1' },
+      });
     });
   });
 

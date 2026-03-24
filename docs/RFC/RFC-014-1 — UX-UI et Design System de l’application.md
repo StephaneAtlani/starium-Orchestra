@@ -175,7 +175,7 @@ L'application utilise un **layout cockpit unique** (un seul board pour toute l'a
 **Structure visuelle** (conforme FRONTEND_ARCHITECTURE.md) :
 
 * **Menu à gauche** : Sidebar persistante (logo, navigation par sections, profil). Largeur `w-72`, fond noir, texte blanc.
-* **Header en haut** : WorkspaceHeader (titre de page, breadcrumb, client actif, recherche, profil). Fond blanc, bordure basse, sticky.
+* **Header en haut** : WorkspaceHeader (breadcrumb, client actif, sélecteur de client, actions, menu compte avec avatar photo ou initiales). Fond blanc, bordure basse, sticky. Comportement détaillé : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §3.2.
 * **Contenu au centre** : zone principale (`main`) où les pages rendent leur contenu (via `PageContainer`). Aucun second menu ni layout alternatif.
 
 Structure logique :

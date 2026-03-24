@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -16,8 +17,12 @@ import { ChangeMyPasswordDto } from './dto/change-my-password.dto';
 import { VerifyMfaEnrollDto } from './dto/verify-mfa-enroll.dto';
 import { DisableMfaDto } from './dto/disable-mfa.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
+import { CreateUserEmailIdentityDto } from './dto/create-user-email-identity.dto';
+import { UpdateUserEmailIdentityDto } from './dto/update-user-email-identity.dto';
+import { SetDefaultEmailIdentityDto } from './dto/set-default-email-identity.dto';
 import { MeAvatarStorageService } from './me-avatar.storage';
 import { ALLOWED_AVATAR_MIME, MAX_AVATAR_BYTES } from './me.constants';
+import { normalizeEmail } from './email-identity.util';
 
 /** Profil utilisateur exposé par GET /me (RFC-014-2 : inclut platformRole). */
 export interface MeProfile {
@@ -34,6 +39,15 @@ export interface MeProfile {
   platformRole: 'PLATFORM_ADMIN' | null;
 }
 
+/** Identité e-mail par défaut pour un client (extrait GET /me/clients). */
+export interface MeDefaultEmailIdentity {
+  id: string;
+  email: string;
+  displayName: string | null;
+  isVerified: boolean;
+  isActive: boolean;
+}
+
 /** Client accessible par l’utilisateur (GET /me/clients). RFC-009-1 : isDefault. */
 export interface MeClient {
   id: string;
@@ -43,6 +57,20 @@ export interface MeClient {
   role: import('@prisma/client').ClientUserRole;
   status: import('@prisma/client').ClientUserStatus;
   isDefault: boolean;
+  defaultEmailIdentityId: string | null;
+  defaultEmailIdentity: MeDefaultEmailIdentity | null;
+}
+
+/** Identité e-mail (GET/PATCH /me/email-identities). */
+export interface MeEmailIdentity {
+  id: string;
+  email: string;
+  displayName: string | null;
+  replyToEmail: string | null;
+  isVerified: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /** Service profil et contexte client de l’utilisateur connecté. */
@@ -307,6 +335,15 @@ export class MeService {
             budgetAccountingEnabled: true,
           },
         },
+        defaultEmailIdentity: {
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            isVerified: true,
+            isActive: true,
+          },
+        },
       },
       orderBy: [{ isDefault: 'desc' }, { client: { name: 'asc' } }],
     });
@@ -320,7 +357,234 @@ export class MeService {
         role: cu.role,
         status: cu.status,
         isDefault: cu.isDefault,
+        defaultEmailIdentityId: cu.defaultEmailIdentityId,
+        defaultEmailIdentity: cu.defaultEmailIdentity
+          ? {
+              id: cu.defaultEmailIdentity.id,
+              email: cu.defaultEmailIdentity.email,
+              displayName: cu.defaultEmailIdentity.displayName,
+              isVerified: cu.defaultEmailIdentity.isVerified,
+              isActive: cu.defaultEmailIdentity.isActive,
+            }
+          : null,
       }));
+  }
+
+  /** Liste des identités e-mail du compte connecté. */
+  async listEmailIdentities(userId: string): Promise<MeEmailIdentity[]> {
+    const rows = await this.prisma.userEmailIdentity.findMany({
+      where: { userId },
+      orderBy: [{ createdAt: 'asc' }],
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      email: r.email,
+      displayName: r.displayName,
+      replyToEmail: r.replyToEmail,
+      isVerified: r.isVerified,
+      isActive: r.isActive,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    }));
+  }
+
+  async createEmailIdentity(
+    userId: string,
+    dto: CreateUserEmailIdentityDto,
+  ): Promise<MeEmailIdentity> {
+    const emailNormalized = normalizeEmail(dto.email);
+    await this.assertEmailAvailableForUser(userId, emailNormalized);
+    const replyTrimmed =
+      dto.replyToEmail != null && dto.replyToEmail !== ''
+        ? dto.replyToEmail.trim()
+        : null;
+    const row = await this.prisma.userEmailIdentity.create({
+      data: {
+        userId,
+        email: dto.email.trim(),
+        emailNormalized,
+        displayName: dto.displayName ?? null,
+        replyToEmail: replyTrimmed,
+      },
+    });
+    return this.toMeEmailIdentity(row);
+  }
+
+  async updateEmailIdentity(
+    userId: string,
+    identityId: string,
+    dto: UpdateUserEmailIdentityDto,
+  ): Promise<MeEmailIdentity> {
+    const existing = await this.prisma.userEmailIdentity.findFirst({
+      where: { id: identityId, userId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Identité e-mail introuvable');
+    }
+
+    if (dto.isActive === false) {
+      const used = await this.prisma.clientUser.count({
+        where: { userId, defaultEmailIdentityId: identityId },
+      });
+      if (used > 0) {
+        throw new ConflictException(
+          'Cette identité est utilisée comme adresse par défaut sur au moins un client ; définissez une autre adresse par défaut avant de la désactiver.',
+        );
+      }
+    }
+
+    let emailNormalized = existing.emailNormalized;
+    if (dto.email !== undefined) {
+      emailNormalized = normalizeEmail(dto.email);
+      await this.assertEmailAvailableForUser(userId, emailNormalized, identityId);
+    }
+
+    const replyToEmail =
+      dto.replyToEmail === undefined
+        ? undefined
+        : dto.replyToEmail === null || dto.replyToEmail === ''
+          ? null
+          : dto.replyToEmail.trim();
+
+    const row = await this.prisma.userEmailIdentity.update({
+      where: { id: identityId },
+      data: {
+        ...(dto.email !== undefined
+          ? { email: dto.email.trim(), emailNormalized }
+          : {}),
+        ...(dto.displayName !== undefined ? { displayName: dto.displayName } : {}),
+        ...(replyToEmail !== undefined ? { replyToEmail } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+      },
+    });
+    return this.toMeEmailIdentity(row);
+  }
+
+  async deleteEmailIdentity(userId: string, identityId: string): Promise<void> {
+    const existing = await this.prisma.userEmailIdentity.findFirst({
+      where: { id: identityId, userId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Identité e-mail introuvable');
+    }
+    const used = await this.prisma.clientUser.count({
+      where: { userId, defaultEmailIdentityId: identityId },
+    });
+    if (used > 0) {
+      throw new ConflictException(
+        'Cette identité est utilisée comme adresse par défaut sur au moins un client ; définissez une autre adresse par défaut avant de supprimer.',
+      );
+    }
+    await this.prisma.userEmailIdentity.delete({
+      where: { id: identityId },
+    });
+  }
+
+  async setDefaultEmailIdentityForClient(
+    userId: string,
+    clientId: string,
+    dto: SetDefaultEmailIdentityDto,
+  ): Promise<{
+    success: true;
+    clientId: string;
+    defaultEmailIdentityId: string;
+  }> {
+    const cu = await this.prisma.clientUser.findUnique({
+      where: { userId_clientId: { userId, clientId } },
+    });
+    if (!cu) {
+      throw new ForbiddenException('Client not accessible');
+    }
+    const identity = await this.prisma.userEmailIdentity.findFirst({
+      where: { id: dto.emailIdentityId, userId },
+    });
+    if (!identity) {
+      throw new BadRequestException('Identité e-mail introuvable');
+    }
+    if (!identity.isActive) {
+      throw new BadRequestException('Identité inactive');
+    }
+
+    await this.prisma.clientUser.update({
+      where: { id: cu.id },
+      data: { defaultEmailIdentityId: identity.id },
+    });
+    return {
+      success: true,
+      clientId,
+      defaultEmailIdentityId: identity.id,
+    };
+  }
+
+  private toMeEmailIdentity(row: {
+    id: string;
+    email: string;
+    displayName: string | null;
+    replyToEmail: string | null;
+    isVerified: boolean;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }): MeEmailIdentity {
+    return {
+      id: row.id,
+      email: row.email,
+      displayName: row.displayName,
+      replyToEmail: row.replyToEmail,
+      isVerified: row.isVerified,
+      isActive: row.isActive,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  /**
+   * Évite les collisions avec le login d’un autre compte ou une identité déclarée par un autre user.
+   */
+  private async assertEmailAvailableForUser(
+    userId: string,
+    emailNormalized: string,
+    excludeIdentityId?: string,
+  ): Promise<void> {
+    const otherLogin = await this.prisma.user.findFirst({
+      where: {
+        id: { not: userId },
+        email: { equals: emailNormalized, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+    if (otherLogin) {
+      throw new ConflictException(
+        'Cette adresse e-mail est déjà utilisée par un autre compte',
+      );
+    }
+
+    const otherIdentity = await this.prisma.userEmailIdentity.findFirst({
+      where: {
+        userId: { not: userId },
+        emailNormalized,
+      },
+    });
+    if (otherIdentity) {
+      throw new ConflictException(
+        'Cette adresse e-mail est déjà enregistrée sur un autre compte',
+      );
+    }
+
+    if (excludeIdentityId) {
+      const dupSelf = await this.prisma.userEmailIdentity.findFirst({
+        where: {
+          userId,
+          emailNormalized,
+          id: { not: excludeIdentityId },
+        },
+      });
+      if (dupSelf) {
+        throw new ConflictException(
+          'Vous avez déjà une identité avec cette adresse',
+        );
+      }
+    }
   }
 
   /** Définit le client par défaut pour l’utilisateur (RFC-009-1). Un seul par user. */

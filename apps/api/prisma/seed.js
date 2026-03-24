@@ -25,6 +25,24 @@ const prisma = new PrismaClient();
 const isProduction = process.env.NODE_ENV === 'production';
 const allowSeedCredentialReset = process.env.SEED_RESET_PASSWORDS === 'true';
 
+/** Identité e-mail primaire (alignée sur la migration user_email_identities). */
+async function ensurePrimaryEmailIdentity(userId, email) {
+  const emailNormalized = email.trim().toLowerCase();
+  const existing = await prisma.userEmailIdentity.findFirst({
+    where: { userId, emailNormalized },
+  });
+  if (existing) return existing;
+  return prisma.userEmailIdentity.create({
+    data: {
+      userId,
+      email: email.trim(),
+      emailNormalized,
+      isVerified: true,
+      isActive: true,
+    },
+  });
+}
+
 /**
  * Platform Admin (développement).
  * Cet utilisateur est UNIQUEMENT Platform Admin (platformRole = PLATFORM_ADMIN).
@@ -63,6 +81,14 @@ async function upsertPlatformAdmin() {
         platformRole: 'PLATFORM_ADMIN',
       },
     });
+  }
+
+  const adminRow = await prisma.user.findUnique({
+    where: { email: PLATFORM_ADMIN.email },
+    select: { id: true, email: true },
+  });
+  if (adminRow) {
+    await ensurePrimaryEmailIdentity(adminRow.id, adminRow.email);
   }
 
   console.log(
@@ -334,6 +360,8 @@ async function upsertSitralAndClientAdmin() {
     user = existingUser;
   }
 
+  const sitralIdentity = await ensurePrimaryEmailIdentity(user.id, user.email);
+
   await prisma.clientUser.upsert({
     where: {
       userId_clientId: { userId: user.id, clientId: client.id },
@@ -342,6 +370,7 @@ async function upsertSitralAndClientAdmin() {
       role: 'CLIENT_ADMIN',
       status: 'ACTIVE',
       isDefault: true,
+      defaultEmailIdentityId: sitralIdentity.id,
     },
     create: {
       userId: user.id,
@@ -349,6 +378,7 @@ async function upsertSitralAndClientAdmin() {
       role: 'CLIENT_ADMIN',
       status: 'ACTIVE',
       isDefault: true,
+      defaultEmailIdentityId: sitralIdentity.id,
     },
   });
 

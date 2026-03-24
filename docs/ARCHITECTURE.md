@@ -148,9 +148,37 @@ Règles d’architecture :
 - `PLATFORM_ADMIN` ne confère pas automatiquement un rôle `CLIENT_ADMIN` sur un client.
 - `CLIENT_ADMIN` ne confère pas automatiquement toutes les permissions métier (`budgets.*`, `projects.*`, etc.).
 
+### 3.2 Routes `/api/me` — compte, identités e-mail, défaut par client
+
+Plusieurs routes sous **`/api/me/*`** concernent le **compte utilisateur** (JWT) et **ne reposent pas** sur `X-Client-Id` ni `ActiveClientGuard` : profil, mot de passe, 2FA, avatar, **`GET /api/me/clients`**, **`PATCH /api/me/default-client`**, ainsi que :
+
+- **`GET|POST|PATCH|DELETE /api/me/email-identities`** — gestion des adresses e-mail déclarées par l’utilisateur (`UserEmailIdentity`, module `apps/api/src/modules/me/`).
+- **`PATCH /api/me/clients/:clientId/default-email-identity`** — définit l’identité e-mail par défaut **pour ce rattachement** (`ClientUser`), avec validation que le `clientId` correspond bien à un `ClientUser` du JWT et que l’identité appartient au même utilisateur et est **active**.
+
+Règles de données :
+
+- Les adresses supplémentaires sont stockées au niveau **`User`** ; le défaut **par client** est sur **`ClientUser.defaultEmailIdentityId`** (jamais sur `Client`). La FK vers l’identité est en **`onDelete: Restrict`** ; suppression ou désactivation bloquée côté métier si l’identité est encore utilisée comme défaut.
+- `GET /api/me/clients` expose pour chaque client `defaultEmailIdentityId` et un objet `defaultEmailIdentity` minimal (affichage).
+
+Côté frontend, `apps/web/src/lib/api-client.ts` exclut ces chemins de l’envoi automatique de `X-Client-Id` ; les requêtes TanStack Query utilisent les clés `['me', 'clients']` et `['me', 'email-identities']` (scope utilisateur, pas besoin de `clientId` dans la clé).
+
 ---
 
 ## 4. Schéma de données métier
+
+### 4.0 Utilisateur, rattachement client et identités e-mail
+
+```text
+User
+  ├── email (connexion)
+  └── UserEmailIdentity[]  (email, emailNormalized, displayName, replyToEmail, isVerified, isActive)
+
+ClientUser
+  ├── userId, clientId, role, status, isDefault
+  └── defaultEmailIdentityId?  →  UserEmailIdentity (même user ; contrainte métier vérifiée en service)
+```
+
+L’unicité des adresses « triviales » est portée par **`emailNormalized`** avec **`@@unique([userId, emailNormalized])`**.
 
 ### 4.1 Structure budgétaire
 

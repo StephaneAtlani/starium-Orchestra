@@ -13,6 +13,8 @@ const EXCLUDED_API_PATHS: { prefix?: string; exact?: string }[] = [
   { prefix: '/api/auth/' },
   { exact: '/api/me' },
   { exact: '/api/me/clients' },
+  { prefix: '/api/me/clients/' },
+  { prefix: '/api/me/email-identities' },
   { exact: '/api/me/default-client' },
   { exact: '/api/me/password' },
   { exact: '/api/me/profile' },

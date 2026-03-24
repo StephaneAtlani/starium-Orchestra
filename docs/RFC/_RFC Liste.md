@@ -1,4 +1,11 @@
 
+## Plateforme — compte utilisateur (hors numérotation RFC projet)
+
+| Sujet | Référence |
+| ----- | --------- |
+| Multi-adresses e-mail (`UserEmailIdentity`), défaut par client (`ClientUser.defaultEmailIdentityId`), API `/api/me/email-identities` et enrichissement `GET /api/me/clients` | [docs/ARCHITECTURE.md](../ARCHITECTURE.md) §3.2 et §4.0 ; code `apps/api/src/modules/me/`, `apps/web/src/services/me.ts`, `apps/web/src/lib/me-query-keys.ts` |
+
+---
 
 # 🔥 PHASE 1 — MODULE PROJET (PRIORITÉ ABSOLUE)
 

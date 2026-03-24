@@ -61,6 +61,13 @@ export function PageContainer({ children, className }: PageContainerProps) {
 - **Projets** : sous-entrées **Portefeuille projet** → `/projects`, **Option** → `/projects/options` (placeholder). Logique d’état actif par route (`pathname`) dans `sidebar.tsx` (même idée que pour Budgets : enfant actif si la route courante correspond au sous-lien ou à un préfixe métier).
 - **Éviter** de dupliquer un panneau scroll : le contenu principal reste dans `<main>` ; le panneau latéral du dropdown est uniquement pour la navigation.
 
+### 3.2 WorkspaceHeader — barre supérieure
+
+- Fichier : `apps/web/src/components/shell/workspace-header.tsx`.
+- **Contenu** : fil d’Ariane (Home → client actif avec indication e-mail identité par défaut si chargé → libellé de zone, ex. Dashboard), badge plateforme admin si applicable, **ClientSwitcher** (jeton d’accès), icônes d’action (recherche, document, calendrier, notifications — placeholders), menu utilisateur.
+- **Menu compte** (`<details>` sur le résumé avatar) : liens **Compte** (`/account`) et **Déconnexion**. Fermeture au **clic extérieur** (`pointerdown` sur le document), à la touche **Escape**, et après navigation / déconnexion.
+- **Avatar** : si le profil expose `hasAvatar` (voir `GET /me`), chargement de l’image via **`GET /api/me/avatar`** avec `Authorization: Bearer …`, affichage en blob URL (`object-cover` dans le cercle) ; sinon initiales (dont `PA` pour un admin plateforme). Après changement de photo sur la page Compte, `refreshProfile()` recharge le profil et l’avatar dans le header.
+
 ---
 
 ## 4. En-tête de page

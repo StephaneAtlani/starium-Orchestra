@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Patch,
   Post,
   UploadedFile,
@@ -22,6 +23,9 @@ import { ChangeMyPasswordDto } from './dto/change-my-password.dto';
 import { VerifyMfaEnrollDto } from './dto/verify-mfa-enroll.dto';
 import { DisableMfaDto } from './dto/disable-mfa.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
+import { CreateUserEmailIdentityDto } from './dto/create-user-email-identity.dto';
+import { UpdateUserEmailIdentityDto } from './dto/update-user-email-identity.dto';
+import { SetDefaultEmailIdentityDto } from './dto/set-default-email-identity.dto';
 import { MeService } from './me.service';
 import { MAX_AVATAR_BYTES } from './me.constants';
 
@@ -94,6 +98,51 @@ export class MeController {
   @Get('clients')
   getClients(@RequestUserId() userId?: string) {
     return this.me.getClients(userId!);
+  }
+
+  /** PATCH /me/clients/:clientId/default-email-identity — Adresse e-mail par défaut pour ce client. */
+  @Patch('clients/:clientId/default-email-identity')
+  setDefaultEmailIdentityForClient(
+    @RequestUserId() userId: string | undefined,
+    @Param('clientId') clientId: string,
+    @Body() dto: SetDefaultEmailIdentityDto,
+  ) {
+    return this.me.setDefaultEmailIdentityForClient(userId!, clientId, dto);
+  }
+
+  /** GET /me/email-identities — Identités e-mail du compte. */
+  @Get('email-identities')
+  listEmailIdentities(@RequestUserId() userId?: string) {
+    return this.me.listEmailIdentities(userId!);
+  }
+
+  /** POST /me/email-identities — Ajoute une identité e-mail. */
+  @Post('email-identities')
+  createEmailIdentity(
+    @RequestUserId() userId: string | undefined,
+    @Body() dto: CreateUserEmailIdentityDto,
+  ) {
+    return this.me.createEmailIdentity(userId!, dto);
+  }
+
+  /** PATCH /me/email-identities/:id — Met à jour une identité e-mail. */
+  @Patch('email-identities/:id')
+  updateEmailIdentity(
+    @RequestUserId() userId: string | undefined,
+    @Param('id') identityId: string,
+    @Body() dto: UpdateUserEmailIdentityDto,
+  ) {
+    return this.me.updateEmailIdentity(userId!, identityId, dto);
+  }
+
+  /** DELETE /me/email-identities/:id — Supprime une identité e-mail. */
+  @Delete('email-identities/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteEmailIdentity(
+    @RequestUserId() userId: string | undefined,
+    @Param('id') identityId: string,
+  ) {
+    await this.me.deleteEmailIdentity(userId!, identityId);
   }
 
   /** PATCH /me/default-client — Définit le client par défaut (RFC-009-1). */

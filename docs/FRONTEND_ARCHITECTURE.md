@@ -1071,7 +1071,7 @@ Cette section décrit rapidement **l’état réel** du frontend dans `apps/web`
 - `src/app/(protected)/layout.tsx` : applique l’`AppShell` (sidebar + header + zone de contenu) aux pages protégées.
 - `src/components/shell/` :
   - `sidebar.tsx` : navigation principale (colonne gauche compacte, icône + label en dessous, typographie réduite).
-  - `workspace-header.tsx` : titre, client actif, recherche, toggle thème, actions utilisateur.
+  - `workspace-header.tsx` : fil d’Ariane (Home, client actif, zone courante), ClientSwitcher, actions (icônes placeholder), menu compte (Compte / Déconnexion) avec fermeture clic extérieur et Escape, avatar photo via `GET /api/me/avatar` si `hasAvatar` sinon initiales (détail : [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §3.2).
   - `app-shell.tsx` : composition globale si présent.
 
 **Règle :** toute nouvelle page métier dans `(protected)` doit simplement rendre son contenu dans le `<main>` du shell, **sans recréer de layout**.

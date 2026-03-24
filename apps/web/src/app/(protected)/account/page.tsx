@@ -1,61 +1,45 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { useAuth } from '@/context/auth-context';
-import {
-  getMyClients,
-  setDefaultClient,
-  type MeClient,
-} from '@/services/me';
+import React, { useState } from 'react';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AccountProfileSection } from '@/features/account/components/account-profile-section';
 import { AccountSecuritySection } from '@/features/account/components/account-security-section';
+import { AccountEmailIdentitiesSection } from '@/features/account/components/account-email-identities-section';
+import { AccountClientDefaultEmailSection } from '@/features/account/components/account-client-default-email-section';
+import {
+  useMeClientsQuery,
+  useSetDefaultClientMutation,
+} from '@/features/account/hooks/use-me-email-queries';
 
 export default function AccountPage() {
-  const { accessToken } = useAuth();
-  const [clients, setClients] = useState<MeClient[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: clients, isLoading, error, refetch } = useMeClientsQuery();
+  const setDefaultMut = useSetDefaultClientMutation();
   const [success, setSuccess] = useState<string | null>(null);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  const loadClients = useCallback(async () => {
-    if (!accessToken) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getMyClients(accessToken);
-      setClients(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors du chargement');
-    } finally {
-      setLoading(false);
-    }
-  }, [accessToken]);
-
-  useEffect(() => {
-    loadClients();
-  }, [loadClients]);
-
-  const activeClients = clients.filter((c) => c.status === 'ACTIVE');
+  const clientList = clients ?? [];
+  const activeClients = clientList.filter((c) => c.status === 'ACTIVE');
 
   const handleSetDefault = async (clientId: string) => {
-    if (!accessToken) return;
-    setUpdatingId(clientId);
     setSuccess(null);
-    setError(null);
+    setLocalError(null);
     try {
-      await setDefaultClient(accessToken, clientId);
+      await setDefaultMut.mutateAsync(clientId);
       setSuccess('Client par défaut mis à jour.');
-      await loadClients();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Impossible de définir le client par défaut');
-    } finally {
-      setUpdatingId(null);
+      setLocalError(
+        e instanceof Error ? e.message : 'Impossible de définir le client par défaut',
+      );
     }
   };
 
@@ -63,62 +47,92 @@ export default function AccountPage() {
     <PageContainer>
       <PageHeader
         title="Compte"
-        description="Paramètres de votre compte et client par défaut."
+        description="Paramètres de votre compte, adresses e-mail et client par défaut."
       />
 
       <AccountProfileSection />
 
       <AccountSecuritySection />
 
+      <AccountEmailIdentitiesSection />
+
+      <AccountClientDefaultEmailSection />
+
       <Card>
-        <CardHeader>
-          <h2 className="text-base font-semibold">Client par défaut</h2>
-          <p className="text-sm text-muted-foreground">
-            Ce client sera utilisé par défaut à la prochaine connexion (sans
-            modifier le client actif en cours).
-          </p>
+        <CardHeader className="border-b border-border/60 pb-4">
+          <CardTitle>Client par défaut</CardTitle>
+          <CardDescription>
+            Utilisé à la prochaine connexion pour pré-sélectionner un client
+            (sans changer le client actif de la session en cours).
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {loading && !clients.length && (
-            <p className="text-sm text-muted-foreground">
+        <CardContent className="space-y-0 px-0 pt-0">
+          {isLoading && clientList.length === 0 && (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
               Chargement des clients…
             </p>
           )}
-          {error && (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
+          {(error || localError) && (
+            <div
+              className="flex flex-wrap items-center gap-2 border-b border-border/60 px-4 py-3"
+              role="alert"
+            >
+              <span className="text-sm text-destructive">
+                {localError ??
+                  (error instanceof Error
+                    ? error.message
+                    : 'Erreur de chargement')}
+              </span>
+              {error && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void refetch()}
+                >
+                  Réessayer
+                </Button>
+              )}
+            </div>
           )}
           {success && (
-            <p className="text-sm text-green-600" role="status">
+            <p
+              className="border-b border-border/60 px-4 py-3 text-sm text-green-600 dark:text-green-500"
+              role="status"
+            >
               {success}
             </p>
           )}
-          {!loading && activeClients.length === 0 && (
-            <p className="text-sm text-muted-foreground">
+          {!isLoading && activeClients.length === 0 && (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
               Aucun client actif. Le client par défaut peut être défini lorsque
               vous êtes rattaché à au moins un client.
             </p>
           )}
-          {!loading && activeClients.length > 0 && (
-            <ul className="space-y-2">
+          {!isLoading && activeClients.length > 0 && (
+            <ul className="divide-y divide-border/50">
               {activeClients.map((client) => (
                 <li
                   key={client.id}
-                  className="flex items-center justify-between gap-4 rounded-lg border p-3"
+                  className="flex items-center justify-between gap-4 px-4 py-3.5"
                 >
-                  <span className="font-medium">{client.name}</span>
-                  <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">
+                    {client.name}
+                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
                     {client.isDefault ? (
-                      <Badge variant="secondary">Par défaut</Badge>
+                      <Badge variant="secondary" className="font-normal">
+                        Par défaut
+                      </Badge>
                     ) : (
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        disabled={updatingId !== null}
-                        onClick={() => handleSetDefault(client.id)}
+                        className="h-8 text-muted-foreground hover:text-foreground"
+                        disabled={setDefaultMut.isPending}
+                        onClick={() => void handleSetDefault(client.id)}
                       >
-                        {updatingId === client.id
+                        {setDefaultMut.isPending
                           ? 'Mise à jour…'
                           : 'Définir par défaut'}
                       </Button>
