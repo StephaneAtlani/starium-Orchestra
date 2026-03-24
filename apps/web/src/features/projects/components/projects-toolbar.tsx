@@ -33,15 +33,12 @@ export function ProjectsToolbar({
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
 
-  const toggleFullscreen = async (target: EventTarget | null) => {
+  const toggleFullscreen = async () => {
     if (document.fullscreenElement) {
       await document.exitFullscreen();
       return;
     }
-    const btn = target as HTMLElement | null;
-    const card = btn?.closest('[data-slot="card"]') as HTMLElement | null;
-    if (!card) return;
-    await card.requestFullscreen();
+    await document.documentElement.requestFullscreen();
   };
 
   const content = (
@@ -66,7 +63,7 @@ export function ProjectsToolbar({
             variant="outline"
             size="sm"
             className="shrink-0"
-            onClick={(e) => void toggleFullscreen(e.currentTarget)}
+            onClick={() => void toggleFullscreen()}
             title={isFullscreen ? 'Quitter le plein écran' : 'Passer en plein écran'}
           >
             {isFullscreen ? <Minimize className="size-3.5" /> : <Expand className="size-3.5" />}
