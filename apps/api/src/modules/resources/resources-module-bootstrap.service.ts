@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const DEFAULT_RESOURCE_ROLE_NAMES = [
@@ -21,15 +25,26 @@ export class ResourcesModuleBootstrapService {
   constructor(private readonly prisma: PrismaService) {}
 
   async bootstrapForClient(clientId: string): Promise<void> {
+    const requiredPermissionCodes = [
+      'resources.read',
+      'resources.create',
+      'resources.update',
+    ] as const;
     const perms = await this.prisma.permission.findMany({
       where: {
         code: {
-          in: ['resources.read', 'resources.create', 'resources.update'],
+          in: [...requiredPermissionCodes],
         },
       },
       select: { id: true, code: true },
     });
     const byCode = new Map(perms.map((p) => [p.code, p.id]));
+    const missing = requiredPermissionCodes.filter((code) => !byCode.has(code));
+    if (missing.length > 0) {
+      throw new InternalServerErrorException(
+        `Permissions resources manquantes: ${missing.join(', ')}. Lancez le seed des modules/permissions.`,
+      );
+    }
 
     await this.ensureRbacRole({
       clientId,

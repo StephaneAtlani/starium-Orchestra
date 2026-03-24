@@ -8,8 +8,7 @@ describe('DefaultProfilesService', () => {
   const prismaMock = {
     permission: { findMany: jest.fn() },
     role: { findFirst: jest.fn(), create: jest.fn() },
-    rolePermission: { deleteMany: jest.fn(), createMany: jest.fn() },
-    $transaction: jest.fn(),
+    rolePermission: { createMany: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -57,11 +56,7 @@ describe('DefaultProfilesService', () => {
     ]);
     prismaMock.role.findFirst.mockResolvedValue(null);
     prismaMock.role.create.mockResolvedValue({ id: 'role-1' });
-    prismaMock.rolePermission.deleteMany.mockResolvedValue({ count: 0 });
     prismaMock.rolePermission.createMany.mockResolvedValue({ count: 2 });
-    prismaMock.$transaction.mockImplementation(async (ops: Promise<unknown>[]) =>
-      Promise.all(ops),
-    );
 
     await service.applyForClient('client-1');
 
@@ -78,6 +73,7 @@ describe('DefaultProfilesService', () => {
         { roleId: 'role-1', permissionId: 'perm-1' },
         { roleId: 'role-1', permissionId: 'perm-2' },
       ],
+      skipDuplicates: true,
     });
   });
 });

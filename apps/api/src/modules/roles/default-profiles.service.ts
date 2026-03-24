@@ -28,8 +28,9 @@ export class DefaultProfilesService {
   }
 
   /**
-   * Crée ou met à jour les rôles par défaut pour un client (idempotent).
-   * Les rôles existants avec le même nom ont leurs permissions mises à jour.
+   * Crée les rôles système par défaut pour un client (idempotent).
+   * N'écrase jamais les permissions existantes d'un rôle déjà présent :
+   * on ajoute uniquement les permissions manquantes.
    */
   async applyForClient(clientId: string): Promise<void> {
     const profiles = this.getProfilesDefinition();
@@ -70,20 +71,15 @@ export class DefaultProfilesService {
         .filter((p: { code: string }) => profile.permissionCodes.includes(p.code))
         .map((p: { id: string }) => p.id);
 
-      const tx: Promise<unknown>[] = [
-        prisma.rolePermission.deleteMany({ where: { roleId: role.id } }),
-      ];
       if (permissionIds.length > 0) {
-        tx.push(
-          prisma.rolePermission.createMany({
-            data: permissionIds.map((permissionId: string) => ({
-              roleId: role.id,
-              permissionId,
-            })),
-          }),
-        );
+        await prisma.rolePermission.createMany({
+          data: permissionIds.map((permissionId: string) => ({
+            roleId: role.id,
+            permissionId,
+          })),
+          skipDuplicates: true,
+        });
       }
-      await prisma.$transaction(tx);
     }
   }
 }

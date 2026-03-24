@@ -83,9 +83,16 @@ export class ClientsService {
       },
     });
 
-    await this.defaultProfiles.applyForClient(client.id);
-    await this.projectTeam.seedDefaultRolesForClient(client.id);
-    await this.resourcesBootstrap.bootstrapForClient(client.id);
+    try {
+      await this.enableDefaultModulesForClient(client.id);
+      await this.defaultProfiles.applyForClient(client.id);
+      await this.projectTeam.seedDefaultRolesForClient(client.id);
+      await this.resourcesBootstrap.bootstrapForClient(client.id);
+    } catch (error) {
+      // Evite un client partiellement initialisé (rôles/permissions incomplets).
+      await this.prisma.client.delete({ where: { id: client.id } }).catch(() => undefined);
+      throw error;
+    }
 
     await this.logClientEvent('client.created', {
       clientId: client.id,
@@ -181,5 +188,24 @@ export class ClientsService {
       requestId: context?.meta?.requestId,
     };
     await this.auditLogs.create(input);
+  }
+
+  private async enableDefaultModulesForClient(clientId: string): Promise<void> {
+    const modules = await (this.prisma as any).module.findMany({
+      where: { isActive: true },
+      select: { id: true },
+    });
+    if (modules.length === 0) {
+      return;
+    }
+
+    await (this.prisma as any).clientModule.createMany({
+      data: modules.map((module: { id: string }) => ({
+        clientId,
+        moduleId: module.id,
+        status: 'ENABLED',
+      })),
+      skipDuplicates: true,
+    });
   }
 }

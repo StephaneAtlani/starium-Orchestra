@@ -33,6 +33,12 @@ describe('ClientsService', () => {
               update: jest.fn(),
               delete: jest.fn(),
             },
+            module: {
+              findMany: jest.fn(),
+            },
+            clientModule: {
+              createMany: jest.fn(),
+            },
           },
         },
         {
@@ -115,6 +121,8 @@ describe('ClientsService', () => {
       const svc = testModule.get<ClientsService>(ClientsService);
       (prisma.client.findUnique as jest.Mock).mockResolvedValue(null);
       (prisma.client.create as jest.Mock).mockResolvedValue(mockClient);
+      (prisma as any).module.findMany.mockResolvedValue([{ id: 'module-1' }]);
+      (prisma as any).clientModule.createMany.mockResolvedValue({ count: 1 });
 
       const dto = { name: 'Client démo', slug: 'demo' };
       const result = await svc.create(dto);
@@ -126,6 +134,14 @@ describe('ClientsService', () => {
         data: { name: dto.name, slug: dto.slug },
       });
       expect(defaultProfiles.applyForClient).toHaveBeenCalledWith(mockClient.id);
+      expect((prisma as any).module.findMany).toHaveBeenCalledWith({
+        where: { isActive: true },
+        select: { id: true },
+      });
+      expect((prisma as any).clientModule.createMany).toHaveBeenCalledWith({
+        data: [{ clientId: mockClient.id, moduleId: 'module-1', status: 'ENABLED' }],
+        skipDuplicates: true,
+      });
       const projectTeam = testModule.get(ProjectTeamService);
       expect(projectTeam.seedDefaultRolesForClient).toHaveBeenCalledWith(mockClient.id);
       const resourcesBootstrap = testModule.get(ResourcesModuleBootstrapService);
@@ -149,6 +165,44 @@ describe('ClientsService', () => {
         }),
       ).rejects.toThrow(ConflictException);
       expect(prisma.client.create).not.toHaveBeenCalled();
+    });
+
+    it('should rollback client when bootstrap fails', async () => {
+      const defaultProfiles = {
+        applyForClient: jest
+          .fn()
+          .mockRejectedValue(new Error('missing permissions')),
+      };
+      const testModule = await Test.createTestingModule({
+        providers: [
+          ClientsService,
+          { provide: PrismaService, useValue: prisma },
+          { provide: AuditLogsService, useValue: { create: jest.fn() } },
+          { provide: DefaultProfilesService, useValue: defaultProfiles },
+          {
+            provide: ProjectTeamService,
+            useValue: { seedDefaultRolesForClient: jest.fn().mockResolvedValue(undefined) },
+          },
+          {
+            provide: ResourcesModuleBootstrapService,
+            useValue: { bootstrapForClient: jest.fn().mockResolvedValue(undefined) },
+          },
+        ],
+      }).compile();
+      const svc = testModule.get<ClientsService>(ClientsService);
+      (prisma.client.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.client.create as jest.Mock).mockResolvedValue(mockClient);
+      (prisma.client.delete as jest.Mock).mockResolvedValue(undefined);
+      (prisma as any).module.findMany.mockResolvedValue([{ id: 'module-1' }]);
+      (prisma as any).clientModule.createMany.mockResolvedValue({ count: 1 });
+
+      await expect(
+        svc.create({ name: 'Client démo', slug: 'demo' }),
+      ).rejects.toThrow('missing permissions');
+
+      expect(prisma.client.delete).toHaveBeenCalledWith({
+        where: { id: mockClient.id },
+      });
     });
   });
 
