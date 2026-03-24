@@ -651,7 +651,7 @@ export default function ProjectsOptionsPage() {
         <Dialog open={newTagColorModalOpen} onOpenChange={setNewTagColorModalOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Couleur de l'etiquette</DialogTitle>
+              <DialogTitle>Couleur de l&apos;etiquette</DialogTitle>
               <DialogDescription>Choisir une couleur par defaut ou personnalisee.</DialogDescription>
             </DialogHeader>
             <div className="flex flex-wrap gap-2">
@@ -687,8 +687,8 @@ export default function ProjectsOptionsPage() {
         <Dialog open={editTagColorModalOpen} onOpenChange={setEditTagColorModalOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Couleur de l'etiquette</DialogTitle>
-              <DialogDescription>Modifier la couleur de l'etiquette.</DialogDescription>
+              <DialogTitle>Couleur de l&apos;etiquette</DialogTitle>
+              <DialogDescription>Modifier la couleur de l&apos;etiquette.</DialogDescription>
             </DialogHeader>
             <div className="flex flex-wrap gap-2">
               {DEFAULT_TAG_COLORS.map((color) => (
