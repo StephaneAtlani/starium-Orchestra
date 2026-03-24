@@ -29,31 +29,37 @@ import { Pencil, KeyRound, Trash2 } from 'lucide-react';
 
 function RoleActions({
   role,
+  readOnly,
   canDelete,
   deleteTooltip,
   onDelete,
 }: {
   role: RoleListItem;
+  readOnly: boolean;
   canDelete: boolean;
   deleteTooltip: string;
   onDelete: (id: string) => void;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Link
-        href={`/client/roles/${role.id}`}
-        className={buttonVariants({ variant: 'ghost', size: 'sm' })}
-      >
-        <Pencil className="size-4" />
-        <span className="sr-only">Modifier</span>
-      </Link>
-      <Link
-        href={`/client/roles/${role.id}`}
-        className={buttonVariants({ variant: 'ghost', size: 'sm' })}
-      >
-        <KeyRound className="size-4" />
-        <span className="sr-only">Permissions</span>
-      </Link>
+      {!readOnly && (
+        <>
+          <Link
+            href={`/client/roles/${role.id}`}
+            className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+          >
+            <Pencil className="size-4" />
+            <span className="sr-only">Modifier</span>
+          </Link>
+          <Link
+            href={`/client/roles/${role.id}`}
+            className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+          >
+            <KeyRound className="size-4" />
+            <span className="sr-only">Permissions</span>
+          </Link>
+        </>
+      )}
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger render={<span className="inline-block" />}>
@@ -129,20 +135,25 @@ export function RolesList() {
               </TableHeader>
               <TableBody>
                 {roles.map((role) => {
-                  const isSystem = role.isSystem;
-                  const canDelete = !isSystem;
-                  const deleteTooltip = isSystem
-                    ? 'Impossible de supprimer un rôle système.'
+                  const isReadOnly = role.isReadOnly || role.isInherited;
+                  const canDelete = !isReadOnly;
+                  const deleteTooltip = isReadOnly
+                    ? 'Rôle global hérité : suppression impossible dans le contexte client.'
                     : canDelete
-                      ? 'Supprimer le rôle'
-                      : 'Impossible de supprimer : rôle encore assigné à au moins un utilisateur.';
+                        ? 'Supprimer le rôle'
+                        : 'Impossible de supprimer : rôle encore assigné à au moins un utilisateur.';
                   return (
                     <TableRow key={role.id}>
                       <TableCell>
                         <span className="font-medium">{role.name}</span>
-                        {role.isSystem && (
+                        {role.scope === 'GLOBAL' && (
                           <Badge variant="secondary" className="ml-2">
-                            Système
+                            Global
+                          </Badge>
+                        )}
+                        {role.isInherited && (
+                          <Badge variant="outline" className="ml-2">
+                            Hérité
                           </Badge>
                         )}
                       </TableCell>
@@ -152,6 +163,7 @@ export function RolesList() {
                       <TableCell className="text-right">
                         <RoleActions
                           role={role}
+                          readOnly={isReadOnly}
                           canDelete={canDelete}
                           deleteTooltip={deleteTooltip}
                           onDelete={(id) => deleteRole.mutate(id)}

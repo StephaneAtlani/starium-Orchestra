@@ -10,6 +10,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { useRoles } from '../hooks/use-roles';
 import { useUserRoles } from '../hooks/use-user-roles';
 import { useUpdateUserRoles } from '../hooks/use-update-user-roles';
@@ -44,6 +46,8 @@ export function UserRolesDialog({
 
   const isLoading = rolesLoading || userRolesLoading;
   const error = rolesError ?? userRolesError;
+  const globalRoles = roles.filter((role) => role.scope === 'GLOBAL');
+  const clientRoles = roles.filter((role) => role.scope === 'CLIENT');
 
   useEffect(() => {
     if (userRoles.length >= 0) {
@@ -103,30 +107,70 @@ export function UserRolesDialog({
         )}
         {!isLoading && !error && (
           <>
-            <ul className="space-y-2 max-h-64 overflow-y-auto">
-              {roles.map((role) => (
-                <li key={role.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    id={`role-${role.id}`}
-                    checked={selectedRoleIds.has(role.id)}
-                    onChange={() => handleToggle(role.id)}
-                    className="rounded border-input"
-                  />
-                  <label
-                    htmlFor={`role-${role.id}`}
-                    className={cn('cursor-pointer flex items-center gap-2')}
-                  >
-                    {role.name}
-                    {role.isSystem && (
-                      <span className="text-xs text-muted-foreground">
-                        (Système)
-                      </span>
-                    )}
-                  </label>
-                </li>
-              ))}
-            </ul>
+            <Card size="sm" className="border border-border/70 bg-card shadow-sm">
+              <CardContent className="space-y-4 p-3">
+                {globalRoles.length > 0 && (
+                  <section className="space-y-2">
+                    <div className="flex items-center justify-between border-b border-border/70 pb-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Rôles globaux
+                      </p>
+                      <Badge variant="secondary">{globalRoles.length}</Badge>
+                    </div>
+                    <ul className="space-y-2">
+                      {globalRoles.map((role) => (
+                        <li key={role.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            id={`role-${role.id}`}
+                            checked={selectedRoleIds.has(role.id)}
+                            onChange={() => handleToggle(role.id)}
+                            className="rounded border-input"
+                          />
+                          <label
+                            htmlFor={`role-${role.id}`}
+                            className={cn('cursor-pointer flex items-center gap-2')}
+                          >
+                            <span>{role.name}</span>
+                            <Badge variant="secondary">Global</Badge>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {clientRoles.length > 0 && (
+                  <section className="space-y-2">
+                    <div className="flex items-center justify-between border-b border-border/70 pb-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Rôles client
+                      </p>
+                      <Badge variant="outline">{clientRoles.length}</Badge>
+                    </div>
+                    <ul className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                      {clientRoles.map((role) => (
+                        <li key={role.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            id={`role-${role.id}`}
+                            checked={selectedRoleIds.has(role.id)}
+                            onChange={() => handleToggle(role.id)}
+                            className="rounded border-input"
+                          />
+                          <label
+                            htmlFor={`role-${role.id}`}
+                            className={cn('cursor-pointer flex items-center gap-2')}
+                          >
+                            <span>{role.name}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </CardContent>
+            </Card>
             <DialogFooter showCloseButton={false}>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Annuler

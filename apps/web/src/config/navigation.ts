@@ -118,6 +118,13 @@ export const navigation: NavigationSection[] = [
         platformOnly: true,
       },
       {
+        label: 'Rôles système',
+        href: '/admin/system-roles',
+        icon: Shield,
+        scope: 'platform',
+        platformOnly: true,
+      },
+      {
         label: 'Audit logs',
         href: '/admin/audit',
         icon: FileText,

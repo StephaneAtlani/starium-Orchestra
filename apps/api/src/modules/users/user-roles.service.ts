@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ClientUserStatus } from '@prisma/client';
+import { ClientUserStatus, RoleScope } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -14,9 +14,13 @@ import { UpdateUserRolesDto } from './dto/update-user-roles.dto';
 
 export interface UserRoleItem {
   id: string;
+  clientId: string | null;
+  scope: 'CLIENT' | 'GLOBAL';
   name: string;
   description: string | null;
   isSystem: boolean;
+  isInherited: boolean;
+  isReadOnly: boolean;
 }
 
 @Injectable()
@@ -37,7 +41,9 @@ export class UserRolesService {
     const userRoles = await prisma.userRole.findMany({
       where: {
         userId,
-        role: { clientId },
+        role: {
+          OR: [{ scope: RoleScope.CLIENT, clientId }, { scope: RoleScope.GLOBAL }],
+        },
       },
       include: {
         role: true,
@@ -49,9 +55,13 @@ export class UserRolesService {
 
     return userRoles.map((ur: any) => ({
       id: ur.role.id,
+      clientId: ur.role.clientId ?? null,
+      scope: ur.role.scope,
       name: ur.role.name,
       description: ur.role.description ?? null,
       isSystem: ur.role.isSystem,
+      isInherited: ur.role.scope === RoleScope.GLOBAL,
+      isReadOnly: ur.role.scope === RoleScope.GLOBAL,
     }));
   }
 
@@ -68,9 +78,9 @@ export class UserRolesService {
     const roles = await prisma.role.findMany({
       where: {
         id: { in: dto.roleIds },
-        clientId,
+        OR: [{ scope: RoleScope.CLIENT, clientId }, { scope: RoleScope.GLOBAL }],
       },
-      select: { id: true },
+      select: { id: true, scope: true, clientId: true },
     });
 
     const allowedIds = new Set(roles.map((r: any) => r.id));
@@ -81,17 +91,19 @@ export class UserRolesService {
       );
     }
 
-    const allClientRoleIds = await (this.prisma as any).role.findMany({
-      where: { clientId },
+    const allAssignableRoleIds = await (this.prisma as any).role.findMany({
+      where: {
+        OR: [{ scope: RoleScope.CLIENT, clientId }, { scope: RoleScope.GLOBAL }],
+      },
       select: { id: true },
     });
-    const clientRoleIdsSet = new Set(allClientRoleIds.map((r: any) => r.id));
+    const assignableRoleIdsSet = new Set(allAssignableRoleIds.map((r: any) => r.id));
 
     await (this.prisma as any).$transaction(async (tx: any) => {
       await tx.userRole.deleteMany({
         where: {
           userId,
-          roleId: { in: Array.from(clientRoleIdsSet) },
+          roleId: { in: Array.from(assignableRoleIdsSet) },
         },
       });
 

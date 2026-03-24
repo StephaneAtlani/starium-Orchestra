@@ -59,9 +59,10 @@ export function RoleDetailPage() {
     );
   }
 
-  const canDelete = !role.isSystem;
-  const deleteTooltip = role.isSystem
-    ? 'Impossible de supprimer un rôle système.'
+  const isReadOnly = role.isReadOnly || role.isInherited;
+  const canDelete = !isReadOnly;
+  const deleteTooltip = isReadOnly
+    ? 'Rôle global hérité : suppression impossible depuis le client.'
     : 'Impossible de supprimer : rôle encore assigné à au moins un utilisateur.';
 
   return (
@@ -69,14 +70,17 @@ export function RoleDetailPage() {
       <PageHeader
         title={role.name}
         description={
-          role.isSystem
-            ? 'Rôle système. Lecture seule.'
+          isReadOnly
+            ? 'Rôle global hérité. Lecture seule dans le contexte client.'
             : 'Modifier le nom, la description et les permissions.'
         }
         actions={
           <div className="flex items-center gap-2">
-            {role.isSystem && (
-              <Badge variant="secondary">Système</Badge>
+            {role.scope === 'GLOBAL' && (
+              <Badge variant="secondary">Global</Badge>
+            )}
+            {role.isInherited && (
+              <Badge variant="outline">Hérité</Badge>
             )}
             <Link href="/client/roles" className={buttonVariants({ variant: 'outline' })}>
               Retour à la liste
@@ -113,14 +117,14 @@ export function RoleDetailPage() {
               }}
               onSubmit={handleSubmit}
               isSubmitting={updateRole.isPending}
-              readOnly={role.isSystem}
+              readOnly={isReadOnly}
             />
           </CardContent>
         </Card>
         <RolePermissionsEditor
           roleId={role.id}
           permissionIds={role.permissionIds}
-          isSystem={role.isSystem}
+          isSystem={isReadOnly}
         />
       </div>
     </PageContainer>

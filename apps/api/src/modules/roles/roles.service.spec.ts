@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { RoleScope } from '@prisma/client';
 import { RolesService } from './roles.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
@@ -16,6 +17,7 @@ describe('RolesService', () => {
   const roleRecord = {
     id: 'role-1',
     clientId,
+    scope: RoleScope.CLIENT,
     name: 'Responsable budgets',
     description: 'desc',
     isSystem: false,
@@ -54,16 +56,29 @@ describe('RolesService', () => {
   });
 
   describe('listRoles', () => {
-    it('retourne les rôles du client avec le bon select', async () => {
-      prisma.role.findMany.mockResolvedValue([roleRecord]);
+    it('retourne rôles CLIENT + GLOBAL en projection read-only pour GLOBAL', async () => {
+      prisma.role.findMany.mockResolvedValue([
+        roleRecord,
+        {
+          ...roleRecord,
+          id: 'role-global-1',
+          clientId: null,
+          scope: RoleScope.GLOBAL,
+          name: 'Global Reader',
+        },
+      ]);
 
       const result = await service.listRoles(clientId);
 
       expect(prisma.role.findMany).toHaveBeenCalledWith({
-        where: { clientId },
+        where: {
+          OR: [{ scope: RoleScope.CLIENT, clientId }, { scope: RoleScope.GLOBAL }],
+        },
         orderBy: { name: 'asc' },
         select: {
           id: true,
+          clientId: true,
+          scope: true,
           name: true,
           description: true,
           isSystem: true,
@@ -71,15 +86,17 @@ describe('RolesService', () => {
           updatedAt: true,
         },
       });
-      expect(result[0].id).toBe(roleRecord.id);
-      expect(result[0].isSystem).toBe(false);
+      expect(result[0].scope).toBe('CLIENT');
+      expect(result[1].scope).toBe('GLOBAL');
+      expect(result[1].isInherited).toBe(true);
+      expect(result[1].isReadOnly).toBe(true);
     });
   });
 
   describe('createRole', () => {
     it('crée un rôle et renvoie un RoleItem', async () => {
       const ensureSpy = jest
-        .spyOn<any, any>(service as any, 'ensureRoleNameUnique')
+        .spyOn<any, any>(service as any, 'ensureClientRoleNameUnique')
         .mockResolvedValue(undefined);
       prisma.role.create.mockResolvedValue(roleRecord);
 
@@ -92,15 +109,20 @@ describe('RolesService', () => {
       expect(prisma.role.create).toHaveBeenCalledWith({
         data: {
           clientId,
+          scope: RoleScope.CLIENT,
           name: roleRecord.name,
           description: roleRecord.description,
         },
       });
       expect(result).toEqual({
         id: roleRecord.id,
+        clientId,
+        scope: RoleScope.CLIENT,
         name: roleRecord.name,
         description: roleRecord.description,
         isSystem: false,
+        isInherited: false,
+        isReadOnly: false,
         createdAt: roleRecord.createdAt,
         updatedAt: roleRecord.updatedAt,
       });
@@ -119,6 +141,7 @@ describe('RolesService', () => {
     it('retourne le rôle avec permissionIds si trouvé', async () => {
       prisma.role.findFirst.mockResolvedValue({
         ...roleRecord,
+        scope: RoleScope.CLIENT,
         rolePermissions: [
           { permissionId: 'perm-1' },
           { permissionId: 'perm-2' },
@@ -136,11 +159,12 @@ describe('RolesService', () => {
     it('met à jour name/description et renvoie RoleItem', async () => {
       prisma.role.findFirst.mockResolvedValueOnce(roleRecord).mockResolvedValueOnce({
         ...roleRecord,
+        scope: RoleScope.CLIENT,
         name: 'Nouveau',
         description: 'Updated',
       });
       const ensureSpy = jest
-        .spyOn<any, any>(service as any, 'ensureRoleNameUnique')
+        .spyOn<any, any>(service as any, 'ensureClientRoleNameUnique')
         .mockResolvedValue(undefined);
       prisma.role.update.mockResolvedValue({
         ...roleRecord,
@@ -160,7 +184,7 @@ describe('RolesService', () => {
     });
 
     it('lève NotFoundException si le rôle est absent', async () => {
-      prisma.role.findFirst.mockResolvedValue(null);
+      prisma.role.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
       await expect(
         service.updateRole(clientId, 'unknown', { name: 'X' }),
@@ -170,6 +194,7 @@ describe('RolesService', () => {
     it('lève ForbiddenException si le rôle est système', async () => {
       prisma.role.findFirst.mockResolvedValue({
         ...roleRecord,
+        scope: RoleScope.CLIENT,
         isSystem: true,
       });
 
@@ -182,7 +207,7 @@ describe('RolesService', () => {
 
   describe('deleteRole', () => {
     it('lève NotFoundException si absent', async () => {
-      prisma.role.findFirst.mockResolvedValue(null);
+      prisma.role.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
       await expect(
         service.deleteRole(clientId, 'unknown'),
@@ -193,6 +218,7 @@ describe('RolesService', () => {
     it('lève ForbiddenException si isSystem', async () => {
       prisma.role.findFirst.mockResolvedValue({
         ...roleRecord,
+        scope: RoleScope.CLIENT,
         isSystem: true,
         userRoles: [],
       });
@@ -206,6 +232,7 @@ describe('RolesService', () => {
     it('lève ConflictException si encore assigné', async () => {
       prisma.role.findFirst.mockResolvedValue({
         ...roleRecord,
+        scope: RoleScope.CLIENT,
         isSystem: false,
         userRoles: [{ id: 'ur-1' }],
       });
@@ -219,6 +246,7 @@ describe('RolesService', () => {
     it('supprime le rôle sinon', async () => {
       prisma.role.findFirst.mockResolvedValue({
         ...roleRecord,
+        scope: RoleScope.CLIENT,
         isSystem: false,
         userRoles: [],
       });
@@ -289,7 +317,7 @@ describe('RolesService', () => {
     const dto = { permissionIds: ['perm-1', 'perm-2'] };
 
     it('lève NotFoundException si le rôle est absent', async () => {
-      prisma.role.findFirst.mockResolvedValue(null);
+      prisma.role.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
       await expect(
         service.replaceRolePermissions(clientId, roleRecord.id, dto),
@@ -310,6 +338,7 @@ describe('RolesService', () => {
     it('lève ForbiddenException si le rôle est système', async () => {
       prisma.role.findFirst.mockResolvedValue({
         ...roleRecord,
+        scope: RoleScope.CLIENT,
         isSystem: true,
       });
 
@@ -353,6 +382,31 @@ describe('RolesService', () => {
       });
       expect(result.permissionIds).toEqual(dto.permissionIds);
       expect(result.role.id).toBe(roleRecord.id);
+    });
+  });
+
+  describe('GLOBAL roles', () => {
+    it('createGlobalRole crée un rôle GLOBAL sans clientId', async () => {
+      jest.spyOn<any, any>(service as any, 'ensureGlobalRoleNameUnique').mockResolvedValue(undefined);
+      prisma.role.create.mockResolvedValue({
+        ...roleRecord,
+        id: 'global-1',
+        clientId: null,
+        scope: RoleScope.GLOBAL,
+      });
+      const result = await service.createGlobalRole({ name: 'Global Admin' });
+      expect(result.scope).toBe('GLOBAL');
+      expect(result.clientId).toBeNull();
+    });
+
+    it('deleteGlobalRole refuse si assigné', async () => {
+      prisma.role.findFirst.mockResolvedValue({
+        ...roleRecord,
+        clientId: null,
+        scope: RoleScope.GLOBAL,
+        userRoles: [{ id: 'ur-1' }],
+      });
+      await expect(service.deleteGlobalRole('global-1')).rejects.toBeInstanceOf(ConflictException);
     });
   });
 });

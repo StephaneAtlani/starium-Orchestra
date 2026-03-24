@@ -4,9 +4,13 @@
 
 export interface RoleListItem {
   id: string;
+  clientId: string | null;
+  scope: 'CLIENT' | 'GLOBAL';
   name: string;
   description: string | null;
   isSystem: boolean;
+  isInherited: boolean;
+  isReadOnly: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,9 +30,13 @@ export interface PermissionListItem {
 
 export interface UserRoleAssignment {
   id: string;
+  clientId: string | null;
+  scope: 'CLIENT' | 'GLOBAL';
   name: string;
   description: string | null;
   isSystem: boolean;
+  isInherited: boolean;
+  isReadOnly: boolean;
 }
 
 export interface CreateRoleDto {

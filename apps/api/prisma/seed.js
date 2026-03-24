@@ -23,6 +23,7 @@ const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
 const isProduction = process.env.NODE_ENV === 'production';
+const allowSeedCredentialReset = process.env.SEED_RESET_PASSWORDS === 'true';
 
 /**
  * Platform Admin (développement).
@@ -54,7 +55,7 @@ async function upsertPlatformAdmin() {
         platformRole: 'PLATFORM_ADMIN',
       },
     });
-  } else if (!isProduction) {
+  } else if (!isProduction && allowSeedCredentialReset) {
     await prisma.user.update({
       where: { email: PLATFORM_ADMIN.email },
       data: {
@@ -176,49 +177,47 @@ async function upsertModulesAndPermissions() {
 }
 
 /**
- * Applique les profils par défaut à tous les clients (idempotent).
- * Lit prisma/default-profiles.json et crée/met à jour les rôles pour chaque client.
+ * Crée/maintient les profils par défaut en GLOBAL (idempotent).
+ * Plus de duplication par client.
  */
-async function applyDefaultProfilesForAllClients() {
+async function applyDefaultGlobalProfiles() {
   const profilesPath = path.join(__dirname, 'default-profiles.json');
   if (!fs.existsSync(profilesPath)) {
     console.log('Seed: pas de default-profiles.json, skip profils par défaut.');
     return;
   }
   const profiles = JSON.parse(fs.readFileSync(profilesPath, 'utf8'));
-  const clients = await prisma.client.findMany({ select: { id: true } });
-  for (const { id: clientId } of clients) {
-    for (const profile of profiles) {
-      let role = await prisma.role.findFirst({
-        where: { clientId, name: profile.name },
+  for (const profile of profiles) {
+    let role = await prisma.role.findFirst({
+      where: { scope: 'GLOBAL', name: profile.name },
+    });
+    if (!role) {
+      role = await prisma.role.create({
+        data: {
+          clientId: null,
+          scope: 'GLOBAL',
+          name: profile.name,
+          description: profile.description ?? null,
+          isSystem: false,
+        },
       });
-      if (!role) {
-        role = await prisma.role.create({
-          data: {
-            clientId,
-            name: profile.name,
-            description: profile.description ?? null,
-            isSystem: true,
-          },
-        });
-      }
-      const permissions = await prisma.permission.findMany({
-        where: { code: { in: profile.permissionCodes } },
-        select: { id: true },
+    }
+    const permissions = await prisma.permission.findMany({
+      where: { code: { in: profile.permissionCodes } },
+      select: { id: true },
+    });
+    const permissionIds = permissions.map((p) => p.id);
+    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+    if (permissionIds.length > 0) {
+      await prisma.rolePermission.createMany({
+        data: permissionIds.map((permissionId) => ({
+          roleId: role.id,
+          permissionId,
+        })),
       });
-      const permissionIds = permissions.map((p) => p.id);
-      await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
-      if (permissionIds.length > 0) {
-        await prisma.rolePermission.createMany({
-          data: permissionIds.map((permissionId) => ({
-            roleId: role.id,
-            permissionId,
-          })),
-        });
-      }
     }
   }
-  console.log('Seed OK: profils par défaut appliqués pour', clients.length, 'client(s).');
+  console.log('Seed OK: profils globaux par défaut appliqués.');
 }
 
 /**
@@ -322,7 +321,7 @@ async function upsertSitralAndClientAdmin() {
         lastName: SITRAL_CLIENT_ADMIN.lastName,
       },
     });
-  } else if (!isProduction) {
+  } else if (!isProduction && allowSeedCredentialReset) {
     user = await prisma.user.update({
       where: { email: SITRAL_CLIENT_ADMIN.email },
       data: {
@@ -374,10 +373,10 @@ async function bootstrapResourcesForClient(clientId) {
 
   async function ensureRole(name, permissionCodes) {
     const permissionIds = permissionCodes.map((c) => byCode[c]).filter(Boolean);
-    let role = await prisma.role.findFirst({ where: { clientId, name } });
+    let role = await prisma.role.findFirst({ where: { scope: 'GLOBAL', name } });
     if (!role) {
       role = await prisma.role.create({
-        data: { clientId, name, isSystem: true },
+        data: { clientId: null, scope: 'GLOBAL', name, isSystem: false },
       });
     }
     const existing = await prisma.rolePermission.findMany({
@@ -430,7 +429,7 @@ async function linkSitralAdminToResponsableRole() {
   });
   if (!user) return;
   const role = await prisma.role.findFirst({
-    where: { clientId: client.id, name: 'Responsable Budgets' },
+    where: { scope: 'GLOBAL', name: 'Responsable Budgets' },
   });
   if (!role) {
     console.log('Seed: rôle Responsable Budgets introuvable, skip UserRole admin Sitral.');
@@ -453,7 +452,7 @@ async function main() {
   await upsertPlatformAdmin();
   await upsertModulesAndPermissions();
   await upsertSitralAndClientAdmin();
-  await applyDefaultProfilesForAllClients();
+  await applyDefaultGlobalProfiles();
   await linkSitralAdminToResponsableRole();
 }
 

@@ -24,6 +24,11 @@ enum ClientUserStatus {
   INVITED
 }
 
+enum RoleScope {
+  CLIENT
+  GLOBAL
+}
+
 /// Challenge MFA (login ou enrollment) — identifiant public = `id` (challengeId).
 enum MfaChallengePurpose {
   LOGIN
@@ -208,18 +213,21 @@ model ClientModule {
 /// Rôle métier client (scopé par client).
 model Role {
   id             String          @id @default(cuid())
-  clientId       String
+  clientId       String?
+  scope          RoleScope       @default(CLIENT)
   name           String
   description    String?
   isSystem       Boolean         @default(false)
-  client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client         Client?         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   rolePermissions RolePermission[]
   userRoles      UserRole[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
   @@unique([clientId, name])
+  @@index([scope])
   @@index([clientId])
+  @@index([name])
 }
 
 /// Permission unitaire globale (<module>.<action>).

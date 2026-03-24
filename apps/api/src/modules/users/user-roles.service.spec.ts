@@ -2,7 +2,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { ClientUserStatus } from '@prisma/client';
+import { ClientUserStatus, RoleScope } from '@prisma/client';
 import { UserRolesService } from './user-roles.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
@@ -75,6 +75,8 @@ describe('UserRolesService', () => {
         {
           role: {
             id: 'role-1',
+            clientId,
+            scope: RoleScope.CLIENT,
             name: 'R1',
             description: 'd1',
             isSystem: false,
@@ -87,7 +89,9 @@ describe('UserRolesService', () => {
       expect(prisma.userRole.findMany).toHaveBeenCalledWith({
         where: {
           userId,
-          role: { clientId },
+          role: {
+            OR: [{ scope: RoleScope.CLIENT, clientId }, { scope: RoleScope.GLOBAL }],
+          },
         },
         include: {
           role: true,
@@ -99,9 +103,13 @@ describe('UserRolesService', () => {
       expect(result).toEqual([
         {
           id: 'role-1',
+          clientId,
+          scope: RoleScope.CLIENT,
           name: 'R1',
           description: 'd1',
           isSystem: false,
+          isInherited: false,
+          isReadOnly: false,
         },
       ]);
     });
@@ -118,7 +126,7 @@ describe('UserRolesService', () => {
         status: ClientUserStatus.ACTIVE,
       });
       prisma.role.findMany.mockResolvedValueOnce([
-        { id: 'role-1' },
+        { id: 'role-1', scope: RoleScope.CLIENT, clientId },
       ]); // seulement un rôle autorisé
 
       await expect(
@@ -136,8 +144,8 @@ describe('UserRolesService', () => {
       // premier findMany: rôles autorisés parmi dto.roleIds
       prisma.role.findMany
         .mockResolvedValueOnce([
-          { id: 'role-1' },
-          { id: 'role-2' },
+          { id: 'role-1', scope: RoleScope.CLIENT, clientId },
+          { id: 'role-2', scope: RoleScope.GLOBAL, clientId: null },
         ])
         // second findMany: tous les rôles du client
         .mockResolvedValueOnce([

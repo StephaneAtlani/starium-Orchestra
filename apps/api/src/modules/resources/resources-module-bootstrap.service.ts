@@ -86,15 +86,17 @@ export class ResourcesModuleBootstrapService {
     permissionIds: string[];
   }): Promise<void> {
     const { clientId, name, permissionIds } = params;
+    void clientId;
     let role = await this.prisma.role.findFirst({
-      where: { clientId, name },
+      where: { scope: 'GLOBAL', name },
     });
     if (!role) {
       role = await this.prisma.role.create({
         data: {
-          clientId,
+          clientId: null,
+          scope: 'GLOBAL',
           name,
-          isSystem: true,
+          isSystem: false,
         },
       });
     }

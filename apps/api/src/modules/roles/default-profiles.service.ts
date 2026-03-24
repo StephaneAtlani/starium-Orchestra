@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -28,58 +28,11 @@ export class DefaultProfilesService {
   }
 
   /**
-   * Crée les rôles système par défaut pour un client (idempotent).
-   * N'écrase jamais les permissions existantes d'un rôle déjà présent :
-   * on ajoute uniquement les permissions manquantes.
+   * Compat legacy: plus de création automatique de rôles client par défaut.
+   * Les profils par défaut sont gérés en GLOBAL.
    */
   async applyForClient(clientId: string): Promise<void> {
-    const profiles = this.getProfilesDefinition();
-    const prisma = this.prisma as any;
-    const allPermissionCodes = Array.from(
-      new Set(profiles.flatMap((profile) => profile.permissionCodes)),
-    );
-    const existingPermissions = await prisma.permission.findMany({
-      where: { code: { in: allPermissionCodes } },
-      select: { id: true, code: true },
-    });
-    const existingCodes = new Set(
-      existingPermissions.map((p: { code: string }) => p.code),
-    );
-    const missingCodes = allPermissionCodes.filter((code) => !existingCodes.has(code));
-    if (missingCodes.length > 0) {
-      throw new InternalServerErrorException(
-        `Permissions globales manquantes pour les profils par defaut: ${missingCodes.join(', ')}. Lancez le seed des modules/permissions.`,
-      );
-    }
-
-    for (const profile of profiles) {
-      let role = await prisma.role.findFirst({
-        where: { clientId, name: profile.name },
-      });
-      if (!role) {
-        role = await prisma.role.create({
-          data: {
-            clientId,
-            name: profile.name,
-            description: profile.description ?? null,
-            isSystem: true,
-          },
-        });
-      }
-
-      const permissionIds = existingPermissions
-        .filter((p: { code: string }) => profile.permissionCodes.includes(p.code))
-        .map((p: { id: string }) => p.id);
-
-      if (permissionIds.length > 0) {
-        await prisma.rolePermission.createMany({
-          data: permissionIds.map((permissionId: string) => ({
-            roleId: role.id,
-            permissionId,
-          })),
-          skipDuplicates: true,
-        });
-      }
-    }
+    void clientId;
+    return;
   }
 }
