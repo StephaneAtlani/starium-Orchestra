@@ -22,6 +22,7 @@ const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
 
 /**
  * Platform Admin (développement).
@@ -38,17 +39,30 @@ const PLATFORM_ADMIN = {
 
 async function upsertPlatformAdmin() {
   const passwordHash = await bcrypt.hash(PLATFORM_ADMIN.password, 10);
-  await prisma.user.upsert({
+  const existingUser = await prisma.user.findUnique({
     where: { email: PLATFORM_ADMIN.email },
-    update: { passwordHash, platformRole: 'PLATFORM_ADMIN' },
-    create: {
-      email: PLATFORM_ADMIN.email,
-      passwordHash,
-      firstName: PLATFORM_ADMIN.firstName,
-      lastName: PLATFORM_ADMIN.lastName,
-      platformRole: 'PLATFORM_ADMIN',
-    },
+    select: { id: true },
   });
+
+  if (!existingUser) {
+    await prisma.user.create({
+      data: {
+        email: PLATFORM_ADMIN.email,
+        passwordHash,
+        firstName: PLATFORM_ADMIN.firstName,
+        lastName: PLATFORM_ADMIN.lastName,
+        platformRole: 'PLATFORM_ADMIN',
+      },
+    });
+  } else if (!isProduction) {
+    await prisma.user.update({
+      where: { email: PLATFORM_ADMIN.email },
+      data: {
+        passwordHash,
+        platformRole: 'PLATFORM_ADMIN',
+      },
+    });
+  }
 
   console.log(
     'Seed OK: Platform Admin',
@@ -294,20 +308,32 @@ async function upsertSitralAndClientAdmin() {
   }
 
   const passwordHash = await bcrypt.hash(SITRAL_CLIENT_ADMIN.password, 10);
-  const user = await prisma.user.upsert({
+  const existingUser = await prisma.user.findUnique({
     where: { email: SITRAL_CLIENT_ADMIN.email },
-    update: {
-      passwordHash,
-      firstName: SITRAL_CLIENT_ADMIN.firstName,
-      lastName: SITRAL_CLIENT_ADMIN.lastName,
-    },
-    create: {
-      email: SITRAL_CLIENT_ADMIN.email,
-      passwordHash,
-      firstName: SITRAL_CLIENT_ADMIN.firstName,
-      lastName: SITRAL_CLIENT_ADMIN.lastName,
-    },
   });
+
+  let user;
+  if (!existingUser) {
+    user = await prisma.user.create({
+      data: {
+        email: SITRAL_CLIENT_ADMIN.email,
+        passwordHash,
+        firstName: SITRAL_CLIENT_ADMIN.firstName,
+        lastName: SITRAL_CLIENT_ADMIN.lastName,
+      },
+    });
+  } else if (!isProduction) {
+    user = await prisma.user.update({
+      where: { email: SITRAL_CLIENT_ADMIN.email },
+      data: {
+        passwordHash,
+        firstName: SITRAL_CLIENT_ADMIN.firstName,
+        lastName: SITRAL_CLIENT_ADMIN.lastName,
+      },
+    });
+  } else {
+    user = existingUser;
+  }
 
   await prisma.clientUser.upsert({
     where: {
