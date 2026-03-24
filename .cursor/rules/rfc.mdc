@@ -23,3 +23,6 @@ Tu dois toujours :
 - ne pas inventer de structure non demandée
 
 La documentation est dans /docs/
+
+Pour la partie UX/UI base toi sur docs/FRONTEND_UI-UX.md
+Les input doit afficher la valeur pas l'ID
