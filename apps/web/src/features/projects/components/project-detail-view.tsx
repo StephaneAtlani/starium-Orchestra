@@ -10,7 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -46,8 +49,10 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  listProjectPortfolioCategories,
   listProjectTags,
   replaceProjectTags,
+  updateProject,
 } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 
@@ -85,13 +90,31 @@ function ProjectDetailTabbedContent({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [tagToAdd, setTagToAdd] = useState<string>('');
   const [showTagPicker, setShowTagPicker] = useState(false);
+  const [editableType, setEditableType] = useState(project.type);
+  const [editableStatus, setEditableStatus] = useState(project.status);
+  const [editablePortfolioCategoryId, setEditablePortfolioCategoryId] = useState<string>(
+    project.portfolioCategory?.id ?? '__none__',
+  );
+  const [activeInlineEdit, setActiveInlineEdit] = useState<
+    'type' | 'status' | 'portfolioCategory' | null
+  >(null);
   useEffect(() => {
     setSelectedTagIds(project.tags.map((tag) => tag.id));
   }, [project.tags]);
+  useEffect(() => {
+    setEditableType(project.type);
+    setEditableStatus(project.status);
+    setEditablePortfolioCategoryId(project.portfolioCategory?.id ?? '__none__');
+  }, [project.type, project.status, project.portfolioCategory?.id]);
 
   const optionsTagsQuery = useQuery({
     queryKey: projectQueryKeys.optionsTags(clientId),
     queryFn: () => listProjectTags(authFetch),
+    enabled: Boolean(clientId),
+  });
+  const optionsPortfolioCategoriesQuery = useQuery({
+    queryKey: projectQueryKeys.optionsPortfolioCategories(clientId),
+    queryFn: () => listProjectPortfolioCategories(authFetch),
     enabled: Boolean(clientId),
   });
 
@@ -111,10 +134,50 @@ function ProjectDetailTabbedContent({
       ]);
     },
   });
+  const updateProjectMetaMutation = useMutation({
+    mutationFn: (payload: {
+      type?: string;
+      status?: string;
+      portfolioCategoryId?: string | null;
+    }) => updateProject(authFetch, projectId, payload),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: projectQueryKeys.detail(clientId, projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: projectQueryKeys.list(clientId, {}),
+        }),
+      ]);
+    },
+  });
 
   const availableTags = (optionsTagsQuery.data ?? []).filter(
     (tag) => !selectedTagIds.includes(tag.id),
   );
+  const categoryGroups = (optionsPortfolioCategoriesQuery.data ?? []).map((root) => ({
+    rootId: root.id,
+    rootName: root.name,
+    children: (root.children ?? [])
+      .filter((child) => child.isActive || child.id === project.portfolioCategory?.id)
+      .map((child) => ({
+        id: child.id,
+        label: child.name,
+        fullLabel: `${root.name} / ${child.name}`,
+      })),
+  }));
+  const categoryOptions = categoryGroups.flatMap((group) =>
+    group.children.map((child) => ({ id: child.id, label: child.fullLabel })),
+  );
+  const selectedCategoryLabel =
+    editablePortfolioCategoryId === '__none__'
+      ? 'Non definie'
+      : categoryOptions.find((option) => option.id === editablePortfolioCategoryId)?.label ??
+        (project.portfolioCategory?.parentName
+          ? `${project.portfolioCategory.parentName} / ${project.portfolioCategory.name}`
+          : project.portfolioCategory?.name ?? 'Non definie');
+  const selectedTypeLabel = PROJECT_TYPE_LABEL[editableType] ?? editableType;
+  const selectedStatusLabel = PROJECT_STATUS_LABEL[editableStatus] ?? editableStatus;
 
   const saveTags = (nextTagIds: string[]) => {
     setSelectedTagIds(nextTagIds);
@@ -170,11 +233,109 @@ function ProjectDetailTabbedContent({
                 </div>
                 <div className="min-w-0">
                   <span className="text-muted-foreground">Type : </span>
-                  {PROJECT_TYPE_LABEL[project.type] ?? project.type}
+                  {activeInlineEdit === 'type' ? (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <Select value={editableType} onValueChange={setEditableType}>
+                        <SelectTrigger className="h-7 w-[180px] text-xs">
+                          <SelectValue>{selectedTypeLabel}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(PROJECT_TYPE_LABEL).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          updateProjectMetaMutation.mutate(
+                            { type: editableType },
+                            { onSuccess: () => setActiveInlineEdit(null) },
+                          );
+                        }}
+                        disabled={updateProjectMetaMutation.isPending}
+                      >
+                        OK
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          setEditableType(project.type);
+                          setActiveInlineEdit(null);
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="rounded px-1 py-0.5 text-left hover:bg-muted"
+                      onClick={() => setActiveInlineEdit('type')}
+                    >
+                      {PROJECT_TYPE_LABEL[project.type] ?? project.type}
+                    </button>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <span className="text-muted-foreground">Statut : </span>
-                  {PROJECT_STATUS_LABEL[project.status] ?? project.status}
+                  {activeInlineEdit === 'status' ? (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <Select value={editableStatus} onValueChange={setEditableStatus}>
+                        <SelectTrigger className="h-7 w-[180px] text-xs">
+                          <SelectValue>{selectedStatusLabel}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(PROJECT_STATUS_LABEL).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          updateProjectMetaMutation.mutate(
+                            { status: editableStatus },
+                            { onSuccess: () => setActiveInlineEdit(null) },
+                          );
+                        }}
+                        disabled={updateProjectMetaMutation.isPending}
+                      >
+                        OK
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          setEditableStatus(project.status);
+                          setActiveInlineEdit(null);
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="rounded px-1 py-0.5 text-left hover:bg-muted"
+                      onClick={() => setActiveInlineEdit('status')}
+                    >
+                      {PROJECT_STATUS_LABEL[project.status] ?? project.status}
+                    </button>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <span className="text-muted-foreground">Avancement manuel / dérivé : </span>
@@ -195,14 +356,78 @@ function ProjectDetailTabbedContent({
                 <div className="sm:col-span-2 border-t pt-3">
                   <div className="mb-2 flex items-center gap-2">
                     <span className="text-muted-foreground">Categorie portefeuille :</span>
-                    {project.portfolioCategory ? (
-                      <Badge variant="outline">
-                        {project.portfolioCategory.parentName
-                          ? `${project.portfolioCategory.parentName} / ${project.portfolioCategory.name}`
-                          : project.portfolioCategory.name}
-                      </Badge>
+                    {activeInlineEdit === 'portfolioCategory' ? (
+                      <div className="flex items-center gap-1.5">
+                        <Select
+                          value={editablePortfolioCategoryId}
+                          onValueChange={setEditablePortfolioCategoryId}
+                        >
+                          <SelectTrigger className="h-7 w-[260px] text-xs">
+                            <SelectValue>{selectedCategoryLabel}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Non definie</SelectItem>
+                            <SelectSeparator />
+                            {categoryGroups.map((group) => (
+                              <SelectGroup key={group.rootId}>
+                                <SelectLabel>{group.rootName}</SelectLabel>
+                                {group.children.length === 0 ? (
+                                  <SelectItem value={`__empty__${group.rootId}`} disabled>
+                                    Aucune sous-categorie active
+                                  </SelectItem>
+                                ) : (
+                                  group.children.map((option) => (
+                                    <SelectItem key={option.id} value={option.id}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectGroup>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            updateProjectMetaMutation.mutate(
+                              {
+                                portfolioCategoryId:
+                                  editablePortfolioCategoryId === '__none__'
+                                    ? null
+                                    : editablePortfolioCategoryId,
+                              },
+                              { onSuccess: () => setActiveInlineEdit(null) },
+                            );
+                          }}
+                          disabled={updateProjectMetaMutation.isPending}
+                        >
+                          OK
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            setEditablePortfolioCategoryId(project.portfolioCategory?.id ?? '__none__');
+                            setActiveInlineEdit(null);
+                          }}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
                     ) : (
-                      <span className="text-sm text-muted-foreground">Non definie</span>
+                      <button
+                        type="button"
+                        className="rounded px-1 py-0.5 text-left hover:bg-muted"
+                        onClick={() => setActiveInlineEdit('portfolioCategory')}
+                      >
+                        {project.portfolioCategory?.parentName
+                          ? `${project.portfolioCategory.parentName} / ${project.portfolioCategory.name}`
+                          : project.portfolioCategory?.name ?? 'Non definie'}
+                      </button>
                     )}
                   </div>
                   <div className="mb-2 flex items-center gap-2">

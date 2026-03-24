@@ -69,6 +69,8 @@ export default function ProjectsOptionsPage() {
   const [deleteDialog, setDeleteDialog] = useState<{ id: string; name: string } | null>(
     null,
   );
+  const [isTagsCollapsed, setIsTagsCollapsed] = useState(true);
+  const [isCategoriesCollapsed, setIsCategoriesCollapsed] = useState(true);
 
   const categoriesQuery = useQuery({
     queryKey: projectQueryKeys.optionsPortfolioCategories(clientId),
@@ -269,10 +271,24 @@ export default function ProjectsOptionsPage() {
           description="Gerer les etiquettes et l'arborescence des categories portefeuille."
         />
         <Card size="sm">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Etiquettes</CardTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsTagsCollapsed((prev) => !prev)}
+            >
+              {isTagsCollapsed ? 'Deplier' : 'Plier'}
+              {isTagsCollapsed ? (
+                <ChevronDown className="ml-1 size-4" />
+              ) : (
+                <ChevronUp className="ml-1 size-4" />
+              )}
+            </Button>
           </CardHeader>
-          <CardContent className="space-y-4">
+          {!isTagsCollapsed ? (
+            <CardContent className="space-y-4">
             <form
               className="flex items-center gap-2"
               onSubmit={(e) => {
@@ -386,13 +402,28 @@ export default function ProjectsOptionsPage() {
                 ))}
               </div>
             )}
-          </CardContent>
+            </CardContent>
+          ) : null}
         </Card>
         <Card size="sm">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Categories portefeuille</CardTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCategoriesCollapsed((prev) => !prev)}
+            >
+              {isCategoriesCollapsed ? 'Deplier' : 'Plier'}
+              {isCategoriesCollapsed ? (
+                <ChevronDown className="ml-1 size-4" />
+              ) : (
+                <ChevronUp className="ml-1 size-4" />
+              )}
+            </Button>
           </CardHeader>
-          <CardContent className="space-y-4">
+          {!isCategoriesCollapsed ? (
+            <CardContent className="space-y-4">
             <form
               className="flex items-center gap-2"
               onSubmit={(e) => {
@@ -613,7 +644,8 @@ export default function ProjectsOptionsPage() {
                 ))}
               </div>
             )}
-          </CardContent>
+            </CardContent>
+          ) : null}
         </Card>
 
         <Dialog open={newTagColorModalOpen} onOpenChange={setNewTagColorModalOpen}>

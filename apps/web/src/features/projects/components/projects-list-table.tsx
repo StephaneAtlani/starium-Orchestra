@@ -114,6 +114,11 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
       <Table className="min-w-[56rem] text-sm">
       <TableHeader className="bg-muted/50 [&_tr]:border-b-0">
         <TableRow className="border-0 hover:bg-transparent">
+          <TableHead className={cn(th, 'min-w-[11rem] pl-4')}>
+            <HeaderTip tip="Categorie portefeuille rattachee au projet (racine / sous-categorie).">
+              Categorie
+            </HeaderTip>
+          </TableHead>
           <TableHead className={cn(th, 'min-w-[12rem] pl-4')}>
             <HeaderTip tip="Nom du projet, code interne, criticité et responsable. Cliquez sur le nom pour ouvrir la fiche.">
               Projet
@@ -179,6 +184,29 @@ export function ProjectsListTable({ items }: { items: ProjectListItem[] }) {
       <TableBody>
         {items.map((p) => (
           <TableRow key={p.id} className="group">
+            <TableCell className="align-top py-3 pl-4">
+              {p.portfolioCategory ? (
+                <CellTip
+                  tip={
+                    p.portfolioCategory.parentName
+                      ? `${p.portfolioCategory.parentName} / ${p.portfolioCategory.name}`
+                      : p.portfolioCategory.name
+                  }
+                >
+                  <span className="text-xs text-foreground">
+                    {p.portfolioCategory.parentName ? (
+                      <>
+                        <span className="text-muted-foreground">{p.portfolioCategory.parentName}</span>
+                        <span className="mx-1 text-border">/</span>
+                      </>
+                    ) : null}
+                    <span>{p.portfolioCategory.name}</span>
+                  </span>
+                </CellTip>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
+            </TableCell>
             <TableCell className="align-top py-3 pl-4">
               <Link
                 href={`/projects/${p.id}`}
