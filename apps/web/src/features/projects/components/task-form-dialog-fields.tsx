@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -7,7 +8,15 @@ import {
   TASK_STATUS_LABEL,
 } from '../constants/project-enum-labels';
 import type { CreateProjectTaskPayload } from '../api/projects.api';
-import { CalendarRange, Flag, GitBranch, Link2, ListChecks, User } from 'lucide-react';
+import {
+  CalendarRange,
+  CheckSquare,
+  Flag,
+  GitBranch,
+  Link2,
+  ListChecks,
+  User,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function isoToDateInput(iso: string | null | undefined): string {
@@ -215,6 +224,83 @@ export function TaskFormDialogFields({
             />
           </div>
         </div>
+      </section>
+
+      <section
+        className="rounded-lg border border-border/70 bg-muted/30 p-4"
+        aria-labelledby={fid('sec-checklist')}
+      >
+        <h3
+          id={fid('sec-checklist')}
+          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
+        >
+          <CheckSquare className="size-3.5 shrink-0" aria-hidden />
+          Liste de contrôle
+        </h3>
+        <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+          Synchronisée avec Microsoft Planner lors de la sync des tâches.
+        </p>
+        <ul className="space-y-2">
+          {(form.checklistItems ?? []).map((item, idx) => (
+            <li key={item.id ?? `draft-${idx}`} className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+              <input
+                type="checkbox"
+                className="size-4 shrink-0 rounded border border-input"
+                checked={item.isChecked ?? false}
+                onChange={(e) => {
+                  const next = [...(form.checklistItems ?? [])];
+                  next[idx] = { ...next[idx], isChecked: e.target.checked };
+                  onPatch({ checklistItems: next });
+                }}
+                aria-label={`Élément coché : ${item.title || 'nouvel élément'}`}
+              />
+              <Input
+                className="min-w-0 flex-1"
+                value={item.title}
+                placeholder="Libellé"
+                onChange={(e) => {
+                  const next = [...(form.checklistItems ?? [])];
+                  next[idx] = { ...next[idx], title: e.target.value };
+                  onPatch({ checklistItems: next });
+                }}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 shrink-0 px-2 text-muted-foreground"
+                onClick={() => {
+                  const next = (form.checklistItems ?? []).filter((_, i) => i !== idx);
+                  onPatch({
+                    checklistItems: next.map((row, i) => ({
+                      ...row,
+                      sortOrder: i,
+                    })),
+                  });
+                }}
+              >
+                Retirer
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={() => {
+            const items = form.checklistItems ?? [];
+            onPatch({
+              checklistItems: [
+                ...items,
+                { title: '', isChecked: false, sortOrder: items.length },
+              ],
+            });
+          }}
+        >
+          Ajouter un élément
+        </Button>
       </section>
 
       <section

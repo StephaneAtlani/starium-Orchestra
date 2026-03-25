@@ -58,9 +58,15 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     prisma = {
       projectTask: {
         findFirst: jest.fn(),
+        findFirstOrThrow: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+      },
+      projectTaskChecklistItem: {
+        findMany: jest.fn(),
+        deleteMany: jest.fn(),
+        create: jest.fn(),
       },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
@@ -81,6 +87,10 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     const updated = { ...existing, name: 'B' };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
+    prisma.projectTask.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      checklistItems: [],
+    });
 
     await service.update(
       clientId,
@@ -112,6 +122,10 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
+    prisma.projectTask.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      checklistItems: [],
+    });
 
     await service.update(
       clientId,
@@ -138,6 +152,10 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     const updated = { ...existing, ownerUserId: 'u99' };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
+    prisma.projectTask.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      checklistItems: [],
+    });
 
     await service.update(
       clientId,
@@ -174,6 +192,10 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
+    prisma.projectTask.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      checklistItems: [],
+    });
 
     await service.update(
       clientId,

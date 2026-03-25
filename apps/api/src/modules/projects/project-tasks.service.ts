@@ -1,9 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProjectTaskStatus } from '@prisma/client';
+import {
+  Prisma,
+  ProjectTask,
+  ProjectTaskChecklistItem,
+  ProjectTaskStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
@@ -17,6 +23,7 @@ import {
   projectTaskEntityAuditSnapshot,
 } from './project-audit-serialize';
 import { CreateProjectTaskDto } from './dto/create-project-task.dto';
+import type { ProjectTaskChecklistItemInputDto } from './dto/project-task-checklist-item.dto';
 import { ListProjectTasksQueryDto } from './dto/list-project-tasks.query.dto';
 import { UpdateProjectTaskDto } from './dto/update-project-task.dto';
 import { normalizeListPagination } from './lib/paginated-list.util';
@@ -59,7 +66,7 @@ export class ProjectTasksService {
       };
     }
 
-    const [items, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.projectTask.findMany({
         where,
         orderBy: [
@@ -69,10 +76,14 @@ export class ProjectTasksService {
         ],
         skip: offset,
         take: limit,
+        include: {
+          checklistItems: { orderBy: { sortOrder: 'asc' } },
+        },
       }),
       this.prisma.projectTask.count({ where }),
     ]);
 
+    const items = rows.map((t) => this.mapTaskWithChecklist(t));
     return { items, total, limit, offset };
   }
 
@@ -80,9 +91,12 @@ export class ProjectTasksService {
     await this.projects.getProjectForScope(clientId, projectId);
     const task = await this.prisma.projectTask.findFirst({
       where: { id: taskId, clientId, projectId },
+      include: {
+        checklistItems: { orderBy: { sortOrder: 'asc' } },
+      },
     });
     if (!task) throw new NotFoundException('Task not found');
-    return task;
+    return this.mapTaskWithChecklist(task);
   }
 
   async create(
@@ -172,6 +186,23 @@ export class ProjectTasksService {
         sortOrder: dto.sortOrder ?? 0,
         createdByUserId: actorUserId ?? null,
         updatedByUserId: actorUserId ?? null,
+        ...(dto.checklistItems?.length
+          ? {
+              checklistItems: {
+                create: dto.checklistItems.map((item, idx) => ({
+                  clientId,
+                  projectId,
+                  title: item.title.trim(),
+                  isChecked: item.isChecked ?? false,
+                  sortOrder: item.sortOrder ?? idx,
+                  plannerChecklistItemKey: randomUUID(),
+                })),
+              },
+            }
+          : {}),
+      },
+      include: {
+        checklistItems: { orderBy: { sortOrder: 'asc' } },
       },
     });
 
@@ -191,7 +222,7 @@ export class ProjectTasksService {
       ...meta,
     });
 
-    return created;
+    return this.mapTaskWithChecklist(created);
   }
 
   async update(
@@ -271,7 +302,7 @@ export class ProjectTasksService {
         : existing.actualEndDate?.toISOString() ?? null,
     );
 
-    const updated = await this.prisma.projectTask.update({
+    await this.prisma.projectTask.update({
       where: { id: taskId },
       data: {
         ...(dto.name !== undefined && { name: dto.name.trim() }),
@@ -315,6 +346,22 @@ export class ProjectTasksService {
       },
     });
 
+    if (dto.checklistItems !== undefined) {
+      await this.replaceTaskChecklist(
+        clientId,
+        projectId,
+        taskId,
+        dto.checklistItems,
+      );
+    }
+
+    const final = await this.prisma.projectTask.findFirstOrThrow({
+      where: { id: taskId, clientId, projectId },
+      include: {
+        checklistItems: { orderBy: { sortOrder: 'asc' } },
+      },
+    });
+
     const meta = {
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -322,10 +369,10 @@ export class ProjectTasksService {
     };
 
     const oldSnap = projectTaskEntityAuditSnapshot(existing);
-    const newSnap = projectTaskEntityAuditSnapshot(updated);
+    const newSnap = projectTaskEntityAuditSnapshot(final);
     let { oldValue, newValue } = diffAuditSnapshots(oldSnap, newSnap);
-    const statusChanged = existing.status !== updated.status;
-    const ownerChanged = existing.ownerUserId !== updated.ownerUserId;
+    const statusChanged = existing.status !== final.status;
+    const ownerChanged = existing.ownerUserId !== final.ownerUserId;
     const keysToOmit: string[] = [];
     if (statusChanged) keysToOmit.push('status');
     if (ownerChanged) keysToOmit.push('ownerUserId');
@@ -352,7 +399,7 @@ export class ProjectTasksService {
         resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_TASK,
         resourceId: taskId,
         oldValue: { status: existing.status },
-        newValue: { status: updated.status },
+        newValue: { status: final.status },
         ...meta,
       });
     }
@@ -365,12 +412,67 @@ export class ProjectTasksService {
         resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_TASK,
         resourceId: taskId,
         oldValue: { ownerUserId: existing.ownerUserId ?? null },
-        newValue: { ownerUserId: updated.ownerUserId ?? null },
+        newValue: { ownerUserId: final.ownerUserId ?? null },
         ...meta,
       });
     }
 
-    return updated;
+    return this.mapTaskWithChecklist(final);
+  }
+
+  private mapTaskWithChecklist(
+    task: ProjectTask & { checklistItems?: ProjectTaskChecklistItem[] },
+  ) {
+    const { checklistItems, ...rest } = task;
+    return {
+      ...rest,
+      checklistItems:
+        checklistItems?.map(({ id, title, isChecked, sortOrder }) => ({
+          id,
+          title,
+          isChecked,
+          sortOrder,
+        })) ?? [],
+    };
+  }
+
+  private async replaceTaskChecklist(
+    clientId: string,
+    projectId: string,
+    taskId: string,
+    incoming: ProjectTaskChecklistItemInputDto[],
+  ) {
+    const existing = await this.prisma.projectTaskChecklistItem.findMany({
+      where: { clientId, projectId, projectTaskId: taskId },
+    });
+    const byId = new Map(existing.map((e) => [e.id, e]));
+
+    for (const row of incoming) {
+      if (row.id && !byId.has(row.id)) {
+        throw new BadRequestException('checklistItems: id inconnu pour cette tâche');
+      }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectTaskChecklistItem.deleteMany({
+        where: { clientId, projectId, projectTaskId: taskId },
+      });
+
+      for (const [idx, row] of incoming.entries()) {
+        const old = row.id ? byId.get(row.id) : undefined;
+        await tx.projectTaskChecklistItem.create({
+          data: {
+            clientId,
+            projectId,
+            projectTaskId: taskId,
+            title: row.title.trim(),
+            isChecked: row.isChecked ?? false,
+            sortOrder: row.sortOrder ?? idx,
+            plannerChecklistItemKey: old?.plannerChecklistItemKey ?? randomUUID(),
+          },
+        });
+      }
+    });
   }
 
   private assertTaskDatesAndProgress(

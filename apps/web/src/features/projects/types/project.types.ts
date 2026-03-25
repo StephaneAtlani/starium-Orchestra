@@ -128,6 +128,14 @@ export type PaginatedList<T> = {
   offset: number;
 };
 
+/** Élément de liste de contrôle (sync Microsoft Planner checklist). */
+export type ProjectTaskChecklistItemApi = {
+  id: string;
+  title: string;
+  isChecked: boolean;
+  sortOrder: number;
+};
+
 /** Réponses API Prisma (dates ISO). RFC-PROJ-011 */
 export type ProjectTaskApi = {
   id: string;
@@ -148,6 +156,7 @@ export type ProjectTaskApi = {
   ownerUserId: string | null;
   budgetLineId: string | null;
   bucketId?: string | null;
+  checklistItems?: ProjectTaskChecklistItemApi[];
   /** Présent sur les réponses API liste ; utilisé pour tri client (RFC-PROJ-012). */
   createdAt?: string;
 };

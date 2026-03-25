@@ -25,6 +25,9 @@ function mergeLinkPayload(
     isEnabled: link.isEnabled,
     syncTasksEnabled: link.syncTasksEnabled,
     syncDocumentsEnabled: link.syncDocumentsEnabled,
+    ...(link.useMicrosoftPlannerBuckets !== undefined && {
+      useMicrosoftPlannerBuckets: link.useMicrosoftPlannerBuckets,
+    }),
   };
   if (link.isEnabled && link.teamId && link.channelId && link.plannerPlanId) {
     base.teamId = link.teamId;

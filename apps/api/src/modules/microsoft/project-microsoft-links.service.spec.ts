@@ -58,9 +58,16 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       },
       projectTask: {
         findMany: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      projectTaskChecklistItem: {
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockResolvedValue(undefined),
       },
       projectTaskBucket: {
         findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       projectTaskMicrosoftSync: {
         findMany: jest.fn(),
@@ -256,6 +263,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
     const baseTasks = {
       plannedEndDate: new Date('2026-01-10T00:00:00.000Z'),
       actualEndDate: null,
+      checklistItems: [] as { id: string; title: string; isChecked: boolean; sortOrder: number; plannerChecklistItemKey: string | null }[],
     };
 
     const bucketTodos: Array<{ id: string; name: string }> = [
@@ -263,6 +271,64 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       { id: 'bucket-2', name: 'IN_PROGRESS' },
       { id: 'bucket-3', name: 'DONE' },
     ];
+
+    it('envoie startDateTime (plannedStartDate) en POST + PATCH tâche Planner', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      const link = baseLink({
+        isEnabled: true,
+        syncTasksEnabled: true,
+        plannerPlanId: 'plan-1',
+        microsoftConnectionId: 'conn-1',
+        lastSyncAt: null,
+      });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(link);
+
+      const start = new Date('2026-03-26T12:00:00.000Z');
+      const task = {
+        id: 't1',
+        name: 'Task 1',
+        description: 'D1',
+        plannedStartDate: start,
+        actualStartDate: null,
+        ...baseTasks,
+        status: ProjectTaskStatus.TODO,
+        priority: ProjectTaskPriority.LOW,
+      };
+      prisma.projectTask.findMany.mockResolvedValue([task]);
+      prisma.projectTaskMicrosoftSync.findMany.mockResolvedValue([]);
+
+      graph.getJson.mockResolvedValue({ value: bucketTodos });
+      graph.postJson.mockResolvedValue({ id: 'planner-1' });
+      graph.getPlannerTaskWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'task-etag',
+      });
+      graph.getPlannerTaskDetailsWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'details-etag',
+      });
+      graph.patchJson.mockResolvedValue(undefined);
+
+      prisma.projectTaskMicrosoftSync.create.mockResolvedValue({ id: 'sync-1' });
+      prisma.projectTaskMicrosoftSync.update.mockResolvedValue({ id: 'sync-1' });
+      prisma.projectMicrosoftLink.update.mockResolvedValue(undefined);
+
+      await service.syncTasks(clientId, projectId, {
+        actorUserId: 'u1',
+        meta: {},
+      } as any);
+
+      const expectedStart = start.toISOString();
+      expect(graph.postJson).toHaveBeenCalledWith(
+        expect.anything(),
+        'planner/tasks',
+        expect.objectContaining({ startDateTime: expectedStart }),
+        expect.anything(),
+      );
+      expect(graph.patchJson.mock.calls[0][2]).toEqual(
+        expect.objectContaining({ startDateTime: expectedStart }),
+      );
+    });
 
     it('crée Planner OK puis échec PATCH details => mapping final ERROR (pas SYNCED)', async () => {
       prisma.project.findFirst.mockResolvedValue({ id: projectId });
@@ -548,6 +614,162 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
           requestId: 'req-1',
         }),
       );
+    });
+
+    it('après sync OK : colonnes Planner FR (ex. Bloqué) + align bucketId Starium via plannerBucketId', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      const link = baseLink({
+        isEnabled: true,
+        syncTasksEnabled: true,
+        plannerPlanId: 'plan-1',
+        microsoftConnectionId: 'conn-1',
+        lastSyncAt: null,
+      });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(link);
+
+      const bucketsFr = [
+        { id: 'gb-todo', name: 'À faire' },
+        { id: 'gb-blocked', name: 'Bloqué' },
+        { id: 'gb-done', name: 'Terminée' },
+      ];
+
+      const task = {
+        id: 't1',
+        name: 'Task 1',
+        description: 'D1',
+        ...baseTasks,
+        status: ProjectTaskStatus.BLOCKED,
+        priority: ProjectTaskPriority.MEDIUM,
+        bucketId: null as string | null,
+      };
+      prisma.projectTask.findMany.mockResolvedValue([task]);
+      prisma.projectTaskMicrosoftSync.findMany.mockResolvedValue([]);
+
+      graph.getJson.mockResolvedValue({ value: bucketsFr });
+      graph.postJson.mockResolvedValue({ id: 'planner-1' });
+      graph.getPlannerTaskWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'task-etag',
+      });
+      graph.getPlannerTaskDetailsWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'details-etag',
+      });
+      graph.patchJson.mockResolvedValue(undefined);
+
+      prisma.projectTaskMicrosoftSync.create.mockResolvedValue({
+        id: 'sync-1',
+      });
+      prisma.projectTaskMicrosoftSync.update.mockResolvedValue({
+        id: 'sync-1',
+      });
+      prisma.projectMicrosoftLink.update.mockResolvedValue(undefined);
+
+      prisma.projectTaskBucket.findMany.mockResolvedValue([
+        {
+          id: 'starium-bucket-blocked',
+          name: 'Bloqué',
+          plannerBucketId: 'gb-blocked',
+        },
+      ]);
+
+      await service.syncTasks(clientId, projectId, {
+        actorUserId: 'u1',
+        meta: {},
+      } as any);
+
+      expect(graph.postJson).toHaveBeenCalledWith(
+        expect.anything(),
+        'planner/tasks',
+        expect.objectContaining({ bucketId: 'gb-blocked' }),
+        expect.anything(),
+      );
+
+      expect(prisma.projectTask.updateMany).toHaveBeenCalledWith({
+        where: { id: 't1', clientId, projectId },
+        data: { bucketId: 'starium-bucket-blocked' },
+      });
+    });
+
+    it('après sync OK : colonne Planner « À faire » alignée sur bucket Starium nommé TODO (sans plannerBucketId)', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      const link = baseLink({
+        isEnabled: true,
+        syncTasksEnabled: true,
+        plannerPlanId: 'plan-1',
+        microsoftConnectionId: 'conn-1',
+        lastSyncAt: null,
+      });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(link);
+
+      const bucketsFr = [
+        { id: 'gb-af', name: 'À faire' },
+        { id: 'gb-done', name: 'Terminée' },
+      ];
+
+      const task = {
+        id: 't1',
+        name: 'Debut',
+        description: 'ceci est le debut',
+        ...baseTasks,
+        status: ProjectTaskStatus.TODO,
+        priority: ProjectTaskPriority.CRITICAL,
+        bucketId: null as string | null,
+      };
+      prisma.projectTask.findMany.mockResolvedValue([task]);
+      prisma.projectTaskMicrosoftSync.findMany.mockResolvedValue([]);
+
+      prisma.projectTaskBucket.findMany.mockResolvedValue([
+        { id: 'b-todo', name: 'TODO', plannerBucketId: null },
+        { id: 'b-done', name: 'DONE', plannerBucketId: null },
+      ]);
+
+      graph.getJson.mockResolvedValue({ value: bucketsFr });
+      graph.postJson.mockResolvedValue({ id: 'planner-1' });
+      graph.getPlannerTaskWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'task-etag',
+      });
+      graph.getPlannerTaskDetailsWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'details-etag',
+      });
+      graph.patchJson.mockResolvedValue(undefined);
+
+      prisma.projectTaskMicrosoftSync.create.mockResolvedValue({
+        id: 'sync-1',
+      });
+      prisma.projectTaskMicrosoftSync.update.mockResolvedValue({
+        id: 'sync-1',
+      });
+      prisma.projectMicrosoftLink.update.mockResolvedValue(undefined);
+
+      await service.syncTasks(clientId, projectId, {
+        actorUserId: 'u1',
+        meta: {},
+      } as any);
+
+      expect(graph.postJson).toHaveBeenCalledWith(
+        expect.anything(),
+        'planner/tasks',
+        expect.objectContaining({ bucketId: 'gb-af' }),
+        expect.anything(),
+      );
+
+      expect(prisma.projectTask.updateMany).toHaveBeenCalledWith({
+        where: { id: 't1', clientId, projectId },
+        data: { bucketId: 'b-todo' },
+      });
+
+      expect(prisma.projectTaskBucket.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'b-todo',
+          clientId,
+          projectId,
+          plannerBucketId: null,
+        },
+        data: { plannerBucketId: 'gb-af' },
+      });
     });
   });
 

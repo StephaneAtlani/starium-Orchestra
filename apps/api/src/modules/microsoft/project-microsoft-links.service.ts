@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
@@ -24,6 +25,7 @@ import {
   type MicrosoftGraphODataListResponse,
   MicrosoftGraphHttpError,
 } from './microsoft-graph.types';
+import { buildPlannerChecklistPatchBody } from './planner-task-checklist-graph';
 
 const AUDIT_ACTION_ENABLED = 'project.microsoft_link.enabled';
 const AUDIT_ACTION_UPDATED = 'project.microsoft_link.updated';
@@ -32,6 +34,97 @@ const AUDIT_ACTION_DOCUMENTS_SYNCED = 'project.microsoft_documents.synced';
 const AUDIT_ACTION_TASK_SYNC_FAILED = 'project.microsoft_sync.failed';
 const AUDIT_ACTION_DOC_SYNC_FAILED = 'project.microsoft_sync.failed';
 const AUDIT_RESOURCE_TYPE = 'project';
+
+type PlannerBucketLite = { id: string; name: string };
+
+/**
+ * Noms de colonnes Planner souvent en FR alors que Starium utilise l’enum Prisma (ex. BLOCKED ↔ « Bloqué »).
+ */
+const PLANNER_BUCKET_LABELS_BY_STATUS: Record<
+  ProjectTaskStatus,
+  readonly string[]
+> = {
+  DRAFT: ['DRAFT', 'Brouillon'],
+  TODO: ['TODO', 'À faire', 'A faire', 'To do'],
+  IN_PROGRESS: ['IN_PROGRESS', 'En cours'],
+  BLOCKED: ['BLOCKED', 'Bloqué', 'Blocked'],
+  DONE: ['DONE', 'Terminée', 'Terminé', 'Done'],
+  CANCELLED: ['CANCELLED', 'Annulée', 'Annulé', 'Cancelled'],
+};
+
+const ALL_TASK_STATUSES: ProjectTaskStatus[] = [
+  ProjectTaskStatus.DRAFT,
+  ProjectTaskStatus.TODO,
+  ProjectTaskStatus.IN_PROGRESS,
+  ProjectTaskStatus.BLOCKED,
+  ProjectTaskStatus.DONE,
+  ProjectTaskStatus.CANCELLED,
+];
+
+function plannerBucketIdForTaskStatus(
+  status: ProjectTaskStatus,
+  buckets: PlannerBucketLite[],
+): string | null {
+  const labels = PLANNER_BUCKET_LABELS_BY_STATUS[status] ?? [];
+  for (const label of labels) {
+    const hit = buckets.find((b) => b.name === label);
+    if (hit) return hit.id;
+  }
+  for (const b of buckets) {
+    const bn = b.name.toLowerCase();
+    for (const label of labels) {
+      if (bn === label.toLowerCase()) return b.id;
+    }
+  }
+  return null;
+}
+
+type StariumBucketForAlign = {
+  id: string;
+  name: string;
+  plannerBucketId: string | null;
+};
+
+/**
+ * Colonne Graph (ex. « À faire ») vs bucket Starium souvent nommé comme l’enum (`TODO`).
+ */
+function findStariumBucketForGraphColumn(
+  graphBucket: PlannerBucketLite,
+  stariumBuckets: ReadonlyArray<StariumBucketForAlign>,
+): StariumBucketForAlign | null {
+  if (stariumBuckets.length === 0) return null;
+
+  const byPlanner = stariumBuckets.find(
+    (b) => b.plannerBucketId === graphBucket.id,
+  );
+  if (byPlanner) return byPlanner;
+
+  const glower = graphBucket.name.trim().toLowerCase();
+  const byName = stariumBuckets.find(
+    (b) => b.name.trim().toLowerCase() === glower,
+  );
+  if (byName) return byName;
+
+  for (const status of ALL_TASK_STATUSES) {
+    const labels = PLANNER_BUCKET_LABELS_BY_STATUS[status] ?? [];
+    const matchesGraphLabel = labels.some((l) => l.toLowerCase() === glower);
+    if (!matchesGraphLabel) continue;
+
+    const byEnumName = stariumBuckets.find((b) => b.name === status);
+    if (byEnumName) return byEnumName;
+
+    for (const label of labels) {
+      const hit = stariumBuckets.find(
+        (b) =>
+          b.name === label ||
+          b.name.trim().toLowerCase() === label.toLowerCase(),
+      );
+      if (hit) return hit;
+    }
+  }
+
+  return null;
+}
 
 export type ProjectMicrosoftLinkConfig = Pick<
   ProjectMicrosoftLink,
@@ -74,6 +167,111 @@ export class ProjectMicrosoftLinksService {
     private readonly graph: MicrosoftGraphService,
     private readonly projectDocumentContent: ProjectDocumentContentService,
   ) {}
+
+  /**
+   * Après un push Planner réussi : rattache la tâche au `ProjectTaskBucket` Starium qui correspond
+   * à la colonne Graph (sinon l’UI affiche « Aucun » alors que Planner montre une colonne).
+   */
+  private async alignStariumTaskBucketAfterPlannerPush(
+    clientId: string,
+    projectId: string,
+    taskId: string,
+    plannerBucketId: string,
+    graphBuckets: PlannerBucketLite[],
+    stariumBuckets: ReadonlyArray<StariumBucketForAlign>,
+  ): Promise<void> {
+    const graphBucket = graphBuckets.find((b) => b.id === plannerBucketId);
+    if (!graphBucket) return;
+
+    const local = findStariumBucketForGraphColumn(
+      graphBucket,
+      stariumBuckets,
+    );
+    if (!local) return;
+
+    await this.prisma.projectTask.updateMany({
+      where: { id: taskId, clientId, projectId },
+      data: { bucketId: local.id },
+    });
+
+    if (local.plannerBucketId == null) {
+      await this.prisma.projectTaskBucket.updateMany({
+        where: {
+          id: local.id,
+          clientId,
+          projectId,
+          plannerBucketId: null,
+        },
+        data: { plannerBucketId: graphBucket.id },
+      });
+    }
+  }
+
+  private async ensurePlannerChecklistKeysForTask(
+    clientId: string,
+    projectId: string,
+    taskId: string,
+  ): Promise<void> {
+    const missing = await this.prisma.projectTaskChecklistItem.findMany({
+      where: {
+        clientId,
+        projectId,
+        projectTaskId: taskId,
+        plannerChecklistItemKey: null,
+      },
+    });
+    for (const item of missing) {
+      await this.prisma.projectTaskChecklistItem.update({
+        where: { id: item.id },
+        data: { plannerChecklistItemKey: randomUUID() },
+      });
+    }
+  }
+
+  private async buildPlannerTaskDetailsPatchPayload(
+    accessToken: string,
+    plannerTaskId: string,
+    clientId: string,
+    projectId: string,
+    taskId: string,
+    description: string | null,
+  ): Promise<{ body: Record<string, unknown>; etag: string }> {
+    await this.ensurePlannerChecklistKeysForTask(clientId, projectId, taskId);
+
+    const checklistRows = await this.prisma.projectTaskChecklistItem.findMany({
+      where: { clientId, projectId, projectTaskId: taskId },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    const detailsWithEtag = await this.graph.getPlannerTaskDetailsWithEtag<
+      unknown
+    >(accessToken, plannerTaskId);
+    if (!detailsWithEtag.etag) {
+      throw new Error('ETag manquant pour plannerTaskDetails');
+    }
+
+    const existingChecklist = (
+      detailsWithEtag.json as Record<string, unknown> | undefined
+    )?.checklist;
+    const checklistPatch = buildPlannerChecklistPatchBody(
+      checklistRows.map((r) => ({
+        title: r.title,
+        isChecked: r.isChecked,
+        sortOrder: r.sortOrder,
+        plannerChecklistItemKey: r.plannerChecklistItemKey,
+      })),
+      existingChecklist,
+    );
+
+    const body: Record<string, unknown> = {
+      description: description ?? '',
+    };
+    if (Object.keys(checklistPatch).length > 0) {
+      body.checklist = checklistPatch;
+    }
+
+    return { body, etag: detailsWithEtag.etag };
+  }
 
   async getConfig(
     clientId: string,
@@ -466,6 +664,14 @@ export class ProjectMicrosoftLinksService {
       return dt ? dt.toISOString() : undefined;
     };
 
+    const resolveStartDateTime = (t: {
+      plannedStartDate: Date | null;
+      actualStartDate: Date | null;
+    }): string | undefined => {
+      const dt = t.actualStartDate ?? t.plannedStartDate;
+      return dt ? dt.toISOString() : undefined;
+    };
+
     const stariumBuckets = await this.prisma.projectTaskBucket.findMany({
       where: { clientId, projectId },
       select: { id: true, name: true, plannerBucketId: true },
@@ -482,8 +688,14 @@ export class ProjectMicrosoftLinksService {
         if (b) {
           const byName = buckets.find((x) => x.name === b.name);
           if (byName) return byName.id;
+          const byNameCi = buckets.find(
+            (x) => x.name.toLowerCase() === b.name.toLowerCase(),
+          );
+          if (byNameCi) return byNameCi.id;
         }
       }
+      const fromStatus = plannerBucketIdForTaskStatus(task.status, buckets);
+      if (fromStatus) return fromStatus;
       const exact = buckets.find((b) => b.name === task.status);
       if (exact) return exact.id;
       if (task.status === ProjectTaskStatus.TODO) return buckets[0].id;
@@ -500,11 +712,23 @@ export class ProjectMicrosoftLinksService {
         id: true,
         name: true,
         description: true,
+        plannedStartDate: true,
+        actualStartDate: true,
         plannedEndDate: true,
         actualEndDate: true,
         status: true,
         priority: true,
         bucketId: true,
+        checklistItems: {
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            isChecked: true,
+            sortOrder: true,
+            plannerChecklistItemKey: true,
+          },
+        },
       },
     });
 
@@ -539,6 +763,11 @@ export class ProjectMicrosoftLinksService {
       const resolvedPlannerBucketId = resolvePlannerBucketId(task);
       const priority = mapPriority(task.priority);
       const dueDateTime = resolveDueDateTime(task);
+      const startDateTime = resolveStartDateTime(task);
+      const plannerTaskDateFields = {
+        ...(dueDateTime ? { dueDateTime } : {}),
+        ...(startDateTime ? { startDateTime } : {}),
+      };
 
       if (!mapping) {
         // Create Planner task first, then create mapping as PENDING, then sync full.
@@ -551,7 +780,7 @@ export class ProjectMicrosoftLinksService {
               planId: link.plannerPlanId,
               bucketId: resolvedPlannerBucketId,
               title: task.name,
-              ...(dueDateTime ? { dueDateTime } : {}),
+              ...plannerTaskDateFields,
               priority,
             },
             { expectJson: true },
@@ -589,7 +818,7 @@ export class ProjectMicrosoftLinksService {
             {
               title: task.name,
               bucketId: resolvedPlannerBucketId,
-              ...(dueDateTime ? { dueDateTime } : {}),
+              ...plannerTaskDateFields,
               priority,
             },
             {
@@ -597,22 +826,21 @@ export class ProjectMicrosoftLinksService {
             },
           );
 
-          // Details PATCH uses ETag of plannerTaskDetails
-          const detailsWithEtag = await this.graph.getPlannerTaskDetailsWithEtag<
-            unknown
-          >(accessToken, plannerTaskId);
-          if (!detailsWithEtag.etag) {
-            throw new Error('ETag manquant pour plannerTaskDetails');
-          }
+          const detailsPatch = await this.buildPlannerTaskDetailsPatchPayload(
+            accessToken,
+            plannerTaskId,
+            clientId,
+            projectId,
+            task.id,
+            task.description ?? null,
+          );
 
           await this.graph.patchJson(
             accessToken,
             `planner/tasks/${plannerTaskId}/details`,
+            detailsPatch.body,
             {
-              description: task.description ?? '',
-            },
-            {
-              headers: { 'If-Match': detailsWithEtag.etag },
+              headers: { 'If-Match': detailsPatch.etag },
             },
           );
 
@@ -629,6 +857,15 @@ export class ProjectMicrosoftLinksService {
               lastError: null,
             },
           });
+
+          await this.alignStariumTaskBucketAfterPlannerPush(
+            clientId,
+            projectId,
+            task.id,
+            resolvedPlannerBucketId,
+            buckets,
+            stariumBuckets,
+          );
 
           synced++;
         } catch (e: unknown) {
@@ -686,28 +923,26 @@ export class ProjectMicrosoftLinksService {
             {
               title: task.name,
               bucketId: resolvedPlannerBucketId,
-              ...(dueDateTime ? { dueDateTime } : {}),
+              ...plannerTaskDateFields,
               priority,
             },
             { headers: { 'If-Match': taskWithEtag.etag } },
           );
 
-          const detailsWithEtag =
-            await this.graph.getPlannerTaskDetailsWithEtag<unknown>(
-              accessToken,
-              plannerTaskId,
-            );
-          if (!detailsWithEtag.etag) {
-            throw new Error('ETag manquant pour plannerTaskDetails');
-          }
+          const detailsPatch = await this.buildPlannerTaskDetailsPatchPayload(
+            accessToken,
+            plannerTaskId,
+            clientId,
+            projectId,
+            task.id,
+            task.description ?? null,
+          );
 
           await this.graph.patchJson(
             accessToken,
             `planner/tasks/${plannerTaskId}/details`,
-            {
-              description: task.description ?? '',
-            },
-            { headers: { 'If-Match': detailsWithEtag.etag } },
+            detailsPatch.body,
+            { headers: { 'If-Match': detailsPatch.etag } },
           );
 
           await this.prisma.projectTaskMicrosoftSync.update({
@@ -723,6 +958,15 @@ export class ProjectMicrosoftLinksService {
               lastError: null,
             },
           });
+
+          await this.alignStariumTaskBucketAfterPlannerPush(
+            clientId,
+            projectId,
+            task.id,
+            resolvedPlannerBucketId,
+            buckets,
+            stariumBuckets,
+          );
 
           synced++;
         } catch (e: unknown) {

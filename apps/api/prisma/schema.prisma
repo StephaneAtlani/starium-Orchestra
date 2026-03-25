@@ -137,6 +137,7 @@ model Client {
   projectDocumentMicrosoftSyncs ProjectDocumentMicrosoftSync[]
   projectDocuments              ProjectDocument[]
   projectTaskBuckets            ProjectTaskBucket[]
+  projectTaskChecklistItems     ProjectTaskChecklistItem[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -694,6 +695,7 @@ model Project {
 
   tasks       ProjectTask[]
   taskBuckets ProjectTaskBucket[]
+  taskChecklistItems ProjectTaskChecklistItem[]
   risks       ProjectRisk[]
   milestones  ProjectMilestone[]
   activities  ProjectActivity[]
@@ -1070,6 +1072,7 @@ model ProjectTask {
   projectReviewActionItems ProjectReviewActionItem[]
 
   microsoftTaskSync ProjectTaskMicrosoftSync?
+  checklistItems    ProjectTaskChecklistItem[]
 
   @@index([clientId])
   @@index([projectId])
@@ -1081,6 +1084,32 @@ model ProjectTask {
   @@index([plannedStartDate])
   @@index([plannedEndDate])
   @@index([bucketId])
+}
+
+/// Sous-éléments type « liste de contrôle » (sync Microsoft Planner : plannerTaskDetails.checklist).
+model ProjectTaskChecklistItem {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+  projectTaskId String
+
+  title     String
+  isChecked Boolean @default(false)
+  sortOrder Int     @default(0)
+  /// Clé GUID côté Graph (identique au nom de propriété dans `checklist` Planner).
+  plannerChecklistItemKey String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task ProjectTask @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([projectTaskId, plannerChecklistItemKey])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([projectTaskId])
 }
 
 model ProjectRisk {

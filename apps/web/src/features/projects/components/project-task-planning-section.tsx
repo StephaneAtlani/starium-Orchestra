@@ -73,7 +73,21 @@ function emptyCreateForm(): CreateProjectTaskPayload {
     status: 'TODO',
     priority: 'MEDIUM',
     progress: 0,
+    checklistItems: [],
   };
+}
+
+function sanitizeChecklistForSubmit(
+  items: CreateProjectTaskPayload['checklistItems'],
+): NonNullable<UpdateProjectTaskPayload['checklistItems']> {
+  if (!items?.length) return [];
+  return items
+    .map((c, i) => ({
+      ...c,
+      title: c.title.trim(),
+      sortOrder: c.sortOrder ?? i,
+    }))
+    .filter((c) => c.title.length > 0);
 }
 
 function milestoneFormFromApi(m: ProjectMilestoneApi): CreateProjectMilestonePayload {
@@ -329,6 +343,12 @@ export const ProjectTaskPlanningSection = forwardRef<
       budgetLineId: t.budgetLineId,
       bucketId: t.bucketId ?? undefined,
       sortOrder: t.sortOrder,
+      checklistItems: (t.checklistItems ?? []).map((c) => ({
+        id: c.id,
+        title: c.title,
+        isChecked: c.isChecked,
+        sortOrder: c.sortOrder,
+      })),
     });
     setDialogOpen(true);
   };
@@ -351,16 +371,20 @@ export const ProjectTaskPlanningSection = forwardRef<
 
   const submit = () => {
     if (!createForm.name.trim()) return;
+    const checklistItems = sanitizeChecklistForSubmit(createForm.checklistItems);
     if (editing) {
-      const body: UpdateProjectTaskPayload = { ...createForm };
+      const body: UpdateProjectTaskPayload = { ...createForm, checklistItems };
       updateMut.mutate(
         { taskId: editing.id, body },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
-      createMut.mutate(createForm, {
-        onSuccess: () => setDialogOpen(false),
-      });
+      createMut.mutate(
+        { ...createForm, checklistItems },
+        {
+          onSuccess: () => setDialogOpen(false),
+        },
+      );
     }
   };
 

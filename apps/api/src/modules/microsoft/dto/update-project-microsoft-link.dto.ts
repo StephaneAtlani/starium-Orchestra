@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  Allow,
   IsBoolean,
   IsNotEmpty,
   IsOptional,
@@ -38,6 +39,8 @@ export class UpdateProjectMicrosoftLinkDto {
   @Type(() => Boolean)
   syncDocumentsEnabled?: boolean;
 
+  /** `Allow` explicite : whitelist + forbidNonWhitelisted (certains setups Nest/class-validator). */
+  @Allow()
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)

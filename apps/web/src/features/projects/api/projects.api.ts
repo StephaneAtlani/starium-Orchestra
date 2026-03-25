@@ -268,6 +268,13 @@ export async function listTasks(
   return res.json() as Promise<PaginatedList<ProjectTaskApi>>;
 }
 
+export type ProjectTaskChecklistItemPayload = {
+  id?: string;
+  title: string;
+  isChecked?: boolean;
+  sortOrder?: number;
+};
+
 export type CreateProjectTaskPayload = {
   name: string;
   description?: string;
@@ -286,6 +293,7 @@ export type CreateProjectTaskPayload = {
   budgetLineId?: string | null;
   bucketId?: string | null;
   sortOrder?: number;
+  checklistItems?: ProjectTaskChecklistItemPayload[];
 };
 
 export type UpdateProjectTaskPayload = Partial<CreateProjectTaskPayload> & {
@@ -295,6 +303,7 @@ export type UpdateProjectTaskPayload = Partial<CreateProjectTaskPayload> & {
   plannedEndDate?: string | null;
   actualStartDate?: string | null;
   actualEndDate?: string | null;
+  checklistItems?: ProjectTaskChecklistItemPayload[];
 };
 
 export async function createProjectTask(

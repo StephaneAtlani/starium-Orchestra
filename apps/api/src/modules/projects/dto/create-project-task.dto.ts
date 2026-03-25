@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
@@ -8,7 +10,9 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { ProjectTaskChecklistItemInputDto } from './project-task-checklist-item.dto';
 import {
   ProjectTaskDependencyType,
   ProjectTaskPriority,
@@ -87,4 +91,11 @@ export class CreateProjectTaskDto {
   @Type(() => Number)
   @IsInt()
   sortOrder?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(40)
+  @ValidateNested({ each: true })
+  @Type(() => ProjectTaskChecklistItemInputDto)
+  checklistItems?: ProjectTaskChecklistItemInputDto[];
 }

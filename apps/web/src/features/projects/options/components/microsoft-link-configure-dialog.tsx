@@ -105,20 +105,51 @@ export function MicrosoftLinkConfigureDialog({
     retry: false,
   });
 
-  const teamName = useMemo(() => {
-    const list = teamsQuery.data?.items ?? [];
-    return list.find((t) => t.teamId === teamId)?.teamName ?? null;
-  }, [teamsQuery.data, teamId]);
+  /** Libellé affiché : liste Graph si chargée, sinon noms dénormalisés du lien (évite d’afficher les GUID). */
+  const teamLabel = useMemo(() => {
+    const fromList = teamsQuery.data?.items?.find((t) => t.teamId === teamId)?.teamName;
+    if (fromList) return fromList;
+    if (link?.teamId === teamId && link.teamName) return link.teamName;
+    if (teamId && teamsQuery.isLoading) return 'Chargement…';
+    return '';
+  }, [teamsQuery.data?.items, teamsQuery.isLoading, teamId, link?.teamId, link?.teamName]);
 
-  const channelName = useMemo(() => {
-    const list = channelsQuery.data?.items ?? [];
-    return list.find((c) => c.channelId === channelId)?.channelName ?? null;
-  }, [channelsQuery.data, channelId]);
+  const channelLabel = useMemo(() => {
+    const fromList = channelsQuery.data?.items?.find((c) => c.channelId === channelId)?.channelName;
+    if (fromList) return fromList;
+    if (link?.channelId === channelId && link.channelName) return link.channelName;
+    if (channelId && channelsQuery.isLoading) return 'Chargement…';
+    return '';
+  }, [channelsQuery.data?.items, channelsQuery.isLoading, channelId, link?.channelId, link?.channelName]);
 
-  const plannerPlanTitle = useMemo(() => {
-    const list = plansQuery.data?.items ?? [];
-    return list.find((p) => p.plannerPlanId === plannerPlanId)?.plannerPlanTitle ?? null;
-  }, [plansQuery.data, plannerPlanId]);
+  const plannerLabel = useMemo(() => {
+    const fromList = plansQuery.data?.items?.find((p) => p.plannerPlanId === plannerPlanId)?.plannerPlanTitle;
+    if (fromList) return fromList;
+    if (link?.plannerPlanId === plannerPlanId && link.plannerPlanTitle) return link.plannerPlanTitle;
+    if (plannerPlanId && plansQuery.isLoading) return 'Chargement…';
+    return '';
+  }, [plansQuery.data?.items, plansQuery.isLoading, plannerPlanId, link?.plannerPlanId, link?.plannerPlanTitle]);
+
+  const teamNameForPayload = useMemo(() => {
+    const fromList = teamsQuery.data?.items?.find((t) => t.teamId === teamId)?.teamName;
+    if (fromList) return fromList;
+    if (link?.teamId === teamId && link.teamName) return link.teamName;
+    return undefined;
+  }, [teamsQuery.data?.items, teamId, link?.teamId, link?.teamName]);
+
+  const channelNameForPayload = useMemo(() => {
+    const fromList = channelsQuery.data?.items?.find((c) => c.channelId === channelId)?.channelName;
+    if (fromList) return fromList;
+    if (link?.channelId === channelId && link.channelName) return link.channelName;
+    return undefined;
+  }, [channelsQuery.data?.items, channelId, link?.channelId, link?.channelName]);
+
+  const plannerPlanTitleForPayload = useMemo(() => {
+    const fromList = plansQuery.data?.items?.find((p) => p.plannerPlanId === plannerPlanId)?.plannerPlanTitle;
+    if (fromList) return fromList;
+    if (link?.plannerPlanId === plannerPlanId && link.plannerPlanTitle) return link.plannerPlanTitle;
+    return undefined;
+  }, [plansQuery.data?.items, plannerPlanId, link?.plannerPlanId, link?.plannerPlanTitle]);
 
   const submit = useCallback(() => {
     if (!teamId?.trim() || !channelId?.trim() || !plannerPlanId?.trim()) {
@@ -129,9 +160,9 @@ export function MicrosoftLinkConfigureDialog({
       teamId: teamId.trim(),
       channelId: channelId.trim(),
       plannerPlanId: plannerPlanId.trim(),
-      ...(teamName && { teamName }),
-      ...(channelName && { channelName }),
-      ...(plannerPlanTitle && { plannerPlanTitle }),
+      ...(teamNameForPayload && { teamName: teamNameForPayload }),
+      ...(channelNameForPayload && { channelName: channelNameForPayload }),
+      ...(plannerPlanTitleForPayload && { plannerPlanTitle: plannerPlanTitleForPayload }),
       ...(filesDriveId.trim() && { filesDriveId: filesDriveId.trim() }),
       ...(filesFolderId.trim() && { filesFolderId: filesFolderId.trim() }),
       useMicrosoftPlannerBuckets: useMsBuckets,
@@ -141,9 +172,9 @@ export function MicrosoftLinkConfigureDialog({
     teamId,
     channelId,
     plannerPlanId,
-    teamName,
-    channelName,
-    plannerPlanTitle,
+    teamNameForPayload,
+    channelNameForPayload,
+    plannerPlanTitleForPayload,
     filesDriveId,
     filesFolderId,
     useMsBuckets,
@@ -207,7 +238,9 @@ export function MicrosoftLinkConfigureDialog({
                 }}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choisir une équipe" />
+                  <SelectValue placeholder="Choisir une équipe">
+                    {teamLabel || undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(teamsQuery.data?.items ?? []).map((t) => (
@@ -247,7 +280,9 @@ export function MicrosoftLinkConfigureDialog({
                     }}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choisir un canal" />
+                      <SelectValue placeholder="Choisir un canal">
+                        {channelLabel || undefined}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {(channelsQuery.data?.items ?? []).map((c) => (
@@ -285,7 +320,9 @@ export function MicrosoftLinkConfigureDialog({
                 ) : (
                   <Select value={plannerPlanId} onValueChange={(v) => setPlannerPlanId(v ?? '')}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choisir un plan" />
+                      <SelectValue placeholder="Choisir un plan">
+                        {plannerLabel || undefined}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {(plansQuery.data?.items ?? []).map((p) => (
