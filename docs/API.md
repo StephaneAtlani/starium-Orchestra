@@ -1900,7 +1900,7 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 
 ## Intégration Microsoft 365 — `/api/microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-005)
 
-Toutes les routes ci-dessous sont préfixées par **`/api`**. Les jetons Microsoft (**access** / **refresh**) ne sont **jamais** renvoyés au client : ils sont stockés chiffrés côté serveur et associés au **client Starium** (`clientId` dérivé du contexte actif, pas d’`clientId` dans le body).
+Toutes les routes ci-dessous sont préfixées par **`/api`**. Les jetons Microsoft (**access** / **refresh**) ne sont **jamais** renvoyés au client : ils sont stockés chiffrés côté serveur et associés au **client Starium** concerné — **`clientId` du contexte client actif** sur les routes JWT, **`clientId` issu du `state` validé** sur le callback OAuth (pas d’`clientId` dans le body des requêtes).
 
 **Accès (routes authentifiées ci-dessous)** : **`ClientUserRole.CLIENT_ADMIN`** sur le client actif **ou**, à défaut, module **Projets** actif pour le client + permission métier **`projects.update`** (`MicrosoftIntegrationAccessGuard`).
 

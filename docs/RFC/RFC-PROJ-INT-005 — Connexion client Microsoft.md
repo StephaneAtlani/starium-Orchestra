@@ -21,7 +21,8 @@ Définir le **comportement métier** et les **APIs** pour gérer la **connexion 
 
 ## 1. Règles métier
 
-* Une `MicrosoftConnection` est toujours rattachée à un **`clientId`** issu du contexte **client actif** (pas de `clientId` dans le body).
+* Pour les routes **authentifiées** (`GET /auth/url`, `GET|DELETE /connection`), le **`clientId`** Starium cible est celui du **contexte client actif** (guards + `X-Client-Id`), sans `clientId` dans le body.
+* Pour **`GET /api/microsoft/auth/callback`**, pas de JWT : le **`clientId`** est celui porté par le **`state`** (JWT signé et validé côté serveur, avec `jti` anti-replay). La `MicrosoftConnection` est toujours rattachée à ce client après échange de code. Détail du flux : [RFC-PROJ-INT-003](./RFC-PROJ-INT-003%20—%20Auth%20Microsoft%20OAuth.md).
 * **Unicité** logique `(clientId, tenantId)` : reconnecter le même tenant met à jour la ligne ; un autre tenant peut nécessiter une stratégie produit (une connexion active par client au MVP — aligné [RFC-PROJ-INT-001](./RFC-PROJ-INT-001%20—%20Intégration%20Microsoft%20365.md)).
 * Révocation : marquer la connexion `REVOKED`, invalider les jetons côté base. `DELETE /api/microsoft/connection` est idempotent (aucune erreur si déjà révoqué ou absent).
 * La propagation vers `ProjectMicrosoftLink` est hors scope (RFC-007).
