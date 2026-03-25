@@ -22,6 +22,7 @@ import {
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
+import { useProjectTaskBucketsQuery } from '../hooks/use-project-task-buckets-query';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import {
@@ -171,6 +172,7 @@ export const ProjectTaskPlanningSection = forwardRef<
   const canEdit = has('projects.update');
 
   const tasksQuery = useProjectTasksQuery(projectId);
+  const bucketsQuery = useProjectTaskBucketsQuery(projectId);
   const isGanttVariant = variant === 'gantt-sidebar';
   const milestonesQuery = useProjectMilestonesQuery(projectId, {
     enabled: isGanttVariant,
@@ -258,6 +260,15 @@ export const ProjectTaskPlanningSection = forwardRef<
     [assignableQuery.data?.users],
   );
 
+  const bucketOptions = useMemo(
+    () =>
+      (bucketsQuery.data?.items ?? []).map((b) => ({
+        id: b.id,
+        label: b.name,
+      })),
+    [bucketsQuery.data?.items],
+  );
+
   const [createForm, setCreateForm] = useState<CreateProjectTaskPayload>(emptyCreateForm);
 
   const openCreate = useCallback(() => {
@@ -316,6 +327,7 @@ export const ProjectTaskPlanningSection = forwardRef<
       dependencyType: t.dependencyType,
       ownerUserId: t.ownerUserId,
       budgetLineId: t.budgetLineId,
+      bucketId: t.bucketId ?? undefined,
       sortOrder: t.sortOrder,
     });
     setDialogOpen(true);
@@ -807,6 +819,7 @@ export const ProjectTaskPlanningSection = forwardRef<
               tasksForParent={tasksForParent}
               tasksForDepends={tasksForDepends}
               assignableOptions={assignableOptions}
+              bucketOptions={bucketOptions}
               fieldIdPrefix="planning-task"
             />
           </div>

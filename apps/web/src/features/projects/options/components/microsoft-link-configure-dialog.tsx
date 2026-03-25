@@ -31,6 +31,19 @@ import {
 import type { ProjectMicrosoftLinkDto } from '../types/project-options.types';
 import type { UpdateProjectMicrosoftLinkPayload } from '../types/project-options.types';
 
+function graphQueryErrorMessage(e: unknown): string {
+  if (
+    e &&
+    typeof e === 'object' &&
+    'message' in e &&
+    typeof (e as { message: unknown }).message === 'string'
+  ) {
+    return (e as { message: string }).message;
+  }
+  if (e instanceof Error) return e.message;
+  return 'Erreur inattendue.';
+}
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,6 +72,7 @@ export function MicrosoftLinkConfigureDialog({
   const [plannerPlanId, setPlannerPlanId] = useState('');
   const [filesDriveId, setFilesDriveId] = useState('');
   const [filesFolderId, setFilesFolderId] = useState('');
+  const [useMsBuckets, setUseMsBuckets] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -67,24 +81,28 @@ export function MicrosoftLinkConfigureDialog({
     setPlannerPlanId(link?.plannerPlanId ?? '');
     setFilesDriveId(link?.filesDriveId ?? '');
     setFilesFolderId(link?.filesFolderId ?? '');
+    setUseMsBuckets(link?.useMicrosoftPlannerBuckets ?? false);
   }, [open, link]);
 
   const teamsQuery = useQuery({
     queryKey: ['microsoft-teams', clientId],
     queryFn: () => listMicrosoftTeams(authFetch),
     enabled: open && connectionActive && Boolean(clientId),
+    retry: false,
   });
 
   const channelsQuery = useQuery({
     queryKey: ['microsoft-channels', clientId, teamId],
     queryFn: () => listMicrosoftChannels(authFetch, teamId),
     enabled: open && connectionActive && Boolean(clientId) && Boolean(teamId),
+    retry: false,
   });
 
   const plansQuery = useQuery({
     queryKey: ['microsoft-plans', clientId, teamId],
     queryFn: () => listMicrosoftPlansForTeam(authFetch, teamId),
     enabled: open && connectionActive && Boolean(clientId) && Boolean(teamId) && Boolean(channelId),
+    retry: false,
   });
 
   const teamName = useMemo(() => {
@@ -116,6 +134,7 @@ export function MicrosoftLinkConfigureDialog({
       ...(plannerPlanTitle && { plannerPlanTitle }),
       ...(filesDriveId.trim() && { filesDriveId: filesDriveId.trim() }),
       ...(filesFolderId.trim() && { filesFolderId: filesFolderId.trim() }),
+      useMicrosoftPlannerBuckets: useMsBuckets,
     };
     onSave(payload);
   }, [
@@ -127,6 +146,7 @@ export function MicrosoftLinkConfigureDialog({
     plannerPlanTitle,
     filesDriveId,
     filesFolderId,
+    useMsBuckets,
     onSave,
   ]);
 
@@ -139,7 +159,7 @@ export function MicrosoftLinkConfigureDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="w-[min(100vw-2rem,40rem)] max-w-none sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Configurer Microsoft 365</DialogTitle>
         </DialogHeader>
@@ -152,6 +172,28 @@ export function MicrosoftLinkConfigureDialog({
           </Alert>
         ) : teamsQuery.isLoading ? (
           <LoadingState rows={3} />
+        ) : teamsQuery.isError ? (
+          <Alert variant="destructive" className="border-destructive/40">
+            <AlertTitle>Impossible de charger les équipes Teams</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>{graphQueryErrorMessage(teamsQuery.error)}</p>
+              <p className="text-xs text-muted-foreground">
+                Un refus Microsoft (403) indique souvent des droits ou consentements insuffisants sur
+                le tenant (scopes Graph pour Teams / Planner). Vérifiez la connexion dans
+                l’administration client Microsoft 365 ou demandez un consentement administrateur pour
+                l’application Azure liée à Starium.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-border/70"
+                onClick={() => void teamsQuery.refetch()}
+              >
+                Réessayer
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : (
           <div className="space-y-4">
             <div className="space-y-1">
@@ -181,6 +223,21 @@ export function MicrosoftLinkConfigureDialog({
               {teamId ? (
                 channelsQuery.isLoading ? (
                   <LoadingState rows={1} />
+                ) : channelsQuery.isError ? (
+                  <Alert variant="destructive" className="border-destructive/40 py-2">
+                    <AlertDescription className="flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+                      <span>{graphQueryErrorMessage(channelsQuery.error)}</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="w-fit shrink-0 border-border/70"
+                        onClick={() => void channelsQuery.refetch()}
+                      >
+                        Réessayer
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
                 ) : (
                   <Select
                     value={channelId}
@@ -210,6 +267,21 @@ export function MicrosoftLinkConfigureDialog({
               {channelId ? (
                 plansQuery.isLoading ? (
                   <LoadingState rows={1} />
+                ) : plansQuery.isError ? (
+                  <Alert variant="destructive" className="border-destructive/40 py-2">
+                    <AlertDescription className="flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+                      <span>{graphQueryErrorMessage(plansQuery.error)}</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="w-fit shrink-0 border-border/70"
+                        onClick={() => void plansQuery.refetch()}
+                      >
+                        Réessayer
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
                 ) : (
                   <Select value={plannerPlanId} onValueChange={(v) => setPlannerPlanId(v ?? '')}>
                     <SelectTrigger className="w-full">
@@ -228,6 +300,28 @@ export function MicrosoftLinkConfigureDialog({
                 <p className="text-sm text-muted-foreground">Choisissez d’abord un canal.</p>
               )}
             </div>
+            {Boolean(plannerPlanId?.trim()) && link?.syncTasksEnabled !== false ? (
+              <div className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/25 p-3">
+                <input
+                  id="use-ms-buckets"
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 rounded border-border accent-primary"
+                  checked={useMsBuckets}
+                  onChange={(e) => setUseMsBuckets(e.target.checked)}
+                  disabled={!canEdit}
+                />
+                <label htmlFor="use-ms-buckets" className="cursor-pointer text-sm leading-snug">
+                  <span className="font-medium text-foreground">
+                    Remplacer les buckets Starium par ceux du plan Planner
+                  </span>
+                  <span className="text-muted-foreground mt-1 block text-xs">
+                    Importe les colonnes du plan Microsoft sélectionné dans l’onglet Planning et les
+                    utilise pour la sync des tâches vers Planner (sync tâches activée).
+                  </span>
+                </label>
+              </div>
+            ) : null}
+
             <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
               <p className="mb-2 text-xs font-medium text-muted-foreground">
                 Documents (optionnel, MVP)

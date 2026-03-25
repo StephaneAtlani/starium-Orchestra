@@ -284,6 +284,7 @@ export type CreateProjectTaskPayload = {
   dependencyType?: string | null;
   ownerUserId?: string | null;
   budgetLineId?: string | null;
+  bucketId?: string | null;
   sortOrder?: number;
 };
 

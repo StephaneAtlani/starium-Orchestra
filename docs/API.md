@@ -1809,7 +1809,7 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ---
 
-## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|gantt|activities|risks|milestones|budget-links|project-sheet|reviews|documents`
+## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
 
 Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload Gantt backend — pas d’UI Gantt au MVP), **RFC-PROJ-012** (fiche décisionnelle), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
@@ -1870,20 +1870,29 @@ Configuration du lien projet ↔ Teams / Planner / drive fichiers ; sync **manue
 **Guards** : `JwtAuthGuard`, `ActiveClientGuard`, `MicrosoftIntegrationAccessGuard`, `@RequirePermissions('projects.update')` (même logique d’accès Microsoft que les routes `/api/microsoft/*` — voir section Intégration Microsoft 365).
 
 - **GET** — Lecture config `ProjectMicrosoftLink` (404 si non créée). **`projects.read`**
-- **PUT** — Création / mise à jour (`UpdateProjectMicrosoftLinkDto`) : `isEnabled`, `teamId`, `channelId`, `plannerPlanId`, `syncTasksEnabled`, `syncDocumentsEnabled`, `filesDriveId`, `filesFolderId`, libellés optionnels. **`projects.update`**
-- **POST /api/projects/:projectId/microsoft-link/sync-tasks** — Sync one-way des tâches projet → Microsoft Planner (mapping `ProjectTaskMicrosoftSync`). Audits **`project.microsoft_tasks.synced`** ou **`project.microsoft_sync.failed`**. **`projects.update`**
+- **PUT** — Création / mise à jour (`UpdateProjectMicrosoftLinkDto`) : `isEnabled`, `teamId`, `channelId`, `plannerPlanId`, `syncTasksEnabled`, `syncDocumentsEnabled`, `useMicrosoftPlannerBuckets` (remplace les buckets Starium par l’import des buckets du plan Planner — RFC-PROJ-OPT-001), `filesDriveId`, `filesFolderId`, libellés optionnels. **`projects.update`**
+- **POST /api/projects/:projectId/microsoft-link/sync-tasks** — Sync one-way des tâches projet → Microsoft Planner (mapping `ProjectTaskMicrosoftSync` ; colonne Planner dérivée du `bucketId` tâche quand défini, sinon fallback nom de bucket / statut). Audits **`project.microsoft_tasks.synced`** ou **`project.microsoft_sync.failed`**. **`projects.update`**
 - **POST /api/projects/:projectId/microsoft-link/sync-documents** — Sync one-way des `ProjectDocument` **STARIUM** (fichiers lus via `PROJECT_DOCUMENTS_STORAGE_ROOT`) vers le dossier `starium-project-{projectId}` du drive configuré. Réponse `{ total, synced, failed, skipped }`. Audits **`project.microsoft_documents.synced`** ou **`project.microsoft_sync.failed`**. **`projects.update`**
 
-**UI (RFC-PROJ-OPT-001)** : page **`/projects/[projectId]/options`** (`apps/web/src/features/projects/options/`) — paramètres projet (réutilise **`PATCH /api/projects/:id`**), configuration et état de la liaison (routes ci-dessus), connexion Microsoft côté client (**`GET /api/microsoft/connection`**, démarrage OAuth **`GET /api/microsoft/auth/url`** → lecture de l’URL dans la réponse → redirection). Isolation **client actif** inchangée (header `X-Client-Id`).
+**UI (RFC-PROJ-OPT-001)** : page **`/projects/[projectId]/options`** (`apps/web/src/features/projects/options/`) — paramètres projet (réutilise **`PATCH /api/projects/:id`**), onglet Planning (buckets), configuration et état de la liaison (routes ci-dessus), connexion Microsoft côté client (**`GET /api/microsoft/connection`**, démarrage OAuth **`GET /api/microsoft/auth/url`** → lecture de l’URL dans la réponse → redirection). Isolation **client actif** inchangée (header `X-Client-Id`).
+
+### Buckets planning — `/api/projects/:projectId/task-buckets` (RFC-PROJ-OPT-001)
+
+Ressource **`ProjectTaskBucket`** par projet ; lecture de `useMicrosoftPlannerBuckets` sur la liaison Microsoft dans la réponse **GET**. Si les buckets proviennent du plan Planner, création / mise à jour / suppression manuelle côté API est refusée (colonnes gérées dans Teams / Planner).
+
+- **GET** — `{ items, useMicrosoftPlannerBuckets }`. **`projects.read`**
+- **POST** — Création (`CreateProjectTaskBucketDto`). **`projects.update`**
+- **PATCH /api/projects/:projectId/task-buckets/:bucketId** — **`projects.update`**
+- **DELETE** — **`projects.update`**
 
 ### Tâches — `/api/projects/:projectId/tasks` (RFC-PROJ-011)
 
 Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord jalons / revues / activités). Listes paginées : réponse `{ items, total, limit, offset }` (query filtres selon implémentation : statut, parent, dates, etc.).
 
 - **GET** — Liste paginée des tâches du projet. **`projects.read`**
-- **POST** — Création. **`projects.update`** (mutation du périmètre projet)
+- **POST** — Création (champs dont `bucketId` optionnel — référence un `ProjectTaskBucket` du même projet). **`projects.update`** (mutation du périmètre projet)
 - **GET /api/projects/:projectId/tasks/:id** — Détail d’une tâche. **`projects.read`**
-- **PATCH /api/projects/:projectId/tasks/:id** — **`projects.update`**
+- **PATCH /api/projects/:projectId/tasks/:id** — (champs dont `bucketId` optionnel). **`projects.update`**
 
 ### Gantt-ready — `/api/projects/:projectId/gantt` (RFC-PROJ-011)
 

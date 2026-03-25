@@ -52,7 +52,9 @@ Donc :
 ## Inclus
 
 * page Options projet
+* onglet **Planning** : gestion des **buckets** (colonnes Kanban) par projet — création / suppression tant que le projet n’utilise pas les buckets importés depuis Microsoft Planner
 * configuration Microsoft 365 (Teams / Planner / Documents)
+* option **« Remplacer les buckets Starium par ceux du plan Planner »** dans le dialogue de configuration (visible lorsqu’un plan Planner est choisi et que la sync tâches n’est pas désactivée) : import des buckets Graph, désactivation du CRUD buckets Starium côté UI
 * activation / désactivation des synchronisations
 * affichage état connexion + sync
 * lancement manuel des synchronisations
@@ -61,7 +63,7 @@ Donc :
 ## Exclus
 
 * création automatique Teams / Planner / SharePoint
-* mapping avancé Planner
+* mapping avancé Planner (hors bucket de tâche + sync position colonne)
 * sync bidirectionnelle complète
 * gestion des conflits avancés
 * provisioning Microsoft
@@ -102,6 +104,7 @@ features/projects/options/
 ├── components/
 │   ├── project-options-tabs.tsx
 │   ├── project-general-settings.tsx
+│   ├── project-planning-buckets-settings.tsx
 │   ├── project-microsoft-settings.tsx
 │   ├── project-sync-settings.tsx
 │   ├── microsoft-teams-card.tsx
@@ -116,7 +119,7 @@ features/projects/options/
 
 # 6. Architecture UX
 
-## Page structurée en 3 onglets
+## Page structurée en 4 onglets
 
 ### 1. Général
 
@@ -132,7 +135,15 @@ Paramètres métier :
 
 ---
 
-### 2. Microsoft 365
+### 2. Planning
+
+* liste des **buckets** du projet (noms affichés, pas les identifiants techniques)
+* ajout / suppression de buckets **uniquement** lorsque le projet n’utilise pas l’option « buckets Microsoft Planner » (sinon message d’information : édition des colonnes côté Teams / Planner)
+* invalidation TanStack : `projectQueryKeys.taskBuckets` après changement de liaison Microsoft (import ou retour buckets Starium)
+
+---
+
+### 3. Microsoft 365
 
 Configuration des liaisons.
 
@@ -160,9 +171,13 @@ Configuration des liaisons.
 * connexion Microsoft client : ACTIVE / ABSENTE
 * message si non connecté
 
+#### Dialogue « Configurer » (équipe / canal / plan)
+
+* case à cocher optionnelle : **Remplacer les buckets Starium par ceux du plan Planner** (`useMicrosoftPlannerBuckets`), si un plan Planner est sélectionné et que la sync tâches n’est pas désactivée pour le lien
+
 ---
 
-### 3. Synchronisation
+### 4. Synchronisation
 
 Pilotage du comportement.
 
@@ -209,6 +224,7 @@ type ProjectMicrosoftLink = {
 
   syncTasksEnabled: boolean;
   syncDocumentsEnabled: boolean;
+  useMicrosoftPlannerBuckets: boolean;
 
   lastSyncAt: string | null;
   lastTaskSyncAt: string | null;
@@ -256,8 +272,18 @@ Payload :
 
   syncTasksEnabled?: boolean;
   syncDocumentsEnabled?: boolean;
+  useMicrosoftPlannerBuckets?: boolean;
 }
 ```
+
+## Buckets planning (API `projects`)
+
+* `GET /api/projects/:projectId/task-buckets` — `{ items, useMicrosoftPlannerBuckets }` ; isolation **client actif** + projet
+* `POST` — créer un bucket Starium (`projects.update`)
+* `PATCH /api/projects/:projectId/task-buckets/:bucketId` — renommer / ordre (`projects.update`) ; refus si bucket miroir Planner
+* `DELETE` — suppression (`projects.update`) ; refus si mode buckets Microsoft
+
+Les **tâches** exposent `bucketId` (nullable) sur `GET|POST|PATCH .../tasks` (voir RFC-PROJ-011 / implémentation).
 
 ---
 
@@ -323,6 +349,7 @@ Après update :
 ```ts
 invalidate microsoftLink
 invalidate project detail
+invalidate taskBuckets (liste buckets planning)
 ```
 
 Après sync :
@@ -370,6 +397,7 @@ Aucune UI custom brute.
 # 15. Critères d’acceptation
 
 * un utilisateur peut accéder à “Options projet”
+* il peut gérer les buckets planning (Starium) ou basculer vers les buckets Planner lorsque la liaison Microsoft le permet
 * il peut configurer Teams / Planner / Documents
 * il peut activer/désactiver les synchronisations
 * il peut lancer une synchronisation
@@ -407,9 +435,9 @@ Aucune UI custom brute.
 # Implémentation (référence code)
 
 * **Route App Router** : `apps/web/src/app/(protected)/projects/[projectId]/options/page.tsx`
-* **Feature** : `apps/web/src/features/projects/options/` (query keys `projectOptionsKeys`, API wrappers, hooks TanStack, onglets Général / Microsoft 365 / Synchronisation)
+* **Feature** : `apps/web/src/features/projects/options/` (query keys `projectOptionsKeys`, API wrappers, hooks TanStack, onglets Général / **Planning** / Microsoft 365 / Synchronisation) ; API buckets côté client dans `apps/web/src/features/projects/api/project-task-buckets.api.ts` + `projectQueryKeys.taskBuckets`
 * **Navigation projet** : `apps/web/src/features/projects/components/project-workspace-tabs.tsx` (onglet **Options** → `projectProjectOptions(projectId)` dans `apps/web/src/features/projects/constants/project-routes.ts`)
-* **Données** : `PATCH /api/projects/:id` (onglet Général) ; `GET|PUT /api/projects/:projectId/microsoft-link` (404 → état vide côté UI) ; `POST .../microsoft-link/sync-tasks|sync-documents` ; `GET /api/microsoft/connection` et `GET /api/microsoft/auth/url` (réponse JSON `authorizationUrl` puis redirection navigateur — pas d’URL d’endpoint en dur comme lien)
+* **Données** : `PATCH /api/projects/:id` (onglet Général) ; `GET|PUT /api/projects/:projectId/microsoft-link` (champ `useMicrosoftPlannerBuckets` ; 404 → état vide côté UI) ; `GET|POST|PATCH|DELETE /api/projects/:projectId/task-buckets` ; `POST .../microsoft-link/sync-tasks|sync-documents` ; `GET /api/microsoft/connection` et `GET /api/microsoft/auth/url` (réponse JSON `authorizationUrl` puis redirection navigateur — pas d’URL d’endpoint en dur comme lien)
 * **Permissions UI** : `projects.read` / `projects.update` via `usePermissions()` (aligné API)
 * **Tests** : `apps/web/src/features/projects/options/lib/project-options-query-keys.spec.ts`
 * **Écarts mineurs vs texte RFC** : onglet Sync — bascules `syncTasksEnabled` / `syncDocumentsEnabled` via cases à cocher accessibles (`role="switch"`), pas le composant shadcn `Switch` ; horodatage « dernière sync » = champ serveur `lastSyncAt` sur `ProjectMicrosoftLink` (pas de `lastTaskSyncAt` / `lastDocumentSyncAt` séparés en base au MVP)

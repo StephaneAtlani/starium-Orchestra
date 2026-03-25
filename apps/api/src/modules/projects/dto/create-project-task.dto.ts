@@ -80,6 +80,10 @@ export class CreateProjectTaskDto {
   budgetLineId?: string | null;
 
   @IsOptional()
+  @IsString()
+  bucketId?: string | null;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   sortOrder?: number;

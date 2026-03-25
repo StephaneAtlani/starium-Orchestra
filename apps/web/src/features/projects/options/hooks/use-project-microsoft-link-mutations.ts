@@ -24,6 +24,7 @@ export function useUpdateProjectMicrosoftLinkMutation(projectId: string) {
       await Promise.all([
         qc.invalidateQueries({ queryKey: projectOptionsKeys.microsoftLink(clientId, projectId) }),
         qc.invalidateQueries({ queryKey: projectQueryKeys.detail(clientId, projectId) }),
+        qc.invalidateQueries({ queryKey: projectQueryKeys.taskBuckets(clientId, projectId) }),
       ]);
       toast.success('Configuration Microsoft enregistrée.');
     },

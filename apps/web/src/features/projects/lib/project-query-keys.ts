@@ -19,6 +19,8 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'sheet', clientId, projectId] as const,
   tasks: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'tasks', clientId, projectId] as const,
+  taskBuckets: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'task-buckets', clientId, projectId] as const,
   risks: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'risks', clientId, projectId] as const,
   milestones: (clientId: string, projectId: string) =>

@@ -19,6 +19,8 @@ export type ProjectMicrosoftLinkDto = {
 
   syncTasksEnabled: boolean;
   syncDocumentsEnabled: boolean;
+  /** Buckets planning = colonnes Planner (remplace les buckets Starium). */
+  useMicrosoftPlannerBuckets: boolean;
 
   lastSyncAt: string | null;
 
@@ -39,6 +41,7 @@ export type UpdateProjectMicrosoftLinkPayload = {
   filesFolderId?: string;
   syncTasksEnabled?: boolean;
   syncDocumentsEnabled?: boolean;
+  useMicrosoftPlannerBuckets?: boolean;
 };
 
 export type SyncTasksResult = {

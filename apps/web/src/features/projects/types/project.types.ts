@@ -147,6 +147,7 @@ export type ProjectTaskApi = {
   dependencyType: string | null;
   ownerUserId: string | null;
   budgetLineId: string | null;
+  bucketId?: string | null;
   /** Présent sur les réponses API liste ; utilisé pour tri client (RFC-PROJ-012). */
   createdAt?: string;
 };

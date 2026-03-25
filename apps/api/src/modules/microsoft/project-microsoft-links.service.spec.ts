@@ -59,6 +59,9 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       projectTask: {
         findMany: jest.fn(),
       },
+      projectTaskBucket: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       projectTaskMicrosoftSync: {
         findMany: jest.fn(),
         create: jest.fn(),

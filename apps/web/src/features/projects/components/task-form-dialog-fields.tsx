@@ -40,6 +40,8 @@ export type TaskFormDialogFieldsProps = {
   tasksForParent: { id: string; name: string }[];
   tasksForDepends: { id: string; name: string }[];
   assignableOptions: { id: string; label: string }[];
+  /** Buckets projet (vide = aucun bucket défini côté API). */
+  bucketOptions: { id: string; label: string }[];
   /** Préfixe des `id` HTML (ex. `planning-task`). */
   fieldIdPrefix: string;
 };
@@ -53,6 +55,7 @@ export function TaskFormDialogFields({
   tasksForParent,
   tasksForDepends,
   assignableOptions,
+  bucketOptions,
   fieldIdPrefix,
 }: TaskFormDialogFieldsProps) {
   const fid = (suffix: string) => `${fieldIdPrefix}-${suffix}`;
@@ -107,7 +110,28 @@ export function TaskFormDialogFields({
           <ListChecks className="size-3.5 shrink-0" aria-hidden />
           Suivi
         </h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor={fid('bucket')}>Bucket</Label>
+            <select
+              id={fid('bucket')}
+              className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
+              value={form.bucketId ?? ''}
+              onChange={(e) =>
+                onPatch({ bucketId: e.target.value || null })
+              }
+            >
+              <option value="">— Aucun</option>
+              {bucketOptions.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Colonne Kanban / Planner (défini dans les options du projet).
+            </p>
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor={fid('status')}>Statut</Label>
             <select

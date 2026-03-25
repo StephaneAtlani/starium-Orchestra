@@ -31,6 +31,7 @@ Spécifier la synchronisation **one-way Starium → Planner** pour les `ProjectT
   * si **pas** de ligne `ProjectTaskMicrosoftSync` : `POST` Planner task sur le `plannerPlanId` du lien projet ; créer le mapping avec `plannerTaskId` ;
   * si mapping existe : `PATCH` Planner task (ou équivalent Graph) pour refléter Starium.
 * Champs MVP à mapper : titre, description, échéance, statut / priorité (table de correspondance explicite Starium `ProjectTaskStatus` / `ProjectTaskPriority` ↔ Planner).
+* **Colonne Planner (bucket)** : la tâche peut référencer un `ProjectTaskBucket` (`bucketId`). Lors de la sync, le **bucket Planner** cible est d’abord dérivé du bucket Starium (`plannerBucketId` si le bucket est un miroir Planner — voir [RFC-PROJ-OPT-001](./RFC-PROJ-OPT-001%20—%20Project%20Options.md)), sinon par **nom** sur les buckets du plan, puis **fallback** par statut (`ProjectTaskStatus` ↔ nom de bucket Planner, comportement historique).
 
 Règles normatives d’état et d’erreurs :
 * Après `POST` OK (retour de `plannerTaskId`) : créer le mapping en `syncStatus=PENDING` ; ne passer en `SYNCED` qu’après la synchro complète `task` + `details`.

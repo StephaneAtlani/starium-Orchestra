@@ -20,6 +20,8 @@ import { ProjectReviewsService } from './project-reviews/project-reviews.service
 import { ProjectDocumentsController } from './project-documents.controller';
 import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectDocumentContentService } from './project-document-content.service';
+import { ProjectTaskBucketsController } from './project-task-buckets.controller';
+import { ProjectTaskBucketsService } from './project-task-buckets.service';
 import { ProjectTasksController } from './project-tasks.controller';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsController } from './projects.controller';
@@ -37,6 +39,7 @@ import { ProjectTeamService } from './project-team.service';
     ProjectPortfolioCategoriesController,
     ProjectsController,
     ProjectDocumentsController,
+    ProjectTaskBucketsController,
     ProjectTasksController,
     ProjectActivitiesController,
     ProjectGanttController,
@@ -52,6 +55,7 @@ import { ProjectTeamService } from './project-team.service';
     ProjectPortfolioCategoriesService,
     ProjectDocumentsService,
     ProjectDocumentContentService,
+    ProjectTaskBucketsService,
     ProjectTasksService,
     ProjectActivitiesService,
     ProjectGanttService,

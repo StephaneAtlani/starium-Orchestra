@@ -160,6 +160,7 @@ export function projectTaskEntityAuditSnapshot(
     dependencyType: t.dependencyType ?? null,
     ownerUserId: t.ownerUserId ?? null,
     budgetLineId: t.budgetLineId ?? null,
+    bucketId: t.bucketId ?? null,
     status: t.status,
     priority: t.priority,
     progress: t.progress,

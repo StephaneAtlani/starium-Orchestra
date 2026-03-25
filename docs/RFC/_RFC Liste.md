@@ -116,7 +116,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | 28    | **RFC-FE-PROJ-006** | Budget Links UI   | Visualisation budgets          | ⚠️ Partiel | OK partiel          |
 | 29    | **RFC-FE-PROJ-007** | Supplier Links UI | Visualisation fournisseurs     | ❌ À faire  | futur               |
 | 30    | **RFC-FE-PROJ-011** | Project Health UI | Indicateurs santé              | ✅ Couvert  | OK                  |
-| 31    | **RFC-PROJ-OPT-001** | Project Options UI | Onglets Général / Microsoft 365 / Sync, liaison projet, sync manuelle | ✅ Implémenté | [RFC](./RFC-PROJ-OPT-001%20—%20Project%20Options.md) — `apps/web/src/features/projects/options/` |
+| 31    | **RFC-PROJ-OPT-001** | Project Options UI | Onglets Général / Planning (buckets) / Microsoft 365 / Sync ; liaison projet ; option buckets Planner ; sync manuelle | ✅ Implémenté | [RFC](./RFC-PROJ-OPT-001%20—%20Project%20Options.md) — `apps/web/src/features/projects/options/` |
 
 ---
 

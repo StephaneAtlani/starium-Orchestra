@@ -107,6 +107,7 @@ export class ProjectTasksService {
       null,
       dto.dependsOnTaskId ?? null,
     );
+    await this.assertTaskBucketInProject(clientId, projectId, dto.bucketId ?? null);
 
     if (dto.dependsOnTaskId) {
       const cycle = await wouldTaskDependencyCreateCycle(
@@ -167,6 +168,7 @@ export class ProjectTasksService {
         dependencyType: dto.dependencyType ?? null,
         ownerUserId: dto.ownerUserId ?? null,
         budgetLineId: dto.budgetLineId ?? null,
+        bucketId: dto.bucketId ?? null,
         sortOrder: dto.sortOrder ?? 0,
         createdByUserId: actorUserId ?? null,
         updatedByUserId: actorUserId ?? null,
@@ -212,6 +214,9 @@ export class ProjectTasksService {
     }
     if (dto.budgetLineId !== undefined) {
       await this.projects.assertBudgetLineInClient(clientId, dto.budgetLineId);
+    }
+    if (dto.bucketId !== undefined) {
+      await this.assertTaskBucketInProject(clientId, projectId, dto.bucketId);
     }
 
     const nextParent = dto.parentTaskId !== undefined ? dto.parentTaskId : existing.parentTaskId;
@@ -304,6 +309,7 @@ export class ProjectTasksService {
         }),
         ...(dto.ownerUserId !== undefined && { ownerUserId: dto.ownerUserId }),
         ...(dto.budgetLineId !== undefined && { budgetLineId: dto.budgetLineId }),
+        ...(dto.bucketId !== undefined && { bucketId: dto.bucketId }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
         updatedByUserId: actorUserId ?? null,
       },
@@ -390,6 +396,20 @@ export class ProjectTasksService {
     const ae = actualEnd ? new Date(actualEnd) : null;
     if (as && ae && ae < as) {
       throw new BadRequestException('actualEndDate must be >= actualStartDate');
+    }
+  }
+
+  private async assertTaskBucketInProject(
+    clientId: string,
+    projectId: string,
+    bucketId: string | null,
+  ) {
+    if (!bucketId) return;
+    const b = await this.prisma.projectTaskBucket.findFirst({
+      where: { id: bucketId, clientId, projectId },
+    });
+    if (!b) {
+      throw new BadRequestException('Bucket not found for this project');
     }
   }
 

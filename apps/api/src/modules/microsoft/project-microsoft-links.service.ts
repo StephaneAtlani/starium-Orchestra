@@ -44,6 +44,7 @@ export type ProjectMicrosoftLinkConfig = Pick<
   | 'plannerPlanTitle'
   | 'syncTasksEnabled'
   | 'syncDocumentsEnabled'
+  | 'useMicrosoftPlannerBuckets'
   | 'filesDriveId'
   | 'filesFolderId'
   | 'lastSyncAt'
@@ -137,6 +138,12 @@ export class ProjectMicrosoftLinksService {
     const syncDocumentsEnabled =
       dto.syncDocumentsEnabled ?? existing?.syncDocumentsEnabled ?? true;
 
+    const prevMsBuckets = existing?.useMicrosoftPlannerBuckets ?? false;
+    const nextMsBuckets =
+      dto.useMicrosoftPlannerBuckets !== undefined
+        ? dto.useMicrosoftPlannerBuckets
+        : prevMsBuckets;
+
     const updated: ProjectMicrosoftLinkConfig & { id: string } =
       existing
         ? await this.prisma.projectMicrosoftLink.update({
@@ -148,6 +155,7 @@ export class ProjectMicrosoftLinksService {
               microsoftConnectionId: activeConnectionId,
               syncTasksEnabled,
               syncDocumentsEnabled,
+              useMicrosoftPlannerBuckets: nextMsBuckets,
 
               // IDs / noms : "aucune purge" => on ne remet à null que si la ligne n'existe pas.
               ...(newEnabled === true
@@ -199,6 +207,7 @@ export class ProjectMicrosoftLinksService {
               microsoftConnectionId: newEnabled ? activeConnectionId : null,
               syncTasksEnabled,
               syncDocumentsEnabled,
+              useMicrosoftPlannerBuckets: nextMsBuckets,
               ...(newEnabled === true
                 ? {
                     teamId: dto.teamId,
@@ -241,6 +250,13 @@ export class ProjectMicrosoftLinksService {
             },
           });
 
+    if (nextMsBuckets === true && prevMsBuckets === false) {
+      await this.replaceStariumBucketsWithPlanner(clientId, projectId);
+    }
+    if (nextMsBuckets === false && prevMsBuckets === true) {
+      await this.demotePlannerBucketsToStarium(clientId, projectId);
+    }
+
     const action =
       !oldEnabled && newEnabled === true ? AUDIT_ACTION_ENABLED : AUDIT_ACTION_UPDATED;
 
@@ -255,12 +271,14 @@ export class ProjectMicrosoftLinksService {
         teamId: existing?.teamId ?? null,
         channelId: existing?.channelId ?? null,
         plannerPlanId: existing?.plannerPlanId ?? null,
+        useMicrosoftPlannerBuckets: prevMsBuckets,
       },
       newValue: {
         isEnabled: updated.isEnabled,
         teamId: updated.teamId ?? null,
         channelId: updated.channelId ?? null,
         plannerPlanId: updated.plannerPlanId ?? null,
+        useMicrosoftPlannerBuckets: nextMsBuckets,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -276,6 +294,102 @@ export class ProjectMicrosoftLinksService {
     }
 
     return updated;
+  }
+
+  private async demotePlannerBucketsToStarium(
+    clientId: string,
+    projectId: string,
+  ): Promise<void> {
+    await this.prisma.projectTaskBucket.updateMany({
+      where: { clientId, projectId, plannerBucketId: { not: null } },
+      data: { plannerBucketId: null },
+    });
+  }
+
+  private async replaceStariumBucketsWithPlanner(
+    clientId: string,
+    projectId: string,
+  ): Promise<void> {
+    const link = await this.prisma.projectMicrosoftLink.findFirst({
+      where: { projectId, clientId },
+    });
+    if (!link?.plannerPlanId || !link.microsoftConnectionId) {
+      throw new UnprocessableEntityException(
+        'Plan Planner et connexion Microsoft requis pour importer les buckets',
+      );
+    }
+    const accessToken = await this.microsoftOAuth.ensureFreshAccessToken(
+      link.microsoftConnectionId,
+      clientId,
+    );
+    type PlannerBucket = { id: string; name: string };
+    const bucketsResp = await this.graph.getJson<
+      MicrosoftGraphODataListResponse<PlannerBucket>
+    >(accessToken, `planner/plans/${link.plannerPlanId}/buckets`, {
+      expectJson: true,
+    });
+    const graphBuckets = bucketsResp?.value ?? [];
+    if (graphBuckets.length === 0) {
+      throw new UnprocessableEntityException(
+        'Aucun bucket Planner trouvé pour le plan configuré',
+      );
+    }
+    const graphIds = new Set(graphBuckets.map((g) => g.id));
+
+    await this.prisma.$transaction(async (tx) => {
+      const stariumOnly = await tx.projectTaskBucket.findMany({
+        where: { projectId, clientId, plannerBucketId: null },
+        select: { id: true },
+      });
+      const sid = stariumOnly.map((s) => s.id);
+      if (sid.length > 0) {
+        await tx.projectTask.updateMany({
+          where: { clientId, projectId, bucketId: { in: sid } },
+          data: { bucketId: null },
+        });
+        await tx.projectTaskBucket.deleteMany({
+          where: { id: { in: sid } },
+        });
+      }
+
+      for (let i = 0; i < graphBuckets.length; i++) {
+        const gb = graphBuckets[i];
+        await tx.projectTaskBucket.upsert({
+          where: {
+            projectId_plannerBucketId: {
+              projectId,
+              plannerBucketId: gb.id,
+            },
+          },
+          create: {
+            clientId,
+            projectId,
+            name: gb.name,
+            sortOrder: i,
+            plannerBucketId: gb.id,
+          },
+          update: {
+            name: gb.name,
+            sortOrder: i,
+          },
+        });
+      }
+
+      const mirrored = await tx.projectTaskBucket.findMany({
+        where: { projectId, clientId, plannerBucketId: { not: null } },
+      });
+      for (const row of mirrored) {
+        if (row.plannerBucketId && !graphIds.has(row.plannerBucketId)) {
+          await tx.projectTask.updateMany({
+            where: { clientId, projectId, bucketId: row.id },
+            data: { bucketId: null },
+          });
+          await tx.projectTaskBucket.delete({
+            where: { id: row.id },
+          });
+        }
+      }
+    });
   }
 
   async syncTasks(
@@ -352,13 +466,28 @@ export class ProjectMicrosoftLinksService {
       return dt ? dt.toISOString() : undefined;
     };
 
-    const resolveBucketId = (
-      status: ProjectTaskStatus,
-    ): string => {
-      const exact = buckets.find((b) => b.name === status);
+    const stariumBuckets = await this.prisma.projectTaskBucket.findMany({
+      where: { clientId, projectId },
+      select: { id: true, name: true, plannerBucketId: true },
+    });
+    const bucketById = new Map(stariumBuckets.map((b) => [b.id, b]));
+
+    const resolvePlannerBucketId = (task: {
+      status: ProjectTaskStatus;
+      bucketId: string | null;
+    }): string => {
+      if (task.bucketId) {
+        const b = bucketById.get(task.bucketId);
+        if (b?.plannerBucketId) return b.plannerBucketId;
+        if (b) {
+          const byName = buckets.find((x) => x.name === b.name);
+          if (byName) return byName.id;
+        }
+      }
+      const exact = buckets.find((b) => b.name === task.status);
       if (exact) return exact.id;
-      if (status === ProjectTaskStatus.TODO) return buckets[0].id;
-      if (status === ProjectTaskStatus.DONE)
+      if (task.status === ProjectTaskStatus.TODO) return buckets[0].id;
+      if (task.status === ProjectTaskStatus.DONE)
         return buckets[buckets.length - 1].id;
       return buckets[0].id;
     };
@@ -375,6 +504,7 @@ export class ProjectMicrosoftLinksService {
         actualEndDate: true,
         status: true,
         priority: true,
+        bucketId: true,
       },
     });
 
@@ -406,7 +536,7 @@ export class ProjectMicrosoftLinksService {
     for (const task of tasks) {
       const mapping = syncByTaskId.get(task.id);
 
-      const bucketId = resolveBucketId(task.status);
+      const resolvedPlannerBucketId = resolvePlannerBucketId(task);
       const priority = mapPriority(task.priority);
       const dueDateTime = resolveDueDateTime(task);
 
@@ -419,7 +549,7 @@ export class ProjectMicrosoftLinksService {
             'planner/tasks',
             {
               planId: link.plannerPlanId,
-              bucketId,
+              bucketId: resolvedPlannerBucketId,
               title: task.name,
               ...(dueDateTime ? { dueDateTime } : {}),
               priority,
@@ -458,7 +588,7 @@ export class ProjectMicrosoftLinksService {
             `planner/tasks/${plannerTaskId}`,
             {
               title: task.name,
-              bucketId,
+              bucketId: resolvedPlannerBucketId,
               ...(dueDateTime ? { dueDateTime } : {}),
               priority,
             },
@@ -555,7 +685,7 @@ export class ProjectMicrosoftLinksService {
             `planner/tasks/${plannerTaskId}`,
             {
               title: task.name,
-              bucketId,
+              bucketId: resolvedPlannerBucketId,
               ...(dueDateTime ? { dueDateTime } : {}),
               priority,
             },

@@ -38,6 +38,11 @@ export class UpdateProjectMicrosoftLinkDto {
   @Type(() => Boolean)
   syncDocumentsEnabled?: boolean;
 
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  useMicrosoftPlannerBuckets?: boolean;
+
   // Dénormalisation : ne doit jamais déclencher de validation Graph bloquante.
   @IsOptional()
   @IsString()

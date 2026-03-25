@@ -136,6 +136,7 @@ model Client {
   projectTaskSyncs             ProjectTaskMicrosoftSync[]
   projectDocumentMicrosoftSyncs ProjectDocumentMicrosoftSync[]
   projectDocuments              ProjectDocument[]
+  projectTaskBuckets            ProjectTaskBucket[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -692,6 +693,7 @@ model Project {
   microsoftDocumentSyncs ProjectDocumentMicrosoftSync[]
 
   tasks       ProjectTask[]
+  taskBuckets ProjectTaskBucket[]
   risks       ProjectRisk[]
   milestones  ProjectMilestone[]
   activities  ProjectActivity[]
@@ -989,6 +991,29 @@ model ProjectBudgetLink {
   @@index([clientId])
 }
 
+/// Buckets Kanban / Planner par projet (Starium ou miroir Microsoft selon `ProjectMicrosoftLink.useMicrosoftPlannerBuckets`).
+model ProjectTaskBucket {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  name    String
+  sortOrder Int    @default(0)
+  /// Renseigné quand le bucket provient d’un plan Planner (sync Microsoft).
+  plannerBucketId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   ProjectTask[]
+
+  @@unique([projectId, plannerBucketId])
+  @@index([clientId])
+  @@index([projectId])
+}
+
 /// RFC-PROJ-011 — tâche projet planifiable (Gantt-ready)
 model ProjectTask {
   id              String @id @default(cuid())
@@ -997,6 +1022,8 @@ model ProjectTask {
 
   parentTaskId    String?
   dependsOnTaskId String?
+
+  bucketId String?
 
   code        String?
   name        String
@@ -1027,6 +1054,7 @@ model ProjectTask {
   client   Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   budgetLine BudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  bucket   ProjectTaskBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
 
   parentTask    ProjectTask?  @relation("ProjectTaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
   childTasks    ProjectTask[]   @relation("ProjectTaskHierarchy")
@@ -1052,6 +1080,7 @@ model ProjectTask {
   @@index([priority])
   @@index([plannedStartDate])
   @@index([plannedEndDate])
+  @@index([bucketId])
 }
 
 model ProjectRisk {
@@ -2084,6 +2113,8 @@ model ProjectMicrosoftLink {
 
   syncTasksEnabled      Boolean @default(true)
   syncDocumentsEnabled  Boolean @default(true)
+  /// Si true : les buckets du planning sont ceux du plan Planner (remplace les buckets Starium).
+  useMicrosoftPlannerBuckets Boolean @default(false)
 
   lastSyncAt DateTime?
 
