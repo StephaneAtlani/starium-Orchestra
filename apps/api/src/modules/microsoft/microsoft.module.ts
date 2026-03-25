@@ -23,6 +23,7 @@ import { MicrosoftPlatformConfigService } from './microsoft-platform-config.serv
 import { ClientMicrosoftOAuthService } from './client-microsoft-oauth.service';
 import { PlatformMicrosoftSettingsController } from './platform-microsoft-settings.controller';
 import { ClientMicrosoftOAuthController } from './client-microsoft-oauth.controller';
+import { MicrosoftGraphService } from './microsoft-graph.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, AuditLogsModule],
@@ -50,10 +51,12 @@ import { ClientMicrosoftOAuthController } from './client-microsoft-oauth.control
     MicrosoftIdTokenService,
     MicrosoftTokenHttpService,
     MicrosoftOAuthService,
+    MicrosoftGraphService,
     MicrosoftCallbackRateLimitService,
   ],
   exports: [
     MicrosoftOAuthService,
+    MicrosoftGraphService,
     MicrosoftTokenCryptoService,
     MicrosoftPlatformConfigService,
     ClientMicrosoftOAuthService,
