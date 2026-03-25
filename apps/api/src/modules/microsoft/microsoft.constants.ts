@@ -31,3 +31,9 @@ export const DEFAULT_MICROSOFT_GRAPH_MAX_429_ATTEMPTS = 3;
 
 /** Plafond appliqué au délai issu de Retry-After (secondes). */
 export const DEFAULT_MICROSOFT_GRAPH_MAX_RETRY_AFTER_SECONDS = 5;
+
+/** Seuil Graph : au-delà, upload via session (chunked). */
+export const MICROSOFT_GRAPH_SIMPLE_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+
+/** Taille des fragments pour l’upload session (RFC-009 MVP, pas de retry par fragment). */
+export const MICROSOFT_GRAPH_UPLOAD_SESSION_CHUNK_BYTES = 8 * 1024 * 1024;

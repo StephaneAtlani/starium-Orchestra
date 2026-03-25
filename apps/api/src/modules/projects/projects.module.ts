@@ -19,6 +19,7 @@ import { ProjectReviewsController } from './project-reviews/project-reviews.cont
 import { ProjectReviewsService } from './project-reviews/project-reviews.service';
 import { ProjectDocumentsController } from './project-documents.controller';
 import { ProjectDocumentsService } from './project-documents.service';
+import { ProjectDocumentContentService } from './project-document-content.service';
 import { ProjectTasksController } from './project-tasks.controller';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsController } from './projects.controller';
@@ -50,6 +51,7 @@ import { ProjectTeamService } from './project-team.service';
     ProjectReviewsService,
     ProjectPortfolioCategoriesService,
     ProjectDocumentsService,
+    ProjectDocumentContentService,
     ProjectTasksService,
     ProjectActivitiesService,
     ProjectGanttService,
@@ -57,6 +59,11 @@ import { ProjectTeamService } from './project-team.service';
     ProjectMilestonesService,
     ProjectTeamService,
   ],
-  exports: [ProjectsService, ProjectsPilotageService, ProjectTeamService],
+  exports: [
+    ProjectsService,
+    ProjectsPilotageService,
+    ProjectTeamService,
+    ProjectDocumentContentService,
+  ],
 })
 export class ProjectsModule {}

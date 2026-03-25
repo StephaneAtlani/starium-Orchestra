@@ -15,14 +15,14 @@ Haute
 
 ## Objectif
 
-Définir le **modèle de données Prisma** pour l’intégration Microsoft 365 : connexion par client, lien projet, traçabilité de sync des tâches, et **préparation** de la sync documentaire (le registre `ProjectDocument` est désormais couvert par [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) ; les tables de sync documentaire Microsoft restent à cadrer ici / RFC-PROJ-INT-009).
+Définir le **modèle de données Prisma** pour l’intégration Microsoft 365 : connexion par client, lien projet, traçabilité de sync des tâches, et sync documentaire (**`ProjectDocumentMicrosoftSync`** — implémentée : [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md) ; registre `ProjectDocument` : [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md)).
 
 ---
 
 ## 1. Analyse de l’existant
 
 * Toutes les entités métier projet portent `clientId` et sont filtrées par contexte client actif.
-* `Project` et `ProjectTask` existent ; le modèle **`ProjectDocument`** est introduit par [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) (registre métier projet, MVP sans sync Microsoft). La table **`ProjectDocumentMicrosoftSync`** reste **hors schéma** tant que [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md) n’est pas implémentée.
+* `Project` et `ProjectTask` existent ; le modèle **`ProjectDocument`** est introduit par [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md). La table **`ProjectDocumentMicrosoftSync`** est **en schéma** depuis l’implémentation [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md) (voir `apps/api/prisma/schema.prisma`).
 
 ## 2. Hypothèses
 
@@ -165,39 +165,19 @@ model ProjectTaskMicrosoftSync {
 
 ### 4.5 ProjectDocumentMicrosoftSync (extension)
 
-**Ne pas créer tant que** [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md) n’est pas implémentée : le modèle **`ProjectDocument`** existe déjà ([RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md)), mais la **table de sync** reste hors schéma pour éviter du code mort. La cible fonctionnelle est :
+**Implémenté** — voir schéma réel dans `apps/api/prisma/schema.prisma` et [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md). Points clés : FK **`projectDocumentId`** → `ProjectDocument.id` (unicité 1–1), champs `driveId`, `driveItemId`, `folderPath`, `syncStatus`, pas de `webUrl` au MVP.
 
-* `documentId` → FK vers **`ProjectDocument.id`** ;
-* traçabilité `driveItemId`, `webUrl`, statut de sync.
-
-Voir [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md).
-
-Schéma indicatif (à activer avec RFC-PROJ-INT-009) :
+Le bloc ci-dessous était un **brouillon** ; ne pas l’utiliser comme source de vérité :
 
 ```prisma
-// FK ProjectDocument.id — introduire avec la sync Graph, pas avant
+// OBSOLÈTE — consulter schema.prisma
 model ProjectDocumentMicrosoftSync {
   id                     String   @id @default(cuid())
   clientId               String
   projectId              String
-  documentId             String   // FK ProjectDocument.id
+  documentId             String
   projectMicrosoftLinkId String
-
-  driveItemId            String?
-  webUrl                 String?
-  syncStatus             MicrosoftSyncStatus @default(PENDING)
-  lastPushedAt           DateTime?
-  lastError              String?
-
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-
-  client                 Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project                Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectMicrosoftLink   ProjectMicrosoftLink @relation(fields: [projectMicrosoftLinkId], references: [id], onDelete: Cascade)
-
-  @@index([clientId, projectId])
-  @@index([documentId])
+  // …
 }
 ```
 
@@ -216,7 +196,7 @@ model ProjectDocumentMicrosoftSync {
 ## 7. Récapitulatif
 
 * Schéma **client-scopé** partout ; cascade cohérente avec suppression projet/client.
-* **ProjectDocumentMicrosoftSync** reporté jusqu’à implémentation **RFC-PROJ-INT-009** (`ProjectDocument` est déjà en base).
+* **ProjectDocumentMicrosoftSync** : livré avec **RFC-PROJ-INT-009** (`ProjectDocument` en base depuis DOC-001).
 
 ## 8. Points de vigilance
 

@@ -61,7 +61,7 @@ Voici le **plan propre, exécutable et intégrant explicitement le frontend**, s
 
 | Ordre | RFC              | Nom                    | Description                               | État       |
 | ----- | ---------------- | ---------------------- | ----------------------------------------- | ---------- |
-| 10    | RFC-PROJ-INT-009 | Sync documents → Teams | Sync Graph + ProjectDocumentMicrosoftSync | 🔴 À faire |
+| 10    | RFC-PROJ-INT-009 | Sync documents → Teams | Sync Graph + `ProjectDocumentMicrosoftSync` + `POST .../sync-documents` | ✅ Backend OK (UI sync → ligne Frontend ci-dessous) |
 
 ---
 

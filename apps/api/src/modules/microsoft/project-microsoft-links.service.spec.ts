@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ProjectMicrosoftLinksService } from './project-microsoft-links.service';
+import { MicrosoftGraphHttpError } from './microsoft-graph.types';
 import { MicrosoftOAuthService } from './microsoft-oauth.service';
 
 describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
@@ -18,6 +19,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
     ensureFreshAccessToken: jest.Mock;
   };
   let graph: any;
+  let projectDocumentContent: { readStariumBuffer: jest.Mock };
 
   const clientId = 'c1';
   const projectId = 'p1';
@@ -62,6 +64,15 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      projectDocument: {
+        findMany: jest.fn(),
+      },
+      projectDocumentMicrosoftSync: {
+        findMany: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        findFirst: jest.fn(),
+      },
     } as any;
 
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
@@ -75,6 +86,15 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       patchJson: jest.fn(),
       getPlannerTaskWithEtag: jest.fn(),
       getPlannerTaskDetailsWithEtag: jest.fn(),
+      ensureFolderUnderDriveRoot: jest.fn().mockResolvedValue(undefined),
+      encodeDrivePathSegments: jest.fn((parts: string[]) =>
+        parts.map((p) => encodeURIComponent(p)).join('/'),
+      ),
+      uploadOrReplaceDriveFile: jest.fn(),
+    };
+
+    projectDocumentContent = {
+      readStariumBuffer: jest.fn().mockReturnValue(Buffer.from('x')),
     };
 
     service = new ProjectMicrosoftLinksService(
@@ -82,6 +102,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       auditLogs as unknown as AuditLogsService,
       microsoftOAuth as unknown as MicrosoftOAuthService,
       graph,
+      projectDocumentContent as any,
     );
 
     jest.clearAllMocks();
@@ -524,6 +545,182 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
           requestId: 'req-1',
         }),
       );
+    });
+  });
+
+  describe('syncDocuments (RFC-PROJ-INT-009)', () => {
+    const linkDocsEnabled = () =>
+      baseLink({
+        isEnabled: true,
+        microsoftConnectionId: 'conn-1',
+        syncDocumentsEnabled: true,
+        filesDriveId: 'drive-1',
+      });
+
+    const fullDoc = (overrides: Record<string, unknown> = {}) => ({
+      id: 'doc-1',
+      clientId,
+      projectId,
+      name: 'Rapport',
+      originalFilename: 'rapport.pdf',
+      mimeType: 'application/pdf',
+      extension: 'pdf',
+      storageKey: 'k/rapport.pdf',
+      status: 'ACTIVE',
+      storageType: 'STARIUM',
+      category: 'GENERAL',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      archivedAt: null,
+      deletedAt: null,
+      externalUrl: null,
+      description: null,
+      tags: null,
+      uploadedByUserId: null,
+      sizeBytes: 100,
+      ...overrides,
+    });
+
+    it('sans filesDriveId => UnprocessableEntityException', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(
+        baseLink({
+          isEnabled: true,
+          microsoftConnectionId: 'conn-1',
+          syncDocumentsEnabled: true,
+          filesDriveId: null,
+        }),
+      );
+
+      await expect(
+        service.syncDocuments(clientId, projectId),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it('upload OK petit fichier => SYNCED, lastSyncAt, audit documents.synced', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(linkDocsEnabled());
+      prisma.projectDocument.findMany
+        .mockResolvedValueOnce([
+          { id: 'doc-1', storageType: 'STARIUM', storageKey: 'k/rapport.pdf' },
+        ])
+        .mockResolvedValueOnce([fullDoc()]);
+      prisma.projectDocumentMicrosoftSync.findMany.mockResolvedValue([]);
+      graph.uploadOrReplaceDriveFile.mockResolvedValue({ id: 'item-1' });
+      prisma.projectDocumentMicrosoftSync.create.mockResolvedValue({ id: 's1' });
+      prisma.projectDocumentMicrosoftSync.update.mockResolvedValue({ id: 's1' });
+      prisma.projectMicrosoftLink.update.mockResolvedValue(undefined);
+
+      const r = await service.syncDocuments(clientId, projectId, {
+        actorUserId: 'u1',
+        meta: { requestId: 'r1' },
+      } as any);
+
+      expect(r).toEqual({ total: 1, synced: 1, failed: 0, skipped: 0 });
+      expect(graph.ensureFolderUnderDriveRoot).toHaveBeenCalledWith(
+        'access-token',
+        'drive-1',
+        `starium-project-${projectId}`,
+      );
+      expect(graph.uploadOrReplaceDriveFile).toHaveBeenCalledWith(
+        'access-token',
+        'drive-1',
+        expect.any(String),
+        expect.any(Buffer),
+        'application/pdf',
+        null,
+      );
+      expect(prisma.projectMicrosoftLink.update).toHaveBeenCalled();
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'project.microsoft_documents.synced',
+          resourceId: projectId,
+        }),
+      );
+    });
+
+    it('échec upload => stop, pas de lastSyncAt documents.synced', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(linkDocsEnabled());
+      prisma.projectDocument.findMany
+        .mockResolvedValueOnce([
+          { id: 'doc-1', storageType: 'STARIUM', storageKey: 'a' },
+          { id: 'doc-2', storageType: 'STARIUM', storageKey: 'b' },
+        ])
+        .mockResolvedValueOnce([fullDoc({ id: 'doc-1' }), fullDoc({ id: 'doc-2', name: 'B' })]);
+      prisma.projectDocumentMicrosoftSync.findMany.mockResolvedValue([]);
+      graph.uploadOrReplaceDriveFile
+        .mockRejectedValueOnce(new MicrosoftGraphHttpError('fail', 400, 'x', 'fail'))
+        .mockResolvedValue({ id: 'item-2' });
+
+      const r = await service.syncDocuments(clientId, projectId, {
+        actorUserId: 'u1',
+        meta: {},
+      } as any);
+
+      expect(r.synced).toBe(0);
+      expect(r.failed).toBe(1);
+      expect(graph.uploadOrReplaceDriveFile).toHaveBeenCalledTimes(1);
+      expect(
+        auditLogs.create.mock.calls.some(
+          (c) => c[0].action === 'project.microsoft_sync.failed',
+        ),
+      ).toBe(true);
+      const syncedAudit = auditLogs.create.mock.calls.find(
+        (c) => c[0].action === 'project.microsoft_documents.synced',
+      );
+      expect(syncedAudit).toBeUndefined();
+    });
+
+    it('overwrite : passe driveItemId existant à Graph', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(linkDocsEnabled());
+      prisma.projectDocument.findMany
+        .mockResolvedValueOnce([
+          { id: 'doc-1', storageType: 'STARIUM', storageKey: 'a' },
+        ])
+        .mockResolvedValueOnce([fullDoc()]);
+      prisma.projectDocumentMicrosoftSync.findMany.mockResolvedValue([
+        {
+          id: 's1',
+          projectDocumentId: 'doc-1',
+          driveItemId: 'existing-item',
+        },
+      ]);
+      graph.uploadOrReplaceDriveFile.mockResolvedValue({ id: 'existing-item' });
+      prisma.projectDocumentMicrosoftSync.update.mockResolvedValue({});
+
+      await service.syncDocuments(clientId, projectId);
+
+      expect(graph.uploadOrReplaceDriveFile).toHaveBeenCalledWith(
+        'access-token',
+        'drive-1',
+        expect.any(String),
+        expect.any(Buffer),
+        'application/pdf',
+        'existing-item',
+      );
+    });
+
+    it('skipped : documents non STARIUM exclus du total', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(linkDocsEnabled());
+      prisma.projectDocument.findMany
+        .mockResolvedValueOnce([
+          { id: 'doc-x', storageType: 'EXTERNAL', storageKey: null },
+          { id: 'doc-1', storageType: 'STARIUM', storageKey: 'a' },
+        ])
+        .mockResolvedValueOnce([fullDoc()]);
+      prisma.projectDocumentMicrosoftSync.findMany.mockResolvedValue([]);
+      graph.uploadOrReplaceDriveFile.mockResolvedValue({ id: 'item-1' });
+      prisma.projectDocumentMicrosoftSync.create.mockResolvedValue({});
+      prisma.projectDocumentMicrosoftSync.update.mockResolvedValue({});
+      prisma.projectMicrosoftLink.update.mockResolvedValue(undefined);
+
+      const r = await service.syncDocuments(clientId, projectId);
+
+      expect(r.skipped).toBe(1);
+      expect(r.total).toBe(1);
     });
   });
 });

@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Implémenté (MVP)** — registre métier en base, API REST sous `/api/projects/:projectId/documents`, audit, tests service ; UI web **lecture seule** sur la fiche projet. **Hors scope livré** : upload/téléchargement binaire, `ProjectDocumentMicrosoftSync`, création API avec `storageType=MICROSOFT` (enum présent pour compat future).
+**Implémenté (MVP)** — registre métier en base, API REST sous `/api/projects/:projectId/documents`, audit, tests service ; UI web **lecture seule** sur la fiche projet. **Hors scope livré (DOC-001)** : upload/téléchargement binaire côté API MVP, création API avec `storageType=MICROSOFT` (enum présent pour compat future). La **sync Microsoft** des documents (`ProjectDocumentMicrosoftSync`, endpoint sync) est couverte par **[RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md)** (backend) ; elle s’appuie sur la lecture disque `PROJECT_DOCUMENTS_STORAGE_ROOT` pour les entrées `STARIUM`.
 
 ## Réalisation dans le repo
 
@@ -212,7 +212,7 @@ model ProjectDocument {
 }
 ```
 
-> **Implémentation actuelle** : le schéma livré correspond au bloc ci-dessus (sans relation inverse `ProjectDocumentMicrosoftSync` : voir §8 / RFC-PROJ-INT-009).
+> **Implémentation actuelle** : le schéma `ProjectDocument` correspond au bloc ci-dessus ; la relation optionnelle **`microsoftSync`** vers `ProjectDocumentMicrosoftSync` est ajoutée par [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md) (voir `apps/api/prisma/schema.prisma`).
 
 ---
 

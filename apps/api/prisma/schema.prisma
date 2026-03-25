@@ -689,6 +689,7 @@ model Project {
   portfolioCategory ProjectPortfolioCategory? @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
   microsoftLink ProjectMicrosoftLink?
   microsoftTaskSyncs ProjectTaskMicrosoftSync[]
+  microsoftDocumentSyncs ProjectDocumentMicrosoftSync[]
 
   tasks       ProjectTask[]
   risks       ProjectRisk[]
@@ -2094,9 +2095,40 @@ model ProjectMicrosoftLink {
   microsoftConnection   MicrosoftConnection? @relation(fields: [microsoftConnectionId], references: [id], onDelete: SetNull)
 
   taskSyncs ProjectTaskMicrosoftSync[]
+  documentSyncs ProjectDocumentMicrosoftSync[]
 
   @@index([clientId])
   @@index([microsoftConnectionId])
+}
+
+/// RFC-PROJ-INT-009 — mapping sync one-way ProjectDocument → Teams/SharePoint drive.
+model ProjectDocumentMicrosoftSync {
+  id                     String @id @default(cuid())
+
+  clientId               String
+  projectId              String
+  /// Un seul mapping sync par document (RFC-009).
+  projectDocumentId      String @unique
+  projectMicrosoftLinkId String
+
+  driveId                String
+  driveItemId            String
+  folderPath             String
+
+  syncStatus             MicrosoftSyncStatus @default(PENDING)
+  lastPushedAt           DateTime?
+  lastError              String?
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  client                 Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project                Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectDocument        ProjectDocument        @relation(fields: [projectDocumentId], references: [id], onDelete: Cascade)
+  projectMicrosoftLink   ProjectMicrosoftLink   @relation(fields: [projectMicrosoftLinkId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, projectId])
+  @@index([driveItemId])
 }
 
 model ProjectTaskMicrosoftSync {

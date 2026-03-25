@@ -12,11 +12,14 @@ import { MicrosoftOAuthService } from './microsoft-oauth.service';
 import type { UpdateProjectMicrosoftLinkDto } from './dto/update-project-microsoft-link.dto';
 import {
   MicrosoftConnectionStatus,
+  ProjectDocumentStatus,
+  ProjectDocumentStorageType,
   ProjectTaskPriority,
   ProjectTaskStatus,
   MicrosoftSyncStatus,
 } from '@prisma/client';
 import { MicrosoftGraphService } from './microsoft-graph.service';
+import { ProjectDocumentContentService } from '../projects/project-document-content.service';
 import {
   type MicrosoftGraphODataListResponse,
   MicrosoftGraphHttpError,
@@ -25,7 +28,9 @@ import {
 const AUDIT_ACTION_ENABLED = 'project.microsoft_link.enabled';
 const AUDIT_ACTION_UPDATED = 'project.microsoft_link.updated';
 const AUDIT_ACTION_TASKS_SYNCED = 'project.microsoft_tasks.synced';
+const AUDIT_ACTION_DOCUMENTS_SYNCED = 'project.microsoft_documents.synced';
 const AUDIT_ACTION_TASK_SYNC_FAILED = 'project.microsoft_sync.failed';
+const AUDIT_ACTION_DOC_SYNC_FAILED = 'project.microsoft_sync.failed';
 const AUDIT_RESOURCE_TYPE = 'project';
 
 export type ProjectMicrosoftLinkConfig = Pick<
@@ -52,6 +57,13 @@ export type SyncTasksResult = {
   failed: number;
 };
 
+export type SyncDocumentsResult = {
+  total: number;
+  synced: number;
+  failed: number;
+  skipped: number;
+};
+
 @Injectable()
 export class ProjectMicrosoftLinksService {
   constructor(
@@ -59,6 +71,7 @@ export class ProjectMicrosoftLinksService {
     private readonly auditLogs: AuditLogsService,
     private readonly microsoftOAuth: MicrosoftOAuthService,
     private readonly graph: MicrosoftGraphService,
+    private readonly projectDocumentContent: ProjectDocumentContentService,
   ) {}
 
   async getConfig(
@@ -149,6 +162,12 @@ export class ProjectMicrosoftLinksService {
                     ...(dto.plannerPlanTitle !== undefined && {
                       plannerPlanTitle: dto.plannerPlanTitle,
                     }),
+                    ...(dto.filesDriveId !== undefined && {
+                      filesDriveId: dto.filesDriveId,
+                    }),
+                    ...(dto.filesFolderId !== undefined && {
+                      filesFolderId: dto.filesFolderId,
+                    }),
                   }
                 : {
                     ...(dto.teamId !== undefined && { teamId: dto.teamId }),
@@ -162,6 +181,12 @@ export class ProjectMicrosoftLinksService {
                     }),
                     ...(dto.plannerPlanTitle !== undefined && {
                       plannerPlanTitle: dto.plannerPlanTitle,
+                    }),
+                    ...(dto.filesDriveId !== undefined && {
+                      filesDriveId: dto.filesDriveId,
+                    }),
+                    ...(dto.filesFolderId !== undefined && {
+                      filesFolderId: dto.filesFolderId,
                     }),
                   }),
             },
@@ -186,6 +211,12 @@ export class ProjectMicrosoftLinksService {
                     ...(dto.plannerPlanTitle !== undefined && {
                       plannerPlanTitle: dto.plannerPlanTitle,
                     }),
+                    ...(dto.filesDriveId !== undefined && {
+                      filesDriveId: dto.filesDriveId,
+                    }),
+                    ...(dto.filesFolderId !== undefined && {
+                      filesFolderId: dto.filesFolderId,
+                    }),
                   }
                 : {
                     ...(dto.teamId !== undefined && { teamId: dto.teamId }),
@@ -199,6 +230,12 @@ export class ProjectMicrosoftLinksService {
                     }),
                     ...(dto.plannerPlanTitle !== undefined && {
                       plannerPlanTitle: dto.plannerPlanTitle,
+                    }),
+                    ...(dto.filesDriveId !== undefined && {
+                      filesDriveId: dto.filesDriveId,
+                    }),
+                    ...(dto.filesFolderId !== undefined && {
+                      filesFolderId: dto.filesFolderId,
                     }),
                   }),
             },
@@ -615,6 +652,316 @@ export class ProjectMicrosoftLinksService {
     }
 
     return { total: tasks.length, synced, failed };
+  }
+
+  async syncDocuments(
+    clientId: string,
+    projectId: string,
+    context?: AuditContext,
+  ): Promise<SyncDocumentsResult> {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, clientId },
+      select: { id: true },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const link = await this.prisma.projectMicrosoftLink.findFirst({
+      where: { projectId, clientId },
+    });
+    if (!link) {
+      throw new NotFoundException('Microsoft link not configured');
+    }
+    if (link.isEnabled !== true || link.syncDocumentsEnabled !== true) {
+      throw new UnprocessableEntityException(
+        'Sync documents Microsoft désactivée pour ce projet',
+      );
+    }
+    if (!link.filesDriveId?.trim() || !link.microsoftConnectionId) {
+      throw new UnprocessableEntityException(
+        'Configuration Microsoft projet incomplète (filesDriveId / connexion requise)',
+      );
+    }
+
+    const accessToken = await this.microsoftOAuth.ensureFreshAccessToken(
+      link.microsoftConnectionId,
+      clientId,
+    );
+
+    const folderName = this.stariumProjectFolderName(projectId);
+    await this.graph.ensureFolderUnderDriveRoot(
+      accessToken,
+      link.filesDriveId,
+      folderName,
+    );
+
+    const activeDocs = await this.prisma.projectDocument.findMany({
+      where: {
+        clientId,
+        projectId,
+        status: ProjectDocumentStatus.ACTIVE,
+        deletedAt: null,
+        archivedAt: null,
+      },
+      select: { id: true, storageType: true, storageKey: true },
+    });
+
+    const documents = await this.prisma.projectDocument.findMany({
+      where: {
+        clientId,
+        projectId,
+        status: ProjectDocumentStatus.ACTIVE,
+        deletedAt: null,
+        archivedAt: null,
+        storageType: ProjectDocumentStorageType.STARIUM,
+        storageKey: { not: null },
+        NOT: { storageKey: '' },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+
+    const skipped = activeDocs.length - documents.length;
+
+    const docIds = documents.map((d) => d.id);
+    const existingSyncs =
+      docIds.length === 0
+        ? []
+        : await this.prisma.projectDocumentMicrosoftSync.findMany({
+            where: {
+              clientId,
+              projectId,
+              projectDocumentId: { in: docIds },
+            },
+            select: {
+              id: true,
+              projectDocumentId: true,
+              driveItemId: true,
+            },
+          });
+    const syncByDocId = new Map(
+      existingSyncs.map((s) => [s.projectDocumentId, s]),
+    );
+
+    let synced = 0;
+    let failed = 0;
+    let stopError: unknown = null;
+
+    for (const doc of documents) {
+      const mapping = syncByDocId.get(doc.id);
+      const safeName = this.buildDocumentDriveFilename(doc);
+      const encodedPath = this.graph.encodeDrivePathSegments([
+        folderName,
+        safeName,
+      ]);
+      const contentType =
+        doc.mimeType?.trim() || 'application/octet-stream';
+
+      let buffer: Buffer;
+      try {
+        buffer = this.projectDocumentContent.readStariumBuffer(
+          clientId,
+          projectId,
+          doc.storageKey!,
+        );
+      } catch (e: unknown) {
+        failed++;
+        stopError = e;
+        const lastError = this.normalizeDocumentSyncError(e);
+        if (mapping) {
+          await this.prisma.projectDocumentMicrosoftSync.update({
+            where: { projectDocumentId: doc.id },
+            data: {
+              syncStatus: MicrosoftSyncStatus.ERROR,
+              lastError,
+            },
+          });
+        }
+        await this.auditLogs.create({
+          clientId,
+          userId: context?.actorUserId,
+          action: AUDIT_ACTION_DOC_SYNC_FAILED,
+          resourceType: AUDIT_RESOURCE_TYPE,
+          resourceId: doc.id,
+          newValue: { lastError },
+          ipAddress: context?.meta?.ipAddress,
+          userAgent: context?.meta?.userAgent,
+          requestId: context?.meta?.requestId,
+        });
+        break;
+      }
+
+      if (!mapping) {
+        try {
+          const { id: newItemId } = await this.graph.uploadOrReplaceDriveFile(
+            accessToken,
+            link.filesDriveId,
+            encodedPath,
+            buffer,
+            contentType,
+            null,
+          );
+
+          await this.prisma.projectDocumentMicrosoftSync.create({
+            data: {
+              clientId,
+              projectId,
+              projectDocumentId: doc.id,
+              projectMicrosoftLinkId: link.id,
+              driveId: link.filesDriveId,
+              driveItemId: newItemId,
+              folderPath: folderName,
+              syncStatus: MicrosoftSyncStatus.PENDING,
+              lastError: null,
+            },
+          });
+
+          await this.prisma.projectDocumentMicrosoftSync.update({
+            where: { projectDocumentId: doc.id },
+            data: {
+              syncStatus: MicrosoftSyncStatus.SYNCED,
+              lastPushedAt: new Date(),
+              lastError: null,
+            },
+          });
+
+          synced++;
+        } catch (e: unknown) {
+          failed++;
+          stopError = e;
+          const lastError = this.normalizeDocumentSyncError(e);
+          const rowAfter =
+            await this.prisma.projectDocumentMicrosoftSync.findFirst({
+              where: { clientId, projectDocumentId: doc.id },
+            });
+          if (rowAfter) {
+            await this.prisma.projectDocumentMicrosoftSync.update({
+              where: { id: rowAfter.id },
+              data: {
+                syncStatus: MicrosoftSyncStatus.ERROR,
+                lastError,
+              },
+            });
+          }
+          await this.auditLogs.create({
+            clientId,
+            userId: context?.actorUserId,
+            action: AUDIT_ACTION_DOC_SYNC_FAILED,
+            resourceType: AUDIT_RESOURCE_TYPE,
+            resourceId: doc.id,
+            newValue: { lastError },
+            ipAddress: context?.meta?.ipAddress,
+            userAgent: context?.meta?.userAgent,
+            requestId: context?.meta?.requestId,
+          });
+          break;
+        }
+      } else {
+        try {
+          const { id } = await this.graph.uploadOrReplaceDriveFile(
+            accessToken,
+            link.filesDriveId,
+            encodedPath,
+            buffer,
+            contentType,
+            mapping.driveItemId,
+          );
+
+          await this.prisma.projectDocumentMicrosoftSync.update({
+            where: { projectDocumentId: doc.id },
+            data: {
+              driveItemId: id,
+              driveId: link.filesDriveId,
+              folderPath: folderName,
+              syncStatus: MicrosoftSyncStatus.SYNCED,
+              lastPushedAt: new Date(),
+              lastError: null,
+            },
+          });
+
+          synced++;
+        } catch (e: unknown) {
+          failed++;
+          stopError = e;
+          const lastError = this.normalizeDocumentSyncError(e);
+          await this.prisma.projectDocumentMicrosoftSync.update({
+            where: { projectDocumentId: doc.id },
+            data: {
+              syncStatus: MicrosoftSyncStatus.ERROR,
+              lastError,
+            },
+          });
+          await this.auditLogs.create({
+            clientId,
+            userId: context?.actorUserId,
+            action: AUDIT_ACTION_DOC_SYNC_FAILED,
+            resourceType: AUDIT_RESOURCE_TYPE,
+            resourceId: doc.id,
+            newValue: { lastError },
+            ipAddress: context?.meta?.ipAddress,
+            userAgent: context?.meta?.userAgent,
+            requestId: context?.meta?.requestId,
+          });
+          break;
+        }
+      }
+    }
+
+    if (stopError === null) {
+      await this.prisma.projectMicrosoftLink.update({
+        where: { id: link.id },
+        data: { lastSyncAt: new Date() },
+      });
+
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: AUDIT_ACTION_DOCUMENTS_SYNCED,
+        resourceType: AUDIT_RESOURCE_TYPE,
+        resourceId: projectId,
+        newValue: { total: documents.length, synced, skipped },
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
+    }
+
+    return {
+      total: documents.length,
+      synced,
+      failed,
+      skipped,
+    };
+  }
+
+  private stariumProjectFolderName(projectId: string): string {
+    return `starium-project-${projectId}`;
+  }
+
+  private buildDocumentDriveFilename(doc: {
+    originalFilename?: string | null;
+    name: string;
+    extension?: string | null;
+  }): string {
+    const raw =
+      doc.originalFilename?.trim() || doc.name.trim() || 'document';
+    const ext = doc.extension?.trim();
+    let name = raw.replace(/[\\/:*?"<>|]/g, '_').trim();
+    if (
+      ext &&
+      !name.toLowerCase().endsWith(`.${ext.toLowerCase()}`)
+    ) {
+      name = `${name}.${ext.replace(/[\\/:*?"<>|]/g, '_')}`;
+    }
+    return name.length > 0 ? name : `document-${Date.now()}.bin`;
+  }
+
+  private normalizeDocumentSyncError(e: unknown): string {
+    if (e instanceof MicrosoftGraphHttpError) {
+      return e.graphMessage ?? e.graphCode ?? e.message;
+    }
+    if (e instanceof Error) return e.message;
+    return 'Erreur inconnue de sync documents Microsoft';
   }
 
   private normalizeSyncError(e: unknown): string {

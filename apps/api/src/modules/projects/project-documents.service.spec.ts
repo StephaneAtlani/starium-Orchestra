@@ -4,6 +4,7 @@ import {
   PROJECT_AUDIT_ACTION,
   PROJECT_AUDIT_RESOURCE_TYPE,
 } from './project-audit.constants';
+import { PrismaService } from '../../prisma/prisma.service';
 import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectsService } from './projects.service';
 
@@ -65,7 +66,7 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
       getProjectForScope: jest.fn().mockResolvedValue({ id: projectId }),
     };
     service = new ProjectDocumentsService(
-      prisma,
+      prisma as unknown as PrismaService,
       auditLogs as unknown as AuditLogsService,
       projects as unknown as ProjectsService,
     );

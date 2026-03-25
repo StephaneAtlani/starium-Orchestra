@@ -50,5 +50,17 @@ export class ProjectMicrosoftLinksController {
     const context: AuditContext = { actorUserId, meta };
     return this.microsoftLinks.syncTasks(clientId!, projectId, context);
   }
+
+  @Post('sync-documents')
+  @RequirePermissions('projects.update')
+  syncDocuments(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.microsoftLinks.syncDocuments(clientId!, projectId, context);
+  }
 }
 

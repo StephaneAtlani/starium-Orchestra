@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
+import { ProjectsModule } from '../projects/projects.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { MicrosoftTokenCryptoService } from './microsoft-token-crypto.service';
 import {
@@ -30,7 +31,7 @@ import { ProjectMicrosoftLinksController } from './project-microsoft-links.contr
 import { ProjectMicrosoftLinksService } from './project-microsoft-links.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, AuditLogsModule],
+  imports: [PrismaModule, AuthModule, AuditLogsModule, ProjectsModule],
   controllers: [
     MicrosoftAuthController,
     MicrosoftOAuthCallbackController,

@@ -21,6 +21,7 @@ describe('ProjectMicrosoftLinksController — RFC-PROJ-INT-007', () => {
             getConfig: jest.fn(),
             upsertConfig: jest.fn(),
             syncTasks: jest.fn(),
+            syncDocuments: jest.fn(),
           },
         },
       ],
@@ -128,6 +129,25 @@ describe('ProjectMicrosoftLinksController — RFC-PROJ-INT-007', () => {
     );
 
     expect(service.syncTasks).toHaveBeenCalledWith('client-1', 'project-1', {
+      actorUserId: 'actor-1',
+      meta,
+    });
+    expect(res).toEqual(expected);
+  });
+
+  it('syncDocuments : délègue au service', async () => {
+    const expected = { total: 1, synced: 1, failed: 0, skipped: 0 };
+    (service.syncDocuments as jest.Mock).mockResolvedValue(expected);
+
+    const meta = { requestId: 'req-1' };
+    const res = await controller.syncDocuments(
+      'client-1',
+      'project-1',
+      'actor-1',
+      meta,
+    );
+
+    expect(service.syncDocuments).toHaveBeenCalledWith('client-1', 'project-1', {
       actorUserId: 'actor-1',
       meta,
     });
