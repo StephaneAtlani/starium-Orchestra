@@ -8,7 +8,7 @@ Voici le plan complet structuré des RFC pour ton intégration Microsoft — **a
 | ----- | -------------------- | ------------------------------ | ------------------------------------------------------------------------ | ---------- | --------------------- |
 | 1     | **RFC-PROJ-INT-001** | Cadrage fonctionnel            | Définition du périmètre (Teams, Planner, Documents, sync one-way)        | 🆕 À faire | RFC créée             |
 | 2     | **RFC-PROJ-INT-002** | Prisma Schema                  | Modélisation DB : MicrosoftConnection, ProjectMicrosoftLink, Sync tables | 🟡 Partiel | `MicrosoftConnection` OK ; liens projet / sync à venir |
-| 3     | **RFC-PROJ-INT-003** | Auth Microsoft OAuth           | Intégration OAuth2 + stockage tokens + refresh                           | ✅ Fait    | `apps/api/src/modules/microsoft/` |
+| 3     | **RFC-PROJ-INT-003** | Auth Microsoft OAuth           | Intégration OAuth2 + stockage tokens + refresh                           | ✅ Fait    | `apps/api/src/modules/microsoft/` ; plateforme `GET|PATCH /api/platform/microsoft-settings` ; client `GET|PUT /api/clients/active/microsoft-oauth` ; doc [docs/API.md](../API.md), [docs/ARCHITECTURE.md](../ARCHITECTURE.md) |
 | 4     | **RFC-PROJ-INT-004** | Microsoft Graph Service        | Service central Graph (Teams, Planner, Files)                            | 🆕 À faire | Abstraction API       |
 | 5     | **RFC-PROJ-INT-005** | Gestion connexion client       | CRUD MicrosoftConnection (client-level)                                  | 🟡 Partiel | OAuth + état / révocation API ; détail RFC-005 |
 | 6     | **RFC-PROJ-INT-006** | Sélection ressources Microsoft | API Teams / Channels / Planner                                           | 🆕 À faire | UI dépendante         |

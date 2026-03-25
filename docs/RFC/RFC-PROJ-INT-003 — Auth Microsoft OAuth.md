@@ -22,7 +22,7 @@ Spécifier le flux **OAuth 2.0 délégué** (utilisateur / tenant Microsoft) pou
 ## 1. Analyse de l’existant
 
 * L’auth Starium repose sur JWT interne ; l’intégration Microsoft est un **second flux** (Microsoft Identity Platform).
-* Les secrets d’application (client id / secret) sont des **variables d’environnement** côté API, jamais exposées au navigateur.
+* Les identifiants d’application Azure peuvent être portés par **variables d’environnement** et/ou, pour un déploiement **multi-client (BYO)**, par champs sur **`Client`** exposés via `GET|PUT /api/clients/active/microsoft-oauth` — jamais de secret en clair côté navigateur en dehors des formulaires serveur-validés.
 
 ## 2. Hypothèses
 
@@ -66,7 +66,7 @@ Spécifier le flux **OAuth 2.0 délégué** (utilisateur / tenant Microsoft) pou
 * Schéma : `MicrosoftConnection` ([RFC-PROJ-INT-002](./RFC-PROJ-INT-002%20—%20Prisma%20Schema%20Microsoft.md)).
 * Audit : `microsoft_connection.connected`, `microsoft_connection.refreshed`, `microsoft_connection.error`, `microsoft_connection.revoked` (sans jetons ; inclure `clientId` / `tenantId` / `userId` quand pertinent).
 * **Accès API** : `MicrosoftIntegrationAccessGuard` — **client admin** (`CLIENT_ADMIN`) sur le client actif **ou** module Projets activé + `projects.update` (même métadonnée `@RequirePermissions` que précédemment).
-* **UX (web)** : paramétrage par client dans **Administration client** → `/client/administration` → carte **Microsoft 365** → `/client/administration/microsoft-365` (`apps/web/src/features/microsoft-365/`). Configurer `MICROSOFT_OAUTH_SUCCESS_URL` / `MICROSOFT_OAUTH_ERROR_URL` vers cette route (ou équivalent) pour revenir sur Starium après le callback Microsoft.
+* **UX (web)** : paramétrage par client dans **Administration client** → `/client/administration` → carte **Microsoft 365** → `/client/administration/microsoft-365` (`apps/web/src/features/microsoft-365/`). Configurer `MICROSOFT_OAUTH_SUCCESS_URL` / `MICROSOFT_OAUTH_ERROR_URL` (ou champs équivalents en **config plateforme** `GET|PATCH /api/platform/microsoft-settings`) vers cette route (ou équivalent **HTTPS** en production) pour revenir sur Starium après le callback Microsoft. La page **`/admin/microsoft-settings`** (config OAuth **plateforme** uniquement) est réservée aux **PLATFORM_ADMIN** ; tout autre utilisateur authentifié y accédant est **redirigé** vers `/client/administration/microsoft-365`. Préremplissage UI par défaut des URL succès/erreur (si vides) : chemin client ci-dessus sur l’hôte local de dev.
 
 ## 9. Lifecycle de la connexion Microsoft
 

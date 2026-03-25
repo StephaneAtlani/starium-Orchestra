@@ -1973,3 +1973,25 @@ Révocation logique de la connexion Microsoft pour le client actif (effacement d
 **Permission :** même règle que `GET .../auth/url`.
 
 **Réponse 204** (No Content), idempotent si déjà absent.
+
+---
+
+### Configuration OAuth commune (plateforme) — `GET|PATCH /api/platform/microsoft-settings`
+
+Paramètres **globaux** Starium : URI de redirection OAuth (callback `/api/microsoft/auth/callback`), scopes Microsoft Graph, URLs succès/erreur après callback, TTL `state`, marges refresh, timeout HTTP token. Repli sur variables d’environnement si la ligne `PlatformMicrosoftSettings` est vide.
+
+**Guards** : `JwtAuthGuard`, `PlatformAdminGuard` — **pas** de `X-Client-Id` (le frontend ne l’envoie pas sur `/api/platform/*`).
+
+**PATCH** : corps JSON partiel (`redirectUri`, `graphScopes`, `oauthSuccessUrl`, `oauthErrorUrl`, entiers optionnels pour TTL / timeouts). Réponse : même forme que **GET** (objets `stored` + `resolved`).
+
+---
+
+### Identifiants Azure AD par client Starium — `GET|PUT /api/clients/active/microsoft-oauth`
+
+Lecture / mise à jour des champs **BYO** sur le `Client` actif : ID d’application, tenant d’autorité optionnel, secret (le secret n’est pas renvoyé en lecture ; indicateur `hasClientSecret`). Retourne aussi l’URI de redirection et les scopes **effectifs** issus de la config plateforme (`platformRedirectUri`, `graphScopes`).
+
+**Headers** : JWT + **`X-Client-Id`** (obligatoire).
+
+**Guards** : `ActiveClientGuard`, `MicrosoftIntegrationAccessGuard`, `@RequirePermissions('projects.update')` si l’utilisateur n’est pas **client admin** (même logique que `/api/microsoft/auth/url`).
+
+**Réponse GET (200)** : champs métier sans secret en clair ; **PUT** : 200 avec corps aligné sur le GET.

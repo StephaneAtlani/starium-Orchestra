@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémenté
 
 ## Priorité
 
@@ -23,7 +23,8 @@ Définir le **comportement métier** et les **APIs** pour gérer la **connexion 
 
 * Une `MicrosoftConnection` est toujours rattachée à un **`clientId`** issu du contexte **client actif** (pas de `clientId` dans le body).
 * **Unicité** logique `(clientId, tenantId)` : reconnecter le même tenant met à jour la ligne ; un autre tenant peut nécessiter une stratégie produit (une connexion active par client au MVP — aligné [RFC-PROJ-INT-001](./RFC-PROJ-INT-001%20—%20Intégration%20Microsoft%20365.md)).
-* Révocation : marquer la connexion `REVOKED` (ou équivalent), invalider tokens côté base ; les `ProjectMicrosoftLink` peuvent passer en état nécessitant reconnexion (détail en service).
+* Révocation : marquer la connexion `REVOKED`, invalider les jetons côté base. `DELETE /api/microsoft/connection` est idempotent (aucune erreur si déjà révoqué ou absent).
+* La propagation vers `ProjectMicrosoftLink` est hors scope (RFC-007).
 
 ## 2. API (indicatif — chemins à figer à l’implémentation)
 
@@ -42,13 +43,12 @@ Préfixe global `api` déjà défini par l’application.
 
 ## 4. Audit
 
-Depuis les **services** uniquement, événements du type :
+Depuis les **services** uniquement. Liste alignée sur [RFC-PROJ-INT-003 — Auth Microsoft OAuth](./RFC-PROJ-INT-003%20—%20Auth%20Microsoft%20OAuth.md) (détail du flux OAuth et des événements) :
 
-* `microsoft_connection.created`
-* `microsoft_connection.updated`
+* `microsoft_connection.connected`
+* `microsoft_connection.refreshed`
 * `microsoft_connection.revoked`
-
-(voir liste [RFC-PROJ-INT-001](./RFC-PROJ-INT-001%20—%20Intégration%20Microsoft%20365.md) § audit.)
+* `microsoft_connection.error`
 
 ## 5. DTO
 
@@ -58,7 +58,8 @@ Depuis les **services** uniquement, événements du type :
 
 * Refus si utilisateur sans accès au client actif.
 * Callback avec `state` invalide → erreur contrôlée.
-* DELETE idempotent ou erreur explicite selon convention API.
+* DELETE idempotent (aucune erreur si déjà révoqué ou absent).
+* Couverture unitaire : `apps/api/src/modules/microsoft/microsoft-oauth.service.spec.ts` (happy path callback, isolation `clientId` depuis le `state`, audits, refresh, révocation).
 
 ## 7. Récapitulatif
 
