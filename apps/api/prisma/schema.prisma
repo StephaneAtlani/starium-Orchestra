@@ -126,6 +126,7 @@ model Client {
   resourceRoles                 ResourceRole[]
   resources                     Resource[]
   microsoftConnections          MicrosoftConnection[]
+  projectMicrosoftLinks         ProjectMicrosoftLink[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -652,6 +653,7 @@ model Project {
   sponsor  User?  @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
   owner    User?  @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   portfolioCategory ProjectPortfolioCategory? @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
+  microsoftLink ProjectMicrosoftLink?
 
   tasks       ProjectTask[]
   risks       ProjectRisk[]
@@ -1972,8 +1974,45 @@ model MicrosoftConnection {
 
   client          Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
   connectedByUser User?  @relation("MicrosoftConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
+  projectLinks   ProjectMicrosoftLink[]
 
   @@unique([clientId, tenantId])
   @@index([clientId])
   @@index([status])
+}
+
+/// Pré-requis de rattrapage repo : persistance du lien projet ↔ Microsoft (RFC-PROJ-INT-007).
+model ProjectMicrosoftLink {
+  id String @id @default(cuid())
+
+  clientId              String
+  projectId             String @unique
+  microsoftConnectionId String?
+
+  isEnabled Boolean @default(false)
+
+  teamId         String?
+  teamName       String?
+  channelId      String?
+  channelName    String?
+  plannerPlanId  String?
+  plannerPlanTitle String?
+
+  filesDriveId   String?
+  filesFolderId  String?
+
+  syncTasksEnabled      Boolean @default(true)
+  syncDocumentsEnabled  Boolean @default(true)
+
+  lastSyncAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client                Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project               Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  microsoftConnection   MicrosoftConnection? @relation(fields: [microsoftConnectionId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([microsoftConnectionId])
 }

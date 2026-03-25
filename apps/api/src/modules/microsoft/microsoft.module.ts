@@ -26,6 +26,8 @@ import { ClientMicrosoftOAuthController } from './client-microsoft-oauth.control
 import { MicrosoftGraphService } from './microsoft-graph.service';
 import { MicrosoftSelectionController } from './microsoft-selection.controller';
 import { MicrosoftSelectionService } from './microsoft-selection.service';
+import { ProjectMicrosoftLinksController } from './project-microsoft-links.controller';
+import { ProjectMicrosoftLinksService } from './project-microsoft-links.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, AuditLogsModule],
@@ -35,6 +37,7 @@ import { MicrosoftSelectionService } from './microsoft-selection.service';
     PlatformMicrosoftSettingsController,
     ClientMicrosoftOAuthController,
     MicrosoftSelectionController,
+    ProjectMicrosoftLinksController,
   ],
   providers: [
     ActiveClientGuard,
@@ -57,6 +60,7 @@ import { MicrosoftSelectionService } from './microsoft-selection.service';
     MicrosoftGraphService,
     MicrosoftCallbackRateLimitService,
     MicrosoftSelectionService,
+    ProjectMicrosoftLinksService,
   ],
   exports: [
     MicrosoftOAuthService,

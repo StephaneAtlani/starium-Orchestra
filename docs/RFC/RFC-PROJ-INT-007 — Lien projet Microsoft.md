@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémenté
 
 ## Priorité
 
@@ -24,8 +24,10 @@ Définir la **configuration Microsoft par projet** : lecture / écriture du lien
 
 * Le **projet** doit appartenir au **client actif** ; sinon **403/404** selon convention API.
 * Si `isEnabled === true`, le backend exige une **MicrosoftConnection** active pour ce client et des identifiants **teamId**, **channelId**, **plannerPlanId** (sauf phase intermédiaire explicitement autorisée).
+* Si `isEnabled === false`, le mode est permissif : aucune validation/consistance Microsoft n’est exigée et aucun appel Graph de résolution bloquant n’est requis.
 * **Unicité** : un seul enregistrement `ProjectMicrosoftLink` par `projectId` (`@@unique`).
-* Les champs `filesDriveId` / `filesFolderId` peuvent être **résolus** lors de la sauvegarde (appel Graph « files folder » du canal) pour préparer la sync fichiers — détail d’implémentation.
+* Les champs `filesDriveId` / `filesFolderId` sont prévus pour la préparation de la sync documents (RFC-009) mais ne sont pas traités dans l’implémentation RFC-007 : le backend n’en garantit ni la résolution Graph ni la persistance lors du PUT (sauf conservation des valeurs déjà existantes sur une ligne préalablement créée).
+* Les champs de dénormalisation `teamName` / `channelName` / `plannerPlanTitle` sont persistés si fournis par le frontend ; sinon ils sont conservés (ou restent `null`) sans validation distante bloquante.
 
 ## 2. API (indicatif)
 
@@ -62,7 +64,7 @@ Définir la **configuration Microsoft par projet** : lecture / écriture du lien
 
 * Projet d’un autre client → refus.
 * PUT avec `isEnabled` true sans connexion Microsoft → erreur métier claire.
-* Cohérence `microsoftConnectionId` : doit référencer une connexion du **même** `clientId`.
+* `isEnabled=true` : le backend rattache `microsoftConnectionId` à la **MicrosoftConnection active du même** `clientId` (dérivé côté backend, pas fourni par le client).
 
 ## 6. Récapitulatif
 
