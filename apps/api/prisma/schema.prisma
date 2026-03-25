@@ -134,6 +134,7 @@ model Client {
   microsoftConnections          MicrosoftConnection[]
   projectMicrosoftLinks         ProjectMicrosoftLink[]
   projectTaskSyncs             ProjectTaskMicrosoftSync[]
+  projectDocumentMicrosoftSyncs ProjectDocumentMicrosoftSync[]
   projectDocuments              ProjectDocument[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
@@ -741,6 +742,7 @@ model ProjectDocument {
   client            Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project           Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   uploadedByUser    User?                      @relation("ProjectDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  microsoftSync     ProjectDocumentMicrosoftSync?
 
   @@index([clientId])
   @@index([projectId])
