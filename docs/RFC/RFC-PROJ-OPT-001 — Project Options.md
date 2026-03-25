@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémenté (web)
 
 ## Dépendances
 
@@ -263,8 +263,10 @@ Payload :
 
 ## Synchronisation
 
-* `POST /api/projects/:projectId/sync/tasks`
-* `POST /api/projects/:projectId/sync/documents`
+* **Implémentation API réelle** (à utiliser côté frontend) :  
+  `POST /api/projects/:projectId/microsoft-link/sync-tasks` et  
+  `POST /api/projects/:projectId/microsoft-link/sync-documents`  
+  (voir [docs/API.md](../API.md) § Module Projets — lien Microsoft).
 
 ---
 
@@ -399,6 +401,18 @@ Aucune UI custom brute.
 * audit détaillé
 * logs de sync détaillés
 * gestion des conflits
+
+---
+
+# Implémentation (référence code)
+
+* **Route App Router** : `apps/web/src/app/(protected)/projects/[projectId]/options/page.tsx`
+* **Feature** : `apps/web/src/features/projects/options/` (query keys `projectOptionsKeys`, API wrappers, hooks TanStack, onglets Général / Microsoft 365 / Synchronisation)
+* **Navigation projet** : `apps/web/src/features/projects/components/project-workspace-tabs.tsx` (onglet **Options** → `projectProjectOptions(projectId)` dans `apps/web/src/features/projects/constants/project-routes.ts`)
+* **Données** : `PATCH /api/projects/:id` (onglet Général) ; `GET|PUT /api/projects/:projectId/microsoft-link` (404 → état vide côté UI) ; `POST .../microsoft-link/sync-tasks|sync-documents` ; `GET /api/microsoft/connection` et `GET /api/microsoft/auth/url` (réponse JSON `authorizationUrl` puis redirection navigateur — pas d’URL d’endpoint en dur comme lien)
+* **Permissions UI** : `projects.read` / `projects.update` via `usePermissions()` (aligné API)
+* **Tests** : `apps/web/src/features/projects/options/lib/project-options-query-keys.spec.ts`
+* **Écarts mineurs vs texte RFC** : onglet Sync — bascules `syncTasksEnabled` / `syncDocumentsEnabled` via cases à cocher accessibles (`role="switch"`), pas le composant shadcn `Switch` ; horodatage « dernière sync » = champ serveur `lastSyncAt` sur `ProjectMicrosoftLink` (pas de `lastTaskSyncAt` / `lastDocumentSyncAt` séparés en base au MVP)
 
 ---
 

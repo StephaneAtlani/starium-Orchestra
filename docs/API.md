@@ -1874,6 +1874,8 @@ Configuration du lien projet ↔ Teams / Planner / drive fichiers ; sync **manue
 - **POST /api/projects/:projectId/microsoft-link/sync-tasks** — Sync one-way des tâches projet → Microsoft Planner (mapping `ProjectTaskMicrosoftSync`). Audits **`project.microsoft_tasks.synced`** ou **`project.microsoft_sync.failed`**. **`projects.update`**
 - **POST /api/projects/:projectId/microsoft-link/sync-documents** — Sync one-way des `ProjectDocument` **STARIUM** (fichiers lus via `PROJECT_DOCUMENTS_STORAGE_ROOT`) vers le dossier `starium-project-{projectId}` du drive configuré. Réponse `{ total, synced, failed, skipped }`. Audits **`project.microsoft_documents.synced`** ou **`project.microsoft_sync.failed`**. **`projects.update`**
 
+**UI (RFC-PROJ-OPT-001)** : page **`/projects/[projectId]/options`** (`apps/web/src/features/projects/options/`) — paramètres projet (réutilise **`PATCH /api/projects/:id`**), configuration et état de la liaison (routes ci-dessus), connexion Microsoft côté client (**`GET /api/microsoft/connection`**, démarrage OAuth **`GET /api/microsoft/auth/url`** → lecture de l’URL dans la réponse → redirection). Isolation **client actif** inchangée (header `X-Client-Id`).
+
 ### Tâches — `/api/projects/:projectId/tasks` (RFC-PROJ-011)
 
 Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord jalons / revues / activités). Listes paginées : réponse `{ items, total, limit, offset }` (query filtres selon implémentation : statut, parent, dates, etc.).

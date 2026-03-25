@@ -100,8 +100,8 @@ Lecture fichiers `STARIUM` : racine `PROJECT_DOCUMENTS_STORAGE_ROOT` (voir RFC-0
 2. Fait — Prisma / migrations Microsoft + documents projet (backend).
 3. Fait — UI liste documents (DOC-FE-001) sur fiche projet.
 4. Fait — Backend sync documents → Teams (INT-009).
-5. Partiel — **RFC-006** : finaliser l’UX **enregistrement** du lien Team / canal / plan (`PUT` microsoft-link) + scopes Graph + éventuel bouton sync tâches côté UI si souhaité.
-6. À faire — **INT-FE-009** : UI sync documents (bouton + statuts).
+5. **Couvert (RFC-PROJ-OPT-001)** — page **Options projet** (`/projects/[projectId]/options`) : persistance `PUT` microsoft-link, OAuth, sync manuelle tâches/documents. **Partiel (RFC-006)** : la carte **sélecteurs** sur fiche projet (`ProjectMicrosoftResourceSelectorsCard`) peut rester sans branchement `PUT` si non utilisée au profit de la page Options.
+6. **Partiel** — **INT-FE-009** : statuts sync **par document** dans la liste documentaire ; le **bouton** sync documents depuis **Options projet** (OPT-001) complète le flux côté pilotage projet, pas la granularité par fichier.
 
 ---
 

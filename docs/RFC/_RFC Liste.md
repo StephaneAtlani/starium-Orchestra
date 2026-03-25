@@ -81,7 +81,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | 6 | **RFC-PROJ-INT-006** | Sélection ressources | Teams, canaux, plans — spike requis | 🟡 Partiel (implémenté routes, tests service partiels) | pas de promesse « plan par canal » |
 | 7 | **RFC-PROJ-INT-007** | Lien projet | `ProjectMicrosoftLink` GET/PUT | ✅ Implémenté | PUT sans validation Graph bloquante ; mode permissif `isEnabled=false` |
 | 8 | **RFC-PROJ-INT-008** | Sync tâches → Planner | One-way, mapping | ✅ Implémenté | `ProjectTaskMicrosoftSync` + sync Graph (task + details, ETags distincts) |
-| 9 | **RFC-PROJ-INT-009** | Sync documents → Teams | One-way Graph Drive, mapping `ProjectDocumentMicrosoftSync` | ✅ Implémenté (backend) | `POST .../microsoft-link/sync-documents` ; UI sync **hors scope** (voir plan Microsofr) ; lecture fichiers `STARIUM` via `PROJECT_DOCUMENTS_STORAGE_ROOT` |
+| 9 | **RFC-PROJ-INT-009** | Sync documents → Teams | One-way Graph Drive, mapping `ProjectDocumentMicrosoftSync` | ✅ Implémenté (backend) | `POST .../microsoft-link/sync-documents` ; **UI pilotage** : bouton depuis **Options projet** (RFC-PROJ-OPT-001) ; statuts par document (INT-FE-009) restent à faire ; lecture fichiers `STARIUM` via `PROJECT_DOCUMENTS_STORAGE_ROOT` |
 
 ---
 
@@ -116,6 +116,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | 28    | **RFC-FE-PROJ-006** | Budget Links UI   | Visualisation budgets          | ⚠️ Partiel | OK partiel          |
 | 29    | **RFC-FE-PROJ-007** | Supplier Links UI | Visualisation fournisseurs     | ❌ À faire  | futur               |
 | 30    | **RFC-FE-PROJ-011** | Project Health UI | Indicateurs santé              | ✅ Couvert  | OK                  |
+| 31    | **RFC-PROJ-OPT-001** | Project Options UI | Onglets Général / Microsoft 365 / Sync, liaison projet, sync manuelle | ✅ Implémenté | [RFC](./RFC-PROJ-OPT-001%20—%20Project%20Options.md) — `apps/web/src/features/projects/options/` |
 
 ---
 

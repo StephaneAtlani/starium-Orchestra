@@ -25,3 +25,8 @@ export function projectPlanning(projectId: string, sub?: 'tasks' | 'milestones' 
   if (!sub || sub === 'tasks') return `${base}?sub=tasks`;
   return `${base}?sub=${sub}`;
 }
+
+/** Options du projet (RFC-PROJ-OPT-001) — distinct de `projectsOptions()` (module / placeholder). */
+export function projectProjectOptions(projectId: string): string {
+  return `/projects/${projectId}/options`;
+}
