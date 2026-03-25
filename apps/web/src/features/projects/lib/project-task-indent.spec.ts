@@ -5,13 +5,9 @@ import {
   computeSortOrderForParent,
   wouldPatchIntroduceCycle,
 } from './project-task-indent';
-import type { TaskTreeRow } from './project-task-tree';
+import type { ProjectTaskIndentRow } from './project-task-indent';
 
-type R = TaskTreeRow<{
-  id: string;
-  parentTaskId: string | null;
-  sortOrder: number;
-}>;
+type R = ProjectTaskIndentRow;
 
 function row(
   id: string,
@@ -19,7 +15,7 @@ function row(
   sortOrder: number,
   depth: number,
 ): R {
-  return { id, parentTaskId, sortOrder, depth } as R;
+  return { id, parentTaskId, sortOrder, depth };
 }
 
 describe('computeIndentPatch', () => {
@@ -131,15 +127,15 @@ describe('liste filtrée affichée (pas arbre complet)', () => {
 describe('wouldPatchIntroduceCycle', () => {
   it('détecte parent = soi', () => {
     const m = new Map([
-      ['a', { id: 'a', parentTaskId: null, sortOrder: 0 }],
+      ['a', { id: 'a', parentTaskId: null, sortOrder: 0, depth: 0 }],
     ]);
     expect(wouldPatchIntroduceCycle('a', 'a', m)).toBe(true);
   });
 
   it('pas de cycle pour parent valide', () => {
     const m = new Map([
-      ['a', { id: 'a', parentTaskId: null, sortOrder: 0 }],
-      ['b', { id: 'b', parentTaskId: 'a', sortOrder: 0 }],
+      ['a', { id: 'a', parentTaskId: null, sortOrder: 0, depth: 0 }],
+      ['b', { id: 'b', parentTaskId: 'a', sortOrder: 0, depth: 1 }],
     ]);
     expect(wouldPatchIntroduceCycle('x', 'b', m)).toBe(false);
   });

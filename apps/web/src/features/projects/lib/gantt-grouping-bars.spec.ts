@@ -39,7 +39,9 @@ describe('computeVisibleSubtreeRollupProgress', () => {
       row('c', { progress: 70, parentTaskId: 'a' }),
     ];
     const m = new Map(tasks.map((t) => [t.id, t]));
-    const children = buildVisibleChildrenMap(tasks as Parameters<typeof buildVisibleChildrenMap>[0]);
+    const children = buildVisibleChildrenMap(
+      tasks as unknown as Parameters<typeof buildVisibleChildrenMap>[0],
+    );
     expect(computeVisibleSubtreeRollupProgress('a', m, children)).toBe(50);
   });
 
