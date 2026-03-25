@@ -1,98 +1,76 @@
 Voici le **plan propre, exécutable et intégrant explicitement le frontend**, sans ambiguïté ni mélange backend/UI.
 
----
-
-# 🔥 PHASE 1 — MODULE MICROSOFT (EXÉCUTABLE)
-
-| Ordre | RFC              | Nom                            | Description                | État            | Commentaire        |
-| ----- | ---------------- | ------------------------------ | -------------------------- | --------------- | ------------------ |
-| 1     | RFC-PROJ-INT-003 | Auth Microsoft OAuth           | OAuth2 + tokens + refresh  | ✅ Fait          | OK                 |
-| 2     | RFC-PROJ-INT-005 | Gestion connexion client       | Connexion / révocation     | ✅ Fait          | OK                 |
-| 3     | RFC-PROJ-INT-004 | Microsoft Graph Service        | Client HTTP Graph          | ✅ Fait          | Base technique     |
-| 4     | RFC-PROJ-INT-002 | Prisma Schema                  | Modélisation DB Microsoft  | 🟡 À stabiliser | Vérifier cohérence |
-| 5     | RFC-PROJ-INT-006 | Sélection ressources Microsoft | Teams / Channels / Planner | 🟡 À finaliser  | dépend UI          |
-| 6     | RFC-PROJ-INT-007 | Configuration projet           | Lien Project ↔ Microsoft   | ✅ Fait          | OK                 |
-| 7     | RFC-PROJ-INT-008 | Sync tâches → Planner          | Sync tâches                | ✅ Fait          | MVP atteint        |
+**Dernière mise à jour :** 2025-03-25 — état aligné sur le dépôt (`apps/api`, `apps/web`) et sur [\_RFC Liste.md](./_RFC%20Liste.md).
 
 ---
 
-# 📄 PHASE 1B — MODULE DOCUMENT (COCKPIT STARIUM)
+# PHASE 1 — MODULE MICROSOFT (EXÉCUTABLE)
+
+| Ordre | RFC              | Nom                            | Description                | État           | Commentaire |
+| ----- | ---------------- | ------------------------------ | -------------------------- | -------------- | ----------- |
+| 1     | RFC-PROJ-INT-003 | Auth Microsoft OAuth           | OAuth2 + tokens + refresh  | Fait           | `apps/api/src/modules/microsoft/` |
+| 2     | RFC-PROJ-INT-005 | Gestion connexion client       | Connexion / révocation     | Fait           | API + UI admin client |
+| 3     | RFC-PROJ-INT-004 | Microsoft Graph Service        | Client HTTP Graph          | Fait           | Base technique + tests |
+| 4     | RFC-PROJ-INT-002 | Prisma Schema                  | Modélisation DB Microsoft  | Couvert        | `MicrosoftConnection`, `ProjectMicrosoftLink`, mappings sync — schéma migré |
+| 5     | RFC-PROJ-INT-006 | Sélection ressources Microsoft | Teams / Channels / Planner | Partiel        | API listing OK ; UI cascade sur fiche projet (`ProjectMicrosoftResourceSelectorsCard`) ; **persistance `PUT /api/projects/:id/microsoft-link` non branchée dans l’UI** (config lien = API ou complétion UI) |
+| 6     | RFC-PROJ-INT-007 | Configuration projet           | Lien Project ↔ Microsoft   | Fait (backend) | GET/PUT + garde-fous connexion active |
+| 7     | RFC-PROJ-INT-008 | Sync tâches → Planner          | Sync tâches                | Fait           | `POST .../sync-tasks`, mapping `ProjectTaskMicrosoftSync` |
+
+---
+
+# PHASE 1B — MODULE DOCUMENT (COCKPIT STARIUM)
 
 ## Backend (registre documentaire)
 
 | Ordre | RFC              | Nom             | Description                      | État   |
 | ----- | ---------------- | --------------- | -------------------------------- | ------ |
-| 8     | RFC-PROJ-DOC-001 | ProjectDocument | Modèle + API CRUD (sans fichier) | ✅ Fait |
+| 8     | RFC-PROJ-DOC-001 | ProjectDocument | Modèle + API CRUD (sans fichier) | Fait   |
 
 ---
 
 ## Frontend (UI cockpit documentaire)
 
-| Ordre | RFC                 | Nom                      | Description                        | État       |
-| ----- | ------------------- | ------------------------ | ---------------------------------- | ---------- |
-| 9     | RFC-PROJ-DOC-FE-001 | Frontend ProjectDocument | UI lecture seule dans fiche projet | 🔴 À faire |
+| Ordre | RFC                 | Nom                      | Description                        | État   |
+| ----- | ------------------- | ------------------------ | ---------------------------------- | ------ |
+| 9     | RFC-PROJ-DOC-FE-001 | Frontend ProjectDocument | UI lecture seule dans fiche projet | Fait   |
 
 ### Scope frontend MVP (normatif)
 
-* Intégré dans la **fiche projet**
-* Pas de page autonome obligatoire
-* Affichage :
+* Intégré dans la **fiche projet** (`ProjectDocumentsSection` — tableau nom, catégorie, stockage, statut, taille, métadonnées).
+* Pas de page autonome obligatoire.
+* Hors scope inchangé : upload, DnD, versioning, GED avancée.
 
-  * liste/table des documents
-  * nom
-  * type
-  * date
-  * auteur (si dispo)
-
-### Hors scope
-
-* upload fichier
-* drag & drop
-* versioning
-* GED avancée
-
-👉 Cette UI est **indépendante de Microsoft**
+Cette UI est **indépendante de Microsoft**.
 
 ---
 
-# 🔥 PHASE 2 — SYNC DOCUMENTS MICROSOFT
+# PHASE 2 — SYNC DOCUMENTS MICROSOFT
 
 ## Backend
 
-| Ordre | RFC              | Nom                    | Description                               | État       |
-| ----- | ---------------- | ---------------------- | ----------------------------------------- | ---------- |
-| 10    | RFC-PROJ-INT-009 | Sync documents → Teams | Sync Graph + `ProjectDocumentMicrosoftSync` + `POST .../sync-documents` | ✅ Backend OK (UI sync → ligne Frontend ci-dessous) |
+| Ordre | RFC              | Nom                    | Description                               | État   |
+| ----- | ---------------- | ---------------------- | ----------------------------------------- | ------ |
+| 10    | RFC-PROJ-INT-009 | Sync documents → Teams | Sync Graph + `ProjectDocumentMicrosoftSync` + `POST .../sync-documents` | Fait   |
+
+Lecture fichiers `STARIUM` : racine `PROJECT_DOCUMENTS_STORAGE_ROOT` (voir RFC-009).
 
 ---
 
 ## Frontend
 
-| Ordre | RFC                 | Nom               | Description                | État       |
-| ----- | ------------------- | ----------------- | -------------------------- | ---------- |
-| 11    | RFC-PROJ-INT-FE-009 | UI Sync Documents | Bouton + statuts + erreurs | 🔴 À faire |
+| Ordre | RFC                 | Nom               | Description                | État    |
+| ----- | ------------------- | ----------------- | -------------------------- | ------- |
+| 11    | RFC-PROJ-INT-FE-009 | UI Sync Documents | Bouton + statuts + erreurs | À faire |
 
 ### Scope frontend sync (MVP)
 
-* Bouton : **“Synchroniser vers Teams”**
-* Statut par document :
-
-  * Non synchronisé
-  * Synchronisé
-  * Erreur
-* Affichage :
-
-  * lastSyncAt
-  * message d’erreur simple
-
-### Règles
-
-* Aucun upload depuis le frontend
-* Aucun pilotage avancé
-* Pas de retry manuel (MVP)
+* Bouton : **« Synchroniser vers Teams »**
+* Statut par document : non synchronisé / synchronisé / erreur ; `lastSyncAt` ; message d’erreur simple.
+* Règles MVP inchangées : pas d’upload, pas de retry manuel.
 
 ---
 
-# 🚫 PHASE TRANSVERSE (NE PAS ISOLER EN RFC)
+# PHASE TRANSVERSE (NE PAS ISOLER EN RFC)
 
 | RFC     | Sujet              | Traitement            |
 | ------- | ------------------ | --------------------- |
@@ -104,7 +82,7 @@ Voici le **plan propre, exécutable et intégrant explicitement le frontend**, s
 
 ---
 
-# 🧠 PHASE FUTURE (NE PAS TOUCHER)
+# PHASE FUTURE (NE PAS TOUCHER)
 
 | RFC     | Sujet                 |
 | ------- | --------------------- |
@@ -116,39 +94,34 @@ Voici le **plan propre, exécutable et intégrant explicitement le frontend**, s
 
 ---
 
-# 🎯 ORDRE RÉEL D’EXÉCUTION
+# ORDRE RÉEL D’EXÉCUTION (ÉTAT AU 2025-03-25)
 
-1. ✅ Microsoft OAuth / Graph / Tasks → terminé
-2. 🟡 Stabiliser RFC-002 si nécessaire
-3. 🟡 Finaliser RFC-006 (UI sélection Microsoft)
-4. ✅ Backend ProjectDocument (fait)
-5. 🔴 **Frontend ProjectDocument (DOC-FE-001)**
-6. 🔴 **Backend Sync Documents (INT-009)**
-7. 🔴 **Frontend Sync Documents (INT-FE-009)**
+1. Fait — Microsoft OAuth, Graph, lien projet (API), sync tâches → Planner.
+2. Fait — Prisma / migrations Microsoft + documents projet (backend).
+3. Fait — UI liste documents (DOC-FE-001) sur fiche projet.
+4. Fait — Backend sync documents → Teams (INT-009).
+5. Partiel — **RFC-006** : finaliser l’UX **enregistrement** du lien Team / canal / plan (`PUT` microsoft-link) + scopes Graph + éventuel bouton sync tâches côté UI si souhaité.
+6. À faire — **INT-FE-009** : UI sync documents (bouton + statuts).
 
 ---
 
-# ⚠️ CLARIFICATION STRATÉGIQUE
+# CLARIFICATION STRATÉGIQUE
 
-👉 Tu as maintenant 2 couches **strictement séparées** :
+Deux couches **séparées** :
 
 ### 1. Starium (source de vérité)
 
-* ProjectDocument
-* UI cockpit
-* logique métier
+* `ProjectDocument`, cockpit, logique métier.
 
 ### 2. Microsoft (projection)
 
-* Planner (déjà fait)
-* Documents (RFC-009)
-* pure extension
+* Planner : backend + sync OK ; **UI** : compléter sélection/persistance (voir point 5 ci-dessus).
+* Documents Teams : **backend sync OK** ; **UI sync** restante (INT-FE-009).
 
 ---
 
-# 🧠 VERDICT
+# SYNTHÈSE
 
-✅ Plan maintenant **exécutable sans ambiguïté**
-✅ Backend / Frontend correctement découplés
-✅ Zéro dépendance cachée
-✅ Compatible avec ton architecture multi-tenant + cockpit
+* Plan **exécutable** ; découpage backend / frontend cohérent.
+* Prochaine valeur produit côté Microsoft : **UI** (lien projet persisté, puis sync documents).
+* Multi-tenant / client actif / pas de fuite inter-client : inchangé (guards + `X-Client-Id`).
