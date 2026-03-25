@@ -176,6 +176,41 @@ export type ProjectMilestoneApi = {
   sortOrder: number;
 };
 
+export type ProjectDocumentStorageType = 'STARIUM' | 'EXTERNAL' | 'MICROSOFT';
+export type ProjectDocumentStatus = 'ACTIVE' | 'ARCHIVED' | 'DELETED';
+export type ProjectDocumentCategory =
+  | 'GENERAL'
+  | 'CONTRACT'
+  | 'SPECIFICATION'
+  | 'DELIVERABLE'
+  | 'REPORT'
+  | 'FINANCIAL'
+  | 'COMPLIANCE'
+  | 'OTHER';
+
+export type ProjectDocumentApi = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  name: string;
+  originalFilename: string | null;
+  mimeType: string | null;
+  extension: string | null;
+  sizeBytes: number | null;
+  category: ProjectDocumentCategory;
+  status: ProjectDocumentStatus;
+  storageType: ProjectDocumentStorageType;
+  storageKey: string | null;
+  externalUrl: string | null;
+  description: string | null;
+  tags: string[] | null;
+  uploadedByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+  deletedAt: string | null;
+};
+
 /** RFC-PROJ-011 — activité (hors Gantt) */
 export type ProjectActivityApi = {
   id: string;

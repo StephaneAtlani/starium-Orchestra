@@ -67,6 +67,29 @@ export const MILESTONE_STATUS_LABEL: Record<string, string> = {
   CANCELLED: 'Annulé',
 };
 
+export const PROJECT_DOCUMENT_STORAGE_TYPE_LABEL: Record<string, string> = {
+  STARIUM: 'Starium',
+  EXTERNAL: 'Externe',
+  MICROSOFT: 'Microsoft (réservé)',
+};
+
+export const PROJECT_DOCUMENT_STATUS_LABEL: Record<string, string> = {
+  ACTIVE: 'Actif',
+  ARCHIVED: 'Archivé',
+  DELETED: 'Supprimé',
+};
+
+export const PROJECT_DOCUMENT_CATEGORY_LABEL: Record<string, string> = {
+  GENERAL: 'Général',
+  CONTRACT: 'Contrat',
+  SPECIFICATION: 'Spécification',
+  DELIVERABLE: 'Livrable',
+  REPORT: 'Rapport',
+  FINANCIAL: 'Financier',
+  COMPLIANCE: 'Conformité',
+  OTHER: 'Autre',
+};
+
 export const COMPUTED_HEALTH_LABEL: Record<string, string> = {
   GREEN: 'Sain',
   ORANGE: 'Attention',

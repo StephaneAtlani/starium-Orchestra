@@ -17,6 +17,8 @@ import { ProjectSheetController } from './project-sheet/project-sheet.controller
 import { ProjectSheetService } from './project-sheet/project-sheet.service';
 import { ProjectReviewsController } from './project-reviews/project-reviews.controller';
 import { ProjectReviewsService } from './project-reviews/project-reviews.service';
+import { ProjectDocumentsController } from './project-documents.controller';
+import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectTasksController } from './project-tasks.controller';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsController } from './projects.controller';
@@ -33,6 +35,7 @@ import { ProjectTeamService } from './project-team.service';
     ProjectReviewsController,
     ProjectPortfolioCategoriesController,
     ProjectsController,
+    ProjectDocumentsController,
     ProjectTasksController,
     ProjectActivitiesController,
     ProjectGanttController,
@@ -46,6 +49,7 @@ import { ProjectTeamService } from './project-team.service';
     ProjectSheetDecisionSnapshotsService,
     ProjectReviewsService,
     ProjectPortfolioCategoriesService,
+    ProjectDocumentsService,
     ProjectTasksService,
     ProjectActivitiesService,
     ProjectGanttService,

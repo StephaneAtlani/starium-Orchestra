@@ -23,6 +23,8 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'risks', clientId, projectId] as const,
   milestones: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'milestones', clientId, projectId] as const,
+  documents: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'documents', clientId, projectId] as const,
   gantt: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'gantt', clientId, projectId] as const,
   budgetLinks: (clientId: string, projectId: string) =>

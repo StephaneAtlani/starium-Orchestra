@@ -114,5 +114,6 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 ## 8. Évolutions documentées ailleurs
 
+- **Registre documents projet (`ProjectDocument`)** : [RFC-PROJ-DOC-001](../RFC/RFC-PROJ-DOC-001%20—%20Modèle.md) — implémenté (API `/api/projects/:projectId/documents`, audit, liste read-only sur fiche projet ; pas d’upload binaire au MVP).
 - **Lien projet ↔ budget (lignes)** : RFC-PROJ-010 — implémenté (`project-budget`).
 - Autres RFC numérotées RFC-PROJ-002 … dans les roadmaps historiques peuvent rester des **extensions** futures (fournisseurs, ressources, cockpit avancé). Le MVP actuel les **recouvre partiellement** sous RFC-PROJ-001 sans les publier comme RFC séparées partout.

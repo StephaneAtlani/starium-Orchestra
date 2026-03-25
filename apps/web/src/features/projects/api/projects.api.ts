@@ -8,6 +8,7 @@ import type {
   AssignableUsersResponse,
   ProjectAssignableUser,
   ProjectDetail,
+  ProjectDocumentApi,
   ProjectMilestoneApi,
   ProjectRiskApi,
   ProjectSheet,
@@ -370,6 +371,15 @@ export async function listMilestones(
   const res = await authFetch(`${BASE}/${projectId}/milestones`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<PaginatedList<ProjectMilestoneApi>>;
+}
+
+export async function listProjectDocuments(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectDocumentApi[]> {
+  const res = await authFetch(`${BASE}/${projectId}/documents`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectDocumentApi[]>;
 }
 
 export type CreateProjectMilestonePayload = {

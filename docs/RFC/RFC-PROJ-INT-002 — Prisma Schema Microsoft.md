@@ -15,14 +15,14 @@ Haute
 
 ## Objectif
 
-Définir le **modèle de données Prisma** pour l’intégration Microsoft 365 : connexion par client, lien projet, traçabilité de sync des tâches, et **préparation** de la sync documentaire sans l’imposer tant qu’un modèle `ProjectDocument` n’existe pas.
+Définir le **modèle de données Prisma** pour l’intégration Microsoft 365 : connexion par client, lien projet, traçabilité de sync des tâches, et **préparation** de la sync documentaire (le registre `ProjectDocument` est désormais couvert par [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) ; les tables de sync documentaire Microsoft restent à cadrer ici / RFC-PROJ-INT-009).
 
 ---
 
 ## 1. Analyse de l’existant
 
 * Toutes les entités métier projet portent `clientId` et sont filtrées par contexte client actif.
-* `Project` et `ProjectTask` existent ; **aucun** `ProjectDocument` au schéma actuel — aligné avec [RFC-PROJ-INT-001](./RFC-PROJ-INT-001%20—%20Intégration%20Microsoft%20365.md) § cadrage documents.
+* `Project` et `ProjectTask` existent ; le modèle **`ProjectDocument`** est introduit par [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) (registre métier projet, MVP sans sync Microsoft). La table **`ProjectDocumentMicrosoftSync`** reste **hors schéma** tant que [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md) n’est pas implémentée.
 
 ## 2. Hypothèses
 
@@ -165,22 +165,22 @@ model ProjectTaskMicrosoftSync {
 
 ### 4.5 ProjectDocumentMicrosoftSync (extension)
 
-**Ne pas créer en migration initiale** tant qu’un modèle **`ProjectDocument`** (ou équivalent métier) n’est pas introduit par une RFC dédiée. La cible fonctionnelle est :
+**Ne pas créer tant que** [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md) n’est pas implémentée : le modèle **`ProjectDocument`** existe déjà ([RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md)), mais la **table de sync** reste hors schéma pour éviter du code mort. La cible fonctionnelle est :
 
-* `documentId` → FK vers l’entité document projet **future** ;
+* `documentId` → FK vers **`ProjectDocument.id`** ;
 * traçabilité `driveItemId`, `webUrl`, statut de sync.
 
 Voir [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md).
 
-Schéma indicatif (à activer avec `ProjectDocument`) :
+Schéma indicatif (à activer avec RFC-PROJ-INT-009) :
 
 ```prisma
-// À lier quand ProjectDocument existe — pas de documentId orphelin
+// FK ProjectDocument.id — introduire avec la sync Graph, pas avant
 model ProjectDocumentMicrosoftSync {
   id                     String   @id @default(cuid())
   clientId               String
   projectId              String
-  documentId             String   // FK ProjectDocument.id (futur)
+  documentId             String   // FK ProjectDocument.id
   projectMicrosoftLinkId String
 
   driveItemId            String?
@@ -216,7 +216,7 @@ model ProjectDocumentMicrosoftSync {
 ## 7. Récapitulatif
 
 * Schéma **client-scopé** partout ; cascade cohérente avec suppression projet/client.
-* **ProjectDocumentMicrosoftSync** reporté jusqu’à existence de `ProjectDocument`.
+* **ProjectDocumentMicrosoftSync** reporté jusqu’à implémentation **RFC-PROJ-INT-009** (`ProjectDocument` est déjà en base).
 
 ## 8. Points de vigilance
 

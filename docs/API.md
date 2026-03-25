@@ -1809,9 +1809,9 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ---
 
-## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|gantt|activities|risks|milestones|budget-links|project-sheet|reviews`
+## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|gantt|activities|risks|milestones|budget-links|project-sheet|reviews|documents`
 
-Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload Gantt backend — pas d’UI Gantt au MVP), **RFC-PROJ-012** (fiche décisionnelle), **RFC-PROJ-013** (points projet COPIL/COPRO), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload Gantt backend — pas d’UI Gantt au MVP), **RFC-PROJ-012** (fiche décisionnelle), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
 ### Guards et headers
 
@@ -1849,6 +1849,19 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation depuis brouillon. Audit **`project.review.cancelled`**. **`projects.update`**
 
 Audits complémentaires : **`project.review.created`**, **`project.review.updated`**.
+
+### Documents projet (RFC-PROJ-DOC-001) — `/api/projects/:projectId/documents`
+
+Registre métier **sans** upload ni téléchargement binaire côté API MVP. Isolation **client actif** + `projectId` dans l’URL ; lectures excluent les documents en statut `DELETED`.
+
+- **GET** — Liste (`status != DELETED`, tri `updatedAt` desc puis `createdAt` desc). **`projects.read`**
+- **GET /api/projects/:projectId/documents/:documentId** — Détail. **`projects.read`**
+- **POST** — Création (`CreateProjectDocumentDto`) : MVP **`storageType`** `STARIUM` \| `EXTERNAL` uniquement (`STARIUM` ⇒ `storageKey` requis ; `EXTERNAL` ⇒ `externalUrl` URL valide). **`projects.update`**
+- **PATCH /api/projects/:projectId/documents/:documentId** — Métadonnées (`name`, `category`, `description`, `tags`) ; pas de `status` via PATCH. Audit **`project.document.updated`** si diff. **`projects.update`**
+- **POST /api/projects/:projectId/documents/:documentId/archive** — `ARCHIVED` + `archivedAt` (idempotent si déjà archivé). Audit **`project.document.archived`**. **`projects.update`**
+- **DELETE /api/projects/:projectId/documents/:documentId** — Suppression logique `DELETED` + `deletedAt` (idempotent si déjà supprimé). Audit **`project.document.deleted`**. **`projects.update`**
+
+Audits : **`project.document.created`**, **`project.document.updated`**, **`project.document.archived`**, **`project.document.deleted`**.
 
 ### Tâches — `/api/projects/:projectId/tasks` (RFC-PROJ-011)
 

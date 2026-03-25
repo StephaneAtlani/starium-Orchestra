@@ -7,6 +7,7 @@ export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT_RISK: 'project_risk',
   PROJECT_MILESTONE: 'project_milestone',
   PROJECT_BUDGET_LINK: 'project_budget_link',
+  PROJECT_DOCUMENT: 'project_document',
   /** RFC-PROJ-013 */
   PROJECT_REVIEW: 'project_review',
   PROJECT_PORTFOLIO_CATEGORY: 'project_portfolio_category',
@@ -60,4 +61,10 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_UPDATED: 'project.review.updated',
   PROJECT_REVIEW_FINALIZED: 'project.review.finalized',
   PROJECT_REVIEW_CANCELLED: 'project.review.cancelled',
+
+  /** RFC-PROJ-DOC-001 */
+  PROJECT_DOCUMENT_CREATED: 'project.document.created',
+  PROJECT_DOCUMENT_UPDATED: 'project.document.updated',
+  PROJECT_DOCUMENT_ARCHIVED: 'project.document.archived',
+  PROJECT_DOCUMENT_DELETED: 'project.document.deleted',
 } as const;

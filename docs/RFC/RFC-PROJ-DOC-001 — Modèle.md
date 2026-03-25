@@ -2,7 +2,14 @@
 
 ## Statut
 
-Draft
+**Implémenté (MVP)** — registre métier en base, API REST sous `/api/projects/:projectId/documents`, audit, tests service ; UI web **lecture seule** sur la fiche projet. **Hors scope livré** : upload/téléchargement binaire, `ProjectDocumentMicrosoftSync`, création API avec `storageType=MICROSOFT` (enum présent pour compat future).
+
+## Réalisation dans le repo
+
+* **Prisma** : `apps/api/prisma/schema.prisma` (`ProjectDocument`, enums) ; migration `apps/api/prisma/migrations/20260325161000_add_project_documents_registry/`
+* **Backend** : `apps/api/src/modules/projects/project-documents.controller.ts`, `project-documents.service.ts`, `dto/create-project-document.dto.ts`, `dto/update-project-document.dto.ts` ; enregistrement dans `projects.module.ts` ; audit dans `project-audit.constants.ts`, `project-audit-serialize.ts`
+* **Tests** : `apps/api/src/modules/projects/project-documents.service.spec.ts`
+* **Frontend** : `apps/web/src/features/projects/components/project-documents-section.tsx` (intégré dans `project-sheet-view.tsx`) ; `listProjectDocuments` dans `projects.api.ts` ; `projectQueryKeys.documents` ; `use-project-documents-query.ts` ; types et labels enum dans `project.types.ts` / `project-enum-labels.ts`
 
 ## Priorité
 
@@ -194,9 +201,7 @@ model ProjectDocument {
 
   client            Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project           Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  uploadedByUser    User?                      @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
-
-  microsoftSyncs    ProjectDocumentMicrosoftSync[]
+  uploadedByUser    User?                      @relation("ProjectDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([projectId])
@@ -206,6 +211,8 @@ model ProjectDocument {
   @@index([storageType])
 }
 ```
+
+> **Implémentation actuelle** : le schéma livré correspond au bloc ci-dessus (sans relation inverse `ProjectDocumentMicrosoftSync` : voir §8 / RFC-PROJ-INT-009).
 
 ---
 

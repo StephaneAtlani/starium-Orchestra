@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import type {
   Project,
   ProjectActivity,
+  ProjectDocument,
   ProjectMilestone,
   ProjectRisk,
   ProjectTask,
@@ -225,5 +226,28 @@ export function projectActivityEntityAuditSnapshot(
     lastExecutionDate: toAuditJson(a.lastExecutionDate),
     ownerUserId: a.ownerUserId ?? null,
     budgetLineId: a.budgetLineId ?? null,
+  };
+}
+
+export function projectDocumentEntityAuditSnapshot(
+  d: ProjectDocument,
+): Record<string, unknown> {
+  return {
+    projectId: d.projectId,
+    name: d.name,
+    originalFilename: d.originalFilename ?? null,
+    mimeType: d.mimeType ?? null,
+    extension: d.extension ?? null,
+    sizeBytes: d.sizeBytes ?? null,
+    category: d.category,
+    status: d.status,
+    storageType: d.storageType,
+    storageKey: d.storageKey ?? null,
+    externalUrl: d.externalUrl ?? null,
+    description: d.description ?? null,
+    tags: toAuditJson(d.tags),
+    uploadedByUserId: d.uploadedByUserId ?? null,
+    archivedAt: toAuditJson(d.archivedAt),
+    deletedAt: toAuditJson(d.deletedAt),
   };
 }

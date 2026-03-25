@@ -85,6 +85,7 @@ import { projectQueryKeys } from '../lib/project-query-keys';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
+import { ProjectDocumentsSection } from './project-documents-section';
 import { ProjectTeamMatrix } from './project-team-matrix';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
 import {
@@ -2625,6 +2626,7 @@ export function ProjectSheetView({
           </div>
         </CardContent>
       </Card>
+      <ProjectDocumentsSection projectId={projectId} />
       <ProjectMicrosoftResourceSelectorsCard canEdit={canEdit} />
       </>
       ) : null}

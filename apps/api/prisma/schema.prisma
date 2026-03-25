@@ -134,6 +134,7 @@ model Client {
   microsoftConnections          MicrosoftConnection[]
   projectMicrosoftLinks         ProjectMicrosoftLink[]
   projectTaskSyncs             ProjectTaskMicrosoftSync[]
+  projectDocuments              ProjectDocument[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -207,6 +208,7 @@ model User {
   projectReviewParticipants          ProjectReviewParticipant[]
   emailIdentities                    UserEmailIdentity[]
   microsoftConnectionsConnected      MicrosoftConnection[] @relation("MicrosoftConnectedBy")
+  uploadedProjectDocuments           ProjectDocument[]     @relation("ProjectDocumentUploadedBy")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -581,6 +583,30 @@ enum ProjectReviewStatus {
   CANCELLED
 }
 
+/// RFC-PROJ-DOC-001 — registre métier documentaire projet (sans stockage binaire MVP)
+enum ProjectDocumentStorageType {
+  STARIUM
+  EXTERNAL
+  MICROSOFT
+}
+
+enum ProjectDocumentStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum ProjectDocumentCategory {
+  GENERAL
+  CONTRACT
+  SPECIFICATION
+  DELIVERABLE
+  REPORT
+  FINANCIAL
+  COMPLIANCE
+  OTHER
+}
+
 model Project {
   id        String  @id @default(cuid())
   clientId  String
@@ -673,6 +699,7 @@ model Project {
   sheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
   projectReviews         ProjectReview[]
   projectReviewActionItems ProjectReviewActionItem[]
+  documents ProjectDocument[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -680,6 +707,47 @@ model Project {
   @@index([clientId, kind])
   @@index([clientId, portfolioCategoryId])
   @@index([targetEndDate])
+}
+
+/// RFC-PROJ-DOC-001 — registre des documents rattachés à un projet (métadonnées + gouvernance).
+/// NB: pas d'upload/download binaire dans le MVP ; pas de logique Microsoft dans cette RFC.
+model ProjectDocument {
+  id                String                     @id @default(cuid())
+  clientId          String
+  projectId         String
+
+  name              String
+  originalFilename  String?
+  mimeType          String?
+  extension         String?
+  sizeBytes         Int?
+
+  category          ProjectDocumentCategory    @default(GENERAL)
+  status            ProjectDocumentStatus      @default(ACTIVE)
+  storageType       ProjectDocumentStorageType @default(STARIUM)
+
+  storageKey        String?
+  externalUrl       String?
+
+  description       String?
+  tags              Json?
+
+  uploadedByUserId  String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  archivedAt        DateTime?
+  deletedAt         DateTime?
+
+  client            Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project           Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedByUser    User?                      @relation("ProjectDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectId])
+  @@index([clientId, projectId])
+  @@index([clientId, status])
+  @@index([clientId, projectId, status])
+  @@index([storageType])
 }
 
 model ProjectPortfolioCategory {

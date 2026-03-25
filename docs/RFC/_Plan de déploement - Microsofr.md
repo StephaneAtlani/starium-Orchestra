@@ -16,13 +16,13 @@ Voici la version **corrigée, exécutable et alignée réalité produit** (sans 
 
 ---
 
-# 🚫 BLOCAGE STRUCTUREL
+# 🚫 PRÉREQUIS SYNC DOCUMENT (STATUT)
 
 | Ordre | RFC                  | Nom                        | Description                                            |
 | ----- | -------------------- | -------------------------- | ------------------------------------------------------ |
-| 8     | **RFC-PROJ-DOC-001** | **Modèle ProjectDocument** | 🔴 **PRÉREQUIS OBLIGATOIRE AVANT TOUTE SYNC DOCUMENT** |
+| 8     | **RFC-PROJ-DOC-001** | **Modèle ProjectDocument** | ✅ **MVP en base + API** — prérequis métier pour une future sync ; pas d’upload binaire ni `ProjectDocumentMicrosoftSync` dans ce jalon |
 
-👉 Cette RFC **n’existe pas encore mais DOIT être créée maintenant**
+👉 Le modèle métier et les routes CRUD minimales existent ; la **sync Graph / Teams** reste une étape distincte (RFC-PROJ-INT-009).
 
 ---
 
@@ -30,7 +30,7 @@ Voici la version **corrigée, exécutable et alignée réalité produit** (sans 
 
 | Ordre | RFC              | Nom                    | Description                        |
 | ----- | ---------------- | ---------------------- | ---------------------------------- |
-| 9     | RFC-PROJ-INT-009 | Sync documents → Teams | 🔴 BLOQUÉ — dépend ProjectDocument |
+| 9     | RFC-PROJ-INT-009 | Sync documents → Teams | 🔴 BLOQUÉ — implémentation sync Graph / `ProjectDocumentMicrosoftSync` non livrée ; le registre `ProjectDocument` est prêt côté Starium |
 
 ---
 
@@ -70,8 +70,8 @@ Voici la version **corrigée, exécutable et alignée réalité produit** (sans 
 1. ✅ Rien sur OAuth / Graph / Tasks → déjà OK
 2. 🟡 Stabiliser RFC-002 si besoin
 3. 🟡 Finaliser RFC-006 si UI nécessaire
-4. 🔴 **Créer RFC-PROJ-DOC-001 (ProjectDocument)**
-5. 🔥 Ensuite seulement → RFC-009
+4. ✅ **RFC-PROJ-DOC-001 (ProjectDocument)** — MVP base + API livré
+5. 🔥 Prochaine brique documentaire → **RFC-PROJ-INT-009** (sync Graph + `ProjectDocumentMicrosoftSync`)
 
 ---
 
@@ -107,12 +107,8 @@ Mais :
 
 👉 Je te fais directement :
 
-### **RFC-PROJ-DOC-001 — ProjectDocument (niveau production Starium)**
+### **RFC-PROJ-DOC-001 — ProjectDocument (livré MVP)**
 
-* multi-tenant strict
-* prêt Microsoft Graph
-* prêt compliance (NIS2 / RGPD)
-* prêt audit
-* prêt UI cockpit
-
-👉 et là tu débloques toute la suite sans refactor
+* multi-tenant strict, audit, API sous `/api/projects/:projectId/documents`
+* UI cockpit : liste **lecture seule** sur fiche projet ; pas d’upload binaire API
+* suite : RFC-PROJ-INT-009 pour Graph + table de sync

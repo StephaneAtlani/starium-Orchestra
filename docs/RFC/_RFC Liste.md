@@ -52,6 +52,7 @@
 | 13    | **RFC-PROJ-010** | Project Budget KPI | Exposer KPI budget projet                      | ⚠️ Partiel | nécessaire fiche projet |
 | 14    | **RFC-PROJ-011** | Tasks / Activities | Tâches, activités, jalons, Gantt backend       | ✅ Couvert  | OK                      |
 | 14b   | **RFC-PROJ-017** | Project Tags       | Référentiel d’étiquettes + assignation projet  | ✅ Couvert  | options + fiche + liste |
+| 14c   | **RFC-PROJ-DOC-001** | ProjectDocument | Registre métier documents projet (Prisma + API + audit) | ✅ Couvert | MVP : pas d’upload binaire ; UI liste read-only fiche ; voir [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) |
 | —     | *(future)*       | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire  | futur module            |
 
 ---
@@ -80,7 +81,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | 6 | **RFC-PROJ-INT-006** | Sélection ressources | Teams, canaux, plans — spike requis | 🟡 Partiel (implémenté routes, tests service partiels) | pas de promesse « plan par canal » |
 | 7 | **RFC-PROJ-INT-007** | Lien projet | `ProjectMicrosoftLink` GET/PUT | ✅ Implémenté | PUT sans validation Graph bloquante ; mode permissif `isEnabled=false` |
 | 8 | **RFC-PROJ-INT-008** | Sync tâches → Planner | One-way, mapping | ✅ Implémenté | `ProjectTaskMicrosoftSync` + sync Graph (task + details, ETags distincts) |
-| 9 | **RFC-PROJ-INT-009** | Sync documents → Teams | Extension | Draft | dépend `ProjectDocument` |
+| 9 | **RFC-PROJ-INT-009** | Sync documents → Teams | Extension | Draft | prérequis métier `ProjectDocument` **en base** (RFC-PROJ-DOC-001 MVP) ; sync Graph toujours hors scope |
 
 ---
 

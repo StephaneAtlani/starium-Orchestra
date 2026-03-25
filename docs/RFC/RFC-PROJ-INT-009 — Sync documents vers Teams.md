@@ -10,10 +10,10 @@ Moyenne (extension)
 
 ## Dépend de
 
-* [RFC-PROJ-INT-001](./RFC-PROJ-INT-001%20—%20Intégration%20Microsoft%20365.md) — **sync documentaire hors MVP** tant qu’il n’existe pas de modèle document projet côté Starium
+* [RFC-PROJ-INT-001](./RFC-PROJ-INT-001%20—%20Intégration%20Microsoft%20365.md) — cadrage sync documentaire (one-way)
+* [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) — **`ProjectDocument` en base** (MVP) : prérequis métier **satisfait** pour attaquer la sync ; reste à ajouter `ProjectDocumentMicrosoftSync` + logique Graph
 * [RFC-PROJ-INT-007](./RFC-PROJ-INT-007%20—%20Lien%20projet%20Microsoft.md) (`filesDriveId` / `filesFolderId` ou résolution équivalente)
 * [RFC-PROJ-INT-004](./RFC-PROJ-INT-004%20—%20Microsoft%20Graph%20Service.md)
-* **Prérequis bloquant** : introduction d’un modèle **`ProjectDocument`** (ou équivalent métier) — **RFC / spec dédiée** ; **aucune FK `documentId` ne doit exister sans cette entité**
 
 ## Objectif
 
@@ -32,7 +32,7 @@ Définir, **pour une phase postérieure au MVP tâches**, la poussée des **fich
 **Hors périmètre** :
 
 * Sync bidirectionnelle ou résolution de conflits de version ;
-* Tant que `ProjectDocument` n’existe pas : **aucune implémentation** de cette RFC.
+* Tant que la **table** `ProjectDocumentMicrosoftSync` et les jobs Graph ne sont pas implémentés : **aucune sync réelle** vers Teams (le registre `ProjectDocument` seul ne suffit pas).
 
 ## 2. API (indicatif)
 
