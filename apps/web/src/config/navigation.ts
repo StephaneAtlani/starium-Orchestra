@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Building2,
   Boxes,
+  Cloud,
   FolderKanban,
   LayoutDashboard,
   Settings,
@@ -128,6 +129,13 @@ export const navigation: NavigationSection[] = [
         label: 'Audit logs',
         href: '/admin/audit',
         icon: FileText,
+        scope: 'platform',
+        platformOnly: true,
+      },
+      {
+        label: 'Microsoft 365 (plateforme)',
+        href: '/admin/microsoft-settings',
+        icon: Cloud,
         scope: 'platform',
         platformOnly: true,
       },

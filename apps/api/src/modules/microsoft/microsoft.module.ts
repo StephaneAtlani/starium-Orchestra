@@ -18,15 +18,28 @@ import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { MicrosoftIntegrationAccessGuard } from '../../common/guards/microsoft-integration-access.guard';
+import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
+import { MicrosoftPlatformConfigService } from './microsoft-platform-config.service';
+import { ClientMicrosoftOAuthService } from './client-microsoft-oauth.service';
+import { PlatformMicrosoftSettingsController } from './platform-microsoft-settings.controller';
+import { ClientMicrosoftOAuthController } from './client-microsoft-oauth.controller';
 
 @Module({
   imports: [PrismaModule, AuthModule, AuditLogsModule],
-  controllers: [MicrosoftAuthController, MicrosoftOAuthCallbackController],
+  controllers: [
+    MicrosoftAuthController,
+    MicrosoftOAuthCallbackController,
+    PlatformMicrosoftSettingsController,
+    ClientMicrosoftOAuthController,
+  ],
   providers: [
     ActiveClientGuard,
     ModuleAccessGuard,
     PermissionsGuard,
     MicrosoftIntegrationAccessGuard,
+    PlatformAdminGuard,
+    MicrosoftPlatformConfigService,
+    ClientMicrosoftOAuthService,
     MicrosoftTokenCryptoService,
     MemoryMicrosoftOAuthStateStore,
     {
@@ -39,6 +52,11 @@ import { MicrosoftIntegrationAccessGuard } from '../../common/guards/microsoft-i
     MicrosoftOAuthService,
     MicrosoftCallbackRateLimitService,
   ],
-  exports: [MicrosoftOAuthService, MicrosoftTokenCryptoService],
+  exports: [
+    MicrosoftOAuthService,
+    MicrosoftTokenCryptoService,
+    MicrosoftPlatformConfigService,
+    ClientMicrosoftOAuthService,
+  ],
 })
 export class MicrosoftModule {}

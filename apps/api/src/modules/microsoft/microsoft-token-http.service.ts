@@ -31,14 +31,23 @@ export class MicrosoftTokenHttpService {
       DEFAULT_MICROSOFT_TOKEN_HTTP_TIMEOUT_MS;
   }
 
-  async postTokenForm(body: URLSearchParams): Promise<MicrosoftTokenSuccess> {
-    const tenant = this.resolveTenantSegment();
+  /**
+   * @param opts.authorityTenant — segment d’autorité (`common`, GUID, …). Sinon env / `common`.
+   * @param opts.timeoutMs — sinon variable d’env ou défaut au constructeur.
+   */
+  async postTokenForm(
+    body: URLSearchParams,
+    opts?: { authorityTenant?: string; timeoutMs?: number },
+  ): Promise<MicrosoftTokenSuccess> {
+    const tenant =
+      opts?.authorityTenant?.trim() || this.resolveTenantSegment();
     const authority = `https://login.microsoftonline.com/${tenant}`;
     const tokenUrl = `${authority}/oauth2/v2.0/token`;
+    const timeoutMs = opts?.timeoutMs ?? this.timeoutMs;
 
     const attempt = async (): Promise<MicrosoftTokenSuccess> => {
       const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), this.timeoutMs);
+      const t = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const res = await fetch(tokenUrl, {
           method: 'POST',

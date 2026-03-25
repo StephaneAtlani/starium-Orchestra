@@ -12,6 +12,7 @@ import { MicrosoftIdTokenService } from './microsoft-id-token.service';
 import { MicrosoftTokenHttpService } from './microsoft-token-http.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { MicrosoftPlatformConfigService } from './microsoft-platform-config.service';
 
 describe('MicrosoftOAuthService', () => {
   it('getAuthorizationUrl signs state and registers jti', async () => {
@@ -36,7 +37,33 @@ describe('MicrosoftOAuthService', () => {
             },
           },
         },
-        { provide: PrismaService, useValue: {} },
+        {
+          provide: MicrosoftPlatformConfigService,
+          useValue: {
+            getResolved: jest.fn().mockResolvedValue({
+              redirectUri: 'http://localhost:3001/cb',
+              graphScopes: 'offline_access User.Read',
+              oauthSuccessUrl: null,
+              oauthErrorUrl: null,
+              oauthStateTtlSeconds: 600,
+              refreshLeewaySeconds: 300,
+              tokenHttpTimeoutMs: 5000,
+            }),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            client: {
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'client-1',
+                microsoftOAuthClientId: null,
+                microsoftOAuthClientSecretEncrypted: null,
+                microsoftOAuthAuthorityTenant: null,
+              }),
+            },
+          },
+        },
         {
           provide: JwtService,
           useValue: { sign, verify: jest.fn() },

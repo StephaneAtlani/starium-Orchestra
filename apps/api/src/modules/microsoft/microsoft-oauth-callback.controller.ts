@@ -37,10 +37,8 @@ export class MicrosoftOAuthCallbackController {
 
     if (!this.rateLimit.tryConsume(ip)) {
       this.logger.warn(`Callback OAuth rate limited ip=${ip}`);
-      res.redirect(
-        HttpStatus.FOUND,
-        this.microsoftOAuth.redirectUrlForRateLimit(),
-      );
+      const url = await this.microsoftOAuth.redirectUrlForRateLimit();
+      res.redirect(HttpStatus.FOUND, url);
       return;
     }
 

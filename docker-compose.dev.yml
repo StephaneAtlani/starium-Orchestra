@@ -92,8 +92,10 @@ services:
       dockerfile: apps/web/Dockerfile.dev
     restart: unless-stopped
     environment:
-      # Proxy /api/* vers l’API depuis le conteneur Docker.
-      NEXT_PUBLIC_API_URL: http://api-dev:3001
+      # Client (navigateur) : API publiée sur l’hôte (ports api-dev 3001:3001). Ne pas mettre le hostname Docker ici.
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      # Serveur Next (rewrites /api/* → Nest) : URL atteignable depuis le conteneur web uniquement.
+      INTERNAL_API_URL: http://api-dev:3001
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
     ports:

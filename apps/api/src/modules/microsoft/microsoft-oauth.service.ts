@@ -21,13 +21,10 @@ import { MicrosoftOAuthStateStore } from './microsoft-oauth-state.store';
 import { MicrosoftRefreshLockService } from './microsoft-refresh-lock.service';
 import { MicrosoftIdTokenService } from './microsoft-id-token.service';
 import { MicrosoftTokenHttpService } from './microsoft-token-http.service';
-import {
-  DEFAULT_MICROSOFT_GRAPH_SCOPES,
-  DEFAULT_MICROSOFT_OAUTH_STATE_TTL_SECONDS,
-  DEFAULT_MICROSOFT_REFRESH_LEEWAY_SECONDS,
-  MICROSOFT_OAUTH_STATE_PURPOSE,
-} from './microsoft.constants';
+import { MicrosoftPlatformConfigService } from './microsoft-platform-config.service';
+import { MICROSOFT_OAUTH_STATE_PURPOSE } from './microsoft.constants';
 import type { MicrosoftOAuthStatePayload } from './microsoft-oauth.types';
+import type { ResolvedPlatformMicrosoftConfig } from './microsoft-platform-config.types';
 
 export interface MicrosoftConnectionPublic {
   id: string;
@@ -55,59 +52,56 @@ export class MicrosoftOAuthService {
     private readonly idToken: MicrosoftIdTokenService,
     private readonly tokenHttp: MicrosoftTokenHttpService,
     private readonly audit: AuditLogsService,
+    private readonly platformConfig: MicrosoftPlatformConfigService,
   ) {}
 
-  private get redirectUri(): string {
-    const u = this.config.get<string>('MICROSOFT_REDIRECT_URI')?.trim();
-    if (!u) {
-      throw new Error('MICROSOFT_REDIRECT_URI is required');
-    }
-    return u;
-  }
-
-  private get clientId(): string {
-    const id = this.config.get<string>('MICROSOFT_CLIENT_ID')?.trim();
-    if (!id) {
-      throw new Error('MICROSOFT_CLIENT_ID is required');
-    }
-    return id;
-  }
-
-  private get clientSecret(): string {
-    const s = this.config.get<string>('MICROSOFT_CLIENT_SECRET')?.trim();
-    if (!s) {
-      throw new Error('MICROSOFT_CLIENT_SECRET is required');
-    }
-    return s;
-  }
-
-  private getScopes(): string {
-    return (
-      this.config.get<string>('MICROSOFT_GRAPH_SCOPES')?.trim() ||
-      DEFAULT_MICROSOFT_GRAPH_SCOPES
-    );
-  }
-
-  private stateTtlMs(): number {
-    const sec =
-      Number(this.config.get<string>('MICROSOFT_OAUTH_STATE_TTL_SECONDS')) ||
-      DEFAULT_MICROSOFT_OAUTH_STATE_TTL_SECONDS;
-    return sec * 1000;
-  }
-
-  private refreshLeewaySeconds(): number {
-    return (
-      Number(this.config.get<string>('MICROSOFT_REFRESH_LEEWAY_SECONDS')) ||
-      DEFAULT_MICROSOFT_REFRESH_LEEWAY_SECONDS
-    );
-  }
-
-  private tenantAuthoritySegment(): string {
-    return (
+  /**
+   * Identifiants d’application Azure : priorité aux champs client (BYO),
+   * repli sur MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET (env).
+   */
+  private async resolveAzureAppCredentials(stariumClientId: string): Promise<{
+    azureClientId: string;
+    azureClientSecret: string;
+    authorityTenant: string;
+  }> {
+    const row = await this.prisma.client.findUnique({
+      where: { id: stariumClientId },
+      select: {
+        microsoftOAuthClientId: true,
+        microsoftOAuthClientSecretEncrypted: true,
+        microsoftOAuthAuthorityTenant: true,
+      },
+    });
+    const envId = this.config.get<string>('MICROSOFT_CLIENT_ID')?.trim();
+    const envSecret = this.config.get<string>('MICROSOFT_CLIENT_SECRET')?.trim();
+    const envTenant =
       this.config.get<string>('MICROSOFT_TENANT')?.trim() ||
       this.config.get<string>('MICROSOFT_AUTHORITY_TENANT')?.trim() ||
-      'common'
-    );
+      'common';
+
+    const azureClientId = row?.microsoftOAuthClientId?.trim() || envId;
+    let azureClientSecret: string | undefined;
+    if (row?.microsoftOAuthClientSecretEncrypted) {
+      try {
+        azureClientSecret = this.crypto.decrypt(
+          row.microsoftOAuthClientSecretEncrypted,
+        );
+      } catch {
+        azureClientSecret = undefined;
+      }
+    }
+    if (!azureClientSecret) {
+      azureClientSecret = envSecret;
+    }
+    const authorityTenant =
+      row?.microsoftOAuthAuthorityTenant?.trim() || envTenant;
+
+    if (!azureClientId || !azureClientSecret) {
+      throw new BadRequestException(
+        'Configuration Microsoft incomplète : enregistrer l’ID et le secret d’application Azure (administration client) ou définir MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET (environnement).',
+      );
+    }
+    return { azureClientId, azureClientSecret, authorityTenant };
   }
 
   /**
@@ -115,13 +109,21 @@ export class MicrosoftOAuthService {
    */
   async getAuthorizationUrl(
     userId: string,
-    clientId: string,
+    stariumClientId: string,
   ): Promise<{ authorizationUrl: string }> {
+    const platform = await this.platformConfig.getResolved();
+    if (!platform.redirectUri) {
+      throw new BadRequestException(
+        'URI de redirection OAuth manquante : la configurer en administration plateforme (Microsoft) ou via MICROSOFT_REDIRECT_URI.',
+      );
+    }
+    const creds = await this.resolveAzureAppCredentials(stariumClientId);
+
     const jti = randomUUID();
-    const ttlMs = this.stateTtlMs();
+    const ttlMs = platform.oauthStateTtlSeconds * 1000;
     const payload: MicrosoftOAuthStatePayload = {
       sub: userId,
-      cid: clientId,
+      cid: stariumClientId,
       jti,
       purpose: MICROSOFT_OAUTH_STATE_PURPOSE,
     };
@@ -130,14 +132,13 @@ export class MicrosoftOAuthService {
     });
     this.stateStore.register(jti, ttlMs);
 
-    const tenant = this.tenantAuthoritySegment();
-    const authority = `https://login.microsoftonline.com/${tenant}`;
+    const authority = `https://login.microsoftonline.com/${creds.authorityTenant}`;
     const params = new URLSearchParams({
-      client_id: this.clientId,
+      client_id: creds.azureClientId,
       response_type: 'code',
-      redirect_uri: this.redirectUri,
+      redirect_uri: platform.redirectUri,
       response_mode: 'query',
-      scope: this.getScopes(),
+      scope: platform.graphScopes,
       state,
     });
     const authorizationUrl = `${authority}/oauth2/v2.0/authorize?${params.toString()}`;
@@ -155,7 +156,7 @@ export class MicrosoftOAuthService {
     if (err) {
       this.logger.warn(`OAuth callback erreur Microsoft: ${err}`);
       return {
-        redirectUrl: this.buildErrorRedirect('oauth_upstream', err, errDesc),
+        redirectUrl: await this.buildErrorRedirect('oauth_upstream', err, errDesc),
       };
     }
 
@@ -163,7 +164,7 @@ export class MicrosoftOAuthService {
     const state = query.state;
     if (!code || !state) {
       return {
-        redirectUrl: this.buildErrorRedirect('missing_code_or_state'),
+        redirectUrl: await this.buildErrorRedirect('missing_code_or_state'),
       };
     }
 
@@ -171,7 +172,7 @@ export class MicrosoftOAuthService {
     try {
       payload = this.jwt.verify(state) as MicrosoftOAuthStatePayload;
     } catch {
-      return { redirectUrl: this.buildErrorRedirect('invalid_state') };
+      return { redirectUrl: await this.buildErrorRedirect('invalid_state') };
     }
 
     if (
@@ -180,11 +181,11 @@ export class MicrosoftOAuthService {
       !payload.cid ||
       !payload.jti
     ) {
-      return { redirectUrl: this.buildErrorRedirect('invalid_state_payload') };
+      return { redirectUrl: await this.buildErrorRedirect('invalid_state_payload') };
     }
 
     if (!this.stateStore.consume(payload.jti)) {
-      return { redirectUrl: this.buildErrorRedirect('state_replay') };
+      return { redirectUrl: await this.buildErrorRedirect('state_replay') };
     }
 
     const userId = payload.sub;
@@ -194,7 +195,7 @@ export class MicrosoftOAuthService {
       where: { id: clientId },
     });
     if (!client) {
-      return { redirectUrl: this.buildErrorRedirect('invalid_client') };
+      return { redirectUrl: await this.buildErrorRedirect('invalid_client') };
     }
 
     const membership = await this.prisma.clientUser.findFirst({
@@ -205,38 +206,58 @@ export class MicrosoftOAuthService {
       },
     });
     if (!membership) {
-      return { redirectUrl: this.buildErrorRedirect('forbidden_client') };
+      return { redirectUrl: await this.buildErrorRedirect('forbidden_client') };
+    }
+
+    let creds: {
+      azureClientId: string;
+      azureClientSecret: string;
+      authorityTenant: string;
+    };
+    let platform: ResolvedPlatformMicrosoftConfig;
+    try {
+      creds = await this.resolveAzureAppCredentials(clientId);
+      platform = await this.platformConfig.getResolved();
+    } catch (e: unknown) {
+      this.logger.warn(`Credentials Microsoft: ${(e as Error).message}`);
+      return { redirectUrl: await this.buildErrorRedirect('missing_credentials') };
     }
 
     const body = new URLSearchParams({
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
+      client_id: creds.azureClientId,
+      client_secret: creds.azureClientSecret,
       grant_type: 'authorization_code',
       code,
-      redirect_uri: this.redirectUri,
+      redirect_uri: platform.redirectUri,
     });
 
     let tokens: Awaited<ReturnType<MicrosoftTokenHttpService['postTokenForm']>>;
     try {
-      tokens = await this.tokenHttp.postTokenForm(body);
+      tokens = await this.tokenHttp.postTokenForm(body, {
+        authorityTenant: creds.authorityTenant,
+        timeoutMs: platform.tokenHttpTimeoutMs,
+      });
     } catch (e: unknown) {
       await this.auditError(clientId, userId, undefined, e);
-      return { redirectUrl: this.buildErrorRedirect('token_exchange_failed') };
+      return { redirectUrl: await this.buildErrorRedirect('token_exchange_failed') };
     }
 
     let tenantId: string;
     if (tokens.id_token) {
       try {
-        const validated = await this.idToken.verifyIdToken(tokens.id_token);
+        const validated = await this.idToken.verifyIdToken(
+          tokens.id_token,
+          creds.azureClientId,
+        );
         tenantId = validated.tid;
       } catch (err) {
         this.logger.warn(`id_token invalide: ${(err as Error).message}`);
         await this.auditError(clientId, userId, undefined, err);
-        return { redirectUrl: this.buildErrorRedirect('invalid_id_token') };
+        return { redirectUrl: await this.buildErrorRedirect('invalid_id_token') };
       }
     } else {
       this.logger.warn('Réponse token sans id_token');
-      return { redirectUrl: this.buildErrorRedirect('missing_id_token') };
+      return { redirectUrl: await this.buildErrorRedirect('missing_id_token') };
     }
 
     const accessEnc = this.crypto.encrypt(tokens.access_token);
@@ -308,10 +329,10 @@ export class MicrosoftOAuthService {
     } catch (e: unknown) {
       this.logger.error(`Persistance connexion Microsoft: ${(e as Error).message}`);
       await this.auditError(clientId, userId, tenantId, e);
-      return { redirectUrl: this.buildErrorRedirect('persist_failed') };
+      return { redirectUrl: await this.buildErrorRedirect('persist_failed') };
     }
 
-    return { redirectUrl: this.buildSuccessRedirect() };
+    return { redirectUrl: await this.buildSuccessRedirect() };
   }
 
   async getActiveConnection(
@@ -398,7 +419,8 @@ export class MicrosoftOAuthService {
       throw new BadRequestException('Jetons manquants');
     }
 
-    const leewayMs = this.refreshLeewaySeconds() * 1000;
+    const platformCfg = await this.platformConfig.getResolved();
+    const leewayMs = platformCfg.refreshLeewaySeconds * 1000;
     const expires = conn.tokenExpiresAt?.getTime() ?? 0;
     const mustRefresh = !conn.tokenExpiresAt || expires - Date.now() < leewayMs;
 
@@ -418,19 +440,29 @@ export class MicrosoftOAuthService {
         return this.crypto.decrypt(fresh.accessTokenEncrypted);
       }
 
+      const creds = await this.resolveAzureAppCredentials(clientId);
+
       const refreshPlain = this.crypto.decrypt(fresh.refreshTokenEncrypted);
       const body = new URLSearchParams({
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
+        client_id: creds.azureClientId,
+        client_secret: creds.azureClientSecret,
         grant_type: 'refresh_token',
         refresh_token: refreshPlain,
       });
 
       let tokens: Awaited<ReturnType<MicrosoftTokenHttpService['postTokenForm']>>;
       try {
-        tokens = await this.tokenHttp.postTokenForm(body);
+        tokens = await this.tokenHttp.postTokenForm(body, {
+          authorityTenant: creds.authorityTenant,
+          timeoutMs: platformCfg.tokenHttpTimeoutMs,
+        });
       } catch (e: unknown) {
-        await this.handleRefreshFailure(fresh.id, clientId, fresh.connectedByUserId, e);
+        await this.handleRefreshFailure(
+          fresh.id,
+          clientId,
+          fresh.connectedByUserId,
+          e,
+        );
         throw e;
       }
 
@@ -506,13 +538,16 @@ export class MicrosoftOAuthService {
   }
 
   /** Redirect utilisé quand le rate limit callback est déclenché (hors flux Microsoft). */
-  redirectUrlForRateLimit(): string {
+  async redirectUrlForRateLimit(): Promise<string> {
     return this.buildErrorRedirect('rate_limited');
   }
 
-  private buildSuccessRedirect(): string {
+  private async buildSuccessRedirect(): Promise<string> {
+    const p = await this.platformConfig.getResolved();
     const base =
-      this.config.get<string>('MICROSOFT_OAUTH_SUCCESS_URL')?.trim() ?? '/';
+      p.oauthSuccessUrl?.trim() ||
+      this.config.get<string>('MICROSOFT_OAUTH_SUCCESS_URL')?.trim() ||
+      '/';
     if (base.startsWith('http')) {
       const real = new URL(base);
       real.searchParams.set('microsoft', 'connected');
@@ -521,13 +556,16 @@ export class MicrosoftOAuthService {
     return `${base}${base.includes('?') ? '&' : '?'}microsoft=connected`;
   }
 
-  private buildErrorRedirect(
+  private async buildErrorRedirect(
     code: string,
     microsoftError?: string,
     microsoftDesc?: string,
-  ): string {
+  ): Promise<string> {
+    const p = await this.platformConfig.getResolved();
     const base =
-      this.config.get<string>('MICROSOFT_OAUTH_ERROR_URL')?.trim() || '/';
+      p.oauthErrorUrl?.trim() ||
+      this.config.get<string>('MICROSOFT_OAUTH_ERROR_URL')?.trim() ||
+      '/';
     let url: URL;
     if (base.startsWith('http')) {
       url = new URL(base);

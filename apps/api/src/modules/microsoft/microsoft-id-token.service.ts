@@ -3,7 +3,6 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import * as jose from 'jose';
 
 const MICROSOFT_ISSUER_PREFIX = 'https://login.microsoftonline.com/';
@@ -19,21 +18,19 @@ export interface ValidatedMicrosoftIdToken {
  */
 @Injectable()
 export class MicrosoftIdTokenService {
-  /** Absent si `MICROSOFT_CLIENT_ID` non défini : l’API démarre quand même (dev sans Azure). */
-  private readonly clientId: string | null;
-
-  constructor(private readonly config: ConfigService) {
-    const id = this.config.get<string>('MICROSOFT_CLIENT_ID')?.trim();
-    this.clientId = id && id.length > 0 ? id : null;
-  }
+  constructor() {}
 
   /**
-   * Vérifie la signature et les claims ; retourne `tid` uniquement après validation.
+   * Vérifie la signature et les claims ; `audience` = ID d’application Azure (client admin ou env).
    */
-  async verifyIdToken(idToken: string): Promise<ValidatedMicrosoftIdToken> {
-    if (!this.clientId) {
+  async verifyIdToken(
+    idToken: string,
+    azureAppClientId: string,
+  ): Promise<ValidatedMicrosoftIdToken> {
+    const aud = azureAppClientId?.trim();
+    if (!aud) {
       throw new ServiceUnavailableException(
-        'Intégration Microsoft non configurée : définir MICROSOFT_CLIENT_ID (et variables OAuth associées).',
+        'Intégration Microsoft non configurée : ID d’application Azure (client) manquant.',
       );
     }
     const decoded = jose.decodeJwt(idToken) as Record<string, unknown>;
@@ -52,7 +49,7 @@ export class MicrosoftIdTokenService {
     try {
       const result = await jose.jwtVerify(idToken, JWKS, {
         issuer: iss,
-        audience: this.clientId,
+        audience: aud,
       });
       payload = result.payload;
     } catch {

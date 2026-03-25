@@ -126,6 +126,26 @@ model Client {
   resourceRoles                 ResourceRole[]
   resources                     Resource[]
   microsoftConnections          MicrosoftConnection[]
+
+  /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
+  microsoftOAuthClientId                String?
+  microsoftOAuthClientSecretEncrypted   String?
+  /// Segment d’autorité (`common`, GUID tenant, `organizations`…). Défaut `common` si vide.
+  microsoftOAuthAuthorityTenant         String?
+}
+
+/// Paramètres OAuth Microsoft **plateforme** (une ligne, id = `default`) — redirect URI, scopes, timeouts.
+/// Fusion avec variables d’environnement : la DB prime si la valeur est renseignée.
+model PlatformMicrosoftSettings {
+  id                    String   @id @default("default")
+  redirectUri           String?
+  graphScopes           String?
+  oauthSuccessUrl       String?
+  oauthErrorUrl         String?
+  oauthStateTtlSeconds  Int?
+  refreshLeewaySeconds  Int?
+  tokenHttpTimeoutMs    Int?
+  updatedAt             DateTime @updatedAt
 }
 
 model User {

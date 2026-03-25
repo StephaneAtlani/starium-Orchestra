@@ -467,7 +467,7 @@ Autres domaines
 
 **Module `project-budget` (RFC-PROJ-010)** : API `/api/projects/:projectId/budget-links` (liste paginée) et `POST`, `/api/project-budget-links/:id` (`DELETE`), isolation `clientId`, invariants d’allocation sur les liens projet ↔ ligne budgétaire. Enregistré dans `app.module.ts` à côté de `ProjectsModule`.
 
-**Module `microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-005)** : API `/api/microsoft/auth/url`, `/api/microsoft/auth/callback`, `/api/microsoft/connection` ; OAuth délégué Microsoft 365, jetons stockés chiffrés (`MicrosoftConnection`), contexte **client actif** (`X-Client-Id`). Accès API : client admin **ou** `projects.update` (module Projets actif). UI paramétrage par client : **Administration client** → `/client/administration/microsoft-365`. Code API : `apps/api/src/modules/microsoft/` ; UI : `apps/web/src/features/microsoft-365/`.
+**Module `microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-005)** : OAuth délégué Microsoft 365, jetons stockés chiffrés (`MicrosoftConnection`). Routes : `/api/microsoft/auth/url`, `/api/microsoft/auth/callback`, `/api/microsoft/connection` ; **configuration plateforme** `GET|PATCH /api/platform/microsoft-settings` (redirect URI, scopes, timeouts — `PlatformAdminGuard`) ; **identifiants d’app Azure par client Starium** `GET|PUT /api/clients/active/microsoft-oauth` (`projects.update`, client admin ou équivalent). Repli **environnement** si la DB est vide. UI client : **Administration client** → `/client/administration/microsoft-365` ; UI plateforme : `/admin/microsoft-settings`. Code : `apps/api/src/modules/microsoft/`, `apps/web/src/features/microsoft-365/`, `apps/web/src/app/(protected)/admin/microsoft-settings/`.
 
 L’architecture consolidée décrit bien ce découpage modulaire côté NestJS. 
 

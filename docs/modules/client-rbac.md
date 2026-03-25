@@ -123,8 +123,8 @@ apps/web/src/features/client-rbac/
 
 La logique est centralisée dans **`getXClientIdHeaderValue`** ([apps/web/src/lib/api-client.ts](../../apps/web/src/lib/api-client.ts)) :
 
-- **Règle** : toutes les URLs sous `/api/` reçoivent le header `X-Client-Id` si un client actif est défini, **sauf** les routes exclues (auth, me, platform, clients).
-- **Exclusions** : `/api/auth/`, `/api/me`, `/api/me/clients`, `/api/me/default-client`, `/api/platform/`, `/api/clients`.
+- **Règle** : toutes les URLs sous `/api/` reçoivent le header `X-Client-Id` si un client actif est défini, **sauf** les routes exclues (auth, me, platform, clients plateforme).
+- **Exclusions** : `/api/auth/`, `/api/me`, `/api/me/clients`, `/api/me/default-client`, `/api/platform/`, et **pour les clients** : `/api/clients` (liste / création) et `/api/clients/:id/...` **sauf** le préfixe **`/api/clients/active/`** (routes « client actif » : elles **envoient** `X-Client-Id`, requis par `ActiveClientGuard`).
 - Utilisée par `apiFetch` et par **createAuthenticatedFetch** ([authenticated-fetch.ts](../../apps/web/src/lib/authenticated-fetch.ts)), qui est le fetch utilisé par les appels métier.
 
 ---

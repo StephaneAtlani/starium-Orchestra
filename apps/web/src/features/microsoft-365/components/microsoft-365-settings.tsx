@@ -18,6 +18,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { ClientAzureAppCredentials } from './client-azure-app-credentials';
 
 const QUERY_KEY = 'microsoft-connection';
 
@@ -148,6 +149,9 @@ export function Microsoft365Settings() {
         description="Connexion OAuth au tenant Microsoft du client actif (consentement administrateur ou utilisateur selon votre Azure AD). Chaque client Starium configure sa propre connexion."
       />
 
+      <div className="space-y-6">
+        <ClientAzureAppCredentials />
+
       <Card className="max-w-2xl border-border/70">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -225,6 +229,7 @@ export function Microsoft365Settings() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </PageContainer>
   );
 }
