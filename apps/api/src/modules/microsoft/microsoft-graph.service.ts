@@ -17,6 +17,9 @@ import {
 
 const ENV_GRAPH_HTTP_TIMEOUT = 'MICROSOFT_GRAPH_HTTP_TIMEOUT_MS';
 
+/** Entrées de `new Headers(...)` sans dépendre du type DOM `HeadersInit` (utile si `lib` sans DOM). */
+type GraphFetchHeadersInit = ConstructorParameters<typeof Headers>[0];
+
 @Injectable()
 export class MicrosoftGraphService {
   private readonly logger = new Logger(MicrosoftGraphService.name);
@@ -550,9 +553,9 @@ export class MicrosoftGraphService {
   }
 
   private mergeJsonHeaders(
-    headers: HeadersInit | undefined,
+    headers: GraphFetchHeadersInit | undefined,
     body: unknown,
-  ): HeadersInit | undefined {
+  ): GraphFetchHeadersInit | undefined {
     if (body === undefined) {
       return headers;
     }
