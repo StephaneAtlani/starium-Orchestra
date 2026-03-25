@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { MicrosoftIntegrationAccessGuard } from '../../common/guards/microsoft-integration-access.guard';
@@ -37,6 +37,18 @@ export class ProjectMicrosoftLinksController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.microsoftLinks.upsertConfig(clientId!, projectId, dto, context);
+  }
+
+  @Post('sync-tasks')
+  @RequirePermissions('projects.update')
+  syncTasks(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.microsoftLinks.syncTasks(clientId!, projectId, context);
   }
 }
 

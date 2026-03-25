@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+✅ Implémenté (sync tâches one-way)
 
 ## Priorité
 
@@ -32,10 +32,17 @@ Spécifier la synchronisation **one-way Starium → Planner** pour les `ProjectT
   * si mapping existe : `PATCH` Planner task (ou équivalent Graph) pour refléter Starium.
 * Champs MVP à mapper : titre, description, échéance, statut / priorité (table de correspondance explicite Starium `ProjectTaskStatus` / `ProjectTaskPriority` ↔ Planner).
 
+Règles normatives d’état et d’erreurs :
+* Après `POST` OK (retour de `plannerTaskId`) : créer le mapping en `syncStatus=PENDING` ; ne passer en `SYNCED` qu’après la synchro complète `task` + `details`.
+* Si échec après retour de `plannerTaskId` mais avant fin complète : conserver le mapping et passer `syncStatus=ERROR` avec `lastError`.
+* Si la création Planner échoue avant retour d’un `plannerTaskId` : ne créer aucun mapping.
+* Les ETags Graph sont distincts pour `plannerTask` et `plannerTaskDetails` : chaque `PATCH` utilise le bon `If-Match`.
+
 ## 3. Statuts et erreurs
 
 * `syncStatus` : `PENDING` → `SYNCED` ou `ERROR` ; `lastError` renseigné en cas d’échec.
-* Échec Graph sur une tâche : **ne pas** supprimer la `ProjectTask` Starium ; continuer ou arrêter le batch selon politique (documenter : tout ou rien vs meilleur effort).
+* Échec Graph sur une tâche : **ne pas** supprimer la `ProjectTask` Starium ; arrêter le batch au 1er échec (politique stop).
+* `ProjectMicrosoftLink.lastSyncAt` est mis à jour uniquement en cas de succès complet du batch (sinon inchangé).
 
 ## 4. Permissions et scope
 

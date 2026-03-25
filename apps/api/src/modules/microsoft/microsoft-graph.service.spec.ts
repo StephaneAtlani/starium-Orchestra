@@ -206,6 +206,44 @@ describe('MicrosoftGraphService', () => {
     expect(urls[2]).toBe(`${MICROSOFT_GRAPH_BASE_URL}/me`);
   });
 
+  it('planner task helper : renvoie JSON + ETag', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse(
+        200,
+        JSON.stringify({ id: 'task-1', title: 'T' }),
+        { etag: 'W/"task-etag"' },
+      ),
+    );
+    const svc = await createService();
+    const res = await svc.getPlannerTaskWithEtag('tok', 'task-1');
+
+    expect(res.json).toEqual({ id: 'task-1', title: 'T' });
+    expect(res.etag).toBe('W/"task-etag"');
+
+    const url = (global.fetch as jest.Mock).mock.calls[0][0];
+    expect(url).toBe(`${MICROSOFT_GRAPH_BASE_URL}/planner/tasks/task-1`);
+  });
+
+  it('planner task details helper : renvoie JSON + ETag', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse(
+        200,
+        JSON.stringify({ id: 'task-1', description: 'D' }),
+        { etag: 'W/"details-etag"' },
+      ),
+    );
+    const svc = await createService();
+    const res = await svc.getPlannerTaskDetailsWithEtag('tok', 'task-1');
+
+    expect(res.json).toEqual({ id: 'task-1', description: 'D' });
+    expect(res.etag).toBe('W/"details-etag"');
+
+    const url = (global.fetch as jest.Mock).mock.calls[0][0];
+    expect(url).toBe(
+      `${MICROSOFT_GRAPH_BASE_URL}/planner/tasks/task-1/details`,
+    );
+  });
+
   it('requestForConnection appelle ensureFreshAccessToken(connectionId, clientId)', async () => {
     const ensureFresh = jest.fn().mockResolvedValue('ftok');
     global.fetch = jest

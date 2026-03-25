@@ -79,7 +79,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | 5 | **RFC-PROJ-INT-005** | Connexion client | API connexion / révocation | ✅ Implémenté | `MicrosoftAuthController` + callback ; tests service + `microsoft-auth.controller.spec.ts` ; UI `microsoft-365-settings` alignée guard |
 | 6 | **RFC-PROJ-INT-006** | Sélection ressources | Teams, canaux, plans — spike requis | 🟡 Partiel (implémenté routes, tests service partiels) | pas de promesse « plan par canal » |
 | 7 | **RFC-PROJ-INT-007** | Lien projet | `ProjectMicrosoftLink` GET/PUT | ✅ Implémenté | PUT sans validation Graph bloquante ; mode permissif `isEnabled=false` |
-| 8 | **RFC-PROJ-INT-008** | Sync tâches → Planner | One-way, mapping | Draft | |
+| 8 | **RFC-PROJ-INT-008** | Sync tâches → Planner | One-way, mapping | ✅ Implémenté | `ProjectTaskMicrosoftSync` + sync Graph (task + details, ETags distincts) |
 | 9 | **RFC-PROJ-INT-009** | Sync documents → Teams | Extension | Draft | dépend `ProjectDocument` |
 
 ---

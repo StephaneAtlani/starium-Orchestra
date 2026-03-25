@@ -76,6 +76,35 @@ export class MicrosoftGraphService {
     });
   }
 
+  /**
+   * Planner task (ETag de la ressource `plannerTask`).
+   *
+   * ETags séparés : `GET /planner/tasks/{id}` et `GET /planner/tasks/{id}/details`
+   * peuvent avoir des ETags différents côté Microsoft Graph.
+   */
+  async getPlannerTaskWithEtag<T = unknown>(
+    accessToken: string,
+    taskId: string,
+  ): Promise<{ json: T | void; etag?: string }> {
+    return this.getJsonWithEtagInternal<T>(
+      accessToken,
+      `planner/tasks/${taskId}`,
+    );
+  }
+
+  /**
+   * Planner task details (ETag de la ressource `plannerTaskDetails`).
+   */
+  async getPlannerTaskDetailsWithEtag<T = unknown>(
+    accessToken: string,
+    taskId: string,
+  ): Promise<{ json: T | void; etag?: string }> {
+    return this.getJsonWithEtagInternal<T>(
+      accessToken,
+      `planner/tasks/${taskId}/details`,
+    );
+  }
+
   postJson<T>(
     accessToken: string,
     path: string,
@@ -124,6 +153,27 @@ export class MicrosoftGraphService {
   buildGraphUrl(path: string): string {
     const normalized = normalizeGraphPath(path);
     return `${MICROSOFT_GRAPH_BASE_URL}/${normalized}`;
+  }
+
+  private async getJsonWithEtagInternal<T>(
+    accessToken: string,
+    path: string,
+  ): Promise<{ json: T | void; etag?: string }> {
+    const url = this.buildGraphUrl(path);
+    let res: Response;
+    try {
+      res = await this.fetchOnce(accessToken, url, { method: 'GET' });
+    } catch (e: unknown) {
+      throw this.toNetworkGraphError(e);
+    }
+
+    if (!res.ok) {
+      await this.throwNormalizedError(res, undefined);
+    }
+
+    const etag = res.headers.get('etag') ?? res.headers.get('ETag') ?? undefined;
+    const json = await this.parseSuccessBody<T>(res, true);
+    return { json, etag };
   }
 
   private mergeJsonHeaders(

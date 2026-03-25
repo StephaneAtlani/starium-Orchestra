@@ -67,6 +67,12 @@ enum MicrosoftAuthMode {
   DELEGATED
 }
 
+enum MicrosoftSyncStatus {
+  PENDING
+  SYNCED
+  ERROR
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -127,6 +133,7 @@ model Client {
   resources                     Resource[]
   microsoftConnections          MicrosoftConnection[]
   projectMicrosoftLinks         ProjectMicrosoftLink[]
+  projectTaskSyncs             ProjectTaskMicrosoftSync[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -654,6 +661,7 @@ model Project {
   owner    User?  @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   portfolioCategory ProjectPortfolioCategory? @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
   microsoftLink ProjectMicrosoftLink?
+  microsoftTaskSyncs ProjectTaskMicrosoftSync[]
 
   tasks       ProjectTask[]
   risks       ProjectRisk[]
@@ -961,6 +969,8 @@ model ProjectTask {
   activities               ProjectActivity[]
   milestones               ProjectMilestone[]
   projectReviewActionItems ProjectReviewActionItem[]
+
+  microsoftTaskSync ProjectTaskMicrosoftSync?
 
   @@index([clientId])
   @@index([projectId])
@@ -2013,6 +2023,34 @@ model ProjectMicrosoftLink {
   project               Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
   microsoftConnection   MicrosoftConnection? @relation(fields: [microsoftConnectionId], references: [id], onDelete: SetNull)
 
+  taskSyncs ProjectTaskMicrosoftSync[]
+
   @@index([clientId])
   @@index([microsoftConnectionId])
+}
+
+model ProjectTaskMicrosoftSync {
+  id String @id @default(cuid())
+
+  clientId              String
+  projectId             String
+  projectTaskId         String @unique
+  projectMicrosoftLinkId String
+
+  plannerTaskId         String
+  lastPushedAt          DateTime?
+  syncStatus            MicrosoftSyncStatus @default(PENDING)
+  lastError             String?
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectTask ProjectTask @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
+  projectMicrosoftLink ProjectMicrosoftLink @relation(fields: [projectMicrosoftLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, projectTaskId])
+  @@index([clientId, projectId])
+  @@index([plannerTaskId])
 }

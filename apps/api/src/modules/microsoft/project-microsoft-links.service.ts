@@ -10,10 +10,22 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import { MicrosoftOAuthService } from './microsoft-oauth.service';
 import type { UpdateProjectMicrosoftLinkDto } from './dto/update-project-microsoft-link.dto';
-import { MicrosoftConnectionStatus } from '@prisma/client';
+import {
+  MicrosoftConnectionStatus,
+  ProjectTaskPriority,
+  ProjectTaskStatus,
+  MicrosoftSyncStatus,
+} from '@prisma/client';
+import { MicrosoftGraphService } from './microsoft-graph.service';
+import {
+  type MicrosoftGraphODataListResponse,
+  MicrosoftGraphHttpError,
+} from './microsoft-graph.types';
 
 const AUDIT_ACTION_ENABLED = 'project.microsoft_link.enabled';
 const AUDIT_ACTION_UPDATED = 'project.microsoft_link.updated';
+const AUDIT_ACTION_TASKS_SYNCED = 'project.microsoft_tasks.synced';
+const AUDIT_ACTION_TASK_SYNC_FAILED = 'project.microsoft_sync.failed';
 const AUDIT_RESOURCE_TYPE = 'project';
 
 export type ProjectMicrosoftLinkConfig = Pick<
@@ -34,12 +46,19 @@ export type ProjectMicrosoftLinkConfig = Pick<
   | 'updatedAt'
 >;
 
+export type SyncTasksResult = {
+  total: number;
+  synced: number;
+  failed: number;
+};
+
 @Injectable()
 export class ProjectMicrosoftLinksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly microsoftOAuth: MicrosoftOAuthService,
+    private readonly graph: MicrosoftGraphService,
   ) {}
 
   async getConfig(
@@ -220,6 +239,390 @@ export class ProjectMicrosoftLinksService {
     }
 
     return updated;
+  }
+
+  async syncTasks(
+    clientId: string,
+    projectId: string,
+    context?: AuditContext,
+  ): Promise<SyncTasksResult> {
+    // 1) Scope project
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, clientId },
+      select: { id: true },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    // 2) Load project link + validation
+    const link = await this.prisma.projectMicrosoftLink.findFirst({
+      where: { projectId, clientId },
+    });
+    if (!link) {
+      throw new NotFoundException('Microsoft link not configured');
+    }
+    if (link.isEnabled !== true || link.syncTasksEnabled !== true) {
+      throw new UnprocessableEntityException(
+        'Sync tâches Microsoft désactivée pour ce projet',
+      );
+    }
+    if (!link.plannerPlanId || !link.microsoftConnectionId) {
+      throw new UnprocessableEntityException(
+        'Configuration Microsoft projet incomplète (plannerPlanId / connexion requise)',
+      );
+    }
+
+    // 3) Access token
+    const accessToken = await this.microsoftOAuth.ensureFreshAccessToken(
+      link.microsoftConnectionId,
+      clientId,
+    );
+
+    // 4) Planner buckets (for status -> bucket)
+    type PlannerBucket = { id: string; name: string };
+    const bucketsResp = await this.graph.getJson<
+      MicrosoftGraphODataListResponse<PlannerBucket>
+    >(accessToken, `planner/plans/${link.plannerPlanId}/buckets`, {
+      expectJson: true,
+    });
+    const buckets = bucketsResp?.value ?? [];
+    if (buckets.length === 0) {
+      throw new UnprocessableEntityException(
+        'Aucun bucket Planner trouvé pour le plan configuré',
+      );
+    }
+
+    const mapPriority = (p: ProjectTaskPriority): number => {
+      switch (p) {
+        case ProjectTaskPriority.CRITICAL:
+          return 1;
+        case ProjectTaskPriority.HIGH:
+          return 3;
+        case ProjectTaskPriority.MEDIUM:
+          return 5;
+        case ProjectTaskPriority.LOW:
+        default:
+          return 9;
+      }
+    };
+
+    const resolveDueDateTime = (t: {
+      plannedEndDate: Date | null;
+      actualEndDate: Date | null;
+    }): string | undefined => {
+      const dt = t.actualEndDate ?? t.plannedEndDate;
+      return dt ? dt.toISOString() : undefined;
+    };
+
+    const resolveBucketId = (
+      status: ProjectTaskStatus,
+    ): string => {
+      const exact = buckets.find((b) => b.name === status);
+      if (exact) return exact.id;
+      if (status === ProjectTaskStatus.TODO) return buckets[0].id;
+      if (status === ProjectTaskStatus.DONE)
+        return buckets[buckets.length - 1].id;
+      return buckets[0].id;
+    };
+
+    // 5) Load tasks in deterministic order
+    const tasks = await this.prisma.projectTask.findMany({
+      where: { clientId, projectId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        plannedEndDate: true,
+        actualEndDate: true,
+        status: true,
+        priority: true,
+      },
+    });
+
+    const taskIds = tasks.map((t) => t.id);
+
+    // 6) Load mappings with strict scope + deterministic order
+    const existingSyncs = await this.prisma.projectTaskMicrosoftSync.findMany({
+      where: {
+        clientId,
+        projectId,
+        projectTaskId: { in: taskIds },
+      },
+      orderBy: [{ projectTaskId: 'asc' }],
+      select: {
+        id: true,
+        projectTaskId: true,
+        plannerTaskId: true,
+      },
+    });
+    const syncByTaskId = new Map(
+      existingSyncs.map((s) => [s.projectTaskId, s]),
+    );
+
+    let synced = 0;
+    let failed = 0;
+    let stopError: unknown = null;
+
+    // 7) Process tasks (stop au 1er échec)
+    for (const task of tasks) {
+      const mapping = syncByTaskId.get(task.id);
+
+      const bucketId = resolveBucketId(task.status);
+      const priority = mapPriority(task.priority);
+      const dueDateTime = resolveDueDateTime(task);
+
+      if (!mapping) {
+        // Create Planner task first, then create mapping as PENDING, then sync full.
+        let plannerTaskId: string | undefined;
+        try {
+          const created = await this.graph.postJson<{ id: string }>(
+            accessToken,
+            'planner/tasks',
+            {
+              planId: link.plannerPlanId,
+              bucketId,
+              title: task.name,
+              ...(dueDateTime ? { dueDateTime } : {}),
+              priority,
+            },
+            { expectJson: true },
+          );
+
+          if (!created || !('id' in created) || !created.id) {
+            // Creation succeeded but no plannerTaskId returned => no mapping.
+            throw new Error('plannerTaskId manquant après création Planner');
+          }
+          plannerTaskId = created.id;
+
+          await this.prisma.projectTaskMicrosoftSync.create({
+            data: {
+              clientId,
+              projectId,
+              projectTaskId: task.id,
+              projectMicrosoftLinkId: link.id,
+              plannerTaskId,
+              syncStatus: MicrosoftSyncStatus.PENDING,
+              lastError: null,
+            },
+          });
+
+          // Task PATCH uses ETag of plannerTask
+          const taskWithEtag = await this.graph.getPlannerTaskWithEtag<
+            unknown
+          >(accessToken, plannerTaskId);
+          if (!taskWithEtag.etag) {
+            throw new Error('ETag manquant pour plannerTask');
+          }
+
+          await this.graph.patchJson(
+            accessToken,
+            `planner/tasks/${plannerTaskId}`,
+            {
+              title: task.name,
+              bucketId,
+              ...(dueDateTime ? { dueDateTime } : {}),
+              priority,
+            },
+            {
+              headers: { 'If-Match': taskWithEtag.etag },
+            },
+          );
+
+          // Details PATCH uses ETag of plannerTaskDetails
+          const detailsWithEtag = await this.graph.getPlannerTaskDetailsWithEtag<
+            unknown
+          >(accessToken, plannerTaskId);
+          if (!detailsWithEtag.etag) {
+            throw new Error('ETag manquant pour plannerTaskDetails');
+          }
+
+          await this.graph.patchJson(
+            accessToken,
+            `planner/tasks/${plannerTaskId}/details`,
+            {
+              description: task.description ?? '',
+            },
+            {
+              headers: { 'If-Match': detailsWithEtag.etag },
+            },
+          );
+
+          await this.prisma.projectTaskMicrosoftSync.update({
+            where: {
+              clientId_projectTaskId: {
+                clientId,
+                projectTaskId: task.id,
+              },
+            },
+            data: {
+              syncStatus: MicrosoftSyncStatus.SYNCED,
+              lastPushedAt: new Date(),
+              lastError: null,
+            },
+          });
+
+          synced++;
+        } catch (e: unknown) {
+          failed++;
+          stopError = e;
+
+          const lastError = this.normalizeSyncError(e);
+
+          // Mapping must exist if plannerTaskId was returned; update to ERROR.
+          if (plannerTaskId) {
+            await this.prisma.projectTaskMicrosoftSync.update({
+              where: {
+                clientId_projectTaskId: {
+                  clientId,
+                  projectTaskId: task.id,
+                },
+              },
+              data: {
+                syncStatus: MicrosoftSyncStatus.ERROR,
+                lastError,
+              },
+            });
+          }
+
+          await this.auditLogs.create({
+            clientId,
+            userId: context?.actorUserId,
+            action: AUDIT_ACTION_TASK_SYNC_FAILED,
+            resourceType: AUDIT_RESOURCE_TYPE,
+            resourceId: task.id,
+            newValue: { lastError },
+            ipAddress: context?.meta?.ipAddress,
+            userAgent: context?.meta?.userAgent,
+            requestId: context?.meta?.requestId,
+          });
+
+          break;
+        }
+      } else {
+        // Update Planner task using mapping.
+        try {
+          const plannerTaskId = mapping.plannerTaskId;
+
+          // ETags: task and details are retrieved separately.
+          const taskWithEtag = await this.graph.getPlannerTaskWithEtag<
+            unknown
+          >(accessToken, plannerTaskId);
+          if (!taskWithEtag.etag) {
+            throw new Error('ETag manquant pour plannerTask');
+          }
+
+          await this.graph.patchJson(
+            accessToken,
+            `planner/tasks/${plannerTaskId}`,
+            {
+              title: task.name,
+              bucketId,
+              ...(dueDateTime ? { dueDateTime } : {}),
+              priority,
+            },
+            { headers: { 'If-Match': taskWithEtag.etag } },
+          );
+
+          const detailsWithEtag =
+            await this.graph.getPlannerTaskDetailsWithEtag<unknown>(
+              accessToken,
+              plannerTaskId,
+            );
+          if (!detailsWithEtag.etag) {
+            throw new Error('ETag manquant pour plannerTaskDetails');
+          }
+
+          await this.graph.patchJson(
+            accessToken,
+            `planner/tasks/${plannerTaskId}/details`,
+            {
+              description: task.description ?? '',
+            },
+            { headers: { 'If-Match': detailsWithEtag.etag } },
+          );
+
+          await this.prisma.projectTaskMicrosoftSync.update({
+            where: {
+              clientId_projectTaskId: {
+                clientId,
+                projectTaskId: task.id,
+              },
+            },
+            data: {
+              syncStatus: MicrosoftSyncStatus.SYNCED,
+              lastPushedAt: new Date(),
+              lastError: null,
+            },
+          });
+
+          synced++;
+        } catch (e: unknown) {
+          failed++;
+          stopError = e;
+
+          const lastError = this.normalizeSyncError(e);
+
+          await this.prisma.projectTaskMicrosoftSync.update({
+            where: {
+              clientId_projectTaskId: {
+                clientId,
+                projectTaskId: task.id,
+              },
+            },
+            data: {
+              syncStatus: MicrosoftSyncStatus.ERROR,
+              lastError,
+            },
+          });
+
+          await this.auditLogs.create({
+            clientId,
+            userId: context?.actorUserId,
+            action: AUDIT_ACTION_TASK_SYNC_FAILED,
+            resourceType: AUDIT_RESOURCE_TYPE,
+            resourceId: task.id,
+            newValue: { lastError },
+            ipAddress: context?.meta?.ipAddress,
+            userAgent: context?.meta?.userAgent,
+            requestId: context?.meta?.requestId,
+          });
+
+          break;
+        }
+      }
+    }
+
+    // 8) Audit + lastSyncAt seulement si succès complet
+    if (stopError === null) {
+      await this.prisma.projectMicrosoftLink.update({
+        where: { id: link.id },
+        data: { lastSyncAt: new Date() },
+      });
+
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: AUDIT_ACTION_TASKS_SYNCED,
+        resourceType: AUDIT_RESOURCE_TYPE,
+        resourceId: projectId,
+        newValue: { total: tasks.length, synced },
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
+    }
+
+    return { total: tasks.length, synced, failed };
+  }
+
+  private normalizeSyncError(e: unknown): string {
+    if (e instanceof MicrosoftGraphHttpError) {
+      return e.graphMessage ?? e.graphCode ?? e.message;
+    }
+    if (e instanceof Error) return e.message;
+    return 'Erreur inconnue de sync Planner';
   }
 }
 
