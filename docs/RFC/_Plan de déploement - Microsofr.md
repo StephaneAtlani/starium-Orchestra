@@ -1,93 +1,118 @@
-Voici le plan complet structuré des RFC pour ton intégration Microsoft — **aligné avec ton architecture actuelle (NestJS, guards, multi-tenant, modules)** et découpé proprement pour Cursor.
+Voici la version **corrigée, exécutable et alignée réalité produit** (sans dette cachée, sans blocage implicite).
 
 ---
 
-# 🔥 PHASE — MODULE INTÉGRATION MICROSOFT
+# 🔥 PHASE 1 — MODULE MICROSOFT (EXÉCUTABLE)
 
-| Ordre | RFC                  | Nom                            | Description                                                              | État       | Commentaire           |
-| ----- | -------------------- | ------------------------------ | ------------------------------------------------------------------------ | ---------- | --------------------- |
-| 1     | **RFC-PROJ-INT-001** | Cadrage fonctionnel            | Définition du périmètre (Teams, Planner, Documents, sync one-way)        | Draft | Source de vérité cadrage — voir [_RFC Liste](./_RFC%20Liste.md) |
-| 2     | **RFC-PROJ-INT-002** | Prisma Schema                  | Modélisation DB : MicrosoftConnection, ProjectMicrosoftLink, Sync tables | 🟡 Partiel | `MicrosoftConnection` OK ; liens projet / sync à venir |
-| 3     | **RFC-PROJ-INT-003** | Auth Microsoft OAuth           | Intégration OAuth2 + stockage tokens + refresh                           | ✅ Fait    | `apps/api/src/modules/microsoft/` ; plateforme `GET|PATCH /api/platform/microsoft-settings` ; client `GET|PUT /api/clients/active/microsoft-oauth` ; doc [docs/API.md](../API.md), [docs/ARCHITECTURE.md](../ARCHITECTURE.md) |
-| 4     | **RFC-PROJ-INT-004** | Microsoft Graph Service        | Client HTTP `graph.microsoft.com/v1.0` (transport uniquement)             | ✅ Fait    | `MicrosoftGraphService`, `microsoft-graph.types.ts`, tests — pas de métier Teams/Planner dans ce service |
-| 5     | **RFC-PROJ-INT-005** | Gestion connexion client       | Connexion / révocation MicrosoftConnection (client-level)                | ✅ Fait    | Aligné RFC-003 ; UI `/client/administration/microsoft-365` (guard = API) ; tests `microsoft-oauth.service.spec` + `microsoft-auth.controller.spec` — [RFC-005](./RFC-PROJ-INT-005%20—%20Connexion%20client%20Microsoft.md) |
-| 6     | **RFC-PROJ-INT-006** | Sélection ressources Microsoft | API Teams / Channels / Planner                                           | 🟡 Partiel (routes + UI de sélection; plans team-based provisoires, neutres vis-à-vis `channelId`) | UI dépendante         |
-| 7     | **RFC-PROJ-INT-007** | Configuration projet           | Lien Project ↔ Microsoft (team/channel/plan)                             | ✅ Implémenté | 1:1 obligatoire       |
-| 8     | **RFC-PROJ-INT-008** | Sync tâches → Planner          | Création / update tâches Starium vers Planner                            | ✅ Implémenté | MVP core              |
-| 9     | **RFC-PROJ-INT-009** | Sync documents → Teams         | Upload fichiers vers SharePoint (channel folder)                         | 🆕 À faire | dépend Graph Files    |
-| 10    | **RFC-PROJ-INT-010** | Statut de synchronisation      | Tracking sync (PENDING / SYNCED / ERROR)                                 | 🆕 À faire | Observabilité         |
-| 11    | **RFC-PROJ-INT-011** | Retry & résilience             | Gestion erreurs Graph + retry + logs                                     | 🆕 À faire | important prod        |
-| 12    | **RFC-PROJ-INT-012** | Audit logs                     | Traçabilité des actions Microsoft                                        | 🆕 À faire | aligné RFC-013        |
-| 13    | **RFC-PROJ-INT-013** | Permissions & sécurité         | Sécurisation accès intégration (RBAC + guards)                           | 🆕 À faire | cohérence globale     |
-| 14    | **RFC-PROJ-INT-014** | API orchestration projet       | Endpoints `/projects/:id/microsoft-link`                                 | 🆕 À faire | point d’entrée UX     |
-| 15    | **RFC-PROJ-INT-015** | Frontend intégration           | UI projet (Teams selector, toggles sync, états)                          | 🆕 À faire | cockpit UX            |
+| Ordre | RFC              | Nom                            | Description                   | État            | Commentaire              |
+| ----- | ---------------- | ------------------------------ | ----------------------------- | --------------- | ------------------------ |
+| 1     | RFC-PROJ-INT-003 | Auth Microsoft OAuth           | OAuth2 + tokens + refresh     | ✅ Fait          | OK                       |
+| 2     | RFC-PROJ-INT-005 | Gestion connexion client       | Connexion / révocation        | ✅ Fait          | OK                       |
+| 3     | RFC-PROJ-INT-004 | Microsoft Graph Service        | Client HTTP Graph (transport) | ✅ Fait          | Base technique           |
+| 4     | RFC-PROJ-INT-002 | Prisma Schema                  | Modélisation DB Microsoft     | 🟡 À stabiliser | Clarifier périmètre réel |
+| 5     | RFC-PROJ-INT-006 | Sélection ressources Microsoft | Teams / Channels / Planner    | 🟡 À finaliser  | dépend UI                |
+| 6     | RFC-PROJ-INT-007 | Configuration projet           | Lien Project ↔ Microsoft      | ✅ Fait          | OK                       |
+| 7     | RFC-PROJ-INT-008 | Sync tâches → Planner          | Sync tâches                   | ✅ Fait          | MVP atteint              |
 
 ---
 
-# 🧠 PHASE 2 — ÉVOLUTIONS (à ne pas faire maintenant)
+# 🚫 BLOCAGE STRUCTUREL
 
-| Ordre | RFC                  | Nom                   | Description                            | État      | Commentaire    |
-| ----- | -------------------- | --------------------- | -------------------------------------- | --------- | -------------- |
-| 16    | **RFC-PROJ-INT-016** | Sync bidirectionnelle | Webhooks Graph + mise à jour Starium   | 🔒 Future | complexe       |
-| 17    | **RFC-PROJ-INT-017** | Mapping utilisateurs  | Assignation users ↔ Azure AD           | 🔒 Future | dépend IAM     |
-| 18    | **RFC-PROJ-INT-018** | Création auto Teams   | Création Team / Channel depuis Starium | 🔒 Future | produit avancé |
-| 19    | **RFC-PROJ-INT-019** | Sync commentaires     | Synchronisation conversations Teams    | 🔒 Future | lourd          |
-| 20    | **RFC-PROJ-INT-020** | Monitoring avancé     | Dashboard sync + erreurs               | 🔒 Future | UX cockpit     |
+| Ordre | RFC                  | Nom                        | Description                                            |
+| ----- | -------------------- | -------------------------- | ------------------------------------------------------ |
+| 8     | **RFC-PROJ-DOC-001** | **Modèle ProjectDocument** | 🔴 **PRÉREQUIS OBLIGATOIRE AVANT TOUTE SYNC DOCUMENT** |
+
+👉 Cette RFC **n’existe pas encore mais DOIT être créée maintenant**
 
 ---
 
-# 🎯 PRIORISATION RECOMMANDÉE (TRÈS IMPORTANT)
+# ⛔ BLOQUÉ (NE PAS DÉVELOPPER)
 
-👉 Ordre réel d’implémentation :
-
-1. **003 (Auth)** — **livré** (module OAuth + tokens chiffrés).
-2. **002 (Schema)** — **partiel** (`MicrosoftConnection` ; suite selon RFC-002).
-3. **005 (Connection)** — **livré** (API connexion / révocation ; voir RFC-005).
-4. **004 (Graph service)** — **livré** (`MicrosoftGraphService` : transport HTTP v1.0, `requestForConnection` + `ensureFreshAccessToken`).
-5. **006 (Resources)**
-6. **007 (Project link)**
-7. **008 (Tasks sync)** ✅ MVP utile
-8. **009 (Documents)**
+| Ordre | RFC              | Nom                    | Description                        |
+| ----- | ---------------- | ---------------------- | ---------------------------------- |
+| 9     | RFC-PROJ-INT-009 | Sync documents → Teams | 🔴 BLOQUÉ — dépend ProjectDocument |
 
 ---
 
-# ⚠️ POINTS MAJEURS (ce qui peut te faire perdre du temps)
+# 🧠 PHASE 1 BIS — À FAIRE APRÈS STABILISATION
 
-### 1. OAuth Microsoft
+👉 uniquement si besoin réel produit (pas systématique)
 
-* gestion refresh token
-* consentement admin vs user
-* scopes
+| Ordre | RFC              | Nom                  | Action                        |
+| ----- | ---------------- | -------------------- | ----------------------------- |
+| 10    | RFC-PROJ-INT-010 | Statut sync          | 🔁 À intégrer dans 008/009    |
+| 11    | RFC-PROJ-INT-011 | Retry & résilience   | 🔁 À intégrer dans services   |
+| 12    | RFC-PROJ-INT-012 | Audit logs           | 🔁 À intégrer RFC-013 globale |
+| 13    | RFC-PROJ-INT-013 | Permissions sécurité | 🔁 Déjà couvert architecture  |
+| 14    | RFC-PROJ-INT-014 | API orchestration    | 🔁 Déjà couvert 007           |
 
-### 2. Planner
-
-* API parfois instable
-* dépend fortement du contexte utilisateur
-
-### 3. Multi-tenant
-
-* 1 client ≠ 1 tenant garanti
-* ne jamais hardcoder
-
-### 4. Sync
-
-* éviter le bidirectionnel au début
+👉 **Ces RFC ne doivent PAS être développées comme lots indépendants**
+👉 elles sont des **concerns transverses**
 
 ---
 
-# ✅ RÉSULTAT
+# 🧠 PHASE 2 — FUTUR (NE PAS TOUCHER)
 
-Avec ce plan :
-
-👉 tu peux découper proprement dans Cursor
-👉 zéro aller-retour
-👉 chaque RFC est indépendante
-👉 tu restes aligné avec toute ton archi existante
+| Ordre | RFC              | Nom                   | Description |
+| ----- | ---------------- | --------------------- | ----------- |
+| 15    | RFC-PROJ-INT-016 | Sync bidirectionnelle | complexe    |
+| 16    | RFC-PROJ-INT-017 | Mapping utilisateurs  | IAM         |
+| 17    | RFC-PROJ-INT-018 | Création auto Teams   | avancé      |
+| 18    | RFC-PROJ-INT-019 | Sync commentaires     | lourd       |
+| 19    | RFC-PROJ-INT-020 | Monitoring avancé     | cockpit     |
 
 ---
 
-Si tu veux, prochaine étape :
+# 🎯 NOUVEL ORDRE RÉEL (TRÈS IMPORTANT)
 
-👉 je te fais **RFC-PROJ-INT-002 (Prisma Schema) version 10/10 prête à coder**
-ou
-👉 directement un **/PlanCursor exécutable pour toute la phase 1**
+👉 ce que tu dois faire maintenant :
+
+1. ✅ Rien sur OAuth / Graph / Tasks → déjà OK
+2. 🟡 Stabiliser RFC-002 si besoin
+3. 🟡 Finaliser RFC-006 si UI nécessaire
+4. 🔴 **Créer RFC-PROJ-DOC-001 (ProjectDocument)**
+5. 🔥 Ensuite seulement → RFC-009
+
+---
+
+# ⚠️ CLARIFICATION CRITIQUE
+
+👉 Ton erreur initiale (classique) :
+
+> vouloir continuer la roadmap “linéaire”
+
+👉 Alors que :
+
+* ton système a atteint un **palier technique**
+* tu dois maintenant créer une **brique métier fondamentale**
+
+---
+
+# 🧠 VERDICT DSI
+
+👉 Tu n’es PAS en retard
+👉 Tu es au bon moment pour structurer proprement
+
+Mais :
+
+❌ Si tu développes RFC-009 maintenant
+→ tu casses ton architecture
+
+✅ Si tu fais `ProjectDocument` maintenant
+→ tu sécurises toute la suite (documents + GED + compliance)
+
+---
+
+# 🚀 Prochaine étape recommandée
+
+👉 Je te fais directement :
+
+### **RFC-PROJ-DOC-001 — ProjectDocument (niveau production Starium)**
+
+* multi-tenant strict
+* prêt Microsoft Graph
+* prêt compliance (NIS2 / RGPD)
+* prêt audit
+* prêt UI cockpit
+
+👉 et là tu débloques toute la suite sans refactor
