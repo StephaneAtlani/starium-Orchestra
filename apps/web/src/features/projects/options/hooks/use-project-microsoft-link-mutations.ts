@@ -25,6 +25,7 @@ export function useUpdateProjectMicrosoftLinkMutation(projectId: string) {
         qc.invalidateQueries({ queryKey: projectOptionsKeys.microsoftLink(clientId, projectId) }),
         qc.invalidateQueries({ queryKey: projectQueryKeys.detail(clientId, projectId) }),
         qc.invalidateQueries({ queryKey: projectQueryKeys.taskBuckets(clientId, projectId) }),
+        qc.invalidateQueries({ queryKey: projectQueryKeys.taskLabels(clientId, projectId) }),
       ]);
       toast.success('Configuration Microsoft enregistrée.');
     },
@@ -46,6 +47,7 @@ export function useTriggerTasksSyncMutation(projectId: string) {
       await Promise.all([
         qc.invalidateQueries({ queryKey: projectOptionsKeys.microsoftLink(clientId, projectId) }),
         qc.invalidateQueries({ queryKey: projectQueryKeys.tasks(clientId, projectId) }),
+        qc.invalidateQueries({ queryKey: projectQueryKeys.taskLabels(clientId, projectId) }),
       ]);
       toast.success('Synchronisation des tâches terminée.');
     },

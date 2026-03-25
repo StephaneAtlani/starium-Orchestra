@@ -22,6 +22,9 @@ export type ProjectMicrosoftLinkDto = {
   /** Buckets planning = colonnes Planner (remplace les buckets Starium). */
   useMicrosoftPlannerBuckets: boolean;
 
+  /** Labels planning (Planner categories) appliqués aux tâches (tâches uniquement). */
+  useMicrosoftPlannerLabels: boolean;
+
   lastSyncAt: string | null;
 
   createdAt: string;
@@ -42,6 +45,7 @@ export type UpdateProjectMicrosoftLinkPayload = {
   syncTasksEnabled?: boolean;
   syncDocumentsEnabled?: boolean;
   useMicrosoftPlannerBuckets?: boolean;
+  useMicrosoftPlannerLabels?: boolean;
 };
 
 export type SyncTasksResult = {

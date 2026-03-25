@@ -78,6 +78,7 @@ export class ProjectTasksService {
         take: limit,
         include: {
           checklistItems: { orderBy: { sortOrder: 'asc' } },
+          labelAssignments: { select: { labelId: true } },
         },
       }),
       this.prisma.projectTask.count({ where }),
@@ -93,6 +94,7 @@ export class ProjectTasksService {
       where: { id: taskId, clientId, projectId },
       include: {
         checklistItems: { orderBy: { sortOrder: 'asc' } },
+        labelAssignments: { select: { labelId: true } },
       },
     });
     if (!task) throw new NotFoundException('Task not found');
@@ -122,6 +124,18 @@ export class ProjectTasksService {
       dto.dependsOnTaskId ?? null,
     );
     await this.assertTaskBucketInProject(clientId, projectId, dto.bucketId ?? null);
+
+    const incomingTaskLabelIds =
+      dto.taskLabelIds !== undefined ? Array.from(new Set(dto.taskLabelIds)) : undefined;
+    if (incomingTaskLabelIds) {
+      const labels = await this.prisma.projectTaskLabel.findMany({
+        where: { clientId, projectId, id: { in: incomingTaskLabelIds } },
+        select: { id: true },
+      });
+      if (labels.length !== incomingTaskLabelIds.length) {
+        throw new BadRequestException('taskLabelIds: une ou plusieurs étiquettes sont inconnues');
+      }
+    }
 
     if (dto.dependsOnTaskId) {
       const cycle = await wouldTaskDependencyCreateCycle(
@@ -200,9 +214,21 @@ export class ProjectTasksService {
               },
             }
           : {}),
+        ...(incomingTaskLabelIds && incomingTaskLabelIds.length > 0
+          ? {
+              labelAssignments: {
+                create: incomingTaskLabelIds.map((labelId) => ({
+                  clientId,
+                  projectId,
+                  labelId,
+                })),
+              },
+            }
+          : {}),
       },
       include: {
         checklistItems: { orderBy: { sortOrder: 'asc' } },
+        labelAssignments: { select: { labelId: true } },
       },
     });
 
@@ -354,11 +380,15 @@ export class ProjectTasksService {
         dto.checklistItems,
       );
     }
+    if (dto.taskLabelIds !== undefined) {
+      await this.replaceTaskLabels(clientId, projectId, taskId, dto.taskLabelIds);
+    }
 
     const final = await this.prisma.projectTask.findFirstOrThrow({
       where: { id: taskId, clientId, projectId },
       include: {
         checklistItems: { orderBy: { sortOrder: 'asc' } },
+        labelAssignments: { select: { labelId: true } },
       },
     });
 
@@ -421,9 +451,12 @@ export class ProjectTasksService {
   }
 
   private mapTaskWithChecklist(
-    task: ProjectTask & { checklistItems?: ProjectTaskChecklistItem[] },
+    task: ProjectTask & {
+      checklistItems?: ProjectTaskChecklistItem[];
+      labelAssignments?: Array<{ labelId: string }>;
+    },
   ) {
-    const { checklistItems, ...rest } = task;
+    const { checklistItems, labelAssignments, ...rest } = task;
     return {
       ...rest,
       checklistItems:
@@ -433,6 +466,7 @@ export class ProjectTasksService {
           isChecked,
           sortOrder,
         })) ?? [],
+      taskLabelIds: labelAssignments?.map((a) => a.labelId) ?? [],
     };
   }
 
@@ -469,6 +503,42 @@ export class ProjectTasksService {
             isChecked: row.isChecked ?? false,
             sortOrder: row.sortOrder ?? idx,
             plannerChecklistItemKey: old?.plannerChecklistItemKey ?? randomUUID(),
+          },
+        });
+      }
+    });
+  }
+
+  private async replaceTaskLabels(
+    clientId: string,
+    projectId: string,
+    taskId: string,
+    incoming: string[],
+  ) {
+    const uniqueIncoming = Array.from(new Set(incoming));
+
+    if (uniqueIncoming.length > 0) {
+      const labels = await this.prisma.projectTaskLabel.findMany({
+        where: { clientId, projectId, id: { in: uniqueIncoming } },
+        select: { id: true },
+      });
+      if (labels.length !== uniqueIncoming.length) {
+        throw new BadRequestException('taskLabelIds: une ou plusieurs étiquettes sont inconnues');
+      }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectTaskLabelAssignment.deleteMany({
+        where: { clientId, projectId, projectTaskId: taskId },
+      });
+
+      for (const labelId of uniqueIncoming) {
+        await tx.projectTaskLabelAssignment.create({
+          data: {
+            clientId,
+            projectId,
+            projectTaskId: taskId,
+            labelId,
           },
         });
       }

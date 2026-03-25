@@ -99,4 +99,10 @@ export class UpdateProjectTaskDto {
   @ValidateNested({ each: true })
   @Type(() => ProjectTaskChecklistItemInputDto)
   checklistItems?: ProjectTaskChecklistItemInputDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(40)
+  @IsString({ each: true })
+  taskLabelIds?: string[];
 }

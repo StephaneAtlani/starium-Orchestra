@@ -51,6 +51,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       project: {
         findFirst: jest.fn(),
       },
+      $transaction: jest.fn(),
       projectMicrosoftLink: {
         findFirst: jest.fn(),
         update: jest.fn(),
@@ -82,6 +83,9 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
         create: jest.fn(),
         update: jest.fn(),
         findFirst: jest.fn(),
+      },
+      projectTaskLabel: {
+        count: jest.fn().mockResolvedValue(1),
       },
     } as any;
 
@@ -199,6 +203,97 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
     );
   });
 
+  it('upsertConfig : useMicrosoftPlannerLabels false->true => purge labels tasks (import Planner categories)', async () => {
+    const existing = baseLink({
+      isEnabled: false,
+      useMicrosoftPlannerLabels: false,
+      microsoftConnectionId: null,
+    });
+
+    prisma.project.findFirst.mockResolvedValue({ id: projectId });
+    prisma.projectMicrosoftLink.findFirst.mockResolvedValue(existing);
+
+    microsoftOAuth.getActiveConnection.mockResolvedValue({
+      id: 'conn-new',
+      status: MicrosoftConnectionStatus.ACTIVE,
+    });
+
+    prisma.projectMicrosoftLink.update.mockResolvedValue({
+      ...existing,
+      isEnabled: true,
+      useMicrosoftPlannerLabels: true,
+      microsoftConnectionId: 'conn-new',
+      plannerPlanId: 'plan-2',
+      teamId: 'team-2',
+      channelId: 'ch-2',
+    });
+
+    const spy = jest
+      .spyOn(service as any, 'replaceStariumTaskLabelsWithPlannerCategories')
+      .mockResolvedValue(undefined);
+
+    await service.upsertConfig(
+      clientId,
+      projectId,
+      {
+        isEnabled: true,
+        teamId: 'team-2',
+        channelId: 'ch-2',
+        plannerPlanId: 'plan-2',
+        syncTasksEnabled: true,
+        syncDocumentsEnabled: true,
+        useMicrosoftPlannerLabels: true,
+      } as any,
+      { actorUserId: 'u1', meta: {} },
+    );
+
+    expect(spy).toHaveBeenCalledWith(clientId, projectId);
+  });
+
+  it('upsertConfig : useMicrosoftPlannerLabels déjà true + 0 labels en base => réimport Planner categories', async () => {
+    const existing = baseLink({
+      isEnabled: true,
+      useMicrosoftPlannerLabels: true,
+      microsoftConnectionId: 'conn-1',
+      plannerPlanId: 'plan-1',
+      teamId: 'team-1',
+      channelId: 'ch-1',
+    });
+
+    prisma.project.findFirst.mockResolvedValue({ id: projectId });
+    prisma.projectMicrosoftLink.findFirst.mockResolvedValue(existing);
+    prisma.projectMicrosoftLink.update.mockResolvedValue({ ...existing });
+    prisma.projectTaskLabel.count.mockResolvedValue(0);
+    microsoftOAuth.getActiveConnection.mockResolvedValue({
+      id: 'conn-1',
+      status: MicrosoftConnectionStatus.ACTIVE,
+    });
+
+    const spy = jest
+      .spyOn(service as any, 'replaceStariumTaskLabelsWithPlannerCategories')
+      .mockResolvedValue(undefined);
+
+    await service.upsertConfig(
+      clientId,
+      projectId,
+      {
+        isEnabled: true,
+        teamId: 'team-1',
+        channelId: 'ch-1',
+        plannerPlanId: 'plan-1',
+        syncTasksEnabled: true,
+        syncDocumentsEnabled: true,
+        useMicrosoftPlannerLabels: true,
+      } as any,
+      { actorUserId: 'u1', meta: {} },
+    );
+
+    expect(prisma.projectTaskLabel.count).toHaveBeenCalledWith({
+      where: { clientId, projectId },
+    });
+    expect(spy).toHaveBeenCalledWith(clientId, projectId);
+  });
+
   it('upsertConfig : isEnabled=false => ne pas appeler getActiveConnection et ne pas purger IDs', async () => {
     const existing = baseLink({
       isEnabled: true,
@@ -257,6 +352,71 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
         resourceId: projectId,
       }),
     );
+  });
+
+  describe('replaceStariumTaskLabelsWithPlannerCategories', () => {
+    it('purge ProjectTaskLabel/assignations Starium puis upsert Planner categories', async () => {
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue({
+        plannerPlanId: 'plan-1',
+        microsoftConnectionId: 'conn-1',
+      });
+      microsoftOAuth.ensureFreshAccessToken.mockResolvedValue('access-token');
+
+      graph.getJson.mockResolvedValue({
+        categoryDescriptions: {
+          category2: 'Label B',
+          category1: 'Label A',
+          category3: '   ', // doit être filtré
+          category4: null,
+        },
+      });
+
+      const txMock = {
+        projectTaskLabelAssignment: {
+          deleteMany: jest.fn().mockResolvedValue(undefined),
+        },
+        projectTaskLabel: {
+          deleteMany: jest.fn().mockResolvedValue(undefined),
+          create: jest.fn().mockResolvedValue(undefined),
+        },
+      };
+
+      prisma.$transaction.mockImplementation(async (cb: any) => cb(txMock));
+
+      await (service as any).replaceStariumTaskLabelsWithPlannerCategories(
+        clientId,
+        projectId,
+      );
+
+      expect(txMock.projectTaskLabelAssignment.deleteMany).toHaveBeenCalledWith(
+        { where: { clientId, projectId } },
+      );
+      expect(txMock.projectTaskLabel.deleteMany).toHaveBeenCalledWith({
+        where: { clientId, projectId },
+      });
+      expect(txMock.projectTaskLabel.create).toHaveBeenCalledTimes(2);
+
+      expect(txMock.projectTaskLabel.create.mock.calls[0][0]).toEqual({
+        data: {
+          clientId,
+          projectId,
+          name: 'Label A',
+          color: null,
+          plannerCategoryId: 'category1',
+          sortOrder: 1,
+        },
+      });
+      expect(txMock.projectTaskLabel.create.mock.calls[1][0]).toEqual({
+        data: {
+          clientId,
+          projectId,
+          name: 'Label B',
+          color: null,
+          plannerCategoryId: 'category2',
+          sortOrder: 2,
+        },
+      });
+    });
   });
 
   describe('syncTasks — RFC-PROJ-INT-008', () => {
@@ -328,6 +488,196 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       expect(graph.patchJson.mock.calls[0][2]).toEqual(
         expect.objectContaining({ startDateTime: expectedStart }),
       );
+    });
+
+    it('envoie appliedCategories en POST + PATCH tâche Planner si useMicrosoftPlannerLabels=true', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      const link = baseLink({
+        isEnabled: true,
+        syncTasksEnabled: true,
+        useMicrosoftPlannerLabels: true,
+        plannerPlanId: 'plan-1',
+        microsoftConnectionId: 'conn-1',
+        lastSyncAt: null,
+      });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(link);
+
+      const task = {
+        id: 't1',
+        name: 'Task 1',
+        description: 'D1',
+        plannedStartDate: null,
+        actualStartDate: null,
+        ...baseTasks,
+        status: ProjectTaskStatus.TODO,
+        priority: ProjectTaskPriority.LOW,
+        labelAssignments: [
+          { label: { plannerCategoryId: 'category1' } },
+          { label: { plannerCategoryId: 'category2' } },
+        ],
+      };
+
+      prisma.projectTask.findMany.mockResolvedValue([task]);
+      prisma.projectTaskMicrosoftSync.findMany.mockResolvedValue([]);
+
+      graph.getJson.mockResolvedValue({ value: bucketTodos });
+      graph.postJson.mockResolvedValue({ id: 'planner-1' });
+      graph.getPlannerTaskWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'task-etag',
+      });
+      graph.getPlannerTaskDetailsWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'details-etag',
+      });
+      graph.patchJson.mockResolvedValue(undefined);
+
+      prisma.projectTaskMicrosoftSync.create.mockResolvedValue({ id: 'sync-1' });
+      prisma.projectTaskMicrosoftSync.update.mockResolvedValue({ id: 'sync-1' });
+      prisma.projectMicrosoftLink.update.mockResolvedValue(undefined);
+
+      await service.syncTasks(clientId, projectId, {
+        actorUserId: 'u1',
+        meta: {},
+      } as any);
+
+      expect(graph.postJson).toHaveBeenCalledWith(
+        expect.anything(),
+        'planner/tasks',
+        expect.objectContaining({
+          appliedCategories: {
+            category1: true,
+            category2: true,
+          },
+        }),
+        expect.anything(),
+      );
+
+      // PATCH /planner/tasks (1er appel patch)
+      expect(graph.patchJson.mock.calls[0][2]).toEqual(
+        expect.objectContaining({
+          appliedCategories: {
+            category1: true,
+            category2: true,
+          },
+        }),
+      );
+    });
+
+    it('n’envoie pas category7+ dans appliedCategories (limitation Graph plannerTask)', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      const link = baseLink({
+        isEnabled: true,
+        syncTasksEnabled: true,
+        useMicrosoftPlannerLabels: true,
+        plannerPlanId: 'plan-1',
+        microsoftConnectionId: 'conn-1',
+        lastSyncAt: null,
+      });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(link);
+
+      const task = {
+        id: 't1',
+        name: 'Task 1',
+        description: 'D1',
+        plannedStartDate: null,
+        actualStartDate: null,
+        ...baseTasks,
+        status: ProjectTaskStatus.TODO,
+        priority: ProjectTaskPriority.LOW,
+        labelAssignments: [
+          { label: { plannerCategoryId: 'category1' } },
+          { label: { plannerCategoryId: 'category7' } },
+        ],
+      };
+
+      prisma.projectTask.findMany.mockResolvedValue([task]);
+      prisma.projectTaskMicrosoftSync.findMany.mockResolvedValue([]);
+
+      graph.getJson.mockResolvedValue({ value: bucketTodos });
+      graph.postJson.mockResolvedValue({ id: 'planner-1' });
+      graph.getPlannerTaskWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'task-etag',
+      });
+      graph.getPlannerTaskDetailsWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'details-etag',
+      });
+      graph.patchJson.mockResolvedValue(undefined);
+
+      prisma.projectTaskMicrosoftSync.create.mockResolvedValue({ id: 'sync-1' });
+      prisma.projectTaskMicrosoftSync.update.mockResolvedValue({ id: 'sync-1' });
+      prisma.projectMicrosoftLink.update.mockResolvedValue(undefined);
+
+      await service.syncTasks(clientId, projectId, {
+        actorUserId: 'u1',
+        meta: {},
+      } as any);
+
+      expect(graph.postJson).toHaveBeenCalledWith(
+        expect.anything(),
+        'planner/tasks',
+        expect.objectContaining({
+          appliedCategories: { category1: true },
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('syncTasks : useMicrosoftPlannerLabels + 0 labels en base => appelle replaceStariumTaskLabelsWithPlannerCategories', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectTaskLabel.count.mockResolvedValue(0);
+      const link = baseLink({
+        isEnabled: true,
+        syncTasksEnabled: true,
+        useMicrosoftPlannerLabels: true,
+        plannerPlanId: 'plan-1',
+        microsoftConnectionId: 'conn-1',
+        lastSyncAt: null,
+      });
+      prisma.projectMicrosoftLink.findFirst.mockResolvedValue(link);
+
+      const task = {
+        id: 't1',
+        name: 'Task 1',
+        description: 'D1',
+        plannedStartDate: null,
+        actualStartDate: null,
+        ...baseTasks,
+        status: ProjectTaskStatus.TODO,
+        priority: ProjectTaskPriority.LOW,
+      };
+      prisma.projectTask.findMany.mockResolvedValue([task]);
+      prisma.projectTaskMicrosoftSync.findMany.mockResolvedValue([]);
+
+      graph.getJson.mockResolvedValue({ value: bucketTodos });
+      graph.postJson.mockResolvedValue({ id: 'planner-1' });
+      graph.getPlannerTaskWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'task-etag',
+      });
+      graph.getPlannerTaskDetailsWithEtag.mockResolvedValue({
+        json: { id: 'planner-1' },
+        etag: 'details-etag',
+      });
+      graph.patchJson.mockResolvedValue(undefined);
+
+      prisma.projectTaskMicrosoftSync.create.mockResolvedValue({ id: 'sync-1' });
+      prisma.projectTaskMicrosoftSync.update.mockResolvedValue({ id: 'sync-1' });
+      prisma.projectMicrosoftLink.update.mockResolvedValue(undefined);
+
+      const spy = jest
+        .spyOn(service as any, 'replaceStariumTaskLabelsWithPlannerCategories')
+        .mockResolvedValue(undefined);
+
+      await service.syncTasks(clientId, projectId, {
+        actorUserId: 'u1',
+        meta: {},
+      } as any);
+
+      expect(spy).toHaveBeenCalledWith(clientId, projectId);
+      spy.mockRestore();
     });
 
     it('crée Planner OK puis échec PATCH details => mapping final ERROR (pas SYNCED)', async () => {

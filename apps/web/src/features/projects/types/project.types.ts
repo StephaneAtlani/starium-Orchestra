@@ -136,6 +136,19 @@ export type ProjectTaskChecklistItemApi = {
   sortOrder: number;
 };
 
+export type ProjectTaskLabelApi = {
+  id: string;
+  name: string;
+  color: string | null;
+  plannerCategoryId: string | null;
+};
+
+export type ProjectMilestoneLabelApi = {
+  id: string;
+  name: string;
+  color: string | null;
+};
+
 /** Réponses API Prisma (dates ISO). RFC-PROJ-011 */
 export type ProjectTaskApi = {
   id: string;
@@ -157,6 +170,7 @@ export type ProjectTaskApi = {
   budgetLineId: string | null;
   bucketId?: string | null;
   checklistItems?: ProjectTaskChecklistItemApi[];
+  taskLabelIds?: string[];
   /** Présent sur les réponses API liste ; utilisé pour tri client (RFC-PROJ-012). */
   createdAt?: string;
 };
@@ -184,6 +198,7 @@ export type ProjectMilestoneApi = {
   linkedTaskId: string | null;
   ownerUserId: string | null;
   sortOrder: number;
+  milestoneLabelIds?: string[];
 };
 
 export type ProjectDocumentStorageType = 'STARIUM' | 'EXTERNAL' | 'MICROSOFT';

@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
@@ -45,4 +47,10 @@ export class CreateProjectMilestoneDto {
   @Type(() => Number)
   @IsInt()
   sortOrder?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(40)
+  @IsString({ each: true })
+  milestoneLabelIds?: string[];
 }

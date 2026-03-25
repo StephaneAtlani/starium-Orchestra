@@ -22,10 +22,12 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
+import { useProjectMilestoneLabelsQuery } from '../hooks/use-project-milestone-labels-query';
 import {
   useCreateProjectMilestoneMutation,
   useUpdateProjectMilestoneMutation,
 } from '../hooks/use-project-planning-mutations';
+import { useCreateProjectMilestoneLabelMutation } from '../hooks/use-project-labels-mutations';
 import { MILESTONE_STATUS_LABEL } from '../constants/project-enum-labels';
 import type { ProjectMilestoneApi } from '../types/project.types';
 import type {
@@ -40,17 +42,24 @@ function emptyCreate(): CreateProjectMilestonePayload {
     name: '',
     targetDate: new Date(`${today}T12:00:00.000Z`).toISOString(),
     status: 'PLANNED',
+    milestoneLabelIds: [],
   };
 }
 
 export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string }) {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
+  const canListProjectLabels = has('projects.read') || canEdit;
 
   const milestonesQuery = useProjectMilestonesQuery(projectId);
   const tasksQuery = useProjectTasksQuery(projectId);
+  const milestoneLabelsQuery = useProjectMilestoneLabelsQuery(
+    projectId,
+    canListProjectLabels,
+  );
   const createMut = useCreateProjectMilestoneMutation(projectId);
   const updateMut = useUpdateProjectMilestoneMutation(projectId);
+  const createMilestoneLabelMut = useCreateProjectMilestoneLabelMutation(projectId);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectMilestoneApi | null>(null);
@@ -71,6 +80,21 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
     [taskItems],
   );
 
+  const milestoneLabelOptions = useMemo(
+    () =>
+      (milestoneLabelsQuery.data ?? []).map((l) => ({
+        id: l.id,
+        label: l.name,
+      })),
+    [milestoneLabelsQuery.data],
+  );
+
+  const canCreateMilestoneLabels = canEdit;
+  const onCreateMilestoneLabel = async (name: string) => {
+    const created = await createMilestoneLabelMut.mutateAsync({ name });
+    return created.id;
+  };
+
   const openCreate = () => {
     setEditing(null);
     setForm(emptyCreate());
@@ -89,6 +113,7 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
       linkedTaskId: m.linkedTaskId,
       ownerUserId: m.ownerUserId,
       sortOrder: m.sortOrder,
+      milestoneLabelIds: m.milestoneLabelIds ?? [],
     });
     setOpen(true);
   };
@@ -185,6 +210,9 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
               form={form}
               onPatch={(p) => setForm({ ...form, ...p })}
               taskOptions={taskOptions}
+              milestoneLabelOptions={milestoneLabelOptions}
+              canCreateMilestoneLabels={canCreateMilestoneLabels}
+              onCreateMilestoneLabel={onCreateMilestoneLabel}
               fieldIdPrefix="ms"
             />
           </div>

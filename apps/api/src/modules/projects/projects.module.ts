@@ -22,12 +22,16 @@ import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectDocumentContentService } from './project-document-content.service';
 import { ProjectTaskBucketsController } from './project-task-buckets.controller';
 import { ProjectTaskBucketsService } from './project-task-buckets.service';
+import { ProjectTaskLabelsController } from './project-task-labels.controller';
+import { ProjectTaskLabelsService } from './project-task-labels.service';
 import { ProjectTasksController } from './project-tasks.controller';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsController } from './projects.controller';
 import { ProjectsPilotageService } from './projects-pilotage.service';
 import { ProjectsService } from './projects.service';
 import { ProjectTeamService } from './project-team.service';
+import { ProjectMilestoneLabelsController } from './project-milestone-labels.controller';
+import { ProjectMilestoneLabelsService } from './project-milestone-labels.service';
 
 @Module({
   imports: [PrismaModule, AuditLogsModule],
@@ -40,11 +44,13 @@ import { ProjectTeamService } from './project-team.service';
     ProjectsController,
     ProjectDocumentsController,
     ProjectTaskBucketsController,
+    ProjectTaskLabelsController,
     ProjectTasksController,
     ProjectActivitiesController,
     ProjectGanttController,
     ProjectRisksController,
     ProjectMilestonesController,
+    ProjectMilestoneLabelsController,
   ],
   providers: [
     ProjectsService,
@@ -56,12 +62,14 @@ import { ProjectTeamService } from './project-team.service';
     ProjectDocumentsService,
     ProjectDocumentContentService,
     ProjectTaskBucketsService,
+    ProjectTaskLabelsService,
     ProjectTasksService,
     ProjectActivitiesService,
     ProjectGanttService,
     ProjectRisksService,
     ProjectMilestonesService,
     ProjectTeamService,
+    ProjectMilestoneLabelsService,
   ],
   exports: [
     ProjectsService,

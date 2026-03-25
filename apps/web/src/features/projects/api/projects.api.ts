@@ -294,6 +294,7 @@ export type CreateProjectTaskPayload = {
   bucketId?: string | null;
   sortOrder?: number;
   checklistItems?: ProjectTaskChecklistItemPayload[];
+  taskLabelIds?: string[];
 };
 
 export type UpdateProjectTaskPayload = Partial<CreateProjectTaskPayload> & {
@@ -402,6 +403,7 @@ export type CreateProjectMilestonePayload = {
   linkedTaskId?: string | null;
   ownerUserId?: string | null;
   sortOrder?: number;
+  milestoneLabelIds?: string[];
 };
 
 export type UpdateProjectMilestonePayload = Partial<CreateProjectMilestonePayload> & {

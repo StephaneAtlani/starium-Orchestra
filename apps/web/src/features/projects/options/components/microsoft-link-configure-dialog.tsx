@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
@@ -73,6 +73,9 @@ export function MicrosoftLinkConfigureDialog({
   const [filesDriveId, setFilesDriveId] = useState('');
   const [filesFolderId, setFilesFolderId] = useState('');
   const [useMsBuckets, setUseMsBuckets] = useState(false);
+  const [useMsLabels, setUseMsLabels] = useState(false);
+  /** Confirmation avant d’activer la sync des étiquettes Planner (purge Starium). */
+  const [labelsConfirmOpen, setLabelsConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -82,6 +85,8 @@ export function MicrosoftLinkConfigureDialog({
     setFilesDriveId(link?.filesDriveId ?? '');
     setFilesFolderId(link?.filesFolderId ?? '');
     setUseMsBuckets(link?.useMicrosoftPlannerBuckets ?? false);
+    setUseMsLabels(link?.useMicrosoftPlannerLabels ?? false);
+    setLabelsConfirmOpen(false);
   }, [open, link]);
 
   const teamsQuery = useQuery({
@@ -166,6 +171,7 @@ export function MicrosoftLinkConfigureDialog({
       ...(filesDriveId.trim() && { filesDriveId: filesDriveId.trim() }),
       ...(filesFolderId.trim() && { filesFolderId: filesFolderId.trim() }),
       useMicrosoftPlannerBuckets: useMsBuckets,
+      useMicrosoftPlannerLabels: useMsLabels,
     };
     onSave(payload);
   }, [
@@ -178,6 +184,7 @@ export function MicrosoftLinkConfigureDialog({
     filesDriveId,
     filesFolderId,
     useMsBuckets,
+    useMsLabels,
     onSave,
   ]);
 
@@ -189,7 +196,8 @@ export function MicrosoftLinkConfigureDialog({
     Boolean(plannerPlanId?.trim());
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Fragment>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(100vw-2rem,40rem)] max-w-none sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Configurer Microsoft 365</DialogTitle>
@@ -359,6 +367,36 @@ export function MicrosoftLinkConfigureDialog({
               </div>
             ) : null}
 
+            {Boolean(plannerPlanId?.trim()) && link?.syncTasksEnabled !== false ? (
+              <div className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/25 p-3">
+                <input
+                  id="use-ms-labels"
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 rounded border-border accent-primary"
+                  checked={useMsLabels}
+                  onChange={(e) => {
+                    if (!canEdit) return;
+                    const next = e.target.checked;
+                    if (!next) {
+                      setUseMsLabels(false);
+                      return;
+                    }
+                    setLabelsConfirmOpen(true);
+                  }}
+                  disabled={!canEdit}
+                />
+                <label htmlFor="use-ms-labels" className="cursor-pointer text-sm leading-snug">
+                  <span className="font-medium text-foreground">
+                    Synchroniser les étiquettes Microsoft Planner (tâches)
+                  </span>
+                  <span className="text-muted-foreground mt-1 block text-xs">
+                    Une confirmation vous sera demandée avant activation : les étiquettes Starium
+                    existantes sur les tâches de ce projet seront supprimées.
+                  </span>
+                </label>
+              </div>
+            ) : null}
+
             <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
               <p className="mb-2 text-xs font-medium text-muted-foreground">
                 Documents (optionnel, MVP)
@@ -399,6 +437,41 @@ export function MicrosoftLinkConfigureDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+
+      <Dialog open={labelsConfirmOpen} onOpenChange={setLabelsConfirmOpen}>
+      <DialogContent className="w-[min(100vw-2rem,26rem)] max-w-none sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Activer la synchronisation des étiquettes Planner ?</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Les étiquettes Starium actuellement associées aux <strong>tâches</strong> de ce projet
+          seront <strong>supprimées</strong> et remplacées par les catégories du plan Microsoft
+          Planner sélectionné.
+        </p>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Cette action est appliquée lors de l’enregistrement de la configuration.
+        </p>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setLabelsConfirmOpen(false)}
+          >
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setUseMsLabels(true);
+              setLabelsConfirmOpen(false);
+            }}
+          >
+            Confirmer et activer
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+      </Dialog>
+    </Fragment>
   );
 }

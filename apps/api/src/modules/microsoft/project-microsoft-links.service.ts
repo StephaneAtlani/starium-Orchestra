@@ -138,6 +138,7 @@ export type ProjectMicrosoftLinkConfig = Pick<
   | 'syncTasksEnabled'
   | 'syncDocumentsEnabled'
   | 'useMicrosoftPlannerBuckets'
+  | 'useMicrosoftPlannerLabels'
   | 'filesDriveId'
   | 'filesFolderId'
   | 'lastSyncAt'
@@ -342,6 +343,12 @@ export class ProjectMicrosoftLinksService {
         ? dto.useMicrosoftPlannerBuckets
         : prevMsBuckets;
 
+    const prevMsLabels = existing?.useMicrosoftPlannerLabels ?? false;
+    const nextMsLabels =
+      dto.useMicrosoftPlannerLabels !== undefined
+        ? dto.useMicrosoftPlannerLabels
+        : prevMsLabels;
+
     const updated: ProjectMicrosoftLinkConfig & { id: string } =
       existing
         ? await this.prisma.projectMicrosoftLink.update({
@@ -354,6 +361,7 @@ export class ProjectMicrosoftLinksService {
               syncTasksEnabled,
               syncDocumentsEnabled,
               useMicrosoftPlannerBuckets: nextMsBuckets,
+              useMicrosoftPlannerLabels: nextMsLabels,
 
               // IDs / noms : "aucune purge" => on ne remet à null que si la ligne n'existe pas.
               ...(newEnabled === true
@@ -406,6 +414,7 @@ export class ProjectMicrosoftLinksService {
               syncTasksEnabled,
               syncDocumentsEnabled,
               useMicrosoftPlannerBuckets: nextMsBuckets,
+              useMicrosoftPlannerLabels: nextMsLabels,
               ...(newEnabled === true
                 ? {
                     teamId: dto.teamId,
@@ -455,6 +464,25 @@ export class ProjectMicrosoftLinksService {
       await this.demotePlannerBucketsToStarium(clientId, projectId);
     }
 
+    if (newEnabled === true && nextMsLabels === true && prevMsLabels === false) {
+      await this.replaceStariumTaskLabelsWithPlannerCategories(
+        clientId,
+        projectId,
+      );
+    } else if (newEnabled === true && nextMsLabels === true && prevMsLabels === true) {
+      // Rattrapage : import Planner déjà activé en base mais 0 étiquette (échec Graph
+      // après update, plan sans catégories nommées puis correction, etc.).
+      const labelCount = await this.prisma.projectTaskLabel.count({
+        where: { clientId, projectId },
+      });
+      if (labelCount === 0) {
+        await this.replaceStariumTaskLabelsWithPlannerCategories(
+          clientId,
+          projectId,
+        );
+      }
+    }
+
     const action =
       !oldEnabled && newEnabled === true ? AUDIT_ACTION_ENABLED : AUDIT_ACTION_UPDATED;
 
@@ -470,6 +498,7 @@ export class ProjectMicrosoftLinksService {
         channelId: existing?.channelId ?? null,
         plannerPlanId: existing?.plannerPlanId ?? null,
         useMicrosoftPlannerBuckets: prevMsBuckets,
+        useMicrosoftPlannerLabels: prevMsLabels,
       },
       newValue: {
         isEnabled: updated.isEnabled,
@@ -477,6 +506,7 @@ export class ProjectMicrosoftLinksService {
         channelId: updated.channelId ?? null,
         plannerPlanId: updated.plannerPlanId ?? null,
         useMicrosoftPlannerBuckets: nextMsBuckets,
+        useMicrosoftPlannerLabels: nextMsLabels,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -590,6 +620,92 @@ export class ProjectMicrosoftLinksService {
     });
   }
 
+  private async replaceStariumTaskLabelsWithPlannerCategories(
+    clientId: string,
+    projectId: string,
+  ): Promise<void> {
+    const link = await this.prisma.projectMicrosoftLink.findFirst({
+      where: { projectId, clientId },
+      select: { plannerPlanId: true, microsoftConnectionId: true },
+    });
+    if (!link?.plannerPlanId || !link.microsoftConnectionId) {
+      throw new UnprocessableEntityException(
+        'Plan Planner et connexion Microsoft requis pour importer les étiquettes',
+      );
+    }
+
+    const accessToken = await this.microsoftOAuth.ensureFreshAccessToken(
+      link.microsoftConnectionId,
+      clientId,
+    );
+
+    const details = await this.graph.getJson<
+      | {
+          categoryDescriptions?: Record<string, string | null | undefined>;
+        }
+      | unknown
+    >(accessToken, `planner/plans/${link.plannerPlanId}/details`, {
+      expectJson: true,
+    });
+
+    const rawCategoryDescriptions = (details as { categoryDescriptions?: unknown })
+      ?.categoryDescriptions;
+    const descObj =
+      rawCategoryDescriptions &&
+      typeof rawCategoryDescriptions === 'object' &&
+      !Array.isArray(rawCategoryDescriptions)
+        ? (rawCategoryDescriptions as Record<string, unknown>)
+        : {};
+
+    const categoryLabel = (v: unknown): string | null => {
+      if (v == null) return null;
+      if (typeof v === 'string') return v.trim().length > 0 ? v.trim() : null;
+      if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+      return null;
+    };
+
+    // Plan : jusqu’à 25 libellés (Graph) ; les tâches n’appliquent que category1–6 (voir plannerAppliedCategories).
+    const entries = Object.entries(descObj)
+      .filter(([k]) => /^category\d+$/.test(k))
+      .map(([k, v]) => [k, categoryLabel(v)] as const)
+      .filter((entry): entry is readonly [string, string] => entry[1] != null)
+      .sort((a, b) => {
+        const ai = Number(a[0].replace('category', ''));
+        const bi = Number(b[0].replace('category', ''));
+        return ai - bi;
+      });
+
+    if (entries.length === 0) {
+      throw new UnprocessableEntityException(
+        'Aucune catégorie Planner trouvée pour le plan configuré',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Purge starium (assignations + définitions) avant upsert Microsoft.
+      await tx.projectTaskLabelAssignment.deleteMany({
+        where: { clientId, projectId },
+      });
+      await tx.projectTaskLabel.deleteMany({
+        where: { clientId, projectId },
+      });
+
+      for (const [plannerCategoryId, name] of entries) {
+        const sortOrder = Number(plannerCategoryId.replace('category', ''));
+        await tx.projectTaskLabel.create({
+          data: {
+            clientId,
+            projectId,
+            name,
+            color: null,
+            plannerCategoryId,
+            sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
+          },
+        });
+      }
+    });
+  }
+
   async syncTasks(
     clientId: string,
     projectId: string,
@@ -622,11 +738,27 @@ export class ProjectMicrosoftLinksService {
       );
     }
 
+    const useMicrosoftPlannerLabels = link.useMicrosoftPlannerLabels === true;
+
     // 3) Access token
     const accessToken = await this.microsoftOAuth.ensureFreshAccessToken(
       link.microsoftConnectionId,
       clientId,
     );
+
+    // Import des libellés Planner (plan details) si sync étiquettes active mais table vide :
+    // l’utilisateur déclenche souvent d’abord « Sync tâches » sans repasser par les options.
+    if (useMicrosoftPlannerLabels) {
+      const labelCount = await this.prisma.projectTaskLabel.count({
+        where: { clientId, projectId },
+      });
+      if (labelCount === 0) {
+        await this.replaceStariumTaskLabelsWithPlannerCategories(
+          clientId,
+          projectId,
+        );
+      }
+    }
 
     // 4) Planner buckets (for status -> bucket)
     type PlannerBucket = { id: string; name: string };
@@ -719,6 +851,11 @@ export class ProjectMicrosoftLinksService {
         status: true,
         priority: true,
         bucketId: true,
+        labelAssignments: {
+          select: {
+            label: { select: { plannerCategoryId: true } },
+          },
+        },
         checklistItems: {
           orderBy: { sortOrder: 'asc' },
           select: {
@@ -769,6 +906,22 @@ export class ProjectMicrosoftLinksService {
         ...(startDateTime ? { startDateTime } : {}),
       };
 
+      // Graph : seules category1…category6 sur plannerTask.appliedCategories (pas category7+).
+      const appliedCategories = useMicrosoftPlannerLabels
+        ? (() => {
+            const categoryIds =
+              task.labelAssignments?.map((la) => la.label.plannerCategoryId) ??
+              [];
+            const normalized = categoryIds.filter(
+              (id): id is string =>
+                typeof id === 'string' &&
+                id.trim().length > 0 &&
+                /^category[1-6]$/.test(id.trim()),
+            );
+            return Object.fromEntries(normalized.map((id) => [id, true]));
+          })()
+        : undefined;
+
       if (!mapping) {
         // Create Planner task first, then create mapping as PENDING, then sync full.
         let plannerTaskId: string | undefined;
@@ -782,6 +935,7 @@ export class ProjectMicrosoftLinksService {
               title: task.name,
               ...plannerTaskDateFields,
               priority,
+              ...(useMicrosoftPlannerLabels ? { appliedCategories } : {}),
             },
             { expectJson: true },
           );
@@ -820,6 +974,7 @@ export class ProjectMicrosoftLinksService {
               bucketId: resolvedPlannerBucketId,
               ...plannerTaskDateFields,
               priority,
+              ...(useMicrosoftPlannerLabels ? { appliedCategories } : {}),
             },
             {
               headers: { 'If-Match': taskWithEtag.etag },
@@ -925,6 +1080,7 @@ export class ProjectMicrosoftLinksService {
               bucketId: resolvedPlannerBucketId,
               ...plannerTaskDateFields,
               priority,
+              ...(useMicrosoftPlannerLabels ? { appliedCategories } : {}),
             },
             { headers: { 'If-Match': taskWithEtag.etag } },
           );

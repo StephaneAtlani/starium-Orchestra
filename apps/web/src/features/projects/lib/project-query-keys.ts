@@ -21,10 +21,14 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'tasks', clientId, projectId] as const,
   taskBuckets: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'task-buckets', clientId, projectId] as const,
+  taskLabels: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'task-labels', clientId, projectId] as const,
   risks: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'risks', clientId, projectId] as const,
   milestones: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'milestones', clientId, projectId] as const,
+  milestoneLabels: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'milestone-labels', clientId, projectId] as const,
   documents: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'documents', clientId, projectId] as const,
   gantt: (clientId: string, projectId: string) =>

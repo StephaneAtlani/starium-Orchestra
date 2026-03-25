@@ -63,6 +63,10 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
+      projectTaskLabel: {
+        findMany: jest.fn(),
+      },
+      $transaction: jest.fn(),
       projectTaskChecklistItem: {
         findMany: jest.fn(),
         deleteMany: jest.fn(),
@@ -110,6 +114,74 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
         oldValue: { name: 'A' },
         newValue: { name: 'B' },
       }),
+    );
+  });
+
+  it('update : remplace labels (taskLabelIds) via purge + create assignations', async () => {
+    const existing = baseTask();
+    const updated = { ...existing };
+
+    prisma.projectTask.findFirst.mockResolvedValue(existing);
+    prisma.projectTask.update.mockResolvedValue(updated);
+    prisma.projectTask.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      checklistItems: [],
+      labelAssignments: [{ labelId: 'l1' }, { labelId: 'l2' }],
+    });
+
+    prisma.projectTaskLabel.findMany.mockResolvedValue([
+      { id: 'l1' },
+      { id: 'l2' },
+    ]);
+
+    const txMock = {
+      projectTaskLabelAssignment: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (cb: any) => cb(txMock));
+
+    await service.update(
+      clientId,
+      projectId,
+      taskId,
+      { taskLabelIds: ['l1', 'l2', 'l1'] } as any,
+      { actorUserId: 'u1', meta: {} },
+      'u1',
+    );
+
+    expect(prisma.projectTaskLabel.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { clientId, projectId, id: { in: ['l1', 'l2'] } },
+      }),
+    );
+
+    expect(txMock.projectTaskLabelAssignment.deleteMany).toHaveBeenCalledWith(
+      { where: { clientId, projectId, projectTaskId: taskId } },
+    );
+    expect(txMock.projectTaskLabelAssignment.create).toHaveBeenCalledTimes(2);
+    expect(txMock.projectTaskLabelAssignment.create).toHaveBeenNthCalledWith(
+      1,
+      {
+        data: {
+          clientId,
+          projectId,
+          projectTaskId: taskId,
+          labelId: 'l1',
+        },
+      },
+    );
+    expect(txMock.projectTaskLabelAssignment.create).toHaveBeenNthCalledWith(
+      2,
+      {
+        data: {
+          clientId,
+          projectId,
+          projectTaskId: taskId,
+          labelId: 'l2',
+        },
+      },
     );
   });
 

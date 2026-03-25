@@ -25,11 +25,19 @@ import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
 import { useProjectTaskBucketsQuery } from '../hooks/use-project-task-buckets-query';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
+import { useProjectTaskLabelsQuery } from '../hooks/use-project-task-labels-query';
+import { useProjectMilestoneLabelsQuery } from '../hooks/use-project-milestone-labels-query';
 import {
   useCreateProjectTaskMutation,
   useUpdateProjectTaskMutation,
   useUpdateProjectMilestoneMutation,
 } from '../hooks/use-project-planning-mutations';
+import {
+  useCreateProjectMilestoneLabelMutation,
+  useCreateProjectTaskLabelMutation,
+} from '../hooks/use-project-labels-mutations';
+import { projectQueryKeys } from '../lib/project-query-keys';
+import { useProjectMicrosoftLinkQuery } from '../options/hooks/use-project-microsoft-link-query';
 import {
   computeIndentPatch,
   computeOutdentPatch,
@@ -74,6 +82,7 @@ function emptyCreateForm(): CreateProjectTaskPayload {
     priority: 'MEDIUM',
     progress: 0,
     checklistItems: [],
+    taskLabelIds: [],
   };
 }
 
@@ -101,6 +110,7 @@ function milestoneFormFromApi(m: ProjectMilestoneApi): CreateProjectMilestonePay
     linkedTaskId: m.linkedTaskId,
     ownerUserId: m.ownerUserId,
     sortOrder: m.sortOrder,
+    milestoneLabelIds: m.milestoneLabelIds ?? [],
   };
 }
 
@@ -184,6 +194,7 @@ export const ProjectTaskPlanningSection = forwardRef<
 ) {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
+  const canListProjectLabels = has('projects.read') || canEdit;
 
   const tasksQuery = useProjectTasksQuery(projectId);
   const bucketsQuery = useProjectTaskBucketsQuery(projectId);
@@ -204,6 +215,7 @@ export const ProjectTaskPlanningSection = forwardRef<
     name: '',
     targetDate: new Date().toISOString(),
     status: 'PLANNED',
+    milestoneLabelIds: [],
   });
 
   const items = useMemo(
@@ -283,6 +295,49 @@ export const ProjectTaskPlanningSection = forwardRef<
     [bucketsQuery.data?.items],
   );
 
+  const linkQuery = useProjectMicrosoftLinkQuery(projectId);
+  const syncMicrosoftPlannerLabelsEnabled = linkQuery.data?.useMicrosoftPlannerLabels ?? false;
+
+  const taskLabelsQuery = useProjectTaskLabelsQuery(projectId, canListProjectLabels);
+  const milestoneLabelsQuery = useProjectMilestoneLabelsQuery(
+    projectId,
+    canListProjectLabels,
+  );
+
+  const taskLabelOptions = useMemo(
+    () =>
+      (taskLabelsQuery.data ?? []).map((l) => ({
+        id: l.id,
+        label: l.name,
+      })),
+    [taskLabelsQuery.data],
+  );
+
+  const milestoneLabelOptions = useMemo(
+    () =>
+      (milestoneLabelsQuery.data ?? []).map((l) => ({
+        id: l.id,
+        label: l.name,
+      })),
+    [milestoneLabelsQuery.data],
+  );
+
+  const canCreateTaskLabels = canEdit && !syncMicrosoftPlannerLabelsEnabled;
+  const canCreateMilestoneLabels = canEdit;
+
+  const createTaskLabelMut = useCreateProjectTaskLabelMutation(projectId);
+  const createMilestoneLabelMut = useCreateProjectMilestoneLabelMutation(projectId);
+
+  const onCreateTaskLabel = async (name: string) => {
+    const created = await createTaskLabelMut.mutateAsync({ name });
+    return created.id;
+  };
+
+  const onCreateMilestoneLabel = async (name: string) => {
+    const created = await createMilestoneLabelMut.mutateAsync({ name });
+    return created.id;
+  };
+
   const [createForm, setCreateForm] = useState<CreateProjectTaskPayload>(emptyCreateForm);
 
   const openCreate = useCallback(() => {
@@ -343,6 +398,7 @@ export const ProjectTaskPlanningSection = forwardRef<
       budgetLineId: t.budgetLineId,
       bucketId: t.bucketId ?? undefined,
       sortOrder: t.sortOrder,
+      taskLabelIds: t.taskLabelIds ?? [],
       checklistItems: (t.checklistItems ?? []).map((c) => ({
         id: c.id,
         title: c.title,
@@ -844,6 +900,10 @@ export const ProjectTaskPlanningSection = forwardRef<
               tasksForDepends={tasksForDepends}
               assignableOptions={assignableOptions}
               bucketOptions={bucketOptions}
+              taskLabelOptions={taskLabelOptions}
+              syncMicrosoftPlannerLabelsEnabled={syncMicrosoftPlannerLabelsEnabled}
+              canCreateTaskLabels={canCreateTaskLabels}
+              onCreateTaskLabel={onCreateTaskLabel}
               fieldIdPrefix="planning-task"
             />
           </div>
@@ -877,6 +937,9 @@ export const ProjectTaskPlanningSection = forwardRef<
               form={milestoneForm}
               onPatch={(p) => setMilestoneForm({ ...milestoneForm, ...p })}
               taskOptions={taskOptionsForMilestone}
+              milestoneLabelOptions={milestoneLabelOptions}
+              canCreateMilestoneLabels={canCreateMilestoneLabels}
+              onCreateMilestoneLabel={onCreateMilestoneLabel}
               fieldIdPrefix="gantt-ms"
             />
           </div>

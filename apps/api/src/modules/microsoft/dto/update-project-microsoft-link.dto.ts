@@ -46,6 +46,13 @@ export class UpdateProjectMicrosoftLinkDto {
   @Type(() => Boolean)
   useMicrosoftPlannerBuckets?: boolean;
 
+  /** `Allow` explicite : whitelist + forbidNonWhitelisted (certains setups Nest/class-validator). */
+  @Allow()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  useMicrosoftPlannerLabels?: boolean;
+
   // Dénormalisation : ne doit jamais déclencher de validation Graph bloquante.
   @IsOptional()
   @IsString()

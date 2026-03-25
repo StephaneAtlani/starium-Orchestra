@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +17,7 @@ import {
   Link2,
   ListChecks,
   User,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -51,6 +53,10 @@ export type TaskFormDialogFieldsProps = {
   assignableOptions: { id: string; label: string }[];
   /** Buckets projet (vide = aucun bucket défini côté API). */
   bucketOptions: { id: string; label: string }[];
+  taskLabelOptions: { id: string; label: string }[];
+  syncMicrosoftPlannerLabelsEnabled: boolean;
+  canCreateTaskLabels: boolean;
+  onCreateTaskLabel?: (name: string) => Promise<string>;
   /** Préfixe des `id` HTML (ex. `planning-task`). */
   fieldIdPrefix: string;
 };
@@ -65,9 +71,57 @@ export function TaskFormDialogFields({
   tasksForDepends,
   assignableOptions,
   bucketOptions,
+  taskLabelOptions,
+  syncMicrosoftPlannerLabelsEnabled,
+  canCreateTaskLabels,
+  onCreateTaskLabel,
   fieldIdPrefix,
 }: TaskFormDialogFieldsProps) {
   const fid = (suffix: string) => `${fieldIdPrefix}-${suffix}`;
+
+  const selectedLabelIds = form.taskLabelIds ?? [];
+  const [newLabelName, setNewLabelName] = useState('');
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [labelPickerValue, setLabelPickerValue] = useState('');
+
+  const labelById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of taskLabelOptions) m.set(o.id, o.label);
+    return m;
+  }, [taskLabelOptions]);
+
+  const availableLabelOptions = useMemo(
+    () => taskLabelOptions.filter((o) => !selectedLabelIds.includes(o.id)),
+    [taskLabelOptions, selectedLabelIds],
+  );
+
+  const toggleLabel = (labelId: string) => {
+    const has = selectedLabelIds.includes(labelId);
+    const next = has
+      ? selectedLabelIds.filter((id) => id !== labelId)
+      : [...selectedLabelIds, labelId];
+    onPatch({ taskLabelIds: next });
+  };
+
+  const removeLabel = (labelId: string) => {
+    onPatch({
+      taskLabelIds: selectedLabelIds.filter((id) => id !== labelId),
+    });
+  };
+
+  const createAndSelectLabel = async () => {
+    if (!canCreateTaskLabels || !onCreateTaskLabel) return;
+    const name = newLabelName.trim();
+    if (!name) return;
+    setIsCreatingLabel(true);
+    try {
+      const id = await onCreateTaskLabel(name);
+      toggleLabel(id);
+      setNewLabelName('');
+    } finally {
+      setIsCreatingLabel(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -263,6 +317,32 @@ export function TaskFormDialogFields({
                   next[idx] = { ...next[idx], title: e.target.value };
                   onPatch({ checklistItems: next });
                 }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+
+                  const items = form.checklistItems ?? [];
+                  const nextTitle = items[idx]?.title ?? '';
+                  (e.currentTarget as HTMLInputElement).blur();
+
+                  // UX: si l'utilisateur "valide" sur la dernière ligne remplie, on prépare la ligne suivante.
+                  if (
+                    nextTitle.trim().length > 0 &&
+                    idx === items.length - 1
+                  ) {
+                    onPatch({
+                      checklistItems: [
+                        ...items,
+                        {
+                          title: '',
+                          isChecked: false,
+                          sortOrder: items.length,
+                        },
+                      ],
+                    });
+                  }
+                }}
               />
               <Button
                 type="button"
@@ -301,6 +381,124 @@ export function TaskFormDialogFields({
         >
           Ajouter un élément
         </Button>
+      </section>
+
+      <section
+        className="rounded-lg border border-border/70 bg-muted/30 p-4"
+        aria-labelledby={fid('sec-labels')}
+      >
+        <h3
+          id={fid('sec-labels')}
+          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
+        >
+          Étiquettes
+        </h3>
+
+        {syncMicrosoftPlannerLabelsEnabled ? (
+          <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+            Synchronisation Microsoft Planner active : la création des étiquettes Starium est
+            désactivée.
+          </p>
+        ) : null}
+
+        <div className="space-y-3">
+          {selectedLabelIds.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {selectedLabelIds.map((id) => (
+                <span
+                  key={id}
+                  className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-border bg-background px-2 py-0.5 text-xs text-foreground"
+                >
+                  <span className="truncate" title={labelById.get(id) ?? id}>
+                    {labelById.get(id) ?? id}
+                  </span>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label={`Retirer l’étiquette ${labelById.get(id) ?? id}`}
+                    onClick={() => removeLabel(id)}
+                  >
+                    <X className="size-3.5" aria-hidden />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : taskLabelOptions.length > 0 ? (
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Aucune étiquette sélectionnée.
+            </p>
+          ) : null}
+
+          <div className="space-y-1.5">
+            <Label htmlFor={fid('labels-picker')}>Choisir une étiquette</Label>
+            <select
+              id={fid('labels-picker')}
+              className={cn(
+                'h-9 w-full rounded-lg border px-2',
+                fieldBase,
+                taskLabelOptions.length === 0 && 'cursor-not-allowed opacity-70',
+              )}
+              disabled={taskLabelOptions.length === 0}
+              value={taskLabelOptions.length === 0 ? '' : labelPickerValue}
+              onChange={(e) => {
+                const id = e.target.value;
+                if (!id) return;
+                toggleLabel(id);
+                setLabelPickerValue('');
+              }}
+            >
+              <option value="">
+                {taskLabelOptions.length === 0
+                  ? '— Aucune étiquette disponible'
+                  : '— Choisir dans la liste…'}
+              </option>
+              {availableLabelOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            {taskLabelOptions.length === 0 ? (
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {syncMicrosoftPlannerLabelsEnabled
+                  ? 'Les libellés viennent du plan Planner (catégories 1 à 25 dans les détails du plan). La sync des tâches importe aussi ces libellés s’ils manquent. Seules les catégories 1 à 6 peuvent être renvoyées vers Planner sur chaque tâche (limitation Microsoft).'
+                  : 'Créez une étiquette Starium avec le champ ci-dessous pour la voir dans cette liste.'}
+              </p>
+            ) : availableLabelOptions.length === 0 && selectedLabelIds.length > 0 ? (
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Toutes les étiquettes disponibles sont sélectionnées.
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        {canCreateTaskLabels ? (
+          <div className="mt-4 flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1 space-y-1">
+              <Label htmlFor={fid('new-label')}>Nouvelle étiquette</Label>
+              <Input
+                id={fid('new-label')}
+                value={newLabelName}
+                placeholder="Nom d’étiquette"
+                onChange={(e) => setNewLabelName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void createAndSelectLabel();
+                }}
+                disabled={isCreatingLabel}
+              />
+            </div>
+            <Button
+              type="button"
+              disabled={!newLabelName.trim() || isCreatingLabel}
+              onClick={() => void createAndSelectLabel()}
+            >
+              Ajouter
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       <section

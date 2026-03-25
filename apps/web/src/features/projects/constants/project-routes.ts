@@ -20,7 +20,10 @@ export function projectSheet(projectId: string): string {
 }
 
 /** Cockpit Planning : tâches, jalons, Gantt (RFC-PROJ-012). */
-export function projectPlanning(projectId: string, sub?: 'tasks' | 'milestones' | 'gantt'): string {
+export function projectPlanning(
+  projectId: string,
+  sub?: 'tasks' | 'milestones' | 'gantt' | 'kanban',
+): string {
   const base = `/projects/${projectId}/planning`;
   if (!sub || sub === 'tasks') return `${base}?sub=tasks`;
   return `${base}?sub=${sub}`;
