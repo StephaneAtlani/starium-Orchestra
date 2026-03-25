@@ -1904,7 +1904,7 @@ Toutes les routes ci-dessous sont préfixées par **`/api`**. Les jetons Microso
 
 **Accès (routes authentifiées ci-dessous)** : **`ClientUserRole.CLIENT_ADMIN`** sur le client actif **ou**, à défaut, module **Projets** actif pour le client + permission métier **`projects.update`** (`MicrosoftIntegrationAccessGuard`).
 
-**UX** : l’écran de configuration côté web est prévu sous **Administration client** → `/client/administration/microsoft-365` (client admin).
+**UX** : **Administration client** → `/client/administration/microsoft-365` — accès aligné sur les mêmes règles que ci-dessus : **administrateur du client** **ou** utilisateur avec **`projects.update`** (module Projets activé pour le client, vérifié côté API).
 
 ### GET /api/microsoft/auth/url
 

@@ -18,6 +18,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { usePermissions } from '@/hooks/use-permissions';
 import { ClientAzureAppCredentials } from './client-azure-app-credentials';
 
 const QUERY_KEY = 'microsoft-connection';
@@ -35,12 +36,21 @@ type MicrosoftConnectionDto = {
 
 export function Microsoft365Settings() {
   const { activeClient } = useActiveClient();
+  const {
+    has,
+    isLoading: permsLoading,
+    isError: permsError,
+  } = usePermissions();
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
   const isClientAdmin = activeClient?.role === 'CLIENT_ADMIN';
+  /** Aligné sur `MicrosoftIntegrationAccessGuard` : admin client ou `projects.update` + module Projets (côté API). */
+  const canUseMicrosoftIntegration =
+    isClientAdmin ||
+    (!permsLoading && !permsError && has('projects.update'));
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: [QUERY_KEY, activeClient?.id],
@@ -57,7 +67,7 @@ export function Microsoft365Settings() {
         connection: MicrosoftConnectionDto | null;
       }>;
     },
-    enabled: Boolean(activeClient?.id && isClientAdmin),
+    enabled: Boolean(activeClient?.id && canUseMicrosoftIntegration),
   });
 
   useEffect(() => {
@@ -127,17 +137,43 @@ export function Microsoft365Settings() {
   }
 
   if (!isClientAdmin) {
-    return (
-      <PageContainer>
-        <Alert variant="destructive">
-          <AlertTitle>Accès réservé</AlertTitle>
-          <AlertDescription>
-            Seuls les administrateurs du client (rôle Client admin) peuvent
-            configurer Microsoft 365 depuis l’administration client.
-          </AlertDescription>
-        </Alert>
-      </PageContainer>
-    );
+    if (permsLoading) {
+      return (
+        <PageContainer>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Vérification des droits…
+          </div>
+        </PageContainer>
+      );
+    }
+    if (permsError) {
+      return (
+        <PageContainer>
+          <Alert variant="destructive">
+            <AlertTitle>Impossible de charger les permissions</AlertTitle>
+            <AlertDescription>
+              Réessayez plus tard ou contactez un administrateur.
+            </AlertDescription>
+          </Alert>
+        </PageContainer>
+      );
+    }
+    if (!has('projects.update')) {
+      return (
+        <PageContainer>
+          <Alert variant="destructive">
+            <AlertTitle>Accès réservé</AlertTitle>
+            <AlertDescription>
+              La configuration Microsoft 365 requiert le rôle « Client admin » ou
+              la permission{' '}
+              <span className="font-mono text-xs">projects.update</span> avec le
+              module Projets activé pour ce client.
+            </AlertDescription>
+          </Alert>
+        </PageContainer>
+      );
+    }
   }
 
   const connection = data?.connection ?? null;

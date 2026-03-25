@@ -76,7 +76,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | 2 | **RFC-PROJ-INT-002** | Prisma Schema | Modèles `MicrosoftConnection`, `ProjectMicrosoftLink`, sync tâches | 🟡 Partiel | `MicrosoftConnection` + enums en base ; `ProjectMicrosoftLink` / sync tâches non migrés |
 | 3 | **RFC-PROJ-INT-003** | Auth OAuth | Flux délégué, tokens backend | ✅ Implémenté | `apps/api/src/modules/microsoft/` ; [docs/API.md](../API.md) |
 | 4 | **RFC-PROJ-INT-004** | Graph Service | Client HTTP Graph v1.0 | ✅ Implémenté | `MicrosoftGraphService` + types + tests |
-| 5 | **RFC-PROJ-INT-005** | Connexion client | API connexion / révocation | ✅ Implémenté | Implémenté (OAuth + connexion + révocation) — tests renforcés et doc alignée RFC-003 |
+| 5 | **RFC-PROJ-INT-005** | Connexion client | API connexion / révocation | ✅ Implémenté | `MicrosoftAuthController` + callback ; tests service + `microsoft-auth.controller.spec.ts` ; UI `microsoft-365-settings` alignée guard |
 | 6 | **RFC-PROJ-INT-006** | Sélection ressources | Teams, canaux, plans — spike requis | Draft | pas de promesse « plan par canal » |
 | 7 | **RFC-PROJ-INT-007** | Lien projet | `ProjectMicrosoftLink` GET/PUT | Draft | |
 | 8 | **RFC-PROJ-INT-008** | Sync tâches → Planner | One-way, mapping | Draft | |

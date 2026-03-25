@@ -27,7 +27,7 @@ Définir le **comportement métier** et les **APIs** pour gérer la **connexion 
 * Révocation : marquer la connexion `REVOKED`, invalider les jetons côté base. `DELETE /api/microsoft/connection` est idempotent (aucune erreur si déjà révoqué ou absent).
 * La propagation vers `ProjectMicrosoftLink` est hors scope (RFC-007).
 
-## 2. API (indicatif — chemins à figer à l’implémentation)
+## 2. API (chemins figés en production)
 
 | Méthode | Ressource | Rôle |
 | ------- | --------- | ---- |
@@ -40,7 +40,7 @@ Préfixe global `api` déjà défini par l’application.
 
 ## 3. Permissions
 
-* À aligner sur le module Projets / paramètres client : au minimum **`projects.update`** ou permission dédiée future `projects.integrations.*` — décision produit ; le cadrage [RFC-PROJ-INT-001](./RFC-PROJ-INT-001%20—%20Intégration%20Microsoft%20365.md) propose `projects.read` / `projects.update` pour la carte projet.
+* Implémenté : **`MicrosoftIntegrationAccessGuard`** sur les routes authentifiées — **`CLIENT_ADMIN`** sur le client actif **ou** module **Projets** activé pour le client + **`projects.update`** (voir [RFC-PROJ-INT-003](./RFC-PROJ-INT-003%20—%20Auth%20Microsoft%20OAuth.md) §8). Permission dédiée future possible : `projects.integrations.*` ; le cadrage [RFC-PROJ-INT-001](./RFC-PROJ-INT-001%20—%20Intégration%20Microsoft%20365.md) reste la référence produit pour la carte projet.
 
 ## 4. Audit
 
@@ -60,12 +60,19 @@ Depuis les **services** uniquement. Liste alignée sur [RFC-PROJ-INT-003 — Aut
 * Refus si utilisateur sans accès au client actif.
 * Callback avec `state` invalide → erreur contrôlée.
 * DELETE idempotent (aucune erreur si déjà révoqué ou absent).
-* Couverture unitaire : `apps/api/src/modules/microsoft/microsoft-oauth.service.spec.ts` (happy path callback, isolation `clientId` depuis le `state`, audits, refresh, révocation).
+* Couverture unitaire :
+  * `apps/api/src/modules/microsoft/microsoft-oauth.service.spec.ts` — happy path callback, isolation `clientId` depuis le `state`, audits, refresh, révocation ;
+  * `apps/api/src/modules/microsoft/microsoft-auth.controller.spec.ts` — délégation `GET auth/url`, `GET connection`, double appel `DELETE connection` (idempotence côté service).
 
-## 7. Récapitulatif
+## 7. Implémentation (référence code)
+
+* **Backend** : `apps/api/src/modules/microsoft/microsoft-auth.controller.ts` (routes JWT + client actif), `microsoft-oauth-callback.controller.ts` (callback sans JWT), logique dans `microsoft-oauth.service.ts`.
+* **Web** : `apps/web/src/features/microsoft-365/components/microsoft-365-settings.tsx` — même règle d’accès que le guard (`CLIENT_ADMIN` ou `projects.update` après chargement des permissions via `GET /api/me/permissions`) ; appels `GET|DELETE /api/microsoft/connection`, `GET /api/microsoft/auth/url` avec le client actif (en-têtes habituels).
+
+## 8. Récapitulatif
 
 * Connexion **par client** ; OAuth orchestré par le backend ; audit systématique.
 
-## 8. Points de vigilance
+## 9. Points de vigilance
 
 * Multi-comptes Microsoft par utilisateur Starium : le flux OAuth associe le **tenant** au **client** ; documenter le cas « mauvais tenant choisi ».

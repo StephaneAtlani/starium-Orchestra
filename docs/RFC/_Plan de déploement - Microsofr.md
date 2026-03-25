@@ -6,11 +6,11 @@ Voici le plan complet structuré des RFC pour ton intégration Microsoft — **a
 
 | Ordre | RFC                  | Nom                            | Description                                                              | État       | Commentaire           |
 | ----- | -------------------- | ------------------------------ | ------------------------------------------------------------------------ | ---------- | --------------------- |
-| 1     | **RFC-PROJ-INT-001** | Cadrage fonctionnel            | Définition du périmètre (Teams, Planner, Documents, sync one-way)        | 🆕 À faire | RFC créée             |
+| 1     | **RFC-PROJ-INT-001** | Cadrage fonctionnel            | Définition du périmètre (Teams, Planner, Documents, sync one-way)        | Draft | Source de vérité cadrage — voir [_RFC Liste](./_RFC%20Liste.md) |
 | 2     | **RFC-PROJ-INT-002** | Prisma Schema                  | Modélisation DB : MicrosoftConnection, ProjectMicrosoftLink, Sync tables | 🟡 Partiel | `MicrosoftConnection` OK ; liens projet / sync à venir |
 | 3     | **RFC-PROJ-INT-003** | Auth Microsoft OAuth           | Intégration OAuth2 + stockage tokens + refresh                           | ✅ Fait    | `apps/api/src/modules/microsoft/` ; plateforme `GET|PATCH /api/platform/microsoft-settings` ; client `GET|PUT /api/clients/active/microsoft-oauth` ; doc [docs/API.md](../API.md), [docs/ARCHITECTURE.md](../ARCHITECTURE.md) |
-| 4     | **RFC-PROJ-INT-004** | Microsoft Graph Service        | Service central Graph (Teams, Planner, Files)                            | 🆕 À faire | Abstraction API       |
-| 5     | **RFC-PROJ-INT-005** | Gestion connexion client       | CRUD MicrosoftConnection (client-level)                                  | 🟡 Partiel | OAuth + état / révocation API ; détail RFC-005 |
+| 4     | **RFC-PROJ-INT-004** | Microsoft Graph Service        | Client HTTP `graph.microsoft.com/v1.0` (transport uniquement)             | ✅ Fait    | `MicrosoftGraphService`, `microsoft-graph.types.ts`, tests — pas de métier Teams/Planner dans ce service |
+| 5     | **RFC-PROJ-INT-005** | Gestion connexion client       | Connexion / révocation MicrosoftConnection (client-level)                | ✅ Fait    | Aligné RFC-003 ; UI `/client/administration/microsoft-365` (guard = API) ; tests `microsoft-oauth.service.spec` + `microsoft-auth.controller.spec` — [RFC-005](./RFC-PROJ-INT-005%20—%20Connexion%20client%20Microsoft.md) |
 | 6     | **RFC-PROJ-INT-006** | Sélection ressources Microsoft | API Teams / Channels / Planner                                           | 🆕 À faire | UI dépendante         |
 | 7     | **RFC-PROJ-INT-007** | Configuration projet           | Lien Project ↔ Microsoft (team/channel/plan)                             | 🆕 À faire | 1:1 obligatoire       |
 | 8     | **RFC-PROJ-INT-008** | Sync tâches → Planner          | Création / update tâches Starium vers Planner                            | 🆕 À faire | MVP core              |
@@ -42,8 +42,8 @@ Voici le plan complet structuré des RFC pour ton intégration Microsoft — **a
 
 1. **003 (Auth)** — **livré** (module OAuth + tokens chiffrés).
 2. **002 (Schema)** — **partiel** (`MicrosoftConnection` ; suite selon RFC-002).
-3. **005 (Connection)** — **partiel** (routes connexion alignées [RFC-PROJ-INT-005](./RFC-PROJ-INT-005%20—%20Connexion%20client%20Microsoft.md) avec 003).
-4. **004 (Graph service)** — à faire.
+3. **005 (Connection)** — **livré** (API connexion / révocation ; voir RFC-005).
+4. **004 (Graph service)** — **livré** (`MicrosoftGraphService` : transport HTTP v1.0, `requestForConnection` + `ensureFreshAccessToken`).
 5. **006 (Resources)**
 6. **007 (Project link)**
 7. **008 (Tasks sync)** ✅ MVP utile
