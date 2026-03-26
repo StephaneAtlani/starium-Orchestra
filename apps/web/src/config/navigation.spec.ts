@@ -21,6 +21,7 @@ describe('platform navigation', () => {
 
     const suppliersItem = financeSection?.items.find((item) => item.href === '/suppliers');
     expect(suppliersItem).toBeDefined();
+    expect(suppliersItem?.moduleCode).toBe('procurement');
     expect(suppliersItem?.requiredPermissions).toEqual(['procurement.read']);
     expect(suppliersItem?.scope).toBe('client');
   });

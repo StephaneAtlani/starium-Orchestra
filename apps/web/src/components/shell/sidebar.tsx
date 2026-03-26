@@ -38,6 +38,12 @@ function visible(
       if (!has(code)) return false;
     }
   }
+  // Fallback de gating module: un item client avec moduleCode
+  // n'est visible que si la permission de lecture du module est présente.
+  if (item.scope === 'client' && item.moduleCode) {
+    if (!permsSuccess) return false;
+    if (!has(`${item.moduleCode}.read`)) return false;
+  }
   return true;
 }
 

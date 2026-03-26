@@ -91,6 +91,7 @@ export const navigation: NavigationSection[] = [
         href: '/suppliers',
         icon: Handshake,
         scope: 'client',
+        moduleCode: 'procurement',
         requiredPermissions: ['procurement.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
