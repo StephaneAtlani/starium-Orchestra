@@ -43,13 +43,21 @@ export function useTriggerTasksSyncMutation(projectId: string) {
 
   return useMutation({
     mutationFn: () => triggerTasksSync(authFetch, projectId),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: projectOptionsKeys.microsoftLink(clientId, projectId) }),
         qc.invalidateQueries({ queryKey: projectQueryKeys.tasks(clientId, projectId) }),
         qc.invalidateQueries({ queryKey: projectQueryKeys.taskLabels(clientId, projectId) }),
       ]);
-      toast.success('Synchronisation des tâches terminée.');
+      if (result.status === 'success') {
+        toast.success(
+          `Sync tâches OK: ${result.summary.syncedToPlanner} poussées, ${result.summary.updatedInStarium} mises à jour, ${result.summary.createdInStarium} créées.`,
+        );
+      } else {
+        toast.error(
+          `Sync tâches en échec: ${result.summary.errors} erreur(s), ${result.summary.conflictsResolvedByStarium} conflit(s) résolu(s).`,
+        );
+      }
     },
     onError: (e: Error) => {
       toast.error(e.message || 'Échec de la synchronisation des tâches.');

@@ -29,7 +29,15 @@ import { buildPlannerChecklistPatchBody } from './planner-task-checklist-graph';
 
 const AUDIT_ACTION_ENABLED = 'project.microsoft_link.enabled';
 const AUDIT_ACTION_UPDATED = 'project.microsoft_link.updated';
-const AUDIT_ACTION_TASKS_SYNCED = 'project.microsoft_tasks.synced';
+const AUDIT_ACTION_TASKS_BIDIRECTIONAL_SYNC_STARTED =
+  'project.microsoft_tasks.bidirectional_sync_started';
+const AUDIT_ACTION_TASKS_IMPORTED = 'project.microsoft_tasks.imported';
+const AUDIT_ACTION_TASKS_UPDATED_FROM_MICROSOFT =
+  'project.microsoft_tasks.updated_from_microsoft';
+const AUDIT_ACTION_TASKS_CONFLICT_RESOLVED_STARIUM_WINS =
+  'project.microsoft_tasks.conflict_resolved_starium_wins';
+const AUDIT_ACTION_TASKS_BIDIRECTIONAL_SYNC_COMPLETED =
+  'project.microsoft_tasks.bidirectional_sync_completed';
 const AUDIT_ACTION_DOCUMENTS_SYNCED = 'project.microsoft_documents.synced';
 const AUDIT_ACTION_TASK_SYNC_FAILED = 'project.microsoft_sync.failed';
 const AUDIT_ACTION_DOC_SYNC_FAILED = 'project.microsoft_sync.failed';
@@ -147,9 +155,17 @@ export type ProjectMicrosoftLinkConfig = Pick<
 >;
 
 export type SyncTasksResult = {
-  total: number;
-  synced: number;
-  failed: number;
+  projectId: string;
+  status: 'success' | 'failed';
+  summary: {
+    plannerTasksRead: number;
+    createdInStarium: number;
+    updatedInStarium: number;
+    syncedToPlanner: number;
+    conflictsResolvedByStarium: number;
+    errors: number;
+  };
+  lastSyncAt: string | null;
 };
 
 export type SyncDocumentsResult = {
@@ -711,22 +727,16 @@ export class ProjectMicrosoftLinksService {
     projectId: string,
     context?: AuditContext,
   ): Promise<SyncTasksResult> {
-    // 1) Scope project
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, clientId },
       select: { id: true },
     });
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
+    if (!project) throw new NotFoundException('Project not found');
 
-    // 2) Load project link + validation
     const link = await this.prisma.projectMicrosoftLink.findFirst({
       where: { projectId, clientId },
     });
-    if (!link) {
-      throw new NotFoundException('Microsoft link not configured');
-    }
+    if (!link) throw new NotFoundException('Microsoft link not configured');
     if (link.isEnabled !== true || link.syncTasksEnabled !== true) {
       throw new UnprocessableEntityException(
         'Sync tâches Microsoft désactivée pour ce projet',
@@ -738,16 +748,32 @@ export class ProjectMicrosoftLinksService {
       );
     }
 
-    const useMicrosoftPlannerLabels = link.useMicrosoftPlannerLabels === true;
+    const summary = {
+      plannerTasksRead: 0,
+      createdInStarium: 0,
+      updatedInStarium: 0,
+      syncedToPlanner: 0,
+      conflictsResolvedByStarium: 0,
+      errors: 0,
+    };
 
-    // 3) Access token
     const accessToken = await this.microsoftOAuth.ensureFreshAccessToken(
       link.microsoftConnectionId,
       clientId,
     );
+    const useMicrosoftPlannerLabels = link.useMicrosoftPlannerLabels === true;
 
-    // Import des libellés Planner (plan details) si sync étiquettes active mais table vide :
-    // l’utilisateur déclenche souvent d’abord « Sync tâches » sans repasser par les options.
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: AUDIT_ACTION_TASKS_BIDIRECTIONAL_SYNC_STARTED,
+      resourceType: AUDIT_RESOURCE_TYPE,
+      resourceId: projectId,
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
     if (useMicrosoftPlannerLabels) {
       const labelCount = await this.prisma.projectTaskLabel.count({
         where: { clientId, projectId },
@@ -760,7 +786,6 @@ export class ProjectMicrosoftLinksService {
       }
     }
 
-    // 4) Planner buckets (for status -> bucket)
     type PlannerBucket = { id: string; name: string };
     const bucketsResp = await this.graph.getJson<
       MicrosoftGraphODataListResponse<PlannerBucket>
@@ -773,6 +798,12 @@ export class ProjectMicrosoftLinksService {
         'Aucun bucket Planner trouvé pour le plan configuré',
       );
     }
+
+    const stariumBuckets = await this.prisma.projectTaskBucket.findMany({
+      where: { clientId, projectId },
+      select: { id: true, name: true, plannerBucketId: true },
+    });
+    const bucketById = new Map(stariumBuckets.map((b) => [b.id, b]));
 
     const mapPriority = (p: ProjectTaskPriority): number => {
       switch (p) {
@@ -787,7 +818,12 @@ export class ProjectMicrosoftLinksService {
           return 9;
       }
     };
-
+    const plannerPercentToStatus = (percentComplete: number): ProjectTaskStatus =>
+      percentComplete >= 100
+        ? ProjectTaskStatus.DONE
+        : percentComplete > 0
+          ? ProjectTaskStatus.IN_PROGRESS
+          : ProjectTaskStatus.TODO;
     const resolveDueDateTime = (t: {
       plannedEndDate: Date | null;
       actualEndDate: Date | null;
@@ -795,7 +831,6 @@ export class ProjectMicrosoftLinksService {
       const dt = t.actualEndDate ?? t.plannedEndDate;
       return dt ? dt.toISOString() : undefined;
     };
-
     const resolveStartDateTime = (t: {
       plannedStartDate: Date | null;
       actualStartDate: Date | null;
@@ -803,13 +838,6 @@ export class ProjectMicrosoftLinksService {
       const dt = t.actualStartDate ?? t.plannedStartDate;
       return dt ? dt.toISOString() : undefined;
     };
-
-    const stariumBuckets = await this.prisma.projectTaskBucket.findMany({
-      where: { clientId, projectId },
-      select: { id: true, name: true, plannerBucketId: true },
-    });
-    const bucketById = new Map(stariumBuckets.map((b) => [b.id, b]));
-
     const resolvePlannerBucketId = (task: {
       status: ProjectTaskStatus;
       bucketId: string | null;
@@ -828,15 +856,239 @@ export class ProjectMicrosoftLinksService {
       }
       const fromStatus = plannerBucketIdForTaskStatus(task.status, buckets);
       if (fromStatus) return fromStatus;
-      const exact = buckets.find((b) => b.name === task.status);
-      if (exact) return exact.id;
-      if (task.status === ProjectTaskStatus.TODO) return buckets[0].id;
       if (task.status === ProjectTaskStatus.DONE)
         return buckets[buckets.length - 1].id;
       return buckets[0].id;
     };
 
-    // 5) Load tasks in deterministic order
+    type PlannerTaskLite = {
+      id: string;
+      title?: string | null;
+      dueDateTime?: string | null;
+      percentComplete?: number | null;
+      bucketId?: string | null;
+    };
+
+    let pulledTaskIds = new Set<string>();
+    let stopError: unknown = null;
+    const mappingsByTaskId = new Map<string, any>();
+
+    try {
+      // Phase A: pull Planner -> Starium
+      const plannerTasksResp = await this.graph.getJson<
+        MicrosoftGraphODataListResponse<PlannerTaskLite>
+      >(accessToken, `planner/plans/${link.plannerPlanId}/tasks`, {
+        expectJson: true,
+      });
+      const plannerTasks = (plannerTasksResp?.value ?? []).filter(
+        (t): t is PlannerTaskLite =>
+          typeof t?.id === 'string' && typeof t?.title === 'string',
+      );
+      summary.plannerTasksRead = plannerTasks.length;
+
+      const existingMappings = (await this.prisma.projectTaskMicrosoftSync.findMany({
+        where: { clientId, projectId },
+      })) as any[];
+      const mappingByPlannerTaskId = new Map(
+        existingMappings.map((m: any) => [m.plannerTaskId, m]),
+      );
+      for (const mapping of existingMappings) {
+        mappingsByTaskId.set(mapping.projectTaskId, mapping);
+      }
+
+      const existingTasks = await this.prisma.projectTask.findMany({
+        where: { clientId, projectId },
+        select: { id: true, updatedAt: true },
+      });
+      const taskById = new Map(existingTasks.map((t) => [t.id, t]));
+      const plannerTaskIdsSeen = new Set<string>();
+
+      for (const plannerTask of plannerTasks) {
+        plannerTaskIdsSeen.add(plannerTask.id);
+        const mapping = mappingByPlannerTaskId.get(plannerTask.id);
+        const taskWithEtag = await this.graph.getPlannerTaskWithEtag<unknown>(
+          accessToken,
+          plannerTask.id,
+        );
+        const plannerTaskEtag = taskWithEtag.etag ?? null;
+        const dueDate = plannerTask.dueDateTime
+          ? new Date(plannerTask.dueDateTime)
+          : null;
+        const percent =
+          typeof plannerTask.percentComplete === 'number'
+            ? plannerTask.percentComplete
+            : 0;
+        const nextStatus = plannerPercentToStatus(percent);
+
+        if (!mapping) {
+          const created = await this.prisma.projectTask.create({
+            data: {
+              clientId,
+              projectId,
+              name: plannerTask.title!.trim(),
+              plannedEndDate: dueDate,
+              status: nextStatus,
+              progress: percent,
+            },
+            select: { id: true, updatedAt: true },
+          });
+
+          const createdMapping = await (this.prisma.projectTaskMicrosoftSync as any).create({
+            data: {
+              clientId,
+              projectId,
+              projectTaskId: created.id,
+              projectMicrosoftLinkId: link.id,
+              plannerTaskId: plannerTask.id,
+              syncStatus: MicrosoftSyncStatus.SYNCED,
+              lastError: null,
+              lastPullFromMicrosoftAt: new Date(),
+              lastSyncedPlannerEtag: plannerTaskEtag,
+              lastSyncedTaskUpdatedAt: created.updatedAt,
+            },
+          });
+          mappingsByTaskId.set(created.id, createdMapping);
+          summary.createdInStarium++;
+          pulledTaskIds.add(created.id);
+          await this.auditLogs.create({
+            clientId,
+            userId: context?.actorUserId,
+            action: AUDIT_ACTION_TASKS_IMPORTED,
+            resourceType: AUDIT_RESOURCE_TYPE,
+            resourceId: created.id,
+            newValue: { plannerTaskId: plannerTask.id },
+            ipAddress: context?.meta?.ipAddress,
+            userAgent: context?.meta?.userAgent,
+            requestId: context?.meta?.requestId,
+          });
+          continue;
+        }
+
+        const localTask = taskById.get(mapping.projectTaskId);
+        if (!localTask) continue;
+        const localChangedSinceLastPull =
+          mapping.lastPullFromMicrosoftAt instanceof Date
+            ? localTask.updatedAt > mapping.lastPullFromMicrosoftAt
+            : false;
+        const plannerChangedSinceLastSync =
+          Boolean(plannerTaskEtag) &&
+          Boolean(mapping.lastSyncedPlannerEtag) &&
+          plannerTaskEtag !== mapping.lastSyncedPlannerEtag;
+        const isConflict = localChangedSinceLastPull && plannerChangedSinceLastSync;
+
+        if (isConflict) {
+          summary.conflictsResolvedByStarium++;
+          await (this.prisma.projectTaskMicrosoftSync as any).update({
+            where: {
+              clientId_projectTaskId: {
+                clientId,
+                projectTaskId: mapping.projectTaskId,
+              },
+            },
+            data: {
+              syncStatus: MicrosoftSyncStatus.PENDING,
+              lastPullFromMicrosoftAt: new Date(),
+              lastSyncedPlannerEtag: plannerTaskEtag,
+              lastError: null,
+            },
+          });
+          await this.auditLogs.create({
+            clientId,
+            userId: context?.actorUserId,
+            action: AUDIT_ACTION_TASKS_CONFLICT_RESOLVED_STARIUM_WINS,
+            resourceType: AUDIT_RESOURCE_TYPE,
+            resourceId: mapping.projectTaskId,
+            newValue: { plannerTaskId: plannerTask.id },
+            ipAddress: context?.meta?.ipAddress,
+            userAgent: context?.meta?.userAgent,
+            requestId: context?.meta?.requestId,
+          });
+          continue;
+        }
+
+        await this.prisma.projectTask.updateMany({
+          where: { id: mapping.projectTaskId, clientId, projectId },
+          data: {
+            name: plannerTask.title!.trim(),
+            plannedEndDate: dueDate,
+            status: nextStatus,
+            progress: percent,
+          },
+        });
+        pulledTaskIds.add(mapping.projectTaskId);
+        summary.updatedInStarium++;
+
+        await (this.prisma.projectTaskMicrosoftSync as any).update({
+          where: {
+            clientId_projectTaskId: {
+              clientId,
+              projectTaskId: mapping.projectTaskId,
+            },
+          },
+          data: {
+            syncStatus: MicrosoftSyncStatus.SYNCED,
+            lastPullFromMicrosoftAt: new Date(),
+            lastSyncedPlannerEtag: plannerTaskEtag,
+            lastError: null,
+          },
+        });
+
+        await this.auditLogs.create({
+          clientId,
+          userId: context?.actorUserId,
+          action: AUDIT_ACTION_TASKS_UPDATED_FROM_MICROSOFT,
+          resourceType: AUDIT_RESOURCE_TYPE,
+          resourceId: mapping.projectTaskId,
+          newValue: { plannerTaskId: plannerTask.id },
+          ipAddress: context?.meta?.ipAddress,
+          userAgent: context?.meta?.userAgent,
+          requestId: context?.meta?.requestId,
+        });
+      }
+
+      // Tâches Planner disparues => pas de suppression locale, mapping en erreur.
+      for (const mapping of existingMappings) {
+        if (plannerTaskIdsSeen.has(mapping.plannerTaskId)) continue;
+        await (this.prisma.projectTaskMicrosoftSync as any).update({
+          where: {
+            clientId_projectTaskId: {
+              clientId,
+              projectTaskId: mapping.projectTaskId,
+            },
+          },
+          data: {
+            syncStatus: MicrosoftSyncStatus.ERROR,
+            lastError: 'Planner task introuvable côté Microsoft',
+          },
+        });
+      }
+    } catch (e: unknown) {
+      stopError = e;
+      summary.errors++;
+    }
+
+    if (stopError !== null) {
+      const lastError = this.normalizeSyncError(stopError);
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: AUDIT_ACTION_TASK_SYNC_FAILED,
+        resourceType: AUDIT_RESOURCE_TYPE,
+        resourceId: projectId,
+        newValue: { lastError, phase: 'pull' },
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
+      return {
+        projectId,
+        status: 'failed',
+        summary,
+        lastSyncAt: link.lastSyncAt ? link.lastSyncAt.toISOString() : null,
+      };
+    }
+
+    // Phase B: push Starium -> Planner (skip des tâches touchées en pull)
     const tasks = await this.prisma.projectTask.findMany({
       where: { clientId, projectId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -851,6 +1103,7 @@ export class ProjectMicrosoftLinksService {
         status: true,
         priority: true,
         bucketId: true,
+        updatedAt: true,
         labelAssignments: {
           select: {
             label: { select: { plannerCategoryId: true } },
@@ -870,32 +1123,20 @@ export class ProjectMicrosoftLinksService {
     });
 
     const taskIds = tasks.map((t) => t.id);
+    if (mappingsByTaskId.size === 0) {
+      const existingSyncs = await this.prisma.projectTaskMicrosoftSync.findMany({
+        where: { clientId, projectId, projectTaskId: { in: taskIds } },
+      });
+      for (const m of existingSyncs) mappingsByTaskId.set(m.projectTaskId, m);
+    }
 
-    // 6) Load mappings with strict scope + deterministic order
-    const existingSyncs = await this.prisma.projectTaskMicrosoftSync.findMany({
-      where: {
-        clientId,
-        projectId,
-        projectTaskId: { in: taskIds },
-      },
-      orderBy: [{ projectTaskId: 'asc' }],
-      select: {
-        id: true,
-        projectTaskId: true,
-        plannerTaskId: true,
-      },
-    });
-    const syncByTaskId = new Map(
-      existingSyncs.map((s) => [s.projectTaskId, s]),
-    );
-
-    let synced = 0;
-    let failed = 0;
-    let stopError: unknown = null;
-
-    // 7) Process tasks (stop au 1er échec)
     for (const task of tasks) {
-      const mapping = syncByTaskId.get(task.id);
+      const mapping = mappingsByTaskId.get(task.id);
+      const forcePush = Boolean(
+        mapping?.syncStatus === MicrosoftSyncStatus.PENDING &&
+          !pulledTaskIds.has(task.id),
+      );
+      if (pulledTaskIds.has(task.id) && !forcePush) continue;
 
       const resolvedPlannerBucketId = resolvePlannerBucketId(task);
       const priority = mapPriority(task.priority);
@@ -905,8 +1146,6 @@ export class ProjectMicrosoftLinksService {
         ...(dueDateTime ? { dueDateTime } : {}),
         ...(startDateTime ? { startDateTime } : {}),
       };
-
-      // Graph : seules category1…category6 sur plannerTask.appliedCategories (pas category7+).
       const appliedCategories = useMicrosoftPlannerLabels
         ? (() => {
             const categoryIds =
@@ -922,10 +1161,10 @@ export class ProjectMicrosoftLinksService {
           })()
         : undefined;
 
-      if (!mapping) {
-        // Create Planner task first, then create mapping as PENDING, then sync full.
-        let plannerTaskId: string | undefined;
-        try {
+      try {
+        let plannerTaskId = mapping?.plannerTaskId as string | undefined;
+
+        if (!plannerTaskId) {
           const created = await this.graph.postJson<{ id: string }>(
             accessToken,
             'planner/tasks',
@@ -939,14 +1178,9 @@ export class ProjectMicrosoftLinksService {
             },
             { expectJson: true },
           );
-
-          if (!created || !('id' in created) || !created.id) {
-            // Creation succeeded but no plannerTaskId returned => no mapping.
-            throw new Error('plannerTaskId manquant après création Planner');
-          }
+          if (!created?.id) throw new Error('plannerTaskId manquant après création Planner');
           plannerTaskId = created.id;
-
-          await this.prisma.projectTaskMicrosoftSync.create({
+          const createdMapping = await (this.prisma.projectTaskMicrosoftSync as any).create({
             data: {
               clientId,
               projectId,
@@ -957,231 +1191,128 @@ export class ProjectMicrosoftLinksService {
               lastError: null,
             },
           });
-
-          // Task PATCH uses ETag of plannerTask
-          const taskWithEtag = await this.graph.getPlannerTaskWithEtag<
-            unknown
-          >(accessToken, plannerTaskId);
-          if (!taskWithEtag.etag) {
-            throw new Error('ETag manquant pour plannerTask');
-          }
-
-          await this.graph.patchJson(
-            accessToken,
-            `planner/tasks/${plannerTaskId}`,
-            {
-              title: task.name,
-              bucketId: resolvedPlannerBucketId,
-              ...plannerTaskDateFields,
-              priority,
-              ...(useMicrosoftPlannerLabels ? { appliedCategories } : {}),
-            },
-            {
-              headers: { 'If-Match': taskWithEtag.etag },
-            },
-          );
-
-          const detailsPatch = await this.buildPlannerTaskDetailsPatchPayload(
-            accessToken,
-            plannerTaskId,
-            clientId,
-            projectId,
-            task.id,
-            task.description ?? null,
-          );
-
-          await this.graph.patchJson(
-            accessToken,
-            `planner/tasks/${plannerTaskId}/details`,
-            detailsPatch.body,
-            {
-              headers: { 'If-Match': detailsPatch.etag },
-            },
-          );
-
-          await this.prisma.projectTaskMicrosoftSync.update({
-            where: {
-              clientId_projectTaskId: {
-                clientId,
-                projectTaskId: task.id,
-              },
-            },
-            data: {
-              syncStatus: MicrosoftSyncStatus.SYNCED,
-              lastPushedAt: new Date(),
-              lastError: null,
-            },
-          });
-
-          await this.alignStariumTaskBucketAfterPlannerPush(
-            clientId,
-            projectId,
-            task.id,
-            resolvedPlannerBucketId,
-            buckets,
-            stariumBuckets,
-          );
-
-          synced++;
-        } catch (e: unknown) {
-          failed++;
-          stopError = e;
-
-          const lastError = this.normalizeSyncError(e);
-
-          // Mapping must exist if plannerTaskId was returned; update to ERROR.
-          if (plannerTaskId) {
-            await this.prisma.projectTaskMicrosoftSync.update({
-              where: {
-                clientId_projectTaskId: {
-                  clientId,
-                  projectTaskId: task.id,
-                },
-              },
-              data: {
-                syncStatus: MicrosoftSyncStatus.ERROR,
-                lastError,
-              },
-            });
-          }
-
-          await this.auditLogs.create({
-            clientId,
-            userId: context?.actorUserId,
-            action: AUDIT_ACTION_TASK_SYNC_FAILED,
-            resourceType: AUDIT_RESOURCE_TYPE,
-            resourceId: task.id,
-            newValue: { lastError },
-            ipAddress: context?.meta?.ipAddress,
-            userAgent: context?.meta?.userAgent,
-            requestId: context?.meta?.requestId,
-          });
-
-          break;
+          mappingsByTaskId.set(task.id, createdMapping);
         }
-      } else {
-        // Update Planner task using mapping.
-        try {
-          const plannerTaskId = mapping.plannerTaskId;
 
-          // ETags: task and details are retrieved separately.
-          const taskWithEtag = await this.graph.getPlannerTaskWithEtag<
-            unknown
-          >(accessToken, plannerTaskId);
-          if (!taskWithEtag.etag) {
-            throw new Error('ETag manquant pour plannerTask');
-          }
+        const taskWithEtag = await this.graph.getPlannerTaskWithEtag<unknown>(
+          accessToken,
+          plannerTaskId,
+        );
+        if (!taskWithEtag.etag) throw new Error('ETag manquant pour plannerTask');
 
-          await this.graph.patchJson(
-            accessToken,
-            `planner/tasks/${plannerTaskId}`,
-            {
-              title: task.name,
-              bucketId: resolvedPlannerBucketId,
-              ...plannerTaskDateFields,
-              priority,
-              ...(useMicrosoftPlannerLabels ? { appliedCategories } : {}),
+        await this.graph.patchJson(
+          accessToken,
+          `planner/tasks/${plannerTaskId}`,
+          {
+            title: task.name,
+            bucketId: resolvedPlannerBucketId,
+            ...plannerTaskDateFields,
+            priority,
+            ...(useMicrosoftPlannerLabels ? { appliedCategories } : {}),
+          },
+          { headers: { 'If-Match': taskWithEtag.etag } },
+        );
+
+        const detailsPatch = await this.buildPlannerTaskDetailsPatchPayload(
+          accessToken,
+          plannerTaskId,
+          clientId,
+          projectId,
+          task.id,
+          task.description ?? null,
+        );
+
+        await this.graph.patchJson(
+          accessToken,
+          `planner/tasks/${plannerTaskId}/details`,
+          detailsPatch.body,
+          { headers: { 'If-Match': detailsPatch.etag } },
+        );
+
+        await (this.prisma.projectTaskMicrosoftSync as any).update({
+          where: {
+            clientId_projectTaskId: {
+              clientId,
+              projectTaskId: task.id,
             },
-            { headers: { 'If-Match': taskWithEtag.etag } },
-          );
+          },
+          data: {
+            syncStatus: MicrosoftSyncStatus.SYNCED,
+            lastPushedAt: new Date(),
+            lastSyncedTaskUpdatedAt: task.updatedAt,
+            lastSyncedPlannerEtag: taskWithEtag.etag,
+            lastError: null,
+          },
+        });
 
-          const detailsPatch = await this.buildPlannerTaskDetailsPatchPayload(
-            accessToken,
-            plannerTaskId,
-            clientId,
-            projectId,
-            task.id,
-            task.description ?? null,
-          );
+        await this.alignStariumTaskBucketAfterPlannerPush(
+          clientId,
+          projectId,
+          task.id,
+          resolvedPlannerBucketId,
+          buckets,
+          stariumBuckets,
+        );
 
-          await this.graph.patchJson(
-            accessToken,
-            `planner/tasks/${plannerTaskId}/details`,
-            detailsPatch.body,
-            { headers: { 'If-Match': detailsPatch.etag } },
-          );
-
-          await this.prisma.projectTaskMicrosoftSync.update({
-            where: {
-              clientId_projectTaskId: {
-                clientId,
-                projectTaskId: task.id,
-              },
-            },
-            data: {
-              syncStatus: MicrosoftSyncStatus.SYNCED,
-              lastPushedAt: new Date(),
-              lastError: null,
-            },
-          });
-
-          await this.alignStariumTaskBucketAfterPlannerPush(
-            clientId,
-            projectId,
-            task.id,
-            resolvedPlannerBucketId,
-            buckets,
-            stariumBuckets,
-          );
-
-          synced++;
-        } catch (e: unknown) {
-          failed++;
-          stopError = e;
-
-          const lastError = this.normalizeSyncError(e);
-
-          await this.prisma.projectTaskMicrosoftSync.update({
-            where: {
-              clientId_projectTaskId: {
-                clientId,
-                projectTaskId: task.id,
-              },
-            },
-            data: {
-              syncStatus: MicrosoftSyncStatus.ERROR,
-              lastError,
-            },
-          });
-
-          await this.auditLogs.create({
-            clientId,
-            userId: context?.actorUserId,
-            action: AUDIT_ACTION_TASK_SYNC_FAILED,
-            resourceType: AUDIT_RESOURCE_TYPE,
-            resourceId: task.id,
-            newValue: { lastError },
-            ipAddress: context?.meta?.ipAddress,
-            userAgent: context?.meta?.userAgent,
-            requestId: context?.meta?.requestId,
-          });
-
-          break;
-        }
+        summary.syncedToPlanner++;
+      } catch (e: unknown) {
+        summary.errors++;
+        stopError = e;
+        const lastError = this.normalizeSyncError(e);
+        await (this.prisma.projectTaskMicrosoftSync as any).updateMany({
+          where: { clientId, projectId, projectTaskId: task.id },
+          data: {
+            syncStatus: MicrosoftSyncStatus.ERROR,
+            lastError,
+          },
+        });
+        await this.auditLogs.create({
+          clientId,
+          userId: context?.actorUserId,
+          action: AUDIT_ACTION_TASK_SYNC_FAILED,
+          resourceType: AUDIT_RESOURCE_TYPE,
+          resourceId: task.id,
+          newValue: { lastError, phase: 'push' },
+          ipAddress: context?.meta?.ipAddress,
+          userAgent: context?.meta?.userAgent,
+          requestId: context?.meta?.requestId,
+        });
+        break;
       }
     }
 
-    // 8) Audit + lastSyncAt seulement si succès complet
-    if (stopError === null) {
-      await this.prisma.projectMicrosoftLink.update({
-        where: { id: link.id },
-        data: { lastSyncAt: new Date() },
-      });
-
-      await this.auditLogs.create({
-        clientId,
-        userId: context?.actorUserId,
-        action: AUDIT_ACTION_TASKS_SYNCED,
-        resourceType: AUDIT_RESOURCE_TYPE,
-        resourceId: projectId,
-        newValue: { total: tasks.length, synced },
-        ipAddress: context?.meta?.ipAddress,
-        userAgent: context?.meta?.userAgent,
-        requestId: context?.meta?.requestId,
-      });
+    if (stopError !== null) {
+      return {
+        projectId,
+        status: 'failed',
+        summary,
+        lastSyncAt: link.lastSyncAt ? link.lastSyncAt.toISOString() : null,
+      };
     }
 
-    return { total: tasks.length, synced, failed };
+    const now = new Date();
+    await this.prisma.projectMicrosoftLink.update({
+      where: { id: link.id },
+      data: { lastSyncAt: now },
+    });
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: AUDIT_ACTION_TASKS_BIDIRECTIONAL_SYNC_COMPLETED,
+      resourceType: AUDIT_RESOURCE_TYPE,
+      resourceId: projectId,
+      newValue: summary,
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return {
+      projectId,
+      status: 'success',
+      summary,
+      lastSyncAt: now.toISOString(),
+    };
   }
 
   async syncDocuments(

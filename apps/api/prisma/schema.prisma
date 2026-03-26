@@ -2343,6 +2343,9 @@ model ProjectTaskMicrosoftSync {
 
   plannerTaskId         String
   lastPushedAt          DateTime?
+  lastPullFromMicrosoftAt DateTime?
+  lastSyncedPlannerEtag String?
+  lastSyncedTaskUpdatedAt DateTime?
   syncStatus            MicrosoftSyncStatus @default(PENDING)
   lastError             String?
 

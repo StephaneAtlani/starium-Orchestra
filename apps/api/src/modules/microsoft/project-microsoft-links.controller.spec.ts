@@ -117,7 +117,19 @@ describe('ProjectMicrosoftLinksController — RFC-PROJ-INT-007', () => {
   });
 
   it('syncTasks : délègue au service', async () => {
-    const expected = { total: 1, synced: 0, failed: 1 };
+    const expected = {
+      projectId: 'project-1',
+      status: 'failed',
+      summary: {
+        plannerTasksRead: 3,
+        createdInStarium: 1,
+        updatedInStarium: 1,
+        syncedToPlanner: 0,
+        conflictsResolvedByStarium: 1,
+        errors: 1,
+      },
+      lastSyncAt: null,
+    };
     (service.syncTasks as jest.Mock).mockResolvedValue(expected);
 
     const meta = { requestId: 'req-1' };

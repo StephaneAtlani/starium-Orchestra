@@ -49,9 +49,17 @@ export type UpdateProjectMicrosoftLinkPayload = {
 };
 
 export type SyncTasksResult = {
-  total: number;
-  synced: number;
-  failed: number;
+  projectId: string;
+  status: 'success' | 'failed';
+  summary: {
+    plannerTasksRead: number;
+    createdInStarium: number;
+    updatedInStarium: number;
+    syncedToPlanner: number;
+    conflictsResolvedByStarium: number;
+    errors: number;
+  };
+  lastSyncAt: string | null;
 };
 
 export type SyncDocumentsResult = {

@@ -59,6 +59,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       },
       projectTask: {
         findMany: jest.fn(),
+        create: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       projectTaskChecklistItem: {
@@ -74,6 +75,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
       projectDocument: {
         findMany: jest.fn(),
@@ -730,11 +732,9 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       } as any);
 
       // mapping doit être passé en ERROR
-      expect(prisma.projectTaskMicrosoftSync.update).toHaveBeenCalledWith(
+      expect(prisma.projectTaskMicrosoftSync.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {
-            clientId_projectTaskId: { clientId, projectTaskId: 't1' },
-          },
+          where: { clientId, projectId, projectTaskId: 't1' },
           data: expect.objectContaining({
             syncStatus: MicrosoftSyncStatus.ERROR,
             lastError: expect.any(String),
@@ -814,7 +814,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       );
       expect(auditLogs.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'project.microsoft_tasks.synced',
+          action: 'project.microsoft_tasks.bidirectional_sync_completed',
         }),
       );
     });
@@ -878,11 +878,9 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       expect(prisma.projectMicrosoftLink.update).not.toHaveBeenCalled();
 
       // mapping du 1er task en ERROR
-      expect(prisma.projectTaskMicrosoftSync.update).toHaveBeenCalledWith(
+      expect(prisma.projectTaskMicrosoftSync.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {
-            clientId_projectTaskId: { clientId, projectTaskId: 't1' },
-          },
+          where: { clientId, projectId, projectTaskId: 't1' },
           data: expect.objectContaining({
             syncStatus: MicrosoftSyncStatus.ERROR,
           }),
@@ -890,7 +888,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       );
     });
 
-    it('réussite complète => audit project.microsoft_tasks.synced + lastSyncAt mis à jour', async () => {
+    it('réussite complète => audit bidirectional_sync_completed + lastSyncAt mis à jour', async () => {
       prisma.project.findFirst.mockResolvedValue({ id: projectId });
       const link = baseLink({
         isEnabled: true,
@@ -959,7 +957,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
 
       expect(auditLogs.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'project.microsoft_tasks.synced',
+          action: 'project.microsoft_tasks.bidirectional_sync_completed',
           resourceId: projectId,
           requestId: 'req-1',
         }),

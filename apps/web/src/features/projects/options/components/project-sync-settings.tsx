@@ -200,6 +200,20 @@ export function ProjectSyncSettings({ projectId }: Props) {
         </Button>
       </div>
 
+      {tasksSync.data ? (
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-4 text-sm">
+          <p className="font-medium">Dernier run tâches ({tasksSync.data.status})</p>
+          <p className="text-muted-foreground">
+            Planner lues: {tasksSync.data.summary.plannerTasksRead} - Creees Starium:{' '}
+            {tasksSync.data.summary.createdInStarium} - Mises a jour Starium:{' '}
+            {tasksSync.data.summary.updatedInStarium} - Poussees Planner:{' '}
+            {tasksSync.data.summary.syncedToPlanner} - Conflits resolus:{' '}
+            {tasksSync.data.summary.conflictsResolvedByStarium} - Erreurs:{' '}
+            {tasksSync.data.summary.errors}
+          </p>
+        </div>
+      ) : null}
+
       {!link.isEnabled ? (
         <Alert>
           <AlertTitle>Liaison désactivée</AlertTitle>
