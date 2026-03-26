@@ -44,6 +44,9 @@ describe('ProjectMilestonesService — labels (milestoneLabelIds)', () => {
         findFirstOrThrow: jest.fn(),
         update: jest.fn(),
       },
+      projectTaskPhase: {
+        findFirst: jest.fn(),
+      },
       projectMilestoneLabel: {
         findMany: jest.fn(),
       },
@@ -60,6 +63,40 @@ describe('ProjectMilestonesService — labels (milestoneLabelIds)', () => {
       prisma,
       auditLogs as unknown as AuditLogsService,
       projects as unknown as ProjectsService,
+    );
+  });
+
+  it('update : remplace phaseId (phaseId -> rattachement jalon)', async () => {
+    const existing = baseMilestone({ phaseId: null });
+    const updated = { ...existing, phaseId: 'phase-1' };
+
+    prisma.projectMilestone.findFirst.mockResolvedValue(existing);
+    prisma.projectTaskPhase.findFirst.mockResolvedValue({ id: 'phase-1' });
+    prisma.projectMilestone.update.mockResolvedValue(updated);
+    prisma.projectMilestone.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      labelAssignments: [],
+    });
+
+    await service.update(
+      clientId,
+      projectId,
+      milestoneId,
+      { phaseId: 'phase-1' } as any,
+      { actorUserId: 'u1', meta: {} },
+      'u1',
+    );
+
+    expect(prisma.projectTaskPhase.findFirst).toHaveBeenCalledWith({
+      where: { id: 'phase-1', clientId, projectId },
+    });
+    expect(prisma.projectMilestone.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: milestoneId },
+        data: expect.objectContaining({
+          phaseId: 'phase-1',
+        }),
+      }),
     );
   });
 

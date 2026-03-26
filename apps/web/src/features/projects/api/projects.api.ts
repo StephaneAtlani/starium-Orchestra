@@ -402,6 +402,7 @@ export type CreateProjectMilestonePayload = {
   achievedDate?: string;
   status?: string;
   linkedTaskId?: string | null;
+  phaseId?: string | null;
   ownerUserId?: string | null;
   sortOrder?: number;
   milestoneLabelIds?: string[];
@@ -492,6 +493,7 @@ export type ProjectGanttPayload = {
     status: string;
     targetDate: string;
     linkedTaskId: string | null;
+    phaseId: string | null;
     sortOrder: number;
   }>;
 };

@@ -149,6 +149,7 @@ export class ProjectGanttService {
         status: m.status,
         targetDate: m.targetDate.toISOString(),
         linkedTaskId: m.linkedTaskId,
+        phaseId: m.phaseId,
         sortOrder: m.sortOrder,
       })),
     };

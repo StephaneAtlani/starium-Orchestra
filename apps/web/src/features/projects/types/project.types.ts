@@ -214,6 +214,7 @@ export type ProjectMilestoneApi = {
   achievedDate: string | null;
   status: string;
   linkedTaskId: string | null;
+  phaseId: string | null;
   ownerUserId: string | null;
   sortOrder: number;
   milestoneLabelIds?: string[];

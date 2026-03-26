@@ -41,6 +41,10 @@ export class CreateProjectMilestoneDto {
 
   @IsOptional()
   @IsString()
+  phaseId?: string | null;
+
+  @IsOptional()
+  @IsString()
   ownerUserId?: string | null;
 
   @IsOptional()

@@ -29,6 +29,7 @@ export type MilestoneFormDialogFieldsProps = {
   form: CreateProjectMilestonePayload;
   onPatch: (patch: Partial<CreateProjectMilestonePayload>) => void;
   taskOptions: { id: string; name: string }[];
+  phaseOptions: { id: string; name: string; sortOrder?: number }[];
   milestoneLabelOptions: { id: string; label: string }[];
   canCreateMilestoneLabels: boolean;
   onCreateMilestoneLabel?: (name: string) => Promise<string>;
@@ -43,6 +44,7 @@ export function MilestoneFormDialogFields({
   form,
   onPatch,
   taskOptions,
+  phaseOptions,
   milestoneLabelOptions,
   canCreateMilestoneLabels,
   onCreateMilestoneLabel,
@@ -175,6 +177,24 @@ export function MilestoneFormDialogFields({
             </select>
           </div>
         </div>
+
+        <div className="mt-3 space-y-1.5">
+          <Label htmlFor={fid('phase')}>Libellé de phase</Label>
+          <select
+            id={fid('phase')}
+            className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
+            value={form.phaseId ?? ''}
+            onChange={(e) => onPatch({ phaseId: e.target.value || null })}
+          >
+            <option value="">Sans libellé de phase</option>
+            {phaseOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="mt-3 space-y-1.5">
           <Label htmlFor={fid('achieved')}>Date d’atteinte (optionnel)</Label>
           <Input

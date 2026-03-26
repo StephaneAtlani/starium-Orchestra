@@ -204,6 +204,7 @@ export function projectMilestoneEntityAuditSnapshot(
     code: m.code ?? null,
     description: m.description ?? null,
     linkedTaskId: m.linkedTaskId ?? null,
+    phaseId: m.phaseId ?? null,
     ownerUserId: m.ownerUserId ?? null,
     targetDate: toAuditJson(m.targetDate),
     achievedDate: toAuditJson(m.achievedDate),

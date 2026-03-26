@@ -43,6 +43,10 @@ export class UpdateProjectMilestoneDto {
 
   @IsOptional()
   @IsString()
+  phaseId?: string | null;
+
+  @IsOptional()
+  @IsString()
   ownerUserId?: string | null;
 
   @IsOptional()

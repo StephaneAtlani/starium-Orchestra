@@ -105,6 +105,7 @@ function milestoneFormFromApi(m: ProjectMilestoneApi): CreateProjectMilestonePay
     achievedDate: m.achievedDate ?? undefined,
     status: m.status,
     linkedTaskId: m.linkedTaskId,
+    phaseId: m.phaseId ?? null,
     ownerUserId: m.ownerUserId,
     sortOrder: m.sortOrder,
     milestoneLabelIds: m.milestoneLabelIds ?? [],
@@ -214,6 +215,7 @@ export const ProjectTaskPlanningSection = forwardRef<
     targetDate: new Date().toISOString(),
     status: 'PLANNED',
     milestoneLabelIds: [],
+    phaseId: null,
   });
 
   const items = useMemo(
@@ -347,7 +349,12 @@ export const ProjectTaskPlanningSection = forwardRef<
     const body: UpdateProjectMilestonePayload = { ...milestoneForm };
     updateMilestoneMut.mutate(
       { milestoneId: editingMilestone.id, body },
-      { onSuccess: () => setMilestoneDialogOpen(false) },
+      {
+        onSuccess: () => {
+          void milestonesQuery.refetch();
+          setMilestoneDialogOpen(false);
+        },
+      },
     );
   };
 
@@ -937,9 +944,42 @@ export const ProjectTaskPlanningSection = forwardRef<
                         )}
                       </TableCell>
                       <TableCell className="py-1 align-middle">
-                        <span className="truncate text-muted-foreground" title="Sans phase">
-                          —
-                        </span>
+                        {ms && canEdit ? (
+                          <select
+                            className="border-input bg-background h-7 w-full max-w-[10rem] rounded-md border px-1 text-[10px] leading-tight"
+                            value={ms.phaseId ?? ''}
+                            title="Libellé de phase"
+                            onChange={(e) => {
+                              const nextPhaseId = e.target.value || null;
+                              void (async () => {
+                                try {
+                                  await updateMilestoneMut.mutateAsync({
+                                    milestoneId: ms.id,
+                                    body: { phaseId: nextPhaseId },
+                                    silentToast: true,
+                                  });
+                                  await milestonesQuery.refetch();
+                                } catch {
+                                  // `useUpdateProjectMilestoneMutation` already toasts errors.
+                                }
+                              })();
+                            }}
+                          >
+                            <option value="">Sans libellé de phase</option>
+                            {phaseOptions.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span
+                            className="truncate text-muted-foreground"
+                            title={ms ? renderPhaseLabel(ms.phaseId) : undefined}
+                          >
+                            {ms ? renderPhaseLabel(ms.phaseId) : '—'}
+                          </span>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -1012,8 +1052,14 @@ export const ProjectTaskPlanningSection = forwardRef<
           <div className="max-h-[min(60vh,440px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
             <MilestoneFormDialogFields
               form={milestoneForm}
-              onPatch={(p) => setMilestoneForm({ ...milestoneForm, ...p })}
+              onPatch={(p) =>
+                setMilestoneForm((prev) => ({
+                  ...prev,
+                  ...p,
+                }))
+              }
               taskOptions={taskOptionsForMilestone}
+              phaseOptions={phaseOptions}
               milestoneLabelOptions={milestoneLabelOptions}
               canCreateMilestoneLabels={canCreateMilestoneLabels}
               onCreateMilestoneLabel={onCreateMilestoneLabel}

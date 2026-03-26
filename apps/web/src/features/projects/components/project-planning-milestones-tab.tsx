@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
 import { useProjectMilestoneLabelsQuery } from '../hooks/use-project-milestone-labels-query';
@@ -34,6 +35,7 @@ import type {
   CreateProjectMilestonePayload,
   UpdateProjectMilestonePayload,
 } from '../api/projects.api';
+import { listProjectTaskPhases } from '../api/projects.api';
 import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
 
 function emptyCreate(): CreateProjectMilestonePayload {
@@ -43,6 +45,7 @@ function emptyCreate(): CreateProjectMilestonePayload {
     targetDate: new Date(`${today}T12:00:00.000Z`).toISOString(),
     status: 'PLANNED',
     milestoneLabelIds: [],
+    phaseId: null,
   };
 }
 
@@ -50,6 +53,8 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
   const { has } = usePermissions();
   const canEdit = has('projects.update');
   const canListProjectLabels = has('projects.read') || canEdit;
+
+  const authFetch = useAuthenticatedFetch();
 
   const milestonesQuery = useProjectMilestonesQuery(projectId);
   const tasksQuery = useProjectTasksQuery(projectId);
@@ -64,6 +69,31 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectMilestoneApi | null>(null);
   const [form, setForm] = useState<CreateProjectMilestonePayload>(emptyCreate());
+  const [phaseOptions, setPhaseOptions] = useState<
+    Array<{ id: string; name: string; sortOrder: number }>
+  >([]);
+
+  const phaseNameById = useMemo(
+    () => new Map(phaseOptions.map((p) => [p.id, p.name] as const)),
+    [phaseOptions],
+  );
+
+  const renderPhaseLabel = (phaseId: string | null | undefined) => {
+    if (!phaseId) return 'Sans libellé de phase';
+    return phaseNameById.get(phaseId) ?? '—';
+  };
+
+  useEffect(() => {
+    void listProjectTaskPhases(authFetch, projectId)
+      .then((phases) => {
+        setPhaseOptions(
+          phases.map((p) => ({ id: p.id, name: p.name, sortOrder: p.sortOrder })),
+        );
+      })
+      .catch(() => {
+        setPhaseOptions([]);
+      });
+  }, [authFetch, projectId]);
 
   const items = milestonesQuery.data?.items ?? [];
   const taskItems = tasksQuery.data?.items ?? [];
@@ -113,6 +143,7 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
       linkedTaskId: m.linkedTaskId,
       ownerUserId: m.ownerUserId,
       sortOrder: m.sortOrder,
+      phaseId: m.phaseId ?? null,
       milestoneLabelIds: m.milestoneLabelIds ?? [],
     });
     setOpen(true);
@@ -124,10 +155,20 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
       const body: UpdateProjectMilestonePayload = { ...form };
       updateMut.mutate(
         { milestoneId: editing.id, body },
-        { onSuccess: () => setOpen(false) },
+        {
+          onSuccess: () => {
+            void milestonesQuery.refetch();
+            setOpen(false);
+          },
+        },
       );
     } else {
-      createMut.mutate(form, { onSuccess: () => setOpen(false) });
+      createMut.mutate(form, {
+        onSuccess: () => {
+          void milestonesQuery.refetch();
+          setOpen(false);
+        },
+      });
     }
   };
 
@@ -157,6 +198,7 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
                 <TableHead>Statut</TableHead>
                 <TableHead>Date cible</TableHead>
                 <TableHead>Tâche liée</TableHead>
+                <TableHead>Phase</TableHead>
                 {canEdit && <TableHead className="w-[100px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -174,6 +216,9 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
                     </TableCell>
                     <TableCell className="text-muted-foreground max-w-[200px] truncate">
                       {linked ? linked.name : '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground max-w-[12rem] truncate">
+                      {renderPhaseLabel(m.phaseId)}
                     </TableCell>
                     {canEdit && (
                       <TableCell>
@@ -208,8 +253,14 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
           <div className="max-h-[min(60vh,440px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
             <MilestoneFormDialogFields
               form={form}
-              onPatch={(p) => setForm({ ...form, ...p })}
+              onPatch={(p) =>
+                setForm((prev) => ({
+                  ...prev,
+                  ...p,
+                }))
+              }
               taskOptions={taskOptions}
+              phaseOptions={phaseOptions}
               milestoneLabelOptions={milestoneLabelOptions}
               canCreateMilestoneLabels={canCreateMilestoneLabels}
               onCreateMilestoneLabel={onCreateMilestoneLabel}

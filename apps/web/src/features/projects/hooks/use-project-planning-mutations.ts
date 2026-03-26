@@ -20,22 +20,23 @@ import type { ProjectMilestoneApi, ProjectTaskApi } from '../types/project.types
 
 function useInvalidateProjectPlanning(projectId: string) {
   const queryClient = useQueryClient();
-  const { activeClient } = useActiveClient();
-  const clientId = activeClient?.id ?? '';
 
   return () => {
-    if (!clientId) return;
     void queryClient.invalidateQueries({
-      queryKey: projectQueryKeys.tasks(clientId, projectId),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: projectQueryKeys.milestones(clientId, projectId),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: projectQueryKeys.gantt(clientId, projectId),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: projectQueryKeys.detail(clientId, projectId),
+      predicate: (query) => {
+        const key = query.queryKey as unknown;
+        if (!Array.isArray(key)) return false;
+
+        const keyArr = key as any[];
+        const hasProjectId = keyArr.includes(projectId);
+        const hasKind = keyArr.some(
+          (k) =>
+            typeof k === 'string' &&
+            (k === 'tasks' || k === 'milestones' || k === 'gantt' || k === 'detail'),
+        );
+
+        return hasProjectId && hasKind;
+      },
     });
   };
 }
