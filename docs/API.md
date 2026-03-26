@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 (Client RBAC Administration), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 (lien projet Microsoft, sync tâches, sync documents).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 (Client RBAC Administration), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
 
 ---
 
@@ -1863,7 +1863,7 @@ Registre métier **sans** upload ni téléchargement binaire côté API MVP. Iso
 
 Audits : **`project.document.created`**, **`project.document.updated`**, **`project.document.archived`**, **`project.document.deleted`**.
 
-### Lien Microsoft projet (RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009) — `/api/projects/:projectId/microsoft-link`
+### Lien Microsoft projet (RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016) — `/api/projects/:projectId/microsoft-link`
 
 Configuration du lien projet ↔ Teams / Planner / drive fichiers ; sync **manuelle** vers Planner (tâches) et vers le **drive** SharePoint du canal (documents). **Isolation** : `projectId` + **client actif** ; pas de `clientId` dans le body.
 
@@ -1871,7 +1871,7 @@ Configuration du lien projet ↔ Teams / Planner / drive fichiers ; sync **manue
 
 - **GET** — Lecture config `ProjectMicrosoftLink` (404 si non créée). **`projects.read`**
 - **PUT** — Création / mise à jour (`UpdateProjectMicrosoftLinkDto`) : `isEnabled`, `teamId`, `channelId`, `plannerPlanId`, `syncTasksEnabled`, `syncDocumentsEnabled`, `useMicrosoftPlannerBuckets` (remplace les buckets Starium par l’import des buckets du plan Planner — RFC-PROJ-OPT-001), `filesDriveId`, `filesFolderId`, libellés optionnels. **`projects.update`**
-- **POST /api/projects/:projectId/microsoft-link/sync-tasks** — Sync one-way des tâches projet → Microsoft Planner (mapping `ProjectTaskMicrosoftSync` ; colonne Planner dérivée du `bucketId` tâche quand défini, sinon fallback nom de bucket / statut). Audits **`project.microsoft_tasks.synced`** ou **`project.microsoft_sync.failed`**. **`projects.update`**
+- **POST /api/projects/:projectId/microsoft-link/sync-tasks** — Sync bidirectionnelle des tâches (Phase A `Planner -> Starium`, puis Phase B `Starium -> Planner`, arrêt au premier échec, `lastSyncAt` mis à jour uniquement en succès complet). Contrat de réponse : `{ projectId, status, summary: { plannerTasksRead, createdInStarium, updatedInStarium, syncedToPlanner, conflictsResolvedByStarium, errors }, lastSyncAt }`. Audits : **`project.microsoft_tasks.bidirectional_sync_started`**, **`project.microsoft_tasks.imported`**, **`project.microsoft_tasks.updated_from_microsoft`**, **`project.microsoft_tasks.conflict_resolved_starium_wins`**, **`project.microsoft_tasks.bidirectional_sync_completed`**, **`project.microsoft_sync.failed`**. **`projects.update`**
 - **POST /api/projects/:projectId/microsoft-link/sync-documents** — Sync one-way des `ProjectDocument` **STARIUM** (fichiers lus via `PROJECT_DOCUMENTS_STORAGE_ROOT`) vers le dossier `starium-project-{projectId}` du drive configuré. Réponse `{ total, synced, failed, skipped }`. Audits **`project.microsoft_documents.synced`** ou **`project.microsoft_sync.failed`**. **`projects.update`**
 
 **UI (RFC-PROJ-OPT-001)** : page **`/projects/[projectId]/options`** (`apps/web/src/features/projects/options/`) — paramètres projet (réutilise **`PATCH /api/projects/:id`**), onglet Planning (buckets), configuration et état de la liaison (routes ci-dessus), connexion Microsoft côté client (**`GET /api/microsoft/connection`**, démarrage OAuth **`GET /api/microsoft/auth/url`** → lecture de l’URL dans la réponse → redirection). Isolation **client actif** inchangée (header `X-Client-Id`).

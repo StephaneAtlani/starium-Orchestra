@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémenté
 
 ## Dépendances
 
@@ -223,7 +223,7 @@ Mais **ce n’est pas l’option préférée**.
 ## 8.1 Planner → Starium (autorisés MVP)
 
 * `title` → `ProjectTask.name`
-* `dueDateTime` → `ProjectTask.dueDate`
+* `dueDateTime` → `ProjectTask.plannedEndDate`
 * `percentComplete` → `ProjectTask.status` via mapping
 * `assignments` → champ d’affectation si mapping user disponible
 * `startDateTime` → optionnel si modèle Starium le supporte
@@ -254,10 +254,10 @@ Le comportement actuel de RFC-PROJ-INT-008 reste inchangé :
 | `ProjectTask.id` | via `ProjectTaskMicrosoftSync.projectTaskId` | mapping interne            |
 | mapping          | `plannerTaskId`                              | identifiant externe        |
 | `name`           | `title`                                      | bidirectionnel             |
-| `dueDate`        | `dueDateTime`                                | bidirectionnel             |
+| `plannedEndDate` | `dueDateTime`                                | bidirectionnel             |
 | `status`         | `percentComplete`                            | mapping contrôlé           |
 | `assignee`       | `assignments`                                | MVP partiel / conditionnel |
-| `updatedAt`      | `lastModifiedDateTime` logique reconstituée  | support conflit            |
+| `updatedAt`      | `@odata.etag` / header `ETag` (Graph task)   | support conflit            |
 
 ### 9.1 Mapping statut MVP
 
@@ -349,16 +349,10 @@ Pas de webhook.
 ### 12.1 Endpoint principal
 
 ```http
-POST /api/projects/:projectId/microsoft-link/sync-tasks-bidirectional
+POST /api/projects/:projectId/microsoft-link/sync-tasks
 ```
 
-### 12.2 Endpoint lecture état
-
-```http
-GET /api/projects/:projectId/microsoft-link/task-sync-status
-```
-
-### 12.3 Guards
+### 12.2 Guards
 
 Toutes les routes utilisent :
 
@@ -377,36 +371,21 @@ Permissions :
 
 ## 13. Réponses API
 
-### 13.1 POST sync
+### 13.1 POST sync (contrat implémenté)
 
 ```json
 {
   "projectId": "proj_123",
-  "status": "COMPLETED",
+  "status": "success",
   "summary": {
     "plannerTasksRead": 24,
     "createdInStarium": 3,
     "updatedInStarium": 8,
-    "skipped": 10,
-    "conflicts": 2,
+    "syncedToPlanner": 19,
+    "conflictsResolvedByStarium": 2,
     "errors": 1
   },
   "lastSyncAt": "2026-03-26T10:00:00.000Z"
-}
-```
-
-### 13.2 GET statut
-
-```json
-{
-  "projectId": "proj_123",
-  "syncEnabled": true,
-  "lastSyncAt": "2026-03-26T10:00:00.000Z",
-  "summary": {
-    "synced": 20,
-    "conflicts": 2,
-    "errors": 1
-  }
 }
 ```
 
@@ -422,7 +401,7 @@ Actions recommandées :
 project.microsoft_tasks.bidirectional_sync_started
 project.microsoft_tasks.imported
 project.microsoft_tasks.updated_from_microsoft
-project.microsoft_tasks.conflict_detected
+project.microsoft_tasks.conflict_resolved_starium_wins
 project.microsoft_tasks.bidirectional_sync_completed
 project.microsoft_sync.failed
 ```
