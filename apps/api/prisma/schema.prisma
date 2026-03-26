@@ -1929,6 +1929,7 @@ model Supplier {
   email          String?
   phone          String?
   website        String?
+  logoUrl        String?
   vatNumber      String?
   notes          String?
   status         SupplierStatus @default(ACTIVE)

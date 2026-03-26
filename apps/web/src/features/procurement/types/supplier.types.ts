@@ -10,6 +10,11 @@ export interface Supplier {
   code: string | null;
   siret: string | null;
   vatNumber: string | null;
+  externalId: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  notes: string | null;
   supplierCategoryId: string | null;
   supplierCategory: SupplierCategory | null;
   status: string;

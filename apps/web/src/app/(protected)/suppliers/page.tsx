@@ -2,12 +2,20 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Search } from 'lucide-react';
+import { AlertCircle, Plus, Search } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -17,14 +25,80 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EmptyState } from '@/components/feedback/empty-state';
+import { LoadingState } from '@/components/feedback/loading-state';
+import { Label } from '@/components/ui/label';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
 import {
+  createSupplierCategory,
+  createSupplier,
   listSupplierCategories,
   listSuppliers,
+  updateSupplier,
   updateSupplierCategory,
 } from '@/features/procurement/api/procurement.api';
+
+type SupplierFormState = {
+  name: string;
+  code: string;
+  siret: string;
+  vatNumber: string;
+  externalId: string;
+  email: string;
+  phone: string;
+  website: string;
+  notes: string;
+  supplierCategoryId: string;
+};
+
+type SupplierFormErrors = Partial<Record<keyof SupplierFormState, string>>;
+
+function sanitizeDigits(value: string, maxLength: number): string {
+  return value.replace(/\D/g, '').slice(0, maxLength);
+}
+
+function sanitizeVat(value: string): string {
+  const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 18);
+  // FR VAT display format: FR XX XXX XXX XXX
+  if (normalized.startsWith('FR')) {
+    const key = normalized.slice(2, 4);
+    const siren = normalized.slice(4, 13);
+    const groups = siren.match(/.{1,3}/g) ?? [];
+    return ['FR', key, ...groups].filter(Boolean).join(' ').trim();
+  }
+  return normalized;
+}
+
+function sanitizePhone(value: string): string {
+  return value.replace(/[^+0-9()\-\s.]/g, '').slice(0, 20);
+}
+
+function sanitizeNoSpaces(value: string, maxLength: number): string {
+  return value.replace(/\s/g, '').slice(0, maxLength);
+}
+
+function sanitizeTrimmed(value: string, maxLength: number): string {
+  return value.slice(0, maxLength);
+}
+
+function normalizeVatForValidation(value: string): string {
+  return value.toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9]/g, '');
+}
+
+function isVatNumberValid(value: string): boolean {
+  const vat = normalizeVatForValidation(value);
+  if (!vat) return true;
+
+  // France: FR + 2 alphanumeriques + 9 chiffres (SIREN)
+  if (vat.startsWith('FR')) {
+    return /^FR[A-Z0-9]{2}\d{9}$/.test(vat);
+  }
+
+  // Fallback UE (minimum contract): CC + alphanumerique 2..12
+  return /^[A-Z]{2}[A-Z0-9]{2,12}$/.test(vat);
+}
 
 export default function SuppliersPage() {
   const authFetch = useAuthenticatedFetch();
@@ -32,8 +106,40 @@ export default function SuppliersPage() {
   const { has, isLoading: permsLoading, isSuccess: permsSuccess, isError: permsError } =
     usePermissions();
   const [search, setSearch] = useState('');
+  const [newSupplierModalOpen, setNewSupplierModalOpen] = useState(false);
+  const [form, setForm] = useState({
+    name: '',
+    code: '',
+    siret: '',
+    vatNumber: '',
+    externalId: '',
+    email: '',
+    phone: '',
+    website: '',
+    notes: '',
+    supplierCategoryId: '__none__',
+  });
   const [supplierCategoryFilter, setSupplierCategoryFilter] = useState('all');
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryModalOpen, setNewCategoryModalOpen] = useState(false);
+  const [editSupplierModalOpen, setEditSupplierModalOpen] = useState(false);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    code: '',
+    siret: '',
+    vatNumber: '',
+    externalId: '',
+    email: '',
+    phone: '',
+    website: '',
+    notes: '',
+    supplierCategoryId: '__none__',
+  });
+  const [formErrors, setFormErrors] = useState<SupplierFormErrors>({});
+  const [editFormErrors, setEditFormErrors] = useState<SupplierFormErrors>({});
   const canReadSuppliers = has('procurement.read');
+  const canCreateSuppliers = has('procurement.create');
   const canUpdateSuppliers = has('procurement.update');
   const clientId = activeClient?.id ?? '';
   const normalizedSearch = useMemo(() => search.trim(), [search]);
@@ -79,13 +185,549 @@ export default function SuppliersPage() {
     },
   });
 
+  const validateSupplierForm = (values: SupplierFormState): SupplierFormErrors => {
+    const errors: SupplierFormErrors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const websiteRegex = /^(https?:\/\/)?[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i;
+    const phoneRegex = /^[+0-9()\-\s.]{6,20}$/;
+    const siretRegex = /^\d{14}$/;
+
+    if (!values.name.trim()) errors.name = 'Le nom est obligatoire.';
+    if (values.name.length > 255) errors.name = 'Maximum 255 caractères.';
+    if (values.code.length > 64) errors.code = 'Maximum 64 caractères.';
+    if (values.externalId.length > 128) errors.externalId = 'Maximum 128 caractères.';
+    if (values.email && !emailRegex.test(values.email.trim())) {
+      errors.email = 'Email invalide.';
+    }
+    if (values.email.length > 255) errors.email = 'Maximum 255 caractères.';
+    if (values.phone && !phoneRegex.test(values.phone.trim())) {
+      errors.phone = 'Téléphone invalide.';
+    }
+    if (values.phone.length > 64) errors.phone = 'Maximum 64 caractères.';
+    if (values.website && !websiteRegex.test(values.website.trim())) {
+      errors.website = 'URL invalide.';
+    }
+    if (values.website.length > 512) errors.website = 'Maximum 512 caractères.';
+    if (values.vatNumber && !isVatNumberValid(values.vatNumber)) {
+      errors.vatNumber = 'Numéro TVA invalide (ex: FR 12 123 456 789).';
+    }
+    if (values.vatNumber.length > 64) errors.vatNumber = 'Maximum 64 caractères.';
+    if (values.siret && !siretRegex.test(values.siret.trim())) {
+      errors.siret = 'SIRET invalide (14 chiffres).';
+    }
+    if (values.siret.length > 32) errors.siret = 'Maximum 32 caractères.';
+    if (values.notes.length > 2000) errors.notes = 'Maximum 2000 caractères.';
+
+    return errors;
+  };
+
+  const createSupplierMutation = useMutation({
+    mutationFn: async () => {
+      const errors = validateSupplierForm(form);
+      setFormErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        throw new Error('Veuillez corriger les champs invalides.');
+      }
+      const created = await createSupplier(authFetch, {
+        name: form.name.trim(),
+        code: form.code || undefined,
+        siret: form.siret || undefined,
+        vatNumber: form.vatNumber || undefined,
+        externalId: form.externalId || undefined,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        website: form.website || undefined,
+        notes: form.notes || undefined,
+      });
+
+      if (form.supplierCategoryId !== '__none__') {
+        await updateSupplierCategory(authFetch, created.id, form.supplierCategoryId);
+      }
+      return created;
+    },
+    onSuccess: async () => {
+      setNewSupplierModalOpen(false);
+      setFormErrors({});
+      setForm({
+        name: '',
+        code: '',
+        siret: '',
+        vatNumber: '',
+        externalId: '',
+        email: '',
+        phone: '',
+        website: '',
+        notes: '',
+        supplierCategoryId: '__none__',
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['procurement', clientId, 'suppliers-page'],
+      });
+    },
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: (name: string) => createSupplierCategory(authFetch, { name }),
+    onSuccess: async (createdCategory) => {
+      setNewCategoryName('');
+      setNewCategoryModalOpen(false);
+      setForm((prev) => ({ ...prev, supplierCategoryId: createdCategory.id }));
+      await queryClient.invalidateQueries({
+        queryKey: ['procurement', clientId, 'supplier-categories'],
+      });
+    },
+  });
+
+  const updateSupplierMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedSupplierId) return null;
+      const errors = validateSupplierForm(editForm);
+      setEditFormErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        throw new Error('Veuillez corriger les champs invalides.');
+      }
+      return updateSupplier(authFetch, selectedSupplierId, {
+        name: editForm.name || undefined,
+        code: editForm.code || undefined,
+        siret: editForm.siret || undefined,
+        vatNumber: editForm.vatNumber || undefined,
+        externalId: editForm.externalId || undefined,
+        email: editForm.email || undefined,
+        phone: editForm.phone || undefined,
+        website: editForm.website || undefined,
+        notes: editForm.notes || undefined,
+        supplierCategoryId:
+          editForm.supplierCategoryId === '__none__'
+            ? null
+            : editForm.supplierCategoryId,
+      });
+    },
+    onSuccess: async () => {
+      setEditSupplierModalOpen(false);
+      setEditFormErrors({});
+      await queryClient.invalidateQueries({
+        queryKey: ['procurement', clientId, 'suppliers-page'],
+      });
+    },
+  });
+
   return (
     <RequireActiveClient>
       <PageContainer>
         <PageHeader
           title="Fournisseurs"
           description="Référentiel fournisseurs du client actif."
+          actions={
+            canCreateSuppliers ? (
+              <Button type="button" size="sm" onClick={() => setNewSupplierModalOpen(true)}>
+                <Plus className="size-4" />
+                Ajouter
+              </Button>
+            ) : undefined
+          }
         />
+
+        <Dialog open={newSupplierModalOpen} onOpenChange={setNewSupplierModalOpen}>
+          <DialogContent
+            className="flex max-h-[90vh] !w-[80vw] !max-w-[80vw] sm:!max-w-[80vw] flex-col gap-4 overflow-y-auto p-6"
+            showCloseButton
+          >
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold tracking-tight">
+                Nouveau fournisseur
+              </DialogTitle>
+              <DialogDescription>
+                Crée un fournisseur complet dans le client actif.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                <h3 className="mb-3 text-sm font-semibold text-foreground">Identité</h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="supplier-name">Nom</Label>
+                    <Input
+                      id="supplier-name"
+                      value={form.name}
+                      onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="Ex: Microsoft"
+                    />
+                    {formErrors.name ? (
+                      <p className="text-xs text-destructive">{formErrors.name}</p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier-code">Code</Label>
+                    <Input
+                      id="supplier-code"
+                      value={form.code}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          code: sanitizeTrimmed(e.target.value, 64),
+                        }))
+                      }
+                      placeholder="Ex: MSFT"
+                    />
+                    {formErrors.code ? (
+                      <p className="text-xs text-destructive">{formErrors.code}</p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier-external-id">ID externe</Label>
+                    <Input
+                      id="supplier-external-id"
+                      value={form.externalId}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          externalId: sanitizeTrimmed(e.target.value, 128),
+                        }))
+                      }
+                      placeholder="Ex: ERP-123"
+                    />
+                    {formErrors.externalId ? (
+                      <p className="text-xs text-destructive">{formErrors.externalId}</p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier-siret">SIRET</Label>
+                    <Input
+                      id="supplier-siret"
+                      value={form.siret}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          siret: sanitizeDigits(e.target.value, 14),
+                        }))
+                      }
+                      placeholder="Ex: 12345678900011"
+                    />
+                    {formErrors.siret ? (
+                      <p className="text-xs text-destructive">{formErrors.siret}</p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier-vat">Numéro TVA</Label>
+                    <Input
+                      id="supplier-vat"
+                      value={form.vatNumber}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          vatNumber: sanitizeVat(e.target.value),
+                        }))
+                      }
+                      placeholder="Ex: FR12345678901"
+                    />
+                    {formErrors.vatNumber ? (
+                      <p className="text-xs text-destructive">{formErrors.vatNumber}</p>
+                    ) : null}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                <h3 className="mb-3 text-sm font-semibold text-foreground">Contact</h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier-email">Email</Label>
+                    <Input
+                      id="supplier-email"
+                      value={form.email}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          email: sanitizeNoSpaces(e.target.value, 255),
+                        }))
+                      }
+                      placeholder="contact@fournisseur.com"
+                    />
+                    {formErrors.email ? (
+                      <p className="text-xs text-destructive">{formErrors.email}</p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier-phone">Téléphone</Label>
+                    <Input
+                      id="supplier-phone"
+                      value={form.phone}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          phone: sanitizePhone(e.target.value),
+                        }))
+                      }
+                      placeholder="+33 ..."
+                    />
+                    {formErrors.phone ? (
+                      <p className="text-xs text-destructive">{formErrors.phone}</p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="supplier-website">Site web</Label>
+                    <Input
+                      id="supplier-website"
+                      value={form.website}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          website: sanitizeNoSpaces(e.target.value, 512),
+                        }))
+                      }
+                      placeholder="https://..."
+                    />
+                    {formErrors.website ? (
+                      <p className="text-xs text-destructive">{formErrors.website}</p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="supplier-notes">Notes</Label>
+                    <Input
+                      id="supplier-notes"
+                      value={form.notes}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          notes: sanitizeTrimmed(e.target.value, 2000),
+                        }))
+                      }
+                      placeholder="Informations complémentaires"
+                    />
+                    {formErrors.notes ? (
+                      <p className="text-xs text-destructive">{formErrors.notes}</p>
+                    ) : null}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                <h3 className="mb-3 text-sm font-semibold text-foreground">Catégorisation</h3>
+                <div className="space-y-2">
+                  <Label>Catégorie fournisseur</Label>
+                </div>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <Select
+                        value={form.supplierCategoryId}
+                        onValueChange={(value) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            supplierCategoryId: value ?? '__none__',
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue>
+                            {form.supplierCategoryId === '__none__'
+                              ? 'Aucune categorie'
+                              : categoriesQuery.data?.items.find(
+                                  (item) => item.id === form.supplierCategoryId,
+                                )?.name ?? 'Categorie'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Aucune categorie</SelectItem>
+                          {(categoriesQuery.data?.items ?? []).map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setNewCategoryModalOpen(true)}
+                      disabled={!canCreateSuppliers}
+                    >
+                      + Catégorie
+                    </Button>
+                  </div>
+                </div>
+              </section>
+            </div>
+            <Dialog open={newCategoryModalOpen} onOpenChange={setNewCategoryModalOpen}>
+              <DialogContent className="w-[40rem] max-w-[90vw] p-6">
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-semibold tracking-tight">
+                    Nouvelle catégorie
+                  </DialogTitle>
+                  <DialogDescription>
+                    Ajoute une catégorie fournisseur pour le client actif.
+                  </DialogDescription>
+                </DialogHeader>
+                <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-supplier-category-name">Nom de la catégorie</Label>
+                    <Input
+                      id="new-supplier-category-name"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Ex: Cloud"
+                    />
+                  </div>
+                </section>
+                {createCategoryMutation.isError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertTitle>Création catégorie impossible</AlertTitle>
+                    <AlertDescription>
+                      {(createCategoryMutation.error as Error)?.message ??
+                        'Impossible de créer la catégorie.'}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setNewCategoryModalOpen(false)}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const name = newCategoryName.trim();
+                      if (!name) return;
+                      void createCategoryMutation.mutateAsync(name);
+                    }}
+                    disabled={
+                      createCategoryMutation.isPending || newCategoryName.trim().length === 0
+                    }
+                  >
+                    Ajouter
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            {createSupplierMutation.isError && (
+              <Alert variant="destructive">
+                <AlertCircle className="size-4" />
+                <AlertTitle>Création impossible</AlertTitle>
+                <AlertDescription>
+                  {(createSupplierMutation.error as Error)?.message ??
+                    'Impossible de créer le fournisseur.'}
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setNewSupplierModalOpen(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void createSupplierMutation.mutateAsync()}
+                disabled={createSupplierMutation.isPending || form.name.trim().length === 0}
+              >
+                Ajouter
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={editSupplierModalOpen} onOpenChange={setEditSupplierModalOpen}>
+          <DialogContent className="flex max-h-[90vh] !w-[80vw] !max-w-[80vw] sm:!max-w-[80vw] flex-col gap-4 overflow-y-auto p-6">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold tracking-tight">
+                Fiche fournisseur
+              </DialogTitle>
+              <DialogDescription>
+                Consulte et modifie les informations du fournisseur.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="space-y-1">
+                <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} placeholder="Nom *" />
+                {editFormErrors.name ? <p className="text-xs text-destructive">{editFormErrors.name}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <Input value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: sanitizeTrimmed(e.target.value, 64) }))} placeholder="Code" />
+                {editFormErrors.code ? <p className="text-xs text-destructive">{editFormErrors.code}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <Input value={editForm.siret} onChange={(e) => setEditForm((p) => ({ ...p, siret: sanitizeDigits(e.target.value, 14) }))} placeholder="SIRET" />
+                {editFormErrors.siret ? <p className="text-xs text-destructive">{editFormErrors.siret}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: sanitizeVat(e.target.value) }))} placeholder="Numéro TVA" />
+                {editFormErrors.vatNumber ? <p className="text-xs text-destructive">{editFormErrors.vatNumber}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <Input value={editForm.externalId} onChange={(e) => setEditForm((p) => ({ ...p, externalId: sanitizeTrimmed(e.target.value, 128) }))} placeholder="ID externe" />
+                {editFormErrors.externalId ? <p className="text-xs text-destructive">{editFormErrors.externalId}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: sanitizeNoSpaces(e.target.value, 255) }))} placeholder="Email" />
+                {editFormErrors.email ? <p className="text-xs text-destructive">{editFormErrors.email}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: sanitizePhone(e.target.value) }))} placeholder="Téléphone" />
+                {editFormErrors.phone ? <p className="text-xs text-destructive">{editFormErrors.phone}</p> : null}
+              </div>
+              <div className="space-y-1">
+                <Input value={editForm.website} onChange={(e) => setEditForm((p) => ({ ...p, website: sanitizeNoSpaces(e.target.value, 512) }))} placeholder="Site web" />
+                {editFormErrors.website ? <p className="text-xs text-destructive">{editFormErrors.website}</p> : null}
+              </div>
+              <div className="md:col-span-2">
+                <Input value={editForm.notes} onChange={(e) => setEditForm((p) => ({ ...p, notes: sanitizeTrimmed(e.target.value, 2000) }))} placeholder="Notes" />
+                {editFormErrors.notes ? <p className="mt-1 text-xs text-destructive">{editFormErrors.notes}</p> : null}
+              </div>
+              <div className="md:col-span-2">
+                <Select
+                  value={editForm.supplierCategoryId}
+                  onValueChange={(value) =>
+                    setEditForm((p) => ({ ...p, supplierCategoryId: value ?? '__none__' }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {editForm.supplierCategoryId === '__none__'
+                        ? 'Aucune categorie'
+                        : categoriesQuery.data?.items.find((item) => item.id === editForm.supplierCategoryId)?.name ?? 'Categorie'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Aucune categorie</SelectItem>
+                    {(categoriesQuery.data?.items ?? []).map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {updateSupplierMutation.isError && (
+              <Alert variant="destructive">
+                <AlertCircle className="size-4" />
+                <AlertTitle>Mise à jour impossible</AlertTitle>
+                <AlertDescription>
+                  {(updateSupplierMutation.error as Error)?.message ??
+                    'Impossible de mettre à jour le fournisseur.'}
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
+              <Button type="button" variant="outline" onClick={() => setEditSupplierModalOpen(false)}>
+                Fermer
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void updateSupplierMutation.mutateAsync()}
+                disabled={updateSupplierMutation.isPending || editForm.name.trim().length === 0}
+              >
+                Enregistrer
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {permsLoading && (
           <Alert>
@@ -117,38 +759,48 @@ export default function SuppliersPage() {
 
         {permsSuccess && canReadSuppliers && (
           <Card size="sm">
+            <CardHeader className="border-b border-border/60 pb-3">
+              <CardTitle className="text-sm font-medium">Référentiel fournisseurs</CardTitle>
+              <CardDescription className="text-xs">
+                Recherche, ajout rapide et catégorisation dans le client actif.
+              </CardDescription>
+            </CardHeader>
             <CardContent className="space-y-4 pt-6">
-              <div className="relative max-w-md">
-                <Search className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Rechercher un fournisseur"
-                  className="pl-8"
-                />
+              <div className="space-y-3 rounded-lg border border-border/70 bg-muted/30 p-4">
+                <div className="relative max-w-md">
+                  <Search className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Rechercher un fournisseur"
+                    className="pl-8"
+                  />
+                </div>
+                <div className="max-w-sm">
+                  <Select
+                    value={supplierCategoryFilter}
+                    onValueChange={(value) => setSupplierCategoryFilter(value ?? 'all')}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue>
+                        {supplierCategoryFilter === 'all'
+                          ? 'Toutes les categories'
+                          : categoriesQuery.data?.items.find(
+                              (item) => item.id === supplierCategoryFilter,
+                            )?.name ?? 'Categorie'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes les categories</SelectItem>
+                      {(categoriesQuery.data?.items ?? []).map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="max-w-sm">
-                <Select value={supplierCategoryFilter} onValueChange={setSupplierCategoryFilter}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue>
-                      {supplierCategoryFilter === 'all'
-                        ? 'Toutes les categories'
-                        : categoriesQuery.data?.items.find(
-                            (item) => item.id === supplierCategoryFilter,
-                          )?.name ?? 'Categorie'}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes les categories</SelectItem>
-                    {(categoriesQuery.data?.items ?? []).map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               {suppliersQuery.isError ? (
                 <Alert variant="destructive">
                   <AlertCircle className="size-4" />
@@ -157,6 +809,13 @@ export default function SuppliersPage() {
                     Impossible de charger les fournisseurs.
                   </AlertDescription>
                 </Alert>
+              ) : suppliersQuery.isLoading ? (
+                <LoadingState rows={5} />
+              ) : (suppliersQuery.data?.items.length ?? 0) === 0 ? (
+                <EmptyState
+                  title="Aucun fournisseur"
+                  description="Aucun fournisseur ne correspond à votre recherche ou filtre."
+                />
               ) : (
                 <Table>
                   <TableHeader>
@@ -171,49 +830,36 @@ export default function SuppliersPage() {
                   <TableBody>
                     {(suppliersQuery.data?.items ?? []).map((supplier) => (
                       <TableRow key={supplier.id}>
-                        <TableCell>{supplier.name}</TableCell>
+                        <TableCell>
+                          <button
+                            type="button"
+                            className="cursor-pointer text-left text-primary hover:underline"
+                            onClick={() => {
+                              setSelectedSupplierId(supplier.id);
+                              setEditForm({
+                                name: supplier.name ?? '',
+                                code: supplier.code ?? '',
+                                siret: supplier.siret ?? '',
+                                vatNumber: supplier.vatNumber ?? '',
+                                externalId: supplier.externalId ?? '',
+                                email: supplier.email ?? '',
+                                phone: supplier.phone ?? '',
+                                website: supplier.website ?? '',
+                                notes: supplier.notes ?? '',
+                                supplierCategoryId: supplier.supplierCategoryId ?? '__none__',
+                              });
+                              setEditSupplierModalOpen(true);
+                            }}
+                          >
+                            {supplier.name}
+                          </button>
+                        </TableCell>
                         <TableCell>{supplier.code ?? '—'}</TableCell>
                         <TableCell>{supplier.vatNumber ?? '—'}</TableCell>
-                        <TableCell>
-                          {canUpdateSuppliers ? (
-                            <Select
-                              value={supplier.supplierCategoryId ?? '__none__'}
-                              onValueChange={(value) => {
-                                void updateCategoryMutation.mutateAsync({
-                                  supplierId: supplier.id,
-                                  supplierCategoryId: value === '__none__' ? null : value,
-                                });
-                              }}
-                              disabled={updateCategoryMutation.isPending}
-                            >
-                              <SelectTrigger className="w-[220px]">
-                                <SelectValue>
-                                  {supplier.supplierCategory?.name ?? 'Aucune categorie'}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">Aucune categorie</SelectItem>
-                                {(categoriesQuery.data?.items ?? []).map((category) => (
-                                  <SelectItem key={category.id} value={category.id}>
-                                    {category.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            supplier.supplierCategory?.name ?? '—'
-                          )}
-                        </TableCell>
+                        <TableCell>{supplier.supplierCategory?.name ?? '—'}</TableCell>
                         <TableCell>{supplier.status}</TableCell>
                       </TableRow>
                     ))}
-                    {!suppliersQuery.isLoading && (suppliersQuery.data?.items.length ?? 0) === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
-                          Aucun fournisseur.
-                        </TableCell>
-                      </TableRow>
-                    )}
                   </TableBody>
                 </Table>
               )}

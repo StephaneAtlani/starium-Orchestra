@@ -58,6 +58,19 @@ export async function listSupplierCategories(
   return res.json() as Promise<PaginatedResponse<SupplierCategory>>;
 }
 
+export async function createSupplierCategory(
+  authFetch: AuthFetch,
+  payload: { name: string },
+): Promise<SupplierCategory> {
+  const res = await authFetch(BASE_SUPPLIER_CATEGORIES, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<SupplierCategory>;
+}
+
 export async function updateSupplierCategory(
   authFetch: AuthFetch,
   supplierId: string,
@@ -84,6 +97,58 @@ export async function quickCreateSupplier(
   if (!res.ok) throw await parseApiFormError(res);
   const supplier = (await res.json()) as Supplier;
   return { id: supplier.id, name: supplier.name };
+}
+
+export interface CreateSupplierPayload {
+  name: string;
+  code?: string;
+  siret?: string;
+  vatNumber?: string;
+  externalId?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  notes?: string;
+}
+
+export async function createSupplier(
+  authFetch: AuthFetch,
+  payload: CreateSupplierPayload,
+): Promise<Supplier> {
+  const res = await authFetch(BASE_SUPPLIERS, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<Supplier>;
+}
+
+export interface UpdateSupplierPayload {
+  name?: string;
+  code?: string;
+  siret?: string;
+  vatNumber?: string;
+  externalId?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  notes?: string;
+  supplierCategoryId?: string | null;
+}
+
+export async function updateSupplier(
+  authFetch: AuthFetch,
+  supplierId: string,
+  payload: UpdateSupplierPayload,
+): Promise<Supplier> {
+  const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<Supplier>;
 }
 
 export async function createPurchaseOrder(
