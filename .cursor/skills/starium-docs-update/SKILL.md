@@ -18,7 +18,7 @@ description: Assure la cohérence de la documentation sous docs/ (RFC, _RFC List
 3. **[docs/VISION_PRODUIT.md](docs/VISION_PRODUIT.md)** — vision ; ne pas la réécrire sans demande.
 4. **RFC concernée** dans [docs/RFC/](docs/RFC/) — statut, périmètre, API, critères d’acceptation.
 5. **[docs/RFC/_RFC Liste.md](docs/RFC/_RFC Liste.md)** — index des RFC ; à tenir aligné si statut ou titre change.
-6. **De manière générale**  vérifie [docs/](docs/)
+6. **Met à jour et vérifie les documents à la récune**   [docs/](docs/)
 
 ## Principes (workspace)
 
