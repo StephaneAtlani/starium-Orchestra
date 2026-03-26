@@ -208,6 +208,16 @@ export const ProjectTaskPlanningSection = forwardRef<
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectTaskApi | null>(null);
+  const [activeInlineCell, setActiveInlineCell] = useState<{
+    taskId: string;
+    field:
+      | 'status'
+      | 'priority'
+      | 'phaseId'
+      | 'plannedEndDate'
+      | 'progress'
+      | 'dependsOnTaskId';
+  } | null>(null);
   const [milestoneDialogOpen, setMilestoneDialogOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<ProjectMilestoneApi | null>(null);
   const [milestoneForm, setMilestoneForm] = useState<CreateProjectMilestonePayload>({
@@ -1035,53 +1045,276 @@ export const ProjectTaskPlanningSection = forwardRef<
                 return (
                   <TableRow key={row.id}>
                     <TableCell>
-                      <span
-                        style={{ paddingLeft: `${row.depth * 12}px` }}
-                        className="inline-block"
-                      >
-                        {row.name}
-                      </span>
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          style={{ paddingLeft: `${row.depth * 12}px` }}
+                          className="hover:text-primary inline-block max-w-[20rem] cursor-pointer truncate text-left"
+                          title={`${row.name} — ouvrir la fiche`}
+                          onClick={() => openEdit(row)}
+                        >
+                          {row.name}
+                        </button>
+                      ) : (
+                        <span
+                          style={{ paddingLeft: `${row.depth * 12}px` }}
+                          className="inline-block"
+                        >
+                          {row.name}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell>
-                      {TASK_STATUS_LABEL[row.status] ?? row.status}
+                      {canEdit ? (
+                        activeInlineCell?.taskId === row.id &&
+                        activeInlineCell.field === 'status' ? (
+                          <select
+                            autoFocus
+                            className="border-input bg-background h-8 w-full max-w-[10rem] rounded-md border px-2 text-xs"
+                            value={row.status}
+                            onChange={(e) => {
+                              updateMut.mutate({
+                                taskId: row.id,
+                                body: { status: e.target.value as ProjectTaskApi['status'] },
+                                silentToast: true,
+                              });
+                              setActiveInlineCell(null);
+                            }}
+                            onBlur={() => setActiveInlineCell(null)}
+                            disabled={isTaskUpdatePending(row.id)}
+                          >
+                            {Object.keys(TASK_STATUS_LABEL).map((k) => (
+                              <option key={k} value={k}>
+                                {TASK_STATUS_LABEL[k]}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <button
+                            type="button"
+                            className="hover:bg-muted rounded px-2 py-1 text-left"
+                            onClick={() => setActiveInlineCell({ taskId: row.id, field: 'status' })}
+                          >
+                            {TASK_STATUS_LABEL[row.status] ?? row.status}
+                          </button>
+                        )
+                      ) : (
+                        TASK_STATUS_LABEL[row.status] ?? row.status
+                      )}
                     </TableCell>
                     <TableCell>
-                      {TASK_PRIORITY_LABEL[row.priority] ?? row.priority}
+                      {canEdit ? (
+                        activeInlineCell?.taskId === row.id &&
+                        activeInlineCell.field === 'priority' ? (
+                          <select
+                            autoFocus
+                            className="border-input bg-background h-8 w-full max-w-[10rem] rounded-md border px-2 text-xs"
+                            value={row.priority}
+                            onChange={(e) => {
+                              updateMut.mutate({
+                                taskId: row.id,
+                                body: { priority: e.target.value as ProjectTaskApi['priority'] },
+                                silentToast: true,
+                              });
+                              setActiveInlineCell(null);
+                            }}
+                            onBlur={() => setActiveInlineCell(null)}
+                            disabled={isTaskUpdatePending(row.id)}
+                          >
+                            {Object.keys(TASK_PRIORITY_LABEL).map((k) => (
+                              <option key={k} value={k}>
+                                {TASK_PRIORITY_LABEL[k]}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <button
+                            type="button"
+                            className="hover:bg-muted rounded px-2 py-1 text-left"
+                            onClick={() => setActiveInlineCell({ taskId: row.id, field: 'priority' })}
+                          >
+                            {TASK_PRIORITY_LABEL[row.priority] ?? row.priority}
+                          </button>
+                        )
+                      ) : (
+                        TASK_PRIORITY_LABEL[row.priority] ?? row.priority
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground max-w-[12rem] truncate">
                       {canEdit ? (
-                        <select
-                          className="border-input bg-background h-7 w-full max-w-[12rem] rounded-md border px-1 text-[10px] leading-tight"
-                          value={row.phaseId ?? ''}
-                          title="Libellé de phase"
-                          onChange={(e) => {
-                            updateMut.mutate({
-                              taskId: row.id,
-                              body: { phaseId: e.target.value || null },
-                              silentToast: true,
-                            });
-                          }}
-                          disabled={isTaskUpdatePending(row.id)}
-                        >
-                          <option value="">Sans libellé de phase</option>
-                          {phaseOptions.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
+                        activeInlineCell?.taskId === row.id &&
+                        activeInlineCell.field === 'phaseId' ? (
+                          <select
+                            autoFocus
+                            className="border-input bg-background h-7 w-full max-w-[12rem] rounded-md border px-1 text-[10px] leading-tight"
+                            value={row.phaseId ?? ''}
+                            title="Libellé de phase"
+                            onChange={(e) => {
+                              updateMut.mutate({
+                                taskId: row.id,
+                                body: { phaseId: e.target.value || null },
+                                silentToast: true,
+                              });
+                              setActiveInlineCell(null);
+                            }}
+                            onBlur={() => setActiveInlineCell(null)}
+                            disabled={isTaskUpdatePending(row.id)}
+                          >
+                            <option value="">Sans libellé de phase</option>
+                            {phaseOptions.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <button
+                            type="button"
+                            className="hover:bg-muted rounded px-2 py-1 text-left"
+                            onClick={() => setActiveInlineCell({ taskId: row.id, field: 'phaseId' })}
+                          >
+                            {renderPhaseLabel(row.phaseId)}
+                          </button>
+                        )
                       ) : (
                         <span>{renderPhaseLabel(row.phaseId)}</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      {row.plannedEndDate
-                        ? new Date(row.plannedEndDate).toLocaleDateString('fr-FR')
-                        : '—'}
+                      {canEdit ? (
+                        activeInlineCell?.taskId === row.id &&
+                        activeInlineCell.field === 'plannedEndDate' ? (
+                          <Input
+                            autoFocus
+                            type="date"
+                            className="h-8 w-[10.5rem]"
+                            value={isoToDateInput(row.plannedEndDate)}
+                            onChange={(e) => {
+                              const body = mergePlannedDatesAfterEdit(
+                                row,
+                                'plannedEndDate',
+                                e.target.value,
+                              );
+                              updateMut.mutate({
+                                taskId: row.id,
+                                body,
+                                silentToast: true,
+                              });
+                              setActiveInlineCell(null);
+                            }}
+                            onBlur={() => setActiveInlineCell(null)}
+                            disabled={isTaskUpdatePending(row.id)}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="hover:bg-muted rounded px-2 py-1 text-left"
+                            onClick={() =>
+                              setActiveInlineCell({ taskId: row.id, field: 'plannedEndDate' })
+                            }
+                          >
+                            {row.plannedEndDate
+                              ? new Date(row.plannedEndDate).toLocaleDateString('fr-FR')
+                              : '—'}
+                          </button>
+                        )
+                      ) : row.plannedEndDate ? (
+                        new Date(row.plannedEndDate).toLocaleDateString('fr-FR')
+                      ) : (
+                        '—'
+                      )}
                     </TableCell>
-                    <TableCell>{row.progress} %</TableCell>
+                    <TableCell>
+                      {canEdit ? (
+                        activeInlineCell?.taskId === row.id &&
+                        activeInlineCell.field === 'progress' ? (
+                          <Input
+                            autoFocus
+                            type="number"
+                            min={0}
+                            max={100}
+                            defaultValue={row.progress}
+                            className="h-8 w-[6.5rem]"
+                            onBlur={(e) => {
+                              const n = Number(e.target.value);
+                              if (!Number.isFinite(n)) {
+                                setActiveInlineCell(null);
+                                return;
+                              }
+                              const nextProgress = Math.max(0, Math.min(100, Math.round(n)));
+                              if (nextProgress !== row.progress) {
+                                updateMut.mutate({
+                                  taskId: row.id,
+                                  body: { progress: nextProgress },
+                                  silentToast: true,
+                                });
+                              }
+                              setActiveInlineCell(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                (e.currentTarget as HTMLInputElement).blur();
+                              }
+                              if (e.key === 'Escape') {
+                                setActiveInlineCell(null);
+                              }
+                            }}
+                            disabled={isTaskUpdatePending(row.id)}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="hover:bg-muted rounded px-2 py-1 text-left"
+                            onClick={() => setActiveInlineCell({ taskId: row.id, field: 'progress' })}
+                          >
+                            {row.progress} %
+                          </button>
+                        )
+                      ) : (
+                        `${row.progress} %`
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground max-w-[180px] truncate">
-                      {pred ? pred.name : '—'}
+                      {canEdit ? (
+                        activeInlineCell?.taskId === row.id &&
+                        activeInlineCell.field === 'dependsOnTaskId' ? (
+                          <select
+                            autoFocus
+                            className="border-input bg-background h-8 w-full max-w-[12rem] rounded-md border px-2 text-xs"
+                            value={row.dependsOnTaskId ?? ''}
+                            onChange={(e) => {
+                              const next = e.target.value || null;
+                              updateMut.mutate({
+                                taskId: row.id,
+                                body: { dependsOnTaskId: next },
+                                silentToast: true,
+                              });
+                              setActiveInlineCell(null);
+                            }}
+                            onBlur={() => setActiveInlineCell(null)}
+                            disabled={isTaskUpdatePending(row.id)}
+                          >
+                            <option value="">—</option>
+                            {tasksForDepends.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <button
+                            type="button"
+                            className="hover:bg-muted rounded px-2 py-1 text-left"
+                            onClick={() =>
+                              setActiveInlineCell({ taskId: row.id, field: 'dependsOnTaskId' })
+                            }
+                          >
+                            {pred ? pred.name : '—'}
+                          </button>
+                        )
+                      ) : (
+                        <>{pred ? pred.name : '—'}</>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
