@@ -11,9 +11,9 @@ Voici le **plan propre, exécutable et intégrant explicitement le frontend**, s
 | 1     | RFC-PROJ-INT-003 | Auth Microsoft OAuth           | OAuth2 + tokens + refresh  | Fait           | `apps/api/src/modules/microsoft/` |
 | 2     | RFC-PROJ-INT-005 | Gestion connexion client       | Connexion / révocation     | Fait           | API + UI admin client |
 | 3     | RFC-PROJ-INT-004 | Microsoft Graph Service        | Client HTTP Graph          | Fait           | Base technique + tests |
-| 4     | RFC-PROJ-INT-002 | Prisma Schema                  | Modélisation DB Microsoft  | Couvert        | `MicrosoftConnection`, `ProjectMicrosoftLink`, mappings sync — schéma migré |
+| 4     | RFC-PROJ-INT-002 | Prisma Schema                  | Modélisation DB Microsoft  | Partiel        | `MicrosoftConnection` + enums en base ; `ProjectMicrosoftLink` / sync tâches non migrés |
 | 5     | RFC-PROJ-INT-006 | Sélection ressources Microsoft | Teams / Channels / Planner | Partiel        | API listing OK ; UI cascade sur fiche projet (`ProjectMicrosoftResourceSelectorsCard`) ; **persistance `PUT /api/projects/:id/microsoft-link` non branchée dans l’UI** (config lien = API ou complétion UI) |
-| 6     | RFC-PROJ-INT-007 | Configuration projet           | Lien Project ↔ Microsoft   | Fait (backend) | GET/PUT + garde-fous connexion active |
+| 6     | RFC-PROJ-INT-007 | Configuration projet           | Lien Project ↔ Microsoft   | Fait           | GET/PUT + garde-fous connexion active |
 | 7     | RFC-PROJ-INT-008 | Sync tâches → Planner          | Sync tâches                | Fait           | `POST .../sync-tasks`, mapping `ProjectTaskMicrosoftSync` |
 | 8     | RFC-PROJ-INT-016 | Sync bidirectionnelle tâches   | Pull Planner -> Starium + Push Starium -> Planner | Fait           | Endpoint inchangé `POST .../sync-tasks`, conflit `starium-wins`, contrat enrichi + audit dédié |
 
