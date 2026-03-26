@@ -137,6 +137,7 @@ model Client {
   projectDocumentMicrosoftSyncs ProjectDocumentMicrosoftSync[]
   projectDocuments              ProjectDocument[]
   projectTaskBuckets            ProjectTaskBucket[]
+  projectTaskPhases            ProjectTaskPhase[]
   projectTaskChecklistItems     ProjectTaskChecklistItem[]
   projectTaskLabels            ProjectTaskLabel[]
   projectTaskLabelAssignments ProjectTaskLabelAssignment[]
@@ -698,6 +699,7 @@ model Project {
   microsoftDocumentSyncs ProjectDocumentMicrosoftSync[]
 
   tasks       ProjectTask[]
+  taskPhases  ProjectTaskPhase[]
   taskBuckets ProjectTaskBucket[]
   taskChecklistItems ProjectTaskChecklistItem[]
   taskLabels ProjectTaskLabel[]
@@ -1024,13 +1026,34 @@ model ProjectTaskBucket {
   @@index([projectId])
 }
 
+/// Regroupement fonctionnel des tâches d'un projet (phase non éditée depuis la barre Gantt).
+model ProjectTaskPhase {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  name      String
+  sortOrder Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   ProjectTask[]
+
+  @@index([clientId, projectId])
+  @@index([projectId, sortOrder])
+  @@unique([projectId, sortOrder])
+}
+
 /// RFC-PROJ-011 — tâche projet planifiable (Gantt-ready)
 model ProjectTask {
   id              String @id @default(cuid())
   clientId        String
   projectId       String
 
-  parentTaskId    String?
+  phaseId         String?
   dependsOnTaskId String?
 
   bucketId String?
@@ -1065,9 +1088,8 @@ model ProjectTask {
   project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   budgetLine BudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
   bucket   ProjectTaskBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
+  phase    ProjectTaskPhase?  @relation(fields: [phaseId], references: [id], onDelete: SetNull)
 
-  parentTask    ProjectTask?  @relation("ProjectTaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
-  childTasks    ProjectTask[]   @relation("ProjectTaskHierarchy")
   dependsOnTask ProjectTask?  @relation("ProjectTaskDependency", fields: [dependsOnTaskId], references: [id], onDelete: SetNull)
   dependentTasks ProjectTask[]  @relation("ProjectTaskDependency")
 
@@ -1086,7 +1108,8 @@ model ProjectTask {
   @@index([clientId])
   @@index([projectId])
   @@index([clientId, projectId])
-  @@index([parentTaskId])
+  @@index([phaseId])
+  @@index([projectId, phaseId, sortOrder])
   @@index([dependsOnTaskId])
   @@index([status])
   @@index([priority])

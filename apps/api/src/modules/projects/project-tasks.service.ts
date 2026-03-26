@@ -29,7 +29,6 @@ import { UpdateProjectTaskDto } from './dto/update-project-task.dto';
 import { normalizeListPagination } from './lib/paginated-list.util';
 import {
   wouldTaskDependencyCreateCycle,
-  wouldTaskParentCreateCycle,
 } from './lib/project-task-graph.util';
 import { ProjectsService } from './projects.service';
 
@@ -55,8 +54,8 @@ export class ProjectTasksService {
     };
     if (query.status) where.status = query.status;
     if (query.priority) where.priority = query.priority;
-    if (query.parentTaskId !== undefined && query.parentTaskId !== '') {
-      where.parentTaskId = query.parentTaskId;
+    if (query.phaseId !== undefined && query.phaseId !== '') {
+      where.phaseId = query.phaseId;
     }
     if (query.ownerUserId) where.ownerUserId = query.ownerUserId;
     if (query.search?.trim()) {
@@ -70,6 +69,7 @@ export class ProjectTasksService {
       this.prisma.projectTask.findMany({
         where,
         orderBy: [
+          { phase: { sortOrder: 'asc' } },
           { sortOrder: 'asc' },
           { plannedStartDate: 'asc' },
           { createdAt: 'asc' },
@@ -116,7 +116,7 @@ export class ProjectTasksService {
     const status = dto.status ?? 'TODO';
     if (status === 'DONE') progress = 100;
 
-    await this.validateParentTask(clientId, projectId, dto.parentTaskId ?? null);
+    await this.validatePhase(clientId, projectId, dto.phaseId ?? null);
     await this.validateDependsOnTask(
       clientId,
       projectId,
@@ -149,19 +149,6 @@ export class ProjectTasksService {
         throw new BadRequestException('Dependency would create a cycle');
       }
     }
-    if (dto.parentTaskId) {
-      const pCycle = await wouldTaskParentCreateCycle(
-        this.prisma,
-        clientId,
-        projectId,
-        'new',
-        dto.parentTaskId,
-      );
-      if (pCycle) {
-        throw new BadRequestException('Parent would create a hierarchy cycle');
-      }
-    }
-
     this.assertTaskDatesAndProgress(
       status,
       progress,
@@ -191,7 +178,7 @@ export class ProjectTasksService {
           ? new Date(dto.actualStartDate)
           : null,
         actualEndDate: dto.actualEndDate ? new Date(dto.actualEndDate) : null,
-        parentTaskId: dto.parentTaskId ?? null,
+        phaseId: dto.phaseId ?? null,
         dependsOnTaskId: dto.dependsOnTaskId ?? null,
         dependencyType: dto.dependencyType ?? null,
         ownerUserId: dto.ownerUserId ?? null,
@@ -276,11 +263,12 @@ export class ProjectTasksService {
       await this.assertTaskBucketInProject(clientId, projectId, dto.bucketId);
     }
 
-    const nextParent = dto.parentTaskId !== undefined ? dto.parentTaskId : existing.parentTaskId;
+    const previousPhaseId = existing.phaseId;
+    const nextPhase = dto.phaseId !== undefined ? dto.phaseId : existing.phaseId;
     const nextDepends =
       dto.dependsOnTaskId !== undefined ? dto.dependsOnTaskId : existing.dependsOnTaskId;
 
-    await this.validateParentTask(clientId, projectId, nextParent, taskId);
+    await this.validatePhase(clientId, projectId, nextPhase);
     await this.validateDependsOnTask(clientId, projectId, taskId, nextDepends);
 
     if (
@@ -294,18 +282,6 @@ export class ProjectTasksService {
     ) {
       throw new BadRequestException('Dependency would create a cycle');
     }
-    if (
-      await wouldTaskParentCreateCycle(
-        this.prisma,
-        clientId,
-        projectId,
-        taskId,
-        nextParent,
-      )
-    ) {
-      throw new BadRequestException('Parent would create a hierarchy cycle');
-    }
-
     const status = dto.status ?? existing.status;
     let progress =
       dto.progress !== undefined ? dto.progress : existing.progress;
@@ -357,7 +333,7 @@ export class ProjectTasksService {
         ...(dto.actualEndDate !== undefined && {
           actualEndDate: dto.actualEndDate ? new Date(dto.actualEndDate) : null,
         }),
-        ...(dto.parentTaskId !== undefined && { parentTaskId: dto.parentTaskId }),
+        ...(dto.phaseId !== undefined && { phaseId: dto.phaseId }),
         ...(dto.dependsOnTaskId !== undefined && {
           dependsOnTaskId: dto.dependsOnTaskId,
         }),
@@ -445,6 +421,22 @@ export class ProjectTasksService {
         newValue: { ownerUserId: final.ownerUserId ?? null },
         ...meta,
       });
+    }
+    if (previousPhaseId !== final.phaseId) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_TASK_PHASE_CHANGED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_TASK,
+        resourceId: taskId,
+        oldValue: { phaseId: previousPhaseId ?? null },
+        newValue: { phaseId: final.phaseId ?? null },
+        ...meta,
+      });
+    }
+
+    if (dto.sortOrder !== undefined || previousPhaseId !== final.phaseId) {
+      await this.recomputeSortOrders(clientId, projectId, previousPhaseId, final.phaseId);
     }
 
     return this.mapTaskWithChecklist(final);
@@ -585,22 +577,46 @@ export class ProjectTasksService {
     }
   }
 
-  private async validateParentTask(
+  private async validatePhase(
     clientId: string,
     projectId: string,
-    parentTaskId: string | null,
-    excludeTaskId?: string,
+    phaseId: string | null,
   ) {
-    if (!parentTaskId) return;
-    if (excludeTaskId && parentTaskId === excludeTaskId) {
-      throw new BadRequestException('A task cannot be its own parent');
-    }
-    const p = await this.prisma.projectTask.findFirst({
-      where: { id: parentTaskId, clientId, projectId },
+    if (!phaseId) return;
+    const p = await this.prisma.projectTaskPhase.findFirst({
+      where: { id: phaseId, clientId, projectId },
     });
     if (!p) {
-      throw new BadRequestException('Parent task not found in this project');
+      throw new BadRequestException('Phase not found in this project');
     }
+  }
+
+  private async recomputeSortOrders(
+    clientId: string,
+    projectId: string,
+    fromPhaseId: string | null,
+    toPhaseId: string | null,
+  ) {
+    const phaseIds = Array.from(new Set([fromPhaseId, toPhaseId])).filter(
+      (v): v is string => v !== null,
+    );
+    await this.prisma.$transaction(async (tx) => {
+      const regroup = async (phaseId: string | null) => {
+        const rows = await tx.projectTask.findMany({
+          where: { clientId, projectId, phaseId },
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+          select: { id: true },
+        });
+        for (const [idx, row] of rows.entries()) {
+          await tx.projectTask.update({
+            where: { id: row.id },
+            data: { sortOrder: idx },
+          });
+        }
+      };
+      for (const phaseId of phaseIds) await regroup(phaseId);
+      if (fromPhaseId === null || toPhaseId === null) await regroup(null);
+    });
   }
 
   private async validateDependsOnTask(

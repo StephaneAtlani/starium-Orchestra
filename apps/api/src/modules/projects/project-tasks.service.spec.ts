@@ -41,7 +41,7 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       plannedEndDate: null,
       actualStartDate: null,
       actualEndDate: null,
-      parentTaskId: null,
+      phaseId: null,
       dependsOnTaskId: null,
       dependencyType: null,
       budgetLineId: null,
@@ -71,6 +71,9 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
         findMany: jest.fn(),
         deleteMany: jest.fn(),
         create: jest.fn(),
+      },
+      projectTaskPhase: {
+        findFirst: jest.fn().mockResolvedValue(null),
       },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };

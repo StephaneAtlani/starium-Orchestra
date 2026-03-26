@@ -65,7 +65,7 @@ export class CreateProjectTaskDto {
 
   @IsOptional()
   @IsString()
-  parentTaskId?: string | null;
+  phaseId?: string | null;
 
   @IsOptional()
   @IsString()

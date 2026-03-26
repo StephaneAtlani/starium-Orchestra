@@ -13,7 +13,6 @@ import {
   CalendarRange,
   CheckSquare,
   Flag,
-  GitBranch,
   Link2,
   ListChecks,
   User,
@@ -63,7 +62,7 @@ const TASK_LABEL_PICK_PLACEHOLDER = '__task_label_pick__';
 export type TaskFormDialogFieldsProps = {
   form: CreateProjectTaskPayload;
   onPatch: (patch: Partial<CreateProjectTaskPayload>) => void;
-  tasksForParent: { id: string; name: string }[];
+  phaseOptions: { id: string; name: string }[];
   tasksForDepends: { id: string; name: string }[];
   assignableOptions: { id: string; label: string }[];
   /** Buckets projet (vide = aucun bucket défini côté API). */
@@ -82,7 +81,7 @@ export type TaskFormDialogFieldsProps = {
 export function TaskFormDialogFields({
   form,
   onPatch,
-  tasksForParent,
+  phaseOptions,
   tasksForDepends,
   assignableOptions,
   bucketOptions,
@@ -546,29 +545,19 @@ export function TaskFormDialogFields({
         ) : null}
       </section>
 
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-hierarchy')}
-      >
-        <h3
-          id={fid('sec-hierarchy')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
-          <GitBranch className="size-3.5 shrink-0" aria-hidden />
-          Hiérarchie
-        </h3>
+      <section className="rounded-lg border border-border/70 bg-muted/30 p-4">
         <div className="space-y-1.5">
-          <Label htmlFor={fid('parent')}>Tâche parente</Label>
+          <Label htmlFor={fid('phase')}>Phase</Label>
           <select
-            id={fid('parent')}
+            id={fid('phase')}
             className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
-            value={form.parentTaskId ?? ''}
-            onChange={(e) => onPatch({ parentTaskId: e.target.value || null })}
+            value={form.phaseId ?? ''}
+            onChange={(e) => onPatch({ phaseId: e.target.value || null })}
           >
-            <option value="">— Aucune</option>
-            {tasksForParent.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            <option value="">Sans phase</option>
+            {phaseOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
               </option>
             ))}
           </select>

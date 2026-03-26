@@ -25,15 +25,15 @@ describe('gantt-bar-palette', () => {
     expect(t.track).not.toBe(GANTT_BAR_TONE_DEFAULT.track);
   });
 
-  it('buildTaskRootIdMap remonte à la racine', () => {
+  it('buildTaskRootIdMap groupe par phase', () => {
     const m = buildTaskRootIdMap([
-      { id: 'a', parentTaskId: null },
-      { id: 'b', parentTaskId: 'a' },
-      { id: 'c', parentTaskId: 'b' },
+      { id: 'a', phaseId: 'phase-1' },
+      { id: 'b', phaseId: 'phase-1' },
+      { id: 'c', phaseId: null },
     ]);
-    expect(m.get('a')).toBe('a');
-    expect(m.get('b')).toBe('a');
-    expect(m.get('c')).toBe('a');
+    expect(m.get('a')).toBe('phase-1');
+    expect(m.get('b')).toBe('phase-1');
+    expect(m.get('c')).toBe('c');
   });
 
   it('getGanttBarLegendItems couvre priorité et groupe', () => {

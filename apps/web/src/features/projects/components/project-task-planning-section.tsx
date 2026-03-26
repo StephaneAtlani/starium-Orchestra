@@ -23,6 +23,7 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
 import { useProjectTaskBucketsQuery } from '../hooks/use-project-task-buckets-query';
+import { listProjectTaskPhases } from '../api/projects.api';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectTaskLabelsQuery } from '../hooks/use-project-task-labels-query';
@@ -38,10 +39,6 @@ import {
 } from '../hooks/use-project-labels-mutations';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { useProjectMicrosoftLinkQuery } from '../options/hooks/use-project-microsoft-link-query';
-import {
-  computeIndentPatch,
-  computeOutdentPatch,
-} from '../lib/project-task-indent';
 import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
 import { GANTT_ROW_PX } from '../lib/gantt-timeline-layout';
 import {
@@ -59,7 +56,7 @@ import type {
 import { cn } from '@/lib/utils';
 import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
 import { TaskFormDialogFields } from './task-form-dialog-fields';
-import { TaskIndentActions } from './task-indent-actions';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 
 function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -198,6 +195,7 @@ export const ProjectTaskPlanningSection = forwardRef<
 
   const tasksQuery = useProjectTasksQuery(projectId);
   const bucketsQuery = useProjectTaskBucketsQuery(projectId);
+  const authFetch = useAuthenticatedFetch();
   const isGanttVariant = variant === 'gantt-sidebar';
   const milestonesQuery = useProjectMilestonesQuery(projectId, {
     enabled: isGanttVariant,
@@ -228,7 +226,7 @@ export const ProjectTaskPlanningSection = forwardRef<
   const treeRows = useMemo(() => {
     const sources = items.map((t) => ({
       ...t,
-      parentTaskId: t.parentTaskId,
+      parentTaskId: null,
       sortOrder: t.sortOrder,
       plannedStartDate: t.plannedStartDate,
       createdAt: t.createdAt ?? t.id,
@@ -244,32 +242,6 @@ export const ProjectTaskPlanningSection = forwardRef<
   const isGantt = isGanttVariant;
   /** Même source que la grille / table visible (après filtre Gantt si applicable). */
   const displayedRows = isGantt ? ganttTreeRows : treeRows;
-
-  const handleTaskIndent = useCallback(
-    (taskId: string) => {
-      const patch = computeIndentPatch(displayedRows, taskId);
-      if (!patch) return;
-      updateMut.mutate({
-        taskId,
-        body: { parentTaskId: patch.parentTaskId, sortOrder: patch.sortOrder },
-        silentToast: true,
-      });
-    },
-    [displayedRows, updateMut],
-  );
-
-  const handleTaskOutdent = useCallback(
-    (taskId: string) => {
-      const patch = computeOutdentPatch(displayedRows, taskId);
-      if (!patch) return;
-      updateMut.mutate({
-        taskId,
-        body: { parentTaskId: patch.parentTaskId, sortOrder: patch.sortOrder },
-        silentToast: true,
-      });
-    },
-    [displayedRows, updateMut],
-  );
 
   const isTaskUpdatePending = useCallback(
     (taskId: string) =>
@@ -393,7 +365,7 @@ export const ProjectTaskPlanningSection = forwardRef<
       plannedEndDate: t.plannedEndDate ?? undefined,
       actualStartDate: t.actualStartDate ?? undefined,
       actualEndDate: t.actualEndDate ?? undefined,
-      parentTaskId: t.parentTaskId,
+      phaseId: t.phaseId,
       dependsOnTaskId: t.dependsOnTaskId,
       dependencyType: t.dependencyType,
       ownerUserId: t.ownerUserId,
@@ -411,13 +383,12 @@ export const ProjectTaskPlanningSection = forwardRef<
     setDialogOpen(true);
   };
 
-  const tasksForParent = useMemo(() => {
-    const excl = editing?.id;
-    return items
-      .filter((t) => t.id !== excl)
-      .map((t) => ({ id: t.id, name: t.name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [items, editing]);
+  const [phaseOptions, setPhaseOptions] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => {
+    void listProjectTaskPhases(authFetch, projectId).then((phases) => {
+      setPhaseOptions(phases.map((p) => ({ id: p.id, name: p.name })));
+    });
+  }, [authFetch, projectId]);
 
   const tasksForDepends = useMemo(() => {
     const excl = editing?.id;
@@ -687,14 +658,6 @@ export const ProjectTaskPlanningSection = forwardRef<
                       {canEdit && (
                         <TableCell className="py-1 align-middle">
                           <div className="flex items-center justify-end gap-0.5">
-                            <TaskIndentActions
-                              displayedRows={displayedRows}
-                              taskId={row.id}
-                              isPending={isTaskUpdatePending(row.id)}
-                              onIndent={handleTaskIndent}
-                              onOutdent={handleTaskOutdent}
-                              compact
-                            />
                             <Button
                               type="button"
                               variant="ghost"
@@ -735,13 +698,6 @@ export const ProjectTaskPlanningSection = forwardRef<
                     {canEdit && (
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-1">
-                          <TaskIndentActions
-                            displayedRows={displayedRows}
-                            taskId={row.id}
-                            isPending={isTaskUpdatePending(row.id)}
-                            onIndent={handleTaskIndent}
-                            onOutdent={handleTaskOutdent}
-                          />
                           <Button
                             type="button"
                             variant="ghost"
@@ -898,7 +854,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                   ...patch,
                 }))
               }
-              tasksForParent={tasksForParent}
+              phaseOptions={phaseOptions}
               tasksForDepends={tasksForDepends}
               assignableOptions={assignableOptions}
               bucketOptions={bucketOptions}

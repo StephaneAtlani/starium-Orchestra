@@ -155,7 +155,7 @@ export function projectTaskEntityAuditSnapshot(
     name: t.name,
     code: t.code ?? null,
     description: t.description ?? null,
-    parentTaskId: t.parentTaskId ?? null,
+    phaseId: t.phaseId ?? null,
     dependsOnTaskId: t.dependsOnTaskId ?? null,
     dependencyType: t.dependencyType ?? null,
     ownerUserId: t.ownerUserId ?? null,

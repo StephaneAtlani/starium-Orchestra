@@ -29,12 +29,6 @@ import {
   resolveGanttBarTone,
   type GanttBarColorMode,
 } from '../lib/gantt-bar-palette';
-import {
-  buildVisibleChildrenMap,
-  computeVisibleSubtreeRollupBounds,
-  computeVisibleSubtreeRollupProgress,
-  taskHasVisibleChildren,
-} from '../lib/gantt-grouping-bars';
 import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
 import {
   GANTT_DAY_MS,
@@ -203,7 +197,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     if (!payload?.tasks) return [];
     const sources = payload.tasks.map((t) => ({
       ...t,
-      parentTaskId: t.parentTaskId,
+      parentTaskId: null,
       sortOrder: t.sortOrder,
       plannedStartDate: t.plannedStartDate,
       createdAt: t.createdAt,
@@ -229,12 +223,6 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     });
     return m;
   }, [displayTreeRows, taskRootIdMap]);
-
-  /** Regroupement Gantt : sous-arbre visible uniquement (aligné sidebar / filtre). */
-  const visibleChildrenMap = useMemo(
-    () => buildVisibleChildrenMap(displayTreeRows),
-    [displayTreeRows],
-  );
 
   const displayRowsById = useMemo(() => {
     const m = new Map<string, (typeof displayTreeRows)[number]>();
@@ -1128,39 +1116,10 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                       )
                     : 0;
 
-                  const hasVisibleChildren = taskHasVisibleChildren(
-                    row.id,
-                    visibleChildrenMap,
-                  );
-                  const rollupBounds =
-                    hasVisibleChildren && bounds
-                      ? computeVisibleSubtreeRollupBounds(
-                          row.id,
-                          displayRowsById,
-                          visibleChildrenMap,
-                        )
-                      : null;
-                  const rollupLeftPx =
-                    rollupBounds && bounds
-                      ? dateMsToPx(rollupBounds.startMs, bounds, pxPerDay)
-                      : 0;
-                  const rollupW =
-                    rollupBounds && bounds
-                      ? Math.max(
-                          2,
-                          dateMsToPx(rollupBounds.endMs, bounds, pxPerDay) -
-                            rollupLeftPx,
-                        )
-                      : 0;
-
-                  const rollupProgressPct =
-                    rollupBounds && bounds
-                      ? computeVisibleSubtreeRollupProgress(
-                          row.id,
-                          displayRowsById,
-                          visibleChildrenMap,
-                        )
-                      : null;
+                  const rollupBounds = null;
+                  const rollupLeftPx = 0;
+                  const rollupW = 0;
+                  const rollupProgressPct = null;
 
                   const statusLabel =
                     TASK_STATUS_LABEL[row.status] ?? row.status;

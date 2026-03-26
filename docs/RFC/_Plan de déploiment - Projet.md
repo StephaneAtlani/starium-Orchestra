@@ -92,7 +92,7 @@ Objet central de pilotage.
 * `id`
 * `clientId`
 * `portfolioItemId`
-* `parentTaskId?`
+* `phaseId?`
 * `title`
 * `description?`
 * `status`
@@ -243,7 +243,7 @@ Gérer l’exécution opérationnelle.
 
 **Règles**
 
-* hiérarchie parent/enfant simple
+* groupement par phases fonctionnelles (sans récursion parent/enfant)
 * tri manuel
 * dates
 * avancement

@@ -50,7 +50,7 @@ Mettre en place un **système de planification projet** permettant :
 
 * CRUD tâches
 * CRUD jalons
-* hiérarchie tâches
+* groupement des tâches par phases fonctionnelles
 * dépendances simples
 * dates prévues et réelles
 * progression
@@ -124,7 +124,7 @@ model ProjectTask {
   actualStartDate    DateTime?
   actualEndDate      DateTime?
 
-  parentTaskId       String?
+  phaseId            String?
   dependsOnTaskId    String?
   dependencyType     ProjectTaskDependencyType?
 
@@ -134,8 +134,7 @@ model ProjectTask {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  parentTask         ProjectTask?  @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
-  childTasks         ProjectTask[] @relation("TaskHierarchy")
+  phase              ProjectTaskPhase? @relation(fields: [phaseId], references: [id])
 
   dependsOnTask      ProjectTask?  @relation("TaskDependency", fields: [dependsOnTaskId], references: [id])
   dependentTasks     ProjectTask[] @relation("TaskDependency")
@@ -300,7 +299,7 @@ Projet
 * création via bouton
 * édition via dialogue modal (création / modification)
 * tableau structuré
-* sous-tâches visibles
+* tâches groupées sous leur phase visible
 
 ---
 
@@ -316,7 +315,7 @@ Projet
 
 ### Gauche
 
-* grille des tâches (hiérarchie, actions CRUD si `projects.update`) — même logique métier que l’onglet Tâches (`ProjectTaskPlanningSection`, variant `gantt-sidebar`)
+* grille des tâches groupées par phase (actions CRUD si `projects.update`) — même logique métier que l’onglet Tâches (`ProjectTaskPlanningSection`, variant `gantt-sidebar`)
 * lignes jalons en bas de grille (alignées avec la frise) ; date cible éditable par drag sur la frise si `projects.update`
 
 ### Droite
@@ -365,7 +364,7 @@ project_milestone.updated
 * progress
 * dates
 * dépendances
-* hiérarchie
+* phases (barres de groupe dérivées backend) + tâches
 * calcul layout frise (bornes, largeur, positionnement px) — `gantt-timeline-layout.spec.ts`
 * géométrie des liens de dépendance — `gantt-dependency-geometry.spec.ts`
 

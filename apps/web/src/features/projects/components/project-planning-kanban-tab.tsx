@@ -153,7 +153,7 @@ export function ProjectPlanningKanbanTab({ projectId }: { projectId: string }) {
       plannedEndDate: t.plannedEndDate ?? undefined,
       actualStartDate: t.actualStartDate ?? undefined,
       actualEndDate: t.actualEndDate ?? undefined,
-      parentTaskId: t.parentTaskId,
+      phaseId: t.phaseId,
       dependsOnTaskId: t.dependsOnTaskId,
       dependencyType: t.dependencyType,
       ownerUserId: t.ownerUserId,
@@ -171,13 +171,7 @@ export function ProjectPlanningKanbanTab({ projectId }: { projectId: string }) {
     setDialogOpen(true);
   }, []);
 
-  const tasksForParent = useMemo(() => {
-    const excl = editing?.id;
-    return items
-      .filter((t) => t.id !== excl)
-      .map((t) => ({ id: t.id, name: t.name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [items, editing]);
+  const phaseOptions: Array<{ id: string; name: string }> = [];
 
   const tasksForDepends = useMemo(() => {
     const excl = editing?.id;
@@ -399,7 +393,7 @@ export function ProjectPlanningKanbanTab({ projectId }: { projectId: string }) {
                   ...patch,
                 }))
               }
-              tasksForParent={tasksForParent}
+              phaseOptions={phaseOptions}
               tasksForDepends={tasksForDepends}
               assignableOptions={assignableOptions}
               bucketOptions={bucketOptions}

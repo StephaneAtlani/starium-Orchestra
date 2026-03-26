@@ -20,7 +20,7 @@ export class ListProjectTasksQueryDto {
 
   @IsOptional()
   @IsString()
-  parentTaskId?: string;
+  phaseId?: string;
 
   @IsOptional()
   @IsString()

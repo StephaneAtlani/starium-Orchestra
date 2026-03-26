@@ -24,6 +24,8 @@ import { ProjectTaskBucketsController } from './project-task-buckets.controller'
 import { ProjectTaskBucketsService } from './project-task-buckets.service';
 import { ProjectTaskLabelsController } from './project-task-labels.controller';
 import { ProjectTaskLabelsService } from './project-task-labels.service';
+import { ProjectTaskPhasesController } from './project-task-phases.controller';
+import { ProjectTaskPhasesService } from './project-task-phases.service';
 import { ProjectTasksController } from './project-tasks.controller';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsController } from './projects.controller';
@@ -45,6 +47,7 @@ import { ProjectMilestoneLabelsService } from './project-milestone-labels.servic
     ProjectDocumentsController,
     ProjectTaskBucketsController,
     ProjectTaskLabelsController,
+    ProjectTaskPhasesController,
     ProjectTasksController,
     ProjectActivitiesController,
     ProjectGanttController,
@@ -63,6 +66,7 @@ import { ProjectMilestoneLabelsService } from './project-milestone-labels.servic
     ProjectDocumentContentService,
     ProjectTaskBucketsService,
     ProjectTaskLabelsService,
+    ProjectTaskPhasesService,
     ProjectTasksService,
     ProjectActivitiesService,
     ProjectGanttService,

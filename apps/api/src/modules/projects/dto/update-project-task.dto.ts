@@ -66,7 +66,7 @@ export class UpdateProjectTaskDto {
 
   @IsOptional()
   @IsString()
-  parentTaskId?: string | null;
+  phaseId?: string | null;
 
   @IsOptional()
   @IsString()

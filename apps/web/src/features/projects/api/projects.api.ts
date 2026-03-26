@@ -13,6 +13,7 @@ import type {
   ProjectRiskApi,
   ProjectSheet,
   ProjectTaskApi,
+  ProjectTaskPhaseApi,
   ProjectTeamMemberApi,
   ProjectTeamRoleApi,
   ProjectsListResponse,
@@ -286,7 +287,7 @@ export type CreateProjectTaskPayload = {
   plannedEndDate?: string;
   actualStartDate?: string;
   actualEndDate?: string;
-  parentTaskId?: string | null;
+  phaseId?: string | null;
   dependsOnTaskId?: string | null;
   dependencyType?: string | null;
   ownerUserId?: string | null;
@@ -443,9 +444,35 @@ export async function updateProjectMilestone(
 
 export type ProjectGanttPayload = {
   projectId: string;
+  phases: Array<{
+    id: string;
+    name: string;
+    sortOrder: number;
+    derivedStartDate: string | null;
+    derivedEndDate: string | null;
+    derivedDurationDays: number | null;
+    derivedProgress: number | null;
+    tasks: ProjectTaskApi[];
+  }>;
   tasks: Array<{
     id: string;
-    parentTaskId: string | null;
+    phaseId: string | null;
+    dependsOnTaskId: string | null;
+    dependencyType: string | null;
+    name: string;
+    status: string;
+    priority: string;
+    progress: number;
+    plannedStartDate: string | null;
+    plannedEndDate: string | null;
+    actualStartDate: string | null;
+    actualEndDate: string | null;
+    sortOrder: number;
+    createdAt: string;
+  }>;
+  ungroupedTasks: Array<{
+    id: string;
+    phaseId: null;
     dependsOnTaskId: string | null;
     dependencyType: string | null;
     name: string;
@@ -468,6 +495,15 @@ export type ProjectGanttPayload = {
     sortOrder: number;
   }>;
 };
+
+export async function listProjectTaskPhases(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectTaskPhaseApi[]> {
+  const res = await authFetch(`${BASE}/${projectId}/task-phases`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTaskPhaseApi[]>;
+}
 
 export async function getProjectGantt(
   authFetch: AuthFetch,

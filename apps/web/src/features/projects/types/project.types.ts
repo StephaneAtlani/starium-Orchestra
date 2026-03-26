@@ -143,6 +143,16 @@ export type ProjectTaskLabelApi = {
   plannerCategoryId: string | null;
 };
 
+export type ProjectTaskPhaseApi = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 /** Option UI formulaire tâche (étiquettes). */
 export type TaskLabelOption = {
   id: string;
@@ -171,7 +181,7 @@ export type ProjectTaskApi = {
   actualStartDate: string | null;
   actualEndDate: string | null;
   sortOrder: number;
-  parentTaskId: string | null;
+  phaseId: string | null;
   dependsOnTaskId: string | null;
   dependencyType: string | null;
   ownerUserId: string | null;
