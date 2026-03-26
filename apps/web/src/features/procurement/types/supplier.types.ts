@@ -54,6 +54,8 @@ export interface SupplierContact {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Présent sur la liste globale client (GET /api/supplier-contacts) */
+  supplierName?: string | null;
 }
 
 export interface PaginatedResponse<T> {

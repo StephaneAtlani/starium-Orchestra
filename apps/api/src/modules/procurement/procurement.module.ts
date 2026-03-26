@@ -14,6 +14,7 @@ import { SupplierCategoriesController } from './supplier-categories/supplier-cat
 import { SupplierCategoriesService } from './supplier-categories/supplier-categories.service';
 import { SuppliersLogoStorageService } from './suppliers/suppliers-logo.storage';
 import { SupplierContactsController } from './supplier-contacts/supplier-contacts.controller';
+import { SupplierContactsListController } from './supplier-contacts/supplier-contacts-list.controller';
 import { SupplierContactsService } from './supplier-contacts/supplier-contacts.service';
 
 @Module({
@@ -26,6 +27,7 @@ import { SupplierContactsService } from './supplier-contacts/supplier-contacts.s
     SuppliersProcurementController,
     SupplierCategoriesController,
     SupplierContactsController,
+    SupplierContactsListController,
   ],
   providers: [
     SuppliersService,

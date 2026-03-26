@@ -15,6 +15,7 @@ const BASE_SUPPLIER_CATEGORIES = '/api/supplier-categories';
 const BASE_ORDERS = '/api/purchase-orders';
 const BASE_INVOICES = '/api/invoices';
 const BASE_BUDGET_LINES = '/api/budget-lines';
+const BASE_SUPPLIER_CONTACTS = '/api/supplier-contacts';
 
 export interface CreateSupplierContactPayload {
   firstName?: string;
@@ -29,6 +30,8 @@ export interface CreateSupplierContactPayload {
 }
 
 export interface UpdateSupplierContactPayload {
+  /** Nouveau fournisseur (même client) — le PATCH reste sur l’ancien fournisseur dans l’URL. */
+  supplierId?: string;
   firstName?: string | null;
   lastName?: string | null;
   fullName?: string;
@@ -215,6 +218,22 @@ export async function listSupplierContacts(
 ): Promise<PaginatedResponse<SupplierContact>> {
   const qs = buildQueryString(params);
   const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}/contacts${qs}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PaginatedResponse<SupplierContact>>;
+}
+
+/** Tous les contacts fournisseurs du client actif (avec nom fournisseur). */
+export async function listAllSupplierContacts(
+  authFetch: AuthFetch,
+  params?: {
+    search?: string;
+    offset?: number;
+    limit?: number;
+    includeInactive?: boolean;
+  },
+): Promise<PaginatedResponse<SupplierContact>> {
+  const qs = buildQueryString(params);
+  const res = await authFetch(`${BASE_SUPPLIER_CONTACTS}${qs}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<PaginatedResponse<SupplierContact>>;
 }

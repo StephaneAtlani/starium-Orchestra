@@ -1,6 +1,11 @@
-import { IsBoolean, IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class UpdateSupplierContactDto {
+  /** Si renseigné et différent du fournisseur courant, le contact est rattaché à ce fournisseur (même client). */
+  @IsOptional()
+  @IsUUID()
+  supplierId?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(120)

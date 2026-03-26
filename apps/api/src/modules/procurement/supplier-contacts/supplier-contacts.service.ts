@@ -39,6 +39,18 @@ export interface ListSupplierContactsResult {
   offset: number;
 }
 
+/** Contact + nom fournisseur (liste globale client) */
+export type SupplierContactListItemResponse = SupplierContactResponse & {
+  supplierName: string | null;
+};
+
+export interface ListAllSupplierContactsResult {
+  items: SupplierContactListItemResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 @Injectable()
 export class SupplierContactsService {
   constructor(
@@ -96,6 +108,78 @@ export class SupplierContactsService {
     ]);
 
     return { items: items.map(toSupplierContactResponse), total, limit, offset };
+  }
+
+  /**
+   * Liste tous les contacts fournisseurs du client actif (tous fournisseurs),
+   * avec le nom du fournisseur pour affichage.
+   */
+  async listAllForClient(
+    clientId: string,
+    query: ListSupplierContactsQueryDto,
+  ): Promise<ListAllSupplierContactsResult> {
+    const limit = query.limit ?? 20;
+    const offset = query.offset ?? 0;
+    const search = query.search?.trim();
+
+    const where: Prisma.SupplierContactWhereInput = {
+      clientId,
+      ...(query.includeInactive ? {} : { isActive: true }),
+      ...(search
+        ? {
+            OR: [
+              {
+                fullName: {
+                  contains: search,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+              {
+                role: {
+                  contains: search,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+              {
+                email: {
+                  contains: search,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+              {
+                supplier: {
+                  name: {
+                    contains: search,
+                    mode: Prisma.QueryMode.insensitive,
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.supplierContact.findMany({
+        where,
+        include: {
+          supplier: {
+            select: { name: true },
+          },
+        },
+        orderBy: [{ supplierId: 'asc' }, { isPrimary: 'desc' }, { fullName: 'asc' }],
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.supplierContact.count({ where }),
+    ]);
+
+    return {
+      items: rows.map(toSupplierContactListItemResponse),
+      total,
+      limit,
+      offset,
+    };
   }
 
   async getById(
@@ -182,20 +266,38 @@ export class SupplierContactsService {
     const existing = await this.findContactOrFail(clientId, supplierId, id);
     const next = normalizeContactInputForUpdate(existing, dto);
 
-    await this.ensureNoNameConflict(clientId, supplierId, next.normalizedName, id);
+    const targetSupplierId =
+      dto.supplierId !== undefined ? dto.supplierId : existing.supplierId;
+
+    if (targetSupplierId !== existing.supplierId) {
+      await this.assertSupplierInClient(clientId, targetSupplierId);
+    }
+
+    await this.ensureNoNameConflict(clientId, targetSupplierId, next.normalizedName, id);
+
+    const supplierChanged = targetSupplierId !== existing.supplierId;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (next.isPrimary) {
         await tx.supplierContact.updateMany({
-          where: { clientId, supplierId, isPrimary: true, id: { not: id } },
+          where: {
+            clientId,
+            supplierId: targetSupplierId,
+            isPrimary: true,
+            id: { not: id },
+          },
           data: { isPrimary: false },
         });
       }
 
       try {
+        const data = {
+          ...next,
+          ...(supplierChanged ? { supplierId: targetSupplierId } : {}),
+        };
         return await tx.supplierContact.update({
           where: { id },
-          data: next,
+          data,
         });
       } catch (error) {
         if (isPrismaUniqueConstraintError(error)) {
@@ -214,6 +316,7 @@ export class SupplierContactsService {
       resourceType: 'supplier_contact',
       resourceId: updated.id,
       oldValue: {
+        supplierId: existing.supplierId,
         fullName: existing.fullName,
         normalizedName: existing.normalizedName,
         email: existing.email,
@@ -222,6 +325,7 @@ export class SupplierContactsService {
         isActive: existing.isActive,
       },
       newValue: {
+        supplierId: updated.supplierId,
         fullName: updated.fullName,
         normalizedName: updated.normalizedName,
         email: updated.email,
@@ -437,6 +541,19 @@ function normalizeEmail(value?: string | null): string | null {
   if (value == null) return null;
   const normalized = value.trim().toLowerCase();
   return normalized || null;
+}
+
+function toSupplierContactListItemResponse(
+  row: Prisma.SupplierContactGetPayload<{
+    include: { supplier: { select: { name: true } } };
+  }>,
+): SupplierContactListItemResponse {
+  return {
+    ...toSupplierContactResponse(
+      row as unknown as Prisma.SupplierContactGetPayload<Record<string, never>>,
+    ),
+    supplierName: row.supplier?.name ?? null,
+  };
 }
 
 function toSupplierContactResponse(

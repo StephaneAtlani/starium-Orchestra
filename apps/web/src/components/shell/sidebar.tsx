@@ -181,6 +181,59 @@ export function Sidebar() {
                   );
                 }
 
+                const isSuppliers = item.label === 'Fournisseurs';
+                if (isSuppliers) {
+                  const suppliersChildren = [
+                    { label: 'Dashboard', href: '/dashboard' },
+                    { label: 'Contacts', href: '/suppliers/contacts' },
+                    { label: 'Fournisseurs', href: '/suppliers' },
+                  ];
+
+                  const isSuppliersChildActive = (href: string) => {
+                    if (!pathname) return false;
+                    if (href === '/dashboard') {
+                      return pathname === '/dashboard' || pathname.startsWith('/dashboard/');
+                    }
+                    if (href === '/suppliers/contacts') {
+                      return pathname === '/suppliers/contacts' || pathname.startsWith('/suppliers/contacts/');
+                    }
+                    if (href === '/suppliers') {
+                      if (pathname === '/suppliers') return true;
+                      if (!pathname.startsWith('/suppliers/')) return false;
+                      const sub = pathname.slice('/suppliers/'.length);
+                      const firstSegment = sub.split('/')[0];
+                      return !['dashboard', 'contacts'].includes(firstSegment);
+                    }
+                    return false;
+                  };
+
+                  return (
+                    <SidebarDropdown
+                      key="dropdown-suppliers"
+                      label={item.label}
+                      icon={item.icon}
+                    >
+                      {suppliersChildren.map((child) => {
+                        const isActive = isSuppliersChildActive(child.href);
+
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            role="menuitem"
+                            className={cn(
+                              'block px-3 py-2 text-sm starium-dropdown-link',
+                              isActive && 'starium-dropdown-link-active',
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                    </SidebarDropdown>
+                  );
+                }
+
                 if (item.href) {
                   const link = (
                     <SidebarItem
