@@ -194,16 +194,25 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   );
 
   const treeRows = useMemo(() => {
-    if (!payload?.tasks) return [];
-    const sources = payload.tasks.map((t) => ({
+    if (!payload) return [];
+    const fromPhases = payload.phases.flatMap((phase) =>
+      phase.tasks.map((t) => ({
+        ...t,
+        parentTaskId: null,
+        sortOrder: t.sortOrder,
+        plannedStartDate: t.plannedStartDate,
+        createdAt: t.createdAt,
+      })),
+    );
+    const fromUngrouped = payload.ungroupedTasks.map((t) => ({
       ...t,
       parentTaskId: null,
       sortOrder: t.sortOrder,
       plannedStartDate: t.plannedStartDate,
       createdAt: t.createdAt,
     }));
-    return buildProjectTaskTreeRows(sources);
-  }, [payload?.tasks]);
+    return buildProjectTaskTreeRows([...fromPhases, ...fromUngrouped]);
+  }, [payload]);
 
   const displayTreeRows = useMemo(() => {
     if (taskStatusFilter === 'all') return treeRows;
@@ -228,6 +237,54 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     const m = new Map<string, (typeof displayTreeRows)[number]>();
     for (const r of displayTreeRows) m.set(r.id, r);
     return m;
+  }, [displayTreeRows]);
+
+  const phaseInfoById = useMemo(() => {
+    const m = new Map<
+      string,
+      {
+        name: string;
+        derivedStartDate: string | null;
+        derivedEndDate: string | null;
+        derivedProgress: number | null;
+      }
+    >();
+    for (const p of payload?.phases ?? []) {
+      m.set(p.id, {
+        name: p.name,
+        derivedStartDate: p.derivedStartDate,
+        derivedEndDate: p.derivedEndDate,
+        derivedProgress: p.derivedProgress,
+      });
+    }
+    return m;
+  }, [payload?.phases]);
+
+  const firstTaskIdByPhaseKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of displayTreeRows) {
+      const key = r.phaseId ?? '__ungrouped__';
+      if (!m.has(key)) m.set(key, r.id);
+    }
+    return m;
+  }, [displayTreeRows]);
+
+  const ungroupedDerived = useMemo(() => {
+    const rows = displayTreeRows.filter((r) => !r.phaseId);
+    const dated = rows.filter((r) => r.plannedStartDate && r.plannedEndDate);
+    if (dated.length === 0) return null;
+    const minStart = Math.min(...dated.map((r) => new Date(r.plannedStartDate!).getTime()));
+    const maxEnd = Math.max(...dated.map((r) => new Date(r.plannedEndDate!).getTime()));
+    const progress = Math.round(
+      rows.reduce((acc, r) => acc + (Number.isFinite(r.progress) ? r.progress : 0), 0) /
+        Math.max(1, rows.length),
+    );
+    return {
+      name: 'Sans libelle de phase',
+      startMs: minStart,
+      endMs: maxEnd,
+      progress: Math.max(0, Math.min(100, progress)),
+    };
   }, [displayTreeRows]);
 
   const unplannedCount = useMemo(() => {
@@ -1116,10 +1173,38 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                       )
                     : 0;
 
-                  const rollupBounds = null;
-                  const rollupLeftPx = 0;
-                  const rollupW = 0;
-                  const rollupProgressPct = null;
+                  const phaseKey = row.phaseId ?? '__ungrouped__';
+                  const isPhaseAnchor = firstTaskIdByPhaseKey.get(phaseKey) === row.id;
+                  const phaseMeta = row.phaseId
+                    ? phaseInfoById.get(row.phaseId)
+                    : ungroupedDerived
+                      ? {
+                          name: ungroupedDerived.name,
+                          derivedStartDate: new Date(ungroupedDerived.startMs).toISOString(),
+                          derivedEndDate: new Date(ungroupedDerived.endMs).toISOString(),
+                          derivedProgress: ungroupedDerived.progress,
+                        }
+                      : undefined;
+
+                  const phaseStartMs = phaseMeta?.derivedStartDate
+                    ? new Date(phaseMeta.derivedStartDate).getTime()
+                    : null;
+                  const phaseEndMs = phaseMeta?.derivedEndDate
+                    ? new Date(phaseMeta.derivedEndDate).getTime()
+                    : null;
+                  const hasPhaseSummary =
+                    Boolean(bounds) &&
+                    isPhaseAnchor &&
+                    Boolean(row.phaseId) &&
+                    phaseStartMs != null &&
+                    phaseEndMs != null;
+                  const rollupLeftPx =
+                    hasPhaseSummary && bounds ? dateMsToPx(phaseStartMs!, bounds, pxPerDay) : 0;
+                  const rollupW =
+                    hasPhaseSummary && bounds
+                      ? Math.max(2, dateMsToPx(phaseEndMs!, bounds, pxPerDay) - rollupLeftPx)
+                      : 0;
+                  const rollupProgressPct = phaseMeta?.derivedProgress ?? null;
 
                   const statusLabel =
                     TASK_STATUS_LABEL[row.status] ?? row.status;
@@ -1130,12 +1215,12 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                       className="border-border/40 relative z-[2] shrink-0 border-b"
                       style={{ height: GANTT_ROW_PX, width: widthPx }}
                     >
-                      {rollupBounds && bounds && (
+                      {hasPhaseSummary && bounds && phaseMeta && (
                         <>
                           <div
-                            className="pointer-events-none absolute top-1 z-[1] h-1.5 rounded-sm border border-primary/35 bg-primary/20 shadow-sm"
+                            className="pointer-events-none absolute top-1 z-[1] h-1 rounded-sm border border-primary/45 bg-primary/25 shadow-sm"
                             style={{ left: rollupLeftPx, width: rollupW }}
-                            title={`Résumé du groupe (${row.name} et sous-tâches affichées) : ${new Date(rollupBounds.startMs).toLocaleDateString('fr-FR')} → ${new Date(rollupBounds.endMs).toLocaleDateString('fr-FR')}${
+                            title={`Phase ${phaseMeta.name} : ${new Date(phaseStartMs!).toLocaleDateString('fr-FR')} → ${new Date(phaseEndMs!).toLocaleDateString('fr-FR')}${
                               rollupProgressPct != null
                                 ? ` — avancement moyen ${rollupProgressPct} %`
                                 : ''
@@ -1146,14 +1231,13 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                             <div
                               className="pointer-events-none absolute top-0.5 z-[3] max-w-[min(14rem,38vw)] truncate text-[9px] font-medium leading-tight text-muted-foreground"
                               style={{ left: rollupLeftPx + rollupW + 4 }}
-                              title={`${row.name} (résumé)${
+                              title={`Phase ${phaseMeta.name}${
                                 rollupProgressPct != null
                                   ? ` — ${rollupProgressPct} %`
                                   : ''
                               }`}
                             >
-                              <span className="text-foreground">{row.name}</span>
-                              <span className="ml-0.5 opacity-75">(résumé)</span>
+                              <span className="text-foreground">Phase: {phaseMeta.name}</span>
                               {rollupProgressPct != null ? (
                                 <span className="ml-1 tabular-nums opacity-90">
                                   · {rollupProgressPct} %
@@ -1173,7 +1257,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                           title={row.name}
                           statusLabel={statusLabel}
                           showLinkPorts={canEdit}
-                          summaryStacked={Boolean(rollupBounds && bounds)}
+                          summaryStacked={Boolean(hasPhaseSummary && bounds)}
                           onPointerDownBar={(mode, ev) => beginTaskDrag(row, mode, ev)}
                           onLinkOutPointerDown={(ev) => beginLinkOut(row.id, ev)}
                           tone={resolveGanttBarTone(barColorMode, row, {
@@ -1196,7 +1280,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                               (row.dependsOnTaskId
                                 ? 0
                                 : GANTT_LABEL_EXTRA_GAP_WHEN_NO_PREDECESSOR_PX),
-                            top: rollupBounds && bounds ? 21 : 18,
+                            top: hasPhaseSummary && bounds ? 21 : 18,
                             transform: 'translateY(-50%)',
                           }}
                           title={`${row.name} — ${row.progress} % — ${statusLabel}`}

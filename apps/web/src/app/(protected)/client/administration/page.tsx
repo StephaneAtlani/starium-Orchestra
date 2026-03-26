@@ -4,12 +4,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users, Shield, Cloud } from 'lucide-react';
 
-export default async function ClientAdministrationPage({
-  params,
-}: {
-  params: Promise<Record<string, string | string[]>>;
-}) {
-  await params;
+export default async function ClientAdministrationPage() {
   return (
     <PageContainer>
       <PageHeader

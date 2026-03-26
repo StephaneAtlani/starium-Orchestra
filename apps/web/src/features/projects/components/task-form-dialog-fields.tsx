@@ -31,6 +31,7 @@ import {
   pickReadableTextOnBackground,
   resolveTaskLabelDisplayColor,
 } from '../lib/planner-task-label-colors';
+import { toast } from 'sonner';
 
 function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -59,6 +60,16 @@ const DEP_TYPES = [
 /** Valeur sentinelle pour le Select d’ajout d’étiquette (affichage « Choisir… »). */
 const TASK_LABEL_PICK_PLACEHOLDER = '__task_label_pick__';
 
+function toUserErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const maybe = error as { message?: unknown; error?: unknown };
+    if (typeof maybe.message === 'string' && maybe.message.trim().length > 0) return maybe.message;
+    if (typeof maybe.error === 'string' && maybe.error.trim().length > 0) return maybe.error;
+  }
+  return 'Une erreur est survenue.';
+}
+
 export type TaskFormDialogFieldsProps = {
   form: CreateProjectTaskPayload;
   onPatch: (patch: Partial<CreateProjectTaskPayload>) => void;
@@ -71,12 +82,15 @@ export type TaskFormDialogFieldsProps = {
   syncMicrosoftPlannerLabelsEnabled: boolean;
   canCreateTaskLabels: boolean;
   onCreateTaskLabel?: (name: string) => Promise<string>;
+  canCreatePhase?: boolean;
+  onCreatePhase?: (name: string) => Promise<string>;
   /** Préfixe des `id` HTML (ex. `planning-task`). */
   fieldIdPrefix: string;
 };
 
 /**
- * Formulaire tâche (planning) : sections alignées sur FRONTEND_UI-UX.md (cartes bordure token, hiérarchie).
+ * Formulaire tâche (planning) : sections alignées sur FRONTEND_UI-UX.md.
+ * Une phase est un libellé de groupement (pas une tâche).
  */
 export function TaskFormDialogFields({
   form,
@@ -89,6 +103,8 @@ export function TaskFormDialogFields({
   syncMicrosoftPlannerLabelsEnabled,
   canCreateTaskLabels,
   onCreateTaskLabel,
+  canCreatePhase = false,
+  onCreatePhase,
   fieldIdPrefix,
 }: TaskFormDialogFieldsProps) {
   const fid = (suffix: string) => `${fieldIdPrefix}-${suffix}`;
@@ -96,6 +112,8 @@ export function TaskFormDialogFields({
   const selectedLabelIds = form.taskLabelIds ?? [];
   const [newLabelName, setNewLabelName] = useState('');
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [newPhaseName, setNewPhaseName] = useState('');
+  const [isCreatingPhase, setIsCreatingPhase] = useState(false);
   const labelById = useMemo(() => {
     const m = new Map<string, TaskLabelOption>();
     for (const o of taskLabelOptions) m.set(o.id, o);
@@ -130,8 +148,26 @@ export function TaskFormDialogFields({
       const id = await onCreateTaskLabel(name);
       toggleLabel(id);
       setNewLabelName('');
+    } catch (error) {
+      toast.error(toUserErrorMessage(error));
     } finally {
       setIsCreatingLabel(false);
+    }
+  };
+
+  const createAndSelectPhase = async () => {
+    if (!canCreatePhase || !onCreatePhase) return;
+    const name = newPhaseName.trim();
+    if (!name) return;
+    setIsCreatingPhase(true);
+    try {
+      const id = await onCreatePhase(name);
+      onPatch({ phaseId: id });
+      setNewPhaseName('');
+    } catch (error) {
+      toast.error(toUserErrorMessage(error));
+    } finally {
+      setIsCreatingPhase(false);
     }
   };
 
@@ -547,21 +583,51 @@ export function TaskFormDialogFields({
 
       <section className="rounded-lg border border-border/70 bg-muted/30 p-4">
         <div className="space-y-1.5">
-          <Label htmlFor={fid('phase')}>Phase</Label>
+          <Label htmlFor={fid('phase')}>Libellé de phase</Label>
           <select
             id={fid('phase')}
             className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
             value={form.phaseId ?? ''}
             onChange={(e) => onPatch({ phaseId: e.target.value || null })}
           >
-            <option value="">Sans phase</option>
+            <option value="">Sans libellé de phase</option>
             {phaseOptions.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
           </select>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            La phase est un libellé de regroupement visuel des tâches.
+          </p>
         </div>
+        {canCreatePhase ? (
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1 space-y-1">
+              <Label htmlFor={fid('new-phase')}>Nouveau libellé de phase</Label>
+              <Input
+                id={fid('new-phase')}
+                value={newPhaseName}
+                placeholder="Ex: Cadrage"
+                onChange={(e) => setNewPhaseName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void createAndSelectPhase();
+                }}
+                disabled={isCreatingPhase}
+              />
+            </div>
+            <Button
+              type="button"
+              disabled={!newPhaseName.trim() || isCreatingPhase}
+              onClick={() => void createAndSelectPhase()}
+            >
+              Ajouter le libellé
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       <section

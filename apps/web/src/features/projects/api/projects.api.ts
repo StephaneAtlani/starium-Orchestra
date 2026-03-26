@@ -505,6 +505,20 @@ export async function listProjectTaskPhases(
   return res.json() as Promise<ProjectTaskPhaseApi[]>;
 }
 
+export async function createProjectTaskPhase(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: { name: string; sortOrder?: number },
+): Promise<ProjectTaskPhaseApi> {
+  const res = await authFetch(`${BASE}/${projectId}/task-phases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTaskPhaseApi>;
+}
+
 export async function getProjectGantt(
   authFetch: AuthFetch,
   projectId: string,

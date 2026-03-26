@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -23,7 +23,7 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
 import { useProjectTaskBucketsQuery } from '../hooks/use-project-task-buckets-query';
-import { listProjectTaskPhases } from '../api/projects.api';
+import { createProjectTaskPhase, listProjectTaskPhases } from '../api/projects.api';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectTaskLabelsQuery } from '../hooks/use-project-task-labels-query';
@@ -39,7 +39,6 @@ import {
 } from '../hooks/use-project-labels-mutations';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { useProjectMicrosoftLinkQuery } from '../options/hooks/use-project-microsoft-link-query';
-import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
 import { GANTT_ROW_PX } from '../lib/gantt-timeline-layout';
 import {
   MILESTONE_STATUS_LABEL,
@@ -57,6 +56,7 @@ import { cn } from '@/lib/utils';
 import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
 import { TaskFormDialogFields } from './task-form-dialog-fields';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { toast } from 'sonner';
 
 function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -224,14 +224,13 @@ export const ProjectTaskPlanningSection = forwardRef<
   const byId = useMemo(() => new Map(items.map((t) => [t.id, t])), [items]);
 
   const treeRows = useMemo(() => {
-    const sources = items.map((t) => ({
+    // Backend trie déjà par phase.sortOrder puis task.sortOrder (et tie-breaks).
+    // Ici on ne reconstruit plus une hiérarchie : on ne fait que garantir `depth` pour l'indent visuel.
+    return items.map((t) => ({
       ...t,
       parentTaskId: null,
-      sortOrder: t.sortOrder,
-      plannedStartDate: t.plannedStartDate,
-      createdAt: t.createdAt ?? t.id,
+      depth: 0,
     }));
-    return buildProjectTaskTreeRows(sources);
   }, [items]);
 
   const ganttTreeRows = useMemo(() => {
@@ -383,12 +382,95 @@ export const ProjectTaskPlanningSection = forwardRef<
     setDialogOpen(true);
   };
 
-  const [phaseOptions, setPhaseOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [phaseOptions, setPhaseOptions] = useState<
+    Array<{ id: string; name: string; sortOrder: number }>
+  >([]);
   useEffect(() => {
-    void listProjectTaskPhases(authFetch, projectId).then((phases) => {
-      setPhaseOptions(phases.map((p) => ({ id: p.id, name: p.name })));
-    });
+    if (!projectId.trim()) return;
+    void listProjectTaskPhases(authFetch, projectId)
+      .then((phases) => {
+        setPhaseOptions(
+          phases.map((p) => ({ id: p.id, name: p.name, sortOrder: p.sortOrder })),
+        );
+      })
+      .catch((error: unknown) => {
+        const message =
+          error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+            ? error.message
+            : 'Impossible de charger les phases.';
+        toast.error(message);
+      });
   }, [authFetch, projectId]);
+
+  const onCreatePhase = useCallback(
+    async (name: string) => {
+      if (!projectId.trim()) {
+        throw new Error('Projet introuvable.');
+      }
+      const created = await createProjectTaskPhase(authFetch, projectId, { name });
+      setPhaseOptions((prev) =>
+        [...prev, { id: created.id, name: created.name, sortOrder: created.sortOrder }].sort(
+          (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+        ),
+      );
+      return created.id;
+    },
+    [authFetch, projectId],
+  );
+
+  const phaseNameById = useMemo(
+    () => new Map(phaseOptions.map((p) => [p.id, p.name] as const)),
+    [phaseOptions],
+  );
+
+  const renderPhaseLabel = (phaseId: string | null) => {
+    if (!phaseId) return 'Sans libellé de phase';
+    return phaseNameById.get(phaseId) ?? '—';
+  };
+
+  const renderRows = useMemo(() => {
+    const ungKey = '__ungrouped__';
+
+    const tasksByKey = new Map<
+      string,
+      Array<(typeof displayedRows)[number]>
+    >();
+
+    for (const t of displayedRows) {
+      const key = t.phaseId ?? ungKey;
+      const list = tasksByKey.get(key) ?? [];
+      list.push(t);
+      tasksByKey.set(key, list);
+    }
+
+    const out: Array<
+      | { kind: 'phaseHeader'; phaseId: string | null; name: string }
+      | { kind: 'task'; row: (typeof displayedRows)[number] }
+    > = [];
+
+    for (const phase of phaseOptions) {
+      const list = tasksByKey.get(phase.id);
+      if (!list || list.length === 0) continue;
+      out.push({
+        kind: 'phaseHeader',
+        phaseId: phase.id,
+        name: phase.name,
+      });
+      for (const row of list) out.push({ kind: 'task', row });
+    }
+
+    const ung = tasksByKey.get(ungKey);
+    if (ung && ung.length > 0) {
+      out.push({
+        kind: 'phaseHeader',
+        phaseId: null,
+        name: 'Sans libellé de phase',
+      });
+      for (const row of ung) out.push({ kind: 'task', row });
+    }
+
+    return out;
+  }, [displayedRows, phaseOptions]);
 
   const tasksForDepends = useMemo(() => {
     const excl = editing?.id;
@@ -433,7 +515,7 @@ export const ProjectTaskPlanningSection = forwardRef<
         >
           {!isGantt && (
             <p className="text-muted-foreground text-sm">
-              Tâches structurées (hiérarchie, dépendances simples).
+              Tâches groupées par libellé de phase (dépendances simples).
             </p>
           )}
           {isGantt && (
@@ -478,7 +560,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                 <>
                   <TableRow className="border-border/40 hover:bg-transparent border-b bg-muted/30">
                     <TableHead
-                      colSpan={canEdit ? 5 : 4}
+                      colSpan={5}
                       className="text-muted-foreground py-1.5 text-[10px] font-medium uppercase tracking-wide"
                       style={{ height: GANTT_ROW_PX }}
                     >
@@ -504,19 +586,14 @@ export const ProjectTaskPlanningSection = forwardRef<
                     <TableHead className="min-w-[4.5rem] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
                       Statut
                     </TableHead>
-                    {canEdit && (
-                      <TableHead
-                        className="min-w-[8.5rem] py-1.5 text-xs"
-                        style={{ height: GANTT_ROW_PX }}
-                      >
-                        {' '}
-                      </TableHead>
-                    )}
+                    <TableHead className="min-w-[8rem] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
+                      Phase
+                    </TableHead>
                   </TableRow>
                   {ganttExtraHeaderRows > 0 && (
                     <TableRow className="border-border/40 hover:bg-transparent border-b bg-muted/30">
                       <TableHead
-                        colSpan={canEdit ? 5 : 4}
+                        colSpan={5}
                         className="p-0"
                         style={{ height: GANTT_ROW_PX * ganttExtraHeaderRows }}
                         aria-hidden
@@ -529,18 +606,36 @@ export const ProjectTaskPlanningSection = forwardRef<
                   <TableHead>Titre</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Priorité</TableHead>
+                  <TableHead>Phase</TableHead>
                   <TableHead>Fin planifiée</TableHead>
                   <TableHead>Progression</TableHead>
                   <TableHead>Dépend de</TableHead>
-                  {canEdit && <TableHead className="min-w-[10rem]">Actions</TableHead>}
                 </TableRow>
               )}
             </TableHeader>
             <TableBody>
-              {displayedRows.map((row) => {
+              {renderRows.map((r) => {
+                if (r.kind === 'phaseHeader') {
+                  return (
+                    <TableRow
+                      key={`phase-${r.phaseId ?? 'none'}`}
+                      className="bg-muted/20 border-border/40"
+                      style={isGantt ? { height: GANTT_ROW_PX } : undefined}
+                    >
+                      <TableCell colSpan={isGantt ? 5 : 7} className="py-1.5 align-middle">
+                        <span className="text-[10px] font-semibold text-muted-foreground">
+                          {r.name}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+
+                const row = r.row;
                 const pred = row.dependsOnTaskId
                   ? byId.get(row.dependsOnTaskId)
                   : undefined;
+
                 if (isGantt) {
                   return (
                     <TableRow
@@ -655,25 +750,41 @@ export const ProjectTaskPlanningSection = forwardRef<
                           </span>
                         )}
                       </TableCell>
-                      {canEdit && (
-                        <TableCell className="py-1 align-middle">
-                          <div className="flex items-center justify-end gap-0.5">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 shrink-0 px-1.5 text-[11px]"
-                              disabled={isTaskUpdatePending(row.id)}
-                              onClick={() => openEdit(row)}
-                            >
-                              Fiche
-                            </Button>
-                          </div>
-                        </TableCell>
-                      )}
+                      <TableCell className="py-1 align-middle">
+                        {canEdit ? (
+                          <select
+                            className="border-input bg-background h-7 w-full max-w-[10rem] rounded-md border px-1 text-[10px] leading-tight"
+                            value={row.phaseId ?? ''}
+                            title="Libellé de phase"
+                            onChange={(e) => {
+                              updateMut.mutate({
+                                taskId: row.id,
+                                body: { phaseId: e.target.value || null },
+                                silentToast: true,
+                              });
+                            }}
+                            disabled={isTaskUpdatePending(row.id)}
+                          >
+                            <option value="">Sans libellé de phase</option>
+                            {phaseOptions.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span
+                            className="truncate"
+                            title={renderPhaseLabel(row.phaseId)}
+                          >
+                            {renderPhaseLabel(row.phaseId)}
+                          </span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 }
+
                 return (
                   <TableRow key={row.id}>
                     <TableCell>
@@ -684,8 +795,38 @@ export const ProjectTaskPlanningSection = forwardRef<
                         {row.name}
                       </span>
                     </TableCell>
-                    <TableCell>{TASK_STATUS_LABEL[row.status] ?? row.status}</TableCell>
-                    <TableCell>{TASK_PRIORITY_LABEL[row.priority] ?? row.priority}</TableCell>
+                    <TableCell>
+                      {TASK_STATUS_LABEL[row.status] ?? row.status}
+                    </TableCell>
+                    <TableCell>
+                      {TASK_PRIORITY_LABEL[row.priority] ?? row.priority}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground max-w-[12rem] truncate">
+                      {canEdit ? (
+                        <select
+                          className="border-input bg-background h-7 w-full max-w-[12rem] rounded-md border px-1 text-[10px] leading-tight"
+                          value={row.phaseId ?? ''}
+                          title="Libellé de phase"
+                          onChange={(e) => {
+                            updateMut.mutate({
+                              taskId: row.id,
+                              body: { phaseId: e.target.value || null },
+                              silentToast: true,
+                            });
+                          }}
+                          disabled={isTaskUpdatePending(row.id)}
+                        >
+                          <option value="">Sans libellé de phase</option>
+                          {phaseOptions.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{renderPhaseLabel(row.phaseId)}</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {row.plannedEndDate
                         ? new Date(row.plannedEndDate).toLocaleDateString('fr-FR')
@@ -695,21 +836,6 @@ export const ProjectTaskPlanningSection = forwardRef<
                     <TableCell className="text-muted-foreground max-w-[180px] truncate">
                       {pred ? pred.name : '—'}
                     </TableCell>
-                    {canEdit && (
-                      <TableCell>
-                        <div className="flex flex-wrap items-center gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            disabled={isTaskUpdatePending(row.id)}
-                            onClick={() => openEdit(row)}
-                          >
-                            Modifier
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
                   </TableRow>
                 );
               })}
@@ -810,20 +936,11 @@ export const ProjectTaskPlanningSection = forwardRef<
                           </span>
                         )}
                       </TableCell>
-                      {canEdit && (
-                        <TableCell className="py-1 align-middle">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-1.5 text-[11px]"
-                            disabled={!ms}
-                            onClick={() => ms && openMilestoneEdit(ms.id)}
-                          >
-                            Fiche
-                          </Button>
-                        </TableCell>
-                      )}
+                      <TableCell className="py-1 align-middle">
+                        <span className="truncate text-muted-foreground" title="Sans phase">
+                          —
+                        </span>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -862,6 +979,8 @@ export const ProjectTaskPlanningSection = forwardRef<
               syncMicrosoftPlannerLabelsEnabled={syncMicrosoftPlannerLabelsEnabled}
               canCreateTaskLabels={canCreateTaskLabels}
               onCreateTaskLabel={onCreateTaskLabel}
+              canCreatePhase={canEdit}
+              onCreatePhase={onCreatePhase}
               fieldIdPrefix="planning-task"
             />
           </div>
