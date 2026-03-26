@@ -13,6 +13,8 @@ import { SuppliersProcurementController } from './suppliers-procurement.controll
 import { SupplierCategoriesController } from './supplier-categories/supplier-categories.controller';
 import { SupplierCategoriesService } from './supplier-categories/supplier-categories.service';
 import { SuppliersLogoStorageService } from './suppliers/suppliers-logo.storage';
+import { SupplierContactsController } from './supplier-contacts/supplier-contacts.controller';
+import { SupplierContactsService } from './supplier-contacts/supplier-contacts.service';
 
 @Module({
   imports: [PrismaModule, AuditLogsModule, FinancialCoreModule],
@@ -23,6 +25,7 @@ import { SuppliersLogoStorageService } from './suppliers/suppliers-logo.storage'
     BudgetLinesProcurementController,
     SuppliersProcurementController,
     SupplierCategoriesController,
+    SupplierContactsController,
   ],
   providers: [
     SuppliersService,
@@ -30,6 +33,7 @@ import { SuppliersLogoStorageService } from './suppliers/suppliers-logo.storage'
     InvoicesService,
     SupplierCategoriesService,
     SuppliersLogoStorageService,
+    SupplierContactsService,
   ],
   exports: [
     SuppliersService,
@@ -37,6 +41,7 @@ import { SuppliersLogoStorageService } from './suppliers/suppliers-logo.storage'
     InvoicesService,
     SupplierCategoriesService,
     SuppliersLogoStorageService,
+    SupplierContactsService,
   ],
 })
 export class ProcurementModule {}

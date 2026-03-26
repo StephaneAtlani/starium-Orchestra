@@ -99,6 +99,7 @@ model Client {
   financialAllocations       FinancialAllocation[]
   financialEvents            FinancialEvent[]
   suppliers                  Supplier[]
+  supplierContacts           SupplierContact[]
   supplierCategories         SupplierCategory[]
   purchaseOrders             PurchaseOrder[]
   invoices                   Invoice[]
@@ -1938,6 +1939,7 @@ model Supplier {
   updatedAt      DateTime       @updatedAt
   client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   supplierCategory SupplierCategory? @relation(fields: [supplierCategoryId], references: [id], onDelete: SetNull)
+  contacts       SupplierContact[]
   purchaseOrders PurchaseOrder[]
   invoices       Invoice[]
 
@@ -1948,6 +1950,37 @@ model Supplier {
   @@index([clientId, externalId])
   @@index([supplierCategoryId])
   @@index([clientId, supplierCategoryId])
+}
+
+model SupplierContact {
+  id              String   @id @default(cuid())
+  clientId        String
+  supplierId      String
+  firstName       String?
+  lastName        String?
+  fullName        String
+  normalizedName  String
+  role            String?
+  email           String?
+  emailNormalized String?
+  phone           String?
+  mobile          String?
+  isPrimary       Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, normalizedName])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([clientId, supplierId])
+  @@index([clientId, isActive])
+  @@index([supplierId, isPrimary])
+  @@index([clientId, emailNormalized])
 }
 
 model SupplierCategory {

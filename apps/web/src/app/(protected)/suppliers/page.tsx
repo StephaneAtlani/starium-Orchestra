@@ -28,16 +28,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
 import {
   createSupplierCategory,
+  createSupplierContact,
   createSupplier,
+  deactivateSupplierContact,
   deleteSupplierLogo,
+  listSupplierContacts,
   listSupplierCategories,
   listSuppliers,
   uploadSupplierLogo,
+  updateSupplierContact,
   updateSupplier,
   updateSupplierCategory,
 } from '@/features/procurement/api/procurement.api';
@@ -57,6 +62,20 @@ type SupplierFormState = {
 };
 
 type SupplierFormErrors = Partial<Record<keyof SupplierFormState, string>>;
+
+type SupplierContactFormState = {
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  role: string;
+  email: string;
+  phone: string;
+  mobile: string;
+  notes: string;
+  isPrimary: boolean;
+};
+
+type SupplierContactFormErrors = Partial<Record<keyof SupplierContactFormState, string>>;
 
 function sanitizeDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, '').slice(0, maxLength);
@@ -103,6 +122,29 @@ function isVatNumberValid(value: string): boolean {
   return /^[A-Z]{2}[A-Z0-9]{2,12}$/.test(vat);
 }
 
+function validateSupplierContactForm(values: SupplierContactFormState): SupplierContactFormErrors {
+  const errors: SupplierContactFormErrors = {};
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^[+0-9()\-\s.]{6,20}$/;
+
+  if (!values.firstName.trim() && !values.lastName.trim() && !values.fullName.trim()) {
+    errors.fullName = 'Le nom complet est obligatoire.';
+  }
+  if (values.firstName.length > 120) errors.firstName = 'Maximum 120 caractères.';
+  if (values.lastName.length > 120) errors.lastName = 'Maximum 120 caractères.';
+  if (values.fullName.length > 255) errors.fullName = 'Maximum 255 caractères.';
+  if (values.role.length > 120) errors.role = 'Maximum 120 caractères.';
+  if (values.email && !emailRegex.test(values.email.trim())) errors.email = 'Email invalide.';
+  if (values.email.length > 255) errors.email = 'Maximum 255 caractères.';
+  if (values.phone && !phoneRegex.test(values.phone.trim())) errors.phone = 'Téléphone invalide.';
+  if (values.phone.length > 64) errors.phone = 'Maximum 64 caractères.';
+  if (values.mobile && !phoneRegex.test(values.mobile.trim())) errors.mobile = 'Mobile invalide.';
+  if (values.mobile.length > 64) errors.mobile = 'Maximum 64 caractères.';
+  if (values.notes.length > 2000) errors.notes = 'Maximum 2000 caractères.';
+
+  return errors;
+}
+
 export default function SuppliersPage() {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -145,6 +187,19 @@ export default function SuppliersPage() {
   const [newLogoPreview, setNewLogoPreview] = useState<string | null>(null);
   const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
   const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null);
+  const [contactForm, setContactForm] = useState<SupplierContactFormState>({
+    firstName: '',
+    lastName: '',
+    fullName: '',
+    role: '',
+    email: '',
+    phone: '',
+    mobile: '',
+    notes: '',
+    isPrimary: false,
+  });
+  const [contactFormErrors, setContactFormErrors] = useState<SupplierContactFormErrors>({});
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const canReadSuppliers = has('procurement.read');
   const canCreateSuppliers = has('procurement.create');
   const canUpdateSuppliers = has('procurement.update');
@@ -180,6 +235,18 @@ export default function SuppliersPage() {
         offset: 0,
       }),
     enabled: !!clientId && permsSuccess && canReadSuppliers,
+  });
+
+  const supplierContactsQuery = useQuery({
+    queryKey: ['procurement', clientId, 'supplier-contacts', selectedSupplierId],
+    queryFn: () =>
+      listSupplierContacts(authFetch, selectedSupplierId!, {
+        includeInactive: true,
+        limit: 100,
+        offset: 0,
+      }),
+    enabled:
+      !!clientId && !!selectedSupplierId && editSupplierModalOpen && permsSuccess && canReadSuppliers,
   });
 
   const updateCategoryMutation = useMutation({
@@ -326,6 +393,114 @@ export default function SuppliersPage() {
       await queryClient.invalidateQueries({
         queryKey: ['procurement', clientId, 'suppliers-page'],
       });
+    },
+  });
+
+  const createSupplierContactMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedSupplierId) throw new Error('Fournisseur introuvable.');
+      const errors = validateSupplierContactForm(contactForm);
+      setContactFormErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        throw new Error('Veuillez corriger les champs contact invalides.');
+      }
+      return createSupplierContact(authFetch, selectedSupplierId, {
+        firstName: contactForm.firstName || undefined,
+        lastName: contactForm.lastName || undefined,
+        fullName: contactForm.fullName || undefined,
+        role: contactForm.role || undefined,
+        email: contactForm.email || undefined,
+        phone: contactForm.phone || undefined,
+        mobile: contactForm.mobile || undefined,
+        notes: contactForm.notes || undefined,
+        isPrimary: contactForm.isPrimary,
+      });
+    },
+    onSuccess: async () => {
+      setContactFormErrors({});
+      setContactForm({
+        firstName: '',
+        lastName: '',
+        fullName: '',
+        role: '',
+        email: '',
+        phone: '',
+        mobile: '',
+        notes: '',
+        isPrimary: false,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['procurement', clientId, 'supplier-contacts', selectedSupplierId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['procurement', clientId, 'suppliers-page'],
+        }),
+      ]);
+    },
+  });
+
+  const updateSupplierContactMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedSupplierId || !editingContactId) {
+        throw new Error('Contact introuvable.');
+      }
+      const errors = validateSupplierContactForm(contactForm);
+      setContactFormErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        throw new Error('Veuillez corriger les champs contact invalides.');
+      }
+      return updateSupplierContact(authFetch, selectedSupplierId, editingContactId, {
+        firstName: contactForm.firstName || null,
+        lastName: contactForm.lastName || null,
+        fullName: contactForm.fullName || undefined,
+        role: contactForm.role || null,
+        email: contactForm.email || null,
+        phone: contactForm.phone || null,
+        mobile: contactForm.mobile || null,
+        notes: contactForm.notes || null,
+        isPrimary: contactForm.isPrimary,
+      });
+    },
+    onSuccess: async () => {
+      setEditingContactId(null);
+      setContactFormErrors({});
+      setContactForm({
+        firstName: '',
+        lastName: '',
+        fullName: '',
+        role: '',
+        email: '',
+        phone: '',
+        mobile: '',
+        notes: '',
+        isPrimary: false,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['procurement', clientId, 'supplier-contacts', selectedSupplierId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['procurement', clientId, 'suppliers-page'],
+        }),
+      ]);
+    },
+  });
+
+  const deactivateSupplierContactMutation = useMutation({
+    mutationFn: async (contactId: string) => {
+      if (!selectedSupplierId) throw new Error('Fournisseur introuvable.');
+      return deactivateSupplierContact(authFetch, selectedSupplierId, contactId);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['procurement', clientId, 'supplier-contacts', selectedSupplierId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['procurement', clientId, 'suppliers-page'],
+        }),
+      ]);
     },
   });
 
@@ -721,6 +896,19 @@ export default function SuppliersPage() {
             if (!open) {
               setEditLogoFile(null);
               setEditLogoPreview(null);
+              setEditingContactId(null);
+              setContactFormErrors({});
+              setContactForm({
+                firstName: '',
+                lastName: '',
+                fullName: '',
+                role: '',
+                email: '',
+                phone: '',
+                mobile: '',
+                notes: '',
+                isPrimary: false,
+              });
             }
           }}
         >
@@ -819,6 +1007,249 @@ export default function SuppliersPage() {
                 </Select>
               </div>
             </div>
+            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Contacts</h3>
+                {editingContactId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingContactId(null);
+                      setContactFormErrors({});
+                      setContactForm({
+                        firstName: '',
+                        lastName: '',
+                        fullName: '',
+                        role: '',
+                        email: '',
+                        phone: '',
+                        mobile: '',
+                        notes: '',
+                        isPrimary: false,
+                      });
+                    }}
+                  >
+                    Annuler l&apos;edition
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                <div className="space-y-1">
+                  <Input
+                    value={contactForm.firstName}
+                    onChange={(e) =>
+                      setContactForm((prev) => ({
+                        ...prev,
+                        firstName: sanitizeTrimmed(e.target.value, 120),
+                      }))
+                    }
+                    placeholder="Prenom"
+                  />
+                  {contactFormErrors.firstName ? (
+                    <p className="text-xs text-destructive">{contactFormErrors.firstName}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-1">
+                  <Input
+                    value={contactForm.lastName}
+                    onChange={(e) =>
+                      setContactForm((prev) => ({
+                        ...prev,
+                        lastName: sanitizeTrimmed(e.target.value, 120),
+                      }))
+                    }
+                    placeholder="Nom"
+                  />
+                  {contactFormErrors.lastName ? (
+                    <p className="text-xs text-destructive">{contactFormErrors.lastName}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <Input
+                    value={contactForm.fullName}
+                    onChange={(e) =>
+                      setContactForm((prev) => ({
+                        ...prev,
+                        fullName: sanitizeTrimmed(e.target.value, 255),
+                      }))
+                    }
+                    placeholder="Nom complet (si prenom/nom non renseignes)"
+                  />
+                  {contactFormErrors.fullName ? (
+                    <p className="text-xs text-destructive">{contactFormErrors.fullName}</p>
+                  ) : null}
+                </div>
+                <Input
+                  value={contactForm.role}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({
+                      ...prev,
+                      role: sanitizeTrimmed(e.target.value, 120),
+                    }))
+                  }
+                  placeholder="Role"
+                />
+                <div className="space-y-1">
+                  <Input
+                    value={contactForm.email}
+                    onChange={(e) =>
+                      setContactForm((prev) => ({
+                        ...prev,
+                        email: sanitizeNoSpaces(e.target.value, 255),
+                      }))
+                    }
+                    placeholder="Email"
+                  />
+                  {contactFormErrors.email ? (
+                    <p className="text-xs text-destructive">{contactFormErrors.email}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-1">
+                  <Input
+                    value={contactForm.phone}
+                    onChange={(e) =>
+                      setContactForm((prev) => ({
+                        ...prev,
+                        phone: sanitizePhone(e.target.value),
+                      }))
+                    }
+                    placeholder="Telephone"
+                  />
+                  {contactFormErrors.phone ? (
+                    <p className="text-xs text-destructive">{contactFormErrors.phone}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-1">
+                  <Input
+                    value={contactForm.mobile}
+                    onChange={(e) =>
+                      setContactForm((prev) => ({
+                        ...prev,
+                        mobile: sanitizePhone(e.target.value),
+                      }))
+                    }
+                    placeholder="Mobile"
+                  />
+                  {contactFormErrors.mobile ? (
+                    <p className="text-xs text-destructive">{contactFormErrors.mobile}</p>
+                  ) : null}
+                </div>
+                <Input
+                  value={contactForm.notes}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({
+                      ...prev,
+                      notes: sanitizeTrimmed(e.target.value, 2000),
+                    }))
+                  }
+                  placeholder="Notes"
+                />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={contactForm.isPrimary}
+                    onChange={(e) =>
+                      setContactForm((prev) => ({ ...prev, isPrimary: e.target.checked }))
+                    }
+                  />
+                  Contact principal
+                </label>
+              </div>
+              <div className="mt-3 flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() =>
+                    editingContactId
+                      ? void updateSupplierContactMutation.mutateAsync()
+                      : void createSupplierContactMutation.mutateAsync()
+                  }
+                  disabled={
+                    createSupplierContactMutation.isPending ||
+                    updateSupplierContactMutation.isPending
+                  }
+                >
+                  {editingContactId ? 'Mettre a jour le contact' : 'Ajouter le contact'}
+                </Button>
+              </div>
+
+              {supplierContactsQuery.isLoading ? (
+                <div className="mt-3">
+                  <LoadingState rows={3} />
+                </div>
+              ) : (
+                <div className="mt-3 overflow-hidden rounded-md border border-border/60">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nom</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Telephone</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(supplierContactsQuery.data?.items ?? []).map((contact) => (
+                        <TableRow key={contact.id}>
+                          <TableCell className="font-medium">
+                            {contact.fullName}{' '}
+                            {contact.isPrimary ? <Badge variant="secondary">Principal</Badge> : null}
+                          </TableCell>
+                          <TableCell>{contact.role ?? '—'}</TableCell>
+                          <TableCell>{contact.email ?? '—'}</TableCell>
+                          <TableCell>{contact.phone ?? contact.mobile ?? '—'}</TableCell>
+                          <TableCell>{contact.isActive ? 'Actif' : 'Inactif'}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingContactId(contact.id);
+                                  setContactFormErrors({});
+                                  setContactForm({
+                                    firstName: contact.firstName ?? '',
+                                    lastName: contact.lastName ?? '',
+                                    fullName: contact.fullName,
+                                    role: contact.role ?? '',
+                                    email: contact.email ?? '',
+                                    phone: contact.phone ?? '',
+                                    mobile: contact.mobile ?? '',
+                                    notes: contact.notes ?? '',
+                                    isPrimary: contact.isPrimary,
+                                  });
+                                }}
+                              >
+                                Editer
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                disabled={
+                                  deactivateSupplierContactMutation.isPending || !contact.isActive
+                                }
+                                onClick={() =>
+                                  void deactivateSupplierContactMutation.mutateAsync(contact.id)
+                                }
+                              >
+                                Desactiver
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </section>
             {updateSupplierMutation.isError && (
               <Alert variant="destructive">
                 <AlertCircle className="size-4" />
@@ -826,6 +1257,21 @@ export default function SuppliersPage() {
                 <AlertDescription>
                   {(updateSupplierMutation.error as Error)?.message ??
                     'Impossible de mettre à jour le fournisseur.'}
+                </AlertDescription>
+              </Alert>
+            )}
+            {(createSupplierContactMutation.isError ||
+              updateSupplierContactMutation.isError ||
+              deactivateSupplierContactMutation.isError) && (
+              <Alert variant="destructive">
+                <AlertCircle className="size-4" />
+                <AlertTitle>Contact fournisseur impossible</AlertTitle>
+                <AlertDescription>
+                  {(
+                    (createSupplierContactMutation.error as Error) ||
+                    (updateSupplierContactMutation.error as Error) ||
+                    (deactivateSupplierContactMutation.error as Error)
+                  )?.message ?? 'Impossible de traiter le contact fournisseur.'}
                 </AlertDescription>
               </Alert>
             )}
@@ -964,6 +1410,19 @@ export default function SuppliersPage() {
                                 supplierCategoryId: supplier.supplierCategoryId ?? '__none__',
                               });
                               setEditLogoFile(null);
+                              setEditingContactId(null);
+                              setContactFormErrors({});
+                              setContactForm({
+                                firstName: '',
+                                lastName: '',
+                                fullName: '',
+                                role: '',
+                                email: '',
+                                phone: '',
+                                mobile: '',
+                                notes: '',
+                                isPrimary: false,
+                              });
                               setEditSupplierModalOpen(true);
                             }}
                           >

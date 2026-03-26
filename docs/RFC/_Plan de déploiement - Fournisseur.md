@@ -1,12 +1,13 @@
 Voici la **liste des référentiels à développer dans l’ordre** pour la brique **fournisseurs / procurement**, en restant cohérent avec la vision Starium, l’architecture modulaire, le multi-tenant strict et le couplage futur avec budgets, commandes et factures.  
 
-## État d'avancement (RFC-FOU-025-A + RFC-FOU-026)
+## État d'avancement (RFC-FOU-025-A + RFC-FOU-026 + RFC-FOU-027)
 
 | Lot | Périmètre | État | Détail |
 | --- | --- | --- | --- |
 | Lot 1 | Backend + Prisma + Tests | ✅ Terminé | `Supplier` durci + `SupplierCategory` ajouté (modèle, migration, services, contrôleurs), filtres catégorie, audits, tests unitaires services |
 | Lot 2 | Frontend Supplier UX | 🟡 Partiel | Page `/suppliers` active avec filtre catégorie + assignation inline; UX fournisseur avancée (RFC-FE-028) encore à finaliser |
 | Lot 3 | Documentation API globale (`docs/API.md`) | ⏳ En attente | À compléter pour documenter les endpoints `supplier-categories` et l’enrichissement réponse `Supplier` |
+| Lot 4 | Supplier Contacts (RFC-FOU-027) | 🟡 Partiel | Backend + Prisma + UI MVP livrés (`/api/suppliers/:supplierId/contacts`, section Contacts dans fiche fournisseur) ; tests d’intégration backend restants |
 
 ### Détail lot terminé (Backend + Prisma + Tests)
 

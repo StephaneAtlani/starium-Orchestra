@@ -36,6 +36,26 @@ export interface SupplierCategory {
   updatedAt: string;
 }
 
+export interface SupplierContact {
+  id: string;
+  clientId: string;
+  supplierId: string;
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string;
+  normalizedName: string;
+  role: string | null;
+  email: string | null;
+  emailNormalized: string | null;
+  phone: string | null;
+  mobile: string | null;
+  isPrimary: boolean;
+  isActive: boolean;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;

@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémentée (MVP)
 
 ## Priorité
 
@@ -10,7 +10,7 @@ Haute
 
 ## État
 
-⏳ À faire
+🟡 Partiel (écarts ciblés)
 
 ## Dépendances
 
@@ -92,7 +92,7 @@ Ce n’est pas :
 * filtres simples
 * audit logs
 * exposition dans le détail fournisseur
-* UI minimale plus tard
+* UI minimale dans la fiche fournisseur (`/suppliers`, dialog d’édition)
 
 ## Exclus du MVP
 
@@ -103,6 +103,7 @@ Ce n’est pas :
 * multi-fournisseur pour un même contact
 * permissions spécifiques par type de contact
 * workflow de validation
+* tests d’intégration backend complets (à finaliser)
 
 ---
 
@@ -597,7 +598,7 @@ Actions à créer :
 * `supplier_contact.created`
 * `supplier_contact.updated`
 * `supplier_contact.deactivated`
-* `supplier_contact.primary_set`
+* `supplier_contact.primary_set` (optionnel ; non implémenté dans ce lot)
 
 Conformément aux conventions d’audit Starium.
 
@@ -639,6 +640,11 @@ Exemple :
 * un nouveau `isPrimary = true` remplace l’ancien principal
 * désactivation d’un contact principal retire `isPrimary`
 
+État actuel :
+
+* unit tests service implémentés sur les règles critiques (`fullName`, `normalizedName`, doublon nominal, désactivation principal)
+* tests d’intégration backend ci-dessus à finaliser
+
 ## 16.3 Non-régression
 
 * aucune régression sur `Supplier`
@@ -649,31 +655,31 @@ Exemple :
 
 # 17. Impact frontend
 
-Cette RFC prépare les évolutions suivantes :
+Cette RFC couvre désormais un MVP frontend opérationnel :
 
-* onglet “Contacts” dans la fiche fournisseur
-* affichage du contact principal dans la liste fournisseurs
-* formulaire de création / édition de contact
-* sélection d’un contact dans les flux commande / facture plus tard
+* section Contacts dans la fiche fournisseur (dialog existant)
+* affichage de la liste des contacts d’un fournisseur
+* création / édition / désactivation d’un contact
+* badge visuel du contact principal
+* invalidation/refetch des queries après mutation
 
-Le frontend n’est pas dans le scope de cette RFC, mais le backend doit être prêt pour :
+Reste hors scope :
 
-* lister les contacts d’un fournisseur
-* créer / modifier / désactiver
-* afficher le contact principal
+* affichage du contact principal dans la table liste fournisseurs
+* sélection d’un contact dans les flux commande / facture
 
 ---
 
 # 18. Ordre d’implémentation recommandé
 
-1. Prisma : `SupplierContact` + relation `Supplier`
-2. migration
-3. service backend contacts
-4. contrôleur backend contacts
-5. tests unitaires
-6. tests d’intégration
-7. extension détail fournisseur plus tard
-8. UI plus tard
+1. Prisma : `SupplierContact` + relation `Supplier` ✅
+2. migration ✅
+3. service backend contacts ✅
+4. contrôleur backend contacts ✅
+5. tests unitaires ✅
+6. tests d’intégration ⏳ à finaliser
+7. extension détail fournisseur plus tard ✅ (section Contacts dans dialog existant)
+8. UI plus tard ✅ (MVP livré)
 
 ---
 
@@ -698,3 +704,19 @@ Cette RFC permet de passer :
 
 > d’un fournisseur identifié
 > à un fournisseur **joignable, pilotable et exploitable opérationnellement**
+
+---
+
+# 21. Checklist validation manuelle UI MVP
+
+Si aucun test UI automatisé n’est branché sur `suppliers/page.tsx`, valider manuellement :
+
+1. Ouvrir la fiche fournisseur depuis la liste.
+2. Dans la section Contacts, créer un contact (avec `firstName`/`lastName` ou `fullName`) et vérifier l’affichage immédiat dans la liste.
+3. Éditer le contact créé et vérifier la persistance des modifications après fermeture/réouverture du dialog.
+4. Marquer un contact comme principal et vérifier l’unicité visuelle du badge `Principal`.
+5. Désactiver le contact principal et vérifier :
+   * statut passé à inactif,
+   * suppression du badge `Principal`,
+   * absence de réassignation automatique d’un autre principal.
+6. Vérifier après chaque mutation (create/update/deactivate) que la liste des contacts et la vue fournisseurs sont rafraîchies.

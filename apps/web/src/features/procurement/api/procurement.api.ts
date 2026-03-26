@@ -4,6 +4,7 @@ import type {
   PaginatedResponse,
   Supplier,
   SupplierCategory,
+  SupplierContact,
   SupplierOption,
 } from '../types/supplier.types';
 import type { CreatePurchaseOrderPayload, PurchaseOrder } from '../types/purchase-order.types';
@@ -14,6 +15,31 @@ const BASE_SUPPLIER_CATEGORIES = '/api/supplier-categories';
 const BASE_ORDERS = '/api/purchase-orders';
 const BASE_INVOICES = '/api/invoices';
 const BASE_BUDGET_LINES = '/api/budget-lines';
+
+export interface CreateSupplierContactPayload {
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  isPrimary?: boolean;
+  notes?: string;
+}
+
+export interface UpdateSupplierContactPayload {
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string;
+  role?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
+  isPrimary?: boolean;
+  isActive?: boolean;
+  notes?: string | null;
+}
 
 function buildQueryString(
   params?: Record<string, string | number | boolean | undefined>,
@@ -175,6 +201,66 @@ export async function deleteSupplierLogo(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<{ success: true }>;
+}
+
+export async function listSupplierContacts(
+  authFetch: AuthFetch,
+  supplierId: string,
+  params?: {
+    search?: string;
+    offset?: number;
+    limit?: number;
+    includeInactive?: boolean;
+  },
+): Promise<PaginatedResponse<SupplierContact>> {
+  const qs = buildQueryString(params);
+  const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}/contacts${qs}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PaginatedResponse<SupplierContact>>;
+}
+
+export async function createSupplierContact(
+  authFetch: AuthFetch,
+  supplierId: string,
+  payload: CreateSupplierContactPayload,
+): Promise<SupplierContact> {
+  const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}/contacts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<SupplierContact>;
+}
+
+export async function updateSupplierContact(
+  authFetch: AuthFetch,
+  supplierId: string,
+  contactId: string,
+  payload: UpdateSupplierContactPayload,
+): Promise<SupplierContact> {
+  const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}/contacts/${contactId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<SupplierContact>;
+}
+
+export async function deactivateSupplierContact(
+  authFetch: AuthFetch,
+  supplierId: string,
+  contactId: string,
+): Promise<SupplierContact> {
+  const res = await authFetch(
+    `${BASE_SUPPLIERS}/${supplierId}/contacts/${contactId}/deactivate`,
+    {
+      method: 'POST',
+    },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<SupplierContact>;
 }
 
 export async function createPurchaseOrder(
