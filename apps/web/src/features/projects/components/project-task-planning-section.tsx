@@ -2,6 +2,13 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +65,10 @@ import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
 import { TaskFormDialogFields } from './task-form-dialog-fields';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { toast } from 'sonner';
+import {
+  pickReadableTextOnBackground,
+  resolveTaskLabelDisplayColor,
+} from '../lib/planner-task-label-colors';
 
 function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -223,7 +234,7 @@ export const ProjectTaskPlanningSection = forwardRef<
     dir: 'asc' | 'desc';
   }>({ key: 'name', dir: 'asc' });
   const [showPhaseHeaders, setShowPhaseHeaders] = useState(true);
-  const [showCodeColumn, setShowCodeColumn] = useState(false);
+  const [showLabelColumn, setShowLabelColumn] = useState(true);
   const [showPlannedStartColumn, setShowPlannedStartColumn] = useState(false);
   const [activeInlineCell, setActiveInlineCell] = useState<{
     taskId: string;
@@ -704,7 +715,11 @@ export const ProjectTaskPlanningSection = forwardRef<
     ? ganttBodyRows
     : (renderRows as unknown as BodyRow[]);
   const fullTableColumnCount =
-    7 + (showCodeColumn ? 1 : 0) + (showPlannedStartColumn ? 1 : 0);
+    7 + (showLabelColumn ? 1 : 0) + (showPlannedStartColumn ? 1 : 0);
+  const taskLabelById = useMemo(
+    () => new Map(taskLabelOptions.map((l) => [l.id, l])),
+    [taskLabelOptions],
+  );
 
   const tasksForDepends = useMemo(() => {
     const excl = editing?.id;
@@ -798,11 +813,11 @@ export const ProjectTaskPlanningSection = forwardRef<
                 type="button"
                 className={cn(
                   'rounded-md border px-2 py-1',
-                  showCodeColumn ? 'border-primary/60 text-primary' : 'border-border',
+                  showLabelColumn ? 'border-primary/60 text-primary' : 'border-border',
                 )}
-                onClick={() => setShowCodeColumn((v) => !v)}
+                onClick={() => setShowLabelColumn((v) => !v)}
               >
-                {showCodeColumn ? 'Retirer colonne Code' : 'Ajouter colonne Code'}
+                {showLabelColumn ? 'Retirer colonne Étiquette' : 'Ajouter colonne Étiquette'}
               </button>
               <button
                 type="button"
@@ -899,7 +914,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                         {renderSortIndicator('name')}
                       </button>
                     </TableHead>
-                    {showCodeColumn && <TableHead>Code</TableHead>}
+                    {showLabelColumn && <TableHead>Étiquette</TableHead>}
                     <TableHead>
                       <button
                         type="button"
@@ -990,7 +1005,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                         className="h-8"
                       />
                     </TableHead>
-                    {showCodeColumn && <TableHead />}
+                    {showLabelColumn && <TableHead />}
                     <TableHead>
                       <select
                         className="border-input bg-background h-8 w-full rounded-md border px-2 text-xs"
@@ -1384,7 +1399,87 @@ export const ProjectTaskPlanningSection = forwardRef<
                         </span>
                       )}
                     </TableCell>
-                    {showCodeColumn && <TableCell>{row.code ?? '—'}</TableCell>}
+                    {showLabelColumn && (
+                      <TableCell className="max-w-[12rem] truncate">
+                        {(row.taskLabelIds ?? []).length > 0 ? (
+                          (() => {
+                            const labels = (row.taskLabelIds ?? [])
+                              .map((id) => taskLabelById.get(id))
+                              .filter((v): v is NonNullable<typeof v> => Boolean(v));
+                            const visible = labels.slice(0, 2);
+                            const hiddenCount = Math.max(0, labels.length - visible.length);
+                            const collapseAllIntoCounter = labels.length > 2;
+
+                            return (
+                              <div className="flex flex-wrap items-center gap-1">
+                                {!collapseAllIntoCounter &&
+                                  visible.map((label) => {
+                                    const bg = resolveTaskLabelDisplayColor(
+                                      label.plannerCategoryId ?? null,
+                                      label.color ?? null,
+                                    );
+                                    const fg = pickReadableTextOnBackground(bg);
+                                    return (
+                                      <Badge
+                                        key={label.id}
+                                        variant="outline"
+                                        className="border-transparent px-2 py-0.5 text-[10px] font-medium"
+                                        style={{ backgroundColor: bg, color: fg }}
+                                        title={label.label}
+                                      >
+                                        {label.label}
+                                      </Badge>
+                                    );
+                                  })}
+                                {(hiddenCount > 0 || collapseAllIntoCounter) ? (
+                                  <TooltipProvider delay={200}>
+                                    <Tooltip>
+                                      <TooltipTrigger
+                                        render={
+                                          <button
+                                            type="button"
+                                            className="bg-primary/10 text-primary ring-primary/20 inline-flex h-6 min-w-6 items-center justify-center rounded-md px-1.5 text-[10px] font-semibold ring-1"
+                                          />
+                                        }
+                                      >
+                                        {labels.length}
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-[20rem] p-2">
+                                        <div className="space-y-1">
+                                          <p className="text-[11px] font-semibold">
+                                            {labels.length} etiquette{labels.length > 1 ? 's' : ''}
+                                          </p>
+                                          <div className="flex max-w-[18rem] flex-wrap gap-1">
+                                            {labels.map((l) => {
+                                              const bg = resolveTaskLabelDisplayColor(
+                                                l.plannerCategoryId ?? null,
+                                                l.color ?? null,
+                                              );
+                                              const fg = pickReadableTextOnBackground(bg);
+                                              return (
+                                                <span
+                                                  key={`tt-${l.id}`}
+                                                  className="inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+                                                  style={{ backgroundColor: bg, color: fg }}
+                                                >
+                                                  {l.label}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ) : null}
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       {canEdit ? (
                         activeInlineCell?.taskId === row.id &&

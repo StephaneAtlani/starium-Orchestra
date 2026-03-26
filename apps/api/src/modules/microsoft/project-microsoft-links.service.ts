@@ -775,15 +775,9 @@ export class ProjectMicrosoftLinksService {
     });
 
     if (useMicrosoftPlannerLabels) {
-      const labelCount = await this.prisma.projectTaskLabel.count({
-        where: { clientId, projectId },
-      });
-      if (labelCount === 0) {
-        await this.replaceStariumTaskLabelsWithPlannerCategories(
-          clientId,
-          projectId,
-        );
-      }
+      // Mode labels Planner actif: on aligne systématiquement le référentiel labels
+      // avant pull pour garantir le mapping appliedCategories -> taskLabelIds.
+      await this.replaceStariumTaskLabelsWithPlannerCategories(clientId, projectId);
     }
 
     type PlannerBucket = { id: string; name: string };
@@ -867,6 +861,8 @@ export class ProjectMicrosoftLinksService {
       dueDateTime?: string | null;
       percentComplete?: number | null;
       bucketId?: string | null;
+      appliedCategories?: Record<string, boolean> | null;
+      assignments?: Record<string, unknown> | null;
     };
 
     let pulledTaskIds = new Set<string>();
@@ -877,14 +873,82 @@ export class ProjectMicrosoftLinksService {
       // Phase A: pull Planner -> Starium
       const plannerTasksResp = await this.graph.getJson<
         MicrosoftGraphODataListResponse<PlannerTaskLite>
-      >(accessToken, `planner/plans/${link.plannerPlanId}/tasks`, {
+      >(
+        accessToken,
+        `planner/plans/${link.plannerPlanId}/tasks?$select=id,title,dueDateTime,percentComplete,bucketId,appliedCategories,assignments`,
+        {
         expectJson: true,
-      });
+        },
+      );
       const plannerTasks = (plannerTasksResp?.value ?? []).filter(
         (t): t is PlannerTaskLite =>
           typeof t?.id === 'string' && typeof t?.title === 'string',
       );
       summary.plannerTasksRead = plannerTasks.length;
+
+      const localTaskLabels = useMicrosoftPlannerLabels
+        ? await this.prisma.projectTaskLabel.findMany({
+            where: { clientId, projectId },
+            select: { id: true, plannerCategoryId: true },
+          })
+        : [];
+      const taskLabelIdByPlannerCategoryId = new Map<string, string>();
+      for (const l of localTaskLabels) {
+        if (!l.plannerCategoryId) continue;
+        taskLabelIdByPlannerCategoryId.set(l.plannerCategoryId, l.id);
+      }
+
+      const microsoftUserToLocalUserIdCache = new Map<string, string | null>();
+      const resolveLocalOwnerUserIdFromPlannerAssignments = async (
+        assignments: Record<string, unknown> | null | undefined,
+      ): Promise<string | null> => {
+        if (!assignments || typeof assignments !== 'object') return null;
+        const microsoftUserIds = Object.keys(assignments);
+        if (microsoftUserIds.length === 0) return null;
+        const microsoftUserId = microsoftUserIds[0];
+        if (microsoftUserToLocalUserIdCache.has(microsoftUserId)) {
+          return microsoftUserToLocalUserIdCache.get(microsoftUserId) ?? null;
+        }
+
+        try {
+          const userPayload = await this.graph.getJson<
+            { mail?: string | null; userPrincipalName?: string | null } | unknown
+          >(accessToken, `users/${microsoftUserId}?$select=mail,userPrincipalName`, {
+            expectJson: true,
+          });
+          const userObj =
+            userPayload && typeof userPayload === 'object'
+              ? (userPayload as { mail?: string | null; userPrincipalName?: string | null })
+              : null;
+          const candidateEmail =
+            userObj?.mail?.trim() || userObj?.userPrincipalName?.trim() || null;
+          if (!candidateEmail) {
+            microsoftUserToLocalUserIdCache.set(microsoftUserId, null);
+            return null;
+          }
+
+          const clientUser = await this.prisma.clientUser.findFirst({
+            where: {
+              clientId,
+              status: 'ACTIVE',
+              user: {
+                email: {
+                  equals: candidateEmail,
+                  mode: 'insensitive',
+                },
+              },
+            },
+            select: { userId: true },
+          });
+
+          const resolved = clientUser?.userId ?? null;
+          microsoftUserToLocalUserIdCache.set(microsoftUserId, resolved);
+          return resolved;
+        } catch {
+          microsoftUserToLocalUserIdCache.set(microsoftUserId, null);
+          return null;
+        }
+      };
 
       const existingMappings = (await this.prisma.projectTaskMicrosoftSync.findMany({
         where: { clientId, projectId },
@@ -919,6 +983,15 @@ export class ProjectMicrosoftLinksService {
             ? plannerTask.percentComplete
             : 0;
         const nextStatus = plannerPercentToStatus(percent);
+        const plannerCategoryIds = Object.entries(plannerTask.appliedCategories ?? {})
+          .filter(([categoryId, enabled]) => enabled === true && /^category\d+$/.test(categoryId))
+          .map(([categoryId]) => categoryId);
+        const nextTaskLabelIds = plannerCategoryIds
+          .map((cat) => taskLabelIdByPlannerCategoryId.get(cat))
+          .filter((id): id is string => Boolean(id));
+        const nextOwnerUserId = await resolveLocalOwnerUserIdFromPlannerAssignments(
+          plannerTask.assignments ?? null,
+        );
 
         if (!mapping) {
           const created = await this.prisma.projectTask.create({
@@ -929,9 +1002,22 @@ export class ProjectMicrosoftLinksService {
               plannedEndDate: dueDate,
               status: nextStatus,
               progress: percent,
+              ...(nextOwnerUserId ? { ownerUserId: nextOwnerUserId } : {}),
             },
             select: { id: true, updatedAt: true },
           });
+
+          if (nextTaskLabelIds.length > 0) {
+            await this.prisma.projectTaskLabelAssignment.createMany({
+              data: nextTaskLabelIds.map((labelId) => ({
+                clientId,
+                projectId,
+                projectTaskId: created.id,
+                labelId,
+              })),
+              skipDuplicates: true,
+            });
+          }
 
           const createdMapping = await (this.prisma.projectTaskMicrosoftSync as any).create({
             data: {
@@ -1013,8 +1099,29 @@ export class ProjectMicrosoftLinksService {
             plannedEndDate: dueDate,
             status: nextStatus,
             progress: percent,
+            ...(nextOwnerUserId ? { ownerUserId: nextOwnerUserId } : {}),
           },
         });
+        if (useMicrosoftPlannerLabels) {
+          await this.prisma.projectTaskLabelAssignment.deleteMany({
+            where: {
+              clientId,
+              projectId,
+              projectTaskId: mapping.projectTaskId,
+            },
+          });
+          if (nextTaskLabelIds.length > 0) {
+            await this.prisma.projectTaskLabelAssignment.createMany({
+              data: nextTaskLabelIds.map((labelId) => ({
+                clientId,
+                projectId,
+                projectTaskId: mapping.projectTaskId,
+                labelId,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
         pulledTaskIds.add(mapping.projectTaskId);
         summary.updatedInStarium++;
 
