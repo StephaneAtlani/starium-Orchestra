@@ -1920,9 +1920,15 @@ model Supplier {
   id             String         @id @default(cuid())
   clientId       String
   name           String
+  normalizedName String
   code           String?
   siret          String?
+  externalId     String?
+  email          String?
+  phone          String?
+  website        String?
   vatNumber      String?
+  notes          String?
   status         SupplierStatus @default(ACTIVE)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -1930,9 +1936,11 @@ model Supplier {
   purchaseOrders PurchaseOrder[]
   invoices       Invoice[]
 
-  @@unique([clientId, name])
+  @@unique([clientId, normalizedName])
   @@index([clientId])
-  @@index([clientId, name])
+  @@index([clientId, status])
+  @@index([clientId, vatNumber])
+  @@index([clientId, externalId])
 }
 
 model PurchaseOrder {

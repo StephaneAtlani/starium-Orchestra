@@ -97,6 +97,47 @@ describe('InvoicesService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('create avec supplierName passe par SuppliersService.quickCreate', async () => {
+    suppliers.quickCreate.mockResolvedValue({
+      id: 'sup-qc',
+      name: 'Quick Supplier',
+    });
+    prisma.purchaseOrder.findFirst.mockResolvedValue(null);
+    prisma.budgetLine.findFirst.mockResolvedValue({ id: 'bl-1', currency: 'EUR' });
+    prisma.invoice.create.mockResolvedValue({
+      id: 'inv-1',
+      clientId: 'c1',
+      supplierId: 'sup-qc',
+      supplier: { id: 'sup-qc', name: 'Quick Supplier' },
+      budgetLineId: 'bl-1',
+      purchaseOrderId: null,
+      invoiceNumber: 'INV-1',
+      label: 'Invoice',
+      amountHt: { toFixed: () => '100.00' },
+      taxRate: null,
+      taxAmount: null,
+      amountTtc: null,
+      invoiceDate: new Date(),
+      status: 'VALIDATED',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await service.create('c1', {
+      supplierName: 'Quick Supplier',
+      invoiceNumber: 'INV-1',
+      label: 'Invoice',
+      amountHt: '100',
+      invoiceDate: new Date(),
+    });
+
+    expect(suppliers.quickCreate).toHaveBeenCalledWith(
+      'c1',
+      { name: 'Quick Supplier' },
+      undefined,
+    );
+  });
+
   it('cancel idempotent sans side effects si deja CANCELLED', async () => {
     prisma.invoice.findFirst.mockResolvedValue({
       id: 'inv-1',

@@ -28,6 +28,11 @@ export interface SupplierResponse {
   code: string | null;
   siret: string | null;
   vatNumber: string | null;
+  externalId: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  notes: string | null;
   status: string;
   createdAt: Date;
   updatedAt: Date;
@@ -81,15 +86,20 @@ export class SuppliersService {
     dto: CreateSupplierDto,
     context?: ProcurementAuditContext,
   ): Promise<SupplierResponse> {
-    const name = normalizeSupplierName(dto.name);
+    const normalizedName = normalizeSupplierName(dto.name);
+    const name = normalizeSupplierDisplayName(dto.name);
+    const normalizedVatNumber = normalizeVatNumber(dto.vatNumber);
+    const normalizedExternalId = normalizeExternalId(dto.externalId);
+    const normalizedEmail = normalizeEmail(dto.email);
     const prisma = this.prisma as any;
     const supplierRepo = this.getSupplierRepo(prisma);
-    const existing = await supplierRepo.findFirst({
-      where: { clientId, name: { equals: name, mode: 'insensitive' } },
+    const existing = await this.findDuplicateSupplierByPriority(supplierRepo, {
+      clientId,
+      normalizedName,
+      vatNumber: normalizedVatNumber,
+      externalId: normalizedExternalId,
     });
-    if (existing) {
-      throw new ConflictException('Supplier already exists for this client');
-    }
+    this.assertNoCreationConflict(existing);
 
     let created: any;
     try {
@@ -97,14 +107,22 @@ export class SuppliersService {
         data: {
           clientId,
           name,
+          normalizedName,
           code: dto.code?.trim() || null,
           siret: dto.siret?.trim() || null,
-          vatNumber: dto.vatNumber?.trim() || null,
+          externalId: normalizedExternalId,
+          email: normalizedEmail,
+          phone: dto.phone?.trim() || null,
+          website: dto.website?.trim() || null,
+          vatNumber: normalizedVatNumber,
+          notes: dto.notes?.trim() || null,
         },
       });
     } catch (error) {
       if (isPrismaUniqueConstraintError(error)) {
-        throw new ConflictException('Supplier already exists for this client');
+        throw new ConflictException(
+          'Supplier conflict detected (name, externalId or vatNumber)',
+        );
       }
       throw error;
     }
@@ -115,7 +133,13 @@ export class SuppliersService {
       action: 'supplier.created',
       resourceType: 'supplier',
       resourceId: created.id,
-      newValue: { name: created.name },
+      newValue: {
+        name: created.name,
+        normalizedName: created.normalizedName,
+        externalId: created.externalId,
+        vatNumber: created.vatNumber,
+        creationMode: 'STANDARD',
+      },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
@@ -129,13 +153,25 @@ export class SuppliersService {
     dto: QuickCreateSupplierDto,
     context?: ProcurementAuditContext,
   ): Promise<SupplierResponse> {
-    const name = normalizeSupplierName(dto.name);
+    const normalizedName = normalizeSupplierName(dto.name);
+    const name = normalizeSupplierDisplayName(dto.name);
+    const normalizedVatNumber = normalizeVatNumber(dto.vatNumber);
+    const normalizedExternalId = normalizeExternalId(dto.externalId);
+    const normalizedEmail = normalizeEmail(dto.email);
     const prisma = this.prisma as any;
     const supplierRepo = this.getSupplierRepo(prisma);
-    const existing = await supplierRepo.findFirst({
-      where: { clientId, name: { equals: name, mode: 'insensitive' } },
+    const existing = await this.findDuplicateSupplierByPriority(supplierRepo, {
+      clientId,
+      normalizedName,
+      vatNumber: normalizedVatNumber,
+      externalId: normalizedExternalId,
     });
     if (existing) {
+      if (existing.status === 'ARCHIVED') {
+        throw new ConflictException(
+          'Supplier match exists but is archived and cannot be reused',
+        );
+      }
       return toSupplierResponse(existing);
     }
 
@@ -145,18 +181,18 @@ export class SuppliersService {
         data: {
           clientId,
           name,
+          normalizedName,
+          externalId: normalizedExternalId,
+          email: normalizedEmail,
+          vatNumber: normalizedVatNumber,
           status: 'ACTIVE',
         },
       });
     } catch (error) {
-      // Race condition: un autre appel a créé le même fournisseur juste avant.
       if (isPrismaUniqueConstraintError(error)) {
-        const nowExisting = await supplierRepo.findFirst({
-          where: { clientId, name: { equals: name, mode: 'insensitive' } },
-        });
-        if (nowExisting) {
-          return toSupplierResponse(nowExisting);
-        }
+        throw new ConflictException(
+          'Supplier conflict detected (name, externalId or vatNumber)',
+        );
       }
       throw error;
     }
@@ -169,6 +205,9 @@ export class SuppliersService {
       resourceId: created.id,
       newValue: {
         name: created.name,
+        normalizedName: created.normalizedName,
+        externalId: created.externalId,
+        vatNumber: created.vatNumber,
         creationMode: 'QUICK_CREATE',
       },
       ipAddress: context?.meta?.ipAddress,
@@ -198,29 +237,56 @@ export class SuppliersService {
       throw new BadRequestException('Cannot update an archived supplier');
     }
 
-    const nextName = dto.name ? normalizeSupplierName(dto.name) : undefined;
-    if (nextName && nextName.toLowerCase() !== existing.name.toLowerCase()) {
-      const conflict = await supplierRepo.findFirst({
-        where: {
-          clientId,
-          id: { not: id },
-          name: { equals: nextName, mode: 'insensitive' },
+    const nextName = dto.name
+      ? normalizeSupplierDisplayName(dto.name)
+      : existing.name;
+    const nextNormalizedName = dto.name
+      ? normalizeSupplierName(dto.name)
+      : existing.normalizedName;
+    const nextVatNumber =
+      dto.vatNumber !== undefined
+        ? normalizeVatNumber(dto.vatNumber)
+        : existing.vatNumber;
+    const nextExternalId =
+      dto.externalId !== undefined
+        ? normalizeExternalId(dto.externalId)
+        : existing.externalId;
+    const nextEmail =
+      dto.email !== undefined ? normalizeEmail(dto.email) : existing.email;
+    const conflict = await this.findDuplicateSupplierByPriority(supplierRepo, {
+      clientId,
+      normalizedName: nextNormalizedName,
+      vatNumber: nextVatNumber,
+      externalId: nextExternalId,
+      excludeSupplierId: id,
+    });
+    this.assertNoCreationConflict(conflict);
+
+    let updated: any;
+    try {
+      updated = await supplierRepo.update({
+        where: { id },
+        data: {
+          name: nextName,
+          normalizedName: nextNormalizedName,
+          ...(dto.code !== undefined && { code: dto.code?.trim() || null }),
+          ...(dto.siret !== undefined && { siret: dto.siret?.trim() || null }),
+          ...(dto.externalId !== undefined && { externalId: nextExternalId }),
+          ...(dto.email !== undefined && { email: nextEmail }),
+          ...(dto.phone !== undefined && { phone: dto.phone?.trim() || null }),
+          ...(dto.website !== undefined && { website: dto.website?.trim() || null }),
+          ...(dto.vatNumber !== undefined && { vatNumber: nextVatNumber }),
+          ...(dto.notes !== undefined && { notes: dto.notes?.trim() || null }),
         },
       });
-      if (conflict) {
-        throw new ConflictException('Supplier name already exists for this client');
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'Supplier conflict detected (name, externalId or vatNumber)',
+        );
       }
+      throw error;
     }
-
-    const updated = await supplierRepo.update({
-      where: { id },
-      data: {
-        ...(nextName !== undefined && { name: nextName }),
-        ...(dto.code !== undefined && { code: dto.code?.trim() || null }),
-        ...(dto.siret !== undefined && { siret: dto.siret?.trim() || null }),
-        ...(dto.vatNumber !== undefined && { vatNumber: dto.vatNumber?.trim() || null }),
-      },
-    });
 
     await this.auditLogs.create({
       clientId,
@@ -228,8 +294,18 @@ export class SuppliersService {
       action: 'supplier.updated',
       resourceType: 'supplier',
       resourceId: id,
-      oldValue: { name: existing.name },
-      newValue: { name: updated.name },
+      oldValue: {
+        name: existing.name,
+        normalizedName: existing.normalizedName,
+        externalId: existing.externalId ?? null,
+        vatNumber: existing.vatNumber ?? null,
+      },
+      newValue: {
+        name: updated.name,
+        normalizedName: updated.normalizedName,
+        externalId: updated.externalId ?? null,
+        vatNumber: updated.vatNumber ?? null,
+      },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
@@ -295,6 +371,64 @@ export class SuppliersService {
     }
     return repo;
   }
+
+  private async findDuplicateSupplierByPriority(
+    supplierRepo: any,
+    input: {
+      clientId: string;
+      normalizedName: string;
+      externalId?: string | null;
+      vatNumber?: string | null;
+      excludeSupplierId?: string;
+    },
+  ): Promise<any | null> {
+    const baseWhere = {
+      clientId: input.clientId,
+      ...(input.excludeSupplierId
+        ? { id: { not: input.excludeSupplierId } }
+        : {}),
+    };
+
+    const externalMatch = input.externalId
+      ? await supplierRepo.findFirst({
+          where: { ...baseWhere, externalId: input.externalId },
+        })
+      : null;
+
+    const vatMatch = input.vatNumber
+      ? await supplierRepo.findFirst({
+          where: { ...baseWhere, vatNumber: input.vatNumber },
+        })
+      : null;
+
+    if (externalMatch && vatMatch && externalMatch.id !== vatMatch.id) {
+      throw new ConflictException(
+        'Supplier conflict: externalId and vatNumber match different suppliers',
+      );
+    }
+
+    if (externalMatch) return externalMatch;
+    if (vatMatch) return vatMatch;
+
+    const nameMatch = await supplierRepo.findFirst({
+      where: { ...baseWhere, normalizedName: input.normalizedName },
+    });
+    return nameMatch ?? null;
+  }
+
+  private assertNoCreationConflict(conflict: any | null): void {
+    if (!conflict) {
+      return;
+    }
+    if (conflict.status === 'ARCHIVED') {
+      throw new ConflictException(
+        'Supplier match exists but is archived and cannot be reused',
+      );
+    }
+    throw new ConflictException(
+      'Supplier already exists for this client (externalId, vatNumber or name)',
+    );
+  }
 }
 
 function normalizeSupplierName(name: string): string {
@@ -302,7 +436,33 @@ function normalizeSupplierName(name: string): string {
   if (!trimmed) {
     throw new BadRequestException('Supplier name is required');
   }
-  return trimmed;
+  return trimmed.toLowerCase().replace(/\s+/g, ' ');
+}
+
+function normalizeSupplierDisplayName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new BadRequestException('Supplier name is required');
+  }
+  return trimmed.replace(/\s+/g, ' ');
+}
+
+function normalizeVatNumber(vatNumber?: string | null): string | null {
+  if (vatNumber == null) return null;
+  const normalized = vatNumber.trim().toUpperCase().replace(/\s+/g, '');
+  return normalized || null;
+}
+
+function normalizeEmail(email?: string | null): string | null {
+  if (email == null) return null;
+  const normalized = email.trim().toLowerCase();
+  return normalized || null;
+}
+
+function normalizeExternalId(externalId?: string | null): string | null {
+  if (externalId == null) return null;
+  const normalized = externalId.trim();
+  return normalized || null;
 }
 
 function toSupplierResponse(row: any): SupplierResponse {
@@ -313,6 +473,11 @@ function toSupplierResponse(row: any): SupplierResponse {
     code: row.code,
     siret: row.siret,
     vatNumber: row.vatNumber,
+    externalId: row.externalId ?? null,
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    website: row.website ?? null,
+    notes: row.notes ?? null,
     status: row.status,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

@@ -1,22 +1,40 @@
 Voici la **liste des référentiels à développer dans l’ordre** pour la brique **fournisseurs / procurement**, en restant cohérent avec la vision Starium, l’architecture modulaire, le multi-tenant strict et le couplage futur avec budgets, commandes et factures.  
 
+## État d'avancement (RFC-FOU-025-A)
+
+| Lot | Périmètre | État | Détail |
+| --- | --- | --- | --- |
+| Lot 1 | Backend + Prisma + Tests | ✅ Terminé | Schéma `Supplier` durci, migration SQL additive avec contrôles de collisions, normalisation/matching anti-doublon, tests unitaires + intégration procurement |
+| Lot 2 | Frontend Supplier UX | ⏳ En attente | Hors scope de ce lot (combobox/messages UX à aligner ensuite) |
+| Lot 3 | Documentation API globale (`docs/API.md`) | ⏳ En attente | À compléter si on veut documenter explicitement les champs de réponse enrichis |
+
+### Détail lot terminé (Backend + Prisma + Tests)
+
+* `Supplier` : `normalizedName`, `externalId`, `email`, `phone`, `website`, `notes`.
+* Intégrité DB : `@@unique([clientId, normalizedName])` + uniques partielles SQL sur `externalId` et `vatNumber` normalisés.
+* Services : logique commune `create` / `quickCreate` / `update` pour normalisation, anti-doublon priorisé et gestion des conflits croisés.
+* Flux procurement : `PurchaseOrder`/`Invoice` gardent `supplierId OR supplierName`, avec passage `supplierName` via `SuppliersService.quickCreate`.
+* Tests : couverture des collisions, `ARCHIVED`, normalisation, concurrence/unique constraint.
+
+---
+
 ## Tableau des référentiels à développer
 
-| Ordre | Référentiel                    | Objectif                                                       | Priorité   | Pourquoi en premier / ensuite                                                                         |
-| ----- | ------------------------------ | -------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------- |
-| 1     | **Suppliers**                  | Référentiel maître des fournisseurs                            | Très haute | C’est la racine métier de tout le flux procurement                                                    |
-| 2     | **Supplier Categories**        | Classer les fournisseurs (cloud, télécom, ERP, sécurité, etc.) | Haute      | Permet tri, filtres, reporting et cockpit                                                             |
-| 3     | **Supplier Statuses**          | Actif, inactif, en revue, bloqué                               | Haute      | Nécessaire pour gouvernance et contrôle                                                               |
-| 4     | **Payment Terms**              | Conditions de paiement standardisées                           | Moyenne    | Utile avant PO / Invoice pour homogénéiser les données                                                |
-| 5     | **Currencies**                 | Devise de référence des fournisseurs / documents               | Moyenne    | Cohérence avec budgets et commandes                                                                   |
-| 6     | **Purchase Order Statuses**    | Brouillon, envoyé, validé, partiellement reçu, clos            | Haute      | Nécessaire dès qu’on attaque les commandes                                                            |
-| 7     | **Invoice Statuses**           | Brouillon, reçue, validée, payée, rejetée                      | Haute      | Nécessaire dès qu’on attaque les factures                                                             |
-| 8     | **General Ledger Accounts**    | Comptes comptables généraux                                    | Très haute | Déjà nécessaire côté budget analytique / ventilation                                                  |
-| 9     | **Analytical Ledger Accounts** | Comptes analytiques optionnels                                 | Haute      | Nécessaire pour lecture DAF / analytique                                                              |
-| 10    | **Cost Centers**               | Centres de coûts                                               | Très haute | Base des ventilations analytiques                                                                     |
-| 11    | **Document Types**             | Type de pièce : devis, BC, facture, avoir, contrat             | Moyenne    | Améliore la structuration documentaire                                                                |
-| 12    | **Tax Rates**                  | TVA par défaut / taux autorisés                                | Moyenne    | Important si tu veux fiabiliser PO / Invoice                                                          |
-| 13    | **Import Mappings Supplier**   | Mappings réutilisables pour import                             | Moyenne    | À développer après stabilisation du modèle fournisseur, en réutilisant la logique d’import existante  |
+| Ordre | Référentiel                    | Objectif                                                       | Priorité   | État | Pourquoi en premier / ensuite                                                                         |
+| ----- | ------------------------------ | -------------------------------------------------------------- | ---------- | ---- | ----------------------------------------------------------------------------------------------------- |
+| 1     | **Suppliers**                  | Référentiel maître des fournisseurs                            | Très haute | ✅ Terminé (lot backend) | C’est la racine métier de tout le flux procurement                                 |
+| 2     | **Supplier Categories**        | Classer les fournisseurs (cloud, télécom, ERP, sécurité, etc.) | Haute      | ⏳ À faire | Permet tri, filtres, reporting et cockpit                                                             |
+| 3     | **Supplier Statuses**          | Actif, inactif, en revue, bloqué                               | Haute      | ⏳ À faire | Nécessaire pour gouvernance et contrôle                                                               |
+| 4     | **Payment Terms**              | Conditions de paiement standardisées                           | Moyenne    | ⏳ À faire | Utile avant PO / Invoice pour homogénéiser les données                                                |
+| 5     | **Currencies**                 | Devise de référence des fournisseurs / documents               | Moyenne    | ⏳ À faire | Cohérence avec budgets et commandes                                                                   |
+| 6     | **Purchase Order Statuses**    | Brouillon, envoyé, validé, partiellement reçu, clos            | Haute      | 🟡 Partiel | Nécessaire dès qu’on attaque les commandes                                                            |
+| 7     | **Invoice Statuses**           | Brouillon, reçue, validée, payée, rejetée                      | Haute      | 🟡 Partiel | Nécessaire dès qu’on attaque les factures                                                             |
+| 8     | **General Ledger Accounts**    | Comptes comptables généraux                                    | Très haute | ✅ Déjà en place | Déjà nécessaire côté budget analytique / ventilation                                             |
+| 9     | **Analytical Ledger Accounts** | Comptes analytiques optionnels                                 | Haute      | ✅ Déjà en place | Nécessaire pour lecture DAF / analytique                                                         |
+| 10    | **Cost Centers**               | Centres de coûts                                               | Très haute | ✅ Déjà en place | Base des ventilations analytiques                                                                |
+| 11    | **Document Types**             | Type de pièce : devis, BC, facture, avoir, contrat             | Moyenne    | ⏳ À faire | Améliore la structuration documentaire                                                                |
+| 12    | **Tax Rates**                  | TVA par défaut / taux autorisés                                | Moyenne    | 🟡 Partiel | Important si tu veux fiabiliser PO / Invoice                                                          |
+| 13    | **Import Mappings Supplier**   | Mappings réutilisables pour import                             | Moyenne    | ⏳ À faire | À développer après stabilisation du modèle fournisseur, en réutilisant la logique d’import existante  |
 
 ---
 
@@ -53,22 +71,38 @@ Toute création / modification / désactivation d’un référentiel important d
 
 ## 2. Référentiel Suppliers
 
+### État actuel (aligné code)
+
+* RFC-FOU-025-A implémentée sur le lot **Backend + Prisma + Tests**.
+* Modèle `Supplier` durci avec `normalizedName`, `externalId`, `email`, `phone`, `website`, `notes`.
+* Unicité métier portée par :
+  * `@@unique([clientId, normalizedName])`
+  * + contraintes SQL partielles sur `externalId` et `vatNumber` normalisés (migration SQL).
+* Flux `supplierName` de `PurchaseOrder` / `Invoice` passe par `SuppliersService.quickCreate`.
+* Frontend et documentation UI restent hors scope de ce lot.
+
 ### Règles métier
 
 * `name` obligatoire
-* `normalizedName` calculé automatiquement (`trim + lowercase`)
-* unicité recommandée sur `(clientId, normalizedName)`
-* `externalId` optionnel mais prioritaire si import externe
-* `vatNumber` optionnel mais fortement recommandé
-* `isActive` par défaut à `true`
+* `normalizedName` calculé automatiquement (`trim + lowercase + collapse spaces`)
+* unicité appliquée sur `(clientId, normalizedName)`
+* `externalId` optionnel, prioritaire pour le matching
+* `vatNumber` optionnel, priorité 2 pour le matching
+* statut porté par `SupplierStatus` (`ACTIVE`, `INACTIVE`, `ARCHIVED`)
 
 ### Anti-doublon
 
-Ordre de matching recommandé :
+Ordre de matching implémenté :
 
 1. `externalId`
 2. `vatNumber`
 3. `normalizedName`
+
+Règles explicites :
+
+* conflit croisé (`externalId` -> Supplier A, `vatNumber` -> Supplier B) => erreur métier explicite
+* match `ARCHIVED` => erreur métier explicite
+* match `INACTIVE` => existant réutilisable selon le flux métier
 
 ### Finalité métier
 

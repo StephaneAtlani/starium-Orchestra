@@ -243,9 +243,18 @@ Migration additive obligatoire :
 
 1. ajouter `normalizedName` nullable temporairement si nécessaire ;
 2. backfill des valeurs existantes à partir de `name` ;
-3. rendre `normalizedName` obligatoire ;
-4. supprimer l’unicité `(clientId, name)` ;
-5. créer l’unicité `(clientId, normalizedName)`.
+3. contrôler les collisions `normalizedName` par `(clientId, normalizedName)` ;
+4. rendre `normalizedName` obligatoire ;
+5. supprimer l’unicité `(clientId, name)` ;
+6. créer l’unicité `(clientId, normalizedName)`.
+
+Complément intégrité DB (migration SQL) :
+
+* ajouter des contraintes uniques partielles par expression sur :
+  * `(clientId, btrim(externalId))` quand `externalId` est non null / non vide ;
+  * `(clientId, replace(upper(btrim(vatNumber)), ' ', ''))` quand `vatNumber` est non null / non vide ;
+* échouer explicitement la migration si des doublons existent déjà sur ces clés normalisées ;
+* ne faire ni fusion automatique, ni suppression automatique.
 
 Ne pas supprimer les données existantes.
 
@@ -275,7 +284,7 @@ Exemple :
 
 ## 7.2 Règles complémentaires
 
-* `vatNumber` : trim + uppercase
+* `vatNumber` : trim + uppercase + suppression des espaces internes
 * `email` : trim + lowercase
 * `website` : trim
 * `externalId` : trim, sans transformation métier complexe
@@ -386,6 +395,14 @@ Deux options sont possibles dans l’existant :
 ### Décision MVP
 
 Conserver l’existant **`procurement.*`** pour ne pas casser le modèle permissionnel actuel, puis spécialiser plus tard si besoin.
+
+## 10.3 Contrat de réponse (backend actuel)
+
+Le contrat de réponse `SupplierResponse` est enrichi en restant backward-compatible :
+
+* champs historiques conservés (`id`, `clientId`, `name`, `code`, `siret`, `vatNumber`, `status`, `createdAt`, `updatedAt`) ;
+* champs supplémentaires exposés (`externalId`, `email`, `phone`, `website`, `notes`) ;
+* `normalizedName` reste interne backend et n’est pas exposé dans la réponse API.
 
 ---
 
@@ -652,3 +669,17 @@ Cette RFC ne traite pas :
 Le module Supplier existant est conservé, mais il change de nature :
 
 > il passe d’un **référentiel fonctionnel minimal** à un **référentiel maître robuste**, capable de porter durablement le flux procurement Starium.
+
+---
+
+# 21. État d’implémentation (Backend + Prisma + Tests)
+
+Implémenté sur ce lot :
+
+* schéma Prisma `Supplier` durci (`normalizedName`, `externalId`, `email`, `phone`, `website`, `notes`) ;
+* migration SQL additive avec backfill, contrôle collisions et contraintes uniques cibles ;
+* normalisation backend centralisée (`name`, `vatNumber`, `externalId`, `email`) ;
+* matching anti-doublon déterministe (`externalId` > `vatNumber` > `normalizedName`) ;
+* règles explicites `ARCHIVED`/`INACTIVE` appliquées dans `SuppliersService` ;
+* intégration `PurchaseOrdersService` / `InvoicesService` conservée via `SuppliersService.quickCreate` ;
+* tests unitaires et intégration procurement adaptés.

@@ -201,7 +201,7 @@ export function EditMemberDialog({
                   onValueChange={(v) => setRole(v as 'CLIENT_ADMIN' | 'CLIENT_USER')}
                 >
                   <SelectTrigger id={`${formId}-role`} className="w-full">
-                    <SelectValue />
+                    <SelectValue>{ROLE_LABEL[role]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CLIENT_USER">{ROLE_LABEL.CLIENT_USER}</SelectItem>
@@ -235,7 +235,7 @@ export function EditMemberDialog({
                   }
                 >
                   <SelectTrigger id={`${formId}-status`} className="w-full">
-                    <SelectValue />
+                    <SelectValue>{STATUS_LABEL[status]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(STATUS_LABEL) as Array<keyof typeof STATUS_LABEL>).map(
