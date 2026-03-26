@@ -14,4 +14,14 @@ describe('platform navigation', () => {
     expect(systemRolesItem?.platformOnly).toBe(true);
     expect(systemRolesItem?.scope).toBe('platform');
   });
+
+  it('expose une entrée fournisseurs côté client avec procurement.read', () => {
+    const financeSection = navigation.find((section) => section.section === 'Finance');
+    expect(financeSection).toBeDefined();
+
+    const suppliersItem = financeSection?.items.find((item) => item.href === '/suppliers');
+    expect(suppliersItem).toBeDefined();
+    expect(suppliersItem?.requiredPermissions).toEqual(['procurement.read']);
+    expect(suppliersItem?.scope).toBe('client');
+  });
 });
