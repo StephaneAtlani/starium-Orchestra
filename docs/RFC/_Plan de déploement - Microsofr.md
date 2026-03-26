@@ -1,6 +1,6 @@
 Voici le **plan propre, exécutable et intégrant explicitement le frontend**, sans ambiguïté ni mélange backend/UI.
 
-**Dernière mise à jour :** 2025-03-25 — état aligné sur le dépôt (`apps/api`, `apps/web`) et sur [\_RFC Liste.md](./_RFC%20Liste.md).
+**Dernière mise à jour :** 2026-03-26 — état aligné sur le dépôt (`apps/api`, `apps/web`) et sur [\_RFC Liste.md](./_RFC%20Liste.md).
 
 ---
 
@@ -15,6 +15,7 @@ Voici le **plan propre, exécutable et intégrant explicitement le frontend**, s
 | 5     | RFC-PROJ-INT-006 | Sélection ressources Microsoft | Teams / Channels / Planner | Partiel        | API listing OK ; UI cascade sur fiche projet (`ProjectMicrosoftResourceSelectorsCard`) ; **persistance `PUT /api/projects/:id/microsoft-link` non branchée dans l’UI** (config lien = API ou complétion UI) |
 | 6     | RFC-PROJ-INT-007 | Configuration projet           | Lien Project ↔ Microsoft   | Fait (backend) | GET/PUT + garde-fous connexion active |
 | 7     | RFC-PROJ-INT-008 | Sync tâches → Planner          | Sync tâches                | Fait           | `POST .../sync-tasks`, mapping `ProjectTaskMicrosoftSync` |
+| 8     | RFC-PROJ-INT-016 | Sync bidirectionnelle tâches   | Pull Planner -> Starium + Push Starium -> Planner | Fait           | Endpoint inchangé `POST .../sync-tasks`, conflit `starium-wins`, contrat enrichi + audit dédié |
 
 ---
 
@@ -86,7 +87,6 @@ Lecture fichiers `STARIUM` : racine `PROJECT_DOCUMENTS_STORAGE_ROOT` (voir RFC-0
 
 | RFC     | Sujet                 |
 | ------- | --------------------- |
-| RFC-016 | Sync bidirectionnelle |
 | RFC-017 | Mapping utilisateurs  |
 | RFC-018 | Création auto Teams   |
 | RFC-019 | Sync commentaires     |
@@ -94,14 +94,15 @@ Lecture fichiers `STARIUM` : racine `PROJECT_DOCUMENTS_STORAGE_ROOT` (voir RFC-0
 
 ---
 
-# ORDRE RÉEL D’EXÉCUTION (ÉTAT AU 2025-03-25)
+# ORDRE RÉEL D’EXÉCUTION (ÉTAT AU 2026-03-26)
 
 1. Fait — Microsoft OAuth, Graph, lien projet (API), sync tâches → Planner.
 2. Fait — Prisma / migrations Microsoft + documents projet (backend).
 3. Fait — UI liste documents (DOC-FE-001) sur fiche projet.
 4. Fait — Backend sync documents → Teams (INT-009).
-5. **Couvert (RFC-PROJ-OPT-001)** — page **Options projet** (`/projects/[projectId]/options`) : persistance `PUT` microsoft-link, OAuth, sync manuelle tâches/documents. **Partiel (RFC-006)** : la carte **sélecteurs** sur fiche projet (`ProjectMicrosoftResourceSelectorsCard`) peut rester sans branchement `PUT` si non utilisée au profit de la page Options.
-6. **Partiel** — **INT-FE-009** : statuts sync **par document** dans la liste documentaire ; le **bouton** sync documents depuis **Options projet** (OPT-001) complète le flux côté pilotage projet, pas la granularité par fichier.
+5. Fait — Sync bidirectionnelle tâches (INT-016) via `POST .../sync-tasks` avec phases pull/push, `lastSyncAt` en succès complet, audit normatif.
+6. **Couvert (RFC-PROJ-OPT-001)** — page **Options projet** (`/projects/[projectId]/options`) : persistance `PUT` microsoft-link, OAuth, sync manuelle tâches/documents. **Partiel (RFC-006)** : la carte **sélecteurs** sur fiche projet (`ProjectMicrosoftResourceSelectorsCard`) peut rester sans branchement `PUT` si non utilisée au profit de la page Options.
+7. **Partiel** — **INT-FE-009** : statuts sync **par document** dans la liste documentaire ; le **bouton** sync documents depuis **Options projet** (OPT-001) complète le flux côté pilotage projet, pas la granularité par fichier.
 
 ---
 
@@ -115,7 +116,7 @@ Deux couches **séparées** :
 
 ### 2. Microsoft (projection)
 
-* Planner : backend + sync OK ; **UI** : compléter sélection/persistance (voir point 5 ci-dessus).
+* Planner : backend + sync bidirectionnelle OK (INT-016) ; **UI** : compléter sélection/persistance (voir point 6 ci-dessus).
 * Documents Teams : **backend sync OK** ; **UI sync** restante (INT-FE-009).
 
 ---
@@ -123,5 +124,5 @@ Deux couches **séparées** :
 # SYNTHÈSE
 
 * Plan **exécutable** ; découpage backend / frontend cohérent.
-* Prochaine valeur produit côté Microsoft : **UI** (lien projet persisté, puis sync documents).
+* Prochaine valeur produit côté Microsoft : **UI** (sélecteurs/persistance fiche projet + statuts sync documents par fichier).
 * Multi-tenant / client actif / pas de fuite inter-client : inchangé (guards + `X-Client-Id`).
