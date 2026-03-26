@@ -14,6 +14,7 @@ export interface Supplier {
   email: string | null;
   phone: string | null;
   website: string | null;
+  logoUrl: string | null;
   notes: string | null;
   supplierCategoryId: string | null;
   supplierCategory: SupplierCategory | null;

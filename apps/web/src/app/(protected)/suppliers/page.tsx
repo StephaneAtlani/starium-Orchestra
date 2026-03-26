@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Plus, Search } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
@@ -34,11 +34,14 @@ import { usePermissions } from '@/hooks/use-permissions';
 import {
   createSupplierCategory,
   createSupplier,
+  deleteSupplierLogo,
   listSupplierCategories,
   listSuppliers,
+  uploadSupplierLogo,
   updateSupplier,
   updateSupplierCategory,
 } from '@/features/procurement/api/procurement.api';
+import { ImageUploadDropzone } from '@/features/procurement/components/image-upload-dropzone';
 
 type SupplierFormState = {
   name: string;
@@ -138,6 +141,10 @@ export default function SuppliersPage() {
   });
   const [formErrors, setFormErrors] = useState<SupplierFormErrors>({});
   const [editFormErrors, setEditFormErrors] = useState<SupplierFormErrors>({});
+  const [newLogoFile, setNewLogoFile] = useState<File | null>(null);
+  const [newLogoPreview, setNewLogoPreview] = useState<string | null>(null);
+  const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
+  const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null);
   const canReadSuppliers = has('procurement.read');
   const canCreateSuppliers = has('procurement.create');
   const canUpdateSuppliers = has('procurement.update');
@@ -240,6 +247,10 @@ export default function SuppliersPage() {
         notes: form.notes || undefined,
       });
 
+      if (newLogoFile) {
+        await uploadSupplierLogo(authFetch, created.id, newLogoFile);
+      }
+
       if (form.supplierCategoryId !== '__none__') {
         await updateSupplierCategory(authFetch, created.id, form.supplierCategoryId);
       }
@@ -260,6 +271,8 @@ export default function SuppliersPage() {
         notes: '',
         supplierCategoryId: '__none__',
       });
+      setNewLogoFile(null);
+      setNewLogoPreview(null);
       await queryClient.invalidateQueries({
         queryKey: ['procurement', clientId, 'suppliers-page'],
       });
@@ -303,13 +316,64 @@ export default function SuppliersPage() {
       });
     },
     onSuccess: async () => {
+      if (selectedSupplierId && editLogoFile) {
+        await uploadSupplierLogo(authFetch, selectedSupplierId, editLogoFile);
+      }
       setEditSupplierModalOpen(false);
       setEditFormErrors({});
+      setEditLogoFile(null);
+      setEditLogoPreview(null);
       await queryClient.invalidateQueries({
         queryKey: ['procurement', clientId, 'suppliers-page'],
       });
     },
   });
+
+  useEffect(() => {
+    if (!newLogoFile) {
+      setNewLogoPreview(null);
+      return;
+    }
+    const nextUrl = URL.createObjectURL(newLogoFile);
+    setNewLogoPreview(nextUrl);
+    return () => URL.revokeObjectURL(nextUrl);
+  }, [newLogoFile]);
+
+  useEffect(() => {
+    let canceled = false;
+    if (!selectedSupplierId || !editSupplierModalOpen) {
+      setEditLogoPreview(null);
+      return;
+    }
+    if (editLogoFile) {
+      const nextUrl = URL.createObjectURL(editLogoFile);
+      setEditLogoPreview(nextUrl);
+      return () => URL.revokeObjectURL(nextUrl);
+    }
+
+    (async () => {
+      try {
+        const res = await authFetch(`/api/suppliers/${selectedSupplierId}/logo`);
+        if (!res.ok || canceled) {
+          if (!canceled) setEditLogoPreview(null);
+          return;
+        }
+        const blob = await res.blob();
+        if (canceled) return;
+        const url = URL.createObjectURL(blob);
+        setEditLogoPreview((previous) => {
+          if (previous) URL.revokeObjectURL(previous);
+          return url;
+        });
+      } catch {
+        if (!canceled) setEditLogoPreview(null);
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [authFetch, selectedSupplierId, editSupplierModalOpen, editLogoFile]);
 
   return (
     <RequireActiveClient>
@@ -327,7 +391,16 @@ export default function SuppliersPage() {
           }
         />
 
-        <Dialog open={newSupplierModalOpen} onOpenChange={setNewSupplierModalOpen}>
+        <Dialog
+          open={newSupplierModalOpen}
+          onOpenChange={(open) => {
+            setNewSupplierModalOpen(open);
+            if (!open) {
+              setNewLogoFile(null);
+              setNewLogoPreview(null);
+            }
+          }}
+        >
           <DialogContent
             className="flex max-h-[90vh] !w-[80vw] !max-w-[80vw] sm:!max-w-[80vw] flex-col gap-4 overflow-y-auto p-6"
             showCloseButton
@@ -482,6 +555,15 @@ export default function SuppliersPage() {
                     ) : null}
                   </div>
                   <div className="space-y-2 md:col-span-2">
+                    <ImageUploadDropzone
+                      id="supplier-logo-upload"
+                      title="Logo fournisseur"
+                      helperText="JPEG, PNG, WebP ou GIF - 2 Mo max"
+                      previewUrl={newLogoPreview}
+                      onFileSelected={(file) => setNewLogoFile(file)}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="supplier-notes">Notes</Label>
                     <Input
                       id="supplier-notes"
@@ -632,7 +714,16 @@ export default function SuppliersPage() {
             </div>
           </DialogContent>
         </Dialog>
-        <Dialog open={editSupplierModalOpen} onOpenChange={setEditSupplierModalOpen}>
+        <Dialog
+          open={editSupplierModalOpen}
+          onOpenChange={(open) => {
+            setEditSupplierModalOpen(open);
+            if (!open) {
+              setEditLogoFile(null);
+              setEditLogoPreview(null);
+            }
+          }}
+        >
           <DialogContent className="flex max-h-[90vh] !w-[80vw] !max-w-[80vw] sm:!max-w-[80vw] flex-col gap-4 overflow-y-auto p-6">
             <DialogHeader>
               <DialogTitle className="text-lg font-semibold tracking-tight">
@@ -674,6 +765,30 @@ export default function SuppliersPage() {
               <div className="space-y-1">
                 <Input value={editForm.website} onChange={(e) => setEditForm((p) => ({ ...p, website: sanitizeNoSpaces(e.target.value, 512) }))} placeholder="Site web" />
                 {editFormErrors.website ? <p className="text-xs text-destructive">{editFormErrors.website}</p> : null}
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <ImageUploadDropzone
+                  id="supplier-logo-upload-edit"
+                  title="Logo fournisseur"
+                  helperText="JPEG, PNG, WebP ou GIF - 2 Mo max"
+                  previewUrl={editLogoPreview}
+                  onFileSelected={(file) => setEditLogoFile(file)}
+                  onRemove={
+                    selectedSupplierId
+                      ? () => {
+                          void (async () => {
+                            await deleteSupplierLogo(authFetch, selectedSupplierId);
+                            setEditLogoFile(null);
+                            setEditLogoPreview(null);
+                            await queryClient.invalidateQueries({
+                              queryKey: ['procurement', clientId, 'suppliers-page'],
+                            });
+                          })();
+                        }
+                      : undefined
+                  }
+                  disabled={updateSupplierMutation.isPending}
+                />
               </div>
               <div className="md:col-span-2">
                 <Input value={editForm.notes} onChange={(e) => setEditForm((p) => ({ ...p, notes: sanitizeTrimmed(e.target.value, 2000) }))} placeholder="Notes" />
@@ -848,6 +963,7 @@ export default function SuppliersPage() {
                                 notes: supplier.notes ?? '',
                                 supplierCategoryId: supplier.supplierCategoryId ?? '__none__',
                               });
+                              setEditLogoFile(null);
                               setEditSupplierModalOpen(true);
                             }}
                           >

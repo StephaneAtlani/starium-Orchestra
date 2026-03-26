@@ -151,6 +151,32 @@ export async function updateSupplier(
   return res.json() as Promise<Supplier>;
 }
 
+export async function uploadSupplierLogo(
+  authFetch: AuthFetch,
+  supplierId: string,
+  file: File,
+): Promise<{ success: true; logoUrl: string }> {
+  const body = new FormData();
+  body.append('file', file);
+  const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}/logo`, {
+    method: 'POST',
+    body,
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ success: true; logoUrl: string }>;
+}
+
+export async function deleteSupplierLogo(
+  authFetch: AuthFetch,
+  supplierId: string,
+): Promise<{ success: true }> {
+  const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}/logo`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ success: true }>;
+}
+
 export async function createPurchaseOrder(
   authFetch: AuthFetch,
   payload: CreatePurchaseOrderPayload,

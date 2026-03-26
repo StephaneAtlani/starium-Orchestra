@@ -1930,6 +1930,7 @@ model Supplier {
   phone          String?
   website        String?
   logoUrl        String?
+  logoMimeType   String?
   vatNumber      String?
   notes          String?
   status         SupplierStatus @default(ACTIVE)

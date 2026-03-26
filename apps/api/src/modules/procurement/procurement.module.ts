@@ -12,6 +12,7 @@ import { BudgetLinesProcurementController } from './budget-lines-procurement.con
 import { SuppliersProcurementController } from './suppliers-procurement.controller';
 import { SupplierCategoriesController } from './supplier-categories/supplier-categories.controller';
 import { SupplierCategoriesService } from './supplier-categories/supplier-categories.service';
+import { SuppliersLogoStorageService } from './suppliers/suppliers-logo.storage';
 
 @Module({
   imports: [PrismaModule, AuditLogsModule, FinancialCoreModule],
@@ -28,12 +29,14 @@ import { SupplierCategoriesService } from './supplier-categories/supplier-catego
     PurchaseOrdersService,
     InvoicesService,
     SupplierCategoriesService,
+    SuppliersLogoStorageService,
   ],
   exports: [
     SuppliersService,
     PurchaseOrdersService,
     InvoicesService,
     SupplierCategoriesService,
+    SuppliersLogoStorageService,
   ],
 })
 export class ProcurementModule {}

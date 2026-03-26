@@ -6,6 +6,7 @@ describe('SuppliersService', () => {
   let service: SuppliersService;
   let prisma: any;
   let auditLogs: any;
+  let logoStorage: any;
 
   beforeEach(() => {
     prisma = {
@@ -21,7 +22,13 @@ describe('SuppliersService', () => {
       },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
-    service = new SuppliersService(prisma, auditLogs);
+    logoStorage = {
+      write: jest.fn().mockResolvedValue(undefined),
+      remove: jest.fn().mockResolvedValue(undefined),
+      exists: jest.fn().mockReturnValue(true),
+      createReadStream: jest.fn(),
+    };
+    service = new SuppliersService(prisma, auditLogs, logoStorage);
   });
 
   it('quickCreate crée supplier si absent', async () => {

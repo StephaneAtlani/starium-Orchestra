@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   Injectable,
   NotFoundException,
+  StreamableFile,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -15,6 +16,11 @@ import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { ListSuppliersQueryDto } from './dto/list-suppliers.query.dto';
 import { QuickCreateSupplierDto } from './dto/quick-create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
+import {
+  ALLOWED_SUPPLIER_LOGO_MIME,
+  MAX_SUPPLIER_LOGO_BYTES,
+} from './suppliers-logo.constants';
+import { SuppliersLogoStorageService } from './suppliers-logo.storage';
 
 export interface ProcurementAuditContext {
   actorUserId?: string;
@@ -41,6 +47,7 @@ export interface SupplierResponse {
   email: string | null;
   phone: string | null;
   website: string | null;
+  logoUrl: string | null;
   notes: string | null;
   status: string;
   supplierCategoryId: string | null;
@@ -61,6 +68,7 @@ export class SuppliersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly logoStorage: SuppliersLogoStorageService,
   ) {}
 
   async list(
@@ -404,6 +412,107 @@ export class SuppliersService {
     return toSupplierResponse(updated);
   }
 
+  async saveLogo(
+    clientId: string,
+    supplierId: string,
+    file:
+      | { buffer: Buffer; mimetype: string; size: number }
+      | undefined,
+    context?: ProcurementAuditContext,
+  ): Promise<{ success: true; logoUrl: string }> {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Fichier requis');
+    }
+    if (file.size > MAX_SUPPLIER_LOGO_BYTES) {
+      throw new BadRequestException('Logo trop volumineux (max 2 Mo)');
+    }
+    if (!file.mimetype || !ALLOWED_SUPPLIER_LOGO_MIME.has(file.mimetype)) {
+      throw new BadRequestException('Format accepté : JPEG, PNG, WebP ou GIF');
+    }
+
+    const supplierRepo = this.getSupplierRepo(this.prisma as any);
+    const existing = await supplierRepo.findFirst({
+      where: { id: supplierId, clientId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Supplier not found');
+    }
+
+    await this.logoStorage.write(clientId, supplierId, file.buffer);
+    const logoUrl = `/api/suppliers/${supplierId}/logo`;
+    await supplierRepo.update({
+      where: { id: supplierId },
+      data: { logoUrl, logoMimeType: file.mimetype },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: 'supplier.logo_uploaded',
+      resourceType: 'supplier',
+      resourceId: supplierId,
+      newValue: { logoMimeType: file.mimetype },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return { success: true, logoUrl };
+  }
+
+  async deleteLogo(
+    clientId: string,
+    supplierId: string,
+    context?: ProcurementAuditContext,
+  ): Promise<{ success: true }> {
+    const supplierRepo = this.getSupplierRepo(this.prisma as any);
+    const existing = await supplierRepo.findFirst({
+      where: { id: supplierId, clientId },
+      select: { id: true, logoMimeType: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Supplier not found');
+    }
+
+    await this.logoStorage.remove(clientId, supplierId);
+    await supplierRepo.update({
+      where: { id: supplierId },
+      data: { logoUrl: null, logoMimeType: null },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: 'supplier.logo_removed',
+      resourceType: 'supplier',
+      resourceId: supplierId,
+      oldValue: { logoMimeType: existing.logoMimeType ?? null },
+      newValue: { logoMimeType: null },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return { success: true };
+  }
+
+  async getLogoFile(clientId: string, supplierId: string): Promise<StreamableFile> {
+    const supplierRepo = this.getSupplierRepo(this.prisma as any);
+    const existing = await supplierRepo.findFirst({
+      where: { id: supplierId, clientId },
+      select: { logoMimeType: true },
+    });
+    if (
+      !existing?.logoMimeType ||
+      !this.logoStorage.exists(clientId, supplierId)
+    ) {
+      throw new NotFoundException('Aucun logo');
+    }
+    const stream = this.logoStorage.createReadStream(clientId, supplierId);
+    return new StreamableFile(stream, { type: existing.logoMimeType });
+  }
+
   async findById(clientId: string, id: string): Promise<SupplierResponse> {
     const prisma = this.prisma as any;
     const supplierRepo = this.getSupplierRepo(prisma);
@@ -566,6 +675,7 @@ function toSupplierResponse(row: any): SupplierResponse {
     email: row.email ?? null,
     phone: row.phone ?? null,
     website: row.website ?? null,
+    logoUrl: row.logoUrl ?? null,
     notes: row.notes ?? null,
     status: row.status,
     supplierCategoryId: row.supplierCategoryId ?? null,
