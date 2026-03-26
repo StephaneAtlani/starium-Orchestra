@@ -106,6 +106,8 @@ export function ProjectPlanningKanbanTab({ projectId }: { projectId: string }) {
       (taskLabelsQuery.data ?? []).map((l) => ({
         id: l.id,
         label: l.name,
+        color: l.color,
+        plannerCategoryId: l.plannerCategoryId,
       })),
     [taskLabelsQuery.data],
   );

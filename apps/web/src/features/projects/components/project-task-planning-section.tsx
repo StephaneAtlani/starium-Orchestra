@@ -309,6 +309,8 @@ export const ProjectTaskPlanningSection = forwardRef<
       (taskLabelsQuery.data ?? []).map((l) => ({
         id: l.id,
         label: l.name,
+        color: l.color,
+        plannerCategoryId: l.plannerCategoryId,
       })),
     [taskLabelsQuery.data],
   );

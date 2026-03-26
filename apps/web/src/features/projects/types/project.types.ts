@@ -143,6 +143,14 @@ export type ProjectTaskLabelApi = {
   plannerCategoryId: string | null;
 };
 
+/** Option UI formulaire tâche (étiquettes). */
+export type TaskLabelOption = {
+  id: string;
+  label: string;
+  color?: string | null;
+  plannerCategoryId?: string | null;
+};
+
 export type ProjectMilestoneLabelApi = {
   id: string;
   name: string;

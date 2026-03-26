@@ -20,6 +20,18 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { TaskLabelOption } from '../types/project.types';
+import {
+  pickReadableTextOnBackground,
+  resolveTaskLabelDisplayColor,
+} from '../lib/planner-task-label-colors';
 
 function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -45,6 +57,9 @@ const DEP_TYPES = [
   { value: 'FINISH_TO_FINISH', label: 'Fin → fin' },
 ];
 
+/** Valeur sentinelle pour le Select d’ajout d’étiquette (affichage « Choisir… »). */
+const TASK_LABEL_PICK_PLACEHOLDER = '__task_label_pick__';
+
 export type TaskFormDialogFieldsProps = {
   form: CreateProjectTaskPayload;
   onPatch: (patch: Partial<CreateProjectTaskPayload>) => void;
@@ -53,7 +68,7 @@ export type TaskFormDialogFieldsProps = {
   assignableOptions: { id: string; label: string }[];
   /** Buckets projet (vide = aucun bucket défini côté API). */
   bucketOptions: { id: string; label: string }[];
-  taskLabelOptions: { id: string; label: string }[];
+  taskLabelOptions: TaskLabelOption[];
   syncMicrosoftPlannerLabelsEnabled: boolean;
   canCreateTaskLabels: boolean;
   onCreateTaskLabel?: (name: string) => Promise<string>;
@@ -82,11 +97,9 @@ export function TaskFormDialogFields({
   const selectedLabelIds = form.taskLabelIds ?? [];
   const [newLabelName, setNewLabelName] = useState('');
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
-  const [labelPickerValue, setLabelPickerValue] = useState('');
-
   const labelById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const o of taskLabelOptions) m.set(o.id, o.label);
+    const m = new Map<string, TaskLabelOption>();
+    for (const o of taskLabelOptions) m.set(o.id, o);
     return m;
   }, [taskLabelOptions]);
 
@@ -404,24 +417,37 @@ export function TaskFormDialogFields({
         <div className="space-y-3">
           {selectedLabelIds.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
-              {selectedLabelIds.map((id) => (
-                <span
-                  key={id}
-                  className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-border bg-background px-2 py-0.5 text-xs text-foreground"
-                >
-                  <span className="truncate" title={labelById.get(id) ?? id}>
-                    {labelById.get(id) ?? id}
-                  </span>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    aria-label={`Retirer l’étiquette ${labelById.get(id) ?? id}`}
-                    onClick={() => removeLabel(id)}
+              {selectedLabelIds.map((id) => {
+                const opt = labelById.get(id);
+                const name = opt?.label ?? id;
+                const bg = resolveTaskLabelDisplayColor(
+                  opt?.plannerCategoryId ?? null,
+                  opt?.color ?? null,
+                );
+                const fg = pickReadableTextOnBackground(bg);
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex max-w-full items-center gap-0.5 rounded-full px-2.5 py-0.5 text-xs font-medium shadow-sm"
+                    style={{ backgroundColor: bg, color: fg }}
                   >
-                    <X className="size-3.5" aria-hidden />
-                  </button>
-                </span>
-              ))}
+                    <span className="truncate" title={name}>
+                      {name}
+                    </span>
+                    <button
+                      type="button"
+                      className={cn(
+                        'shrink-0 rounded-md p-0.5 hover:bg-black/10',
+                        fg === '#ffffff' ? 'text-white/90' : 'text-black/70',
+                      )}
+                      aria-label={`Retirer l’étiquette ${name}`}
+                      onClick={() => removeLabel(id)}
+                    >
+                      <X className="size-3.5" aria-hidden />
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           ) : taskLabelOptions.length > 0 ? (
             <p className="text-[11px] leading-snug text-muted-foreground">
@@ -431,33 +457,52 @@ export function TaskFormDialogFields({
 
           <div className="space-y-1.5">
             <Label htmlFor={fid('labels-picker')}>Choisir une étiquette</Label>
-            <select
-              id={fid('labels-picker')}
-              className={cn(
-                'h-9 w-full rounded-lg border px-2',
-                fieldBase,
-                taskLabelOptions.length === 0 && 'cursor-not-allowed opacity-70',
-              )}
-              disabled={taskLabelOptions.length === 0}
-              value={taskLabelOptions.length === 0 ? '' : labelPickerValue}
-              onChange={(e) => {
-                const id = e.target.value;
-                if (!id) return;
+            <Select
+              value={TASK_LABEL_PICK_PLACEHOLDER}
+              onValueChange={(id) => {
+                if (!id || id === TASK_LABEL_PICK_PLACEHOLDER) return;
                 toggleLabel(id);
-                setLabelPickerValue('');
               }}
+              disabled={taskLabelOptions.length === 0}
             >
-              <option value="">
-                {taskLabelOptions.length === 0
-                  ? '— Aucune étiquette disponible'
-                  : '— Choisir dans la liste…'}
-              </option>
-              {availableLabelOptions.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                id={fid('labels-picker')}
+                className={cn(
+                  'h-9 w-full min-w-0 border px-2 shadow-xs',
+                  fieldBase,
+                  taskLabelOptions.length === 0 && 'cursor-not-allowed opacity-70',
+                )}
+              >
+                <SelectValue placeholder="— Choisir dans la liste…">
+                  {taskLabelOptions.length === 0
+                    ? '— Aucune étiquette disponible'
+                    : '— Choisir dans la liste…'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TASK_LABEL_PICK_PLACEHOLDER}>
+                  <span className="text-muted-foreground">— Choisir dans la liste…</span>
+                </SelectItem>
+                {availableLabelOptions.map((opt) => {
+                  const bg = resolveTaskLabelDisplayColor(
+                    opt.plannerCategoryId ?? null,
+                    opt.color ?? null,
+                  );
+                  return (
+                    <SelectItem key={opt.id} value={opt.id}>
+                      <span className="flex w-full min-w-0 items-center gap-2.5">
+                        <span
+                          className="size-3 shrink-0 rounded-full shadow-inner ring-1 ring-black/10"
+                          style={{ backgroundColor: bg }}
+                          aria-hidden
+                        />
+                        <span className="min-w-0 truncate">{opt.label}</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
             {taskLabelOptions.length === 0 ? (
               <p className="text-[11px] leading-snug text-muted-foreground">
                 {syncMicrosoftPlannerLabelsEnabled
