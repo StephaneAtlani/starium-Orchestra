@@ -1,10 +1,16 @@
 import type { AuthFetch } from '../../budgets/api/budget-management.api';
 import { parseApiFormError } from '../../budgets/api/budget-management.api';
-import type { PaginatedResponse, Supplier, SupplierOption } from '../types/supplier.types';
+import type {
+  PaginatedResponse,
+  Supplier,
+  SupplierCategory,
+  SupplierOption,
+} from '../types/supplier.types';
 import type { CreatePurchaseOrderPayload, PurchaseOrder } from '../types/purchase-order.types';
 import type { CreateInvoicePayload, Invoice } from '../types/invoice.types';
 
 const BASE_SUPPLIERS = '/api/suppliers';
+const BASE_SUPPLIER_CATEGORIES = '/api/supplier-categories';
 const BASE_ORDERS = '/api/purchase-orders';
 const BASE_INVOICES = '/api/invoices';
 const BASE_BUDGET_LINES = '/api/budget-lines';
@@ -28,12 +34,42 @@ export async function listSuppliers(
     offset?: number;
     limit?: number;
     includeArchived?: boolean;
+    supplierCategoryId?: string;
   },
 ): Promise<PaginatedResponse<Supplier>> {
   const qs = buildQueryString(params);
   const res = await authFetch(`${BASE_SUPPLIERS}${qs}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<PaginatedResponse<Supplier>>;
+}
+
+export async function listSupplierCategories(
+  authFetch: AuthFetch,
+  params?: {
+    search?: string;
+    offset?: number;
+    limit?: number;
+    includeInactive?: boolean;
+  },
+): Promise<PaginatedResponse<SupplierCategory>> {
+  const qs = buildQueryString(params);
+  const res = await authFetch(`${BASE_SUPPLIER_CATEGORIES}${qs}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PaginatedResponse<SupplierCategory>>;
+}
+
+export async function updateSupplierCategory(
+  authFetch: AuthFetch,
+  supplierId: string,
+  supplierCategoryId: string | null,
+): Promise<Supplier> {
+  const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ supplierCategoryId }),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<Supplier>;
 }
 
 export async function quickCreateSupplier(

@@ -10,6 +10,8 @@ import { InvoicesController } from './invoices/invoices.controller';
 import { InvoicesService } from './invoices/invoices.service';
 import { BudgetLinesProcurementController } from './budget-lines-procurement.controller';
 import { SuppliersProcurementController } from './suppliers-procurement.controller';
+import { SupplierCategoriesController } from './supplier-categories/supplier-categories.controller';
+import { SupplierCategoriesService } from './supplier-categories/supplier-categories.service';
 
 @Module({
   imports: [PrismaModule, AuditLogsModule, FinancialCoreModule],
@@ -19,9 +21,20 @@ import { SuppliersProcurementController } from './suppliers-procurement.controll
     InvoicesController,
     BudgetLinesProcurementController,
     SuppliersProcurementController,
+    SupplierCategoriesController,
   ],
-  providers: [SuppliersService, PurchaseOrdersService, InvoicesService],
-  exports: [SuppliersService, PurchaseOrdersService, InvoicesService],
+  providers: [
+    SuppliersService,
+    PurchaseOrdersService,
+    InvoicesService,
+    SupplierCategoriesService,
+  ],
+  exports: [
+    SuppliersService,
+    PurchaseOrdersService,
+    InvoicesService,
+    SupplierCategoriesService,
+  ],
 })
 export class ProcurementModule {}
 

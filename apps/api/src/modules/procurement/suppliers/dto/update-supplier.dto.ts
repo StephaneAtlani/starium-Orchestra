@@ -45,5 +45,10 @@ export class UpdateSupplierDto {
   @IsString()
   @MaxLength(2000)
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  supplierCategoryId?: string | null;
 }
 

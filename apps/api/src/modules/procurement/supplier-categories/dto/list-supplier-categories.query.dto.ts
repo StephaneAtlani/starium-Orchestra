@@ -2,7 +2,7 @@ import { Type } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { PaginationQueryDto } from '../../shared/pagination-query.dto';
 
-export class ListSuppliersQueryDto extends PaginationQueryDto {
+export class ListSupplierCategoriesQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
@@ -10,10 +10,5 @@ export class ListSuppliersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
-  includeArchived?: boolean;
-
-  @IsOptional()
-  @IsString()
-  supplierCategoryId?: string;
+  includeInactive?: boolean;
 }
-

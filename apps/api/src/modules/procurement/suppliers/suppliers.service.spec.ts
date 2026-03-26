@@ -16,6 +16,9 @@ describe('SuppliersService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      supplierCategory: {
+        findFirst: jest.fn(),
+      },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     service = new SuppliersService(prisma, auditLogs);
@@ -327,6 +330,93 @@ describe('SuppliersService', () => {
     await expect(
       service.create('c1', { name: 'Concurrent', externalId: 'EXT-CC' }),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('assigne une catégorie active du même client', async () => {
+    prisma.supplier.findFirst.mockResolvedValueOnce({
+      id: 'sup-1',
+      clientId: 'c1',
+      name: 'Acme',
+      normalizedName: 'acme',
+      status: 'ACTIVE',
+      supplierCategoryId: null,
+      externalId: null,
+      vatNumber: null,
+      email: null,
+    });
+    prisma.supplier.findFirst.mockResolvedValueOnce(null);
+    prisma.supplierCategory.findFirst.mockResolvedValueOnce({
+      id: 'cat-1',
+      isActive: true,
+    });
+    prisma.supplier.update.mockResolvedValue({
+      id: 'sup-1',
+      clientId: 'c1',
+      name: 'Acme',
+      normalizedName: 'acme',
+      status: 'ACTIVE',
+      supplierCategoryId: 'cat-1',
+      supplierCategory: {
+        id: 'cat-1',
+        name: 'Cloud',
+        code: null,
+        color: null,
+        icon: null,
+        isActive: true,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.update('c1', 'sup-1', { supplierCategoryId: 'cat-1' });
+    expect(result.supplierCategoryId).toBe('cat-1');
+    expect(prisma.supplier.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ supplierCategoryId: 'cat-1' }),
+      }),
+    );
+  });
+
+  it('retire la catégorie si supplierCategoryId null', async () => {
+    prisma.supplier.findFirst.mockResolvedValueOnce({
+      id: 'sup-1',
+      clientId: 'c1',
+      name: 'Acme',
+      normalizedName: 'acme',
+      status: 'ACTIVE',
+      supplierCategoryId: 'cat-1',
+      externalId: null,
+      vatNumber: null,
+      email: null,
+    });
+    prisma.supplier.findFirst.mockResolvedValueOnce(null);
+    prisma.supplier.update.mockResolvedValue({
+      id: 'sup-1',
+      clientId: 'c1',
+      name: 'Acme',
+      normalizedName: 'acme',
+      status: 'ACTIVE',
+      supplierCategoryId: null,
+      supplierCategory: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.update('c1', 'sup-1', { supplierCategoryId: null });
+    expect(result.supplierCategoryId).toBeNull();
+  });
+
+  it('filtre la liste par supplierCategoryId', async () => {
+    prisma.supplier.findMany.mockResolvedValue([]);
+    prisma.supplier.count.mockResolvedValue(0);
+
+    await service.list('c1', { supplierCategoryId: 'cat-1' });
+
+    expect(prisma.supplier.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ supplierCategoryId: 'cat-1' }),
+      }),
+    );
   });
 });
 

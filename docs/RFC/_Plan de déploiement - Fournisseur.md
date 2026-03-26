@@ -1,12 +1,12 @@
 Voici la **liste des référentiels à développer dans l’ordre** pour la brique **fournisseurs / procurement**, en restant cohérent avec la vision Starium, l’architecture modulaire, le multi-tenant strict et le couplage futur avec budgets, commandes et factures.  
 
-## État d'avancement (RFC-FOU-025-A)
+## État d'avancement (RFC-FOU-025-A + RFC-FOU-026)
 
 | Lot | Périmètre | État | Détail |
 | --- | --- | --- | --- |
-| Lot 1 | Backend + Prisma + Tests | ✅ Terminé | Schéma `Supplier` durci, migration SQL additive avec contrôles de collisions, normalisation/matching anti-doublon, tests unitaires + intégration procurement |
-| Lot 2 | Frontend Supplier UX | ⏳ En attente | Hors scope de ce lot (combobox/messages UX à aligner ensuite) |
-| Lot 3 | Documentation API globale (`docs/API.md`) | ⏳ En attente | À compléter si on veut documenter explicitement les champs de réponse enrichis |
+| Lot 1 | Backend + Prisma + Tests | ✅ Terminé | `Supplier` durci + `SupplierCategory` ajouté (modèle, migration, services, contrôleurs), filtres catégorie, audits, tests unitaires services |
+| Lot 2 | Frontend Supplier UX | 🟡 Partiel | Page `/suppliers` active avec filtre catégorie + assignation inline; UX fournisseur avancée (RFC-FE-028) encore à finaliser |
+| Lot 3 | Documentation API globale (`docs/API.md`) | ⏳ En attente | À compléter pour documenter les endpoints `supplier-categories` et l’enrichissement réponse `Supplier` |
 
 ### Détail lot terminé (Backend + Prisma + Tests)
 
@@ -23,12 +23,12 @@ Voici la **liste des référentiels à développer dans l’ordre** pour la briq
 | Ordre | Référentiel                    | Objectif                                                       | Priorité   | État | Pourquoi en premier / ensuite                                                                         |
 | ----- | ------------------------------ | -------------------------------------------------------------- | ---------- | ---- | ----------------------------------------------------------------------------------------------------- |
 | 1     | **Suppliers**                  | Référentiel maître des fournisseurs                            | Très haute | ✅ Terminé (lot backend) | C’est la racine métier de tout le flux procurement                                 |
-| 2     | **Supplier Categories**        | Classer les fournisseurs (cloud, télécom, ERP, sécurité, etc.) | Haute      | ⏳ À faire | Permet tri, filtres, reporting et cockpit                                                             |
+| 2     | **Supplier Categories**        | Classer les fournisseurs (cloud, télécom, ERP, sécurité, etc.) | Haute      | 🟡 Partiel (MVP implémenté) | Backend + migration + UI minimale en place; tests d’intégration API et finitions DTO à compléter |
 | 3     | **Supplier Statuses**          | Actif, inactif, en revue, bloqué                               | Haute      | ⏳ À faire | Nécessaire pour gouvernance et contrôle                                                               |
 | 4     | **Payment Terms**              | Conditions de paiement standardisées                           | Moyenne    | ⏳ À faire | Utile avant PO / Invoice pour homogénéiser les données                                                |
 | 5     | **Currencies**                 | Devise de référence des fournisseurs / documents               | Moyenne    | ⏳ À faire | Cohérence avec budgets et commandes                                                                   |
-| 6     | **Purchase Order Statuses**    | Brouillon, envoyé, validé, partiellement reçu, clos            | Haute      | 🟡 Partiel | Nécessaire dès qu’on attaque les commandes                                                            |
-| 7     | **Invoice Statuses**           | Brouillon, reçue, validée, payée, rejetée                      | Haute      | 🟡 Partiel | Nécessaire dès qu’on attaque les factures                                                             |
+| 6     | **Purchase Order Statuses**    | Brouillon, émise, approuvée, partiellement/finalement facturée | Haute      | ✅ Implémenté (MVP) | Enum backend en place : `DRAFT`, `ISSUED`, `APPROVED`, `PARTIALLY_INVOICED`, `FULLY_INVOICED`, `CANCELLED` |
+| 7     | **Invoice Statuses**           | Reçue, validée, payée, annulée                                 | Haute      | ✅ Implémenté (MVP) | Enum backend en place : `RECEIVED`, `VALIDATED`, `PAID`, `CANCELLED` |
 | 8     | **General Ledger Accounts**    | Comptes comptables généraux                                    | Très haute | ✅ Déjà en place | Déjà nécessaire côté budget analytique / ventilation                                             |
 | 9     | **Analytical Ledger Accounts** | Comptes analytiques optionnels                                 | Haute      | ✅ Déjà en place | Nécessaire pour lecture DAF / analytique                                                         |
 | 10    | **Cost Centers**               | Centres de coûts                                               | Très haute | ✅ Déjà en place | Base des ventilations analytiques                                                                |
@@ -79,7 +79,8 @@ Toute création / modification / désactivation d’un référentiel important d
   * `@@unique([clientId, normalizedName])`
   * + contraintes SQL partielles sur `externalId` et `vatNumber` normalisés (migration SQL).
 * Flux `supplierName` de `PurchaseOrder` / `Invoice` passe par `SuppliersService.quickCreate`.
-* Frontend et documentation UI restent hors scope de ce lot.
+* Frontend de base disponible : page `/suppliers` + entrée sidebar `Fournisseurs` avec permission `procurement.read`.
+* UX fournisseur détaillée (RFC-FE-028) reste partielle / à compléter.
 
 ### Règles métier
 
@@ -112,11 +113,24 @@ Le fournisseur est le **référentiel racine** des commandes, factures et futurs
 
 ## 3. Référentiel Supplier Categories
 
+### État actuel (aligné code)
+
+* RFC-FOU-026 implémentée en MVP sur backend + Prisma + UI minimale.
+* Modèle `SupplierCategory` ajouté avec scope client strict (`clientId`) et unicité `(clientId, normalizedName)`.
+* Relation `Supplier.supplierCategoryId` ajoutée (`onDelete: SetNull`), filtre `GET /api/suppliers?supplierCategoryId=...` en place.
+* Endpoints exposés : `GET/POST /api/supplier-categories`, `GET/PATCH /api/supplier-categories/:id`, `POST /api/supplier-categories/:id/deactivate`.
+* Page `/suppliers` : filtre catégorie + assignation inline de catégorie.
+* Audits implémentés : `supplier_category.created|updated|deactivated`, `supplier.category_assigned|removed`.
+
 ### Règles métier
 
 * valeurs paramétrables par client
-* unicité du code ou du nom dans le client
+* unicité du nom normalisé dans le client
 * exemples : Cloud, Télécom, ERP, Cybersécurité, Infogérance, Matériel
+
+### Point de vigilance actuel
+
+* Retrait de catégorie via payload `{"supplierCategoryId": null}` prévu dans le design, mais nécessite un ajustement DTO backend pour accepter `null` explicitement en validation.
 
 ### Finalité métier
 
@@ -184,14 +198,13 @@ Le fournisseur est le **référentiel racine** des commandes, factures et futurs
 
 ### Règles métier
 
-Statuts MVP recommandés :
+Statuts MVP alignés code (implémentés) :
 
 * `DRAFT`
-* `SUBMITTED`
+* `ISSUED`
 * `APPROVED`
-* `SENT`
-* `PARTIALLY_RECEIVED`
-* `CLOSED`
+* `PARTIALLY_INVOICED`
+* `FULLY_INVOICED`
 * `CANCELLED`
 
 ### Finalité métier
@@ -206,13 +219,11 @@ Statuts MVP recommandés :
 
 ### Règles métier
 
-Statuts MVP recommandés :
+Statuts MVP alignés code (implémentés) :
 
-* `DRAFT`
 * `RECEIVED`
 * `VALIDATED`
 * `PAID`
-* `REJECTED`
 * `CANCELLED`
 
 ### Finalité métier

@@ -10,7 +10,22 @@ export interface Supplier {
   code: string | null;
   siret: string | null;
   vatNumber: string | null;
+  supplierCategoryId: string | null;
+  supplierCategory: SupplierCategory | null;
   status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupplierCategory {
+  id: string;
+  clientId: string;
+  name: string;
+  code: string | null;
+  color: string | null;
+  icon: string | null;
+  sortOrder: number;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }

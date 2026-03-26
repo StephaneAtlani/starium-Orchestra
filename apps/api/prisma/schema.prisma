@@ -99,6 +99,7 @@ model Client {
   financialAllocations       FinancialAllocation[]
   financialEvents            FinancialEvent[]
   suppliers                  Supplier[]
+  supplierCategories         SupplierCategory[]
   purchaseOrders             PurchaseOrder[]
   invoices                   Invoice[]
   budgetSnapshots            BudgetSnapshot[]
@@ -1919,6 +1920,7 @@ model BudgetReallocation {
 model Supplier {
   id             String         @id @default(cuid())
   clientId       String
+  supplierCategoryId String?
   name           String
   normalizedName String
   code           String?
@@ -1933,6 +1935,7 @@ model Supplier {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplierCategory SupplierCategory? @relation(fields: [supplierCategoryId], references: [id], onDelete: SetNull)
   purchaseOrders PurchaseOrder[]
   invoices       Invoice[]
 
@@ -1941,6 +1944,29 @@ model Supplier {
   @@index([clientId, status])
   @@index([clientId, vatNumber])
   @@index([clientId, externalId])
+  @@index([supplierCategoryId])
+  @@index([clientId, supplierCategoryId])
+}
+
+model SupplierCategory {
+  id             String     @id @default(cuid())
+  clientId       String
+  name           String
+  normalizedName String
+  code           String?
+  color          String?
+  icon           String?
+  sortOrder      Int        @default(0)
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  client         Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  suppliers      Supplier[]
+
+  @@unique([clientId, normalizedName])
+  @@index([clientId])
+  @@index([clientId, isActive])
+  @@index([clientId, sortOrder])
 }
 
 model PurchaseOrder {

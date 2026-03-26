@@ -21,6 +21,15 @@ export interface ProcurementAuditContext {
   meta?: { ipAddress?: string; userAgent?: string; requestId?: string };
 }
 
+export interface SupplierCategorySummary {
+  id: string;
+  name: string;
+  code: string | null;
+  color: string | null;
+  icon: string | null;
+  isActive: boolean;
+}
+
 export interface SupplierResponse {
   id: string;
   clientId: string;
@@ -34,6 +43,8 @@ export interface SupplierResponse {
   website: string | null;
   notes: string | null;
   status: string;
+  supplierCategoryId: string | null;
+  supplierCategory: SupplierCategorySummary | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +72,9 @@ export class SuppliersService {
     const where: any = {
       clientId,
       ...(query.includeArchived ? {} : { status: { not: 'ARCHIVED' } }),
+      ...(query.supplierCategoryId
+        ? { supplierCategoryId: query.supplierCategoryId }
+        : {}),
     };
     if (query.search?.trim()) {
       where.name = { contains: query.search.trim(), mode: 'insensitive' };
@@ -71,6 +85,9 @@ export class SuppliersService {
     const [items, total] = await Promise.all([
       supplierRepo.findMany({
         where,
+        include: {
+          supplierCategory: true,
+        },
         orderBy: [{ name: 'asc' }, { createdAt: 'desc' }],
         take: limit,
         skip: offset,
@@ -229,6 +246,9 @@ export class SuppliersService {
     const supplierRepo = this.getSupplierRepo(prisma);
     const existing = await supplierRepo.findFirst({
       where: { id, clientId },
+      include: {
+        supplierCategory: true,
+      },
     });
     if (!existing) {
       throw new NotFoundException('Supplier not found');
@@ -253,6 +273,10 @@ export class SuppliersService {
         : existing.externalId;
     const nextEmail =
       dto.email !== undefined ? normalizeEmail(dto.email) : existing.email;
+    const nextSupplierCategoryId = await this.resolveSupplierCategoryId(
+      clientId,
+      dto.supplierCategoryId,
+    );
     const conflict = await this.findDuplicateSupplierByPriority(supplierRepo, {
       clientId,
       normalizedName: nextNormalizedName,
@@ -277,6 +301,12 @@ export class SuppliersService {
           ...(dto.website !== undefined && { website: dto.website?.trim() || null }),
           ...(dto.vatNumber !== undefined && { vatNumber: nextVatNumber }),
           ...(dto.notes !== undefined && { notes: dto.notes?.trim() || null }),
+          ...(dto.supplierCategoryId !== undefined && {
+            supplierCategoryId: nextSupplierCategoryId,
+          }),
+        },
+        include: {
+          supplierCategory: true,
         },
       });
     } catch (error) {
@@ -299,17 +329,39 @@ export class SuppliersService {
         normalizedName: existing.normalizedName,
         externalId: existing.externalId ?? null,
         vatNumber: existing.vatNumber ?? null,
+        supplierCategoryId: existing.supplierCategoryId ?? null,
       },
       newValue: {
         name: updated.name,
         normalizedName: updated.normalizedName,
         externalId: updated.externalId ?? null,
         vatNumber: updated.vatNumber ?? null,
+        supplierCategoryId: updated.supplierCategoryId ?? null,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     });
+
+    if (
+      dto.supplierCategoryId !== undefined &&
+      (existing.supplierCategoryId ?? null) !== (updated.supplierCategoryId ?? null)
+    ) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: updated.supplierCategoryId
+          ? 'supplier.category_assigned'
+          : 'supplier.category_removed',
+        resourceType: 'supplier',
+        resourceId: id,
+        oldValue: { supplierCategoryId: existing.supplierCategoryId ?? null },
+        newValue: { supplierCategoryId: updated.supplierCategoryId ?? null },
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
+    }
 
     return toSupplierResponse(updated);
   }
@@ -370,6 +422,32 @@ export class SuppliersService {
       );
     }
     return repo;
+  }
+
+  private async resolveSupplierCategoryId(
+    clientId: string,
+    supplierCategoryId: string | null | undefined,
+  ): Promise<string | null | undefined> {
+    if (supplierCategoryId === undefined) {
+      return undefined;
+    }
+
+    const normalizedId = supplierCategoryId?.trim() || null;
+    if (!normalizedId) {
+      return null;
+    }
+
+    const category = await this.prisma.supplierCategory.findFirst({
+      where: { id: normalizedId, clientId },
+      select: { id: true, isActive: true },
+    });
+    if (!category) {
+      throw new BadRequestException('Supplier category not found');
+    }
+    if (!category.isActive) {
+      throw new BadRequestException('Supplier category is inactive');
+    }
+    return normalizedId;
   }
 
   private async findDuplicateSupplierByPriority(
@@ -466,6 +544,17 @@ function normalizeExternalId(externalId?: string | null): string | null {
 }
 
 function toSupplierResponse(row: any): SupplierResponse {
+  const supplierCategory = row.supplierCategory
+    ? {
+        id: row.supplierCategory.id,
+        name: row.supplierCategory.name,
+        code: row.supplierCategory.code ?? null,
+        color: row.supplierCategory.color ?? null,
+        icon: row.supplierCategory.icon ?? null,
+        isActive: row.supplierCategory.isActive,
+      }
+    : null;
+
   return {
     id: row.id,
     clientId: row.clientId,
@@ -479,6 +568,8 @@ function toSupplierResponse(row: any): SupplierResponse {
     website: row.website ?? null,
     notes: row.notes ?? null,
     status: row.status,
+    supplierCategoryId: row.supplierCategoryId ?? null,
+    supplierCategory,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
