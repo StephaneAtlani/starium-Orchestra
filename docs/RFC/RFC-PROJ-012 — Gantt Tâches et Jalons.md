@@ -152,6 +152,7 @@ model ProjectMilestone {
   id            String   @id @default(cuid())
   clientId      String
   projectId     String
+  phaseId       String?
 
   name          String
   description   String?
@@ -167,6 +168,8 @@ model ProjectMilestone {
   updatedAt     DateTime @updatedAt
 
   @@index([clientId, projectId])
+  @@index([phaseId])
+  @@index([projectId, phaseId])
 }
 ```
 
@@ -273,7 +276,9 @@ GET /api/projects/:projectId/gantt
     {
       "id": "ms_1",
       "name": "Go Live",
-      "targetDate": "2026-03-15"
+      "targetDate": "2026-03-15",
+      "phaseId": "phase_1",
+      "linkedTaskId": "task_1"
     }
   ]
 }
@@ -316,7 +321,9 @@ Projet
 ### Gauche
 
 * grille des tâches groupées par phase (actions CRUD si `projects.update`) — même logique métier que l’onglet Tâches (`ProjectTaskPlanningSection`, variant `gantt-sidebar`)
-* lignes jalons en bas de grille (alignées avec la frise) ; date cible éditable par drag sur la frise si `projects.update`
+* jalons affichés dans leur groupe de phase (pas en bloc séparé en bas)
+* si un jalon est lié à une tâche et que les deux partagent la même phase, la tâche est affichée juste après le jalon
+* toggle `Jalons` : masque les jalons dans la frise **et** dans la grille gauche
 
 ### Droite
 

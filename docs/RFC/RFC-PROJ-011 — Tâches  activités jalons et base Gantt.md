@@ -338,6 +338,7 @@ model ProjectMilestone {
   clientId         String
   projectId        String
   linkedTaskId     String?
+  phaseId          String?
 
   code             String?
   name             String
@@ -360,6 +361,7 @@ model ProjectMilestone {
   client           Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   linkedTask       ProjectTask? @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  phase            ProjectTaskPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
 
   ownerUser        User? @relation("ProjectMilestoneOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   createdByUser    User? @relation("ProjectMilestoneCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
@@ -368,6 +370,8 @@ model ProjectMilestone {
   @@index([clientId])
   @@index([projectId])
   @@index([linkedTaskId])
+  @@index([phaseId])
+  @@index([projectId, phaseId])
   @@index([targetDate])
   @@index([status])
 }
@@ -474,6 +478,7 @@ Règles :
 * `achievedDate` est optionnelle
 * si `status = ACHIEVED`, alors `achievedDate` est recommandée
 * un jalon peut être lié à une tâche, sans que cela soit obligatoire
+* un jalon peut être rattaché à une phase (`phaseId`) ; même contrainte de scope projet/client que les tâches
 
 ---
 
@@ -660,6 +665,7 @@ Liste les jalons du projet.
 Filtres possibles :
 
 * `status`
+* `phaseId`
 * `linkedTaskId`
 * `dateFrom`
 * `dateTo`
@@ -680,6 +686,7 @@ Body :
   "description": "Mise en production",
   "status": "PLANNED",
   "targetDate": "2026-04-15T08:00:00.000Z",
+  "phaseId": "phase_001",
   "linkedTaskId": "task_010",
   "ownerUserId": "usr_001",
   "sortOrder": 100
@@ -734,6 +741,7 @@ Réponse :
       "name": "Go Live",
       "status": "PLANNED",
       "targetDate": "2026-04-15T08:00:00.000Z",
+      "phaseId": "phase_001",
       "linkedTaskId": "task_010",
       "sortOrder": 100
     }
@@ -974,7 +982,7 @@ Ce découpage est cohérent avec le frontend cockpit et la structuration par fea
 
 ## 19. Implémentation dans le dépôt (référence)
 
-**Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — enums `ProjectTaskDependencyType`, `ProjectActivityFrequency`, `ProjectActivityStatus` ; `ProjectTask` (nom, dates planifiées/réelles, `progress`, `phaseId`, dépendance simple, `ownerUserId`, lien budget optionnel) ; `ProjectTaskPhase` (conteneur fonctionnel), `ProjectMilestone` (`achievedDate`, `linkedTaskId`, …) ; `ProjectActivity` avec **`projectId` obligatoire** (MVP). Migrations : socle RFC-PROJ-011 + migration de remplacement hiérarchie → phases, avec garde-fou d’idempotence (anti double exécution).
+**Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — enums `ProjectTaskDependencyType`, `ProjectActivityFrequency`, `ProjectActivityStatus` ; `ProjectTask` (nom, dates planifiées/réelles, `progress`, `phaseId`, dépendance simple, `ownerUserId`, lien budget optionnel) ; `ProjectTaskPhase` (conteneur fonctionnel), `ProjectMilestone` (`achievedDate`, `linkedTaskId`, `phaseId`, …) ; `ProjectActivity` avec **`projectId` obligatoire** (MVP). Migrations : socle RFC-PROJ-011 + migration de remplacement hiérarchie → phases + extension jalons (`phaseId`), avec garde-fou d’idempotence (anti double exécution).
 
 **Backend** : `apps/api/src/modules/projects/` — `project-tasks.service.ts`, `project-milestones.service.ts`, `project-activities.service.ts`, `project-gantt.service.ts` ; contrôleurs `project-tasks`, `project-milestones`, `project-activities`, `project-gantt` ; `projects.module.ts`. **Isolation** : `clientId` actif + `getProjectForScope` ; pas de `clientId` dans les corps. **MVP** : **pas de `DELETE`** sur les tâches (éviter effets de bord jalons / action items revue / activités) ; listes paginées `{ items, total, limit, offset }` pour tâches, activités, jalons. **`GET /api/projects/:projectId/gantt`** : uniquement `ProjectTask` + `ProjectMilestone` (pas d’activités). Permissions : sous-ressources en `projects.read` / `projects.update` (aligné module existant).
 
