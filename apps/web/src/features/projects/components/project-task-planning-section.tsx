@@ -30,6 +30,7 @@ import { useProjectTaskLabelsQuery } from '../hooks/use-project-task-labels-quer
 import { useProjectMilestoneLabelsQuery } from '../hooks/use-project-milestone-labels-query';
 import {
   useCreateProjectTaskMutation,
+  useCreateProjectMilestoneMutation,
   useUpdateProjectTaskMutation,
   useUpdateProjectMilestoneMutation,
 } from '../hooks/use-project-planning-mutations';
@@ -203,11 +204,27 @@ export const ProjectTaskPlanningSection = forwardRef<
   });
   const assignableQuery = useProjectAssignableUsers({ enabled: canEdit });
   const createMut = useCreateProjectTaskMutation(projectId);
+  const createMilestoneMut = useCreateProjectMilestoneMutation(projectId);
   const updateMut = useUpdateProjectTaskMutation(projectId);
   const updateMilestoneMut = useUpdateProjectMilestoneMutation(projectId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectTaskApi | null>(null);
+  const [tableNameFilter, setTableNameFilter] = useState('');
+  const [tableStatusFilter, setTableStatusFilter] = useState<'all' | ProjectTaskApi['status']>(
+    'all',
+  );
+  const [tablePriorityFilter, setTablePriorityFilter] = useState<
+    'all' | ProjectTaskApi['priority']
+  >('all');
+  const [tablePhaseFilter, setTablePhaseFilter] = useState<'all' | string>('all');
+  const [tableSort, setTableSort] = useState<{
+    key: 'name' | 'status' | 'priority' | 'phase' | 'plannedEndDate' | 'progress';
+    dir: 'asc' | 'desc';
+  }>({ key: 'name', dir: 'asc' });
+  const [showPhaseHeaders, setShowPhaseHeaders] = useState(true);
+  const [showCodeColumn, setShowCodeColumn] = useState(false);
+  const [showPlannedStartColumn, setShowPlannedStartColumn] = useState(false);
   const [activeInlineCell, setActiveInlineCell] = useState<{
     taskId: string;
     field:
@@ -250,14 +267,74 @@ export const ProjectTaskPlanningSection = forwardRef<
     return treeRows.filter((r) => r.status === ganttTaskStatusFilter);
   }, [treeRows, isGanttVariant, ganttTaskStatusFilter]);
 
+  const fullTableRows = useMemo(() => {
+    if (isGanttVariant) return treeRows;
+
+    const normalizedName = tableNameFilter.trim().toLowerCase();
+    let rows = treeRows.filter((r) => {
+      if (normalizedName.length > 0 && !r.name.toLowerCase().includes(normalizedName)) {
+        return false;
+      }
+      if (tableStatusFilter !== 'all' && r.status !== tableStatusFilter) return false;
+      if (tablePriorityFilter !== 'all' && r.priority !== tablePriorityFilter) return false;
+      if (tablePhaseFilter !== 'all' && (r.phaseId ?? '') !== tablePhaseFilter) return false;
+      return true;
+    });
+
+    const sorted = [...rows].sort((a, b) => {
+      const direction = tableSort.dir === 'asc' ? 1 : -1;
+      switch (tableSort.key) {
+        case 'name':
+          return a.name.localeCompare(b.name) * direction;
+        case 'status':
+          return a.status.localeCompare(b.status) * direction;
+        case 'priority':
+          return a.priority.localeCompare(b.priority) * direction;
+        case 'phase':
+          return (a.phaseId ?? '').localeCompare(b.phaseId ?? '') * direction;
+        case 'plannedEndDate': {
+          const ad = a.plannedEndDate ? new Date(a.plannedEndDate).getTime() : 0;
+          const bd = b.plannedEndDate ? new Date(b.plannedEndDate).getTime() : 0;
+          return (ad - bd) * direction;
+        }
+        case 'progress':
+          return (a.progress - b.progress) * direction;
+        default:
+          return 0;
+      }
+    });
+    rows = sorted;
+    return rows;
+  }, [
+    isGanttVariant,
+    treeRows,
+    tableNameFilter,
+    tableStatusFilter,
+    tablePriorityFilter,
+    tablePhaseFilter,
+    tableSort,
+  ]);
+
   const isGantt = isGanttVariant;
-  /** Même source que la grille / table visible (après filtre Gantt si applicable). */
-  const displayedRows = isGantt ? ganttTreeRows : treeRows;
+  /** Même source que la grille / table visible (après filtre/tri). */
+  const displayedRows = isGantt ? ganttTreeRows : fullTableRows;
 
   const isTaskUpdatePending = useCallback(
     (taskId: string) =>
       updateMut.isPending && updateMut.variables?.taskId === taskId,
     [updateMut.isPending, updateMut.variables?.taskId],
+  );
+
+  const renderSortIndicator = useCallback(
+    (key: 'name' | 'status' | 'priority' | 'phase' | 'plannedEndDate' | 'progress') => {
+      if (tableSort.key !== key) return <span className="text-muted-foreground/60 ml-1">↕</span>;
+      return (
+        <span className="text-primary ml-1" aria-hidden>
+          {tableSort.dir === 'asc' ? '▲' : '▼'}
+        </span>
+      );
+    },
+    [tableSort],
   );
 
   const assignableOptions = useMemo(
@@ -356,18 +433,41 @@ export const ProjectTaskPlanningSection = forwardRef<
   );
 
   const submitMilestone = () => {
-    if (!milestoneForm.name.trim() || !editingMilestone) return;
-    const body: UpdateProjectMilestonePayload = { ...milestoneForm };
-    updateMilestoneMut.mutate(
-      { milestoneId: editingMilestone.id, body },
-      {
-        onSuccess: () => {
-          void milestonesQuery.refetch();
-          setMilestoneDialogOpen(false);
+    if (!milestoneForm.name.trim()) return;
+
+    if (editingMilestone) {
+      const body: UpdateProjectMilestonePayload = { ...milestoneForm };
+      updateMilestoneMut.mutate(
+        { milestoneId: editingMilestone.id, body },
+        {
+          onSuccess: () => {
+            void milestonesQuery.refetch();
+            setMilestoneDialogOpen(false);
+          },
         },
+      );
+      return;
+    }
+
+    createMilestoneMut.mutate(milestoneForm, {
+      onSuccess: () => {
+        void milestonesQuery.refetch();
+        setMilestoneDialogOpen(false);
       },
-    );
+    });
   };
+
+  const openMilestoneCreate = useCallback(() => {
+    setEditingMilestone(null);
+    setMilestoneForm({
+      name: '',
+      targetDate: new Date().toISOString(),
+      status: 'PLANNED',
+      milestoneLabelIds: [],
+      phaseId: null,
+    });
+    setMilestoneDialogOpen(true);
+  }, []);
 
   const openEdit = (t: ProjectTaskApi) => {
     setEditing(t);
@@ -436,6 +536,18 @@ export const ProjectTaskPlanningSection = forwardRef<
     [authFetch, projectId],
   );
 
+  const quickCreatePhase = useCallback(() => {
+    const name = window.prompt('Nom de la nouvelle phase');
+    if (!name) return;
+    void onCreatePhase(name).catch((error: unknown) => {
+      const message =
+        error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+          ? error.message
+          : 'Création de phase impossible.';
+      toast.error(message);
+    });
+  }, [onCreatePhase]);
+
   const phaseNameById = useMemo(
     () => new Map(phaseOptions.map((p) => [p.id, p.name] as const)),
     [phaseOptions],
@@ -447,6 +559,10 @@ export const ProjectTaskPlanningSection = forwardRef<
   };
 
   const renderRows = useMemo(() => {
+    if (!showPhaseHeaders) {
+      return displayedRows.map((row) => ({ kind: 'task' as const, row }));
+    }
+
     const ungKey = '__ungrouped__';
 
     const tasksByKey = new Map<
@@ -488,7 +604,7 @@ export const ProjectTaskPlanningSection = forwardRef<
     }
 
     return out;
-  }, [displayedRows, phaseOptions]);
+  }, [displayedRows, phaseOptions, showPhaseHeaders]);
 
   type PhaseHeaderRow = { kind: 'phaseHeader'; phaseId: string | null; name: string };
   type TaskBodyRow = { kind: 'task'; row: (typeof displayedRows)[number] };
@@ -587,6 +703,8 @@ export const ProjectTaskPlanningSection = forwardRef<
   const bodyRows: BodyRow[] = isGantt
     ? ganttBodyRows
     : (renderRows as unknown as BodyRow[]);
+  const fullTableColumnCount =
+    7 + (showCodeColumn ? 1 : 0) + (showPlannedStartColumn ? 1 : 0);
 
   const tasksForDepends = useMemo(() => {
     const excl = editing?.id;
@@ -641,9 +759,17 @@ export const ProjectTaskPlanningSection = forwardRef<
             </p>
           )}
           {canEdit && !hideToolbar && (
-            <Button type="button" size={isGantt ? 'sm' : 'default'} onClick={openCreate}>
-              Nouvelle tâche
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" size={isGantt ? 'sm' : 'default'} onClick={quickCreatePhase}>
+                Nouvelle phase
+              </Button>
+              <Button type="button" size={isGantt ? 'sm' : 'default'} onClick={openMilestoneCreate}>
+                Nouveau jalon
+              </Button>
+              <Button type="button" size={isGantt ? 'sm' : 'default'} onClick={openCreate}>
+                Nouvelle tâche
+              </Button>
+            </div>
           )}
         </div>
       )}
@@ -655,13 +781,51 @@ export const ProjectTaskPlanningSection = forwardRef<
       ) : ganttTreeRows.length === 0 && milestoneRows.length === 0 ? (
         <p className="text-muted-foreground py-4 text-center text-sm">Aucune tâche.</p>
       ) : (
-        <div
-          className={cn(
-            !isGantt && 'max-h-[min(70vh,560px)] overflow-auto rounded-lg border border-border/60',
-            isGantt &&
-              'bg-card/40 min-h-0 w-full overflow-auto rounded-lg border border-border/60',
+        <>
+          {!isGantt && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <button
+                type="button"
+                className={cn(
+                  'rounded-md border px-2 py-1',
+                  showPhaseHeaders ? 'border-primary/60 text-primary' : 'border-border',
+                )}
+                onClick={() => setShowPhaseHeaders((v) => !v)}
+              >
+                {showPhaseHeaders ? 'Masquer les phases' : 'Afficher les phases'}
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  'rounded-md border px-2 py-1',
+                  showCodeColumn ? 'border-primary/60 text-primary' : 'border-border',
+                )}
+                onClick={() => setShowCodeColumn((v) => !v)}
+              >
+                {showCodeColumn ? 'Retirer colonne Code' : 'Ajouter colonne Code'}
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  'rounded-md border px-2 py-1',
+                  showPlannedStartColumn ? 'border-primary/60 text-primary' : 'border-border',
+                )}
+                onClick={() => setShowPlannedStartColumn((v) => !v)}
+              >
+                {showPlannedStartColumn
+                  ? 'Retirer colonne Début planifiée'
+                  : 'Ajouter colonne Début planifiée'}
+              </button>
+            </div>
           )}
-        >
+
+          <div
+            className={cn(
+              !isGantt && 'max-h-[min(70vh,560px)] overflow-auto rounded-lg border border-border/60',
+              isGantt &&
+                'bg-card/40 min-h-0 w-full overflow-auto rounded-lg border border-border/60',
+            )}
+          >
           <Table
             className={
               isGantt
@@ -718,15 +882,168 @@ export const ProjectTaskPlanningSection = forwardRef<
                   )}
                 </>
               ) : (
-                <TableRow>
-                  <TableHead>Titre</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Priorité</TableHead>
-                  <TableHead>Phase</TableHead>
-                  <TableHead>Fin planifiée</TableHead>
-                  <TableHead>Progression</TableHead>
-                  <TableHead>Dépend de</TableHead>
-                </TableRow>
+                <>
+                  <TableRow>
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="hover:text-primary inline-flex items-center"
+                        onClick={() =>
+                          setTableSort((prev) => ({
+                            key: 'name',
+                            dir: prev.key === 'name' && prev.dir === 'asc' ? 'desc' : 'asc',
+                          }))
+                        }
+                      >
+                        Titre
+                        {renderSortIndicator('name')}
+                      </button>
+                    </TableHead>
+                    {showCodeColumn && <TableHead>Code</TableHead>}
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="hover:text-primary inline-flex items-center"
+                        onClick={() =>
+                          setTableSort((prev) => ({
+                            key: 'status',
+                            dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc',
+                          }))
+                        }
+                      >
+                        Statut
+                        {renderSortIndicator('status')}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="hover:text-primary inline-flex items-center"
+                        onClick={() =>
+                          setTableSort((prev) => ({
+                            key: 'priority',
+                            dir: prev.key === 'priority' && prev.dir === 'asc' ? 'desc' : 'asc',
+                          }))
+                        }
+                      >
+                        Priorité
+                        {renderSortIndicator('priority')}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="hover:text-primary inline-flex items-center"
+                        onClick={() =>
+                          setTableSort((prev) => ({
+                            key: 'phase',
+                            dir: prev.key === 'phase' && prev.dir === 'asc' ? 'desc' : 'asc',
+                          }))
+                        }
+                      >
+                        Phase
+                        {renderSortIndicator('phase')}
+                      </button>
+                    </TableHead>
+                    {showPlannedStartColumn && <TableHead>Début planifiée</TableHead>}
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="hover:text-primary inline-flex items-center"
+                        onClick={() =>
+                          setTableSort((prev) => ({
+                            key: 'plannedEndDate',
+                            dir:
+                              prev.key === 'plannedEndDate' && prev.dir === 'asc'
+                                ? 'desc'
+                                : 'asc',
+                          }))
+                        }
+                      >
+                        Fin planifiée
+                        {renderSortIndicator('plannedEndDate')}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="hover:text-primary inline-flex items-center"
+                        onClick={() =>
+                          setTableSort((prev) => ({
+                            key: 'progress',
+                            dir: prev.key === 'progress' && prev.dir === 'asc' ? 'desc' : 'asc',
+                          }))
+                        }
+                      >
+                        Progression
+                        {renderSortIndicator('progress')}
+                      </button>
+                    </TableHead>
+                    <TableHead>Dépend de</TableHead>
+                  </TableRow>
+                  <TableRow>
+                    <TableHead>
+                      <Input
+                        value={tableNameFilter}
+                        onChange={(e) => setTableNameFilter(e.target.value)}
+                        placeholder="Filtrer titre..."
+                        className="h-8"
+                      />
+                    </TableHead>
+                    {showCodeColumn && <TableHead />}
+                    <TableHead>
+                      <select
+                        className="border-input bg-background h-8 w-full rounded-md border px-2 text-xs"
+                        value={tableStatusFilter}
+                        onChange={(e) =>
+                          setTableStatusFilter(e.target.value as typeof tableStatusFilter)
+                        }
+                      >
+                        <option value="all">Tous</option>
+                        {Object.keys(TASK_STATUS_LABEL).map((k) => (
+                          <option key={k} value={k}>
+                            {TASK_STATUS_LABEL[k]}
+                          </option>
+                        ))}
+                      </select>
+                    </TableHead>
+                    <TableHead>
+                      <select
+                        className="border-input bg-background h-8 w-full rounded-md border px-2 text-xs"
+                        value={tablePriorityFilter}
+                        onChange={(e) =>
+                          setTablePriorityFilter(e.target.value as typeof tablePriorityFilter)
+                        }
+                      >
+                        <option value="all">Tous</option>
+                        {Object.keys(TASK_PRIORITY_LABEL).map((k) => (
+                          <option key={k} value={k}>
+                            {TASK_PRIORITY_LABEL[k]}
+                          </option>
+                        ))}
+                      </select>
+                    </TableHead>
+                    <TableHead>
+                      <select
+                        className="border-input bg-background h-8 w-full rounded-md border px-2 text-xs"
+                        value={tablePhaseFilter}
+                        onChange={(e) => setTablePhaseFilter(e.target.value)}
+                      >
+                        <option value="all">Toutes</option>
+                        <option value="">Sans libellé de phase</option>
+                        {phaseOptions.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </TableHead>
+                    {showPlannedStartColumn && <TableHead />}
+                    <TableHead />
+                    <TableHead />
+                    <TableHead />
+                  </TableRow>
+                </>
               )}
             </TableHeader>
             <TableBody>
@@ -738,7 +1055,10 @@ export const ProjectTaskPlanningSection = forwardRef<
                       className="bg-muted/20 border-border/40"
                       style={isGantt ? { height: GANTT_ROW_PX } : undefined}
                     >
-                      <TableCell colSpan={isGantt ? 5 : 7} className="py-1.5 align-middle">
+                      <TableCell
+                        colSpan={isGantt ? 5 : fullTableColumnCount}
+                        className="py-1.5 align-middle"
+                      >
                         <span className="text-[10px] font-semibold text-muted-foreground">
                           {r.name}
                         </span>
@@ -1064,6 +1384,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                         </span>
                       )}
                     </TableCell>
+                    {showCodeColumn && <TableCell>{row.code ?? '—'}</TableCell>}
                     <TableCell>
                       {canEdit ? (
                         activeInlineCell?.taskId === row.id &&
@@ -1180,6 +1501,13 @@ export const ProjectTaskPlanningSection = forwardRef<
                         <span>{renderPhaseLabel(row.phaseId)}</span>
                       )}
                     </TableCell>
+                    {showPlannedStartColumn && (
+                      <TableCell>
+                        {row.plannedStartDate
+                          ? new Date(row.plannedStartDate).toLocaleDateString('fr-FR')
+                          : '—'}
+                      </TableCell>
+                    )}
                     <TableCell>
                       {canEdit ? (
                         activeInlineCell?.taskId === row.id &&
@@ -1321,7 +1649,8 @@ export const ProjectTaskPlanningSection = forwardRef<
               })}
             </TableBody>
           </Table>
-        </div>
+          </div>
+        </>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -1379,9 +1708,11 @@ export const ProjectTaskPlanningSection = forwardRef<
       <Dialog open={milestoneDialogOpen} onOpenChange={setMilestoneDialogOpen}>
         <DialogContent className="sm:max-w-lg" showCloseButton>
           <DialogHeader>
-            <DialogTitle>Modifier le jalon</DialogTitle>
+            <DialogTitle>{editingMilestone ? 'Modifier le jalon' : 'Nouveau jalon'}</DialogTitle>
             <DialogDescription>
-              Mettre à jour le repère temporel et, si besoin, la liaison avec une tâche du projet.
+              {editingMilestone
+                ? 'Mettre à jour le repère temporel et, si besoin, la liaison avec une tâche du projet.'
+                : 'Créer un nouveau jalon pour le projet.'}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[min(60vh,440px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
@@ -1409,6 +1740,7 @@ export const ProjectTaskPlanningSection = forwardRef<
               onClick={submitMilestone}
               disabled={
                 !milestoneForm.name.trim() ||
+                createMilestoneMut.isPending ||
                 updateMilestoneMut.isPending ||
                 milestonesQuery.isLoading
               }
