@@ -105,11 +105,6 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
     });
   }, [items]);
 
-  const taskOptions = useMemo(
-    () => [...taskItems].sort((a, b) => a.name.localeCompare(b.name)),
-    [taskItems],
-  );
-
   const milestoneLabelOptions = useMemo(
     () =>
       (milestoneLabelsQuery.data ?? []).map((l) => ({
@@ -259,7 +254,6 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
                   ...p,
                 }))
               }
-              taskOptions={taskOptions}
               phaseOptions={phaseOptions}
               milestoneLabelOptions={milestoneLabelOptions}
               canCreateMilestoneLabels={canCreateMilestoneLabels}

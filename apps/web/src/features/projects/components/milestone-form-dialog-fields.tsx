@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MILESTONE_STATUS_LABEL } from '../constants/project-enum-labels';
 import type { CreateProjectMilestonePayload } from '../api/projects.api';
-import { CalendarRange, Flag, Link2, X } from 'lucide-react';
+import { CalendarRange, Flag, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function isoToDateInput(iso: string | null | undefined): string {
@@ -28,7 +28,6 @@ const fieldBase =
 export type MilestoneFormDialogFieldsProps = {
   form: CreateProjectMilestonePayload;
   onPatch: (patch: Partial<CreateProjectMilestonePayload>) => void;
-  taskOptions: { id: string; name: string }[];
   phaseOptions: { id: string; name: string; sortOrder?: number }[];
   milestoneLabelOptions: { id: string; label: string }[];
   canCreateMilestoneLabels: boolean;
@@ -43,7 +42,6 @@ export type MilestoneFormDialogFieldsProps = {
 export function MilestoneFormDialogFields({
   form,
   onPatch,
-  taskOptions,
   phaseOptions,
   milestoneLabelOptions,
   canCreateMilestoneLabels,
@@ -207,38 +205,6 @@ export function MilestoneFormDialogFields({
               })
             }
           />
-        </div>
-      </section>
-
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-link')}
-      >
-        <h3
-          id={fid('sec-link')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
-          <Link2 className="size-3.5 shrink-0" aria-hidden />
-          Lien projet
-        </h3>
-        <div className="space-y-1.5">
-          <Label htmlFor={fid('linked-task')}>Tâche liée</Label>
-          <select
-            id={fid('linked-task')}
-            className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
-            value={form.linkedTaskId ?? ''}
-            onChange={(e) => onPatch({ linkedTaskId: e.target.value || null })}
-          >
-            <option value="">—</option>
-            {taskOptions.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-          <p className="text-[11px] leading-snug text-muted-foreground">
-            Associe optionnellement ce jalon à une tâche pour le suivi dans la grille.
-          </p>
         </div>
       </section>
 

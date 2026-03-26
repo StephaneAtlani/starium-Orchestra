@@ -327,11 +327,12 @@ export const ProjectTaskPlanningSection = forwardRef<
     () => milestonesQuery.data?.items ?? [],
     [milestonesQuery.data?.items],
   );
-
-  const taskOptionsForMilestone = useMemo(
-    () => [...items].sort((a, b) => a.name.localeCompare(b.name)),
-    [items],
-  );
+  const visibleMilestoneItems = useMemo(() => {
+    if (!isGanttVariant) return milestoneItems;
+    if (!milestoneRows.length) return [];
+    const allowed = new Set(milestoneRows.map((m) => m.id));
+    return milestoneItems.filter((m) => allowed.has(m.id));
+  }, [isGanttVariant, milestoneItems, milestoneRows]);
 
   const openMilestoneEdit = useCallback(
     (milestoneId: string) => {
@@ -479,6 +480,104 @@ export const ProjectTaskPlanningSection = forwardRef<
     return out;
   }, [displayedRows, phaseOptions]);
 
+  type PhaseHeaderRow = { kind: 'phaseHeader'; phaseId: string | null; name: string };
+  type TaskBodyRow = { kind: 'task'; row: (typeof displayedRows)[number] };
+  type MilestoneBodyRow = { kind: 'milestone'; ms: (typeof milestoneItems)[number] };
+  type BodyRow = PhaseHeaderRow | TaskBodyRow | MilestoneBodyRow;
+
+  const ganttBodyRows = useMemo<BodyRow[]>(() => {
+    if (!isGantt) return [];
+
+    const ungKey = '__ungrouped__';
+
+    const tasksByKey = new Map<string, Array<(typeof displayedRows)[number]>>();
+    for (const t of displayedRows) {
+      const key = t.phaseId ?? ungKey;
+      const list = tasksByKey.get(key) ?? [];
+      list.push(t);
+      tasksByKey.set(key, list);
+    }
+
+    const milestonesByKey = new Map<
+      string,
+      Array<(typeof visibleMilestoneItems)[number]>
+    >();
+    for (const m of visibleMilestoneItems) {
+      const key = m.phaseId ?? ungKey;
+      const list = milestonesByKey.get(key) ?? [];
+      list.push(m);
+      milestonesByKey.set(key, list);
+    }
+
+    const displayedTaskRowById = new Map<
+      string,
+      (typeof displayedRows)[number]
+    >();
+    for (const t of displayedRows) displayedTaskRowById.set(t.id, t);
+
+    const shownTaskIds = new Set<string>();
+
+    const out: BodyRow[] = [];
+
+    const addPhaseHeaderIfNeeded = (phaseId: string | null, name: string) => {
+      out.push({ kind: 'phaseHeader', phaseId, name });
+    };
+
+    for (const phase of phaseOptions) {
+      const tList = tasksByKey.get(phase.id) ?? [];
+      const mList = milestonesByKey.get(phase.id) ?? [];
+      if (tList.length === 0 && mList.length === 0) continue;
+
+      addPhaseHeaderIfNeeded(phase.id, phase.name);
+
+      for (const ms of mList) {
+        out.push({ kind: 'milestone', ms });
+        if (ms.linkedTaskId) {
+          const linkedRow = displayedTaskRowById.get(ms.linkedTaskId);
+          const samePhase = (linkedRow?.phaseId ?? null) === (ms.phaseId ?? null);
+          if (linkedRow && samePhase && !shownTaskIds.has(linkedRow.id)) {
+            out.push({ kind: 'task', row: linkedRow });
+            shownTaskIds.add(linkedRow.id);
+          }
+        }
+      }
+
+      for (const row of tList) {
+        if (shownTaskIds.has(row.id)) continue;
+        out.push({ kind: 'task', row });
+      }
+    }
+
+    const ungTasks = tasksByKey.get(ungKey) ?? [];
+    const ungMilestones = milestonesByKey.get(ungKey) ?? [];
+    if (ungTasks.length > 0 || ungMilestones.length > 0) {
+      addPhaseHeaderIfNeeded(null, 'Sans libellé de phase');
+
+      for (const ms of ungMilestones) {
+        out.push({ kind: 'milestone', ms });
+        if (ms.linkedTaskId) {
+          const linkedRow = displayedTaskRowById.get(ms.linkedTaskId);
+          const samePhase = (linkedRow?.phaseId ?? null) === (ms.phaseId ?? null);
+          if (linkedRow && samePhase && !shownTaskIds.has(linkedRow.id)) {
+            out.push({ kind: 'task', row: linkedRow });
+            shownTaskIds.add(linkedRow.id);
+          }
+        }
+      }
+
+      for (const row of ungTasks) {
+        if (shownTaskIds.has(row.id)) continue;
+        out.push({ kind: 'task', row });
+      }
+    }
+
+    return out;
+  }, [displayedRows, phaseOptions, visibleMilestoneItems, isGantt]);
+
+  const bodyRows: BodyRow[] = isGantt
+    ? ganttBodyRows
+    : (renderRows as unknown as BodyRow[]);
+
   const tasksForDepends = useMemo(() => {
     const excl = editing?.id;
     return items
@@ -621,7 +720,7 @@ export const ProjectTaskPlanningSection = forwardRef<
               )}
             </TableHeader>
             <TableBody>
-              {renderRows.map((r) => {
+              {bodyRows.map((r) => {
                 if (r.kind === 'phaseHeader') {
                   return (
                     <TableRow
@@ -638,12 +737,150 @@ export const ProjectTaskPlanningSection = forwardRef<
                   );
                 }
 
-                const row = r.row;
-                const pred = row.dependsOnTaskId
-                  ? byId.get(row.dependsOnTaskId)
-                  : undefined;
-
                 if (isGantt) {
+                  if (r.kind === 'milestone') {
+                    const ms = r.ms;
+                    const linkedTask =
+                      ms.linkedTaskId != null ? byId.get(ms.linkedTaskId) : undefined;
+                    return (
+                      <TableRow
+                        key={`ms-${ms.id}`}
+                        className="bg-amber-500/5 text-muted-foreground"
+                        style={{ height: GANTT_ROW_PX }}
+                      >
+                        <TableCell className="py-1 align-middle">
+                          {canEdit ? (
+                            <button
+                              type="button"
+                              className="hover:text-primary inline-flex max-w-[11rem] cursor-pointer items-center gap-1 truncate text-left italic"
+                              title={`${ms.name} — ouvrir la fiche jalon`}
+                              onClick={() => openMilestoneEdit(ms.id)}
+                            >
+                              <span className="text-amber-600 dark:text-amber-500" aria-hidden>
+                                ◆
+                              </span>
+                              <span>{ms.name}</span>
+                            </button>
+                          ) : (
+                            <span
+                              className="inline-flex max-w-[11rem] items-center gap-1 truncate italic"
+                              title={ms.name}
+                            >
+                              <span className="text-amber-600 dark:text-amber-500" aria-hidden>
+                                ◆
+                              </span>
+                              <span>{ms.name}</span>
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground/70 py-1 align-middle text-[10px]">
+                          —
+                        </TableCell>
+                        <TableCell className="py-0.5 align-middle">
+                          {canEdit ? (
+                            <Input
+                              type="date"
+                              required
+                              className={ganttDateInputClass}
+                              value={isoToDateInput(ms.targetDate)}
+                              onChange={(e) => {
+                                const v = e.target.value.trim();
+                                if (!v) return;
+                                const iso = dateInputToIso(v);
+                                if (!iso) return;
+                                updateMilestoneMut.mutate({
+                                  milestoneId: ms.id,
+                                  body: { targetDate: iso },
+                                  silentToast: true,
+                                });
+                              }}
+                            />
+                          ) : (
+                            <span className="text-muted-foreground tabular-nums italic">
+                              {ms
+                                ? new Date(ms.targetDate).toLocaleDateString('fr-FR', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                  })
+                                : '—'}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-1 align-middle">
+                          {canEdit ? (
+                            <select
+                              className="border-input bg-background h-7 max-w-[5.75rem] rounded-md border px-1 text-[10px] leading-tight italic"
+                              value={ms.status}
+                              title={MILESTONE_STATUS_LABEL[ms.status]}
+                              onChange={(e) => {
+                                updateMilestoneMut.mutate({
+                                  milestoneId: ms.id,
+                                  body: {
+                                    status: e.target.value as ProjectMilestoneApi['status'],
+                                  },
+                                  silentToast: true,
+                                });
+                              }}
+                            >
+                              {Object.keys(MILESTONE_STATUS_LABEL).map((k) => (
+                                <option key={k} value={k}>
+                                  {MILESTONE_STATUS_LABEL[k]}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="truncate italic">
+                              {ms ? (MILESTONE_STATUS_LABEL[ms.status] ?? ms.status) : '—'}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-1 align-middle">
+                          {ms && canEdit ? (
+                            <select
+                              className="border-input bg-background h-7 w-full max-w-[10rem] rounded-md border px-1 text-[10px] leading-tight"
+                              value={ms.phaseId ?? ''}
+                              title="Libellé de phase"
+                              onChange={(e) => {
+                                const nextPhaseId = e.target.value || null;
+                                void (async () => {
+                                  try {
+                                    await updateMilestoneMut.mutateAsync({
+                                      milestoneId: ms.id,
+                                      body: { phaseId: nextPhaseId },
+                                      silentToast: true,
+                                    });
+                                    await milestonesQuery.refetch();
+                                  } catch {
+                                    // mute
+                                  }
+                                })();
+                              }}
+                            >
+                              <option value="">Sans libellé de phase</option>
+                              {phaseOptions.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span
+                              className="truncate text-muted-foreground"
+                              title={ms ? renderPhaseLabel(ms.phaseId) : undefined}
+                            >
+                              {ms ? renderPhaseLabel(ms.phaseId) : '—'}
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
+
+                  if (r.kind !== 'task') return null;
+
+                  const row = r.row;
+                  const pred = row.dependsOnTaskId ? byId.get(row.dependsOnTaskId) : undefined;
+
                   return (
                     <TableRow
                       key={row.id}
@@ -792,6 +1029,9 @@ export const ProjectTaskPlanningSection = forwardRef<
                   );
                 }
 
+                if (r.kind !== 'task') return null;
+                const row = r.row;
+                const pred = row.dependsOnTaskId ? byId.get(row.dependsOnTaskId) : undefined;
                 return (
                   <TableRow key={row.id}>
                     <TableCell>
@@ -846,144 +1086,6 @@ export const ProjectTaskPlanningSection = forwardRef<
                   </TableRow>
                 );
               })}
-              {isGantt &&
-                milestoneRows.map((m) => {
-                  const ms = milestoneItems.find((x) => x.id === m.id);
-                  return (
-                    <TableRow
-                      key={`ms-${m.id}`}
-                      className="bg-amber-500/5 text-muted-foreground"
-                      style={{ height: GANTT_ROW_PX }}
-                    >
-                      <TableCell className="py-1 align-middle">
-                        {canEdit && ms ? (
-                          <button
-                            type="button"
-                            className="hover:text-primary inline-flex max-w-[11rem] cursor-pointer items-center gap-1 truncate text-left italic"
-                            title={`${m.name} — ouvrir la fiche jalon`}
-                            onClick={() => openMilestoneEdit(ms.id)}
-                          >
-                            <span className="text-amber-600 dark:text-amber-500" aria-hidden>
-                              ◆
-                            </span>
-                            <span>{m.name}</span>
-                          </button>
-                        ) : (
-                          <span
-                            className="inline-flex max-w-[11rem] items-center gap-1 truncate italic"
-                            title={m.name}
-                          >
-                            <span className="text-amber-600 dark:text-amber-500" aria-hidden>
-                              ◆
-                            </span>
-                            <span>{m.name}</span>
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground/70 py-1 align-middle text-[10px]">
-                        —
-                      </TableCell>
-                      <TableCell className="py-0.5 align-middle">
-                        {ms && canEdit ? (
-                          <Input
-                            type="date"
-                            required
-                            className={ganttDateInputClass}
-                            value={isoToDateInput(ms.targetDate)}
-                            onChange={(e) => {
-                              const v = e.target.value.trim();
-                              if (!v) return;
-                              const iso = dateInputToIso(v);
-                              if (!iso) return;
-                              updateMilestoneMut.mutate({
-                                milestoneId: ms.id,
-                                body: { targetDate: iso },
-                                silentToast: true,
-                              });
-                            }}
-                          />
-                        ) : (
-                          <span className="text-muted-foreground tabular-nums italic">
-                            {ms
-                              ? new Date(ms.targetDate).toLocaleDateString('fr-FR', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                })
-                              : milestonesQuery.isLoading
-                                ? '…'
-                                : '—'}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-1 align-middle">
-                        {ms && canEdit ? (
-                          <select
-                            className="border-input bg-background h-7 max-w-[5.75rem] rounded-md border px-1 text-[10px] leading-tight italic"
-                            value={ms.status}
-                            title={MILESTONE_STATUS_LABEL[ms.status]}
-                            onChange={(e) => {
-                              updateMilestoneMut.mutate({
-                                milestoneId: ms.id,
-                                body: {
-                                  status: e.target.value as ProjectMilestoneApi['status'],
-                                },
-                                silentToast: true,
-                              });
-                            }}
-                          >
-                            {Object.keys(MILESTONE_STATUS_LABEL).map((k) => (
-                              <option key={k} value={k}>
-                                {MILESTONE_STATUS_LABEL[k]}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="truncate italic">
-                            {ms ? (MILESTONE_STATUS_LABEL[ms.status] ?? ms.status) : '—'}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-1 align-middle">
-                        {ms && canEdit ? (
-                          <select
-                            className="border-input bg-background h-7 w-full max-w-[10rem] rounded-md border px-1 text-[10px] leading-tight"
-                            value={ms.phaseId ?? ''}
-                            title="Libellé de phase"
-                            onChange={(e) => {
-                              const nextPhaseId = e.target.value || null;
-                              void (async () => {
-                                try {
-                                  await updateMilestoneMut.mutateAsync({
-                                    milestoneId: ms.id,
-                                    body: { phaseId: nextPhaseId },
-                                    silentToast: true,
-                                  });
-                                  await milestonesQuery.refetch();
-                                } catch {
-                                  // `useUpdateProjectMilestoneMutation` already toasts errors.
-                                }
-                              })();
-                            }}
-                          >
-                            <option value="">Sans libellé de phase</option>
-                            {phaseOptions.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span
-                            className="truncate text-muted-foreground"
-                            title={ms ? renderPhaseLabel(ms.phaseId) : undefined}
-                          >
-                            {ms ? renderPhaseLabel(ms.phaseId) : '—'}
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
             </TableBody>
           </Table>
         </div>
@@ -1058,7 +1160,6 @@ export const ProjectTaskPlanningSection = forwardRef<
                   ...p,
                 }))
               }
-              taskOptions={taskOptionsForMilestone}
               phaseOptions={phaseOptions}
               milestoneLabelOptions={milestoneLabelOptions}
               canCreateMilestoneLabels={canCreateMilestoneLabels}
