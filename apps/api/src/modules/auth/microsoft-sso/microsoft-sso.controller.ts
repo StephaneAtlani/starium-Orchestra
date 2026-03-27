@@ -1,7 +1,20 @@
-import { Controller, Get, HttpStatus, Query, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Query,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { RequestMeta as RequestMetaDecorator } from '../../../common/decorators/request-meta.decorator';
 import type { RequestMeta } from '../../../common/decorators/request-meta.decorator';
+import { RequestUserId } from '../../../common/decorators/request-user.decorator';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { MicrosoftSsoService } from './microsoft-sso.service';
 import { MicrosoftCallbackQueryDto } from './dto/microsoft-callback-query.dto';
 
@@ -12,6 +25,19 @@ export class MicrosoftSsoController {
   @Get('url')
   getAuthorizationUrl() {
     return this.microsoftSso.getAuthorizationUrl();
+  }
+
+  /** Après OAuth : verrouille le mot de passe pour le JWT courant (redondant avec le callback, même DB que le navigateur). */
+  @Post('disable-password-login')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async disablePasswordLoginAfterMicrosoft(
+    @RequestUserId() userId: string | undefined,
+  ): Promise<void> {
+    if (!userId) {
+      throw new UnauthorizedException();
+    }
+    await this.microsoftSso.ensurePasswordLoginDisabledForUser(userId);
   }
 
   @Get('callback')

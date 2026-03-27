@@ -11,6 +11,7 @@ import { getMe, type MeProfile } from '../services/me';
 import {
   getMicrosoftSsoAuthorizationUrlApi,
   loginApi,
+  postMicrosoftDisablePasswordLoginApi,
   verifyMfaEmailApi,
   verifyMfaTotpApi,
   sendMfaFallbackEmailApi,
@@ -214,12 +215,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const completeMicrosoftSso = useCallback(
     async (nextAccessToken: string, nextRefreshToken: string) => {
-      return applySessionTokens(
+      const session = await applySessionTokens(
         nextAccessToken,
         nextRefreshToken,
         setAccessToken,
         setUser,
       );
+      try {
+        const ok = await postMicrosoftDisablePasswordLoginApi(nextAccessToken);
+        if (ok) {
+          const profile = await getMe(nextAccessToken);
+          const u = profileToAuthUser(profile);
+          setUser(u);
+          return { user: u, accessToken: session.accessToken };
+        }
+      } catch {
+        // le callback OAuth a souvent déjà persisté
+      }
+      return session;
     },
     [],
   );

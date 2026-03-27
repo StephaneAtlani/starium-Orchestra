@@ -12,6 +12,7 @@ describe('MicrosoftSsoService', () => {
   let service: MicrosoftSsoService;
   let prisma: any;
   let tokenHttp: any;
+  let mockTxUserUpdate: jest.Mock;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -42,6 +43,7 @@ describe('MicrosoftSsoService', () => {
               create: jest.fn(),
               updateMany: jest.fn().mockResolvedValue({ count: 1 }),
             },
+            $transaction: jest.fn(),
             user: {
               findMany: jest.fn(),
               findUnique: jest.fn().mockResolvedValue({ platformRole: null }),
@@ -93,6 +95,30 @@ describe('MicrosoftSsoService', () => {
     service = module.get(MicrosoftSsoService);
     prisma = module.get(PrismaService);
     tokenHttp = module.get(MicrosoftTokenHttpService);
+
+    mockTxUserUpdate = jest.fn().mockImplementation(async ({ where }: { where: { id: string } }) => ({
+      id: where.id,
+      platformRole: null,
+      passwordLoginEnabled: false,
+    }));
+    (prisma.$transaction as jest.Mock).mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          user: { update: mockTxUserUpdate },
+          refreshToken: { create: jest.fn().mockResolvedValue({}) },
+        };
+        return fn(tx);
+      },
+    );
+  });
+
+  it('ensurePasswordLoginDisabledForUser désactive le mot de passe (POST navigateur)', async () => {
+    await service.ensurePasswordLoginDisabledForUser('u1');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { passwordLoginEnabled: false },
+      select: { id: true },
+    });
   });
 
   it('retourne une URL d authorization et persiste un state', async () => {
@@ -148,9 +174,11 @@ describe('MicrosoftSsoService', () => {
     );
     expect(result.redirectUrl).toContain('status=success');
     expect(result.redirectUrl).toContain('#accessToken=');
-    expect(prisma.user.update).toHaveBeenCalledWith({
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(mockTxUserUpdate).toHaveBeenCalledWith({
       where: { id: 'u1' },
       data: { passwordLoginEnabled: false },
+      select: { id: true, platformRole: true, passwordLoginEnabled: true },
     });
   });
 
@@ -172,9 +200,11 @@ describe('MicrosoftSsoService', () => {
       { ipAddress: '127.0.0.1', userAgent: 'jest', requestId: 'r-success-2' },
     );
     expect(result.redirectUrl).toContain('status=success');
-    expect(prisma.user.update).toHaveBeenCalledWith({
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(mockTxUserUpdate).toHaveBeenCalledWith({
       where: { id: 'u2' },
       data: { passwordLoginEnabled: false },
+      select: { id: true, platformRole: true, passwordLoginEnabled: true },
     });
   });
 

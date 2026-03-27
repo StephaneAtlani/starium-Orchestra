@@ -2,7 +2,6 @@ import {
   Injectable,
   Logger,
   ServiceUnavailableException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -14,6 +13,7 @@ import { MicrosoftTokenHttpService } from '../../microsoft/microsoft-token-http.
 import { MicrosoftPlatformConfigService } from '../../microsoft/microsoft-platform-config.service';
 import { SecurityLogsService } from '../../security-logs/security-logs.service';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
+import { parseExpiration } from '../auth.constants';
 import { MicrosoftCallbackQueryDto } from './dto/microsoft-callback-query.dto';
 
 /** OIDC uniquement — pas les scopes Graph plateforme (connexion M365 déléguée). User.Read seulement si tu ajoutes MICROSOFT_SSO_SCOPES (fallback Graph /me). */
@@ -145,12 +145,42 @@ export class MicrosoftSsoService {
         return { redirectUrl: this.errorRedirectUrl(match.reason) };
       }
 
-      await this.prisma.user.update({
-        where: { id: match.userId },
-        data: { passwordLoginEnabled: false },
-      });
+      /** Atomique : pas de jetons SSO tant que la désactivation mot de passe n’est pas commitée. */
+      const accessExpiration = parseExpiration(
+        this.config.get<string | number>('JWT_ACCESS_EXPIRATION'),
+        900,
+      );
+      const refreshExpiration = parseExpiration(
+        this.config.get<string | number>('JWT_REFRESH_EXPIRATION'),
+        604800,
+      );
 
-      const tokens = await this.issueTokenPair(match.userId);
+      const tokens = await this.prisma.$transaction(
+        async (tx) => {
+          const u = await tx.user.update({
+            where: { id: match.userId },
+            data: { passwordLoginEnabled: false },
+            select: { id: true, platformRole: true, passwordLoginEnabled: true },
+          });
+          if (u.passwordLoginEnabled !== false) {
+            this.logger.warn(
+              `Microsoft SSO: valeur inattendue passwordLoginEnabled=${String(u.passwordLoginEnabled)} après update pour ${u.id} — poursuite du flux`,
+            );
+          }
+          const accessToken = this.jwt.sign(
+            { sub: u.id, platformRole: u.platformRole ?? null },
+            { expiresIn: accessExpiration },
+          );
+          const refreshToken = randomBytes(64).toString('hex');
+          const tokenHash = this.hashToken(refreshToken);
+          const expiresAt = new Date(Date.now() + refreshExpiration * 1000);
+          await tx.refreshToken.create({
+            data: { tokenHash, userId: u.id, expiresAt },
+          });
+          return { accessToken, refreshToken };
+        },
+        { maxWait: 10_000, timeout: 20_000 },
+      );
       await this.securityLogs.create({
         event: 'auth.microsoft_sso.success',
         userId: match.userId,
@@ -451,33 +481,15 @@ export class MicrosoftSsoService {
     );
   }
 
-  private async issueTokenPair(userId: string): Promise<{
-    accessToken: string;
-    refreshToken: string;
-  }> {
-    const user = await this.prisma.user.findUnique({
+  /**
+   * POST authentifié après réception des jetons côté navigateur : même API / même DB que GET /me.
+   * Idempotent ; sécurise le cas où le callback OAuth ne persistait pas (proxy, instance, etc.).
+   */
+  async ensurePasswordLoginDisabledForUser(userId: string): Promise<void> {
+    await this.prisma.user.update({
       where: { id: userId },
-      select: { platformRole: true },
+      data: { passwordLoginEnabled: false },
+      select: { id: true },
     });
-    if (!user) {
-      throw new UnauthorizedException('Utilisateur introuvable');
-    }
-    const accessExpiration = Number(
-      this.config.get<string>('JWT_ACCESS_EXPIRATION') || 900,
-    );
-    const refreshExpiration = Number(
-      this.config.get<string>('JWT_REFRESH_EXPIRATION') || 604800,
-    );
-    const accessToken = this.jwt.sign(
-      { sub: userId, platformRole: user.platformRole ?? null },
-      { expiresIn: accessExpiration },
-    );
-    const refreshToken = randomBytes(64).toString('hex');
-    const tokenHash = this.hashToken(refreshToken);
-    const expiresAt = new Date(Date.now() + refreshExpiration * 1000);
-    await this.prisma.refreshToken.create({
-      data: { tokenHash, userId, expiresAt },
-    });
-    return { accessToken, refreshToken };
   }
 }

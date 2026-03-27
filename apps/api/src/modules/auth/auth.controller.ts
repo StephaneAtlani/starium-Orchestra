@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { PasswordLoginEligibilityDto } from './dto/password-login-eligibility.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { MfaTotpVerifyDto } from './dto/mfa-totp-verify.dto';
 import { MfaEmailSendDto } from './dto/mfa-email-send.dto';
@@ -14,6 +15,13 @@ import { RequestMeta as RequestMetaDecorator, RequestMeta } from '../../common/d
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+
+  /** POST /auth/password-login-eligibility — UX : mot de passe autorisé pour cet email (compte Microsoft-only → false). */
+  @Post('password-login-eligibility')
+  @HttpCode(HttpStatus.OK)
+  async passwordLoginEligibility(@Body() dto: PasswordLoginEligibilityDto) {
+    return this.auth.getPasswordLoginEligibility(dto.email);
+  }
 
   /** POST /auth/login — Connexion email/password ; tokens ou challenge MFA. */
   @Post('login')

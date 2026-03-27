@@ -31,6 +31,32 @@ export async function getMicrosoftSsoAuthorizationUrlApi(): Promise<
   return { ok: true, authorizationUrl: data.authorizationUrl };
 }
 
+/** POST /api/auth/microsoft/disable-password-login — après OAuth ; aligne la DB sur le navigateur. */
+export async function postMicrosoftDisablePasswordLoginApi(
+  accessToken: string,
+): Promise<boolean> {
+  const res = await fetch('/api/auth/microsoft/disable-password-login', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return res.ok;
+}
+
+/** POST /api/auth/password-login-eligibility — UX (compte Microsoft-only → false). */
+export async function fetchPasswordLoginEligibilityApi(
+  email: string,
+): Promise<{ passwordLoginAllowed: boolean }> {
+  const res = await fetch('/api/auth/password-login-eligibility', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim() }),
+  });
+  if (!res.ok) {
+    return { passwordLoginAllowed: true };
+  }
+  return (await res.json()) as { passwordLoginAllowed: boolean };
+}
+
 export async function loginApi(
   email: string,
   password: string,

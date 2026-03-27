@@ -3,6 +3,7 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { fetchPasswordLoginEligibilityApi } from '@/services/auth';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { resolveActiveClient } from '@/lib/auth/resolve-active-client';
 import type { MeClient } from '@/services/me';
@@ -47,6 +48,10 @@ function messageForMicrosoftCallbackError(reason: string | null): string {
   }
 }
 
+function looksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 function LoginPageContent() {
   const router = useRouter();
   const {
@@ -78,6 +83,12 @@ function LoginPageContent() {
   const [emailSending, setEmailSending] = useState(false);
   /** Enregistrer cet appareil (30 j. sans 2FA sur ce navigateur après mot de passe). */
   const [trustThisDevice, setTrustThisDevice] = useState(true);
+  /** null = pas encore vérifié ; false = compte réservé à Microsoft (après SSO). */
+  const [passwordLoginAllowed, setPasswordLoginAllowed] = useState<
+    boolean | null
+  >(null);
+  const [checkingPasswordEligibility, setCheckingPasswordEligibility] =
+    useState(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -162,8 +173,41 @@ function LoginPageContent() {
       });
   }, [completeMicrosoftSso, router, searchParams, setActiveClient]);
 
+  async function refreshPasswordEligibility() {
+    const trimmed = email.trim();
+    if (!looksLikeEmail(trimmed)) {
+      setPasswordLoginAllowed(null);
+      return;
+    }
+    setCheckingPasswordEligibility(true);
+    try {
+      const { passwordLoginAllowed: allowed } =
+        await fetchPasswordLoginEligibilityApi(trimmed);
+      setPasswordLoginAllowed(allowed);
+    } finally {
+      setCheckingPasswordEligibility(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    let allowed = passwordLoginAllowed;
+    if (looksLikeEmail(email) && allowed === null) {
+      setCheckingPasswordEligibility(true);
+      try {
+        const r = await fetchPasswordLoginEligibilityApi(email.trim());
+        allowed = r.passwordLoginAllowed;
+        setPasswordLoginAllowed(allowed);
+      } finally {
+        setCheckingPasswordEligibility(false);
+      }
+    }
+    if (allowed === false) {
+      setError(
+        'Connexion par mot de passe désactivée pour ce compte. Utilisez « Se connecter avec Microsoft ».',
+      );
+      return;
+    }
     setError(null);
     setSubmitting(true);
     didLoginThisSession.current = true;
@@ -446,10 +490,20 @@ function LoginPageContent() {
                       type="email"
                       autoComplete="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setPasswordLoginAllowed(null);
+                      }}
+                      onBlur={() => void refreshPasswordEligibility()}
                       required
                     />
                   </div>
+                  {passwordLoginAllowed === false && (
+                    <p className="text-sm text-muted-foreground">
+                      Ce compte utilise la connexion Microsoft : le mot de passe
+                      Starium n’est plus disponible pour cet email.
+                    </p>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="password">Mot de passe</Label>
                     <Input
@@ -458,7 +512,8 @@ function LoginPageContent() {
                       autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      required
+                      disabled={passwordLoginAllowed === false}
+                      required={passwordLoginAllowed !== false}
                     />
                   </div>
                   {error && (
@@ -469,7 +524,11 @@ function LoginPageContent() {
                   <Button
                     type="submit"
                     className="mt-2 w-full"
-                    disabled={submitting}
+                    disabled={
+                      submitting ||
+                      passwordLoginAllowed === false ||
+                      checkingPasswordEligibility
+                    }
                   >
                     {submitting ? 'Connexion…' : 'Se connecter'}
                   </Button>
