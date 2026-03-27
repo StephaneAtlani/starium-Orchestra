@@ -1,3 +1,12 @@
+/** Réponse GET /api/suppliers/dashboard */
+export interface SuppliersDashboardStats {
+  suppliersListed: number;
+  suppliersArchived: number;
+  purchaseOrdersCount: number;
+  invoicesCount: number;
+  contactsActiveCount: number;
+}
+
 export interface SupplierOption {
   id: string;
   name: string;

@@ -63,6 +63,15 @@ export interface ListSuppliersResult {
   offset: number;
 }
 
+/** Agrégats lecture seule pour GET /suppliers/dashboard (périmètre client actif). */
+export interface SuppliersDashboardStats {
+  suppliersListed: number;
+  suppliersArchived: number;
+  purchaseOrdersCount: number;
+  invoicesCount: number;
+  contactsActiveCount: number;
+}
+
 @Injectable()
 export class SuppliersService {
   constructor(
@@ -70,6 +79,37 @@ export class SuppliersService {
     private readonly auditLogs: AuditLogsService,
     private readonly logoStorage: SuppliersLogoStorageService,
   ) {}
+
+  async getDashboardStats(clientId: string): Promise<SuppliersDashboardStats> {
+    const prisma = this.prisma as any;
+    const supplierRepo = this.getSupplierRepo(prisma);
+    const [
+      suppliersListed,
+      suppliersArchived,
+      purchaseOrdersCount,
+      invoicesCount,
+      contactsActiveCount,
+    ] = await Promise.all([
+      supplierRepo.count({
+        where: { clientId, status: { not: 'ARCHIVED' } },
+      }),
+      supplierRepo.count({
+        where: { clientId, status: 'ARCHIVED' },
+      }),
+      prisma.purchaseOrder.count({ where: { clientId } }),
+      prisma.invoice.count({ where: { clientId } }),
+      prisma.supplierContact.count({
+        where: { clientId, isActive: true },
+      }),
+    ]);
+    return {
+      suppliersListed,
+      suppliersArchived,
+      purchaseOrdersCount,
+      invoicesCount,
+      contactsActiveCount,
+    };
+  }
 
   async list(
     clientId: string,

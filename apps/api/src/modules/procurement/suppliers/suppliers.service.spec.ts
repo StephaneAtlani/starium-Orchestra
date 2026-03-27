@@ -20,6 +20,9 @@ describe('SuppliersService', () => {
       supplierCategory: {
         findFirst: jest.fn(),
       },
+      purchaseOrder: { count: jest.fn() },
+      invoice: { count: jest.fn() },
+      supplierContact: { count: jest.fn() },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     logoStorage = {
@@ -424,6 +427,25 @@ describe('SuppliersService', () => {
         where: expect.objectContaining({ supplierCategoryId: 'cat-1' }),
       }),
     );
+  });
+
+  it('getDashboardStats agrège les compteurs par client', async () => {
+    prisma.supplier.count
+      .mockResolvedValueOnce(8)
+      .mockResolvedValueOnce(1);
+    prisma.purchaseOrder.count.mockResolvedValue(12);
+    prisma.invoice.count.mockResolvedValue(5);
+    prisma.supplierContact.count.mockResolvedValue(20);
+
+    const result = await service.getDashboardStats('c1');
+
+    expect(result).toEqual({
+      suppliersListed: 8,
+      suppliersArchived: 1,
+      purchaseOrdersCount: 12,
+      invoicesCount: 5,
+      contactsActiveCount: 20,
+    });
   });
 });
 

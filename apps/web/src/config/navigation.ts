@@ -88,12 +88,31 @@ export const navigation: NavigationSection[] = [
       },
       {
         label: 'Fournisseurs',
-        href: '/suppliers',
         icon: Handshake,
         scope: 'client',
         moduleCode: 'procurement',
         requiredPermissions: ['procurement.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+        children: [
+          {
+            label: 'Dashboard',
+            href: '/suppliers/dashboard',
+            scope: 'client',
+            requiredPermissions: ['procurement.read'],
+          },
+          {
+            label: 'Fournisseurs',
+            href: '/suppliers',
+            scope: 'client',
+            requiredPermissions: ['procurement.read'],
+          },
+          {
+            label: 'Contacts',
+            href: '/suppliers/contacts',
+            scope: 'client',
+            requiredPermissions: ['procurement.read'],
+          },
+        ],
       },
     ],
   },

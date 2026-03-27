@@ -6,6 +6,7 @@ import type {
   SupplierCategory,
   SupplierContact,
   SupplierOption,
+  SuppliersDashboardStats,
 } from '../types/supplier.types';
 import type { CreatePurchaseOrderPayload, PurchaseOrder } from '../types/purchase-order.types';
 import type { CreateInvoicePayload, Invoice } from '../types/invoice.types';
@@ -54,6 +55,14 @@ function buildQueryString(
   }
   const qs = search.toString();
   return qs ? `?${qs}` : '';
+}
+
+export async function getSuppliersDashboard(
+  authFetch: AuthFetch,
+): Promise<SuppliersDashboardStats> {
+  const res = await authFetch(`${BASE_SUPPLIERS}/dashboard`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<SuppliersDashboardStats>;
 }
 
 export async function listSuppliers(

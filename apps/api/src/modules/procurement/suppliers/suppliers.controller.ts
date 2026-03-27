@@ -43,6 +43,12 @@ export class SuppliersController {
     return this.suppliers.list(clientId!, query);
   }
 
+  @Get('dashboard')
+  @RequirePermissions('procurement.read')
+  dashboard(@ActiveClientId() clientId: string | undefined) {
+    return this.suppliers.getDashboardStats(clientId!);
+  }
+
   @Get(':id')
   @RequirePermissions('procurement.read')
   getById(

@@ -184,18 +184,24 @@ export function Sidebar() {
                 const isSuppliers = item.label === 'Fournisseurs';
                 if (isSuppliers) {
                   const suppliersChildren = [
-                    { label: 'Dashboard', href: '/dashboard' },
-                    { label: 'Contacts', href: '/suppliers/contacts' },
+                    { label: 'Dashboard', href: '/suppliers/dashboard' },
                     { label: 'Fournisseurs', href: '/suppliers' },
+                    { label: 'Contacts', href: '/suppliers/contacts' },
                   ];
 
                   const isSuppliersChildActive = (href: string) => {
                     if (!pathname) return false;
-                    if (href === '/dashboard') {
-                      return pathname === '/dashboard' || pathname.startsWith('/dashboard/');
+                    if (href === '/suppliers/dashboard') {
+                      return (
+                        pathname === '/suppliers/dashboard' ||
+                        pathname.startsWith('/suppliers/dashboard/')
+                      );
                     }
                     if (href === '/suppliers/contacts') {
-                      return pathname === '/suppliers/contacts' || pathname.startsWith('/suppliers/contacts/');
+                      return (
+                        pathname === '/suppliers/contacts' ||
+                        pathname.startsWith('/suppliers/contacts/')
+                      );
                     }
                     if (href === '/suppliers') {
                       if (pathname === '/suppliers') return true;
