@@ -11,13 +11,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,6 +25,7 @@ import {
   type SupplierContactFormErrors,
   type SupplierContactFormState,
 } from '@/features/procurement/components/suppliers/supplier-contact-modal';
+import { SupplierContactVisualizationModal } from '@/features/procurement/components/suppliers/supplier-contact-visualization-modal';
 import type { SupplierContact } from '@/features/procurement/types/supplier.types';
 import {
   createSupplierContact,
@@ -42,6 +36,7 @@ import { SupplierVisualizationModal } from '@/features/procurement/components/su
 
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useFormAutosave } from '@/hooks/use-form-autosave';
 import { usePermissions } from '@/hooks/use-permissions';
 
 type ContactFormState = SupplierContactFormState & { isActive: boolean };
@@ -138,6 +133,21 @@ export default function SupplierContactsPage() {
     return contactForm.fullName.trim();
   }, [contactForm.firstName, contactForm.lastName, contactForm.fullName]);
 
+  const { clearDraft: clearContactFormDraft } = useFormAutosave({
+    storageKey: clientId ? `procurement:contacts:form:${clientId}` : '',
+    enabled: !!clientId && dialogOpen,
+    value: {
+      contactForm,
+      supplierId,
+      supplierValue,
+    },
+    onRestore: (draft) => {
+      if (draft.contactForm) setContactForm(draft.contactForm);
+      if ('supplierId' in draft) setSupplierId(draft.supplierId ?? null);
+      if ('supplierValue' in draft) setSupplierValue(draft.supplierValue ?? '');
+    },
+  });
+
   useEffect(() => {
     const fn = contactForm.firstName.trim();
     const ln = contactForm.lastName.trim();
@@ -198,6 +208,7 @@ export default function SupplierContactsPage() {
       setDialogOpen(false);
       setEditingContactId(null);
       setEditOriginalSupplierId(null);
+      clearContactFormDraft();
       setContactFormErrors({});
       setContactForm({
         firstName: '',
@@ -247,6 +258,7 @@ export default function SupplierContactsPage() {
       setDialogOpen(false);
       setEditingContactId(null);
       setEditOriginalSupplierId(null);
+      clearContactFormDraft();
       setContactFormErrors({});
       await queryClient.invalidateQueries({
         queryKey: ['procurement', clientId, 'supplier-contacts-all'],
@@ -641,44 +653,19 @@ export default function SupplierContactsPage() {
           </Alert>
         )}
 
-        <Dialog open={readContactOpen} onOpenChange={setReadContactOpen}>
-          <DialogContent className="w-[42rem] max-w-[95vw] p-6">
-            <DialogHeader>
-              <DialogTitle>Fiche contact fournisseur</DialogTitle>
-              <DialogDescription>Consultation en lecture seule.</DialogDescription>
-            </DialogHeader>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div>
-                <p className="text-xs text-muted-foreground">Fournisseur</p>
-                <p className="font-medium">{readContact?.supplierName ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Nom</p>
-                <p className="font-medium">{readContact?.fullName ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Role</p>
-                <p>{readContact?.role ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Statut</p>
-                <p>{readContact?.isActive ? 'Actif' : 'Inactif'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Email</p>
-                <p>{readContact?.email ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Telephone</p>
-                <p>{readContact?.phone ?? readContact?.mobile ?? '—'}</p>
-              </div>
-              <div className="md:col-span-2">
-                <p className="text-xs text-muted-foreground">Notes</p>
-                <p>{readContact?.notes ?? '—'}</p>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <SupplierContactVisualizationModal
+          open={readContactOpen}
+          onOpenChange={setReadContactOpen}
+          contact={readContact}
+          onEdit={
+            canUpdate
+              ? (contact) => {
+                  setReadContactOpen(false);
+                  openEditDialog(contact);
+                }
+              : undefined
+          }
+        />
 
         <SupplierVisualizationModal
           open={readSupplierOpen}

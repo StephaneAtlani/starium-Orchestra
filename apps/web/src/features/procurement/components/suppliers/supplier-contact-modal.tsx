@@ -1,8 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useEffect, useMemo, useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +29,8 @@ type Props = {
   supplierName?: string | null;
   supplierSection?: ReactNode;
   disablePrimary?: boolean;
+  photoUrl?: string | null;
+  onPhotoChange?: (file: File | null) => void;
   form: SupplierContactFormState;
   errors: SupplierContactFormErrors;
   onChange: <K extends keyof SupplierContactFormState>(
@@ -47,6 +49,8 @@ export function SupplierContactModal({
   supplierName,
   supplierSection,
   disablePrimary = false,
+  photoUrl,
+  onPhotoChange,
   form,
   errors,
   onChange,
@@ -69,48 +73,103 @@ export function SupplierContactModal({
     if (!current) return defaultRoles;
     return defaultRoles.includes(current) ? defaultRoles : [...defaultRoles, current];
   }, [form.role]);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(photoUrl ?? null);
+  const [photoObjectUrl, setPhotoObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPhotoPreview(photoUrl ?? null);
+  }, [photoUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
+    };
+  }, [photoObjectUrl]);
 
   const hasNameParts = !!form.firstName.trim() || !!form.lastName.trim();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-full sm:w-[80vw] sm:max-w-[80vw] flex-col gap-4 overflow-y-auto p-6">
+      <DialogContent className="flex max-h-[90vh] w-full sm:w-[80vw] sm:max-w-[80vw] flex-col gap-4 p-6">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold tracking-tight">
             {isEditing ? 'Modifier un contact' : 'Ajouter un contact'}
           </DialogTitle>
-          <DialogDescription>
-            Le backend recalculera `fullName` depuis prénom/nom si ceux-ci sont fournis.
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
           <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Identité</h3>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Prénom</Label>
-                <Input
-                  value={form.firstName}
-                  onChange={(e) => onChange('firstName', e.target.value)}
-                />
-                {errors.firstName ? <p className="text-xs text-destructive">{errors.firstName}</p> : null}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+              <div className="space-y-2 md:col-span-3 md:flex md:flex-col md:items-center md:justify-center">
+                <Label className="md:text-center">Photo</Label>
+                <div className="flex flex-col items-start gap-3 md:items-center">
+                  <label className="flex h-24 w-24 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-border/80 bg-muted/30 text-xs text-muted-foreground">
+                    {photoPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- preview local image
+                      <img src={photoPreview} alt="Aperçu photo contact" className="h-full w-full object-cover" />
+                    ) : (
+                      <span>Ajouter</span>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(event) => {
+                        const next = event.target.files?.[0] ?? null;
+                        if (!next) return;
+                        const objectUrl = URL.createObjectURL(next);
+                        if (photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
+                        setPhotoObjectUrl(objectUrl);
+                        setPhotoPreview(objectUrl);
+                        onPhotoChange?.(next);
+                        event.target.value = '';
+                      }}
+                    />
+                  </label>
+                  <p className="text-xs text-muted-foreground md:text-center">JPG, PNG, WebP ou GIF</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (photoObjectUrl) {
+                        URL.revokeObjectURL(photoObjectUrl);
+                        setPhotoObjectUrl(null);
+                      }
+                      setPhotoPreview(null);
+                      onPhotoChange?.(null);
+                    }}
+                  >
+                    Supprimer la photo
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Nom</Label>
-                <Input
-                  value={form.lastName}
-                  onChange={(e) => onChange('lastName', e.target.value)}
-                />
-                {errors.lastName ? <p className="text-xs text-destructive">{errors.lastName}</p> : null}
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label>Nom complet</Label>
-                <Input
-                  value={form.fullName}
-                  disabled={hasNameParts}
-                  onChange={(e) => onChange('fullName', e.target.value)}
-                />
-                {errors.fullName ? <p className="text-xs text-destructive">{errors.fullName}</p> : null}
+              <div className="grid grid-cols-1 gap-3 md:col-span-9 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Prénom</Label>
+                  <Input
+                    value={form.firstName}
+                    onChange={(e) => onChange('firstName', e.target.value)}
+                  />
+                  {errors.firstName ? <p className="text-xs text-destructive">{errors.firstName}</p> : null}
+                </div>
+                <div className="space-y-2">
+                  <Label>Nom</Label>
+                  <Input
+                    value={form.lastName}
+                    onChange={(e) => onChange('lastName', e.target.value)}
+                  />
+                  {errors.lastName ? <p className="text-xs text-destructive">{errors.lastName}</p> : null}
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Nom complet</Label>
+                  <Input
+                    value={form.fullName}
+                    disabled={hasNameParts}
+                    onChange={(e) => onChange('fullName', e.target.value)}
+                  />
+                  {errors.fullName ? <p className="text-xs text-destructive">{errors.fullName}</p> : null}
+                </div>
               </div>
             </div>
           </section>
@@ -167,7 +226,7 @@ export function SupplierContactModal({
                 <Label>Téléphone</Label>
                 <PhoneInput
                   value={form.phone}
-                  onChange={(e) => onChange('phone', e.target.value)}
+                  onChange={(value) => onChange('phone', value)}
                   placeholder="Numéro"
                   invalid={!!errors.phone}
                 />
@@ -177,7 +236,7 @@ export function SupplierContactModal({
                 <Label>Mobile</Label>
                 <PhoneInput
                   value={form.mobile}
-                  onChange={(e) => onChange('mobile', e.target.value)}
+                  onChange={(value) => onChange('mobile', value)}
                   placeholder="Numéro"
                   invalid={!!errors.mobile}
                 />
@@ -216,7 +275,11 @@ export function SupplierContactModal({
           </section>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
+        <div className="-mx-6 -mb-6 mt-auto flex items-center justify-between gap-3 border-t border-border/60 bg-background px-6 py-4">
+          <p className="text-xs text-muted-foreground">
+            Le brouillon n&apos;est pas sauvegarde. Clique sur Annuler pour abandonner les modifications.
+          </p>
+          <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
@@ -227,6 +290,7 @@ export function SupplierContactModal({
           >
             {isEditing ? 'Mettre a jour' : 'Ajouter'}
           </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

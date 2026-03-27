@@ -32,6 +32,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useFormAutosave } from '@/hooks/use-form-autosave';
 import { usePermissions } from '@/hooks/use-permissions';
 import {
   createSupplierCategory,
@@ -215,6 +216,39 @@ export default function SuppliersPage() {
   const normalizedSearch = useMemo(() => search.trim(), [search]);
   const queryClient = useQueryClient();
 
+  const { clearDraft: clearNewSupplierDraft } = useFormAutosave({
+    storageKey: clientId ? `procurement:suppliers:new:${clientId}` : '',
+    enabled: !!clientId && newSupplierModalOpen,
+    value: { form },
+    onRestore: (draft) => {
+      if (draft.form) setForm(draft.form);
+    },
+  });
+
+  const { clearDraft: clearEditSupplierDraft } = useFormAutosave({
+    storageKey:
+      clientId && selectedSupplierId
+        ? `procurement:suppliers:edit:${clientId}:${selectedSupplierId}`
+        : '',
+    enabled: !!clientId && !!selectedSupplierId && editSupplierModalOpen,
+    value: { editForm },
+    onRestore: (draft) => {
+      if (draft.editForm) setEditForm(draft.editForm);
+    },
+  });
+
+  const { clearDraft: clearSupplierContactDraft } = useFormAutosave({
+    storageKey:
+      clientId && selectedSupplierId
+        ? `procurement:suppliers:contact:${clientId}:${selectedSupplierId}`
+        : '',
+    enabled: !!clientId && !!selectedSupplierId && contactModalOpen,
+    value: { contactForm },
+    onRestore: (draft) => {
+      if (draft.contactForm) setContactForm(draft.contactForm);
+    },
+  });
+
   const categoriesQuery = useQuery({
     queryKey: ['procurement', clientId, 'supplier-categories'],
     queryFn: () =>
@@ -333,6 +367,7 @@ export default function SuppliersPage() {
     },
     onSuccess: async () => {
       setNewSupplierModalOpen(false);
+      clearNewSupplierDraft();
       setFormErrors({});
       setForm({
         name: '',
@@ -399,6 +434,7 @@ export default function SuppliersPage() {
         await uploadSupplierLogo(authFetch, selectedSupplierId, editLogoFile);
       }
       setEditSupplierModalOpen(false);
+      clearEditSupplierDraft();
       setEditFormErrors({});
       setEditLogoFile(null);
       setEditLogoPreview(null);
@@ -430,6 +466,7 @@ export default function SuppliersPage() {
     },
     onSuccess: async () => {
       setContactModalOpen(false);
+      clearSupplierContactDraft();
       setContactFormErrors({});
       setContactForm({
         firstName: '',
@@ -478,6 +515,7 @@ export default function SuppliersPage() {
     onSuccess: async () => {
       setContactModalOpen(false);
       setEditingContactId(null);
+      clearSupplierContactDraft();
       setContactFormErrors({});
       setContactForm({
         firstName: '',
@@ -1011,7 +1049,7 @@ export default function SuppliersPage() {
             }
           }}
         >
-          <DialogContent className="flex max-h-[90vh] !w-[90vw] !max-w-[90vw] sm:!max-w-[90vw] flex-col gap-4 overflow-y-auto p-6">
+          <DialogContent className="flex max-h-[90vh] !w-[90vw] !max-w-[90vw] sm:!max-w-[90vw] flex-col gap-4 p-6">
             <DialogHeader>
               <DialogTitle className="text-lg font-semibold tracking-tight">
                 Fiche fournisseur
@@ -1020,6 +1058,7 @@ export default function SuppliersPage() {
                 Consulte et modifie les informations du fournisseur.
               </DialogDescription>
             </DialogHeader>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <section className="rounded-xl border border-border/70 bg-muted/20 p-3 lg:col-span-4">
                 <ImageUploadDropzone
@@ -1246,17 +1285,23 @@ export default function SuppliersPage() {
                 </AlertDescription>
               </Alert>
             )}
-            <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
-              <Button type="button" variant="outline" onClick={() => setEditSupplierModalOpen(false)}>
-                Fermer
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void updateSupplierMutation.mutateAsync()}
-                disabled={updateSupplierMutation.isPending || editForm.name.trim().length === 0}
-              >
-                Enregistrer
-              </Button>
+            </div>
+            <div className="-mx-6 -mb-6 mt-auto flex items-center justify-between gap-3 border-t border-border/60 bg-background px-6 py-4">
+              <p className="text-xs text-muted-foreground">
+                Le brouillon n&apos;est pas sauvegarde. Clique sur Fermer pour annuler les modifications.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditSupplierModalOpen(false)}>
+                  Fermer
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void updateSupplierMutation.mutateAsync()}
+                  disabled={updateSupplierMutation.isPending || editForm.name.trim().length === 0}
+                >
+                  Enregistrer
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

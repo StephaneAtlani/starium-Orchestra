@@ -52,6 +52,7 @@ export interface SupplierContact {
   isPrimary: boolean;
   isActive: boolean;
   notes: string | null;
+  photoUrl?: string | null;
   createdAt: string;
   updatedAt: string;
   /** Présent sur la liste globale client (GET /api/supplier-contacts) */
