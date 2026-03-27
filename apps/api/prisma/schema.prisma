@@ -200,6 +200,11 @@ model PlatformMicrosoftSettings {
   oauthStateTtlSeconds  Int?
   refreshLeewaySeconds  Int?
   tokenHttpTimeoutMs    Int?
+  /// Application Entra pour le SSO utilisateur (login). Secret chiffré au repos (même mécanisme que les autres secrets Microsoft).
+  ssoOAuthClientId              String?
+  ssoOAuthClientSecretEncrypted String?
+  /// Segment d’autorité OAuth SSO (`common`, GUID tenant, …). Défaut `common` si vide.
+  ssoOAuthAuthorityTenant       String?
   updatedAt             DateTime @updatedAt
 }
 

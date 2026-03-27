@@ -19,8 +19,25 @@ export class PlatformMicrosoftSettingsController {
       this.platform.getRawRow(),
       this.platform.getResolved(),
     ]);
+    const stored =
+      raw == null
+        ? null
+        : {
+            id: raw.id,
+            redirectUri: raw.redirectUri,
+            graphScopes: raw.graphScopes,
+            oauthSuccessUrl: raw.oauthSuccessUrl,
+            oauthErrorUrl: raw.oauthErrorUrl,
+            oauthStateTtlSeconds: raw.oauthStateTtlSeconds,
+            refreshLeewaySeconds: raw.refreshLeewaySeconds,
+            tokenHttpTimeoutMs: raw.tokenHttpTimeoutMs,
+            ssoOAuthClientId: raw.ssoOAuthClientId,
+            ssoOAuthAuthorityTenant: raw.ssoOAuthAuthorityTenant,
+            hasSsoClientSecret: Boolean(raw.ssoOAuthClientSecretEncrypted?.length),
+            updatedAt: raw.updatedAt,
+          };
     return {
-      stored: raw,
+      stored,
       resolved: {
         redirectUri: resolved.redirectUri || null,
         graphScopes: resolved.graphScopes,
@@ -43,6 +60,9 @@ export class PlatformMicrosoftSettingsController {
       oauthStateTtlSeconds: dto.oauthStateTtlSeconds ?? undefined,
       refreshLeewaySeconds: dto.refreshLeewaySeconds ?? undefined,
       tokenHttpTimeoutMs: dto.tokenHttpTimeoutMs ?? undefined,
+      ssoOAuthClientId: dto.ssoOAuthClientId,
+      ssoOAuthClientSecret: dto.ssoOAuthClientSecret,
+      ssoOAuthAuthorityTenant: dto.ssoOAuthAuthorityTenant,
     });
     return this.get();
   }

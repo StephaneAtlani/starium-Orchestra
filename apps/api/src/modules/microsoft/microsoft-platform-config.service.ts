@@ -8,6 +8,7 @@ import {
   DEFAULT_MICROSOFT_TOKEN_HTTP_TIMEOUT_MS,
 } from './microsoft.constants';
 import type { ResolvedPlatformMicrosoftConfig } from './microsoft-platform-config.types';
+import { MicrosoftTokenCryptoService } from './microsoft-token-crypto.service';
 
 const PLATFORM_ROW_ID = 'default';
 
@@ -20,6 +21,7 @@ export class MicrosoftPlatformConfigService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly tokenCrypto: MicrosoftTokenCryptoService,
   ) {}
 
   private env(k: string): string | undefined {
@@ -80,6 +82,41 @@ export class MicrosoftPlatformConfigService {
     });
   }
 
+  /**
+   * Credentials OAuth pour le SSO utilisateur (login Microsoft), stockés plateforme.
+   * Retourne null si non configuré (id ou secret manquant).
+   */
+  async getSsoCredentialsFromPlatformDb(): Promise<{
+    clientId: string;
+    clientSecret: string;
+    authorityTenant: string;
+  } | null> {
+    const row = await this.prisma.platformMicrosoftSettings.findUnique({
+      where: { id: PLATFORM_ROW_ID },
+      select: {
+        ssoOAuthClientId: true,
+        ssoOAuthClientSecretEncrypted: true,
+        ssoOAuthAuthorityTenant: true,
+      },
+    });
+    if (!row) {
+      return null;
+    }
+    const clientId = row.ssoOAuthClientId?.trim();
+    const enc = row.ssoOAuthClientSecretEncrypted?.trim();
+    if (!clientId || !enc) {
+      return null;
+    }
+    return {
+      clientId,
+      clientSecret: this.tokenCrypto.decrypt(enc),
+      authorityTenant:
+        row.ssoOAuthAuthorityTenant?.trim() ||
+        this.env('MICROSOFT_TENANT') ||
+        'common',
+    };
+  }
+
   async upsertPartial(data: {
     redirectUri?: string | null;
     graphScopes?: string | null;
@@ -88,7 +125,21 @@ export class MicrosoftPlatformConfigService {
     oauthStateTtlSeconds?: number | null;
     refreshLeewaySeconds?: number | null;
     tokenHttpTimeoutMs?: number | null;
+    ssoOAuthClientId?: string | null;
+    /** Secret en clair : sera chiffré avant stockage. */
+    ssoOAuthClientSecret?: string | null;
+    ssoOAuthAuthorityTenant?: string | null;
   }) {
+    let ssoOAuthClientSecretEncrypted: string | null | undefined = undefined;
+    if (data.ssoOAuthClientSecret !== undefined) {
+      const s = data.ssoOAuthClientSecret?.trim();
+      if (s && s.length > 0) {
+        ssoOAuthClientSecretEncrypted = this.tokenCrypto.encrypt(s);
+      } else {
+        ssoOAuthClientSecretEncrypted = null;
+      }
+    }
+
     return this.prisma.platformMicrosoftSettings.upsert({
       where: { id: PLATFORM_ROW_ID },
       create: {
@@ -100,6 +151,15 @@ export class MicrosoftPlatformConfigService {
         oauthStateTtlSeconds: data.oauthStateTtlSeconds ?? undefined,
         refreshLeewaySeconds: data.refreshLeewaySeconds ?? undefined,
         tokenHttpTimeoutMs: data.tokenHttpTimeoutMs ?? undefined,
+        ...(data.ssoOAuthClientId !== undefined && {
+          ssoOAuthClientId: data.ssoOAuthClientId?.trim() || null,
+        }),
+        ...(ssoOAuthClientSecretEncrypted !== undefined && {
+          ssoOAuthClientSecretEncrypted,
+        }),
+        ...(data.ssoOAuthAuthorityTenant !== undefined && {
+          ssoOAuthAuthorityTenant: data.ssoOAuthAuthorityTenant?.trim() || null,
+        }),
       },
       update: {
         ...(data.redirectUri !== undefined && { redirectUri: data.redirectUri }),
@@ -118,6 +178,15 @@ export class MicrosoftPlatformConfigService {
         }),
         ...(data.tokenHttpTimeoutMs !== undefined && {
           tokenHttpTimeoutMs: data.tokenHttpTimeoutMs,
+        }),
+        ...(data.ssoOAuthClientId !== undefined && {
+          ssoOAuthClientId: data.ssoOAuthClientId?.trim() || null,
+        }),
+        ...(ssoOAuthClientSecretEncrypted !== undefined && {
+          ssoOAuthClientSecretEncrypted,
+        }),
+        ...(data.ssoOAuthAuthorityTenant !== undefined && {
+          ssoOAuthAuthorityTenant: data.ssoOAuthAuthorityTenant?.trim() || null,
         }),
       },
     });

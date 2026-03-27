@@ -11,7 +11,6 @@ import * as jose from 'jose';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MicrosoftIdTokenService } from '../../microsoft/microsoft-id-token.service';
 import { MicrosoftTokenHttpService } from '../../microsoft/microsoft-token-http.service';
-import { MicrosoftTokenCryptoService } from '../../microsoft/microsoft-token-crypto.service';
 import { MicrosoftPlatformConfigService } from '../../microsoft/microsoft-platform-config.service';
 import { SecurityLogsService } from '../../security-logs/security-logs.service';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
@@ -37,7 +36,6 @@ export class MicrosoftSsoService {
     private readonly jwt: JwtService,
     private readonly microsoftIdToken: MicrosoftIdTokenService,
     private readonly tokenHttp: MicrosoftTokenHttpService,
-    private readonly tokenCrypto: MicrosoftTokenCryptoService,
     private readonly platformConfig: MicrosoftPlatformConfigService,
     private readonly securityLogs: SecurityLogsService,
   ) {}
@@ -431,46 +429,13 @@ export class MicrosoftSsoService {
       };
     }
 
-    const configuredClients = await this.prisma.client.findMany({
-      where: {
-        microsoftOAuthClientId: { not: null },
-        microsoftOAuthClientSecretEncrypted: { not: null },
-      },
-      select: {
-        microsoftOAuthClientId: true,
-        microsoftOAuthClientSecretEncrypted: true,
-        microsoftOAuthAuthorityTenant: true,
-      },
-      take: 2,
-    });
-
-    if (configuredClients.length === 1) {
-      const row = configuredClients[0];
-      const clientId = row.microsoftOAuthClientId?.trim();
-      const encrypted = row.microsoftOAuthClientSecretEncrypted?.trim();
-      if (!clientId || !encrypted) {
-        throw new ServiceUnavailableException(
-          'Microsoft SSO non configuré: client OAuth incomplet.',
-        );
-      }
-      return {
-        clientId,
-        clientSecret: this.tokenCrypto.decrypt(encrypted),
-        authorityTenant:
-          row.microsoftOAuthAuthorityTenant?.trim() ||
-          envTenant ||
-          DEFAULT_OAUTH_TENANT,
-      };
-    }
-
-    if (configuredClients.length > 1) {
-      throw new ServiceUnavailableException(
-        'Microsoft SSO non configuré: plusieurs credentials OAuth client trouvés. Définissez MICROSOFT_CLIENT_ID/MICROSOFT_CLIENT_SECRET au niveau plateforme.',
-      );
+    const fromPlatform = await this.platformConfig.getSsoCredentialsFromPlatformDb();
+    if (fromPlatform) {
+      return fromPlatform;
     }
 
     throw new ServiceUnavailableException(
-      'Microsoft SSO non configuré: MICROSOFT_CLIENT_ID/MICROSOFT_CLIENT_SECRET manquants et aucun credential client unique trouvé.',
+      'Microsoft SSO non configuré: définissez MICROSOFT_CLIENT_ID et MICROSOFT_CLIENT_SECRET (environnement API), ou enregistrez l’application Entra dédiée au SSO dans Administration plateforme → Microsoft 365 — plateforme (ID + secret + tenant).',
     );
   }
 

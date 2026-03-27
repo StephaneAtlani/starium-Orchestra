@@ -36,4 +36,21 @@ export class UpdatePlatformMicrosoftSettingsDto {
   @IsInt()
   @Min(1000)
   tokenHttpTimeoutMs?: number | null;
+
+  /** ID d’application Entra pour le SSO utilisateur (login Microsoft). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  ssoOAuthClientId?: string | null;
+
+  /** Nouveau secret : envoyé en clair, stocké chiffré côté API. Vide = ne pas modifier ; chaîne vide explicite = effacer. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  ssoOAuthClientSecret?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  ssoOAuthAuthorityTenant?: string | null;
 }

@@ -22,7 +22,11 @@ const DEFAULT_OAUTH_SUCCESS_ERROR_URL =
   'http://localhost:3000/client/administration/microsoft-365';
 
 type PlatformMicrosoftGetResponse = {
-  stored: Record<string, unknown> | null;
+  stored: {
+    ssoOAuthClientId?: string | null;
+    ssoOAuthAuthorityTenant?: string | null;
+    hasSsoClientSecret?: boolean;
+  } | null;
   resolved: {
     redirectUri: string | null;
     graphScopes: string;
@@ -79,7 +83,12 @@ export function PlatformMicrosoftSettingsForm() {
     oauthStateTtlSeconds: '',
     refreshLeewaySeconds: '',
     tokenHttpTimeoutMs: '',
+    ssoOAuthClientId: '',
+    ssoOAuthClientSecret: '',
+    ssoOAuthAuthorityTenant: '',
   });
+  const [hasSsoClientSecretStored, setHasSsoClientSecretStored] = useState(false);
+  const [removeSsoSecret, setRemoveSsoSecret] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,6 +107,9 @@ export function PlatformMicrosoftSettingsForm() {
       }
       const data = (await res.json()) as PlatformMicrosoftGetResponse;
       const r = data.resolved;
+      const s = data.stored;
+      setHasSsoClientSecretStored(Boolean(s?.hasSsoClientSecret));
+      setRemoveSsoSecret(false);
       setForm({
         redirectUri: r.redirectUri ?? '',
         graphScopes: r.graphScopes ?? '',
@@ -108,6 +120,9 @@ export function PlatformMicrosoftSettingsForm() {
         oauthStateTtlSeconds: String(r.oauthStateTtlSeconds ?? ''),
         refreshLeewaySeconds: String(r.refreshLeewaySeconds ?? ''),
         tokenHttpTimeoutMs: String(r.tokenHttpTimeoutMs ?? ''),
+        ssoOAuthClientId: s?.ssoOAuthClientId ?? '',
+        ssoOAuthClientSecret: '',
+        ssoOAuthAuthorityTenant: s?.ssoOAuthAuthorityTenant ?? '',
       });
     } catch (e) {
       if (e instanceof TypeError) {
@@ -148,6 +163,13 @@ export function PlatformMicrosoftSettingsForm() {
           tokenHttpTimeoutMs: form.tokenHttpTimeoutMs
             ? parseInt(form.tokenHttpTimeoutMs, 10)
             : null,
+          ssoOAuthClientId: form.ssoOAuthClientId.trim() || null,
+          ssoOAuthAuthorityTenant: form.ssoOAuthAuthorityTenant.trim() || null,
+          ...(form.ssoOAuthClientSecret.trim()
+            ? { ssoOAuthClientSecret: form.ssoOAuthClientSecret }
+            : removeSsoSecret
+              ? { ssoOAuthClientSecret: '' }
+              : {}),
         }),
       });
       if (!res.ok) {
@@ -184,7 +206,7 @@ export function PlatformMicrosoftSettingsForm() {
     <PageContainer>
       <PageHeader
         title="Microsoft 365 — plateforme"
-        description="URI de redirection OAuth, scopes Graph et timeouts. Les ID / secret d’application Azure sont saisis par chaque client (administration client)."
+        description="Paramètres OAuth communs, puis identifiants Entra pour le login SSO (tous les clients). Les apps Azure par client pour Teams/Planner restent dans l’administration client."
       />
       <Card className="max-w-2xl">
         <CardHeader>
@@ -237,6 +259,73 @@ export function PlatformMicrosoftSettingsForm() {
               />
             </div>
           </div>
+          <Card className="border-dashed">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">SSO utilisateur (connexion Microsoft)</CardTitle>
+              <CardDescription>
+                Application Entra unique pour le login « Se connecter avec Microsoft ». Priorité : variables
+                d’environnement <code className="text-xs">MICROSOFT_CLIENT_ID</code> /{' '}
+                <code className="text-xs">MICROSOFT_CLIENT_SECRET</code> sur l’API ; sinon ces champs.
+                Enregistrez dans Entra une redirect URI vers{' '}
+                <code className="text-xs">…/api/auth/microsoft/callback</code>.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ssoOAuthClientId">ID d’application (client) Entra — SSO</Label>
+                <Input
+                  id="ssoOAuthClientId"
+                  value={form.ssoOAuthClientId}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, ssoOAuthClientId: e.target.value }))
+                  }
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ssoOAuthClientSecret">Secret client — SSO</Label>
+                <Input
+                  id="ssoOAuthClientSecret"
+                  type="password"
+                  value={form.ssoOAuthClientSecret}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, ssoOAuthClientSecret: e.target.value }))
+                  }
+                  placeholder={
+                    hasSsoClientSecretStored
+                      ? 'Laisser vide pour conserver le secret actuel'
+                      : 'Coller le secret (valeur)'
+                  }
+                  autoComplete="new-password"
+                />
+                {hasSsoClientSecretStored && (
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={removeSsoSecret}
+                      onChange={(e) => setRemoveSsoSecret(e.target.checked)}
+                    />
+                    Supprimer le secret enregistré
+                  </label>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ssoOAuthAuthorityTenant">Tenant OAuth (optionnel)</Label>
+                <Input
+                  id="ssoOAuthAuthorityTenant"
+                  value={form.ssoOAuthAuthorityTenant}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      ssoOAuthAuthorityTenant: e.target.value,
+                    }))
+                  }
+                  placeholder="common ou GUID du tenant"
+                />
+              </div>
+            </CardContent>
+          </Card>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="oauthStateTtlSeconds">TTL state (s)</Label>
