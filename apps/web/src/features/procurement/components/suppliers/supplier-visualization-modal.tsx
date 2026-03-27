@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Building2, ExternalLink, FileText, Mail, Pencil, Phone, Receipt, Users2 } from 'lucide-react';
+import { Building2, FileText, Mail, Pencil, Phone, Receipt, Users2 } from 'lucide-react';
 
 import { EmptyState } from '@/components/feedback/empty-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -12,6 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getSupplierById, listSupplierContacts } from '@/features/procurement/api/procurement.api';
+import { SupplierContactVisualizationModal } from '@/features/procurement/components/suppliers/supplier-contact-visualization-modal';
+import type { SupplierContact } from '@/features/procurement/types/supplier.types';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -21,6 +23,8 @@ export function SupplierVisualizationContent({ supplierId }: { supplierId: strin
   const { activeClient } = useActiveClient();
   const { has, isSuccess: permsSuccess, isLoading: permsLoading } = usePermissions();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [readContactOpen, setReadContactOpen] = useState(false);
+  const [readContact, setReadContact] = useState<SupplierContact | null>(null);
 
   const clientId = activeClient?.id ?? '';
   const canRead = has('procurement.read');
@@ -43,10 +47,35 @@ export function SupplierVisualizationContent({ supplierId }: { supplierId: strin
   });
 
   const contacts = contactsQuery.data?.items ?? [];
+  const activeContacts = useMemo(() => contacts.filter((c) => c.isActive), [contacts]);
   const primaryContact = useMemo(
-    () => contacts.find((c) => c.isPrimary && c.isActive) ?? contacts.find((c) => c.isActive) ?? null,
-    [contacts],
+    () => activeContacts.find((c) => c.isPrimary) ?? activeContacts[0] ?? null,
+    [activeContacts],
   );
+  const supportContact = useMemo(
+    () =>
+      activeContacts.find((c) => (c.role ?? '').toLowerCase().includes('support')) ??
+      primaryContact,
+    [activeContacts, primaryContact],
+  );
+  const commercialContact = useMemo(
+    () =>
+      activeContacts.find((c) => (c.role ?? '').toLowerCase().includes('commercial')) ?? null,
+    [activeContacts],
+  );
+  const showCommercialContact =
+    !!commercialContact &&
+    commercialContact.id !== primaryContact?.id &&
+    commercialContact.id !== supportContact?.id;
+
+  const openReadContact = (contact: SupplierContact | null) => {
+    if (!contact) return;
+    setReadContact({
+      ...contact,
+      supplierName: supplierQuery.data?.name ?? contact.supplierName ?? null,
+    });
+    setReadContactOpen(true);
+  };
 
   useEffect(() => {
     let canceled = false;
@@ -166,50 +195,77 @@ export function SupplierVisualizationContent({ supplierId }: { supplierId: strin
             <CardDescription>Comment joindre ce fournisseur rapidement.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div className="rounded-lg border border-border/70 bg-background p-3">
-              <p className="text-xs text-muted-foreground">Contact principal</p>
-              <p className="font-semibold">{primaryContact?.fullName ?? '—'}</p>
-            </div>
-
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="rounded-lg border border-border/70 bg-background p-3">
-                <p className="mb-1 text-xs text-muted-foreground">Telephone</p>
-                <p className="font-medium">
-                  {primaryContact?.phone ?? primaryContact?.mobile ?? supplierQuery.data?.phone ?? '—'}
-                </p>
+                <p className="text-xs text-muted-foreground">Contact principal</p>
+                <button
+                  type="button"
+                  className="font-semibold underline-offset-2 hover:underline"
+                  onClick={() => openReadContact(primaryContact)}
+                  disabled={!primaryContact}
+                >
+                  {primaryContact?.fullName ?? '—'}
+                </button>
+                <p className="text-xs text-muted-foreground">{primaryContact?.role ?? '—'}</p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    Téléphone: {primaryContact?.phone ?? primaryContact?.mobile ?? '—'}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Email: {primaryContact?.email ?? '—'}
+                  </p>
+                </div>
               </div>
               <div className="rounded-lg border border-border/70 bg-background p-3">
-                <p className="mb-1 text-xs text-muted-foreground">Email</p>
-                <p className="truncate font-medium">{primaryContact?.email ?? supplierQuery.data?.email ?? '—'}</p>
+                <p className="text-xs text-muted-foreground">Contact support</p>
+                <button
+                  type="button"
+                  className="font-semibold underline-offset-2 hover:underline"
+                  onClick={() => openReadContact(supportContact)}
+                  disabled={!supportContact}
+                >
+                  {supportContact?.fullName ?? '—'}
+                </button>
+                <p className="text-xs text-muted-foreground">{supportContact?.role ?? '—'}</p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    Téléphone: {supportContact?.phone ?? supportContact?.mobile ?? '—'}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Email: {supportContact?.email ?? '—'}
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                className="flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-background px-3 text-sm hover:bg-muted/50"
-              >
-                <ExternalLink className="size-4" />
-                Procedures de support
-              </button>
-              <button
-                type="button"
-                className="flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-background px-3 text-sm hover:bg-muted/50"
-              >
-                <ExternalLink className="size-4" />
-                Voir les engagements
-              </button>
-            </div>
+            {showCommercialContact ? (
+              <div className="rounded-lg border border-border/70 bg-background p-3">
+                <p className="text-xs text-muted-foreground">Contact commercial</p>
+                <button
+                  type="button"
+                  className="font-semibold underline-offset-2 hover:underline"
+                  onClick={() => openReadContact(commercialContact)}
+                  disabled={!commercialContact}
+                >
+                  {commercialContact?.fullName ?? '—'}
+                </button>
+                <p className="text-xs text-muted-foreground">{commercialContact?.role ?? '—'}</p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    Téléphone: {commercialContact?.phone ?? commercialContact?.mobile ?? '—'}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Email: {commercialContact?.email ?? '—'}
+                  </p>
+                </div>
+              </div>
+            ) : null}
 
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <ExternalLink className="size-4" />
-              <span className="truncate">{supplierQuery.data?.website ?? 'Site internet non renseigne'}</span>
-            </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -269,7 +325,15 @@ export function SupplierVisualizationContent({ supplierId }: { supplierId: strin
                 <TableBody>
                   {contacts.map((c) => (
                     <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.fullName}</TableCell>
+                      <TableCell className="font-medium">
+                        <button
+                          type="button"
+                          className="underline-offset-2 hover:underline"
+                          onClick={() => openReadContact(c)}
+                        >
+                          {c.fullName}
+                        </button>
+                      </TableCell>
                       <TableCell>{c.role ?? '—'}</TableCell>
                       <TableCell>{c.email ?? '—'}</TableCell>
                       <TableCell>{c.phone ?? c.mobile ?? '—'}</TableCell>
@@ -282,6 +346,12 @@ export function SupplierVisualizationContent({ supplierId }: { supplierId: strin
           )}
         </CardContent>
       </Card>
+
+      <SupplierContactVisualizationModal
+        open={readContactOpen}
+        onOpenChange={setReadContactOpen}
+        contact={readContact}
+      />
     </div>
   );
 }

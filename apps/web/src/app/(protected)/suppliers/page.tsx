@@ -51,6 +51,8 @@ import {
 import { ImageUploadDropzone } from '@/features/procurement/components/image-upload-dropzone';
 import { SupplierVisualizationModal } from '@/features/procurement/components/suppliers/supplier-visualization-modal';
 import { SupplierContactModal } from '@/features/procurement/components/suppliers/supplier-contact-modal';
+import { SupplierContactVisualizationModal } from '@/features/procurement/components/suppliers/supplier-contact-visualization-modal';
+import type { SupplierContact } from '@/features/procurement/types/supplier.types';
 
 type SupplierFormState = {
   name: string;
@@ -212,12 +214,40 @@ export default function SuppliersPage() {
   const [contactFormErrors, setContactFormErrors] = useState<SupplierContactFormErrors>({});
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [readContactModalOpen, setReadContactModalOpen] = useState(false);
+  const [readContact, setReadContact] = useState<SupplierContact | null>(null);
   const canReadSuppliers = has('procurement.read');
   const canCreateSuppliers = has('procurement.create');
   const canUpdateSuppliers = has('procurement.update');
   const clientId = activeClient?.id ?? '';
   const normalizedSearch = useMemo(() => search.trim(), [search]);
   const queryClient = useQueryClient();
+
+  const refreshSupplierViews = async (targetSupplierId?: string | null) => {
+    const supplierIds = [targetSupplierId, selectedSupplierId, readSupplierId].filter(
+      (id): id is string => !!id,
+    );
+
+    await queryClient.invalidateQueries({
+      queryKey: ['procurement', clientId, 'suppliers-page'],
+    });
+
+    await Promise.all(
+      supplierIds.map((id) =>
+        Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ['procurement', clientId, 'supplier', id, 'visualization'],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ['procurement', clientId, 'supplier-contacts', id],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ['procurement', clientId, 'supplier-contacts', id, 'visualization'],
+          }),
+        ]),
+      ),
+    );
+  };
 
   const { clearDraft: clearNewSupplierDraft } = useFormAutosave({
     storageKey: clientId ? `procurement:suppliers:new:${clientId}` : '',
@@ -310,9 +340,7 @@ export default function SuppliersPage() {
     mutationFn: (input: { supplierId: string; supplierCategoryId: string | null }) =>
       updateSupplierCategory(authFetch, input.supplierId, input.supplierCategoryId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['procurement', clientId, 'suppliers-page'],
-      });
+      await refreshSupplierViews(selectedSupplierId);
     },
   });
 
@@ -494,14 +522,7 @@ export default function SuppliersPage() {
         notes: '',
         isPrimary: false,
       });
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['procurement', clientId, 'supplier-contacts', selectedSupplierId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['procurement', clientId, 'suppliers-page'],
-        }),
-      ]);
+      await refreshSupplierViews(selectedSupplierId);
     },
   });
 
@@ -543,14 +564,7 @@ export default function SuppliersPage() {
         notes: '',
         isPrimary: false,
       });
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['procurement', clientId, 'supplier-contacts', selectedSupplierId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['procurement', clientId, 'suppliers-page'],
-        }),
-      ]);
+      await refreshSupplierViews(selectedSupplierId);
     },
   });
 
@@ -560,14 +574,7 @@ export default function SuppliersPage() {
       return deactivateSupplierContact(authFetch, selectedSupplierId, contactId);
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['procurement', clientId, 'supplier-contacts', selectedSupplierId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['procurement', clientId, 'suppliers-page'],
-        }),
-      ]);
+      await refreshSupplierViews(selectedSupplierId);
     },
   });
 
@@ -1214,60 +1221,31 @@ export default function SuppliersPage() {
                         <TableHead>Email</TableHead>
                         <TableHead>Telephone</TableHead>
                         <TableHead>Statut</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {(supplierContactsQuery.data?.items ?? []).map((contact) => (
                         <TableRow key={contact.id}>
                           <TableCell className="font-medium">
-                            {contact.fullName}{' '}
+                            <button
+                              type="button"
+                              className="underline-offset-2 hover:underline"
+                              onClick={() => {
+                                setReadContact({
+                                  ...contact,
+                                  supplierName: editForm.name,
+                                });
+                                setReadContactModalOpen(true);
+                              }}
+                            >
+                              {contact.fullName}
+                            </button>{' '}
                             {contact.isPrimary ? <Badge variant="secondary">Principal</Badge> : null}
                           </TableCell>
                           <TableCell>{contact.role ?? '—'}</TableCell>
                           <TableCell>{contact.email ?? '—'}</TableCell>
                           <TableCell>{contact.phone ?? contact.mobile ?? '—'}</TableCell>
                           <TableCell>{contact.isActive ? 'Actif' : 'Inactif'}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setEditingContactId(contact.id);
-                                  setContactFormErrors({});
-                                  setContactForm({
-                                    firstName: contact.firstName ?? '',
-                                    lastName: contact.lastName ?? '',
-                                    fullName: contact.fullName,
-                                    role: contact.role ?? '',
-                                    email: contact.email ?? '',
-                                    phone: contact.phone ?? '',
-                                    mobile: contact.mobile ?? '',
-                                    notes: contact.notes ?? '',
-                                    isPrimary: contact.isPrimary,
-                                  });
-                                  setContactModalOpen(true);
-                                }}
-                              >
-                                Editer
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                disabled={
-                                  deactivateSupplierContactMutation.isPending || !contact.isActive
-                                }
-                                onClick={() =>
-                                  void deactivateSupplierContactMutation.mutateAsync(contact.id)
-                                }
-                              >
-                                Desactiver
-                              </Button>
-                            </div>
-                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1375,6 +1353,33 @@ export default function SuppliersPage() {
           }}
           isSubmitting={
             createSupplierContactMutation.isPending || updateSupplierContactMutation.isPending
+          }
+        />
+
+        <SupplierContactVisualizationModal
+          open={readContactModalOpen}
+          onOpenChange={setReadContactModalOpen}
+          contact={readContact}
+          onEdit={
+            canUpdateSuppliers
+              ? (contact) => {
+                  setReadContactModalOpen(false);
+                  setEditingContactId(contact.id);
+                  setContactFormErrors({});
+                  setContactForm({
+                    firstName: contact.firstName ?? '',
+                    lastName: contact.lastName ?? '',
+                    fullName: contact.fullName,
+                    role: contact.role ?? '',
+                    email: contact.email ?? '',
+                    phone: contact.phone ?? '',
+                    mobile: contact.mobile ?? '',
+                    notes: contact.notes ?? '',
+                    isPrimary: contact.isPrimary,
+                  });
+                  setContactModalOpen(true);
+                }
+              : undefined
           }
         />
 
