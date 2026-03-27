@@ -125,7 +125,6 @@ export function MembersList() {
                           variant="outline"
                           size="sm"
                           onClick={() => setRolesUserId(member.id)}
-                          disabled={Boolean(member.isDirectoryLocked)}
                         >
                           Rôles
                         </Button>

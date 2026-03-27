@@ -85,7 +85,7 @@ export function MembersSyncDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button type="button" variant="outline" size="sm">
+          <Button type="button" size="sm">
             <RefreshCw className="mr-2 h-4 w-4" />
             Synchronisation
           </Button>
