@@ -97,7 +97,19 @@ describe('MicrosoftSsoService', () => {
   it('retourne une URL d authorization et persiste un state', async () => {
     const result = await service.getAuthorizationUrl();
     expect(result.authorizationUrl).toContain('login.microsoftonline.com');
+    const auth = new URL(result.authorizationUrl);
+    expect(auth.searchParams.get('scope')).toBe('openid profile email');
     expect(prisma.microsoftOAuthState.create).toHaveBeenCalledTimes(1);
+    expect(prisma.microsoftOAuthState.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          redirectUri:
+            'http://localhost:3001/api/auth/microsoft/callback',
+          stateTokenHash: expect.any(String),
+          expiresAt: expect.any(Date),
+        }),
+      }),
+    );
   });
 
   it('refuse si email secondaire non verifiee', async () => {

@@ -2352,6 +2352,8 @@ model MicrosoftOAuthState {
   stateTokenHash String   @unique
   userId         String?
   clientId       String?
+  /// Redirect URI OAuth utilisée pour cette demande (SSO plateforme ou connexion client).
+  redirectUri    String?
   expiresAt      DateTime
   consumedAt     DateTime?
   createdAt      DateTime @default(now())

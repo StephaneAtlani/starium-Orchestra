@@ -16,7 +16,8 @@ import { SecurityLogsService } from '../../security-logs/security-logs.service';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
 import { MicrosoftCallbackQueryDto } from './dto/microsoft-callback-query.dto';
 
-const DEFAULT_SSO_SCOPES = 'openid profile email User.Read';
+/** OIDC uniquement — pas les scopes Graph plateforme (connexion M365 déléguée). User.Read seulement si tu ajoutes MICROSOFT_SSO_SCOPES (fallback Graph /me). */
+const DEFAULT_SSO_SCOPES = 'openid profile email';
 const DEFAULT_STATE_TTL_SECONDS = 600;
 const DEFAULT_OAUTH_TENANT = 'common';
 
@@ -53,17 +54,16 @@ export class MicrosoftSsoService {
     );
     const expiresAt = new Date(Date.now() + ttl * 1000);
 
-    await (this.prisma as any).microsoftOAuthState.create({
+    await this.prisma.microsoftOAuthState.create({
       data: {
         stateTokenHash: stateHash,
+        redirectUri,
         expiresAt,
       },
     });
 
     const scopes =
       this.config.get<string>('MICROSOFT_SSO_SCOPES')?.trim() ||
-      resolvedPlatformConfig.graphScopes ||
-      this.config.get<string>('MICROSOFT_GRAPH_SCOPES')?.trim() ||
       DEFAULT_SSO_SCOPES;
 
     const authUrl = new URL(
@@ -346,7 +346,7 @@ export class MicrosoftSsoService {
   private async consumeState(stateToken: string): Promise<boolean> {
     const stateHash = this.hashToken(stateToken);
     const now = new Date();
-    const updated = await (this.prisma as any).microsoftOAuthState.updateMany({
+    const updated = await this.prisma.microsoftOAuthState.updateMany({
       where: {
         stateTokenHash: stateHash,
         consumedAt: null,
