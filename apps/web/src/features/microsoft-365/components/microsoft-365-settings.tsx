@@ -27,7 +27,16 @@ type MicrosoftConnectionDto = {
   id: string;
   tenantId: string;
   tenantName: string | null;
+  microsoftUserId: string | null;
+  microsoftUserEmail: string | null;
+  microsoftUserDisplayName: string | null;
   status: string;
+  grantedScopes: string[];
+  connectedAt: string | null;
+  revokedAt: string | null;
+  lastTokenRefreshAt: string | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
   tokenExpiresAt: string | null;
   connectedByUserId: string | null;
   createdAt: string;
@@ -72,12 +81,21 @@ export function Microsoft365Settings() {
 
   useEffect(() => {
     const m = searchParams.get('microsoft');
+    const errorCode = searchParams.get('code');
     if (m === 'connected') {
       void refetch();
       toast.success('Connexion Microsoft enregistrée.');
       window.history.replaceState({}, '', pathname);
     } else if (m === 'error') {
-      toast.error('Échec ou annulation de la connexion Microsoft.');
+      if (errorCode === 'identity_email_mismatch') {
+        toast.error(
+          "L'identité Microsoft ne correspond pas à une adresse e-mail validée de votre compte Starium.",
+        );
+      } else if (errorCode === 'missing_reliable_email') {
+        toast.error("Microsoft n'a pas fourni d'adresse e-mail exploitable.");
+      } else {
+        toast.error('Échec ou annulation de la connexion Microsoft.');
+      }
       window.history.replaceState({}, '', pathname);
     }
   }, [searchParams, refetch, pathname]);
@@ -230,6 +248,38 @@ export function Microsoft365Settings() {
                 <span className="text-muted-foreground">Tenant Microsoft :</span>{' '}
                 <span className="font-mono text-xs">{connection.tenantId}</span>
               </p>
+              {connection.microsoftUserDisplayName && (
+                <p>
+                  <span className="text-muted-foreground">Compte connecté :</span>{' '}
+                  <span className="font-medium">
+                    {connection.microsoftUserDisplayName}
+                  </span>
+                </p>
+              )}
+              {connection.microsoftUserEmail && (
+                <p>
+                  <span className="text-muted-foreground">Email Microsoft :</span>{' '}
+                  <span>{connection.microsoftUserEmail}</span>
+                </p>
+              )}
+              {connection.grantedScopes.length > 0 && (
+                <p>
+                  <span className="text-muted-foreground">Scopes accordés :</span>{' '}
+                  <span>{connection.grantedScopes.join(', ')}</span>
+                </p>
+              )}
+              {connection.connectedAt && (
+                <p className="text-muted-foreground">
+                  Connecté le{' '}
+                  {new Date(connection.connectedAt).toLocaleString('fr-FR')}
+                </p>
+              )}
+              {connection.lastTokenRefreshAt && (
+                <p className="text-muted-foreground">
+                  Dernier refresh token le{' '}
+                  {new Date(connection.lastTokenRefreshAt).toLocaleString('fr-FR')}
+                </p>
+              )}
               {connection.tokenExpiresAt && (
                 <p className="text-muted-foreground">
                   Jeton valide jusqu’au{' '}

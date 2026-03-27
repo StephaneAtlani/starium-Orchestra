@@ -11,6 +11,10 @@ export interface ValidatedMicrosoftIdToken {
   tid: string;
   /** Claims utiles post-validation (sans secrets). */
   subject?: string;
+  email?: string;
+  preferredUsername?: string;
+  upn?: string;
+  displayName?: string;
 }
 
 /**
@@ -64,6 +68,13 @@ export class MicrosoftIdTokenService {
     return {
       tid,
       subject: typeof payload.sub === 'string' ? payload.sub : undefined,
+      email: typeof payload.email === 'string' ? payload.email : undefined,
+      preferredUsername:
+        typeof payload.preferred_username === 'string'
+          ? payload.preferred_username
+          : undefined,
+      upn: typeof payload.upn === 'string' ? payload.upn : undefined,
+      displayName: typeof payload.name === 'string' ? payload.name : undefined,
     };
   }
 

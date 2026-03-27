@@ -7,6 +7,7 @@ import { MicrosoftTokenCryptoService } from './microsoft-token-crypto.service';
 import {
   MemoryMicrosoftOAuthStateStore,
   MicrosoftOAuthStateStore,
+  PrismaMicrosoftOAuthStateStore,
 } from './microsoft-oauth-state.store';
 import { MicrosoftRefreshLockService } from './microsoft-refresh-lock.service';
 import { MicrosoftIdTokenService } from './microsoft-id-token.service';
@@ -50,9 +51,10 @@ import { ProjectMicrosoftLinksService } from './project-microsoft-links.service'
     ClientMicrosoftOAuthService,
     MicrosoftTokenCryptoService,
     MemoryMicrosoftOAuthStateStore,
+    PrismaMicrosoftOAuthStateStore,
     {
       provide: MicrosoftOAuthStateStore,
-      useExisting: MemoryMicrosoftOAuthStateStore,
+      useExisting: PrismaMicrosoftOAuthStateStore,
     },
     MicrosoftRefreshLockService,
     MicrosoftIdTokenService,

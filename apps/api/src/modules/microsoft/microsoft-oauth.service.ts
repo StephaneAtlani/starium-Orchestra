@@ -12,6 +12,7 @@ import {
   MicrosoftAuthMode,
   MicrosoftConnectionStatus,
   ClientUserStatus,
+  ClientUserRole,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -25,12 +26,22 @@ import { MicrosoftPlatformConfigService } from './microsoft-platform-config.serv
 import { MICROSOFT_OAUTH_STATE_PURPOSE } from './microsoft.constants';
 import type { MicrosoftOAuthStatePayload } from './microsoft-oauth.types';
 import type { ResolvedPlatformMicrosoftConfig } from './microsoft-platform-config.types';
+import { normalizeEmail } from '../me/email-identity.util';
 
 export interface MicrosoftConnectionPublic {
   id: string;
   tenantId: string;
   tenantName: string | null;
+  microsoftUserId: string | null;
+  microsoftUserEmail: string | null;
+  microsoftUserDisplayName: string | null;
   status: MicrosoftConnectionStatus;
+  grantedScopes: string[];
+  connectedAt: Date | null;
+  revokedAt: Date | null;
+  lastTokenRefreshAt: Date | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
   tokenExpiresAt: Date | null;
   connectedByUserId: string | null;
   createdAt: Date;
@@ -130,7 +141,13 @@ export class MicrosoftOAuthService {
     const state = this.jwt.sign(payload, {
       expiresIn: Math.ceil(ttlMs / 1000),
     });
-    this.stateStore.register(jti, ttlMs);
+    await this.stateStore.register({
+      stateToken: state,
+      userId,
+      clientId: stariumClientId,
+      redirectUri: platform.redirectUri,
+      ttlMs,
+    });
 
     const authority = `https://login.microsoftonline.com/${creds.authorityTenant}`;
     const params = new URLSearchParams({
@@ -184,7 +201,7 @@ export class MicrosoftOAuthService {
       return { redirectUrl: await this.buildErrorRedirect('invalid_state_payload') };
     }
 
-    if (!this.stateStore.consume(payload.jti)) {
+    if (!(await this.stateStore.consume(state))) {
       return { redirectUrl: await this.buildErrorRedirect('state_replay') };
     }
 
@@ -207,6 +224,9 @@ export class MicrosoftOAuthService {
     });
     if (!membership) {
       return { redirectUrl: await this.buildErrorRedirect('forbidden_client') };
+    }
+    if (membership.role !== ClientUserRole.CLIENT_ADMIN) {
+      return { redirectUrl: await this.buildErrorRedirect('forbidden_client_admin') };
     }
 
     let creds: {
@@ -243,6 +263,9 @@ export class MicrosoftOAuthService {
     }
 
     let tenantId: string;
+    let microsoftUserId: string | undefined;
+    let microsoftUserEmail: string | undefined;
+    let microsoftUserDisplayName: string | undefined;
     if (tokens.id_token) {
       try {
         const validated = await this.idToken.verifyIdToken(
@@ -250,6 +273,9 @@ export class MicrosoftOAuthService {
           creds.azureClientId,
         );
         tenantId = validated.tid;
+        microsoftUserId = validated.subject;
+        microsoftUserDisplayName = validated.displayName;
+        microsoftUserEmail = this.resolveMicrosoftEmail(validated);
       } catch (err) {
         this.logger.warn(`id_token invalide: ${(err as Error).message}`);
         await this.auditError(clientId, userId, undefined, err);
@@ -258,6 +284,36 @@ export class MicrosoftOAuthService {
     } else {
       this.logger.warn('Réponse token sans id_token');
       return { redirectUrl: await this.buildErrorRedirect('missing_id_token') };
+    }
+
+    if (!microsoftUserEmail) {
+      await this.audit.create({
+        clientId,
+        userId,
+        action: 'microsoft_connection.connection_failed',
+        resourceType: 'microsoft_connection',
+        newValue: { code: 'missing_reliable_email' },
+      });
+      return {
+        redirectUrl: await this.buildErrorRedirect('missing_reliable_email'),
+      };
+    }
+
+    const isIdentityAllowed = await this.isMicrosoftEmailAllowedForUser(
+      userId,
+      microsoftUserEmail,
+    );
+    if (!isIdentityAllowed) {
+      await this.audit.create({
+        clientId,
+        userId,
+        action: 'microsoft_connection.connection_failed',
+        resourceType: 'microsoft_connection',
+        newValue: { code: 'identity_email_mismatch', microsoftUserEmail },
+      });
+      return {
+        redirectUrl: await this.buildErrorRedirect('identity_email_mismatch'),
+      };
     }
 
     const accessEnc = this.crypto.encrypt(tokens.access_token);
@@ -278,6 +334,7 @@ export class MicrosoftOAuthService {
             status: MicrosoftConnectionStatus.REVOKED,
             accessTokenEncrypted: null,
             refreshTokenEncrypted: null,
+            revokedAt: new Date(),
           },
         });
         revokedCount = prev.count;
@@ -293,14 +350,32 @@ export class MicrosoftOAuthService {
             authMode: MicrosoftAuthMode.DELEGATED,
             accessTokenEncrypted: accessEnc,
             refreshTokenEncrypted: refreshEnc,
+            grantedScopes: this.parseGrantedScopes(tokens.scope),
             tokenExpiresAt: expiresAt,
+            connectedAt: new Date(),
+            revokedAt: null,
+            lastTokenRefreshAt: null,
+            lastErrorCode: null,
+            lastErrorMessage: null,
+            microsoftUserId,
+            microsoftUserEmail,
+            microsoftUserDisplayName,
             connectedByUserId: userId,
           },
           update: {
             status: MicrosoftConnectionStatus.ACTIVE,
             accessTokenEncrypted: accessEnc,
             refreshTokenEncrypted: refreshEnc,
+            grantedScopes: this.parseGrantedScopes(tokens.scope),
             tokenExpiresAt: expiresAt,
+            connectedAt: new Date(),
+            revokedAt: null,
+            lastTokenRefreshAt: null,
+            lastErrorCode: null,
+            lastErrorMessage: null,
+            microsoftUserId,
+            microsoftUserEmail,
+            microsoftUserDisplayName,
             connectedByUserId: userId,
           },
         });
@@ -314,6 +389,7 @@ export class MicrosoftOAuthService {
         resourceId: result.id,
         newValue: {
           tenantId,
+          microsoftUserEmail,
           revokedOtherCount: revokedCount,
         },
       });
@@ -347,7 +423,16 @@ export class MicrosoftOAuthService {
         id: true,
         tenantId: true,
         tenantName: true,
+        microsoftUserId: true,
+        microsoftUserEmail: true,
+        microsoftUserDisplayName: true,
         status: true,
+        grantedScopes: true,
+        connectedAt: true,
+        revokedAt: true,
+        lastTokenRefreshAt: true,
+        lastErrorCode: true,
+        lastErrorMessage: true,
         tokenExpiresAt: true,
         connectedByUserId: true,
         createdAt: true,
@@ -385,6 +470,7 @@ export class MicrosoftOAuthService {
             accessTokenEncrypted: null,
             refreshTokenEncrypted: null,
             tokenExpiresAt: null,
+            revokedAt: new Date(),
           },
         }),
       ]);
@@ -478,6 +564,9 @@ export class MicrosoftOAuthService {
           accessTokenEncrypted: accessEnc,
           refreshTokenEncrypted: refreshEnc,
           tokenExpiresAt: expiresAt,
+          lastTokenRefreshAt: new Date(),
+          lastErrorCode: null,
+          lastErrorMessage: null,
         },
       });
 
@@ -507,9 +596,75 @@ export class MicrosoftOAuthService {
     }
     await this.prisma.microsoftConnection.update({
       where: { id: connectionId },
-      data: { status },
+      data: {
+        status,
+        lastErrorCode: oauth ?? 'refresh_failed',
+        lastErrorMessage:
+          err instanceof Error ? err.message.slice(0, 1000) : 'refresh_failed',
+      },
     });
     await this.auditError(clientId, userId ?? undefined, undefined, err, oauth);
+  }
+
+  private parseGrantedScopes(raw: string | undefined): string[] {
+    if (!raw) {
+      return [];
+    }
+    return raw
+      .split(/\s+/)
+      .map((scope) => scope.trim())
+      .filter((scope) => scope.length > 0);
+  }
+
+  private resolveMicrosoftEmail(validated: {
+    email?: string;
+    preferredUsername?: string;
+    upn?: string;
+  }): string | undefined {
+    const candidates = [validated.email, validated.preferredUsername, validated.upn];
+    for (const value of candidates) {
+      if (!value) {
+        continue;
+      }
+      const normalized = normalizeEmail(value);
+      if (normalized.includes('@')) {
+        return normalized;
+      }
+    }
+    return undefined;
+  }
+
+  private async isMicrosoftEmailAllowedForUser(
+    userId: string,
+    microsoftEmail: string,
+  ): Promise<boolean> {
+    const normalizedMicrosoftEmail = normalizeEmail(microsoftEmail);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        emailIdentities: {
+          where: {
+            isVerified: true,
+            isActive: true,
+          },
+          select: {
+            emailNormalized: true,
+          },
+        },
+      },
+    });
+    if (!user) {
+      return false;
+    }
+
+    if (normalizeEmail(user.email) === normalizedMicrosoftEmail) {
+      return true;
+    }
+
+    return user.emailIdentities.some(
+      (identity) => identity.emailNormalized === normalizedMicrosoftEmail,
+    );
   }
 
   private async auditError(
