@@ -166,7 +166,6 @@ model Client {
   resourceRoles                 ResourceRole[]
   resources                     Resource[]
   microsoftConnections          MicrosoftConnection[]
-  microsoftOAuthStates          MicrosoftOAuthState[]
   projectMicrosoftLinks         ProjectMicrosoftLink[]
   projectTaskSyncs             ProjectTaskMicrosoftSync[]
   projectDocumentMicrosoftSyncs ProjectDocumentMicrosoftSync[]
@@ -255,7 +254,6 @@ model User {
   projectReviewParticipants          ProjectReviewParticipant[]
   emailIdentities                    UserEmailIdentity[]
   microsoftConnectionsConnected      MicrosoftConnection[] @relation("MicrosoftConnectedBy")
-  microsoftOAuthStates               MicrosoftOAuthState[]
   uploadedProjectDocuments           ProjectDocument[]     @relation("ProjectDocumentUploadedBy")
 }
 
@@ -2350,20 +2348,11 @@ model MicrosoftConnection {
   clientId              String
   tenantId              String
   tenantName            String?
-  microsoftUserId       String?
-  microsoftUserEmail    String?
-  microsoftUserDisplayName String?
   status                MicrosoftConnectionStatus @default(ACTIVE)
   authMode              MicrosoftAuthMode         @default(DELEGATED)
   accessTokenEncrypted  String?
   refreshTokenEncrypted String?
-  grantedScopes         String[]
   tokenExpiresAt        DateTime?
-  connectedAt           DateTime?
-  revokedAt             DateTime?
-  lastTokenRefreshAt    DateTime?
-  lastErrorCode         String?
-  lastErrorMessage      String?
   connectedByUserId     String?
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
@@ -2375,25 +2364,6 @@ model MicrosoftConnection {
   @@unique([clientId, tenantId])
   @@index([clientId])
   @@index([status])
-  @@index([clientId, status])
-}
-
-/// Etat one-shot du state OAuth Microsoft pour callback anti-replay (persistant multi-instance).
-model MicrosoftOAuthState {
-  id             String   @id @default(cuid())
-  stateTokenHash String   @unique
-  userId         String
-  clientId       String
-  redirectUri    String
-  expiresAt      DateTime
-  consumedAt     DateTime?
-  createdAt      DateTime @default(now())
-
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@index([clientId, userId])
-  @@index([expiresAt])
 }
 
 /// Pré-requis de rattrapage repo : persistance du lien projet ↔ Microsoft (RFC-PROJ-INT-007).

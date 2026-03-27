@@ -10,7 +10,6 @@ export interface MicrosoftTokenSuccess {
   expires_in: number;
   id_token?: string;
   token_type?: string;
-  scope?: string;
 }
 
 export interface MicrosoftTokenErrorBody {
@@ -103,7 +102,6 @@ export class MicrosoftTokenHttpService {
             typeof json.id_token === 'string' ? json.id_token : undefined,
           token_type:
             typeof json.token_type === 'string' ? json.token_type : undefined,
-          scope: typeof json.scope === 'string' ? json.scope : undefined,
         };
       } finally {
         clearTimeout(t);

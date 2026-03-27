@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import {
   ClientUserStatus,
-  ClientUserRole,
   MicrosoftAuthMode,
   MicrosoftConnectionStatus,
 } from '@prisma/client';
@@ -103,7 +102,7 @@ describe('MicrosoftOAuthService', () => {
     expect(payload.sub).toBe('user-1');
     expect(payload.cid).toBe('client-1');
     expect(payload.jti).toBeDefined();
-    await expect(store.consume('signed-state-jwt')).resolves.toBe(true);
+    expect(store.consume(payload.jti)).toBe(true);
   });
 
   describe('handleOAuthCallback', () => {
@@ -127,13 +126,7 @@ describe('MicrosoftOAuthService', () => {
       auditCreate: jest.Mock;
     }) {
       const store = new MemoryMicrosoftOAuthStateStore();
-      await store.register({
-        stateToken: 'jwt-state',
-        userId,
-        clientId: clientIdA,
-        redirectUri: platformResolved.redirectUri,
-        ttlMs: 600_000,
-      });
+      store.register(jti, 600_000);
 
       const moduleRef = await Test.createTestingModule({
         providers: [
@@ -198,7 +191,6 @@ describe('MicrosoftOAuthService', () => {
             userId,
             clientId: clientIdA,
             status: ClientUserStatus.ACTIVE,
-            role: ClientUserRole.CLIENT_ADMIN,
           });
         },
       );
@@ -246,12 +238,6 @@ describe('MicrosoftOAuthService', () => {
       return {
         client: { findUnique: clientFindUnique },
         clientUser: { findFirst: clientUserFindFirst },
-        user: {
-          findUnique: jest.fn().mockResolvedValue({
-            email: 'user-1@contoso.com',
-            emailIdentities: [],
-          }),
-        },
         $transaction: jest.fn(async (fn: (t: typeof tx) => Promise<unknown>) =>
           fn(tx),
         ),
@@ -267,12 +253,7 @@ describe('MicrosoftOAuthService', () => {
         expires_in: 3600,
         id_token: 'mock-id-token',
       });
-      const idTokenVerify = jest.fn().mockResolvedValue({
-        tid: tenantId,
-        subject: 'ms-user-1',
-        preferredUsername: 'user-1@contoso.com',
-        displayName: 'User One',
-      });
+      const idTokenVerify = jest.fn().mockResolvedValue({ tid: tenantId });
 
       const prisma = basePrismaForHappyPath({ revokedCount: 0 });
 
@@ -312,12 +293,7 @@ describe('MicrosoftOAuthService', () => {
         expires_in: 3600,
         id_token: 'mock-id-token',
       });
-      const idTokenVerify = jest.fn().mockResolvedValue({
-        tid: tenantId,
-        subject: 'ms-user-1',
-        preferredUsername: 'user-1@contoso.com',
-        displayName: 'User One',
-      });
+      const idTokenVerify = jest.fn().mockResolvedValue({ tid: tenantId });
 
       const prisma = basePrismaForHappyPath({ revokedCount: 2 });
 
@@ -385,14 +361,8 @@ describe('MicrosoftOAuthService', () => {
       const auditCreate = jest.fn();
       const jwtVerify = jest.fn().mockReturnValue(statePayload);
       const store = new MemoryMicrosoftOAuthStateStore();
-      await store.register({
-        stateToken: 's',
-        userId,
-        clientId: clientIdA,
-        redirectUri: platformResolved.redirectUri,
-        ttlMs: 600_000,
-      });
-      await store.consume('s');
+      store.register(jti, 600_000);
+      store.consume(jti);
 
       const moduleRef = await Test.createTestingModule({
         providers: [
@@ -432,13 +402,7 @@ describe('MicrosoftOAuthService', () => {
       const auditCreate = jest.fn();
       const jwtVerify = jest.fn().mockReturnValue(statePayload);
       const store = new MemoryMicrosoftOAuthStateStore();
-      await store.register({
-        stateToken: 's',
-        userId,
-        clientId: clientIdA,
-        redirectUri: platformResolved.redirectUri,
-        ttlMs: 600_000,
-      });
+      store.register(jti, 600_000);
 
       const clientFindUnique = jest.fn().mockResolvedValue({
         id: clientIdA,
@@ -460,7 +424,6 @@ describe('MicrosoftOAuthService', () => {
             useValue: {
               client: { findUnique: clientFindUnique },
               clientUser: { findFirst: jest.fn().mockResolvedValue(null) },
-              user: { findUnique: jest.fn() },
               $transaction: jest.fn(),
             },
           },
@@ -492,12 +455,7 @@ describe('MicrosoftOAuthService', () => {
         expires_in: 3600,
         id_token: 'idt',
       });
-      const idTokenVerify = jest.fn().mockResolvedValue({
-        tid: tenantId,
-        subject: 'ms-user-1',
-        preferredUsername: 'user-1@contoso.com',
-        displayName: 'User One',
-      });
+      const idTokenVerify = jest.fn().mockResolvedValue({ tid: tenantId });
 
       const prisma = basePrismaForHappyPath({ revokedCount: 0 });
 
@@ -509,149 +467,12 @@ describe('MicrosoftOAuthService', () => {
         auditCreate,
       });
 
-      await oauth.handleOAuthCallback({ code: 'c', state: 'jwt-state' });
+      await oauth.handleOAuthCallback({ code: 'c', state: 's' });
 
       const findUnique = prisma.client.findUnique as jest.Mock;
       expect(findUnique.mock.calls.every((c) => c[0].where.id === clientIdA)).toBe(true);
       const cu = prisma.clientUser.findFirst as jest.Mock;
       expect(cu.mock.calls[0][0].where.clientId).toBe(clientIdA);
-    });
-
-    it('succès si email Microsoft = email secondaire validé du même utilisateur', async () => {
-      const auditCreate = jest.fn().mockResolvedValue(undefined);
-      const jwtVerify = jest.fn().mockReturnValue(statePayload);
-      const tokenHttpPost = jest.fn().mockResolvedValue({
-        access_token: 'plain-access',
-        refresh_token: 'plain-refresh',
-        expires_in: 3600,
-        id_token: 'mock-id-token',
-      });
-      const idTokenVerify = jest.fn().mockResolvedValue({
-        tid: tenantId,
-        subject: 'ms-user-2',
-        preferredUsername: 'secondary@contoso.com',
-      });
-      const prisma = basePrismaForHappyPath({ revokedCount: 0 }) as Record<
-        string,
-        unknown
-      >;
-      (prisma.user as { findUnique: jest.Mock }).findUnique.mockResolvedValue({
-        email: 'primary@contoso.com',
-        emailIdentities: [{ emailNormalized: 'secondary@contoso.com' }],
-      });
-
-      const { oauth } = await buildServiceForCallback({
-        prisma,
-        jwtVerify,
-        tokenHttpPost,
-        idTokenVerify,
-        auditCreate,
-      });
-
-      const result = await oauth.handleOAuthCallback({ code: 'c', state: 'jwt-state' });
-      expect(result.redirectUrl).toContain('microsoft=connected');
-    });
-
-    it('refus si email Microsoft inconnu', async () => {
-      const auditCreate = jest.fn().mockResolvedValue(undefined);
-      const jwtVerify = jest.fn().mockReturnValue(statePayload);
-      const tokenHttpPost = jest.fn().mockResolvedValue({
-        access_token: 'plain-access',
-        refresh_token: 'plain-refresh',
-        expires_in: 3600,
-        id_token: 'mock-id-token',
-      });
-      const idTokenVerify = jest.fn().mockResolvedValue({
-        tid: tenantId,
-        subject: 'ms-user-2',
-        preferredUsername: 'unknown@contoso.com',
-      });
-      const prisma = basePrismaForHappyPath({ revokedCount: 0 }) as Record<
-        string,
-        unknown
-      >;
-      (prisma.user as { findUnique: jest.Mock }).findUnique.mockResolvedValue({
-        email: 'primary@contoso.com',
-        emailIdentities: [{ emailNormalized: 'secondary@contoso.com' }],
-      });
-
-      const { oauth } = await buildServiceForCallback({
-        prisma,
-        jwtVerify,
-        tokenHttpPost,
-        idTokenVerify,
-        auditCreate,
-      });
-
-      const result = await oauth.handleOAuthCallback({ code: 'c', state: 'jwt-state' });
-      expect(result.redirectUrl).toContain('code=identity_email_mismatch');
-      expect((prisma.$transaction as jest.Mock)).not.toHaveBeenCalled();
-      expect(auditCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: 'microsoft_connection.connection_failed',
-          newValue: expect.objectContaining({ code: 'identity_email_mismatch' }),
-        }),
-      );
-    });
-
-    it('refus si email Microsoft = secondaire non validé', async () => {
-      const auditCreate = jest.fn().mockResolvedValue(undefined);
-      const jwtVerify = jest.fn().mockReturnValue(statePayload);
-      const tokenHttpPost = jest.fn().mockResolvedValue({
-        access_token: 'plain-access',
-        refresh_token: 'plain-refresh',
-        expires_in: 3600,
-        id_token: 'mock-id-token',
-      });
-      const idTokenVerify = jest.fn().mockResolvedValue({
-        tid: tenantId,
-        subject: 'ms-user-2',
-        preferredUsername: 'secondary@contoso.com',
-      });
-      const prisma = basePrismaForHappyPath({ revokedCount: 0 }) as Record<
-        string,
-        unknown
-      >;
-      (prisma.user as { findUnique: jest.Mock }).findUnique.mockResolvedValue({
-        email: 'primary@contoso.com',
-        emailIdentities: [],
-      });
-
-      const { oauth } = await buildServiceForCallback({
-        prisma,
-        jwtVerify,
-        tokenHttpPost,
-        idTokenVerify,
-        auditCreate,
-      });
-      const result = await oauth.handleOAuthCallback({ code: 'c', state: 'jwt-state' });
-      expect(result.redirectUrl).toContain('code=identity_email_mismatch');
-    });
-
-    it('refus si Microsoft ne retourne pas d’email fiable', async () => {
-      const auditCreate = jest.fn().mockResolvedValue(undefined);
-      const jwtVerify = jest.fn().mockReturnValue(statePayload);
-      const tokenHttpPost = jest.fn().mockResolvedValue({
-        access_token: 'plain-access',
-        refresh_token: 'plain-refresh',
-        expires_in: 3600,
-        id_token: 'mock-id-token',
-      });
-      const idTokenVerify = jest.fn().mockResolvedValue({
-        tid: tenantId,
-        subject: 'ms-user-2',
-      });
-      const prisma = basePrismaForHappyPath({ revokedCount: 0 });
-
-      const { oauth } = await buildServiceForCallback({
-        prisma,
-        jwtVerify,
-        tokenHttpPost,
-        idTokenVerify,
-        auditCreate,
-      });
-      const result = await oauth.handleOAuthCallback({ code: 'c', state: 'jwt-state' });
-      expect(result.redirectUrl).toContain('code=missing_reliable_email');
     });
   });
 
