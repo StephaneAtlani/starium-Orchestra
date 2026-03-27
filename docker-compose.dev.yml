@@ -92,6 +92,8 @@ services:
       dockerfile: apps/web/Dockerfile.dev
     restart: unless-stopped
     environment:
+      # Ligne de requête OAuth (code=…) peut dépassir 16 Ko (défaut Node) → « invalid response ».
+      NODE_OPTIONS: "--max-http-header-size=262144"
       # Client (navigateur) : API publiée sur l’hôte (ports api-dev 3001:3001). Ne pas mettre le hostname Docker ici.
       NEXT_PUBLIC_API_URL: http://localhost:3001
       # Serveur Next (rewrites /api/* → Nest) : URL atteignable depuis le conteneur web uniquement.

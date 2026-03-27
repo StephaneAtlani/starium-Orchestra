@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -18,7 +18,7 @@ import {
 const ACTIVE_CLIENT_KEY = 'starium.activeClient';
 const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const {
     user,
@@ -590,5 +590,19 @@ export default function LoginPage() {
         </div>
       </Card>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-background p-6">
+          <p className="text-sm text-muted-foreground">Chargement…</p>
+        </main>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   );
 }

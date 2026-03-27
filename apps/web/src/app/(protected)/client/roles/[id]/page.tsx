@@ -1,5 +1,10 @@
 import { RoleDetailPage } from '@/features/client-rbac/components/role-detail-page';
 
-export default async function ClientRoleDetailPage() {
+type PageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function ClientRoleDetailPage({ params }: PageProps) {
+  await params;
   return <RoleDetailPage />;
 }
