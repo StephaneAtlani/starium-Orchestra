@@ -429,13 +429,25 @@ export function DashboardBudgetKpiWidget() {
 
   const { data: exerciseOptions = [], isLoading: exercisesLoading } =
     useBudgetExerciseOptionsQuery();
-  const { data: budgetsList, isLoading: budgetsLoading } = useBudgetsQuery({
-    page: 1,
-    limit: 200,
-    status: 'ALL',
-  });
+  /** Liste paginée lourde : uniquement pour le sélecteur « Personnaliser », pas pour le chargement du dashboard. */
+  const { data: budgetsList, isLoading: budgetsLoading } = useBudgetsQuery(
+    {
+      page: 1,
+      limit: 200,
+      status: 'ALL',
+    },
+    { enabled: settingsOpen },
+  );
   const budgets = budgetsList?.items ?? [];
-  const listsLoading = exercisesLoading || budgetsLoading;
+  const exercisesReady = !exercisesLoading;
+  const listsLoading =
+    exercisesLoading || (settingsOpen && budgetsLoading);
+  const hasScopedTarget = Boolean(
+    config.budgetKpis.scope?.budgetId || config.budgetKpis.scope?.exerciseId,
+  );
+  /** Résolution cockpit : il suffit de la liste exercices (pas d’attendre la liste budgets). */
+  const emptyNoExerciseContext =
+    exercisesReady && !hasScopedTarget && exerciseOptions.length === 0;
 
   const dashboardParams = React.useMemo(
     () => ({
@@ -452,10 +464,20 @@ export function DashboardBudgetKpiWidget() {
     [config.budgetKpis.scope],
   );
 
-  const query = useBudgetDashboardQuery(dashboardParams);
+  const query = useBudgetDashboardQuery(dashboardParams, {
+    /** Tant que les exercices ne sont pas connus, on lance en parallèle ; sans exercice (sans scope), pas d’appel cockpit inutile. */
+    enabled: !exercisesReady || !emptyNoExerciseContext || hasScopedTarget,
+  });
 
   const data = query.data;
   const err = query.error instanceof Error ? query.error.message : null;
+  /** Message immédiat dès que les listes confirment l’absence d’exercice, sans attendre le 404 du cockpit. */
+  const errMsg =
+    err ??
+    (emptyNoExerciseContext && !data ? 'Aucun budget ou exercice trouvé' : null);
+  const showKpiSkeleton =
+    query.isLoading && !data && !emptyNoExerciseContext;
+
   const alertCount = data ? totalBudgetAlerts(data.alertsSummary) : 0;
 
   if (!hydrated) {
@@ -600,7 +622,7 @@ export function DashboardBudgetKpiWidget() {
         listsLoading={listsLoading}
       />
 
-      {query.isLoading && !data ? (
+      {showKpiSkeleton ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: Math.max(1, config.budgetKpis.kpis.length) }).map(
             (_, i) => (
@@ -608,9 +630,9 @@ export function DashboardBudgetKpiWidget() {
             ),
           )}
         </div>
-      ) : err ? (
+      ) : errMsg ? (
         <div className="rounded-xl border border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">{err}</p>
+          <p className="font-medium text-foreground">{errMsg}</p>
           <p className="mt-1">
             Accédez aux budgets depuis le menu Finance ou créez un exercice / budget.
           </p>
