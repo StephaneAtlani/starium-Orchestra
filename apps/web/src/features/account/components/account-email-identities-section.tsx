@@ -210,7 +210,31 @@ function IdentityRow({
   );
 }
 
+function AccountProfileEmailRow({ email }: { email: string }) {
+  return (
+    <li className="px-4 py-4 sm:flex sm:items-start sm:justify-between sm:gap-6">
+      <div className="min-w-0 flex-1 space-y-2">
+        <div>
+          <p className="text-sm font-semibold leading-snug text-foreground">
+            {email}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            E-mail de connexion au compte (non modifiable ici)
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="secondary" className="font-normal">
+            Compte
+          </Badge>
+        </div>
+      </div>
+    </li>
+  );
+}
+
 export function AccountEmailIdentitiesSection() {
+  const { user } = useAuth();
+  const accountEmail = user?.email ?? '';
   const { data: identities, isLoading, error, refetch } =
     useEmailIdentitiesQuery();
   const identityList = identities ?? [];
