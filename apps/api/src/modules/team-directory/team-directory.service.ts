@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import {
   CollaboratorSource,
+  ClientUserRole,
+  ClientUserStatus,
   DirectoryProviderType,
   DirectorySyncJobStatus,
   DirectorySyncMode,
   ExternalDirectoryType,
 } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import {
@@ -111,6 +115,7 @@ export class TeamDirectoryService {
         if (action === 'created') createdCount++;
         else if (action === 'updated') updatedCount++;
         else skippedCount++;
+        await this.provisionDirectoryUserMembership(clientId, user);
       }
 
       deactivatedCount = await this.collaborators.deactivateMissingDirectoryCollaborators(
@@ -318,5 +323,107 @@ export class TeamDirectoryService {
       user.jobTitle ?? '',
       user.department ?? '',
     ].join('|');
+  }
+
+  private async provisionDirectoryUserMembership(
+    clientId: string,
+    user: DirectoryCollaboratorInput,
+  ): Promise<void> {
+    const candidateEmail = user.email?.trim() || user.username?.trim() || null;
+    if (!candidateEmail || !candidateEmail.includes('@')) {
+      return;
+    }
+
+    const normalizedEmail = candidateEmail.toLowerCase();
+    let platformUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        department: true,
+        jobTitle: true,
+      },
+    });
+
+    if (!platformUser) {
+      const passwordHash = await bcrypt.hash(randomUUID(), 10);
+      platformUser = await this.prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          passwordHash,
+          firstName: user.firstName ?? null,
+          lastName: user.lastName ?? null,
+          department: user.department ?? null,
+          jobTitle: user.jobTitle ?? null,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          department: true,
+          jobTitle: true,
+        },
+      });
+    } else {
+      const userPatch: {
+        firstName?: string | null;
+        lastName?: string | null;
+        department?: string | null;
+        jobTitle?: string | null;
+      } = {};
+
+      if ((platformUser.firstName ?? null) !== (user.firstName ?? null)) {
+        userPatch.firstName = user.firstName ?? null;
+      }
+      if ((platformUser.lastName ?? null) !== (user.lastName ?? null)) {
+        userPatch.lastName = user.lastName ?? null;
+      }
+      if ((platformUser.department ?? null) !== (user.department ?? null)) {
+        userPatch.department = user.department ?? null;
+      }
+      if ((platformUser.jobTitle ?? null) !== (user.jobTitle ?? null)) {
+        userPatch.jobTitle = user.jobTitle ?? null;
+      }
+
+      if (Object.keys(userPatch).length > 0) {
+        await this.prisma.user.update({
+          where: { id: platformUser.id },
+          data: userPatch,
+        });
+      }
+    }
+
+    const existingMembership = await this.prisma.clientUser.findUnique({
+      where: {
+        userId_clientId: {
+          userId: platformUser.id,
+          clientId,
+        },
+      },
+      select: { id: true, status: true },
+    });
+
+    const targetStatus =
+      user.isActive === false ? ClientUserStatus.SUSPENDED : ClientUserStatus.ACTIVE;
+
+    if (!existingMembership) {
+      await this.prisma.clientUser.create({
+        data: {
+          userId: platformUser.id,
+          clientId,
+          role: ClientUserRole.CLIENT_USER,
+          status: targetStatus,
+        },
+      });
+      return;
+    }
+
+    if (existingMembership.status !== targetStatus) {
+      await this.prisma.clientUser.update({
+        where: { id: existingMembership.id },
+        data: { status: targetStatus },
+      });
+    }
   }
 }

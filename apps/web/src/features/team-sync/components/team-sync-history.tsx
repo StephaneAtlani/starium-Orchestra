@@ -9,14 +9,14 @@ type Props = {
 export function TeamSyncHistory({ jobs }: Props) {
   if (!jobs || jobs.length === 0) {
     return (
-      <div className="rounded-md border p-4 text-sm text-muted-foreground">
+      <div className="rounded-md border border-border p-4 text-sm text-muted-foreground">
         Aucun job de synchronisation pour le moment.
       </div>
     );
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border border-border">
       <table className="w-full text-sm">
         <thead className="bg-muted/40 text-left">
           <tr>
@@ -30,7 +30,7 @@ export function TeamSyncHistory({ jobs }: Props) {
         </thead>
         <tbody>
           {jobs.map((job) => (
-            <tr key={job.id} className="border-t">
+            <tr key={job.id} className="border-t border-border">
               <td className="p-2">{new Date(job.startedAt).toLocaleString('fr-FR')}</td>
               <td className="p-2">{job.status}</td>
               <td className="p-2">{job.totalFound}</td>

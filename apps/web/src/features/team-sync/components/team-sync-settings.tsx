@@ -168,7 +168,7 @@ export function TeamSyncSettings() {
           {microsoftConnectionQuery.data?.connection &&
             connectionsQuery.data &&
             connectionsQuery.data.length === 0 && (
-              <div className="rounded-md border p-3 text-sm">
+              <div className="rounded-md border border-border p-3 text-sm">
                 <p className="text-muted-foreground">
                   Connexion Microsoft détectée (tenant{' '}
                   <span className="font-mono text-xs">
@@ -190,7 +190,7 @@ export function TeamSyncSettings() {
           {connectionsQuery.data && connectionsQuery.data.length > 0 && (
             <div className="space-y-2">
               <Label>Connexion annuaire active</Label>
-              <div className="rounded-md border p-2 text-sm">
+              <div className="rounded-md border border-border p-2 text-sm">
                 {selectedConnection?.name ?? 'Annuaire principal'} (
                 {selectedConnection?.providerType ?? 'MICROSOFT_GRAPH'})
               </div>
@@ -198,7 +198,7 @@ export function TeamSyncSettings() {
           )}
 
           {selectedConnection && (
-            <div className="space-y-3 rounded-md border p-3">
+            <div className="space-y-3 rounded-md border border-border p-3">
               <div className="flex items-center justify-between">
                 <Label htmlFor="sync-enabled">Synchronisation annuaire activée</Label>
                 <input
@@ -251,7 +251,7 @@ export function TeamSyncSettings() {
         <CardContent className="space-y-3">
           <div className="flex gap-2">
             <select
-              className="w-full rounded-md border bg-background p-2 text-sm"
+              className="w-full rounded-md border border-border bg-background p-2 text-sm"
               value={selectedProviderGroupId}
               onChange={(e) => setSelectedProviderGroupId(e.target.value)}
             >
@@ -269,7 +269,10 @@ export function TeamSyncSettings() {
 
           <div className="space-y-2">
             {groupScopesQuery.data?.map((g) => (
-              <div key={g.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
+              <div
+                key={g.id}
+                className="flex items-center justify-between rounded-md border border-border p-2 text-sm"
+              >
                 <span>{g.groupName || g.groupId}</span>
                 <Button
                   variant="ghost"

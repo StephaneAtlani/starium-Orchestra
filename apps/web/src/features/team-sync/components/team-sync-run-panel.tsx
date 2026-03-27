@@ -46,7 +46,7 @@ export function TeamSyncRunPanel({
       <TeamSyncPreviewTable preview={preview} />
 
       {execution && (
-        <div className="rounded-md border p-4 text-sm">
+        <div className="rounded-md border border-border p-4 text-sm">
           <p className="font-medium">Dernière exécution</p>
           <p className="text-muted-foreground">
             Job {execution.jobId} · {execution.status}

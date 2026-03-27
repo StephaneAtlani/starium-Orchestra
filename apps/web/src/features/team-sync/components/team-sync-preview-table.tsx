@@ -9,7 +9,7 @@ type Props = {
 export function TeamSyncPreviewTable({ preview }: Props) {
   if (!preview) return null;
   return (
-    <div className="rounded-md border p-4 text-sm">
+    <div className="rounded-md border border-border p-4 text-sm">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Metric label="Mode" value={preview.mode} />
         <Metric label="Trouvés" value={String(preview.totalFound)} />
@@ -24,7 +24,7 @@ export function TeamSyncPreviewTable({ preview }: Props) {
         <p className="mt-3 text-destructive">{preview.errors.join(' · ')}</p>
       )}
 
-      <div className="mt-4 overflow-x-auto rounded-md border">
+      <div className="mt-4 overflow-x-auto rounded-md border border-border">
         <table className="w-full min-w-[920px] text-sm">
           <thead className="bg-muted/40">
             <tr className="text-left">
@@ -40,7 +40,7 @@ export function TeamSyncPreviewTable({ preview }: Props) {
           </thead>
           <tbody>
             {preview.items.map((item) => (
-              <tr key={item.externalDirectoryId} className="border-t">
+              <tr key={item.externalDirectoryId} className="border-t border-border">
                 <td className="p-2">{item.externalDirectoryId}</td>
                 <td className="p-2">{item.lastName ?? '-'}</td>
                 <td className="p-2">{item.firstName ?? '-'}</td>
@@ -64,7 +64,7 @@ export function TeamSyncPreviewTable({ preview }: Props) {
               </tr>
             ))}
             {preview.items.length === 0 && (
-              <tr className="border-t">
+              <tr className="border-t border-border">
                 <td colSpan={8} className="p-3 text-center text-muted-foreground">
                   Aucun objet a synchroniser.
                 </td>
