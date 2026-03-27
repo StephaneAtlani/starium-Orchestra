@@ -88,9 +88,6 @@ import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
 import { ProjectDocumentsSection } from './project-documents-section';
 import { ProjectTeamMatrix } from './project-team-matrix';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
-import {
-  ProjectMicrosoftResourceSelectorsCard,
-} from '@/features/microsoft-365/components/project-microsoft-resource-selectors-card';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { computeRoiFromCostGain } from '../lib/project-sheet-priority-preview';
 import { mapAuditPayloadToProjectSheet } from '../lib/map-audit-payload-to-project-sheet';
@@ -2627,7 +2624,6 @@ export function ProjectSheetView({
         </CardContent>
       </Card>
       <ProjectDocumentsSection projectId={projectId} />
-      <ProjectMicrosoftResourceSelectorsCard canEdit={canEdit} />
       </>
       ) : null}
 
