@@ -73,6 +73,38 @@ enum MicrosoftSyncStatus {
   ERROR
 }
 
+enum DirectoryProviderType {
+  MICROSOFT_GRAPH
+  LDAP
+}
+
+enum DirectorySyncJobStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum DirectorySyncMode {
+  FULL
+  GROUP_FILTERED
+}
+
+enum CollaboratorStatus {
+  ACTIVE
+  INACTIVE
+  DISABLED_SYNC
+}
+
+enum CollaboratorSource {
+  MANUAL
+  DIRECTORY_SYNC
+}
+
+enum ExternalDirectoryType {
+  MICROSOFT_GRAPH
+  LDAP
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -145,6 +177,10 @@ model Client {
   projectTaskLabelAssignments ProjectTaskLabelAssignment[]
   projectMilestoneLabels       ProjectMilestoneLabel[]
   projectMilestoneLabelAssignments ProjectMilestoneLabelAssignment[]
+  directoryConnections          DirectoryConnection[]
+  directoryGroupScopes          DirectoryGroupScope[]
+  directorySyncJobs             DirectorySyncJob[]
+  collaborators                 Collaborator[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -2431,4 +2467,107 @@ model ProjectTaskMicrosoftSync {
   @@unique([clientId, projectTaskId])
   @@index([clientId, projectId])
   @@index([plannerTaskId])
+}
+
+model DirectoryConnection {
+  id                      String                @id @default(cuid())
+  clientId                String
+  name                    String
+  providerType            DirectoryProviderType @default(MICROSOFT_GRAPH)
+  isActive                Boolean               @default(true)
+  isSyncEnabled           Boolean               @default(false)
+  lockSyncedCollaborators Boolean               @default(true)
+  usersScope              Json?
+  metadata                Json?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+
+  client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  groupScopes DirectoryGroupScope[]
+  syncJobs    DirectorySyncJob[]
+
+  @@index([clientId])
+  @@index([clientId, isActive])
+}
+
+model DirectoryGroupScope {
+  id           String   @id @default(cuid())
+  clientId     String
+  connectionId String
+  groupId      String
+  groupName    String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client     Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  connection DirectoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, groupId])
+  @@index([clientId, connectionId])
+}
+
+model DirectorySyncJob {
+  id               String               @id @default(cuid())
+  clientId         String
+  connectionId     String
+  status           DirectorySyncJobStatus
+  mode             DirectorySyncMode
+  startedAt        DateTime             @default(now())
+  finishedAt       DateTime?
+  totalFound       Int                  @default(0)
+  createdCount     Int                  @default(0)
+  updatedCount     Int                  @default(0)
+  deactivatedCount Int                  @default(0)
+  skippedCount     Int                  @default(0)
+  errorCount       Int                  @default(0)
+  summary          Json?
+  triggeredByUserId String?
+
+  client     Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  connection DirectoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, connectionId])
+  @@index([startedAt])
+}
+
+model Collaborator {
+  id                    String                @id @default(cuid())
+  clientId              String
+  firstName             String?
+  lastName              String?
+  displayName           String
+  email                 String?
+  username              String?
+  jobTitle              String?
+  department            String?
+  phone                 String?
+  mobile                String?
+  employeeNumber        String?
+  managerId             String?
+  status                CollaboratorStatus    @default(ACTIVE)
+  source                CollaboratorSource    @default(MANUAL)
+  externalDirectoryId   String?
+  externalDirectoryType ExternalDirectoryType?
+  externalUsername      String?
+  externalRef           String?
+  lastSyncedAt          DateTime?
+  syncHash              String?
+  skills                Json?
+  internalNotes         String?
+  internalTags          Json?
+  assignments           Json?
+  metadata              Json?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  client       Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  manager      Collaborator?  @relation("CollaboratorManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports      Collaborator[] @relation("CollaboratorManager")
+
+  @@unique([clientId, externalDirectoryId])
+  @@index([clientId, email])
+  @@index([clientId, username])
+  @@index([clientId, source])
+  @@index([clientId, externalDirectoryType])
 }

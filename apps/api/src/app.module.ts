@@ -25,6 +25,8 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { ProjectBudgetModule } from './modules/project-budget/project-budget.module';
 import { ResourcesModule } from './modules/resources/resources.module';
 import { MicrosoftModule } from './modules/microsoft/microsoft.module';
+import { CollaboratorsModule } from './modules/collaborators/collaborators.module';
+import { TeamDirectoryModule } from './modules/team-directory/team-directory.module';
 
 @Module({
   imports: [
@@ -58,6 +60,8 @@ import { MicrosoftModule } from './modules/microsoft/microsoft.module';
     ProjectBudgetModule,
     ResourcesModule,
     MicrosoftModule,
+    CollaboratorsModule,
+    TeamDirectoryModule,
   ],
 })
 export class AppModule {}

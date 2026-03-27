@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, Shield, Cloud } from 'lucide-react';
+import { Users, Shield, Cloud, RefreshCw } from 'lucide-react';
 
 export default async function ClientAdministrationPage() {
   return (
@@ -52,6 +52,21 @@ export default async function ClientAdministrationPage() {
                 <h3 className="font-semibold">Microsoft 365</h3>
                 <p className="text-sm text-muted-foreground">
                   Connexion OAuth et tenant pour ce client
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/client/administration/team-sync">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <RefreshCw className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Synchronisation annuaire</h3>
+                <p className="text-sm text-muted-foreground">
+                  Preview, exécution sync et verrouillage des collaborators
                 </p>
               </div>
             </CardContent>
