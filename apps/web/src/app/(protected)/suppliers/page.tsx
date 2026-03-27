@@ -1,5 +1,6 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Plus, Search } from 'lucide-react';
@@ -48,6 +49,7 @@ import {
 } from '@/features/procurement/api/procurement.api';
 import { ImageUploadDropzone } from '@/features/procurement/components/image-upload-dropzone';
 import { SupplierVisualizationModal } from '@/features/procurement/components/suppliers/supplier-visualization-modal';
+import { SupplierContactModal } from '@/features/procurement/components/suppliers/supplier-contact-modal';
 
 type SupplierFormState = {
   name: string;
@@ -147,6 +149,7 @@ function validateSupplierContactForm(values: SupplierContactFormState): Supplier
 }
 
 export default function SuppliersPage() {
+  const searchParams = useSearchParams();
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const { has, isLoading: permsLoading, isSuccess: permsSuccess, isError: permsError } =
@@ -168,6 +171,7 @@ export default function SuppliersPage() {
   const [supplierCategoryFilter, setSupplierCategoryFilter] = useState('all');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryModalOpen, setNewCategoryModalOpen] = useState(false);
+  const [newCategoryTarget, setNewCategoryTarget] = useState<'create' | 'edit'>('create');
   const [editSupplierModalOpen, setEditSupplierModalOpen] = useState(false);
   const [readSupplierModalOpen, setReadSupplierModalOpen] = useState(false);
   const [readSupplierId, setReadSupplierId] = useState<string | null>(null);
@@ -203,6 +207,7 @@ export default function SuppliersPage() {
   });
   const [contactFormErrors, setContactFormErrors] = useState<SupplierContactFormErrors>({});
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
   const canReadSuppliers = has('procurement.read');
   const canCreateSuppliers = has('procurement.create');
   const canUpdateSuppliers = has('procurement.update');
@@ -354,7 +359,11 @@ export default function SuppliersPage() {
     onSuccess: async (createdCategory) => {
       setNewCategoryName('');
       setNewCategoryModalOpen(false);
-      setForm((prev) => ({ ...prev, supplierCategoryId: createdCategory.id }));
+      if (newCategoryTarget === 'edit') {
+        setEditForm((prev) => ({ ...prev, supplierCategoryId: createdCategory.id }));
+      } else {
+        setForm((prev) => ({ ...prev, supplierCategoryId: createdCategory.id }));
+      }
       await queryClient.invalidateQueries({
         queryKey: ['procurement', clientId, 'supplier-categories'],
       });
@@ -420,6 +429,7 @@ export default function SuppliersPage() {
       });
     },
     onSuccess: async () => {
+      setContactModalOpen(false);
       setContactFormErrors({});
       setContactForm({
         firstName: '',
@@ -466,6 +476,7 @@ export default function SuppliersPage() {
       });
     },
     onSuccess: async () => {
+      setContactModalOpen(false);
       setEditingContactId(null);
       setContactFormErrors({});
       setContactForm({
@@ -594,6 +605,39 @@ export default function SuppliersPage() {
       isPrimary: false,
     });
     setEditSupplierModalOpen(true);
+  };
+
+  const openCreateContactModal = () => {
+    setEditingContactId(null);
+    setContactFormErrors({});
+    setContactForm({
+      firstName: '',
+      lastName: '',
+      fullName: '',
+      role: '',
+      email: '',
+      phone: '',
+      mobile: '',
+      notes: '',
+      isPrimary: false,
+    });
+    setContactModalOpen(true);
+  };
+
+  useEffect(() => {
+    const editSupplierId = searchParams.get('editSupplierId');
+    if (!editSupplierId) return;
+    const supplier = suppliersQuery.data?.items.find((item) => item.id === editSupplierId);
+    if (!supplier) return;
+    openEditSupplierModal(supplier);
+    window.history.replaceState({}, '', '/suppliers');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, suppliersQuery.data]);
+
+  const openEditFromReadModal = (supplierId: string) => {
+    const supplier = suppliersQuery.data?.items.find((item) => item.id === supplierId);
+    if (!supplier) return;
+    openEditSupplierModal(supplier);
   };
 
   return (
@@ -843,7 +887,10 @@ export default function SuppliersPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setNewCategoryModalOpen(true)}
+                      onClick={() => {
+                        setNewCategoryTarget('create');
+                        setNewCategoryModalOpen(true);
+                      }}
                       disabled={!canCreateSuppliers}
                     >
                       + Catégorie
@@ -852,7 +899,13 @@ export default function SuppliersPage() {
                 </div>
               </section>
             </div>
-            <Dialog open={newCategoryModalOpen} onOpenChange={setNewCategoryModalOpen}>
+            <Dialog
+              open={newCategoryModalOpen}
+              onOpenChange={(open) => {
+                setNewCategoryModalOpen(open);
+                if (!open) setNewCategoryTarget('create');
+              }}
+            >
               <DialogContent className="w-[40rem] max-w-[90vw] p-6">
                 <DialogHeader>
                   <DialogTitle className="text-lg font-semibold tracking-tight">
@@ -958,7 +1011,7 @@ export default function SuppliersPage() {
             }
           }}
         >
-          <DialogContent className="flex max-h-[90vh] !w-[80vw] !max-w-[80vw] sm:!max-w-[80vw] flex-col gap-4 overflow-y-auto p-6">
+          <DialogContent className="flex max-h-[90vh] !w-[90vw] !max-w-[90vw] sm:!max-w-[90vw] flex-col gap-4 overflow-y-auto p-6">
             <DialogHeader>
               <DialogTitle className="text-lg font-semibold tracking-tight">
                 Fiche fournisseur
@@ -967,40 +1020,8 @@ export default function SuppliersPage() {
                 Consulte et modifie les informations du fournisseur.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} placeholder="Nom *" />
-                {editFormErrors.name ? <p className="text-xs text-destructive">{editFormErrors.name}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <Input value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: sanitizeTrimmed(e.target.value, 64) }))} placeholder="Code" />
-                {editFormErrors.code ? <p className="text-xs text-destructive">{editFormErrors.code}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <Input value={editForm.siret} onChange={(e) => setEditForm((p) => ({ ...p, siret: sanitizeDigits(e.target.value, 14) }))} placeholder="SIRET" />
-                {editFormErrors.siret ? <p className="text-xs text-destructive">{editFormErrors.siret}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: sanitizeVat(e.target.value) }))} placeholder="Numéro TVA" />
-                {editFormErrors.vatNumber ? <p className="text-xs text-destructive">{editFormErrors.vatNumber}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <Input value={editForm.externalId} onChange={(e) => setEditForm((p) => ({ ...p, externalId: sanitizeTrimmed(e.target.value, 128) }))} placeholder="ID externe" />
-                {editFormErrors.externalId ? <p className="text-xs text-destructive">{editFormErrors.externalId}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: sanitizeNoSpaces(e.target.value, 255) }))} placeholder="Email" />
-                {editFormErrors.email ? <p className="text-xs text-destructive">{editFormErrors.email}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: sanitizePhone(e.target.value) }))} placeholder="Téléphone" />
-                {editFormErrors.phone ? <p className="text-xs text-destructive">{editFormErrors.phone}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <Input value={editForm.website} onChange={(e) => setEditForm((p) => ({ ...p, website: sanitizeNoSpaces(e.target.value, 512) }))} placeholder="Site web" />
-                {editFormErrors.website ? <p className="text-xs text-destructive">{editFormErrors.website}</p> : null}
-              </div>
-              <div className="space-y-1 md:col-span-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <section className="rounded-xl border border-border/70 bg-muted/20 p-3 lg:col-span-4">
                 <ImageUploadDropzone
                   id="supplier-logo-upload-edit"
                   title="Logo fournisseur"
@@ -1023,202 +1044,105 @@ export default function SuppliersPage() {
                   }
                   disabled={updateSupplierMutation.isPending}
                 />
-              </div>
-              <div className="md:col-span-2">
-                <Input value={editForm.notes} onChange={(e) => setEditForm((p) => ({ ...p, notes: sanitizeTrimmed(e.target.value, 2000) }))} placeholder="Notes" />
-                {editFormErrors.notes ? <p className="mt-1 text-xs text-destructive">{editFormErrors.notes}</p> : null}
-              </div>
-              <div className="md:col-span-2">
-                <Select
-                  value={editForm.supplierCategoryId}
-                  onValueChange={(value) =>
-                    setEditForm((p) => ({ ...p, supplierCategoryId: value ?? '__none__' }))
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue>
-                      {editForm.supplierCategoryId === '__none__'
-                        ? 'Aucune categorie'
-                        : categoriesQuery.data?.items.find((item) => item.id === editForm.supplierCategoryId)?.name ?? 'Categorie'}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Aucune categorie</SelectItem>
-                    {(categoriesQuery.data?.items ?? []).map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              </section>
+
+              <div className="space-y-4 lg:col-span-8">
+                <section className="rounded-xl border border-border/70 bg-card p-3">
+                  <h3 className="mb-3 text-sm font-semibold text-foreground">Identite</h3>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} placeholder="Nom *" />
+                      {editFormErrors.name ? <p className="text-xs text-destructive">{editFormErrors.name}</p> : null}
+                    </div>
+                    <div className="space-y-1">
+                      <Input value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: sanitizeTrimmed(e.target.value, 64) }))} placeholder="Code" />
+                      {editFormErrors.code ? <p className="text-xs text-destructive">{editFormErrors.code}</p> : null}
+                    </div>
+                    <div className="space-y-1">
+                      <Input value={editForm.siret} onChange={(e) => setEditForm((p) => ({ ...p, siret: sanitizeDigits(e.target.value, 14) }))} placeholder="SIRET" />
+                      {editFormErrors.siret ? <p className="text-xs text-destructive">{editFormErrors.siret}</p> : null}
+                    </div>
+                    <div className="space-y-1">
+                      <Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: sanitizeVat(e.target.value) }))} placeholder="Numero TVA" />
+                      {editFormErrors.vatNumber ? <p className="text-xs text-destructive">{editFormErrors.vatNumber}</p> : null}
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <Input value={editForm.externalId} onChange={(e) => setEditForm((p) => ({ ...p, externalId: sanitizeTrimmed(e.target.value, 128) }))} placeholder="ID externe" />
+                      {editFormErrors.externalId ? <p className="text-xs text-destructive">{editFormErrors.externalId}</p> : null}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-xl border border-border/70 bg-card p-3">
+                  <h3 className="mb-3 text-sm font-semibold text-foreground">Contact et categorie</h3>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: sanitizeNoSpaces(e.target.value, 255) }))} placeholder="Email" />
+                      {editFormErrors.email ? <p className="text-xs text-destructive">{editFormErrors.email}</p> : null}
+                    </div>
+                    <div className="space-y-1">
+                      <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: sanitizePhone(e.target.value) }))} placeholder="Telephone" />
+                      {editFormErrors.phone ? <p className="text-xs text-destructive">{editFormErrors.phone}</p> : null}
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <Input value={editForm.website} onChange={(e) => setEditForm((p) => ({ ...p, website: sanitizeNoSpaces(e.target.value, 512) }))} placeholder="Site web" />
+                      {editFormErrors.website ? <p className="text-xs text-destructive">{editFormErrors.website}</p> : null}
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <Select
+                            value={editForm.supplierCategoryId}
+                            onValueChange={(value) =>
+                              setEditForm((p) => ({ ...p, supplierCategoryId: value ?? '__none__' }))
+                            }
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue>
+                                {editForm.supplierCategoryId === '__none__'
+                                  ? 'Aucune categorie'
+                                  : categoriesQuery.data?.items.find((item) => item.id === editForm.supplierCategoryId)?.name ?? 'Categorie'}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Aucune categorie</SelectItem>
+                              {(categoriesQuery.data?.items ?? []).map((category) => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setNewCategoryTarget('edit');
+                            setNewCategoryModalOpen(true);
+                          }}
+                          disabled={!canCreateSuppliers}
+                        >
+                          + Categorie
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <Input value={editForm.notes} onChange={(e) => setEditForm((p) => ({ ...p, notes: sanitizeTrimmed(e.target.value, 2000) }))} placeholder="Notes" />
+                      {editFormErrors.notes ? <p className="mt-1 text-xs text-destructive">{editFormErrors.notes}</p> : null}
+                    </div>
+                  </div>
+                </section>
               </div>
             </div>
             <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground">Contacts</h3>
-                {editingContactId ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setEditingContactId(null);
-                      setContactFormErrors({});
-                      setContactForm({
-                        firstName: '',
-                        lastName: '',
-                        fullName: '',
-                        role: '',
-                        email: '',
-                        phone: '',
-                        mobile: '',
-                        notes: '',
-                        isPrimary: false,
-                      });
-                    }}
-                  >
-                    Annuler l&apos;edition
-                  </Button>
-                ) : null}
-              </div>
-
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                <div className="space-y-1">
-                  <Input
-                    value={contactForm.firstName}
-                    onChange={(e) =>
-                      setContactForm((prev) => ({
-                        ...prev,
-                        firstName: sanitizeTrimmed(e.target.value, 120),
-                      }))
-                    }
-                    placeholder="Prenom"
-                  />
-                  {contactFormErrors.firstName ? (
-                    <p className="text-xs text-destructive">{contactFormErrors.firstName}</p>
-                  ) : null}
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Contacts</h3>
+                  <p className="text-xs text-muted-foreground">Liste des contacts existants du fournisseur.</p>
                 </div>
-                <div className="space-y-1">
-                  <Input
-                    value={contactForm.lastName}
-                    onChange={(e) =>
-                      setContactForm((prev) => ({
-                        ...prev,
-                        lastName: sanitizeTrimmed(e.target.value, 120),
-                      }))
-                    }
-                    placeholder="Nom"
-                  />
-                  {contactFormErrors.lastName ? (
-                    <p className="text-xs text-destructive">{contactFormErrors.lastName}</p>
-                  ) : null}
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Input
-                    value={contactForm.fullName}
-                    onChange={(e) =>
-                      setContactForm((prev) => ({
-                        ...prev,
-                        fullName: sanitizeTrimmed(e.target.value, 255),
-                      }))
-                    }
-                    placeholder="Nom complet (si prenom/nom non renseignes)"
-                  />
-                  {contactFormErrors.fullName ? (
-                    <p className="text-xs text-destructive">{contactFormErrors.fullName}</p>
-                  ) : null}
-                </div>
-                <Input
-                  value={contactForm.role}
-                  onChange={(e) =>
-                    setContactForm((prev) => ({
-                      ...prev,
-                      role: sanitizeTrimmed(e.target.value, 120),
-                    }))
-                  }
-                  placeholder="Role"
-                />
-                <div className="space-y-1">
-                  <Input
-                    value={contactForm.email}
-                    onChange={(e) =>
-                      setContactForm((prev) => ({
-                        ...prev,
-                        email: sanitizeNoSpaces(e.target.value, 255),
-                      }))
-                    }
-                    placeholder="Email"
-                  />
-                  {contactFormErrors.email ? (
-                    <p className="text-xs text-destructive">{contactFormErrors.email}</p>
-                  ) : null}
-                </div>
-                <div className="space-y-1">
-                  <Input
-                    value={contactForm.phone}
-                    onChange={(e) =>
-                      setContactForm((prev) => ({
-                        ...prev,
-                        phone: sanitizePhone(e.target.value),
-                      }))
-                    }
-                    placeholder="Telephone"
-                  />
-                  {contactFormErrors.phone ? (
-                    <p className="text-xs text-destructive">{contactFormErrors.phone}</p>
-                  ) : null}
-                </div>
-                <div className="space-y-1">
-                  <Input
-                    value={contactForm.mobile}
-                    onChange={(e) =>
-                      setContactForm((prev) => ({
-                        ...prev,
-                        mobile: sanitizePhone(e.target.value),
-                      }))
-                    }
-                    placeholder="Mobile"
-                  />
-                  {contactFormErrors.mobile ? (
-                    <p className="text-xs text-destructive">{contactFormErrors.mobile}</p>
-                  ) : null}
-                </div>
-                <Input
-                  value={contactForm.notes}
-                  onChange={(e) =>
-                    setContactForm((prev) => ({
-                      ...prev,
-                      notes: sanitizeTrimmed(e.target.value, 2000),
-                    }))
-                  }
-                  placeholder="Notes"
-                />
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={contactForm.isPrimary}
-                    onChange={(e) =>
-                      setContactForm((prev) => ({ ...prev, isPrimary: e.target.checked }))
-                    }
-                  />
-                  Contact principal
-                </label>
-              </div>
-              <div className="mt-3 flex justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() =>
-                    editingContactId
-                      ? void updateSupplierContactMutation.mutateAsync()
-                      : void createSupplierContactMutation.mutateAsync()
-                  }
-                  disabled={
-                    createSupplierContactMutation.isPending ||
-                    updateSupplierContactMutation.isPending
-                  }
-                >
-                  {editingContactId ? 'Mettre a jour le contact' : 'Ajouter le contact'}
+                <Button type="button" size="sm" onClick={openCreateContactModal}>
+                  + Contact
                 </Button>
               </div>
 
@@ -1270,6 +1194,7 @@ export default function SuppliersPage() {
                                     notes: contact.notes ?? '',
                                     isPrimary: contact.isPrimary,
                                   });
+                                  setContactModalOpen(true);
                                 }}
                               >
                                 Editer
@@ -1335,6 +1260,63 @@ export default function SuppliersPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <SupplierContactModal
+          open={contactModalOpen}
+          onOpenChange={(open) => {
+            setContactModalOpen(open);
+            if (!open) {
+              setEditingContactId(null);
+              setContactFormErrors({});
+            }
+          }}
+          isEditing={!!editingContactId}
+          supplierName={editForm.name}
+          form={contactForm}
+          errors={contactFormErrors}
+          onChange={(key, value) => {
+            if (typeof value === 'string') {
+              if (key === 'email') {
+                setContactForm((prev) => ({ ...prev, email: sanitizeNoSpaces(value, 255) }));
+                return;
+              }
+              if (key === 'phone') {
+                setContactForm((prev) => ({ ...prev, phone: sanitizePhone(value) }));
+                return;
+              }
+              if (key === 'mobile') {
+                setContactForm((prev) => ({ ...prev, mobile: sanitizePhone(value) }));
+                return;
+              }
+              if (key === 'notes') {
+                setContactForm((prev) => ({ ...prev, notes: sanitizeTrimmed(value, 2000) }));
+                return;
+              }
+              if (key === 'fullName') {
+                setContactForm((prev) => ({ ...prev, fullName: sanitizeTrimmed(value, 255) }));
+                return;
+              }
+              if (key === 'firstName' || key === 'lastName' || key === 'role') {
+                setContactForm((prev) => ({
+                  ...prev,
+                  [key]: sanitizeTrimmed(value, key === 'role' ? 120 : 120),
+                }));
+                return;
+              }
+            }
+            setContactForm((prev) => ({ ...prev, [key]: value }));
+          }}
+          onSubmit={() => {
+            if (editingContactId) {
+              void updateSupplierContactMutation.mutateAsync();
+            } else {
+              void createSupplierContactMutation.mutateAsync();
+            }
+          }}
+          isSubmitting={
+            createSupplierContactMutation.isPending || updateSupplierContactMutation.isPending
+          }
+        />
 
         {permsLoading && (
           <Alert>
@@ -1466,7 +1448,71 @@ export default function SuppliersPage() {
           open={readSupplierModalOpen}
           onOpenChange={setReadSupplierModalOpen}
           supplierId={readSupplierId}
+          onEdit={openEditFromReadModal}
         />
+
+        <Dialog
+          open={newCategoryModalOpen && newCategoryTarget === 'edit'}
+          onOpenChange={(open) => {
+            setNewCategoryModalOpen(open);
+            if (!open) setNewCategoryTarget('create');
+          }}
+        >
+          <DialogContent className="w-[40rem] max-w-[90vw] p-6">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold tracking-tight">
+                Nouvelle categorie
+              </DialogTitle>
+              <DialogDescription>
+                Ajoute une categorie fournisseur pour le client actif.
+              </DialogDescription>
+            </DialogHeader>
+            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+              <div className="space-y-2">
+                <Label htmlFor="new-supplier-category-name-edit">Nom de la categorie</Label>
+                <Input
+                  id="new-supplier-category-name-edit"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Ex: Cloud"
+                />
+              </div>
+            </section>
+            {createCategoryMutation.isError && (
+              <Alert variant="destructive">
+                <AlertCircle className="size-4" />
+                <AlertTitle>Creation categorie impossible</AlertTitle>
+                <AlertDescription>
+                  {(createCategoryMutation.error as Error)?.message ??
+                    'Impossible de creer la categorie.'}
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setNewCategoryModalOpen(false);
+                  setNewCategoryTarget('create');
+                }}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  const name = newCategoryName.trim();
+                  if (!name) return;
+                  void createCategoryMutation.mutateAsync(name);
+                }}
+                disabled={createCategoryMutation.isPending || newCategoryName.trim().length === 0}
+              >
+                Ajouter
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </PageContainer>
     </RequireActiveClient>
   );

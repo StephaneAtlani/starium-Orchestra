@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Building2, ExternalLink, FileText, Mail, Phone, Receipt, Users2 } from 'lucide-react';
+import { Building2, ExternalLink, FileText, Mail, Pencil, Phone, Receipt, Users2 } from 'lucide-react';
 
 import { EmptyState } from '@/components/feedback/empty-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -290,17 +290,33 @@ export function SupplierVisualizationModal({
   open,
   onOpenChange,
   supplierId,
+  onEdit,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   supplierId: string | null;
+  onEdit?: (supplierId: string) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="!h-screen !max-h-screen !w-screen !max-w-screen overflow-y-auto rounded-none p-6">
         <DialogHeader>
-          <DialogTitle>Fiche fournisseur</DialogTitle>
-          <DialogDescription>Consultation en lecture seule.</DialogDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <DialogTitle>Fiche fournisseur</DialogTitle>
+              <DialogDescription>Consultation en lecture seule.</DialogDescription>
+            </div>
+            {onEdit && supplierId ? (
+              <button
+                type="button"
+                className="mr-2 inline-flex h-8 items-center gap-2 rounded-md border border-input px-3 text-sm hover:bg-muted/60"
+                onClick={() => onEdit(supplierId)}
+              >
+                <Pencil className="size-4" />
+                Modifier
+              </button>
+            ) : null}
+          </div>
         </DialogHeader>
         {supplierId ? (
           <SupplierVisualizationContent supplierId={supplierId} />

@@ -58,7 +58,7 @@ export function ImageUploadDropzone({
           <img
             src={previewUrl}
             alt="Aperçu logo"
-            className="h-20 w-20 rounded-lg border border-border/70 object-cover"
+            className="h-20 w-20 object-contain"
           />
         ) : (
           <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-border/70 bg-background">

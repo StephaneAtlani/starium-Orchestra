@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Plus, ShieldAlert } from 'lucide-react';
@@ -14,12 +15,10 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
@@ -28,6 +27,11 @@ import { LoadingState } from '@/components/feedback/loading-state';
 
 import { SupplierSearchCombobox } from '@/features/procurement/components/supplier-search-combobox';
 import { NewSupplierDialog } from '@/features/procurement/components/suppliers/new-supplier-dialog';
+import {
+  SupplierContactModal,
+  type SupplierContactFormErrors,
+  type SupplierContactFormState,
+} from '@/features/procurement/components/suppliers/supplier-contact-modal';
 import type { SupplierContact } from '@/features/procurement/types/supplier.types';
 import {
   createSupplierContact,
@@ -40,20 +44,8 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
 
-type ContactFormState = {
-  firstName: string;
-  lastName: string;
-  fullName: string;
-  role: string;
-  email: string;
-  phone: string;
-  mobile: string;
-  notes: string;
-  isActive: boolean;
-  isPrimary: boolean;
-};
-
-type ContactFormErrors = Partial<Record<keyof ContactFormState, string>>;
+type ContactFormState = SupplierContactFormState & { isActive: boolean };
+type ContactFormErrors = SupplierContactFormErrors & { isActive?: string };
 
 function sanitizePhone(value: string): string {
   return value.replace(/[^+0-9()\-\s.]/g, '').slice(0, 20);
@@ -95,6 +87,7 @@ function validateContactForm(values: ContactFormState): ContactFormErrors {
 }
 
 export default function SupplierContactsPage() {
+  const router = useRouter();
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const { has, isLoading: permsLoading, isSuccess: permsSuccess, isError: permsError } = usePermissions();
@@ -532,7 +525,7 @@ export default function SupplierContactsPage() {
           </div>
         )}
 
-        <Dialog
+        <SupplierContactModal
           open={dialogOpen}
           onOpenChange={(open) => {
             setDialogOpen(open);
@@ -542,229 +535,111 @@ export default function SupplierContactsPage() {
               setEditOriginalSupplierId(null);
             }
           }}
-        >
-        <DialogContent className="flex max-h-[90vh] flex-col gap-4 overflow-y-auto p-6 w-full sm:w-[80vw] sm:max-w-[80vw]">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-semibold tracking-tight">
-              {editingContactId ? 'Éditer un contact' : 'Ajouter un contact'}
-            </DialogTitle>
-            <DialogDescription>
-              Le backend recalculera `fullName` depuis prénom/nom si ceux-ci sont fournis.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-foreground">Identité</h3>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="contact-firstName">Prénom</Label>
-                  <Input
-                    id="contact-firstName"
-                    value={contactForm.firstName}
-                    onChange={(e) =>
-                      setContactForm((p) => ({
-                        ...p,
-                        firstName: sanitizeTrimmed(e.target.value, 120),
-                      }))
-                    }
-                  />
-                  {contactFormErrors.firstName ? (
-                    <p className="text-xs text-destructive">{contactFormErrors.firstName}</p>
-                  ) : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contact-lastName">Nom</Label>
-                  <Input
-                    id="contact-lastName"
-                    value={contactForm.lastName}
-                    onChange={(e) =>
-                      setContactForm((p) => ({
-                        ...p,
-                        lastName: sanitizeTrimmed(e.target.value, 120),
-                      }))
-                    }
-                  />
-                  {contactFormErrors.lastName ? (
-                    <p className="text-xs text-destructive">{contactFormErrors.lastName}</p>
-                  ) : null}
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="contact-fullName">Nom complet</Label>
-                  <Input
-                    id="contact-fullName"
-                    value={derivedFullName}
-                    disabled={!!contactForm.firstName.trim() || !!contactForm.lastName.trim()}
-                    onChange={(e) =>
-                      setContactForm((p) => ({
-                        ...p,
-                        fullName: sanitizeTrimmed(e.target.value, 255),
-                      }))
-                    }
-                  />
-                  {contactFormErrors.fullName ? (
-                    <p className="text-xs text-destructive">{contactFormErrors.fullName}</p>
-                  ) : null}
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-foreground">Coordonnées</h3>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="contact-role">Rôle</Label>
-                  <Input
-                    id="contact-role"
-                    value={contactForm.role}
-                    onChange={(e) => setContactForm((p) => ({ ...p, role: sanitizeTrimmed(e.target.value, 120) }))}
-                    placeholder="Commercial, Support, Comptabilité…"
-                  />
-                  {contactFormErrors.role ? <p className="text-xs text-destructive">{contactFormErrors.role}</p> : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contact-email">Email</Label>
-                  <Input
-                    id="contact-email"
-                    value={contactForm.email}
-                    onChange={(e) => setContactForm((p) => ({ ...p, email: sanitizeNoSpaces(e.target.value, 255) }))}
-                    placeholder="contact@exemple.com"
-                  />
-                  {contactFormErrors.email ? <p className="text-xs text-destructive">{contactFormErrors.email}</p> : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contact-phone">Téléphone</Label>
-                  <PhoneInput
-                    id="contact-phone"
-                    value={contactForm.phone}
-                    onChange={(v) => setContactForm((p) => ({ ...p, phone: sanitizePhone(v) }))}
-                    placeholder="Numéro"
-                    invalid={!!contactFormErrors.phone}
-                  />
-                  {contactFormErrors.phone ? <p className="text-xs text-destructive">{contactFormErrors.phone}</p> : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contact-mobile">Mobile</Label>
-                  <PhoneInput
-                    id="contact-mobile"
-                    value={contactForm.mobile}
-                    onChange={(v) => setContactForm((p) => ({ ...p, mobile: sanitizePhone(v) }))}
-                    placeholder="Numéro"
-                    invalid={!!contactFormErrors.mobile}
-                  />
-                  {contactFormErrors.mobile ? <p className="text-xs text-destructive">{contactFormErrors.mobile}</p> : null}
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="contact-notes">Notes</Label>
-                  <Input
-                    id="contact-notes"
-                    value={contactForm.notes}
-                    onChange={(e) => setContactForm((p) => ({ ...p, notes: sanitizeTrimmed(e.target.value, 2000) }))}
-                    placeholder="Informations complémentaires"
-                  />
-                  {contactFormErrors.notes ? (
-                    <p className="text-xs text-destructive">{contactFormErrors.notes}</p>
-                  ) : null}
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-foreground">Fournisseur et statut</h3>
-              <div className="space-y-3">
-                <div className="pt-2">
-                  <h4 className="mb-2 text-sm font-semibold text-foreground">Fournisseur</h4>
-                  <SupplierSearchCombobox
-                    id="supplier-contacts-picker-dialog"
-                    value={supplierValue}
-                    onChange={setSupplierValue}
-                    parentOpen={dialogOpen}
-                    onSupplierPicked={(s) => {
-                      setSupplierId(s.id);
-                      setSupplierValue(s.name);
-                    }}
-                    onManualInput={() => {
-                      setSupplierId(null);
-                    }}
-                    onRequestOpenCreateDialog={
-                      canCreate
-                        ? (draftName) => {
-                            setNewSupplierInitialName(draftName);
-                            setNewSupplierModalOpen(true);
-                          }
-                        : undefined
-                    }
-                    hasSupplierSelection={!!supplierId}
-                  />
-                </div>
-
-                <label
-                  className={`flex items-center gap-2 text-sm ${!supplierId ? 'opacity-60' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={contactForm.isActive}
-                    onChange={(e) => {
-                      setContactForm((p) => ({ ...p, isActive: e.target.checked }));
-                    }}
-                  />
-                  Contact actif
-                </label>
-
-                <label
-                  className={`flex items-center gap-2 text-sm ${!supplierId ? 'opacity-60' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={contactForm.isPrimary}
-                    disabled={!supplierId}
-                    onChange={(e) => {
-                      if (!supplierId) return;
-                      setContactForm((p) => ({ ...p, isPrimary: e.target.checked }));
-                    }}
-                  />
-                  Marquer comme contact principal
-                </label>
-              </div>
-            </section>
-
-            {mutationError && (
-              <Alert variant="destructive">
-                <AlertCircle className="size-4" />
-                <AlertTitle>Erreur</AlertTitle>
-                <AlertDescription>{mutationError}</AlertDescription>
-              </Alert>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              onClick={() =>
-                editingContactId
-                  ? void updateContactMutation.mutateAsync()
-                  : void createContactMutation.mutateAsync()
+          isEditing={!!editingContactId}
+          form={contactForm}
+          errors={contactFormErrors}
+          onChange={(key, value) => {
+            if (typeof value === 'string') {
+              if (key === 'email') {
+                setContactForm((prev) => ({ ...prev, email: sanitizeNoSpaces(value, 255) }));
+                return;
               }
-              disabled={
-                createContactMutation.isPending ||
-                updateContactMutation.isPending ||
-                !supplierId
+              if (key === 'phone') {
+                setContactForm((prev) => ({ ...prev, phone: sanitizePhone(value) }));
+                return;
               }
-            >
-              {editingContactId ? 'Enregistrer' : 'Ajouter'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-        </Dialog>
+              if (key === 'mobile') {
+                setContactForm((prev) => ({ ...prev, mobile: sanitizePhone(value) }));
+                return;
+              }
+              if (key === 'notes') {
+                setContactForm((prev) => ({ ...prev, notes: sanitizeTrimmed(value, 2000) }));
+                return;
+              }
+              if (key === 'fullName') {
+                setContactForm((prev) => ({ ...prev, fullName: sanitizeTrimmed(value, 255) }));
+                return;
+              }
+              if (key === 'firstName' || key === 'lastName' || key === 'role') {
+                setContactForm((prev) => ({
+                  ...prev,
+                  [key]: sanitizeTrimmed(value, 120),
+                }));
+                return;
+              }
+            }
+            setContactForm((prev) => ({ ...prev, [key]: value }));
+          }}
+          onSubmit={() => {
+            if (editingContactId) {
+              void updateContactMutation.mutateAsync();
+            } else {
+              void createContactMutation.mutateAsync();
+            }
+          }}
+          isSubmitting={createContactMutation.isPending || updateContactMutation.isPending}
+          isSubmitDisabled={!supplierId}
+          disablePrimary={!supplierId}
+          supplierSection={
+            <div className="space-y-3">
+              <div className="pt-2">
+                <h4 className="mb-2 text-sm font-semibold text-foreground">Fournisseur</h4>
+                <SupplierSearchCombobox
+                  id="supplier-contacts-picker-dialog"
+                  value={supplierValue}
+                  onChange={setSupplierValue}
+                  parentOpen={dialogOpen}
+                  onSupplierPicked={(s) => {
+                    setSupplierId(s.id);
+                    setSupplierValue(s.name);
+                  }}
+                  onManualInput={() => {
+                    setSupplierId(null);
+                  }}
+                  onRequestOpenCreateDialog={
+                    canCreate
+                      ? (draftName) => {
+                          setNewSupplierInitialName(draftName);
+                          setNewSupplierModalOpen(true);
+                        }
+                      : undefined
+                  }
+                  hasSupplierSelection={!!supplierId}
+                />
+              </div>
+              <label className={`flex items-center gap-2 text-sm ${!supplierId ? 'opacity-60' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={contactForm.isActive}
+                  onChange={(e) => {
+                    setContactForm((p) => ({ ...p, isActive: e.target.checked }));
+                  }}
+                />
+                Contact actif
+              </label>
+              <label className={`flex items-center gap-2 text-sm ${!supplierId ? 'opacity-60' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={contactForm.isPrimary}
+                  disabled={!supplierId}
+                  onChange={(e) => {
+                    if (!supplierId) return;
+                    setContactForm((p) => ({ ...p, isPrimary: e.target.checked }));
+                  }}
+                />
+                Marquer comme contact principal
+              </label>
+            </div>
+          }
+        />
+
+        {mutationError && (
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" />
+            <AlertTitle>Erreur</AlertTitle>
+            <AlertDescription>{mutationError}</AlertDescription>
+          </Alert>
+        )}
 
         <Dialog open={readContactOpen} onOpenChange={setReadContactOpen}>
           <DialogContent className="w-[42rem] max-w-[95vw] p-6">
@@ -809,6 +684,10 @@ export default function SupplierContactsPage() {
           open={readSupplierOpen}
           onOpenChange={setReadSupplierOpen}
           supplierId={readSupplierId}
+          onEdit={(supplierId) => {
+            setReadSupplierOpen(false);
+            router.push(`/suppliers?editSupplierId=${supplierId}`);
+          }}
         />
 
         <NewSupplierDialog
