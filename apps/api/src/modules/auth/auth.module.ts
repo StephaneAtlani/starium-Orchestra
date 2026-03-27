@@ -15,6 +15,10 @@ import { SecurityLogsService } from '../security-logs/security-logs.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { MfaModule } from '../mfa/mfa.module';
 import { TrustedDeviceService } from './trusted-device.service';
+import { MicrosoftSsoController } from './microsoft-sso/microsoft-sso.controller';
+import { MicrosoftSsoService } from './microsoft-sso/microsoft-sso.service';
+import { MicrosoftIdTokenService } from '../microsoft/microsoft-id-token.service';
+import { MicrosoftTokenHttpService } from '../microsoft/microsoft-token-http.service';
 
 @Module({
   imports: [
@@ -36,9 +40,12 @@ import { TrustedDeviceService } from './trusted-device.service';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, MicrosoftSsoController],
   providers: [
     AuthService,
+    MicrosoftSsoService,
+    MicrosoftIdTokenService,
+    MicrosoftTokenHttpService,
     TrustedDeviceService,
     JwtStrategy,
     JwtAuthGuard,

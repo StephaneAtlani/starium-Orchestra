@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { getMe, type MeProfile } from '../services/me';
 import {
+  getMicrosoftSsoAuthorizationUrlApi,
   loginApi,
   verifyMfaEmailApi,
   verifyMfaTotpApi,
@@ -64,6 +65,11 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<LoginOutcome>;
+  startMicrosoftSso: () => Promise<void>;
+  completeMicrosoftSso: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<{ user: AuthUser; accessToken: string }>;
   /** Finalise le login après challenge TOTP ou code de secours. */
   completeMfaTotp: (
     challengeId: string,
@@ -190,6 +196,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const startMicrosoftSso = useCallback(async () => {
+    const authorizationUrl = await getMicrosoftSsoAuthorizationUrlApi();
+    if (typeof window !== 'undefined') {
+      window.location.href = authorizationUrl;
+    }
+  }, []);
+
+  const completeMicrosoftSso = useCallback(
+    async (nextAccessToken: string, nextRefreshToken: string) => {
+      return applySessionTokens(
+        nextAccessToken,
+        nextRefreshToken,
+        setAccessToken,
+        setUser,
+      );
+    },
+    [],
+  );
+
   const completeMfaTotp = useCallback(
     async (challengeId: string, otp: string, trustDevice?: boolean) => {
       const data = await verifyMfaTotpApi(challengeId, otp, trustDevice);
@@ -274,6 +299,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user && !!accessToken,
     isLoading,
     login,
+    startMicrosoftSso,
+    completeMicrosoftSso,
     completeMfaTotp,
     sendMfaFallbackEmail,
     completeMfaEmail,

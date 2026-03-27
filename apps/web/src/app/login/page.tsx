@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { resolveActiveClient } from '@/lib/auth/resolve-active-client';
 import type { MeClient } from '@/services/me';
 import { Button } from '@/components/ui/button';
@@ -12,8 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
@@ -28,13 +25,16 @@ export default function LoginPage() {
     isAuthenticated,
     isLoading,
     login,
+    startMicrosoftSso,
+    completeMicrosoftSso,
     completeMfaTotp,
     sendMfaFallbackEmail,
     completeMfaEmail,
   } = useAuth();
+  const searchParams = useSearchParams();
   const { setActiveClient } = useActiveClient();
-  const authenticatedFetch = useAuthenticatedFetch();
   const didLoginThisSession = useRef(false);
+  const didHandleMicrosoftCallback = useRef(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,6 +54,86 @@ export default function LoginPage() {
       router.replace('/dashboard');
     }
   }, [isLoading, isAuthenticated, user, router]);
+
+  useEffect(() => {
+    if (didHandleMicrosoftCallback.current) return;
+    const status = searchParams.get('status');
+    const reason = searchParams.get('reason');
+    if (status === 'error') {
+      didHandleMicrosoftCallback.current = true;
+      setError(
+        reason === 'email_unknown' ||
+          reason === 'email_not_verified' ||
+          reason === 'email_ambiguous' ||
+          reason === 'missing_or_unreliable_email'
+          ? 'Aucun compte Starium existant ne correspond à cette identité Microsoft.'
+          : 'Connexion Microsoft impossible.',
+      );
+      return;
+    }
+    if (status !== 'success' || typeof window === 'undefined') {
+      return;
+    }
+
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const accessToken = hash.get('accessToken');
+    const refreshToken = hash.get('refreshToken');
+    if (!accessToken || !refreshToken) {
+      didHandleMicrosoftCallback.current = true;
+      setError('Connexion Microsoft incomplète.');
+      return;
+    }
+
+    didHandleMicrosoftCallback.current = true;
+    setSubmitting(true);
+    void completeMicrosoftSso(accessToken, refreshToken)
+      .then(async ({ user: loggedInUser, accessToken: token }) => {
+        const res = await fetch('/api/me/clients', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          throw new Error('Impossible de récupérer la liste des clients');
+        }
+        const clients = (await res.json()) as MeClient[];
+        let storedActiveClientId: string | null = null;
+        const stored = window.localStorage.getItem(ACTIVE_CLIENT_KEY);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as { id?: string };
+            storedActiveClientId = parsed?.id ?? null;
+          } catch {
+            // ignore
+          }
+        }
+        const resolution = resolveActiveClient(
+          clients,
+          loggedInUser.platformRole,
+          storedActiveClientId,
+        );
+        if (resolution.type === 'redirect') {
+          router.replace(resolution.to);
+          return;
+        }
+        if (resolution.type === 'blocked') {
+          router.replace('/no-client');
+          return;
+        }
+        setActiveClient(resolution.client);
+        window.sessionStorage.setItem(
+          BOOTSTRAP_FROM_LOGIN_KEY,
+          JSON.stringify({ client: resolution.client }),
+        );
+        router.replace(resolution.to);
+      })
+      .catch((err: unknown) => {
+        setError(
+          err instanceof Error ? err.message : 'Connexion Microsoft impossible.',
+        );
+      })
+      .finally(() => {
+        setSubmitting(false);
+      });
+  }, [completeMicrosoftSso, router, searchParams, setActiveClient]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -355,6 +435,15 @@ export default function LoginPage() {
                     disabled={submitting}
                   >
                     {submitting ? 'Connexion…' : 'Se connecter'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={submitting}
+                    onClick={() => void startMicrosoftSso()}
+                  >
+                    Se connecter avec Microsoft
                   </Button>
                 </form>
               )}

@@ -2342,6 +2342,19 @@ model SecurityLog {
   @@index([createdAt])
 }
 
+model MicrosoftOAuthState {
+  id             String   @id @default(cuid())
+  stateTokenHash String   @unique
+  userId         String?
+  clientId       String?
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([consumedAt])
+}
+
 /// Connexion OAuth Microsoft 365 par client Starium (tokens chiffrés côté API uniquement).
 model MicrosoftConnection {
   id                    String                    @id @default(cuid())
