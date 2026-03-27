@@ -212,6 +212,8 @@ model User {
   id            String         @id @default(cuid())
   email         String         @unique
   passwordHash  String
+  /// Si false : connexion email/mot de passe interdite (ex. après première connexion Microsoft SSO).
+  passwordLoginEnabled Boolean @default(true)
   firstName     String?
   lastName      String?
   /// Service / département (profil modifiable par l’utilisateur)

@@ -145,6 +145,11 @@ export class MicrosoftSsoService {
         return { redirectUrl: this.errorRedirectUrl(match.reason) };
       }
 
+      await this.prisma.user.update({
+        where: { id: match.userId },
+        data: { passwordLoginEnabled: false },
+      });
+
       const tokens = await this.issueTokenPair(match.userId);
       await this.securityLogs.create({
         event: 'auth.microsoft_sso.success',
@@ -157,8 +162,10 @@ export class MicrosoftSsoService {
       });
       return { redirectUrl: this.successRedirectUrl(tokens) };
     } catch (error) {
-      this.logger.warn(
-        `Microsoft SSO callback failed: ${(error as Error)?.message ?? String(error)}`,
+      const err = error as Error;
+      this.logger.error(
+        `Microsoft SSO callback failed: ${err?.message ?? String(error)}`,
+        err?.stack,
       );
       await this.securityLogs.create({
         event: 'auth.microsoft_sso.failure',

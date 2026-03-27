@@ -45,6 +45,7 @@ describe('MicrosoftSsoService', () => {
             user: {
               findMany: jest.fn(),
               findUnique: jest.fn().mockResolvedValue({ platformRole: null }),
+              update: jest.fn().mockResolvedValue({}),
             },
             userEmailIdentity: {
               findMany: jest.fn(),
@@ -147,6 +148,10 @@ describe('MicrosoftSsoService', () => {
     );
     expect(result.redirectUrl).toContain('status=success');
     expect(result.redirectUrl).toContain('#accessToken=');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { passwordLoginEnabled: false },
+    });
   });
 
   it('accepte si email Microsoft = email secondaire verifiee', async () => {
@@ -167,6 +172,10 @@ describe('MicrosoftSsoService', () => {
       { ipAddress: '127.0.0.1', userAgent: 'jest', requestId: 'r-success-2' },
     );
     expect(result.redirectUrl).toContain('status=success');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u2' },
+      data: { passwordLoginEnabled: false },
+    });
   });
 
   it('refuse si correspondance ambigue sur plusieurs users', async () => {

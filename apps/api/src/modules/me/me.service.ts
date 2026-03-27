@@ -37,6 +37,8 @@ export interface MeProfile {
   /** Indique si un fichier image est disponible via GET /me/avatar */
   hasAvatar: boolean;
   platformRole: 'PLATFORM_ADMIN' | null;
+  /** false si la connexion email/mot de passe est désactivée (ex. Microsoft SSO). */
+  passwordLoginEnabled: boolean;
 }
 
 /** Identité e-mail par défaut pour un client (extrait GET /me/clients). */
@@ -148,6 +150,7 @@ export class MeService {
         office: true,
         avatarMimeType: true,
         platformRole: true,
+        passwordLoginEnabled: true,
       },
     });
     if (!user) {
@@ -167,6 +170,7 @@ export class MeService {
       office: user.office,
       hasAvatar,
       platformRole: user.platformRole as 'PLATFORM_ADMIN' | null,
+      passwordLoginEnabled: user.passwordLoginEnabled,
     };
   }
 
@@ -624,10 +628,15 @@ export class MeService {
   ): Promise<{ success: true }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, passwordHash: true },
+      select: { id: true, email: true, passwordHash: true, passwordLoginEnabled: true },
     });
     if (!user) {
       throw new NotFoundException('Utilisateur non trouvé');
+    }
+    if (!user.passwordLoginEnabled) {
+      throw new BadRequestException(
+        'Le mot de passe ne peut pas être modifié : ce compte utilise uniquement la connexion Microsoft.',
+      );
     }
     const currentOk = await bcrypt.compare(
       dto.currentPassword,

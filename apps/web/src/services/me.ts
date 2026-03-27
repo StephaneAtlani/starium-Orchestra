@@ -9,6 +9,8 @@ export interface MeProfile {
   office: string | null;
   hasAvatar: boolean;
   platformRole: 'PLATFORM_ADMIN' | null;
+  /** false si la connexion email/mot de passe est désactivée (ex. après connexion Microsoft). */
+  passwordLoginEnabled?: boolean;
 }
 
 export type UpdateMyProfilePayload = {

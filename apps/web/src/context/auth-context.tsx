@@ -31,6 +31,7 @@ export type AuthUser = {
   office: string | null;
   hasAvatar: boolean;
   platformRole: 'PLATFORM_ADMIN' | null;
+  passwordLoginEnabled: boolean;
 };
 
 const REFRESH_TOKEN_KEY = 'starium.refreshToken';
@@ -48,6 +49,7 @@ function profileToAuthUser(p: MeProfile): AuthUser {
     office: p.office ?? null,
     hasAvatar: p.hasAvatar,
     platformRole: p.platformRole,
+    passwordLoginEnabled: p.passwordLoginEnabled ?? true,
   };
 }
 

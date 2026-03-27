@@ -16,6 +16,8 @@ import { MfaService } from '../mfa/mfa.service';
 import { TrustedDeviceService } from './trusted-device.service';
 
 const INVALID_CREDENTIALS = 'Identifiants invalides';
+const PASSWORD_LOGIN_DISABLED =
+  'Connexion par mot de passe désactivée pour ce compte. Utilisez « Continuer avec Microsoft ».';
 
 export type LoginResponse =
   | {
@@ -79,6 +81,19 @@ export class AuthService {
           requestId: meta.requestId,
         });
         throw new UnauthorizedException(INVALID_CREDENTIALS);
+      }
+      if (!user.passwordLoginEnabled) {
+        await this.securityLogs.create({
+          event: 'auth.login.failure',
+          userId: user.id,
+          email: user.email,
+          success: false,
+          reason: 'password_login_disabled',
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+          requestId: meta.requestId,
+        });
+        throw new UnauthorizedException(PASSWORD_LOGIN_DISABLED);
       }
       let valid = false;
       try {

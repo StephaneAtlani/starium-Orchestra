@@ -83,6 +83,7 @@ describe('MeService', () => {
         office: null,
         avatarMimeType: null,
         platformRole: null,
+        passwordLoginEnabled: true,
       } as any);
 
       const result = await service.getProfile('user-1');
@@ -97,6 +98,7 @@ describe('MeService', () => {
         office: null,
         hasAvatar: false,
         platformRole: null,
+        passwordLoginEnabled: true,
       });
     });
 
@@ -112,6 +114,7 @@ describe('MeService', () => {
         office: null,
         avatarMimeType: null,
         platformRole: 'PLATFORM_ADMIN',
+        passwordLoginEnabled: true,
       } as any);
 
       const result = await service.getProfile('admin-1');

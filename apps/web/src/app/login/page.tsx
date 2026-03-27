@@ -18,6 +18,35 @@ import {
 const ACTIVE_CLIENT_KEY = 'starium.activeClient';
 const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
 
+/** Messages alignés sur les `reason` renvoyées par GET /api/auth/microsoft/callback (query). */
+function messageForMicrosoftCallbackError(reason: string | null): string {
+  switch (reason) {
+    case 'email_unknown':
+    case 'email_not_verified':
+    case 'email_ambiguous':
+    case 'missing_or_unreliable_email':
+      return 'Aucun compte Starium existant ne correspond à cette identité Microsoft.';
+    case 'user_without_valid_access':
+      return 'Ce compte n’a pas d’accès actif à un client Starium. Contactez un administrateur.';
+    case 'invalid_or_expired_state':
+      return 'La session de connexion Microsoft a expiré ou est invalide. Réessayez depuis « Se connecter avec Microsoft ».';
+    case 'missing_code_or_state':
+      return 'Réponse Microsoft incomplète. Réessayez la connexion.';
+    case 'microsoft_oauth_error':
+      return 'Microsoft a refusé ou interrompu la connexion. Réessayez.';
+    case 'callback_processing_error':
+      return 'Erreur lors du traitement de la connexion Microsoft. Réessayez dans quelques instants.';
+    default:
+      if (reason === 'access_denied' || reason?.includes('access_denied')) {
+        return 'Connexion Microsoft annulée.';
+      }
+      if (reason) {
+        return `Connexion Microsoft impossible (code : ${reason}). Si le problème persiste, vérifiez la configuration SSO côté serveur.`;
+      }
+      return 'Connexion Microsoft impossible. Réessayez ou contactez le support.';
+  }
+}
+
 function LoginPageContent() {
   const router = useRouter();
   const {
@@ -64,14 +93,7 @@ function LoginPageContent() {
     const reason = searchParams.get('reason');
     if (status === 'error') {
       didHandleMicrosoftCallback.current = true;
-      setError(
-        reason === 'email_unknown' ||
-          reason === 'email_not_verified' ||
-          reason === 'email_ambiguous' ||
-          reason === 'missing_or_unreliable_email'
-          ? 'Aucun compte Starium existant ne correspond à cette identité Microsoft.'
-          : 'Connexion Microsoft impossible.',
-      );
+      setError(messageForMicrosoftCallbackError(reason));
       return;
     }
     if (status !== 'success' || typeof window === 'undefined') {
