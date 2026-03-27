@@ -107,6 +107,15 @@ export function useBudgetDashboardPage() {
     return Object.keys(p).length > 0 ? p : undefined;
   }, [exerciseId, budgetId]);
 
+  const exercisesQuery = useBudgetExerciseOptionsQuery();
+  const exercisesReady = !exercisesQuery.isLoading;
+  const exerciseOptions = exercisesQuery.data ?? [];
+  /** Sans exercice en base, le cockpit renverrait 404 : on évite l’appel si le périmètre n’est pas forcé. */
+  const emptyNoExerciseContext =
+    exercisesReady &&
+    params === undefined &&
+    exerciseOptions.length === 0;
+
   useEffect(() => {
     if (!activeClient?.id) {
       setExerciseId(undefined);
@@ -134,12 +143,16 @@ export function useBudgetDashboardPage() {
     setSelectionHydrated(true);
   }, [activeClient?.id, searchParams]);
 
-  const dashboardQuery = useBudgetDashboardQuery(params, {
-    enabled: selectionHydrated,
-  });
-  const { data, isLoading, error, refetch, isFetching } = dashboardQuery;
+  const dashboardEnabled =
+    selectionHydrated &&
+    (!exercisesReady || !emptyNoExerciseContext || params !== undefined);
 
-  const exercisesQuery = useBudgetExerciseOptionsQuery();
+  const dashboardQuery = useBudgetDashboardQuery(params, {
+    enabled: dashboardEnabled,
+  });
+  const { data, error, refetch, isFetching } = dashboardQuery;
+  const dashboardLoading = dashboardEnabled && dashboardQuery.isLoading;
+
   const budgetsQuery = useBudgetsQuery(
     { exerciseId: exerciseId ?? '', limit: 100 },
     { enabled: !!exerciseId },
@@ -237,8 +250,14 @@ export function useBudgetDashboardPage() {
     onBudgetChange,
     refresh,
     data,
-    /** Tant que la sélection locale n’est pas lue, on affiche le chargement (évite flash 1er budget). */
-    isLoading: !selectionHydrated || isLoading,
+    /**
+     * En mode « résolution auto » (pas d’exercice/budget dans l’URL ni le stockage),
+     * on attend la liste des exercices pour décider d’appeler le cockpit ou afficher l’état vide sans 404.
+     */
+    isLoading:
+      !selectionHydrated ||
+      (params === undefined && !exercisesReady) ||
+      dashboardLoading,
     isFetching,
     error,
     exercises,
