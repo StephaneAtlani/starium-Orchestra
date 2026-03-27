@@ -57,6 +57,8 @@ function IdentityRow({
   onDeactivate: () => void;
   saving: boolean;
 }) {
+  const locked =
+    Boolean(identity.isAccountPrimary) || Boolean(identity.directoryManaged);
   const isEditing = editingId === identity.id;
 
   if (isEditing) {
@@ -139,6 +141,16 @@ function IdentityRow({
           ) : null}
         </div>
         <div className="flex flex-wrap gap-1.5">
+          {identity.isAccountPrimary ? (
+            <Badge variant="secondary" className="font-normal">
+              Compte
+            </Badge>
+          ) : null}
+          {identity.directoryManaged ? (
+            <Badge variant="secondary" className="font-normal">
+              Annuaire AD
+            </Badge>
+          ) : null}
           {identity.isActive ? (
             <Badge variant="secondary" className="font-normal">
               Actif
@@ -164,47 +176,58 @@ function IdentityRow({
             </Badge>
           )}
         </div>
+        {locked ? (
+          <p className="text-xs text-muted-foreground">
+            {identity.isAccountPrimary
+              ? 'E-mail de connexion au compte : non modifiable ici.'
+              : 'Synchronisé depuis l’annuaire d’entreprise : non modifiable ici.'}
+          </p>
+        ) : null}
       </div>
       <div className="mt-3 flex shrink-0 flex-wrap items-center gap-1 sm:mt-0 sm:justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 text-muted-foreground hover:text-foreground"
-          disabled={saving}
-          onClick={() => {
-            setEditingId(identity.id);
-            setEditForm({
-              email: identity.email,
-              displayName: identity.displayName ?? '',
-              replyToEmail: identity.replyToEmail ?? '',
-            });
-          }}
-        >
-          Modifier
-        </Button>
-        {identity.isActive ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 text-muted-foreground hover:text-foreground"
-            disabled={saving}
-            onClick={onDeactivate}
-          >
-            Désactiver
-          </Button>
+        {!locked ? (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 text-muted-foreground hover:text-foreground"
+              disabled={saving}
+              onClick={() => {
+                setEditingId(identity.id);
+                setEditForm({
+                  email: identity.email,
+                  displayName: identity.displayName ?? '',
+                  replyToEmail: identity.replyToEmail ?? '',
+                });
+              }}
+            >
+              Modifier
+            </Button>
+            {identity.isActive ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 text-muted-foreground hover:text-foreground"
+                disabled={saving}
+                onClick={onDeactivate}
+              >
+                Désactiver
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={saving}
+              onClick={onDelete}
+            >
+              Supprimer
+            </Button>
+          </>
         ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          disabled={saving}
-          onClick={onDelete}
-        >
-          Supprimer
-        </Button>
       </div>
     </li>
   );

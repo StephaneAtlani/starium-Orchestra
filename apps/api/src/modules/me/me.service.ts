@@ -71,8 +71,30 @@ export interface MeEmailIdentity {
   replyToEmail: string | null;
   isVerified: boolean;
   isActive: boolean;
+  /** Alignée sur l’e-mail de connexion User.email (identité miroir / migration). */
+  isAccountPrimary: boolean;
+  /** Synchro annuaire (AD DS) — pas d’édition utilisateur. */
+  directoryManaged: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * Hors méthode d’instance : évite `this.getX is not a function` si le bundle
+ * (Docker / cache) ne republie pas correctement les méthodes privées sur la classe.
+ */
+async function getAccountEmailNormalizedForUser(
+  prisma: PrismaService,
+  userId: string,
+): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  if (!user) {
+    throw new NotFoundException('Utilisateur introuvable');
+  }
+  return normalizeEmail(user.email);
 }
 
 /** Service profil et contexte client de l’utilisateur connecté. */
@@ -376,20 +398,17 @@ export class MeService {
 
   /** Liste des identités e-mail du compte connecté. */
   async listEmailIdentities(userId: string): Promise<MeEmailIdentity[]> {
+    const accountNorm = await getAccountEmailNormalizedForUser(
+      this.prisma,
+      userId,
+    );
     const rows = await this.prisma.userEmailIdentity.findMany({
       where: { userId },
       orderBy: [{ createdAt: 'asc' }],
     });
-    return rows.map((r) => ({
-      id: r.id,
-      email: r.email,
-      displayName: r.displayName,
-      replyToEmail: r.replyToEmail,
-      isVerified: r.isVerified,
-      isActive: r.isActive,
-      createdAt: r.createdAt,
-      updatedAt: r.updatedAt,
-    }));
+    return rows.map((r) =>
+      this.toMeEmailIdentity(r, accountNorm),
+    );
   }
 
   async createEmailIdentity(
@@ -411,7 +430,11 @@ export class MeService {
         replyToEmail: replyTrimmed,
       },
     });
-    return this.toMeEmailIdentity(row);
+    const accountNorm = await getAccountEmailNormalizedForUser(
+      this.prisma,
+      userId,
+    );
+    return this.toMeEmailIdentity(row, accountNorm);
   }
 
   async updateEmailIdentity(
@@ -425,6 +448,12 @@ export class MeService {
     if (!existing) {
       throw new NotFoundException('Identité e-mail introuvable');
     }
+
+    const accountNorm = await getAccountEmailNormalizedForUser(
+      this.prisma,
+      userId,
+    );
+    this.assertEmailIdentityUserEditable(accountNorm, existing);
 
     if (dto.isActive === false) {
       const used = await this.prisma.clientUser.count({
@@ -461,7 +490,7 @@ export class MeService {
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
     });
-    return this.toMeEmailIdentity(row);
+    return this.toMeEmailIdentity(row, accountNorm);
   }
 
   async deleteEmailIdentity(userId: string, identityId: string): Promise<void> {
@@ -471,6 +500,12 @@ export class MeService {
     if (!existing) {
       throw new NotFoundException('Identité e-mail introuvable');
     }
+    const accountNorm = await getAccountEmailNormalizedForUser(
+      this.prisma,
+      userId,
+    );
+    this.assertEmailIdentityUserEditable(accountNorm, existing);
+
     const used = await this.prisma.clientUser.count({
       where: { userId, defaultEmailIdentityId: identityId },
     });
@@ -520,16 +555,40 @@ export class MeService {
     };
   }
 
-  private toMeEmailIdentity(row: {
-    id: string;
-    email: string;
-    displayName: string | null;
-    replyToEmail: string | null;
-    isVerified: boolean;
-    isActive: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-  }): MeEmailIdentity {
+  /**
+   * Identité miroir du login (migration) ou pilotée par l’annuaire : pas de modification utilisateur.
+   */
+  private assertEmailIdentityUserEditable(
+    accountEmailNormalized: string,
+    row: { emailNormalized: string; directoryManaged: boolean },
+  ): void {
+    if (row.emailNormalized === accountEmailNormalized) {
+      throw new ForbiddenException(
+        'L’adresse e-mail de connexion au compte ne peut pas être modifiée ou supprimée ici.',
+      );
+    }
+    if (row.directoryManaged) {
+      throw new ForbiddenException(
+        'Cette adresse est gérée par l’annuaire d’entreprise (AD DS) et ne peut pas être modifiée ici.',
+      );
+    }
+  }
+
+  private toMeEmailIdentity(
+    row: {
+      id: string;
+      email: string;
+      emailNormalized: string;
+      displayName: string | null;
+      replyToEmail: string | null;
+      isVerified: boolean;
+      isActive: boolean;
+      directoryManaged: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    accountEmailNormalized: string,
+  ): MeEmailIdentity {
     return {
       id: row.id,
       email: row.email,
@@ -537,6 +596,8 @@ export class MeService {
       replyToEmail: row.replyToEmail,
       isVerified: row.isVerified,
       isActive: row.isActive,
+      isAccountPrimary: row.emailNormalized === accountEmailNormalized,
+      directoryManaged: row.directoryManaged,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

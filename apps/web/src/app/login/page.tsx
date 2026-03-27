@@ -37,6 +37,22 @@ function messageForMicrosoftCallbackError(reason: string | null): string {
       return 'Microsoft a refusé ou interrompu la connexion. Réessayez.';
     case 'callback_processing_error':
       return 'Erreur lors du traitement de la connexion Microsoft. Réessayez dans quelques instants.';
+    case 'microsoft_id_token_invalid':
+      return 'Le jeton Microsoft n’a pas pu être validé. Vérifiez que l’ID d’application (client) Entra correspond à la configuration de l’API (audience / client_id).';
+    case 'microsoft_sso_misconfigured':
+      return 'Configuration SSO Microsoft incomplète (client, secret, URL de redirection). Vérifiez l’environnement de l’API ou l’administration plateforme.';
+    case 'database_schema_mismatch':
+      return 'La base de données n’est pas à jour : exécutez les migrations (ex. prisma migrate deploy) puis réessayez.';
+    case 'microsoft_token_invalid_grant':
+      return 'Le code Microsoft a expiré ou a déjà été utilisé, ou l’URL de redirection ne correspond pas à Entra. Réessayez « Se connecter avec Microsoft » depuis le début.';
+    case 'microsoft_oauth_unauthorized_client':
+      return 'L’application n’est pas autorisée pour ce flux OAuth (client Entra / secret / redirect URI). Vérifiez la configuration.';
+    case 'prisma_validation_error':
+    case 'prisma_unknown_error':
+    case 'prisma_init_error':
+      return 'Erreur base de données ou schéma Prisma. Vérifiez les migrations et la connexion à la base.';
+    case 'jwt_misconfigured':
+      return 'Configuration JWT invalide sur l’API (secret / durées). Contactez un administrateur.';
     default:
       if (reason === 'access_denied' || reason?.includes('access_denied')) {
         return 'Connexion Microsoft annulée.';

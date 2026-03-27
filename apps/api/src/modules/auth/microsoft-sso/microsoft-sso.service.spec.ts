@@ -8,11 +8,14 @@ import { MicrosoftTokenHttpService } from '../../microsoft/microsoft-token-http.
 import { SecurityLogsService } from '../../security-logs/security-logs.service';
 import { MicrosoftPlatformConfigService } from '../../microsoft/microsoft-platform-config.service';
 
+const microsoftIdTokenMock = {
+  verifyIdToken: jest.fn().mockResolvedValue({ tid: 't' }),
+};
+
 describe('MicrosoftSsoService', () => {
   let service: MicrosoftSsoService;
   let prisma: any;
   let tokenHttp: any;
-  let mockTxUserUpdate: jest.Mock;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -43,7 +46,6 @@ describe('MicrosoftSsoService', () => {
               create: jest.fn(),
               updateMany: jest.fn().mockResolvedValue({ count: 1 }),
             },
-            $transaction: jest.fn(),
             user: {
               findMany: jest.fn(),
               findUnique: jest.fn().mockResolvedValue({ platformRole: null }),
@@ -64,7 +66,7 @@ describe('MicrosoftSsoService', () => {
         },
         {
           provide: MicrosoftIdTokenService,
-          useValue: { verifyIdToken: jest.fn().mockResolvedValue({ tid: 't' }) },
+          useValue: microsoftIdTokenMock,
         },
         {
           provide: MicrosoftTokenHttpService,
@@ -96,20 +98,9 @@ describe('MicrosoftSsoService', () => {
     prisma = module.get(PrismaService);
     tokenHttp = module.get(MicrosoftTokenHttpService);
 
-    mockTxUserUpdate = jest.fn().mockImplementation(async ({ where }: { where: { id: string } }) => ({
-      id: where.id,
-      platformRole: null,
-      passwordLoginEnabled: false,
-    }));
-    (prisma.$transaction as jest.Mock).mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          user: { update: mockTxUserUpdate },
-          refreshToken: { create: jest.fn().mockResolvedValue({}) },
-        };
-        return fn(tx);
-      },
-    );
+    (prisma.user.update as jest.Mock).mockResolvedValue({});
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({ platformRole: null });
+    microsoftIdTokenMock.verifyIdToken.mockResolvedValue({ tid: 't' });
   });
 
   it('ensurePasswordLoginDisabledForUser désactive le mot de passe (POST navigateur)', async () => {
@@ -138,6 +129,24 @@ describe('MicrosoftSsoService', () => {
         }),
       }),
     );
+  });
+
+  it('401 sur id_token sans instanceof Nest → microsoft_id_token_invalid (pas callback_processing_error)', async () => {
+    (tokenHttp.postTokenForm as jest.Mock).mockResolvedValue({
+      access_token: 'access-token',
+      id_token: 'any',
+    });
+    const err = Object.assign(new Error('id_token: signature ou claims invalides'), {
+      getStatus: () => 401,
+    });
+    microsoftIdTokenMock.verifyIdToken.mockRejectedValueOnce(err);
+
+    const result = await service.handleCallback(
+      { code: 'c', state: 's' },
+      { ipAddress: '127.0.0.1', userAgent: 'jest', requestId: 'r-idtoken-401' },
+    );
+    expect(result.redirectUrl).toContain('reason=microsoft_id_token_invalid');
+    expect(result.redirectUrl).not.toContain('callback_processing_error');
   });
 
   it('refuse si email secondaire non verifiee', async () => {
@@ -174,11 +183,13 @@ describe('MicrosoftSsoService', () => {
     );
     expect(result.redirectUrl).toContain('status=success');
     expect(result.redirectUrl).toContain('#accessToken=');
-    expect(prisma.$transaction).toHaveBeenCalled();
-    expect(mockTxUserUpdate).toHaveBeenCalledWith({
+    expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'u1' },
       data: { passwordLoginEnabled: false },
-      select: { id: true, platformRole: true, passwordLoginEnabled: true },
+    });
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      select: { platformRole: true },
     });
   });
 
@@ -200,11 +211,13 @@ describe('MicrosoftSsoService', () => {
       { ipAddress: '127.0.0.1', userAgent: 'jest', requestId: 'r-success-2' },
     );
     expect(result.redirectUrl).toContain('status=success');
-    expect(prisma.$transaction).toHaveBeenCalled();
-    expect(mockTxUserUpdate).toHaveBeenCalledWith({
+    expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'u2' },
       data: { passwordLoginEnabled: false },
-      select: { id: true, platformRole: true, passwordLoginEnabled: true },
+    });
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'u2' },
+      select: { platformRole: true },
     });
   });
 

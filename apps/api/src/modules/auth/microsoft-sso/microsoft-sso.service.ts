@@ -2,9 +2,11 @@ import {
   Injectable,
   Logger,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import * as jose from 'jose';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -25,6 +27,26 @@ interface ResolvedSsoCredentials {
   clientId: string;
   clientSecret: string;
   authorityTenant: string;
+}
+
+/**
+ * Lit le statut HTTP d’une HttpException Nest sans se fier uniquement à `instanceof`
+ * (plusieurs copies de `@nestjs/common` cassent `instanceof` → raison générique erronée).
+ */
+function httpExceptionStatus(error: unknown): number | undefined {
+  if (error === null || typeof error !== 'object') return undefined;
+  const getStatus = (error as { getStatus?: () => unknown }).getStatus;
+  if (typeof getStatus !== 'function') return undefined;
+  const s = getStatus();
+  return typeof s === 'number' ? s : undefined;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message ?? '';
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return '';
 }
 
 @Injectable()
@@ -145,42 +167,13 @@ export class MicrosoftSsoService {
         return { redirectUrl: this.errorRedirectUrl(match.reason) };
       }
 
-      /** Atomique : pas de jetons SSO tant que la désactivation mot de passe n’est pas commitée. */
-      const accessExpiration = parseExpiration(
-        this.config.get<string | number>('JWT_ACCESS_EXPIRATION'),
-        900,
-      );
-      const refreshExpiration = parseExpiration(
-        this.config.get<string | number>('JWT_REFRESH_EXPIRATION'),
-        604800,
-      );
+      /** Désactivation mot de passe puis jetons (hors transaction interactive — évite régressions Prisma/driver). */
+      await this.prisma.user.update({
+        where: { id: match.userId },
+        data: { passwordLoginEnabled: false },
+      });
 
-      const tokens = await this.prisma.$transaction(
-        async (tx) => {
-          const u = await tx.user.update({
-            where: { id: match.userId },
-            data: { passwordLoginEnabled: false },
-            select: { id: true, platformRole: true, passwordLoginEnabled: true },
-          });
-          if (u.passwordLoginEnabled !== false) {
-            this.logger.warn(
-              `Microsoft SSO: valeur inattendue passwordLoginEnabled=${String(u.passwordLoginEnabled)} après update pour ${u.id} — poursuite du flux`,
-            );
-          }
-          const accessToken = this.jwt.sign(
-            { sub: u.id, platformRole: u.platformRole ?? null },
-            { expiresIn: accessExpiration },
-          );
-          const refreshToken = randomBytes(64).toString('hex');
-          const tokenHash = this.hashToken(refreshToken);
-          const expiresAt = new Date(Date.now() + refreshExpiration * 1000);
-          await tx.refreshToken.create({
-            data: { tokenHash, userId: u.id, expiresAt },
-          });
-          return { accessToken, refreshToken };
-        },
-        { maxWait: 10_000, timeout: 20_000 },
-      );
+      const tokens = await this.issueTokenPair(match.userId);
       await this.securityLogs.create({
         event: 'auth.microsoft_sso.success',
         userId: match.userId,
@@ -193,20 +186,93 @@ export class MicrosoftSsoService {
       return { redirectUrl: this.successRedirectUrl(tokens) };
     } catch (error) {
       const err = error as Error;
+      const reason = this.mapCallbackFailureReason(error);
+      const kind =
+        error !== null && error !== undefined && typeof error === 'object'
+          ? (error as object).constructor?.name
+          : typeof error;
       this.logger.error(
-        `Microsoft SSO callback failed: ${err?.message ?? String(error)}`,
+        `Microsoft SSO callback failed [${reason}] (${kind}): ${err?.message ?? String(error)}`,
         err?.stack,
       );
       await this.securityLogs.create({
         event: 'auth.microsoft_sso.failure',
         success: false,
-        reason: 'callback_processing_error',
+        reason,
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
         requestId: meta.requestId,
       });
-      return { redirectUrl: this.errorRedirectUrl('callback_processing_error') };
+      return { redirectUrl: this.errorRedirectUrl(reason) };
     }
+  }
+
+  /** Raison stable pour `?reason=` (UX + logs) — évite un seul message générique. */
+  private mapCallbackFailureReason(error: unknown): string {
+    const httpStatus = httpExceptionStatus(error);
+    if (
+      httpStatus === 401 ||
+      error instanceof UnauthorizedException
+    ) {
+      const msg = errorMessage(error);
+      if (msg.includes('Utilisateur introuvable')) {
+        return 'sso_user_not_found_after_match';
+      }
+      return 'microsoft_id_token_invalid';
+    }
+    if (
+      httpStatus === 503 ||
+      error instanceof ServiceUnavailableException
+    ) {
+      return 'microsoft_sso_misconfigured';
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2022') {
+        return 'database_schema_mismatch';
+      }
+      return `prisma_${error.code}`;
+    }
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      return 'prisma_validation_error';
+    }
+    if (error instanceof Prisma.PrismaClientUnknownRequestError) {
+      return 'prisma_unknown_error';
+    }
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      return 'prisma_init_error';
+    }
+    const oauth = this.extractMicrosoftOAuthErrorCode(error);
+    if (oauth) {
+      if (oauth === 'invalid_grant') {
+        return 'microsoft_token_invalid_grant';
+      }
+      if (oauth === 'unauthorized_client') {
+        return 'microsoft_oauth_unauthorized_client';
+      }
+      return `microsoft_oauth_${oauth}`;
+    }
+    if (error instanceof Error) {
+      const m = error.message.toLowerCase();
+      if (m.includes('invalid_grant')) {
+        return 'microsoft_token_invalid_grant';
+      }
+      if (
+        m.includes('secret') &&
+        (m.includes('jwt') || m.includes('jsonwebtoken'))
+      ) {
+        return 'jwt_misconfigured';
+      }
+    }
+    return 'callback_processing_error';
+  }
+
+  private extractMicrosoftOAuthErrorCode(error: unknown): string | null {
+    if (typeof error !== 'object' || error === null) return null;
+    const o = error as { oauthError?: string };
+    if (typeof o.oauthError === 'string' && o.oauthError.length > 0) {
+      return o.oauthError.replace(/[^a-z0-9_-]/gi, '_');
+    }
+    return null;
   }
 
   private async exchangeCode(code: string): Promise<{
@@ -479,6 +545,38 @@ export class MicrosoftSsoService {
     throw new ServiceUnavailableException(
       'Microsoft SSO non configuré: définissez MICROSOFT_CLIENT_ID et MICROSOFT_CLIENT_SECRET (environnement API), ou enregistrez l’application Entra dédiée au SSO dans Administration plateforme → Microsoft 365 — plateforme (ID + secret + tenant).',
     );
+  }
+
+  private async issueTokenPair(userId: string): Promise<{
+    accessToken: string;
+    refreshToken: string;
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { platformRole: true },
+    });
+    if (!user) {
+      throw new UnauthorizedException('Utilisateur introuvable');
+    }
+    const accessExpiration = parseExpiration(
+      this.config.get<string | number>('JWT_ACCESS_EXPIRATION'),
+      900,
+    );
+    const refreshExpiration = parseExpiration(
+      this.config.get<string | number>('JWT_REFRESH_EXPIRATION'),
+      604800,
+    );
+    const accessToken = this.jwt.sign(
+      { sub: userId, platformRole: user.platformRole ?? null },
+      { expiresIn: accessExpiration },
+    );
+    const refreshToken = randomBytes(64).toString('hex');
+    const tokenHash = this.hashToken(refreshToken);
+    const expiresAt = new Date(Date.now() + refreshExpiration * 1000);
+    await this.prisma.refreshToken.create({
+      data: { tokenHash, userId, expiresAt },
+    });
+    return { accessToken, refreshToken };
   }
 
   /**

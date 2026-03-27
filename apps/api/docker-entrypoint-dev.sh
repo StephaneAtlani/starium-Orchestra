@@ -19,5 +19,8 @@ pnpm exec prisma db seed
 # projects.service.js (ex. ownerFreeLabel dans project.create) alors que src/ est à jour.
 echo "[api-dev] rm -rf dist (rebuild propre depuis src monté)..."
 rm -rf dist
+# Watch seul peut laisser un bundle partiellement obsolète ; build complet aligne dist sur src/.
+echo "[api-dev] nest build (compilation complète avant watch)..."
+pnpm exec nest build
 echo "[api-dev] nest start --watch"
 exec pnpm run start:dev
