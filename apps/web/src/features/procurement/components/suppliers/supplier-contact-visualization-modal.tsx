@@ -49,7 +49,15 @@ export function SupplierContactVisualizationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-h-[90vh] !w-[90vw] !max-w-[90vw] sm:!max-w-[90vw] overflow-y-auto p-6">
+      {open ? (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 isolate z-[110] bg-black/20 duration-200 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+        />
+      ) : null}
+      <DialogContent
+        className="!z-[120] !max-h-[90vh] !w-[90vw] !max-w-[90vw] sm:!max-w-[90vw] overflow-y-auto p-6"
+      >
         <DialogHeader className="flex flex-row items-start justify-between gap-3 pr-12">
           <div>
           <DialogTitle>Fiche contact fournisseur</DialogTitle>
