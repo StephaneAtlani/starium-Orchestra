@@ -38,12 +38,14 @@ import {
   createSupplierCategory,
   createSupplierContact,
   createSupplier,
+  deleteSupplierContactPhoto,
   deactivateSupplierContact,
   deleteSupplierLogo,
   listSupplierContacts,
   listSupplierCategories,
   listSuppliers,
   uploadSupplierLogo,
+  uploadSupplierContactPhoto,
   updateSupplierContact,
   updateSupplier,
   updateSupplierCategory,
@@ -214,6 +216,9 @@ export default function SuppliersPage() {
   const [contactFormErrors, setContactFormErrors] = useState<SupplierContactFormErrors>({});
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [contactPhotoFile, setContactPhotoFile] = useState<File | null>(null);
+  const [contactPhotoRemoved, setContactPhotoRemoved] = useState(false);
+  const [contactPhotoUrl, setContactPhotoUrl] = useState<string | null>(null);
   const [readContactModalOpen, setReadContactModalOpen] = useState(false);
   const [readContact, setReadContact] = useState<SupplierContact | null>(null);
   const canReadSuppliers = has('procurement.read');
@@ -495,7 +500,7 @@ export default function SuppliersPage() {
       if (Object.keys(errors).length > 0) {
         throw new Error('Veuillez corriger les champs contact invalides.');
       }
-      return createSupplierContact(authFetch, selectedSupplierId, {
+      const created = await createSupplierContact(authFetch, selectedSupplierId, {
         firstName: contactForm.firstName || undefined,
         lastName: contactForm.lastName || undefined,
         fullName: contactForm.fullName || undefined,
@@ -506,11 +511,26 @@ export default function SuppliersPage() {
         notes: contactForm.notes || undefined,
         isPrimary: contactForm.isPrimary,
       });
+      if (contactPhotoFile) {
+        await uploadSupplierContactPhoto(authFetch, selectedSupplierId, created.id, contactPhotoFile);
+      }
+      return created;
     },
-    onSuccess: async () => {
+    onSuccess: async (createdContact) => {
+      setReadContact((previous) => {
+        if (!previous || previous.id !== createdContact.id) return previous;
+        return {
+          ...previous,
+          ...createdContact,
+          supplierName: previous.supplierName ?? editForm.name ?? null,
+        };
+      });
       setContactModalOpen(false);
       clearSupplierContactDraft();
       setContactFormErrors({});
+      setContactPhotoFile(null);
+      setContactPhotoRemoved(false);
+      setContactPhotoUrl(null);
       setContactForm({
         firstName: '',
         lastName: '',
@@ -536,7 +556,7 @@ export default function SuppliersPage() {
       if (Object.keys(errors).length > 0) {
         throw new Error('Veuillez corriger les champs contact invalides.');
       }
-      return updateSupplierContact(authFetch, selectedSupplierId, editingContactId, {
+      const updated = await updateSupplierContact(authFetch, selectedSupplierId, editingContactId, {
         firstName: contactForm.firstName || null,
         lastName: contactForm.lastName || null,
         fullName: contactForm.fullName || undefined,
@@ -547,12 +567,29 @@ export default function SuppliersPage() {
         notes: contactForm.notes || null,
         isPrimary: contactForm.isPrimary,
       });
+      if (contactPhotoFile) {
+        await uploadSupplierContactPhoto(authFetch, selectedSupplierId, editingContactId, contactPhotoFile);
+      } else if (contactPhotoRemoved) {
+        await deleteSupplierContactPhoto(authFetch, selectedSupplierId, editingContactId);
+      }
+      return updated;
     },
-    onSuccess: async () => {
+    onSuccess: async (updatedContact) => {
+      setReadContact((previous) => {
+        if (!previous || previous.id !== updatedContact.id) return previous;
+        return {
+          ...previous,
+          ...updatedContact,
+          supplierName: previous.supplierName ?? editForm.name ?? null,
+        };
+      });
       setContactModalOpen(false);
       setEditingContactId(null);
       clearSupplierContactDraft();
       setContactFormErrors({});
+      setContactPhotoFile(null);
+      setContactPhotoRemoved(false);
+      setContactPhotoUrl(null);
       setContactForm({
         firstName: '',
         lastName: '',
@@ -670,6 +707,9 @@ export default function SuppliersPage() {
   const openCreateContactModal = () => {
     setEditingContactId(null);
     setContactFormErrors({});
+    setContactPhotoFile(null);
+    setContactPhotoRemoved(false);
+    setContactPhotoUrl(null);
     setContactForm({
       firstName: '',
       lastName: '',
@@ -698,6 +738,32 @@ export default function SuppliersPage() {
     const supplier = suppliersQuery.data?.items.find((item) => item.id === supplierId);
     if (!supplier) return;
     openEditSupplierModal(supplier);
+  };
+
+  const openEditContactFromReadModal = (contact: SupplierContact) => {
+    const supplier = suppliersQuery.data?.items.find((item) => item.id === contact.supplierId);
+    setSelectedSupplierId(contact.supplierId);
+    if (supplier?.name) {
+      setEditForm((prev) => ({ ...prev, name: supplier.name ?? prev.name }));
+    }
+
+    setEditingContactId(contact.id);
+    setContactFormErrors({});
+    setContactPhotoFile(null);
+    setContactPhotoRemoved(false);
+    setContactPhotoUrl(contact.photoUrl ?? null);
+    setContactForm({
+      firstName: contact.firstName ?? '',
+      lastName: contact.lastName ?? '',
+      fullName: contact.fullName,
+      role: contact.role ?? '',
+      email: contact.email ?? '',
+      phone: contact.phone ?? '',
+      mobile: contact.mobile ?? '',
+      notes: contact.notes ?? '',
+      isPrimary: contact.isPrimary,
+    });
+    setContactModalOpen(true);
   };
 
   return (
@@ -1082,7 +1148,7 @@ export default function SuppliersPage() {
             </DialogHeader>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <section className="rounded-xl border border-border/70 bg-muted/20 p-3 lg:col-span-4">
+              <section className="rounded-xl border border-border/70 bg-card p-3 lg:col-span-4">
                 <ImageUploadDropzone
                   id="supplier-logo-upload-edit"
                   title="Logo fournisseur"
@@ -1306,10 +1372,24 @@ export default function SuppliersPage() {
             if (!open) {
               setEditingContactId(null);
               setContactFormErrors({});
+              setContactPhotoFile(null);
+              setContactPhotoRemoved(false);
+              setContactPhotoUrl(null);
             }
           }}
           isEditing={!!editingContactId}
           supplierName={editForm.name}
+          photoUrl={contactPhotoUrl}
+          onPhotoChange={(file) => {
+            if (file) {
+              setContactPhotoFile(file);
+              setContactPhotoRemoved(false);
+              return;
+            }
+            setContactPhotoFile(null);
+            setContactPhotoRemoved(true);
+            setContactPhotoUrl(null);
+          }}
           form={contactForm}
           errors={contactFormErrors}
           onChange={(key, value) => {
@@ -1514,6 +1594,7 @@ export default function SuppliersPage() {
           onOpenChange={setReadSupplierModalOpen}
           supplierId={readSupplierId}
           onEdit={openEditFromReadModal}
+          onEditContact={openEditContactFromReadModal}
         />
 
         <Dialog

@@ -29,7 +29,9 @@ import { SupplierContactVisualizationModal } from '@/features/procurement/compon
 import type { SupplierContact } from '@/features/procurement/types/supplier.types';
 import {
   createSupplierContact,
+  deleteSupplierContactPhoto,
   listAllSupplierContacts,
+  uploadSupplierContactPhoto,
   updateSupplierContact,
 } from '@/features/procurement/api/procurement.api';
 import { SupplierVisualizationModal } from '@/features/procurement/components/suppliers/supplier-visualization-modal';
@@ -128,6 +130,9 @@ export default function SupplierContactsPage() {
     isPrimary: false,
   });
   const [contactFormErrors, setContactFormErrors] = useState<ContactFormErrors>({});
+  const [contactPhotoFile, setContactPhotoFile] = useState<File | null>(null);
+  const [contactPhotoRemoved, setContactPhotoRemoved] = useState(false);
+  const [contactPhotoUrl, setContactPhotoUrl] = useState<string | null>(null);
 
   const derivedFullName = useMemo(() => {
     const fn = contactForm.firstName.trim();
@@ -195,7 +200,7 @@ export default function SupplierContactsPage() {
       setContactFormErrors(errors);
       if (Object.keys(errors).length > 0) throw new Error('Veuillez corriger les champs contact.');
 
-      return createSupplierContact(authFetch, supplierId, {
+      const created = await createSupplierContact(authFetch, supplierId, {
         firstName: contactForm.firstName || undefined,
         lastName: contactForm.lastName || undefined,
         fullName: derivedFullName || undefined,
@@ -206,13 +211,28 @@ export default function SupplierContactsPage() {
         notes: contactForm.notes || undefined,
         isPrimary: contactForm.isPrimary,
       });
+      if (contactPhotoFile) {
+        await uploadSupplierContactPhoto(authFetch, supplierId, created.id, contactPhotoFile);
+      }
+      return created;
     },
-    onSuccess: async () => {
+    onSuccess: async (createdContact) => {
+      setReadContact((previous) => {
+        if (!previous || previous.id !== createdContact.id) return previous;
+        return {
+          ...previous,
+          ...createdContact,
+          supplierName: previous.supplierName ?? supplierValue ?? null,
+        };
+      });
       setDialogOpen(false);
       setEditingContactId(null);
       setEditOriginalSupplierId(null);
       clearContactFormDraft();
       setContactFormErrors({});
+      setContactPhotoFile(null);
+      setContactPhotoRemoved(false);
+      setContactPhotoUrl(null);
       setContactForm({
         firstName: '',
         lastName: '',
@@ -243,7 +263,7 @@ export default function SupplierContactsPage() {
       setContactFormErrors(errors);
       if (Object.keys(errors).length > 0) throw new Error('Veuillez corriger les champs contact.');
 
-      return updateSupplierContact(authFetch, editOriginalSupplierId, editingContactId, {
+      const updated = await updateSupplierContact(authFetch, editOriginalSupplierId, editingContactId, {
         ...(supplierId !== editOriginalSupplierId ? { supplierId } : {}),
         firstName: contactForm.firstName || null,
         lastName: contactForm.lastName || null,
@@ -256,13 +276,30 @@ export default function SupplierContactsPage() {
         isActive: contactForm.isActive,
         isPrimary: contactForm.isPrimary,
       });
+      if (contactPhotoFile) {
+        await uploadSupplierContactPhoto(authFetch, supplierId, editingContactId, contactPhotoFile);
+      } else if (contactPhotoRemoved) {
+        await deleteSupplierContactPhoto(authFetch, supplierId, editingContactId);
+      }
+      return updated;
     },
-    onSuccess: async () => {
+    onSuccess: async (updatedContact) => {
+      setReadContact((previous) => {
+        if (!previous || previous.id !== updatedContact.id) return previous;
+        return {
+          ...previous,
+          ...updatedContact,
+          supplierName: previous.supplierName ?? supplierValue ?? null,
+        };
+      });
       setDialogOpen(false);
       setEditingContactId(null);
       setEditOriginalSupplierId(null);
       clearContactFormDraft();
       setContactFormErrors({});
+      setContactPhotoFile(null);
+      setContactPhotoRemoved(false);
+      setContactPhotoUrl(null);
       await queryClient.invalidateQueries({
         queryKey: ['procurement', clientId, 'supplier-contacts-all'],
       });
@@ -297,6 +334,9 @@ export default function SupplierContactsPage() {
     setEditingContactId(null);
     setEditOriginalSupplierId(null);
     setContactFormErrors({});
+    setContactPhotoFile(null);
+    setContactPhotoRemoved(false);
+    setContactPhotoUrl(null);
     setContactForm({
       firstName: '',
       lastName: '',
@@ -320,6 +360,9 @@ export default function SupplierContactsPage() {
     setEditingContactId(contact.id);
     setEditOriginalSupplierId(contact.supplierId);
     setContactFormErrors({});
+    setContactPhotoFile(null);
+    setContactPhotoRemoved(false);
+    setContactPhotoUrl(contact.photoUrl ?? null);
     setSupplierId(contact.supplierId);
     setSupplierValue(contact.supplierName ?? '');
     setContactForm({
@@ -548,9 +591,23 @@ export default function SupplierContactsPage() {
               setContactFormErrors({});
               setEditingContactId(null);
               setEditOriginalSupplierId(null);
+              setContactPhotoFile(null);
+              setContactPhotoRemoved(false);
+              setContactPhotoUrl(null);
             }
           }}
           isEditing={!!editingContactId}
+          photoUrl={contactPhotoUrl}
+          onPhotoChange={(file) => {
+            if (file) {
+              setContactPhotoFile(file);
+              setContactPhotoRemoved(false);
+              return;
+            }
+            setContactPhotoFile(null);
+            setContactPhotoRemoved(true);
+            setContactPhotoUrl(null);
+          }}
           form={contactForm}
           errors={contactFormErrors}
           onChange={(key, value) => {

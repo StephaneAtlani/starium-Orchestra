@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 
 export type SupplierContactFormState = {
   firstName: string;
@@ -58,6 +59,7 @@ export function SupplierContactModal({
   isSubmitting,
   isSubmitDisabled = false,
 }: Props) {
+  const authFetch = useAuthenticatedFetch();
   const [customRole, setCustomRole] = useState('');
   const defaultRoles = [
     'Commercial',
@@ -75,10 +77,55 @@ export function SupplierContactModal({
   }, [form.role]);
   const [photoPreview, setPhotoPreview] = useState<string | null>(photoUrl ?? null);
   const [photoObjectUrl, setPhotoObjectUrl] = useState<string | null>(null);
+  const [remotePhotoObjectUrl, setRemotePhotoObjectUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    setPhotoPreview(photoUrl ?? null);
-  }, [photoUrl]);
+    let revokedUrl: string | null = null;
+    let isCancelled = false;
+
+    async function loadProtectedPhoto() {
+      if (!open || !photoUrl) {
+        setRemotePhotoObjectUrl(null);
+        return;
+      }
+      try {
+        const response = await authFetch(photoUrl);
+        if (!response.ok) {
+          setRemotePhotoObjectUrl(null);
+          return;
+        }
+        const blob = await response.blob();
+        if (isCancelled) return;
+        revokedUrl = URL.createObjectURL(blob);
+        setRemotePhotoObjectUrl(revokedUrl);
+      } catch {
+        if (!isCancelled) {
+          setRemotePhotoObjectUrl(null);
+        }
+      }
+    }
+
+    void loadProtectedPhoto();
+
+    return () => {
+      isCancelled = true;
+      if (revokedUrl) {
+        URL.revokeObjectURL(revokedUrl);
+      }
+    };
+  }, [authFetch, open, photoUrl]);
+
+  useEffect(() => {
+    if (photoObjectUrl) {
+      setPhotoPreview(photoObjectUrl);
+      return;
+    }
+    if (remotePhotoObjectUrl) {
+      setPhotoPreview(remotePhotoObjectUrl);
+      return;
+    }
+    setPhotoPreview(null);
+  }, [photoObjectUrl, remotePhotoObjectUrl]);
 
   useEffect(() => {
     return () => {
@@ -89,7 +136,10 @@ export function SupplierContactModal({
   const hasNameParts = !!form.firstName.trim() || !!form.lastName.trim();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-full sm:w-[80vw] sm:max-w-[80vw] flex-col gap-4 p-6">
+      <DialogContent
+        overlayClassName="!z-[130] bg-black/20 supports-backdrop-filter:backdrop-blur-sm"
+        className="!z-[140] flex max-h-[90vh] w-full sm:w-[80vw] sm:max-w-[80vw] flex-col gap-4 p-6"
+      >
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold tracking-tight">
             {isEditing ? 'Modifier un contact' : 'Ajouter un contact'}

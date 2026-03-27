@@ -1965,6 +1965,8 @@ model SupplierContact {
   emailNormalized String?
   phone           String?
   mobile          String?
+  photoUrl        String?
+  photoMimeType   String?
   isPrimary       Boolean  @default(false)
   isActive        Boolean  @default(true)
   notes           String?

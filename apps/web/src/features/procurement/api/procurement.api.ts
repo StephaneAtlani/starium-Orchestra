@@ -291,6 +291,34 @@ export async function deactivateSupplierContact(
   return res.json() as Promise<SupplierContact>;
 }
 
+export async function uploadSupplierContactPhoto(
+  authFetch: AuthFetch,
+  supplierId: string,
+  contactId: string,
+  file: File,
+): Promise<{ success: true; photoUrl: string }> {
+  const body = new FormData();
+  body.append('file', file);
+  const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}/contacts/${contactId}/photo`, {
+    method: 'POST',
+    body,
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ success: true; photoUrl: string }>;
+}
+
+export async function deleteSupplierContactPhoto(
+  authFetch: AuthFetch,
+  supplierId: string,
+  contactId: string,
+): Promise<{ success: true }> {
+  const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}/contacts/${contactId}/photo`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ success: true }>;
+}
+
 export async function createPurchaseOrder(
   authFetch: AuthFetch,
   payload: CreatePurchaseOrderPayload,

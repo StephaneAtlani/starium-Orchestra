@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  StreamableFile,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -11,6 +12,11 @@ import type { ProcurementAuditContext } from '../suppliers/suppliers.service';
 import { CreateSupplierContactDto } from './dto/create-supplier-contact.dto';
 import { ListSupplierContactsQueryDto } from './dto/list-supplier-contacts.query.dto';
 import { UpdateSupplierContactDto } from './dto/update-supplier-contact.dto';
+import {
+  ALLOWED_SUPPLIER_CONTACT_PHOTO_MIME,
+  MAX_SUPPLIER_CONTACT_PHOTO_BYTES,
+} from './supplier-contacts-photo.constants';
+import { SupplierContactsPhotoStorageService } from './supplier-contacts-photo.storage';
 
 export interface SupplierContactResponse {
   id: string;
@@ -28,6 +34,7 @@ export interface SupplierContactResponse {
   isPrimary: boolean;
   isActive: boolean;
   notes: string | null;
+  photoUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +63,7 @@ export class SupplierContactsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly photoStorage: SupplierContactsPhotoStorageService,
   ) {}
 
   async list(
@@ -379,6 +387,93 @@ export class SupplierContactsService {
     return toSupplierContactResponse(updated);
   }
 
+  async savePhoto(
+    clientId: string,
+    supplierId: string,
+    contactId: string,
+    file:
+      | { buffer: Buffer; mimetype: string; size: number }
+      | undefined,
+    context?: ProcurementAuditContext,
+  ): Promise<{ success: true; photoUrl: string }> {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Fichier requis');
+    }
+    if (file.size > MAX_SUPPLIER_CONTACT_PHOTO_BYTES) {
+      throw new BadRequestException('Photo trop volumineuse (max 2 Mo)');
+    }
+    if (!file.mimetype || !ALLOWED_SUPPLIER_CONTACT_PHOTO_MIME.has(file.mimetype)) {
+      throw new BadRequestException('Format accepté : JPEG, PNG, WebP ou GIF');
+    }
+
+    await this.findContactOrFail(clientId, supplierId, contactId);
+    await this.photoStorage.write(clientId, supplierId, contactId, file.buffer);
+
+    const photoUrl = `/api/suppliers/${supplierId}/contacts/${contactId}/photo`;
+    await this.prisma.supplierContact.update({
+      where: { id: contactId },
+      data: { photoUrl, photoMimeType: file.mimetype } as any,
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: 'supplier_contact.photo_uploaded',
+      resourceType: 'supplier_contact',
+      resourceId: contactId,
+      newValue: { photoMimeType: file.mimetype },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return { success: true, photoUrl };
+  }
+
+  async deletePhoto(
+    clientId: string,
+    supplierId: string,
+    contactId: string,
+    context?: ProcurementAuditContext,
+  ): Promise<{ success: true }> {
+    const existing = await this.findContactOrFail(clientId, supplierId, contactId);
+
+    await this.photoStorage.remove(clientId, supplierId, contactId);
+    await this.prisma.supplierContact.update({
+      where: { id: contactId },
+      data: { photoUrl: null, photoMimeType: null } as any,
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: 'supplier_contact.photo_removed',
+      resourceType: 'supplier_contact',
+      resourceId: contactId,
+      oldValue: { photoMimeType: (existing as any).photoMimeType ?? null },
+      newValue: { photoMimeType: null },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return { success: true };
+  }
+
+  async getPhotoFile(
+    clientId: string,
+    supplierId: string,
+    contactId: string,
+  ): Promise<StreamableFile> {
+    const existing = await this.findContactOrFail(clientId, supplierId, contactId);
+    const mimeType = (existing as any).photoMimeType as string | null | undefined;
+    if (!mimeType || !this.photoStorage.exists(clientId, supplierId, contactId)) {
+      throw new NotFoundException('Aucune photo');
+    }
+    const stream = this.photoStorage.createReadStream(clientId, supplierId, contactId);
+    return new StreamableFile(stream, { type: mimeType });
+  }
+
   private async assertSupplierInClient(
     clientId: string,
     supplierId: string,
@@ -559,6 +654,7 @@ function toSupplierContactListItemResponse(
 function toSupplierContactResponse(
   row: Prisma.SupplierContactGetPayload<Record<string, never>>,
 ): SupplierContactResponse {
+  const rowAny = row as any;
   return {
     id: row.id,
     clientId: row.clientId,
@@ -575,6 +671,7 @@ function toSupplierContactResponse(
     isPrimary: row.isPrimary,
     isActive: row.isActive,
     notes: row.notes ?? null,
+    photoUrl: rowAny.photoUrl ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

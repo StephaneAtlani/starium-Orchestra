@@ -18,7 +18,15 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
 
-export function SupplierVisualizationContent({ supplierId }: { supplierId: string }) {
+export function SupplierVisualizationContent({
+  supplierId,
+  onEditSupplier,
+  onEditContact,
+}: {
+  supplierId: string;
+  onEditSupplier?: (supplierId: string) => void;
+  onEditContact?: (contact: SupplierContact) => void;
+}) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const { has, isSuccess: permsSuccess, isLoading: permsLoading } = usePermissions();
@@ -351,6 +359,13 @@ export function SupplierVisualizationContent({ supplierId }: { supplierId: strin
         open={readContactOpen}
         onOpenChange={setReadContactOpen}
         contact={readContact}
+        onEdit={
+          onEditContact
+            ? (contact) => {
+                onEditContact(contact);
+              }
+            : undefined
+        }
       />
     </div>
   );
@@ -361,11 +376,13 @@ export function SupplierVisualizationModal({
   onOpenChange,
   supplierId,
   onEdit,
+  onEditContact,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   supplierId: string | null;
   onEdit?: (supplierId: string) => void;
+  onEditContact?: (contact: SupplierContact) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -389,7 +406,11 @@ export function SupplierVisualizationModal({
           </div>
         </DialogHeader>
         {supplierId ? (
-          <SupplierVisualizationContent supplierId={supplierId} />
+          <SupplierVisualizationContent
+            supplierId={supplierId}
+            onEditSupplier={onEdit}
+            onEditContact={onEditContact}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">Aucun fournisseur selectionne.</p>
         )}

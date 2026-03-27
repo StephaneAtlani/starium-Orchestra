@@ -2,11 +2,13 @@ import { ConflictException } from '@nestjs/common';
 import { SupplierContactsService } from './supplier-contacts.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
+import { SupplierContactsPhotoStorageService } from './supplier-contacts-photo.storage';
 
 describe('SupplierContactsService', () => {
   let service: SupplierContactsService;
   let prisma: PrismaService;
   let auditLogs: AuditLogsService;
+  let photoStorage: SupplierContactsPhotoStorageService;
 
   type SupplierMock = {
     findFirst: jest.Mock;
@@ -55,7 +57,14 @@ describe('SupplierContactsService', () => {
       create: jest.fn().mockResolvedValue(undefined),
     } as unknown as AuditLogsService;
 
-    service = new SupplierContactsService(prisma, auditLogs);
+    photoStorage = {
+      write: jest.fn(),
+      remove: jest.fn(),
+      exists: jest.fn().mockReturnValue(false),
+      createReadStream: jest.fn(),
+    } as unknown as SupplierContactsPhotoStorageService;
+
+    service = new SupplierContactsService(prisma, auditLogs, photoStorage);
   });
 
   it('recalcule fullName depuis firstName/lastName au create', async () => {

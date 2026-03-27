@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { SupplierContact } from '@/features/procurement/types/supplier.types';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { Pencil } from 'lucide-react';
 
 type SupplierContactVisualizationModalProps = {
   open: boolean;
@@ -28,6 +30,53 @@ export function SupplierContactVisualizationModal({
   contact,
   onEdit,
 }: SupplierContactVisualizationModalProps) {
+  const authFetch = useAuthenticatedFetch();
+  const [resolvedPhotoSrc, setResolvedPhotoSrc] = useState<string | null>(null);
+  const resolvedPhotoUrl =
+    (contact as unknown as { photoUrl?: string | null; avatarUrl?: string | null; photo?: { url?: string | null } | null })
+      ?.photoUrl ??
+    (contact as unknown as { photoUrl?: string | null; avatarUrl?: string | null; photo?: { url?: string | null } | null })
+      ?.avatarUrl ??
+    (contact as unknown as { photoUrl?: string | null; avatarUrl?: string | null; photo?: { url?: string | null } | null })
+      ?.photo?.url ??
+    null;
+
+  useEffect(() => {
+    let revokedUrl: string | null = null;
+    let isCancelled = false;
+
+    async function loadPhoto() {
+      if (!open || !resolvedPhotoUrl) {
+        setResolvedPhotoSrc(null);
+        return;
+      }
+      try {
+        const response = await authFetch(resolvedPhotoUrl);
+        if (!response.ok) {
+          setResolvedPhotoSrc(null);
+          return;
+        }
+        const blob = await response.blob();
+        if (isCancelled) return;
+        revokedUrl = URL.createObjectURL(blob);
+        setResolvedPhotoSrc(revokedUrl);
+      } catch {
+        if (!isCancelled) {
+          setResolvedPhotoSrc(null);
+        }
+      }
+    }
+
+    void loadPhoto();
+
+    return () => {
+      isCancelled = true;
+      if (revokedUrl) {
+        URL.revokeObjectURL(revokedUrl);
+      }
+    };
+  }, [authFetch, open, resolvedPhotoUrl]);
+
   const fullName = contact?.fullName ?? '—';
   const initials = contact?.fullName ? getInitials(contact.fullName) : '—';
   const firstName = contact?.firstName ?? '—';
@@ -58,15 +107,20 @@ export function SupplierContactVisualizationModal({
       <DialogContent
         className="!z-[120] !max-h-[90vh] !w-[90vw] !max-w-[90vw] sm:!max-w-[90vw] overflow-y-auto p-6"
       >
-        <DialogHeader className="flex flex-row items-start justify-between gap-3 pr-12">
+        <DialogHeader className="flex flex-row items-start justify-between gap-3 pr-14">
           <div>
           <DialogTitle>Fiche contact fournisseur</DialogTitle>
           <DialogDescription>Consultation en lecture seule.</DialogDescription>
           </div>
           {onEdit && contact ? (
-            <Button type="button" size="sm" className="mr-2" onClick={() => onEdit(contact)}>
+            <button
+              type="button"
+              className="mr-6 inline-flex h-8 items-center gap-2 rounded-md border border-input px-3 text-sm hover:bg-muted/60"
+              onClick={() => onEdit(contact)}
+            >
+              <Pencil className="size-4" />
               Modifier le contact
-            </Button>
+            </button>
           ) : null}
         </DialogHeader>
 
@@ -78,10 +132,10 @@ export function SupplierContactVisualizationModal({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-3">
-                  {contact?.photoUrl ? (
+                  {resolvedPhotoSrc ? (
                     // eslint-disable-next-line @next/next/no-img-element -- simple readonly avatar rendering
                     <img
-                      src={contact.photoUrl}
+                      src={resolvedPhotoSrc}
                       alt={`Photo de ${fullName}`}
                       className="h-14 w-14 rounded-full object-cover"
                     />
