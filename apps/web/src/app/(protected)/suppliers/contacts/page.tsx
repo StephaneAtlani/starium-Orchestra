@@ -105,8 +105,6 @@ export default function SupplierContactsPage() {
   const [contactSearch, setContactSearch] = useState('');
   const normalizedContactSearch = useMemo(() => contactSearch.trim(), [contactSearch]);
 
-  const [includeInactive, setIncludeInactive] = useState(false);
-
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [readContactOpen, setReadContactOpen] = useState(false);
@@ -178,14 +176,12 @@ export default function SupplierContactsPage() {
       'procurement',
       clientId,
       'supplier-contacts-all',
-      'includeInactive',
-      includeInactive ? 1 : 0,
       'search',
       normalizedContactSearch,
     ],
     queryFn: () =>
       listAllSupplierContacts(authFetch, {
-        includeInactive,
+        includeInactive: false,
         limit: 200,
         offset: 0,
         search: normalizedContactSearch || undefined,
@@ -450,14 +446,6 @@ export default function SupplierContactsPage() {
                   </div>
 
                   <div className="flex gap-2 items-center">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={includeInactive}
-                        onChange={(e) => setIncludeInactive(e.target.checked)}
-                      />
-                      Inclure les contacts inactifs
-                    </label>
                     <div className="w-72 max-w-full">
                       <Input
                         value={contactSearch}

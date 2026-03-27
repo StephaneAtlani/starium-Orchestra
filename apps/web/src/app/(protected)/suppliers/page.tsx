@@ -236,6 +236,10 @@ export default function SuppliersPage() {
     await queryClient.invalidateQueries({
       queryKey: ['procurement', clientId, 'suppliers-page'],
     });
+    await queryClient.refetchQueries({
+      queryKey: ['procurement', clientId, 'suppliers-page'],
+      type: 'active',
+    });
 
     await Promise.all(
       supplierIds.map((id) =>
@@ -248,6 +252,18 @@ export default function SuppliersPage() {
           }),
           queryClient.invalidateQueries({
             queryKey: ['procurement', clientId, 'supplier-contacts', id, 'visualization'],
+          }),
+          queryClient.refetchQueries({
+            queryKey: ['procurement', clientId, 'supplier', id, 'visualization'],
+            type: 'active',
+          }),
+          queryClient.refetchQueries({
+            queryKey: ['procurement', clientId, 'supplier-contacts', id],
+            type: 'active',
+          }),
+          queryClient.refetchQueries({
+            queryKey: ['procurement', clientId, 'supplier-contacts', id, 'visualization'],
+            type: 'active',
           }),
         ]),
       ),
@@ -477,18 +493,50 @@ export default function SuppliersPage() {
             : editForm.supplierCategoryId,
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (updatedSupplier) => {
       if (selectedSupplierId && editLogoFile) {
         await uploadSupplierLogo(authFetch, selectedSupplierId, editLogoFile);
+      }
+      if (updatedSupplier?.id) {
+        setReadSupplierId(updatedSupplier.id);
+
+        queryClient.setQueryData(
+          ['procurement', clientId, 'supplier', updatedSupplier.id, 'visualization'],
+          updatedSupplier,
+        );
+        queryClient.setQueryData(
+          ['procurement', clientId, 'supplier', updatedSupplier.id],
+          updatedSupplier,
+        );
+        queryClient.setQueryData(
+          ['procurement', clientId, 'suppliers-page'],
+          (previous:
+            | {
+                items: Array<{
+                  id: string;
+                  [key: string]: unknown;
+                }>;
+                total: number;
+                limit: number;
+                offset: number;
+              }
+            | undefined) => {
+            if (!previous) return previous;
+            return {
+              ...previous,
+              items: previous.items.map((item) =>
+                item.id === updatedSupplier.id ? { ...item, ...updatedSupplier } : item,
+              ),
+            };
+          },
+        );
       }
       setEditSupplierModalOpen(false);
       clearEditSupplierDraft();
       setEditFormErrors({});
       setEditLogoFile(null);
       setEditLogoPreview(null);
-      await queryClient.invalidateQueries({
-        queryKey: ['procurement', clientId, 'suppliers-page'],
-      });
+      await refreshSupplierViews(updatedSupplier?.id ?? selectedSupplierId);
     },
   });
 

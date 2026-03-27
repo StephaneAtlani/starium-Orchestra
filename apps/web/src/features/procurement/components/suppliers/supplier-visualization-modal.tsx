@@ -86,6 +86,16 @@ export function SupplierVisualizationContent({
   };
 
   useEffect(() => {
+    if (!readContact?.id) return;
+    const fresh = contacts.find((item) => item.id === readContact.id);
+    if (!fresh) return;
+    setReadContact({
+      ...fresh,
+      supplierName: supplierQuery.data?.name ?? fresh.supplierName ?? null,
+    });
+  }, [contacts, readContact?.id, supplierQuery.data?.name]);
+
+  useEffect(() => {
     let canceled = false;
     if (!supplierId) {
       setLogoUrl(null);
