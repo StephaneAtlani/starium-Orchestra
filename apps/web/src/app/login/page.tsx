@@ -35,6 +35,8 @@ function LoginPageContent() {
   const { setActiveClient } = useActiveClient();
   const didLoginThisSession = useRef(false);
   const didHandleMicrosoftCallback = useRef(false);
+  /** Évite la course avec l’effet « déjà connecté → /dashboard » pendant le SSO Microsoft. */
+  const ssoFlowInProgress = useRef(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,6 +52,7 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (isLoading) return;
+    if (ssoFlowInProgress.current) return;
     if (isAuthenticated && user && !didLoginThisSession.current) {
       router.replace('/dashboard');
     }
@@ -85,6 +88,7 @@ function LoginPageContent() {
     }
 
     didHandleMicrosoftCallback.current = true;
+    ssoFlowInProgress.current = true;
     setSubmitting(true);
     void completeMicrosoftSso(accessToken, refreshToken)
       .then(async ({ user: loggedInUser, accessToken: token }) => {
@@ -131,6 +135,7 @@ function LoginPageContent() {
         );
       })
       .finally(() => {
+        ssoFlowInProgress.current = false;
         setSubmitting(false);
       });
   }, [completeMicrosoftSso, router, searchParams, setActiveClient]);

@@ -75,6 +75,11 @@ export class MicrosoftSsoService {
     authUrl.searchParams.set('response_mode', 'query');
     authUrl.searchParams.set('scope', scopes);
     authUrl.searchParams.set('state', state);
+    // Sans `prompt`, Entra réutilise la session navigateur → pas d’écran compte / mot de passe.
+    // select_account = choix de compte ; login = saisie identifiants à chaque fois ; none = SSO silencieux (échec si pas de session).
+    const prompt =
+      this.config.get<string>('MICROSOFT_SSO_PROMPT')?.trim() ?? 'select_account';
+    authUrl.searchParams.set('prompt', prompt);
 
     return { authorizationUrl: authUrl.toString() };
   }

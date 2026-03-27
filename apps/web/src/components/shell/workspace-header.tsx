@@ -18,7 +18,7 @@ interface WorkspaceHeaderProps {
 export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
   const router = useRouter();
   const { user, accessToken, logout } = useAuth();
-  const { activeClient } = useActiveClient();
+  const { activeClient, setActiveClient } = useActiveClient();
   const { identity: defaultEmail, clientsLoaded: emailClientsLoaded } =
     useActiveClientEmailDisplay();
   const accountMenuRef = useRef<HTMLDetailsElement>(null);
@@ -82,9 +82,10 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
     };
   }, []);
 
-  function handleLogout() {
-    logout();
-    router.push('/login');
+  async function handleLogout() {
+    await logout();
+    setActiveClient(null);
+    router.replace('/login');
   }
 
   const avatarInitials =
@@ -198,7 +199,7 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
                 onClick={() => {
                   const d = accountMenuRef.current;
                   if (d) d.open = false;
-                  handleLogout();
+                  void handleLogout();
                 }}
               >
                 Déconnexion

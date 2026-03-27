@@ -16,4 +16,9 @@ export class MicrosoftCallbackQueryDto {
   @IsOptional()
   @IsString()
   error_description?: string;
+
+  /** Envoyé par Entra ID / Microsoft OAuth (ignoré côté métier). */
+  @IsOptional()
+  @IsString()
+  session_state?: string;
 }

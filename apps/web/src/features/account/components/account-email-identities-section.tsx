@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import type { MeEmailIdentity } from '@/services/me';
+import { useAuth } from '@/context/auth-context';
 
 function formatQueryErrorMessage(error: unknown): string {
   const base =
@@ -347,6 +348,10 @@ export function AccountEmailIdentitiesSection() {
                 onDeactivate={() => void handleDeactivate(identity.id)}
               />
             ))}
+          </ul>
+        ) : !isLoading && accountEmail ? (
+          <ul className="divide-y divide-border/50">
+            <AccountProfileEmailRow email={accountEmail} />
           </ul>
         ) : !isLoading ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">

@@ -99,6 +99,7 @@ describe('MicrosoftSsoService', () => {
     expect(result.authorizationUrl).toContain('login.microsoftonline.com');
     const auth = new URL(result.authorizationUrl);
     expect(auth.searchParams.get('scope')).toBe('openid profile email');
+    expect(auth.searchParams.get('prompt')).toBe('select_account');
     expect(prisma.microsoftOAuthState.create).toHaveBeenCalledTimes(1);
     expect(prisma.microsoftOAuthState.create).toHaveBeenCalledWith(
       expect.objectContaining({

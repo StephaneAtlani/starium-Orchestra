@@ -30,6 +30,24 @@ export class MicrosoftSsoController {
       userAgent: meta.userAgent,
       requestId: meta.requestId,
     });
-    res.redirect(HttpStatus.FOUND, result.redirectUrl);
+    this.sendOAuthResult(res, result.redirectUrl);
+  }
+
+  /**
+   * Les en-têtes HTTP `Location` des 3xx ne doivent pas contenir de `#fragment`.
+   * Le succès SSO met les jetons dans le fragment → page HTML + `location.replace`.
+   */
+  private sendOAuthResult(res: Response, redirectUrl: string): void {
+    if (redirectUrl.includes('#')) {
+      const safe = JSON.stringify(redirectUrl);
+      res
+        .status(200)
+        .type('html')
+        .send(
+          `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"/><title>Connexion</title></head><body><script>location.replace(${safe});</script><p>Redirection…</p></body></html>`,
+        );
+      return;
+    }
+    res.redirect(HttpStatus.FOUND, redirectUrl);
   }
 }
