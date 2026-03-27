@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémentée (MVP Microsoft Graph / Entra ID)
 
 ## Priorité
 
@@ -25,6 +25,27 @@ Permettre à un client Starium de **synchroniser ses collaborateurs depuis un Ac
 2. **synchronisation filtrée par groupe AD**, afin d’importer uniquement les collaborateurs membres d’un ou plusieurs groupes cibles.
 
 L’objectif est d’éviter une saisie manuelle des collaborateurs dans Starium Orchestra, tout en gardant Starium comme **cockpit de pilotage** et non comme source de vérité RH/annuaire.
+
+## 1.1 État implémenté (code actuel)
+
+Le MVP livré utilise **Microsoft Graph** (Entra ID) comme provider annuaire dans le module `team-directory` :
+
+* connexion annuaire client (`DirectoryConnection`) ;
+* groupes cibles (`DirectoryGroupScope`) ;
+* preview + exécution + historisation (`DirectorySyncJob`) ;
+* création / mise à jour / désactivation logique des `Collaborator`.
+
+En complément, l’exécution de sync alimente aussi les **membres client** :
+
+* provisioning automatique `User` + `ClientUser` à partir des entrées annuaire ;
+* rôle par défaut `CLIENT_USER` ;
+* statut `ClientUser` aligné sur l’état actif/inactif du compte annuaire ;
+* mise à jour des champs profil `User` (`firstName`, `lastName`, `department`, `jobTitle`) à chaque sync.
+
+Quand l’option **"Verrouiller les collaborators synchronisés"** est active :
+
+* l’édition des informations de membre synchronisé est bloquée ;
+* l’attribution des rôles métier reste possible via l’action dédiée "Rôles".
 
 ---
 
@@ -532,6 +553,20 @@ Réponse :
   "createCount": 10,
   "updateCount": 28,
   "deactivateCount": 4,
+  "items": [
+    {
+      "externalDirectoryId": "user_guid_1",
+      "displayName": "Nom Prénom",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "email": "prenom.nom@entreprise.com",
+      "username": "prenom.nom@entreprise.com",
+      "department": "IT",
+      "jobTitle": "DSI",
+      "isActive": true,
+      "action": "update"
+    }
+  ],
   "warnings": [],
   "errors": []
 }
@@ -758,3 +793,15 @@ La RFC est réussie si :
 * la hiérarchie manager est partiellement ou totalement reconstruite ;
 * les jobs de sync sont historisés ;
 * les actions sont auditables.
+
+---
+
+## Note d’alignement technique
+
+Cette RFC conserve un cadrage "AD DS" historique. L’implémentation MVP actuelle dans le repo est réalisée via **Microsoft Graph / Entra ID** (`DirectoryProviderType.MICROSOFT_GRAPH`) avec les routes :
+
+* `/api/team-directory/ad-connections`
+* `/api/team-directory/ad-connections/:id/groups`
+* `/api/team-directory/ad-sync/preview`
+* `/api/team-directory/ad-sync/execute`
+* `/api/team-directory/ad-sync/jobs`
