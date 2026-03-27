@@ -65,7 +65,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<LoginOutcome>;
-  startMicrosoftSso: () => Promise<void>;
+  startMicrosoftSso: () => Promise<{ ok: true } | { ok: false; message: string }>;
   completeMicrosoftSso: (
     accessToken: string,
     refreshToken: string,
@@ -197,10 +197,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const startMicrosoftSso = useCallback(async () => {
-    const authorizationUrl = await getMicrosoftSsoAuthorizationUrlApi();
-    if (typeof window !== 'undefined') {
-      window.location.href = authorizationUrl;
+    const result = await getMicrosoftSsoAuthorizationUrlApi();
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: result.message,
+      } as const;
     }
+    if (typeof window !== 'undefined') {
+      window.location.href = result.authorizationUrl;
+    }
+    return { ok: true } as const;
   }, []);
 
   const completeMicrosoftSso = useCallback(

@@ -207,14 +207,9 @@ export default function LoginPage() {
   async function handleMicrosoftSsoStart() {
     setError(null);
     setSubmitting(true);
-    try {
-      await startMicrosoftSso();
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Impossible de démarrer la connexion Microsoft',
-      );
+    const result = await startMicrosoftSso();
+    if (!result.ok) {
+      setError(result.message);
       setSubmitting(false);
     }
   }

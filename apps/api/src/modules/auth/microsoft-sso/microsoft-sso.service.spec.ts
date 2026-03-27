@@ -6,6 +6,8 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { MicrosoftIdTokenService } from '../../microsoft/microsoft-id-token.service';
 import { MicrosoftTokenHttpService } from '../../microsoft/microsoft-token-http.service';
 import { SecurityLogsService } from '../../security-logs/security-logs.service';
+import { MicrosoftTokenCryptoService } from '../../microsoft/microsoft-token-crypto.service';
+import { MicrosoftPlatformConfigService } from '../../microsoft/microsoft-platform-config.service';
 
 describe('MicrosoftSsoService', () => {
   let service: MicrosoftSsoService;
@@ -69,6 +71,24 @@ describe('MicrosoftSsoService', () => {
         {
           provide: SecurityLogsService,
           useValue: { create: jest.fn() },
+        },
+        {
+          provide: MicrosoftTokenCryptoService,
+          useValue: { decrypt: jest.fn((v: string) => v) },
+        },
+        {
+          provide: MicrosoftPlatformConfigService,
+          useValue: {
+            getResolved: jest.fn().mockResolvedValue({
+              redirectUri: 'http://localhost:3001/api/auth/microsoft/callback',
+              graphScopes: 'openid profile email User.Read',
+              oauthSuccessUrl: null,
+              oauthErrorUrl: null,
+              oauthStateTtlSeconds: 600,
+              refreshLeewaySeconds: 300,
+              tokenHttpTimeoutMs: 5000,
+            }),
+          },
         },
       ],
     }).compile();

@@ -60,7 +60,10 @@ describe('getMicrosoftSsoAuthorizationUrlApi', () => {
       ) as unknown as typeof fetch,
     );
 
-    const url = await getMicrosoftSsoAuthorizationUrlApi();
-    expect(url).toContain('login.microsoftonline.com');
+    const result = await getMicrosoftSsoAuthorizationUrlApi();
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.authorizationUrl).toContain('login.microsoftonline.com');
+    }
   });
 });

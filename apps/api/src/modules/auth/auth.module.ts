@@ -19,6 +19,8 @@ import { MicrosoftSsoController } from './microsoft-sso/microsoft-sso.controller
 import { MicrosoftSsoService } from './microsoft-sso/microsoft-sso.service';
 import { MicrosoftIdTokenService } from '../microsoft/microsoft-id-token.service';
 import { MicrosoftTokenHttpService } from '../microsoft/microsoft-token-http.service';
+import { MicrosoftTokenCryptoService } from '../microsoft/microsoft-token-crypto.service';
+import { MicrosoftPlatformConfigService } from '../microsoft/microsoft-platform-config.service';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { MicrosoftTokenHttpService } from '../microsoft/microsoft-token-http.ser
     MicrosoftSsoService,
     MicrosoftIdTokenService,
     MicrosoftTokenHttpService,
+    MicrosoftTokenCryptoService,
+    MicrosoftPlatformConfigService,
     TrustedDeviceService,
     JwtStrategy,
     JwtAuthGuard,

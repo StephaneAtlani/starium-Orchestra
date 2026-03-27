@@ -11,7 +11,9 @@ export type LoginApiResponse =
       expiresAt: string;
     };
 
-export async function getMicrosoftSsoAuthorizationUrlApi(): Promise<string> {
+export async function getMicrosoftSsoAuthorizationUrlApi(): Promise<
+  { ok: true; authorizationUrl: string } | { ok: false; message: string }
+> {
   const res = await fetch('/api/auth/microsoft/url');
   const data = (await res.json().catch(() => ({}))) as {
     authorizationUrl?: string;
@@ -21,9 +23,12 @@ export async function getMicrosoftSsoAuthorizationUrlApi(): Promise<string> {
     const msg = Array.isArray(data.message)
       ? data.message.join(', ')
       : data.message;
-    throw new Error(msg || 'Impossible de démarrer la connexion Microsoft');
+    return {
+      ok: false,
+      message: msg || 'Impossible de démarrer la connexion Microsoft',
+    };
   }
-  return data.authorizationUrl;
+  return { ok: true, authorizationUrl: data.authorizationUrl };
 }
 
 export async function loginApi(

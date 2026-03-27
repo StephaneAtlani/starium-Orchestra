@@ -11,12 +11,21 @@ import * as jose from 'jose';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MicrosoftIdTokenService } from '../../microsoft/microsoft-id-token.service';
 import { MicrosoftTokenHttpService } from '../../microsoft/microsoft-token-http.service';
+import { MicrosoftTokenCryptoService } from '../../microsoft/microsoft-token-crypto.service';
+import { MicrosoftPlatformConfigService } from '../../microsoft/microsoft-platform-config.service';
 import { SecurityLogsService } from '../../security-logs/security-logs.service';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
 import { MicrosoftCallbackQueryDto } from './dto/microsoft-callback-query.dto';
 
 const DEFAULT_SSO_SCOPES = 'openid profile email User.Read';
 const DEFAULT_STATE_TTL_SECONDS = 600;
+const DEFAULT_OAUTH_TENANT = 'common';
+
+interface ResolvedSsoCredentials {
+  clientId: string;
+  clientSecret: string;
+  authorityTenant: string;
+}
 
 @Injectable()
 export class MicrosoftSsoService {
@@ -28,18 +37,20 @@ export class MicrosoftSsoService {
     private readonly jwt: JwtService,
     private readonly microsoftIdToken: MicrosoftIdTokenService,
     private readonly tokenHttp: MicrosoftTokenHttpService,
+    private readonly tokenCrypto: MicrosoftTokenCryptoService,
+    private readonly platformConfig: MicrosoftPlatformConfigService,
     private readonly securityLogs: SecurityLogsService,
   ) {}
 
   async getAuthorizationUrl(): Promise<{ authorizationUrl: string }> {
-    const clientId = this.getRequired('MICROSOFT_CLIENT_ID');
-    const redirectUri = this.resolveRedirectUri();
-    const authorityTenant =
-      this.config.get<string>('MICROSOFT_TENANT')?.trim() || 'common';
+    const credentials = await this.resolveSsoCredentials();
+    const resolvedPlatformConfig = await this.platformConfig.getResolved();
+    const redirectUri = this.resolveRedirectUri(resolvedPlatformConfig.redirectUri);
     const state = randomBytes(32).toString('hex');
     const stateHash = this.hashToken(state);
     const ttl = Number(
-      this.config.get<string>('MICROSOFT_OAUTH_STATE_TTL_SECONDS') ||
+      resolvedPlatformConfig.oauthStateTtlSeconds ||
+        this.config.get<string>('MICROSOFT_OAUTH_STATE_TTL_SECONDS') ||
         DEFAULT_STATE_TTL_SECONDS,
     );
     const expiresAt = new Date(Date.now() + ttl * 1000);
@@ -53,13 +64,14 @@ export class MicrosoftSsoService {
 
     const scopes =
       this.config.get<string>('MICROSOFT_SSO_SCOPES')?.trim() ||
+      resolvedPlatformConfig.graphScopes ||
       this.config.get<string>('MICROSOFT_GRAPH_SCOPES')?.trim() ||
       DEFAULT_SSO_SCOPES;
 
     const authUrl = new URL(
-      `https://login.microsoftonline.com/${authorityTenant}/oauth2/v2.0/authorize`,
+      `https://login.microsoftonline.com/${credentials.authorityTenant}/oauth2/v2.0/authorize`,
     );
-    authUrl.searchParams.set('client_id', clientId);
+    authUrl.searchParams.set('client_id', credentials.clientId);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('redirect_uri', redirectUri);
     authUrl.searchParams.set('response_mode', 'query');
@@ -161,19 +173,19 @@ export class MicrosoftSsoService {
     idToken?: string;
     accessToken: string;
   }> {
-    const redirectUri = this.resolveRedirectUri();
-    const clientId = this.getRequired('MICROSOFT_CLIENT_ID');
-    const clientSecret = this.getRequired('MICROSOFT_CLIENT_SECRET');
+    const credentials = await this.resolveSsoCredentials();
+    const resolvedPlatformConfig = await this.platformConfig.getResolved();
+    const redirectUri = this.resolveRedirectUri(resolvedPlatformConfig.redirectUri);
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: clientId,
-      client_secret: clientSecret,
+      client_id: credentials.clientId,
+      client_secret: credentials.clientSecret,
       code,
       redirect_uri: redirectUri,
     });
     const tokenData = await this.tokenHttp.postTokenForm(body, {
-      authorityTenant:
-        this.config.get<string>('MICROSOFT_TENANT')?.trim() || 'common',
+      authorityTenant: credentials.authorityTenant,
+      timeoutMs: resolvedPlatformConfig.tokenHttpTimeoutMs,
     });
     return {
       idToken: tokenData.id_token,
@@ -186,10 +198,11 @@ export class MicrosoftSsoService {
     idToken?: string;
     accessToken: string;
   }): Promise<string | null> {
+    const credentials = await this.resolveSsoCredentials();
     if (tokenData.idToken) {
       await this.microsoftIdToken.verifyIdToken(
         tokenData.idToken,
-        this.getRequired('MICROSOFT_CLIENT_ID'),
+        credentials.clientId,
       );
       const decoded = jose.decodeJwt(tokenData.idToken) as Record<string, unknown>;
       const fromIdToken = this.extractEmailFromClaims(decoded);
@@ -352,9 +365,14 @@ export class MicrosoftSsoService {
     return createHash('sha256').update(input).digest('hex');
   }
 
-  private resolveRedirectUri(): string {
+  private resolveRedirectUri(platformRedirectUri?: string | null): string {
     const explicit = this.config.get<string>('MICROSOFT_SSO_REDIRECT_URI')?.trim();
     if (explicit) return explicit;
+    if (platformRedirectUri?.trim()) {
+      return platformRedirectUri
+        .trim()
+        .replace('/api/microsoft/auth/callback', '/api/auth/microsoft/callback');
+    }
     const legacy = this.config.get<string>('MICROSOFT_REDIRECT_URI')?.trim();
     if (!legacy) {
       throw new ServiceUnavailableException(
@@ -395,6 +413,65 @@ export class MicrosoftSsoService {
       );
     }
     return value;
+  }
+
+  private async resolveSsoCredentials(): Promise<ResolvedSsoCredentials> {
+    const envClientId = this.config.get<string>('MICROSOFT_CLIENT_ID')?.trim();
+    const envClientSecret = this.config
+      .get<string>('MICROSOFT_CLIENT_SECRET')
+      ?.trim();
+    const envTenant =
+      this.config.get<string>('MICROSOFT_TENANT')?.trim() || DEFAULT_OAUTH_TENANT;
+
+    if (envClientId && envClientSecret) {
+      return {
+        clientId: envClientId,
+        clientSecret: envClientSecret,
+        authorityTenant: envTenant,
+      };
+    }
+
+    const configuredClients = await this.prisma.client.findMany({
+      where: {
+        microsoftOAuthClientId: { not: null },
+        microsoftOAuthClientSecretEncrypted: { not: null },
+      },
+      select: {
+        microsoftOAuthClientId: true,
+        microsoftOAuthClientSecretEncrypted: true,
+        microsoftOAuthAuthorityTenant: true,
+      },
+      take: 2,
+    });
+
+    if (configuredClients.length === 1) {
+      const row = configuredClients[0];
+      const clientId = row.microsoftOAuthClientId?.trim();
+      const encrypted = row.microsoftOAuthClientSecretEncrypted?.trim();
+      if (!clientId || !encrypted) {
+        throw new ServiceUnavailableException(
+          'Microsoft SSO non configuré: client OAuth incomplet.',
+        );
+      }
+      return {
+        clientId,
+        clientSecret: this.tokenCrypto.decrypt(encrypted),
+        authorityTenant:
+          row.microsoftOAuthAuthorityTenant?.trim() ||
+          envTenant ||
+          DEFAULT_OAUTH_TENANT,
+      };
+    }
+
+    if (configuredClients.length > 1) {
+      throw new ServiceUnavailableException(
+        'Microsoft SSO non configuré: plusieurs credentials OAuth client trouvés. Définissez MICROSOFT_CLIENT_ID/MICROSOFT_CLIENT_SECRET au niveau plateforme.',
+      );
+    }
+
+    throw new ServiceUnavailableException(
+      'Microsoft SSO non configuré: MICROSOFT_CLIENT_ID/MICROSOFT_CLIENT_SECRET manquants et aucun credential client unique trouvé.',
+    );
   }
 
   private async issueTokenPair(userId: string): Promise<{
