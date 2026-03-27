@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,22 @@ export function SupplierContactModal({
   isSubmitting,
   isSubmitDisabled = false,
 }: Props) {
+  const [customRole, setCustomRole] = useState('');
+  const defaultRoles = [
+    'Commercial',
+    'Support',
+    'Comptabilite',
+    'Finance',
+    'Direction',
+    'Technique',
+    'Achats',
+  ];
+  const roleOptions = useMemo(() => {
+    const current = form.role.trim();
+    if (!current) return defaultRoles;
+    return defaultRoles.includes(current) ? defaultRoles : [...defaultRoles, current];
+  }, [form.role]);
+
   const hasNameParts = !!form.firstName.trim() || !!form.lastName.trim();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -103,11 +120,39 @@ export function SupplierContactModal({
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
                 <Label>Rôle</Label>
-                <Input
-                  value={form.role}
-                  onChange={(e) => onChange('role', e.target.value)}
-                  placeholder="Commercial, Support, Comptabilité…"
-                />
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
+                  <select
+                    value={form.role}
+                    onChange={(e) => onChange('role', e.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">Selectionner un role</option>
+                    {roleOptions.map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={customRole}
+                      onChange={(e) => setCustomRole(e.target.value)}
+                      placeholder="Nouveau role"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const nextRole = customRole.trim();
+                        if (!nextRole) return;
+                        onChange('role', nextRole);
+                        setCustomRole('');
+                      }}
+                    >
+                      Ajouter
+                    </Button>
+                  </div>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>

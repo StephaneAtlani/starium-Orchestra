@@ -106,16 +106,16 @@ export function SupplierVisualizationContent({ supplierId }: { supplierId: strin
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <div className="flex items-start gap-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="flex h-20 max-w-[10rem] shrink-0 items-center justify-start overflow-hidden">
                 {logoUrl ? (
                   <Image
                     src={logoUrl}
                     alt="Logo fournisseur"
-                    width={56}
-                    height={56}
+                    width={160}
+                    height={80}
                     unoptimized
-                    className="h-full w-full object-contain"
+                    className="h-full w-auto object-contain"
                   />
                 ) : (
                   <Building2 className="size-6 text-muted-foreground" />
