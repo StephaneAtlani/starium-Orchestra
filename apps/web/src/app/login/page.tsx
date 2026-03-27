@@ -204,6 +204,21 @@ export default function LoginPage() {
     }
   }
 
+  async function handleMicrosoftSsoStart() {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await startMicrosoftSso();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Impossible de démarrer la connexion Microsoft',
+      );
+      setSubmitting(false);
+    }
+  }
+
   async function handleMfaTotpSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!mfaChallengeId) return;
@@ -441,7 +456,7 @@ export default function LoginPage() {
                     variant="outline"
                     className="w-full"
                     disabled={submitting}
-                    onClick={() => void startMicrosoftSso()}
+                    onClick={() => void handleMicrosoftSsoStart()}
                   >
                     Se connecter avec Microsoft
                   </Button>
