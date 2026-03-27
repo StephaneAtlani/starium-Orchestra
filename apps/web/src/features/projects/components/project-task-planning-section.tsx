@@ -49,6 +49,10 @@ import { projectQueryKeys } from '../lib/project-query-keys';
 import { useProjectMicrosoftLinkQuery } from '../options/hooks/use-project-microsoft-link-query';
 import { GANTT_ROW_PX } from '../lib/gantt-timeline-layout';
 import {
+  buildGanttBodyRows,
+  type GanttBodyRow,
+} from '../lib/build-gantt-body-rows';
+import {
   MILESTONE_STATUS_LABEL,
   TASK_PRIORITY_LABEL,
   TASK_STATUS_LABEL,
@@ -82,6 +86,11 @@ function isoToDateInput(iso: string | null | undefined): string {
 function dateInputToIso(s: string): string | undefined {
   if (!s.trim()) return undefined;
   return new Date(`${s}T12:00:00.000Z`).toISOString();
+}
+
+function taskRowIndentPx(row: ProjectTaskApi, stepPx: number): number {
+  const d = (row as ProjectTaskApi & { depth?: number }).depth;
+  return (typeof d === 'number' ? d : 0) * stepPx;
 }
 
 function emptyCreateForm(): CreateProjectTaskPayload {
@@ -182,6 +191,10 @@ export type ProjectTaskPlanningSectionProps = {
    * (ex. ligne « jours » affichée au zoom).
    */
   ganttExtraHeaderRows?: number;
+  /**
+   * Corps Gantt fourni par le parent (même ordre que la frise). Sinon calcul local depuis la liste tâches.
+   */
+  ganttUnifiedBodyRows?: GanttBodyRow[];
 };
 
 export type ProjectTaskPlanningSectionHandle = {
@@ -199,6 +212,7 @@ export const ProjectTaskPlanningSection = forwardRef<
     hideToolbar = false,
     ganttTaskStatusFilter = 'all',
     ganttExtraHeaderRows = 0,
+    ganttUnifiedBodyRows: ganttUnifiedBodyRowsProp,
   },
   ref,
 ) {
@@ -617,103 +631,14 @@ export const ProjectTaskPlanningSection = forwardRef<
     return out;
   }, [displayedRows, phaseOptions, showPhaseHeaders]);
 
-  type PhaseHeaderRow = { kind: 'phaseHeader'; phaseId: string | null; name: string };
-  type TaskBodyRow = { kind: 'task'; row: (typeof displayedRows)[number] };
-  type MilestoneBodyRow = { kind: 'milestone'; ms: (typeof milestoneItems)[number] };
-  type BodyRow = PhaseHeaderRow | TaskBodyRow | MilestoneBodyRow;
-
-  const ganttBodyRows = useMemo<BodyRow[]>(() => {
+  const ganttBodyRows = useMemo<GanttBodyRow[]>(() => {
     if (!isGantt) return [];
-
-    const ungKey = '__ungrouped__';
-
-    const tasksByKey = new Map<string, Array<(typeof displayedRows)[number]>>();
-    for (const t of displayedRows) {
-      const key = t.phaseId ?? ungKey;
-      const list = tasksByKey.get(key) ?? [];
-      list.push(t);
-      tasksByKey.set(key, list);
-    }
-
-    const milestonesByKey = new Map<
-      string,
-      Array<(typeof visibleMilestoneItems)[number]>
-    >();
-    for (const m of visibleMilestoneItems) {
-      const key = m.phaseId ?? ungKey;
-      const list = milestonesByKey.get(key) ?? [];
-      list.push(m);
-      milestonesByKey.set(key, list);
-    }
-
-    const displayedTaskRowById = new Map<
-      string,
-      (typeof displayedRows)[number]
-    >();
-    for (const t of displayedRows) displayedTaskRowById.set(t.id, t);
-
-    const shownTaskIds = new Set<string>();
-
-    const out: BodyRow[] = [];
-
-    const addPhaseHeaderIfNeeded = (phaseId: string | null, name: string) => {
-      out.push({ kind: 'phaseHeader', phaseId, name });
-    };
-
-    for (const phase of phaseOptions) {
-      const tList = tasksByKey.get(phase.id) ?? [];
-      const mList = milestonesByKey.get(phase.id) ?? [];
-      if (tList.length === 0 && mList.length === 0) continue;
-
-      addPhaseHeaderIfNeeded(phase.id, phase.name);
-
-      for (const ms of mList) {
-        out.push({ kind: 'milestone', ms });
-        if (ms.linkedTaskId) {
-          const linkedRow = displayedTaskRowById.get(ms.linkedTaskId);
-          const samePhase = (linkedRow?.phaseId ?? null) === (ms.phaseId ?? null);
-          if (linkedRow && samePhase && !shownTaskIds.has(linkedRow.id)) {
-            out.push({ kind: 'task', row: linkedRow });
-            shownTaskIds.add(linkedRow.id);
-          }
-        }
-      }
-
-      for (const row of tList) {
-        if (shownTaskIds.has(row.id)) continue;
-        out.push({ kind: 'task', row });
-      }
-    }
-
-    const ungTasks = tasksByKey.get(ungKey) ?? [];
-    const ungMilestones = milestonesByKey.get(ungKey) ?? [];
-    if (ungTasks.length > 0 || ungMilestones.length > 0) {
-      addPhaseHeaderIfNeeded(null, 'Sans libellé de phase');
-
-      for (const ms of ungMilestones) {
-        out.push({ kind: 'milestone', ms });
-        if (ms.linkedTaskId) {
-          const linkedRow = displayedTaskRowById.get(ms.linkedTaskId);
-          const samePhase = (linkedRow?.phaseId ?? null) === (ms.phaseId ?? null);
-          if (linkedRow && samePhase && !shownTaskIds.has(linkedRow.id)) {
-            out.push({ kind: 'task', row: linkedRow });
-            shownTaskIds.add(linkedRow.id);
-          }
-        }
-      }
-
-      for (const row of ungTasks) {
-        if (shownTaskIds.has(row.id)) continue;
-        out.push({ kind: 'task', row });
-      }
-    }
-
-    return out;
+    return buildGanttBodyRows(phaseOptions, displayedRows, visibleMilestoneItems);
   }, [displayedRows, phaseOptions, visibleMilestoneItems, isGantt]);
 
-  const bodyRows: BodyRow[] = isGantt
-    ? ganttBodyRows
-    : (renderRows as unknown as BodyRow[]);
+  const bodyRows: GanttBodyRow[] = isGantt
+    ? (ganttUnifiedBodyRowsProp ?? ganttBodyRows)
+    : (renderRows as unknown as GanttBodyRow[]);
   const fullTableColumnCount =
     7 + (showLabelColumn ? 1 : 0) + (showPlannedStartColumn ? 1 : 0);
   const taskLabelById = useMemo(
@@ -752,7 +677,7 @@ export const ProjectTaskPlanningSection = forwardRef<
     <div
       className={cn(
         'flex min-w-0 flex-col',
-        isGantt ? 'min-h-0 flex-1 gap-2' : 'gap-4',
+        isGantt ? cn('min-h-0 flex-1', hideToolbar ? 'gap-0' : 'gap-2') : 'gap-4',
       )}
     >
       {!(isGantt && hideToolbar) && (
@@ -793,7 +718,9 @@ export const ProjectTaskPlanningSection = forwardRef<
         <LoadingState rows={isGantt ? 3 : 4} />
       ) : tasksQuery.isError ? (
         <p className="text-destructive text-sm">Impossible de charger les tâches.</p>
-      ) : ganttTreeRows.length === 0 && milestoneRows.length === 0 ? (
+      ) : (isGantt
+          ? (ganttUnifiedBodyRowsProp ?? ganttBodyRows).length === 0
+          : ganttTreeRows.length === 0 && milestoneRows.length === 0) ? (
         <p className="text-muted-foreground py-4 text-center text-sm">Aucune tâche.</p>
       ) : (
         <>
@@ -837,51 +764,50 @@ export const ProjectTaskPlanningSection = forwardRef<
           <div
             className={cn(
               !isGantt && 'max-h-[min(70vh,560px)] overflow-auto rounded-lg border border-border/60',
+              /** Scroll horizontal ici (pas sur le &lt;table&gt;) pour ne pas découpler la hauteur des lignes de la frise. */
               isGantt &&
-                'bg-card/40 min-h-0 w-full overflow-auto rounded-lg border border-border/60',
+                'bg-card/40 min-h-0 w-full overflow-x-auto rounded-lg border border-border/60',
             )}
           >
           <Table
+            noWrapper={isGantt}
             className={
               isGantt
-                ? 'text-xs [&_input[type=date]]:cursor-text [&_input[type=date]]:font-medium'
+                ? 'text-xs border-collapse border-spacing-0 [&_input[type=date]]:cursor-text [&_input[type=date]]:font-medium [&_td]:box-border [&_th]:box-border'
                 : undefined
             }
           >
             <TableHeader
-              className={isGantt ? 'bg-muted/30 sticky top-0 z-10 [&_tr]:border-border/60' : undefined}
+              className={
+                isGantt
+                  ? 'bg-muted/30 sticky top-0 z-10 [&_tr]:border-border/40'
+                  : undefined
+              }
             >
               {isGantt ? (
                 <>
                   <TableRow className="border-border/40 hover:bg-transparent border-b bg-muted/30">
                     <TableHead
                       colSpan={5}
-                      className="text-muted-foreground py-1.5 text-[10px] font-medium uppercase tracking-wide"
-                      style={{ height: GANTT_ROW_PX }}
+                      className="text-muted-foreground !h-9 min-h-0 px-2 py-0 text-[10px] font-medium uppercase leading-none tracking-wide"
                     >
                       Planification
                     </TableHead>
                   </TableRow>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="min-w-[5rem] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
+                    <TableHead className="min-w-[5rem] !h-9 px-2 py-0 text-xs leading-none">
                       Tâche / jalon
                     </TableHead>
-                    <TableHead
-                      className="w-[5.75rem] min-w-[5.25rem] py-1 text-[10px] font-medium"
-                      style={{ height: GANTT_ROW_PX }}
-                    >
+                    <TableHead className="w-[5.75rem] min-w-[5.25rem] !h-9 px-1 py-0 text-[10px] font-medium leading-none">
                       Début
                     </TableHead>
-                    <TableHead
-                      className="w-[5.75rem] min-w-[5.25rem] py-1 text-[10px] font-medium"
-                      style={{ height: GANTT_ROW_PX }}
-                    >
+                    <TableHead className="w-[5.75rem] min-w-[5.25rem] !h-9 px-1 py-0 text-[10px] font-medium leading-none">
                       Fin / cible
                     </TableHead>
-                    <TableHead className="min-w-[4.5rem] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
+                    <TableHead className="min-w-[4.5rem] !h-9 px-2 py-0 text-xs leading-none">
                       Statut
                     </TableHead>
-                    <TableHead className="min-w-[8rem] py-1.5 text-xs" style={{ height: GANTT_ROW_PX }}>
+                    <TableHead className="min-w-[8rem] !h-9 px-2 py-0 text-xs leading-none">
                       Phase
                     </TableHead>
                   </TableRow>
@@ -1061,7 +987,13 @@ export const ProjectTaskPlanningSection = forwardRef<
                 </>
               )}
             </TableHeader>
-            <TableBody>
+            <TableBody
+              className={
+                isGantt
+                  ? '[&_tr:last-child]:!border-b [&_tr:last-child]:border-border/40'
+                  : undefined
+              }
+            >
               {bodyRows.map((r) => {
                 if (r.kind === 'phaseHeader') {
                   return (
@@ -1072,7 +1004,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                     >
                       <TableCell
                         colSpan={isGantt ? 5 : fullTableColumnCount}
-                        className="py-1.5 align-middle"
+                        className={cn('align-middle', isGantt ? 'py-0 px-2' : 'py-1.5')}
                       >
                         <span className="text-[10px] font-semibold text-muted-foreground">
                           {r.name}
@@ -1084,7 +1016,9 @@ export const ProjectTaskPlanningSection = forwardRef<
 
                 if (isGantt) {
                   if (r.kind === 'milestone') {
-                    const ms = r.ms;
+                    const ms =
+                      milestoneItems.find((m) => m.id === r.ms.id) ??
+                      (r.ms as ProjectMilestoneApi);
                     const linkedTask =
                       ms.linkedTaskId != null ? byId.get(ms.linkedTaskId) : undefined;
                     return (
@@ -1093,7 +1027,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                         className="bg-amber-500/5 text-muted-foreground"
                         style={{ height: GANTT_ROW_PX }}
                       >
-                        <TableCell className="py-1 align-middle">
+                        <TableCell className="px-1.5 py-0 align-middle">
                           {canEdit ? (
                             <button
                               type="button"
@@ -1118,10 +1052,10 @@ export const ProjectTaskPlanningSection = forwardRef<
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-muted-foreground/70 py-1 align-middle text-[10px]">
+                        <TableCell className="text-muted-foreground/70 px-1.5 py-0 align-middle text-[10px]">
                           —
                         </TableCell>
-                        <TableCell className="py-0.5 align-middle">
+                        <TableCell className="px-1.5 py-0 align-middle">
                           {canEdit ? (
                             <Input
                               type="date"
@@ -1151,7 +1085,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="py-1 align-middle">
+                        <TableCell className="px-1.5 py-0 align-middle">
                           {canEdit ? (
                             <select
                               className="border-input bg-background h-7 max-w-[5.75rem] rounded-md border px-1 text-[10px] leading-tight italic"
@@ -1179,7 +1113,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="py-1 align-middle">
+                        <TableCell className="px-1.5 py-0 align-middle">
                           {ms && canEdit ? (
                             <select
                               className="border-input bg-background h-7 w-full max-w-[10rem] rounded-md border px-1 text-[10px] leading-tight"
@@ -1223,7 +1157,7 @@ export const ProjectTaskPlanningSection = forwardRef<
 
                   if (r.kind !== 'task') return null;
 
-                  const row = r.row;
+                  const row = byId.get(r.row.id) ?? r.row;
                   const pred = row.dependsOnTaskId ? byId.get(row.dependsOnTaskId) : undefined;
 
                   return (
@@ -1232,12 +1166,12 @@ export const ProjectTaskPlanningSection = forwardRef<
                       className="hover:bg-muted/30"
                       style={{ height: GANTT_ROW_PX }}
                     >
-                      <TableCell className="py-1 align-middle">
+                      <TableCell className="px-1.5 py-0 align-middle">
                         {canEdit ? (
                           <button
                             type="button"
                             className="hover:text-primary inline-block max-w-[11rem] cursor-pointer truncate text-left"
-                            style={{ paddingLeft: `${row.depth * 10}px` }}
+                            style={{ paddingLeft: `${taskRowIndentPx(row, 10)}px` }}
                             title={`${row.name} — ouvrir la fiche`}
                             onClick={() => openEdit(row)}
                           >
@@ -1245,7 +1179,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                           </button>
                         ) : (
                           <span
-                            style={{ paddingLeft: `${row.depth * 10}px` }}
+                            style={{ paddingLeft: `${taskRowIndentPx(row, 10)}px` }}
                             className="inline-block max-w-[11rem] truncate"
                             title={row.name}
                           >
@@ -1253,7 +1187,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="py-0 align-middle">
+                      <TableCell className="px-1.5 py-0 align-middle">
                         {canEdit ? (
                           <Input
                             type="date"
@@ -1283,7 +1217,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="py-0 align-middle">
+                      <TableCell className="px-1.5 py-0 align-middle">
                         {canEdit ? (
                           <Input
                             type="date"
@@ -1313,7 +1247,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="py-1 align-middle">
+                      <TableCell className="px-1.5 py-0 align-middle">
                         {canEdit ? (
                           <select
                             className="border-input bg-background h-7 max-w-[5.75rem] rounded-md border px-1 text-[10px] leading-tight"
@@ -1339,7 +1273,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="py-1 align-middle">
+                      <TableCell className="px-1.5 py-0 align-middle">
                         {canEdit ? (
                           <select
                             className="border-input bg-background h-7 w-full max-w-[10rem] rounded-md border px-1 text-[10px] leading-tight"
@@ -1383,7 +1317,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                       {canEdit ? (
                         <button
                           type="button"
-                          style={{ paddingLeft: `${row.depth * 12}px` }}
+                          style={{ paddingLeft: `${taskRowIndentPx(row, 12)}px` }}
                           className="hover:text-primary inline-block max-w-[20rem] cursor-pointer truncate text-left"
                           title={`${row.name} — ouvrir la fiche`}
                           onClick={() => openEdit(row)}
@@ -1392,7 +1326,7 @@ export const ProjectTaskPlanningSection = forwardRef<
                         </button>
                       ) : (
                         <span
-                          style={{ paddingLeft: `${row.depth * 12}px` }}
+                          style={{ paddingLeft: `${taskRowIndentPx(row, 12)}px` }}
                           className="inline-block"
                         >
                           {row.name}
