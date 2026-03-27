@@ -43,7 +43,10 @@ type ContactFormState = SupplierContactFormState & { isActive: boolean };
 type ContactFormErrors = SupplierContactFormErrors & { isActive?: string };
 
 function sanitizePhone(value: string): string {
-  return value.replace(/[^+0-9()\-\s.]/g, '').slice(0, 20);
+  const raw = value.replace(/[^\d+]/g, '');
+  const digits = raw.replace(/\D/g, '').slice(0, 15);
+  if (!digits) return '';
+  return `+${digits}`;
 }
 
 function sanitizeNoSpaces(value: string, maxLength: number): string {
@@ -57,7 +60,7 @@ function sanitizeTrimmed(value: string, maxLength: number): string {
 function validateContactForm(values: ContactFormState): ContactFormErrors {
   const errors: ContactFormErrors = {};
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const phoneRegex = /^[+0-9()\-\s.]{6,20}$/;
+  const phoneRegex = /^\+[1-9]\d{5,14}$/;
 
   const hasFirstOrLast = !!values.firstName.trim() || !!values.lastName.trim();
   const effectiveFullName = hasFirstOrLast
@@ -73,9 +76,9 @@ function validateContactForm(values: ContactFormState): ContactFormErrors {
   if (values.email && !emailRegex.test(values.email.trim())) errors.email = 'Email invalide.';
   if (values.email.length > 255) errors.email = 'Maximum 255 caractères.';
   if (values.phone && !phoneRegex.test(values.phone.trim())) errors.phone = 'Téléphone invalide.';
-  if (values.phone.length > 64) errors.phone = 'Maximum 64 caractères.';
+  if (values.phone.length > 16) errors.phone = 'Maximum 16 caractères.';
   if (values.mobile && !phoneRegex.test(values.mobile.trim())) errors.mobile = 'Mobile invalide.';
-  if (values.mobile.length > 64) errors.mobile = 'Maximum 64 caractères.';
+  if (values.mobile.length > 16) errors.mobile = 'Maximum 16 caractères.';
   if (values.notes.length > 2000) errors.notes = 'Maximum 2000 caractères.';
 
   return errors;

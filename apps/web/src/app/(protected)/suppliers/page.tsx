@@ -98,7 +98,10 @@ function sanitizeVat(value: string): string {
 }
 
 function sanitizePhone(value: string): string {
-  return value.replace(/[^+0-9()\-\s.]/g, '').slice(0, 20);
+  const raw = value.replace(/[^\d+]/g, '');
+  const digits = raw.replace(/\D/g, '').slice(0, 15);
+  if (!digits) return '';
+  return `+${digits}`;
 }
 
 function sanitizeNoSpaces(value: string, maxLength: number): string {
@@ -129,7 +132,7 @@ function isVatNumberValid(value: string): boolean {
 function validateSupplierContactForm(values: SupplierContactFormState): SupplierContactFormErrors {
   const errors: SupplierContactFormErrors = {};
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const phoneRegex = /^[+0-9()\-\s.]{6,20}$/;
+  const phoneRegex = /^\+[1-9]\d{5,14}$/;
 
   if (!values.firstName.trim() && !values.lastName.trim() && !values.fullName.trim()) {
     errors.fullName = 'Le nom complet est obligatoire.';
@@ -141,9 +144,9 @@ function validateSupplierContactForm(values: SupplierContactFormState): Supplier
   if (values.email && !emailRegex.test(values.email.trim())) errors.email = 'Email invalide.';
   if (values.email.length > 255) errors.email = 'Maximum 255 caractères.';
   if (values.phone && !phoneRegex.test(values.phone.trim())) errors.phone = 'Téléphone invalide.';
-  if (values.phone.length > 64) errors.phone = 'Maximum 64 caractères.';
+  if (values.phone.length > 16) errors.phone = 'Maximum 16 caractères.';
   if (values.mobile && !phoneRegex.test(values.mobile.trim())) errors.mobile = 'Mobile invalide.';
-  if (values.mobile.length > 64) errors.mobile = 'Maximum 64 caractères.';
+  if (values.mobile.length > 16) errors.mobile = 'Maximum 16 caractères.';
   if (values.notes.length > 2000) errors.notes = 'Maximum 2000 caractères.';
 
   return errors;
@@ -249,6 +252,18 @@ export default function SuppliersPage() {
     },
   });
 
+  useEffect(() => {
+    const fn = contactForm.firstName.trim();
+    const ln = contactForm.lastName.trim();
+    if (fn || ln) {
+      setContactForm((prev) => ({
+        ...prev,
+        fullName: `${fn} ${ln}`.replace(/\s+/g, ' ').trim(),
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactForm.firstName, contactForm.lastName]);
+
   const categoriesQuery = useQuery({
     queryKey: ['procurement', clientId, 'supplier-categories'],
     queryFn: () =>
@@ -305,7 +320,7 @@ export default function SuppliersPage() {
     const errors: SupplierFormErrors = {};
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const websiteRegex = /^(https?:\/\/)?[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i;
-    const phoneRegex = /^[+0-9()\-\s.]{6,20}$/;
+    const phoneRegex = /^\+[1-9]\d{5,14}$/;
     const siretRegex = /^\d{14}$/;
 
     if (!values.name.trim()) errors.name = 'Le nom est obligatoire.';
@@ -319,7 +334,7 @@ export default function SuppliersPage() {
     if (values.phone && !phoneRegex.test(values.phone.trim())) {
       errors.phone = 'Téléphone invalide.';
     }
-    if (values.phone.length > 64) errors.phone = 'Maximum 64 caractères.';
+    if (values.phone.length > 16) errors.phone = 'Maximum 16 caractères.';
     if (values.website && !websiteRegex.test(values.website.trim())) {
       errors.website = 'URL invalide.';
     }
@@ -1120,7 +1135,7 @@ export default function SuppliersPage() {
                       {editFormErrors.email ? <p className="text-xs text-destructive">{editFormErrors.email}</p> : null}
                     </div>
                     <div className="space-y-1">
-                      <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: sanitizePhone(e.target.value) }))} placeholder="Telephone" />
+                      <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: sanitizePhone(e.target.value) }))} placeholder="+33..." />
                       {editFormErrors.phone ? <p className="text-xs text-destructive">{editFormErrors.phone}</p> : null}
                     </div>
                     <div className="space-y-1 md:col-span-2">

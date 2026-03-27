@@ -227,9 +227,10 @@ export function SupplierContactModal({
                 <PhoneInput
                   value={form.phone}
                   onChange={(value) => onChange('phone', value)}
-                  placeholder="Numéro"
+                  placeholder="+33612345678"
                   invalid={!!errors.phone}
                 />
+                <p className="text-xs text-muted-foreground">Format attendu : +33... (ex: +33612345678)</p>
                 {errors.phone ? <p className="text-xs text-destructive">{errors.phone}</p> : null}
               </div>
               <div className="space-y-2">
@@ -237,9 +238,10 @@ export function SupplierContactModal({
                 <PhoneInput
                   value={form.mobile}
                   onChange={(value) => onChange('mobile', value)}
-                  placeholder="Numéro"
+                  placeholder="+33612345678"
                   invalid={!!errors.mobile}
                 />
+                <p className="text-xs text-muted-foreground">Format attendu : +33... (ex: +33612345678)</p>
                 {errors.mobile ? <p className="text-xs text-destructive">{errors.mobile}</p> : null}
               </div>
               <div className="space-y-2 md:col-span-2">
