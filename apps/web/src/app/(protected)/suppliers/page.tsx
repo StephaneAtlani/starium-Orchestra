@@ -47,6 +47,7 @@ import {
   updateSupplierCategory,
 } from '@/features/procurement/api/procurement.api';
 import { ImageUploadDropzone } from '@/features/procurement/components/image-upload-dropzone';
+import { SupplierVisualizationModal } from '@/features/procurement/components/suppliers/supplier-visualization-modal';
 
 type SupplierFormState = {
   name: string;
@@ -168,6 +169,8 @@ export default function SuppliersPage() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryModalOpen, setNewCategoryModalOpen] = useState(false);
   const [editSupplierModalOpen, setEditSupplierModalOpen] = useState(false);
+  const [readSupplierModalOpen, setReadSupplierModalOpen] = useState(false);
+  const [readSupplierId, setReadSupplierId] = useState<string | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: '',
@@ -549,6 +552,49 @@ export default function SuppliersPage() {
       canceled = true;
     };
   }, [authFetch, selectedSupplierId, editSupplierModalOpen, editLogoFile]);
+
+  const openEditSupplierModal = (supplier: {
+    id: string;
+    name: string | null;
+    code: string | null;
+    siret: string | null;
+    vatNumber: string | null;
+    externalId: string | null;
+    email: string | null;
+    phone: string | null;
+    website: string | null;
+    notes: string | null;
+    supplierCategoryId: string | null;
+  }) => {
+    setSelectedSupplierId(supplier.id);
+    setEditForm({
+      name: supplier.name ?? '',
+      code: supplier.code ?? '',
+      siret: supplier.siret ?? '',
+      vatNumber: supplier.vatNumber ?? '',
+      externalId: supplier.externalId ?? '',
+      email: supplier.email ?? '',
+      phone: supplier.phone ?? '',
+      website: supplier.website ?? '',
+      notes: supplier.notes ?? '',
+      supplierCategoryId: supplier.supplierCategoryId ?? '__none__',
+    });
+    setEditLogoFile(null);
+    setEditingContactId(null);
+    setContactFormErrors({});
+    setContactForm({
+      firstName: '',
+      lastName: '',
+      fullName: '',
+      role: '',
+      email: '',
+      phone: '',
+      mobile: '',
+      notes: '',
+      isPrimary: false,
+    });
+    setEditSupplierModalOpen(true);
+  };
 
   return (
     <RequireActiveClient>
@@ -1396,34 +1442,8 @@ export default function SuppliersPage() {
                             type="button"
                             className="cursor-pointer text-left text-primary hover:underline"
                             onClick={() => {
-                              setSelectedSupplierId(supplier.id);
-                              setEditForm({
-                                name: supplier.name ?? '',
-                                code: supplier.code ?? '',
-                                siret: supplier.siret ?? '',
-                                vatNumber: supplier.vatNumber ?? '',
-                                externalId: supplier.externalId ?? '',
-                                email: supplier.email ?? '',
-                                phone: supplier.phone ?? '',
-                                website: supplier.website ?? '',
-                                notes: supplier.notes ?? '',
-                                supplierCategoryId: supplier.supplierCategoryId ?? '__none__',
-                              });
-                              setEditLogoFile(null);
-                              setEditingContactId(null);
-                              setContactFormErrors({});
-                              setContactForm({
-                                firstName: '',
-                                lastName: '',
-                                fullName: '',
-                                role: '',
-                                email: '',
-                                phone: '',
-                                mobile: '',
-                                notes: '',
-                                isPrimary: false,
-                              });
-                              setEditSupplierModalOpen(true);
+                              setReadSupplierId(supplier.id);
+                              setReadSupplierModalOpen(true);
                             }}
                           >
                             {supplier.name}
@@ -1441,6 +1461,12 @@ export default function SuppliersPage() {
             </CardContent>
           </Card>
         )}
+
+        <SupplierVisualizationModal
+          open={readSupplierModalOpen}
+          onOpenChange={setReadSupplierModalOpen}
+          supplierId={readSupplierId}
+        />
       </PageContainer>
     </RequireActiveClient>
   );

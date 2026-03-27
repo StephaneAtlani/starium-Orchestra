@@ -43,6 +43,15 @@ export class SuppliersController {
     return this.suppliers.list(clientId!, query);
   }
 
+  @Get(':id')
+  @RequirePermissions('procurement.read')
+  getById(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.suppliers.findById(clientId!, id);
+  }
+
   @Post()
   @RequirePermissions('procurement.create')
   create(

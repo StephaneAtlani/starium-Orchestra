@@ -72,6 +72,15 @@ export async function listSuppliers(
   return res.json() as Promise<PaginatedResponse<Supplier>>;
 }
 
+export async function getSupplierById(
+  authFetch: AuthFetch,
+  supplierId: string,
+): Promise<Supplier> {
+  const res = await authFetch(`${BASE_SUPPLIERS}/${supplierId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<Supplier>;
+}
+
 export async function listSupplierCategories(
   authFetch: AuthFetch,
   params?: {

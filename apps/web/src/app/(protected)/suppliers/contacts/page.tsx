@@ -1,8 +1,7 @@
 'use client';
-
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Pencil, Plus, ShieldAlert, Trash2 } from 'lucide-react';
+import { AlertCircle, Plus, ShieldAlert } from 'lucide-react';
 
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
@@ -32,10 +31,10 @@ import { NewSupplierDialog } from '@/features/procurement/components/suppliers/n
 import type { SupplierContact } from '@/features/procurement/types/supplier.types';
 import {
   createSupplierContact,
-  deactivateSupplierContact,
   listAllSupplierContacts,
   updateSupplierContact,
 } from '@/features/procurement/api/procurement.api';
+import { SupplierVisualizationModal } from '@/features/procurement/components/suppliers/supplier-visualization-modal';
 
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -50,6 +49,7 @@ type ContactFormState = {
   phone: string;
   mobile: string;
   notes: string;
+  isActive: boolean;
   isPrimary: boolean;
 };
 
@@ -116,6 +116,12 @@ export default function SupplierContactsPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [readContactOpen, setReadContactOpen] = useState(false);
+  const [readContact, setReadContact] = useState<SupplierContact | null>(null);
+  const [readSupplierOpen, setReadSupplierOpen] = useState(false);
+  const [readSupplierId, setReadSupplierId] = useState<string | null>(null);
+  const [statusEditingContactId, setStatusEditingContactId] = useState<string | null>(null);
+  const [statusDraftValue, setStatusDraftValue] = useState<'active' | 'inactive'>('active');
   /** Fournisseur d’origine du contact en édition — utilisé dans l’URL PATCH (ne change pas quand l’utilisateur reprend un autre fournisseur). */
   const [editOriginalSupplierId, setEditOriginalSupplierId] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState<ContactFormState>({
@@ -127,6 +133,7 @@ export default function SupplierContactsPage() {
     phone: '',
     mobile: '',
     notes: '',
+    isActive: true,
     isPrimary: false,
   });
   const [contactFormErrors, setContactFormErrors] = useState<ContactFormErrors>({});
@@ -208,6 +215,7 @@ export default function SupplierContactsPage() {
         phone: '',
         mobile: '',
         notes: '',
+        isActive: true,
         isPrimary: false,
       });
       await queryClient.invalidateQueries({
@@ -238,6 +246,7 @@ export default function SupplierContactsPage() {
         phone: contactForm.phone || null,
         mobile: contactForm.mobile || null,
         notes: contactForm.notes || null,
+        isActive: contactForm.isActive,
         isPrimary: contactForm.isPrimary,
       });
     },
@@ -255,9 +264,14 @@ export default function SupplierContactsPage() {
     },
   });
 
-  const deactivateContactMutation = useMutation({
-    mutationFn: async (contact: SupplierContact) =>
-      deactivateSupplierContact(authFetch, contact.supplierId, contact.id),
+  const inlineStatusMutation = useMutation({
+    mutationFn: async ({
+      contact,
+      isActive,
+    }: {
+      contact: SupplierContact;
+      isActive: boolean;
+    }) => updateSupplierContact(authFetch, contact.supplierId, contact.id, { isActive }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ['procurement', clientId, 'supplier-contacts-all'],
@@ -265,6 +279,9 @@ export default function SupplierContactsPage() {
       await queryClient.invalidateQueries({
         queryKey: ['procurement', clientId, 'supplier-contacts'],
       });
+    },
+    onSettled: () => {
+      setStatusEditingContactId(null);
     },
   });
 
@@ -281,6 +298,7 @@ export default function SupplierContactsPage() {
       phone: '',
       mobile: '',
       notes: '',
+      isActive: true,
       isPrimary: false,
     });
     setDialogOpen(true);
@@ -305,15 +323,26 @@ export default function SupplierContactsPage() {
       phone: contact.phone ?? '',
       mobile: contact.mobile ?? '',
       notes: contact.notes ?? '',
+      isActive: contact.isActive,
       isPrimary: contact.isPrimary,
     });
     setDialogOpen(true);
   };
 
+  const openReadContactDialog = (contact: SupplierContact) => {
+    setReadContact(contact);
+    setReadContactOpen(true);
+  };
+
+  const openReadSupplierDialog = (supplierId: string) => {
+    setReadSupplierId(supplierId);
+    setReadSupplierOpen(true);
+  };
+
   const mutationError =
     (createContactMutation.error as Error | undefined)?.message ||
     (updateContactMutation.error as Error | undefined)?.message ||
-    (deactivateContactMutation.error as Error | undefined)?.message;
+    (inlineStatusMutation.error as Error | undefined)?.message;
 
   return (
     <RequireActiveClient>
@@ -416,47 +445,81 @@ export default function SupplierContactsPage() {
                           <TableHead>Téléphone</TableHead>
                           <TableHead>Principal</TableHead>
                           <TableHead>Statut</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {(supplierContactsQuery.data?.items ?? []).map((c) => (
                           <TableRow key={c.id}>
                             <TableCell className="text-muted-foreground">
-                              {c.supplierName ?? '—'}
+                              <button
+                                type="button"
+                                className="text-left underline-offset-2 hover:underline"
+                                onClick={() => openReadSupplierDialog(c.supplierId)}
+                              >
+                                {c.supplierName ?? '—'}
+                              </button>
                             </TableCell>
                             <TableCell className="font-medium">
-                              {c.fullName}{' '}
-                              {c.isPrimary ? <Badge variant="secondary">Principal</Badge> : null}
+                              <button
+                                type="button"
+                                className="inline-flex items-center text-left underline-offset-2 hover:underline"
+                                onClick={() => openReadContactDialog(c)}
+                              >
+                                <span>{c.fullName}</span>
+                              </button>
                             </TableCell>
                             <TableCell>{c.role ?? '—'}</TableCell>
                             <TableCell>{c.email ?? '—'}</TableCell>
                             <TableCell>{c.phone ?? c.mobile ?? '—'}</TableCell>
                             <TableCell>{c.isPrimary ? 'Oui' : '—'}</TableCell>
-                            <TableCell>{c.isActive ? 'Actif' : 'Inactif'}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button
+                            <TableCell>
+                              {canUpdate && statusEditingContactId === c.id ? (
+                                <select
+                                  autoFocus
+                                  className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                                  value={statusDraftValue}
+                                  disabled={inlineStatusMutation.isPending}
+                                  onChange={(e) => {
+                                    const next = e.target.value as 'active' | 'inactive';
+                                    setStatusDraftValue(next);
+                                    const nextIsActive = next === 'active';
+                                    if (nextIsActive === c.isActive) {
+                                      setStatusEditingContactId(null);
+                                      return;
+                                    }
+                                    void inlineStatusMutation.mutateAsync({
+                                      contact: c,
+                                      isActive: nextIsActive,
+                                    });
+                                  }}
+                                  onBlur={() => {
+                                    if (!inlineStatusMutation.isPending) {
+                                      setStatusEditingContactId(null);
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Escape') {
+                                      setStatusEditingContactId(null);
+                                    }
+                                  }}
+                                >
+                                  <option value="active">Actif</option>
+                                  <option value="inactive">Inactif</option>
+                                </select>
+                              ) : (
+                                <button
                                   type="button"
-                                  variant="outline"
-                                  size="sm"
+                                  className="underline-offset-2 hover:underline disabled:no-underline"
                                   disabled={!canUpdate}
-                                  onClick={() => openEditDialog(c)}
+                                  onClick={() => {
+                                    if (!canUpdate) return;
+                                    setStatusEditingContactId(c.id);
+                                    setStatusDraftValue(c.isActive ? 'active' : 'inactive');
+                                  }}
                                 >
-                                  <Pencil className="size-4" />
-                                  Editer
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="sm"
-                                  disabled={!canUpdate || !c.isActive || deactivateContactMutation.isPending}
-                                  onClick={() => void deactivateContactMutation.mutateAsync(c)}
-                                >
-                                  <Trash2 className="size-4" />
-                                  Désactiver
-                                </Button>
-                              </div>
+                                  {c.isActive ? 'Actif' : 'Inactif'}
+                                </button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -646,6 +709,19 @@ export default function SupplierContactsPage() {
                 >
                   <input
                     type="checkbox"
+                    checked={contactForm.isActive}
+                    onChange={(e) => {
+                      setContactForm((p) => ({ ...p, isActive: e.target.checked }));
+                    }}
+                  />
+                  Contact actif
+                </label>
+
+                <label
+                  className={`flex items-center gap-2 text-sm ${!supplierId ? 'opacity-60' : ''}`}
+                >
+                  <input
+                    type="checkbox"
                     checked={contactForm.isPrimary}
                     disabled={!supplierId}
                     onChange={(e) => {
@@ -689,6 +765,51 @@ export default function SupplierContactsPage() {
           </DialogFooter>
         </DialogContent>
         </Dialog>
+
+        <Dialog open={readContactOpen} onOpenChange={setReadContactOpen}>
+          <DialogContent className="w-[42rem] max-w-[95vw] p-6">
+            <DialogHeader>
+              <DialogTitle>Fiche contact fournisseur</DialogTitle>
+              <DialogDescription>Consultation en lecture seule.</DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <p className="text-xs text-muted-foreground">Fournisseur</p>
+                <p className="font-medium">{readContact?.supplierName ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Nom</p>
+                <p className="font-medium">{readContact?.fullName ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Role</p>
+                <p>{readContact?.role ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Statut</p>
+                <p>{readContact?.isActive ? 'Actif' : 'Inactif'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Email</p>
+                <p>{readContact?.email ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Telephone</p>
+                <p>{readContact?.phone ?? readContact?.mobile ?? '—'}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-xs text-muted-foreground">Notes</p>
+                <p>{readContact?.notes ?? '—'}</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <SupplierVisualizationModal
+          open={readSupplierOpen}
+          onOpenChange={setReadSupplierOpen}
+          supplierId={readSupplierId}
+        />
 
         <NewSupplierDialog
           open={newSupplierModalOpen}
