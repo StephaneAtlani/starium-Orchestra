@@ -176,23 +176,25 @@ export function ProjectRiskEbiosDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
-        className="max-h-[min(90vh,880px)] w-full gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        className="max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-2xl"
       >
-        <form onSubmit={handleSubmit} className="flex max-h-[min(90vh,880px)] flex-col">
-          <DialogHeader className="border-b border-border/60 bg-muted/30 px-4 py-4 sm:px-6">
-            <DialogTitle>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <DialogHeader className="space-y-2 text-left">
+            <DialogTitle className="text-lg font-semibold tracking-tight">
               {mode === 'create'
                 ? 'Nouveau risque — cadre EBIOS RM'
                 : 'Modifier le risque — cadre EBIOS RM'}
             </DialogTitle>
-            <DialogDescription>
-              Identification du scénario, vraisemblance et gravité d’impact, stratégie de
-              traitement, risque résiduel et suivi — champs alignés sur une lecture type
-              méthode EBIOS RM / ISO 27005.
+            <DialogDescription className="text-sm leading-relaxed">
+              Formulaire structuré selon une lecture type EBIOS RM / ISO 27005.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4 sm:px-6">
+          <div className="space-y-6 py-1">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Identification du scénario, vraisemblance et gravité d’impact, stratégie de
+              traitement, risque résiduel et suivi.
+            </p>
             {mode === 'edit' && risk ? (
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>Code registre</span>
@@ -454,7 +456,7 @@ export function ProjectRiskEbiosDialog({
             </section>
           </div>
 
-          <DialogFooter className="border-t border-border/60 bg-muted/20 px-4 py-3 sm:px-6">
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
