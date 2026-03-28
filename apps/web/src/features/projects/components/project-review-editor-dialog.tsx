@@ -1768,13 +1768,6 @@ export function ProjectReviewEditorDialog({
                       <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
                         Retour d&apos;expérience
                       </p>
-                      <PostMortemIndicatorsBlock
-                        indicateurs={postMortemForm.indicateurs}
-                        editable={editable}
-                        onChange={(next) =>
-                          setPostMortemForm((prev) => ({ ...prev, indicateurs: next }))
-                        }
-                      />
                       {(
                         [
                           ['objectifs', 'Objectifs / cadrage initial'],
@@ -1802,6 +1795,13 @@ export function ProjectReviewEditorDialog({
                           />
                         </div>
                       ))}
+                      <PostMortemIndicatorsBlock
+                        indicateurs={postMortemForm.indicateurs}
+                        editable={editable}
+                        onChange={(next) =>
+                          setPostMortemForm((prev) => ({ ...prev, indicateurs: next }))
+                        }
+                      />
                     </div>
                   )}
                   {projectQuery.data && (

@@ -1088,10 +1088,10 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             </div>
           </div>
           {showPostMortemHeaderCta ? (
-            <div className="shrink-0 w-full sm:max-w-md">
+            <div className="shrink-0 w-full sm:max-w-sm">
               {reviewsForRexCta.isLoading ? (
                 <div
-                  className="flex h-[4.5rem] w-full animate-pulse rounded-xl border-2 border-violet-500/30 bg-muted/40 dark:border-violet-400/25"
+                  className="flex h-14 w-full animate-pulse rounded-lg border border-violet-500/30 bg-muted/40 dark:border-violet-400/25"
                   aria-hidden
                 />
               ) : (
@@ -1099,34 +1099,34 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                   href={rexHeaderHref}
                   scroll={false}
                   className={cn(
-                    'group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 shadow-md transition-all',
+                    'group flex w-full items-center gap-2 rounded-lg border px-3 py-2 shadow-sm transition-all',
                     'border-violet-500/50 bg-gradient-to-br from-violet-500/15 via-violet-500/[0.07] to-card',
                     'dark:border-violet-400/45 dark:from-violet-400/20 dark:via-violet-500/10 dark:to-card',
-                    'hover:border-violet-500/70 hover:shadow-lg hover:from-violet-500/20',
+                    'hover:border-violet-500/70 hover:shadow-md hover:from-violet-500/20',
                     'dark:hover:border-violet-400/60',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 focus-visible:ring-offset-2',
                   )}
                 >
                   <span
-                    className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md dark:bg-violet-500"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white shadow-sm dark:bg-violet-500"
                     aria-hidden
                   >
-                    <ClipboardList className="size-5" strokeWidth={2.25} />
+                    <ClipboardList className="size-4" strokeWidth={2.25} />
                   </span>
                   <span className="min-w-0 flex-1 text-left">
-                    <span className="block text-base font-bold leading-snug tracking-tight text-foreground">
+                    <span className="block text-sm font-semibold leading-tight tracking-tight text-foreground">
                       {draftRexForHeader
-                        ? 'Continuer le retour d&apos;expérience'
-                        : 'Créer un retour d&apos;expérience'}
+                        ? "Continuer le retour d'expérience"
+                        : "Créer un retour d'expérience"}
                     </span>
-                    <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
+                    <span className="mt-0.5 block text-[0.7rem] leading-snug text-muted-foreground">
                       {draftRexForHeader
                         ? 'Reprendre le brouillon en cours'
                         : 'Objectifs, écarts, leçons — clôture de projet'}
                     </span>
                   </span>
                   <ChevronRight
-                    className="size-5 shrink-0 text-violet-600 opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100 dark:text-violet-400"
+                    className="size-4 shrink-0 text-violet-600 opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100 dark:text-violet-400"
                     aria-hidden
                   />
                 </Link>

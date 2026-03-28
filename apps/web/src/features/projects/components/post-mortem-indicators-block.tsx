@@ -58,11 +58,11 @@ function barToneClass(score: number | null): string {
 function MiniBarsChart({ scores }: { scores: PostMortemIndicateursScores }) {
   return (
     <div
-      className="rounded-lg border border-border/70 bg-muted/25 p-3"
+      className="rounded-lg border border-border/50 bg-background/60 p-3 shadow-sm"
       role="img"
       aria-label="Vue synthétique des cinq indicateurs"
     >
-      <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="mb-2 text-[0.65rem] font-medium tracking-wide text-muted-foreground">
         Vue synthétique
       </p>
       <div className="flex h-28 items-end justify-stretch gap-1.5 sm:gap-2">
@@ -105,14 +105,15 @@ export function PostMortemIndicatorsBlock({ indicateurs, editable, onChange }: P
   };
 
   return (
-    <div className="grid gap-3 border-t border-border/60 pt-3">
-      <div>
-        <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-          Indicateurs de perception (0–100 %)
+    <div className="mt-1 grid gap-4 border-t border-border/50 pt-4">
+      <div className="rounded-xl border border-border/60 bg-muted/15 p-4 sm:p-5">
+        <p className="text-sm font-medium text-foreground">
+          Indicateurs de perception{' '}
+          <span className="font-normal text-muted-foreground">(0–100 %)</span>
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Auto-évaluation sur les dimensions habituelles d’un retour d’expérience : collecte des faits,
-          analyse des écarts et capitalisation. 0 = très insatisfaisant, 100 = objectif atteint ou
+        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+          Après la narrative, synthétisez la perception sur chaque dimension (collecte des faits,
+          analyse des écarts, capitalisation). 0 = très insatisfaisant, 100 = objectif atteint ou
           dépassé.{' '}
           <a
             href="https://www.manager-go.com/gestion-de-projet/dossiers-methodes/comment-organiser-un-rex"
@@ -124,11 +125,12 @@ export function PostMortemIndicatorsBlock({ indicateurs, editable, onChange }: P
           </a>
           .
         </p>
-      </div>
 
-      <MiniBarsChart scores={indicateurs} />
+        <div className="mt-4">
+          <MiniBarsChart scores={indicateurs} />
+        </div>
 
-      <div className="grid gap-3">
+        <div className="mt-4 grid gap-3 border-t border-border/40 pt-4">
         {DIMENSIONS.map(({ key, label, hint, Icon }) => {
           const score = indicateurs[key];
           const display = score === null ? null : score;
@@ -190,6 +192,7 @@ export function PostMortemIndicatorsBlock({ indicateurs, editable, onChange }: P
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
