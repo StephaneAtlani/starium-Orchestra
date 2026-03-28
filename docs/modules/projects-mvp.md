@@ -82,7 +82,7 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 - **Signaux** (`signals`), **santé** (`computedHealth`), **warnings** : calculés dans `projects-pilotage.service.ts` ; exposition liste / détail via les mêmes champs.
 - **Statuts « actifs »** pour plusieurs signaux (ex. absence de tâches / jalons / risques) : `PLANNED`, `IN_PROGRESS`, `ON_HOLD` (aligné sur la RFC plan « projet actif »).
-- **`isBlocked` / `BLOCKED`** : `ON_HOLD` ⇒ bloqué ; risque ouvert à criticité pilotage HIGH ⇒ bloqué **uniquement** si le projet n’est pas en statut terminal (`COMPLETED`, `CANCELLED`, `ARCHIVED`) — sinon pas d’alerte « bloqué » opérationnelle même si des risques restent ouverts en base.
+- **`isBlocked` / `BLOCKED`** : **`ON_HOLD` uniquement**. Les risques `OPEN` à criticité HIGH/CRITICAL influencent la **santé** (`RED`) et `isCritical`, mais ne déclenchent plus l’alerte « Bloqué ».
 - **Warnings** : codes `NO_OWNER`, `NO_TASKS`, `NO_RISKS`, `NO_MILESTONES`, `PLANNING_DRIFT`, `BLOCKED`.
 - **Détail des règles** (santé RED/ORANGE/GREEN, chaque booléen `signals`, correspondance pastilles vs alertes) : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8.3.
 

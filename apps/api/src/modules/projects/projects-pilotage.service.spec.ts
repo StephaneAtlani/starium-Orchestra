@@ -227,5 +227,16 @@ describe('ProjectsPilotageService', () => {
       const p = { ...baseProject, status: 'COMPLETED' as ProjectStatus };
       expect(svc.isBlocked(p, risks)).toBe(false);
     });
+
+    it('false when IN_PROGRESS with OPEN HIGH/CRITICAL risk (risks do not set blocked)', () => {
+      const risks = [
+        {
+          status: 'OPEN' as ProjectRiskStatus,
+          criticalityLevel: 'HIGH' as ProjectRiskCriticality,
+        },
+      ] as any[];
+      const p = { ...baseProject, status: 'IN_PROGRESS' as ProjectStatus };
+      expect(svc.isBlocked(p, risks)).toBe(false);
+    });
   });
 });

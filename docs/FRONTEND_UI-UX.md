@@ -311,7 +311,7 @@ Ordre d’évaluation : **RED** dès qu’une condition RED est vraie ; sinon **
 | Champ | Règle métier |
 | ----- | ------------ |
 | `isLate` | `targetEndDate` dépassée (jour courant UTC) **et** statut non terminal. |
-| `isBlocked` | **`ON_HOLD`** **ou** (statut non terminal **et** au moins un risque `OPEN` en criticité pilotage HIGH). **Pas** de blocage « risque » si statut `COMPLETED`, `CANCELLED`, `ARCHIVED` (risques non soldés ne déclenchent pas `isBlocked`). |
+| `isBlocked` | **`ON_HOLD` uniquement**. Les risques `OPEN` à criticité HIGH/CRITICAL ne remontent plus ce signal (ils peuvent toutefois faire passer la **santé** en `RED` via `hasOpenHighRisk`). |
 | `isCritical` | `project.criticality === HIGH` **ou** `computedHealth === RED` (donc souvent redondant avec la pastille santé « critique » si la cause est déjà la santé). |
 | `hasNoOwner` | Pas de `ownerUserId` **et** pas de `ownerFreeLabel` renseigné (trim). |
 | `hasNoTasks` | Statut **actif** **et** aucune tâche. |
