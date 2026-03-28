@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,11 +20,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { CreateProjectRiskPayload } from '../api/projects.api';
 import type { ProjectRiskApi, ProjectRiskCriticalityLevel } from '../types/project.types';
 import {
   PROJECT_RISK_CRITICALITY_LABEL,
+  RISK_PI_SCALE_LABEL,
   RISK_STATUS_LABEL,
   RISK_TREATMENT_STRATEGY_LABEL,
 } from '../constants/project-enum-labels';
@@ -72,6 +74,40 @@ function criticalityBadgeClass(level: string): string {
     default:
       return 'border-emerald-600/45 bg-emerald-500/10 text-emerald-950 dark:text-emerald-500';
   }
+}
+
+function EbiosSection({
+  step,
+  title,
+  headerExtra,
+  children,
+}: {
+  step: number;
+  title: string;
+  headerExtra?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Card size="sm" className="border-border/70 bg-card shadow-sm">
+      <CardHeader className="border-b border-border/50 px-3 pb-3 pt-3 sm:px-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-xs font-semibold tabular-nums text-primary"
+            aria-hidden
+          >
+            {step}
+          </span>
+          <div className="min-w-0 flex-1 space-y-1">
+            <CardTitle className="text-sm font-semibold leading-snug text-foreground">
+              {title}
+            </CardTitle>
+          </div>
+          {headerExtra ? <div className="shrink-0">{headerExtra}</div> : null}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3 px-3 pb-3 pt-3 sm:px-4">{children}</CardContent>
+    </Card>
+  );
 }
 
 type Mode = 'create' | 'edit';
@@ -179,35 +215,32 @@ export function ProjectRiskEbiosDialog({
         className="max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-2xl"
       >
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-lg font-semibold tracking-tight">
-              {mode === 'create'
-                ? 'Nouveau risque — cadre EBIOS RM'
-                : 'Modifier le risque — cadre EBIOS RM'}
-            </DialogTitle>
+          <DialogHeader className="space-y-3 text-left">
+            <div className="flex flex-wrap items-baseline gap-2 gap-y-1">
+              <DialogTitle className="text-lg font-semibold tracking-tight">
+                {mode === 'create' ? 'Nouveau risque' : 'Modifier le risque'}
+              </DialogTitle>
+              <Badge variant="secondary" className="font-normal">
+                EBIOS RM
+              </Badge>
+            </div>
             <DialogDescription className="text-sm leading-relaxed">
-              Formulaire structuré selon une lecture type EBIOS RM / ISO 27005.
+              Scénario, évaluation, traitement, résiduel et suivi — aligné ISO 27005.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 py-1">
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Identification du scénario, vraisemblance et gravité d’impact, stratégie de
-              traitement, risque résiduel et suivi.
-            </p>
-            {mode === 'edit' && risk ? (
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>Code registre</span>
-                <Badge variant="secondary" className="font-mono">
-                  {risk.code}
-                </Badge>
-              </div>
-            ) : null}
-
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                1 — Identification du scénario
-              </h3>
+          <div className="space-y-4 py-0.5">
+            <EbiosSection
+              step={1}
+              title="Identification du scénario"
+              headerExtra={
+                mode === 'edit' && risk ? (
+                  <Badge variant="outline" className="font-mono text-xs font-normal">
+                    {risk.code}
+                  </Badge>
+                ) : undefined
+              }
+            >
               <div className="space-y-2">
                 <Label htmlFor="ebios-title">Intitulé du scénario de risque</Label>
                 <Input
@@ -247,12 +280,9 @@ export function ProjectRiskEbiosDialog({
                   placeholder="ex. Cybersécurité, Migration, Fournisseur"
                 />
               </div>
-            </section>
+            </EbiosSection>
 
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                2 — Évaluation (vraisemblance × gravité d’impact)
-              </h3>
+            <EbiosSection step={2} title="Évaluation — vraisemblance × gravité">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Vraisemblance (1–5)</Label>
@@ -261,13 +291,15 @@ export function ProjectRiskEbiosDialog({
                     onValueChange={(v) => setProbability(Number(v))}
                     disabled={isPending}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="w-full min-w-0">
+                      <SelectValue>
+                        {RISK_PI_SCALE_LABEL[String(probability)] ?? String(probability)}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {PI_OPTIONS.map((n) => (
                         <SelectItem key={n} value={String(n)}>
-                          {n}
+                          {RISK_PI_SCALE_LABEL[String(n)] ?? String(n)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -280,44 +312,52 @@ export function ProjectRiskEbiosDialog({
                     onValueChange={(v) => setImpact(Number(v))}
                     disabled={isPending}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="w-full min-w-0">
+                      <SelectValue>
+                        {RISK_PI_SCALE_LABEL[String(impact)] ?? String(impact)}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {PI_OPTIONS.map((n) => (
                         <SelectItem key={n} value={String(n)}>
-                          {n}
+                          {RISK_PI_SCALE_LABEL[String(n)] ?? String(n)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Prévisualisation : score </span>
-                <span className="tabular-nums font-medium">{preview.score}</span>
-                <span className="text-muted-foreground"> — criticité </span>
-                <Badge
-                  variant="outline"
-                  className={cn('ml-1 font-normal', criticalityBadgeClass(preview.level))}
-                >
-                  {PROJECT_RISK_CRITICALITY_LABEL[preview.level] ?? preview.level}
-                </Badge>
-                {mode === 'edit' && risk ? (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    (enregistré : {risk.criticalityScore} —{' '}
-                    {PROJECT_RISK_CRITICALITY_LABEL[risk.criticalityLevel] ??
-                      risk.criticalityLevel}
-                    )
-                  </span>
-                ) : null}
+              <div
+                className={cn(
+                  'flex flex-col gap-1.5 rounded-lg border border-border/60 bg-muted/25 px-3 py-2.5 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1',
+                )}
+              >
+                <span className="text-muted-foreground">Score calculé</span>
+                <span className="tabular-nums font-semibold text-foreground">{preview.score}</span>
+                <span className="hidden text-muted-foreground sm:inline" aria-hidden>
+                  ·
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground">Criticité</span>
+                  <Badge
+                    variant="outline"
+                    className={cn('font-normal', criticalityBadgeClass(preview.level))}
+                  >
+                    {PROJECT_RISK_CRITICALITY_LABEL[preview.level] ?? preview.level}
+                  </Badge>
+                  {mode === 'edit' && risk ? (
+                    <span className="text-xs text-muted-foreground">
+                      (enregistré : {risk.criticalityScore} —{' '}
+                      {PROJECT_RISK_CRITICALITY_LABEL[risk.criticalityLevel] ??
+                        risk.criticalityLevel}
+                      )
+                    </span>
+                  ) : null}
+                </div>
               </div>
-            </section>
+            </EbiosSection>
 
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                3 — Traitement du risque
-              </h3>
+            <EbiosSection step={3} title="Traitement du risque">
               <div className="space-y-2">
                 <Label>Stratégie de traitement</Label>
                 <Select
@@ -325,8 +365,12 @@ export function ProjectRiskEbiosDialog({
                   onValueChange={(v) => setTreatmentStrategy(v ?? NONE)}
                   disabled={isPending}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Non renseigné" />
+                  <SelectTrigger className="w-full min-w-0">
+                    <SelectValue placeholder="Non renseigné">
+                      {treatmentStrategy === NONE
+                        ? null
+                        : RISK_TREATMENT_STRATEGY_LABEL[treatmentStrategy] ?? treatmentStrategy}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}>Non renseigné</SelectItem>
@@ -370,12 +414,9 @@ export function ProjectRiskEbiosDialog({
                   )}
                 />
               </div>
-            </section>
+            </EbiosSection>
 
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                4 — Risque résiduel (après traitement)
-              </h3>
+            <EbiosSection step={4} title="Risque résiduel">
               <div className="space-y-2">
                 <Label>Niveau de risque résiduel</Label>
                 <Select
@@ -383,8 +424,13 @@ export function ProjectRiskEbiosDialog({
                   onValueChange={(v) => setResidualRiskLevel(v ?? NONE)}
                   disabled={isPending}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Non évalué" />
+                  <SelectTrigger className="w-full min-w-0">
+                    <SelectValue placeholder="Non évalué">
+                      {residualRiskLevel === NONE
+                        ? null
+                        : PROJECT_RISK_CRITICALITY_LABEL[residualRiskLevel] ??
+                          residualRiskLevel}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}>Non renseigné</SelectItem>
@@ -396,12 +442,9 @@ export function ProjectRiskEbiosDialog({
                   </SelectContent>
                 </Select>
               </div>
-            </section>
+            </EbiosSection>
 
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                5 — Suivi
-              </h3>
+            <EbiosSection step={5} title="Suivi">
               <div className="space-y-2">
                 <Label>Statut du risque</Label>
                 <Select
@@ -409,8 +452,10 @@ export function ProjectRiskEbiosDialog({
                   onValueChange={(v) => v && setStatus(v)}
                   disabled={isPending}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="w-full min-w-0">
+                    <SelectValue>
+                      {RISK_STATUS_LABEL[status] ?? status}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {Object.keys(RISK_STATUS_LABEL).map((k) => (
@@ -453,7 +498,7 @@ export function ProjectRiskEbiosDialog({
                   />
                 </div>
               </div>
-            </section>
+            </EbiosSection>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">

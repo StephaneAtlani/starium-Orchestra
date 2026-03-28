@@ -50,7 +50,7 @@ export const navigation: NavigationSection[] = [
     ],
   },
   {
-    section: 'Finance',
+    section: 'Pilotages',
     items: [
       {
         label: 'Budgets',

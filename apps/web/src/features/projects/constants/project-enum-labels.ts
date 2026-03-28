@@ -44,6 +44,15 @@ export const RISK_TIER_LABEL: Record<string, string> = {
   HIGH: 'Élevé',
 };
 
+/** Échelle 1–5 — vraisemblance et gravité d’impact (registre risques / EBIOS). */
+export const RISK_PI_SCALE_LABEL: Record<string, string> = {
+  '1': '1 — Négligeable',
+  '2': '2 — Faible',
+  '3': '3 — Moyen',
+  '4': '4 — Élevé',
+  '5': '5 — Très élevé',
+};
+
 export const TASK_PRIORITY_LABEL: Record<string, string> = {
   LOW: 'Basse',
   MEDIUM: 'Moyenne',
