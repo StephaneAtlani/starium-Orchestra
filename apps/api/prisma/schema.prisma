@@ -1426,11 +1426,11 @@ model RiskType {
   @@index([domainId])
 }
 
-/// RFC-PROJ-RISK-001 — risque projet (registre)
+/// RFC-PROJ-RISK-001 — risque projet (registre) ; peut être hors projet (`projectId` null).
 model ProjectRisk {
   id        String @id @default(cuid())
   clientId  String
-  projectId String
+  projectId String?
 
   code        String
   title       String
@@ -1477,12 +1477,12 @@ model ProjectRisk {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  owner   User?   @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  owner   User?    @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
   complianceRequirement ComplianceRequirement? @relation(fields: [complianceRequirementId], references: [id], onDelete: SetNull)
 
-  @@unique([projectId, code])
+  /// Unicité (projectId, code) et (clientId, code) pour projectId null : index partiels SQL — voir migration.
   @@index([clientId])
   @@index([projectId])
   @@index([projectId, sortOrder])

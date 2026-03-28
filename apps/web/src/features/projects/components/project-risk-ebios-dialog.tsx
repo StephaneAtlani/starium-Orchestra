@@ -16,6 +16,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,11 +25,16 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { getProjectRisk, getRiskTaxonomyCatalog, listAssignableUsers } from '../api/projects.api';
+import {
+  getClientRisk,
+  getProjectRisk,
+  getRiskTaxonomyCatalog,
+  listAssignableUsers,
+} from '../api/projects.api';
 import type { CreateProjectRiskPayload } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { useDebouncedServerAutosave } from '@/hooks/use-debounced-server-autosave';
-import type { ProjectRiskApi, ProjectRiskCriticalityLevel } from '../types/project.types';
+import type { ProjectListItem, ProjectRiskApi, ProjectRiskCriticalityLevel } from '../types/project.types';
 import {
   PROJECT_RISK_CRITICALITY_LABEL,
   RISK_PI_SCALE_LABEL,
@@ -39,6 +45,8 @@ import {
 const PI_OPTIONS = [1, 2, 3, 4, 5] as const;
 const NONE = '__none__';
 const OWNER_NONE = '__none__';
+/** Rattachement projet facultatif — `POST/PATCH /api/risks`. */
+const PROJECT_NONE = '__none__';
 
 const TREATMENT_KEYS = ['AVOID', 'REDUCE', 'TRANSFER', 'ACCEPT'] as const;
 const RESIDUAL_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
@@ -68,6 +76,7 @@ function dateInputToIso(v: string): string | undefined {
 
 function stableRiskSnapshot(p: CreateProjectRiskPayload): string {
   const o = {
+    projectId: p.projectId ?? '',
     title: p.title,
     threatSource: p.threatSource,
     description: p.description,
@@ -93,6 +102,7 @@ function stableRiskSnapshot(p: CreateProjectRiskPayload): string {
 /** Aligné sur `buildPayload` + champs dates comme à l’écran. */
 function snapshotFromRisk(r: ProjectRiskApi): string {
   return stableRiskSnapshot({
+    projectId: r.projectId ?? undefined,
     title: r.title.trim(),
     threatSource: r.threatSource.trim(),
     description: (r.description ?? '').trim(),
@@ -313,7 +323,8 @@ export type ProjectRiskEbiosDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: Mode;
-  projectId: string;
+  /** Projet courant (vue projet) ; nullable en création / édition depuis le registre client. */
+  projectId: string | null;
   risk: ProjectRiskApi | null;
   isPending: boolean;
   onSave: (payload: CreateProjectRiskPayload) => Promise<void>;
@@ -321,6 +332,10 @@ export type ProjectRiskEbiosDialogProps = {
   canDelete?: boolean;
   onDelete?: () => Promise<void>;
   isDeleting?: boolean;
+  /** `client` : `GET/PATCH /api/risks` ; `project` : routes imbriquées projet. */
+  riskApiScope?: 'project' | 'client';
+  /** Liste pour le sélecteur « Projet (facultatif) » — registre transverse. */
+  projectOptions?: ProjectListItem[];
 };
 
 export function ProjectRiskEbiosDialog({
@@ -334,27 +349,35 @@ export function ProjectRiskEbiosDialog({
   canDelete = false,
   onDelete,
   isDeleting = false,
+  riskApiScope = 'project',
+  projectOptions = [],
 }: ProjectRiskEbiosDialogProps) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
 
   const assignableQuery = useQuery({
-    queryKey: ['projects', 'assignable-users', projectId],
+    queryKey: ['projects', 'assignable-users', clientId],
     queryFn: () => listAssignableUsers(authFetch),
-    enabled: open && Boolean(projectId),
+    enabled: open && Boolean(clientId),
   });
 
   /** Détail complet : évite un formulaire vide si la liste ou un 1er rendu n’expose pas tous les champs. */
   const riskDetailQuery = useQuery({
-    queryKey: projectQueryKeys.riskDetail(clientId, projectId, risk?.id ?? ''),
-    queryFn: () => getProjectRisk(authFetch, projectId, risk!.id),
+    queryKey:
+      riskApiScope === 'client'
+        ? projectQueryKeys.clientRiskDetail(clientId, risk?.id ?? '')
+        : projectQueryKeys.riskDetail(clientId, projectId ?? '', risk?.id ?? ''),
+    queryFn: () =>
+      riskApiScope === 'client'
+        ? getClientRisk(authFetch, risk!.id)
+        : getProjectRisk(authFetch, projectId!, risk!.id),
     enabled:
       open &&
       mode === 'edit' &&
       Boolean(clientId) &&
-      Boolean(projectId) &&
-      Boolean(risk?.id),
+      Boolean(risk?.id) &&
+      (riskApiScope === 'client' || Boolean(projectId)),
   });
 
   const taxonomyQuery = useQuery({
@@ -389,6 +412,8 @@ export function ProjectRiskEbiosDialog({
   const [detectedAt, setDetectedAt] = useState('');
   const [reviewDate, setReviewDate] = useState('');
   const [ownerUserId, setOwnerUserId] = useState<string>(OWNER_NONE);
+  /** Registre client : projet facultatif (Hors projet = PROJECT_NONE). */
+  const [linkedProjectId, setLinkedProjectId] = useState<string>(PROJECT_NONE);
 
   const savedSnapshotRef = useRef<string>('');
   const loadedKeyRef = useRef<string | null>(null);
@@ -432,10 +457,12 @@ export function ProjectRiskEbiosDialog({
       setDetectedAt(toDateInputValue(r.detectedAt));
       setReviewDate(toDateInputValue(r.reviewDate));
       setOwnerUserId(r.ownerUserId ?? OWNER_NONE);
+      setLinkedProjectId(r.projectId ?? PROJECT_NONE);
       savedSnapshotRef.current = snapshotFromRisk(r);
       return;
     }
     if (mode === 'create') {
+      setLinkedProjectId(PROJECT_NONE);
       setTitle('');
       setThreatSource('');
       setDescription('');
@@ -492,7 +519,7 @@ export function ProjectRiskEbiosDialog({
     const bi = businessImpact.trim();
     if (!t || !ts || !sc || !bi || !treatmentStrategy) return null;
     if (riskTypeId === NONE) return null;
-    return {
+    const payload: CreateProjectRiskPayload = {
       title: t,
       threatSource: ts,
       description: sc,
@@ -512,7 +539,13 @@ export function ProjectRiskEbiosDialog({
       residualJustification: residualJustification.trim() || undefined,
       ownerUserId: ownerUserId === OWNER_NONE ? null : ownerUserId,
     };
+    if (riskApiScope === 'client') {
+      payload.projectId = linkedProjectId === PROJECT_NONE ? null : linkedProjectId;
+    }
+    return payload;
   }, [
+    riskApiScope,
+    linkedProjectId,
     title,
     threatSource,
     description,
@@ -638,6 +671,33 @@ export function ProjectRiskEbiosDialog({
               Les changements sont enregistrés automatiquement (dès que le formulaire est valide).
             </DialogDescription>
           </DialogHeader>
+
+          {riskApiScope === 'client' ? (
+            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/25 p-3">
+              <Label htmlFor="ebios-linked-project">Projet (facultatif)</Label>
+              <Select
+                value={linkedProjectId}
+                onValueChange={(v) => setLinkedProjectId(v && v.length > 0 ? v : PROJECT_NONE)}
+                disabled={isPending}
+              >
+                <SelectTrigger id="ebios-linked-project" className="w-full max-w-md">
+                  <SelectValue placeholder="Hors projet" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PROJECT_NONE}>Hors projet</SelectItem>
+                  {projectOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                « Hors projet » = risque transverse, non rattaché au portefeuille. Sinon choisissez un
+                projet porteur.
+              </p>
+            </div>
+          ) : null}
 
           <div className="space-y-4 py-0.5">
             <EbiosSection

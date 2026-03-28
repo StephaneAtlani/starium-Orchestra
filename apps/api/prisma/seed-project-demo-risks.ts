@@ -662,4 +662,67 @@ export async function ensureDemoProjectRisks(
       ownerUserIdB,
     );
   }
+
+  await ensureDemoClientScopedRisk(
+    prisma,
+    clientId,
+    now,
+    ownerUserIdA,
+    ownerUserIdB,
+  );
+}
+
+const DEMO_CLIENT_SCOPED_RISK_TITLE = "Risque transverse démo (hors projet)";
+
+async function ensureDemoClientScopedRisk(
+  prisma: PrismaClient,
+  clientId: string,
+  now: Date,
+  ownerUserIdA: string,
+  ownerUserIdB: string,
+): Promise<void> {
+  const existing = await prisma.projectRisk.findFirst({
+    where: { clientId, projectId: null, title: DEMO_CLIENT_SCOPED_RISK_TITLE },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  const seed: DemoRiskSeed = {
+    title: DEMO_CLIENT_SCOPED_RISK_TITLE,
+    description:
+      "Risque enregistré sans rattachement projet — jeu démo registre client (`projectId` null).",
+    probability: 2,
+    impact: 2,
+    status: ProjectRiskStatus.OPEN,
+    reviewDateOffsetDays: 30,
+    owner: "a",
+  };
+  const fieldData = buildDemoRiskFieldData(seed, now, 0, ownerUserIdA, ownerUserIdB);
+  const riskTypeId = await resolveRiskTypeIdForLegacyImpact(
+    prisma,
+    clientId,
+    fieldData.impactCategory,
+  );
+
+  const existingCodes = await prisma.projectRisk.findMany({
+    where: { clientId, projectId: null },
+    select: { code: true },
+  });
+  let maxN = 0;
+  for (const r of existingCodes) {
+    const m = /^R-(\d+)$/.exec(r.code);
+    if (m) maxN = Math.max(maxN, parseInt(m[1]!, 10));
+  }
+  const code = `R-${String(maxN + 1).padStart(3, "0")}`;
+
+  await prisma.projectRisk.create({
+    data: {
+      clientId,
+      projectId: null,
+      code,
+      title: seed.title,
+      ...fieldData,
+      riskTypeId,
+    },
+  });
 }

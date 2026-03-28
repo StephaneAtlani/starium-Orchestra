@@ -1,23 +1,18 @@
 'use client';
 
 /**
- * MVP : agrégation client (GET projets paginé + GET risques par projet).
- * Si volumétrie ou perf insuffisante : endpoint agrégé serveur (filtres + pagination + enrichissement).
+ * Registre client : `GET /api/risks` + méta-projets pour filtres (libellés).
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { listAssignableUsers, listRisks } from '../../api/projects.api';
+import { listAssignableUsers, listClientRisks } from '../../api/projects.api';
 import { projectQueryKeys } from '../../lib/project-query-keys';
 import type { ProjectListItem, ProjectRiskApi } from '../../types/project.types';
 import { fetchAllProjectsForRegistry } from '../lib/fetch-projects-registry-meta';
 import { buildOwnerIdToDisplayMap } from '../lib/owner-display';
-import { poolMap } from '../lib/promise-pool';
 import { sortRisksRegistryDefault } from '../lib/risks-registry-sort';
-
-/** Concurrence max appels `listRisks` simultanés (borne MVP ~100 projets). */
-const RISKS_FETCH_CONCURRENCY = 6;
 
 export type ProjectRiskRegistryRow = ProjectRiskApi & {
   projectName: string;
@@ -29,22 +24,26 @@ export type ProjectRisksRegistryData = {
   projectItems: ProjectListItem[];
 };
 
-async function aggregateRisksForProjects(
-  authFetch: Parameters<typeof listRisks>[0],
+function projectDisplayName(
+  r: ProjectRiskApi,
+  projectMap: Map<string, string>,
+): string {
+  if (r.projectId == null) return 'Hors projet';
+  return r.project?.name ?? projectMap.get(r.projectId) ?? 'Projet inconnu';
+}
+
+async function buildRegistryData(
+  authFetch: Parameters<typeof listClientRisks>[0],
   projectItems: ProjectListItem[],
 ): Promise<ProjectRisksRegistryData> {
   const projectMap = new Map(projectItems.map((p) => [p.id, p.name]));
   const { users } = await listAssignableUsers(authFetch);
   const ownerMap = buildOwnerIdToDisplayMap(users);
 
-  const projectIds = projectItems.map((p) => p.id);
-  const riskLists = await poolMap(projectIds, RISKS_FETCH_CONCURRENCY, (projectId) =>
-    listRisks(authFetch, projectId),
-  );
-  const risks = riskLists.flat();
+  const risks = await listClientRisks(authFetch);
 
   const rows: ProjectRiskRegistryRow[] = risks.map((r) => {
-    const projectName = projectMap.get(r.projectId) ?? 'Projet inconnu';
+    const projectName = projectDisplayName(r, projectMap);
     const ownerDisplayLabel = !r.ownerUserId
       ? 'Non assigné'
       : ownerMap.get(r.ownerUserId) ?? 'Utilisateur inconnu';
@@ -72,10 +71,10 @@ export function useProjectRisksRegistryQuery() {
 
   const aggregateQuery = useQuery({
     queryKey: [
-      ...projectQueryKeys.risksRegistry(clientId),
+      projectQueryKeys.clientRisks(clientId),
       projectsQuery.data?.map((p) => p.id).join('|') ?? '',
     ],
-    queryFn: () => aggregateRisksForProjects(authFetch, projectsQuery.data!),
+    queryFn: () => buildRegistryData(authFetch, projectsQuery.data!),
     enabled: projectsQuery.isSuccess && !!clientId,
     staleTime: 30_000,
   });

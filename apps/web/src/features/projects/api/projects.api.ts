@@ -357,6 +357,8 @@ export async function getRiskTaxonomyCatalog(
 }
 
 export type CreateProjectRiskPayload = {
+  /** Rattachement — `POST/PATCH /api/risks` ; `null` = hors projet. */
+  projectId?: string | null;
   title: string;
   description: string;
   code?: string;
@@ -381,7 +383,58 @@ export type CreateProjectRiskPayload = {
   residualJustification?: string | null;
 };
 
-export type UpdateProjectRiskPayload = Partial<CreateProjectRiskPayload>;
+export type UpdateProjectRiskPayload = Partial<CreateProjectRiskPayload> & {
+  /** `PATCH /api/risks/:id` — détacher avec `null`. */
+  projectId?: string | null;
+};
+
+const RISKS_CLIENT_BASE = '/api/risks';
+
+export async function listClientRisks(authFetch: AuthFetch): Promise<ProjectRiskApi[]> {
+  const res = await authFetch(RISKS_CLIENT_BASE);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi[]>;
+}
+
+export async function createClientRisk(
+  authFetch: AuthFetch,
+  body: CreateProjectRiskPayload,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(RISKS_CLIENT_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function getClientRisk(authFetch: AuthFetch, riskId: string): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${RISKS_CLIENT_BASE}/${riskId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function updateClientRisk(
+  authFetch: AuthFetch,
+  riskId: string,
+  body: UpdateProjectRiskPayload,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${RISKS_CLIENT_BASE}/${riskId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function deleteClientRisk(authFetch: AuthFetch, riskId: string): Promise<void> {
+  const res = await authFetch(`${RISKS_CLIENT_BASE}/${riskId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+}
 
 export async function createProjectRisk(
   authFetch: AuthFetch,

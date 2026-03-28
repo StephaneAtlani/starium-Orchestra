@@ -28,11 +28,17 @@ export const projectQueryKeys = {
   /** Agrégation client — liste transverse /risks (MVP). Invalider après mutation risque sur un projet. */
   risksRegistry: (clientId: string) =>
     [...projectQueryKeys.all, 'risks-registry', clientId] as const,
-  /** Phase 1 seule (méta projets paginés) — optionnel pour debug / futur split. */
+  /** `GET /api/risks` — registre client-scoped. */
+  clientRisks: (clientId: string) =>
+    [...projectQueryKeys.all, 'client-risks', clientId] as const,
+  /** Phase 1 seule (méta projets paginés) — filtres / libellés projet. */
   risksRegistryProjects: (clientId: string) =>
     [...projectQueryKeys.all, 'risks-registry', 'projects', clientId] as const,
   riskDetail: (clientId: string, projectId: string, riskId: string) =>
     [...projectQueryKeys.all, 'risk-detail', clientId, projectId, riskId] as const,
+  /** Détail via `GET /api/risks/:riskId` (registre transverse). */
+  clientRiskDetail: (clientId: string, riskId: string) =>
+    [...projectQueryKeys.all, 'client-risk-detail', clientId, riskId] as const,
   milestones: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'milestones', clientId, projectId] as const,
   milestoneLabels: (clientId: string, projectId: string) =>

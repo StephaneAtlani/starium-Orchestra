@@ -9,6 +9,7 @@ import {
   PROJECT_AUDIT_ACTION,
   PROJECT_AUDIT_RESOURCE_TYPE,
 } from './project-audit.constants';
+import { ClientScopedRisksService } from './client-scoped-risks.service';
 import { ProjectRisksService } from './project-risks.service';
 import { ProjectsService } from './projects.service';
 import { RiskTaxonomyService } from '../risk-taxonomy/risk-taxonomy.service';
@@ -64,6 +65,7 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
   beforeEach(() => {
     prisma = {
       projectRisk: {
+        findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -78,12 +80,13 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
     riskTaxonomy = {
       assertUsableRiskTypeForWrite: jest.fn().mockResolvedValue(undefined),
     };
-    service = new ProjectRisksService(
+    const clientScoped = new ClientScopedRisksService(
       prisma,
       auditLogs as unknown as AuditLogsService,
       projects as unknown as ProjectsService,
       riskTaxonomy as unknown as RiskTaxonomyService,
     );
+    service = new ProjectRisksService(clientScoped);
   });
 
   it('update standard : uniquement project_risk.updated', async () => {

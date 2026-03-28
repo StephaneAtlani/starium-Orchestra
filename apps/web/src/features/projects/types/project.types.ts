@@ -234,7 +234,9 @@ export type ProjectRiskTypeApi = {
 export type ProjectRiskApi = {
   id: string;
   clientId: string;
-  projectId: string;
+  projectId: string | null;
+  /** Présent quand le risque est rattaché à un projet (réponse API enrichie). */
+  project?: { id: string; name: string; code: string } | null;
   code: string;
   title: string;
   description: string | null;

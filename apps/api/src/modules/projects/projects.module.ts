@@ -9,8 +9,10 @@ import { ProjectMilestonesController } from './project-milestones.controller';
 import { ProjectMilestonesService } from './project-milestones.service';
 import { ProjectPortfolioCategoriesController } from './project-portfolio-categories.controller';
 import { ProjectPortfolioCategoriesService } from './project-portfolio-categories.service';
+import { ClientScopedRisksService } from './client-scoped-risks.service';
 import { ProjectRisksController } from './project-risks.controller';
 import { ProjectRisksService } from './project-risks.service';
+import { RisksController } from './risks.controller';
 import { ProjectSheetDecisionSnapshotsController } from './project-sheet/project-sheet-decision-snapshots.controller';
 import { ProjectSheetDecisionSnapshotsService } from './project-sheet/project-sheet-decision-snapshots.service';
 import { ProjectSheetController } from './project-sheet/project-sheet.controller';
@@ -52,6 +54,7 @@ import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
     ProjectTasksController,
     ProjectActivitiesController,
     ProjectGanttController,
+    RisksController,
     ProjectRisksController,
     ProjectMilestonesController,
     ProjectMilestoneLabelsController,
@@ -71,6 +74,7 @@ import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
     ProjectTasksService,
     ProjectActivitiesService,
     ProjectGanttService,
+    ClientScopedRisksService,
     ProjectRisksService,
     ProjectMilestonesService,
     ProjectTeamService,

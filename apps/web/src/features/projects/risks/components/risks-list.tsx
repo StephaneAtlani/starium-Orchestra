@@ -29,7 +29,7 @@ import { PaginationSummary } from '@/features/budgets/components/pagination-summ
 import type { ProjectListItem, RiskTaxonomyDomainApi } from '../../types/project.types';
 import { PROJECT_RISK_CRITICALITY_LABEL, RISK_STATUS_LABEL } from '../../constants/project-enum-labels';
 import type { ProjectRiskRegistryRow } from '../hooks/use-project-risks-registry-query';
-import type { RisksRegistryFiltersState } from './risk-filters';
+import { RISKS_REGISTRY_HORS_PROJET, type RisksRegistryFiltersState } from './risk-filters';
 import type { RisksRegistrySortKey } from '../lib/risks-registry-table-sort';
 import { cn } from '@/lib/utils';
 import { RiskLevelBadge } from './risk-level-badge';
@@ -308,6 +308,7 @@ export function RisksRegistryTable({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Tous les projets</SelectItem>
+                <SelectItem value={RISKS_REGISTRY_HORS_PROJET}>Hors projet</SelectItem>
                 {projectItems.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
@@ -438,7 +439,7 @@ export function RisksRegistryTable({
       </TableHeader>
       <TableBody>
         {pageRows.map((r) => (
-          <TableRow key={`${r.projectId}-${r.id}`}>
+          <TableRow key={r.id}>
             <TableCell className="max-w-[min(100%,280px)] font-medium">
               {canEdit && onEditRisk ? (
                 <button

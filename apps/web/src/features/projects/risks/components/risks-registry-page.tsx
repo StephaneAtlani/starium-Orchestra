@@ -21,6 +21,7 @@ import {
 import { usePermissions } from '@/hooks/use-permissions';
 import {
   defaultRisksRegistryFilters,
+  RISKS_REGISTRY_HORS_PROJET,
   type RisksRegistryFiltersState,
 } from './risk-filters';
 import {
@@ -36,13 +37,13 @@ import {
 } from '../lib/risks-registry-table-sort';
 import { RisksRegistryKpi } from './risks-registry-kpi';
 import { useProjectRisksRegistryQuery, type ProjectRiskRegistryRow } from '../hooks/use-project-risks-registry-query';
-import { NewRiskRedirectDialog } from './new-risk-redirect-dialog';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
-  deleteProjectRisk,
+  createClientRisk,
+  deleteClientRisk,
   getRiskTaxonomyCatalog,
-  updateProjectRisk,
+  updateClientRisk,
   type CreateProjectRiskPayload,
 } from '../../api/projects.api';
 import { projectQueryKeys } from '../../lib/project-query-keys';
@@ -54,7 +55,9 @@ const ALL = 'all' as const;
 function applyFilters(rows: ProjectRiskRegistryRow[], f: RisksRegistryFiltersState): ProjectRiskRegistryRow[] {
   const q = f.search.trim().toLowerCase();
   return rows.filter((r) => {
-    if (f.projectId !== ALL && r.projectId !== f.projectId) return false;
+    if (f.projectId === RISKS_REGISTRY_HORS_PROJET && r.projectId != null) return false;
+    if (f.projectId !== ALL && f.projectId !== RISKS_REGISTRY_HORS_PROJET && r.projectId !== f.projectId)
+      return false;
     if (f.status !== ALL && r.status !== f.status) return false;
     if (f.criticality !== ALL && r.criticalityLevel !== f.criticality) return false;
     if (f.ownerUserId !== ALL) {
@@ -114,55 +117,63 @@ export function RisksRegistryPage() {
     order: 'asc',
   });
   const [page, setPage] = useState(1);
-  const [newRiskOpen, setNewRiskOpen] = useState(false);
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [riskDialogMode, setRiskDialogMode] = useState<'create' | 'edit'>('edit');
   const [editingRisk, setEditingRisk] = useState<ProjectRiskApi | null>(null);
 
   const registry = useProjectRisksRegistryQuery();
 
-  const invalidateAfterRiskChange = (projectId: string) => {
+  const invalidateAfterRiskChange = (data?: ProjectRiskApi) => {
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.risksRegistry(clientId) });
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.clientRisks(clientId) });
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.risksRegistryProjects(clientId) });
+    if (data?.projectId) {
+      void queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.risks(clientId, data.projectId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.detail(clientId, data.projectId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [...projectQueryKeys.all, 'risk-detail', clientId, data.projectId],
+      });
+    }
     void queryClient.invalidateQueries({
-      queryKey: projectQueryKeys.risksRegistry(clientId),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: projectQueryKeys.risks(clientId, projectId),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: projectQueryKeys.detail(clientId, projectId),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: [...projectQueryKeys.all, 'risk-detail', clientId, projectId],
+      queryKey: [...projectQueryKeys.all, 'client-risk-detail', clientId],
     });
   };
+
+  const createMutation = useMutation({
+    mutationFn: (payload: CreateProjectRiskPayload) => createClientRisk(authFetch, payload),
+    onSuccess: (data) => {
+      toast.success('Risque créé');
+      setEditingRisk(data);
+      setRiskDialogMode('edit');
+      invalidateAfterRiskChange(data);
+    },
+    onError: (e: Error) => toast.error(e.message || 'Création impossible'),
+  });
 
   const updateMutation = useMutation({
     mutationFn: ({
       riskId,
-      projectId,
       payload,
     }: {
       riskId: string;
-      projectId: string;
       payload: CreateProjectRiskPayload;
-    }) => updateProjectRisk(authFetch, projectId, riskId, payload),
+    }) => updateClientRisk(authFetch, riskId, payload),
     onSuccess: (data) => {
       setEditingRisk(data);
-      invalidateAfterRiskChange(data.projectId);
+      invalidateAfterRiskChange(data);
     },
     onError: (e: Error) => toast.error(e.message || 'Enregistrement impossible'),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: ({
-      projectId,
-      riskId,
-    }: {
-      projectId: string;
-      riskId: string;
-    }) => deleteProjectRisk(authFetch, projectId, riskId),
-    onSuccess: (_, { projectId }) => {
+    mutationFn: ({ riskId }: { riskId: string }) => deleteClientRisk(authFetch, riskId),
+    onSuccess: () => {
       toast.success('Risque supprimé');
-      invalidateAfterRiskChange(projectId);
+      invalidateAfterRiskChange();
       setRiskDialogOpen(false);
       setEditingRisk(null);
     },
@@ -170,28 +181,34 @@ export function RisksRegistryPage() {
   });
 
   const openEditRisk = (row: ProjectRiskRegistryRow) => {
+    setRiskDialogMode('edit');
     setEditingRisk(row);
     setRiskDialogOpen(true);
   };
 
+  const openCreateRisk = () => {
+    setRiskDialogMode('create');
+    setEditingRisk(null);
+    setRiskDialogOpen(true);
+  };
+
   const handleDialogSave = async (payload: CreateProjectRiskPayload) => {
-    if (!editingRisk) return;
-    await updateMutation.mutateAsync({
-      riskId: editingRisk.id,
-      projectId: editingRisk.projectId,
-      payload,
-    });
+    if (riskDialogMode === 'create') {
+      await createMutation.mutateAsync(payload);
+      return;
+    }
+    if (editingRisk) {
+      await updateMutation.mutateAsync({ riskId: editingRisk.id, payload });
+    }
   };
 
   const handleDeleteRisk = async () => {
     if (!editingRisk) return;
-    await deleteMutation.mutateAsync({
-      projectId: editingRisk.projectId,
-      riskId: editingRisk.id,
-    });
+    await deleteMutation.mutateAsync({ riskId: editingRisk.id });
   };
 
-  const dialogPending = updateMutation.isPending || deleteMutation.isPending;
+  const dialogPending =
+    createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   const ownerOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -291,7 +308,7 @@ export function RisksRegistryPage() {
                 <Button
                   type="button"
                   size="sm"
-                  onClick={() => setNewRiskOpen(true)}
+                  onClick={openCreateRisk}
                   disabled={!listEnabled}
                 >
                   <Plus className="mr-1.5 h-4 w-4" />
@@ -385,10 +402,10 @@ export function RisksRegistryPage() {
                 <CardContent className="py-10">
                   <EmptyState
                     title="Aucun risque enregistré"
-                    description="Aucun risque ne figure encore dans votre registre. Vérifiez vos droits d’accès ou créez un risque depuis un projet du portefeuille."
+                    description="Aucun risque ne figure encore dans votre registre. Créez une fiche ou vérifiez vos droits d’accès."
                     action={
                       canEdit ? (
-                        <Button type="button" size="sm" onClick={() => setNewRiskOpen(true)}>
+                        <Button type="button" size="sm" onClick={openCreateRisk}>
                           <Plus className="mr-1.5 h-4 w-4" />
                           Nouveau risque
                         </Button>
@@ -450,26 +467,22 @@ export function RisksRegistryPage() {
           </>
         )}
 
-        <NewRiskRedirectDialog
-          open={newRiskOpen}
-          onOpenChange={setNewRiskOpen}
-          projectItems={registry.projectItems ?? []}
-        />
-
         <ProjectRiskEbiosDialog
           open={riskDialogOpen}
           onOpenChange={(o) => {
             setRiskDialogOpen(o);
             if (!o) setEditingRisk(null);
           }}
-          mode="edit"
-          projectId={editingRisk?.projectId ?? ''}
-          risk={editingRisk}
+          mode={riskDialogMode}
+          projectId={editingRisk?.projectId ?? null}
+          risk={riskDialogMode === 'edit' ? editingRisk : null}
           isPending={dialogPending}
           onSave={handleDialogSave}
           canDelete={canEdit}
           onDelete={canEdit ? handleDeleteRisk : undefined}
           isDeleting={deleteMutation.isPending}
+          riskApiScope="client"
+          projectOptions={registry.projectItems ?? []}
         />
       </PageContainer>
     </RequireActiveClient>
