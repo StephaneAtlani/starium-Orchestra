@@ -264,6 +264,94 @@ Implémentation : `features/projects/components/projects-list-table.tsx`.
 - **Tooltips** : `TooltipProvider` (délai ~250 ms) ; en-têtes via **`HeaderTip`** (libellés avec soulignement pointillé + `cursor-help`) ; cellules **Nature**, **Avancement** et **T · R · J** via **`CellTip`** (Base UI : `TooltipTrigger` avec `render={<span … />}` comme ailleurs dans l’app).
 - **Couleurs des chiffres** (KPI au-dessus de la liste, §6.1) : voir tonalités `text-primary`, `emerald`, `yellow`, `destructive` — documentées dans §6.1.
 
+### 8.2 Fiche détail, fiche décisionnelle, éditeur de point — signaux et alertes
+
+**Comportement actuel (code)** : sur le détail projet (`project-detail-view.tsx`), la fiche décisionnelle (`project-sheet-view.tsx`) et, pour partie, le dialogue d’édition de point (`project-review-editor-dialog.tsx`), le bandeau supérieur combine :
+
+- **`HealthBadge`** sur `computedHealth` (synthèse globale) ;
+- un bloc **« Signaux portefeuille »** via **`ProjectPortfolioBadges`** (`signals` uniquement) ;
+- si **`warnings`** est non vide : un **`Alert`** « Alertes projet » avec les libellés métier (`WARNING_CODE_LABEL`).
+
+Les données viennent toutes du **même** `GET /api/projects/:id` (ou équivalent liste) : `computedHealth`, `signals`, `warnings` — pas de second appel dédié.
+
+**Règle produit (alignement avec §8.1)** : comme pour la liste, il faut **éviter la duplication** entre pastilles de signaux et bandeau d’alertes lorsque le même motif apparaît sous deux formes. **`HealthBadge`** reste la réponse courte à « quel est l’état global ? » ; les motifs détaillés doivent idéalement former **un seul bloc de lecture** (causes / vigilances), **sans** répéter inutilement le verdict déjà porté par la santé ni empiler `Alert` + chips pour les mêmes codes. Toute refonte d’affichage reste **côté front** sur les champs existants (pas de nouveau contrat API pour ce seul besoin).
+
+### 8.3 Référence — règles de santé, signaux et alertes (backend)
+
+**Source de vérité code** : `apps/api/src/modules/projects/projects-pilotage.service.ts` ; **pastilles** « Signaux portefeuille » : `apps/web/src/features/projects/components/project-badges.tsx` (`ProjectPortfolioBadges`, `HealthBadge`). Les **warnings** utilisent `apps/web/src/features/projects/constants/project-enum-labels.ts` (`WARNING_CODE_LABEL`).
+
+**Statuts utiles**
+
+- **Projet actif (pilotage)** : `PLANNED`, `IN_PROGRESS`, `ON_HOLD` (`ACTIVE_PROJECT_STATUSES`).
+- **Non terminal** (retard / échéance encore pertinentes) : tout statut **sauf** `COMPLETED`, `CANCELLED`, `ARCHIVED` (`isNonTerminalForLate`).
+- **Risque « criticité pilotage HIGH »** : niveau EBIOS `CRITICAL` ou `HIGH` agrégé en bucket HIGH (`riskCriticalityForRisk`).
+
+---
+
+#### `computedHealth` (santé — `HealthBadge`)
+
+Ordre d’évaluation : **RED** dès qu’une condition RED est vraie ; sinon **ORANGE** si une condition ORANGE ; sinon **GREEN**.
+
+| Niveau | Condition (première qui s’applique dans le service) |
+| ------ | ----------------------------------------------------- |
+| **RED** | Statut projet `ON_HOLD` |
+| **RED** | `targetEndDate` strictement **avant** le jour courant (UTC) **et** statut non terminal |
+| **RED** | Au moins un risque `OPEN` avec criticité pilotage HIGH |
+| **RED** | Au moins un jalon `DELAYED` |
+| **ORANGE** | (aucun RED) Échéance `targetEndDate` dans les **14 prochains jours** (inclus) et statut non terminal |
+| **ORANGE** | (aucun RED) Au moins un risque `OPEN` avec criticité pilotage MEDIUM |
+| **ORANGE** | (aucun RED) Statut actif **et** aucun jalon enregistré |
+| **ORANGE** | (aucun RED) Écart **supérieur à 30** points entre `progressPercent` manuel et `derivedProgressPercent` (moyenne des tâches non annulées) lorsque les deux existent |
+| **GREEN** | Sinon |
+
+---
+
+#### `signals` (objet renvoyé par l’API — champs booléens)
+
+| Champ | Règle métier |
+| ----- | ------------ |
+| `isLate` | `targetEndDate` dépassée (jour courant UTC) **et** statut non terminal. |
+| `isBlocked` | **`ON_HOLD`** **ou** (statut non terminal **et** au moins un risque `OPEN` en criticité pilotage HIGH). **Pas** de blocage « risque » si statut `COMPLETED`, `CANCELLED`, `ARCHIVED` (risques non soldés ne déclenchent pas `isBlocked`). |
+| `isCritical` | `project.criticality === HIGH` **ou** `computedHealth === RED` (donc souvent redondant avec la pastille santé « critique » si la cause est déjà la santé). |
+| `hasNoOwner` | Pas de `ownerUserId` **et** pas de `ownerFreeLabel` renseigné (trim). |
+| `hasNoTasks` | Statut **actif** **et** aucune tâche. |
+| `hasNoRisks` | Statut **actif** **et** aucun risque. |
+| `hasNoMilestones` | Statut **actif** **et** aucun jalon. |
+| `hasPlanningDrift` | Au moins un jalon `DELAYED` **ou** `isLate` vrai. |
+
+---
+
+#### `warnings` (codes — alerte ambre « Alertes projet »)
+
+Construits à partir des signaux : ordre stable dans le service.
+
+| Code | Émis si |
+| ---- | ------- |
+| `NO_OWNER` | `hasNoOwner` |
+| `NO_TASKS` | `hasNoTasks` |
+| `NO_RISKS` | `hasNoRisks` |
+| `NO_MILESTONES` | `hasNoMilestones` |
+| `PLANNING_DRIFT` | `hasPlanningDrift` |
+| `BLOCKED` | `isBlocked` |
+
+Libellés affichés : `WARNING_CODE_LABEL` (ex. `Dérive planning` pour `PLANNING_DRIFT`, `Bloqué` pour `BLOCKED`).
+
+---
+
+#### Affichage UI — pastilles « Signaux portefeuille » (`ProjectPortfolioBadges`)
+
+Seuls **six** motifs sont exposés en chips ; le reste des signaux n’apparaît **que** via **`warnings`** / alerte (et la santé via `HealthBadge`).
+
+| Pastille UI | Champ `signals` | Style |
+| ----------- | ----------------- | ----- |
+| En retard | `isLate` | danger |
+| Bloqué | `isBlocked` | danger |
+| Critique | `isCritical` | danger |
+| Sans étude de risque | `hasNoRisks` | warn |
+| Sans responsable | `hasNoOwner` | warn |
+
+**Non affichés en chip** (mais peuvent apparaître dans l’`Alert` warnings) : `hasNoTasks`, `hasNoMilestones`, `hasPlanningDrift` (codes `NO_TASKS`, `NO_MILESTONES`, `PLANNING_DRIFT`).
+
 ---
 
 ## 9. Alertes erreur / avertissement

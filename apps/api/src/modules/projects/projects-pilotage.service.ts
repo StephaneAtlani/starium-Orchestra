@@ -101,8 +101,14 @@ export class ProjectsPilotageService {
     return milestones.some((m) => m.status === 'DELAYED');
   }
 
+  /**
+   * Bloqué = pause explicite (ON_HOLD) ou risque majeur ouvert sur projet encore piloté.
+   * Projets terminaux (COMPLETED / CANCELLED / ARCHIVED) : pas de signal « bloqué » via risques
+   * (risques non soldés en base ne doivent pas alerter comme blocage opérationnel).
+   */
   isBlocked(project: Project, risks: ProjectRisk[]): boolean {
     if (project.status === 'ON_HOLD') return true;
+    if (!isNonTerminalForLate(project.status)) return false;
     return risks.some(
       (r) =>
         r.status === 'OPEN' && riskCriticalityForRisk(r) === 'HIGH',

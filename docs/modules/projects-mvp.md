@@ -80,9 +80,11 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 ## 4. Règles cockpit (résumé)
 
-- **Signaux** (`signals`) : `isLate`, `isBlocked`, `hasNoOwner`, `hasNoTasks`, `hasNoRisks`, `hasNoMilestones`, `hasPlanningDrift`, `isCritical` — calculés backend.
+- **Signaux** (`signals`), **santé** (`computedHealth`), **warnings** : calculés dans `projects-pilotage.service.ts` ; exposition liste / détail via les mêmes champs.
 - **Statuts « actifs »** pour plusieurs signaux (ex. absence de tâches / jalons / risques) : `PLANNED`, `IN_PROGRESS`, `ON_HOLD` (aligné sur la RFC plan « projet actif »).
+- **`isBlocked` / `BLOCKED`** : `ON_HOLD` ⇒ bloqué ; risque ouvert à criticité pilotage HIGH ⇒ bloqué **uniquement** si le projet n’est pas en statut terminal (`COMPLETED`, `CANCELLED`, `ARCHIVED`) — sinon pas d’alerte « bloqué » opérationnelle même si des risques restent ouverts en base.
 - **Warnings** : codes `NO_OWNER`, `NO_TASKS`, `NO_RISKS`, `NO_MILESTONES`, `PLANNING_DRIFT`, `BLOCKED`.
+- **Détail des règles** (santé RED/ORANGE/GREEN, chaque booléen `signals`, correspondance pastilles vs alertes) : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8.3.
 
 ---
 
@@ -93,6 +95,7 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 - **Navigation** : `apps/web/src/config/navigation.ts` — entrée **Projets** en sous-menu (survol, même principe que Budgets) : **Portefeuille projet** → `/projects`, **Option** → `/projects/options` ; implémentation `apps/web/src/components/shell/sidebar.tsx`. `moduleCode: 'projects'`, `requiredPermissions: ['projects.read']`
 - **Sécurité UI** : `RequireActiveClient`, `PermissionGate`, données via `authFetch` + TanStack Query — **pas** de calcul cockpit de santé côté client (affichage des champs renvoyés par l’API)
 - **Cockpit liste** : filtres incluant **nature** (`kind` : projet / activité, query alignée backend) ; KPI portefeuille en **bandeaux compacts** (pas les cartes KPI génériques d’autres écrans) — détail visuel : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §6–8.
+- **Signaux / alertes (détail & fiches)** : même jeu `computedHealth` + `signals` + `warnings` qu’en liste ; éviter la surcharge du header — voir [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8.2.
 - **Création** : formulaire **deux colonnes** sur grand écran ; responsable désigné soit via compte client, soit via personne nom libre (**Interne/Externe**) depuis le répertoire **`GET /api/projects/assignable-users`** (`users` + `freePersons`), pas l’endpoint admin global utilisateurs.
 
 ---
