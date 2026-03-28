@@ -79,6 +79,9 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
     void queryClient.invalidateQueries({
       queryKey: [...projectQueryKeys.all, 'risk-detail', clientId, projectId],
     });
+    void queryClient.invalidateQueries({
+      queryKey: projectQueryKeys.risksRegistry(clientId),
+    });
   };
 
   const createMutation = useMutation({
@@ -112,12 +115,7 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
     mutationFn: (riskId: string) => deleteProjectRisk(authFetch, projectId, riskId),
     onSuccess: () => {
       toast.success('Risque supprimé');
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.risks(clientId, projectId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.detail(clientId, projectId),
-      });
+      invalidateRisks();
     },
     onError: (e: Error) => toast.error(e.message || 'Suppression impossible'),
   });

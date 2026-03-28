@@ -38,3 +38,8 @@ export function projectProjectOptions(projectId: string): string {
 export function projectRisks(projectId: string): string {
   return `/projects/${projectId}/risks`;
 }
+
+/** Vue transverse — registre risques tous projets (cockpit /risks). */
+export function risksRegistry(): string {
+  return '/risks';
+}

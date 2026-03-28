@@ -80,6 +80,12 @@ export const navigation: NavigationSection[] = [
             requiredPermissions: ['projects.read'],
           },
           {
+            label: 'Risques',
+            href: '/risks',
+            scope: 'client',
+            requiredPermissions: ['projects.read'],
+          },
+          {
             label: 'Option',
             href: '/projects/options',
             scope: 'client',

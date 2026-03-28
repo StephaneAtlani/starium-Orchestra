@@ -25,6 +25,12 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'task-labels', clientId, projectId] as const,
   risks: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'risks', clientId, projectId] as const,
+  /** Agrégation client — liste transverse /risks (MVP). Invalider après mutation risque sur un projet. */
+  risksRegistry: (clientId: string) =>
+    [...projectQueryKeys.all, 'risks-registry', clientId] as const,
+  /** Phase 1 seule (méta projets paginés) — optionnel pour debug / futur split. */
+  risksRegistryProjects: (clientId: string) =>
+    [...projectQueryKeys.all, 'risks-registry', 'projects', clientId] as const,
   riskDetail: (clientId: string, projectId: string, riskId: string) =>
     [...projectQueryKeys.all, 'risk-detail', clientId, projectId, riskId] as const,
   milestones: (clientId: string, projectId: string) =>
