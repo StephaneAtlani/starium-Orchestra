@@ -1,9 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
-import {
-  ProjectRiskImpact,
-  ProjectRiskProbability,
-  ProjectRiskStatus,
-} from '@prisma/client';
+import { ProjectRiskCriticality, ProjectRiskStatus } from '@prisma/client';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import {
   PROJECT_AUDIT_ACTION,
@@ -27,14 +23,26 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
       id: riskId,
       clientId,
       projectId,
+      code: 'R-001',
       title: 'Risque',
       description: null,
-      probability: ProjectRiskProbability.LOW,
-      impact: ProjectRiskImpact.LOW,
-      actionPlan: null,
+      category: null,
+      probability: 2,
+      impact: 2,
+      criticalityScore: 4,
+      criticalityLevel: 'LOW' as ProjectRiskCriticality,
+      mitigationPlan: null,
+      contingencyPlan: null,
       ownerUserId: null,
       status: ProjectRiskStatus.OPEN,
       reviewDate: null,
+      dueDate: null,
+      detectedAt: null,
+      closedAt: null,
+      sortOrder: 0,
+      complianceRequirementId: null,
+      treatmentStrategy: null,
+      residualRiskLevel: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,
@@ -89,13 +97,17 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
 
   it('changement probability/impact seul : uniquement project_risk.level.updated', async () => {
     const existing = baseRisk({
-      probability: ProjectRiskProbability.LOW,
-      impact: ProjectRiskImpact.LOW,
+      probability: 1,
+      impact: 1,
+      criticalityScore: 1,
+      criticalityLevel: 'LOW' as ProjectRiskCriticality,
     });
     const updated = {
       ...existing,
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 5,
+      impact: 3,
+      criticalityScore: 15,
+      criticalityLevel: 'HIGH' as ProjectRiskCriticality,
     };
     prisma.projectRisk.findFirst.mockResolvedValue(existing);
     prisma.projectRisk.update.mockResolvedValue(updated);
@@ -104,10 +116,7 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
       clientId,
       projectId,
       riskId,
-      {
-        probability: ProjectRiskProbability.HIGH,
-        impact: ProjectRiskImpact.MEDIUM,
-      },
+      { probability: 5, impact: 3 },
       { actorUserId: 'u1', meta: {} },
     );
 
@@ -117,12 +126,16 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
         action: PROJECT_AUDIT_ACTION.PROJECT_RISK_LEVEL_UPDATED,
         resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_RISK,
         oldValue: {
-          probability: ProjectRiskProbability.LOW,
-          impact: ProjectRiskImpact.LOW,
+          probability: 1,
+          impact: 1,
+          criticalityScore: 1,
+          criticalityLevel: 'LOW',
         },
         newValue: {
-          probability: ProjectRiskProbability.HIGH,
-          impact: ProjectRiskImpact.MEDIUM,
+          probability: 5,
+          impact: 3,
+          criticalityScore: 15,
+          criticalityLevel: 'HIGH',
         },
       }),
     );
@@ -131,14 +144,18 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
   it('titre + niveau : project_risk.updated (sans prob/impact dupliqués) + level.updated', async () => {
     const existing = baseRisk({
       title: 'A',
-      probability: ProjectRiskProbability.LOW,
-      impact: ProjectRiskImpact.LOW,
+      probability: 1,
+      impact: 1,
+      criticalityScore: 1,
+      criticalityLevel: 'LOW' as ProjectRiskCriticality,
     });
     const updated = {
       ...existing,
       title: 'B',
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.LOW,
+      probability: 5,
+      impact: 1,
+      criticalityScore: 5,
+      criticalityLevel: 'MEDIUM' as ProjectRiskCriticality,
     };
     prisma.projectRisk.findFirst.mockResolvedValue(existing);
     prisma.projectRisk.update.mockResolvedValue(updated);
@@ -147,7 +164,7 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
       clientId,
       projectId,
       riskId,
-      { title: 'B', probability: ProjectRiskProbability.HIGH },
+      { title: 'B', probability: 5 },
       { actorUserId: 'u1', meta: {} },
     );
 
@@ -165,12 +182,16 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
       expect.objectContaining({
         action: PROJECT_AUDIT_ACTION.PROJECT_RISK_LEVEL_UPDATED,
         oldValue: {
-          probability: ProjectRiskProbability.LOW,
-          impact: ProjectRiskImpact.LOW,
+          probability: 1,
+          impact: 1,
+          criticalityScore: 1,
+          criticalityLevel: 'LOW',
         },
         newValue: {
-          probability: ProjectRiskProbability.HIGH,
-          impact: ProjectRiskImpact.LOW,
+          probability: 5,
+          impact: 1,
+          criticalityScore: 5,
+          criticalityLevel: 'MEDIUM',
         },
       }),
     );

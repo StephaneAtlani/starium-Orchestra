@@ -1488,10 +1488,10 @@ export function ProjectReviewEditorDialog({
                             {r.description ? (
                               <p className="mt-1 text-xs text-muted-foreground">{r.description}</p>
                             ) : null}
-                            {r.actionPlan ? (
+                            {r.mitigationPlan ? (
                               <p className="mt-2 border-t border-border/50 pt-2 text-xs text-foreground">
                                 <span className="font-medium">Plan d’action : </span>
-                                {r.actionPlan}
+                                {r.mitigationPlan}
                               </p>
                             ) : (
                               <p className="mt-2 text-xs font-semibold text-yellow-950 dark:text-amber-400">

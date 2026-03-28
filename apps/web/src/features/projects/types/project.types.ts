@@ -193,16 +193,39 @@ export type ProjectTaskApi = {
   createdAt?: string;
 };
 
+/** Niveau persisté côté API (RFC-PROJ-RISK-001). */
+export type ProjectRiskCriticalityLevel =
+  | 'LOW'
+  | 'MEDIUM'
+  | 'HIGH'
+  | 'CRITICAL';
+
 export type ProjectRiskApi = {
   id: string;
+  clientId: string;
+  projectId: string;
+  code: string;
   title: string;
   description: string | null;
-  probability: string;
-  impact: string;
+  category: string | null;
+  probability: number;
+  impact: number;
+  criticalityScore: number;
+  criticalityLevel: ProjectRiskCriticalityLevel;
+  mitigationPlan: string | null;
+  contingencyPlan: string | null;
+  ownerUserId: string | null;
   status: string;
   reviewDate: string | null;
-  actionPlan: string | null;
-  ownerUserId: string | null;
+  dueDate: string | null;
+  detectedAt: string | null;
+  closedAt: string | null;
+  sortOrder: number;
+  complianceRequirementId: string | null;
+  treatmentStrategy: string | null;
+  residualRiskLevel: ProjectRiskCriticalityLevel | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ProjectMilestoneApi = {

@@ -340,16 +340,29 @@ export async function updateProjectTask(
 export async function listRisks(authFetch: AuthFetch, projectId: string) {
   const res = await authFetch(`${BASE}/${projectId}/risks`);
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json() as Promise<unknown[]>;
+  return res.json() as Promise<ProjectRiskApi[]>;
 }
 
 export type CreateProjectRiskPayload = {
   title: string;
   description?: string;
-  probability: 'LOW' | 'MEDIUM' | 'HIGH';
-  impact: 'LOW' | 'MEDIUM' | 'HIGH';
+  code?: string;
+  category?: string;
+  probability: number;
+  impact: number;
+  mitigationPlan?: string;
+  contingencyPlan?: string;
+  ownerUserId?: string | null;
   status?: string;
+  reviewDate?: string | null;
+  dueDate?: string | null;
+  detectedAt?: string | null;
+  complianceRequirementId?: string | null;
+  treatmentStrategy?: string | null;
+  residualRiskLevel?: string | null;
 };
+
+export type UpdateProjectRiskPayload = Partial<CreateProjectRiskPayload>;
 
 export async function createProjectRisk(
   authFetch: AuthFetch,
@@ -360,6 +373,46 @@ export async function createProjectRisk(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function getProjectRisk(
+  authFetch: AuthFetch,
+  projectId: string,
+  riskId: string,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${BASE}/${projectId}/risks/${riskId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function updateProjectRisk(
+  authFetch: AuthFetch,
+  projectId: string,
+  riskId: string,
+  body: UpdateProjectRiskPayload,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${BASE}/${projectId}/risks/${riskId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function updateProjectRiskStatus(
+  authFetch: AuthFetch,
+  projectId: string,
+  riskId: string,
+  status: string,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${BASE}/${projectId}/risks/${riskId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectRiskApi>;

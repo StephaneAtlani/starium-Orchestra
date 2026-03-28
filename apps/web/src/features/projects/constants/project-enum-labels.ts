@@ -62,9 +62,9 @@ export const TASK_STATUS_LABEL: Record<string, string> = {
 
 export const RISK_STATUS_LABEL: Record<string, string> = {
   OPEN: 'Ouvert',
+  MONITORED: 'Sous surveillance',
   MITIGATED: 'Atténué',
   CLOSED: 'Clôturé',
-  ACCEPTED: 'Accepté',
 };
 
 export const MILESTONE_STATUS_LABEL: Record<string, string> = {

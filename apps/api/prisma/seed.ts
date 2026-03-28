@@ -31,6 +31,7 @@ import * as bcrypt from "bcrypt";
 import { DEMO_PROJECT_SHEETS, type DemoProjectSheet } from "./seed-project-demo-sheets";
 import { ensureDemoProjectReviews } from "./seed-project-demo-reviews";
 import { ensureDemoProjectRisks } from "./seed-project-demo-risks";
+import { ensureDemoCompliance } from "./seed-compliance-demo";
 import { ensureDemoProjectTaskBuckets } from "./seed-project-demo-buckets";
 import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
 import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
@@ -904,6 +905,31 @@ async function upsertClient(seed: ClientSeed) {
  * Sans lignes ClientModule ENABLED, getPermissionCodes filtre toutes les permissions
  * (UserRole + rôles GLOBAL inclus) → navigation vide malgré des rôles assignés.
  */
+/** Module RBAC + permissions `compliance.read` / `compliance.update` (idempotent). */
+async function ensureComplianceModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "compliance" },
+    create: {
+      code: "compliance",
+      name: "Conformité",
+      description: "Référentiels, exigences, preuves et pilotage audit",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "compliance.read", label: "Conformité — lecture" },
+    { code: "compliance.update", label: "Conformité — modification" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label },
+    });
+  }
+}
+
 async function ensureEnabledClientModules(clientId: string): Promise<void> {
   const modules = await prisma.module.findMany({
     where: { isActive: true },
@@ -1675,6 +1701,7 @@ async function seedClientDemoProjects(
     ...DEMO_PROJECT_SHEETS[9],
   });
   await ensureDemoProjectRisks(prisma, clientId, prefix, now, a, b);
+  await ensureDemoCompliance(prisma, clientId);
   await ensureDemoProjectTasks(prisma, clientId, prefix, now, a, b);
   await ensureDemoRetroplanMilestones(clientId, prefix, now, a);
   await syncDemoProjectMilestonePhases(clientId, prefix);
@@ -2136,6 +2163,8 @@ async function seedClient(seed: ClientSeed, passwordHash: string) {
 
 async function main() {
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
+
+  await ensureComplianceModuleAndPermissions();
 
   for (const clientSeed of CLIENTS) {
     await seedClient(clientSeed, passwordHash);

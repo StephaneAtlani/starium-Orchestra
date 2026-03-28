@@ -1,11 +1,26 @@
-import { IsDateString, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
 import {
-  ProjectRiskImpact,
-  ProjectRiskProbability,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
+import {
+  ProjectRiskCriticality,
   ProjectRiskStatus,
+  ProjectRiskTreatmentStrategy,
 } from '@prisma/client';
 
 export class UpdateProjectRiskDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  code?: string;
+
   @IsOptional()
   @IsString()
   @MinLength(1)
@@ -16,16 +31,30 @@ export class UpdateProjectRiskDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(ProjectRiskProbability)
-  probability?: ProjectRiskProbability;
+  @IsString()
+  category?: string;
 
   @IsOptional()
-  @IsEnum(ProjectRiskImpact)
-  impact?: ProjectRiskImpact;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  probability?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  impact?: number;
 
   @IsOptional()
   @IsString()
-  actionPlan?: string;
+  mitigationPlan?: string;
+
+  @IsOptional()
+  @IsString()
+  contingencyPlan?: string;
 
   @IsOptional()
   @IsString()
@@ -38,4 +67,29 @@ export class UpdateProjectRiskDto {
   @IsOptional()
   @IsDateString()
   reviewDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  detectedAt?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsString()
+  complianceRequirementId?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectRiskTreatmentStrategy)
+  treatmentStrategy?: ProjectRiskTreatmentStrategy;
+
+  @IsOptional()
+  @IsEnum(ProjectRiskCriticality)
+  residualRiskLevel?: ProjectRiskCriticality;
 }

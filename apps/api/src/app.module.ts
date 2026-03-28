@@ -27,6 +27,7 @@ import { ResourcesModule } from './modules/resources/resources.module';
 import { MicrosoftModule } from './modules/microsoft/microsoft.module';
 import { CollaboratorsModule } from './modules/collaborators/collaborators.module';
 import { TeamDirectoryModule } from './modules/team-directory/team-directory.module';
+import { ComplianceModule } from './modules/compliance/compliance.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { TeamDirectoryModule } from './modules/team-directory/team-directory.mod
     MicrosoftModule,
     CollaboratorsModule,
     TeamDirectoryModule,
+    ComplianceModule,
   ],
 })
 export class AppModule {}

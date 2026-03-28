@@ -10,6 +10,7 @@ import {
   Shield,
   Users,
   FileText,
+  Scale,
   Wallet,
 } from 'lucide-react';
 
@@ -126,6 +127,15 @@ export const navigation: NavigationSection[] = [
         scope: 'client',
         moduleCode: 'resources',
         requiredPermissions: ['resources.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+      },
+      {
+        label: 'Conformité',
+        href: '/compliance/dashboard',
+        icon: Scale,
+        scope: 'client',
+        moduleCode: 'compliance',
+        requiredPermissions: ['compliance.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
     ],

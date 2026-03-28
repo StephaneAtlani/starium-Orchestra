@@ -177,14 +177,26 @@ export function projectRiskEntityAuditSnapshot(
 ): Record<string, unknown> {
   return {
     projectId: r.projectId,
+    code: r.code,
     title: r.title,
     description: r.description ?? null,
+    category: r.category ?? null,
     probability: r.probability,
     impact: r.impact,
-    actionPlan: r.actionPlan ?? null,
+    criticalityScore: r.criticalityScore,
+    criticalityLevel: r.criticalityLevel,
+    mitigationPlan: r.mitigationPlan ?? null,
+    contingencyPlan: r.contingencyPlan ?? null,
     ownerUserId: r.ownerUserId ?? null,
     status: r.status,
     reviewDate: toAuditJson(r.reviewDate),
+    dueDate: toAuditJson(r.dueDate),
+    detectedAt: toAuditJson(r.detectedAt),
+    closedAt: toAuditJson(r.closedAt),
+    sortOrder: r.sortOrder,
+    complianceRequirementId: r.complianceRequirementId ?? null,
+    treatmentStrategy: r.treatmentStrategy ?? null,
+    residualRiskLevel: r.residualRiskLevel ?? null,
   };
 }
 
@@ -192,6 +204,8 @@ export function projectRiskLevelSnapshot(r: ProjectRisk): Record<string, unknown
   return {
     probability: r.probability,
     impact: r.impact,
+    criticalityScore: r.criticalityScore,
+    criticalityLevel: r.criticalityLevel,
   };
 }
 

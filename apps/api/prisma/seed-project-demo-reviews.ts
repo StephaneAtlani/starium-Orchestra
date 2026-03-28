@@ -41,7 +41,7 @@ function demoSnapshotPayload(input: {
       open: topRisks.filter((r) => r.status === "OPEN").length,
       mitigated: 0,
       closed: 0,
-      accepted: 0,
+      monitored: 0,
       topRisks: topRisks.slice(0, 5),
     },
     milestones: [],

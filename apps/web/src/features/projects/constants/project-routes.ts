@@ -33,3 +33,8 @@ export function projectPlanning(
 export function projectProjectOptions(projectId: string): string {
   return `/projects/${projectId}/options`;
 }
+
+/** Registre des risques projet (RFC-PROJ-RISK-001). */
+export function projectRisks(projectId: string): string {
+  return `/projects/${projectId}/risks`;
+}

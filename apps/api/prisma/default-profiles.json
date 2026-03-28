@@ -2,7 +2,7 @@
   {
     "name": "Directeur",
     "description": "Visualisation budget et reporting (lecture seule)",
-    "permissionCodes": ["budgets.read", "projects.read"]
+    "permissionCodes": ["budgets.read", "projects.read", "compliance.read"]
   },
   {
     "name": "Responsable Budgets",
@@ -45,7 +45,9 @@
       "projects.read",
       "projects.create",
       "projects.update",
-      "projects.delete"
+      "projects.delete",
+      "compliance.read",
+      "compliance.update"
     ]
   },
   {

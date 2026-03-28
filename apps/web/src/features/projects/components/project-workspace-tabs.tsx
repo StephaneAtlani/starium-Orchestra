@@ -2,13 +2,21 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { CalendarRange, ClipboardList, LayoutDashboard, Layers3, Settings } from 'lucide-react';
+import {
+  CalendarRange,
+  ClipboardList,
+  LayoutDashboard,
+  Layers3,
+  ListTodo,
+  Settings,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   projectDetail,
   projectPlanning,
   projectProjectOptions,
   projectSheet,
+  projectRisks,
 } from '../constants/project-routes';
 
 function tabLinkClass(active: boolean) {
@@ -23,7 +31,7 @@ function tabLinkClass(active: boolean) {
 }
 
 const tablistClassName =
-  'grid h-11 min-w-[min(100%,22rem)] grid-cols-2 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/40 sm:min-w-0 sm:grid-cols-3 lg:grid-cols-5';
+  'grid h-11 min-w-[min(100%,22rem)] grid-cols-2 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/40 sm:min-w-0 sm:grid-cols-3 lg:grid-cols-6';
 
 /**
  * Navigation principale projet : Synthèse · Fiche projet · Planning · Points projet · Options.
@@ -34,10 +42,11 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
   const tab = searchParams.get('tab');
   const isSheet = pathname?.includes('/sheet');
+  const isRisks = pathname?.includes('/risks');
   const isPlanning = pathname?.includes('/planning');
   const isOptions = pathname?.includes('/options');
   const isPoints = tab === 'points';
-  const isSynth = !isSheet && !isPoints && !isPlanning && !isOptions;
+  const isSynth = !isSheet && !isRisks && !isPoints && !isPlanning && !isOptions;
 
   const detailHref = projectDetail(projectId);
   const pointsHref = `${detailHref}?tab=points`;
@@ -67,6 +76,15 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       >
         <Layers3 className="size-4 shrink-0 opacity-70" />
         Fiche projet
+      </Link>
+      <Link
+        href={projectRisks(projectId)}
+        role="tab"
+        aria-current={isRisks ? 'page' : undefined}
+        className={tabLinkClass(isRisks)}
+      >
+        <ListTodo className="size-4 shrink-0 opacity-70" />
+        Risques
       </Link>
       <Link
         href={planningHref}

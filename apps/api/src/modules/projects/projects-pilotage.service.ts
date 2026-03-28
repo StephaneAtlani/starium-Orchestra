@@ -5,9 +5,6 @@ import type {
   ProjectMilestone,
   ProjectMilestoneStatus,
   ProjectRisk,
-  ProjectRiskImpact,
-  ProjectRiskProbability,
-  ProjectRiskStatus,
   ProjectStatus,
   ProjectTask,
   ProjectTaskStatus,
@@ -29,38 +26,22 @@ export function isActiveProjectStatus(status: ProjectStatus): boolean {
   return ACTIVE_PROJECT_STATUSES.includes(status);
 }
 
-function scoreFromTier(t: ProjectRiskProbability | ProjectRiskImpact): number {
-  switch (t) {
-    case 'LOW':
-      return 1;
-    case 'MEDIUM':
-      return 2;
+/** Agrège les 4 niveaux persistés vers 3 buckets pilotage (signaux / santé). */
+export function riskCriticalityForRisk(r: ProjectRisk): 'LOW' | 'MEDIUM' | 'HIGH' {
+  switch (r.criticalityLevel) {
+    case 'CRITICAL':
     case 'HIGH':
-      return 3;
+      return 'HIGH';
+    case 'MEDIUM':
+      return 'MEDIUM';
     default:
-      return 1;
+      return 'LOW';
   }
 }
 
-/** riskScore = P × I, plage 1–9 */
-export function riskScore(
-  probability: ProjectRiskProbability,
-  impact: ProjectRiskImpact,
-): number {
-  return scoreFromTier(probability) * scoreFromTier(impact);
-}
-
-/** LOW 1–3, MEDIUM 4–6, HIGH 7–9 */
-export function riskCriticalityFromScore(
-  score: number,
-): 'LOW' | 'MEDIUM' | 'HIGH' {
-  if (score <= 3) return 'LOW';
-  if (score <= 6) return 'MEDIUM';
-  return 'HIGH';
-}
-
-export function riskCriticalityForRisk(r: ProjectRisk): 'LOW' | 'MEDIUM' | 'HIGH' {
-  return riskCriticalityFromScore(riskScore(r.probability, r.impact));
+/** Score brut P×I (1–25) — exposé pour reporting ; pilotage utilise `criticalityLevel`. */
+export function riskScoreFromRisk(r: ProjectRisk): number {
+  return r.criticalityScore;
 }
 
 /** RFC-PROJ-011 — moyenne des `progress` (0–100) sur les tâches non annulées */

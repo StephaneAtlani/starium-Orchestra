@@ -62,6 +62,12 @@ describe('UsersService', () => {
               delete: jest.fn(),
               count: jest.fn(),
             },
+            directoryConnection: {
+              findFirst: jest.fn().mockResolvedValue(null),
+            },
+            collaborator: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
           },
         },
         {

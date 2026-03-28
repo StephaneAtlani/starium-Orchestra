@@ -181,6 +181,9 @@ model Client {
   directoryGroupScopes          DirectoryGroupScope[]
   directorySyncJobs             DirectorySyncJob[]
   collaborators                 Collaborator[]
+  complianceFrameworks   ComplianceFramework[]
+  complianceStatuses     ComplianceStatus[]
+  complianceEvidences    ComplianceEvidence[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -536,23 +539,34 @@ enum ProjectActivityStatus {
   CANCELLED
 }
 
+/// RFC-PROJ-RISK-001 — registre des risques projet
 enum ProjectRiskStatus {
   OPEN
+  MONITORED
   MITIGATED
   CLOSED
-  ACCEPTED
 }
 
-enum ProjectRiskProbability {
+/// Criticité dérivée du score (probabilité × impact), persistée.
+enum ProjectRiskCriticality {
   LOW
   MEDIUM
   HIGH
+  CRITICAL
 }
 
-enum ProjectRiskImpact {
-  LOW
-  MEDIUM
-  HIGH
+enum ProjectRiskTreatmentStrategy {
+  AVOID
+  REDUCE
+  TRANSFER
+  ACCEPT
+}
+
+enum ComplianceAssessmentStatus {
+  COMPLIANT
+  PARTIALLY_COMPLIANT
+  NON_COMPLIANT
+  NOT_APPLICABLE
 }
 
 enum ProjectMilestoneStatus {
@@ -1292,22 +1306,110 @@ model ProjectMilestoneLabelAssignment {
   @@index([labelId])
 }
 
+/// Instance référentiel conformité par client (MVP — pas de catalogue global).
+model ComplianceFramework {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  version   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client       Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requirements ComplianceRequirement[]
+
+  @@unique([clientId, name, version])
+  @@index([clientId])
+}
+
+model ComplianceRequirement {
+  id          String   @id @default(cuid())
+  frameworkId String
+  code        String
+  title       String
+  description String?
+  category    String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  framework ComplianceFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  statuses  ComplianceStatus[]
+  evidences ComplianceEvidence[]
+  projectRisks ProjectRisk[]
+
+  @@unique([frameworkId, code])
+  @@index([frameworkId])
+}
+
+model ComplianceStatus {
+  id                   String                   @id @default(cuid())
+  clientId             String
+  requirementId        String
+  status               ComplianceAssessmentStatus
+  lastAssessmentDate   DateTime?
+  comment              String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, requirementId])
+  @@index([clientId])
+  @@index([requirementId])
+}
+
+model ComplianceEvidence {
+  id              String   @id @default(cuid())
+  clientId        String
+  requirementId   String
+  name            String
+  description     String?
+  url             String?
+  fileId          String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, requirementId])
+}
+
+/// RFC-PROJ-RISK-001 — risque projet (registre)
 model ProjectRisk {
   id        String @id @default(cuid())
   clientId  String
   projectId String
 
+  code        String
   title       String
   description String?
+  category    String?
 
-  probability ProjectRiskProbability
-  impact      ProjectRiskImpact
+  /// 1–5
+  probability Int
+  /// 1–5
+  impact      Int
+  criticalityScore   Int
+  criticalityLevel   ProjectRiskCriticality
 
-  actionPlan   String?
-  ownerUserId  String?
+  mitigationPlan    String?
+  contingencyPlan   String?
+  ownerUserId       String?
 
   status     ProjectRiskStatus
   reviewDate DateTime?
+  dueDate    DateTime?
+  detectedAt DateTime?
+  closedAt   DateTime?
+  sortOrder  Int @default(0)
+
+  complianceRequirementId String?
+  treatmentStrategy       ProjectRiskTreatmentStrategy?
+  residualRiskLevel       ProjectRiskCriticality?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1315,9 +1417,13 @@ model ProjectRisk {
   client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   owner   User?   @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  complianceRequirement ComplianceRequirement? @relation(fields: [complianceRequirementId], references: [id], onDelete: SetNull)
 
+  @@unique([projectId, code])
   @@index([clientId])
   @@index([projectId])
+  @@index([projectId, sortOrder])
+  @@index([complianceRequirementId])
 }
 
 /// RFC-PROJ-011 — jalon (sans durée)

@@ -4,8 +4,7 @@ import {
   ProjectCriticality,
   ProjectKind,
   ProjectPriority,
-  ProjectRiskImpact,
-  ProjectRiskProbability,
+  ProjectRiskCriticality,
   ProjectRiskStatus,
   ProjectStatus,
   ProjectTaskPriority,
@@ -15,7 +14,7 @@ import {
 import {
   derivedProgressPercentFromTasks,
   ProjectsPilotageService,
-  riskScore,
+  riskScoreFromRisk,
 } from './projects-pilotage.service';
 
 describe('ProjectsPilotageService', () => {
@@ -80,10 +79,13 @@ describe('ProjectsPilotageService', () => {
     svc = new ProjectsPilotageService();
   });
 
-  describe('riskScore / riskCriticality', () => {
-    it('HIGH = 7–9', () => {
-      expect(riskScore('HIGH', 'HIGH')).toBe(9);
-      expect(riskScore('MEDIUM', 'HIGH')).toBe(6);
+  describe('riskScoreFromRisk', () => {
+    it('renvoie criticalityScore persisté', () => {
+      expect(
+        riskScoreFromRisk({
+          criticalityScore: 9,
+        } as any),
+      ).toBe(9);
     });
   });
 
@@ -106,14 +108,26 @@ describe('ProjectsPilotageService', () => {
           id: 'r1',
           clientId: 'c1',
           projectId: 'p1',
+          code: 'R-001',
           title: 'R',
           description: null,
-          probability: 'HIGH' as ProjectRiskProbability,
-          impact: 'HIGH' as ProjectRiskImpact,
-          actionPlan: null,
+          category: null,
+          probability: 5,
+          impact: 5,
+          criticalityScore: 25,
+          criticalityLevel: 'CRITICAL' as ProjectRiskCriticality,
+          mitigationPlan: null,
+          contingencyPlan: null,
           ownerUserId: null,
           status: 'OPEN' as ProjectRiskStatus,
           reviewDate: null,
+          dueDate: null,
+          detectedAt: null,
+          closedAt: null,
+          sortOrder: 0,
+          complianceRequirementId: null,
+          treatmentStrategy: null,
+          residualRiskLevel: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },

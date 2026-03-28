@@ -1,7 +1,6 @@
 import {
   PrismaClient,
-  ProjectRiskImpact,
-  ProjectRiskProbability,
+  ProjectRiskCriticality,
   ProjectRiskStatus,
 } from "@prisma/client";
 
@@ -13,15 +12,16 @@ function addDaysUtc(base: Date, days: number): Date {
 
 type OwnerKey = "a" | "b" | null;
 
+/** Aligné migration RFC : LOW=2, MEDIUM=3, HIGH=4 (échelle 1–5). */
 type DemoRiskSeed = {
   title: string;
   description?: string;
-  probability: ProjectRiskProbability;
-  impact: ProjectRiskImpact;
+  probability: number;
+  impact: number;
   status: ProjectRiskStatus;
   /** Jours par rapport à `now` (seed), ou null */
   reviewDateOffsetDays?: number | null;
-  actionPlan?: string | null;
+  mitigationPlan?: string | null;
   owner?: OwnerKey;
 };
 
@@ -35,6 +35,35 @@ function resolveOwner(
   return null;
 }
 
+function criticalityFromPI(
+  probability: number,
+  impact: number,
+): { criticalityScore: number; criticalityLevel: ProjectRiskCriticality } {
+  const criticalityScore = probability * impact;
+  let criticalityLevel: ProjectRiskCriticality;
+  if (criticalityScore <= 4) criticalityLevel = "LOW";
+  else if (criticalityScore <= 9) criticalityLevel = "MEDIUM";
+  else if (criticalityScore <= 16) criticalityLevel = "HIGH";
+  else criticalityLevel = "CRITICAL";
+  return { criticalityScore, criticalityLevel };
+}
+
+async function nextRiskCodeForProject(
+  prisma: PrismaClient,
+  projectId: string,
+): Promise<string> {
+  const existing = await prisma.projectRisk.findMany({
+    where: { projectId },
+    select: { code: true },
+  });
+  let maxN = 0;
+  for (const r of existing) {
+    const m = /^R-(\d+)$/.exec(r.code);
+    if (m) maxN = Math.max(maxN, parseInt(m[1]!, 10));
+  }
+  return `R-${String(maxN + 1).padStart(3, "0")}`;
+}
+
 /**
  * Risques métier démo par projet SEED-01 … SEED-10 (titres stables → findFirst + create).
  * Répartition volontaire : au moins un risque OPEN + P×I HIGH/HIGH (criticité « HIGH » calculée) par projet pour tests UI / pilotage.
@@ -44,8 +73,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Dependance fournisseur IdP",
       description: "Single vendor sur le socle SSO ; plan B fournisseur à maintenir.",
-      probability: ProjectRiskProbability.LOW,
-      impact: ProjectRiskImpact.LOW,
+      probability: 2,
+      impact: 2,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 45,
       owner: "a",
@@ -53,8 +82,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Résistance au changement MFA",
       description: "Adoption hétérogène des équipes métiers et helpdesk.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.LOW,
+      probability: 3,
+      impact: 2,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 21,
       owner: "b",
@@ -62,19 +91,19 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Tests de charge IdP",
       description: "Campagne de perf reportée ; mitigation par pilotes ciblés.",
-      probability: ProjectRiskProbability.LOW,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 2,
+      impact: 3,
       status: ProjectRiskStatus.MITIGATED,
       reviewDateOffsetDays: -14,
-      actionPlan: "Pilotes régionaux, monitoring renforcé.",
+      mitigationPlan: "Pilotes régionaux, monitoring renforcé.",
       owner: "a",
     },
     {
       title: "Secrets applicatifs IdP — rotation retardée",
       description:
         "Jeux de secrets proches expiration ; rotation non planifiée (démo criticité max).",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 14,
       owner: "a",
@@ -84,8 +113,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Charge equipe data",
       description: "Capacité limitée sur la brique lakehouse vs feuille de route.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.LOW,
+      probability: 3,
+      impact: 2,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 30,
       owner: "b",
@@ -93,8 +122,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Qualité données source",
       description: "Écarts de qualité sur les flux entrants ; dette DQ.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 3,
+      impact: 3,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 60,
       owner: "a",
@@ -102,8 +131,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Conformité accès données",
       description: "Cartographie des droits à actualiser avant prod.",
-      probability: ProjectRiskProbability.LOW,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 2,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 90,
       owner: "b",
@@ -111,8 +140,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Indisponibilité lakehouse — zone sensible",
       description: "RTO non tenu sur brique sensible ; escalade exploitation (démo).",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 18,
       owner: "b",
@@ -122,8 +151,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Dépendance mainframe historique",
       description: "Composants legacy encore en lecture seule post cut-over.",
-      probability: ProjectRiskProbability.LOW,
-      impact: ProjectRiskImpact.LOW,
+      probability: 2,
+      impact: 2,
       status: ProjectRiskStatus.CLOSED,
       reviewDateOffsetDays: -120,
       owner: "a",
@@ -131,8 +160,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Retard migration clôture",
       description: "Glissement initial absorbé ; clôturé avec plan de stabilité.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.LOW,
+      probability: 3,
+      impact: 2,
       status: ProjectRiskStatus.CLOSED,
       reviewDateOffsetDays: -90,
       owner: "b",
@@ -141,8 +170,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
       title: "Vulnérabilité résiduelle — non clôturée post cut-over",
       description:
         "Projet terminé mais risque critique encore ouvert (cas limite tests synthèse).",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: -30,
       owner: "a",
@@ -152,8 +181,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Arbitrage budget non tranché",
       description: "Phase 2 bloquée en attente finance / métier.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 4,
+      impact: 3,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 7,
       owner: "a",
@@ -161,8 +190,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Perte de compétences fonctionnelles",
       description: "Turnover MOA ; risque de perte de mémoire métier.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 3,
+      impact: 3,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 14,
       owner: "b",
@@ -170,8 +199,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Blocage arbitrage CODIR — gel budget phase 2",
       description: "Décision attendue ; risque de standstill prolongé.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 5,
       owner: "b",
@@ -181,8 +210,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Fenetre de maintenance refusee par metier",
       description: "Créneaux durcissement non validés ; exposition prolongée.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 10,
       owner: "a",
@@ -190,8 +219,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Scope creep module finance",
       description: "Demandes hors périmètre cyber vs besoins finance.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 3,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 21,
       owner: "b",
@@ -199,18 +228,18 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Alignement SOC / SIEM",
       description: "Intégration journaux en cours de stabilisation.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 3,
+      impact: 3,
       status: ProjectRiskStatus.MITIGATED,
       reviewDateOffsetDays: -7,
-      actionPlan: "Ateliers SOC, parsing normalisé.",
+      mitigationPlan: "Ateliers SOC, parsing normalisé.",
       owner: "a",
     },
     {
       title: "Surface ransomware — segmentation incomplète",
       description: "Zones non isolées ; propagation latérale possible.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 9,
       owner: "b",
@@ -220,8 +249,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Performance tunnel sous charge",
       description: "Point de contention checkout identifié en tests.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 4,
+      impact: 3,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 5,
       owner: "b",
@@ -229,8 +258,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Dépendance prestataire front",
       description: "Livrables UI dépendants d’un intégrateur externe.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 3,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 20,
       owner: "a",
@@ -238,8 +267,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Perte transactions — pic charge checkout",
       description: "Tests de charge insuffisants ; risque rejet massif de paiements.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 4,
       owner: "b",
@@ -249,8 +278,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Coupure opérateur le jour J",
       description: "Fenêtre de bascule unique ; plan de rollback validé.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 3,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 3,
       owner: "a",
@@ -258,8 +287,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Formation support incomplète",
       description: "Matériel de formation en retard vs go-live.",
-      probability: ProjectRiskProbability.LOW,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 2,
+      impact: 3,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 12,
       owner: "b",
@@ -267,8 +296,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Bascule opérateur — rollback non validé en prod",
       description: "Plan B non rejoué sur environnement représentatif.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 2,
       owner: "a",
@@ -278,8 +307,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Dette agents sur parc serveurs",
       description: "Couverture APM incomplète sur un segment du parc.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 3,
+      impact: 3,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 15,
       owner: "b",
@@ -287,8 +316,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Alertes non corrélées",
       description: "Bruit dans les alertes ; tuning des corrélations en cours.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.LOW,
+      probability: 4,
+      impact: 2,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 7,
       owner: "a",
@@ -296,8 +325,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "SLA observabilité — non atteint sur périmètre critique",
       description: "Trou aveugle sur flux métier ; détection incident dégradée.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 11,
       owner: "b",
@@ -307,8 +336,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Délais API éditeur",
       description: "Roadmap éditeur vs besoins intégration partenaire.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 3,
+      impact: 3,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 30,
       owner: "a",
@@ -316,8 +345,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Absence RACI projet",
       description: "Responsabilité projet non rattachée au compte Starium (démo).",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.LOW,
+      probability: 3,
+      impact: 2,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: null,
       owner: null,
@@ -325,8 +354,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Pénalités éditeur — SLA intégration non tenu",
       description: "Retard roadmap API vs fenêtre projet partenaire.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 25,
       owner: "b",
@@ -336,8 +365,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Conformité usage IA interne",
       description: "Cadre juridique / RGPD pour corpus internes.",
-      probability: ProjectRiskProbability.MEDIUM,
-      impact: ProjectRiskImpact.MEDIUM,
+      probability: 3,
+      impact: 3,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 60,
       owner: "b",
@@ -345,8 +374,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Jeux de données sensibles",
       description: "Anonymisation et cloisonnement des environnements de test.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.LOW,
+      probability: 4,
+      impact: 2,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 45,
       owner: "a",
@@ -354,8 +383,8 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
     {
       title: "Fuite données sensibles — corpus IA / RGPD",
       description: "Jeux de test mal anonymisés ; exposition personnelle possible.",
-      probability: ProjectRiskProbability.HIGH,
-      impact: ProjectRiskImpact.HIGH,
+      probability: 4,
+      impact: 4,
       status: ProjectRiskStatus.OPEN,
       reviewDateOffsetDays: 40,
       owner: "b",
@@ -395,18 +424,28 @@ export async function ensureDemoProjectRisks(
           ? null
           : addDaysUtc(now, seed.reviewDateOffsetDays);
 
+      const { criticalityScore, criticalityLevel } = criticalityFromPI(
+        seed.probability,
+        seed.impact,
+      );
+      const riskCode = await nextRiskCodeForProject(prisma, project.id);
+
       await prisma.projectRisk.create({
         data: {
           clientId,
           projectId: project.id,
+          code: riskCode,
           title: seed.title,
           description: seed.description ?? null,
           probability: seed.probability,
           impact: seed.impact,
+          criticalityScore,
+          criticalityLevel,
           status: seed.status,
           reviewDate,
-          actionPlan: seed.actionPlan ?? null,
+          mitigationPlan: seed.mitigationPlan ?? null,
           ownerUserId: resolveOwner(seed.owner, ownerUserIdA, ownerUserIdB),
+          closedAt: seed.status === ProjectRiskStatus.CLOSED ? now : null,
         },
       });
     }

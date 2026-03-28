@@ -19,6 +19,7 @@ import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import { CreateProjectRiskDto } from './dto/create-project-risk.dto';
 import { UpdateProjectRiskDto } from './dto/update-project-risk.dto';
+import { UpdateProjectRiskStatusDto } from './dto/update-project-risk-status.dto';
 import { ProjectRisksService } from './project-risks.service';
 
 @Controller('projects/:projectId/risks')
@@ -35,6 +36,16 @@ export class ProjectRisksController {
     return this.risksService.list(clientId!, projectId);
   }
 
+  @Get(':riskId')
+  @RequirePermissions('projects.read')
+  getOne(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('riskId') riskId: string,
+  ) {
+    return this.risksService.getOne(clientId!, projectId, riskId);
+  }
+
   @Post()
   @RequirePermissions('projects.update')
   create(
@@ -48,30 +59,44 @@ export class ProjectRisksController {
     return this.risksService.create(clientId!, projectId, dto, context);
   }
 
-  @Patch(':id')
+  @Patch(':riskId/status')
+  @RequirePermissions('projects.update')
+  updateStatus(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('riskId') riskId: string,
+    @Body() dto: UpdateProjectRiskStatusDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.risksService.updateStatus(clientId!, projectId, riskId, dto.status, context);
+  }
+
+  @Patch(':riskId')
   @RequirePermissions('projects.update')
   update(
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('riskId') riskId: string,
     @Body() dto: UpdateProjectRiskDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.risksService.update(clientId!, projectId, id, dto, context);
+    return this.risksService.update(clientId!, projectId, riskId, dto, context);
   }
 
-  @Delete(':id')
+  @Delete(':riskId')
   @RequirePermissions('projects.update')
   remove(
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('riskId') riskId: string,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.risksService.delete(clientId!, projectId, id, context);
+    return this.risksService.delete(clientId!, projectId, riskId, context);
   }
 }

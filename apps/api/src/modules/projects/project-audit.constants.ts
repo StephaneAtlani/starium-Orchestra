@@ -47,6 +47,9 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_RISK_UPDATED: 'project_risk.updated',
   PROJECT_RISK_DELETED: 'project_risk.deleted',
   PROJECT_RISK_LEVEL_UPDATED: 'project_risk.level.updated',
+  PROJECT_RISK_STATUS_UPDATED: 'project_risk.status.updated',
+  PROJECT_RISK_CLOSED: 'project_risk.closed',
+  PROJECT_RISK_REOPENED: 'project_risk.reopened',
 
   PROJECT_MILESTONE_CREATED: 'project_milestone.created',
   PROJECT_MILESTONE_UPDATED: 'project_milestone.updated',

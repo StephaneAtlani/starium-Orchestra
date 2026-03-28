@@ -19,7 +19,7 @@ export function useProjectRisksQuery(
 
   return useQuery({
     queryKey: projectQueryKeys.risks(clientId, projectId),
-    queryFn: async () => (await listRisks(authFetch, projectId)) as ProjectRiskApi[],
+    queryFn: async () => listRisks(authFetch, projectId),
     enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
   });

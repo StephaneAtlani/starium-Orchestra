@@ -12,7 +12,6 @@ import {
   ProjectsPilotageService,
   derivedProgressPercentFromTasks,
   riskCriticalityForRisk,
-  riskScore,
 } from '../projects-pilotage.service';
 
 function startOfTodayUtc(): Date {
@@ -61,7 +60,7 @@ export type ProjectReviewSnapshotPayload = {
     open: number;
     mitigated: number;
     closed: number;
-    accepted: number;
+    monitored: number;
     topRisks: Array<{
       id: string;
       title: string;
@@ -112,7 +111,7 @@ export function buildProjectReviewSnapshotPayload(input: {
 
   const openRisks = risks.filter((r) => r.status === 'OPEN');
   const sortedForTop = [...openRisks].sort(
-    (a, b) => riskScore(b.probability, b.impact) - riskScore(a.probability, a.impact),
+    (a, b) => b.criticalityScore - a.criticalityScore,
   );
   const topRisks = sortedForTop.slice(0, TOP_RISKS_MAX).map((r) => ({
     id: r.id,
@@ -174,7 +173,7 @@ export function buildProjectReviewSnapshotPayload(input: {
       open: risks.filter((r) => r.status === 'OPEN').length,
       mitigated: risks.filter((r) => r.status === 'MITIGATED').length,
       closed: risks.filter((r) => r.status === 'CLOSED').length,
-      accepted: risks.filter((r) => r.status === 'ACCEPTED').length,
+      monitored: risks.filter((r) => r.status === 'MONITORED').length,
       topRisks,
     },
     milestones: upcoming,
