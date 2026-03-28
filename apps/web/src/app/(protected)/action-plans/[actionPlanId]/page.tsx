@@ -46,6 +46,7 @@ import {
   listProjectTaskPhases,
   listProjects,
 } from '@/features/projects/api/projects.api';
+import { ActionPlanTaskEditDialog } from '@/features/projects/components/action-plan-task-edit-dialog';
 import { useActionPlanDetailQuery } from '@/features/projects/hooks/use-action-plan-detail-query';
 import { useActionPlanTasksQuery } from '@/features/projects/hooks/use-action-plan-tasks-query';
 import { useProjectAssignableUsers } from '@/features/projects/hooks/use-project-assignable-users';
@@ -149,6 +150,7 @@ export default function ActionPlanDetailPage() {
   const clientId = activeClient?.id ?? '';
   const { has, isSuccess: permsSuccess } = usePermissions();
   const canRead = has('projects.read');
+  const canUpdateProjects = has('projects.update');
   const enabled = !!clientId && permsSuccess && canRead && !!actionPlanId;
 
   const planQuery = useActionPlanDetailQuery(actionPlanId, { enabled });
@@ -217,6 +219,7 @@ export default function ActionPlanDetailPage() {
   }, [humanResources]);
 
   const [open, setOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [tName, setTName] = useState('');
   const [tDescription, setTDescription] = useState('');
@@ -306,6 +309,17 @@ export default function ActionPlanDetailPage() {
 
   const plan = planQuery.data;
   const progressLabel = plan ? `${plan.progressPercent}%` : '—';
+
+  const detailTask = useMemo(() => {
+    if (!selectedTaskId || !tasksQuery.data?.items) return null;
+    return tasksQuery.data.items.find((t) => t.id === selectedTaskId) ?? null;
+  }, [selectedTaskId, tasksQuery.data?.items]);
+
+  useEffect(() => {
+    if (!selectedTaskId || !tasksQuery.isSuccess || !tasksQuery.data?.items) return;
+    const found = tasksQuery.data.items.some((t) => t.id === selectedTaskId);
+    if (!found) setSelectedTaskId(null);
+  }, [selectedTaskId, tasksQuery.isSuccess, tasksQuery.data?.items]);
 
   return (
     <RequireActiveClient>
@@ -431,7 +445,18 @@ export default function ActionPlanDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {tasksQuery.data.items.map((row) => (
-                      <TableRow key={row.id}>
+                      <TableRow
+                        key={row.id}
+                        className="cursor-pointer"
+                        tabIndex={0}
+                        onClick={() => setSelectedTaskId(row.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedTaskId(row.id);
+                          }
+                        }}
+                      >
                         <TableCell className="font-medium">{row.name}</TableCell>
                         <TableCell>{row.status}</TableCell>
                         <TableCell>{row.priority}</TableCell>
@@ -464,6 +489,16 @@ export default function ActionPlanDetailPage() {
             )}
           </>
         )}
+
+        <ActionPlanTaskEditDialog
+          open={selectedTaskId !== null}
+          onOpenChange={(o) => {
+            if (!o) setSelectedTaskId(null);
+          }}
+          actionPlanId={actionPlanId}
+          task={detailTask}
+          canEdit={canUpdateProjects}
+        />
 
         <Dialog
           open={open}

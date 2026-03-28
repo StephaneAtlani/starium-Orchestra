@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { useActiveClient } from '../hooks/use-active-client';
 import type { MeClient } from '../services/me';
 
 interface ClientSwitcherProps {
   accessToken: string;
+  /** Classes sur le `<select>` (largeur max, typo responsive, etc.). */
+  className?: string;
 }
 
-export function ClientSwitcher({ accessToken }: ClientSwitcherProps) {
+export function ClientSwitcher({ accessToken, className }: ClientSwitcherProps) {
   const { activeClient, setActiveClient, initialized } = useActiveClient();
   const [clients, setClients] = useState<MeClient[]>([]);
   const [loading, setLoading] = useState(false);
@@ -72,15 +75,19 @@ export function ClientSwitcher({ accessToken }: ClientSwitcherProps) {
   const activeClients = clients.filter((c) => c.status === 'ACTIVE');
 
   if (loading && !clients.length) {
-    return <span>Chargement des clients…</span>;
+    return (
+      <span className="text-xs text-muted-foreground whitespace-nowrap sm:text-sm">
+        Chargement…
+      </span>
+    );
   }
 
   if (error) {
-    return <span>Erreur chargement clients : {error}</span>;
+    return <span className="max-w-[10rem] truncate text-xs text-destructive sm:text-sm">{error}</span>;
   }
 
   if (!activeClients.length) {
-    return <span>Aucun client actif disponible</span>;
+    return <span className="text-xs text-muted-foreground sm:text-sm">Aucun client</span>;
   }
 
   return (
@@ -90,6 +97,10 @@ export function ClientSwitcher({ accessToken }: ClientSwitcherProps) {
         const next = activeClients.find((c) => c.id === e.target.value) ?? null;
         setActiveClient(next);
       }}
+      className={cn(
+        'max-w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm',
+        className,
+      )}
     >
       <option value="" disabled>
         Sélectionner un client…
