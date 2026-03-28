@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -81,9 +81,10 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
   const createMutation = useMutation({
     mutationFn: (payload: CreateProjectRiskPayload) =>
       createProjectRisk(authFetch, projectId, payload),
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success('Risque créé');
-      setRiskDialogOpen(false);
+      setEditingRisk(data);
+      setRiskDialogMode('edit');
       invalidateRisks();
     },
     onError: (e: Error) => toast.error(e.message || 'Création impossible'),
@@ -97,10 +98,8 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
       riskId: string;
       payload: CreateProjectRiskPayload;
     }) => updateProjectRisk(authFetch, projectId, riskId, payload),
-    onSuccess: () => {
-      toast.success('Risque mis à jour');
-      setRiskDialogOpen(false);
-      setEditingRisk(null);
+    onSuccess: (data) => {
+      setEditingRisk(data);
       invalidateRisks();
     },
     onError: (e: Error) => toast.error(e.message || 'Enregistrement impossible'),
@@ -112,6 +111,9 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
       toast.success('Risque supprimé');
       void queryClient.invalidateQueries({
         queryKey: projectQueryKeys.risks(clientId, projectId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.detail(clientId, projectId),
       });
     },
     onError: (e: Error) => toast.error(e.message || 'Suppression impossible'),
@@ -139,6 +141,13 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
     }
   };
 
+  const handleDeleteRisk = async () => {
+    if (!editingRisk) return;
+    await deleteMutation.mutateAsync(editingRisk.id);
+    setRiskDialogOpen(false);
+    setEditingRisk(null);
+  };
+
   if (!projectId) {
     return <p className="text-sm text-destructive">Identifiant de projet manquant.</p>;
   }
@@ -156,7 +165,8 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
     );
   }
 
-  const dialogPending = createMutation.isPending || updateMutation.isPending;
+  const dialogPending =
+    createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
     <>
@@ -196,13 +206,7 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
           {risksQuery.isLoading ? (
             <LoadingState rows={4} />
           ) : (
-            <RisksTable
-              risks={risksQuery.data ?? []}
-              canEdit={canEdit}
-              onEdit={openEditDialog}
-              onDelete={(id) => deleteMutation.mutate(id)}
-              deleting={deleteMutation.isPending}
-            />
+            <RisksTable risks={risksQuery.data ?? []} canEdit={canEdit} onEdit={openEditDialog} />
           )}
         </CardContent>
       </Card>
@@ -218,6 +222,9 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
         risk={riskDialogMode === 'edit' ? editingRisk : null}
         isPending={dialogPending}
         onSave={handleDialogSave}
+        canDelete={canEdit}
+        onDelete={handleDeleteRisk}
+        isDeleting={deleteMutation.isPending}
       />
     </>
   );
@@ -227,14 +234,10 @@ function RisksTable({
   risks,
   canEdit,
   onEdit,
-  onDelete,
-  deleting,
 }: {
   risks: ProjectRiskApi[];
   canEdit: boolean;
   onEdit: (r: ProjectRiskApi) => void;
-  onDelete: (id: string) => void;
-  deleting: boolean;
 }) {
   if (risks.length === 0) {
     return (
@@ -255,7 +258,6 @@ function RisksTable({
             <TableHead className="w-[120px]">Criticité</TableHead>
             <TableHead className="w-[120px]">Statut</TableHead>
             <TableHead className="w-[100px]">Conformité</TableHead>
-            {canEdit ? <TableHead className="w-[96px] text-right">Actions</TableHead> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -300,34 +302,6 @@ function RisksTable({
                   <span className="text-muted-foreground">—</span>
                 )}
               </TableCell>
-              {canEdit ? (
-                <TableCell className="p-2 text-right">
-                  <div className="flex justify-end gap-0.5">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      disabled={deleting}
-                      aria-label={`Modifier ${r.code}`}
-                      onClick={() => onEdit(r)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      disabled={deleting}
-                      aria-label={`Supprimer ${r.code}`}
-                      onClick={() => onDelete(r.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              ) : null}
             </TableRow>
           ))}
         </TableBody>

@@ -1,16 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -20,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -27,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { listAssignableUsers } from '../api/projects.api';
 import type { CreateProjectRiskPayload } from '../api/projects.api';
+import { useDebouncedServerAutosave } from '@/hooks/use-debounced-server-autosave';
 import type { ProjectRiskApi, ProjectRiskCriticalityLevel } from '../types/project.types';
 import {
   PROJECT_RISK_CRITICALITY_LABEL,
@@ -43,6 +43,9 @@ const OWNER_NONE = '__none__';
 const TREATMENT_KEYS = ['AVOID', 'REDUCE', 'TRANSFER', 'ACCEPT'] as const;
 const RESIDUAL_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 const IMPACT_CATS = ['FINANCIAL', 'OPERATIONAL', 'LEGAL', 'REPUTATION'] as const;
+
+/** Affichage si `ownerUserId` n’est pas dans la liste assignable (évite l’UUID dans le trigger). */
+const OWNER_UNKNOWN_LABEL = 'Responsable (hors liste — compte toujours lié au risque)';
 
 const CRIT_ORDER: Record<string, number> = {
   LOW: 1,
@@ -64,6 +67,56 @@ function dateInputToIso(v: string): string | undefined {
   return `${t}T12:00:00.000Z`;
 }
 
+function stableRiskSnapshot(p: CreateProjectRiskPayload): string {
+  const o = {
+    title: p.title,
+    threatSource: p.threatSource,
+    description: p.description,
+    businessImpact: p.businessImpact,
+    category: p.category ?? '',
+    likelihoodJustification: p.likelihoodJustification ?? '',
+    impactCategory: p.impactCategory ?? '',
+    probability: p.probability,
+    impact: p.impact,
+    mitigationPlan: p.mitigationPlan ?? '',
+    contingencyPlan: p.contingencyPlan ?? '',
+    status: p.status ?? 'OPEN',
+    dueDate: p.dueDate ?? '',
+    detectedAt: p.detectedAt ?? '',
+    reviewDate: p.reviewDate ?? '',
+    treatmentStrategy: p.treatmentStrategy,
+    residualRiskLevel: p.residualRiskLevel ?? '',
+    residualJustification: p.residualJustification ?? '',
+    ownerUserId: p.ownerUserId ?? '',
+  };
+  return JSON.stringify(o);
+}
+
+/** Aligné sur `buildPayload` + champs dates comme à l’écran. */
+function snapshotFromRisk(r: ProjectRiskApi): string {
+  return stableRiskSnapshot({
+    title: r.title.trim(),
+    threatSource: r.threatSource.trim(),
+    description: (r.description ?? '').trim(),
+    businessImpact: r.businessImpact.trim(),
+    category: r.category?.trim() || undefined,
+    likelihoodJustification: r.likelihoodJustification?.trim() || undefined,
+    impactCategory: r.impactCategory ?? undefined,
+    probability: r.probability,
+    impact: r.impact,
+    mitigationPlan: r.mitigationPlan?.trim() || undefined,
+    contingencyPlan: r.contingencyPlan?.trim() || undefined,
+    status: r.status,
+    dueDate: dateInputToIso(toDateInputValue(r.dueDate)),
+    detectedAt: dateInputToIso(toDateInputValue(r.detectedAt)),
+    reviewDate: dateInputToIso(toDateInputValue(r.reviewDate)),
+    treatmentStrategy: r.treatmentStrategy,
+    residualRiskLevel: r.residualRiskLevel ?? undefined,
+    residualJustification: r.residualJustification?.trim() || undefined,
+    ownerUserId: r.ownerUserId ?? null,
+  });
+}
+
 function formatUserLabel(u: {
   email: string;
   firstName: string | null;
@@ -71,6 +124,16 @@ function formatUserLabel(u: {
 }): string {
   const n = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
   return n ? `${n} (${u.email})` : u.email;
+}
+
+function impactCategoryDisplayLabel(value: string): string {
+  if (value === NONE) return '';
+  return PROJECT_RISK_IMPACT_CATEGORY_LABEL[value] ?? 'Catégorie d’impact';
+}
+
+function residualLevelDisplayLabel(value: string): string {
+  if (value === NONE) return '';
+  return PROJECT_RISK_CRITICALITY_LABEL[value] ?? 'Niveau résiduel';
 }
 
 function criticalityBadgeClass(level: string): string {
@@ -84,6 +147,130 @@ function criticalityBadgeClass(level: string): string {
     default:
       return 'border-emerald-600/45 bg-emerald-500/10 text-emerald-950 dark:text-emerald-500';
   }
+}
+
+/** Aligné `project-risk-criticality.util.ts` (serveur). */
+function criticalityLevelFromPiScore(score: number): ProjectRiskCriticalityLevel {
+  if (score <= 4) return 'LOW';
+  if (score <= 9) return 'MEDIUM';
+  if (score <= 16) return 'HIGH';
+  return 'CRITICAL';
+}
+
+function matrixCellSurfaceClass(level: ProjectRiskCriticalityLevel): string {
+  switch (level) {
+    case 'CRITICAL':
+      return 'bg-violet-500/25 text-violet-950 dark:bg-violet-500/20 dark:text-violet-100';
+    case 'HIGH':
+      return 'bg-red-500/20 text-red-950 dark:bg-red-500/15 dark:text-red-100';
+    case 'MEDIUM':
+      return 'bg-amber-500/20 text-amber-950 dark:bg-amber-500/15 dark:text-amber-100';
+    default:
+      return 'bg-emerald-500/15 text-emerald-950 dark:bg-emerald-500/10 dark:text-emerald-100';
+  }
+}
+
+function CriticalityMatrix({
+  probability: pSel,
+  impact: iSel,
+  disabled,
+  onPick,
+}: {
+  probability: number;
+  impact: number;
+  disabled: boolean;
+  onPick: (p: number, i: number) => void;
+}) {
+  const pRows = [5, 4, 3, 2, 1] as const;
+  const iCols = [1, 2, 3, 4, 5] as const;
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-foreground">Matrice de criticité (P×I)</Label>
+      <p className="text-xs text-muted-foreground">
+        Même grille que le serveur : score = vraisemblance × gravité. Cliquez une case pour
+        appliquer P et I.
+      </p>
+      <div className="overflow-x-auto rounded-lg border border-border/60 bg-muted/10 p-2">
+        <table className="w-full min-w-[280px] border-collapse text-center text-xs">
+          <thead>
+            <tr>
+              <th className="p-1.5 font-normal text-muted-foreground" scope="col">
+                <span className="sr-only">Vraisemblance</span>
+                P \ I
+              </th>
+              {iCols.map((i) => (
+                <th
+                  key={i}
+                  className="p-1.5 font-medium text-muted-foreground"
+                  scope="col"
+                  title={`Gravité ${i}`}
+                >
+                  {i}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {pRows.map((p) => (
+              <tr key={p}>
+                <th
+                  className="p-1.5 font-medium text-muted-foreground"
+                  scope="row"
+                  title={`Vraisemblance ${p}`}
+                >
+                  {p}
+                </th>
+                {iCols.map((i) => {
+                  const score = p * i;
+                  const level = criticalityLevelFromPiScore(score);
+                  const selected = p === pSel && i === iSel;
+                  return (
+                    <td key={i} className="p-0.5">
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => onPick(p, i)}
+                        className={cn(
+                          'flex h-9 w-full min-w-[2.25rem] items-center justify-center rounded-md border border-transparent tabular-nums font-medium transition-colors',
+                          matrixCellSurfaceClass(level),
+                          selected &&
+                            'ring-2 ring-primary ring-offset-2 ring-offset-background dark:ring-offset-card',
+                          !disabled && 'hover:brightness-95 dark:hover:brightness-110',
+                          disabled && 'cursor-not-allowed opacity-60',
+                        )}
+                        title={`P=${p}, I=${i} → score ${score} (${PROJECT_RISK_CRITICALITY_LABEL[level]})`}
+                      >
+                        {score}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-sm bg-emerald-500/40" aria-hidden />
+          Faible
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-sm bg-amber-500/40" aria-hidden />
+          Moyenne
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-sm bg-red-500/35" aria-hidden />
+          Haute
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-sm bg-violet-500/40" aria-hidden />
+          Critique
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function EbiosSection({
@@ -135,6 +322,10 @@ export type ProjectRiskEbiosDialogProps = {
   risk: ProjectRiskApi | null;
   isPending: boolean;
   onSave: (payload: CreateProjectRiskPayload) => Promise<void>;
+  /** Édition uniquement : affiche la zone de suppression. */
+  canDelete?: boolean;
+  onDelete?: () => Promise<void>;
+  isDeleting?: boolean;
 };
 
 export function ProjectRiskEbiosDialog({
@@ -145,6 +336,9 @@ export function ProjectRiskEbiosDialog({
   risk,
   isPending,
   onSave,
+  canDelete = false,
+  onDelete,
+  isDeleting = false,
 }: ProjectRiskEbiosDialogProps) {
   const authFetch = useAuthenticatedFetch();
   const assignableQuery = useQuery({
@@ -174,8 +368,24 @@ export function ProjectRiskEbiosDialog({
   const [reviewDate, setReviewDate] = useState('');
   const [ownerUserId, setOwnerUserId] = useState<string>(OWNER_NONE);
 
+  const savedSnapshotRef = useRef<string>('');
+  const loadedKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      loadedKeyRef.current = null;
+      return;
+    }
+    const key =
+      mode === 'edit' && risk
+        ? `edit:${risk.id}`
+        : mode === 'create'
+          ? 'create'
+          : '';
+    if (!key) return;
+    if (loadedKeyRef.current === key) return;
+    loadedKeyRef.current = key;
+
     if (mode === 'edit' && risk) {
       setTitle(risk.title);
       setThreatSource(risk.threatSource ?? '');
@@ -196,6 +406,7 @@ export function ProjectRiskEbiosDialog({
       setDetectedAt(toDateInputValue(risk.detectedAt));
       setReviewDate(toDateInputValue(risk.reviewDate));
       setOwnerUserId(risk.ownerUserId ?? OWNER_NONE);
+      savedSnapshotRef.current = snapshotFromRisk(risk);
       return;
     }
     if (mode === 'create') {
@@ -218,8 +429,9 @@ export function ProjectRiskEbiosDialog({
       setDetectedAt('');
       setReviewDate('');
       setOwnerUserId(OWNER_NONE);
+      savedSnapshotRef.current = '';
     }
-  }, [open, mode, risk]);
+  }, [open, mode, risk?.id]);
 
   const residualSoftWarning = useMemo(() => {
     if (mode !== 'edit' || !risk || residualRiskLevel === NONE) return false;
@@ -233,16 +445,13 @@ export function ProjectRiskEbiosDialog({
     risk &&
     (probability !== risk.probability || impact !== risk.impact);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const buildPayload = useCallback((): CreateProjectRiskPayload | null => {
     const t = title.trim();
-    if (!t) return;
     const ts = threatSource.trim();
     const sc = description.trim();
     const bi = businessImpact.trim();
-    if (!ts || !sc || !bi || !treatmentStrategy) return;
-
-    const payload: CreateProjectRiskPayload = {
+    if (!t || !ts || !sc || !bi || !treatmentStrategy) return null;
+    return {
       title: t,
       threatSource: ts,
       description: sc,
@@ -263,16 +472,81 @@ export function ProjectRiskEbiosDialog({
       residualJustification: residualJustification.trim() || undefined,
       ownerUserId: ownerUserId === OWNER_NONE ? null : ownerUserId,
     };
+  }, [
+    title,
+    threatSource,
+    description,
+    businessImpact,
+    category,
+    likelihoodJustification,
+    impactCategory,
+    probability,
+    impact,
+    mitigationPlan,
+    contingencyPlan,
+    status,
+    dueDate,
+    detectedAt,
+    reviewDate,
+    treatmentStrategy,
+    residualRiskLevel,
+    residualJustification,
+    ownerUserId,
+  ]);
 
-    await onSave(payload);
-  };
+  const snapshot = useMemo(() => {
+    const p = buildPayload();
+    return p ? stableRiskSnapshot(p) : '';
+  }, [buildPayload]);
+
+  const save = useCallback(async () => {
+    const p = buildPayload();
+    if (!p) return;
+    await onSave(p);
+  }, [buildPayload, onSave]);
 
   const users = assignableQuery.data?.users ?? [];
+
+  const impactCategorySelectKeys = useMemo(() => {
+    const base: string[] = [...IMPACT_CATS];
+    if (impactCategory !== NONE && !base.includes(impactCategory)) {
+      base.push(impactCategory);
+    }
+    return base;
+  }, [impactCategory]);
+
+  const residualLevelSelectKeys = useMemo(() => {
+    const base: string[] = [...RESIDUAL_LEVELS];
+    if (residualRiskLevel !== NONE && !base.includes(residualRiskLevel)) {
+      base.push(residualRiskLevel);
+    }
+    return base;
+  }, [residualRiskLevel]);
+
+  const treatmentSelectKeys = useMemo(() => {
+    const base: string[] = [...TREATMENT_KEYS];
+    if (!base.includes(treatmentStrategy)) {
+      base.push(treatmentStrategy);
+    }
+    return base;
+  }, [treatmentStrategy]);
+
+  const statusSelectKeys = useMemo(() => {
+    const known = Object.keys(RISK_STATUS_LABEL);
+    if (!known.includes(status)) {
+      return [...known, status];
+    }
+    return known;
+  }, [status]);
+
+  const ownerMissingFromList =
+    ownerUserId !== OWNER_NONE && !users.some((u) => u.id === ownerUserId);
 
   const ownerLabel = useMemo(() => {
     if (ownerUserId === OWNER_NONE) return 'Non assigné';
     const u = users.find((x) => x.id === ownerUserId);
-    return u ? formatUserLabel(u) : ownerUserId;
+    if (u) return formatUserLabel(u);
+    return OWNER_UNKNOWN_LABEL;
   }, [ownerUserId, users]);
 
   const canSubmit =
@@ -282,13 +556,43 @@ export function ProjectRiskEbiosDialog({
     Boolean(businessImpact.trim()) &&
     Boolean(treatmentStrategy);
 
+  useDebouncedServerAutosave({
+    enabled: open,
+    snapshot,
+    savedSnapshotRef,
+    canSave: canSubmit,
+    isSaving: isPending,
+    save,
+  });
+
+  const handleOpenChange = useCallback(
+    async (next: boolean) => {
+      if (!next && open) {
+        const p = buildPayload();
+        if (p && stableRiskSnapshot(p) !== savedSnapshotRef.current && !isPending) {
+          try {
+            await onSave(p);
+            savedSnapshotRef.current = stableRiskSnapshot(p);
+          } catch {
+            return;
+          }
+        }
+      }
+      onOpenChange(next);
+    },
+    [open, buildPayload, isPending, onSave, onOpenChange],
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton
-        className="max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-2xl"
+        className="max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-4xl lg:max-w-5xl"
       >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          className="flex flex-col gap-4"
+        >
           <DialogHeader className="space-y-3 text-left">
             <div className="flex flex-wrap items-baseline gap-2 gap-y-1">
               <DialogTitle className="text-lg font-semibold tracking-tight">
@@ -300,6 +604,7 @@ export function ProjectRiskEbiosDialog({
             </div>
             <DialogDescription className="text-sm leading-relaxed">
               Scénario, évaluation, impact métier, traitement, résiduel et suivi — aligné ISO 27005.
+              Les changements sont enregistrés automatiquement (dès que le formulaire est valide).
             </DialogDescription>
           </DialogHeader>
 
@@ -419,6 +724,15 @@ export function ProjectRiskEbiosDialog({
                   </Select>
                 </div>
               </div>
+              <CriticalityMatrix
+                probability={probability}
+                impact={impact}
+                disabled={isPending}
+                onPick={(p, i) => {
+                  setProbability(p);
+                  setImpact(i);
+                }}
+              />
               <div className="space-y-2">
                 <Label htmlFor="ebios-likelihood-j">Justification de la vraisemblance (optionnel)</Label>
                 <textarea
@@ -499,16 +813,14 @@ export function ProjectRiskEbiosDialog({
                 >
                   <SelectTrigger className="w-full min-w-0">
                     <SelectValue placeholder="Non renseigné">
-                      {impactCategory === NONE
-                        ? null
-                        : PROJECT_RISK_IMPACT_CATEGORY_LABEL[impactCategory] ?? impactCategory}
+                      {impactCategory === NONE ? null : impactCategoryDisplayLabel(impactCategory)}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}>Non renseigné</SelectItem>
-                    {IMPACT_CATS.map((k) => (
+                    {impactCategorySelectKeys.map((k) => (
                       <SelectItem key={k} value={k}>
-                        {PROJECT_RISK_IMPACT_CATEGORY_LABEL[k]}
+                        {PROJECT_RISK_IMPACT_CATEGORY_LABEL[k] ?? 'Valeur enregistrée'}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -530,13 +842,13 @@ export function ProjectRiskEbiosDialog({
                 >
                   <SelectTrigger className="w-full min-w-0">
                     <SelectValue>
-                      {RISK_TREATMENT_STRATEGY_LABEL[treatmentStrategy] ?? treatmentStrategy}
+                      {RISK_TREATMENT_STRATEGY_LABEL[treatmentStrategy] ?? 'Stratégie de traitement'}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {TREATMENT_KEYS.map((k) => (
+                    {treatmentSelectKeys.map((k) => (
                       <SelectItem key={k} value={k}>
-                        {RISK_TREATMENT_STRATEGY_LABEL[k] ?? k}
+                        {RISK_TREATMENT_STRATEGY_LABEL[k] ?? 'Valeur enregistrée'}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -600,14 +912,14 @@ export function ProjectRiskEbiosDialog({
                     <SelectValue placeholder="Non évalué">
                       {residualRiskLevel === NONE
                         ? null
-                        : PROJECT_RISK_CRITICALITY_LABEL[residualRiskLevel] ?? residualRiskLevel}
+                        : residualLevelDisplayLabel(residualRiskLevel)}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}>Non renseigné</SelectItem>
-                    {RESIDUAL_LEVELS.map((k) => (
+                    {residualLevelSelectKeys.map((k) => (
                       <SelectItem key={k} value={k}>
-                        {PROJECT_RISK_CRITICALITY_LABEL[k]}
+                        {PROJECT_RISK_CRITICALITY_LABEL[k] ?? 'Niveau enregistré'}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -648,6 +960,9 @@ export function ProjectRiskEbiosDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={OWNER_NONE}>Non assigné</SelectItem>
+                    {ownerMissingFromList ? (
+                      <SelectItem value={ownerUserId}>{OWNER_UNKNOWN_LABEL}</SelectItem>
+                    ) : null}
                     {users.map((u) => (
                       <SelectItem key={u.id} value={u.id}>
                         {formatUserLabel(u)}
@@ -665,13 +980,13 @@ export function ProjectRiskEbiosDialog({
                 >
                   <SelectTrigger className="w-full min-w-0">
                     <SelectValue>
-                      {RISK_STATUS_LABEL[status] ?? status}
+                      {RISK_STATUS_LABEL[status] ?? 'Statut du risque'}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.keys(RISK_STATUS_LABEL).map((k) => (
+                    {statusSelectKeys.map((k) => (
                       <SelectItem key={k} value={k}>
-                        {RISK_STATUS_LABEL[k]}
+                        {RISK_STATUS_LABEL[k] ?? 'Statut enregistré'}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -722,21 +1037,36 @@ export function ProjectRiskEbiosDialog({
                 </div>
               ) : null}
             </EbiosSection>
-          </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => onOpenChange(false)}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isPending || !canSubmit}>
-              {isPending ? 'Enregistrement…' : mode === 'create' ? 'Créer le risque' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
+            {mode === 'edit' && risk && canDelete && onDelete ? (
+              <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 sm:px-5">
+                <p className="text-sm font-medium text-destructive">Supprimer ce risque</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Retrait définitif du registre pour{' '}
+                  <span className="font-mono text-foreground">{risk.code}</span>.
+                </p>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="mt-3"
+                  disabled={isPending || isDeleting}
+                  onClick={async () => {
+                    if (
+                      !window.confirm(
+                        `Supprimer définitivement le risque « ${risk.title} » (${risk.code}) ?`,
+                      )
+                    ) {
+                      return;
+                    }
+                    await onDelete();
+                  }}
+                >
+                  {isDeleting ? 'Suppression…' : 'Supprimer du registre'}
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </form>
       </DialogContent>
     </Dialog>
