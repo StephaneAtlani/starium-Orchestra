@@ -88,6 +88,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       },
       projectTaskLabel: {
         count: jest.fn().mockResolvedValue(1),
+        findMany: jest.fn().mockResolvedValue([]),
       },
     } as any;
 
@@ -522,7 +523,30 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       prisma.projectTask.findMany.mockResolvedValue([task]);
       prisma.projectTaskMicrosoftSync.findMany.mockResolvedValue([]);
 
-      graph.getJson.mockResolvedValue({ value: bucketTodos });
+      // 1er getJson: planner/plans/.../details (replaceStariumTaskLabelsWithPlannerCategories)
+      // 2e getJson: buckets
+      graph.getJson
+        .mockResolvedValueOnce({
+          categoryDescriptions: {
+            category1: 'C1',
+            category2: 'C2',
+          },
+        })
+        .mockResolvedValue({ value: bucketTodos });
+      const txMock = {
+        projectTaskLabelAssignment: {
+          deleteMany: jest.fn().mockResolvedValue(undefined),
+        },
+        projectTaskLabel: {
+          deleteMany: jest.fn().mockResolvedValue(undefined),
+          create: jest.fn().mockResolvedValue(undefined),
+        },
+      };
+      prisma.$transaction.mockImplementation(async (cb: any) => cb(txMock));
+      prisma.projectTaskLabel.findMany.mockResolvedValue([
+        { id: 'label-1', plannerCategoryId: 'category1' },
+        { id: 'label-2', plannerCategoryId: 'category2' },
+      ]);
       graph.postJson.mockResolvedValue({ id: 'planner-1' });
       graph.getPlannerTaskWithEtag.mockResolvedValue({
         json: { id: 'planner-1' },
@@ -596,7 +620,28 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       prisma.projectTask.findMany.mockResolvedValue([task]);
       prisma.projectTaskMicrosoftSync.findMany.mockResolvedValue([]);
 
-      graph.getJson.mockResolvedValue({ value: bucketTodos });
+      graph.getJson
+        .mockResolvedValueOnce({
+          categoryDescriptions: {
+            category1: 'C1',
+            category2: 'C2',
+          },
+        })
+        .mockResolvedValue({ value: bucketTodos });
+      const txMockCat7 = {
+        projectTaskLabelAssignment: {
+          deleteMany: jest.fn().mockResolvedValue(undefined),
+        },
+        projectTaskLabel: {
+          deleteMany: jest.fn().mockResolvedValue(undefined),
+          create: jest.fn().mockResolvedValue(undefined),
+        },
+      };
+      prisma.$transaction.mockImplementation(async (cb: any) => cb(txMockCat7));
+      prisma.projectTaskLabel.findMany.mockResolvedValue([
+        { id: 'label-1', plannerCategoryId: 'category1' },
+        { id: 'label-2', plannerCategoryId: 'category2' },
+      ]);
       graph.postJson.mockResolvedValue({ id: 'planner-1' });
       graph.getPlannerTaskWithEtag.mockResolvedValue({
         json: { id: 'planner-1' },
