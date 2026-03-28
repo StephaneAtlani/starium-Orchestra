@@ -23,9 +23,6 @@ import {
   ProjectTaskPriority,
   ProjectMilestoneStatus,
   ProjectTeamRoleSystemKind,
-  ProjectRiskStatus,
-  ProjectRiskProbability,
-  ProjectRiskImpact,
   ResourceType,
   ResourceAffiliation,
   ProjectBudgetAllocationType,
@@ -33,6 +30,7 @@ import {
 import * as bcrypt from "bcrypt";
 import { DEMO_PROJECT_SHEETS, type DemoProjectSheet } from "./seed-project-demo-sheets";
 import { ensureDemoProjectReviews } from "./seed-project-demo-reviews";
+import { ensureDemoProjectRisks } from "./seed-project-demo-risks";
 import { ensureDemoProjectTaskBuckets } from "./seed-project-demo-buckets";
 import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
 import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
@@ -1483,19 +1481,6 @@ async function seedClientDemoProjects(
       ],
     });
   }
-  if ((await prisma.projectRisk.count({ where: { projectId: p01.id } })) === 0) {
-    await prisma.projectRisk.create({
-      data: {
-        clientId,
-        projectId: p01.id,
-        title: "Dependance fournisseur IdP",
-        probability: ProjectRiskProbability.LOW,
-        impact: ProjectRiskImpact.LOW,
-        status: ProjectRiskStatus.OPEN,
-        ownerUserId: a,
-      },
-    });
-  }
 
   // --- 02 : bonne santé — data
   const p02 = await upsert({
@@ -1523,19 +1508,6 @@ async function seedClientDemoProjects(
         status: ProjectMilestoneStatus.PLANNED,
         targetDate: addDaysUtc(now, 90),
         sortOrder: 0,
-      },
-    });
-  }
-  if ((await prisma.projectRisk.count({ where: { projectId: p02.id } })) === 0) {
-    await prisma.projectRisk.create({
-      data: {
-        clientId,
-        projectId: p02.id,
-        title: "Charge equipe data",
-        probability: ProjectRiskProbability.MEDIUM,
-        impact: ProjectRiskImpact.LOW,
-        status: ProjectRiskStatus.OPEN,
-        ownerUserId: b,
       },
     });
   }
@@ -1592,19 +1564,6 @@ async function seedClientDemoProjects(
     portfolioCategoryId: leaves.cyber,
     ...DEMO_PROJECT_SHEETS[4],
   });
-  if ((await prisma.projectRisk.count({ where: { projectId: p05.id } })) === 0) {
-    await prisma.projectRisk.create({
-      data: {
-        clientId,
-        projectId: p05.id,
-        title: "Fenetre de maintenance refusee par metier",
-        probability: ProjectRiskProbability.HIGH,
-        impact: ProjectRiskImpact.HIGH,
-        status: ProjectRiskStatus.OPEN,
-        ownerUserId: a,
-      },
-    });
-  }
   // --- 06 : en retard (date cible passee)
   const p06 = await upsert({
     code: `${prefix}-SEED-06`,
@@ -1680,17 +1639,6 @@ async function seedClientDemoProjects(
         sortOrder: 0,
       },
     });
-    await prisma.projectRisk.create({
-      data: {
-        clientId,
-        projectId: p08.id,
-        title: "Dette agents sur parc serveurs",
-        probability: ProjectRiskProbability.MEDIUM,
-        impact: ProjectRiskImpact.MEDIUM,
-        status: ProjectRiskStatus.OPEN,
-        ownerUserId: b,
-      },
-    });
   }
   // --- 09 : sans responsable plateforme (warning NO_OWNER)
   const p09 = await upsert({
@@ -1726,6 +1674,7 @@ async function seedClientDemoProjects(
     portfolioCategoryId: leaves.data,
     ...DEMO_PROJECT_SHEETS[9],
   });
+  await ensureDemoProjectRisks(prisma, clientId, prefix, now, a, b);
   await ensureDemoProjectTasks(prisma, clientId, prefix, now, a, b);
   await ensureDemoRetroplanMilestones(clientId, prefix, now, a);
   await syncDemoProjectMilestonePhases(clientId, prefix);
@@ -1735,7 +1684,7 @@ async function seedClientDemoProjects(
   await ensureDemoProjectReviews(prisma, clientId, prefix, now, a, b);
 
   console.log(
-    `✅ Seed demo projets [${slug}]: 10 projets, taches (jeu complet recree), fiches (TOWS 4 quadrants), jalons rétroplan, liens budget FULL, buckets Kanban, activites recurrentes, points projet, catégories, ressources`,
+    `✅ Seed demo projets [${slug}]: 10 projets, risques métier (jeu complet), taches (jeu complet recree), fiches (TOWS 4 quadrants), jalons rétroplan, liens budget FULL, buckets Kanban, activites recurrentes, points projet, catégories, ressources`,
   );
 }
 
@@ -2191,6 +2140,17 @@ async function main() {
   for (const clientSeed of CLIENTS) {
     await seedClient(clientSeed, passwordHash);
   }
+
+  /** Après un SSO Microsoft, `passwordLoginEnabled` est à false → login mot de passe impossible. Réactive les comptes démo à chaque seed. */
+  const demoLoginReset = await prisma.user.updateMany({
+    where: {
+      email: { endsWith: ".demo", mode: "insensitive" },
+    },
+    data: { passwordLoginEnabled: true },
+  });
+  console.log(
+    `✅ Comptes *.demo : connexion par mot de passe réactivée (${demoLoginReset.count} utilisateur(s))`,
+  );
 
   console.log("✅ Seed termine");
   console.log(`Mot de passe commun: ${PASSWORD}`);
