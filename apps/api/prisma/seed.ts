@@ -26,6 +26,7 @@ import {
   ResourceType,
   ResourceAffiliation,
   ProjectBudgetAllocationType,
+  PlatformRole,
 } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { DEMO_PROJECT_SHEETS, type DemoProjectSheet } from "./seed-project-demo-sheets";
@@ -906,6 +907,33 @@ async function upsertClient(seed: ClientSeed) {
  * (UserRole + rôles GLOBAL inclus) → navigation vide malgré des rôles assignés.
  */
 /** Module RBAC + permissions `compliance.read` / `compliance.update` (idempotent). */
+/**
+ * Admin plateforme (routes /api/clients, /api/platform/*). Aucun ClientUser.
+ * Mot de passe = même constante PASSWORD que les comptes *.demo.
+ */
+async function ensurePlatformAdminUser(passwordHash: string): Promise<void> {
+  const email = "admin@starium.fr";
+  await prisma.user.upsert({
+    where: { email },
+    update: {
+      passwordHash,
+      passwordLoginEnabled: true,
+      platformRole: PlatformRole.PLATFORM_ADMIN,
+      firstName: "Platform",
+      lastName: "Admin",
+    },
+    create: {
+      email,
+      passwordHash,
+      passwordLoginEnabled: true,
+      platformRole: PlatformRole.PLATFORM_ADMIN,
+      firstName: "Platform",
+      lastName: "Admin",
+    },
+  });
+  console.log(`✅ Platform admin: ${email} (mot de passe = ${PASSWORD}, comme les comptes *.demo)`);
+}
+
 async function ensureComplianceModuleAndPermissions(): Promise<void> {
   const mod = await prisma.module.upsert({
     where: { code: "compliance" },
@@ -2165,6 +2193,7 @@ async function main() {
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
   await ensureComplianceModuleAndPermissions();
+  await ensurePlatformAdminUser(passwordHash);
 
   for (const clientSeed of CLIENTS) {
     await seedClient(clientSeed, passwordHash);
