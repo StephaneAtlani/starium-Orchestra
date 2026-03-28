@@ -601,10 +601,21 @@ function ProjectDetailTabbedContent({
                   </div>
                 </div>
                 {project.pilotNotes && (
-                  <p className="sm:col-span-2 mt-1 whitespace-pre-wrap border-t pt-3 text-muted-foreground">
-                    <span className="font-medium text-foreground">Notes pilotage : </span>
-                    {project.pilotNotes}
-                  </p>
+                  <div className="sm:col-span-2 mt-1 border-t border-border/60 pt-3">
+                    <div
+                      className={cn(
+                        'rounded-r-md border-l-[3px] border-sky-500/60 py-3 pl-4 pr-2',
+                        'bg-sky-500/[0.09] dark:bg-sky-400/[0.12]',
+                      )}
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-600/90 dark:text-sky-800/95">
+                        Notes pilotage
+                      </p>
+                      <p className="mt-2.5 whitespace-pre-wrap text-[15px] leading-7 text-foreground/95">
+                        {project.pilotNotes}
+                      </p>
+                    </div>
+                  </div>
                 )}
                 {project.targetBudgetAmount && (
                   <div className="sm:col-span-2 border-t pt-3">
