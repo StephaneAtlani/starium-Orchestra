@@ -38,6 +38,8 @@ import type {
   ProjectTeamMemberApi,
 } from '../types/project.types';
 import { cn } from '@/lib/utils';
+import type { ApiFormError } from '@/features/budgets/api/types';
+import { toast } from 'sonner';
 import { CalendarRange, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
 import {
@@ -153,6 +155,15 @@ const emptyParticipantRow = (): CreateParticipantRow => ({
 });
 
 /** Une ligne par membre de l’équipe projet (compte client si présent, sinon nom libre). */
+function isApiFormError(e: unknown): e is ApiFormError {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    'message' in e &&
+    typeof (e as ApiFormError).message === 'string'
+  );
+}
+
 function createParticipantsFromProjectTeam(
   team: ProjectTeamMemberApi[],
   assignable: ProjectAssignableUser[] | undefined,
@@ -298,14 +309,19 @@ export function ProjectReviewsTab({
         attended: p.attended,
         isRequired: p.isRequired,
       }));
-    const created = await create.mutateAsync({
-      reviewDate,
-      reviewType: formType,
-      title: formTitle.trim() || undefined,
-      ...(participants.length > 0 ? { participants } : {}),
-    });
-    setCreateOpen(false);
-    openEditor(created.id);
+    try {
+      const created = await create.mutateAsync({
+        reviewDate,
+        reviewType: formType,
+        title: formTitle.trim() || undefined,
+        ...(participants.length > 0 ? { participants } : {}),
+      });
+      setCreateOpen(false);
+      openEditor(created.id);
+    } catch (err) {
+      const msg = isApiFormError(err) ? err.message : 'Création du point impossible.';
+      toast.error(msg);
+    }
   };
 
   return (

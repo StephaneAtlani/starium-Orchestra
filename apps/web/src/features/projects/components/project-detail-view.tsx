@@ -301,7 +301,9 @@ function ProjectDetailTabbedContent({
         }
       >
         {showPoints ? (
-          <ProjectReviewsTab projectId={projectId} projectStatus={project.status} />
+          <Suspense fallback={<LoadingState rows={4} />}>
+            <ProjectReviewsTab projectId={projectId} projectStatus={project.status} />
+          </Suspense>
         ) : (
           <>
         <div className="grid gap-4 lg:grid-cols-3">
