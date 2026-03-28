@@ -22,7 +22,6 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
-import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
 import { useProjectMilestoneLabelsQuery } from '../hooks/use-project-milestone-labels-query';
 import {
   useCreateProjectMilestoneMutation,
@@ -36,6 +35,7 @@ import type {
   UpdateProjectMilestonePayload,
 } from '../api/projects.api';
 import { listProjectTaskPhases } from '../api/projects.api';
+import { cn } from '@/lib/utils';
 import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
 
 function emptyCreate(): CreateProjectMilestonePayload {
@@ -57,7 +57,6 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
   const authFetch = useAuthenticatedFetch();
 
   const milestonesQuery = useProjectMilestonesQuery(projectId);
-  const tasksQuery = useProjectTasksQuery(projectId);
   const milestoneLabelsQuery = useProjectMilestoneLabelsQuery(
     projectId,
     canListProjectLabels,
@@ -96,7 +95,6 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
   }, [authFetch, projectId]);
 
   const items = milestonesQuery.data?.items ?? [];
-  const taskItems = tasksQuery.data?.items ?? [];
 
   const sortedMilestones = useMemo(() => {
     return [...items].sort((a, b) => {
@@ -178,7 +176,7 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
         )}
       </div>
 
-      {milestonesQuery.isLoading || tasksQuery.isLoading ? (
+      {milestonesQuery.isLoading ? (
         <LoadingState rows={4} />
       ) : milestonesQuery.isError ? (
         <p className="text-destructive text-sm">Impossible de charger les jalons.</p>
@@ -189,47 +187,41 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Phase</TableHead>
                 <TableHead>Nom</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Date cible</TableHead>
-                <TableHead>Tâche liée</TableHead>
-                <TableHead>Phase</TableHead>
-                {canEdit && <TableHead className="w-[100px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedMilestones.map((m) => {
-                const linked = m.linkedTaskId
-                  ? taskItems.find((t) => t.id === m.linkedTaskId)
-                  : undefined;
-                return (
+              {sortedMilestones.map((m) => (
                   <TableRow key={m.id}>
-                    <TableCell>{m.name}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[12rem] truncate">
+                      {renderPhaseLabel(m.phaseId)}
+                    </TableCell>
+                    <TableCell className="max-w-[min(100%,280px)] font-medium">
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          onClick={() => openEdit(m)}
+                          className={cn(
+                            'w-full rounded-sm text-left transition-colors',
+                            'hover:bg-muted/60 hover:text-primary',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                          )}
+                        >
+                          {m.name}
+                        </button>
+                      ) : (
+                        m.name
+                      )}
+                    </TableCell>
                     <TableCell>{MILESTONE_STATUS_LABEL[m.status] ?? m.status}</TableCell>
                     <TableCell>
                       {new Date(m.targetDate).toLocaleDateString('fr-FR')}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                      {linked ? linked.name : '—'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground max-w-[12rem] truncate">
-                      {renderPhaseLabel(m.phaseId)}
-                    </TableCell>
-                    {canEdit && (
-                      <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(m)}
-                        >
-                          Modifier
-                        </Button>
-                      </TableCell>
-                    )}
                   </TableRow>
-                );
-              })}
+              ))}
             </TableBody>
           </Table>
         </div>
