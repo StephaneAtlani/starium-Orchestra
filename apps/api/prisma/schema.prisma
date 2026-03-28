@@ -161,6 +161,7 @@ model Client {
   projectTags                   ProjectTag[]
   projectTagAssignments         ProjectTagAssignment[]
   projectPortfolioCategories    ProjectPortfolioCategory[]
+  actionPlans                     ActionPlan[]
   budgetLinePlanningMonths   BudgetLinePlanningMonth[]
   budgetLinePlanningScenarios BudgetLinePlanningScenario[]
   resourceRoles                 ResourceRole[]
@@ -267,6 +268,7 @@ model User {
   emailIdentities                    UserEmailIdentity[]
   microsoftConnectionsConnected      MicrosoftConnection[] @relation("MicrosoftConnectedBy")
   uploadedProjectDocuments           ProjectDocument[]     @relation("ProjectDocumentUploadedBy")
+  ownedActionPlans                   ActionPlan[]          @relation("ActionPlanOwner")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -490,6 +492,21 @@ enum ProjectStatus {
 }
 
 enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+/// RFC-PLA-001 — plan d’actions (cockpit tâches)
+enum ActionPlanStatus {
+  DRAFT
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ActionPlanPriority {
   LOW
   MEDIUM
   HIGH
@@ -1121,11 +1138,39 @@ model ProjectTaskPhase {
   @@unique([projectId, sortOrder])
 }
 
-/// RFC-PROJ-011 — tâche projet planifiable (Gantt-ready)
+/// RFC-PLA-001 — plan d’actions (agrégateur de `ProjectTask`)
+model ActionPlan {
+  id              String @id @default(cuid())
+  clientId        String
+  title           String
+  code            String
+  description     String?
+  status          ActionPlanStatus
+  priority        ActionPlanPriority
+  ownerUserId     String?
+  startDate       DateTime?
+  targetDate      DateTime?
+  progressPercent Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  owner  User?  @relation("ActionPlanOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  tasks  ProjectTask[]
+
+  @@unique([clientId, code])
+  @@index([clientId])
+}
+
+/// RFC-PROJ-011 — tâche projet planifiable (Gantt-ready) ; `projectId` optionnel (RFC-PLA-001).
 model ProjectTask {
   id              String @id @default(cuid())
   clientId        String
-  projectId       String
+  projectId       String?
+
+  actionPlanId String?
+  riskId       String?
 
   phaseId         String?
   dependsOnTaskId String?
@@ -1158,8 +1203,10 @@ model ProjectTask {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client   Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client     Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project    Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  actionPlan ActionPlan? @relation(fields: [actionPlanId], references: [id], onDelete: SetNull)
+  risk       ProjectRisk? @relation(fields: [riskId], references: [id], onDelete: SetNull)
   budgetLine BudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
   bucket   ProjectTaskBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
   phase    ProjectTaskPhase?  @relation(fields: [phaseId], references: [id], onDelete: SetNull)
@@ -1182,6 +1229,10 @@ model ProjectTask {
   @@index([clientId])
   @@index([projectId])
   @@index([clientId, projectId])
+  @@index([clientId, actionPlanId])
+  @@index([clientId, riskId])
+  @@index([actionPlanId])
+  @@index([riskId])
   @@index([phaseId])
   @@index([projectId, phaseId, sortOrder])
   @@index([dependsOnTaskId])
@@ -1481,6 +1532,8 @@ model ProjectRisk {
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   owner   User?    @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
   complianceRequirement ComplianceRequirement? @relation(fields: [complianceRequirementId], references: [id], onDelete: SetNull)
+
+  tasks ProjectTask[]
 
   /// Unicité (projectId, code) et (clientId, code) pour projectId null : index partiels SQL — voir migration.
   @@index([clientId])
