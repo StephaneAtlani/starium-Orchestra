@@ -635,7 +635,7 @@ export async function ensureDemoProjectRisks(
     where: {
       clientId,
       code: { startsWith: `${prefix}-SEED-` },
-      projectRisks: { none: {} },
+      risks: { none: {} },
     },
     select: { id: true, code: true },
   });

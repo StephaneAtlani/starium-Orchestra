@@ -2186,9 +2186,45 @@ async function seedClient(seed: ClientSeed, passwordHash: string) {
     }
   }
 
-  await seedClientDemoProjects(seed.slug, client.id, userMap);
-
   console.log(`✅ Seed client: ${seed.name}`);
+}
+
+/**
+ * Portefeuille démo (projets SEED-01…10, risques, tâches, etc.) pour **chaque** client en base
+ * disposant d’au moins un utilisateur actif — pas seulement la liste `CLIENTS`.
+ */
+async function ensureDemoProjectsForAllClients(): Promise<void> {
+  const clients = await prisma.client.findMany({
+    select: { id: true, slug: true, name: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  console.log(
+    `📁 Portefeuille démo : ${clients.length} client(s) à traiter (projets + risques + …)`,
+  );
+
+  for (const c of clients) {
+    const links = await prisma.clientUser.findMany({
+      where: { clientId: c.id, status: ClientUserStatus.ACTIVE },
+      include: { user: { select: { email: true } } },
+      orderBy: { createdAt: "asc" },
+      take: 20,
+    });
+
+    if (links.length === 0) {
+      console.warn(
+        `⚠️  [${c.slug}] « ${c.name} » : aucun utilisateur client actif — portefeuille démo ignoré.`,
+      );
+      continue;
+    }
+
+    const userMap = new Map<string, string>();
+    for (const link of links) {
+      userMap.set(link.user.email, link.userId);
+    }
+
+    await seedClientDemoProjects(c.slug, c.id, userMap);
+  }
 }
 
 async function main() {
@@ -2200,6 +2236,8 @@ async function main() {
   for (const clientSeed of CLIENTS) {
     await seedClient(clientSeed, passwordHash);
   }
+
+  await ensureDemoProjectsForAllClients();
 
   /** Après un SSO Microsoft, `passwordLoginEnabled` est à false → login mot de passe impossible. Réactive les comptes démo à chaque seed. */
   const demoLoginReset = await prisma.user.updateMany({
