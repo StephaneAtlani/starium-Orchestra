@@ -10,6 +10,7 @@ import {
   MinLength,
 } from 'class-validator';
 import {
+  ProjectRiskImpactCategory,
   ProjectRiskStatus,
   ProjectRiskTreatmentStrategy,
   ProjectRiskCriticality,
@@ -25,13 +26,30 @@ export class CreateProjectRiskDto {
   @MinLength(1)
   title!: string;
 
-  @IsOptional()
+  /** Scénario structuré type « Si X alors Y » (RFC-PROJ-018). */
   @IsString()
-  description?: string;
+  @MinLength(1)
+  description!: string;
 
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsString()
+  @MinLength(1)
+  threatSource!: string;
+
+  @IsString()
+  @MinLength(1)
+  businessImpact!: string;
+
+  @IsOptional()
+  @IsString()
+  likelihoodJustification?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectRiskImpactCategory)
+  impactCategory?: ProjectRiskImpactCategory;
 
   @Type(() => Number)
   @IsInt()
@@ -82,11 +100,14 @@ export class CreateProjectRiskDto {
   @IsString()
   complianceRequirementId?: string;
 
-  @IsOptional()
   @IsEnum(ProjectRiskTreatmentStrategy)
-  treatmentStrategy?: ProjectRiskTreatmentStrategy;
+  treatmentStrategy!: ProjectRiskTreatmentStrategy;
 
   @IsOptional()
   @IsEnum(ProjectRiskCriticality)
   residualRiskLevel?: ProjectRiskCriticality;
+
+  @IsOptional()
+  @IsString()
+  residualJustification?: string;
 }

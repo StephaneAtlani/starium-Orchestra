@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { ProjectRiskStatus } from '@prisma/client';
+import { ProjectRiskStatus, ProjectRiskTreatmentStrategy } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
@@ -105,8 +105,14 @@ export class ProjectRisksService {
       project: { connect: { id: projectId } },
       code,
       title: dto.title.trim(),
-      description: dto.description?.trim() ?? null,
+      description: dto.description.trim(),
       category: dto.category?.trim() ?? null,
+      threatSource: dto.threatSource.trim(),
+      businessImpact: dto.businessImpact.trim(),
+      likelihoodJustification: dto.likelihoodJustification?.trim() ?? null,
+      ...(dto.impactCategory != null
+        ? { impactCategory: dto.impactCategory }
+        : {}),
       probability: dto.probability,
       impact: dto.impact,
       criticalityScore,
@@ -122,8 +128,9 @@ export class ProjectRisksService {
       detectedAt: dto.detectedAt ? new Date(dto.detectedAt) : null,
       closedAt,
       sortOrder: dto.sortOrder ?? 0,
-      treatmentStrategy: dto.treatmentStrategy ?? null,
+      treatmentStrategy: dto.treatmentStrategy,
       residualRiskLevel: dto.residualRiskLevel ?? null,
+      residualJustification: dto.residualJustification?.trim() ?? null,
     };
     if (dto.complianceRequirementId) {
       data.complianceRequirement = {
@@ -167,6 +174,25 @@ export class ProjectRisksService {
     }
     if (dto.complianceRequirementId !== undefined) {
       await this.assertComplianceRequirementForClient(clientId, dto.complianceRequirementId);
+    }
+
+    if (dto.description !== undefined && dto.description.trim() === '') {
+      throw new BadRequestException('Le scénario structuré ne peut pas être vide.');
+    }
+    if (dto.threatSource !== undefined && dto.threatSource.trim() === '') {
+      throw new BadRequestException('La source de menace ne peut pas être vide.');
+    }
+    if (dto.businessImpact !== undefined && dto.businessImpact.trim() === '') {
+      throw new BadRequestException('L’impact métier ne peut pas être vide.');
+    }
+
+    const mergedStatus = dto.status ?? existing.status;
+    const mergedTreatment: ProjectRiskTreatmentStrategy =
+      dto.treatmentStrategy !== undefined ? dto.treatmentStrategy : existing.treatmentStrategy;
+    if (mergedStatus !== ProjectRiskStatus.CLOSED && mergedTreatment == null) {
+      throw new BadRequestException(
+        'Stratégie de traitement obligatoire pour un risque non clôturé.',
+      );
     }
 
     const prob = dto.probability ?? existing.probability;
@@ -229,10 +255,13 @@ export class ProjectRisksService {
         ...(dto.status !== undefined && { closedAt }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
         ...(dto.treatmentStrategy !== undefined && {
-          treatmentStrategy: dto.treatmentStrategy ?? null,
+          treatmentStrategy: dto.treatmentStrategy,
         }),
         ...(dto.residualRiskLevel !== undefined && {
           residualRiskLevel: dto.residualRiskLevel ?? null,
+        }),
+        ...(dto.residualJustification !== undefined && {
+          residualJustification: dto.residualJustification?.trim() ?? null,
         }),
         ...(dto.complianceRequirementId !== undefined &&
           (dto.complianceRequirementId

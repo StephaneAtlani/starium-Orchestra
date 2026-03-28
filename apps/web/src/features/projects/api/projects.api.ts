@@ -345,9 +345,13 @@ export async function listRisks(authFetch: AuthFetch, projectId: string) {
 
 export type CreateProjectRiskPayload = {
   title: string;
-  description?: string;
+  description: string;
   code?: string;
   category?: string;
+  threatSource: string;
+  businessImpact: string;
+  likelihoodJustification?: string;
+  impactCategory?: string | null;
   probability: number;
   impact: number;
   mitigationPlan?: string;
@@ -358,8 +362,9 @@ export type CreateProjectRiskPayload = {
   dueDate?: string | null;
   detectedAt?: string | null;
   complianceRequirementId?: string | null;
-  treatmentStrategy?: string | null;
+  treatmentStrategy: string;
   residualRiskLevel?: string | null;
+  residualJustification?: string | null;
 };
 
 export type UpdateProjectRiskPayload = Partial<CreateProjectRiskPayload>;

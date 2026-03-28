@@ -95,6 +95,14 @@ export const RISK_TREATMENT_STRATEGY_LABEL: Record<string, string> = {
   ACCEPT: 'Accepter',
 };
 
+/** RFC-PROJ-018 — catégorie d’impact métier. */
+export const PROJECT_RISK_IMPACT_CATEGORY_LABEL: Record<string, string> = {
+  FINANCIAL: 'Financier',
+  OPERATIONAL: 'Opérationnel',
+  LEGAL: 'Juridique',
+  REPUTATION: 'Réputation',
+};
+
 export const MILESTONE_STATUS_LABEL: Record<string, string> = {
   PLANNED: 'Planifié',
   ACHIEVED: 'Atteint',

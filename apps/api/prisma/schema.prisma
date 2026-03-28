@@ -562,6 +562,14 @@ enum ProjectRiskTreatmentStrategy {
   ACCEPT
 }
 
+/// RFC-PROJ-018 — catégorie d’impact métier (optionnel).
+enum ProjectRiskImpactCategory {
+  FINANCIAL
+  OPERATIONAL
+  LEGAL
+  REPUTATION
+}
+
 enum ComplianceAssessmentStatus {
   COMPLIANT
   PARTIALLY_COMPLIANT
@@ -1386,8 +1394,17 @@ model ProjectRisk {
 
   code        String
   title       String
+  /// Scénario structuré type « Si X alors Y » (peut être renommé riskScenario en migration ultérieure).
   description String?
   category    String?
+
+  /// RFC-PROJ-018 — origine de la menace (ex. cyberattaque, fournisseur).
+  threatSource String @default("—")
+  /// RFC-PROJ-018 — conséquences pour l’organisation.
+  businessImpact String @default("—")
+  /// Justification du score de probabilité (optionnel).
+  likelihoodJustification String?
+  impactCategory          ProjectRiskImpactCategory?
 
   /// 1–5
   probability Int
@@ -1408,8 +1425,10 @@ model ProjectRisk {
   sortOrder  Int @default(0)
 
   complianceRequirementId String?
-  treatmentStrategy       ProjectRiskTreatmentStrategy?
+  treatmentStrategy       ProjectRiskTreatmentStrategy
   residualRiskLevel       ProjectRiskCriticality?
+  /// RFC-PROJ-018 — justification du niveau résiduel (optionnel).
+  residualJustification String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

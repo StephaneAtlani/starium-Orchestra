@@ -1,5 +1,9 @@
 import { NotFoundException } from '@nestjs/common';
-import { ProjectRiskCriticality, ProjectRiskStatus } from '@prisma/client';
+import {
+  ProjectRiskCriticality,
+  ProjectRiskStatus,
+  ProjectRiskTreatmentStrategy,
+} from '@prisma/client';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import {
   PROJECT_AUDIT_ACTION,
@@ -27,6 +31,10 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
       title: 'Risque',
       description: null,
       category: null,
+      threatSource: '—',
+      businessImpact: '—',
+      likelihoodJustification: null,
+      impactCategory: null,
       probability: 2,
       impact: 2,
       criticalityScore: 4,
@@ -41,8 +49,9 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
       closedAt: null,
       sortOrder: 0,
       complianceRequirementId: null,
-      treatmentStrategy: null,
+      treatmentStrategy: ProjectRiskTreatmentStrategy.REDUCE,
       residualRiskLevel: null,
+      residualJustification: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,

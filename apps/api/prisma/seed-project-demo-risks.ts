@@ -2,6 +2,7 @@ import {
   PrismaClient,
   ProjectRiskCriticality,
   ProjectRiskStatus,
+  ProjectRiskTreatmentStrategy,
 } from "@prisma/client";
 
 function addDaysUtc(base: Date, days: number): Date {
@@ -436,7 +437,9 @@ export async function ensureDemoProjectRisks(
           projectId: project.id,
           code: riskCode,
           title: seed.title,
-          description: seed.description ?? null,
+          description: seed.description ?? "Si un facteur externe se dégrade alors le projet subit un retard.",
+          threatSource: "Démo seed",
+          businessImpact: "Impact projet démo (données seed).",
           probability: seed.probability,
           impact: seed.impact,
           criticalityScore,
@@ -446,6 +449,7 @@ export async function ensureDemoProjectRisks(
           mitigationPlan: seed.mitigationPlan ?? null,
           ownerUserId: resolveOwner(seed.owner, ownerUserIdA, ownerUserIdB),
           closedAt: seed.status === ProjectRiskStatus.CLOSED ? now : null,
+          treatmentStrategy: ProjectRiskTreatmentStrategy.REDUCE,
         },
       });
     }

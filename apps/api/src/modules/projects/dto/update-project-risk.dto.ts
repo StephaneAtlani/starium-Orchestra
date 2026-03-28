@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import {
   ProjectRiskCriticality,
+  ProjectRiskImpactCategory,
   ProjectRiskStatus,
   ProjectRiskTreatmentStrategy,
 } from '@prisma/client';
@@ -28,11 +29,30 @@ export class UpdateProjectRiskDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(1)
   description?: string;
 
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  threatSource?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  businessImpact?: string;
+
+  @IsOptional()
+  @IsString()
+  likelihoodJustification?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectRiskImpactCategory)
+  impactCategory?: ProjectRiskImpactCategory;
 
   @IsOptional()
   @Type(() => Number)
@@ -92,4 +112,8 @@ export class UpdateProjectRiskDto {
   @IsOptional()
   @IsEnum(ProjectRiskCriticality)
   residualRiskLevel?: ProjectRiskCriticality;
+
+  @IsOptional()
+  @IsString()
+  residualJustification?: string;
 }

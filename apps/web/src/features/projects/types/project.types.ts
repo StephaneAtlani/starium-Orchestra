@@ -200,6 +200,12 @@ export type ProjectRiskCriticalityLevel =
   | 'HIGH'
   | 'CRITICAL';
 
+export type ProjectRiskImpactCategory =
+  | 'FINANCIAL'
+  | 'OPERATIONAL'
+  | 'LEGAL'
+  | 'REPUTATION';
+
 export type ProjectRiskApi = {
   id: string;
   clientId: string;
@@ -208,6 +214,10 @@ export type ProjectRiskApi = {
   title: string;
   description: string | null;
   category: string | null;
+  threatSource: string;
+  businessImpact: string;
+  likelihoodJustification: string | null;
+  impactCategory: ProjectRiskImpactCategory | null;
   probability: number;
   impact: number;
   criticalityScore: number;
@@ -222,8 +232,9 @@ export type ProjectRiskApi = {
   closedAt: string | null;
   sortOrder: number;
   complianceRequirementId: string | null;
-  treatmentStrategy: string | null;
+  treatmentStrategy: string;
   residualRiskLevel: ProjectRiskCriticalityLevel | null;
+  residualJustification: string | null;
   createdAt: string;
   updatedAt: string;
 };

@@ -181,6 +181,10 @@ export function projectRiskEntityAuditSnapshot(
     title: r.title,
     description: r.description ?? null,
     category: r.category ?? null,
+    threatSource: r.threatSource,
+    businessImpact: r.businessImpact,
+    likelihoodJustification: r.likelihoodJustification ?? null,
+    impactCategory: r.impactCategory ?? null,
     probability: r.probability,
     impact: r.impact,
     criticalityScore: r.criticalityScore,
@@ -195,8 +199,9 @@ export function projectRiskEntityAuditSnapshot(
     closedAt: toAuditJson(r.closedAt),
     sortOrder: r.sortOrder,
     complianceRequirementId: r.complianceRequirementId ?? null,
-    treatmentStrategy: r.treatmentStrategy ?? null,
+    treatmentStrategy: r.treatmentStrategy,
     residualRiskLevel: r.residualRiskLevel ?? null,
+    residualJustification: r.residualJustification ?? null,
   };
 }
 

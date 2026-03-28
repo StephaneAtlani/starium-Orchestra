@@ -214,6 +214,7 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
           if (!o) setEditingRisk(null);
         }}
         mode={riskDialogMode}
+        projectId={projectId}
         risk={riskDialogMode === 'edit' ? editingRisk : null}
         isPending={dialogPending}
         onSave={handleDialogSave}
