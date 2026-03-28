@@ -16,7 +16,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -613,6 +612,22 @@ export function ProjectRiskEbiosDialog({
     return OWNER_UNKNOWN_LABEL;
   }, [ownerUserId, users]);
 
+  /** Libellé projet affiché dans le trigger (jamais l’id — règle produit). */
+  const linkedProjectTriggerLabel = useMemo(() => {
+    if (linkedProjectId === PROJECT_NONE) return 'Hors projet';
+    const fromList = projectOptions.find((p) => p.id === linkedProjectId);
+    if (fromList) return fromList.name;
+    if (riskResolved?.projectId === linkedProjectId && riskResolved.project?.name) {
+      return riskResolved.project.name;
+    }
+    return 'Projet inconnu';
+  }, [
+    linkedProjectId,
+    projectOptions,
+    riskResolved?.projectId,
+    riskResolved?.project?.name,
+  ]);
+
   const canSubmit =
     Boolean(title.trim()) &&
     Boolean(threatSource.trim()) &&
@@ -681,7 +696,7 @@ export function ProjectRiskEbiosDialog({
                 disabled={isPending}
               >
                 <SelectTrigger id="ebios-linked-project" className="w-full max-w-md">
-                  <SelectValue placeholder="Hors projet" />
+                  <span className={selectTriggerLabelClass}>{linkedProjectTriggerLabel}</span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={PROJECT_NONE}>Hors projet</SelectItem>
