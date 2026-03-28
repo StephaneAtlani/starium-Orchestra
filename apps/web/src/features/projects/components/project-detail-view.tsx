@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
@@ -18,29 +18,35 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
+import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import {
+  MILESTONE_STATUS_LABEL,
+  PROJECT_CRITICALITY_LABEL,
   PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
   PROJECT_TYPE_LABEL,
   RISK_STATUS_LABEL,
+  RISK_TIER_LABEL,
   WARNING_CODE_LABEL,
 } from '../constants/project-enum-labels';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
-import { projectsList, projectPlanning } from '../constants/project-routes';
+import { projectsList, projectPlanning, projectSheet } from '../constants/project-routes';
 import { cn } from '@/lib/utils';
-import { AlertCircle, AlertTriangle, CalendarRange, ChevronLeft, LayoutDashboard } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  CalendarRange,
+  ChevronLeft,
+  Flag,
+  GanttChart,
+  Kanban,
+  LayoutDashboard,
+  ListTodo,
+} from 'lucide-react';
 import { ProjectBudgetSection } from './project-budget-section';
 import { ProjectReviewsTab } from './project-reviews-tab';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
@@ -117,6 +123,7 @@ function ProjectDetailTabbedContent({
     queryFn: () => listProjectPortfolioCategories(authFetch),
     enabled: Boolean(clientId),
   });
+  const milestonesQuery = useProjectMilestonesQuery(projectId);
 
   const replaceTagsMutation = useMutation({
     mutationFn: (tagIds: string[]) => replaceProjectTags(authFetch, projectId, tagIds),
@@ -186,6 +193,57 @@ function ProjectDetailTabbedContent({
 
   const searchParams = useSearchParams();
   const showPoints = searchParams.get('tab') === 'points';
+
+  const planningProgressPct =
+    project.derivedProgressPercent ?? project.progressPercent ?? null;
+  const planningSignalChips: {
+    show: boolean;
+    label: string;
+    className: string;
+  }[] = [
+    {
+      show: project.signals.hasNoTasks,
+      label: 'Aucune tâche',
+      className: 'border-border bg-muted/60 text-muted-foreground',
+    },
+    {
+      show: project.signals.hasNoMilestones,
+      label: 'Aucun jalon',
+      className: 'border-border bg-muted/60 text-muted-foreground',
+    },
+    {
+      show: project.signals.hasPlanningDrift,
+      label: 'Dérive planning',
+      className:
+        'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
+    },
+  ];
+  const visiblePlanningSignals = planningSignalChips.filter((s) => s.show);
+
+  const milestonesSorted = useMemo(() => {
+    const items = milestonesQuery.data?.items ?? [];
+    return [...items].sort(
+      (a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime(),
+    );
+  }, [milestonesQuery.data]);
+
+  const risksSorted = useMemo(() => {
+    const list = risks.data ?? [];
+    const order: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+    return [...list].sort((a, b) => {
+      const ca = riskCriticalityForRisk(a);
+      const cb = riskCriticalityForRisk(b);
+      const oa = order[ca] ?? 99;
+      const ob = order[cb] ?? 99;
+      if (oa !== ob) return oa - ob;
+      return a.title.localeCompare(b.title, 'fr');
+    });
+  }, [risks.data]);
+
+  const criticalRisksCount = useMemo(
+    () => (risks.data ?? []).filter((r) => riskCriticalityForRisk(r) === 'HIGH').length,
+    [risks.data],
+  );
 
   return (
     <Card size="sm" className="min-w-0 overflow-hidden py-0 shadow-sm">
@@ -565,53 +623,307 @@ function ProjectDetailTabbedContent({
               Ouvrir le planning
             </Link>
           </CardHeader>
-          <CardContent className="px-4 py-4 text-sm text-muted-foreground">
-            <p>
-              Tâches, jalons et Gantt sont gérés dans l’onglet{' '}
-              <span className="font-medium text-foreground">Planning</span> (création, édition,
-              vue temporelle).
+          <CardContent className="space-y-4 px-4 py-4 text-sm">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="min-w-0 rounded-md border border-border/80 bg-muted/30 px-3 py-2">
+                <p className="text-xs font-medium text-muted-foreground">Début</p>
+                <p className="truncate font-medium tabular-nums text-foreground">
+                  {formatDate(project.startDate)}
+                </p>
+              </div>
+              <div className="min-w-0 rounded-md border border-border/80 bg-muted/30 px-3 py-2">
+                <p className="text-xs font-medium text-muted-foreground">Fin cible</p>
+                <p className="truncate font-medium tabular-nums text-foreground">
+                  {formatDate(project.targetEndDate)}
+                </p>
+              </div>
+              <div className="min-w-0 rounded-md border border-border/80 bg-muted/30 px-3 py-2 sm:col-span-1">
+                <p className="text-xs font-medium text-muted-foreground">Avancement</p>
+                {planningProgressPct != null ? (
+                  <div className="mt-1.5 space-y-1.5">
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-[width]"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, planningProgressPct))}%`,
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs font-semibold tabular-nums text-foreground">
+                      {Math.round(planningProgressPct)}&nbsp;%
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-0.5 font-medium text-muted-foreground">—</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Jalons
+                </p>
+                <Link
+                  href={projectPlanning(projectId, 'milestones')}
+                  className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Voir tout
+                </Link>
+              </div>
+              {milestonesQuery.isLoading ? (
+                <div className="rounded-md border border-border/80 bg-muted/20 px-3 py-3">
+                  <LoadingState rows={2} />
+                </div>
+              ) : milestonesSorted.length === 0 ? (
+                <p className="rounded-md border border-dashed border-border/80 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground">
+                  Aucun jalon. Ajoutez-en depuis l’onglet Planning → Jalons.
+                </p>
+              ) : (
+                <ul
+                  className="max-h-48 divide-y divide-border/60 overflow-y-auto rounded-md border border-border/80 bg-muted/20"
+                  aria-label="Liste des jalons et dates cibles"
+                >
+                  {milestonesSorted.map((m) => {
+                    const statusLabel =
+                      MILESTONE_STATUS_LABEL[m.status] ?? m.status;
+                    return (
+                      <li
+                        key={m.id}
+                        className="flex flex-col gap-0.5 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-3"
+                      >
+                        <span className="min-w-0 truncate font-medium text-foreground" title={m.name}>
+                          {m.name}
+                        </span>
+                        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-xs tabular-nums text-muted-foreground sm:text-sm">
+                          <span title="Date cible">
+                            Cible :{' '}
+                            <span className="font-medium text-foreground">
+                              {formatDate(m.targetDate)}
+                            </span>
+                          </span>
+                          {m.achievedDate ? (
+                            <span title="Date de réalisation">
+                              Réalisé :{' '}
+                              <span className="font-medium text-foreground">
+                                {formatDate(m.achievedDate)}
+                              </span>
+                            </span>
+                          ) : null}
+                          <span
+                            className="rounded border border-border/80 bg-background/80 px-1.5 py-0.5 text-[0.65rem] font-medium text-foreground"
+                            title="Statut"
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {visiblePlanningSignals.length > 0 && (
+              <div className="flex flex-wrap gap-1.5" role="status" aria-label="Signaux planning">
+                {visiblePlanningSignals.map((s) => (
+                  <span
+                    key={s.label}
+                    className={cn(
+                      'inline-flex min-h-[1.375rem] items-center rounded-md border px-2 py-0.5 text-xs font-medium leading-none',
+                      s.className,
+                    )}
+                  >
+                    {s.label}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Accès rapide
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { sub: 'tasks' as const, label: 'Tâches', Icon: ListTodo },
+                    { sub: 'milestones' as const, label: 'Jalons', Icon: Flag },
+                    { sub: 'gantt' as const, label: 'Gantt', Icon: GanttChart },
+                    { sub: 'kanban' as const, label: 'Kanban', Icon: Kanban },
+                  ] as const
+                ).map(({ sub, label, Icon }) => (
+                  <Link
+                    key={sub}
+                    href={projectPlanning(projectId, sub)}
+                    className={cn(
+                      buttonVariants({ variant: 'outline', size: 'sm' }),
+                      'h-8 gap-1.5 border-border/80 text-xs font-medium',
+                    )}
+                  >
+                    <Icon className="size-3.5 shrink-0 opacity-80" aria-hidden />
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <p className="border-t border-border/60 pt-3 text-muted-foreground">
+              Création et édition des tâches et jalons, vue temporelle et pilotage visuel dans
+              l’onglet <span className="font-medium text-foreground">Planning</span>.
             </p>
           </CardContent>
         </Card>
 
         <Card size="sm" className="overflow-hidden shadow-sm">
-          <CardHeader className="border-b border-border/60 pb-3">
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
             <CardTitle className="text-sm font-medium">Risques</CardTitle>
+            <Link
+              href={`${projectSheet(projectId)}#risques-projet`}
+              className={cn(
+                buttonVariants({ variant: 'default', size: 'sm' }),
+                'gap-2',
+              )}
+            >
+              <AlertTriangle className="size-4" aria-hidden />
+              Gérer les risques
+            </Link>
           </CardHeader>
-          <CardContent className="p-0">
-            {risks.isLoading ? (
-              <div className="p-4">
-                <LoadingState rows={2} />
+          <CardContent className="space-y-4 px-4 py-4 text-sm">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="min-w-0 rounded-md border border-border/80 bg-muted/30 px-3 py-2">
+                <p className="text-xs font-medium text-muted-foreground">Risques ouverts</p>
+                <p className="text-lg font-semibold tabular-nums leading-none text-foreground">
+                  {project.openRisksCount}
+                </p>
               </div>
-            ) : !risks.data?.length ? (
-              <p className="px-4 py-8 text-center text-sm text-muted-foreground">Aucun risque.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Titre</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Criticité (calc.)</TableHead>
-                    <TableHead>P / I</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {risks.data.map((r) => {
+              <div className="min-w-0 rounded-md border border-border/80 bg-muted/30 px-3 py-2">
+                <p className="text-xs font-medium text-muted-foreground">Critiques (P×I)</p>
+                <p
+                  className={cn(
+                    'text-lg font-semibold tabular-nums leading-none',
+                    criticalRisksCount > 0
+                      ? 'text-amber-950 dark:text-amber-500'
+                      : 'text-foreground',
+                  )}
+                >
+                  {risks.isLoading ? '—' : criticalRisksCount}
+                </p>
+              </div>
+            </div>
+
+            {project.signals.hasNoRisks ? (
+              <div
+                className="flex flex-wrap gap-1.5"
+                role="status"
+                aria-label="Signal portefeuille risques"
+              >
+                <span
+                  className={cn(
+                    'inline-flex min-h-[1.375rem] items-center rounded-md border px-2 py-0.5 text-xs font-medium leading-none',
+                    'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
+                  )}
+                >
+                  Sans étude de risque enregistrée
+                </span>
+              </div>
+            ) : null}
+
+            <div>
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Détail
+                </p>
+                <Link
+                  href={`${projectSheet(projectId)}#risques-projet`}
+                  className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Voir tout
+                </Link>
+              </div>
+              {risks.isLoading ? (
+                <div className="rounded-md border border-border/80 bg-muted/20 px-3 py-3">
+                  <LoadingState rows={2} />
+                </div>
+              ) : risks.isError ? (
+                <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs text-destructive">
+                  Impossible de charger les risques. Réessayez ou ouvrez la fiche projet.
+                </p>
+              ) : risksSorted.length === 0 ? (
+                <p className="rounded-md border border-dashed border-border/80 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground">
+                  Aucun risque enregistré. Ajoutez des risques métier (probabilité × impact, plan
+                  d’action) dans la{' '}
+                  <Link
+                    href={`${projectSheet(projectId)}#risques-projet`}
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    fiche projet — section Risques
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <ul
+                  className="max-h-48 divide-y divide-border/60 overflow-y-auto rounded-md border border-border/80 bg-muted/20"
+                  aria-label="Liste des risques"
+                >
+                  {risksSorted.map((r) => {
                     const crit = riskCriticalityForRisk(r);
+                    const critLabel = PROJECT_CRITICALITY_LABEL[crit] ?? crit;
+                    const pLabel = RISK_TIER_LABEL[r.probability] ?? r.probability;
+                    const iLabel = RISK_TIER_LABEL[r.impact] ?? r.impact;
+                    const statusLabel = RISK_STATUS_LABEL[r.status] ?? r.status;
                     return (
-                      <TableRow key={r.id}>
-                        <TableCell>{r.title}</TableCell>
-                        <TableCell>{RISK_STATUS_LABEL[r.status] ?? r.status}</TableCell>
-                        <TableCell>{crit}</TableCell>
-                        <TableCell className="text-xs">
-                          {r.probability} / {r.impact}
-                        </TableCell>
-                      </TableRow>
+                      <li
+                        key={r.id}
+                        className="flex flex-col gap-1.5 px-3 py-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-foreground" title={r.title}>
+                            {r.title}
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                            <span
+                              className="rounded border border-border/80 bg-background/80 px-1.5 py-0.5 text-[0.65rem] font-medium text-foreground"
+                              title="Statut"
+                            >
+                              {statusLabel}
+                            </span>
+                            <span title="Criticité calculée (P×I)">
+                              Crit. :{' '}
+                              <span className="font-medium text-foreground">{critLabel}</span>
+                            </span>
+                            <span title="Probabilité / impact">
+                              P / I :{' '}
+                              <span className="font-medium text-foreground">
+                                {pLabel} / {iLabel}
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-xs tabular-nums text-muted-foreground sm:text-right">
+                          {r.reviewDate ? (
+                            <span title="Prochaine revue">
+                              Revue :{' '}
+                              <span className="font-medium text-foreground">
+                                {formatDate(r.reviewDate)}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="italic">Revue non planifiée</span>
+                          )}
+                        </div>
+                      </li>
                     );
                   })}
-                </TableBody>
-              </Table>
-            )}
+                </ul>
+              )}
+            </div>
+
+            <p className="border-t border-border/60 pt-3 text-muted-foreground">
+              Les risques métier sont saisis et suivis dans la{' '}
+              <span className="font-medium text-foreground">fiche projet</span> (grille
+              probabilité × impact, statut, échéances de revue).
+            </p>
           </CardContent>
         </Card>
 

@@ -2006,7 +2006,7 @@ export function ProjectSheetView({
       </Card>
 
       {/* E — Risque */}
-      <Card size="sm">
+      <Card size="sm" id="risques-projet" className="scroll-mt-20">
         <CardHeader>
           <CardTitle className="text-base">E. Risque, priorité et risques projet</CardTitle>
         </CardHeader>

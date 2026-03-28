@@ -37,6 +37,13 @@ export const PROJECT_CRITICALITY_LABEL: Record<string, string> = {
   HIGH: 'Haute',
 };
 
+/** Grille probabilité / impact des risques projet (même valeurs que la fiche). */
+export const RISK_TIER_LABEL: Record<string, string> = {
+  LOW: 'Faible',
+  MEDIUM: 'Moyen',
+  HIGH: 'Élevé',
+};
+
 export const TASK_PRIORITY_LABEL: Record<string, string> = {
   LOW: 'Basse',
   MEDIUM: 'Moyenne',
