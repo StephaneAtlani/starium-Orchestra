@@ -1,3 +1,12 @@
+# Index des RFC (Starium Orchestra)
+
+> Dernière révision documentaire : **2026-03**. Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
+>
+> **Collision de numéro** : deux fichiers distincts portent **RFC-PROJ-012** — [Project Sheet (fiche décisionnelle)](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [Gantt Tâches et Jalons (UI planning)](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md). Ne pas les fusionner dans les tableaux ci-dessous.
+>
+> Vision long terme portefeuille / activités (hors MVP `Project` actuel) : [Plan de déploiement — Projet](./_Plan%20de%20déploiment%20-%20Projet.md) (dont **Points bloquants / majeurs**).
+
+---
 
 ## Plateforme — compte utilisateur (hors numérotation RFC projet)
 
@@ -22,9 +31,6 @@
 | RFC | Nom | État | Commentaire |
 | --- | --- | --- | --- |
 | **RFC-TEAM-001** | Synchronisation des collaborateurs depuis AD DS | ✅ Implémentée (MVP) | Implémentation Microsoft Graph/Entra ; provisioning auto vers `Membres` (`User` + `ClientUser`) ; verrouillage des membres synchronisés |
-
-
-
 
 ---
 
@@ -55,8 +61,8 @@
 
 | Ordre | RFC              | Nom                    | Description                                                      | État        | Commentaire                |
 | ----- | ---------------- | ---------------------- | ---------------------------------------------------------------- | ----------- | -------------------------- |
-| 8     | **RFC-PROJ-012** | Project Sheet          | Objet décisionnel lié au projet                                  | 🟡 En cours | modèle étendu OK           |
-| 9     | **RFC-PROJ-012** | Project Sheet API      | GET / PATCH fiche projet                                         | 🟡 En cours | permissions OK             |
+| 8     | **RFC-PROJ-012** | Project Sheet          | Objet décisionnel lié au projet (fichier [Project Sheet](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md)) | ✅ Couvert (MVP) | Prisma + règles serveur ; pas confondre avec [Gantt](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) |
+| 9     | **RFC-PROJ-012** | Project Sheet API      | `GET` / `PATCH` fiche projet                                     | ✅ Couvert (MVP) | `GET|PATCH /api/projects/:id/project-sheet` ; isolation client                         |
 | 10    | **RFC-PROJ-012** | Project Sheet Metrics  | Calcul backend : coût, budget, ROI, forecast                     | ❌ À faire   | dépend budget + ressources |
 | 11    | **RFC-PROJ-012** | Project Decision Rules | Règles d’arbitrage (APPROVED / REJECTED / ON_HOLD / TO_VALIDATE) | ❌ À faire   | critique gouvernance       |
 
@@ -92,7 +98,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | Ordre | RFC | Nom | Description | État | Commentaire |
 | ----- | --- | --- | --- | --- | --- |
 | 1 | **RFC-PROJ-INT-001** | Cadrage M365 | Vision, périmètre MVP, principes | Draft | source de vérité cadrage |
-| 2 | **RFC-PROJ-INT-002** | Prisma Schema | Modèles `MicrosoftConnection`, `ProjectMicrosoftLink`, sync tâches | 🟡 Partiel | `MicrosoftConnection` + enums en base ; `ProjectMicrosoftLink` / sync tâches non migrés |
+| 2 | **RFC-PROJ-INT-002** | Prisma Schema | Modèles `MicrosoftConnection`, `ProjectMicrosoftLink`, sync tâches | ✅ Couvert (MVP) | `schema.prisma` : `MicrosoftConnection`, `ProjectMicrosoftLink`, tables sync ; aligné INT-007 à INT-016 |
 | 3 | **RFC-PROJ-INT-003** | Auth OAuth | Flux délégué, tokens backend | ✅ Implémenté | `apps/api/src/modules/microsoft/` ; [docs/API.md](../API.md) |
 | 4 | **RFC-PROJ-INT-004** | Graph Service | Client HTTP Graph v1.0 | ✅ Implémenté | `MicrosoftGraphService` + types + tests |
 | 5 | **RFC-PROJ-INT-005** | Connexion client | API connexion / révocation | ✅ Implémenté | `MicrosoftAuthController` + callback ; tests service + `microsoft-auth.controller.spec.ts` ; UI `microsoft-365-settings` alignée guard |
@@ -128,7 +134,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | Ordre | RFC                 | Nom               | Description                    | État       | Commentaire         |
 | ----- | ------------------- | ----------------- | ------------------------------ | ---------- | ------------------- |
 | 23    | **RFC-FE-PROJ-002** | Project Detail UI | Cockpit projet (vue détaillée) | ✅ Couvert  | OK                  |
-| 24    | **RFC-FE-PROJ-014** | Project Sheet UI  | Fiche projet décisionnelle     | ❌ À faire  | **urgence absolue** |
+| 24    | **RFC-FE-PROJ-014** | Project Sheet UI  | Fiche projet décisionnelle     | ✅ Couvert (MVP) | `/projects/[projectId]/sheet` — `ProjectSheetView` ; finitions / arbitrage CODIR avancé hors scope minimal |
 | 25    | **RFC-FE-PROJ-003** | Tasks UI          | Interface tâches               | ✅ Couvert  | stable              |
 | 25b   | **RFC-PROJ-012**    | Gantt UI (planning) | Frise + grille, deps, drag   | ✅ Couvert  | [Gantt Tâches et Jalons](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) — `/projects/[projectId]/planning` |
 | 26    | **RFC-FE-PROJ-004** | Risks UI          | Interface risques              | ✅ Couvert  | stable              |
@@ -142,13 +148,13 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 # ⚙️ PHASE 2 — BUDGET PRÉVISIONNEL
 
-(SANS CHANGEMENT — cohérent avec ton plan actuel)
+*(Index détaillé inchangé ici — voir roadmaps budget du dépôt.)*
 
 ---
 
 # 🔗 PHASE 3 — FUSION PROJET + BUDGET
 
-(SANS CHANGEMENT — cohérent)
+*(Index détaillé inchangé ici — voir plans fusion projet / budget.)*
 
 ---
 
@@ -156,11 +162,11 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 ## 🔥 À FAIRE MAINTENANT (CRITIQUE RÉEL)
 
-| RFC                    | Pourquoi                                |
-| ---------------------- | --------------------------------------- |
-| **RFC-PROJ-014 → 016** | **STRUCTURE PORTEFEUILLE (catégories)** |
-| **RFC-PROJ-012**       | Fiche projet décisionnelle              |
-| **RFC-FE-PROJ-014**    | UI arbitrage CODIR                      |
-| **RFC-PROJ-010 suite** | KPI budget projet                       |
-| **RFC-RES-002**        | coût ressources                         |
+| RFC | Pourquoi |
+| --- | --- |
+| **RFC-PROJ-014 → 016** | **Structure portefeuille** (catégories / rattachements / agrégats cockpit) |
+| **RFC-PROJ-012** (suite) | **Métriques fiche** + **règles d’arbitrage** (lignes 10–11 table *Fiche projet*) — backend |
+| **RFC-FE-PROJ-014** (suite) | Finitions **fiche** (UX arbitrage CODIR, scénarios avancés) si hors périmètre MVP actuel |
+| **RFC-PROJ-010** suite | **KPI budget projet** (ligne 13 — partiel) |
+| **RFC-RES-002** | Coût réel / affectation ressources |
 
