@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Plus, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -15,6 +16,9 @@ import {
 import { RisksList, risksRegistryPageSize } from './risks-list';
 import { useProjectRisksRegistryQuery, type ProjectRiskRegistryRow } from '../hooks/use-project-risks-registry-query';
 import { NewRiskRedirectDialog } from './new-risk-redirect-dialog';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { getRiskTaxonomyCatalog } from '../../api/projects.api';
 
 const ALL = 'all' as const;
 
@@ -31,6 +35,8 @@ function applyFilters(rows: ProjectRiskRegistryRow[], f: RisksRegistryFiltersSta
         return false;
       }
     }
+    if (f.domainId !== ALL && r.riskType?.domain?.id !== f.domainId) return false;
+    if (f.riskTypeId !== ALL && r.riskTypeId !== f.riskTypeId) return false;
     if (q) {
       const inTitle = r.title.toLowerCase().includes(q);
       const inCode = r.code.toLowerCase().includes(q);
@@ -46,15 +52,26 @@ function hasActiveFilters(f: RisksRegistryFiltersState): boolean {
     f.projectId !== ALL ||
     f.status !== ALL ||
     f.criticality !== ALL ||
-    f.ownerUserId !== ALL
+    f.ownerUserId !== ALL ||
+    f.domainId !== ALL ||
+    f.riskTypeId !== ALL
   );
 }
 
 export function RisksRegistryPage() {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient, initialized } = useActiveClient();
 
-  const [filters, setFilters] = useState<RisksRegistryFiltersState>(defaultRisksRegistryFilters);
+  const taxonomyQuery = useQuery({
+    queryKey: ['risk-taxonomy', 'catalog', activeClient?.id],
+    queryFn: () => getRiskTaxonomyCatalog(authFetch),
+    enabled: initialized && !!activeClient?.id,
+    staleTime: 60_000,
+  });
+
+  const [filters, setFilters] = useState<RisksRegistryFiltersState>(() => defaultRisksRegistryFilters());
   const [page, setPage] = useState(1);
   const [newRiskOpen, setNewRiskOpen] = useState(false);
 
@@ -128,6 +145,7 @@ export function RisksRegistryPage() {
         onChange={handleFiltersChange}
         projectItems={registry.projectItems ?? []}
         ownerOptions={ownerOptionsWithUnassigned}
+        taxonomyDomains={taxonomyQuery.data?.domains ?? []}
         disabled={showProjectsLoading || showRisksLoading}
       />
 

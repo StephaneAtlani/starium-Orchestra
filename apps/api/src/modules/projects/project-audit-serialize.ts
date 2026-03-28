@@ -181,6 +181,7 @@ export function projectRiskEntityAuditSnapshot(
     title: r.title,
     description: r.description ?? null,
     category: r.category ?? null,
+    riskTypeId: r.riskTypeId,
     threatSource: r.threatSource,
     businessImpact: r.businessImpact,
     likelihoodJustification: r.likelihoodJustification ?? null,

@@ -52,7 +52,7 @@ export function RisksList({ rows, page, onPageChange }: Props) {
             <TableRow>
               <TableHead>Titre</TableHead>
               <TableHead>Initiative</TableHead>
-              <TableHead>Catégorie</TableHead>
+              <TableHead>Domaine / type</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead>Criticité</TableHead>
               <TableHead>Propriétaire</TableHead>
@@ -76,7 +76,11 @@ export function RisksList({ rows, page, onPageChange }: Props) {
                   </span>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {r.category?.trim() ? r.category : '—'}
+                  {r.riskType?.domain && r.riskType
+                    ? `${r.riskType.domain.name} — ${r.riskType.name}${
+                        !r.riskType.isActive || !r.riskType.domain.isActive ? ' (inactif)' : ''
+                      }`
+                    : r.category?.trim() || '—'}
                 </TableCell>
                 <TableCell>
                   <RiskStatusBadge status={r.status} />

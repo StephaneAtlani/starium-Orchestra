@@ -45,6 +45,7 @@
 | 3     | **RFC-PROJ-003** | Règles métier       | Calcul health, statuts, cohérence projet                        | ✅ Couvert | Service existant   |
 | 4     | **RFC-PROJ-004** | Portfolio API       | CRUD projets + agrégats portefeuille                            | ✅ Couvert | `/api/projects` OK |
 | 4b    | **RFC-PROJ-018** | ProjectRisk EBIOS RM | Registre risques : champs EBIOS, P×I, DTO, `.../risks`           | ✅ Couvert (MVP) | [RFC](./RFC-PROJ-018%20%E2%80%94%20ProjectRisk%20EBIOS%20RM%20minimal.md) |
+| 4c    | **RFC-RISK-TAXONOMY** | RiskDomain / RiskType | Taxonomie client-scoped, `ProjectRisk.riskTypeId`, API + UI admin + cockpit | ✅ Couvert (MVP) | [RFC](./RFC-RISK-TAXONOMY.md) |
 
 ---
 

@@ -184,6 +184,8 @@ model Client {
   complianceFrameworks   ComplianceFramework[]
   complianceStatuses     ComplianceStatus[]
   complianceEvidences    ComplianceEvidence[]
+  riskDomains            RiskDomain[]
+  riskTypes              RiskType[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -1388,6 +1390,42 @@ model ComplianceEvidence {
   @@index([clientId, requirementId])
 }
 
+/// Domaine de risque configurable (taxonomie client, 1 → N types).
+model RiskDomain {
+  id          String     @id @default(cuid())
+  clientId    String
+  client      Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  description String?
+  isActive    Boolean    @default(true)
+  types       RiskType[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([clientId, code])
+  @@index([clientId])
+}
+
+/// Type de risque sous un domaine (taxonomie client).
+model RiskType {
+  id           String       @id @default(cuid())
+  clientId     String
+  domainId     String
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  domain       RiskDomain   @relation(fields: [domainId], references: [id], onDelete: Restrict)
+  code         String
+  name         String
+  isActive     Boolean      @default(true)
+  projectRisks ProjectRisk[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([domainId, code])
+  @@index([clientId])
+  @@index([domainId])
+}
+
 /// RFC-PROJ-RISK-001 — risque projet (registre)
 model ProjectRisk {
   id        String @id @default(cuid())
@@ -1432,6 +1470,10 @@ model ProjectRisk {
   /// RFC-PROJ-018 — justification du niveau résiduel (optionnel).
   residualJustification String?
 
+  /// Classification métier : FK vers `RiskType` (domaine dérivé via jointure).
+  riskTypeId String
+  riskType   RiskType @relation(fields: [riskTypeId], references: [id], onDelete: Restrict)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1445,6 +1487,7 @@ model ProjectRisk {
   @@index([projectId])
   @@index([projectId, sortOrder])
   @@index([complianceRequirementId])
+  @@index([riskTypeId])
 }
 
 /// RFC-PROJ-011 — jalon (sans durée)

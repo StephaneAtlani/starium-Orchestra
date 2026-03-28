@@ -17,12 +17,20 @@ function effectiveDateMs(r: ProjectRiskApi): number | null {
 /**
  * Tri par défaut registre transverse : criticité (fort d’abord) → date revue/échéance la plus proche → titre.
  */
+function domainSortKey(r: ProjectRiskApi): string {
+  const n = r.riskType?.domain?.name ?? r.riskType?.domain?.code;
+  return n ?? '\uFFFF';
+}
+
 export function sortRisksRegistryDefault<T extends ProjectRiskApi>(rows: T[]): T[] {
   const now = Date.now();
   return [...rows].sort((a, b) => {
     const ca = CRIT_ORDER[a.criticalityLevel as ProjectRiskCriticalityLevel] ?? 99;
     const cb = CRIT_ORDER[b.criticalityLevel as ProjectRiskCriticalityLevel] ?? 99;
     if (ca !== cb) return ca - cb;
+
+    const domCmp = domainSortKey(a).localeCompare(domainSortKey(b), 'fr', { sensitivity: 'base' });
+    if (domCmp !== 0) return domCmp;
 
     const da = effectiveDateMs(a);
     const db = effectiveDateMs(b);

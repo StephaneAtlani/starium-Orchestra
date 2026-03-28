@@ -28,6 +28,7 @@ import { MicrosoftModule } from './modules/microsoft/microsoft.module';
 import { CollaboratorsModule } from './modules/collaborators/collaborators.module';
 import { TeamDirectoryModule } from './modules/team-directory/team-directory.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
+import { RiskTaxonomyModule } from './modules/risk-taxonomy/risk-taxonomy.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { ComplianceModule } from './modules/compliance/compliance.module';
     CollaboratorsModule,
     TeamDirectoryModule,
     ComplianceModule,
+    RiskTaxonomyModule,
   ],
 })
 export class AppModule {}

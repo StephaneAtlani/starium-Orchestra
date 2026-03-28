@@ -40,6 +40,7 @@ import { ensureDemoProjectTaskBuckets } from "./seed-project-demo-buckets";
 import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
 import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
 import { ensureDemoProjectTagsAndLabels } from "./seed-project-demo-tags";
+import { ensureRiskTaxonomyForClient } from "../src/modules/risk-taxonomy/risk-taxonomy-defaults";
 
 const prisma = new PrismaClient();
 const PASSWORD = "aa";
@@ -938,6 +939,74 @@ async function ensurePlatformAdminUser(passwordHash: string): Promise<void> {
   console.log(`✅ Platform admin: ${email} (mot de passe = ${PASSWORD}, comme les comptes *.demo)`);
 }
 
+async function ensureRisksModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "risks" },
+    create: {
+      code: "risks",
+      name: "Risques",
+      description: "Taxonomie et référentiel risques projet",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  await prisma.permission.upsert({
+    where: { code: "risks.taxonomy.manage" },
+    create: {
+      code: "risks.taxonomy.manage",
+      label: "Risques — administration taxonomie (domaines / types)",
+      moduleId: mod.id,
+    },
+    update: {
+      label: "Risques — administration taxonomie (domaines / types)",
+    },
+  });
+}
+
+/**
+ * Rôle global minimal : permission taxonomie risques pour les CLIENT_ADMIN (UserRole).
+ * Idempotent.
+ */
+async function ensureClientAdminRiskTaxonomyRole(): Promise<void> {
+  const perm = await prisma.permission.findUnique({
+    where: { code: "risks.taxonomy.manage" },
+  });
+  if (!perm) return;
+  let role = await prisma.role.findFirst({
+    where: { scope: RoleScope.GLOBAL, name: "Client admin — taxonomie risques" },
+  });
+  if (!role) {
+    role = await prisma.role.create({
+      data: {
+        scope: RoleScope.GLOBAL,
+        name: "Client admin — taxonomie risques",
+        description: "Gestion des domaines et types de risque pour le client",
+        isSystem: true,
+      },
+    });
+  }
+  await prisma.rolePermission.upsert({
+    where: {
+      roleId_permissionId: { roleId: role.id, permissionId: perm.id },
+    },
+    create: { roleId: role.id, permissionId: perm.id },
+    update: {},
+  });
+  const admins = await prisma.clientUser.findMany({
+    where: { role: ClientUserRole.CLIENT_ADMIN, status: ClientUserStatus.ACTIVE },
+    select: { userId: true },
+  });
+  for (const a of admins) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: { userId: a.userId, roleId: role.id },
+      },
+      create: { userId: a.userId, roleId: role.id },
+      update: {},
+    });
+  }
+}
+
 async function ensureComplianceModuleAndPermissions(): Promise<void> {
   const mod = await prisma.module.upsert({
     where: { code: "compliance" },
@@ -1468,6 +1537,7 @@ async function seedClientDemoProjects(
   const a = users.primary;
   const b = users.secondary;
 
+  await ensureRiskTaxonomyForClient(prisma, clientId);
   await ensureProjectTeamCatalogForClient(clientId);
 
   const prefix = projectCodePrefix(slug);
@@ -2294,7 +2364,9 @@ async function main() {
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
   await ensureComplianceModuleAndPermissions();
+  await ensureRisksModuleAndPermissions();
   await ensureDefaultGlobalProfiles();
+  await ensureClientAdminRiskTaxonomyRole();
   await ensurePlatformAdminUser(passwordHash);
 
   for (const clientSeed of CLIENTS) {

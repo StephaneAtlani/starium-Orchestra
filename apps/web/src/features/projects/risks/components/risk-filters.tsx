@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { ProjectListItem } from '../../types/project.types';
+import type { ProjectListItem, RiskTaxonomyDomainApi } from '../../types/project.types';
 import { PROJECT_RISK_CRITICALITY_LABEL, RISK_STATUS_LABEL } from '../../constants/project-enum-labels';
 
 export type RisksRegistryFiltersState = {
@@ -18,6 +18,8 @@ export type RisksRegistryFiltersState = {
   status: string | 'all';
   criticality: string | 'all';
   ownerUserId: string | 'all';
+  domainId: string | 'all';
+  riskTypeId: string | 'all';
 };
 
 const ALL = 'all';
@@ -30,15 +32,28 @@ type Props = {
   onChange: (next: RisksRegistryFiltersState) => void;
   projectItems: ProjectListItem[];
   ownerOptions: { userId: string; label: string }[];
+  taxonomyDomains: RiskTaxonomyDomainApi[];
   disabled?: boolean;
 };
 
-export function RiskFilters({ value, onChange, projectItems, ownerOptions, disabled }: Props) {
+export function RiskFilters({
+  value,
+  onChange,
+  projectItems,
+  ownerOptions,
+  taxonomyDomains,
+  disabled,
+}: Props) {
   const set = (patch: Partial<RisksRegistryFiltersState>) => onChange({ ...value, ...patch });
+
+  const typesForSelectedDomain =
+    value.domainId === ALL
+      ? []
+      : taxonomyDomains.find((d) => d.id === value.domainId)?.types ?? [];
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border/60 bg-muted/20 p-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8">
         <div className="space-y-1.5 sm:col-span-2 xl:col-span-2">
           <Label htmlFor="risks-registry-search">Recherche</Label>
           <Input
@@ -129,6 +144,59 @@ export function RiskFilters({ value, onChange, projectItems, ownerOptions, disab
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-1.5">
+          <Label>Domaine</Label>
+          <Select
+            value={value.domainId}
+            onValueChange={(v) =>
+              set({
+                domainId: v as RisksRegistryFiltersState['domainId'],
+                riskTypeId: ALL,
+              })
+            }
+            disabled={disabled}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Tous" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Tous</SelectItem>
+              {taxonomyDomains.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Type</Label>
+          <Select
+            value={value.riskTypeId}
+            onValueChange={(v) => set({ riskTypeId: v as RisksRegistryFiltersState['riskTypeId'] })}
+            disabled={disabled}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Tous" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Tous</SelectItem>
+              {value.domainId === ALL
+                ? taxonomyDomains.flatMap((d) =>
+                    d.types.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {d.name} — {t.name}
+                      </SelectItem>
+                    )),
+                  )
+                : typesForSelectedDomain.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );
@@ -140,4 +208,6 @@ export const defaultRisksRegistryFilters = (): RisksRegistryFiltersState => ({
   status: ALL,
   criticality: ALL,
   ownerUserId: ALL,
+  domainId: ALL,
+  riskTypeId: ALL,
 });

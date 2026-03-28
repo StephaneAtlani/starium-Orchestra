@@ -11,12 +11,14 @@ import {
 } from './project-audit.constants';
 import { ProjectRisksService } from './project-risks.service';
 import { ProjectsService } from './projects.service';
+import { RiskTaxonomyService } from '../risk-taxonomy/risk-taxonomy.service';
 
 describe('ProjectRisksService — audit RFC-PROJ-009', () => {
   let service: ProjectRisksService;
   let prisma: any;
   let auditLogs: { create: jest.Mock };
   let projects: { getProjectForScope: jest.Mock; assertClientUser: jest.Mock };
+  let riskTaxonomy: { assertUsableRiskTypeForWrite: jest.Mock };
 
   const clientId = 'c1';
   const projectId = 'p1';
@@ -49,6 +51,7 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
       closedAt: null,
       sortOrder: 0,
       complianceRequirementId: null,
+      riskTypeId: 'rt1',
       treatmentStrategy: ProjectRiskTreatmentStrategy.REDUCE,
       residualRiskLevel: null,
       residualJustification: null,
@@ -72,10 +75,14 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
       getProjectForScope: jest.fn().mockResolvedValue({ id: projectId }),
       assertClientUser: jest.fn().mockResolvedValue(undefined),
     };
+    riskTaxonomy = {
+      assertUsableRiskTypeForWrite: jest.fn().mockResolvedValue(undefined),
+    };
     service = new ProjectRisksService(
       prisma,
       auditLogs as unknown as AuditLogsService,
       projects as unknown as ProjectsService,
+      riskTaxonomy as unknown as RiskTaxonomyService,
     );
   });
 

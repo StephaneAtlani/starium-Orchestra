@@ -18,6 +18,7 @@ import { applyCriticalityFromProbabilityImpact } from './lib/project-risk-critic
 import { ProjectsService } from './projects.service';
 import { CreateProjectRiskDto } from './dto/create-project-risk.dto';
 import { UpdateProjectRiskDto } from './dto/update-project-risk.dto';
+import { RiskTaxonomyService } from '../risk-taxonomy/risk-taxonomy.service';
 
 @Injectable()
 export class ProjectRisksService {
@@ -25,6 +26,7 @@ export class ProjectRisksService {
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly projects: ProjectsService,
+    private readonly riskTaxonomy: RiskTaxonomyService,
   ) {}
 
   private async assertComplianceRequirementForClient(
@@ -59,6 +61,9 @@ export class ProjectRisksService {
     return this.prisma.projectRisk.findMany({
       where: { clientId, projectId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+      include: {
+        riskType: { include: { domain: true } },
+      },
     });
   }
 
@@ -66,6 +71,9 @@ export class ProjectRisksService {
     await this.projects.getProjectForScope(clientId, projectId);
     const risk = await this.prisma.projectRisk.findFirst({
       where: { id: riskId, clientId, projectId },
+      include: {
+        riskType: { include: { domain: true } },
+      },
     });
     if (!risk) throw new NotFoundException('Risk not found');
     return risk;
@@ -80,6 +88,7 @@ export class ProjectRisksService {
     await this.projects.getProjectForScope(clientId, projectId);
     await this.projects.assertClientUser(clientId, dto.ownerUserId);
     await this.assertComplianceRequirementForClient(clientId, dto.complianceRequirementId);
+    await this.riskTaxonomy.assertUsableRiskTypeForWrite(clientId, dto.riskTypeId);
 
     const code =
       dto.code?.trim() ||
@@ -103,6 +112,7 @@ export class ProjectRisksService {
     const data: Prisma.ProjectRiskCreateInput = {
       client: { connect: { id: clientId } },
       project: { connect: { id: projectId } },
+      riskType: { connect: { id: dto.riskTypeId } },
       code,
       title: dto.title.trim(),
       description: dto.description.trim(),
@@ -138,7 +148,10 @@ export class ProjectRisksService {
       };
     }
 
-    const created = await this.prisma.projectRisk.create({ data });
+    const created = await this.prisma.projectRisk.create({
+      data,
+      include: { riskType: { include: { domain: true } } },
+    });
 
     await this.auditLogs.create({
       clientId,
@@ -174,6 +187,9 @@ export class ProjectRisksService {
     }
     if (dto.complianceRequirementId !== undefined) {
       await this.assertComplianceRequirementForClient(clientId, dto.complianceRequirementId);
+    }
+    if (dto.riskTypeId !== undefined) {
+      await this.riskTaxonomy.assertUsableRiskTypeForWrite(clientId, dto.riskTypeId);
     }
 
     if (dto.description !== undefined && dto.description.trim() === '') {
@@ -271,7 +287,11 @@ export class ProjectRisksService {
                 },
               }
             : { complianceRequirement: { disconnect: true } })),
+        ...(dto.riskTypeId !== undefined && {
+          riskType: { connect: { id: dto.riskTypeId } },
+        }),
       },
+      include: { riskType: { include: { domain: true } } },
     });
 
     const meta = {

@@ -5,6 +5,7 @@ import {
   ProjectRiskStatus,
   ProjectRiskTreatmentStrategy,
 } from "@prisma/client";
+import { resolveRiskTypeIdForLegacyImpact } from "../src/modules/risk-taxonomy/risk-taxonomy-defaults";
 
 function addDaysUtc(base: Date, days: number): Date {
   const x = new Date(base);
@@ -576,11 +577,17 @@ async function syncRisksForSeedProject(
         contingencyPlan: true,
       },
     });
+    const riskTypeId = await resolveRiskTypeIdForLegacyImpact(
+      prisma,
+      clientId,
+      fieldData.impactCategory,
+    );
+
     if (existing) {
       if (demoRiskNeedsEnrichment(existing)) {
         await prisma.projectRisk.update({
           where: { id: existing.id },
-          data: fieldData,
+          data: { ...fieldData, riskTypeId },
         });
       }
       continue;
@@ -595,6 +602,7 @@ async function syncRisksForSeedProject(
         code: riskCode,
         title: seed.title,
         ...fieldData,
+        riskTypeId,
       },
     });
   }

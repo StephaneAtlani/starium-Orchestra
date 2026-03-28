@@ -131,6 +131,7 @@ describe('ProjectsPilotageService', () => {
           closedAt: null,
           sortOrder: 0,
           complianceRequirementId: null,
+          riskTypeId: 'rt1',
           treatmentStrategy: ProjectRiskTreatmentStrategy.REDUCE,
           residualRiskLevel: null,
           residualJustification: null,

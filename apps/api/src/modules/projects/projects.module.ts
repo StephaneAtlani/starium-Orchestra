@@ -34,9 +34,10 @@ import { ProjectsService } from './projects.service';
 import { ProjectTeamService } from './project-team.service';
 import { ProjectMilestoneLabelsController } from './project-milestone-labels.controller';
 import { ProjectMilestoneLabelsService } from './project-milestone-labels.service';
+import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
 
 @Module({
-  imports: [PrismaModule, AuditLogsModule],
+  imports: [PrismaModule, AuditLogsModule, RiskTaxonomyModule],
   controllers: [
     /** Routes `projects/:id/...` (ex. project-sheet) avant `projects/:id` pour éviter les collisions de matching. */
     ProjectSheetController,

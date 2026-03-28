@@ -206,6 +206,31 @@ export type ProjectRiskImpactCategory =
   | 'LEGAL'
   | 'REPUTATION';
 
+/** Référentiel taxonomie (GET /api/risk-taxonomy/catalog). */
+export type RiskTaxonomyDomainApi = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  types: Array<{ id: string; code: string; name: string; isActive: boolean }>;
+};
+
+export type ProjectRiskDomainApi = {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+};
+
+export type ProjectRiskTypeApi = {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+  domain: ProjectRiskDomainApi;
+};
+
 export type ProjectRiskApi = {
   id: string;
   clientId: string;
@@ -218,6 +243,8 @@ export type ProjectRiskApi = {
   businessImpact: string;
   likelihoodJustification: string | null;
   impactCategory: ProjectRiskImpactCategory | null;
+  riskTypeId: string;
+  riskType?: ProjectRiskTypeApi | null;
   probability: number;
   impact: number;
   criticalityScore: number;

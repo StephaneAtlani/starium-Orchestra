@@ -24,14 +24,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { getProjectRisk, listAssignableUsers } from '../api/projects.api';
+import { getProjectRisk, getRiskTaxonomyCatalog, listAssignableUsers } from '../api/projects.api';
 import type { CreateProjectRiskPayload } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { useDebouncedServerAutosave } from '@/hooks/use-debounced-server-autosave';
 import type { ProjectRiskApi, ProjectRiskCriticalityLevel } from '../types/project.types';
 import {
   PROJECT_RISK_CRITICALITY_LABEL,
-  PROJECT_RISK_IMPACT_CATEGORY_LABEL,
   RISK_PI_SCALE_LABEL,
   RISK_STATUS_LABEL,
   RISK_TREATMENT_STRATEGY_LABEL,
@@ -43,7 +42,6 @@ const OWNER_NONE = '__none__';
 
 const TREATMENT_KEYS = ['AVOID', 'REDUCE', 'TRANSFER', 'ACCEPT'] as const;
 const RESIDUAL_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
-const IMPACT_CATS = ['FINANCIAL', 'OPERATIONAL', 'LEGAL', 'REPUTATION'] as const;
 
 /** Affichage si `ownerUserId` n’est pas dans la liste assignable (évite l’UUID dans le trigger). */
 const OWNER_UNKNOWN_LABEL = 'Responsable (hors liste — compte toujours lié au risque)';
@@ -74,9 +72,8 @@ function stableRiskSnapshot(p: CreateProjectRiskPayload): string {
     threatSource: p.threatSource,
     description: p.description,
     businessImpact: p.businessImpact,
-    category: p.category ?? '',
+    riskTypeId: p.riskTypeId,
     likelihoodJustification: p.likelihoodJustification ?? '',
-    impactCategory: p.impactCategory ?? '',
     probability: p.probability,
     impact: p.impact,
     mitigationPlan: p.mitigationPlan ?? '',
@@ -100,9 +97,8 @@ function snapshotFromRisk(r: ProjectRiskApi): string {
     threatSource: r.threatSource.trim(),
     description: (r.description ?? '').trim(),
     businessImpact: r.businessImpact.trim(),
-    category: r.category?.trim() || undefined,
+    riskTypeId: r.riskTypeId,
     likelihoodJustification: r.likelihoodJustification?.trim() || undefined,
-    impactCategory: r.impactCategory ?? undefined,
     probability: r.probability,
     impact: r.impact,
     mitigationPlan: r.mitigationPlan?.trim() || undefined,
@@ -125,11 +121,6 @@ function formatUserLabel(u: {
 }): string {
   const n = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
   return n ? `${n} (${u.email})` : u.email;
-}
-
-function impactCategoryDisplayLabel(value: string): string {
-  if (value === NONE) return '';
-  return PROJECT_RISK_IMPACT_CATEGORY_LABEL[value] ?? 'Catégorie enregistrée';
 }
 
 function residualLevelDisplayLabel(value: string): string {
@@ -366,6 +357,13 @@ export function ProjectRiskEbiosDialog({
       Boolean(risk?.id),
   });
 
+  const taxonomyQuery = useQuery({
+    queryKey: ['risk-taxonomy', 'catalog', clientId],
+    queryFn: () => getRiskTaxonomyCatalog(authFetch),
+    enabled: open && Boolean(clientId),
+    staleTime: 60_000,
+  });
+
   const riskResolved = useMemo(
     () => (mode === 'edit' ? riskDetailQuery.data ?? risk : risk),
     [mode, risk, riskDetailQuery.data],
@@ -374,9 +372,9 @@ export function ProjectRiskEbiosDialog({
   const [title, setTitle] = useState('');
   const [threatSource, setThreatSource] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
   const [businessImpact, setBusinessImpact] = useState('');
-  const [impactCategory, setImpactCategory] = useState<string>(NONE);
+  const [taxonomyDomainId, setTaxonomyDomainId] = useState<string>(NONE);
+  const [riskTypeId, setRiskTypeId] = useState<string>(NONE);
   const [probability, setProbability] = useState(3);
   const [impact, setImpact] = useState(3);
   const [likelihoodJustification, setLikelihoodJustification] = useState('');
@@ -417,9 +415,10 @@ export function ProjectRiskEbiosDialog({
       setTitle(r.title);
       setThreatSource(r.threatSource ?? '');
       setDescription(r.description ?? '');
-      setCategory(r.category ?? '');
       setBusinessImpact(r.businessImpact ?? '');
-      setImpactCategory(r.impactCategory ?? NONE);
+      const domId = r.riskType?.domain?.id ?? NONE;
+      setTaxonomyDomainId(domId);
+      setRiskTypeId(r.riskTypeId ?? r.riskType?.id ?? NONE);
       setProbability(r.probability);
       setImpact(r.impact);
       setLikelihoodJustification(r.likelihoodJustification ?? '');
@@ -440,9 +439,9 @@ export function ProjectRiskEbiosDialog({
       setTitle('');
       setThreatSource('');
       setDescription('');
-      setCategory('');
       setBusinessImpact('');
-      setImpactCategory(NONE);
+      setTaxonomyDomainId(NONE);
+      setRiskTypeId(NONE);
       setProbability(3);
       setImpact(3);
       setLikelihoodJustification('');
@@ -459,6 +458,20 @@ export function ProjectRiskEbiosDialog({
       savedSnapshotRef.current = '';
     }
   }, [open, mode, risk?.id, riskResolved, riskDetailQuery.data]);
+
+  /** Défaut création : GENERAL / UNCLASSIFIED dès catalogue chargé. */
+  useEffect(() => {
+    if (!open || mode !== 'create') return;
+    const data = taxonomyQuery.data;
+    if (!data?.domains.length) return;
+    if (riskTypeId !== NONE) return;
+    const gen = data.domains.find((d) => d.code === 'GENERAL');
+    const un = gen?.types.find((t) => t.code === 'UNCLASSIFIED');
+    if (gen && un) {
+      setTaxonomyDomainId(gen.id);
+      setRiskTypeId(un.id);
+    }
+  }, [open, mode, taxonomyQuery.data, riskTypeId]);
 
   const residualSoftWarning = useMemo(() => {
     if (mode !== 'edit' || !riskResolved || residualRiskLevel === NONE) return false;
@@ -478,14 +491,14 @@ export function ProjectRiskEbiosDialog({
     const sc = description.trim();
     const bi = businessImpact.trim();
     if (!t || !ts || !sc || !bi || !treatmentStrategy) return null;
+    if (riskTypeId === NONE) return null;
     return {
       title: t,
       threatSource: ts,
       description: sc,
       businessImpact: bi,
-      category: category.trim() || undefined,
+      riskTypeId,
       likelihoodJustification: likelihoodJustification.trim() || undefined,
-      impactCategory: impactCategory === NONE ? undefined : impactCategory,
       probability,
       impact,
       mitigationPlan: mitigationPlan.trim() || undefined,
@@ -504,9 +517,8 @@ export function ProjectRiskEbiosDialog({
     threatSource,
     description,
     businessImpact,
-    category,
+    riskTypeId,
     likelihoodJustification,
-    impactCategory,
     probability,
     impact,
     mitigationPlan,
@@ -533,14 +545,6 @@ export function ProjectRiskEbiosDialog({
   }, [buildPayload, onSave]);
 
   const users = assignableQuery.data?.users ?? [];
-
-  const impactCategorySelectKeys = useMemo(() => {
-    const base: string[] = [...IMPACT_CATS];
-    if (impactCategory !== NONE && !base.includes(impactCategory)) {
-      base.push(impactCategory);
-    }
-    return base;
-  }, [impactCategory]);
 
   const residualLevelSelectKeys = useMemo(() => {
     const base: string[] = [...RESIDUAL_LEVELS];
@@ -689,17 +693,101 @@ export function ProjectRiskEbiosDialog({
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="ebios-cat">Famille ou domaine (optionnel)</Label>
-                <Input
-                  id="ebios-cat"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  disabled={isPending}
-                  maxLength={200}
-                  placeholder="ex. Cybersécurité, Migration, Fournisseur"
-                />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Domaine</Label>
+                  <Select
+                    value={taxonomyDomainId}
+                    onValueChange={(v) => {
+                      if (!v) return;
+                      setTaxonomyDomainId(v);
+                      const d = (taxonomyQuery.data?.domains ?? []).find((x) => x.id === v);
+                      const first = d?.types[0];
+                      if (first) setRiskTypeId(first.id);
+                    }}
+                    disabled={isPending || taxonomyQuery.isLoading}
+                  >
+                    <SelectTrigger className="w-full min-w-0">
+                      <span className={selectTriggerLabelClass}>
+                        {taxonomyDomainId === NONE
+                          ? 'Chargement…'
+                          : (taxonomyQuery.data?.domains ?? []).find((d) => d.id === taxonomyDomainId)
+                              ?.name ?? 'Domaine'}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(taxonomyQuery.data?.domains ?? []).map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Type de risque</Label>
+                  <Select
+                    value={riskTypeId}
+                    onValueChange={(v) => {
+                      if (v) setRiskTypeId(v);
+                    }}
+                    disabled={isPending || taxonomyQuery.isLoading || taxonomyDomainId === NONE}
+                  >
+                    <SelectTrigger className="w-full min-w-0">
+                      <span className={selectTriggerLabelClass}>
+                        {riskTypeId === NONE
+                          ? '—'
+                          : (() => {
+                              const d = (taxonomyQuery.data?.domains ?? []).find(
+                                (x) => x.id === taxonomyDomainId,
+                              );
+                              const fromCat = d?.types.find((t) => t.id === riskTypeId);
+                              if (fromCat) return fromCat.name;
+                              const legacy = riskResolved?.riskType;
+                              if (legacy?.id === riskTypeId) {
+                                return `${legacy.name}${legacy.isActive ? '' : ' (inactif)'}`;
+                              }
+                              return 'Non classé';
+                            })()}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(() => {
+                        const d = (taxonomyQuery.data?.domains ?? []).find(
+                          (x) => x.id === taxonomyDomainId,
+                        );
+                        let types = d?.types ?? [];
+                        const legacy = riskResolved?.riskType;
+                        if (
+                          mode === 'edit' &&
+                          legacy &&
+                          legacy.id === riskTypeId &&
+                          !types.some((t) => t.id === legacy.id)
+                        ) {
+                          types = [
+                            ...types,
+                            {
+                              id: legacy.id,
+                              code: legacy.code,
+                              name: legacy.name,
+                              isActive: legacy.isActive,
+                            },
+                          ];
+                        }
+                        return types.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name}
+                            {!t.isActive ? ' (inactif)' : ''}
+                          </SelectItem>
+                        ));
+                      })()}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+              {taxonomyQuery.isError ? (
+                <p className="text-xs text-destructive">Impossible de charger la taxonomie risques.</p>
+              ) : null}
             </EbiosSection>
 
             <EbiosSection
@@ -830,35 +918,6 @@ export function ProjectRiskEbiosDialog({
                   )}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Catégorie d’impact (optionnel)</Label>
-                <Select
-                  value={impactCategory}
-                  onValueChange={(v) => setImpactCategory(v ?? NONE)}
-                  disabled={isPending}
-                >
-                  <SelectTrigger className="w-full min-w-0">
-                    <span
-                      className={cn(
-                        selectTriggerLabelClass,
-                        impactCategory === NONE && 'text-muted-foreground',
-                      )}
-                    >
-                      {impactCategory === NONE
-                        ? 'Non renseigné'
-                        : impactCategoryDisplayLabel(impactCategory)}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>Non renseigné</SelectItem>
-                    {impactCategorySelectKeys.map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {PROJECT_RISK_IMPACT_CATEGORY_LABEL[k] ?? 'Valeur enregistrée'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </EbiosSection>
 

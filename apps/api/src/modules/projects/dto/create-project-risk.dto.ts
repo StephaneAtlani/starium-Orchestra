@@ -35,6 +35,11 @@ export class CreateProjectRiskDto {
   @IsString()
   category?: string;
 
+  /** FK taxonomie — seule source de vérité pour domaine/type affichés. */
+  @IsString()
+  @MinLength(1)
+  riskTypeId!: string;
+
   @IsString()
   @MinLength(1)
   threatSource!: string;

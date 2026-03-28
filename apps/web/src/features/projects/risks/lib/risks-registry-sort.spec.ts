@@ -29,6 +29,7 @@ function risk(partial: Partial<ProjectRiskApi> & Pick<ProjectRiskApi, 'id' | 'ti
     closedAt: null,
     sortOrder: 0,
     complianceRequirementId: null,
+    riskTypeId: 'rt1',
     treatmentStrategy: 'REDUCE',
     residualJustification: null,
     createdAt: new Date().toISOString(),

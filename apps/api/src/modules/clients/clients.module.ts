@@ -16,6 +16,7 @@ import { ClientModulesController } from './client-modules.controller';
 import { ClientModulesService } from './client-modules.service';
 import { ClientTaxSettingsController } from './client-tax-settings.controller';
 import { ClientTaxSettingsService } from './client-tax-settings.service';
+import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ClientTaxSettingsService } from './client-tax-settings.service';
     RolesModule,
     ProjectsModule,
     ResourcesModule,
+    RiskTaxonomyModule,
   ],
   controllers: [ClientsController, ClientModulesController, ClientTaxSettingsController],
   providers: [

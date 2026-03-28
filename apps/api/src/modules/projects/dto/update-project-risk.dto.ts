@@ -39,6 +39,11 @@ export class UpdateProjectRiskDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
+  riskTypeId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   threatSource?: string;
 
   @IsOptional()

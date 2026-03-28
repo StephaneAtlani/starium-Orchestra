@@ -22,6 +22,7 @@ import type {
   ProjectSheetDecisionSnapshotListResponse,
   ProjectPortfolioCategoryNode,
   ProjectTag,
+  RiskTaxonomyDomainApi,
   UpdateProjectSheetPayload,
 } from '../types/project.types';
 
@@ -343,11 +344,24 @@ export async function listRisks(authFetch: AuthFetch, projectId: string) {
   return res.json() as Promise<ProjectRiskApi[]>;
 }
 
+export type RiskTaxonomyCatalogResponse = {
+  domains: RiskTaxonomyDomainApi[];
+};
+
+export async function getRiskTaxonomyCatalog(
+  authFetch: AuthFetch,
+): Promise<RiskTaxonomyCatalogResponse> {
+  const res = await authFetch('/api/risk-taxonomy/catalog');
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<RiskTaxonomyCatalogResponse>;
+}
+
 export type CreateProjectRiskPayload = {
   title: string;
   description: string;
   code?: string;
   category?: string;
+  riskTypeId: string;
   threatSource: string;
   businessImpact: string;
   likelihoodJustification?: string;
@@ -758,4 +772,90 @@ export async function removeProjectTeamMember(
     method: 'DELETE',
   });
   if (!res.ok) throw await parseApiFormError(res);
+}
+
+const TAXONOMY = '/api/risk-taxonomy';
+
+export type RiskTaxonomyAdminDomain = {
+  id: string;
+  clientId: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  types: Array<{
+    id: string;
+    clientId: string;
+    domainId: string;
+    code: string;
+    name: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+};
+
+export async function listRiskTaxonomyAdminDomains(
+  authFetch: AuthFetch,
+): Promise<RiskTaxonomyAdminDomain[]> {
+  const res = await authFetch(`${TAXONOMY}/admin/domains`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<RiskTaxonomyAdminDomain[]>;
+}
+
+export async function createRiskTaxonomyDomain(
+  authFetch: AuthFetch,
+  body: { code: string; name: string; description?: string | null; isActive?: boolean },
+): Promise<{ id: string }> {
+  const res = await authFetch(`${TAXONOMY}/admin/domains`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function updateRiskTaxonomyDomain(
+  authFetch: AuthFetch,
+  domainId: string,
+  body: Partial<{ code: string; name: string; description: string | null; isActive: boolean }>,
+): Promise<unknown> {
+  const res = await authFetch(`${TAXONOMY}/admin/domains/${domainId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function createRiskTaxonomyType(
+  authFetch: AuthFetch,
+  domainId: string,
+  body: { code: string; name: string; isActive?: boolean },
+): Promise<{ id: string }> {
+  const res = await authFetch(`${TAXONOMY}/admin/domains/${domainId}/types`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function updateRiskTaxonomyType(
+  authFetch: AuthFetch,
+  typeId: string,
+  body: Partial<{ code: string; name: string; isActive: boolean }>,
+): Promise<unknown> {
+  const res = await authFetch(`${TAXONOMY}/admin/types/${typeId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
 }
