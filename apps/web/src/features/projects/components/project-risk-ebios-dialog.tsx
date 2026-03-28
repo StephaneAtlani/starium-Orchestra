@@ -23,8 +23,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
-import { listAssignableUsers } from '../api/projects.api';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { getProjectRisk, listAssignableUsers } from '../api/projects.api';
 import type { CreateProjectRiskPayload } from '../api/projects.api';
+import { projectQueryKeys } from '../lib/project-query-keys';
 import { useDebouncedServerAutosave } from '@/hooks/use-debounced-server-autosave';
 import type { ProjectRiskApi, ProjectRiskCriticalityLevel } from '../types/project.types';
 import {
@@ -343,11 +345,31 @@ export function ProjectRiskEbiosDialog({
   isDeleting = false,
 }: ProjectRiskEbiosDialogProps) {
   const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+
   const assignableQuery = useQuery({
     queryKey: ['projects', 'assignable-users', projectId],
     queryFn: () => listAssignableUsers(authFetch),
     enabled: open && Boolean(projectId),
   });
+
+  /** Détail complet : évite un formulaire vide si la liste ou un 1er rendu n’expose pas tous les champs. */
+  const riskDetailQuery = useQuery({
+    queryKey: projectQueryKeys.riskDetail(clientId, projectId, risk?.id ?? ''),
+    queryFn: () => getProjectRisk(authFetch, projectId, risk!.id),
+    enabled:
+      open &&
+      mode === 'edit' &&
+      Boolean(clientId) &&
+      Boolean(projectId) &&
+      Boolean(risk?.id),
+  });
+
+  const riskResolved = useMemo(
+    () => (mode === 'edit' ? riskDetailQuery.data ?? risk : risk),
+    [mode, risk, riskDetailQuery.data],
+  );
 
   const [title, setTitle] = useState('');
   const [threatSource, setThreatSource] = useState('');
@@ -378,9 +400,11 @@ export function ProjectRiskEbiosDialog({
       loadedKeyRef.current = null;
       return;
     }
+    const sourcePhase: 'list' | 'detail' =
+      mode === 'edit' && risk?.id && riskDetailQuery.data ? 'detail' : 'list';
     const key =
-      mode === 'edit' && risk
-        ? `edit:${risk.id}`
+      mode === 'edit' && risk?.id
+        ? `edit:${risk.id}:${sourcePhase}`
         : mode === 'create'
           ? 'create'
           : '';
@@ -388,27 +412,28 @@ export function ProjectRiskEbiosDialog({
     if (loadedKeyRef.current === key) return;
     loadedKeyRef.current = key;
 
-    if (mode === 'edit' && risk) {
-      setTitle(risk.title);
-      setThreatSource(risk.threatSource ?? '');
-      setDescription(risk.description ?? '');
-      setCategory(risk.category ?? '');
-      setBusinessImpact(risk.businessImpact ?? '');
-      setImpactCategory(risk.impactCategory ?? NONE);
-      setProbability(risk.probability);
-      setImpact(risk.impact);
-      setLikelihoodJustification(risk.likelihoodJustification ?? '');
-      setMitigationPlan(risk.mitigationPlan ?? '');
-      setContingencyPlan(risk.contingencyPlan ?? '');
-      setTreatmentStrategy(risk.treatmentStrategy ?? 'REDUCE');
-      setResidualRiskLevel(risk.residualRiskLevel ?? NONE);
-      setResidualJustification(risk.residualJustification ?? '');
-      setStatus(risk.status);
-      setDueDate(toDateInputValue(risk.dueDate));
-      setDetectedAt(toDateInputValue(risk.detectedAt));
-      setReviewDate(toDateInputValue(risk.reviewDate));
-      setOwnerUserId(risk.ownerUserId ?? OWNER_NONE);
-      savedSnapshotRef.current = snapshotFromRisk(risk);
+    if (mode === 'edit' && riskResolved) {
+      const r = riskResolved;
+      setTitle(r.title);
+      setThreatSource(r.threatSource ?? '');
+      setDescription(r.description ?? '');
+      setCategory(r.category ?? '');
+      setBusinessImpact(r.businessImpact ?? '');
+      setImpactCategory(r.impactCategory ?? NONE);
+      setProbability(r.probability);
+      setImpact(r.impact);
+      setLikelihoodJustification(r.likelihoodJustification ?? '');
+      setMitigationPlan(r.mitigationPlan ?? '');
+      setContingencyPlan(r.contingencyPlan ?? '');
+      setTreatmentStrategy(r.treatmentStrategy ?? 'REDUCE');
+      setResidualRiskLevel(r.residualRiskLevel ?? NONE);
+      setResidualJustification(r.residualJustification ?? '');
+      setStatus(r.status);
+      setDueDate(toDateInputValue(r.dueDate));
+      setDetectedAt(toDateInputValue(r.detectedAt));
+      setReviewDate(toDateInputValue(r.reviewDate));
+      setOwnerUserId(r.ownerUserId ?? OWNER_NONE);
+      savedSnapshotRef.current = snapshotFromRisk(r);
       return;
     }
     if (mode === 'create') {
@@ -433,19 +458,19 @@ export function ProjectRiskEbiosDialog({
       setOwnerUserId(OWNER_NONE);
       savedSnapshotRef.current = '';
     }
-  }, [open, mode, risk?.id]);
+  }, [open, mode, risk?.id, riskResolved, riskDetailQuery.data]);
 
   const residualSoftWarning = useMemo(() => {
-    if (mode !== 'edit' || !risk || residualRiskLevel === NONE) return false;
+    if (mode !== 'edit' || !riskResolved || residualRiskLevel === NONE) return false;
     const rOrd = CRIT_ORDER[residualRiskLevel] ?? 0;
-    const iOrd = CRIT_ORDER[risk.criticalityLevel] ?? 0;
+    const iOrd = CRIT_ORDER[riskResolved.criticalityLevel] ?? 0;
     return rOrd > iOrd;
-  }, [mode, risk, residualRiskLevel]);
+  }, [mode, riskResolved, residualRiskLevel]);
 
   const piChanged =
     mode === 'edit' &&
-    risk &&
-    (probability !== risk.probability || impact !== risk.impact);
+    riskResolved &&
+    (probability !== riskResolved.probability || impact !== riskResolved.impact);
 
   const buildPayload = useCallback((): CreateProjectRiskPayload | null => {
     const t = title.trim();
@@ -616,9 +641,9 @@ export function ProjectRiskEbiosDialog({
               title="Identification du scénario"
               hint="Titre court pour les listes ; scénario structuré « Si X alors Y » (complémentaires)."
               headerExtra={
-                mode === 'edit' && risk ? (
+                mode === 'edit' && riskResolved ? (
                   <Badge variant="outline" className="font-mono text-xs font-normal">
-                    {risk.code}
+                    {riskResolved.code}
                   </Badge>
                 ) : undefined
               }
@@ -751,7 +776,7 @@ export function ProjectRiskEbiosDialog({
                   )}
                 />
               </div>
-              {mode === 'edit' && risk ? (
+              {mode === 'edit' && riskResolved ? (
                 <div
                   className={cn(
                     'flex flex-col gap-1.5 rounded-lg border border-border/60 bg-muted/25 px-3 py-2.5 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1',
@@ -759,17 +784,17 @@ export function ProjectRiskEbiosDialog({
                 >
                   <span className="text-muted-foreground">Criticité enregistrée</span>
                   <span className="tabular-nums font-semibold text-foreground">
-                    {risk.criticalityScore}
+                    {riskResolved.criticalityScore}
                   </span>
                   <span className="hidden text-muted-foreground sm:inline" aria-hidden>
                     ·
                   </span>
                   <Badge
                     variant="outline"
-                    className={cn('font-normal', criticalityBadgeClass(risk.criticalityLevel))}
+                    className={cn('font-normal', criticalityBadgeClass(riskResolved.criticalityLevel))}
                   >
-                    {PROJECT_RISK_CRITICALITY_LABEL[risk.criticalityLevel as ProjectRiskCriticalityLevel] ??
-                      risk.criticalityLevel}
+                    {PROJECT_RISK_CRITICALITY_LABEL[riskResolved.criticalityLevel as ProjectRiskCriticalityLevel] ??
+                      riskResolved.criticalityLevel}
                   </Badge>
                   {piChanged ? (
                     <span className="text-xs text-amber-700 dark:text-amber-400">
@@ -1046,11 +1071,11 @@ export function ProjectRiskEbiosDialog({
                   />
                 </div>
               </div>
-              {mode === 'edit' && risk?.closedAt ? (
+              {mode === 'edit' && riskResolved?.closedAt ? (
                 <div className="space-y-1">
                   <Label className="text-muted-foreground">Date de clôture (lecture seule)</Label>
                   <p className="text-sm tabular-nums">
-                    {new Date(risk.closedAt).toLocaleDateString('fr-FR', {
+                    {new Date(riskResolved.closedAt).toLocaleDateString('fr-FR', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
@@ -1060,12 +1085,12 @@ export function ProjectRiskEbiosDialog({
               ) : null}
             </EbiosSection>
 
-            {mode === 'edit' && risk && canDelete && onDelete ? (
+            {mode === 'edit' && riskResolved && canDelete && onDelete ? (
               <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 sm:px-5">
                 <p className="text-sm font-medium text-destructive">Supprimer ce risque</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Retrait définitif du registre pour{' '}
-                  <span className="font-mono text-foreground">{risk.code}</span>.
+                  <span className="font-mono text-foreground">{riskResolved.code}</span>.
                 </p>
                 <Button
                   type="button"
@@ -1076,7 +1101,7 @@ export function ProjectRiskEbiosDialog({
                   onClick={async () => {
                     if (
                       !window.confirm(
-                        `Supprimer définitivement le risque « ${risk.title} » (${risk.code}) ?`,
+                        `Supprimer définitivement le risque « ${riskResolved.title} » (${riskResolved.code}) ?`,
                       )
                     ) {
                       return;

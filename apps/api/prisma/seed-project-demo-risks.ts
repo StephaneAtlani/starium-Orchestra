@@ -1,6 +1,7 @@
 import {
   PrismaClient,
   ProjectRiskCriticality,
+  ProjectRiskImpactCategory,
   ProjectRiskStatus,
   ProjectRiskTreatmentStrategy,
 } from "@prisma/client";
@@ -24,7 +25,69 @@ type DemoRiskSeed = {
   reviewDateOffsetDays?: number | null;
   mitigationPlan?: string | null;
   owner?: OwnerKey;
+  /** Surcharges optionnelles pour une fiche risque EBIOS complète en démo */
+  category?: string;
+  threatSource?: string;
+  businessImpact?: string;
+  likelihoodJustification?: string;
+  impactCategory?: ProjectRiskImpactCategory;
+  contingencyPlan?: string;
+  treatmentStrategy?: ProjectRiskTreatmentStrategy;
+  residualRiskLevel?: ProjectRiskCriticality;
+  residualJustification?: string;
+  /** Échéance cible (jours depuis `now`) */
+  dueDateOffsetDays?: number;
+  /** Date de détection / identification (jours depuis `now`, souvent négatif) */
+  detectedAtOffsetDays?: number;
 };
+
+const IMPACT_CATEGORY_ROTATION: ProjectRiskImpactCategory[] = [
+  ProjectRiskImpactCategory.OPERATIONAL,
+  ProjectRiskImpactCategory.FINANCIAL,
+  ProjectRiskImpactCategory.LEGAL,
+  ProjectRiskImpactCategory.REPUTATION,
+];
+
+function defaultTreatmentStrategy(
+  status: ProjectRiskStatus,
+): ProjectRiskTreatmentStrategy {
+  if (status === ProjectRiskStatus.CLOSED) {
+    return ProjectRiskTreatmentStrategy.ACCEPT;
+  }
+  return ProjectRiskTreatmentStrategy.REDUCE;
+}
+
+function defaultResidual(
+  seed: DemoRiskSeed,
+  criticalityLevel: ProjectRiskCriticality,
+): { level: ProjectRiskCriticality; justification: string } {
+  let level: ProjectRiskCriticality;
+  let justification: string;
+  if (seed.status === ProjectRiskStatus.CLOSED) {
+    level = ProjectRiskCriticality.LOW;
+    justification =
+      "Risque clôturé : mesures tenues ou acceptation documentée en comité de pilotage.";
+  } else if (seed.status === ProjectRiskStatus.MITIGATED) {
+    level = ProjectRiskCriticality.MEDIUM;
+    justification =
+      "Résiduel modéré après plan d'action ; suivi trimestriel dans le registre.";
+  } else if (
+    criticalityLevel === ProjectRiskCriticality.CRITICAL ||
+    criticalityLevel === ProjectRiskCriticality.HIGH
+  ) {
+    level = ProjectRiskCriticality.MEDIUM;
+    justification =
+      "Résiduel attendu après exécution du plan de réduction ; revue à la prochaine échéance.";
+  } else {
+    level = ProjectRiskCriticality.LOW;
+    justification =
+      "Résiduel faible ; surveillance dans le cadre du pilotage courant.";
+  }
+  return {
+    level: seed.residualRiskLevel ?? level,
+    justification: seed.residualJustification ?? justification,
+  };
+}
 
 function resolveOwner(
   key: OwnerKey | undefined,
@@ -413,7 +476,8 @@ export async function ensureDemoProjectRisks(
     if (!project) continue;
 
     const seeds = RISKS_BY_SUFFIX[suffix];
-    for (const seed of seeds) {
+    for (let riskIndex = 0; riskIndex < seeds.length; riskIndex++) {
+      const seed = seeds[riskIndex]!;
       const existing = await prisma.projectRisk.findFirst({
         where: { projectId: project.id, title: seed.title },
         select: { id: true },
@@ -429,7 +493,27 @@ export async function ensureDemoProjectRisks(
         seed.probability,
         seed.impact,
       );
+      const residual = defaultResidual(seed, criticalityLevel);
       const riskCode = await nextRiskCodeForProject(prisma, project.id);
+
+      const defaultMitigation =
+        "Réduction : actions de suivi dans le registre risques et revue à l'échéance planifiée.";
+      const defaultContingency =
+        "Secours : escalade COPIL, réduction de périmètre ou arbitrage budget/délai selon criticité.";
+      const impactCategory =
+        seed.impactCategory ??
+        IMPACT_CATEGORY_ROTATION[riskIndex % IMPACT_CATEGORY_ROTATION.length]!;
+
+      const detectedAt = addDaysUtc(
+        now,
+        seed.detectedAtOffsetDays ?? -90 - riskIndex * 5,
+      );
+      const dueDateOffset =
+        seed.dueDateOffsetDays ??
+        (seed.status === ProjectRiskStatus.CLOSED
+          ? -14 - riskIndex
+          : 28 + riskIndex * 7);
+      const dueDate = addDaysUtc(now, dueDateOffset);
 
       await prisma.projectRisk.create({
         data: {
@@ -437,19 +521,36 @@ export async function ensureDemoProjectRisks(
           projectId: project.id,
           code: riskCode,
           title: seed.title,
-          description: seed.description ?? "Si un facteur externe se dégrade alors le projet subit un retard.",
-          threatSource: "Démo seed",
-          businessImpact: "Impact projet démo (données seed).",
+          description:
+            seed.description ??
+            "Si un facteur externe se dégrade alors le projet subit un retard.",
+          category: seed.category ?? "Pilotage & dépendances",
+          threatSource:
+            seed.threatSource ??
+            "Contexte projet démo (fournisseurs, technique, organisation).",
+          businessImpact:
+            seed.businessImpact ??
+            `Conséquences possibles sur le livrable « ${seed.title} » : délai, coût, qualité ou conformité (données seed).`,
+          likelihoodJustification:
+            seed.likelihoodJustification ??
+            `Score probabilité ${seed.probability}/5 : positionnement issu des ateliers risques et de l'historique incidents du domaine (jeu démo).`,
+          impactCategory,
           probability: seed.probability,
           impact: seed.impact,
           criticalityScore,
           criticalityLevel,
           status: seed.status,
           reviewDate,
-          mitigationPlan: seed.mitigationPlan ?? null,
+          mitigationPlan: seed.mitigationPlan ?? defaultMitigation,
+          contingencyPlan: seed.contingencyPlan ?? defaultContingency,
           ownerUserId: resolveOwner(seed.owner, ownerUserIdA, ownerUserIdB),
+          dueDate,
+          detectedAt,
           closedAt: seed.status === ProjectRiskStatus.CLOSED ? now : null,
-          treatmentStrategy: ProjectRiskTreatmentStrategy.REDUCE,
+          treatmentStrategy:
+            seed.treatmentStrategy ?? defaultTreatmentStrategy(seed.status),
+          residualRiskLevel: residual.level,
+          residualJustification: residual.justification,
         },
       });
     }

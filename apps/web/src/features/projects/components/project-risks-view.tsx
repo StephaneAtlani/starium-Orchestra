@@ -76,6 +76,9 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
     void queryClient.invalidateQueries({
       queryKey: projectQueryKeys.detail(clientId, projectId),
     });
+    void queryClient.invalidateQueries({
+      queryKey: [...projectQueryKeys.all, 'risk-detail', clientId, projectId],
+    });
   };
 
   const createMutation = useMutation({
