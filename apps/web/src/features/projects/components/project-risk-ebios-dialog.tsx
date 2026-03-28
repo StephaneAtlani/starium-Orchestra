@@ -16,7 +16,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -128,13 +127,16 @@ function formatUserLabel(u: {
 
 function impactCategoryDisplayLabel(value: string): string {
   if (value === NONE) return '';
-  return PROJECT_RISK_IMPACT_CATEGORY_LABEL[value] ?? 'Catégorie d’impact';
+  return PROJECT_RISK_IMPACT_CATEGORY_LABEL[value] ?? 'Catégorie enregistrée';
 }
 
 function residualLevelDisplayLabel(value: string): string {
   if (value === NONE) return '';
-  return PROJECT_RISK_CRITICALITY_LABEL[value] ?? 'Niveau résiduel';
+  return PROJECT_RISK_CRITICALITY_LABEL[value] ?? 'Niveau enregistré';
 }
+
+const selectTriggerLabelClass =
+  'min-w-0 flex-1 truncate text-left text-sm leading-none';
 
 function criticalityBadgeClass(level: string): string {
   switch (level) {
@@ -689,9 +691,9 @@ export function ProjectRiskEbiosDialog({
                     disabled={isPending}
                   >
                     <SelectTrigger className="w-full min-w-0">
-                      <SelectValue>
+                      <span className={selectTriggerLabelClass}>
                         {RISK_PI_SCALE_LABEL[String(probability)] ?? String(probability)}
-                      </SelectValue>
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       {PI_OPTIONS.map((n) => (
@@ -710,9 +712,9 @@ export function ProjectRiskEbiosDialog({
                     disabled={isPending}
                   >
                     <SelectTrigger className="w-full min-w-0">
-                      <SelectValue>
+                      <span className={selectTriggerLabelClass}>
                         {RISK_PI_SCALE_LABEL[String(impact)] ?? String(impact)}
-                      </SelectValue>
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       {PI_OPTIONS.map((n) => (
@@ -812,9 +814,16 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                 >
                   <SelectTrigger className="w-full min-w-0">
-                    <SelectValue placeholder="Non renseigné">
-                      {impactCategory === NONE ? null : impactCategoryDisplayLabel(impactCategory)}
-                    </SelectValue>
+                    <span
+                      className={cn(
+                        selectTriggerLabelClass,
+                        impactCategory === NONE && 'text-muted-foreground',
+                      )}
+                    >
+                      {impactCategory === NONE
+                        ? 'Non renseigné'
+                        : impactCategoryDisplayLabel(impactCategory)}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}>Non renseigné</SelectItem>
@@ -841,9 +850,10 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                 >
                   <SelectTrigger className="w-full min-w-0">
-                    <SelectValue>
-                      {RISK_TREATMENT_STRATEGY_LABEL[treatmentStrategy] ?? 'Stratégie de traitement'}
-                    </SelectValue>
+                    <span className={selectTriggerLabelClass}>
+                      {RISK_TREATMENT_STRATEGY_LABEL[treatmentStrategy] ??
+                        'Stratégie de traitement'}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     {treatmentSelectKeys.map((k) => (
@@ -909,11 +919,16 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                 >
                   <SelectTrigger className="w-full min-w-0">
-                    <SelectValue placeholder="Non évalué">
+                    <span
+                      className={cn(
+                        selectTriggerLabelClass,
+                        residualRiskLevel === NONE && 'text-muted-foreground',
+                      )}
+                    >
                       {residualRiskLevel === NONE
-                        ? null
+                        ? 'Non renseigné'
                         : residualLevelDisplayLabel(residualRiskLevel)}
-                    </SelectValue>
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}>Non renseigné</SelectItem>
@@ -956,7 +971,14 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending || assignableQuery.isLoading}
                 >
                   <SelectTrigger className="w-full min-w-0">
-                    <SelectValue placeholder="Choisir…">{ownerLabel}</SelectValue>
+                    <span
+                      className={cn(
+                        selectTriggerLabelClass,
+                        ownerUserId === OWNER_NONE && 'text-muted-foreground',
+                      )}
+                    >
+                      {ownerLabel}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={OWNER_NONE}>Non assigné</SelectItem>
@@ -979,9 +1001,9 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                 >
                   <SelectTrigger className="w-full min-w-0">
-                    <SelectValue>
-                      {RISK_STATUS_LABEL[status] ?? 'Statut du risque'}
-                    </SelectValue>
+                    <span className={selectTriggerLabelClass}>
+                      {RISK_STATUS_LABEL[status] ?? 'Statut enregistré'}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     {statusSelectKeys.map((k) => (

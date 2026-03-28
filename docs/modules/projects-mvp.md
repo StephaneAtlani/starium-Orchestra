@@ -105,6 +105,7 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 - Module `projects` et permissions `projects.read|create|update|delete` : `apps/api/prisma/seed.js`, profils `apps/api/prisma/default-profiles.json`
 - Client démo : activation du module projets où prévu dans le seed
 - **Points projet démo** (RFC-PROJ-013) : `apps/api/prisma/seed-project-demo-reviews.ts` — jeux cohérents sur `{prefix}-SEED-01` … `10`, dont des **retours d’expérience** (`POST_MORTEM`, `contentPayload.postMortem`) sur certains projets (**SEED-03**, **SEED-06**, **SEED-09**)
+- **Étiquettes démo** (RFC-PROJ-017) : `apps/api/prisma/seed-project-demo-tags.ts` — `ProjectTag` + affectations par projet, `ProjectTaskLabel` + affectations sur chaque tâche démo (rotation Priorité / Documentation / Recette), `ProjectMilestoneLabel` sur les deux premiers jalons du projet **SEED-01** ; réinitialisation des labels tâche/jalon démo à chaque seed
 - Rôles système d’équipe projet garantis par client (idempotent) : `SPONSOR`, `OWNER` et rôle référent métier (créés/ré-assurés via `ensureDefaultTeamRolesForClient`, appelés notamment sur `listRoles`, `getTeam` et création projet)
 
 ---

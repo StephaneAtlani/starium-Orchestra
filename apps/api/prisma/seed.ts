@@ -36,6 +36,7 @@ import { ensureDemoCompliance } from "./seed-compliance-demo";
 import { ensureDemoProjectTaskBuckets } from "./seed-project-demo-buckets";
 import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
 import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
+import { ensureDemoProjectTagsAndLabels } from "./seed-project-demo-tags";
 
 const prisma = new PrismaClient();
 const PASSWORD = "aa";
@@ -1733,13 +1734,14 @@ async function seedClientDemoProjects(
   await ensureDemoProjectTasks(prisma, clientId, prefix, now, a, b);
   await ensureDemoRetroplanMilestones(clientId, prefix, now, a);
   await syncDemoProjectMilestonePhases(clientId, prefix);
+  await ensureDemoProjectTagsAndLabels(prisma, clientId, prefix);
   await ensureDemoProjectBudgetLinks(clientId, prefix);
   await ensureDemoProjectTaskBuckets(prisma, clientId, prefix);
   await ensureDemoProjectActivities(prisma, clientId, prefix, now, a, b);
   await ensureDemoProjectReviews(prisma, clientId, prefix, now, a, b);
 
   console.log(
-    `✅ Seed demo projets [${slug}]: 10 projets, risques métier (jeu complet), taches (jeu complet recree), fiches (TOWS 4 quadrants), jalons rétroplan, liens budget FULL, buckets Kanban, activites recurrentes, points projet, catégories, ressources`,
+    `✅ Seed demo projets [${slug}]: 10 projets, risques métier (jeu complet), taches (jeu complet recree), fiches (TOWS 4 quadrants), jalons rétroplan, étiquettes projet/tâches/jalons, liens budget FULL, buckets Kanban, activites recurrentes, points projet, catégories, ressources`,
   );
 }
 
