@@ -1,4 +1,21 @@
-import type { ProjectReviewType } from '../types/project.types';
+import type { ProjectReviewListItem, ProjectReviewType } from '../types/project.types';
+
+/**
+ * Brouillon de retour d'expérience non finalisé (le plus récemment mis à jour si plusieurs).
+ */
+export function findDraftPostMortemReview(
+  items: ProjectReviewListItem[] | undefined,
+): ProjectReviewListItem | null {
+  if (!items?.length) return null;
+  const drafts = items.filter(
+    (r) => r.reviewType === 'POST_MORTEM' && r.status === 'DRAFT',
+  );
+  if (!drafts.length) return null;
+  drafts.sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
+  return drafts[0] ?? null;
+}
 
 /** Statuts projet pour lesquels seuls des retours d'expérience peuvent être créés (nouveaux points). */
 export const POST_MORTEM_ELIGIBLE_PROJECT_STATUSES = [

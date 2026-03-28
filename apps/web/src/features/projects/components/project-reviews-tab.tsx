@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -43,6 +43,7 @@ import { toast } from 'sonner';
 import { CalendarRange, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
 import {
+  findDraftPostMortemReview,
   isPostMortemEligibleProjectStatus,
   REVIEW_TYPES_PILOTAGE,
 } from '../lib/project-review-post-mortem';
@@ -210,6 +211,10 @@ export function ProjectReviewsTab({
   const [editorOpen, setEditorOpen] = useState(false);
 
   const list = useProjectReviewsQuery(projectId);
+  const draftPostMortem = useMemo(
+    () => findDraftPostMortemReview(list.data),
+    [list.data],
+  );
   const assignable = useProjectAssignableUsers();
   const teamForCreate = useProjectTeamQuery(projectId, { enabled: createOpen });
   const { create } = useProjectReviewMutations(projectId);
@@ -223,6 +228,7 @@ export function ProjectReviewsTab({
 
   const createFormSeededRef = useRef(false);
   const openedPostMortemFromQueryRef = useRef(false);
+  const openedOpenReviewRef = useRef<string | null>(null);
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -233,21 +239,40 @@ export function ProjectReviewsTab({
     setFormTitle('');
   }, [postMortemEligible]);
 
-  /** Synthèse projet : lien « Créer un retour d'expérience » avec `?createRetourExperience=1`. */
+  const openEditor = useCallback((id: string) => {
+    setEditorReviewId(id);
+    setEditorOpen(true);
+  }, []);
+
+  /** Synthèse projet : `?createRetourExperience=1` ouvre la création ; si un brouillon REX existe, l’éditeur. */
   useEffect(() => {
     if (searchParams.get('createRetourExperience') !== '1') {
       openedPostMortemFromQueryRef.current = false;
       return;
     }
     if (!postMortemEligible || !canEdit) return;
+    if (list.isLoading) return;
     if (openedPostMortemFromQueryRef.current) return;
+
+    const stripCreateParam = () => {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('createRetourExperience');
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    };
+
+    const draft = findDraftPostMortemReview(list.data);
+    if (draft) {
+      openedPostMortemFromQueryRef.current = true;
+      openEditor(draft.id);
+      stripCreateParam();
+      return;
+    }
+
     openedPostMortemFromQueryRef.current = true;
     resetCreateFormFields();
     setCreateOpen(true);
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete('createRetourExperience');
-    const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    stripCreateParam();
   }, [
     searchParams,
     pathname,
@@ -255,7 +280,26 @@ export function ProjectReviewsTab({
     postMortemEligible,
     canEdit,
     resetCreateFormFields,
+    list.isLoading,
+    list.data,
+    openEditor,
   ]);
+
+  /** Lien « Continuer » depuis la synthèse : `?openReview=<id>`. */
+  useEffect(() => {
+    const id = searchParams.get('openReview');
+    if (!id?.trim()) {
+      openedOpenReviewRef.current = null;
+      return;
+    }
+    if (openedOpenReviewRef.current === id) return;
+    openedOpenReviewRef.current = id;
+    openEditor(id);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete('openReview');
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router, openEditor]);
 
   useEffect(() => {
     if (!createOpen) {
@@ -293,11 +337,6 @@ export function ProjectReviewsTab({
     assignable.isLoading,
     assignable.data,
   ]);
-
-  const openEditor = (id: string) => {
-    setEditorReviewId(id);
-    setEditorOpen(true);
-  };
 
   const onCreate = async () => {
     const reviewDate = new Date(formDate).toISOString();
@@ -343,8 +382,22 @@ export function ProjectReviewsTab({
           )}
         </p>
         {canEdit && (
-          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-            {postMortemEligible ? "Créer un retour d'expérience" : 'Créer un point projet'}
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              if (postMortemEligible && draftPostMortem) {
+                openEditor(draftPostMortem.id);
+              } else {
+                setCreateOpen(true);
+              }
+            }}
+          >
+            {postMortemEligible
+              ? draftPostMortem
+                ? "Continuer le retour d'expérience"
+                : "Créer un retour d'expérience"
+              : 'Créer un point projet'}
           </Button>
         )}
       </div>

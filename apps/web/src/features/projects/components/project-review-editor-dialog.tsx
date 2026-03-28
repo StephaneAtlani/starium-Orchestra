@@ -63,6 +63,7 @@ import {
 import { getReviewTypeOptionsForEditor } from '../lib/project-review-post-mortem';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
+import { PostMortemIndicatorsBlock } from './post-mortem-indicators-block';
 import { projectSheet } from '../constants/project-routes';
 import { updateProject } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
@@ -1767,6 +1768,13 @@ export function ProjectReviewEditorDialog({
                       <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
                         Retour d&apos;expérience
                       </p>
+                      <PostMortemIndicatorsBlock
+                        indicateurs={postMortemForm.indicateurs}
+                        editable={editable}
+                        onChange={(next) =>
+                          setPostMortemForm((prev) => ({ ...prev, indicateurs: next }))
+                        }
+                      />
                       {(
                         [
                           ['objectifs', 'Objectifs / cadrage initial'],
@@ -1813,7 +1821,10 @@ export function ProjectReviewEditorDialog({
                           size="sm"
                           className="h-9 w-full border-border/70"
                         >
-                          <SelectValue placeholder="Statut" />
+                          <SelectValue placeholder="Statut">
+                            {PROJECT_STATUS_LABEL[projectQuery.data.status] ??
+                              projectQuery.data.status}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {Object.entries(PROJECT_STATUS_LABEL).map(([k, label]) => (

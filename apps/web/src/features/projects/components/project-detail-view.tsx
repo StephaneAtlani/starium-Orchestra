@@ -22,6 +22,7 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
+import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
 import {
   MILESTONE_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
@@ -64,7 +65,10 @@ import {
   updateProject,
 } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
-import { isPostMortemEligibleProjectStatus } from '../lib/project-review-post-mortem';
+import {
+  findDraftPostMortemReview,
+  isPostMortemEligibleProjectStatus,
+} from '../lib/project-review-post-mortem';
 import { formatCurrencyAmountFr } from '@/lib/currency-format';
 import { usePermissions } from '@/hooks/use-permissions';
 
@@ -1014,6 +1018,21 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     isPostMortemEligibleProjectStatus(project.status) &&
     canPostMortemCta;
 
+  const reviewsForRexCta = useProjectReviewsQuery(projectId, {
+    enabled: showPostMortemHeaderCta,
+  });
+  const draftRexForHeader = useMemo(
+    () => findDraftPostMortemReview(reviewsForRexCta.data),
+    [reviewsForRexCta.data],
+  );
+  const rexHeaderHref = useMemo(
+    () =>
+      draftRexForHeader
+        ? `${projectDetail(projectId)}?tab=points&openReview=${draftRexForHeader.id}`
+        : `${projectDetail(projectId)}?tab=points&createRetourExperience=1`,
+    [projectId, draftRexForHeader],
+  );
+
   if (!projectId) {
     return (
       <p className="text-sm text-destructive">Identifiant de projet manquant.</p>
@@ -1070,37 +1089,48 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           </div>
           {showPostMortemHeaderCta ? (
             <div className="shrink-0 w-full sm:max-w-md">
-              <Link
-                href={`${projectDetail(projectId)}?tab=points&createRetourExperience=1`}
-                scroll={false}
-                className={cn(
-                  'group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 shadow-md transition-all',
-                  'border-violet-500/50 bg-gradient-to-br from-violet-500/15 via-violet-500/[0.07] to-card',
-                  'dark:border-violet-400/45 dark:from-violet-400/20 dark:via-violet-500/10 dark:to-card',
-                  'hover:border-violet-500/70 hover:shadow-lg hover:from-violet-500/20',
-                  'dark:hover:border-violet-400/60',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 focus-visible:ring-offset-2',
-                )}
-              >
-                <span
-                  className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md dark:bg-violet-500"
-                  aria-hidden
-                >
-                  <ClipboardList className="size-5" strokeWidth={2.25} />
-                </span>
-                <span className="min-w-0 flex-1 text-left">
-                  <span className="block text-base font-bold leading-snug tracking-tight text-foreground">
-                    Créer un retour d&apos;expérience
-                  </span>
-                  <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
-                    Objectifs, écarts, leçons — clôture de projet
-                  </span>
-                </span>
-                <ChevronRight
-                  className="size-5 shrink-0 text-violet-600 opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100 dark:text-violet-400"
+              {reviewsForRexCta.isLoading ? (
+                <div
+                  className="flex h-[4.5rem] w-full animate-pulse rounded-xl border-2 border-violet-500/30 bg-muted/40 dark:border-violet-400/25"
                   aria-hidden
                 />
-              </Link>
+              ) : (
+                <Link
+                  href={rexHeaderHref}
+                  scroll={false}
+                  className={cn(
+                    'group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 shadow-md transition-all',
+                    'border-violet-500/50 bg-gradient-to-br from-violet-500/15 via-violet-500/[0.07] to-card',
+                    'dark:border-violet-400/45 dark:from-violet-400/20 dark:via-violet-500/10 dark:to-card',
+                    'hover:border-violet-500/70 hover:shadow-lg hover:from-violet-500/20',
+                    'dark:hover:border-violet-400/60',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 focus-visible:ring-offset-2',
+                  )}
+                >
+                  <span
+                    className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md dark:bg-violet-500"
+                    aria-hidden
+                  >
+                    <ClipboardList className="size-5" strokeWidth={2.25} />
+                  </span>
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block text-base font-bold leading-snug tracking-tight text-foreground">
+                      {draftRexForHeader
+                        ? 'Continuer le retour d&apos;expérience'
+                        : 'Créer un retour d&apos;expérience'}
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
+                      {draftRexForHeader
+                        ? 'Reprendre le brouillon en cours'
+                        : 'Objectifs, écarts, leçons — clôture de projet'}
+                    </span>
+                  </span>
+                  <ChevronRight
+                    className="size-5 shrink-0 text-violet-600 opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100 dark:text-violet-400"
+                    aria-hidden
+                  />
+                </Link>
+              )}
             </div>
           ) : null}
         </div>
