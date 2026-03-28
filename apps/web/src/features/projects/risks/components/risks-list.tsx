@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { projectDetail, projectRisks } from '../../constants/project-routes';
 import type { ProjectRiskRegistryRow } from '../hooks/use-project-risks-registry-query';
+import { cn } from '@/lib/utils';
 import { RiskLevelBadge } from './risk-level-badge';
 import { RiskStatusBadge } from './risk-status-badge';
 
@@ -31,13 +32,16 @@ type Props = {
   rows: ProjectRiskRegistryRow[];
   page: number;
   onPageChange: (page: number) => void;
+  /** Clic sur le titre → édition EBIOS (même modale que la fiche projet). */
+  canEdit?: boolean;
+  onEditRisk?: (row: ProjectRiskRegistryRow) => void;
 };
 
 export function risksRegistryPageSize(): number {
   return PAGE_SIZE;
 }
 
-export function RisksList({ rows, page, onPageChange }: Props) {
+export function RisksList({ rows, page, onPageChange, canEdit = false, onEditRisk }: Props) {
   const total = rows.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -65,9 +69,25 @@ export function RisksList({ rows, page, onPageChange }: Props) {
             {pageRows.map((r) => (
               <TableRow key={`${r.projectId}-${r.id}`}>
                 <TableCell className="max-w-[min(100%,280px)] font-medium">
-                  <span className="line-clamp-2" title={r.title}>
-                    {r.title}
-                  </span>
+                  {canEdit && onEditRisk ? (
+                    <button
+                      type="button"
+                      onClick={() => onEditRisk(r)}
+                      className={cn(
+                        'w-full rounded-sm text-left transition-colors',
+                        'hover:bg-muted/60 hover:text-primary',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      )}
+                    >
+                      <span className="line-clamp-2 block" title={r.title}>
+                        {r.title}
+                      </span>
+                    </button>
+                  ) : (
+                    <span className="line-clamp-2" title={r.title}>
+                      {r.title}
+                    </span>
+                  )}
                   <div className="mt-0.5 font-mono text-[0.65rem] text-muted-foreground">{r.code}</div>
                 </TableCell>
                 <TableCell className="max-w-[200px]">

@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { AlertCircle, Plus, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -18,7 +19,15 @@ import { useProjectRisksRegistryQuery, type ProjectRiskRegistryRow } from '../ho
 import { NewRiskRedirectDialog } from './new-risk-redirect-dialog';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { getRiskTaxonomyCatalog } from '../../api/projects.api';
+import {
+  deleteProjectRisk,
+  getRiskTaxonomyCatalog,
+  updateProjectRisk,
+  type CreateProjectRiskPayload,
+} from '../../api/projects.api';
+import { projectQueryKeys } from '../../lib/project-query-keys';
+import { ProjectRiskEbiosDialog } from '../../components/project-risk-ebios-dialog';
+import type { ProjectRiskApi } from '../../types/project.types';
 
 const ALL = 'all' as const;
 
@@ -62,7 +71,9 @@ export function RisksRegistryPage() {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
   const authFetch = useAuthenticatedFetch();
+  const queryClient = useQueryClient();
   const { activeClient, initialized } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
 
   const taxonomyQuery = useQuery({
     queryKey: ['risk-taxonomy', 'catalog', activeClient?.id],
@@ -74,8 +85,83 @@ export function RisksRegistryPage() {
   const [filters, setFilters] = useState<RisksRegistryFiltersState>(() => defaultRisksRegistryFilters());
   const [page, setPage] = useState(1);
   const [newRiskOpen, setNewRiskOpen] = useState(false);
+  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [editingRisk, setEditingRisk] = useState<ProjectRiskApi | null>(null);
 
   const registry = useProjectRisksRegistryQuery();
+
+  const invalidateAfterRiskChange = (projectId: string) => {
+    void queryClient.invalidateQueries({
+      queryKey: projectQueryKeys.risksRegistry(clientId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: projectQueryKeys.risks(clientId, projectId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: projectQueryKeys.detail(clientId, projectId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: [...projectQueryKeys.all, 'risk-detail', clientId, projectId],
+    });
+  };
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      riskId,
+      projectId,
+      payload,
+    }: {
+      riskId: string;
+      projectId: string;
+      payload: CreateProjectRiskPayload;
+    }) => updateProjectRisk(authFetch, projectId, riskId, payload),
+    onSuccess: (data) => {
+      setEditingRisk(data);
+      invalidateAfterRiskChange(data.projectId);
+    },
+    onError: (e: Error) => toast.error(e.message || 'Enregistrement impossible'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({
+      projectId,
+      riskId,
+    }: {
+      projectId: string;
+      riskId: string;
+    }) => deleteProjectRisk(authFetch, projectId, riskId),
+    onSuccess: (_, { projectId }) => {
+      toast.success('Risque supprimé');
+      invalidateAfterRiskChange(projectId);
+      setRiskDialogOpen(false);
+      setEditingRisk(null);
+    },
+    onError: (e: Error) => toast.error(e.message || 'Suppression impossible'),
+  });
+
+  const openEditRisk = (row: ProjectRiskRegistryRow) => {
+    setEditingRisk(row);
+    setRiskDialogOpen(true);
+  };
+
+  const handleDialogSave = async (payload: CreateProjectRiskPayload) => {
+    if (!editingRisk) return;
+    await updateMutation.mutateAsync({
+      riskId: editingRisk.id,
+      projectId: editingRisk.projectId,
+      payload,
+    });
+  };
+
+  const handleDeleteRisk = async () => {
+    if (!editingRisk) return;
+    await deleteMutation.mutateAsync({
+      projectId: editingRisk.projectId,
+      riskId: editingRisk.id,
+    });
+  };
+
+  const dialogPending = updateMutation.isPending || deleteMutation.isPending;
 
   const ownerOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -114,6 +200,7 @@ export function RisksRegistryPage() {
     !showProjectsLoading && !showRisksLoading && !showError && registry.isSuccess;
 
   return (
+    <>
     <div className="space-y-6 p-4 md:p-6">
       <PageHeader
         title="Gestion des risques"
@@ -209,6 +296,8 @@ export function RisksRegistryPage() {
           rows={filtered}
           page={Math.min(page, totalPages)}
           onPageChange={setPage}
+          canEdit={canEdit}
+          onEditRisk={canEdit ? openEditRisk : undefined}
         />
       )}
 
@@ -218,5 +307,22 @@ export function RisksRegistryPage() {
         projectItems={registry.projectItems ?? []}
       />
     </div>
+
+    <ProjectRiskEbiosDialog
+      open={riskDialogOpen}
+      onOpenChange={(o) => {
+        setRiskDialogOpen(o);
+        if (!o) setEditingRisk(null);
+      }}
+      mode="edit"
+      projectId={editingRisk?.projectId ?? ''}
+      risk={editingRisk}
+      isPending={dialogPending}
+      onSave={handleDialogSave}
+      canDelete={canEdit}
+      onDelete={canEdit ? handleDeleteRisk : undefined}
+      isDeleting={deleteMutation.isPending}
+    />
+    </>
   );
 }
