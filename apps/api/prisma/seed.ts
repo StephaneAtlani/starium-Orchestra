@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import {
   PrismaClient,
   ClientUserRole,
@@ -27,6 +29,7 @@ import {
   ResourceAffiliation,
   ProjectBudgetAllocationType,
   PlatformRole,
+  RoleScope,
 } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { DEMO_PROJECT_SHEETS, type DemoProjectSheet } from "./seed-project-demo-sheets";
@@ -957,6 +960,66 @@ async function ensureComplianceModuleAndPermissions(): Promise<void> {
       update: { label: p.label },
     });
   }
+}
+
+type DefaultProfileSeed = {
+  name: string;
+  description?: string;
+  permissionCodes: string[];
+};
+
+/**
+ * Rôles RBAC **globaux** (`scope: GLOBAL`) définis dans `default-profiles.json`.
+ * Idempotent : met à jour description et synchronise les `RolePermission` avec le fichier.
+ * À exécuter après que les permissions `projects.*`, `budgets.*`, etc. existent en base (migrations).
+ */
+async function ensureDefaultGlobalProfiles(): Promise<void> {
+  const profilesPath = path.join(__dirname, "default-profiles.json");
+  if (!fs.existsSync(profilesPath)) {
+    console.log("⚠️  default-profiles.json introuvable — skip rôles globaux.");
+    return;
+  }
+  const profiles = JSON.parse(fs.readFileSync(profilesPath, "utf8")) as DefaultProfileSeed[];
+  for (const profile of profiles) {
+    let role = await prisma.role.findFirst({
+      where: { scope: RoleScope.GLOBAL, name: profile.name },
+    });
+    if (!role) {
+      role = await prisma.role.create({
+        data: {
+          clientId: null,
+          scope: RoleScope.GLOBAL,
+          name: profile.name,
+          description: profile.description ?? null,
+          isSystem: false,
+        },
+      });
+    } else {
+      await prisma.role.update({
+        where: { id: role.id },
+        data: { description: profile.description ?? null },
+      });
+    }
+    const permissions = await prisma.permission.findMany({
+      where: { code: { in: profile.permissionCodes } },
+      select: { id: true, code: true },
+    });
+    const foundCodes = new Set(permissions.map((p) => p.code));
+    const missingCodes = profile.permissionCodes.filter((c) => !foundCodes.has(c));
+    if (missingCodes.length > 0) {
+      console.warn(
+        `⚠️  Profil « ${profile.name} » : permissions absentes en base (ignorées) : ${missingCodes.join(", ")}`,
+      );
+    }
+    const permissionIds = permissions.map((p) => p.id);
+    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+    if (permissionIds.length > 0) {
+      await prisma.rolePermission.createMany({
+        data: permissionIds.map((permissionId) => ({ roleId: role.id, permissionId })),
+      });
+    }
+  }
+  console.log(`✅ Rôles globaux (default-profiles.json) : ${profiles.length} profil(s) synchronisé(s)`);
 }
 
 async function ensureEnabledClientModules(clientId: string): Promise<void> {
@@ -2231,6 +2294,7 @@ async function main() {
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
   await ensureComplianceModuleAndPermissions();
+  await ensureDefaultGlobalProfiles();
   await ensurePlatformAdminUser(passwordHash);
 
   for (const clientSeed of CLIENTS) {
