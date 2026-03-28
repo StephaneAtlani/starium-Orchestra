@@ -37,10 +37,16 @@ import { ProjectTeamService } from './project-team.service';
 import { ProjectMilestoneLabelsController } from './project-milestone-labels.controller';
 import { ProjectMilestoneLabelsService } from './project-milestone-labels.service';
 import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
+import { ActionPlanTasksController } from './action-plan-tasks.controller';
+import { ActionPlansController } from './action-plans.controller';
+import { ActionPlansService } from './action-plans.service';
 
 @Module({
   imports: [PrismaModule, AuditLogsModule, RiskTaxonomyModule],
   controllers: [
+    /** Routes `action-plans/:id/tasks/...` avant `action-plans/:id`. */
+    ActionPlanTasksController,
+    ActionPlansController,
     /** Routes `projects/:id/...` (ex. project-sheet) avant `projects/:id` pour éviter les collisions de matching. */
     ProjectSheetController,
     ProjectSheetDecisionSnapshotsController,
@@ -60,6 +66,7 @@ import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
     ProjectMilestoneLabelsController,
   ],
   providers: [
+    ActionPlansService,
     ProjectsService,
     ProjectsPilotageService,
     ProjectSheetService,

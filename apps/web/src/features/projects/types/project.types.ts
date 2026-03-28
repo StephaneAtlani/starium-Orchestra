@@ -128,6 +128,29 @@ export type PaginatedList<T> = {
   offset: number;
 };
 
+/** RFC-PLA-001 — plan d’actions */
+export type ActionPlanApi = {
+  id: string;
+  clientId: string;
+  title: string;
+  code: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  ownerUserId: string | null;
+  startDate: string | null;
+  targetDate: string | null;
+  progressPercent: number;
+  createdAt: string;
+  updatedAt: string;
+  owner?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
+};
+
 /** Élément de liste de contrôle (sync Microsoft Planner checklist). */
 export type ProjectTaskChecklistItemApi = {
   id: string;
@@ -170,6 +193,10 @@ export type ProjectMilestoneLabelApi = {
 /** Réponses API Prisma (dates ISO). RFC-PROJ-011 */
 export type ProjectTaskApi = {
   id: string;
+  /** RFC-PLA-001 — null si tâche transverse / hors projet. */
+  projectId?: string | null;
+  actionPlanId?: string | null;
+  riskId?: string | null;
   name: string;
   code: string | null;
   description: string | null;
@@ -191,6 +218,13 @@ export type ProjectTaskApi = {
   taskLabelIds?: string[];
   /** Présent sur les réponses API liste ; utilisé pour tri client (RFC-PROJ-012). */
   createdAt?: string;
+};
+
+/** Tâche vue depuis un plan (liens projet / risque enrichis). RFC-PLA-001 */
+export type ActionPlanTaskApi = ProjectTaskApi & {
+  projectId: string | null;
+  project?: { id: string; code: string; name: string } | null;
+  risk?: { id: string; code: string; title: string } | null;
 };
 
 /** Niveau persisté côté API (RFC-PROJ-RISK-001). */

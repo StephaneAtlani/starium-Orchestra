@@ -105,4 +105,12 @@ export class UpdateProjectTaskDto {
   @ArrayMaxSize(40)
   @IsString({ each: true })
   taskLabelIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  actionPlanId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  riskId?: string | null;
 }

@@ -8,6 +8,7 @@ import {
   PROJECT_AUDIT_ACTION,
   PROJECT_AUDIT_RESOURCE_TYPE,
 } from './project-audit.constants';
+import { ActionPlansService } from './action-plans.service';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsService } from './projects.service';
 
@@ -20,6 +21,7 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     assertClientUser: jest.Mock;
     assertBudgetLineInClient: jest.Mock;
   };
+  let actionPlans: { touchProgressForPlans: jest.Mock };
 
   const clientId = 'c1';
   const projectId = 'p1';
@@ -48,6 +50,9 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       createdByUserId: null,
       updatedByUserId: null,
       sortOrder: 0,
+      actionPlanId: null,
+      riskId: null,
+      bucketId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,
@@ -82,10 +87,14 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       assertClientUser: jest.fn().mockResolvedValue(undefined),
       assertBudgetLineInClient: jest.fn().mockResolvedValue(undefined),
     };
+    actionPlans = {
+      touchProgressForPlans: jest.fn().mockResolvedValue(undefined),
+    };
     service = new ProjectTasksService(
       prisma,
       auditLogs as unknown as AuditLogsService,
       projects as unknown as ProjectsService,
+      actionPlans as unknown as ActionPlansService,
     );
   });
 

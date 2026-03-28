@@ -151,7 +151,9 @@ export function projectTaskEntityAuditSnapshot(
   t: ProjectTask,
 ): Record<string, unknown> {
   return {
-    projectId: t.projectId,
+    projectId: t.projectId ?? null,
+    actionPlanId: t.actionPlanId ?? null,
+    riskId: t.riskId ?? null,
     name: t.name,
     code: t.code ?? null,
     description: t.description ?? null,

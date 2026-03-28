@@ -104,4 +104,14 @@ export class CreateProjectTaskDto {
   @ArrayMaxSize(40)
   @IsString({ each: true })
   taskLabelIds?: string[];
+
+  /** RFC-PLA-001 — rattacher à un plan d’actions (même client). */
+  @IsOptional()
+  @IsString()
+  actionPlanId?: string | null;
+
+  /** RFC-PLA-001 — lien risque (règles projectId / risk.projectId côté service). */
+  @IsOptional()
+  @IsString()
+  riskId?: string | null;
 }

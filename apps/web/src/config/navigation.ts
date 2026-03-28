@@ -86,6 +86,12 @@ export const navigation: NavigationSection[] = [
             scope: 'client',
             requiredPermissions: ['projects.read'],
           },
+          {
+            label: 'Plans d’action',
+            href: '/action-plans',
+            scope: 'client',
+            requiredPermissions: ['projects.read'],
+          },
         ],
       },
       {
