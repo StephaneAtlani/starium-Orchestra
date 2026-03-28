@@ -867,8 +867,10 @@ export async function ensureDemoProjectReviews(
   });
   const firstTaskByProject = new Map<string, string>();
   for (const t of tasks) {
-    if (!firstTaskByProject.has(t.projectId)) {
-      firstTaskByProject.set(t.projectId, t.id);
+    const pid = t.projectId;
+    if (pid == null) continue;
+    if (!firstTaskByProject.has(pid)) {
+      firstTaskByProject.set(pid, t.id);
     }
   }
 

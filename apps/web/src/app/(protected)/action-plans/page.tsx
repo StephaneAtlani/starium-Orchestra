@@ -36,6 +36,21 @@ import { useActionPlansListQuery } from '@/features/projects/hooks/use-action-pl
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import { ChevronRight, Plus } from 'lucide-react';
 
+/** Code métier unique : dérivé du titre (sans accents), préfixe PA-. */
+function suggestActionPlanCodeFromTitle(title: string): string {
+  const raw = title
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32);
+  if (raw.length >= 2) {
+    return `PA-${raw}`;
+  }
+  return `PA-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+}
+
 export default function ActionPlansListPage() {
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -53,18 +68,48 @@ export default function ActionPlansListPage() {
   const [creating, setCreating] = useState(false);
   const [formTitle, setFormTitle] = useState('');
   const [formCode, setFormCode] = useState('');
+  /** Tant que true, le code est recalculé quand le titre change. */
+  const [codeFollowsTitle, setCodeFollowsTitle] = useState(true);
   const [formStatus, setFormStatus] = useState('DRAFT');
   const [formPriority, setFormPriority] = useState('MEDIUM');
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
 
+  function resetCreateForm() {
+    setFormTitle('');
+    setFormCode('');
+    setCodeFollowsTitle(true);
+    setFormStatus('DRAFT');
+    setFormPriority('MEDIUM');
+  }
+
+  function openCreateDialog() {
+    resetCreateForm();
+    setOpen(true);
+  }
+
+  function onTitleChange(value: string) {
+    setFormTitle(value);
+    if (codeFollowsTitle) {
+      const t = value.trim();
+      setFormCode(t ? suggestActionPlanCodeFromTitle(t) : '');
+    }
+  }
+
+  function onCodeChange(value: string) {
+    setCodeFollowsTitle(false);
+    setFormCode(value);
+  }
+
   async function onCreate() {
-    if (!formTitle.trim() || !formCode.trim()) return;
+    const title = formTitle.trim();
+    if (!title) return;
+    const code = (formCode.trim() || suggestActionPlanCodeFromTitle(title)).toUpperCase();
     setCreating(true);
     try {
       await createActionPlan(authFetch, {
-        title: formTitle.trim(),
-        code: formCode.trim().toUpperCase(),
+        title,
+        code,
         status: formStatus,
         priority: formPriority,
       });
@@ -72,10 +117,7 @@ export default function ActionPlansListPage() {
         queryKey: [...projectQueryKeys.all, 'action-plans', clientId],
       });
       setOpen(false);
-      setFormTitle('');
-      setFormCode('');
-      setFormStatus('DRAFT');
-      setFormPriority('MEDIUM');
+      resetCreateForm();
     } finally {
       setCreating(false);
     }
@@ -89,7 +131,7 @@ export default function ActionPlansListPage() {
           description="Cockpit d’exécution — tâches regroupées par plan (RFC-PLA-001)."
           actions={
             <PermissionGate permission="projects.update">
-              <Button type="button" size="sm" onClick={() => setOpen(true)}>
+              <Button type="button" size="sm" onClick={() => openCreateDialog()}>
                 <Plus className="size-4" />
                 Nouveau plan
               </Button>
@@ -153,7 +195,15 @@ export default function ActionPlansListPage() {
           </ul>
         )}
 
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            if (!next) {
+              resetCreateForm();
+            }
+          }}
+        >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Nouveau plan d’action</DialogTitle>
@@ -164,7 +214,7 @@ export default function ActionPlansListPage() {
                 <Input
                   id="ap-titre"
                   value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
+                  onChange={(e) => onTitleChange(e.target.value)}
                   placeholder="Ex. Plan conformité Q2"
                 />
               </div>
@@ -173,9 +223,13 @@ export default function ActionPlansListPage() {
                 <Input
                   id="ap-code"
                   value={formCode}
-                  onChange={(e) => setFormCode(e.target.value)}
-                  placeholder="Ex. PA-COMP-2026"
+                  onChange={(e) => onCodeChange(e.target.value)}
+                  placeholder="Rempli automatiquement depuis le titre"
+                  className="font-mono text-sm"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Généré à partir du titre (préfixe PA-) ; vous pouvez le modifier.
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -220,7 +274,7 @@ export default function ActionPlansListPage() {
               </Button>
               <Button
                 type="button"
-                disabled={creating || !formTitle.trim() || !formCode.trim()}
+                disabled={creating || !formTitle.trim()}
                 onClick={() => void onCreate()}
               >
                 {creating ? 'Création…' : 'Créer'}
