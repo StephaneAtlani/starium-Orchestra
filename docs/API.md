@@ -1848,6 +1848,8 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 - **POST /api/projects/:projectId/reviews/:reviewId/finalize** — Finalisation : snapshot serveur en transaction, statut `FINALIZED`. Audits **`project.review.finalized`**. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation depuis brouillon. Audit **`project.review.cancelled`**. **`projects.update`**
 
+**Type `POST_MORTEM` (retour d’expérience)** : création autorisée seulement si le projet est **`COMPLETED`**, **`CANCELLED`** ou **`ARCHIVED`** ; si le projet est dans l’un de ces états, toute **nouvelle** revue doit être de ce type. **`nextReviewDate`** ne doit pas être renseigné (pas de prochain point après un REX). Le corps peut inclure **`contentPayload`** avec un objet **`postMortem`** (structure côté client).
+
 Audits complémentaires : **`project.review.created`**, **`project.review.updated`**.
 
 ### Documents projet (RFC-PROJ-DOC-001) — `/api/projects/:projectId/documents`

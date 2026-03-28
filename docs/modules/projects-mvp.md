@@ -18,7 +18,7 @@ Modèles (`apps/api/prisma/schema.prisma`) :
 | **ProjectMilestone** | Jalon sans durée (`targetDate`, `achievedDate`, lien tâche optionnel `linkedTaskId`, statut dont `ACHIEVED`, `DELAYED`) — **RFC-PROJ-011**. |
 | **ProjectActivity** | Activité dérivée d’une tâche source, `projectId` obligatoire (MVP), hors payload Gantt — **RFC-PROJ-011**. |
 | **ProjectBudgetLink** | Liaison projet ↔ ligne budgétaire (`clientId`, mode d’allocation FULL / PERCENTAGE / FIXED) — RFC-PROJ-010. |
-| **ProjectReview** (+ participants, décisions, action items) | Point projet COPIL/COPRO (RFC-PROJ-013) : statut brouillon / finalisé / annulé, `contentPayload` / `executiveSummary`, `snapshotPayload` à la finalisation, isolation `clientId` + `projectId`. |
+| **ProjectReview** (+ participants, décisions, action items) | Point projet (RFC-PROJ-013) : types `COPIL` / `COPRO` / … / **`POST_MORTEM`** (retour d’expérience — projets `COMPLETED` \| `CANCELLED` \| `ARCHIVED` uniquement) ; statut brouillon / finalisé / annulé ; `contentPayload` (ex. `postMortem` pour un REX) / `executiveSummary` ; `nextReviewDate` interdit pour `POST_MORTEM` ; `snapshotPayload` à la finalisation ; isolation `clientId` + `projectId`. |
 
 **Non persisté au MVP** : `computedHealth`, `signals`, `warnings`, `derivedProgressPercent` (calculs à la lecture dans `projects-pilotage.service.ts`).
 
@@ -101,6 +101,7 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 - Module `projects` et permissions `projects.read|create|update|delete` : `apps/api/prisma/seed.js`, profils `apps/api/prisma/default-profiles.json`
 - Client démo : activation du module projets où prévu dans le seed
+- **Points projet démo** (RFC-PROJ-013) : `apps/api/prisma/seed-project-demo-reviews.ts` — jeux cohérents sur `{prefix}-SEED-01` … `10`, dont des **retours d’expérience** (`POST_MORTEM`, `contentPayload.postMortem`) sur certains projets (**SEED-03**, **SEED-06**, **SEED-09**)
 - Rôles système d’équipe projet garantis par client (idempotent) : `SPONSOR`, `OWNER` et rôle référent métier (créés/ré-assurés via `ensureDefaultTeamRolesForClient`, appelés notamment sur `listRoles`, `getTeam` et création projet)
 
 ---

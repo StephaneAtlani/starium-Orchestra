@@ -1700,7 +1700,7 @@ async function seedClientDemoProjects(
     name: "Partenariat editeur — integration API",
     description: "Seed demo : sponsor connu, responsable projet non rattache au compte.",
     type: ProjectType.PROCUREMENT,
-    status: ProjectStatus.IN_PROGRESS,
+    status: ProjectStatus.ARCHIVED,
     priority: ProjectPriority.MEDIUM,
     criticality: ProjectCriticality.LOW,
     sponsorUserId: a,

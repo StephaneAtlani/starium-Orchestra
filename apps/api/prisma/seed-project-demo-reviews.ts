@@ -66,6 +66,23 @@ type ActionIn = {
   linkTask?: boolean;
 };
 
+/** Contenu `contentPayload.postMortem` (retour d’expérience) — échelle indicateurs 0–5. */
+type PostMortemSeed = {
+  objectifs: string;
+  resultats: string;
+  ecarts: string;
+  causes: string;
+  leconsApprises: string;
+  recommandations: string;
+  indicateurs: {
+    budget: number | null;
+    delais: number | null;
+    qualite: number | null;
+    communication: number | null;
+    pilotageRisques: number | null;
+  };
+};
+
 type ReviewBlueprint = {
   daysFromNow: number;
   type: ProjectReviewType;
@@ -73,6 +90,8 @@ type ReviewBlueprint = {
   title: string;
   executiveSummary: string;
   committeeMood?: "GREEN" | "ORANGE" | "RED";
+  /** Si défini avec `reviewType: POST_MORTEM`, remplit `contentPayload.postMortem` (pas de `committeeMood`). */
+  postMortem?: PostMortemSeed;
   facilitatorUserId?: string | null;
   finalizedDaysFromNow?: number;
   finalizedByUserId?: string | null;
@@ -303,6 +322,57 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
       decisions: [],
       actions: [],
     },
+    {
+      daysFromNow: -30,
+      type: ProjectReviewType.POST_MORTEM,
+      status: ProjectReviewStatus.FINALIZED,
+      title: "Retour d'expérience — clôture programme legacy",
+      executiveSummary:
+        "Bilan de fin de projet : objectifs atteints avec écarts maîtrisés sur le lot industriel ; capitalisation pour les prochains programmes de désengagement.",
+      facilitatorUserId: "USER_A",
+      finalizedDaysFromNow: -28,
+      finalizedByUserId: "USER_A",
+      nextReviewDaysFromNow: null,
+      snapshot: (p) =>
+        demoSnapshotPayload({
+          project: p,
+          health: "OK",
+          tasks: { open: 0, inProgress: 0, done: 12, late: 0 },
+          topRisks: [],
+        }),
+      postMortem: {
+        objectifs:
+          "Sortir du fournisseur legacy dans les enveloppes budgétaires sans rupture métier critique.",
+        resultats:
+          "Bascule de 12 applications ; dette résiduelle documentée ; hypercare tenue sur le créneau annoncé.",
+        ecarts:
+          "Retard de 3 semaines sur le lot industriel (indisponibilité terrain). Léger dépassement OPEX absorbé par réserve.",
+        causes:
+          "Sous-estimation des tests d'intégration bout-en-bout ; fenêtre de gel des périmètres trop courte.",
+        leconsApprises:
+          "Gel des périmètres 2 semaines avant bascule ; binôme MOA/MOE renforcé sur le pilote industriel.",
+        recommandations:
+          "Répliquer le gabarit de communication et le runbook de bascule sur les prochains programmes de sortie.",
+        indicateurs: {
+          budget: 4,
+          delais: 3,
+          qualite: 4,
+          communication: 5,
+          pilotageRisques: 4,
+        },
+      },
+      participants: [
+        { userId: "USER_A", displayName: null, attended: true, isRequired: true },
+        { userId: "USER_B", displayName: null, attended: true, isRequired: true },
+      ],
+      decisions: [
+        {
+          title: "Archivage des accès legacy",
+          description: "Compte à rebours communiqué aux métiers ; support N2 en renfort 10 jours.",
+        },
+      ],
+      actions: [],
+    },
   ],
   "04": [
     {
@@ -497,6 +567,47 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
       decisions: [],
       actions: [],
     },
+    {
+      daysFromNow: -14,
+      type: ProjectReviewType.POST_MORTEM,
+      status: ProjectReviewStatus.FINALIZED,
+      title: "Retour d'expérience — bilan tunnel d'achat (phase 1)",
+      executiveSummary:
+        "Clôture de phase : perception globale correcte malgré dérive calendaire ; actions correctives intégrées au backlog.",
+      facilitatorUserId: "USER_B",
+      finalizedDaysFromNow: -13,
+      finalizedByUserId: "USER_B",
+      nextReviewDaysFromNow: null,
+      snapshot: (p) =>
+        demoSnapshotPayload({
+          project: p,
+          health: "WARNING",
+          tasks: { open: 1, inProgress: 1, done: 4, late: 1 },
+          topRisks: [],
+        }),
+      postMortem: {
+        objectifs: "Tenir le tunnel d'achat et la date e-commerce avec une charge équipe maîtrisée.",
+        resultats:
+          "Intégration paiement priorisée ; recette large reportée avec accord métier.",
+        ecarts: "Dérive initiale sur le planning ; tensions sur les créneaux de maintenance.",
+        causes: "Charge tests sous-estimée ; aléas métier sur les fenêtres de changement.",
+        leconsApprises: "Chiffrer l'impact métier sur trois scénarios de créneaux avant arbitrage.",
+        recommandations: "Instaurer un rituel mensuel commerce / IT sur la vélocité restante.",
+        indicateurs: {
+          budget: 3,
+          delais: 2,
+          qualite: 4,
+          communication: 3,
+          pilotageRisques: 3,
+        },
+      },
+      participants: [
+        { userId: "USER_B", displayName: null, attended: true, isRequired: true },
+        { userId: "USER_A", displayName: null, attended: true, isRequired: false },
+      ],
+      decisions: [],
+      actions: [],
+    },
   ],
   "07": [
     {
@@ -638,6 +749,35 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
         },
       ],
     },
+    {
+      daysFromNow: -2,
+      type: ProjectReviewType.POST_MORTEM,
+      status: ProjectReviewStatus.DRAFT,
+      title: "Retour d'expérience — partenariat éditeur (brouillon)",
+      executiveSummary:
+        "Brouillon : synthétiser la perception sur budget, délais et qualité d'intégration avant finalisation.",
+      facilitatorUserId: "USER_A",
+      nextReviewDaysFromNow: null,
+      postMortem: {
+        objectifs:
+          "Sécuriser l'intégration API, cadrer la gouvernance des accès et les SLA avec l'éditeur.",
+        resultats: "",
+        ecarts: "",
+        causes: "",
+        leconsApprises: "",
+        recommandations: "",
+        indicateurs: {
+          budget: null,
+          delais: 3,
+          qualite: null,
+          communication: 4,
+          pilotageRisques: null,
+        },
+      },
+      participants: [{ userId: "USER_A", displayName: null, attended: true, isRequired: true }],
+      decisions: [],
+      actions: [],
+    },
   ],
   "10": [
     {
@@ -696,6 +836,7 @@ function seedSuffixFromProjectCode(code: string): string | null {
 /**
  * Points projet (RFC-PROJ-013) : données riches, statuts DRAFT / FINALIZED / CANCELLED,
  * participants, décisions, actions, météo comité (`committeeMood`), snapshots figés pour les finalisés.
+ * Inclut des retours d'expérience (`POST_MORTEM`, `contentPayload.postMortem`) sur certains jeux démo.
  * Réinitialise les points existants sur les projets démo `prefix-SEED-01` … `10` pour garantir un jeu cohérent à chaque seed.
  */
 export async function ensureDemoProjectReviews(
@@ -740,9 +881,12 @@ export async function ensureDemoProjectReviews(
 
     for (const bp of blueprints) {
       const reviewDate = addDaysUtc(now, bp.daysFromNow);
-      const contentPayload: Prisma.InputJsonValue = {
-        ...(bp.committeeMood ? { committeeMood: bp.committeeMood } : {}),
-      };
+      const contentPayload: Prisma.InputJsonValue =
+        bp.type === ProjectReviewType.POST_MORTEM && bp.postMortem
+          ? { postMortem: bp.postMortem }
+          : {
+              ...(bp.committeeMood ? { committeeMood: bp.committeeMood } : {}),
+            };
 
       const finalizedAt =
         bp.status === ProjectReviewStatus.FINALIZED && bp.finalizedDaysFromNow != null
@@ -754,7 +898,11 @@ export async function ensureDemoProjectReviews(
           : null;
 
       const nextReviewDate =
-        bp.nextReviewDaysFromNow != null ? addDaysUtc(now, bp.nextReviewDaysFromNow) : null;
+        bp.type === ProjectReviewType.POST_MORTEM
+          ? null
+          : bp.nextReviewDaysFromNow != null
+            ? addDaysUtc(now, bp.nextReviewDaysFromNow)
+            : null;
 
       const snapshotPayload =
         bp.status === ProjectReviewStatus.FINALIZED && bp.snapshot
