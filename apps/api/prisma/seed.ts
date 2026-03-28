@@ -33,6 +33,7 @@ import {
 } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { DEMO_PROJECT_SHEETS, type DemoProjectSheet } from "./seed-project-demo-sheets";
+import { ensureDemoActionPlans } from "./seed-action-plans-demo";
 import { ensureDemoProjectReviews } from "./seed-project-demo-reviews";
 import { ensureDemoProjectRisks } from "./seed-project-demo-risks";
 import { ensureDemoCompliance } from "./seed-compliance-demo";
@@ -1872,9 +1873,10 @@ async function seedClientDemoProjects(
   await ensureDemoProjectTaskBuckets(prisma, clientId, prefix);
   await ensureDemoProjectActivities(prisma, clientId, prefix, now, a, b);
   await ensureDemoProjectReviews(prisma, clientId, prefix, now, a, b);
+  await ensureDemoActionPlans(prisma, clientId, prefix, now, a);
 
   console.log(
-    `✅ Seed demo projets [${slug}]: 10 projets, risques métier (jeu complet), taches (jeu complet recree), fiches (TOWS 4 quadrants), jalons rétroplan, étiquettes projet/tâches/jalons, liens budget FULL, buckets Kanban, activites recurrentes, points projet, catégories, ressources`,
+    `✅ Seed demo projets [${slug}]: 10 projets, risques métier (jeu complet), taches (jeu complet recree), fiches (TOWS 4 quadrants), jalons rétroplan, étiquettes projet/tâches/jalons, liens budget FULL, buckets Kanban, activites recurrentes, points projet, catégories, ressources, 3 plans d’action + tâches COPIL/cyber/RGPD`,
   );
 }
 

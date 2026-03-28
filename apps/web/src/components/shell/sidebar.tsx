@@ -138,14 +138,10 @@ export function Sidebar() {
                   const projectsChildren = [
                     { label: 'Portefeuille projet', href: '/projects' },
                     { label: 'Option', href: '/projects/options' },
-                    { label: 'Plans d’action', href: '/action-plans' },
                   ];
 
                   const isProjectsChildActive = (href: string) => {
                     if (!pathname) return false;
-                    if (href === '/action-plans') {
-                      return pathname === '/action-plans' || pathname.startsWith('/action-plans/');
-                    }
                     if (href === '/projects/options') {
                       return pathname === '/projects/options' || pathname.startsWith('/projects/options/');
                     }

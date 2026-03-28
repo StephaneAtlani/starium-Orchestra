@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ResourceType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -30,6 +31,7 @@ import { AddProjectTeamMemberDto } from './dto/add-project-team-member.dto';
 import { CreateProjectTagDto } from './dto/create-project-tag.dto';
 import { UpdateProjectTagDto } from './dto/update-project-tag.dto';
 import { ReplaceProjectTagsDto } from './dto/replace-project-tags.dto';
+import { ResourcesService } from '../resources/resources.service';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -37,6 +39,7 @@ export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly projectTeamService: ProjectTeamService,
+    private readonly resourcesService: ResourcesService,
   ) {}
 
   @Get('portfolio-summary')
@@ -55,6 +58,20 @@ export class ProjectsController {
       this.projectsService.listAssignableFreePersons(cid),
     ]);
     return { users, freePersons };
+  }
+
+  /**
+   * Catalogue personnes (Resource HUMAN) pour rattachement tâche / plan d’action.
+   * Utilise `projects.read` — évite d’exiger le module Resources + `resources.read` pour ce seul sélecteur.
+   */
+  @Get('options/human-resources')
+  @RequirePermissions('projects.read')
+  listHumanResourcesForTaskPickers(@ActiveClientId() clientId: string | undefined) {
+    return this.resourcesService.list(clientId!, {
+      type: ResourceType.HUMAN,
+      limit: 100,
+      offset: 0,
+    });
   }
 
   @Get()

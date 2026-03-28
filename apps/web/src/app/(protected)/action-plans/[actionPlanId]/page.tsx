@@ -42,6 +42,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { createActionPlanTask } from '@/features/projects/api/action-plans.api';
 import {
   listClientRisks,
+  listHumanResourcesForTaskPickers,
   listProjectTaskPhases,
   listProjects,
 } from '@/features/projects/api/projects.api';
@@ -50,7 +51,6 @@ import { useActionPlanTasksQuery } from '@/features/projects/hooks/use-action-pl
 import { useProjectAssignableUsers } from '@/features/projects/hooks/use-project-assignable-users';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import { cn } from '@/lib/utils';
-import { tryListResources, type ResourceListItem } from '@/services/resources';
 import { ArrowLeft, Plus } from 'lucide-react';
 
 function fmtShortDate(iso: string | null | undefined): string {
@@ -104,6 +104,39 @@ function formatTagsCell(tags: unknown): string {
   return '—';
 }
 
+/** Base UI Select : sans `items`, le trigger affiche la valeur brute (ex. `__none`). */
+const FILTER_STATUS_LABELS: Record<string, string> = {
+  __all: 'Tous',
+  TODO: 'À faire',
+  IN_PROGRESS: 'En cours',
+  BLOCKED: 'Bloquée',
+  DONE: 'Terminée',
+  CANCELLED: 'Annulée',
+};
+
+const FILTER_PRIORITY_LABELS: Record<string, string> = {
+  __all: 'Toutes',
+  LOW: 'Basse',
+  MEDIUM: 'Moyenne',
+  HIGH: 'Haute',
+  CRITICAL: 'Critique',
+};
+
+const FORM_STATUS_LABELS: Record<string, string> = {
+  TODO: 'À faire',
+  IN_PROGRESS: 'En cours',
+  BLOCKED: 'Bloquée',
+  DONE: 'Terminée',
+  CANCELLED: 'Annulée',
+};
+
+const FORM_PRIORITY_LABELS: Record<string, string> = {
+  LOW: 'Basse',
+  MEDIUM: 'Moyenne',
+  HIGH: 'Haute',
+  CRITICAL: 'Critique',
+};
+
 const textareaClass = cn(
   'flex min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs',
   'outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
@@ -138,18 +171,15 @@ export default function ActionPlanDetailPage() {
   const assignable = useProjectAssignableUsers({ enabled });
 
   const resourcesHuman = useQuery({
-    queryKey: [...projectQueryKeys.all, 'human-resources-pick', clientId],
-    queryFn: async () => {
-      const out = await tryListResources(authFetch, { type: 'HUMAN', limit: 200, offset: 0 });
-      if (!out.ok) return { items: [] as ResourceListItem[] };
-      return out.data;
-    },
+    queryKey: [...projectQueryKeys.all, 'human-resources-task-pickers', clientId],
+    queryFn: () => listHumanResourcesForTaskPickers(authFetch),
     enabled: !!clientId && enabled,
   });
 
   const projectsMini = useQuery({
     queryKey: [...projectQueryKeys.all, 'action-plan-project-pick', clientId],
-    queryFn: () => listProjects(authFetch, { page: 1, limit: 200 }),
+    // API : ListProjectsQueryDto limite `limit` à 100 — au-delà → 400 et liste vide côté UI.
+    queryFn: () => listProjects(authFetch, { page: 1, limit: 100 }),
     enabled: !!clientId && enabled,
   });
 
@@ -161,6 +191,30 @@ export default function ActionPlanDetailPage() {
 
   const users = assignable.data?.users ?? [];
   const humanResources = resourcesHuman.data?.items ?? [];
+
+  const projectSelectItems = useMemo(() => {
+    const items: Record<string, string> = { __none: 'Aucun' };
+    for (const p of projectsMini.data?.items ?? []) {
+      items[p.id] = `${p.code} — ${p.name}`;
+    }
+    return items;
+  }, [projectsMini.data?.items]);
+
+  const riskSelectItems = useMemo(() => {
+    const items: Record<string, string> = { __none: 'Aucun' };
+    for (const r of risksMini.data ?? []) {
+      items[r.id] = `${r.code} — ${r.title}`;
+    }
+    return items;
+  }, [risksMini.data]);
+
+  const responsibleSelectItems = useMemo(() => {
+    const items: Record<string, string> = { __none: 'Aucune personne' };
+    for (const r of humanResources) {
+      items[r.id] = formatResourcePerson(r);
+    }
+    return items;
+  }, [humanResources]);
 
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -182,6 +236,14 @@ export default function ActionPlanDetailPage() {
     queryFn: () => listProjectTaskPhases(authFetch, tProjectId),
     enabled: !!clientId && enabled && !!tProjectId,
   });
+
+  const phaseSelectItems = useMemo(() => {
+    const items: Record<string, string> = { __none: 'Sans phase' };
+    for (const ph of phasesPick.data ?? []) {
+      items[ph.id] = ph.name;
+    }
+    return items;
+  }, [phasesPick.data]);
 
   useEffect(() => {
     setTPhaseId('');
@@ -308,6 +370,7 @@ export default function ActionPlanDetailPage() {
                 <Select
                   value={statusF || '__all'}
                   onValueChange={(v) => setStatusF(!v || v === '__all' ? '' : v)}
+                  items={FILTER_STATUS_LABELS}
                 >
                   <SelectTrigger className="w-[160px]">
                     <SelectValue placeholder="Tous" />
@@ -327,6 +390,7 @@ export default function ActionPlanDetailPage() {
                 <Select
                   value={priorityF || '__all'}
                   onValueChange={(v) => setPriorityF(!v || v === '__all' ? '' : v)}
+                  items={FILTER_PRIORITY_LABELS}
                 >
                   <SelectTrigger className="w-[160px]">
                     <SelectValue placeholder="Toutes" />
@@ -438,8 +502,12 @@ export default function ActionPlanDetailPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Statut</Label>
-                  <Select value={tStatus} onValueChange={(v) => setTStatus(v ?? 'TODO')}>
-                    <SelectTrigger>
+                  <Select
+                    value={tStatus}
+                    onValueChange={(v) => setTStatus(v ?? 'TODO')}
+                    items={FORM_STATUS_LABELS}
+                  >
+                    <SelectTrigger className="w-full min-w-0">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -453,8 +521,12 @@ export default function ActionPlanDetailPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Priorité</Label>
-                  <Select value={tPriority} onValueChange={(v) => setTPriority(v ?? 'MEDIUM')}>
-                    <SelectTrigger>
+                  <Select
+                    value={tPriority}
+                    onValueChange={(v) => setTPriority(v ?? 'MEDIUM')}
+                    items={FORM_PRIORITY_LABELS}
+                  >
+                    <SelectTrigger className="w-full min-w-0">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -507,11 +579,22 @@ export default function ActionPlanDetailPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Projet (optionnel)</Label>
+                {projectsMini.isError && (
+                  <p className="text-xs text-destructive">
+                    Impossible de charger les projets (réseau ou droits).
+                  </p>
+                )}
+                {projectsMini.isSuccess && (projectsMini.data?.items?.length ?? 0) === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Aucun projet sur ce client — créez-en un dans Projets ou laissez vide.
+                  </p>
+                )}
                 <Select
                   value={tProjectId || '__none'}
                   onValueChange={(v) => setTProjectId(!v || v === '__none' ? '' : v)}
+                  items={projectSelectItems}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full min-w-0">
                     <SelectValue placeholder="Aucun" />
                   </SelectTrigger>
                   <SelectContent>
@@ -530,12 +613,13 @@ export default function ActionPlanDetailPage() {
                   <Select
                     value={tPhaseId || '__none'}
                     onValueChange={(v) => setTPhaseId(!v || v === '__none' ? '' : v)}
+                    items={phaseSelectItems}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="—" />
+                    <SelectTrigger className="w-full min-w-0">
+                      <SelectValue placeholder="Sans phase" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none">—</SelectItem>
+                      <SelectItem value="__none">Sans phase</SelectItem>
                       {(phasesPick.data ?? []).map((ph) => (
                         <SelectItem key={ph.id} value={ph.id}>
                           {ph.name}
@@ -550,8 +634,9 @@ export default function ActionPlanDetailPage() {
                 <Select
                   value={tRiskId || '__none'}
                   onValueChange={(v) => setTRiskId(!v || v === '__none' ? '' : v)}
+                  items={riskSelectItems}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full min-w-0">
                     <SelectValue placeholder="Aucun" />
                   </SelectTrigger>
                   <SelectContent>
@@ -566,17 +651,29 @@ export default function ActionPlanDetailPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Responsable personne (optionnel)</Label>
+                {resourcesHuman.isError && (
+                  <p className="text-xs text-destructive">
+                    Impossible de charger le répertoire personnes.
+                  </p>
+                )}
+                {resourcesHuman.isSuccess && humanResources.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Aucune personne en catalogue — ajoutez des ressources humaines (module
+                    Personnes) ou laissez vide.
+                  </p>
+                )}
                 <Select
                   value={tResponsibleResourceId || '__none'}
                   onValueChange={(v) =>
                     setTResponsibleResourceId(!v || v === '__none' ? '' : v)
                   }
+                  items={responsibleSelectItems}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="—" />
+                  <SelectTrigger className="w-full min-w-0">
+                    <SelectValue placeholder="Aucune personne" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none">—</SelectItem>
+                    <SelectItem value="__none">Aucune personne</SelectItem>
                     {humanResources.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         {formatResourcePerson(r)}
@@ -585,8 +682,8 @@ export default function ActionPlanDetailPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Référent métier (catalogue Personnes / ressources humaines), pas un compte
-                  utilisateur Starium.
+                  Ressource métier de type <span className="font-medium text-foreground">Personne</span>{' '}
+                  (catalogue humain), distincte d’un compte utilisateur Starium.
                 </p>
               </div>
             </div>

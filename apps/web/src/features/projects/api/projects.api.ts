@@ -1,5 +1,6 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
+import type { Paginated, ResourceListItem } from '@/services/resources';
 import type {
   CreateRetroplanMacroPayload,
   PaginatedList,
@@ -56,6 +57,15 @@ export async function listAssignableUsers(
     return { users: raw as ProjectAssignableUser[], freePersons: [] };
   }
   return raw as AssignableUsersResponse;
+}
+
+/** Personnes (Resource HUMAN) pour sélecteur tâche / plan — `projects.read` (pas `resources.read`). */
+export async function listHumanResourcesForTaskPickers(
+  authFetch: AuthFetch,
+): Promise<Paginated<ResourceListItem>> {
+  const res = await authFetch(`${BASE}/options/human-resources`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<Paginated<ResourceListItem>>;
 }
 
 export async function listProjects(
