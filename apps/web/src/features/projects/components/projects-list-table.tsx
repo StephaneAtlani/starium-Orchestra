@@ -153,15 +153,26 @@ function CellTip({
   tip,
   children,
   className,
+  /** Texte long : retours à la ligne dans la cellule (évite une seule ligne très large). */
+  wrap = false,
 }: {
   tip: string;
   children: ReactNode;
   className?: string;
+  wrap?: boolean;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<span className={cn('inline-flex max-w-full cursor-help', className)} />}
+        render={
+          <span
+            className={cn(
+              'max-w-full cursor-help',
+              wrap ? 'block w-full whitespace-normal' : 'inline-flex',
+              className,
+            )}
+          />
+        }
       >
         {children}
       </TooltipTrigger>
@@ -472,16 +483,17 @@ export function ProjectsListTable({
       <TableBody>
         {items.map((p) => (
           <TableRow key={p.id} className="group">
-            <TableCell className="sticky left-0 z-20 align-top bg-background py-3 pl-4 shadow-[1px_0_0_0_hsl(var(--border))]">
+            <TableCell className="sticky left-0 z-20 align-top bg-background py-3 pl-4 shadow-[1px_0_0_0_hsl(var(--border))] whitespace-normal break-words min-w-[11rem] max-w-[15rem]">
               {p.portfolioCategory ? (
                 <CellTip
+                  wrap
                   tip={
                     p.portfolioCategory.parentName
                       ? `${p.portfolioCategory.parentName} / ${p.portfolioCategory.name}`
                       : p.portfolioCategory.name
                   }
                 >
-                  <span className="text-xs text-foreground">
+                  <span className="text-xs leading-snug text-foreground">
                     {p.portfolioCategory.parentName ? (
                       <>
                         <span className="text-muted-foreground">{p.portfolioCategory.parentName}</span>
