@@ -112,6 +112,93 @@ function criticalityFromPI(
   return { criticalityScore, criticalityLevel };
 }
 
+/** Anciennes lignes seed / placeholders → ré-enrichissement au prochain `prisma db seed`. */
+function demoRiskNeedsEnrichment(row: {
+  threatSource: string;
+  businessImpact: string;
+  likelihoodJustification: string | null;
+  contingencyPlan: string | null;
+}): boolean {
+  const ts = row.threatSource.trim();
+  const bi = row.businessImpact.trim();
+  if (ts === "Démo seed") return true;
+  if (bi === "Impact projet démo (données seed).") return true;
+  if (!row.likelihoodJustification?.trim()) return true;
+  if (!row.contingencyPlan?.trim()) return true;
+  return false;
+}
+
+function buildDemoRiskFieldData(
+  seed: DemoRiskSeed,
+  now: Date,
+  riskIndex: number,
+  ownerUserIdA: string,
+  ownerUserIdB: string,
+) {
+  const reviewDate =
+    seed.reviewDateOffsetDays == null
+      ? null
+      : addDaysUtc(now, seed.reviewDateOffsetDays);
+
+  const { criticalityScore, criticalityLevel } = criticalityFromPI(
+    seed.probability,
+    seed.impact,
+  );
+  const residual = defaultResidual(seed, criticalityLevel);
+
+  const defaultMitigation =
+    "Réduction : actions de suivi dans le registre risques et revue à l'échéance planifiée.";
+  const defaultContingency =
+    "Secours : escalade COPIL, réduction de périmètre ou arbitrage budget/délai selon criticité.";
+  const impactCategory =
+    seed.impactCategory ??
+    IMPACT_CATEGORY_ROTATION[riskIndex % IMPACT_CATEGORY_ROTATION.length]!;
+
+  const detectedAt = addDaysUtc(
+    now,
+    seed.detectedAtOffsetDays ?? -90 - riskIndex * 5,
+  );
+  const dueDateOffset =
+    seed.dueDateOffsetDays ??
+    (seed.status === ProjectRiskStatus.CLOSED
+      ? -14 - riskIndex
+      : 28 + riskIndex * 7);
+  const dueDate = addDaysUtc(now, dueDateOffset);
+
+  return {
+    description:
+      seed.description ??
+      "Si un facteur externe se dégrade alors le projet subit un retard.",
+    category: seed.category ?? "Pilotage & dépendances",
+    threatSource:
+      seed.threatSource ??
+      "Contexte projet démo (fournisseurs, technique, organisation).",
+    businessImpact:
+      seed.businessImpact ??
+      `Conséquences possibles sur le livrable « ${seed.title} » : délai, coût, qualité ou conformité (données seed).`,
+    likelihoodJustification:
+      seed.likelihoodJustification ??
+      `Score probabilité ${seed.probability}/5 : positionnement issu des ateliers risques et de l'historique incidents du domaine (jeu démo).`,
+    impactCategory,
+    probability: seed.probability,
+    impact: seed.impact,
+    criticalityScore,
+    criticalityLevel,
+    status: seed.status,
+    reviewDate,
+    mitigationPlan: seed.mitigationPlan ?? defaultMitigation,
+    contingencyPlan: seed.contingencyPlan ?? defaultContingency,
+    ownerUserId: resolveOwner(seed.owner, ownerUserIdA, ownerUserIdB),
+    dueDate,
+    detectedAt,
+    closedAt: seed.status === ProjectRiskStatus.CLOSED ? now : null,
+    treatmentStrategy:
+      seed.treatmentStrategy ?? defaultTreatmentStrategy(seed.status),
+    residualRiskLevel: residual.level,
+    residualJustification: residual.justification,
+  };
+}
+
 async function nextRiskCodeForProject(
   prisma: PrismaClient,
   projectId: string,
@@ -456,6 +543,63 @@ const RISKS_BY_SUFFIX: Record<string, DemoRiskSeed[]> = {
   ],
 };
 
+/** Crée / enrichit les risques pour un projet déjà résolu (suffix = « 01 » … « 10 »). */
+async function syncRisksForSeedProject(
+  prisma: PrismaClient,
+  clientId: string,
+  projectId: string,
+  suffix: string,
+  now: Date,
+  ownerUserIdA: string,
+  ownerUserIdB: string,
+): Promise<void> {
+  const seeds = RISKS_BY_SUFFIX[suffix];
+  if (!seeds) return;
+
+  for (let riskIndex = 0; riskIndex < seeds.length; riskIndex++) {
+    const seed = seeds[riskIndex]!;
+    const fieldData = buildDemoRiskFieldData(
+      seed,
+      now,
+      riskIndex,
+      ownerUserIdA,
+      ownerUserIdB,
+    );
+
+    const existing = await prisma.projectRisk.findFirst({
+      where: { projectId, title: seed.title },
+      select: {
+        id: true,
+        threatSource: true,
+        businessImpact: true,
+        likelihoodJustification: true,
+        contingencyPlan: true,
+      },
+    });
+    if (existing) {
+      if (demoRiskNeedsEnrichment(existing)) {
+        await prisma.projectRisk.update({
+          where: { id: existing.id },
+          data: fieldData,
+        });
+      }
+      continue;
+    }
+
+    const riskCode = await nextRiskCodeForProject(prisma, projectId);
+
+    await prisma.projectRisk.create({
+      data: {
+        clientId,
+        projectId,
+        code: riskCode,
+        title: seed.title,
+        ...fieldData,
+      },
+    });
+  }
+}
+
 /**
  * Crée les risques démo manquants (idempotent : clé projectId + title).
  */
@@ -475,84 +619,39 @@ export async function ensureDemoProjectRisks(
     });
     if (!project) continue;
 
-    const seeds = RISKS_BY_SUFFIX[suffix];
-    for (let riskIndex = 0; riskIndex < seeds.length; riskIndex++) {
-      const seed = seeds[riskIndex]!;
-      const existing = await prisma.projectRisk.findFirst({
-        where: { projectId: project.id, title: seed.title },
-        select: { id: true },
-      });
-      if (existing) continue;
+    await syncRisksForSeedProject(
+      prisma,
+      clientId,
+      project.id,
+      suffix,
+      now,
+      ownerUserIdA,
+      ownerUserIdB,
+    );
+  }
 
-      const reviewDate =
-        seed.reviewDateOffsetDays == null
-          ? null
-          : addDaysUtc(now, seed.reviewDateOffsetDays);
-
-      const { criticalityScore, criticalityLevel } = criticalityFromPI(
-        seed.probability,
-        seed.impact,
-      );
-      const residual = defaultResidual(seed, criticalityLevel);
-      const riskCode = await nextRiskCodeForProject(prisma, project.id);
-
-      const defaultMitigation =
-        "Réduction : actions de suivi dans le registre risques et revue à l'échéance planifiée.";
-      const defaultContingency =
-        "Secours : escalade COPIL, réduction de périmètre ou arbitrage budget/délai selon criticité.";
-      const impactCategory =
-        seed.impactCategory ??
-        IMPACT_CATEGORY_ROTATION[riskIndex % IMPACT_CATEGORY_ROTATION.length]!;
-
-      const detectedAt = addDaysUtc(
-        now,
-        seed.detectedAtOffsetDays ?? -90 - riskIndex * 5,
-      );
-      const dueDateOffset =
-        seed.dueDateOffsetDays ??
-        (seed.status === ProjectRiskStatus.CLOSED
-          ? -14 - riskIndex
-          : 28 + riskIndex * 7);
-      const dueDate = addDaysUtc(now, dueDateOffset);
-
-      await prisma.projectRisk.create({
-        data: {
-          clientId,
-          projectId: project.id,
-          code: riskCode,
-          title: seed.title,
-          description:
-            seed.description ??
-            "Si un facteur externe se dégrade alors le projet subit un retard.",
-          category: seed.category ?? "Pilotage & dépendances",
-          threatSource:
-            seed.threatSource ??
-            "Contexte projet démo (fournisseurs, technique, organisation).",
-          businessImpact:
-            seed.businessImpact ??
-            `Conséquences possibles sur le livrable « ${seed.title} » : délai, coût, qualité ou conformité (données seed).`,
-          likelihoodJustification:
-            seed.likelihoodJustification ??
-            `Score probabilité ${seed.probability}/5 : positionnement issu des ateliers risques et de l'historique incidents du domaine (jeu démo).`,
-          impactCategory,
-          probability: seed.probability,
-          impact: seed.impact,
-          criticalityScore,
-          criticalityLevel,
-          status: seed.status,
-          reviewDate,
-          mitigationPlan: seed.mitigationPlan ?? defaultMitigation,
-          contingencyPlan: seed.contingencyPlan ?? defaultContingency,
-          ownerUserId: resolveOwner(seed.owner, ownerUserIdA, ownerUserIdB),
-          dueDate,
-          detectedAt,
-          closedAt: seed.status === ProjectRiskStatus.CLOSED ? now : null,
-          treatmentStrategy:
-            seed.treatmentStrategy ?? defaultTreatmentStrategy(seed.status),
-          residualRiskLevel: residual.level,
-          residualJustification: residual.justification,
-        },
-      });
-    }
+  /** Projets *-SEED-xx* encore sans aucun risque (seed interrompu, restauration DB, etc.) */
+  const orphans = await prisma.project.findMany({
+    where: {
+      clientId,
+      code: { startsWith: `${prefix}-SEED-` },
+      projectRisks: { none: {} },
+    },
+    select: { id: true, code: true },
+  });
+  for (const op of orphans) {
+    const m = /-SEED-(\d{2})$/.exec(op.code);
+    if (!m) continue;
+    const suf = m[1]!;
+    if (!RISKS_BY_SUFFIX[suf]) continue;
+    await syncRisksForSeedProject(
+      prisma,
+      clientId,
+      op.id,
+      suf,
+      now,
+      ownerUserIdA,
+      ownerUserIdB,
+    );
   }
 }

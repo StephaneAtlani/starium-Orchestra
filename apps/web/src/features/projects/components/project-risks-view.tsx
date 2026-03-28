@@ -57,7 +57,7 @@ function criticalityBadgeClass(level: string): string {
 export function ProjectRisksView({ projectId }: { projectId: string }) {
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
-  const { activeClient } = useActiveClient();
+  const { activeClient, initialized } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const { has } = usePermissions();
   const canEdit = has('projects.update');
@@ -155,6 +155,19 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
     return <p className="text-sm text-destructive">Identifiant de projet manquant.</p>;
   }
 
+  if (!initialized) return <LoadingState rows={6} />;
+
+  if (!clientId) {
+    return (
+      <Alert className="border-amber-500/40 bg-amber-500/5">
+        <AlertTitle>Client actif requis</AlertTitle>
+        <AlertDescription>
+          Sélectionnez une organisation (client) dans l’en-tête pour charger les risques du projet.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
   if (isLoading) return <LoadingState rows={6} />;
 
   if (error || !project) {
@@ -206,10 +219,24 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
             </div>
           ) : null}
 
-          {risksQuery.isLoading ? (
+          {risksQuery.isError ? (
+            <Alert variant="destructive" className="border-destructive/40">
+              <AlertTitle>Impossible de charger les risques</AlertTitle>
+              <AlertDescription>
+                {risksQuery.error instanceof Error
+                  ? risksQuery.error.message
+                  : 'Erreur réseau ou accès refusé.'}
+              </AlertDescription>
+            </Alert>
+          ) : risksQuery.isLoading || risksQuery.isPending ? (
             <LoadingState rows={4} />
           ) : (
-            <RisksTable risks={risksQuery.data ?? []} canEdit={canEdit} onEdit={openEditDialog} />
+            <RisksTable
+              risks={risksQuery.data ?? []}
+              projectCode={project.code}
+              canEdit={canEdit}
+              onEdit={openEditDialog}
+            />
           )}
         </CardContent>
       </Card>
@@ -235,16 +262,36 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
 
 function RisksTable({
   risks,
+  projectCode,
   canEdit,
   onEdit,
 }: {
   risks: ProjectRiskApi[];
+  projectCode: string;
   canEdit: boolean;
   onEdit: (r: ProjectRiskApi) => void;
 }) {
   if (risks.length === 0) {
+    const isSeedDemoProject = /-SEED-\d{2}$/.test(projectCode);
     return (
-      <p className="text-sm text-muted-foreground">Aucun risque enregistré pour ce projet.</p>
+      <div className="space-y-2 text-sm text-muted-foreground">
+        <p>Aucun risque enregistré pour ce projet ({projectCode}).</p>
+        {isSeedDemoProject ? (
+          <p>
+            Les jeux de données risques démo sont injectés par{' '}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">npx prisma db seed</code>{' '}
+            (API). Si la liste reste vide après seed, vérifie les logs serveur et que tu es sur le bon
+            client (organisation) dans l’en-tête.
+          </p>
+        ) : (
+          <p>
+            Le seed automatique ne remplit que les projets dont le code ressemble à{' '}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">NEO-SEED-01</code> …{' '}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">-SEED-10</code>. Ouvre un
+            projet démo du portefeuille ou ajoute un risque avec « Nouveau risque ».
+          </p>
+        )}
+      </div>
     );
   }
 

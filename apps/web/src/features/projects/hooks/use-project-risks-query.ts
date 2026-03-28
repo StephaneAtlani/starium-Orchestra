@@ -14,13 +14,17 @@ export function useProjectRisksQuery(
   options?: { enabled?: boolean },
 ) {
   const authFetch = useAuthenticatedFetch();
-  const { activeClient } = useActiveClient();
+  const { activeClient, initialized } = useActiveClient();
   const clientId = activeClient?.id ?? '';
 
   return useQuery({
     queryKey: projectQueryKeys.risks(clientId, projectId),
     queryFn: async () => listRisks(authFetch, projectId),
-    enabled: (options?.enabled !== false) && !!clientId && !!projectId,
+    enabled:
+      initialized &&
+      (options?.enabled !== false) &&
+      !!clientId &&
+      !!projectId,
     staleTime: STALE,
   });
 }

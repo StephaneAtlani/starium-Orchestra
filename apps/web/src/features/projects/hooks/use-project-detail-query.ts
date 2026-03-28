@@ -10,13 +10,13 @@ const STALE = 30_000;
 
 export function useProjectDetailQuery(projectId: string) {
   const authFetch = useAuthenticatedFetch();
-  const { activeClient } = useActiveClient();
+  const { activeClient, initialized } = useActiveClient();
   const clientId = activeClient?.id ?? '';
 
   return useQuery({
     queryKey: projectQueryKeys.detail(clientId, projectId),
     queryFn: () => getProject(authFetch, projectId),
-    enabled: !!clientId && !!projectId,
+    enabled: initialized && !!clientId && !!projectId,
     staleTime: STALE,
   });
 }
