@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  AlertTriangle,
   Building2,
   Boxes,
   Cloud,
@@ -80,18 +81,21 @@ export const navigation: NavigationSection[] = [
             requiredPermissions: ['projects.read'],
           },
           {
-            label: 'Risques',
-            href: '/risks',
-            scope: 'client',
-            requiredPermissions: ['projects.read'],
-          },
-          {
             label: 'Option',
             href: '/projects/options',
             scope: 'client',
             requiredPermissions: ['projects.read'],
           },
         ],
+      },
+      {
+        label: 'Risques',
+        href: '/risks',
+        icon: AlertTriangle,
+        scope: 'client',
+        moduleCode: 'projects',
+        requiredPermissions: ['projects.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
       {
         label: 'Fournisseurs',

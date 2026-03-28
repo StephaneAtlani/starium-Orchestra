@@ -50,17 +50,17 @@ export function RiskFilters({ value, onChange, projectItems, ownerOptions, disab
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Projet</Label>
+          <Label>Initiative</Label>
           <Select
             value={value.projectId}
             onValueChange={(v) => set({ projectId: v as RisksRegistryFiltersState['projectId'] })}
             disabled={disabled}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Tous les projets" />
+              <SelectValue placeholder="Toutes les initiatives" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Tous les projets</SelectItem>
+              <SelectItem value={ALL}>Toutes les initiatives</SelectItem>
               {projectItems.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}

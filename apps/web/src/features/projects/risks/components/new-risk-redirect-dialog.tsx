@@ -47,15 +47,17 @@ export function NewRiskRedirectDialog({ open, onOpenChange, projectItems }: Prop
         <DialogHeader>
           <DialogTitle>Nouveau risque</DialogTitle>
           <DialogDescription>
-            Choisissez le projet concerné. Vous serez redirigé vers le registre des risques de ce projet
-            pour créer le risque (même parcours que depuis la fiche projet).
+            Rattachez le risque à une initiative pour l’enregistrer. Vous serez guidé vers la fiche de
+            suivi pour la saisie détaillée (traitements, criticité, etc.).
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2 py-2">
-          <Label htmlFor="new-risk-project">Projet</Label>
+          <Label htmlFor="new-risk-project">Initiative</Label>
           <Select value={projectId} onValueChange={(v) => setProjectId(v ?? '')}>
             <SelectTrigger id="new-risk-project">
-              <SelectValue placeholder={projectItems.length ? 'Sélectionner un projet…' : 'Aucun projet chargé'} />
+              <SelectValue
+                placeholder={projectItems.length ? 'Choisir une initiative…' : 'Aucune initiative chargée'}
+              />
             </SelectTrigger>
             <SelectContent>
               {projectItems.map((p) => (

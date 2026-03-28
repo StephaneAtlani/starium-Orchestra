@@ -100,7 +100,7 @@ export function RisksRegistryPage() {
     <div className="space-y-6 p-4 md:p-6">
       <PageHeader
         title="Gestion des risques"
-        description="Registre transverse des risques projets — vue cockpit pour le pilotage."
+        description="Registre centralisé : identification, priorisation et suivi des risques sur votre périmètre d’activité."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -133,9 +133,9 @@ export function RisksRegistryPage() {
 
       {showProjectsLoading && (
         <div className="space-y-2 py-2" data-testid="risks-registry-loading-projects">
-          <p className="text-sm font-medium text-foreground">Chargement des projets</p>
+          <p className="text-sm font-medium text-foreground">Préparation du registre</p>
           <p className="text-sm text-muted-foreground">
-            Récupération de la liste des projets accessibles (pagination complète)…
+            Chargement de votre périmètre d’initiatives et projets…
           </p>
           <LoadingState rows={4} />
         </div>
@@ -144,9 +144,7 @@ export function RisksRegistryPage() {
       {!showProjectsLoading && showRisksLoading && (
         <div className="space-y-2 py-2" data-testid="risks-registry-loading-risks">
           <p className="text-sm font-medium text-foreground">Chargement des risques</p>
-          <p className="text-sm text-muted-foreground">
-            Agrégation des risques par projet (requêtes parallèles limitées)…
-          </p>
+          <p className="text-sm text-muted-foreground">Consolidation du registre…</p>
           <LoadingState rows={6} />
         </div>
       )}
@@ -154,7 +152,7 @@ export function RisksRegistryPage() {
       {showError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Impossible de charger le registre</AlertTitle>
+          <AlertTitle>Impossible de charger la gestion des risques</AlertTitle>
           <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>
               {registry.error instanceof Error
@@ -172,8 +170,8 @@ export function RisksRegistryPage() {
         <div className="rounded-lg border border-dashed bg-muted/15 px-4 py-10 text-center text-sm text-muted-foreground">
           <p className="font-medium text-foreground">Aucun risque enregistré</p>
           <p className="mt-2">
-            Aucun risque n’a été trouvé sur les projets accessibles. Créez un risque depuis le registre
-            d’un projet ou vérifiez les droits d’accès.
+            Aucun risque ne figure encore dans votre registre. Enregistrez un risque ou vérifiez vos
+            droits d’accès.
           </p>
         </div>
       )}

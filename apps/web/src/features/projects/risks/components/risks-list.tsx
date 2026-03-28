@@ -51,7 +51,7 @@ export function RisksList({ rows, page, onPageChange }: Props) {
           <TableHeader>
             <TableRow>
               <TableHead>Titre</TableHead>
-              <TableHead>Projet</TableHead>
+              <TableHead>Initiative</TableHead>
               <TableHead>Catégorie</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead>Criticité</TableHead>
@@ -101,13 +101,13 @@ export function RisksList({ rows, page, onPageChange }: Props) {
                       href={projectRisks(r.projectId)}
                       className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                     >
-                      Registre risques
+                      Fiche risque
                     </Link>
                     <Link
                       href={projectDetail(r.projectId)}
                       className="text-sm text-muted-foreground underline-offset-4 hover:underline"
                     >
-                      Projet
+                      Initiative
                     </Link>
                   </div>
                 </TableCell>

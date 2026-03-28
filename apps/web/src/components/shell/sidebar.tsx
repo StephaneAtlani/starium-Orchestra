@@ -137,20 +137,15 @@ export function Sidebar() {
                 if (isProjets) {
                   const projectsChildren = [
                     { label: 'Portefeuille projet', href: '/projects' },
-                    { label: 'Risques', href: '/risks' },
                     { label: 'Option', href: '/projects/options' },
                   ];
 
                   const isProjectsChildActive = (href: string) => {
                     if (!pathname) return false;
-                    if (href === '/risks') {
-                      return pathname === '/risks' || pathname.startsWith('/risks/');
-                    }
                     if (href === '/projects/options') {
                       return pathname === '/projects/options' || pathname.startsWith('/projects/options/');
                     }
                     if (href === '/projects') {
-                      if (pathname === '/risks' || pathname.startsWith('/risks/')) return false;
                       if (pathname === '/projects') return true;
                       if (pathname.startsWith('/projects/new')) return true;
                       if (pathname.startsWith('/projects/options')) return false;

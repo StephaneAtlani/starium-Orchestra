@@ -44,7 +44,7 @@ async function aggregateRisksForProjects(
   const risks = riskLists.flat();
 
   const rows: ProjectRiskRegistryRow[] = risks.map((r) => {
-    const projectName = projectMap.get(r.projectId) ?? 'Projet inconnu';
+    const projectName = projectMap.get(r.projectId) ?? 'Initiative inconnue';
     const ownerDisplayLabel = !r.ownerUserId
       ? 'Non assigné'
       : ownerMap.get(r.ownerUserId) ?? 'Utilisateur inconnu';
