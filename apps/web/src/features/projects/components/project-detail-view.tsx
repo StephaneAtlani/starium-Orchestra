@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
@@ -26,6 +26,7 @@ import {
   MILESTONE_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
   PROJECT_KIND_LABEL,
+  PROJECT_PRIORITY_LABEL,
   PROJECT_STATUS_LABEL,
   PROJECT_TYPE_LABEL,
   RISK_STATUS_LABEL,
@@ -61,6 +62,7 @@ import {
   updateProject,
 } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
+import { formatCurrencyAmountFr } from '@/lib/currency-format';
 
 function tagBadgeStyle(color: string | null | undefined) {
   const background = color ?? '#64748B';
@@ -78,6 +80,35 @@ function formatDate(iso: string | null) {
   } catch {
     return '—';
   }
+}
+
+function formatTargetBudgetDisplay(raw: string): string {
+  const n = Number(raw);
+  return Number.isFinite(n) ? formatCurrencyAmountFr(n, 'EUR') : raw;
+}
+
+function KpiTile({
+  label,
+  value,
+  title,
+}: {
+  label: string;
+  value: ReactNode;
+  title?: string;
+}) {
+  return (
+    <div
+      className="rounded-lg border border-border/60 bg-muted/15 px-2.5 py-2"
+      title={title}
+    >
+      <p className="text-[0.6rem] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <div className="mt-1 min-h-[1.25rem] text-base font-semibold tabular-nums leading-tight text-foreground">
+        {value}
+      </div>
+    </div>
+  );
 }
 
 function ProjectDetailTabbedContent({
@@ -244,6 +275,14 @@ function ProjectDetailTabbedContent({
     () => (risks.data ?? []).filter((r) => riskCriticalityForRisk(r) === 'HIGH').length,
     [risks.data],
   );
+
+  const milestonesTotal = useMemo(() => {
+    const m = milestonesQuery.data;
+    if (!m) return 0;
+    return m.total ?? m.items.length;
+  }, [milestonesQuery.data]);
+
+  const kpiProgressPct = project.derivedProgressPercent ?? project.progressPercent;
 
   return (
     <Card size="sm" className="min-w-0 overflow-hidden py-0 shadow-sm">
@@ -559,7 +598,9 @@ function ProjectDetailTabbedContent({
                 {project.targetBudgetAmount && (
                   <div className="sm:col-span-2 border-t pt-3">
                     <span className="text-muted-foreground">Budget cible : </span>
-                    {project.targetBudgetAmount}
+                    <span className="font-medium tabular-nums text-foreground">
+                      {formatTargetBudgetDisplay(project.targetBudgetAmount)}
+                    </span>
                   </div>
                 )}
             </div>
@@ -573,37 +614,60 @@ function ProjectDetailTabbedContent({
               id="project-detail-kpi-heading"
               className="mb-2 border-b border-border/70 pb-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground"
             >
-              Compteurs
+              Indicateurs
             </h2>
-            <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-2 sm:justify-end lg:flex-col lg:items-stretch lg:gap-3">
-                <span
-                  className="inline-flex items-baseline gap-1.5 tabular-nums"
-                  title="Tâches ouvertes"
-                >
-                  <span className="text-lg font-semibold leading-none">
-                    {project.openTasksCount}
-                  </span>
-                  <span className="text-xs text-muted-foreground">Tâches</span>
-                </span>
-                <span
-                  className="inline-flex items-baseline gap-1.5 tabular-nums"
-                  title="Risques ouverts"
-                >
-                  <span className="text-lg font-semibold leading-none">
-                    {project.openRisksCount}
-                  </span>
-                  <span className="text-xs text-muted-foreground">Risques</span>
-                </span>
-                <span
-                  className="inline-flex items-baseline gap-1.5 tabular-nums"
-                  title="Jalons en retard"
-                >
-                  <span className="text-lg font-semibold leading-none">
-                    {project.delayedMilestonesCount}
-                  </span>
-                  <span className="text-xs text-muted-foreground">Jalons ret.</span>
-                </span>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="col-span-2 rounded-lg border border-border/60 bg-muted/15 px-2.5 py-2">
+                <p className="text-[0.6rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Santé
+                </p>
+                <div className="mt-1.5">
+                  <HealthBadge health={project.computedHealth} compact />
+                </div>
               </div>
+              <KpiTile
+                label="Avancement"
+                title="Dérivé des tâches, sinon saisie manuelle"
+                value={
+                  kpiProgressPct != null ? (
+                    <span>{Math.round(kpiProgressPct)}&nbsp;%</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )
+                }
+              />
+              <KpiTile
+                label="Criticité"
+                value={
+                  PROJECT_CRITICALITY_LABEL[project.criticality] ?? project.criticality
+                }
+              />
+              <KpiTile
+                label="Tâches ouv."
+                title="Tâches non terminées"
+                value={project.openTasksCount}
+              />
+              <KpiTile
+                label="Risques ouv."
+                title="Risques non clôturés"
+                value={project.openRisksCount}
+              />
+              <KpiTile
+                label="Risques crit."
+                title="Risques P×I élevée (criticité HAUTE)"
+                value={criticalRisksCount}
+              />
+              <KpiTile label="Jalons" title="Nombre de jalons" value={milestonesTotal} />
+              <KpiTile
+                label="Jalons ret."
+                title="Jalons en retard"
+                value={project.delayedMilestonesCount}
+              />
+              <KpiTile
+                label="Priorité"
+                value={PROJECT_PRIORITY_LABEL[project.priority] ?? project.priority}
+              />
+            </div>
           </section>
         </div>
 
