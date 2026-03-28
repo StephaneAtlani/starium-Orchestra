@@ -1521,7 +1521,7 @@ export function ProjectReviewEditorDialog({
                                 {r.mitigationPlan}
                               </p>
                             ) : (
-                              <p className="mt-2 text-xs font-semibold text-yellow-950 dark:text-amber-400">
+                              <p className="starium-text-warning-emphasis mt-2 text-xs font-semibold">
                                 Plan d’action non renseigné
                               </p>
                             )}
