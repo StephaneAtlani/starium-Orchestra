@@ -33,6 +33,9 @@ import {
 import * as bcrypt from "bcrypt";
 import { DEMO_PROJECT_SHEETS, type DemoProjectSheet } from "./seed-project-demo-sheets";
 import { ensureDemoProjectReviews } from "./seed-project-demo-reviews";
+import { ensureDemoProjectTaskBuckets } from "./seed-project-demo-buckets";
+import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
+import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
 
 const prisma = new PrismaClient();
 const PASSWORD = "aa";
@@ -1242,6 +1245,57 @@ async function ensureDemoRetroplanMilestones(
   }
 }
 
+/**
+ * Rattache chaque jalon démo à une phase projet (libellés Gantt / planning)
+ * pour éviter « Sans libellé de phase » en UI.
+ */
+function resolveDemoMilestonePhaseIndex(name: string, sortOrder: number): number {
+  const n = name.trim();
+  if (n.includes("Cadrage & arbitrage")) return 0;
+  if (n.includes("Réalisation / intégration")) return 1;
+  if (n.includes("Recette & mise en service")) return 2;
+  if (n === "Cadrage valide") return 0;
+  if (n.includes("Go-live")) return 3;
+  if (n.includes("Couverture APM")) return 1;
+  if (n.includes("Mise en prod") || n.includes("zone sensible")) return 3;
+  return Math.min(sortOrder, 3);
+}
+
+async function syncDemoProjectMilestonePhases(clientId: string, prefix: string): Promise<void> {
+  for (let i = 1; i <= 10; i++) {
+    const code = `${prefix}-SEED-${String(i).padStart(2, "0")}`;
+    const project = await prisma.project.findFirst({
+      where: { clientId, code },
+      select: { id: true },
+    });
+    if (!project) continue;
+
+    const phases = await prisma.projectTaskPhase.findMany({
+      where: { clientId, projectId: project.id },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true },
+    });
+    if (phases.length === 0) continue;
+
+    const phaseIdAt = (idx: number) =>
+      phases[Math.min(Math.max(idx, 0), phases.length - 1)]!.id;
+
+    const milestones = await prisma.projectMilestone.findMany({
+      where: { clientId, projectId: project.id },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, name: true, sortOrder: true },
+    });
+
+    for (const m of milestones) {
+      const idx = resolveDemoMilestonePhaseIndex(m.name, m.sortOrder);
+      await prisma.projectMilestone.update({
+        where: { id: m.id },
+        data: { phaseId: phaseIdAt(idx) },
+      });
+    }
+  }
+}
+
 /** Liaison FULL vers des lignes budgétaires réelles du client (RFC-PROJ-010). */
 async function ensureDemoProjectBudgetLinks(clientId: string, prefix: string): Promise<void> {
   const lines = await prisma.budgetLine.findMany({
@@ -1406,31 +1460,7 @@ async function seedClientDemoProjects(
     portfolioCategoryId: leaves.identite,
     ...DEMO_PROJECT_SHEETS[0],
   });
-  if ((await prisma.projectTask.count({ where: { projectId: p01.id } })) === 0) {
-    await prisma.projectTask.createMany({
-      data: [
-        {
-          clientId,
-          projectId: p01.id,
-          name: "Cartographie des applications",
-          status: ProjectTaskStatus.DONE,
-          priority: ProjectTaskPriority.MEDIUM,
-          progress: 100,
-          sortOrder: 0,
-          ownerUserId: a,
-        },
-        {
-          clientId,
-          projectId: p01.id,
-          name: "Deploiement IdP pilote",
-          status: ProjectTaskStatus.IN_PROGRESS,
-          priority: ProjectTaskPriority.HIGH,
-          progress: 45,
-          sortOrder: 1,
-          ownerUserId: a,
-        },
-      ],
-    });
+  if ((await prisma.projectMilestone.count({ where: { projectId: p01.id } })) === 0) {
     await prisma.projectMilestone.createMany({
       data: [
         {
@@ -1452,6 +1482,8 @@ async function seedClientDemoProjects(
         },
       ],
     });
+  }
+  if ((await prisma.projectRisk.count({ where: { projectId: p01.id } })) === 0) {
     await prisma.projectRisk.create({
       data: {
         clientId,
@@ -1482,19 +1514,7 @@ async function seedClientDemoProjects(
     portfolioCategoryId: leaves.data,
     ...DEMO_PROJECT_SHEETS[1],
   });
-  if ((await prisma.projectTask.count({ where: { projectId: p02.id } })) === 0) {
-    await prisma.projectTask.create({
-      data: {
-        clientId,
-        projectId: p02.id,
-        name: "Pipelines batch — SOC2",
-        status: ProjectTaskStatus.IN_PROGRESS,
-        priority: ProjectTaskPriority.MEDIUM,
-        progress: 40,
-        sortOrder: 0,
-        ownerUserId: b,
-      },
-    });
+  if ((await prisma.projectMilestone.count({ where: { projectId: p02.id } })) === 0) {
     await prisma.projectMilestone.create({
       data: {
         clientId,
@@ -1505,6 +1525,8 @@ async function seedClientDemoProjects(
         sortOrder: 0,
       },
     });
+  }
+  if ((await prisma.projectRisk.count({ where: { projectId: p02.id } })) === 0) {
     await prisma.projectRisk.create({
       data: {
         clientId,
@@ -1536,7 +1558,6 @@ async function seedClientDemoProjects(
     portfolioCategoryId: leaves.experience,
     ...DEMO_PROJECT_SHEETS[2],
   });
-
   // --- 04 : en pause (bloque)
   const p04 = await upsert({
     code: `${prefix}-SEED-04`,
@@ -1583,20 +1604,7 @@ async function seedClientDemoProjects(
         ownerUserId: a,
       },
     });
-    await prisma.projectTask.create({
-      data: {
-        clientId,
-        projectId: p05.id,
-        name: "Plan de segmentation — v2",
-        status: ProjectTaskStatus.BLOCKED,
-        priority: ProjectTaskPriority.CRITICAL,
-        progress: 10,
-        sortOrder: 0,
-        ownerUserId: a,
-      },
-    });
   }
-
   // --- 06 : en retard (date cible passee)
   const p06 = await upsert({
     code: `${prefix}-SEED-06`,
@@ -1614,31 +1622,7 @@ async function seedClientDemoProjects(
     portfolioCategoryId: leaves.experience,
     ...DEMO_PROJECT_SHEETS[5],
   });
-  if ((await prisma.projectTask.count({ where: { projectId: p06.id } })) === 0) {
-    await prisma.projectTask.createMany({
-      data: [
-        {
-          clientId,
-          projectId: p06.id,
-          name: "Integration paiement",
-          status: ProjectTaskStatus.IN_PROGRESS,
-          priority: ProjectTaskPriority.HIGH,
-          progress: 70,
-          sortOrder: 0,
-          ownerUserId: b,
-        },
-        {
-          clientId,
-          projectId: p06.id,
-          name: "Recette utilisateurs",
-          status: ProjectTaskStatus.TODO,
-          priority: ProjectTaskPriority.MEDIUM,
-          progress: 0,
-          sortOrder: 1,
-          ownerUserId: b,
-        },
-      ],
-    });
+  if ((await prisma.projectMilestone.count({ where: { projectId: p06.id } })) === 0) {
     await prisma.projectMilestone.create({
       data: {
         clientId,
@@ -1668,21 +1652,6 @@ async function seedClientDemoProjects(
     portfolioCategoryId: leaves.infrastructure,
     ...DEMO_PROJECT_SHEETS[6],
   });
-  if ((await prisma.projectTask.count({ where: { projectId: p07.id } })) === 0) {
-    await prisma.projectTask.create({
-      data: {
-        clientId,
-        projectId: p07.id,
-        name: "Basculer les numeros pilotes",
-        status: ProjectTaskStatus.IN_PROGRESS,
-        priority: ProjectTaskPriority.HIGH,
-        progress: 80,
-        sortOrder: 0,
-        ownerUserId: a,
-      },
-    });
-  }
-
   // --- 08 : jalon en retard (DELAYED)
   const p08 = await upsert({
     code: `${prefix}-SEED-08`,
@@ -1723,7 +1692,6 @@ async function seedClientDemoProjects(
       },
     });
   }
-
   // --- 09 : sans responsable plateforme (warning NO_OWNER)
   const p09 = await upsert({
     code: `${prefix}-SEED-09`,
@@ -1741,20 +1709,6 @@ async function seedClientDemoProjects(
     portfolioCategoryId: leaves.experience,
     ...DEMO_PROJECT_SHEETS[8],
   });
-  if ((await prisma.projectTask.count({ where: { projectId: p09.id } })) === 0) {
-    await prisma.projectTask.create({
-      data: {
-        clientId,
-        projectId: p09.id,
-        name: "Atelier contrat et API",
-        status: ProjectTaskStatus.TODO,
-        priority: ProjectTaskPriority.MEDIUM,
-        progress: 0,
-        sortOrder: 0,
-      },
-    });
-  }
-
   // --- 10 : planifie, demarrage
   const p10 = await upsert({
     code: `${prefix}-SEED-10`,
@@ -1772,12 +1726,16 @@ async function seedClientDemoProjects(
     portfolioCategoryId: leaves.data,
     ...DEMO_PROJECT_SHEETS[9],
   });
+  await ensureDemoProjectTasks(prisma, clientId, prefix, now, a, b);
   await ensureDemoRetroplanMilestones(clientId, prefix, now, a);
+  await syncDemoProjectMilestonePhases(clientId, prefix);
   await ensureDemoProjectBudgetLinks(clientId, prefix);
+  await ensureDemoProjectTaskBuckets(prisma, clientId, prefix);
+  await ensureDemoProjectActivities(prisma, clientId, prefix, now, a, b);
   await ensureDemoProjectReviews(prisma, clientId, prefix, now, a, b);
 
   console.log(
-    `✅ Seed demo projets [${slug}]: 10 projets, fiches (TOWS 4 quadrants), jalons rétroplan, liens budget FULL, points projet (états variés), catégories, ressources`,
+    `✅ Seed demo projets [${slug}]: 10 projets, taches (jeu complet recree), fiches (TOWS 4 quadrants), jalons rétroplan, liens budget FULL, buckets Kanban, activites recurrentes, points projet, catégories, ressources`,
   );
 }
 

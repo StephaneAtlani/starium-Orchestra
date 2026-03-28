@@ -128,6 +128,8 @@ function clampSidebarWidthPx(width: number, containerWidth: number): number {
 /** Écart libellé après la barre ; un peu plus si pas de prédécesseur (évite le trait SVG). */
 const GANTT_LABEL_AFTER_BAR_GAP_PX = 6;
 const GANTT_LABEL_EXTRA_GAP_WHEN_NO_PREDECESSOR_PX = 14;
+/** Décalage supplémentaire des libellés frise (nom / phase) vers la droite après la barre. */
+const GANTT_FRINGE_LABEL_SHIFT_PX = 28;
 
 export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const depMarkerId = useId().replace(/:/g, '');
@@ -1300,7 +1302,9 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                           {showGanttBarLabels && (
                             <div
                               className="pointer-events-none absolute top-0.5 z-[3] max-w-[min(14rem,38vw)] truncate text-[9px] font-medium leading-tight text-muted-foreground"
-                              style={{ left: rollupLeftPx + rollupW + 4 }}
+                              style={{
+                                left: rollupLeftPx + rollupW + 4 + GANTT_FRINGE_LABEL_SHIFT_PX,
+                              }}
                               title={`Phase ${phaseMeta.name}${
                                 rollupProgressPct != null
                                   ? ` — ${rollupProgressPct} %`
@@ -1347,6 +1351,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                               leftPx +
                               barW +
                               GANTT_LABEL_AFTER_BAR_GAP_PX +
+                              GANTT_FRINGE_LABEL_SHIFT_PX +
                               (row.dependsOnTaskId
                                 ? 0
                                 : GANTT_LABEL_EXTRA_GAP_WHEN_NO_PREDECESSOR_PX),
