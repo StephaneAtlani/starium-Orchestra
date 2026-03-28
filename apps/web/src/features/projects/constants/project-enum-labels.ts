@@ -67,6 +67,25 @@ export const RISK_STATUS_LABEL: Record<string, string> = {
   CLOSED: 'Clôturé',
 };
 
+/** Criticité issue du score P×I (registre / fiche risque). */
+export const PROJECT_RISK_CRITICALITY_LABEL: Record<string, string> = {
+  LOW: 'Faible',
+  MEDIUM: 'Moyenne',
+  HIGH: 'Haute',
+  CRITICAL: 'Critique',
+};
+
+/**
+ * Stratégies de traitement du risque (ISO 27005 / logique type EBIOS RM).
+ * AVOID = supprimer la source, REDUCE = mesures, TRANSFER = assurance/délégation, ACCEPT = assumer.
+ */
+export const RISK_TREATMENT_STRATEGY_LABEL: Record<string, string> = {
+  AVOID: 'Éviter',
+  REDUCE: 'Réduire',
+  TRANSFER: 'Transférer',
+  ACCEPT: 'Accepter',
+};
+
 export const MILESTONE_STATUS_LABEL: Record<string, string> = {
   PLANNED: 'Planifié',
   ACHIEVED: 'Atteint',

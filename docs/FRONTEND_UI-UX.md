@@ -333,6 +333,17 @@ Route typique : `app/(protected)/projects/[projectId]/page.tsx` — composant **
 
 **Référence** : RFC-PROJ-012, [docs/modules/projects-mvp.md](./modules/projects-mvp.md).
 
+### 11.3 Modales — voile et panneau global (`Dialog`)
+
+Implémentation : **`apps/web/src/components/ui/dialog.tsx`** (Base UI `Backdrop` + `Popup`). Ce socle s’applique à toutes les modales ; les écrans métier (**§12.1** et suivants) précisent largeurs et contenus.
+
+| Élément | Pattern |
+|--------|---------|
+| **Backdrop** | Voile d’atténuation : `bg-black/30` en clair, `dark:bg-black/50` en sombre ; léger flou `supports-backdrop-filter:backdrop-blur-[2px]` ; `duration-200` ; animations fade `data-open` / `data-closed`. |
+| **Panneau** | `rounded-xl border border-border/60 bg-background shadow-sm` (§2 — bordure token explicite, ombre légère ; éviter un `ring` seul trop contrasté sur fond clair). |
+| **Titre** | `DialogTitle` : `text-lg font-semibold tracking-tight text-foreground` (cohérent avec les modales métier §12.2). |
+| **Pied** | `DialogFooter` : `border-t border-border/60` sur le séparateur (§2). |
+
 ---
 
 ## 12. Typographie (rappel)
@@ -417,4 +428,4 @@ Implémentation : `app/(protected)/resources/page.tsx`.
 
 ---
 
-*Dernière mise à jour : §12.4 page `Ressources` (liste en `Card` + `Table`) ; §12.3 `PersonCatalogPickerDialog` (équipe + création projet) ; §12.2 modale responsable projet (historique onglets — remplacé par tableau partagé) ; §12.1 2FA ; `dialog.tsx` (Fermer) ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*
+*Dernière mise à jour : §11.3 modales globales (`dialog.tsx` — voile, panneau, titre, pied) ; §12.4 page `Ressources` (liste en `Card` + `Table`) ; §12.3 `PersonCatalogPickerDialog` (équipe + création projet) ; §12.2 modale responsable projet (historique onglets — remplacé par tableau partagé) ; §12.1 2FA ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*

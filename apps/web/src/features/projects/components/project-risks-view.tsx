@@ -4,21 +4,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronLeft, Trash2 } from 'lucide-react';
+import { ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -32,23 +23,23 @@ import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
-import { createProjectRisk, deleteProjectRisk } from '../api/projects.api';
+import {
+  createProjectRisk,
+  deleteProjectRisk,
+  updateProjectRisk,
+  type CreateProjectRiskPayload,
+} from '../api/projects.api';
 import { projectsList } from '../constants/project-routes';
-import { RISK_STATUS_LABEL } from '../constants/project-enum-labels';
+import {
+  PROJECT_RISK_CRITICALITY_LABEL,
+  RISK_STATUS_LABEL,
+} from '../constants/project-enum-labels';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
+import { ProjectRiskEbiosDialog } from './project-risk-ebios-dialog';
 import type { ProjectRiskApi } from '../types/project.types';
-
-const CRIT_LABEL: Record<string, string> = {
-  LOW: 'Faible',
-  MEDIUM: 'Moyenne',
-  HIGH: 'Haute',
-  CRITICAL: 'Critique',
-};
-
-const PI_OPTIONS = [1, 2, 3, 4, 5] as const;
 
 function criticalityBadgeClass(level: string): string {
   switch (level) {
@@ -74,30 +65,45 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
   const { data: project, isLoading, error } = useProjectDetailQuery(projectId);
   const risksQuery = useProjectRisksQuery(projectId);
 
-  const [newTitle, setNewTitle] = useState('');
-  const [probability, setProbability] = useState(3);
-  const [impact, setImpact] = useState(3);
+  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [riskDialogMode, setRiskDialogMode] = useState<'create' | 'edit'>('create');
+  const [editingRisk, setEditingRisk] = useState<ProjectRiskApi | null>(null);
+
+  const invalidateRisks = () => {
+    void queryClient.invalidateQueries({
+      queryKey: projectQueryKeys.risks(clientId, projectId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: projectQueryKeys.detail(clientId, projectId),
+    });
+  };
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      createProjectRisk(authFetch, projectId, {
-        title: newTitle.trim(),
-        probability,
-        impact,
-      }),
+    mutationFn: (payload: CreateProjectRiskPayload) =>
+      createProjectRisk(authFetch, projectId, payload),
     onSuccess: () => {
       toast.success('Risque créé');
-      setNewTitle('');
-      setProbability(3);
-      setImpact(3);
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.risks(clientId, projectId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.detail(clientId, projectId),
-      });
+      setRiskDialogOpen(false);
+      invalidateRisks();
     },
     onError: (e: Error) => toast.error(e.message || 'Création impossible'),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      riskId,
+      payload,
+    }: {
+      riskId: string;
+      payload: CreateProjectRiskPayload;
+    }) => updateProjectRisk(authFetch, projectId, riskId, payload),
+    onSuccess: () => {
+      toast.success('Risque mis à jour');
+      setRiskDialogOpen(false);
+      setEditingRisk(null);
+      invalidateRisks();
+    },
+    onError: (e: Error) => toast.error(e.message || 'Enregistrement impossible'),
   });
 
   const deleteMutation = useMutation({
@@ -110,6 +116,28 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
     },
     onError: (e: Error) => toast.error(e.message || 'Suppression impossible'),
   });
+
+  const openCreateDialog = () => {
+    setEditingRisk(null);
+    setRiskDialogMode('create');
+    setRiskDialogOpen(true);
+  };
+
+  const openEditDialog = (r: ProjectRiskApi) => {
+    setEditingRisk(r);
+    setRiskDialogMode('edit');
+    setRiskDialogOpen(true);
+  };
+
+  const handleDialogSave = async (payload: CreateProjectRiskPayload) => {
+    if (riskDialogMode === 'create') {
+      await createMutation.mutateAsync(payload);
+      return;
+    }
+    if (editingRisk) {
+      await updateMutation.mutateAsync({ riskId: editingRisk.id, payload });
+    }
+  };
 
   if (!projectId) {
     return <p className="text-sm text-destructive">Identifiant de projet manquant.</p>;
@@ -128,6 +156,8 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
     );
   }
 
+  const dialogPending = createMutation.isPending || updateMutation.isPending;
+
   return (
     <>
       <header className="flex flex-col gap-5">
@@ -144,7 +174,7 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
           </Link>
           <PageHeader
             title={project.name}
-            description="Registre des risques — probabilité et impact (1–5), criticité calculée côté serveur"
+            description="Registre des risques — fiche type EBIOS RM (vraisemblance × impact, traitement, risque résiduel)"
           />
         </div>
       </header>
@@ -155,64 +185,10 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-6 p-4 sm:p-6">
           {canEdit ? (
-            <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 p-4 sm:flex-row sm:flex-wrap sm:items-end">
-              <div className="min-w-0 flex-1 space-y-2">
-                <Label htmlFor="risk-title">Nouveau risque — titre</Label>
-                <Input
-                  id="risk-title"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  disabled={createMutation.isPending}
-                  placeholder="ex. Dépendance fournisseur unique"
-                  maxLength={500}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:w-auto">
-                <div className="space-y-2">
-                  <Label>Probabilité (1–5)</Label>
-                  <Select
-                    value={String(probability)}
-                    onValueChange={(v) => setProbability(Number(v))}
-                    disabled={createMutation.isPending}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PI_OPTIONS.map((n) => (
-                        <SelectItem key={n} value={String(n)}>
-                          {n}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Impact (1–5)</Label>
-                  <Select
-                    value={String(impact)}
-                    onValueChange={(v) => setImpact(Number(v))}
-                    disabled={createMutation.isPending}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PI_OPTIONS.map((n) => (
-                        <SelectItem key={n} value={String(n)}>
-                          {n}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Button
-                type="button"
-                disabled={createMutation.isPending || !newTitle.trim()}
-                onClick={() => createMutation.mutate()}
-              >
-                {createMutation.isPending ? 'Création…' : 'Ajouter'}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" size="sm" className="gap-1.5" onClick={openCreateDialog}>
+                <Plus className="size-4" />
+                Nouveau risque
               </Button>
             </div>
           ) : null}
@@ -223,12 +199,25 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
             <RisksTable
               risks={risksQuery.data ?? []}
               canEdit={canEdit}
+              onEdit={openEditDialog}
               onDelete={(id) => deleteMutation.mutate(id)}
               deleting={deleteMutation.isPending}
             />
           )}
         </CardContent>
       </Card>
+
+      <ProjectRiskEbiosDialog
+        open={riskDialogOpen}
+        onOpenChange={(o) => {
+          setRiskDialogOpen(o);
+          if (!o) setEditingRisk(null);
+        }}
+        mode={riskDialogMode}
+        risk={riskDialogMode === 'edit' ? editingRisk : null}
+        isPending={dialogPending}
+        onSave={handleDialogSave}
+      />
     </>
   );
 }
@@ -236,11 +225,13 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
 function RisksTable({
   risks,
   canEdit,
+  onEdit,
   onDelete,
   deleting,
 }: {
   risks: ProjectRiskApi[];
   canEdit: boolean;
+  onEdit: (r: ProjectRiskApi) => void;
   onDelete: (id: string) => void;
   deleting: boolean;
 }) {
@@ -263,14 +254,28 @@ function RisksTable({
             <TableHead className="w-[120px]">Criticité</TableHead>
             <TableHead className="w-[120px]">Statut</TableHead>
             <TableHead className="w-[100px]">Conformité</TableHead>
-            {canEdit ? <TableHead className="w-[52px]" /> : null}
+            {canEdit ? <TableHead className="w-[96px] text-right">Actions</TableHead> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
           {risks.map((r) => (
             <TableRow key={r.id}>
               <TableCell className="font-mono text-xs">{r.code}</TableCell>
-              <TableCell className="max-w-[min(100%,320px)] font-medium">{r.title}</TableCell>
+              <TableCell className="max-w-[min(100%,320px)] font-medium">
+                <button
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={() => canEdit && onEdit(r)}
+                  className={cn(
+                    'text-left transition-colors',
+                    canEdit &&
+                      'rounded-sm hover:bg-muted/60 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    !canEdit && 'cursor-default',
+                  )}
+                >
+                  {r.title}
+                </button>
+              </TableCell>
               <TableCell className="text-center tabular-nums">{r.probability}</TableCell>
               <TableCell className="text-center tabular-nums">{r.impact}</TableCell>
               <TableCell className="text-center tabular-nums">{r.criticalityScore}</TableCell>
@@ -279,7 +284,7 @@ function RisksTable({
                   variant="outline"
                   className={cn('font-normal', criticalityBadgeClass(r.criticalityLevel))}
                 >
-                  {CRIT_LABEL[r.criticalityLevel] ?? r.criticalityLevel}
+                  {PROJECT_RISK_CRITICALITY_LABEL[r.criticalityLevel] ?? r.criticalityLevel}
                 </Badge>
               </TableCell>
               <TableCell className="text-sm">
@@ -296,17 +301,30 @@ function RisksTable({
               </TableCell>
               {canEdit ? (
                 <TableCell className="p-2 text-right">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    disabled={deleting}
-                    aria-label={`Supprimer ${r.code}`}
-                    onClick={() => onDelete(r.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex justify-end gap-0.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      disabled={deleting}
+                      aria-label={`Modifier ${r.code}`}
+                      onClick={() => onEdit(r)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      disabled={deleting}
+                      aria-label={`Supprimer ${r.code}`}
+                      onClick={() => onDelete(r.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               ) : null}
             </TableRow>
