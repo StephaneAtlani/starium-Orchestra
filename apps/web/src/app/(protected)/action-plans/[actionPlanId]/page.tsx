@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
@@ -40,11 +40,17 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
 import { createActionPlanTask } from '@/features/projects/api/action-plans.api';
-import { listClientRisks, listProjects } from '@/features/projects/api/projects.api';
+import {
+  listClientRisks,
+  listProjectTaskPhases,
+  listProjects,
+} from '@/features/projects/api/projects.api';
 import { useActionPlanDetailQuery } from '@/features/projects/hooks/use-action-plan-detail-query';
 import { useActionPlanTasksQuery } from '@/features/projects/hooks/use-action-plan-tasks-query';
 import { useProjectAssignableUsers } from '@/features/projects/hooks/use-project-assignable-users';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
+import { cn } from '@/lib/utils';
+import { tryListResources, type ResourceListItem } from '@/services/resources';
 import { ArrowLeft, Plus } from 'lucide-react';
 
 function fmtShortDate(iso: string | null | undefined): string {
@@ -66,6 +72,42 @@ function formatUser(
   const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
   return name || u.email;
 }
+
+function formatResourcePerson(r: {
+  firstName: string | null;
+  name: string;
+  code: string | null;
+}): string {
+  const label = [r.firstName, r.name].filter(Boolean).join(' ').trim();
+  return label || r.code || '—';
+}
+
+function dateInputToIsoDay(s: string): string | undefined {
+  if (!s.trim()) return undefined;
+  return new Date(`${s}T12:00:00.000Z`).toISOString();
+}
+
+function parseTagsInput(raw: string): string[] | undefined {
+  const parts = raw
+    .split(/[,;]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return undefined;
+  return parts;
+}
+
+function formatTagsCell(tags: unknown): string {
+  if (tags == null) return '—';
+  if (Array.isArray(tags) && tags.every((x) => typeof x === 'string')) {
+    return tags.length ? tags.join(', ') : '—';
+  }
+  return '—';
+}
+
+const textareaClass = cn(
+  'flex min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs',
+  'outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+);
 
 export default function ActionPlanDetailPage() {
   const params = useParams();
@@ -95,6 +137,16 @@ export default function ActionPlanDetailPage() {
   const authFetch = useAuthenticatedFetch();
   const assignable = useProjectAssignableUsers({ enabled });
 
+  const resourcesHuman = useQuery({
+    queryKey: [...projectQueryKeys.all, 'human-resources-pick', clientId],
+    queryFn: async () => {
+      const out = await tryListResources(authFetch, { type: 'HUMAN', limit: 200, offset: 0 });
+      if (!out.ok) return { items: [] as ResourceListItem[] };
+      return out.data;
+    },
+    enabled: !!clientId && enabled,
+  });
+
   const projectsMini = useQuery({
     queryKey: [...projectQueryKeys.all, 'action-plan-project-pick', clientId],
     queryFn: () => listProjects(authFetch, { page: 1, limit: 200 }),
@@ -108,29 +160,74 @@ export default function ActionPlanDetailPage() {
   });
 
   const users = assignable.data?.users ?? [];
+  const humanResources = resourcesHuman.data?.items ?? [];
 
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [tName, setTName] = useState('');
+  const [tDescription, setTDescription] = useState('');
   const [tStatus, setTStatus] = useState('TODO');
   const [tPriority, setTPriority] = useState('MEDIUM');
   const [tProjectId, setTProjectId] = useState<string>('');
   const [tRiskId, setTRiskId] = useState<string>('');
-  const [tOwner, setTOwner] = useState<string>('');
+  const [tPhaseId, setTPhaseId] = useState<string>('');
+  const [tResponsibleResourceId, setTResponsibleResourceId] = useState<string>('');
+  const [tPlannedStart, setTPlannedStart] = useState<string>('');
+  const [tPlannedEnd, setTPlannedEnd] = useState<string>('');
+  const [tEstimatedHours, setTEstimatedHours] = useState<string>('');
+  const [tTagsRaw, setTTagsRaw] = useState<string>('');
+
+  const phasesPick = useQuery({
+    queryKey: [...projectQueryKeys.all, 'task-phases-pick', clientId, tProjectId],
+    queryFn: () => listProjectTaskPhases(authFetch, tProjectId),
+    enabled: !!clientId && enabled && !!tProjectId,
+  });
+
+  useEffect(() => {
+    setTPhaseId('');
+  }, [tProjectId]);
 
   const queryClient = useQueryClient();
+
+  function resetTaskForm() {
+    setTName('');
+    setTDescription('');
+    setTStatus('TODO');
+    setTPriority('MEDIUM');
+    setTProjectId('');
+    setTRiskId('');
+    setTPhaseId('');
+    setTResponsibleResourceId('');
+    setTPlannedStart('');
+    setTPlannedEnd('');
+    setTEstimatedHours('');
+    setTTagsRaw('');
+  }
 
   async function onCreateTask() {
     if (!tName.trim()) return;
     setCreating(true);
     try {
+      const hoursRaw = tEstimatedHours.trim();
+      const estimatedHoursParsed =
+        hoursRaw === '' ? undefined : Number.parseFloat(hoursRaw.replace(',', '.'));
+      const tags = parseTagsInput(tTagsRaw);
       await createActionPlanTask(authFetch, actionPlanId, {
         name: tName.trim(),
+        description: tDescription.trim() || null,
         status: tStatus,
         priority: tPriority,
-        ownerUserId: tOwner || null,
         projectId: tProjectId || null,
         riskId: tRiskId || null,
+        phaseId: tProjectId ? (tPhaseId || null) : null,
+        responsibleResourceId: tResponsibleResourceId || null,
+        plannedStartDate: dateInputToIsoDay(tPlannedStart) ?? null,
+        plannedEndDate: dateInputToIsoDay(tPlannedEnd) ?? null,
+        ...(estimatedHoursParsed !== undefined &&
+          !Number.isNaN(estimatedHoursParsed) && {
+            estimatedHours: estimatedHoursParsed,
+          }),
+        tags: tags ?? null,
       });
       await queryClient.invalidateQueries({
         queryKey: [...projectQueryKeys.all, 'action-plan-tasks', clientId, actionPlanId],
@@ -139,12 +236,7 @@ export default function ActionPlanDetailPage() {
         queryKey: projectQueryKeys.actionPlanDetail(clientId, actionPlanId),
       });
       setOpen(false);
-      setTName('');
-      setTStatus('TODO');
-      setTPriority('MEDIUM');
-      setTProjectId('');
-      setTRiskId('');
-      setTOwner('');
+      resetTaskForm();
     } finally {
       setCreating(false);
     }
@@ -266,7 +358,10 @@ export default function ActionPlanDetailPage() {
                       <TableHead>Priorité</TableHead>
                       <TableHead>Projet</TableHead>
                       <TableHead>Risque</TableHead>
+                      <TableHead>Début</TableHead>
                       <TableHead>Échéance</TableHead>
+                      <TableHead>Charge (h)</TableHead>
+                      <TableHead>Tags</TableHead>
                       <TableHead>Responsable</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -282,8 +377,21 @@ export default function ActionPlanDetailPage() {
                         <TableCell>
                           {row.risk ? `${row.risk.code} — ${row.risk.title}` : '—'}
                         </TableCell>
+                        <TableCell>{fmtShortDate(row.plannedStartDate)}</TableCell>
                         <TableCell>{fmtShortDate(row.plannedEndDate)}</TableCell>
-                        <TableCell>{formatUser(row.ownerUserId, users)}</TableCell>
+                        <TableCell>
+                          {row.estimatedHours != null && !Number.isNaN(Number(row.estimatedHours))
+                            ? String(row.estimatedHours)
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="max-w-[140px] truncate text-muted-foreground">
+                          {formatTagsCell(row.tags)}
+                        </TableCell>
+                        <TableCell>
+                          {row.responsibleResource
+                            ? formatResourcePerson(row.responsibleResource)
+                            : formatUser(row.ownerUserId, users)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -293,8 +401,14 @@ export default function ActionPlanDetailPage() {
           </>
         )}
 
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="sm:max-w-lg">
+        <Dialog
+          open={open}
+          onOpenChange={(o) => {
+            setOpen(o);
+            if (!o) resetTaskForm();
+          }}
+        >
+          <DialogContent className="max-h-[min(90vh,720px)] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Nouvelle tâche dans le plan</DialogTitle>
             </DialogHeader>
@@ -307,6 +421,19 @@ export default function ActionPlanDetailPage() {
                   onChange={(e) => setTName(e.target.value)}
                   placeholder="Nom de la tâche"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nt-desc">Description</Label>
+                <textarea
+                  id="nt-desc"
+                  value={tDescription}
+                  onChange={(e) => setTDescription(e.target.value)}
+                  placeholder="Contexte, périmètre, critères de done…"
+                  className={textareaClass}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Fortement recommandé pour le pilotage (cadrage partagé).
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -339,6 +466,45 @@ export default function ActionPlanDetailPage() {
                   </Select>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="nt-start">Début planifié</Label>
+                  <Input
+                    id="nt-start"
+                    type="date"
+                    value={tPlannedStart}
+                    onChange={(e) => setTPlannedStart(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="nt-end">Échéance</Label>
+                  <Input
+                    id="nt-end"
+                    type="date"
+                    value={tPlannedEnd}
+                    onChange={(e) => setTPlannedEnd(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nt-hours">Charge estimée (heures)</Label>
+                <Input
+                  id="nt-hours"
+                  inputMode="decimal"
+                  value={tEstimatedHours}
+                  onChange={(e) => setTEstimatedHours(e.target.value)}
+                  placeholder="ex. 4 ou 0,5"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nt-tags">Tags</Label>
+                <Input
+                  id="nt-tags"
+                  value={tTagsRaw}
+                  onChange={(e) => setTTagsRaw(e.target.value)}
+                  placeholder="ex. urgence, comité, technique (séparés par des virgules)"
+                />
+              </div>
               <div className="space-y-1.5">
                 <Label>Projet (optionnel)</Label>
                 <Select
@@ -358,6 +524,27 @@ export default function ActionPlanDetailPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {tProjectId ? (
+                <div className="space-y-1.5">
+                  <Label>Phase (optionnel)</Label>
+                  <Select
+                    value={tPhaseId || '__none'}
+                    onValueChange={(v) => setTPhaseId(!v || v === '__none' ? '' : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">—</SelectItem>
+                      {(phasesPick.data ?? []).map((ph) => (
+                        <SelectItem key={ph.id} value={ph.id}>
+                          {ph.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
               <div className="space-y-1.5">
                 <Label>Risque (optionnel)</Label>
                 <Select
@@ -378,23 +565,29 @@ export default function ActionPlanDetailPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Responsable (optionnel)</Label>
+                <Label>Responsable personne (optionnel)</Label>
                 <Select
-                  value={tOwner || '__none'}
-                  onValueChange={(v) => setTOwner(!v || v === '__none' ? '' : v)}
+                  value={tResponsibleResourceId || '__none'}
+                  onValueChange={(v) =>
+                    setTResponsibleResourceId(!v || v === '__none' ? '' : v)
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="—" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none">—</SelectItem>
-                    {users.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {[u.firstName, u.lastName].filter(Boolean).join(' ') || u.email}
+                    {humanResources.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {formatResourcePerson(r)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Référent métier (catalogue Personnes / ressources humaines), pas un compte
+                  utilisateur Starium.
+                </p>
               </div>
             </div>
             <DialogFooter>

@@ -9,6 +9,7 @@ import {
   ProjectTask,
   ProjectTaskChecklistItem,
   ProjectTaskStatus,
+  ResourceType,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -82,6 +83,9 @@ export class ProjectTasksService {
         include: {
           checklistItems: { orderBy: { sortOrder: 'asc' } },
           labelAssignments: { select: { labelId: true } },
+          responsibleResource: {
+            select: { id: true, name: true, firstName: true, code: true, type: true },
+          },
         },
       }),
       this.prisma.projectTask.count({ where }),
@@ -126,6 +130,9 @@ export class ProjectTasksService {
           labelAssignments: { select: { labelId: true } },
           project: { select: { id: true, code: true, name: true } },
           risk: { select: { id: true, code: true, title: true } },
+          responsibleResource: {
+            select: { id: true, name: true, firstName: true, code: true, type: true },
+          },
         },
       }),
       this.prisma.projectTask.count({ where }),
@@ -142,6 +149,9 @@ export class ProjectTasksService {
       include: {
         checklistItems: { orderBy: { sortOrder: 'asc' } },
         labelAssignments: { select: { labelId: true } },
+        responsibleResource: {
+          select: { id: true, name: true, firstName: true, code: true, type: true },
+        },
       },
     });
     if (!task) throw new NotFoundException('Task not found');
@@ -161,6 +171,9 @@ export class ProjectTasksService {
         labelAssignments: { select: { labelId: true } },
         project: { select: { id: true, code: true, name: true } },
         risk: { select: { id: true, code: true, title: true } },
+        responsibleResource: {
+          select: { id: true, name: true, firstName: true, code: true, type: true },
+        },
       },
     });
     if (!task) throw new NotFoundException('Task not found');
@@ -181,6 +194,7 @@ export class ProjectTasksService {
     await this.validateRiskProjectCoherence(clientId, projectId, dto.riskId ?? null);
 
     await this.projects.assertClientUser(clientId, dto.ownerUserId);
+    await this.assertResponsibleHumanResourceInClient(clientId, dto.responsibleResourceId);
     await this.projects.assertBudgetLineInClient(clientId, dto.budgetLineId);
 
     let progress = dto.progress ?? 0;
@@ -229,6 +243,8 @@ export class ProjectTasksService {
       dto.actualEndDate,
     );
 
+    const tagsPayload = this.tagsPayloadForPrisma(dto.tags);
+
     const created = await this.prisma.projectTask.create({
       data: {
         clientId,
@@ -255,6 +271,9 @@ export class ProjectTasksService {
         dependsOnTaskId: dto.dependsOnTaskId ?? null,
         dependencyType: dto.dependencyType ?? null,
         ownerUserId: dto.ownerUserId ?? null,
+        responsibleResourceId: dto.responsibleResourceId ?? null,
+        estimatedHours: dto.estimatedHours ?? null,
+        ...(tagsPayload !== undefined && { tags: tagsPayload }),
         budgetLineId: dto.budgetLineId ?? null,
         bucketId: dto.bucketId ?? null,
         sortOrder: dto.sortOrder ?? 0,
@@ -289,6 +308,9 @@ export class ProjectTasksService {
       include: {
         checklistItems: { orderBy: { sortOrder: 'asc' } },
         labelAssignments: { select: { labelId: true } },
+        responsibleResource: {
+          select: { id: true, name: true, firstName: true, code: true, type: true },
+        },
       },
     });
 
@@ -333,7 +355,7 @@ export class ProjectTasksService {
 
     if (!resolvedProjectId) {
       this.assertNoProjectOnlyPayload({
-        phaseId: null,
+        phaseId: dto.phaseId ?? null,
         bucketId: null,
         dependsOnTaskId: null,
         dependencyType: null,
@@ -341,9 +363,12 @@ export class ProjectTasksService {
         checklistItems: [],
         budgetLineId: null,
       });
+    } else {
+      await this.validatePhase(clientId, resolvedProjectId, dto.phaseId ?? null);
     }
 
     await this.projects.assertClientUser(clientId, dto.ownerUserId);
+    await this.assertResponsibleHumanResourceInClient(clientId, dto.responsibleResourceId);
 
     let progress = dto.progress ?? 0;
     const status = dto.status ?? 'TODO';
@@ -357,6 +382,8 @@ export class ProjectTasksService {
       dto.actualStartDate,
       dto.actualEndDate,
     );
+
+    const tagsPayload = this.tagsPayloadForPrisma(dto.tags);
 
     const created = await this.prisma.projectTask.create({
       data: {
@@ -380,6 +407,10 @@ export class ProjectTasksService {
           ? new Date(dto.actualStartDate)
           : null,
         actualEndDate: dto.actualEndDate ? new Date(dto.actualEndDate) : null,
+        phaseId: resolvedProjectId ? (dto.phaseId ?? null) : null,
+        responsibleResourceId: dto.responsibleResourceId ?? null,
+        estimatedHours: dto.estimatedHours ?? null,
+        ...(tagsPayload !== undefined && { tags: tagsPayload }),
         sortOrder: dto.sortOrder ?? 0,
         createdByUserId: actorUserId ?? null,
         updatedByUserId: actorUserId ?? null,
@@ -389,6 +420,9 @@ export class ProjectTasksService {
         labelAssignments: { select: { labelId: true } },
         project: { select: { id: true, code: true, name: true } },
         risk: { select: { id: true, code: true, title: true } },
+        responsibleResource: {
+          select: { id: true, name: true, firstName: true, code: true, type: true },
+        },
       },
     });
 
@@ -439,6 +473,9 @@ export class ProjectTasksService {
     if (dto.ownerUserId !== undefined) {
       await this.projects.assertClientUser(clientId, dto.ownerUserId);
     }
+    if (dto.responsibleResourceId !== undefined) {
+      await this.assertResponsibleHumanResourceInClient(clientId, dto.responsibleResourceId);
+    }
     if (dto.budgetLineId !== undefined) {
       await this.projects.assertBudgetLineInClient(clientId, dto.budgetLineId);
     }
@@ -488,6 +525,7 @@ export class ProjectTasksService {
     );
 
     const prevPlanId = existing.actionPlanId;
+    const tagsPayloadProj = this.tagsPayloadForPrisma(dto.tags);
 
     await this.prisma.projectTask.update({
       where: { id: taskId },
@@ -526,6 +564,11 @@ export class ProjectTasksService {
           dependencyType: dto.dependencyType,
         }),
         ...(dto.ownerUserId !== undefined && { ownerUserId: dto.ownerUserId }),
+        ...(dto.responsibleResourceId !== undefined && {
+          responsibleResourceId: dto.responsibleResourceId,
+        }),
+        ...(dto.estimatedHours !== undefined && { estimatedHours: dto.estimatedHours }),
+        ...(tagsPayloadProj !== undefined && { tags: tagsPayloadProj }),
         ...(dto.budgetLineId !== undefined && { budgetLineId: dto.budgetLineId }),
         ...(dto.bucketId !== undefined && { bucketId: dto.bucketId }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
@@ -552,6 +595,9 @@ export class ProjectTasksService {
       include: {
         checklistItems: { orderBy: { sortOrder: 'asc' } },
         labelAssignments: { select: { labelId: true } },
+        responsibleResource: {
+          select: { id: true, name: true, firstName: true, code: true, type: true },
+        },
       },
     });
 
@@ -682,8 +728,21 @@ export class ProjectTasksService {
       await this.assertOrphanTaskHasNoProjectArtifacts(taskId, existingAfterDetach);
     }
 
+    const nextPhaseId =
+      dto.phaseId !== undefined ? dto.phaseId : existingAfterDetach.phaseId;
+
+    if (!nextProjectId && nextPhaseId) {
+      throw new BadRequestException('Une phase requiert un projet lié');
+    }
+    if (nextProjectId) {
+      await this.validatePhase(clientId, nextProjectId, nextPhaseId);
+    }
+
     if (dto.ownerUserId !== undefined) {
       await this.projects.assertClientUser(clientId, dto.ownerUserId);
+    }
+    if (dto.responsibleResourceId !== undefined) {
+      await this.assertResponsibleHumanResourceInClient(clientId, dto.responsibleResourceId);
     }
 
     const status = dto.status ?? existing.status;
@@ -706,6 +765,8 @@ export class ProjectTasksService {
         ? dto.actualEndDate
         : existing.actualEndDate?.toISOString() ?? null,
     );
+
+    const tagsPayloadAp = this.tagsPayloadForPrisma(dto.tags);
 
     await this.prisma.projectTask.update({
       where: { id: taskId },
@@ -736,7 +797,13 @@ export class ProjectTasksService {
         ...(dto.actualEndDate !== undefined && {
           actualEndDate: dto.actualEndDate ? new Date(dto.actualEndDate) : null,
         }),
+        ...(dto.phaseId !== undefined && { phaseId: dto.phaseId }),
         ...(dto.ownerUserId !== undefined && { ownerUserId: dto.ownerUserId }),
+        ...(dto.responsibleResourceId !== undefined && {
+          responsibleResourceId: dto.responsibleResourceId,
+        }),
+        ...(dto.estimatedHours !== undefined && { estimatedHours: dto.estimatedHours }),
+        ...(tagsPayloadAp !== undefined && { tags: tagsPayloadAp }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
         ...(dto.projectId !== undefined && { projectId: dto.projectId }),
         ...(nextRiskId !== existing.riskId ? { riskId: nextRiskId } : {}),
@@ -751,6 +818,9 @@ export class ProjectTasksService {
         labelAssignments: { select: { labelId: true } },
         project: { select: { id: true, code: true, name: true } },
         risk: { select: { id: true, code: true, title: true } },
+        responsibleResource: {
+          select: { id: true, name: true, firstName: true, code: true, type: true },
+        },
       },
     });
 
@@ -899,6 +969,48 @@ export class ProjectTasksService {
     }
   }
 
+  private normalizeTaskTags(tags: string[] | null | undefined): string[] {
+    if (tags == null || tags.length === 0) return [];
+    const out = [...new Set(tags.map((t) => String(t).trim()).filter((t) => t.length > 0))].slice(
+      0,
+      20,
+    );
+    for (const t of out) {
+      if (t.length > 64) {
+        throw new BadRequestException('Chaque tag doit faire au plus 64 caractères');
+      }
+    }
+    return out;
+  }
+
+  /** `undefined` = ne pas modifier ; sinon tableau ou vide → JSON. */
+  private tagsPayloadForPrisma(
+    tags: string[] | null | undefined,
+  ): Prisma.InputJsonValue | typeof Prisma.JsonNull | undefined {
+    if (tags === undefined) return undefined;
+    const n = this.normalizeTaskTags(tags);
+    return n.length === 0 ? Prisma.JsonNull : n;
+  }
+
+  private async assertResponsibleHumanResourceInClient(
+    clientId: string,
+    resourceId: string | null | undefined,
+  ): Promise<void> {
+    if (resourceId == null || resourceId === '') return;
+    const r = await this.prisma.resource.findFirst({
+      where: { id: resourceId, clientId },
+      select: { id: true, type: true },
+    });
+    if (!r) {
+      throw new BadRequestException('Ressource introuvable pour ce client');
+    }
+    if (r.type !== ResourceType.HUMAN) {
+      throw new BadRequestException(
+        'Le responsable doit être une personne (ressource de type humain)',
+      );
+    }
+  }
+
   private async validateRiskProjectCoherence(
     clientId: string,
     taskProjectId: string | null,
@@ -977,14 +1089,22 @@ export class ProjectTasksService {
       labelAssignments?: Array<{ labelId: string }>;
       project?: { id: string; code: string; name: string } | null;
       risk?: { id: string; code: string; title: string } | null;
+      responsibleResource?: {
+        id: string;
+        name: string;
+        firstName: string | null;
+        code: string | null;
+        type: string;
+      } | null;
     },
   ) {
-    const { project, risk, ...rest } = task;
+    const { project, risk, responsibleResource, ...rest } = task;
     const mapped = this.mapTaskWithChecklist(rest);
     return {
       ...mapped,
       project: project ?? null,
       risk: risk ?? null,
+      responsibleResource: responsibleResource ?? null,
     };
   }
 

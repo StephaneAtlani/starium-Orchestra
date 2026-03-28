@@ -5,9 +5,11 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -78,6 +80,25 @@ export class CreateProjectTaskDto {
   @IsOptional()
   @IsString()
   ownerUserId?: string | null;
+
+  /** Responsable métier — ressource humaine (RFC-RES-001). */
+  @IsOptional()
+  @IsString()
+  responsibleResourceId?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100_000)
+  estimatedHours?: number | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  tags?: string[] | null;
 
   @IsOptional()
   @IsString()

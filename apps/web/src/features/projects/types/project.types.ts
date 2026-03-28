@@ -212,6 +212,18 @@ export type ProjectTaskApi = {
   dependsOnTaskId: string | null;
   dependencyType: string | null;
   ownerUserId: string | null;
+  /** Personne métier (Resource HUMAN) — distinct du compte `ownerUserId`. */
+  responsibleResourceId?: string | null;
+  responsibleResource?: {
+    id: string;
+    name: string;
+    firstName: string | null;
+    code: string | null;
+    type: string;
+  } | null;
+  estimatedHours?: number | null;
+  /** Tags libres (JSON string[] côté API). */
+  tags?: unknown;
   budgetLineId: string | null;
   bucketId?: string | null;
   checklistItems?: ProjectTaskChecklistItemApi[];

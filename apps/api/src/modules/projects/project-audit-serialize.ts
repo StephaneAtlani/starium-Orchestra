@@ -161,6 +161,7 @@ export function projectTaskEntityAuditSnapshot(
     dependsOnTaskId: t.dependsOnTaskId ?? null,
     dependencyType: t.dependencyType ?? null,
     ownerUserId: t.ownerUserId ?? null,
+    responsibleResourceId: t.responsibleResourceId ?? null,
     budgetLineId: t.budgetLineId ?? null,
     bucketId: t.bucketId ?? null,
     status: t.status,
@@ -171,6 +172,8 @@ export function projectTaskEntityAuditSnapshot(
     actualStartDate: toAuditJson(t.actualStartDate),
     actualEndDate: toAuditJson(t.actualEndDate),
     sortOrder: t.sortOrder,
+    estimatedHours: t.estimatedHours ?? null,
+    tags: toAuditJson(t.tags),
   };
 }
 

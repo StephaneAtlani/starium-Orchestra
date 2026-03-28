@@ -119,6 +119,10 @@ export type CreateActionPlanTaskPayload = {
   sortOrder?: number;
   projectId?: string | null;
   riskId?: string | null;
+  phaseId?: string | null;
+  responsibleResourceId?: string | null;
+  estimatedHours?: number | null;
+  tags?: string[] | null;
 };
 
 export async function createActionPlanTask(

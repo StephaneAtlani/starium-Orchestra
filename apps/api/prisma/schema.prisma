@@ -455,6 +455,8 @@ model Resource {
 
   client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   resourceRole ResourceRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  /// Tâches projet / plan dont cette ressource humaine est responsable (MVP pilotage).
+  responsibleForProjectTasks ProjectTask[] @relation("ProjectTaskResponsibleResource")
 
   @@unique([clientId, email])
   @@unique([clientId, code])
@@ -1195,7 +1197,14 @@ model ProjectTask {
   dependencyType ProjectTaskDependencyType?
 
   ownerUserId   String?
+  /// Responsable métier (ressource humaine — RFC-RES-001) ; distinct de `ownerUserId` (compte Starium).
+  responsibleResourceId String?
   budgetLineId  String?
+
+  /// Charge estimée (heures) — pilotage plan / tâche.
+  estimatedHours Float?
+  /// Étiquettes libres (JSON string[]) — MVP hors étiquettes projet.
+  tags Json?
 
   createdByUserId String?
   updatedByUserId String?
@@ -1210,6 +1219,7 @@ model ProjectTask {
   budgetLine BudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
   bucket   ProjectTaskBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
   phase    ProjectTaskPhase?  @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  responsibleResource Resource? @relation("ProjectTaskResponsibleResource", fields: [responsibleResourceId], references: [id], onDelete: SetNull)
 
   dependsOnTask ProjectTask?  @relation("ProjectTaskDependency", fields: [dependsOnTaskId], references: [id], onDelete: SetNull)
   dependentTasks ProjectTask[]  @relation("ProjectTaskDependency")
@@ -1241,6 +1251,7 @@ model ProjectTask {
   @@index([plannedStartDate])
   @@index([plannedEndDate])
   @@index([bucketId])
+  @@index([responsibleResourceId])
 }
 
 /// Sous-éléments type « liste de contrôle » (sync Microsoft Planner : plannerTaskDetails.checklist).
