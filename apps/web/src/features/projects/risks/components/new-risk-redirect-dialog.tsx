@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -32,6 +32,23 @@ export function NewRiskRedirectDialog({ open, onOpenChange, projectItems }: Prop
   const router = useRouter();
   const [projectId, setProjectId] = useState<string>('');
 
+  /** Clé stable (ids) pour ne pas réinitialiser la sélection à chaque nouvelle référence de tableau. */
+  const projectListKey = projectItems.map((p) => p.id).join('|');
+
+  useEffect(() => {
+    if (!open) {
+      setProjectId('');
+      return;
+    }
+    if (projectItems.length === 1) {
+      setProjectId(projectItems[0].id);
+    } else {
+      setProjectId((prev) =>
+        prev && projectItems.some((p) => p.id === prev) ? prev : '',
+      );
+    }
+  }, [open, projectListKey, projectItems]);
+
   const canSubmit = projectId.length > 0;
 
   const handleContinue = () => {
@@ -46,17 +63,21 @@ export function NewRiskRedirectDialog({ open, onOpenChange, projectItems }: Prop
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Nouveau risque</DialogTitle>
-          <DialogDescription>
-            Rattachez le risque à une initiative pour l’enregistrer. Vous serez guidé vers la fiche de
-            suivi pour la saisie détaillée (traitements, criticité, etc.).
+          <DialogDescription className="text-pretty">
+            <span className="font-medium text-foreground">Pourquoi un projet ?</span> Dans Starium, la
+            création d’une fiche risque passe par l’API projet : chaque enregistrement a un{' '}
+            <span className="whitespace-nowrap">projet parent</span> obligatoire (modèle technique), pas un
+            choix UX arbitraire. Sujet transverse ou « hors projet » métier : rattachez à un projet porteur
+            existant, ou créez un projet dédié / fourre-tout dans le portefeuille si votre organisation le
+            prévoit.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2 py-2">
-          <Label htmlFor="new-risk-project">Initiative</Label>
+          <Label htmlFor="new-risk-project">Projet parent</Label>
           <Select value={projectId} onValueChange={(v) => setProjectId(v ?? '')}>
             <SelectTrigger id="new-risk-project">
               <SelectValue
-                placeholder={projectItems.length ? 'Choisir une initiative…' : 'Aucune initiative chargée'}
+                placeholder={projectItems.length ? 'Choisir un projet…' : 'Aucun projet chargé'}
               />
             </SelectTrigger>
             <SelectContent>
