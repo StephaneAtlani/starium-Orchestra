@@ -2,6 +2,7 @@ import {
   PrismaClient,
   ClientUserRole,
   ClientUserStatus,
+  ClientModuleStatus,
   BudgetExerciseStatus,
   BudgetStatus,
   BudgetEnvelopeStatus,
@@ -13,8 +14,25 @@ import {
   InvoiceStatus,
   FinancialEventType,
   FinancialSourceType,
+  ProjectKind,
+  ProjectType,
+  ProjectStatus,
+  ProjectPriority,
+  ProjectCriticality,
+  ProjectTaskStatus,
+  ProjectTaskPriority,
+  ProjectMilestoneStatus,
+  ProjectTeamRoleSystemKind,
+  ProjectRiskStatus,
+  ProjectRiskProbability,
+  ProjectRiskImpact,
+  ResourceType,
+  ResourceAffiliation,
+  ProjectBudgetAllocationType,
 } from "@prisma/client";
 import * as bcrypt from "bcrypt";
+import { DEMO_PROJECT_SHEETS, type DemoProjectSheet } from "./seed-project-demo-sheets";
+import { ensureDemoProjectReviews } from "./seed-project-demo-reviews";
 
 const prisma = new PrismaClient();
 const PASSWORD = "aa";
@@ -880,6 +898,889 @@ async function upsertClient(seed: ClientSeed) {
   });
 }
 
+/**
+ * Active tous les modules plateforme pour le client (comme ClientsService.create).
+ * Sans lignes ClientModule ENABLED, getPermissionCodes filtre toutes les permissions
+ * (UserRole + rôles GLOBAL inclus) → navigation vide malgré des rôles assignés.
+ */
+async function ensureEnabledClientModules(clientId: string): Promise<void> {
+  const modules = await prisma.module.findMany({
+    where: { isActive: true },
+    select: { id: true },
+  });
+  if (modules.length === 0) return;
+  await prisma.clientModule.createMany({
+    data: modules.map((m) => ({
+      clientId,
+      moduleId: m.id,
+      status: ClientModuleStatus.ENABLED,
+    })),
+    skipDuplicates: true,
+  });
+}
+
+/** Rôles d’équipe projet (Sponsor / Responsable) — aligné ProjectTeamService.ensureDefaultTeamRolesForClient. */
+async function ensureProjectTeamCatalogForClient(clientId: string): Promise<void> {
+  const defs: Array<{
+    systemKind: ProjectTeamRoleSystemKind;
+    name: string;
+    sortOrder: number;
+  }> = [
+    { systemKind: ProjectTeamRoleSystemKind.SPONSOR, name: "Sponsor", sortOrder: 0 },
+    {
+      systemKind: ProjectTeamRoleSystemKind.OWNER,
+      name: "Responsable de projet",
+      sortOrder: 1,
+    },
+  ];
+  for (const d of defs) {
+    const found = await prisma.projectTeamRole.findFirst({
+      where: { clientId, systemKind: d.systemKind },
+    });
+    if (found) continue;
+    try {
+      await prisma.projectTeamRole.create({
+        data: {
+          clientId,
+          name: d.name,
+          sortOrder: d.sortOrder,
+          systemKind: d.systemKind,
+        },
+      });
+    } catch {
+      // P2002 concurrentiel : ignorer
+    }
+  }
+}
+
+function projectCodePrefix(slug: string): string {
+  const map: Record<string, string> = {
+    "neotech-ai": "NEO",
+    "batipro-groupe": "BAT",
+    "medisys-sante": "MED",
+    "globaltrans-france": "GTF",
+    "globaltrans-germany": "GTG",
+    "industria-group": "IND",
+  };
+  return map[slug] ?? slug.replace(/-/g, "").toUpperCase().slice(0, 5);
+}
+
+function startOfDayUtc(d: Date): Date {
+  const x = new Date(d);
+  x.setUTCHours(0, 0, 0, 0);
+  return x;
+}
+
+function addDaysUtc(base: Date, days: number): Date {
+  const x = new Date(base);
+  x.setUTCDate(x.getUTCDate() + days);
+  return x;
+}
+
+function pickClientUsers(userMap: Map<string, string>): {
+  primary: string;
+  secondary: string;
+} | null {
+  const ids = [...userMap.values()];
+  if (ids.length === 0) return null;
+  return {
+    primary: ids[0],
+    secondary: ids.length > 1 ? ids[1] : ids[0],
+  };
+}
+
+/** Catégories portefeuille niveau 2 uniquement (règle métier : projet → sous-catégorie avec parent). */
+type DemoPortfolioLeaves = {
+  identite: string;
+  data: string;
+  experience: string;
+  infrastructure: string;
+  cyber: string;
+  observabilite: string;
+};
+
+async function ensurePortfolioCategoryNode(
+  clientId: string,
+  name: string,
+  parentId: string | null,
+  sortOrder: number,
+): Promise<{ id: string }> {
+  const normalizedName = n(name);
+  const existing = await prisma.projectPortfolioCategory.findFirst({
+    where: {
+      clientId,
+      normalizedName,
+      parentId: parentId === null ? null : parentId,
+    },
+  });
+  if (existing) return existing;
+  return prisma.projectPortfolioCategory.create({
+    data: {
+      clientId,
+      parentId,
+      name,
+      normalizedName,
+      sortOrder,
+      isActive: true,
+    },
+  });
+}
+
+/**
+ * Arborescence portefeuille : 2 racines × 3 feuilles (niveau 2 assignable aux projets).
+ */
+async function ensureDemoPortfolioCategories(clientId: string): Promise<DemoPortfolioLeaves> {
+  const rootMetier = await ensurePortfolioCategoryNode(
+    clientId,
+    "Transformation & métier",
+    null,
+    0,
+  );
+  const rootOps = await ensurePortfolioCategoryNode(
+    clientId,
+    "Opérations & plateforme",
+    null,
+    1,
+  );
+
+  const identite = await ensurePortfolioCategoryNode(
+    clientId,
+    "Identité & accès",
+    rootMetier.id,
+    0,
+  );
+  const data = await ensurePortfolioCategoryNode(
+    clientId,
+    "Data & intégration",
+    rootMetier.id,
+    1,
+  );
+  const experience = await ensurePortfolioCategoryNode(
+    clientId,
+    "Expérience client & canaux",
+    rootMetier.id,
+    2,
+  );
+
+  const infrastructure = await ensurePortfolioCategoryNode(
+    clientId,
+    "Infrastructure & réseau",
+    rootOps.id,
+    0,
+  );
+  const cyber = await ensurePortfolioCategoryNode(
+    clientId,
+    "Cyber & résilience",
+    rootOps.id,
+    1,
+  );
+  const observabilite = await ensurePortfolioCategoryNode(
+    clientId,
+    "Observabilité & supervision",
+    rootOps.id,
+    2,
+  );
+
+  return {
+    identite: identite.id,
+    data: data.id,
+    experience: experience.id,
+    infrastructure: infrastructure.id,
+    cyber: cyber.id,
+    observabilite: observabilite.id,
+  };
+}
+
+/**
+ * Ressources humaines démo : internes (client) et externes (prestataires), avec rôles métier.
+ */
+async function ensureDemoResources(clientId: string, prefix: string): Promise<void> {
+  const p = prefix.toLowerCase();
+
+  const roleArch = await prisma.resourceRole.upsert({
+    where: { clientId_name: { clientId, name: "Architecte SI" } },
+    create: { clientId, name: "Architecte SI", code: "ARCH" },
+    update: {},
+  });
+  const roleConsult = await prisma.resourceRole.upsert({
+    where: { clientId_name: { clientId, name: "Consultant fonctionnel" } },
+    create: { clientId, name: "Consultant fonctionnel", code: "CF" },
+    update: {},
+  });
+  const rolePm = await prisma.resourceRole.upsert({
+    where: { clientId_name: { clientId, name: "Chef de projet" } },
+    create: { clientId, name: "Chef de projet", code: "PM" },
+    update: {},
+  });
+
+  const internal = [
+    {
+      code: `${prefix}-RES-INT-01`,
+      lastName: "Dupont",
+      firstName: "Claire",
+      email: `${p}-int01@seed.starium.local`,
+      roleId: roleArch.id,
+    },
+    {
+      code: `${prefix}-RES-INT-02`,
+      lastName: "Bernard",
+      firstName: "Mehdi",
+      email: `${p}-int02@seed.starium.local`,
+      roleId: roleConsult.id,
+    },
+    {
+      code: `${prefix}-RES-INT-03`,
+      lastName: "Petit",
+      firstName: "Sarah",
+      email: `${p}-int03@seed.starium.local`,
+      roleId: rolePm.id,
+    },
+  ] as const;
+
+  for (const r of internal) {
+    await prisma.resource.upsert({
+      where: { clientId_code: { clientId, code: r.code } },
+      create: {
+        clientId,
+        code: r.code,
+        name: r.lastName,
+        firstName: r.firstName,
+        type: ResourceType.HUMAN,
+        affiliation: ResourceAffiliation.INTERNAL,
+        email: r.email,
+        roleId: r.roleId,
+      },
+      update: {
+        name: r.lastName,
+        firstName: r.firstName,
+        affiliation: ResourceAffiliation.INTERNAL,
+        companyName: null,
+        email: r.email,
+        roleId: r.roleId,
+      },
+    });
+  }
+
+  const external = [
+    {
+      code: `${prefix}-RES-EXT-01`,
+      label: "Cabinet Conseil Orion",
+      contact: "Lefevre",
+      firstName: "Thomas",
+      email: `${p}-ext01@seed.starium.local`,
+      roleId: roleConsult.id,
+    },
+    {
+      code: `${prefix}-RES-EXT-02`,
+      label: "Integrateur Beta Systems",
+      contact: "Schmidt",
+      firstName: "Anna",
+      email: `${p}-ext02@seed.starium.local`,
+      roleId: roleArch.id,
+    },
+  ] as const;
+
+  for (const r of external) {
+    await prisma.resource.upsert({
+      where: { clientId_code: { clientId, code: r.code } },
+      create: {
+        clientId,
+        code: r.code,
+        name: r.contact,
+        firstName: r.firstName,
+        type: ResourceType.HUMAN,
+        affiliation: ResourceAffiliation.EXTERNAL,
+        email: r.email,
+        companyName: r.label,
+        roleId: r.roleId,
+      },
+      update: {
+        name: r.contact,
+        firstName: r.firstName,
+        affiliation: ResourceAffiliation.EXTERNAL,
+        companyName: r.label,
+        email: r.email,
+        roleId: r.roleId,
+      },
+    });
+  }
+}
+
+/** Au moins 3 jalons par projet démo pour alimenter le rétroplanning macro (fiche projet). */
+async function ensureDemoRetroplanMilestones(
+  clientId: string,
+  prefix: string,
+  now: Date,
+  fallbackOwnerId: string,
+): Promise<void> {
+  const wave = [
+    { name: "Cadrage & arbitrage", days: -100 },
+    { name: "Réalisation / intégration", days: -35 },
+    { name: "Recette & mise en service", days: 40 },
+  ];
+  for (let i = 1; i <= 10; i++) {
+    const code = `${prefix}-SEED-${String(i).padStart(2, "0")}`;
+    const project = await prisma.project.findFirst({ where: { clientId, code } });
+    if (!project) continue;
+    const n = await prisma.projectMilestone.count({ where: { projectId: project.id } });
+    if (n >= 3) continue;
+    let sortOrder = n;
+    for (let k = n; k < 3; k++) {
+      const tpl = wave[k]!;
+      await prisma.projectMilestone.create({
+        data: {
+          clientId,
+          projectId: project.id,
+          name: `${tpl.name} (seed)`,
+          status: ProjectMilestoneStatus.PLANNED,
+          targetDate: addDaysUtc(now, tpl.days + i * 3),
+          sortOrder: sortOrder++,
+          ownerUserId: project.ownerUserId ?? fallbackOwnerId,
+        },
+      });
+    }
+  }
+}
+
+/** Liaison FULL vers des lignes budgétaires réelles du client (RFC-PROJ-010). */
+async function ensureDemoProjectBudgetLinks(clientId: string, prefix: string): Promise<void> {
+  const lines = await prisma.budgetLine.findMany({
+    where: {
+      clientId,
+      status: BudgetLineStatus.ACTIVE,
+      budget: {
+        status: { notIn: [BudgetStatus.LOCKED, BudgetStatus.ARCHIVED] },
+        exercise: {
+          status: { notIn: [BudgetExerciseStatus.CLOSED, BudgetExerciseStatus.ARCHIVED] },
+        },
+      },
+    },
+    select: { id: true, code: true },
+    orderBy: { code: "asc" },
+    take: 48,
+  });
+  if (lines.length === 0) {
+    console.warn(`Seed liens budget [${prefix}]: aucune ligne ACTIVE sur budget/exercice ouverts, skip.`);
+    return;
+  }
+
+  for (let i = 1; i <= 10; i++) {
+    const code = `${prefix}-SEED-${String(i).padStart(2, "0")}`;
+    const project = await prisma.project.findFirst({ where: { clientId, code } });
+    if (!project) continue;
+    await prisma.projectBudgetLink.deleteMany({ where: { projectId: project.id } });
+    const line = lines[(i - 1) % lines.length]!;
+    await prisma.projectBudgetLink.create({
+      data: {
+        clientId,
+        projectId: project.id,
+        budgetLineId: line.id,
+        allocationType: ProjectBudgetAllocationType.FULL,
+      },
+    });
+  }
+}
+
+/**
+ * Portefeuille démo par client : statuts, criticité, retards, risques, jalons, COPIL.
+ * Les dates cibles sensibles au « retard / fenêtre 14j » sont relatives à la date d’exécution du seed.
+ */
+async function seedClientDemoProjects(
+  slug: string,
+  clientId: string,
+  userMap: Map<string, string>,
+): Promise<void> {
+  const users = pickClientUsers(userMap);
+  if (!users) {
+    console.warn(`Seed demo projets [${slug}]: aucun utilisateur, skip.`);
+    return;
+  }
+  const a = users.primary;
+  const b = users.secondary;
+
+  await ensureProjectTeamCatalogForClient(clientId);
+
+  const prefix = projectCodePrefix(slug);
+  const leaves = await ensureDemoPortfolioCategories(clientId);
+  await ensureDemoResources(clientId, prefix);
+  const now = startOfDayUtc(new Date());
+
+  type UpsertProj = {
+    code: string;
+    name: string;
+    description: string;
+    type: ProjectType;
+    status: ProjectStatus;
+    priority: ProjectPriority;
+    criticality: ProjectCriticality;
+    sponsorUserId: string | null;
+    ownerUserId: string | null;
+    startDate: Date | null;
+    targetEndDate: Date | null;
+    actualEndDate?: Date | null;
+    progressPercent: number | null;
+    portfolioCategoryId: string | null;
+  } & DemoProjectSheet;
+
+  const sheetPayload = (s: DemoProjectSheet) => ({
+    pilotNotes: s.pilotNotes,
+    targetBudgetAmount: s.targetBudgetAmount,
+    businessValueScore: s.businessValueScore,
+    strategicAlignment: s.strategicAlignment,
+    urgencyScore: s.urgencyScore,
+    estimatedCost: s.estimatedCost,
+    estimatedGain: s.estimatedGain,
+    roi: s.roi,
+    riskLevel: s.riskLevel,
+    riskResponse: s.riskResponse,
+    priorityScore: s.priorityScore,
+    businessProblem: s.businessProblem,
+    businessBenefits: s.businessBenefits,
+    businessSuccessKpis: s.businessSuccessKpis,
+    cadreLocation: s.cadreLocation,
+    cadreQui: s.cadreQui,
+    involvedTeams: s.involvedTeams,
+    swotStrengths: s.swotStrengths,
+    swotWeaknesses: s.swotWeaknesses,
+    swotOpportunities: s.swotOpportunities,
+    swotThreats: s.swotThreats,
+    towsActions: s.towsActions,
+    copilRecommendation: s.copilRecommendation,
+    copilRecommendationNote: s.copilRecommendationNote,
+  });
+
+  const upsert = async (p: UpsertProj) =>
+    prisma.project.upsert({
+      where: { clientId_code: { clientId, code: p.code } },
+      create: {
+        clientId,
+        code: p.code,
+        name: p.name,
+        description: p.description,
+        kind: ProjectKind.PROJECT,
+        type: p.type,
+        status: p.status,
+        priority: p.priority,
+        criticality: p.criticality,
+        sponsorUserId: p.sponsorUserId,
+        ownerUserId: p.ownerUserId,
+        startDate: p.startDate,
+        targetEndDate: p.targetEndDate,
+        actualEndDate: p.actualEndDate ?? null,
+        progressPercent: p.progressPercent,
+        portfolioCategoryId: p.portfolioCategoryId,
+        ...sheetPayload(p),
+      },
+      update: {
+        name: p.name,
+        description: p.description,
+        type: p.type,
+        status: p.status,
+        priority: p.priority,
+        criticality: p.criticality,
+        sponsorUserId: p.sponsorUserId,
+        ownerUserId: p.ownerUserId,
+        startDate: p.startDate,
+        targetEndDate: p.targetEndDate,
+        actualEndDate: p.actualEndDate ?? null,
+        progressPercent: p.progressPercent,
+        portfolioCategoryId: p.portfolioCategoryId,
+        ...sheetPayload(p),
+      },
+    });
+
+  // --- 01 : bonne santé (vert) — jalons + tâches + risque faible
+  const p01 = await upsert({
+    code: `${prefix}-SEED-01`,
+    name: "Socle identité — SSO et MFA",
+    description: "Seed demo : pilotage sain, jalons et risque résiduel bas.",
+    type: ProjectType.APPLICATION,
+    status: ProjectStatus.IN_PROGRESS,
+    priority: ProjectPriority.HIGH,
+    criticality: ProjectCriticality.MEDIUM,
+    sponsorUserId: b,
+    ownerUserId: a,
+    startDate: addDaysUtc(now, -120),
+    targetEndDate: addDaysUtc(now, 200),
+    progressPercent: 55,
+    portfolioCategoryId: leaves.identite,
+    ...DEMO_PROJECT_SHEETS[0],
+  });
+  if ((await prisma.projectTask.count({ where: { projectId: p01.id } })) === 0) {
+    await prisma.projectTask.createMany({
+      data: [
+        {
+          clientId,
+          projectId: p01.id,
+          name: "Cartographie des applications",
+          status: ProjectTaskStatus.DONE,
+          priority: ProjectTaskPriority.MEDIUM,
+          progress: 100,
+          sortOrder: 0,
+          ownerUserId: a,
+        },
+        {
+          clientId,
+          projectId: p01.id,
+          name: "Deploiement IdP pilote",
+          status: ProjectTaskStatus.IN_PROGRESS,
+          priority: ProjectTaskPriority.HIGH,
+          progress: 45,
+          sortOrder: 1,
+          ownerUserId: a,
+        },
+      ],
+    });
+    await prisma.projectMilestone.createMany({
+      data: [
+        {
+          clientId,
+          projectId: p01.id,
+          name: "Cadrage valide",
+          status: ProjectMilestoneStatus.ACHIEVED,
+          targetDate: addDaysUtc(now, -30),
+          achievedDate: addDaysUtc(now, -32),
+          sortOrder: 0,
+        },
+        {
+          clientId,
+          projectId: p01.id,
+          name: "Go-live national",
+          status: ProjectMilestoneStatus.PLANNED,
+          targetDate: addDaysUtc(now, 160),
+          sortOrder: 1,
+        },
+      ],
+    });
+    await prisma.projectRisk.create({
+      data: {
+        clientId,
+        projectId: p01.id,
+        title: "Dependance fournisseur IdP",
+        probability: ProjectRiskProbability.LOW,
+        impact: ProjectRiskImpact.LOW,
+        status: ProjectRiskStatus.OPEN,
+        ownerUserId: a,
+      },
+    });
+  }
+
+  // --- 02 : bonne santé — data
+  const p02 = await upsert({
+    code: `${prefix}-SEED-02`,
+    name: "Data — lakehouse production",
+    description: "Seed demo : avancement regulier, peu de friction.",
+    type: ProjectType.INFRASTRUCTURE,
+    status: ProjectStatus.IN_PROGRESS,
+    priority: ProjectPriority.MEDIUM,
+    criticality: ProjectCriticality.LOW,
+    sponsorUserId: a,
+    ownerUserId: b,
+    startDate: addDaysUtc(now, -90),
+    targetEndDate: addDaysUtc(now, 240),
+    progressPercent: 38,
+    portfolioCategoryId: leaves.data,
+    ...DEMO_PROJECT_SHEETS[1],
+  });
+  if ((await prisma.projectTask.count({ where: { projectId: p02.id } })) === 0) {
+    await prisma.projectTask.create({
+      data: {
+        clientId,
+        projectId: p02.id,
+        name: "Pipelines batch — SOC2",
+        status: ProjectTaskStatus.IN_PROGRESS,
+        priority: ProjectTaskPriority.MEDIUM,
+        progress: 40,
+        sortOrder: 0,
+        ownerUserId: b,
+      },
+    });
+    await prisma.projectMilestone.create({
+      data: {
+        clientId,
+        projectId: p02.id,
+        name: "Mise en prod zone sensible",
+        status: ProjectMilestoneStatus.PLANNED,
+        targetDate: addDaysUtc(now, 90),
+        sortOrder: 0,
+      },
+    });
+    await prisma.projectRisk.create({
+      data: {
+        clientId,
+        projectId: p02.id,
+        title: "Charge equipe data",
+        probability: ProjectRiskProbability.MEDIUM,
+        impact: ProjectRiskImpact.LOW,
+        status: ProjectRiskStatus.OPEN,
+        ownerUserId: b,
+      },
+    });
+  }
+
+  // --- 03 : termine
+  const p03 = await upsert({
+    code: `${prefix}-SEED-03`,
+    name: "Programme legacy — sortie de four",
+    description: "Seed demo : projet clos.",
+    type: ProjectType.TRANSFORMATION,
+    status: ProjectStatus.COMPLETED,
+    priority: ProjectPriority.MEDIUM,
+    criticality: ProjectCriticality.MEDIUM,
+    sponsorUserId: b,
+    ownerUserId: a,
+    startDate: addDaysUtc(now, -400),
+    targetEndDate: addDaysUtc(now, -60),
+    actualEndDate: addDaysUtc(now, -55),
+    progressPercent: 100,
+    portfolioCategoryId: leaves.experience,
+    ...DEMO_PROJECT_SHEETS[2],
+  });
+
+  // --- 04 : en pause (bloque)
+  const p04 = await upsert({
+    code: `${prefix}-SEED-04`,
+    name: "ERP — phase 2 budget / actif",
+    description: "Seed demo : projet en attente arbitrage budget.",
+    type: ProjectType.GOVERNANCE,
+    status: ProjectStatus.ON_HOLD,
+    priority: ProjectPriority.HIGH,
+    criticality: ProjectCriticality.HIGH,
+    sponsorUserId: a,
+    ownerUserId: b,
+    startDate: addDaysUtc(now, -200),
+    targetEndDate: addDaysUtc(now, 45),
+    progressPercent: 22,
+    portfolioCategoryId: leaves.data,
+    ...DEMO_PROJECT_SHEETS[3],
+  });
+  // --- 05 : risque majeur ouvert (critique / bloque)
+  const p05 = await upsert({
+    code: `${prefix}-SEED-05`,
+    name: "Cyber — PAM et segmentation reseau",
+    description: "Seed demo : risque critique ouvert.",
+    type: ProjectType.CYBERSECURITY,
+    status: ProjectStatus.IN_PROGRESS,
+    priority: ProjectPriority.HIGH,
+    criticality: ProjectCriticality.HIGH,
+    sponsorUserId: b,
+    ownerUserId: a,
+    startDate: addDaysUtc(now, -60),
+    targetEndDate: addDaysUtc(now, 120),
+    progressPercent: 18,
+    portfolioCategoryId: leaves.cyber,
+    ...DEMO_PROJECT_SHEETS[4],
+  });
+  if ((await prisma.projectRisk.count({ where: { projectId: p05.id } })) === 0) {
+    await prisma.projectRisk.create({
+      data: {
+        clientId,
+        projectId: p05.id,
+        title: "Fenetre de maintenance refusee par metier",
+        probability: ProjectRiskProbability.HIGH,
+        impact: ProjectRiskImpact.HIGH,
+        status: ProjectRiskStatus.OPEN,
+        ownerUserId: a,
+      },
+    });
+    await prisma.projectTask.create({
+      data: {
+        clientId,
+        projectId: p05.id,
+        name: "Plan de segmentation — v2",
+        status: ProjectTaskStatus.BLOCKED,
+        priority: ProjectTaskPriority.CRITICAL,
+        progress: 10,
+        sortOrder: 0,
+        ownerUserId: a,
+      },
+    });
+  }
+
+  // --- 06 : en retard (date cible passee)
+  const p06 = await upsert({
+    code: `${prefix}-SEED-06`,
+    name: "E-commerce — tunnel d'achat",
+    description: "Seed demo : echeance depassee.",
+    type: ProjectType.APPLICATION,
+    status: ProjectStatus.IN_PROGRESS,
+    priority: ProjectPriority.HIGH,
+    criticality: ProjectCriticality.MEDIUM,
+    sponsorUserId: a,
+    ownerUserId: b,
+    startDate: addDaysUtc(now, -300),
+    targetEndDate: addDaysUtc(now, -40),
+    progressPercent: 62,
+    portfolioCategoryId: leaves.experience,
+    ...DEMO_PROJECT_SHEETS[5],
+  });
+  if ((await prisma.projectTask.count({ where: { projectId: p06.id } })) === 0) {
+    await prisma.projectTask.createMany({
+      data: [
+        {
+          clientId,
+          projectId: p06.id,
+          name: "Integration paiement",
+          status: ProjectTaskStatus.IN_PROGRESS,
+          priority: ProjectTaskPriority.HIGH,
+          progress: 70,
+          sortOrder: 0,
+          ownerUserId: b,
+        },
+        {
+          clientId,
+          projectId: p06.id,
+          name: "Recette utilisateurs",
+          status: ProjectTaskStatus.TODO,
+          priority: ProjectTaskPriority.MEDIUM,
+          progress: 0,
+          sortOrder: 1,
+          ownerUserId: b,
+        },
+      ],
+    });
+    await prisma.projectMilestone.create({
+      data: {
+        clientId,
+        projectId: p06.id,
+        name: "Mise en prod initiale",
+        status: ProjectMilestoneStatus.DELAYED,
+        targetDate: addDaysUtc(now, -50),
+        sortOrder: 0,
+      },
+    });
+  }
+
+  // --- 07 : echeance sous 14 jours (orange pilotage)
+  const p07 = await upsert({
+    code: `${prefix}-SEED-07`,
+    name: "Telephonie — migration operateur",
+    description: "Seed demo : fin de projet tres proche.",
+    type: ProjectType.INFRASTRUCTURE,
+    status: ProjectStatus.IN_PROGRESS,
+    priority: ProjectPriority.MEDIUM,
+    criticality: ProjectCriticality.MEDIUM,
+    sponsorUserId: b,
+    ownerUserId: a,
+    startDate: addDaysUtc(now, -100),
+    targetEndDate: addDaysUtc(now, 10),
+    progressPercent: 78,
+    portfolioCategoryId: leaves.infrastructure,
+    ...DEMO_PROJECT_SHEETS[6],
+  });
+  if ((await prisma.projectTask.count({ where: { projectId: p07.id } })) === 0) {
+    await prisma.projectTask.create({
+      data: {
+        clientId,
+        projectId: p07.id,
+        name: "Basculer les numeros pilotes",
+        status: ProjectTaskStatus.IN_PROGRESS,
+        priority: ProjectTaskPriority.HIGH,
+        progress: 80,
+        sortOrder: 0,
+        ownerUserId: a,
+      },
+    });
+  }
+
+  // --- 08 : jalon en retard (DELAYED)
+  const p08 = await upsert({
+    code: `${prefix}-SEED-08`,
+    name: "Observabilite — consolidation",
+    description: "Seed demo : jalon critique en retard.",
+    type: ProjectType.INFRASTRUCTURE,
+    status: ProjectStatus.IN_PROGRESS,
+    priority: ProjectPriority.MEDIUM,
+    criticality: ProjectCriticality.MEDIUM,
+    sponsorUserId: a,
+    ownerUserId: b,
+    startDate: addDaysUtc(now, -80),
+    targetEndDate: addDaysUtc(now, 100),
+    progressPercent: 50,
+    portfolioCategoryId: leaves.observabilite,
+    ...DEMO_PROJECT_SHEETS[7],
+  });
+  if ((await prisma.projectMilestone.count({ where: { projectId: p08.id } })) === 0) {
+    await prisma.projectMilestone.create({
+      data: {
+        clientId,
+        projectId: p08.id,
+        name: "Couverture APM critique",
+        status: ProjectMilestoneStatus.DELAYED,
+        targetDate: addDaysUtc(now, -5),
+        sortOrder: 0,
+      },
+    });
+    await prisma.projectRisk.create({
+      data: {
+        clientId,
+        projectId: p08.id,
+        title: "Dette agents sur parc serveurs",
+        probability: ProjectRiskProbability.MEDIUM,
+        impact: ProjectRiskImpact.MEDIUM,
+        status: ProjectRiskStatus.OPEN,
+        ownerUserId: b,
+      },
+    });
+  }
+
+  // --- 09 : sans responsable plateforme (warning NO_OWNER)
+  const p09 = await upsert({
+    code: `${prefix}-SEED-09`,
+    name: "Partenariat editeur — integration API",
+    description: "Seed demo : sponsor connu, responsable projet non rattache au compte.",
+    type: ProjectType.PROCUREMENT,
+    status: ProjectStatus.IN_PROGRESS,
+    priority: ProjectPriority.MEDIUM,
+    criticality: ProjectCriticality.LOW,
+    sponsorUserId: a,
+    ownerUserId: null,
+    startDate: addDaysUtc(now, -40),
+    targetEndDate: addDaysUtc(now, 150),
+    progressPercent: 15,
+    portfolioCategoryId: leaves.experience,
+    ...DEMO_PROJECT_SHEETS[8],
+  });
+  if ((await prisma.projectTask.count({ where: { projectId: p09.id } })) === 0) {
+    await prisma.projectTask.create({
+      data: {
+        clientId,
+        projectId: p09.id,
+        name: "Atelier contrat et API",
+        status: ProjectTaskStatus.TODO,
+        priority: ProjectTaskPriority.MEDIUM,
+        progress: 0,
+        sortOrder: 0,
+      },
+    });
+  }
+
+  // --- 10 : planifie, demarrage
+  const p10 = await upsert({
+    code: `${prefix}-SEED-10`,
+    name: "IA — assistante interne documentaire",
+    description: "Seed demo : projet en preparation.",
+    type: ProjectType.APPLICATION,
+    status: ProjectStatus.PLANNED,
+    priority: ProjectPriority.LOW,
+    criticality: ProjectCriticality.LOW,
+    sponsorUserId: b,
+    ownerUserId: a,
+    startDate: addDaysUtc(now, 20),
+    targetEndDate: addDaysUtc(now, 320),
+    progressPercent: 0,
+    portfolioCategoryId: leaves.data,
+    ...DEMO_PROJECT_SHEETS[9],
+  });
+  await ensureDemoRetroplanMilestones(clientId, prefix, now, a);
+  await ensureDemoProjectBudgetLinks(clientId, prefix);
+  await ensureDemoProjectReviews(prisma, clientId, prefix, now, a, b);
+
+  console.log(
+    `✅ Seed demo projets [${slug}]: 10 projets, fiches (TOWS 4 quadrants), jalons rétroplan, liens budget FULL, points projet (états variés), catégories, ressources`,
+  );
+}
+
 async function upsertClientUser(userId: string, clientId: string, role: ClientUserRole, isDefault = false) {
   return prisma.clientUser.upsert({
     where: {
@@ -1274,6 +2175,7 @@ async function seedProcurementAndEvents(
 
 async function seedClient(seed: ClientSeed, passwordHash: string) {
   const client = await upsertClient(seed);
+  await ensureEnabledClientModules(client.id);
 
   const userMap = new Map<string, string>();
   for (let i = 0; i < seed.users.length; i++) {
@@ -1319,6 +2221,8 @@ async function seedClient(seed: ClientSeed, passwordHash: string) {
       }
     }
   }
+
+  await seedClientDemoProjects(seed.slug, client.id, userMap);
 
   console.log(`✅ Seed client: ${seed.name}`);
 }

@@ -65,7 +65,7 @@ export function ProjectOptionsView({ projectId }: Props) {
           </Link>
           <PageHeader
             title={project.name}
-            description="Options du projet — paramètres métier et intégrations Microsoft 365"
+            description="Options du projet — planning, Microsoft 365 et synchronisation"
           />
         </div>
       </header>
@@ -75,7 +75,7 @@ export function ProjectOptionsView({ projectId }: Props) {
           <ProjectWorkspaceTabs projectId={projectId} />
         </CardHeader>
         <CardContent className="flex min-h-0 w-full min-w-0 flex-col gap-4 p-4 sm:p-6">
-          <ProjectOptionsTabs project={project} />
+          <ProjectOptionsTabs projectId={project.id} />
         </CardContent>
       </Card>
     </>
