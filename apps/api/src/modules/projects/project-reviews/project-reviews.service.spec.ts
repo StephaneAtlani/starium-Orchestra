@@ -73,7 +73,10 @@ describe('ProjectReviewsService (RFC-PROJ-013)', () => {
   beforeEach(() => {
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     projects = {
-      getProjectForScope: jest.fn().mockResolvedValue({ id: projectId }),
+      getProjectForScope: jest.fn().mockResolvedValue({
+        id: projectId,
+        status: ProjectStatus.IN_PROGRESS,
+      }),
       assertClientUser: jest.fn().mockResolvedValue(undefined),
     };
     pilotage = {
@@ -284,5 +287,84 @@ describe('ProjectReviewsService (RFC-PROJ-013)', () => {
         resourceId: 'rev2',
       }),
     );
+  });
+
+  it('create POST_MORTEM OK si projet COMPLETED', async () => {
+    projects.getProjectForScope.mockResolvedValueOnce({
+      id: projectId,
+      status: ProjectStatus.COMPLETED,
+    });
+    const created = draftReview({ reviewType: ProjectReviewType.POST_MORTEM });
+    prisma.projectReview.create.mockResolvedValue(created);
+
+    const result = await service.create(
+      clientId,
+      projectId,
+      {
+        reviewDate: '2025-06-01T10:00:00.000Z',
+        reviewType: ProjectReviewType.POST_MORTEM,
+      },
+      {},
+    );
+
+    expect(result.reviewType).toBe(ProjectReviewType.POST_MORTEM);
+    expect(prisma.projectReview.create).toHaveBeenCalled();
+  });
+
+  it('create COPIL refuse si projet COMPLETED', async () => {
+    projects.getProjectForScope.mockResolvedValueOnce({
+      id: projectId,
+      status: ProjectStatus.COMPLETED,
+    });
+
+    await expect(
+      service.create(clientId, projectId, {
+        reviewDate: '2025-06-01T10:00:00.000Z',
+        reviewType: ProjectReviewType.COPIL,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.projectReview.create).not.toHaveBeenCalled();
+  });
+
+  it('create POST_MORTEM refuse si projet IN_PROGRESS', async () => {
+    await expect(
+      service.create(clientId, projectId, {
+        reviewDate: '2025-06-01T10:00:00.000Z',
+        reviewType: ProjectReviewType.POST_MORTEM,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('create POST_MORTEM refuse si nextReviewDate renseigné', async () => {
+    projects.getProjectForScope.mockResolvedValueOnce({
+      id: projectId,
+      status: ProjectStatus.ARCHIVED,
+    });
+
+    await expect(
+      service.create(clientId, projectId, {
+        reviewDate: '2025-06-01T10:00:00.000Z',
+        reviewType: ProjectReviewType.POST_MORTEM,
+        nextReviewDate: '2025-07-01T10:00:00.000Z',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('update refuse nextReviewDate si review POST_MORTEM', async () => {
+    const existing = draftReview({
+      reviewType: ProjectReviewType.POST_MORTEM,
+    });
+    prisma.projectReview.findFirst.mockResolvedValueOnce(existing);
+    projects.getProjectForScope.mockResolvedValueOnce({
+      id: projectId,
+      status: ProjectStatus.COMPLETED,
+    });
+
+    await expect(
+      service.update(clientId, projectId, reviewId, {
+        nextReviewDate: '2025-07-01T10:00:00.000Z',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

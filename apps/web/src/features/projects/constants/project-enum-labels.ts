@@ -156,6 +156,7 @@ export const PROJECT_REVIEW_TYPE_LABEL: Record<string, string> = {
   RISK_REVIEW: 'Revue risques',
   MILESTONE_REVIEW: 'Revue jalons',
   AD_HOC: 'Ad hoc',
+  POST_MORTEM: 'Post-mortem',
 };
 
 export const PROJECT_REVIEW_STATUS_LABEL: Record<string, string> = {

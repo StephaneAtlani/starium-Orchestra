@@ -55,6 +55,12 @@ import {
   TASK_STATUS_LABEL,
   WARNING_CODE_LABEL,
 } from '../constants/project-enum-labels';
+import {
+  POST_MORTEM_EMPTY,
+  readPostMortemPayload,
+  type PostMortemPayload,
+} from '../lib/project-post-mortem-payload';
+import { getReviewTypeOptionsForEditor } from '../lib/project-review-post-mortem';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { projectSheet } from '../constants/project-routes';
@@ -85,15 +91,6 @@ const textareaClass = cn(
   'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
   'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
 );
-
-const REVIEW_TYPES: ProjectReviewType[] = [
-  'COPIL',
-  'COPRO',
-  'CODIR_REVIEW',
-  'RISK_REVIEW',
-  'MILESTONE_REVIEW',
-  'AD_HOC',
-];
 
 const ACTION_STATUSES = Object.keys(TASK_STATUS_LABEL) as Array<keyof typeof TASK_STATUS_LABEL>;
 
@@ -555,6 +552,7 @@ export function ProjectReviewEditorDialog({
   const [decisions, setDecisions] = useState<DecisionRow[]>([]);
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [committeeMood, setCommitteeMood] = useState<CommitteeMood | null>(null);
+  const [postMortemForm, setPostMortemForm] = useState<PostMortemPayload>(POST_MORTEM_EMPTY);
 
   const lastInitRef = useRef<string | null>(null);
   /** Snapshot JSON de `buildPatchBody()` — évite les PATCH inutiles et sert de ligne de base après init. */
@@ -616,7 +614,16 @@ export function ProjectReviewEditorDialog({
           ],
     );
     setCommitteeMood(readCommitteeMood(d.contentPayload));
+    setPostMortemForm(readPostMortemPayload(d.contentPayload));
   }, [detailQuery.data]);
+
+  useEffect(() => {
+    if (reviewType === 'POST_MORTEM') {
+      setNextReviewDate('');
+      setCommittedNextReviewDate(null);
+      setConfirmNextOpen(false);
+    }
+  }, [reviewType]);
 
   useEffect(() => {
     if (!open) {
@@ -640,6 +647,11 @@ export function ProjectReviewEditorDialog({
   const d = detailQuery.data;
   const isDraft = d?.status === 'DRAFT';
   const editable = canEdit && isDraft;
+  const projectStatus = projectQuery.data?.status;
+  const reviewTypeOptions = useMemo(
+    () => getReviewTypeOptionsForEditor(projectStatus, reviewType),
+    [projectStatus, reviewType],
+  );
 
   const buildPatchBody = (opts?: { committedNextReviewOverride?: string | null }) => {
     const committedForApi =
@@ -669,19 +681,32 @@ export function ProjectReviewEditorDialog({
         linkedTaskId: a.linkedTaskId.trim() || null,
       }));
     const payloadBase = parseContentPayload(d?.contentPayload);
-    const contentPayload = {
-      ...payloadBase,
-      [COMMITTEE_MOOD_KEY]: committeeMood,
-    };
+    const contentPayload: Record<string, unknown> =
+      reviewType === 'POST_MORTEM'
+        ? {
+            ...payloadBase,
+            postMortem: { ...postMortemForm },
+          }
+        : {
+            ...payloadBase,
+            [COMMITTEE_MOOD_KEY]: committeeMood,
+          };
+    if (reviewType === 'POST_MORTEM') {
+      delete contentPayload[COMMITTEE_MOOD_KEY];
+    } else {
+      delete contentPayload.postMortem;
+    }
     return {
       reviewDate: fromLocalDatetimeInput(reviewDate),
       reviewType,
       title: title.trim() || null,
       executiveSummary: executiveSummary.trim() || null,
       nextReviewDate:
-        committedForApi && committedForApi.trim()
-          ? fromLocalDatetimeInput(committedForApi)
-          : null,
+        reviewType === 'POST_MORTEM'
+          ? null
+          : committedForApi && committedForApi.trim()
+            ? fromLocalDatetimeInput(committedForApi)
+            : null,
       participants: parts,
       decisions: dec,
       actionItems: act,
@@ -727,6 +752,7 @@ export function ProjectReviewEditorDialog({
     decisions,
     actions,
     committeeMood,
+    postMortemForm,
     update,
   ]);
 
@@ -908,7 +934,7 @@ export function ProjectReviewEditorDialog({
                       disabled={!editable}
                       onChange={(e) => setReviewType(e.target.value as ProjectReviewType)}
                     >
-                      {REVIEW_TYPES.map((t) => (
+                      {reviewTypeOptions.map((t) => (
                         <option key={t} value={t}>
                           {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
                         </option>
@@ -1736,6 +1762,40 @@ export function ProjectReviewEditorDialog({
                       maxLength={20000}
                     />
                   </div>
+                  {reviewType === 'POST_MORTEM' && (
+                    <div className="grid gap-3 border-t border-border/60 pt-3">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Bilan structuré
+                      </p>
+                      {(
+                        [
+                          ['objectifs', 'Objectifs / cadrage initial'],
+                          ['resultats', 'Résultats obtenus'],
+                          ['ecarts', 'Écarts (plan, budget, délais…)'],
+                          ['causes', 'Causes / analyse'],
+                          ['leconsApprises', 'Leçons apprises'],
+                          ['recommandations', 'Recommandations / capitalisation'],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <div key={key} className="grid gap-1.5">
+                          <Label className="text-xs font-medium">{label}</Label>
+                          <textarea
+                            className={textareaClass}
+                            value={postMortemForm[key]}
+                            disabled={!editable}
+                            onChange={(e) =>
+                              setPostMortemForm((prev) => ({
+                                ...prev,
+                                [key]: e.target.value,
+                              }))
+                            }
+                            placeholder="…"
+                            rows={3}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {projectQuery.data && (
                     <div className="grid gap-1.5 sm:max-w-md">
                       <Label htmlFor="pr-project-status">Changer le statut du projet</Label>
@@ -1770,6 +1830,7 @@ export function ProjectReviewEditorDialog({
                       ) : null}
                     </div>
                   )}
+                  {reviewType !== 'POST_MORTEM' ? (
                   <div className="grid gap-1.5 sm:max-w-xl">
                     <Label htmlFor="pr-ed-next">Prochain point (optionnel)</Label>
                     <Input
@@ -1817,14 +1878,17 @@ export function ProjectReviewEditorDialog({
                       </Button>
                     ) : null}
                   </div>
+                  ) : null}
                 </div>
               </ReviewFormSection>
 
+              {reviewType !== 'POST_MORTEM' ? (
               <CommitteeMoodPicker
                 value={committeeMood}
                 onChange={setCommitteeMood}
                 disabled={!editable}
               />
+              ) : null}
             </div>
           )}
         </div>

@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProjectReviewStatus, ProjectReviewType } from '@prisma/client';
+import {
+  Prisma,
+  ProjectReviewStatus,
+  ProjectReviewType,
+  ProjectStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import type { AuditContext } from '../../budget-management/types/audit-context';
@@ -26,6 +31,16 @@ const reviewInclude = {
 type ReviewWithChildren = Prisma.ProjectReviewGetPayload<{
   include: typeof reviewInclude;
 }>;
+
+const POST_MORTEM_ELIGIBLE_PROJECT_STATUSES: ProjectStatus[] = [
+  'COMPLETED',
+  'CANCELLED',
+  'ARCHIVED',
+];
+
+function isPostMortemEligibleProjectStatus(status: ProjectStatus): boolean {
+  return POST_MORTEM_ELIGIBLE_PROJECT_STATUSES.includes(status);
+}
 
 @Injectable()
 export class ProjectReviewsService {
@@ -180,6 +195,68 @@ export class ProjectReviewsService {
     return null;
   }
 
+  private assertReviewTypeForProjectCreate(
+    projectStatus: ProjectStatus,
+    reviewType: ProjectReviewType,
+  ): void {
+    const eligible = isPostMortemEligibleProjectStatus(projectStatus);
+    if (eligible) {
+      if (reviewType !== ProjectReviewType.POST_MORTEM) {
+        throw new BadRequestException(
+          'Lorsque le projet est terminé, annulé ou archivé, seul un post-mortem peut être créé.',
+        );
+      }
+    } else if (reviewType === ProjectReviewType.POST_MORTEM) {
+      throw new BadRequestException(
+        'Un post-mortem ne peut être créé que lorsque le projet est terminé, annulé ou archivé.',
+      );
+    }
+  }
+
+  /**
+   * Projet « clos » : post-mortem autorisé ; brouillons COPIL/COPRO ouverts avant clôture :
+   * mise à jour sans changement de type, ou conversion explicite vers POST_MORTEM.
+   */
+  private assertReviewTypeForProjectUpdate(
+    projectStatus: ProjectStatus,
+    existingReviewType: ProjectReviewType,
+    dto: UpdateProjectReviewDto,
+  ): void {
+    const eligible = isPostMortemEligibleProjectStatus(projectStatus);
+    const effectiveType =
+      dto.reviewType !== undefined ? dto.reviewType : existingReviewType;
+    const typeChanging =
+      dto.reviewType !== undefined && dto.reviewType !== existingReviewType;
+
+    if (!eligible) {
+      if (effectiveType === ProjectReviewType.POST_MORTEM) {
+        throw new BadRequestException(
+          'Un post-mortem ne peut être utilisé que lorsque le projet est terminé, annulé ou archivé.',
+        );
+      }
+      return;
+    }
+
+    if (effectiveType === ProjectReviewType.POST_MORTEM) {
+      return;
+    }
+
+    if (!typeChanging) {
+      return;
+    }
+
+    if (
+      existingReviewType !== ProjectReviewType.POST_MORTEM &&
+      dto.reviewType === ProjectReviewType.POST_MORTEM
+    ) {
+      return;
+    }
+
+    throw new BadRequestException(
+      'Pour un projet terminé, annulé ou archivé : conservez le type du brouillon existant, ou passez en post-mortem.',
+    );
+  }
+
   private async validateParticipantUsers(
     clientId: string,
     participants: Array<{ userId?: string | null } | undefined>,
@@ -291,7 +368,17 @@ export class ProjectReviewsService {
     dto: CreateProjectReviewDto,
     context?: AuditContext,
   ) {
-    await this.projects.getProjectForScope(clientId, projectId);
+    const project = await this.projects.getProjectForScope(clientId, projectId);
+    this.assertReviewTypeForProjectCreate(project.status, dto.reviewType);
+    if (
+      dto.reviewType === ProjectReviewType.POST_MORTEM &&
+      dto.nextReviewDate != null &&
+      dto.nextReviewDate !== ''
+    ) {
+      throw new BadRequestException(
+        'Un post-mortem ne peut pas planifier de prochain point.',
+      );
+    }
     await this.validateFacilitator(clientId, dto.facilitatorUserId);
     await this.validateParticipantUsers(clientId, dto.participants ?? []);
     await this.validateLinkedTasks(clientId, projectId, dto.actionItems ?? []);
@@ -382,7 +469,7 @@ export class ProjectReviewsService {
     dto: UpdateProjectReviewDto,
     context?: AuditContext,
   ) {
-    await this.projects.getProjectForScope(clientId, projectId);
+    const project = await this.projects.getProjectForScope(clientId, projectId);
     const existing = await this.prisma.projectReview.findFirst({
       where: { id: reviewId, clientId, projectId },
       include: reviewInclude,
@@ -390,6 +477,20 @@ export class ProjectReviewsService {
     if (!existing) throw new NotFoundException('Review not found');
     if (existing.status !== ProjectReviewStatus.DRAFT) {
       throw new BadRequestException('Only DRAFT reviews can be updated');
+    }
+
+    this.assertReviewTypeForProjectUpdate(project.status, existing.reviewType, dto);
+
+    const effectiveReviewType =
+      dto.reviewType !== undefined ? dto.reviewType : existing.reviewType;
+    if (
+      effectiveReviewType === ProjectReviewType.POST_MORTEM &&
+      dto.nextReviewDate !== undefined &&
+      dto.nextReviewDate !== null
+    ) {
+      throw new BadRequestException(
+        'Un post-mortem ne peut pas planifier de prochain point.',
+      );
     }
 
     if (dto.facilitatorUserId !== undefined) {
@@ -497,7 +598,13 @@ export class ProjectReviewsService {
         }
 
         let spawnedReviewId: string | null = null;
-        if (dto.nextReviewDate !== undefined && dto.nextReviewDate !== null) {
+        const typeAfterPatch =
+          dto.reviewType !== undefined ? dto.reviewType : existing.reviewType;
+        if (
+          dto.nextReviewDate !== undefined &&
+          dto.nextReviewDate !== null &&
+          typeAfterPatch !== ProjectReviewType.POST_MORTEM
+        ) {
           const nextAt = new Date(dto.nextReviewDate);
           const effectiveReviewDate =
             dto.reviewDate !== undefined ? new Date(dto.reviewDate) : existing.reviewDate;

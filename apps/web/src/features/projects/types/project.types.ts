@@ -552,7 +552,8 @@ export type ProjectReviewType =
   | 'CODIR_REVIEW'
   | 'RISK_REVIEW'
   | 'MILESTONE_REVIEW'
-  | 'AD_HOC';
+  | 'AD_HOC'
+  | 'POST_MORTEM';
 
 export type ProjectReviewStatus = 'DRAFT' | 'FINALIZED' | 'CANCELLED';
 

@@ -652,6 +652,8 @@ enum ProjectReviewType {
   RISK_REVIEW
   MILESTONE_REVIEW
   AD_HOC
+  /// Bilan de fin de projet (projets terminés / annulés / archivés uniquement)
+  POST_MORTEM
 }
 
 enum ProjectReviewStatus {

@@ -258,7 +258,7 @@ function ProjectDetailTabbedContent({
         }
       >
         {showPoints ? (
-          <ProjectReviewsTab projectId={projectId} />
+          <ProjectReviewsTab projectId={projectId} projectStatus={project.status} />
         ) : (
           <>
         <div className="grid gap-4 lg:grid-cols-3">

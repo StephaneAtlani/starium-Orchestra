@@ -39,6 +39,10 @@ import type {
 import { cn } from '@/lib/utils';
 import { CalendarRange, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
+import {
+  isPostMortemEligibleProjectStatus,
+  REVIEW_TYPES_PILOTAGE,
+} from '../lib/project-review-post-mortem';
 import { ProjectReviewEditorDialog } from './project-review-editor-dialog';
 
 const selectFieldClass = cn(
@@ -108,15 +112,6 @@ function CreateReviewFormSection({
   );
 }
 
-const REVIEW_TYPES: ProjectReviewType[] = [
-  'COPIL',
-  'COPRO',
-  'CODIR_REVIEW',
-  'RISK_REVIEW',
-  'MILESTONE_REVIEW',
-  'AD_HOC',
-];
-
 function formatDate(iso: string | null) {
   if (!iso) return '—';
   try {
@@ -184,9 +179,19 @@ function createParticipantsFromProjectTeam(
   });
 }
 
-export function ProjectReviewsTab({ projectId }: { projectId: string }) {
+export function ProjectReviewsTab({
+  projectId,
+  projectStatus,
+}: {
+  projectId: string;
+  projectStatus: string;
+}) {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
+  const postMortemEligible = isPostMortemEligibleProjectStatus(projectStatus);
+  const createTypeOptions: ProjectReviewType[] = postMortemEligible
+    ? ['POST_MORTEM']
+    : REVIEW_TYPES_PILOTAGE;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editorReviewId, setEditorReviewId] = useState<string | null>(null);
@@ -208,9 +213,9 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
 
   const resetCreateFormFields = useCallback(() => {
     setFormDate(defaultDatetimeLocal());
-    setFormType('COPIL');
+    setFormType(postMortemEligible ? 'POST_MORTEM' : 'COPIL');
     setFormTitle('');
-  }, []);
+  }, [postMortemEligible]);
 
   useEffect(() => {
     if (!createOpen) {
@@ -278,13 +283,23 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Créez un <strong className="font-medium text-foreground">point projet</strong>, complétez le
-          compte rendu (arbitrage, synthèse, participants, décisions, actions), enregistrez puis
-          finalisez pour figer le snapshot.
+          {postMortemEligible ? (
+            <>
+              Projet clos : documentez un{' '}
+              <strong className="font-medium text-foreground">post-mortem</strong> (bilan, écarts,
+              leçons apprises) — distinct des revues de pilotage en cours de projet.
+            </>
+          ) : (
+            <>
+              Créez un <strong className="font-medium text-foreground">point projet</strong>, complétez le
+              compte rendu (arbitrage, synthèse, participants, décisions, actions), enregistrez puis
+              finalisez pour figer le snapshot.
+            </>
+          )}
         </p>
         {canEdit && (
           <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-            Créer un point projet
+            {postMortemEligible ? 'Créer un post-mortem' : 'Créer un point projet'}
           </Button>
         )}
       </div>
@@ -350,11 +365,12 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
           <div className="shrink-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-5 py-4 sm:px-6">
             <DialogHeader className="gap-2 space-y-0">
               <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
-                Nouveau point projet
+                {postMortemEligible ? 'Nouveau post-mortem' : 'Nouveau point projet'}
               </DialogTitle>
               <DialogDescription className="text-sm leading-relaxed">
-                Date, type et parties prenantes. Vous compléterez le compte rendu (synthèse,
-                décisions, actions) dans l’éditeur juste après la création.
+                {postMortemEligible
+                  ? 'Date, parties prenantes, puis bilan structuré (objectifs, résultats, leçons) dans l’éditeur.'
+                  : 'Date, type et parties prenantes. Vous compléterez le compte rendu (synthèse, décisions, actions) dans l’éditeur juste après la création.'}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -385,8 +401,9 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
                       className={selectFieldClass}
                       value={formType}
                       onChange={(e) => setFormType(e.target.value as ProjectReviewType)}
+                      disabled={postMortemEligible && createTypeOptions.length === 1}
                     >
-                      {REVIEW_TYPES.map((t) => (
+                      {createTypeOptions.map((t) => (
                         <option key={t} value={t}>
                           {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
                         </option>

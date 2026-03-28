@@ -14,7 +14,7 @@ Modèles (`apps/api/prisma/schema.prisma`) :
 |--------|------|
 | **Project** | Projet client-scopé (`clientId`), code unique par client, type / statut / priorité / criticité, dates, `progressPercent` manuel (0–100), budget cible optionnel, notes pilotage, responsable via `ownerUserId` **ou** personne nom libre (`ownerFreeLabel` + `ownerAffiliation`). |
 | **ProjectTask** | Tâche planifiable (`clientId` + `projectId`) : nom, dates planifiées/réelles, `progress`, hiérarchie parent/enfant, dépendance simple (`dependsOnTaskId`), responsable `ownerUserId`, lien budget optionnel — **RFC-PROJ-011**. |
-| **ProjectRisk** | Risque avec `ProjectRiskProbability` et `ProjectRiskImpact` (criticité **dérivée** du score P×I, pas de champ redondant). |
+| **ProjectRisk** | Risque avec `ProjectRiskProbability` et `ProjectRiskImpact` (criticité **dérivée** du score P×I, pas de champ redondant). Champs et formulaire **EBIOS RM** minimal : **[RFC-PROJ-018](../RFC/RFC-PROJ-018%20%E2%80%94%20ProjectRisk%20EBIOS%20RM%20minimal.md)**. |
 | **ProjectMilestone** | Jalon sans durée (`targetDate`, `achievedDate`, lien tâche optionnel `linkedTaskId`, statut dont `ACHIEVED`, `DELAYED`) — **RFC-PROJ-011**. |
 | **ProjectActivity** | Activité dérivée d’une tâche source, `projectId` obligatoire (MVP), hors payload Gantt — **RFC-PROJ-011**. |
 | **ProjectBudgetLink** | Liaison projet ↔ ligne budgétaire (`clientId`, mode d’allocation FULL / PERCENTAGE / FIXED) — RFC-PROJ-010. |

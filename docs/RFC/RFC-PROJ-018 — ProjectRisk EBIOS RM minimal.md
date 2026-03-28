@@ -1,7 +1,7 @@
-# RFC-PROJ-018 — ProjectRisk — compatibilité EBIOS RM minimale (plan)
+# RFC-PROJ-018 — ProjectRisk — compatibilité EBIOS RM minimale
 
-> **Statut** : plan de travail — pas d’implémentation dans ce document.  
-> **Périmètre** : compléter le modèle `ProjectRisk` et le formulaire associé pour une **compatibilité EBIOS RM simplifiée** (alignée ISO 27005), **audit-ready** au sens « structure et traçabilité de base », sans refonte du module ni matrice multi-scénarios.
+> **Statut** : ✅ **Implémenté (MVP)** — comportement aligné sur le code (`apps/api`, `apps/web`) ; ce document reste la référence fonctionnelle et de conception.  
+> **Périmètre** : modèle `ProjectRisk` et formulaire associé pour une **compatibilité EBIOS RM simplifiée** (alignée ISO 27005), **audit-ready** au sens « structure et traçabilité de base », sans refonte du module ni matrice multi-scénarios.
 
 ---
 
@@ -56,6 +56,8 @@ Réorganiser le formulaire en **6 sections** claires et **visuellement distincte
 6. **Suivi**
 
 Chaque section : **titre clair** + **texte d’aide** ; **placeholders** recommandés pour guider la rédaction (ex. *« Si X alors Y »* pour le scénario). **Ne pas** recalculer la criticité côté frontend (affichage des valeurs renvoyées par l’API uniquement).
+
+**UI livrée** : matrice **5×5** P×I (mêmes seuils que `project-risk-criticality.util.ts` côté API) pour visualiser / choisir vraisemblance et gravité ; **enregistrement automatique** (debounce + synchronisation à la fermeture de la modale) via `useDebouncedServerAutosave` ; **libellés français** dans les sélecteurs (y compris responsable : pas d’affichage d’UUID — entrée dédiée si l’utilisateur est hors liste d’assignation) ; **suppression** du risque dans la modale (plus de colonne « Actions » sur le tableau du registre).
 
 ---
 
@@ -153,14 +155,28 @@ Chaque section : **titre clair** + **texte d’aide** ; **placeholders** recomma
 
 ## 9. Frontend (rappel UX)
 
-- Mettre à jour le **formulaire existant** ([`ProjectRiskEbiosDialog`](../../apps/web/src/features/projects/components/project-risk-ebios-dialog.tsx) ou équivalent).
+- Formulaire : [`ProjectRiskEbiosDialog`](../../apps/web/src/features/projects/components/project-risk-ebios-dialog.tsx) ; vue liste : [`project-risks-view.tsx`](../../apps/web/src/features/projects/components/project-risks-view.tsx).
 - **Labels explicites** (ex. *Source de menace*, *Impact métier*).
 - **Aide** par section + **placeholders** (ex. scénario *« Si X alors Y »*).
-- **Pas** de recalcul de criticité côté client.
+- **Pas** de recalcul de criticité côté client (affichage critique en édition + message si P×I modifiés avant prochain enregistrement automatique).
 
 ---
 
-## 10. Non-objectifs (hors périmètre)
+## 10. Implémentation de référence (vérité code)
+
+| Zone | Référence |
+| --- | --- |
+| Criticité P×I (seuils) | `apps/api/src/modules/projects/lib/project-risk-criticality.util.ts` |
+| Service / DTO risques | `apps/api/src/modules/projects/project-risks.service.ts`, `dto/create-project-risk.dto.ts`, `dto/update-project-risk.dto.ts` |
+| Formulaire EBIOS + matrice + autosave | `apps/web/src/features/projects/components/project-risk-ebios-dialog.tsx` |
+| Debounce sauvegarde serveur | `apps/web/src/hooks/use-debounced-server-autosave.ts` |
+| Liste registre (ouverture modale au clic sur le titre ; pas de colonne Actions) | `apps/web/src/features/projects/components/project-risks-view.tsx` |
+
+Isolation **client** : inchangée — toutes les routes sous `/api/projects/:projectId/risks` avec `clientId` actif et portée projet vérifiée côté service.
+
+---
+
+## 11. Non-objectifs (hors périmètre)
 
 - Pas de **workflow EBIOS** complet (ateliers, graphes multi-acteurs, etc.).  
 - Pas de **scoring multi-dimensionnel** au-delà de P×I + criticité dérivée backend.  
