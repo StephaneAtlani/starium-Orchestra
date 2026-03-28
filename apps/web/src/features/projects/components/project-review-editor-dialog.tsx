@@ -1765,7 +1765,7 @@ export function ProjectReviewEditorDialog({
                   {reviewType === 'POST_MORTEM' && (
                     <div className="grid gap-3 border-t border-border/60 pt-3">
                       <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Bilan structuré
+                        Retour d&apos;expérience
                       </p>
                       {(
                         [

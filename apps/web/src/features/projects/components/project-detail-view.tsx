@@ -35,13 +35,15 @@ import {
 } from '../constants/project-enum-labels';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
-import { projectsList, projectPlanning, projectSheet } from '../constants/project-routes';
+import { projectDetail, projectsList, projectPlanning, projectSheet } from '../constants/project-routes';
 import { cn } from '@/lib/utils';
 import {
   AlertCircle,
   AlertTriangle,
   CalendarRange,
   ChevronLeft,
+  ChevronRight,
+  ClipboardList,
   Flag,
   GanttChart,
   Kanban,
@@ -62,7 +64,9 @@ import {
   updateProject,
 } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
+import { isPostMortemEligibleProjectStatus } from '../lib/project-review-post-mortem';
 import { formatCurrencyAmountFr } from '@/lib/currency-format';
+import { usePermissions } from '@/hooks/use-permissions';
 
 function tagBadgeStyle(color: string | null | undefined) {
   const background = color ?? '#64748B';
@@ -1001,6 +1005,12 @@ function ProjectDetailTabbedContent({
 export function ProjectDetailView({ projectId }: { projectId: string }) {
   const { data: project, isLoading, error } = useProjectDetailQuery(projectId);
   const risks = useProjectRisksQuery(projectId);
+  const { has } = usePermissions();
+  const canPostMortemCta = has('projects.update');
+  const showPostMortemHeaderCta =
+    project != null &&
+    isPostMortemEligibleProjectStatus(project.status) &&
+    canPostMortemCta;
 
   if (!projectId) {
     return (
@@ -1049,11 +1059,48 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           />
         </div>
 
-        <div className="min-w-0">
-          <p className="mb-2 text-xs font-medium text-muted-foreground">Signaux portefeuille</p>
-          <div className="flex flex-wrap gap-2">
-            <ProjectPortfolioBadges signals={project.signals} />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Signaux portefeuille</p>
+            <div className="flex flex-wrap gap-2">
+              <ProjectPortfolioBadges signals={project.signals} />
+            </div>
           </div>
+          {showPostMortemHeaderCta ? (
+            <div className="shrink-0 w-full sm:max-w-md">
+              <Link
+                href={`${projectDetail(projectId)}?tab=points&createRetourExperience=1`}
+                scroll={false}
+                className={cn(
+                  'group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 shadow-md transition-all',
+                  'border-violet-500/50 bg-gradient-to-br from-violet-500/15 via-violet-500/[0.07] to-card',
+                  'dark:border-violet-400/45 dark:from-violet-400/20 dark:via-violet-500/10 dark:to-card',
+                  'hover:border-violet-500/70 hover:shadow-lg hover:from-violet-500/20',
+                  'dark:hover:border-violet-400/60',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 focus-visible:ring-offset-2',
+                )}
+              >
+                <span
+                  className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md dark:bg-violet-500"
+                  aria-hidden
+                >
+                  <ClipboardList className="size-5" strokeWidth={2.25} />
+                </span>
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block text-base font-bold leading-snug tracking-tight text-foreground">
+                    Créer un retour d&apos;expérience
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
+                    Objectifs, écarts, leçons — clôture de projet
+                  </span>
+                </span>
+                <ChevronRight
+                  className="size-5 shrink-0 text-violet-600 opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100 dark:text-violet-400"
+                  aria-hidden
+                />
+              </Link>
+            </div>
+          ) : null}
         </div>
 
         {project.warnings.length > 0 && (

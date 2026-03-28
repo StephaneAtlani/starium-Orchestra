@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -210,12 +211,40 @@ export function ProjectReviewsTab({
   ]);
 
   const createFormSeededRef = useRef(false);
+  const openedPostMortemFromQueryRef = useRef(false);
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
 
   const resetCreateFormFields = useCallback(() => {
     setFormDate(defaultDatetimeLocal());
     setFormType(postMortemEligible ? 'POST_MORTEM' : 'COPIL');
     setFormTitle('');
   }, [postMortemEligible]);
+
+  /** Synthèse projet : lien « Créer un retour d'expérience » avec `?createRetourExperience=1`. */
+  useEffect(() => {
+    if (searchParams.get('createRetourExperience') !== '1') {
+      openedPostMortemFromQueryRef.current = false;
+      return;
+    }
+    if (!postMortemEligible || !canEdit) return;
+    if (openedPostMortemFromQueryRef.current) return;
+    openedPostMortemFromQueryRef.current = true;
+    resetCreateFormFields();
+    setCreateOpen(true);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete('createRetourExperience');
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [
+    searchParams,
+    pathname,
+    router,
+    postMortemEligible,
+    canEdit,
+    resetCreateFormFields,
+  ]);
 
   useEffect(() => {
     if (!createOpen) {
@@ -286,8 +315,8 @@ export function ProjectReviewsTab({
           {postMortemEligible ? (
             <>
               Projet clos : documentez un{' '}
-              <strong className="font-medium text-foreground">post-mortem</strong> (bilan, écarts,
-              leçons apprises) — distinct des revues de pilotage en cours de projet.
+              <strong className="font-medium text-foreground">retour d&apos;expérience</strong>{' '}
+              (bilan, écarts, leçons apprises) — distinct des revues de pilotage en cours de projet.
             </>
           ) : (
             <>
@@ -299,7 +328,7 @@ export function ProjectReviewsTab({
         </p>
         {canEdit && (
           <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-            {postMortemEligible ? 'Créer un post-mortem' : 'Créer un point projet'}
+            {postMortemEligible ? "Créer un retour d'expérience" : 'Créer un point projet'}
           </Button>
         )}
       </div>
@@ -365,11 +394,11 @@ export function ProjectReviewsTab({
           <div className="shrink-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-5 py-4 sm:px-6">
             <DialogHeader className="gap-2 space-y-0">
               <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
-                {postMortemEligible ? 'Nouveau post-mortem' : 'Nouveau point projet'}
+                {postMortemEligible ? "Nouveau retour d'expérience" : 'Nouveau point projet'}
               </DialogTitle>
               <DialogDescription className="text-sm leading-relaxed">
                 {postMortemEligible
-                  ? 'Date, parties prenantes, puis bilan structuré (objectifs, résultats, leçons) dans l’éditeur.'
+                  ? "Date, parties prenantes, puis grille de retour d'expérience (objectifs, résultats, leçons) dans l'éditeur."
                   : 'Date, type et parties prenantes. Vous compléterez le compte rendu (synthèse, décisions, actions) dans l’éditeur juste après la création.'}
               </DialogDescription>
             </DialogHeader>

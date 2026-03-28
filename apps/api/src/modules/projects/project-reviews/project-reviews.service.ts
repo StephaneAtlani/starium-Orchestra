@@ -203,18 +203,18 @@ export class ProjectReviewsService {
     if (eligible) {
       if (reviewType !== ProjectReviewType.POST_MORTEM) {
         throw new BadRequestException(
-          'Lorsque le projet est terminé, annulé ou archivé, seul un post-mortem peut être créé.',
+          "Lorsque le projet est terminé, annulé ou archivé, seul un retour d'expérience peut être créé.",
         );
       }
     } else if (reviewType === ProjectReviewType.POST_MORTEM) {
       throw new BadRequestException(
-        'Un post-mortem ne peut être créé que lorsque le projet est terminé, annulé ou archivé.',
+        "Un retour d'expérience ne peut être créé que lorsque le projet est terminé, annulé ou archivé.",
       );
     }
   }
 
   /**
-   * Projet « clos » : post-mortem autorisé ; brouillons COPIL/COPRO ouverts avant clôture :
+   * Projet « clos » : retour d'expérience autorisé ; brouillons COPIL/COPRO ouverts avant clôture :
    * mise à jour sans changement de type, ou conversion explicite vers POST_MORTEM.
    */
   private assertReviewTypeForProjectUpdate(
@@ -231,7 +231,7 @@ export class ProjectReviewsService {
     if (!eligible) {
       if (effectiveType === ProjectReviewType.POST_MORTEM) {
         throw new BadRequestException(
-          'Un post-mortem ne peut être utilisé que lorsque le projet est terminé, annulé ou archivé.',
+          "Un retour d'expérience ne peut être utilisé que lorsque le projet est terminé, annulé ou archivé.",
         );
       }
       return;
@@ -253,7 +253,7 @@ export class ProjectReviewsService {
     }
 
     throw new BadRequestException(
-      'Pour un projet terminé, annulé ou archivé : conservez le type du brouillon existant, ou passez en post-mortem.',
+      "Pour un projet terminé, annulé ou archivé : conservez le type du brouillon existant, ou passez en retour d'expérience.",
     );
   }
 
@@ -376,7 +376,7 @@ export class ProjectReviewsService {
       dto.nextReviewDate !== ''
     ) {
       throw new BadRequestException(
-        'Un post-mortem ne peut pas planifier de prochain point.',
+        "Un retour d'expérience ne peut pas planifier de prochain point.",
       );
     }
     await this.validateFacilitator(clientId, dto.facilitatorUserId);
@@ -489,7 +489,7 @@ export class ProjectReviewsService {
       dto.nextReviewDate !== null
     ) {
       throw new BadRequestException(
-        'Un post-mortem ne peut pas planifier de prochain point.',
+        "Un retour d'expérience ne peut pas planifier de prochain point.",
       );
     }
 

@@ -1,4 +1,4 @@
-/** Clés stables du bilan post-mortem dans `contentPayload.postMortem`. */
+/** Clés stables du retour d'expérience dans `contentPayload.postMortem` (clé JSON inchangée). */
 export type PostMortemPayload = {
   objectifs: string;
   resultats: string;

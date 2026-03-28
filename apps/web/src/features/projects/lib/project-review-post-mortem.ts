@@ -1,6 +1,6 @@
 import type { ProjectReviewType } from '../types/project.types';
 
-/** Statuts projet pour lesquels seuls des post-mortems peuvent être créés (nouveaux points). */
+/** Statuts projet pour lesquels seuls des retours d'expérience peuvent être créés (nouveaux points). */
 export const POST_MORTEM_ELIGIBLE_PROJECT_STATUSES = [
   'COMPLETED',
   'CANCELLED',
@@ -11,7 +11,7 @@ export function isPostMortemEligibleProjectStatus(status: string): boolean {
   return (POST_MORTEM_ELIGIBLE_PROJECT_STATUSES as readonly string[]).includes(status);
 }
 
-/** Types de revue de pilotage (hors post-mortem). */
+/** Types de revue de pilotage (hors retour d'expérience). */
 export const REVIEW_TYPES_PILOTAGE: ProjectReviewType[] = [
   'COPIL',
   'COPRO',
@@ -23,7 +23,7 @@ export const REVIEW_TYPES_PILOTAGE: ProjectReviewType[] = [
 
 /**
  * Options du sélecteur « type de revue » selon le statut projet et le type courant
- * (grand-père : brouillon COPIL sur projet déjà clos → COPIL + POST_MORTEM).
+ * (grand-père : brouillon COPIL sur projet déjà clos → COPIL + retour d'expérience).
  */
 export function getReviewTypeOptionsForEditor(
   projectStatus: string | undefined,
