@@ -1,4 +1,6 @@
-/** Scores de perception 0–100 (null = non renseigné). Alignés avec une grille RETEX (budget, délais, qualité, communication, risques). */
+/** Échelle entière 0–5 (null = non renseigné). Anciennes valeurs 0–100 converties à la lecture. */
+export const POST_MORTEM_INDICATEUR_MAX = 5;
+
 export type PostMortemIndicateursScores = {
   budget: number | null;
   delais: number | null;
@@ -36,11 +38,18 @@ export const POST_MORTEM_EMPTY: PostMortemPayload = {
   indicateurs: { ...POST_MORTEM_INDICATEURS_EMPTY },
 };
 
-function clampScore0to100(v: unknown): number | null {
+/** 0–5 ; si la valeur > 5, considérer un ancien export 0–100 et convertir. */
+function normalizeIndicateurScore(v: unknown): number | null {
   if (v === null || v === undefined) return null;
   const n = typeof v === 'number' ? v : Number(v);
   if (!Number.isFinite(n)) return null;
-  return Math.max(0, Math.min(100, Math.round(n)));
+  if (n > POST_MORTEM_INDICATEUR_MAX) {
+    return Math.max(
+      0,
+      Math.min(POST_MORTEM_INDICATEUR_MAX, Math.round(n / 20)),
+    );
+  }
+  return Math.max(0, Math.min(POST_MORTEM_INDICATEUR_MAX, Math.round(n)));
 }
 
 function readIndicateurs(raw: unknown): PostMortemIndicateursScores {
@@ -48,7 +57,7 @@ function readIndicateurs(raw: unknown): PostMortemIndicateursScores {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
   const o = raw as Record<string, unknown>;
   for (const k of Object.keys(out) as (keyof PostMortemIndicateursScores)[]) {
-    out[k] = clampScore0to100(o[k]);
+    out[k] = normalizeIndicateurScore(o[k]);
   }
   return out;
 }

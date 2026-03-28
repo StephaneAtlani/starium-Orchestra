@@ -44,6 +44,7 @@ import { CalendarRange, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
 import {
   findDraftPostMortemReview,
+  hasFinalizedPostMortemReview,
   isPostMortemEligibleProjectStatus,
   REVIEW_TYPES_PILOTAGE,
 } from '../lib/project-review-post-mortem';
@@ -215,6 +216,10 @@ export function ProjectReviewsTab({
     () => findDraftPostMortemReview(list.data),
     [list.data],
   );
+  const finalizedPostMortem = useMemo(
+    () => hasFinalizedPostMortemReview(list.data),
+    [list.data],
+  );
   const assignable = useProjectAssignableUsers();
   const teamForCreate = useProjectTeamQuery(projectId, { enabled: createOpen });
   const { create } = useProjectReviewMutations(projectId);
@@ -265,6 +270,15 @@ export function ProjectReviewsTab({
     if (draft) {
       openedPostMortemFromQueryRef.current = true;
       openEditor(draft.id);
+      stripCreateParam();
+      return;
+    }
+
+    if (
+      hasFinalizedPostMortemReview(list.data) &&
+      !findDraftPostMortemReview(list.data)
+    ) {
+      openedPostMortemFromQueryRef.current = true;
       stripCreateParam();
       return;
     }
@@ -368,11 +382,19 @@ export function ProjectReviewsTab({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="max-w-2xl text-sm text-muted-foreground">
           {postMortemEligible ? (
-            <>
-              Projet clos : documentez un{' '}
-              <strong className="font-medium text-foreground">retour d&apos;expérience</strong>{' '}
-              (bilan, écarts, leçons apprises) — distinct des revues de pilotage en cours de projet.
-            </>
+            finalizedPostMortem && !draftPostMortem ? (
+              <>
+                Un{' '}
+                <strong className="font-medium text-foreground">retour d&apos;expérience</strong> a été
+                finalisé pour ce projet — consultez-le dans le tableau ci-dessous.
+              </>
+            ) : (
+              <>
+                Projet clos : documentez un{' '}
+                <strong className="font-medium text-foreground">retour d&apos;expérience</strong>{' '}
+                (bilan, écarts, leçons apprises) — distinct des revues de pilotage en cours de projet.
+              </>
+            )
           ) : (
             <>
               Créez un <strong className="font-medium text-foreground">point projet</strong>, complétez le
@@ -381,7 +403,8 @@ export function ProjectReviewsTab({
             </>
           )}
         </p>
-        {canEdit && (
+        {canEdit &&
+          !(postMortemEligible && finalizedPostMortem && !draftPostMortem) && (
           <Button
             type="button"
             size="sm"

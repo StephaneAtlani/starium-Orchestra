@@ -67,6 +67,7 @@ import {
 import { projectQueryKeys } from '../lib/project-query-keys';
 import {
   findDraftPostMortemReview,
+  hasFinalizedPostMortemReview,
   isPostMortemEligibleProjectStatus,
 } from '../lib/project-review-post-mortem';
 import { formatCurrencyAmountFr } from '@/lib/currency-format';
@@ -1033,6 +1034,12 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     [projectId, draftRexForHeader],
   );
 
+  /** Masquer le lien si un REX est figé, sauf s’il reste un brouillon à reprendre. */
+  const hidePostMortemHeaderCtaBecauseFinalized =
+    reviewsForRexCta.isSuccess &&
+    hasFinalizedPostMortemReview(reviewsForRexCta.data) &&
+    !findDraftPostMortemReview(reviewsForRexCta.data);
+
   if (!projectId) {
     return (
       <p className="text-sm text-destructive">Identifiant de projet manquant.</p>
@@ -1087,7 +1094,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
               <ProjectPortfolioBadges signals={project.signals} />
             </div>
           </div>
-          {showPostMortemHeaderCta ? (
+          {showPostMortemHeaderCta && !hidePostMortemHeaderCtaBecauseFinalized ? (
             <div className="shrink-0 w-full sm:max-w-sm">
               {reviewsForRexCta.isLoading ? (
                 <div

@@ -17,6 +17,16 @@ export function findDraftPostMortemReview(
   return drafts[0] ?? null;
 }
 
+/** Au moins un retour d'expérience figé — plus de CTA « créer / continuer » sur la synthèse. */
+export function hasFinalizedPostMortemReview(
+  items: ProjectReviewListItem[] | undefined,
+): boolean {
+  if (!items?.length) return false;
+  return items.some(
+    (r) => r.reviewType === 'POST_MORTEM' && r.status === 'FINALIZED',
+  );
+}
+
 /** Statuts projet pour lesquels seuls des retours d'expérience peuvent être créés (nouveaux points). */
 export const POST_MORTEM_ELIGIBLE_PROJECT_STATUSES = [
   'COMPLETED',
