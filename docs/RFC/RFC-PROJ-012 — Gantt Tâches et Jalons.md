@@ -396,11 +396,12 @@ project_milestone.updated
 * [`lib/gantt-timeline-layout.spec.ts`](../../apps/web/src/features/projects/lib/gantt-timeline-layout.spec.ts) — tests Vitest sur le calcul de layout
 * [`lib/gantt-dependency-geometry.ts`](../../apps/web/src/features/projects/lib/gantt-dependency-geometry.ts) — chemins SVG des liens selon `dependencyType`, `buildDependencyPaths`
 * [`lib/gantt-dependency-geometry.spec.ts`](../../apps/web/src/features/projects/lib/gantt-dependency-geometry.spec.ts) — tests Vitest sur la géométrie des dépendances
+* [`lib/build-gantt-body-rows.ts`](../../apps/web/src/features/projects/lib/build-gantt-body-rows.ts) — **ordre unique** des lignes (phases, jalons avec tâche liée, tâches) partagé entre la grille et la frise ; le panneau Gantt construit ce corps à partir du payload `GET /gantt` et le transmet à `ProjectTaskPlanningSection` via la prop `ganttUnifiedBodyRows` (la grille réconcilie avec les requêtes tâches/jalons pour l’édition inline)
 * [`hooks/use-project-planning-mutations.ts`](../../apps/web/src/features/projects/hooks/use-project-planning-mutations.ts) — option `silentToast` sur `useUpdateProjectTaskMutation` / `useUpdateProjectMilestoneMutation` pour limiter les toasts lors des gestes sur la frise (succès dédié pour le lien « Dépendance enregistrée » dans le panneau Gantt)
 
 **Backend** : inchangé par rapport à la RFC — `GET /api/projects/:projectId/gantt`, `PATCH` tâche / jalon ; isolation client (pas de `clientId` arbitraire côté client). Les rejets métier (ex. cycle de dépendance) sont renvoyés par l’API et affichés via toast.
 
-**Performance** : calculs de layout, géométrie des liens et arbres mémoïsés côté React ; virtualisation possible en phase 2 si volumétrie importante.
+**Performance** : calculs de layout, géométrie des liens et lignes corps mémoïsés côté React ; virtualisation possible en phase 2 si volumétrie importante.
 
 ---
 

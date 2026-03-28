@@ -1811,7 +1811,7 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
 
-Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload Gantt backend — pas d’UI Gantt au MVP), **RFC-PROJ-012** (fiche décisionnelle), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload **`GET /gantt`**), **RFC-PROJ-012** — *deux livrables distincts dans le dépôt* : [fiche décisionnelle Project Sheet](RFC/RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [UI Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
 ### Guards et headers
 
@@ -1896,7 +1896,7 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 
 ### Gantt-ready — `/api/projects/:projectId/gantt` (RFC-PROJ-011)
 
-- **GET** — Agrégat **tâches + jalons** pour un affichage type diagramme de Gantt côté client (les **activités** ne font pas partie de ce payload). **`projects.read`**
+- **GET** — Agrégat **tâches + jalons** pour l’UI Gantt (les **activités** ne font pas partie de ce payload). **`projects.read`** — consommé par la route **`/projects/[projectId]/planning`** (voir [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md)).
 
 ### Activités — `/api/projects/:projectId/activities` (RFC-PROJ-011)
 

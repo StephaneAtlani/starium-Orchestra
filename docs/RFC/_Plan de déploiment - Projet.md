@@ -1,6 +1,6 @@
 # Plan de développement — Module Portefeuille Projets & Activités
 
-> **Note (2026-03)** : le **MVP livré** suit **RFC-PROJ-001** avec l’entité **`Project`** (et tâches / risques / jalons), pas le modèle historique « `PortfolioItem` » / projet+activité décrit plus bas. Synthèse implémentation : [docs/modules/projects-mvp.md](../modules/projects-mvp.md). Ce document reste une **vision long terme** et un ordre de travail ; les lignes « À faire » du tableau en fin de fichier ne reflètent pas l’état du MVP déjà mergé.
+> **Note (2026-03)** : le **MVP livré** suit **RFC-PROJ-001** avec l’entité `**Project`** (et tâches / risques / jalons), pas le modèle historique « `PortfolioItem` » / projet+activité décrit plus bas. Synthèse implémentation : [docs/modules/projects-mvp.md](../modules/projects-mvp.md). Ce document reste une **vision long terme** et un ordre de travail ; les lignes « À faire » du tableau en fin de fichier ne reflètent pas l’état du MVP déjà mergé.
 
 ## Vue d’ensemble
 
@@ -10,6 +10,36 @@ Le module doit couvrir 4 besoins :
 2. **Piloter un projet / une activité**
 3. **Relier le portefeuille au budget sans dupliquer la finance**
 4. **Relier le portefeuille aux fournisseurs et poser les bases des ressources**
+
+## Points bloquants / majeurs
+
+Décisions à figer **dès le départ** pour éviter des incohérences entre dashboard, alertes, imports et UI.
+
+### `archivedOperations` — une seule règle
+
+- **Source de vérité recommandée** : `status === ARCHIVED` (ou équivalent métier figé dans le schéma / enum).
+- `**archivedAt`** : métadonnée technique (horodatage), pas un second critère « parallèle » qui pourrait diverger du statut.
+- Ne pas laisser coexister plusieurs définitions implicites (« archivé si date renseignée », « archivé si flag », etc.) : une équipe, un lot, une interprétation différente.
+
+### `activeOperations` — liste explicite de statuts
+
+- Définir `**activeOperations**` comme **liste explicite** de valeurs de statut considérées comme actives (enum ou tableau versionné côté backend, réutilisé partout).
+- **Sans** cette liste partagée : risque d’écarts entre **tableau de bord**, **moteur d’alertes** et **filtres UI** (même donnée, résultats différents).
+
+### Import Excel — clé de dédoublonnage
+
+- **À figer avant le premier import** : règle unique de rapprochement ligne Excel ↔ enregistrement existant.
+- **Recommandé** : priorité à `**operationNumber`** (ou identifiant métier stable) ; **sinon** repli sur une clé composite `**normalizedTitle` + `normalizedCity`** (normalisation identique côté import et base).
+
+### Alertes — audit et `alert.generated`
+
+- Attention au **bruit d’audit** si chaque recalcul ou régénération d’alerte écrit un événement « comme une mutation ».
+- **Recommandé** : journaliser l’audit **à la création** d’une alerte ou **lors d’un changement d’état** réel (ex. transition de sévérité / acquittement), pas à chaque émission technique identique.
+
+### Export volumineux (lot 3 et suivants)
+
+- Poser **dès le lot 3** une **limite synchrone** claire (nombre de lignes, taille, ou timeout) sur les exports « tout le portefeuille ».
+- Objectif : éviter un **endpoint synchrone** qui charge la prod (mémoire / temps de réponse) ; au-delà de la limite, prévoir **job asynchrone**, **fichier paginé** ou **export partiel** documenté.
 
 ---
 
@@ -26,22 +56,21 @@ Définir le périmètre exact du module, ses frontières, ses objets métiers, e
 
 **À cadrer**
 
-* différence entre **projet** et **activité**
-* notion de **portefeuille**
-* notion de **pilotage**
-* frontière avec :
-
-  * budget
-  * fournisseurs
-  * ressources
-* vues métier attendues
-* permissions de base
-* règles multi-client
+- différence entre **projet** et **activité**
+- notion de **portefeuille**
+- notion de **pilotage**
+- frontière avec :
+  - budget
+  - fournisseurs
+  - ressources
+- vues métier attendues
+- permissions de base
+- règles multi-client
 
 **Résultat concret**
 
-* document de référence produit/métier
-* source de vérité pour toutes les RFC suivantes
+- document de référence produit/métier
+- source de vérité pour toutes les RFC suivantes
 
 **Priorité**
 🔥🔥🔥 Critique
@@ -55,12 +84,12 @@ Créer le modèle de données principal du module.
 
 **Entités MVP**
 
-* `PortfolioItem`
-* `PortfolioTask`
-* `PortfolioRisk`
-* `PortfolioMilestone` *(optionnel mais conseillé dès le départ)*
-* `PortfolioLink`
-* `PortfolioTag` *(optionnel)*
+- `PortfolioItem`
+- `PortfolioTask`
+- `PortfolioRisk`
+- `PortfolioMilestone` *(optionnel mais conseillé dès le départ)*
+- `PortfolioLink`
+- `PortfolioTag` *(optionnel)*
 
 **Structure recommandée**
 
@@ -68,93 +97,93 @@ Créer le modèle de données principal du module.
 
 Objet central de pilotage.
 
-* `id`
-* `clientId`
-* `type` → `PROJECT | ACTIVITY`
-* `name`
-* `code`
-* `description?`
-* `status`
-* `priority`
-* `healthStatus`
-* `ownerUserId?`
-* `managerUserId?`
-* `startDate?`
-* `targetEndDate?`
-* `actualEndDate?`
-* `progressPercent`
-* `isArchived`
-* `createdAt`
-* `updatedAt`
+- `id`
+- `clientId`
+- `type` → `PROJECT | ACTIVITY`
+- `name`
+- `code`
+- `description?`
+- `status`
+- `priority`
+- `healthStatus`
+- `ownerUserId?`
+- `managerUserId?`
+- `startDate?`
+- `targetEndDate?`
+- `actualEndDate?`
+- `progressPercent`
+- `isArchived`
+- `createdAt`
+- `updatedAt`
 
 ### `PortfolioTask`
 
-* `id`
-* `clientId`
-* `portfolioItemId`
-* `phaseId?`
-* `title`
-* `description?`
-* `status`
-* `priority`
-* `assigneeUserId?`
-* `startDate?`
-* `dueDate?`
-* `completedAt?`
-* `progressPercent`
-* `sortOrder`
-* `createdAt`
-* `updatedAt`
+- `id`
+- `clientId`
+- `portfolioItemId`
+- `phaseId?`
+- `title`
+- `description?`
+- `status`
+- `priority`
+- `assigneeUserId?`
+- `startDate?`
+- `dueDate?`
+- `completedAt?`
+- `progressPercent`
+- `sortOrder`
+- `createdAt`
+- `updatedAt`
 
 ### `PortfolioRisk`
 
-* `id`
-* `clientId`
-* `portfolioItemId`
-* `title`
-* `description?`
-* `category`
-* `probability`
-* `impact`
-* `severity`
-* `status`
-* `ownerUserId?`
-* `mitigationPlan?`
-* `dueDate?`
-* `closedAt?`
-* `createdAt`
-* `updatedAt`
+- `id`
+- `clientId`
+- `portfolioItemId`
+- `title`
+- `description?`
+- `category`
+- `probability`
+- `impact`
+- `severity`
+- `status`
+- `ownerUserId?`
+- `mitigationPlan?`
+- `dueDate?`
+- `closedAt?`
+- `createdAt`
+- `updatedAt`
 
 ### `PortfolioMilestone`
 
-* `id`
-* `clientId`
-* `portfolioItemId`
-* `title`
-* `targetDate`
-* `actualDate?`
-* `status`
-* `description?`
+- `id`
+- `clientId`
+- `portfolioItemId`
+- `title`
+- `targetDate`
+- `actualDate?`
+- `status`
+- `description?`
 
 ### `PortfolioLink`
 
 Pour relier budget / fournisseur / contrat / commande / document / ressource plus tard.
 
-* `id`
-* `clientId`
-* `portfolioItemId`
-* `linkType`
-* `targetModule`
-* `targetEntityType`
-* `targetEntityId`
-* `metadata?`
+- `id`
+- `clientId`
+- `portfolioItemId`
+- `linkType`
+- `targetModule`
+- `targetEntityType`
+- `targetEntityId`
+- `metadata?`
 
 **Résultat concret**
 
-* migration Prisma
-* enums
-* relations
-* index par `clientId`
+- migration Prisma
+- enums
+- relations
+- index par `clientId`
 
 **Priorité**
 🔥🔥🔥 Critique
@@ -168,21 +197,20 @@ Figer les règles métier backend avant d’ouvrir les API.
 
 **Règles clés**
 
-* toute entité appartient à un `clientId`
-* une tâche, un risque ou un jalon ne peut appartenir qu’à un item du même client
-* `progressPercent` entre 0 et 100
-* calcul de `severity` côté backend
-* un item clôturé limite certaines modifications
-* un item peut être marqué en alerte si :
-
-  * échéance dépassée
-  * risque critique ouvert
-  * trop de tâches en retard
+- toute entité appartient à un `clientId`
+- une tâche, un risque ou un jalon ne peut appartenir qu’à un item du même client
+- `progressPercent` entre 0 et 100
+- calcul de `severity` côté backend
+- un item clôturé limite certaines modifications
+- un item peut être marqué en alerte si :
+  - échéance dépassée
+  - risque critique ouvert
+  - trop de tâches en retard
 
 **Résultat concret**
 
-* règles de validation explicites
-* comportements normalisés pour services et DTO
+- règles de validation explicites
+- comportements normalisés pour services et DTO
 
 **Priorité**
 🔥🔥🔥 Critique
@@ -202,27 +230,27 @@ Créer le module NestJS principal.
 
 ### Portfolio items
 
-* `GET /api/portfolio-items`
-* `POST /api/portfolio-items`
-* `GET /api/portfolio-items/:id`
-* `PATCH /api/portfolio-items/:id`
+- `GET /api/portfolio-items`
+- `POST /api/portfolio-items`
+- `GET /api/portfolio-items/:id`
+- `PATCH /api/portfolio-items/:id`
 
 ### Filtres attendus
 
-* type
-* statut
-* priorité
-* santé
-* responsable
-* recherche
-* archivage oui/non
+- type
+- statut
+- priorité
+- santé
+- responsable
+- recherche
+- archivage oui/non
 
 **Résultat concret**
 
-* CRUD principal portefeuille
-* pagination
-* filtres
-* validation DTO
+- CRUD principal portefeuille
+- pagination
+- filtres
+- validation DTO
 
 **Priorité**
 🔥🔥🔥 Critique
@@ -236,24 +264,24 @@ Gérer l’exécution opérationnelle.
 
 **Endpoints**
 
-* `GET /api/portfolio-items/:id/tasks`
-* `POST /api/portfolio-items/:id/tasks`
-* `GET /api/portfolio-tasks/:id`
-* `PATCH /api/portfolio-tasks/:id`
+- `GET /api/portfolio-items/:id/tasks`
+- `POST /api/portfolio-items/:id/tasks`
+- `GET /api/portfolio-tasks/:id`
+- `PATCH /api/portfolio-tasks/:id`
 
 **Règles**
 
-* groupement par phases fonctionnelles (sans récursion parent/enfant)
-* tri manuel
-* dates
-* avancement
-* statut
-* responsable
+- groupement par phases fonctionnelles (sans récursion parent/enfant)
+- tri manuel
+- dates
+- avancement
+- statut
+- responsable
 
 **Résultat concret**
 
-* gestion des tâches projet/activité
-* base pour la vue détail
+- gestion des tâches projet/activité
+- base pour la vue détail
 
 **Priorité**
 🔥🔥🔥 Critique
@@ -267,15 +295,15 @@ Permettre le pilotage des risques.
 
 **Endpoints**
 
-* `GET /api/portfolio-items/:id/risks`
-* `POST /api/portfolio-items/:id/risks`
-* `GET /api/portfolio-risks/:id`
-* `PATCH /api/portfolio-risks/:id`
+- `GET /api/portfolio-items/:id/risks`
+- `POST /api/portfolio-items/:id/risks`
+- `GET /api/portfolio-risks/:id`
+- `PATCH /api/portfolio-risks/:id`
 
 **Résultat concret**
 
-* registre de risques par projet/activité
-* priorisation par sévérité
+- registre de risques par projet/activité
+- priorisation par sévérité
 
 **Priorité**
 🔥🔥 Haute
@@ -289,14 +317,14 @@ Ajouter une logique de jalons simple.
 
 **Endpoints**
 
-* `GET /api/portfolio-items/:id/milestones`
-* `POST /api/portfolio-items/:id/milestones`
-* `PATCH /api/portfolio-milestones/:id`
+- `GET /api/portfolio-items/:id/milestones`
+- `POST /api/portfolio-items/:id/milestones`
+- `PATCH /api/portfolio-milestones/:id`
 
 **Résultat concret**
 
-* jalons clés d’un projet
-* lecture planning macro sans Gantt complexe
+- jalons clés d’un projet
+- lecture planning macro sans Gantt complexe
 
 **Priorité**
 🔥 Haute
@@ -310,19 +338,19 @@ Raccorder le module à ton core plateforme.
 
 **Permissions recommandées**
 
-* `projects.read`
-* `projects.create`
-* `projects.update`
-* `projects.risks.read`
-* `projects.risks.update`
-* `projects.tasks.read`
-* `projects.tasks.update`
+- `projects.read`
+- `projects.create`
+- `projects.update`
+- `projects.risks.read`
+- `projects.risks.update`
+- `projects.tasks.read`
+- `projects.tasks.update`
 
 **Résultat concret**
 
-* guards fonctionnels
-* affichage frontend basé sur permissions
-* module activable proprement
+- guards fonctionnels
+- affichage frontend basé sur permissions
+- module activable proprement
 
 **Priorité**
 🔥🔥🔥 Critique
@@ -336,13 +364,13 @@ Tracer toutes les actions sensibles.
 
 **Événements à auditer** (contrat `PROJECT_AUDIT_ACTION` — préfixes `project`, `project_task`, `project_risk`, `project_milestone`)
 
-* création / mise à jour / suppression par entité
-* événements granulaires : statut projet, owner projet ; statut / assignation tâche ; niveau risque ; etc. (liste complète dans RFC-PROJ-009)
+- création / mise à jour / suppression par entité
+- événements granulaires : statut projet, owner projet ; statut / assignation tâche ; niveau risque ; etc. (liste complète dans RFC-PROJ-009)
 
 **Résultat concret**
 
-* traçabilité métier
-* cohérence avec le core plateforme
+- traçabilité métier
+- cohérence avec le core plateforme
 
 **Priorité**
 🔥🔥 Haute
@@ -360,26 +388,25 @@ Rattacher un projet ou une activité aux objets budgétaires sans stocker la fin
 
 **Ce qu’on fait**
 
-* lier un `PortfolioItem` à :
-
-  * `Budget`
-  * `BudgetEnvelope`
-  * `BudgetLine`
+- lier un `PortfolioItem` à :
+  - `Budget`
+  - `BudgetEnvelope`
+  - `BudgetLine`
 
 **Ce qu’on ne fait pas**
 
-* pas de calcul financier source de vérité dans ce module
-* pas de duplication des montants métier
+- pas de calcul financier source de vérité dans ce module
+- pas de duplication des montants métier
 
 **Endpoints**
 
-* `GET /api/portfolio-items/:id/budget-links`
-* `POST /api/portfolio-items/:id/budget-links`
-* `DELETE /api/portfolio-items/:id/budget-links/:linkId`
+- `GET /api/portfolio-items/:id/budget-links`
+- `POST /api/portfolio-items/:id/budget-links`
+- `DELETE /api/portfolio-items/:id/budget-links/:linkId`
 
 **Résultat concret**
 
-* un projet peut être relié au bon périmètre budgétaire
+- un projet peut être relié au bon périmètre budgétaire
 
 **Priorité**
 🔥🔥 Haute
@@ -393,14 +420,14 @@ Lier les projets/activités aux fournisseurs et objets associés.
 
 **Cibles possibles**
 
-* supplier
-* contract
-* purchase-order
-* license
+- supplier
+- contract
+- purchase-order
+- license
 
 **Résultat concret**
 
-* vision transverse sans réimplémenter le module fournisseur
+- vision transverse sans réimplémenter le module fournisseur
 
 **Priorité**
 🔥🔥 Haute
@@ -414,15 +441,15 @@ Rattacher les documents utiles au projet.
 
 **Exemples**
 
-* cadrage
-* compte-rendu
-* cahier des charges
-* PV recette
-* planning PDF
+- cadrage
+- compte-rendu
+- cahier des charges
+- PV recette
+- planning PDF
 
 **Résultat concret**
 
-* un item projet devient un vrai conteneur de pilotage
+- un item projet devient un vrai conteneur de pilotage
 
 **Priorité**
 🔥 Moyenne
@@ -443,20 +470,20 @@ Créer un registre générique de ressources mobilisables.
 
 **Champs MVP livrés**
 
-* `id`
-* `clientId`
-* `name`
-* `code?`
-* `firstName?`
-* `type` (`HUMAN` / `MATERIAL` / `LICENSE`)
-* `email?`
-* `roleId?`
-* `affiliation?` (`INTERNAL` / `EXTERNAL`)
-* `companyName?`
-* `dailyRate?`
-* `metadata?`
-* `createdAt`
-* `updatedAt`
+- `id`
+- `clientId`
+- `name`
+- `code?`
+- `firstName?`
+- `type` (`HUMAN` / `MATERIAL` / `LICENSE`)
+- `email?`
+- `roleId?`
+- `affiliation?` (`INTERNAL` / `EXTERNAL`)
+- `companyName?`
+- `dailyRate?`
+- `metadata?`
+- `createdAt`
+- `updatedAt`
 
 **État**
 
@@ -464,7 +491,7 @@ Créer un registre générique de ressources mobilisables.
 
 **Résultat concret**
 
-* socle pour les affectations futures
+- socle pour les affectations futures
 
 **Priorité**
 🔥🔥 Haute
@@ -481,20 +508,20 @@ Permettre l’affectation de ressources à un projet/activité.
 
 **Champs**
 
-* `id`
-* `clientId`
-* `portfolioItemId`
-* `resourceId`
-* `roleOnItem?`
-* `allocationPercent?`
-* `startDate?`
-* `endDate?`
-* `notes?`
+- `id`
+- `clientId`
+- `portfolioItemId`
+- `resourceId`
+- `roleOnItem?`
+- `allocationPercent?`
+- `startDate?`
+- `endDate?`
+- `notes?`
 
 **Résultat concret**
 
-* lien entre projet et ressource
-* fondation des vues de charge futures
+- lien entre projet et ressource
+- fondation des vues de charge futures
 
 **Priorité**
 🔥🔥 Haute
@@ -508,14 +535,14 @@ Préparer des métadonnées spécifiques selon le type.
 
 **Exemples**
 
-* interne : rôle, équipe, compétence principale
-* externe : société, prestation, référent
-* logiciel : éditeur, famille, environnement
-* matériel : type d’actif, usage
+- interne : rôle, équipe, compétence principale
+- externe : société, prestation, référent
+- logiciel : éditeur, famille, environnement
+- matériel : type d’actif, usage
 
 **Résultat concret**
 
-* modèle extensible sans surcharger le MVP
+- modèle extensible sans surcharger le MVP
 
 **Priorité**
 🔥 Moyenne
@@ -533,21 +560,21 @@ Créer la page liste portefeuille.
 
 **Route**
 
-* `/portfolio`
-  ou
-* `/projects` si tu veux rester plus simple au début
+- `/portfolio`
+ou
+- `/projects` si tu veux rester plus simple au début
 
 **Contenu**
 
-* KPIs
-* filtres
-* recherche
-* table portefeuille
-* badges type / santé / statut / priorité
+- KPIs
+- filtres
+- recherche
+- table portefeuille
+- badges type / santé / statut / priorité
 
 **Résultat concret**
 
-* vue consolidée projets + activités
+- vue consolidée projets + activités
 
 **Priorité**
 🔥🔥🔥 Critique
@@ -561,22 +588,22 @@ Créer la page détail d’un projet/activité.
 
 **Route**
 
-* `/portfolio/[id]`
+- `/portfolio/[id]`
 
 **Onglets**
 
-* Synthèse
-* Tâches
-* Risques
-* Jalons
-* Ressources
-* Budget
-* Fournisseurs
-* Documents
+- Synthèse
+- Tâches
+- Risques
+- Jalons
+- Ressources
+- Budget
+- Fournisseurs
+- Documents
 
 **Résultat concret**
 
-* cockpit détaillé par item
+- cockpit détaillé par item
 
 **Priorité**
 🔥🔥🔥 Critique
@@ -590,13 +617,13 @@ Rendre pilotables les tâches.
 
 **Contenu**
 
-* liste
-* statut
-* priorité
-* responsable
-* dates
-* progression
-* édition inline légère ou drawer
+- liste
+- statut
+- priorité
+- responsable
+- dates
+- progression
+- édition inline légère ou drawer
 
 **Priorité**
 🔥🔥 Haute
@@ -610,12 +637,12 @@ Afficher et maintenir les risques.
 
 **Contenu**
 
-* probabilité
-* impact
-* sévérité
-* statut
-* plan de mitigation
-* propriétaire
+- probabilité
+- impact
+- sévérité
+- statut
+- plan de mitigation
+- propriétaire
 
 **Priorité**
 🔥🔥 Haute
@@ -629,11 +656,11 @@ Voir les ressources affectées.
 
 **Contenu**
 
-* catégorie
-* type
-* rôle
-* allocation
-* période
+- catégorie
+- type
+- rôle
+- allocation
+- période
 
 **Priorité**
 🔥 Haute
@@ -647,9 +674,9 @@ Afficher les rattachements budgétaires.
 
 **Contenu**
 
-* liens vers budget / enveloppe / ligne
-* badges
-* navigation vers le module budget
+- liens vers budget / enveloppe / ligne
+- badges
+- navigation vers le module budget
 
 **Priorité**
 🔥 Haute
@@ -663,10 +690,10 @@ Afficher les rattachements fournisseurs.
 
 **Contenu**
 
-* fournisseur principal
-* contrats liés
-* commandes liées
-* navigation vers le module fournisseur
+- fournisseur principal
+- contrats liés
+- commandes liées
+- navigation vers le module fournisseur
 
 **Priorité**
 🔥 Haute
@@ -686,14 +713,14 @@ Exposer les KPI du portefeuille.
 
 **KPI possibles**
 
-* total projets
-* total activités
-* en retard
-* critiques
-* tâches en retard
-* risques critiques ouverts
-* jalons à venir
-* ressources fortement sollicitées
+- total projets
+- total activités
+- en retard
+- critiques
+- tâches en retard
+- risques critiques ouverts
+- jalons à venir
+- ressources fortement sollicitées
 
 **Priorité**
 🔥🔥 Haute
@@ -707,12 +734,12 @@ Créer le cockpit global.
 
 **Widgets**
 
-* projets à risque
-* activités en dérive
-* échéances à 30 jours
-* risques critiques
-* éléments sans responsable
-* items sans lien budget
+- projets à risque
+- activités en dérive
+- échéances à 30 jours
+- risques critiques
+- éléments sans responsable
+- items sans lien budget
 
 **Priorité**
 🔥🔥 Haute
@@ -726,13 +753,13 @@ Ajouter de l’intelligence opérationnelle.
 
 **Exemples**
 
-* projet sans responsable
-* activité sans échéance
-* tâche en retard
-* jalon dépassé
-* risque critique non traité
-* projet sans lien budget
-* projet sans fournisseur alors qu’un achat est lié ailleurs
+- projet sans responsable
+- activité sans échéance
+- tâche en retard
+- jalon dépassé
+- risque critique non traité
+- projet sans lien budget
+- projet sans fournisseur alors qu’un achat est lié ailleurs
 
 **Priorité**
 🔥 Moyenne/Haute
@@ -762,24 +789,24 @@ Ajouter de l’intelligence opérationnelle.
 
 ## Niveau 2 — Produit solide
 
-13. **RFC-PROJ-007** — Milestones Backend
-14. **RFC-PROJ-010** — Budget Links
-15. **RFC-PROJ-011** — Supplier Links
-16. **RFC-RES-001** — Catalogue de ressources (fondations)
-17. **RFC-RES-002** — Resource Assignment Backend
-18. **RFC-FE-PROJ-005** — Resources Tab UI
-19. **RFC-FE-PROJ-006** — Budget Links Tab UI
-20. **RFC-FE-PROJ-007** — Supplier Links Tab UI
+1. **RFC-PROJ-007** — Milestones Backend
+2. **RFC-PROJ-010** — Budget Links
+3. **RFC-PROJ-011** — Supplier Links
+4. **RFC-RES-001** — Catalogue de ressources (fondations)
+5. **RFC-RES-002** — Resource Assignment Backend
+6. **RFC-FE-PROJ-005** — Resources Tab UI
+7. **RFC-FE-PROJ-006** — Budget Links Tab UI
+8. **RFC-FE-PROJ-007** — Supplier Links Tab UI
 
 ---
 
 ## Niveau 3 — Cockpit avancé
 
-21. **RFC-PROJ-013** — Portfolio Dashboard API
-22. **RFC-FE-PROJ-008** — Portfolio Cockpit UI
-23. **RFC-PROJ-014** — Alerts & Integrity Rules
-24. **RFC-RES-003** — Resource Types & Specialized Metadata
-25. **RFC-PROJ-012** — Documents & Attachments Links
+1. **RFC-PROJ-013** — Portfolio Dashboard API
+2. **RFC-FE-PROJ-008** — Portfolio Cockpit UI
+3. **RFC-PROJ-014** — Alerts & Integrity Rules
+4. **RFC-RES-003** — Resource Types & Specialized Metadata
+5. **RFC-PROJ-012** — Documents & Attachments Links
 
 ---
 
@@ -793,9 +820,9 @@ Commence par ces 3 RFC :
 
 Parce qu’il faut figer :
 
-* projet vs activité
-* frontières budget/fournisseur/ressource
-* vocabulaire officiel du module
+- projet vs activité
+- frontières budget/fournisseur/ressource
+- vocabulaire officiel du module
 
 ### **2. RFC-PROJ-002 — Prisma Schema Portefeuille**
 
@@ -823,30 +850,33 @@ C’est plus fidèle à ton besoin réel.
 
 # Tableau synthétique
 
-| RFC             | Nom                             | Objectif                                | Priorité      | État    |
-| --------------- | ------------------------------- | --------------------------------------- | ------------- | ------- |
-| RFC-PROJ-001    | Cadrage fonctionnel             | Définir le périmètre du module          | Haute         | Implémenté (MVP) |
-| RFC-PROJ-002    | Prisma Schema Portefeuille      | Modèle de données principal             | Haute         | Remplacé par schéma MVP `Project` + enfants — [projects-mvp.md](../modules/projects-mvp.md) |
-| RFC-PROJ-003    | Règles métier                   | Normaliser validations et comportements | Haute         | Couvert (MVP) — `projects-pilotage.service.ts` |
-| RFC-PROJ-004    | Portfolio Management Backend    | CRUD portefeuille                       | Haute         | Couvert (MVP) — `GET/POST/PATCH/DELETE /api/projects` |
-| RFC-PROJ-005    | Tasks Backend                   | Gestion des tâches                      | Haute         | Couvert (MVP) |
-| RFC-PROJ-006    | Risks Backend                   | Gestion des risques                     | Haute         | Couvert (MVP) |
-| RFC-PROJ-007    | Milestones Backend              | Jalons et échéances macro               | Moyenne/Haute | Couvert (MVP) |
-| RFC-PROJ-008    | Permissions & Module Activation | RBAC et activation module               | Haute         | Couvert (MVP) — `projects.*` |
-| RFC-PROJ-009    | Audit Logs Projet               | Traçabilité métier                      | Haute         | Couvert (MVP) — audit projet / tâches / risques / jalons + actions granulaires (statut, owner, assignation, niveau risque) |
-| RFC-PROJ-010    | Budget Links                    | Liens vers module budget                | Haute         | À faire |
-| RFC-PROJ-011    | Supplier Links                  | Liens vers module fournisseur           | Haute         | À faire |
-| RFC-PROJ-012    | Documents & Attachments Links   | Documents liés                          | Moyenne       | À faire |
-| RFC-RES-001     | Catalogue de ressources (fondations) | Registre ressources multi-types (module `resources`) | Haute         | Partiellement implémenté (MVP) |
-| RFC-RES-002     | Resource Assignment Backend     | Affectations ressources                 | Haute         | À faire |
-| RFC-RES-003     | Resource Types Metadata         | Métadonnées spécialisées                | Moyenne       | À faire |
-| RFC-FE-PROJ-001 | Portfolio List UI               | Vue portefeuille                        | Haute         | Couvert (MVP) — `/projects` |
-| RFC-FE-PROJ-002 | Portfolio Detail UI             | Vue détail                              | Haute         | Couvert (MVP) — `/projects/[projectId]` |
-| RFC-FE-PROJ-003 | Tasks Tab UI                    | Onglet tâches                           | Haute         | Couvert (MVP) — section fiche |
-| RFC-FE-PROJ-004 | Risks Tab UI                    | Onglet risques                          | Haute         | Couvert (MVP) — section fiche |
-| RFC-FE-PROJ-005 | Resources Tab UI                | Onglet ressources                       | Moyenne/Haute | À faire |
-| RFC-FE-PROJ-006 | Budget Links Tab UI             | Onglet budget                           | Moyenne/Haute | À faire |
-| RFC-FE-PROJ-007 | Supplier Links Tab UI           | Onglet fournisseurs                     | Moyenne/Haute | À faire |
-| RFC-PROJ-013    | Portfolio Dashboard API         | KPI portefeuille                        | Haute         | Couvert (MVP) — `GET /api/projects/portfolio-summary` |
-| RFC-FE-PROJ-008 | Portfolio Cockpit UI            | Cockpit pilotage                        | Haute         | Couvert (MVP) — bandeau KPI `/projects` |
-| RFC-PROJ-014    | Alerts & Integrity Rules        | Alertes et cohérence                    | Moyenne/Haute | À faire |
+
+| RFC             | Nom                                  | Objectif                                             | Priorité      | État                                                                                                                       |
+| --------------- | ------------------------------------ | ---------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| RFC-PROJ-001    | Cadrage fonctionnel                  | Définir le périmètre du module                       | Haute         | Implémenté (MVP)                                                                                                           |
+| RFC-PROJ-002    | Prisma Schema Portefeuille           | Modèle de données principal                          | Haute         | Remplacé par schéma MVP `Project` + enfants — [projects-mvp.md](../modules/projects-mvp.md)                                |
+| RFC-PROJ-003    | Règles métier                        | Normaliser validations et comportements              | Haute         | Couvert (MVP) — `projects-pilotage.service.ts`                                                                             |
+| RFC-PROJ-004    | Portfolio Management Backend         | CRUD portefeuille                                    | Haute         | Couvert (MVP) — `GET/POST/PATCH/DELETE /api/projects`                                                                      |
+| RFC-PROJ-005    | Tasks Backend                        | Gestion des tâches                                   | Haute         | Couvert (MVP)                                                                                                              |
+| RFC-PROJ-006    | Risks Backend                        | Gestion des risques                                  | Haute         | Couvert (MVP)                                                                                                              |
+| RFC-PROJ-007    | Milestones Backend                   | Jalons et échéances macro                            | Moyenne/Haute | Couvert (MVP)                                                                                                              |
+| RFC-PROJ-008    | Permissions & Module Activation      | RBAC et activation module                            | Haute         | Couvert (MVP) — `projects.`*                                                                                               |
+| RFC-PROJ-009    | Audit Logs Projet                    | Traçabilité métier                                   | Haute         | Couvert (MVP) — audit projet / tâches / risques / jalons + actions granulaires (statut, owner, assignation, niveau risque) |
+| RFC-PROJ-010    | Budget Links                         | Liens vers module budget                             | Haute         | À faire                                                                                                                    |
+| RFC-PROJ-011    | Supplier Links                       | Liens vers module fournisseur                        | Haute         | À faire                                                                                                                    |
+| RFC-PROJ-012    | Documents & Attachments Links        | Documents liés                                       | Moyenne       | À faire                                                                                                                    |
+| RFC-RES-001     | Catalogue de ressources (fondations) | Registre ressources multi-types (module `resources`) | Haute         | Partiellement implémenté (MVP)                                                                                             |
+| RFC-RES-002     | Resource Assignment Backend          | Affectations ressources                              | Haute         | À faire                                                                                                                    |
+| RFC-RES-003     | Resource Types Metadata              | Métadonnées spécialisées                             | Moyenne       | À faire                                                                                                                    |
+| RFC-FE-PROJ-001 | Portfolio List UI                    | Vue portefeuille                                     | Haute         | Couvert (MVP) — `/projects`                                                                                                |
+| RFC-FE-PROJ-002 | Portfolio Detail UI                  | Vue détail                                           | Haute         | Couvert (MVP) — `/projects/[projectId]`                                                                                    |
+| RFC-FE-PROJ-003 | Tasks Tab UI                         | Onglet tâches                                        | Haute         | Couvert (MVP) — section fiche                                                                                              |
+| RFC-FE-PROJ-004 | Risks Tab UI                         | Onglet risques                                       | Haute         | Couvert (MVP) — section fiche                                                                                              |
+| RFC-FE-PROJ-005 | Resources Tab UI                     | Onglet ressources                                    | Moyenne/Haute | À faire                                                                                                                    |
+| RFC-FE-PROJ-006 | Budget Links Tab UI                  | Onglet budget                                        | Moyenne/Haute | À faire                                                                                                                    |
+| RFC-FE-PROJ-007 | Supplier Links Tab UI                | Onglet fournisseurs                                  | Moyenne/Haute | À faire                                                                                                                    |
+| RFC-PROJ-013    | Portfolio Dashboard API              | KPI portefeuille                                     | Haute         | Couvert (MVP) — `GET /api/projects/portfolio-summary`                                                                      |
+| RFC-FE-PROJ-008 | Portfolio Cockpit UI                 | Cockpit pilotage                                     | Haute         | Couvert (MVP) — bandeau KPI `/projects`                                                                                    |
+| RFC-PROJ-014    | Alerts & Integrity Rules             | Alertes et cohérence                                 | Moyenne/Haute | À faire                                                                                                                    |
+
+
