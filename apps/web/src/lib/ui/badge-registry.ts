@@ -88,15 +88,21 @@ const NEUTRAL_TEXT_AUTO: Record<BadgeSurface, string> = {
   vivid: 'text-primary-foreground dark:text-primary-foreground',
 };
 
-const TEXT_PRESET_CLASS: Record<
-  Exclude<BadgeTextPreset, 'auto'>,
-  string
-> = {
-  /** Toujours un gris/noir lisible — pas `dark:text-slate-50` (sinon « Texte foncé » devient clair en thème sombre). */
-  dark: 'text-slate-950 dark:text-slate-950',
+const TEXT_PRESET_CLASS: Record<'light' | 'muted', string> = {
   light: 'text-white dark:text-white',
   muted: 'text-muted-foreground',
 };
+
+/**
+ * « Texte foncé » (clé API `dark`) : toujours une nuance **foncée** de la palette (950).
+ * On n’utilise pas `dark:text-*-50` ici : en thème sombre ça donnait du texte quasi blanc, incohérent avec le libellé.
+ */
+function textDarkPresetClass(palette: BadgePalette): string {
+  if (palette === 'neutral') {
+    return 'text-slate-950 dark:text-slate-950 font-semibold';
+  }
+  return `text-${palette}-950 dark:text-${palette}-950 font-semibold`;
+}
 
 export function badgeClassForStyle(style: BadgeStyle): string {
   const { palette, surface, textColor } = style;
@@ -112,7 +118,11 @@ export function badgeClassForStyle(style: BadgeStyle): string {
   }
 
   const text =
-    textColor === 'auto' ? autoText : TEXT_PRESET_CLASS[textColor];
+    textColor === 'auto'
+      ? autoText
+      : textColor === 'dark'
+        ? textDarkPresetClass(palette)
+        : TEXT_PRESET_CLASS[textColor];
   return cn('font-normal', base, text);
 }
 

@@ -51,8 +51,9 @@ const vivid = (c) =>
 const SURFACES = { pastel, dark, vivid };
 
 const TEXT_AUTO = {
+  /** Pastel : max contraste sur fond clair (950) et sur fond sombre teinté (50). */
   pastel: (c) =>
-    `text-${c}-900 dark:text-${c}-200`,
+    `text-${c}-950 font-medium dark:text-${c}-50`,
   dark: () => 'text-white dark:text-white',
   vivid: () => 'text-white dark:text-white',
 };
