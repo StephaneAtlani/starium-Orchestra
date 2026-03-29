@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
@@ -8,7 +8,6 @@ import { PageContainer } from '@/components/layout/page-container';
 import { BudgetPageHeader } from '@/features/budgets/components/budget-page-header';
 import { BudgetKpiCards } from '@/features/budgets/components/budget-kpi-cards';
 import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
-import { BudgetToolbar } from '@/features/budgets/components/budget-toolbar';
 import { BudgetExplorerToolbar } from '@/features/budgets/components/budget-explorer-toolbar';
 import { BudgetExplorerTable } from '@/features/budgets/components/budget-explorer-table';
 import { LoadingState } from '@/components/feedback/loading-state';
@@ -28,7 +27,11 @@ import {
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { BudgetExplorerFilters } from '@/features/budgets/types/budget-explorer.types';
+import {
+  explorerSortPresetToState,
+  type BudgetExplorerFilters,
+  type ExplorerSortPreset,
+} from '@/features/budgets/types/budget-explorer.types';
 import { BudgetLineIntelligenceDrawer, type BudgetLineDrawerTab } from '@/features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer';
 import type { BudgetEnvelope, BudgetLine } from '@/features/budgets/types/budget-management.types';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
@@ -55,16 +58,21 @@ export default function BudgetDetailPage() {
   const [activeTab, setActiveTab] = useState<BudgetLineDrawerTab>('overview');
 
   const [filters, setFilters] = useState<BudgetExplorerFilters>({});
+  const [sortPreset, setSortPreset] = useState<ExplorerSortPreset>('default');
+  const explorerSort = useMemo(
+    () => explorerSortPresetToState(sortPreset),
+    [sortPreset],
+  );
   const { tree, filteredTree } = useBudgetExplorerTree(
     budget,
     envelopes,
     lines,
     filters,
+    explorerSort,
   );
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const prevFiltersActiveRef = useRef(false);
-  const [editableLineId, setEditableLineId] = useState<string | null>(null);
   const hasInitializedExpanded = useRef(false);
 
   const onBudgetLineClick = useCallback((lineId: string) => {
@@ -255,16 +263,6 @@ export default function BudgetDetailPage() {
           <BudgetKpiCards items={kpiItems} className="mb-6" />
         )}
 
-        <BudgetToolbar className="mb-4">
-          <BudgetExplorerToolbar
-            filters={filters}
-            setFilters={setFilters}
-            taxDisplayMode={taxDisplayMode}
-            setTaxDisplayMode={setTaxDisplayMode}
-            isTaxLoading={isTaxLoading}
-          />
-        </BudgetToolbar>
-
         {isEmptyGlobal && (
           <BudgetEmptyState
             title="Aucune enveloppe"
@@ -275,6 +273,15 @@ export default function BudgetDetailPage() {
 
         {!isEmptyGlobal && (
           <Card className="mb-6">
+            <CardHeader className="border-b border-border/60 pb-4">
+              <BudgetExplorerToolbar
+                filters={filters}
+                setFilters={setFilters}
+                taxDisplayMode={taxDisplayMode}
+                setTaxDisplayMode={setTaxDisplayMode}
+                isTaxLoading={isTaxLoading}
+              />
+            </CardHeader>
             <CardContent className="p-0">
               <BudgetExplorerTable
                 nodes={filteredTree}
@@ -282,11 +289,11 @@ export default function BudgetDetailPage() {
                 expandedIds={expandedIds}
                 onToggleExpand={onToggleExpand}
                 budgetId={budgetId!}
-                editableLineId={editableLineId}
-                onToggleEditable={setEditableLineId}
                 onBudgetLineClick={onBudgetLineClick}
                 taxDisplayMode={taxDisplayMode}
                 budgetTaxMode={budget.taxMode}
+                sortPreset={sortPreset}
+                onSortPresetChange={setSortPreset}
                 emptyMessage="Aucune enveloppe."
                 emptyFilteredMessage="Aucun résultat pour ces filtres."
                 isFilteredEmpty={isEmptyFiltered}

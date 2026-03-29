@@ -351,6 +351,7 @@ export interface UpdateLinePayload {
   status?: string;
   generalLedgerAccountId?: string | null;
   analyticalLedgerAccountId?: string | null;
+  allocationScope?: 'ENTERPRISE' | 'ANALYTICAL';
   revisedAmount?: number;
   currency?: string;
   expenseType?: string;

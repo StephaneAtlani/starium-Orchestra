@@ -125,7 +125,23 @@ export function BudgetLineFormPage({
       {variant === 'page' && (
         <BudgetPageHeader
           title={isEdit ? 'Modifier la ligne' : 'Nouvelle ligne budgétaire'}
-          description={isEdit && line ? line.name : 'Créez une ligne pour ce budget.'}
+          description={
+            <span className="flex flex-col gap-1">
+              <span>
+                {isEdit && line ? line.name : 'Créez une ligne pour ce budget.'}
+              </span>
+              {budget && (
+                <span className="text-muted-foreground">
+                  Responsable du budget :{' '}
+                  <span className="font-medium text-foreground">
+                    {budget.ownerUserName?.trim()
+                      ? budget.ownerUserName
+                      : '—'}
+                  </span>
+                </span>
+              )}
+            </span>
+          }
         />
       )}
       <div className="space-y-6">

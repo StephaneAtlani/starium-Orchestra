@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -9,9 +10,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { ExplorerNode } from '../types/budget-explorer.types';
+import { cn } from '@/lib/utils';
+import type { ExplorerNode, ExplorerSortColumn, ExplorerSortPreset } from '../types/budget-explorer.types';
+import {
+  explorerSortPresetToState,
+  toggleExplorerSortColumn,
+} from '../types/budget-explorer.types';
 import { BudgetExplorerRow } from './budget-explorer-row';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
+
+type SortableColumn = Exclude<ExplorerSortColumn, 'default'>;
 
 interface BudgetExplorerTableProps {
   nodes: ExplorerNode[];
@@ -19,11 +27,11 @@ interface BudgetExplorerTableProps {
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
   budgetId: string;
-  editableLineId?: string | null;
-  onToggleEditable?: (lineId: string | null) => void;
   onBudgetLineClick?: (lineId: string) => void;
   taxDisplayMode: TaxDisplayMode;
   budgetTaxMode: TaxDisplayMode;
+  sortPreset: ExplorerSortPreset;
+  onSortPresetChange: (preset: ExplorerSortPreset) => void;
   emptyMessage?: string;
   emptyFilteredMessage?: string;
   /** true quand l’arbre affiché est filtré et vide (tree.length > 0 mais nodes.length === 0) */
@@ -33,17 +41,69 @@ interface BudgetExplorerTableProps {
 const DEFAULT_EMPTY = 'Aucune enveloppe.';
 const DEFAULT_FILTERED_EMPTY = 'Aucun résultat pour ces filtres.';
 
+function ExplorerSortableHead({
+  label,
+  column,
+  sortPreset,
+  onSortPresetChange,
+  align = 'left',
+  headClassName,
+}: {
+  label: string;
+  column: SortableColumn;
+  sortPreset: ExplorerSortPreset;
+  onSortPresetChange: (preset: ExplorerSortPreset) => void;
+  align?: 'left' | 'right';
+  headClassName?: string;
+}) {
+  const state = explorerSortPresetToState(sortPreset);
+  const active = state.column === column;
+  const Icon = active ? (state.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+
+  return (
+    <TableHead
+      className={cn(
+        align === 'right' && 'text-right',
+        !headClassName && align === 'right' && 'min-w-[6.75rem] whitespace-nowrap',
+        active && 'text-foreground',
+        headClassName,
+      )}
+    >
+      <button
+        type="button"
+        className={cn(
+          '-mx-1 inline-flex max-w-full items-center gap-1 rounded-md px-1 py-0.5 text-left font-medium hover:bg-muted/80 hover:text-foreground',
+          align === 'right' && 'w-full justify-end text-right',
+        )}
+        onClick={() => onSortPresetChange(toggleExplorerSortColumn(sortPreset, column))}
+        aria-sort={
+          active ? (state.direction === 'asc' ? 'ascending' : 'descending') : 'none'
+        }
+      >
+        <span className="whitespace-nowrap">{label}</span>
+        <Icon
+          className={cn(
+            'size-3.5 shrink-0',
+            active ? 'text-primary' : 'text-muted-foreground opacity-60',
+          )}
+          aria-hidden
+        />
+      </button>
+    </TableHead>
+  );
+}
+
 export function BudgetExplorerTable({
   nodes,
   currency,
   expandedIds,
   onToggleExpand,
   budgetId,
-  editableLineId,
-  onToggleEditable,
   onBudgetLineClick,
   taxDisplayMode,
   budgetTaxMode,
+  sortPreset,
+  onSortPresetChange,
   emptyMessage = DEFAULT_EMPTY,
   emptyFilteredMessage = DEFAULT_FILTERED_EMPTY,
   isFilteredEmpty = false,
@@ -61,24 +121,75 @@ export function BudgetExplorerTable({
   }
 
   return (
-    <Table data-testid="budget-explorer-table">
+    <Table className="min-w-[1280px]" data-testid="budget-explorer-table">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-10 min-w-10 p-2 text-center">
-            <span className="sr-only">Actions</span>
-          </TableHead>
-          <TableHead>Sous-budget</TableHead>
-          <TableHead>Responsable</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead className="text-right">Budget</TableHead>
-          <TableHead className="text-right">% budget</TableHead>
-          <TableHead className="text-right">Lignes</TableHead>
-          <TableHead className="text-right">OPEX</TableHead>
-          <TableHead className="text-right">CAPEX</TableHead>
-          <TableHead className="text-right">Engagé</TableHead>
-          <TableHead className="text-right">Consommé</TableHead>
-          <TableHead className="text-right">Solde</TableHead>
-          <TableHead className="text-right pr-0 w-[100px]">Progression</TableHead>
+          <ExplorerSortableHead
+            label="Sous-budget"
+            column="name"
+            sortPreset={sortPreset}
+            onSortPresetChange={onSortPresetChange}
+            headClassName="min-w-[260px] max-w-[28rem]"
+          />
+          <TableHead className="min-w-[7rem] whitespace-nowrap">Responsable</TableHead>
+          <TableHead className="min-w-[5.5rem] whitespace-nowrap">Type</TableHead>
+          <ExplorerSortableHead
+            label="Budget"
+            column="budget"
+            sortPreset={sortPreset}
+            onSortPresetChange={onSortPresetChange}
+            align="right"
+          />
+          <ExplorerSortableHead
+            label="% budget"
+            column="percent"
+            sortPreset={sortPreset}
+            onSortPresetChange={onSortPresetChange}
+            align="right"
+          />
+          <ExplorerSortableHead
+            label="Lignes"
+            column="lines"
+            sortPreset={sortPreset}
+            onSortPresetChange={onSortPresetChange}
+            align="right"
+          />
+          <ExplorerSortableHead
+            label="OPEX"
+            column="opex"
+            sortPreset={sortPreset}
+            onSortPresetChange={onSortPresetChange}
+            align="right"
+          />
+          <ExplorerSortableHead
+            label="CAPEX"
+            column="capex"
+            sortPreset={sortPreset}
+            onSortPresetChange={onSortPresetChange}
+            align="right"
+          />
+          <ExplorerSortableHead
+            label="Engagé"
+            column="committed"
+            sortPreset={sortPreset}
+            onSortPresetChange={onSortPresetChange}
+            align="right"
+          />
+          <ExplorerSortableHead
+            label="Consommé"
+            column="consumed"
+            sortPreset={sortPreset}
+            onSortPresetChange={onSortPresetChange}
+            align="right"
+          />
+          <ExplorerSortableHead
+            label="Solde"
+            column="remaining"
+            sortPreset={sortPreset}
+            onSortPresetChange={onSortPresetChange}
+            align="right"
+          />
+          <TableHead className="min-w-[150px] w-[160px] text-right pr-2">Progression</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -91,8 +202,6 @@ export function BudgetExplorerTable({
             onToggleExpand={onToggleExpand}
             currency={currency}
             budgetId={budgetId}
-            editableLineId={editableLineId}
-            onToggleEditable={onToggleEditable}
             onBudgetLineClick={onBudgetLineClick}
             taxDisplayMode={taxDisplayMode}
             budgetTaxMode={budgetTaxMode}

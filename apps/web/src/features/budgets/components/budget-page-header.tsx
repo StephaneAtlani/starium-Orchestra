@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/layout/page-header';
 
 interface BudgetPageHeaderProps {
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   actions?: React.ReactNode;
 }
 

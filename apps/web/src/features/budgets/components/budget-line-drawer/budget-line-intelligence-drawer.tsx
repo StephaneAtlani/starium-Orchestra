@@ -21,6 +21,7 @@ import { CreateInvoiceDialog } from './create-invoice-dialog';
 import { CreateFinancialEventDialog } from './create-financial-event-dialog';
 import { useBudgetLineDetail } from '../../hooks/use-budget-line-detail';
 import { useBudgetLineEvents } from '../../hooks/use-budget-line-events';
+import { useBudgetDetail } from '../../hooks/use-budgets';
 
 export type BudgetLineDrawerTab =
   | 'overview'
@@ -60,6 +61,7 @@ export function BudgetLineIntelligenceDrawer({
   onActiveTabChange: (tab: BudgetLineDrawerTab) => void;
 }) {
   const detail = useBudgetLineDetail(open ? budgetLineId : null);
+  const { data: budget } = useBudgetDetail(open && budgetId ? budgetId : null);
 
   // Dernier event (pour l’onglet overview) — on ne force pas le chargement si drawer fermé.
   const lastEventQuery = useBudgetLineEvents({
@@ -227,6 +229,8 @@ export function BudgetLineIntelligenceDrawer({
                       <BudgetLineOverviewTab
                         line={line}
                         budgetName={budgetName}
+                        budgetOwnerName={budget?.ownerUserName ?? null}
+                        budgetOwnerUserId={budget?.ownerUserId ?? null}
                         envelopeName={envelopeName}
                         envelopeCode={envelopeCode}
                         envelopeType={envelopeType}

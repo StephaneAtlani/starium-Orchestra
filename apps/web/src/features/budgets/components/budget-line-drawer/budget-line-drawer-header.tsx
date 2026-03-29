@@ -1,19 +1,16 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import {
   ArrowDownCircle,
   CircleDollarSign,
   Receipt,
   ShoppingCart,
-  SquarePen,
   X,
 } from 'lucide-react';
 import type { BudgetLine } from '../../types/budget-management.types';
-import { budgetLineEdit } from '../../constants/budget-routes';
 import { BudgetStatusBadge } from '../budget-status-badge';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,
@@ -21,8 +18,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
-
 export function BudgetLineDrawerHeader({
   line,
   budgetName,
@@ -53,7 +48,6 @@ export function BudgetLineDrawerHeader({
   const isUncoveredOrder = line.committedAmount > 0 && line.consumedAmount === 0;
   const envelopeCodeLabel = envelopeCode ?? '—';
   const envelopeTypeLabel = envelopeType ?? '—';
-  const editHref = budgetLineEdit(line.id);
 
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-background/80 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -177,28 +171,6 @@ export function BudgetLineDrawerHeader({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Consommation</TooltipContent>
-          </Tooltip>
-
-          <span
-            className="mx-0.5 hidden h-5 w-px shrink-0 bg-border sm:inline-block"
-            aria-hidden
-          />
-
-          <Tooltip>
-            <TooltipTrigger render={<span className="inline-flex" />}>
-              <Link
-                href={editHref}
-                onClick={onClose}
-                className={cn(
-                  buttonVariants({ variant: 'outline', size: 'icon-sm' }),
-                  'inline-flex',
-                )}
-                aria-label="Modifier la ligne budgétaire"
-              >
-                <SquarePen className="size-4" aria-hidden />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Modifier la ligne</TooltipContent>
           </Tooltip>
 
           <Button

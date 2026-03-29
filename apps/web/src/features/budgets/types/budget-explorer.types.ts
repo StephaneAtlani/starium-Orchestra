@@ -62,6 +62,81 @@ export interface BudgetExplorerFilters {
   expenseType?: string;
 }
 
+export type ExplorerSortColumn =
+  | 'default'
+  | 'name'
+  | 'budget'
+  | 'percent'
+  | 'lines'
+  | 'opex'
+  | 'capex'
+  | 'committed'
+  | 'consumed'
+  | 'remaining';
+
+export type ExplorerSortDirection = 'asc' | 'desc';
+
+export interface ExplorerSortState {
+  column: ExplorerSortColumn;
+  direction: ExplorerSortDirection;
+}
+
+export const DEFAULT_EXPLORER_SORT: ExplorerSortState = {
+  column: 'default',
+  direction: 'asc',
+};
+
+/** Valeur du Select « Tri » — parsée en `ExplorerSortState`. */
+export type ExplorerSortPreset =
+  | 'default'
+  | 'name_asc'
+  | 'name_desc'
+  | 'budget_asc'
+  | 'budget_desc'
+  | 'percent_asc'
+  | 'percent_desc'
+  | 'lines_asc'
+  | 'lines_desc'
+  | 'opex_asc'
+  | 'opex_desc'
+  | 'capex_asc'
+  | 'capex_desc'
+  | 'committed_asc'
+  | 'committed_desc'
+  | 'consumed_asc'
+  | 'consumed_desc'
+  | 'remaining_asc'
+  | 'remaining_desc';
+
+export function explorerSortPresetToState(preset: ExplorerSortPreset): ExplorerSortState {
+  if (preset === 'default') return DEFAULT_EXPLORER_SORT;
+  const i = preset.lastIndexOf('_');
+  const col = preset.slice(0, i) as ExplorerSortColumn;
+  const dir = preset.slice(i + 1) as ExplorerSortDirection;
+  return { column: col, direction: dir };
+}
+
+export function explorerSortStateToPreset(state: ExplorerSortState): ExplorerSortPreset {
+  if (state.column === 'default') return 'default';
+  return `${state.column}_${state.direction}` as ExplorerSortPreset;
+}
+
+/** Clic sur l’en-tête de colonne : bascule asc/desc si même colonne, sinon premier tri (nom ↑, montants ↓). */
+export function toggleExplorerSortColumn(
+  current: ExplorerSortPreset,
+  column: Exclude<ExplorerSortColumn, 'default'>,
+): ExplorerSortPreset {
+  const s = explorerSortPresetToState(current);
+  if (s.column === column) {
+    return explorerSortStateToPreset({
+      column,
+      direction: s.direction === 'asc' ? 'desc' : 'asc',
+    });
+  }
+  const direction: ExplorerSortDirection = column === 'name' ? 'asc' : 'desc';
+  return explorerSortStateToPreset({ column, direction });
+}
+
 export interface BudgetExplorerData {
   budget: Budget;
   envelopes: BudgetEnvelope[];
