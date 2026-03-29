@@ -34,6 +34,9 @@ importers:
       '@prisma/client':
         specifier: ^6.9.0
         version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
+      '@starium-orchestra/budget-exercise-calendar':
+        specifier: workspace:*
+        version: link:../../packages/budget-exercise-calendar
       '@starium-orchestra/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -140,6 +143,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.71.2(react@19.2.4))
+      '@starium-orchestra/budget-exercise-calendar':
+        specifier: workspace:*
+        version: link:../../packages/budget-exercise-calendar
       '@starium-orchestra/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -206,6 +212,15 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 3.2.4
+        version: 3.2.4(@types/node@22.19.15)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)
+
+  packages/budget-exercise-calendar:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
         version: 3.2.4(@types/node@22.19.15)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)
 
   packages/config:

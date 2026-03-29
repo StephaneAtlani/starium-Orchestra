@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  transpilePackages: ['@starium-orchestra/budget-exercise-calendar'],
   async rewrites() {
     // INTERNAL_API_URL : URL atteignable depuis le serveur Next (ex. http://api:3001 en Docker).
     // afterFiles : appliqué après les routes `app/` — `app/api/auth/microsoft/callback/route.ts` reste prioritaire.

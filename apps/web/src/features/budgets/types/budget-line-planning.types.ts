@@ -1,5 +1,5 @@
 /**
- * Types frontend alignés sur GetBudgetLinePlanningResponseDto et les DTOs planning backend.
+ * Types alignés sur GetBudgetLinePlanningResponseDto (RFC-023).
  */
 
 export type BudgetLinePlanningMode =
@@ -12,6 +12,8 @@ export type BudgetLinePlanningMode =
 
 export interface BudgetLinePlanningMonth {
   monthIndex: number;
+  /** Alias de monthIndex (API GET/PUT planning). */
+  month?: number;
   amount: number;
 }
 
@@ -23,11 +25,25 @@ export interface BudgetLinePlanningScenario {
 
 export interface BudgetLinePlanningResponse {
   months: BudgetLinePlanningMonth[];
+  /** Libellés courts des 12 colonnes (alignés sur le début d’exercice). */
+  monthColumnLabels: string[];
   planningMode: BudgetLinePlanningMode | null;
   planningTotalAmount: number;
   revisedAmount: number;
+  /** Écart somme prévision 12 mois vs révisé. */
+  planningDelta: number;
+  /** Écart atterrissage projeté vs révisé (pilotage DAF). */
+  landingVariance: number;
+  /** @deprecated Utiliser `planningDelta`. */
   deltaVsRevised: number;
+  /** @deprecated Utiliser `landingVariance`. */
+  variance: number;
+  consumedAmount: number;
+  committedAmount: number;
+  remainingPlanning: number;
+  landing: number;
   exerciseStartDate: string;
+  exerciseEndDate: string;
   lastScenario?: BudgetLinePlanningScenario | null;
 }
 
@@ -92,3 +108,11 @@ export interface CalculatePlanningPreviewResponse {
   previewTotalAmount: number;
 }
 
+export interface ApplyBudgetLinePlanningModePayload {
+  mode: BudgetLinePlanningMode;
+  annualSpread?: ApplyAnnualSpreadPayload;
+  quarterly?: ApplyQuarterlyPlanningPayload;
+  oneShot?: ApplyOneShotPlanningPayload;
+  growth?: ApplyGrowthPlanningPayload;
+  calculation?: ApplyCalculationPlanningPayload;
+}

@@ -2,11 +2,13 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { getExerciseMonthColumnLabels } from '@starium-orchestra/budget-exercise-calendar';
 import { cn } from '@/lib/utils';
 import { formatAmount } from '../lib/budget-formatters';
 import { useBudgetLinePlanning, useUpdateBudgetLinePlanningManualMutation } from '../hooks/use-budget-line-planning';
 import type { BudgetLinePlanningMonth } from '../types/budget-line-planning.types';
 import type { ApiFormError } from '../api/types';
+import { BudgetLinePlanningLandingSummary } from './budget-line-planning-landing-summary';
 
 interface BudgetLinePlanningGridProps {
   lineId: string;
@@ -17,7 +19,7 @@ interface BudgetLinePlanningGridProps {
   onError?: (error: ApiFormError) => void;
 }
 
-const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+const MONTH_LABELS_FALLBACK = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 
 function normalizeMonths(months: BudgetLinePlanningMonth[] | undefined | null): BudgetLinePlanningMonth[] {
   const byIndex = new Map<number, number>();
@@ -67,6 +69,16 @@ export function BudgetLinePlanningGrid({
     () => months.reduce((sum, m) => sum + (Number.isFinite(m.amount) ? m.amount : 0), 0),
     [months],
   );
+
+  const monthLabels = useMemo(() => {
+    if (data?.monthColumnLabels?.length === 12) {
+      return data.monthColumnLabels;
+    }
+    if (data?.exerciseStartDate) {
+      return getExerciseMonthColumnLabels(new Date(data.exerciseStartDate));
+    }
+    return MONTH_LABELS_FALLBACK;
+  }, [data?.monthColumnLabels, data?.exerciseStartDate]);
 
   const handleChangeAmount = (index: number, raw: string) => {
     setMonths((prev) => {
@@ -172,11 +184,14 @@ export function BudgetLinePlanningGrid({
 
   return (
     <div className={cn('space-y-3', className)}>
+      {data && (
+        <BudgetLinePlanningLandingSummary data={data} currency={currency} />
+      )}
       <div className="overflow-x-auto rounded-md border border-border bg-background">
         <table className="min-w-full border-collapse text-xs">
           <thead>
             <tr className="bg-muted/60">
-              {MONTH_LABELS.map((label) => (
+              {monthLabels.map((label) => (
                 <th
                   key={label}
                   className="whitespace-nowrap border-b border-r px-2 py-1 text-right font-medium text-muted-foreground"
@@ -249,18 +264,18 @@ export function BudgetLinePlanningGrid({
                   </span>
                 </span>
                 <span>
-                  Écart vs révisé :{' '}
+                  Écart prévision vs révisé :{' '}
                   <span
                     className={cn(
                       'font-medium',
-                      data.deltaVsRevised === 0
+                      (data.planningDelta ?? data.deltaVsRevised ?? 0) === 0
                         ? 'text-muted-foreground'
-                        : data.deltaVsRevised > 0
+                        : (data.planningDelta ?? data.deltaVsRevised ?? 0) > 0
                           ? 'text-amber-600'
                           : 'text-blue-600',
                     )}
                   >
-                    {formatAmount(data.deltaVsRevised, currency)}
+                    {formatAmount(data.planningDelta ?? data.deltaVsRevised ?? 0, currency)}
                   </span>
                 </span>
               </>

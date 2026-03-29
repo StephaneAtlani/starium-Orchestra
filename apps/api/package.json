@@ -29,6 +29,7 @@
     "@nestjs/platform-express": "^10.4.0",
     "@nestjs/schedule": "^6.1.1",
     "@prisma/client": "^6.9.0",
+    "@starium-orchestra/budget-exercise-calendar": "workspace:*",
     "@starium-orchestra/types": "workspace:*",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",

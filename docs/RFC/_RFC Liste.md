@@ -151,7 +151,11 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 # ⚙️ PHASE 2 — BUDGET PRÉVISIONNEL
 
-*(Index détaillé inchangé ici — voir roadmaps budget du dépôt.)*
+| RFC | Nom | État | Commentaire |
+| --- | --- | --- | --- |
+| **RFC-023** | Budget Prévisionnel (Planning & Atterrissage) | ✅ Implémenté (MVP) | [RFC](./RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md) — préfixe API `/api/budget-lines/:id/planning`, package `packages/budget-exercise-calendar`, journal [CHANGELOG.md](../../CHANGELOG.md) (alias DTO, audit canonique). *Ne pas confondre avec [RFC-023 — Client RBAC Administration](./RFC-023%20—%20Client%20RBAC%20Administration.md).* |
+
+*(Autres roadmaps budget du dépôt : [_Plan de déploiment - Budget](./_Plan%20de%20déploiment%20-%20Budget.md).)*
 
 ---
 

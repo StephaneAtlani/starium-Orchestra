@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { getExerciseMonthColumnLabels } from '@starium-orchestra/budget-exercise-calendar';
 import { cn } from '@/lib/utils';
 import { formatAmount } from '../lib/budget-formatters';
 import type {
@@ -16,8 +17,10 @@ import type { ApiFormError } from '../api/types';
 import {
   useApplyBudgetLineCalculationMutation,
   useApplyBudgetLineGrowthMutation,
+  useBudgetLinePlanning,
   useCalculateBudgetLinePlanningMutation,
 } from '../hooks/use-budget-line-planning';
+import { BudgetLinePlanningLandingSummary } from './budget-line-planning-landing-summary';
 
 export type PlanningCalculatorTool = 'GROWTH' | 'QUANTITY_X_UNIT_PRICE';
 
@@ -31,7 +34,7 @@ interface BudgetLinePlanningCalculatorPanelProps {
   onError?: (error: ApiFormError) => void;
 }
 
-const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+const MONTH_LABELS_FALLBACK = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 
 function buildDefaultActiveMonths(): number[] {
   return Array.from({ length: 12 }, (_, index) => index + 1);
@@ -46,6 +49,17 @@ export function BudgetLinePlanningCalculatorPanel({
   className,
   onError,
 }: BudgetLinePlanningCalculatorPanelProps) {
+  const { data: planningData } = useBudgetLinePlanning(lineId);
+  const monthLabels = useMemo(() => {
+    if (planningData?.monthColumnLabels?.length === 12) {
+      return planningData.monthColumnLabels;
+    }
+    if (planningData?.exerciseStartDate) {
+      return getExerciseMonthColumnLabels(new Date(planningData.exerciseStartDate));
+    }
+    return MONTH_LABELS_FALLBACK;
+  }, [planningData?.monthColumnLabels, planningData?.exerciseStartDate]);
+
   const [activeMonths, setActiveMonths] = useState<number[]>(() => buildDefaultActiveMonths());
 
   // Growth state
@@ -154,6 +168,9 @@ export function BudgetLinePlanningCalculatorPanel({
 
   return (
     <div className={cn('flex h-full flex-col gap-3 rounded-md border border-border bg-muted/30 p-3', className)}>
+      {planningData && (
+        <BudgetLinePlanningLandingSummary data={planningData} currency={currency} />
+      )}
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col">
           <span className="text-xs font-semibold text-foreground">Moteurs de planning avancés</span>
@@ -201,7 +218,7 @@ export function BudgetLinePlanningCalculatorPanel({
       </div>
 
       <div className="grid grid-cols-12 gap-1.5">
-        {MONTH_LABELS.map((label, index) => {
+        {monthLabels.map((label, index) => {
           const monthIndex = index + 1;
           const isActive = activeMonths.includes(monthIndex);
           return (
@@ -435,7 +452,7 @@ export function BudgetLinePlanningCalculatorPanel({
               </div>
               <div className="grid grid-cols-3 gap-1 text-[11px]">
                 {preview.previewMonths.map((m) => {
-                  const label = MONTH_LABELS[m.monthIndex - 1] ?? `M${m.monthIndex}`;
+                  const label = monthLabels[m.monthIndex - 1] ?? `M${m.monthIndex}`;
                   return (
                     <div
                       key={m.monthIndex}

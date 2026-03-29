@@ -3,6 +3,8 @@
  * Ne modifie aucune donnée ; uniquement élargissement des clauses `where` Prisma.
  */
 
+import { BUDGET_PLANNING_AUDIT_ACTION_VARIANTS } from './budget-planning-audit-action-map';
+
 /** resourceType RFC → variantes persistées (snake_case + PascalCase legacy) */
 const RESOURCE_TYPE_VARIANTS: Record<string, string[]> = {
   project: ['project', 'Project'],
@@ -49,6 +51,8 @@ const ACTION_VARIANTS: Record<string, string[]> = {
   'project_milestone.update': ['project_milestone.updated', 'project_milestone.update'],
   'project_milestone.deleted': ['project_milestone.deleted', 'project_milestone.delete'],
   'project_milestone.delete': ['project_milestone.deleted', 'project_milestone.delete'],
+
+  ...BUDGET_PLANNING_AUDIT_ACTION_VARIANTS,
 };
 
 export function auditLogResourceTypeWhere(

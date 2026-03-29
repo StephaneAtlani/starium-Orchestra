@@ -2,7 +2,9 @@
 
 ## Statut
 
-Draft
+Implémenté (MVP)
+
+> **Homonymie** : le dépôt contient aussi [RFC-023 — Client RBAC Administration](./RFC-023%20—%20Client%20RBAC%20Administration.md) (autre périmètre). Ce fichier couvre uniquement le **prévisionnel / atterrissage** budgétaire.
 
 ## Priorité
 
@@ -60,13 +62,15 @@ BudgetExercise
       → BudgetLine
 ```
 
-Extension :
+Extension logique (une ligne = un jeu de 12 mois + métadonnées de planning sur la ligne) :
 
 ```
-BudgetLine
-  → BudgetLinePlanning
-      → BudgetLinePlanningMonth (x12)
+BudgetLine  (planningMode, planningTotalAmount, forecastAmount, …)
+  → BudgetLinePlanningMonth[]   (monthIndex 1–12, montants)
+  → BudgetLinePlanningScenario? (dernier scénario appliqué, modes non manuels)
 ```
+
+> Il **n’existe pas** de table `BudgetLinePlanning` séparée dans le schéma actuel : l’agrégat est porté par `BudgetLine` + lignes `BudgetLinePlanningMonth` (voir §4).
 
 ---
 
@@ -93,77 +97,28 @@ BudgetLine
 
 ---
 
-# 4. Concepts métier
+# 4. Concepts métier — modèle implémenté (Prisma)
 
-## 4.1 BudgetLinePlanning
+## 4.1 Champs sur `BudgetLine`
 
-Représente le prévisionnel d’une ligne.
+Le prévisionnel d’agrégation (total, mode, prévision globale) est sur la ligne :
 
-### Champs
+* `planningMode` (`BudgetLinePlanningMode` nullable)
+* `planningTotalAmount`, `forecastAmount` (cohérents avec le recalcul backend)
 
-```prisma
-model BudgetLinePlanning {
-  id                  String   @id @default(cuid())
-  clientId            String
-  budgetLineId        String
+Les montants **consommé / engagé / révisé** viennent du **financial core** sur la même ligne (`consumedAmount`, `committedAmount`, `revisedAmount`, …).
 
-  planningMode        BudgetPlanningMode
-  planningTotalAmount Decimal  @db.Decimal(18,2)
+## 4.2 `BudgetLinePlanningMonth`
 
-  notes               String?
+Une ligne par `(budgetLineId, monthIndex)` avec `monthIndex` **1–12** : mois d’**exercice** alignés sur le **mois calendaire UTC** de `BudgetExercise.startDate` (mois 1 = ce mois-là, puis +1 mois civile jusqu’à 12). La logique calendaire partagée API / UI est dans le package **`@starium-orchestra/budget-exercise-calendar`** (`packages/budget-exercise-calendar/`).
 
-  lastCalculatedAt    DateTime?
+## 4.3 `BudgetLinePlanningScenario`
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+Enregistre le dernier scénario appliqué (modes non `MANUAL`) avec `inputJson` pour traçabilité.
 
-  client              Client
-  budgetLine          BudgetLine
+## 4.4 Enum `BudgetLinePlanningMode` (schéma actuel)
 
-  months              BudgetLinePlanningMonth[]
-
-  @@unique([budgetLineId])
-  @@index([clientId])
-}
-```
-
----
-
-## 4.2 BudgetLinePlanningMonth
-
-```prisma
-model BudgetLinePlanningMonth {
-  id                     String   @id @default(cuid())
-  clientId               String
-  budgetLinePlanningId   String
-
-  year                   Int
-  month                  Int
-
-  plannedAmount          Decimal  @db.Decimal(18,2)
-
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-
-  client                 Client
-  planning               BudgetLinePlanning
-
-  @@unique([budgetLinePlanningId, year, month])
-  @@index([clientId])
-}
-```
-
----
-
-## 4.3 Enum
-
-```prisma
-enum BudgetPlanningMode {
-  MANUAL
-  ANNUAL_SPREAD
-  ONE_SHOT
-}
-```
+Au-delà du MVP initial (MANUAL / ANNUAL_SPREAD / ONE_SHOT), le schéma inclut notamment `QUARTERLY_SPREAD`, `GROWTH`, `CALCULATED`. Voir `apps/api/prisma/schema.prisma`.
 
 ---
 
@@ -172,7 +127,7 @@ enum BudgetPlanningMode {
 ## 5.1 Une ligne = un planning
 
 ```text
-1 BudgetLine = 1 BudgetLinePlanning
+1 BudgetLine = au plus 1 jeu cohérent de 12 BudgetLinePlanningMonth + champs planning sur BudgetLine
 ```
 
 ---
@@ -228,11 +183,12 @@ consumedAmount
 
 ---
 
-## 6.3 Écart
+## 6.3 Écarts (API)
 
-```text
-variance = landing - revisedAmount
-```
+* **Écart prévision totale vs révisé** : `planningDelta` = `planningTotalAmount - revisedAmount` (alias de transition : `deltaVsRevised`).
+* **Écart atterrissage vs révisé** : `landingVariance` = `landing - revisedAmount` (alias : `variance`).
+
+Les alias sont **redondants** ; leur retrait est annoncé dans le [CHANGELOG](../../CHANGELOG.md) du dépôt — les intégrations et le BI doivent migrer vers les noms canoniques.
 
 ---
 
@@ -263,78 +219,61 @@ les autres = 0
 
 # 8. API
 
+Préfixe global : `/api`. Toutes les routes sont sous **client actif** (guards §11) ; pas de `clientId` arbitraire dans le corps.
+
 ## 8.1 GET planning
 
 ```http
 GET /api/budget-lines/:id/planning
+GET /api/budget-lines/:id/planning?referenceDate=2026-06-15T00:00:00.000Z
 ```
 
-### Réponse
+* `referenceDate` (optionnel) : date de référence pour le calcul de **prévision restante** / atterrissage ; défaut = jour courant UTC côté serveur.
 
-```json
-{
-  "mode": "ANNUAL_SPREAD",
-  "months": [
-    { "month": 1, "amount": 2200 },
-    ...
-  ],
-  "total": 26400,
-  "landing": 26400,
-  "variance": 0
-}
-```
+### Réponse (extraits)
 
----
+Les champs incluent notamment : `planningMode`, `months[]` avec `monthIndex`, `month` (alias de `monthIndex`), `amount`, `monthColumnLabels`, `planningTotalAmount`, `revisedAmount`, `planningDelta`, `landingVariance`, `consumedAmount`, `committedAmount`, `remainingPlanning`, `landing`, `exerciseStartDate`, `exerciseEndDate`, alias `deltaVsRevised` / `variance`, `lastScenario`.
 
-## 8.2 PATCH manuel
+## 8.2 Mise à jour manuelle
 
 ```http
-PATCH /api/budget-lines/:id/planning
+PUT /api/budget-lines/:id/planning
 ```
 
 ```json
 {
-  "monthlyValues": [2200, 2200, ...]
+  "months": [
+    { "monthIndex": 1, "amount": 2200 },
+    { "monthIndex": 2, "amount": 2200 }
+  ]
 }
 ```
 
----
+(12 mois attendus côté validation métier.)
 
-## 8.3 Apply mode
+## 8.3 Apply mode (route unifiée)
 
 ```http
 POST /api/budget-lines/:id/planning/apply-mode
 ```
 
-```json
-{
-  "mode": "ONE_SHOT",
-  "parameters": {
-    "month": 3,
-    "amount": 18000
-  }
-}
-```
+Corps : `{ "mode": "<BudgetLinePlanningMode>", "annualSpread"?: {...}, "quarterly"?: {...}, "oneShot"?: {...}, "growth"?: {...}, "calculation"?: {...} }` selon le mode.
+
+Les routes `POST .../planning/apply-annual-spread`, `apply-quarterly`, etc. restent disponibles (**legacy**) et appellent la même logique métier.
 
 ---
 
 # 9. Audit logs
 
-Action :
+Actions **canoniques** écrites en base :
 
-```text
-budget_line.planning.updated
-```
+* `budget_line.planning.updated` — saisie manuelle (PUT).
+* `budget_line.planning.applied_mode` — application d’un mode (y compris via `apply-mode` ou routes legacy).
+* `budget_line.planning.previewed` — prévisualisation calcul (sans persistance du planning).
 
-Payload :
+Chaque entrée utilise `resourceType` = `budget_line`, `resourceId` = id de ligne, `oldValue` / `newValue` avec notamment `mode` et le détail des montants / entrées.
 
-```json
-{
-  "budgetLineId": "...",
-  "oldValues": {...},
-  "newValues": {...}
-}
-```
+Les anciennes chaînes d’action (ex. `budget_line_planning.updated`) ne sont plus émises ; les **filtres** liste audit élargissent la requête via le mapping centralisé `apps/api/src/modules/audit-logs/budget-planning-audit-action-map.ts` (compatibilité lecture).
 
 ---
 
@@ -424,3 +363,17 @@ budgets.update
 # 14. Résumé
 
 > Le budget prévisionnel est une projection mensuelle par ligne budgétaire, pilotée par le backend, permettant de calculer l’atterrissage et d’anticiper les dérives.
+
+---
+
+# 15. Implémentation dans le dépôt
+
+| Élément | Emplacement |
+| --- | --- |
+| Service planning + atterrissage | `apps/api/src/modules/budget-management/budget-lines/budget-line-planning.service.ts` |
+| Contrôleur | `apps/api/src/modules/budget-management/budget-lines/budget-line-planning.controller.ts` |
+| DTO réponse / apply-mode | `apps/api/src/modules/budget-management/budget-lines/dto/` |
+| Calendrier d’exercice (partagé API + web) | `packages/budget-exercise-calendar/` |
+| Mapping audit (filtres legacy) | `apps/api/src/modules/audit-logs/budget-planning-audit-action-map.ts` + fusion dans `audit-logs-read-legacy.ts` |
+| UI grille + calculette + synthèse | `apps/web/src/features/budgets/components/budget-line-planning-*.tsx` |
+| Journal des changements API / alias | [CHANGELOG.md](../../CHANGELOG.md) à la racine du repo |

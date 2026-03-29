@@ -1,12 +1,15 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import { defaultReferenceDateUtc } from '@starium-orchestra/budget-exercise-calendar';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
@@ -24,6 +27,7 @@ import { ApplyOneShotPlanningDto } from './dto/apply-one-shot-planning.dto';
 import { ApplyGrowthPlanningDto } from './dto/apply-growth-planning.dto';
 import { CalculatePlanningDto } from './dto/calculate-planning.dto';
 import { ApplyCalculationPlanningDto } from './dto/apply-calculation-planning.dto';
+import { ApplyBudgetLinePlanningModeDto } from './dto/apply-budget-line-planning-mode.dto';
 
 @Controller('budget-lines/:id/planning')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -35,8 +39,15 @@ export class BudgetLinePlanningController {
   getPlanning(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') lineId: string,
+    @Query('referenceDate') referenceDateRaw?: string,
   ) {
-    return this.service.getPlanning(clientId!, lineId);
+    const ref = referenceDateRaw?.trim()
+      ? new Date(referenceDateRaw)
+      : defaultReferenceDateUtc();
+    if (Number.isNaN(ref.getTime())) {
+      throw new BadRequestException('Invalid referenceDate');
+    }
+    return this.service.getPlanning(clientId!, lineId, ref);
   }
 
   @Put()
@@ -47,11 +58,40 @@ export class BudgetLinePlanningController {
     @Body() dto: UpdateBudgetLinePlanningManualDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+    @Query('referenceDate') referenceDateRaw?: string,
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.service.replaceManualPlanning(clientId!, lineId, dto, context);
+    const ref = referenceDateRaw?.trim()
+      ? new Date(referenceDateRaw)
+      : defaultReferenceDateUtc();
+    if (Number.isNaN(ref.getTime())) {
+      throw new BadRequestException('Invalid referenceDate');
+    }
+    return this.service.replaceManualPlanning(clientId!, lineId, dto, context, ref);
   }
 
+  /** RFC-023 : route unifiée ; les POST apply-* ci-dessous restent supportées (legacy). */
+  @Post('apply-mode')
+  @RequirePermissions('budgets.update')
+  applyPlanningMode(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') lineId: string,
+    @Body() dto: ApplyBudgetLinePlanningModeDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+    @Query('referenceDate') referenceDateRaw?: string,
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    const ref = referenceDateRaw?.trim()
+      ? new Date(referenceDateRaw)
+      : defaultReferenceDateUtc();
+    if (Number.isNaN(ref.getTime())) {
+      throw new BadRequestException('Invalid referenceDate');
+    }
+    return this.service.applyPlanningMode(clientId!, lineId, dto, context, ref);
+  }
+
+  /** @deprecated Préférer POST .../planning/apply-mode avec mode ANNUAL_SPREAD */
   @Post('apply-annual-spread')
   @RequirePermissions('budgets.update')
   applyAnnualSpread(

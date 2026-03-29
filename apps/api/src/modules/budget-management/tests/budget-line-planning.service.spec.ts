@@ -16,6 +16,8 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
     budgetId: 'budget-1',
     status: BudgetLineStatus.DRAFT,
     revisedAmount: new Prisma.Decimal(1200),
+    consumedAmount: new Prisma.Decimal(0),
+    committedAmount: new Prisma.Decimal(0),
     budget: {
       id: 'budget-1',
       clientId,
@@ -28,11 +30,19 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
   const lineWithPlanning = (overrides: Partial<any> = {}) => ({
     id: lineId,
     clientId,
+    consumedAmount: new Prisma.Decimal(0),
+    committedAmount: new Prisma.Decimal(0),
     revisedAmount: new Prisma.Decimal(1200),
     planningMode: BudgetLinePlanningMode.MANUAL,
     budget: {
+      id: 'budget-1',
+      clientId,
+      status: BudgetStatus.DRAFT,
+      isVersioned: false,
+      versionStatus: null,
       exercise: {
         startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
       },
     },
     planningMonths: Array.from({ length: 12 }, (_, idx) => ({
@@ -46,7 +56,7 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
   beforeEach(() => {
     prisma = {
       budgetLine: {
-        findFirst: jest.fn().mockResolvedValue(editableLine()),
+        findFirst: jest.fn().mockResolvedValue(lineWithPlanning()),
         findFirstOrThrow: jest.fn().mockResolvedValue(lineWithPlanning()),
         update: jest.fn().mockResolvedValue({}),
       },
@@ -75,7 +85,7 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
   });
 
   describe('replaceManualPlanning', () => {
-    it('remplace les 12 mois, met à jour le mode et écrit un audit budget_line_planning.updated', async () => {
+    it('remplace les 12 mois, met à jour le mode et écrit un audit canonique budget_line.planning.updated', async () => {
       const dto = {
         months: Array.from({ length: 12 }, (_, idx) => ({
           monthIndex: idx + 1,
@@ -111,9 +121,10 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
         expect.objectContaining({
           clientId,
           userId: 'user-1',
-          action: 'budget_line_planning.updated',
+          action: 'budget_line.planning.updated',
           resourceType: 'budget_line',
           resourceId: lineId,
+          oldValue: expect.any(Object),
           newValue: expect.objectContaining({
             mode: BudgetLinePlanningMode.MANUAL,
             planningTotalAmount: result.planningTotalAmount,
@@ -124,6 +135,8 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
 
       expect(result.months).toHaveLength(12);
       expect(result.planningMode).toBe(BudgetLinePlanningMode.MANUAL);
+      expect(result.planningDelta).toBe(result.deltaVsRevised);
+      expect(result.landingVariance).toBe(result.variance);
     });
 
     it('rejette un tableau de mois invalide (index hors bornes ou montant négatif)', async () => {
@@ -150,7 +163,7 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
   });
 
   describe('applyAnnualSpread', () => {
-    it('crée un scenario non manuel et écrit un audit budget_line_planning.applied_annual_spread', async () => {
+    it('crée un scenario non manuel et écrit un audit canonique budget_line.planning.applied_mode', async () => {
       const dto = {
         annualAmount: 1200,
         activeMonthIndexes: [1, 2, 3],
@@ -183,9 +196,10 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
         expect.objectContaining({
           clientId,
           userId: 'user-2',
-          action: 'budget_line_planning.applied_annual_spread',
+          action: 'budget_line.planning.applied_mode',
           resourceType: 'budget_line',
           resourceId: lineId,
+          oldValue: expect.any(Object),
           newValue: expect.objectContaining({
             mode: BudgetLinePlanningMode.ANNUAL_SPREAD,
             planningTotalAmount: result.planningTotalAmount,
@@ -207,7 +221,9 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
   });
 
   describe('calculateFormula & applyCalculation (audit CALCULATED)', () => {
-    it('calculateFormula renvoie une preview et écrit un audit budget_line_planning.calculated_previewed', async () => {
+    it('calculateFormula renvoie une preview et écrit un audit budget_line.planning.previewed', async () => {
+      prisma.budgetLine.findFirst.mockResolvedValueOnce(editableLine());
+
       const dto = {
         formulaType: 'QUANTITY_X_UNIT_PRICE',
         quantity: {
@@ -230,7 +246,7 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
       expect(auditLogs.create).toHaveBeenCalledWith(
         expect.objectContaining({
           clientId,
-          action: 'budget_line_planning.calculated_previewed',
+          action: 'budget_line.planning.previewed',
           resourceType: 'budget_line',
           resourceId: lineId,
           newValue: expect.objectContaining({
@@ -242,7 +258,7 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
       );
     });
 
-    it('applyCalculation applique la formule et écrit un audit budget_line_planning.applied_calculation', async () => {
+    it('applyCalculation applique la formule et écrit un audit budget_line.planning.applied_mode', async () => {
       prisma.budgetLine.findFirstOrThrow.mockResolvedValue(
         lineWithPlanning({ planningMode: BudgetLinePlanningMode.CALCULATED }),
       );
@@ -279,7 +295,7 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
         expect.objectContaining({
           clientId,
           userId: 'user-3',
-          action: 'budget_line_planning.applied_calculation',
+          action: 'budget_line.planning.applied_mode',
           resourceType: 'budget_line',
           resourceId: lineId,
           newValue: expect.objectContaining({
@@ -292,4 +308,3 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
     });
   });
 });
-
