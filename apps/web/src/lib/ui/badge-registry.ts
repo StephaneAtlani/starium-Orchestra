@@ -41,16 +41,27 @@ export type BadgePalette = (typeof BADGE_PALETTES)[number];
 export const BADGE_TONES = BADGE_PALETTES;
 export type BadgeTone = BadgePalette;
 
-/** Ton de surface (accord avec la palette). */
-export const BADGE_SURFACES = [
-  'pastel',
-  'soft',
-  'solid',
-  'dark',
-  'outline',
-] as const;
+/** Ton de surface : pastel (clair), dark (Foncé), vivid (Vif). */
+export const BADGE_SURFACES = ['pastel', 'dark', 'vivid'] as const;
 
 export type BadgeSurface = (typeof BADGE_SURFACES)[number];
+
+/** Anciennes valeurs en base → surface actuelle. */
+const LEGACY_SURFACE_MAP: Record<string, BadgeSurface> = {
+  soft: 'pastel',
+  solid: 'vivid',
+  dark: 'dark',
+  outline: 'pastel',
+};
+
+/** Normalise une surface stockée (y compris legacy soft/solid/dark/outline). */
+export function coerceBadgeSurface(raw: unknown): BadgeSurface | undefined {
+  if (raw == null || typeof raw !== 'string') return undefined;
+  if ((BADGE_SURFACES as readonly string[]).includes(raw)) {
+    return raw as BadgeSurface;
+  }
+  return LEGACY_SURFACE_MAP[raw];
+}
 
 export const BADGE_TEXT_PRESETS = ['auto', 'dark', 'light', 'muted'] as const;
 
@@ -65,25 +76,24 @@ export type BadgeStyle = {
 const NEUTRAL_BASE: Record<BadgeSurface, string> = {
   pastel:
     'border-border bg-background dark:border-border dark:bg-muted/50',
-  soft: 'border-border bg-muted dark:border-border dark:bg-muted/80',
-  solid: 'border-primary bg-primary dark:border-primary dark:bg-primary',
-  dark: 'border-foreground/20 bg-foreground/10 dark:border-border dark:bg-muted',
-  outline: 'border-2 border-border bg-transparent',
+  dark:
+    'border-slate-800 bg-slate-900 dark:border-slate-950 dark:bg-slate-950',
+  vivid:
+    'border-primary bg-primary dark:border-primary dark:bg-primary shadow-sm',
 };
 
 const NEUTRAL_TEXT_AUTO: Record<BadgeSurface, string> = {
   pastel: 'text-foreground',
-  soft: 'text-foreground',
-  solid: 'text-primary-foreground',
-  dark: 'text-foreground',
-  outline: 'text-foreground',
+  dark: 'text-white dark:text-white',
+  vivid: 'text-primary-foreground dark:text-primary-foreground',
 };
 
 const TEXT_PRESET_CLASS: Record<
   Exclude<BadgeTextPreset, 'auto'>,
   string
 > = {
-  dark: 'text-slate-950 dark:text-slate-50',
+  /** Toujours un gris/noir lisible — pas `dark:text-slate-50` (sinon « Texte foncé » devient clair en thème sombre). */
+  dark: 'text-slate-950 dark:text-slate-950',
   light: 'text-white dark:text-white',
   muted: 'text-muted-foreground',
 };
@@ -144,10 +154,8 @@ export const BADGE_PALETTE_GROUPS: ReadonlyArray<{
 
 export const BADGE_SURFACE_LABELS: Record<BadgeSurface, string> = {
   pastel: 'Pastel',
-  soft: 'Doux (moyen)',
-  solid: 'Plein',
   dark: 'Foncé',
-  outline: 'Contour',
+  vivid: 'Vif',
 };
 
 export const BADGE_TEXT_PRESET_LABELS: Record<BadgeTextPreset, string> = {
@@ -235,7 +243,7 @@ function isBadgePalette(v: unknown): v is BadgePalette {
 }
 
 function isBadgeSurface(v: unknown): v is BadgeSurface {
-  return typeof v === 'string' && (BADGE_SURFACES as readonly string[]).includes(v);
+  return coerceBadgeSurface(v) !== undefined;
 }
 
 function isBadgeTextPreset(v: unknown): v is BadgeTextPreset {
@@ -251,7 +259,8 @@ function normalizeBadgeStyle(
     entry.palette ??
     (entry.tone != null && isBadgePalette(entry.tone) ? entry.tone : undefined) ??
     def.palette;
-  const surface = entry.surface ?? def.surface;
+  const surface =
+    coerceBadgeSurface(entry.surface) ?? def.surface;
   const textColor = entry.textColor ?? def.textColor;
   return { palette, surface, textColor };
 }
@@ -279,7 +288,8 @@ export function parseUiBadgeConfig(raw: unknown): UiBadgeConfig | null {
       if (typeof ent.label === 'string') row.label = ent.label;
       if (isBadgePalette(ent.tone)) row.tone = ent.tone;
       if (isBadgePalette(ent.palette)) row.palette = ent.palette;
-      if (isBadgeSurface(ent.surface)) row.surface = ent.surface;
+      const surf = coerceBadgeSurface(ent.surface);
+      if (surf) row.surface = surf;
       if (isBadgeTextPreset(ent.textColor)) row.textColor = ent.textColor;
       m[k as ProjectTaskStatusKey] = row;
     }
@@ -301,7 +311,8 @@ export function parseUiBadgeConfig(raw: unknown): UiBadgeConfig | null {
       if (typeof ent.label === 'string') row.label = ent.label;
       if (isBadgePalette(ent.tone)) row.tone = ent.tone;
       if (isBadgePalette(ent.palette)) row.palette = ent.palette;
-      if (isBadgeSurface(ent.surface)) row.surface = ent.surface;
+      const surf = coerceBadgeSurface(ent.surface);
+      if (surf) row.surface = surf;
       if (isBadgeTextPreset(ent.textColor)) row.textColor = ent.textColor;
       m[k as ProjectTaskPriorityKey] = row;
     }
@@ -317,12 +328,13 @@ export function parseUiBadgeConfig(raw: unknown): UiBadgeConfig | null {
       const ent: UiBadgeStyleFields = {};
       if (isBadgePalette(r.tone)) ent.tone = r.tone;
       if (isBadgePalette(r.palette)) ent.palette = r.palette;
-      if (isBadgeSurface(r.surface)) ent.surface = r.surface;
+      const surf = coerceBadgeSurface(r.surface);
+      if (surf) ent.surface = surf;
       if (isBadgeTextPreset(r.textColor)) ent.textColor = r.textColor;
       const hasStyleHint =
         isBadgePalette(r.tone) ||
         isBadgePalette(r.palette) ||
-        isBadgeSurface(r.surface) ||
+        coerceBadgeSurface(r.surface) != null ||
         isBadgeTextPreset(r.textColor);
       if (!hasStyleHint) continue;
       custom.push({ key: r.key, label: r.label, ...ent });

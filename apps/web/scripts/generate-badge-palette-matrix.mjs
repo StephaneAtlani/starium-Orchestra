@@ -1,6 +1,5 @@
 /**
- * Génère `badge-palette-matrix.generated.ts` avec des littéraux Tailwind complets
- * (requis pour le scan de classes).
+ * Génère `badge-palette-matrix.generated.ts` — surfaces : pastel | dark (Foncé) | vivid (Vif).
  */
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -33,34 +32,37 @@ const COLORS = [
   'lime',
 ];
 
-const SURFACES = {
-  pastel: (c) =>
-    `border-${c}-200 bg-${c}-100 dark:border-${c}-800 dark:bg-${c}-950/70`,
-  soft: (c) =>
-    `border-${c}-300 bg-${c}-200 dark:border-${c}-700 dark:bg-${c}-900/80`,
-  solid: (c) =>
-    `border-${c}-600 bg-${c}-500 dark:border-${c}-500 dark:bg-${c}-600`,
-  dark: (c) =>
-    `border-${c}-900 bg-${c}-800 dark:border-${c}-950 dark:bg-${c}-950`,
-  outline: (c) =>
-    `border-2 border-${c}-500 bg-transparent dark:border-${c}-400`,
-};
+/**
+ * Pastel : mode clair = teintes 50–200 (plus doux que 100 seul).
+ * Mode sombre = voile coloré léger (opacity / mid-hue), pas bg-950 (sinon ce n’est plus « pastel »).
+ * Réf. usages courants Tailwind : slash opacity sur la teinte (ex. bg-blue-500/15).
+ */
+const pastel = (c) =>
+  `border-${c}-200/80 bg-${c}-50 dark:border-${c}-400/35 dark:bg-${c}-400/18`;
 
-/** Texte « automatique » : contraste selon surface */
+/** Foncé : profond, peu saturé (lisible, sobre) */
+const dark = (c) =>
+  `border-${c}-900 bg-${c}-800 dark:border-${c}-950 dark:bg-${c}-950`;
+
+/** Vif : saturation forte, pastille « punch » */
+const vivid = (c) =>
+  `border-${c}-600 bg-${c}-500 shadow-sm dark:border-${c}-500 dark:bg-${c}-600`;
+
+const SURFACES = { pastel, dark, vivid };
+
 const TEXT_AUTO = {
-  pastel: (c) => `text-${c}-900 dark:text-${c}-50`,
-  soft: (c) => `text-${c}-950 dark:text-${c}-50`,
-  solid: () => 'text-white dark:text-white',
+  pastel: (c) =>
+    `text-${c}-900 dark:text-${c}-200`,
   dark: () => 'text-white dark:text-white',
-  outline: (c) => `text-${c}-900 dark:text-${c}-100`,
+  vivid: () => 'text-white dark:text-white',
 };
 
-const SURFACE_ORDER = ['pastel', 'soft', 'solid', 'dark', 'outline'];
+const SURFACE_ORDER = ['pastel', 'dark', 'vivid'];
 
 let src = `/* eslint-disable max-len -- littéraux Tailwind générés */
 /**
  * Fichier généré — ne pas éditer à la main.
- * \`node apps/web/scripts/generate-badge-palette-matrix.mjs\`
+ * \`pnpm --filter @starium-orchestra/web run generate:badge-matrix\`
  */
 
 export const PALETTE_SURFACE_BASE = {
@@ -82,7 +84,7 @@ for (const c of COLORS) {
   src += `  ${c}: {\n`;
   for (const s of SURFACE_ORDER) {
     const fn = TEXT_AUTO[s];
-    const val = s === 'solid' || s === 'dark' ? fn() : fn(c);
+    const val = s === 'pastel' ? fn(c) : fn();
     src += `    ${s}: '${val}',\n`;
   }
   src += `  },\n`;

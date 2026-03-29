@@ -27,13 +27,18 @@ const BADGE_PALETTES = new Set([
   'lime',
 ]);
 
-const BADGE_SURFACES = new Set([
-  'pastel',
-  'soft',
-  'solid',
-  'dark',
-  'outline',
-]);
+const BADGE_SURFACES = new Set(['pastel', 'dark', 'vivid']);
+
+function coerceSurface(s: string): string | undefined {
+  if (BADGE_SURFACES.has(s)) return s;
+  const legacy: Record<string, string> = {
+    soft: 'pastel',
+    solid: 'vivid',
+    dark: 'dark',
+    outline: 'pastel',
+  };
+  return legacy[s];
+}
 
 const BADGE_TEXT_PRESETS = new Set(['auto', 'dark', 'light', 'muted']);
 
@@ -172,10 +177,14 @@ function parseEntry(
     out.palette = entry.palette;
   }
   if ('surface' in entry && entry.surface != null) {
-    if (typeof entry.surface !== 'string' || !BADGE_SURFACES.has(entry.surface)) {
+    if (typeof entry.surface !== 'string') {
       throw new BadRequestException(`${path}.surface invalide`);
     }
-    out.surface = entry.surface;
+    const coerced = coerceSurface(entry.surface);
+    if (coerced == null) {
+      throw new BadRequestException(`${path}.surface invalide`);
+    }
+    out.surface = coerced;
   }
   if ('textColor' in entry && entry.textColor != null) {
     if (

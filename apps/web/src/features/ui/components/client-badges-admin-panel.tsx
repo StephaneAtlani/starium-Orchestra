@@ -426,6 +426,11 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
         )}
       </div>
 
+      <p className="text-xs text-muted-foreground max-w-3xl">
+        <span className="font-medium text-foreground">Ordre des choix :</span> 1) ton de surface
+        (Pastel, Foncé ou Vif) → 2) palette de couleur → 3) couleur du texte.
+      </p>
+
       <section className="space-y-2">
         <h3 className="text-sm font-semibold">Statuts de tâche (projets / plans d’action)</h3>
         <div className="rounded-xl border border-border/70 overflow-hidden">
@@ -434,9 +439,9 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead className="w-28 text-xs uppercase">Code</TableHead>
                 <TableHead className="min-w-[8rem] text-xs uppercase">Libellé</TableHead>
-                <TableHead className="w-36 text-xs uppercase">Palette</TableHead>
-                <TableHead className="w-44 text-xs uppercase">Ton de surface</TableHead>
-                <TableHead className="w-48 text-xs uppercase">Couleur du texte</TableHead>
+                <TableHead className="w-44 text-xs uppercase">1. Ton de surface</TableHead>
+                <TableHead className="w-36 text-xs uppercase">2. Palette</TableHead>
+                <TableHead className="w-48 text-xs uppercase">3. Couleur du texte</TableHead>
                 <TableHead className="w-36 text-xs uppercase">Aperçu</TableHead>
               </TableRow>
             </TableHeader>
@@ -458,29 +463,6 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                   </TableCell>
                   <TableCell>
                     <Select
-                      value={status[k].palette}
-                      onValueChange={(v) =>
-                        setStatus((s) =>
-                          s
-                            ? {
-                                ...s,
-                                [k]: { ...s[k], palette: v as BadgePalette },
-                              }
-                            : s,
-                        )
-                      }
-                      disabled={!canEdit}
-                    >
-                      <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <PaletteSelectItems />
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
                       value={status[k].surface}
                       onValueChange={(v) =>
                         setStatus((s) =>
@@ -499,6 +481,29 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SurfaceSelectItems />
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={status[k].palette}
+                      onValueChange={(v) =>
+                        setStatus((s) =>
+                          s
+                            ? {
+                                ...s,
+                                [k]: { ...s[k], palette: v as BadgePalette },
+                              }
+                            : s,
+                        )
+                      }
+                      disabled={!canEdit}
+                    >
+                      <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <PaletteSelectItems />
                       </SelectContent>
                     </Select>
                   </TableCell>
@@ -555,9 +560,9 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead className="w-28 text-xs uppercase">Code</TableHead>
                 <TableHead className="min-w-[8rem] text-xs uppercase">Libellé</TableHead>
-                <TableHead className="w-36 text-xs uppercase">Palette</TableHead>
-                <TableHead className="w-44 text-xs uppercase">Ton de surface</TableHead>
-                <TableHead className="w-48 text-xs uppercase">Couleur du texte</TableHead>
+                <TableHead className="w-44 text-xs uppercase">1. Ton de surface</TableHead>
+                <TableHead className="w-36 text-xs uppercase">2. Palette</TableHead>
+                <TableHead className="w-48 text-xs uppercase">3. Couleur du texte</TableHead>
                 <TableHead className="w-36 text-xs uppercase">Aperçu</TableHead>
               </TableRow>
             </TableHeader>
@@ -579,29 +584,6 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                   </TableCell>
                   <TableCell>
                     <Select
-                      value={priority[k].palette}
-                      onValueChange={(v) =>
-                        setPriority((s) =>
-                          s
-                            ? {
-                                ...s,
-                                [k]: { ...s[k], palette: v as BadgePalette },
-                              }
-                            : s,
-                        )
-                      }
-                      disabled={!canEdit}
-                    >
-                      <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <PaletteSelectItems />
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
                       value={priority[k].surface}
                       onValueChange={(v) =>
                         setPriority((s) =>
@@ -620,6 +602,29 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SurfaceSelectItems />
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={priority[k].palette}
+                      onValueChange={(v) =>
+                        setPriority((s) =>
+                          s
+                            ? {
+                                ...s,
+                                [k]: { ...s[k], palette: v as BadgePalette },
+                              }
+                            : s,
+                        )
+                      }
+                      disabled={!canEdit}
+                    >
+                      <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <PaletteSelectItems />
                       </SelectContent>
                     </Select>
                   </TableCell>
@@ -672,7 +677,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
         <h3 className="text-sm font-semibold">Badges libres (bibliothèque)</h3>
         <p className="text-xs text-muted-foreground max-w-2xl">
           Entrées réutilisables (clé stable). Fusion plateforme + client : en cas de même clé, le
-          client prévaut.
+          client prévaut. Même ordre : ton de surface → palette → texte.
         </p>
         {custom.length > 0 && (
           <div className="rounded-xl border border-border/70 overflow-hidden">
@@ -681,9 +686,9 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead className="text-xs uppercase">Clé</TableHead>
                   <TableHead className="text-xs uppercase">Libellé</TableHead>
-                  <TableHead className="w-36 text-xs uppercase">Palette</TableHead>
-                  <TableHead className="w-44 text-xs uppercase">Ton de surface</TableHead>
-                  <TableHead className="w-48 text-xs uppercase">Couleur du texte</TableHead>
+                  <TableHead className="w-44 text-xs uppercase">1. Ton de surface</TableHead>
+                  <TableHead className="w-36 text-xs uppercase">2. Palette</TableHead>
+                  <TableHead className="w-48 text-xs uppercase">3. Couleur du texte</TableHead>
                   <TableHead className="w-24 text-xs uppercase" />
                 </TableRow>
               </TableHeader>
@@ -707,28 +712,6 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={row.palette}
-                        onValueChange={(v) =>
-                          setCustom((prev) =>
-                            prev.map((r, i) =>
-                              i === idx
-                                ? { ...r, palette: v as BadgePalette }
-                                : r,
-                            ),
-                          )
-                        }
-                        disabled={!canEdit}
-                      >
-                        <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <PaletteSelectItems />
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Select
                         value={row.surface}
                         onValueChange={(v) =>
                           setCustom((prev) =>
@@ -746,6 +729,28 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                         </SelectTrigger>
                         <SelectContent>
                           <SurfaceSelectItems />
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={row.palette}
+                        onValueChange={(v) =>
+                          setCustom((prev) =>
+                            prev.map((r, i) =>
+                              i === idx
+                                ? { ...r, palette: v as BadgePalette }
+                                : r,
+                            ),
+                          )
+                        }
+                        disabled={!canEdit}
+                      >
+                        <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <PaletteSelectItems />
                         </SelectContent>
                       </Select>
                     </TableCell>
@@ -821,21 +826,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
               />
             </div>
             <div className="grid gap-1.5">
-              <span className="text-xs text-muted-foreground">Palette</span>
-              <Select
-                value={newPalette}
-                onValueChange={(v) => setNewPalette(v as BadgePalette)}
-              >
-                <SelectTrigger size="sm" className="h-8 w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <PaletteSelectItems />
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <span className="text-xs text-muted-foreground">Ton de surface</span>
+              <span className="text-xs text-muted-foreground">1. Ton de surface</span>
               <Select
                 value={newSurface}
                 onValueChange={(v) => setNewSurface(v as BadgeSurface)}
@@ -849,7 +840,21 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <span className="text-xs text-muted-foreground">Texte</span>
+              <span className="text-xs text-muted-foreground">2. Palette</span>
+              <Select
+                value={newPalette}
+                onValueChange={(v) => setNewPalette(v as BadgePalette)}
+              >
+                <SelectTrigger size="sm" className="h-8 w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <PaletteSelectItems />
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <span className="text-xs text-muted-foreground">3. Couleur du texte</span>
               <Select
                 value={newTextColor}
                 onValueChange={(v) => setNewTextColor(v as BadgeTextPreset)}
