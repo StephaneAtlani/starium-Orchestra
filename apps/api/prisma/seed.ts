@@ -166,6 +166,183 @@ function lines(prefix: string, defs: Array<[string, string, ExpenseType, number,
   }));
 }
 
+/** Budgets « IT » : seuil de lignes seed plus élevé (cockpit / grilles démo). */
+function isItBudget(budget: BudgetSeed): boolean {
+  return (
+    /(^|-)IT(-|$)/i.test(budget.code) ||
+    /\bBudget\s+IT\b/i.test(budget.name)
+  );
+}
+
+/** Intitulés métier crédibles pour lignes budgétaires auto-complétées (évite « Poste seed »). */
+const BUDGET_PAD_LINE_LABELS_FR: string[] = [
+  "Abonnement Microsoft 365 E5",
+  "Abonnement Salesforce CRM",
+  "Accompagnement intégration SI — régie T&M",
+  "Antivirus postes de travail — renouvellement",
+  "API management & passerelle",
+  "Assistance éditeur SAP — pack annuel",
+  "Audit sécurité annuel — prestataire externe",
+  "Authentification multifacteur — licences",
+  "Backup & réplication datacenter",
+  "Bastion d’administration sécurisée",
+  "Business Intelligence — licences Power BI Pro",
+  "CAE / contrat d’infogérance réseau",
+  "Câblage et baies — rénovation site secondaire",
+  "Centre de données — colocation & rack",
+  "Certificats SSL/TLS wildcard",
+  "Chiffrement postes — solution EDR",
+  "Cloud privé — ressources vCPU / RAM",
+  "Cloud public — instances EC2 / compute",
+  "Collaboration — Teams Phone & audioconf",
+  "Conseil architecture cloud — mission",
+  "Contrat maintenance imprimantes multisite",
+  "Copilotes IA — licences entreprise",
+  "Cyber assurance — prime annuelle",
+  "Data lake — stockage objet",
+  "Déploiement MDM — Apple Business Manager",
+  "Développement sur mesure — prestation",
+  "DLP — prévention fuite de données",
+  "DNS & résolution DNS managée",
+  "E-mail sécurisé — filtrage anti-phishing",
+  "E-learning cybersécurité — abonnement",
+  "ERP — licences utilisateurs",
+  "ESN — TMA applicative",
+  "Firewall nouvelle génération — abonnement",
+  "Formation utilisateurs — catalogue digital",
+  "GED — hébergement & support",
+  "Gestion des identités — IAM",
+  "Gestionnaire de mots de passe entreprise",
+  "Hébergement applicatif managé",
+  "Hyperviseur & licences VMware",
+  "IA générative — usage API tokens",
+  "Identité fédérée — SSO entreprise",
+  "Impression centralisée — solution SaaS",
+  "Infrastructure réseau — switches & Wi-Fi",
+  "Intégration EDR / XDR",
+  "IoT — supervision et connectivité",
+  "Journaux & SIEM — rétention",
+  "Kubernetes managé — cluster production",
+  "Licences Adobe Creative Cloud",
+  "Licences antivirus serveurs",
+  "Licences Atlassian (Jira / Confluence)",
+  "Licences base de données Oracle",
+  "Licences base de données SQL Server",
+  "Licences CAO / PLM",
+  "Licences Citrix / Virtual Apps",
+  "Licences développement JetBrains",
+  "Licences ESRI / SIG",
+  "Licences graphisme & PAO",
+  "Licences Microsoft Project / Server",
+  "Licences monitoring réseau",
+  "Licences SAP utilisateurs",
+  "Load balancer applicatif — matériel",
+  "Logs centralisés — observabilité",
+  "Maintenance préventive serveurs",
+  "Messagerie — archivage légal",
+  "Messagerie — migration cloud",
+  "Monitoring applicatif APM",
+  "NAS & sauvegarde locale",
+  "NoSQL managé — cluster",
+  "Onduleurs & alimentation secours",
+  "Outils de ticketing ITSM",
+  "Pare-feu applicatif WAF",
+  "Patch management — solution",
+  "Pénurie & stock pièces détachées",
+  "Postes de travail — renouvellement parc",
+  "Prestation audit RGPD",
+  "Prestation pentest trimestriel",
+  "Prestation régie data — ETP",
+  "Private link / interconnexion cloud",
+  "Proxy web & filtrage URL",
+  "Renouvellement contrat télécom fibre",
+  "Renouvellement support éditeur",
+  "Réplication inter-sites — stockage",
+  "Réseau SD-WAN — sites distants",
+  "Ressources GPU cloud — inference",
+  "Restauration d’urgence — forfait DR",
+  "Sauvegarde cloud — sauvegardes managées",
+  "Sauvegarde Microsoft 365",
+  "Scan vulnérabilités — outil",
+  "Serveurs applicatifs — renouvellement",
+  "Service desk externalisé — forfait",
+  "Signature électronique — volume",
+  "Stockage cloud — buckets S3",
+  "Stockage SAN — extension capacité",
+  "Supervision infrastructure — Nagios / équivalent",
+  "Support 24/7 production — astreinte",
+  "Support éditeur cybersécurité",
+  "Switching cœur de réseau",
+  "Synchro fichiers entreprise",
+  "Téléphonie IP — licences utilisateurs",
+  "Téléphonie mobile — forfaits entreprise",
+  "Télémétrie & flux industriels",
+  "Tunnels VPN site-à-site",
+  "Virtualisation postes VDI",
+  "VPN ZTNA — accès utilisateurs",
+  "WAN — liens opérateurs",
+  "Wi-Fi invité & contrôle d’accès",
+  "Wi-Fi sites industriels — renouvellement",
+  "Workspace Google — licences",
+  "Zéro trust — licences endpoint",
+];
+
+function padLineDisplayName(seq: number, envelopeName: string): string {
+  const base = BUDGET_PAD_LINE_LABELS_FR[(seq - 1) % BUDGET_PAD_LINE_LABELS_FR.length];
+  const cycle = Math.floor((seq - 1) / BUDGET_PAD_LINE_LABELS_FR.length);
+  if (cycle === 0) {
+    return `${base} — ${envelopeName}`;
+  }
+  return `${base} — ${envelopeName} (lot ${cycle + 1})`;
+}
+
+/**
+ * Complète un budget jusqu’à `minTotalLines` lignes (répartition round-robin sur les enveloppes).
+ * Codes uniques par budget (`clientId` + `budgetId` + `code`).
+ */
+function padBudgetLines(budget: BudgetSeed, minTotalLines: number, supplierNames: string[]): void {
+  if (supplierNames.length === 0) {
+    throw new Error(`padBudgetLines: aucun fournisseur pour le budget ${budget.code}`);
+  }
+  let total = budget.envelopes.reduce((sum, env) => sum + env.lines.length, 0);
+  if (total >= minTotalLines) {
+    return;
+  }
+  const existingCodes = new Set<string>();
+  for (const env of budget.envelopes) {
+    for (const line of env.lines) {
+      existingCodes.add(line.code);
+    }
+  }
+  const expenseTypes: ExpenseType[] = ["OPEX", "OPEX", "CAPEX"];
+  const flows: FlowType[] = ["PARTIAL", "FULL", "PO_ONLY", "NONE", "INVOICE_ONLY"];
+  const slug = budget.code.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 20);
+  let seq = 0;
+  let envIndex = 0;
+  while (total < minTotalLines) {
+    const env = budget.envelopes[envIndex % budget.envelopes.length];
+    seq += 1;
+    let code = `${slug}-A${String(seq).padStart(4, "0")}`;
+    while (existingCodes.has(code)) {
+      seq += 1;
+      code = `${slug}-A${String(seq).padStart(4, "0")}`;
+    }
+    existingCodes.add(code);
+    const supplier = supplierNames[(seq - 1) % supplierNames.length];
+    const amount = round2(2500 + ((seq * 973) % 87000) + (seq % 7) * 100);
+    env.lines.push({
+      code,
+      name: padLineDisplayName(seq, env.name),
+      expenseType: expenseTypes[(seq - 1) % expenseTypes.length],
+      amount,
+      supplierName: supplier,
+      flow: flows[(seq - 1) % flows.length],
+    });
+    total += 1;
+    envIndex += 1;
+  }
+}
+
 const CLIENTS: ClientSeed[] = [
   {
     name: "NeoTech AI",
@@ -2275,6 +2452,14 @@ async function seedProcurementAndEvents(
 async function seedClient(seed: ClientSeed, passwordHash: string) {
   const client = await upsertClient(seed);
   await ensureEnabledClientModules(client.id);
+
+  const supplierNames = seed.suppliers.map((s) => s.name);
+  for (const exerciseSeed of seed.exercises) {
+    for (const budgetSeed of exerciseSeed.budgets) {
+      const minLines = isItBudget(budgetSeed) ? 100 : 30;
+      padBudgetLines(budgetSeed, minLines, supplierNames);
+    }
+  }
 
   const userMap = new Map<string, string>();
   for (let i = 0; i < seed.users.length; i++) {
