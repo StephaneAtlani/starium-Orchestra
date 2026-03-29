@@ -69,7 +69,7 @@ services:
       - ./apps/web/package.json:/app/apps/web/package.json:ro
       - ./packages/types/package.json:/app/packages/types/package.json:ro
       - ./packages/config/package.json:/app/packages/config/package.json:ro
-      # Sinon image non rebuilée : dossier absent → lien workspace cassé → TS2307 sur @starium-orchestra/budget-exercise-calendar
+      # Package workspace (RFC-023) : sans montage, l’image peut être vieille → pnpm ne voit pas le projet (TS2307).
       - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
       - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
       - ./apps/api/src:/app/apps/api/src
@@ -107,6 +107,7 @@ services:
     volumes:
       - ./apps/web:/app/apps/web
       - web_next_cache:/app/apps/web/.next
+      - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
     depends_on:
       api-dev:
         condition: service_healthy
