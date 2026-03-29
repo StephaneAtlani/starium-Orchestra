@@ -106,52 +106,6 @@ export function useUpdateBudgetLinePlanningManualMutation(
   });
 }
 
-/** PUT manuel pour n’importe quelle ligne du budget (grille pilotage multi-lignes). */
-export function useUpdateBudgetLinePlanningManualForBudgetMutation(budgetId: string | null) {
-  const authFetch = useAuthenticatedFetch();
-  const { activeClient } = useActiveClient();
-  const clientId = activeClient?.id ?? '';
-  const queryClient = useQueryClient();
-
-  return useMutation<
-    BudgetLinePlanningResponse,
-    ApiFormError,
-    { lineId: string; payload: UpdateBudgetLinePlanningManualPayload }
-  >({
-    mutationFn: async ({ lineId, payload }) =>
-      updateBudgetLinePlanningManual(authFetch, lineId, payload),
-    onSuccess: async (_data, variables) => {
-      const lid = variables.lineId;
-      const promises: Promise<unknown>[] = [];
-      if (clientId && lid) {
-        promises.push(
-          queryClient.invalidateQueries({
-            queryKey: budgetQueryKeys.budgetLinePlanning(clientId, lid),
-          }),
-        );
-      }
-      if (clientId && budgetId) {
-        promises.push(
-          queryClient.invalidateQueries({
-            queryKey: budgetQueryKeys.budgetLinesByBudget(clientId, budgetId),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: budgetQueryKeys.budgetDetail(clientId, budgetId),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: budgetQueryKeys.budgetSummary(clientId, budgetId),
-          }),
-        );
-      }
-      if (promises.length > 0) await Promise.all(promises);
-      toast.success('Planning de la ligne mis à jour.');
-    },
-    onError: (err) => {
-      throw err;
-    },
-  });
-}
-
 export function useApplyBudgetLineAnnualSpreadMutation(
   lineId: string | null,
   budgetId: string | null,

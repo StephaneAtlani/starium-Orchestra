@@ -192,7 +192,7 @@ BudgetExercise
 
 C’est le noyau de `budget-management`.
 
-Le **prévisionnel mensuel** par ligne (`BudgetLinePlanningMonth` indexé 1–12, champs `planningMode` / `planningTotalAmount` / `forecastAmount` sur `BudgetLine`) et le calcul d’**atterrissage** (consommé + engagé + prévision restante) sont décrits dans [RFC-023 — Budget Prévisionnel (Planning & Atterrissage)](./RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md). La logique d’alignement des mois sur `BudgetExercise.startDate` est partagée via le package **`@starium-orchestra/budget-exercise-calendar`** (`packages/budget-exercise-calendar/`). L’interface **pilotage** (prévisionnel / atterrissage / forecast, tableau unique) sur la page détail budget est décrite dans [RFC-024 — Budget UI](./RFC/RFC-024%20%E2%80%94%20Budget%20UI.md) (`apps/web`, onglet **Pilotage**).
+Le **prévisionnel mensuel** par ligne (`BudgetLinePlanningMonth` indexé 1–12, champs `planningMode` / `planningTotalAmount` / `forecastAmount` sur `BudgetLine`) et le calcul d’**atterrissage** (consommé + engagé + prévision restante) sont décrits dans [RFC-023 — Budget Prévisionnel (Planning & Atterrissage)](./RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md). La logique d’alignement des mois sur `BudgetExercise.startDate` est partagée via le package **`@starium-orchestra/budget-exercise-calendar`** (`packages/budget-exercise-calendar/`).
 
 ---
 
@@ -377,7 +377,7 @@ Aucune suppression physique
    → liste budgets
 
 /budgets/[budgetId]
-   → explorer budgets / enveloppes / lignes (onglets Structure \| Pilotage : grille pilotage RFC-024)
+   → explorer budgets / enveloppes / lignes
 
 /budget-envelopes/[id]
    → détail enveloppe

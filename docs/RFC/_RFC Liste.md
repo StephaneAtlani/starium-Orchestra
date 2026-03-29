@@ -1,6 +1,6 @@
 # Index des RFC (Starium Orchestra)
 
-> Dernière révision documentaire : **2026-03** — RFC-023 (chemins UI planning pilotage), RFC-FE-004 (explorateur lecture seule + lien drawer / Pilotage), RFC-FE-ADD-006 (header drawer sans « modifier », édition Vue d’ensemble). Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
+> Dernière révision documentaire : **2026-03**. Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
 >
 > **Collision de numéro** : deux fichiers distincts portent **RFC-PROJ-012** — [Project Sheet (fiche décisionnelle)](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [Gantt Tâches et Jalons (UI planning)](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md). Ne pas les fusionner dans les tableaux ci-dessous.
 >
@@ -154,7 +154,6 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | RFC | Nom | État | Commentaire |
 | --- | --- | --- | --- |
 | **RFC-023** | Budget Prévisionnel (Planning & Atterrissage) | ✅ Implémenté (MVP) | [RFC](./RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md) — préfixe API `/api/budget-lines/:id/planning`, package `packages/budget-exercise-calendar`, journal [CHANGELOG.md](../../CHANGELOG.md) (alias DTO, audit canonique). *Ne pas confondre avec [RFC-023 — Client RBAC Administration](./RFC-023%20—%20Client%20RBAC%20Administration.md).* |
-| **RFC-024** | Budget UI (Prévisionnel / Atterrissage / Forecast) | 🟡 Partielle (MVP frontend) | [RFC](./RFC-024%20%E2%80%94%20Budget%20UI.md) — onglet **Pilotage** sur `/budgets/[budgetId]` (`BudgetTable`, vues + densité, pagination > 50 lignes) ; Forecast : **`BudgetScenarioSelect`** (Baseline actif, autres scénarios désactivés + « À venir ») ; détail §7 et §15. |
 
 *(Autres roadmaps budget du dépôt : [_Plan de déploiment - Budget](./_Plan%20de%20déploiment%20-%20Budget.md).)*
 
