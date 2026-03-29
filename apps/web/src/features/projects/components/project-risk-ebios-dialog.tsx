@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
@@ -360,7 +359,6 @@ export function ProjectRiskEbiosDialog({
   projectOptions = [],
 }: ProjectRiskEbiosDialogProps) {
   const authFetch = useAuthenticatedFetch();
-  const router = useRouter();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const { has, isSuccess: permsSuccess } = usePermissions();
@@ -1326,19 +1324,6 @@ export function ProjectRiskEbiosDialog({
       onOpenChange={setAddToPlanOpen}
       prefill={addTaskFromRiskPrefill}
       title="Nouvelle tâche dans le plan"
-      description={
-        <span className="block space-y-1.5">
-          <span>
-            Tâche liée au risque{' '}
-            <span className="font-mono font-medium text-foreground">{riskResolved?.code ?? '—'}</span>
-            . Intitulé, description et rattachements sont préremplis — vous pouvez les ajuster.
-          </span>
-          <span className="block text-xs text-muted-foreground">
-            Étape 1 : choisir le plan · puis compléter ou valider.
-          </span>
-        </span>
-      }
-      onCreated={({ actionPlanId }) => router.push(`/action-plans/${actionPlanId}`)}
     />
     </>
   );

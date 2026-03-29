@@ -46,9 +46,12 @@ import {
   AlertCircle,
   CalendarClock,
   ClipboardList,
+  CloudUpload,
   FolderKanban,
+  Info,
   Layers,
   Link2,
+  Loader2,
   UserRound,
 } from 'lucide-react';
 
@@ -66,6 +69,10 @@ const FORM_PRIORITY_LABELS: Record<string, string> = {
   HIGH: 'Haute',
   CRITICAL: 'Critique',
 };
+
+/** Encarts corps — FRONTEND_UI-UX.md §11.3.1 / §12.2 */
+const dialogBodyEncartClass =
+  'rounded-xl border border-border/70 bg-card p-4 shadow-sm';
 
 /** Aligné formulaire projet — FRONTEND_UI-UX.md §11.1 */
 const textareaClass = cn(
@@ -96,7 +103,18 @@ function parseTagsInput(raw: string): string[] | undefined {
   return parts;
 }
 
-/** Même esprit que `Section` dans `project-create-form.tsx` — §7 (pas d’uppercase global). */
+/** API `parseApiFormError` renvoie un objet `{ message }`, pas `Error`. */
+function createTaskErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const m = (err as { message: unknown }).message;
+    if (typeof m === 'string' && m.trim()) return m;
+  }
+  return 'Création de la tâche impossible.';
+}
+
+/**
+ * Section formulaire en encart unique (icône + titre + aide + champs) — §11.3.1 corps.
+ */
 function DialogFormSection({
   id,
   title,
@@ -111,17 +129,26 @@ function DialogFormSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-6" aria-labelledby={id}>
-      <div className="border-b border-border/70 pb-3">
-        <h2 id={id} className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Icon className="size-4 text-muted-foreground" aria-hidden />
-          {title}
-        </h2>
-        {description ? (
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{description}</p>
-        ) : null}
+    <section aria-labelledby={id}>
+      <div className={dialogBodyEncartClass}>
+        <div className="flex gap-3">
+          <span
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+            aria-hidden
+          >
+            <Icon className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1 border-b border-border/60 pb-3">
+            <h2 id={id} className="text-sm font-semibold text-foreground">
+              {title}
+            </h2>
+            {description ? (
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{description}</p>
+            ) : null}
+          </div>
+        </div>
+        <div className="space-y-3 pt-4">{children}</div>
       </div>
-      <div className="space-y-3">{children}</div>
     </section>
   );
 }
@@ -193,6 +220,7 @@ export function ActionPlanTaskCreateDialog({
 
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [creating, setCreating] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [tName, setTName] = useState('');
   const [tDescription, setTDescription] = useState('');
   const [tStatus, setTStatus] = useState('TODO');
@@ -287,6 +315,9 @@ export function ActionPlanTaskCreateDialog({
 
   const wasOpenRef = useRef(false);
   useEffect(() => {
+    if (open) {
+      setSubmitError(null);
+    }
     if (open && !wasOpenRef.current) {
       wasOpenRef.current = true;
       if (prefill) applyPrefill(prefill);
@@ -310,7 +341,9 @@ export function ActionPlanTaskCreateDialog({
   }, [open, needsPlanPick, actionPlansQuery.data?.items]);
 
   async function onCreateTask() {
+    if (creating) return;
     if (!tName.trim() || !effectivePlanId) return;
+    setSubmitError(null);
     setCreating(true);
     try {
       const hoursRaw = tEstimatedHours.trim();
@@ -344,20 +377,40 @@ export function ActionPlanTaskCreateDialog({
         queryKey: [...projectQueryKeys.all, 'action-plans', clientId],
       });
       onCreated?.({ actionPlanId: effectivePlanId });
-      onOpenChange(false);
       resetTaskForm();
+      onOpenChange(false);
+    } catch (err) {
+      setSubmitError(createTaskErrorMessage(err));
     } finally {
       setCreating(false);
     }
   }
 
-  const defaultDescription =
-    dialogDescription ??
-    (needsPlanPick
-      ? 'Choisissez le plan, complétez la fiche puis validez.'
-      : 'Complétez les champs puis créez la tâche dans ce plan.');
-
   const hasPrefill = Boolean(prefill);
+
+  /** Une phrase dans DialogDescription — le détail contextuel est en encart corps / ligne d’état (§11.3.1). */
+  const headerDescription =
+    dialogDescription ??
+    (needsPlanPick && hasPrefill
+      ? 'Choix du plan cible, puis fiche de tâche.'
+      : needsPlanPick
+        ? 'Plan cible puis fiche de tâche.'
+        : hasPrefill
+          ? 'Champs préremplis depuis le registre risque.'
+          : 'Rattachements projet, risque et référent optionnels.');
+
+  const prefillRiskSummary = useMemo(() => {
+    const id = tRiskId || prefill?.riskId;
+    if (!id) return null;
+    const r = risksMini.data?.find((x) => x.id === id);
+    return r ? { code: r.code, title: r.title } : null;
+  }, [tRiskId, prefill?.riskId, risksMini.data]);
+
+  const statusHint = needsPlanPick
+    ? hasPrefill
+      ? 'Saisie locale jusqu’à validation ; enregistrement serveur au clic.'
+      : 'Étape 1 : plan — étape 2 : compléter et valider.'
+    : 'Enregistrement au clic sur « Créer la tâche » (pas d’autosave).';
 
   return (
     <Dialog
@@ -371,76 +424,146 @@ export function ActionPlanTaskCreateDialog({
         showCloseButton
         className="flex max-h-[min(92vh,840px)] w-full flex-col gap-0 overflow-hidden p-4 sm:max-w-3xl"
       >
-        <DialogHeader className="shrink-0 space-y-2 border-b border-border/60 pb-4 text-left">
-          <div className="flex flex-wrap items-start justify-between gap-2 pr-8">
-            <DialogTitle className="text-left">{dialogTitle}</DialogTitle>
-            {hasPrefill ? (
-              <Badge variant="secondary" className="shrink-0 font-normal text-muted-foreground">
-                Prérempli (risque)
-              </Badge>
-            ) : null}
+        <DialogHeader className="-mx-4 -mt-4 shrink-0 space-y-3 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+          <div className="pr-8">
+            <div className="flex flex-wrap items-center gap-2 gap-y-1">
+              <DialogTitle className="text-left">{dialogTitle}</DialogTitle>
+              {hasPrefill ? (
+                <Badge variant="secondary" className="shrink-0 font-normal text-muted-foreground">
+                  Prérempli (risque)
+                </Badge>
+              ) : null}
+            </div>
+            <DialogDescription className="mt-2 text-left">{headerDescription}</DialogDescription>
           </div>
-          {defaultDescription ? (
-            <DialogDescription className="text-left">{defaultDescription}</DialogDescription>
-          ) : null}
+          <div
+            className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            {creating ? (
+              <>
+                <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
+                <span>Création en cours…</span>
+              </>
+            ) : (
+              <>
+                <CloudUpload className="size-3.5 shrink-0 text-muted-foreground/90" aria-hidden />
+                <span>{statusHint}</span>
+              </>
+            )}
+          </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4">
-          <div className="space-y-8">
+        <form
+          className="flex min-h-0 flex-1 flex-col gap-0"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void onCreateTask();
+          }}
+          noValidate
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4">
+            <div className="space-y-4 sm:space-y-5">
+            {hasPrefill ? (
+              <div className={dialogBodyEncartClass} role="note" aria-label="Contexte préremplissage">
+                <div className="flex gap-3">
+                  <span
+                    className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+                    aria-hidden
+                  >
+                    <Info className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <p className="text-sm text-foreground">
+                      Tâche liée au risque{' '}
+                      {prefillRiskSummary ? (
+                        <>
+                          <span className="font-mono font-medium text-foreground">
+                            {prefillRiskSummary.code}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {' '}
+                            — {prefillRiskSummary.title}
+                          </span>
+                        </>
+                      ) : risksMini.isLoading ? (
+                        <span className="text-muted-foreground">(chargement du registre…)</span>
+                      ) : (
+                        <span className="font-mono font-medium text-foreground">
+                          {(tRiskId && riskSelectItems[tRiskId]?.split(' — ')[0]) ?? '—'}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      Intitulé, description et rattachements sont préremplis — vous pouvez les ajuster.
+                    </p>
+                    {needsPlanPick ? (
+                      <p className="text-xs text-muted-foreground">
+                        Étape 1 : choisir le plan · étape 2 : compléter la fiche et valider.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {needsPlanPick ? (
-              <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-                <Label
-                  htmlFor="ap-create-plan"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Plan d’action
-                </Label>
-                <p id="ap-create-plan-hint" className="mt-1 text-xs text-muted-foreground">
-                  La tâche sera ajoutée au plan sélectionné.
-                </p>
-                <div className="mt-3 flex items-start gap-3">
+              <div className={dialogBodyEncartClass}>
+                <div className="flex gap-3">
                   <span
                     className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
                     aria-hidden
                   >
                     <FolderKanban className="size-4" />
                   </span>
-                  <div className="min-w-0 flex-1">
-                    {actionPlansQuery.isLoading ? (
-                      <p className="text-sm text-muted-foreground">Chargement des plans…</p>
-                    ) : actionPlansQuery.data?.items?.length ? (
-                      <Select
-                        value={selectedPlanId}
-                        items={actionPlanSelectItems}
-                        onValueChange={(v) => setSelectedPlanId(v ?? '')}
-                      >
-                        <SelectTrigger
-                          id="ap-create-plan"
-                          className="h-10 w-full min-w-0"
-                          aria-describedby="ap-create-plan-hint"
-                        >
-                          <SelectValue placeholder="Choisir un plan" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {actionPlansQuery.data.items.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.code} — {p.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Aucun plan sur ce client.{' '}
-                        <Link
-                          href="/action-plans"
-                          className="font-medium text-primary underline-offset-4 hover:underline"
-                        >
-                          Créer un plan d’action
-                        </Link>
-                      </p>
-                    )}
+                  <div className="min-w-0 flex-1 border-b border-border/60 pb-3">
+                    <Label
+                      htmlFor="ap-create-plan"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      Plan d’action
+                    </Label>
+                    <p id="ap-create-plan-hint" className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                      La tâche sera ajoutée au plan sélectionné.
+                    </p>
                   </div>
+                </div>
+                <div className="pt-4">
+                  {actionPlansQuery.isLoading ? (
+                    <p className="text-sm text-muted-foreground">Chargement des plans…</p>
+                  ) : actionPlansQuery.data?.items?.length ? (
+                    <Select
+                      value={selectedPlanId}
+                      items={actionPlanSelectItems}
+                      onValueChange={(v) => setSelectedPlanId(v ?? '')}
+                    >
+                      <SelectTrigger
+                        id="ap-create-plan"
+                        className="h-10 w-full min-w-0"
+                        aria-describedby="ap-create-plan-hint"
+                      >
+                        <SelectValue placeholder="Choisir un plan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {actionPlansQuery.data.items.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.code} — {p.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Aucun plan sur ce client.{' '}
+                      <Link
+                        href="/action-plans"
+                        className="font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        Créer un plan d’action
+                      </Link>
+                    </p>
+                  )}
                 </div>
               </div>
             ) : null}
@@ -689,26 +812,37 @@ export function ActionPlanTaskCreateDialog({
                 </p>
               </div>
             </DialogFormSection>
+            </div>
           </div>
-        </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            disabled={
-              creating ||
-              !tName.trim() ||
-              !effectivePlanId ||
-              (needsPlanPick && !actionPlansQuery.data?.items?.length)
-            }
-            onClick={() => void onCreateTask()}
-          >
-            {creating ? 'Création…' : 'Créer la tâche'}
-          </Button>
-        </DialogFooter>
+          {submitError ? (
+            <div className="shrink-0 px-0 pt-2">
+              <Alert variant="destructive" className="py-2">
+                <AlertCircle className="size-4" />
+                <AlertTitle>Création impossible</AlertTitle>
+                <AlertDescription>{submitError}</AlertDescription>
+              </Alert>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                creating ||
+                !tName.trim() ||
+                !effectivePlanId ||
+                (needsPlanPick && !actionPlansQuery.data?.items?.length)
+              }
+              onClick={() => void onCreateTask()}
+            >
+              {creating ? 'Création…' : 'Créer la tâche'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
