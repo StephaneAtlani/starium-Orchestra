@@ -35,6 +35,8 @@ import {
   WARNING_CODE_LABEL,
 } from '../constants/project-enum-labels';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
+import type { MergedUiBadges } from '@/lib/ui/badge-registry';
+import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { projectDetail, projectsList, projectPlanning, projectSheet } from '../constants/project-routes';
 import { cn } from '@/lib/utils';
@@ -124,10 +126,12 @@ function ProjectDetailTabbedContent({
   projectId,
   project,
   risks,
+  badgeMerged,
 }: {
   projectId: string;
   project: ProjectDetail;
   risks: ReturnType<typeof useProjectRisksQuery>;
+  badgeMerged: MergedUiBadges;
 }) {
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
@@ -644,7 +648,11 @@ function ProjectDetailTabbedContent({
                   Santé
                 </p>
                 <div className="mt-1.5">
-                  <HealthBadge health={project.computedHealth} compact />
+                  <HealthBadge
+                    health={project.computedHealth}
+                    compact
+                    merged={badgeMerged}
+                  />
                 </div>
               </div>
               <KpiTile
@@ -1023,6 +1031,7 @@ function ProjectDetailTabbedContent({
 export function ProjectDetailView({ projectId }: { projectId: string }) {
   const { data: project, isLoading, error } = useProjectDetailQuery(projectId);
   const risks = useProjectRisksQuery(projectId);
+  const { merged: badgeMerged } = useClientUiBadgeConfig();
   const { has } = usePermissions();
   const canPostMortemCta = has('projects.update');
   const showPostMortemHeaderCta =
@@ -1092,7 +1101,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             description={project.code ? `Code : ${project.code}` : undefined}
             actions={
               <div className="flex flex-wrap items-center gap-2">
-                <HealthBadge health={project.computedHealth} />
+                <HealthBadge health={project.computedHealth} merged={badgeMerged} />
               </div>
             }
           />
@@ -1102,7 +1111,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           <div className="min-w-0 flex-1">
             <p className="mb-2 text-xs font-medium text-muted-foreground">Signaux portefeuille</p>
             <div className="flex flex-wrap gap-2">
-              <ProjectPortfolioBadges signals={project.signals} />
+              <ProjectPortfolioBadges signals={project.signals} merged={badgeMerged} />
             </div>
           </div>
           {showPostMortemHeaderCta && !hidePostMortemHeaderCtaBecauseFinalized ? (
@@ -1185,6 +1194,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           projectId={projectId}
           project={project}
           risks={risks}
+          badgeMerged={badgeMerged}
         />
       </Suspense>
     </>

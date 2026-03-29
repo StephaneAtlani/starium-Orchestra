@@ -38,6 +38,12 @@ import {
 } from '../constants/project-enum-labels';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { cn } from '@/lib/utils';
+import {
+  projectKindBadgeClass,
+  type ProjectKindBadgeKey,
+  type ProjectLifecycleStatusKey,
+} from '@/lib/ui/badge-registry';
+import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -209,6 +215,7 @@ export function ProjectsListTable({
       fullLabel: `${root.name} / ${child.name}`,
     })),
   }));
+  const { merged: badgeMerged } = useClientUiBadgeConfig();
   const categoryOptions = categoryGroups.flatMap((group) =>
     group.children.map((child) => ({ id: child.id, label: child.fullLabel })),
   );
@@ -537,16 +544,40 @@ export function ProjectsListTable({
                     : 'Projet structuré : livrables, jalons et risques suivis dans la fiche.'
                 }
               >
-                <Badge variant="secondary" className="font-normal text-xs">
-                  {PROJECT_KIND_LABEL[p.kind] ?? p.kind}
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-xs',
+                    projectKindBadgeClass(badgeMerged, p.kind),
+                  )}
+                >
+                  {
+                    badgeMerged.projectKind[p.kind as ProjectKindBadgeKey]
+                      .label
+                  }
                 </Badge>
               </CellTip>
             </TableCell>
             <TableCell className="align-top py-3">
-              <HealthBadge health={p.computedHealth} compact />
+              <HealthBadge health={p.computedHealth} compact merged={badgeMerged} />
             </TableCell>
             <TableCell className="align-top py-3 text-sm">
-              {PROJECT_STATUS_LABEL[p.status] ?? p.status}
+              {(() => {
+                const ls =
+                  badgeMerged.projectLifecycleStatus[
+                    p.status as ProjectLifecycleStatusKey
+                  ];
+                return ls ? (
+                  <Badge
+                    variant="outline"
+                    className={cn('font-normal text-sm', ls.className)}
+                  >
+                    {ls.label}
+                  </Badge>
+                ) : (
+                  <span>{PROJECT_STATUS_LABEL[p.status] ?? p.status}</span>
+                );
+              })()}
             </TableCell>
             <TableCell className="align-top py-3 text-sm">
               {(p.myRoles ?? (p.myRole ? [p.myRole] : [])).length > 0 ? (
@@ -601,7 +632,7 @@ export function ProjectsListTable({
             </TableCell>
             <TableCell className="align-top py-3 pr-4">
               <div className="max-w-[18rem]">
-                <ProjectPortfolioBadges signals={p.signals} />
+                <ProjectPortfolioBadges signals={p.signals} merged={badgeMerged} />
               </div>
             </TableCell>
             <TableCell className="align-top py-3 pr-4">

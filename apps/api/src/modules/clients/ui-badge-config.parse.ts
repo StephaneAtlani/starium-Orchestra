@@ -53,8 +53,58 @@ const TASK_STATUS_KEYS = new Set([
 
 const TASK_PRIORITY_KEYS = new Set(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 
+const PROJECT_KIND_KEYS = new Set(['PROJECT', 'ACTIVITY']);
+
+const PROJECT_LIFECYCLE_KEYS = new Set([
+  'DRAFT',
+  'PLANNED',
+  'IN_PROGRESS',
+  'ON_HOLD',
+  'COMPLETED',
+  'CANCELLED',
+  'ARCHIVED',
+]);
+
+const PROJECT_ENTITY_PRIORITY_KEYS = new Set(['LOW', 'MEDIUM', 'HIGH']);
+
+const PROJECT_COMPUTED_HEALTH_KEYS = new Set(['RED', 'ORANGE', 'GREEN']);
+
+const PROJECT_PORTFOLIO_SIGNAL_KEYS = new Set([
+  'late',
+  'blocked',
+  'critical',
+  'norisk',
+  'noowner',
+]);
+
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function parseBadgeMapSection(
+  raw: Record<string, unknown>,
+  prop: string,
+  keySet: Set<string>,
+  unknownKeyMessage: (k: string) => string,
+): Record<string, unknown> | undefined {
+  if (!(prop in raw)) {
+    return undefined;
+  }
+  const v = raw[prop];
+  if (v == null) {
+    return undefined;
+  }
+  if (!isPlainObject(v)) {
+    throw new BadRequestException(`${prop} invalide`);
+  }
+  const m: Record<string, unknown> = {};
+  for (const [k, entry] of Object.entries(v)) {
+    if (!keySet.has(k)) {
+      throw new BadRequestException(unknownKeyMessage(k));
+    }
+    m[k] = parseEntry(entry, `${prop}.${k}`);
+  }
+  return m;
 }
 
 /**
@@ -72,6 +122,11 @@ export function parseUiBadgeConfigPayload(raw: unknown): Prisma.InputJsonValue {
     'projectTaskStatus',
     'projectTaskPriority',
     'custom',
+    'projectKind',
+    'projectLifecycleStatus',
+    'projectEntityPriority',
+    'projectComputedHealth',
+    'projectPortfolioSignal',
   ]);
   for (const k of Object.keys(raw)) {
     if (!allowedTop.has(k)) {
@@ -141,6 +196,56 @@ export function parseUiBadgeConfigPayload(raw: unknown): Prisma.InputJsonValue {
       custom.push({ key, label, ...style });
     }
     out.custom = custom;
+  }
+
+  const projectKind = parseBadgeMapSection(
+    raw,
+    'projectKind',
+    PROJECT_KIND_KEYS,
+    (k) => `projectKind inconnu: ${k}`,
+  );
+  if (projectKind) {
+    out.projectKind = projectKind;
+  }
+
+  const projectLifecycleStatus = parseBadgeMapSection(
+    raw,
+    'projectLifecycleStatus',
+    PROJECT_LIFECYCLE_KEYS,
+    (k) => `projectLifecycleStatus inconnu: ${k}`,
+  );
+  if (projectLifecycleStatus) {
+    out.projectLifecycleStatus = projectLifecycleStatus;
+  }
+
+  const projectEntityPriority = parseBadgeMapSection(
+    raw,
+    'projectEntityPriority',
+    PROJECT_ENTITY_PRIORITY_KEYS,
+    (k) => `projectEntityPriority inconnu: ${k}`,
+  );
+  if (projectEntityPriority) {
+    out.projectEntityPriority = projectEntityPriority;
+  }
+
+  const projectComputedHealth = parseBadgeMapSection(
+    raw,
+    'projectComputedHealth',
+    PROJECT_COMPUTED_HEALTH_KEYS,
+    (k) => `projectComputedHealth inconnu: ${k}`,
+  );
+  if (projectComputedHealth) {
+    out.projectComputedHealth = projectComputedHealth;
+  }
+
+  const projectPortfolioSignal = parseBadgeMapSection(
+    raw,
+    'projectPortfolioSignal',
+    PROJECT_PORTFOLIO_SIGNAL_KEYS,
+    (k) => `projectPortfolioSignal inconnu: ${k}`,
+  );
+  if (projectPortfolioSignal) {
+    out.projectPortfolioSignal = projectPortfolioSignal;
   }
 
   return out as Prisma.InputJsonValue;

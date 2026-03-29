@@ -218,6 +218,10 @@ export const PROJECT_TASK_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as 
 
 export type ProjectTaskPriorityKey = (typeof PROJECT_TASK_PRIORITIES)[number];
 
+/**
+ * Défauts code (fusion sans JSON plateforme/client). Pour la même chose en base plateforme :
+ * `apps/api/prisma/default-platform-ui-badge-config.json` + migration `20260331190000_platform_ui_badge_default_config`.
+ */
 const DEFAULT_TASK_STATUS: Record<ProjectTaskStatusKey, BadgeStyle> = {
   DRAFT: { palette: 'stone', surface: 'pastel', textColor: 'auto' },
   TODO: { palette: 'indigo', surface: 'pastel', textColor: 'auto' },
@@ -250,6 +254,121 @@ const DEFAULT_TASK_PRIORITY_LABELS: Record<ProjectTaskPriorityKey, string> = {
   CRITICAL: 'Critique',
 };
 
+/** Portefeuille projets (`/projects`) — nature, cycle de vie, priorité projet, santé, signaux portefeuille. */
+export const PROJECT_KIND_KEYS = ['PROJECT', 'ACTIVITY'] as const;
+export type ProjectKindBadgeKey = (typeof PROJECT_KIND_KEYS)[number];
+
+export const PROJECT_LIFECYCLE_STATUS_KEYS = [
+  'DRAFT',
+  'PLANNED',
+  'IN_PROGRESS',
+  'ON_HOLD',
+  'COMPLETED',
+  'CANCELLED',
+  'ARCHIVED',
+] as const;
+export type ProjectLifecycleStatusKey = (typeof PROJECT_LIFECYCLE_STATUS_KEYS)[number];
+
+export const PROJECT_ENTITY_PRIORITY_KEYS = ['LOW', 'MEDIUM', 'HIGH'] as const;
+export type ProjectEntityPriorityKey = (typeof PROJECT_ENTITY_PRIORITY_KEYS)[number];
+
+export const PROJECT_COMPUTED_HEALTH_KEYS = ['RED', 'ORANGE', 'GREEN'] as const;
+export type ProjectComputedHealthKey = (typeof PROJECT_COMPUTED_HEALTH_KEYS)[number];
+
+export const PROJECT_PORTFOLIO_SIGNAL_KEYS = [
+  'late',
+  'blocked',
+  'critical',
+  'norisk',
+  'noowner',
+] as const;
+export type ProjectPortfolioSignalKey = (typeof PROJECT_PORTFOLIO_SIGNAL_KEYS)[number];
+
+const DEFAULT_PROJECT_KIND: Record<ProjectKindBadgeKey, BadgeStyle> = {
+  PROJECT: { palette: 'slate', surface: 'pastel', textColor: 'auto' },
+  ACTIVITY: { palette: 'cyan', surface: 'pastel', textColor: 'auto' },
+};
+
+const DEFAULT_PROJECT_KIND_LABELS: Record<ProjectKindBadgeKey, string> = {
+  PROJECT: 'Projet',
+  ACTIVITY: 'Activité',
+};
+
+const DEFAULT_PROJECT_LIFECYCLE_STATUS: Record<
+  ProjectLifecycleStatusKey,
+  BadgeStyle
+> = {
+  DRAFT: { palette: 'stone', surface: 'pastel', textColor: 'auto' },
+  PLANNED: { palette: 'indigo', surface: 'pastel', textColor: 'auto' },
+  IN_PROGRESS: { palette: 'sky', surface: 'pastel', textColor: 'auto' },
+  ON_HOLD: { palette: 'amber', surface: 'pastel', textColor: 'auto' },
+  COMPLETED: { palette: 'emerald', surface: 'pastel', textColor: 'auto' },
+  CANCELLED: { palette: 'zinc', surface: 'pastel', textColor: 'auto' },
+  ARCHIVED: { palette: 'gray', surface: 'pastel', textColor: 'auto' },
+};
+
+const DEFAULT_PROJECT_LIFECYCLE_LABELS: Record<ProjectLifecycleStatusKey, string> = {
+  DRAFT: 'Brouillon',
+  PLANNED: 'Planifié',
+  IN_PROGRESS: 'En cours',
+  ON_HOLD: 'En pause',
+  COMPLETED: 'Terminé',
+  CANCELLED: 'Annulé',
+  ARCHIVED: 'Archivé',
+};
+
+const DEFAULT_PROJECT_ENTITY_PRIORITY: Record<
+  ProjectEntityPriorityKey,
+  BadgeStyle
+> = {
+  LOW: { palette: 'neutral', surface: 'pastel', textColor: 'auto' },
+  MEDIUM: { palette: 'indigo', surface: 'pastel', textColor: 'auto' },
+  HIGH: { palette: 'amber', surface: 'pastel', textColor: 'auto' },
+};
+
+const DEFAULT_PROJECT_ENTITY_PRIORITY_LABELS: Record<
+  ProjectEntityPriorityKey,
+  string
+> = {
+  LOW: 'Basse',
+  MEDIUM: 'Moyenne',
+  HIGH: 'Haute',
+};
+
+const DEFAULT_PROJECT_COMPUTED_HEALTH: Record<
+  ProjectComputedHealthKey,
+  BadgeStyle
+> = {
+  RED: { palette: 'red', surface: 'pastel', textColor: 'auto' },
+  ORANGE: { palette: 'amber', surface: 'pastel', textColor: 'auto' },
+  GREEN: { palette: 'emerald', surface: 'vivid', textColor: 'auto' },
+};
+
+const DEFAULT_PROJECT_HEALTH_LABELS: Record<ProjectComputedHealthKey, string> = {
+  RED: 'Santé : critique',
+  ORANGE: 'Santé : attention',
+  GREEN: 'Santé : bon',
+};
+
+const DEFAULT_PROJECT_PORTFOLIO_SIGNAL: Record<
+  ProjectPortfolioSignalKey,
+  BadgeStyle
+> = {
+  late: { palette: 'red', surface: 'pastel', textColor: 'auto' },
+  blocked: { palette: 'red', surface: 'pastel', textColor: 'auto' },
+  critical: { palette: 'rose', surface: 'pastel', textColor: 'auto' },
+  norisk: { palette: 'amber', surface: 'pastel', textColor: 'auto' },
+  noowner: { palette: 'orange', surface: 'pastel', textColor: 'auto' },
+};
+
+const DEFAULT_PROJECT_PORTFOLIO_LABELS: Record<ProjectPortfolioSignalKey, string> = {
+  late: 'En retard',
+  blocked: 'Bloqué',
+  critical: 'Critique',
+  norisk: 'Sans étude de risque',
+  noowner: 'Sans responsable',
+};
+
 /** Entrée fusionnée pour l’affichage (tableaux, pastilles). */
 export type BadgeEntry = {
   label: string;
@@ -273,6 +392,21 @@ export type UiBadgeConfig = {
   projectTaskPriority?: Partial<Record<ProjectTaskPriorityKey, UiBadgeStyleFields>>;
   custom?: Array<
     { key: string; label: string } & UiBadgeStyleFields
+  >;
+  projectKind?: Partial<Record<ProjectKindBadgeKey, UiBadgeStyleFields>>;
+  /** Statut cycle de vie projet (fiche / liste), distinct des statuts de tâche. */
+  projectLifecycleStatus?: Partial<
+    Record<ProjectLifecycleStatusKey, UiBadgeStyleFields>
+  >;
+  /** Priorité « projet » (LOW/MEDIUM/HIGH), distincte des priorités de tâche. */
+  projectEntityPriority?: Partial<
+    Record<ProjectEntityPriorityKey, UiBadgeStyleFields>
+  >;
+  projectComputedHealth?: Partial<
+    Record<ProjectComputedHealthKey, UiBadgeStyleFields>
+  >;
+  projectPortfolioSignal?: Partial<
+    Record<ProjectPortfolioSignalKey, UiBadgeStyleFields>
   >;
 };
 
@@ -303,6 +437,34 @@ function normalizeBadgeStyle(
   return { palette, surface, textColor };
 }
 
+function parseStyleFields(ent: Record<string, unknown>): UiBadgeStyleFields {
+  const row: UiBadgeStyleFields = {};
+  if (typeof ent.label === 'string') row.label = ent.label;
+  if (isBadgePalette(ent.tone)) row.tone = ent.tone;
+  if (isBadgePalette(ent.palette)) row.palette = ent.palette;
+  const surf = coerceBadgeSurface(ent.surface);
+  if (surf) row.surface = surf;
+  if (isBadgeTextPreset(ent.textColor)) row.textColor = ent.textColor;
+  return row;
+}
+
+function parseKeyedStyleMap<K extends string>(
+  raw: unknown,
+  allowed: readonly K[],
+): Partial<Record<K, UiBadgeStyleFields>> | undefined {
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined;
+  }
+  const m: Partial<Record<K, UiBadgeStyleFields>> = {};
+  for (const k of Object.keys(raw)) {
+    if (!(allowed as readonly string[]).includes(k)) continue;
+    const e = (raw as Record<string, unknown>)[k];
+    if (!e || typeof e !== 'object') continue;
+    m[k as K] = parseStyleFields(e as Record<string, unknown>);
+  }
+  return Object.keys(m).length > 0 ? m : undefined;
+}
+
 /** Parse JSON API → structure typée (permissif). */
 export function parseUiBadgeConfig(raw: unknown): UiBadgeConfig | null {
   if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -311,51 +473,38 @@ export function parseUiBadgeConfig(raw: unknown): UiBadgeConfig | null {
   const o = raw as Record<string, unknown>;
   const out: UiBadgeConfig = {};
 
-  if (
-    o.projectTaskStatus &&
-    typeof o.projectTaskStatus === 'object' &&
-    !Array.isArray(o.projectTaskStatus)
-  ) {
-    const m: UiBadgeConfig['projectTaskStatus'] = {};
-    for (const k of Object.keys(o.projectTaskStatus)) {
-      if (!(PROJECT_TASK_STATUSES as readonly string[]).includes(k)) continue;
-      const e = (o.projectTaskStatus as Record<string, unknown>)[k];
-      if (!e || typeof e !== 'object') continue;
-      const ent = e as Record<string, unknown>;
-      const row: UiBadgeStyleFields = {};
-      if (typeof ent.label === 'string') row.label = ent.label;
-      if (isBadgePalette(ent.tone)) row.tone = ent.tone;
-      if (isBadgePalette(ent.palette)) row.palette = ent.palette;
-      const surf = coerceBadgeSurface(ent.surface);
-      if (surf) row.surface = surf;
-      if (isBadgeTextPreset(ent.textColor)) row.textColor = ent.textColor;
-      m[k as ProjectTaskStatusKey] = row;
-    }
-    out.projectTaskStatus = m;
-  }
+  const pts = parseKeyedStyleMap(o.projectTaskStatus, PROJECT_TASK_STATUSES);
+  if (pts) out.projectTaskStatus = pts;
 
-  if (
-    o.projectTaskPriority &&
-    typeof o.projectTaskPriority === 'object' &&
-    !Array.isArray(o.projectTaskPriority)
-  ) {
-    const m: UiBadgeConfig['projectTaskPriority'] = {};
-    for (const k of Object.keys(o.projectTaskPriority)) {
-      if (!(PROJECT_TASK_PRIORITIES as readonly string[]).includes(k)) continue;
-      const e = (o.projectTaskPriority as Record<string, unknown>)[k];
-      if (!e || typeof e !== 'object') continue;
-      const ent = e as Record<string, unknown>;
-      const row: UiBadgeStyleFields = {};
-      if (typeof ent.label === 'string') row.label = ent.label;
-      if (isBadgePalette(ent.tone)) row.tone = ent.tone;
-      if (isBadgePalette(ent.palette)) row.palette = ent.palette;
-      const surf = coerceBadgeSurface(ent.surface);
-      if (surf) row.surface = surf;
-      if (isBadgeTextPreset(ent.textColor)) row.textColor = ent.textColor;
-      m[k as ProjectTaskPriorityKey] = row;
-    }
-    out.projectTaskPriority = m;
-  }
+  const ptp = parseKeyedStyleMap(o.projectTaskPriority, PROJECT_TASK_PRIORITIES);
+  if (ptp) out.projectTaskPriority = ptp;
+
+  const pk = parseKeyedStyleMap(o.projectKind, PROJECT_KIND_KEYS);
+  if (pk) out.projectKind = pk;
+
+  const pls = parseKeyedStyleMap(
+    o.projectLifecycleStatus,
+    PROJECT_LIFECYCLE_STATUS_KEYS,
+  );
+  if (pls) out.projectLifecycleStatus = pls;
+
+  const pep = parseKeyedStyleMap(
+    o.projectEntityPriority,
+    PROJECT_ENTITY_PRIORITY_KEYS,
+  );
+  if (pep) out.projectEntityPriority = pep;
+
+  const pch = parseKeyedStyleMap(
+    o.projectComputedHealth,
+    PROJECT_COMPUTED_HEALTH_KEYS,
+  );
+  if (pch) out.projectComputedHealth = pch;
+
+  const pps = parseKeyedStyleMap(
+    o.projectPortfolioSignal,
+    PROJECT_PORTFOLIO_SIGNAL_KEYS,
+  );
+  if (pps) out.projectPortfolioSignal = pps;
 
   if (Array.isArray(o.custom)) {
     const custom: NonNullable<UiBadgeConfig['custom']> = [];
@@ -387,63 +536,107 @@ export type MergedUiBadges = {
   projectTaskStatus: Record<ProjectTaskStatusKey, BadgeEntry>;
   projectTaskPriority: Record<ProjectTaskPriorityKey, BadgeEntry>;
   custom: Array<BadgeEntry & { key: string }>;
+  projectKind: Record<ProjectKindBadgeKey, BadgeEntry>;
+  projectLifecycleStatus: Record<ProjectLifecycleStatusKey, BadgeEntry>;
+  projectEntityPriority: Record<ProjectEntityPriorityKey, BadgeEntry>;
+  projectComputedHealth: Record<ProjectComputedHealthKey, BadgeEntry>;
+  projectPortfolioSignal: Record<ProjectPortfolioSignalKey, BadgeEntry>;
 };
+
+function mergeBadgeGroup<K extends string>(
+  keys: readonly K[],
+  defaults: Record<K, BadgeStyle>,
+  defaultLabels: Record<K, string>,
+  platform: Partial<Record<K, UiBadgeStyleFields>> | undefined,
+  client: Partial<Record<K, UiBadgeStyleFields>> | undefined,
+): Record<K, BadgeEntry> {
+  const out = {} as Record<K, BadgeEntry>;
+  for (const key of keys) {
+    const def = defaults[key];
+    const p = platform?.[key];
+    const c = client?.[key];
+    const mergedFields: UiBadgeStyleFields = {
+      label: c?.label ?? p?.label,
+      tone: c?.tone ?? p?.tone,
+      palette: c?.palette ?? p?.palette,
+      surface: c?.surface ?? p?.surface,
+      textColor: c?.textColor ?? p?.textColor,
+    };
+    const style = normalizeBadgeStyle(mergedFields, def);
+    const label =
+      mergedFields.label?.trim() ||
+      p?.label?.trim() ||
+      c?.label?.trim() ||
+      defaultLabels[key];
+
+    out[key] = {
+      label,
+      ...style,
+      className: badgeClassForStyle(style),
+    };
+  }
+  return out;
+}
 
 export function mergeUiBadgeConfig(
   platformStored: UiBadgeConfig | null | undefined,
   clientStored: UiBadgeConfig | null | undefined,
 ): MergedUiBadges {
-  const projectTaskStatus = {} as Record<ProjectTaskStatusKey, BadgeEntry>;
-  for (const key of PROJECT_TASK_STATUSES) {
-    const def = DEFAULT_TASK_STATUS[key];
-    const p = platformStored?.projectTaskStatus?.[key];
-    const c = clientStored?.projectTaskStatus?.[key];
-    const mergedFields: UiBadgeStyleFields = {
-      label: c?.label ?? p?.label,
-      tone: c?.tone ?? p?.tone,
-      palette: c?.palette ?? p?.palette,
-      surface: c?.surface ?? p?.surface,
-      textColor: c?.textColor ?? p?.textColor,
-    };
-    const style = normalizeBadgeStyle(mergedFields, def);
-    const label =
-      mergedFields.label?.trim() ||
-      p?.label?.trim() ||
-      c?.label?.trim() ||
-      DEFAULT_TASK_STATUS_LABELS[key];
+  const projectTaskStatus = mergeBadgeGroup(
+    PROJECT_TASK_STATUSES,
+    DEFAULT_TASK_STATUS,
+    DEFAULT_TASK_STATUS_LABELS,
+    platformStored?.projectTaskStatus,
+    clientStored?.projectTaskStatus,
+  );
 
-    projectTaskStatus[key] = {
-      label,
-      ...style,
-      className: badgeClassForStyle(style),
-    };
-  }
+  const projectTaskPriority = mergeBadgeGroup(
+    PROJECT_TASK_PRIORITIES,
+    DEFAULT_TASK_PRIORITY,
+    DEFAULT_TASK_PRIORITY_LABELS,
+    platformStored?.projectTaskPriority,
+    clientStored?.projectTaskPriority,
+  );
 
-  const projectTaskPriority = {} as Record<ProjectTaskPriorityKey, BadgeEntry>;
-  for (const key of PROJECT_TASK_PRIORITIES) {
-    const def = DEFAULT_TASK_PRIORITY[key];
-    const p = platformStored?.projectTaskPriority?.[key];
-    const c = clientStored?.projectTaskPriority?.[key];
-    const mergedFields: UiBadgeStyleFields = {
-      label: c?.label ?? p?.label,
-      tone: c?.tone ?? p?.tone,
-      palette: c?.palette ?? p?.palette,
-      surface: c?.surface ?? p?.surface,
-      textColor: c?.textColor ?? p?.textColor,
-    };
-    const style = normalizeBadgeStyle(mergedFields, def);
-    const label =
-      mergedFields.label?.trim() ||
-      p?.label?.trim() ||
-      c?.label?.trim() ||
-      DEFAULT_TASK_PRIORITY_LABELS[key];
+  const projectKind = mergeBadgeGroup(
+    PROJECT_KIND_KEYS,
+    DEFAULT_PROJECT_KIND,
+    DEFAULT_PROJECT_KIND_LABELS,
+    platformStored?.projectKind,
+    clientStored?.projectKind,
+  );
 
-    projectTaskPriority[key] = {
-      label,
-      ...style,
-      className: badgeClassForStyle(style),
-    };
-  }
+  const projectLifecycleStatus = mergeBadgeGroup(
+    PROJECT_LIFECYCLE_STATUS_KEYS,
+    DEFAULT_PROJECT_LIFECYCLE_STATUS,
+    DEFAULT_PROJECT_LIFECYCLE_LABELS,
+    platformStored?.projectLifecycleStatus,
+    clientStored?.projectLifecycleStatus,
+  );
+
+  const projectEntityPriority = mergeBadgeGroup(
+    PROJECT_ENTITY_PRIORITY_KEYS,
+    DEFAULT_PROJECT_ENTITY_PRIORITY,
+    DEFAULT_PROJECT_ENTITY_PRIORITY_LABELS,
+    platformStored?.projectEntityPriority,
+    clientStored?.projectEntityPriority,
+  );
+
+  const projectComputedHealth = mergeBadgeGroup(
+    PROJECT_COMPUTED_HEALTH_KEYS,
+    DEFAULT_PROJECT_COMPUTED_HEALTH,
+    DEFAULT_PROJECT_HEALTH_LABELS,
+    platformStored?.projectComputedHealth,
+    clientStored?.projectComputedHealth,
+  );
+
+  const projectPortfolioSignal = mergeBadgeGroup(
+    PROJECT_PORTFOLIO_SIGNAL_KEYS,
+    DEFAULT_PROJECT_PORTFOLIO_SIGNAL,
+    DEFAULT_PROJECT_PORTFOLIO_LABELS,
+    platformStored?.projectPortfolioSignal,
+    clientStored?.projectPortfolioSignal,
+  );
 
   const byKey = new Map<string, { key: string; label: string } & UiBadgeStyleFields>();
   for (const row of platformStored?.custom ?? []) {
@@ -467,7 +660,16 @@ export function mergeUiBadgeConfig(
     };
   });
 
-  return { projectTaskStatus, projectTaskPriority, custom };
+  return {
+    projectTaskStatus,
+    projectTaskPriority,
+    custom,
+    projectKind,
+    projectLifecycleStatus,
+    projectEntityPriority,
+    projectComputedHealth,
+    projectPortfolioSignal,
+  };
 }
 
 export function taskStatusLabel(merged: MergedUiBadges, status: string): string {
@@ -502,4 +704,43 @@ export function taskPriorityBadgeClass(
     return merged.projectTaskPriority[priority as ProjectTaskPriorityKey].className;
   }
   return merged.projectTaskPriority.MEDIUM.className;
+}
+
+export function projectKindBadgeClass(
+  merged: MergedUiBadges,
+  kind: string,
+): string {
+  if ((PROJECT_KIND_KEYS as readonly string[]).includes(kind)) {
+    return merged.projectKind[kind as ProjectKindBadgeKey].className;
+  }
+  return merged.projectKind.PROJECT.className;
+}
+
+/** Libellés courts santé (liste dense) — les libellés longs viennent de `merged`. */
+export function projectComputedHealthShortLabel(
+  health: ProjectComputedHealthKey,
+): string {
+  const m: Record<ProjectComputedHealthKey, string> = {
+    RED: 'Critique',
+    ORANGE: 'Attention',
+    GREEN: 'Bon',
+  };
+  return m[health];
+}
+
+export function projectComputedHealthBadgeClass(
+  merged: MergedUiBadges,
+  health: string,
+): string {
+  if ((PROJECT_COMPUTED_HEALTH_KEYS as readonly string[]).includes(health)) {
+    return merged.projectComputedHealth[health as ProjectComputedHealthKey].className;
+  }
+  return merged.projectComputedHealth.ORANGE.className;
+}
+
+export function projectPortfolioSignalBadgeClass(
+  merged: MergedUiBadges,
+  signal: ProjectPortfolioSignalKey,
+): string {
+  return merged.projectPortfolioSignal[signal].className;
 }

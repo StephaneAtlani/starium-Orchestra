@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Globe2, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,8 +47,14 @@ import {
   type BadgeTextPreset,
   mergeUiBadgeConfig,
   parseUiBadgeConfig,
+  PROJECT_COMPUTED_HEALTH_KEYS,
+  PROJECT_ENTITY_PRIORITY_KEYS,
+  PROJECT_KIND_KEYS,
+  PROJECT_LIFECYCLE_STATUS_KEYS,
+  PROJECT_PORTFOLIO_SIGNAL_KEYS,
   PROJECT_TASK_PRIORITIES,
   PROJECT_TASK_STATUSES,
+  type BadgeEntry,
   type UiBadgeConfig,
 } from '@/lib/ui/badge-registry';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
@@ -97,34 +109,76 @@ type Row = {
 
 type CustomRow = { key: string; label: string } & Row;
 
+function rowMapFromMerged<K extends string>(
+  keys: readonly K[],
+  src: Record<K, BadgeEntry>,
+): Record<string, Row> {
+  const out: Record<string, Row> = {};
+  for (const k of keys) {
+    const e = src[k];
+    out[k] = {
+      label: e.label,
+      palette: e.palette,
+      surface: e.surface,
+      textColor: e.textColor,
+    };
+  }
+  return out;
+}
+
+function entryPayloadFromRows(keys: readonly string[], rows: Record<string, Row>) {
+  return Object.fromEntries(
+    keys.map((k) => [
+      k,
+      {
+        label: rows[k].label,
+        palette: rows[k].palette,
+        surface: rows[k].surface,
+        textColor: rows[k].textColor,
+      },
+    ]),
+  );
+}
+
 function buildPayload(
   status: Record<string, Row>,
   priority: Record<string, Row>,
+  projectKind: Record<string, Row>,
+  projectLifecycle: Record<string, Row>,
+  projectEntityPriority: Record<string, Row>,
+  projectComputedHealth: Record<string, Row>,
+  projectPortfolioSignal: Record<string, Row>,
   custom: CustomRow[],
 ): UiBadgeConfig {
   return {
-    projectTaskStatus: Object.fromEntries(
-      PROJECT_TASK_STATUSES.map((k) => [
-        k,
-        {
-          label: status[k].label,
-          palette: status[k].palette,
-          surface: status[k].surface,
-          textColor: status[k].textColor,
-        },
-      ]),
+    projectTaskStatus: entryPayloadFromRows(
+      [...PROJECT_TASK_STATUSES],
+      status,
     ) as UiBadgeConfig['projectTaskStatus'],
-    projectTaskPriority: Object.fromEntries(
-      PROJECT_TASK_PRIORITIES.map((k) => [
-        k,
-        {
-          label: priority[k].label,
-          palette: priority[k].palette,
-          surface: priority[k].surface,
-          textColor: priority[k].textColor,
-        },
-      ]),
+    projectTaskPriority: entryPayloadFromRows(
+      [...PROJECT_TASK_PRIORITIES],
+      priority,
     ) as UiBadgeConfig['projectTaskPriority'],
+    projectKind: entryPayloadFromRows(
+      [...PROJECT_KIND_KEYS],
+      projectKind,
+    ) as UiBadgeConfig['projectKind'],
+    projectLifecycleStatus: entryPayloadFromRows(
+      [...PROJECT_LIFECYCLE_STATUS_KEYS],
+      projectLifecycle,
+    ) as UiBadgeConfig['projectLifecycleStatus'],
+    projectEntityPriority: entryPayloadFromRows(
+      [...PROJECT_ENTITY_PRIORITY_KEYS],
+      projectEntityPriority,
+    ) as UiBadgeConfig['projectEntityPriority'],
+    projectComputedHealth: entryPayloadFromRows(
+      [...PROJECT_COMPUTED_HEALTH_KEYS],
+      projectComputedHealth,
+    ) as UiBadgeConfig['projectComputedHealth'],
+    projectPortfolioSignal: entryPayloadFromRows(
+      [...PROJECT_PORTFOLIO_SIGNAL_KEYS],
+      projectPortfolioSignal,
+    ) as UiBadgeConfig['projectPortfolioSignal'],
     custom: custom.map((c) => ({
       key: c.key,
       label: c.label,
@@ -133,6 +187,143 @@ function buildPayload(
       textColor: c.textColor,
     })),
   };
+}
+
+function BadgeKeyTable({
+  title,
+  keys,
+  rows,
+  setRows,
+  canEdit,
+}: {
+  title: string;
+  keys: readonly string[];
+  rows: Record<string, Row>;
+  setRows: Dispatch<SetStateAction<Record<string, Row> | null>>;
+  canEdit: boolean;
+}) {
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <div className="rounded-xl border border-border/70 overflow-hidden bg-white">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className="w-28 text-xs uppercase">Code</TableHead>
+              <TableHead className="min-w-[8rem] text-xs uppercase">Libellé</TableHead>
+              <TableHead className="w-44 text-xs uppercase">1. Ton de surface</TableHead>
+              <TableHead className="w-36 text-xs uppercase">2. Palette</TableHead>
+              <TableHead className="w-48 text-xs uppercase">3. Couleur du texte</TableHead>
+              <TableHead className="w-36 text-xs uppercase">Aperçu</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {keys.map((k) => (
+              <TableRow key={k}>
+                <TableCell className="font-mono text-xs">{k}</TableCell>
+                <TableCell>
+                  <Input
+                    value={rows[k].label}
+                    onChange={(e) =>
+                      setRows((s) =>
+                        s ? { ...s, [k]: { ...s[k], label: e.target.value } } : s,
+                      )
+                    }
+                    disabled={!canEdit}
+                    className="h-8 text-sm"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={rows[k].surface}
+                    onValueChange={(v) =>
+                      setRows((s) =>
+                        s
+                          ? {
+                              ...s,
+                              [k]: { ...s[k], surface: v as BadgeSurface },
+                            }
+                          : s,
+                      )
+                    }
+                    disabled={!canEdit}
+                  >
+                    <SelectTrigger size="sm" className="h-8 min-w-[9rem]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SurfaceSelectItems />
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={rows[k].palette}
+                    onValueChange={(v) =>
+                      setRows((s) =>
+                        s
+                          ? {
+                              ...s,
+                              [k]: { ...s[k], palette: v as BadgePalette },
+                            }
+                          : s,
+                      )
+                    }
+                    disabled={!canEdit}
+                  >
+                    <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <PaletteSelectItems />
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={rows[k].textColor}
+                    onValueChange={(v) =>
+                      setRows((s) =>
+                        s
+                          ? {
+                              ...s,
+                              [k]: {
+                                ...s[k],
+                                textColor: v as BadgeTextPreset,
+                              },
+                            }
+                          : s,
+                      )
+                    }
+                    disabled={!canEdit}
+                  >
+                    <SelectTrigger size="sm" className="h-8 min-w-[10rem]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <TextPresetSelectItems />
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className={badgeClassForStyle({
+                      palette: rows[k].palette,
+                      surface: rows[k].surface,
+                      textColor: rows[k].textColor,
+                    })}
+                  >
+                    {rows[k].label}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  );
 }
 
 export type BadgesAdminPanelProps = {
@@ -156,6 +347,22 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<Record<string, Row> | null>(null);
   const [priority, setPriority] = useState<Record<string, Row> | null>(null);
+  const [projectKind, setProjectKind] = useState<Record<string, Row> | null>(
+    null,
+  );
+  const [projectLifecycle, setProjectLifecycle] = useState<Record<
+    string,
+    Row
+  > | null>(null);
+  const [projectEntityPriority, setProjectEntityPriority] = useState<
+    Record<string, Row> | null
+  >(null);
+  const [projectComputedHealth, setProjectComputedHealth] = useState<
+    Record<string, Row> | null
+  >(null);
+  const [projectPortfolioSignal, setProjectPortfolioSignal] = useState<
+    Record<string, Row> | null
+  >(null);
   const [custom, setCustom] = useState<CustomRow[]>([]);
   const [newKey, setNewKey] = useState('');
   const [newLabel, setNewLabel] = useState('');
@@ -190,6 +397,25 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
       }
       setStatus(st);
       setPriority(pr);
+      setProjectKind(rowMapFromMerged(PROJECT_KIND_KEYS, m.projectKind));
+      setProjectLifecycle(
+        rowMapFromMerged(PROJECT_LIFECYCLE_STATUS_KEYS, m.projectLifecycleStatus),
+      );
+      setProjectEntityPriority(
+        rowMapFromMerged(PROJECT_ENTITY_PRIORITY_KEYS, m.projectEntityPriority),
+      );
+      setProjectComputedHealth(
+        rowMapFromMerged(
+          PROJECT_COMPUTED_HEALTH_KEYS,
+          m.projectComputedHealth,
+        ),
+      );
+      setProjectPortfolioSignal(
+        rowMapFromMerged(
+          PROJECT_PORTFOLIO_SIGNAL_KEYS,
+          m.projectPortfolioSignal,
+        ),
+      );
       setCustom(
         m.custom.map((c) => ({
           key: c.key,
@@ -283,10 +509,30 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
   };
 
   const save = async () => {
-    if (!status || !priority || !canEdit) return;
+    if (
+      !status ||
+      !priority ||
+      !projectKind ||
+      !projectLifecycle ||
+      !projectEntityPriority ||
+      !projectComputedHealth ||
+      !projectPortfolioSignal ||
+      !canEdit
+    ) {
+      return;
+    }
     setSaving(true);
     try {
-      const body = buildPayload(status, priority, custom);
+      const body = buildPayload(
+        status,
+        priority,
+        projectKind,
+        projectLifecycle,
+        projectEntityPriority,
+        projectComputedHealth,
+        projectPortfolioSignal,
+        custom,
+      );
       if (scope === 'platform') {
         const res = await authFetch('/api/platform/ui-badge-defaults', {
           method: 'PATCH',
@@ -362,7 +608,17 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
   };
 
   const waitClient = scope === 'client' && !clientId;
-  if (waitClient || loading || !status || !priority) {
+  if (
+    waitClient ||
+    loading ||
+    !status ||
+    !priority ||
+    !projectKind ||
+    !projectLifecycle ||
+    !projectEntityPriority ||
+    !projectComputedHealth ||
+    !projectPortfolioSignal
+  ) {
     return (
       <p className="text-sm text-muted-foreground">
         {waitClient ? 'Sélectionnez un client.' : 'Chargement…'}
@@ -432,247 +688,61 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
         (Pastel, Foncé ou Vif) → 2) palette de couleur → 3) couleur du texte.
       </p>
 
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Statuts de tâche (projets / plans d’action)</h3>
-        <div className="rounded-xl border border-border/70 overflow-hidden bg-white">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="w-28 text-xs uppercase">Code</TableHead>
-                <TableHead className="min-w-[8rem] text-xs uppercase">Libellé</TableHead>
-                <TableHead className="w-44 text-xs uppercase">1. Ton de surface</TableHead>
-                <TableHead className="w-36 text-xs uppercase">2. Palette</TableHead>
-                <TableHead className="w-48 text-xs uppercase">3. Couleur du texte</TableHead>
-                <TableHead className="w-36 text-xs uppercase">Aperçu</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {PROJECT_TASK_STATUSES.map((k) => (
-                <TableRow key={k}>
-                  <TableCell className="font-mono text-xs">{k}</TableCell>
-                  <TableCell>
-                    <Input
-                      value={status[k].label}
-                      onChange={(e) =>
-                        setStatus((s) =>
-                          s ? { ...s, [k]: { ...s[k], label: e.target.value } } : s,
-                        )
-                      }
-                      disabled={!canEdit}
-                      className="h-8 text-sm"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={status[k].surface}
-                      onValueChange={(v) =>
-                        setStatus((s) =>
-                          s
-                            ? {
-                                ...s,
-                                [k]: { ...s[k], surface: v as BadgeSurface },
-                              }
-                            : s,
-                        )
-                      }
-                      disabled={!canEdit}
-                    >
-                      <SelectTrigger size="sm" className="h-8 min-w-[9rem]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SurfaceSelectItems />
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={status[k].palette}
-                      onValueChange={(v) =>
-                        setStatus((s) =>
-                          s
-                            ? {
-                                ...s,
-                                [k]: { ...s[k], palette: v as BadgePalette },
-                              }
-                            : s,
-                        )
-                      }
-                      disabled={!canEdit}
-                    >
-                      <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <PaletteSelectItems />
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={status[k].textColor}
-                      onValueChange={(v) =>
-                        setStatus((s) =>
-                          s
-                            ? {
-                                ...s,
-                                [k]: {
-                                  ...s[k],
-                                  textColor: v as BadgeTextPreset,
-                                },
-                              }
-                            : s,
-                        )
-                      }
-                      disabled={!canEdit}
-                    >
-                      <SelectTrigger size="sm" className="h-8 min-w-[10rem]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <TextPresetSelectItems />
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={badgeClassForStyle({
-                        palette: status[k].palette,
-                        surface: status[k].surface,
-                        textColor: status[k].textColor,
-                      })}
-                    >
-                      {status[k].label}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </section>
+      <BadgeKeyTable
+        title="Statuts de tâche (projets / plans d’action)"
+        keys={PROJECT_TASK_STATUSES}
+        rows={status}
+        setRows={setStatus}
+        canEdit={canEdit}
+      />
 
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Priorités de tâche</h3>
-        <div className="rounded-xl border border-border/70 overflow-hidden bg-white">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="w-28 text-xs uppercase">Code</TableHead>
-                <TableHead className="min-w-[8rem] text-xs uppercase">Libellé</TableHead>
-                <TableHead className="w-44 text-xs uppercase">1. Ton de surface</TableHead>
-                <TableHead className="w-36 text-xs uppercase">2. Palette</TableHead>
-                <TableHead className="w-48 text-xs uppercase">3. Couleur du texte</TableHead>
-                <TableHead className="w-36 text-xs uppercase">Aperçu</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {PROJECT_TASK_PRIORITIES.map((k) => (
-                <TableRow key={k}>
-                  <TableCell className="font-mono text-xs">{k}</TableCell>
-                  <TableCell>
-                    <Input
-                      value={priority[k].label}
-                      onChange={(e) =>
-                        setPriority((s) =>
-                          s ? { ...s, [k]: { ...s[k], label: e.target.value } } : s,
-                        )
-                      }
-                      disabled={!canEdit}
-                      className="h-8 text-sm"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={priority[k].surface}
-                      onValueChange={(v) =>
-                        setPriority((s) =>
-                          s
-                            ? {
-                                ...s,
-                                [k]: { ...s[k], surface: v as BadgeSurface },
-                              }
-                            : s,
-                        )
-                      }
-                      disabled={!canEdit}
-                    >
-                      <SelectTrigger size="sm" className="h-8 min-w-[9rem]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SurfaceSelectItems />
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={priority[k].palette}
-                      onValueChange={(v) =>
-                        setPriority((s) =>
-                          s
-                            ? {
-                                ...s,
-                                [k]: { ...s[k], palette: v as BadgePalette },
-                              }
-                            : s,
-                        )
-                      }
-                      disabled={!canEdit}
-                    >
-                      <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <PaletteSelectItems />
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={priority[k].textColor}
-                      onValueChange={(v) =>
-                        setPriority((s) =>
-                          s
-                            ? {
-                                ...s,
-                                [k]: {
-                                  ...s[k],
-                                  textColor: v as BadgeTextPreset,
-                                },
-                              }
-                            : s,
-                        )
-                      }
-                      disabled={!canEdit}
-                    >
-                      <SelectTrigger size="sm" className="h-8 min-w-[10rem]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <TextPresetSelectItems />
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={badgeClassForStyle({
-                        palette: priority[k].palette,
-                        surface: priority[k].surface,
-                        textColor: priority[k].textColor,
-                      })}
-                    >
-                      {priority[k].label}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </section>
+      <BadgeKeyTable
+        title="Priorités de tâche"
+        keys={PROJECT_TASK_PRIORITIES}
+        rows={priority}
+        setRows={setPriority}
+        canEdit={canEdit}
+      />
+
+      <BadgeKeyTable
+        title="Portefeuille projets — nature (projet / activité)"
+        keys={PROJECT_KIND_KEYS}
+        rows={projectKind}
+        setRows={setProjectKind}
+        canEdit={canEdit}
+      />
+
+      <BadgeKeyTable
+        title="Portefeuille projets — statut de cycle de vie"
+        keys={PROJECT_LIFECYCLE_STATUS_KEYS}
+        rows={projectLifecycle}
+        setRows={setProjectLifecycle}
+        canEdit={canEdit}
+      />
+
+      <BadgeKeyTable
+        title="Portefeuille projets — priorité projet"
+        keys={PROJECT_ENTITY_PRIORITY_KEYS}
+        rows={projectEntityPriority}
+        setRows={setProjectEntityPriority}
+        canEdit={canEdit}
+      />
+
+      <BadgeKeyTable
+        title="Portefeuille projets — santé calculée"
+        keys={PROJECT_COMPUTED_HEALTH_KEYS}
+        rows={projectComputedHealth}
+        setRows={setProjectComputedHealth}
+        canEdit={canEdit}
+      />
+
+      <BadgeKeyTable
+        title="Portefeuille projets — signaux (retard, blocage, etc.)"
+        keys={PROJECT_PORTFOLIO_SIGNAL_KEYS}
+        rows={projectPortfolioSignal}
+        setRows={setProjectPortfolioSignal}
+        canEdit={canEdit}
+      />
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold">Badges libres (bibliothèque)</h3>

@@ -2,80 +2,140 @@
 
 import { cn } from '@/lib/utils';
 import type { ProjectListItem, ProjectSignals } from '../types/project.types';
+import type { MergedUiBadges } from '@/lib/ui/badge-registry';
+import {
+  projectComputedHealthBadgeClass,
+  projectComputedHealthShortLabel,
+  projectPortfolioSignalBadgeClass,
+  type ProjectComputedHealthKey,
+  type ProjectPortfolioSignalKey,
+} from '@/lib/ui/badge-registry';
 
 const chip =
   'inline-flex min-h-[1.375rem] items-center rounded-md border px-2 py-0.5 text-xs font-medium leading-none';
 
+const legacyHealthStyles: Record<ProjectListItem['computedHealth'], string> = {
+  RED: 'border-destructive/35 bg-destructive/[0.08] text-destructive',
+  ORANGE:
+    'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
+  GREEN: '!border-emerald-700 !bg-emerald-600 !text-white',
+};
+
+const legacyHealthLabels: Record<ProjectListItem['computedHealth'], string> = {
+  RED: 'Santé : critique',
+  ORANGE: 'Santé : attention',
+  GREEN: 'Santé : bon',
+};
+
+const legacyHealthLabelsCompact: Record<ProjectListItem['computedHealth'], string> = {
+  RED: 'Critique',
+  ORANGE: 'Attention',
+  GREEN: 'Bon',
+};
+
 export function HealthBadge({
   health,
   compact = false,
+  merged,
 }: {
   health: ProjectListItem['computedHealth'];
   /** Libellés courts pour tableaux denses. */
   compact?: boolean;
+  /** Config badges client/plateforme — si fourni, styles issus de l’administration badges. */
+  merged?: MergedUiBadges | null;
 }) {
-  const styles: Record<typeof health, string> = {
-    RED: 'border-destructive/35 bg-destructive/[0.08] text-destructive',
-    ORANGE:
-      'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
-    GREEN: '!border-emerald-700 !bg-emerald-600 !text-white',
-  };
-  const labels: Record<typeof health, string> = {
-    RED: 'Santé : critique',
-    ORANGE: 'Santé : attention',
-    GREEN: 'Santé : bon',
-  };
-  const labelsCompact: Record<typeof health, string> = {
-    RED: 'Critique',
-    ORANGE: 'Attention',
-    GREEN: 'Bon',
-  };
+  if (merged) {
+    const hk = health as ProjectComputedHealthKey;
+    const label = compact
+      ? projectComputedHealthShortLabel(hk)
+      : merged.projectComputedHealth[hk].label;
+    return (
+      <span
+        className={cn(
+          chip,
+          compact && '!min-h-0 px-1.5 py-0.5 text-[0.65rem]',
+          'font-normal',
+          projectComputedHealthBadgeClass(merged, health),
+        )}
+        data-health={health.toLowerCase()}
+      >
+        {label}
+      </span>
+    );
+  }
+
   return (
     <span
       className={cn(
         chip,
         compact && '!min-h-0 px-1.5 py-0.5 text-[0.65rem]',
-        styles[health],
+        legacyHealthStyles[health],
       )}
       data-health={health.toLowerCase()}
     >
-      {compact ? labelsCompact[health] : labels[health]}
+      {compact ? legacyHealthLabelsCompact[health] : legacyHealthLabels[health]}
     </span>
   );
 }
 
-export function ProjectPortfolioBadges({ signals }: { signals: ProjectSignals }) {
-  const items: { key: string; label: string; show: boolean; variant: 'danger' | 'warn' | 'muted' }[] =
-    [
-      { key: 'late', label: 'En retard', show: signals.isLate, variant: 'danger' },
-      { key: 'blocked', label: 'Bloqué', show: signals.isBlocked, variant: 'danger' },
-      { key: 'critical', label: 'Critique', show: signals.isCritical, variant: 'danger' },
-      {
-        key: 'norisk',
-        label: 'Sans étude de risque',
-        show: signals.hasNoRisks,
-        variant: 'warn',
-      },
-      { key: 'noowner', label: 'Sans responsable', show: signals.hasNoOwner, variant: 'warn' },
-    ];
+const portfolioItems: {
+  key: ProjectPortfolioSignalKey;
+  label: string;
+  show: (s: ProjectSignals) => boolean;
+}[] = [
+  { key: 'late', label: 'En retard', show: (s) => s.isLate },
+  { key: 'blocked', label: 'Bloqué', show: (s) => s.isBlocked },
+  { key: 'critical', label: 'Critique', show: (s) => s.isCritical },
+  {
+    key: 'norisk',
+    label: 'Sans étude de risque',
+    show: (s) => s.hasNoRisks,
+  },
+  { key: 'noowner', label: 'Sans responsable', show: (s) => s.hasNoOwner },
+];
 
-  const variantClass: Record<typeof items[number]['variant'], string> = {
-    danger:
-      'border-destructive/35 bg-destructive/[0.08] text-destructive dark:border-destructive/50 dark:bg-destructive/15',
-    warn: 'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
-    muted: 'border-border bg-muted/70 text-muted-foreground',
-  };
+const legacyVariantClass = {
+  danger:
+    'border-destructive/35 bg-destructive/[0.08] text-destructive dark:border-destructive/50 dark:bg-destructive/15',
+  warn: 'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
+  muted: 'border-border bg-muted/70 text-muted-foreground',
+} as const;
 
-  const visible = items.filter((i) => i.show);
+function legacyVariantForKey(key: ProjectPortfolioSignalKey): keyof typeof legacyVariantClass {
+  if (key === 'late' || key === 'blocked' || key === 'critical') return 'danger';
+  if (key === 'norisk' || key === 'noowner') return 'warn';
+  return 'muted';
+}
+
+export function ProjectPortfolioBadges({
+  signals,
+  merged,
+}: {
+  signals: ProjectSignals;
+  merged?: MergedUiBadges | null;
+}) {
+  const visible = portfolioItems.filter((i) => i.show(signals));
   if (visible.length === 0) return null;
 
   return (
     <div className="flex flex-wrap gap-1">
-      {visible.map((i) => (
-        <span key={i.key} className={cn(chip, variantClass[i.variant])}>
-          {i.label}
-        </span>
-      ))}
+      {visible.map((i) => {
+        const label = merged
+          ? merged.projectPortfolioSignal[i.key].label
+          : i.label;
+        const className = merged
+          ? cn(
+              chip,
+              'font-normal',
+              projectPortfolioSignalBadgeClass(merged, i.key),
+            )
+          : cn(chip, legacyVariantClass[legacyVariantForKey(i.key)]);
+        return (
+          <span key={i.key} className={className}>
+            {label}
+          </span>
+        );
+      })}
     </div>
   );
 }

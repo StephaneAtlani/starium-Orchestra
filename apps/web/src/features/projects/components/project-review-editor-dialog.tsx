@@ -63,6 +63,8 @@ import {
 import { getReviewTypeOptionsForEditor } from '../lib/project-review-post-mortem';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
+import type { MergedUiBadges } from '@/lib/ui/badge-registry';
+import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import { PostMortemIndicatorsBlock } from './post-mortem-indicators-block';
 import { projectSheet } from '../constants/project-routes';
 import { updateProject } from '../api/projects.api';
@@ -270,7 +272,13 @@ function readCommitteeMood(raw: unknown): CommitteeMood | null {
 }
 
 /** Bandeau indicateurs — carte légère, alignée FRONTEND_UI-UX §2. */
-function ProjectMeteoInline({ project }: { project: ProjectDetail }) {
+function ProjectMeteoInline({
+  project,
+  badgeMerged,
+}: {
+  project: ProjectDetail;
+  badgeMerged: MergedUiBadges;
+}) {
   const av =
     project.derivedProgressPercent ?? project.progressPercent ?? null;
   return (
@@ -280,8 +288,8 @@ function ProjectMeteoInline({ project }: { project: ProjectDetail }) {
       </p>
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          <HealthBadge health={project.computedHealth} compact />
-          <ProjectPortfolioBadges signals={project.signals} />
+          <HealthBadge health={project.computedHealth} compact merged={badgeMerged} />
+          <ProjectPortfolioBadges signals={project.signals} merged={badgeMerged} />
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/50 pt-3 text-xs sm:border-t-0 sm:pt-0">
           <span className="tabular-nums text-muted-foreground">
@@ -509,6 +517,7 @@ export function ProjectReviewEditorDialog({
 }) {
   const detailQuery = useProjectReviewDetailQuery(projectId, reviewId);
   const projectQuery = useProjectDetailQuery(projectId);
+  const { merged: badgeMerged } = useClientUiBadgeConfig();
   const sheetQuery = useProjectSheetQuery(projectId, { enabled: open });
   const reviewsListQuery = useProjectReviewsQuery(projectId, { enabled: open });
   const previousReviewId = useMemo(() => {
@@ -978,7 +987,9 @@ export function ProjectReviewEditorDialog({
                   aria-hidden
                 />
               )}
-              {projectQuery.data && <ProjectMeteoInline project={projectQuery.data} />}
+              {projectQuery.data && (
+                <ProjectMeteoInline project={projectQuery.data} badgeMerged={badgeMerged} />
+              )}
 
               {(!!projectQuery.data?.warnings?.length || actionFormAlerts.length > 0) && (
                 <div className="space-y-2">

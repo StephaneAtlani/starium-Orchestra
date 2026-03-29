@@ -82,6 +82,7 @@ import {
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
+import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
 import { ProjectDocumentsSection } from './project-documents-section';
 import { ProjectTeamMatrix } from './project-team-matrix';
@@ -478,6 +479,7 @@ export function ProjectSheetView({
   const sheet = sheetReadOnlyOverride ?? querySheet;
 
   const projectDetailQuery = useProjectDetailQuery(projectId);
+  const { merged: badgeMerged } = useClientUiBadgeConfig();
 
   const [projectName, setProjectName] = useState('');
   const [priority, setPriority] = useState<string>('MEDIUM');
@@ -1017,7 +1019,10 @@ export function ProjectSheetView({
                 actions={
                   <div className="flex flex-wrap items-center gap-2">
                     {projectDetailQuery.data ? (
-                      <HealthBadge health={projectDetailQuery.data.computedHealth} />
+                      <HealthBadge
+                        health={projectDetailQuery.data.computedHealth}
+                        merged={badgeMerged}
+                      />
                     ) : projectDetailQuery.isLoading ? (
                       <span
                         className="text-xs text-muted-foreground"
@@ -1038,7 +1043,10 @@ export function ProjectSheetView({
                     Signaux portefeuille
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <ProjectPortfolioBadges signals={projectDetailQuery.data.signals} />
+                    <ProjectPortfolioBadges
+                      signals={projectDetailQuery.data.signals}
+                      merged={badgeMerged}
+                    />
                   </div>
                 </div>
                 {projectDetailQuery.data.warnings.length > 0 ? (
