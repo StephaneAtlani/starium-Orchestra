@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "clean": "rm -rf .next node_modules/.cache"
+    "clean": "rm -rf .next node_modules/.cache",
+    "generate:badge-matrix": "node scripts/generate-badge-palette-matrix.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

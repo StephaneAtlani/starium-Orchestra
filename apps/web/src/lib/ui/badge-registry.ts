@@ -1,44 +1,161 @@
 /**
- * Registre unique des badges Starium (tons Tailwind + libellés par défaut dans le code).
+ * Registre badges Starium : palette × ton de surface × couleur du texte.
  * Fusion : défauts code → `PlatformUiBadgeSettings.badgeConfig` → `Client.uiBadgeConfig`.
+ * Rétrocompat : ancien champ `tone` (seul) → équivalent pastel + auto.
  */
 import { cn } from '@/lib/utils';
+import {
+  PALETTE_SURFACE_BASE,
+  PALETTE_TEXT_AUTO,
+} from './badge-palette-matrix.generated';
 
-/**
- * Tons disponibles (neutres + palette Tailwind complète pour libellés / pastilles).
- * Garder aligné avec `ui-badge-config.parse.ts` côté API.
- */
-export const BADGE_TONES = [
+/** Palettes = familles de couleurs (+ neutre). */
+export const BADGE_PALETTES = [
   'neutral',
-  // Neutres
   'slate',
   'gray',
   'zinc',
   'stone',
-  // Rouges / oranges / jaunes
   'red',
   'orange',
   'amber',
   'yellow',
   'rose',
-  // Violets / roses / fuchsia
   'pink',
   'fuchsia',
   'purple',
   'violet',
-  // Bleus
   'indigo',
   'blue',
   'sky',
   'cyan',
-  // Verts / bleus-verts
   'teal',
   'emerald',
   'green',
   'lime',
 ] as const;
 
-export type BadgeTone = (typeof BADGE_TONES)[number];
+export type BadgePalette = (typeof BADGE_PALETTES)[number];
+
+/** Alias historique — même liste que les palettes. */
+export const BADGE_TONES = BADGE_PALETTES;
+export type BadgeTone = BadgePalette;
+
+/** Ton de surface (accord avec la palette). */
+export const BADGE_SURFACES = [
+  'pastel',
+  'soft',
+  'solid',
+  'dark',
+  'outline',
+] as const;
+
+export type BadgeSurface = (typeof BADGE_SURFACES)[number];
+
+export const BADGE_TEXT_PRESETS = ['auto', 'dark', 'light', 'muted'] as const;
+
+export type BadgeTextPreset = (typeof BADGE_TEXT_PRESETS)[number];
+
+export type BadgeStyle = {
+  palette: BadgePalette;
+  surface: BadgeSurface;
+  textColor: BadgeTextPreset;
+};
+
+const NEUTRAL_BASE: Record<BadgeSurface, string> = {
+  pastel:
+    'border-border bg-background dark:border-border dark:bg-muted/50',
+  soft: 'border-border bg-muted dark:border-border dark:bg-muted/80',
+  solid: 'border-primary bg-primary dark:border-primary dark:bg-primary',
+  dark: 'border-foreground/20 bg-foreground/10 dark:border-border dark:bg-muted',
+  outline: 'border-2 border-border bg-transparent',
+};
+
+const NEUTRAL_TEXT_AUTO: Record<BadgeSurface, string> = {
+  pastel: 'text-foreground',
+  soft: 'text-foreground',
+  solid: 'text-primary-foreground',
+  dark: 'text-foreground',
+  outline: 'text-foreground',
+};
+
+const TEXT_PRESET_CLASS: Record<
+  Exclude<BadgeTextPreset, 'auto'>,
+  string
+> = {
+  dark: 'text-slate-950 dark:text-slate-50',
+  light: 'text-white dark:text-white',
+  muted: 'text-muted-foreground',
+};
+
+export function badgeClassForStyle(style: BadgeStyle): string {
+  const { palette, surface, textColor } = style;
+  let base: string;
+  let autoText: string;
+
+  if (palette === 'neutral') {
+    base = NEUTRAL_BASE[surface];
+    autoText = NEUTRAL_TEXT_AUTO[surface];
+  } else {
+    base = PALETTE_SURFACE_BASE[palette][surface];
+    autoText = PALETTE_TEXT_AUTO[palette][surface];
+  }
+
+  const text =
+    textColor === 'auto' ? autoText : TEXT_PRESET_CLASS[textColor];
+  return cn('font-normal', base, text);
+}
+
+/** Ancien modèle à un seul `tone` → pastel + texte auto (comportement proche du legacy). */
+export function legacyToneToStyle(tone: BadgePalette): BadgeStyle {
+  return { palette: tone, surface: 'pastel', textColor: 'auto' };
+}
+
+export function badgeClassForTone(tone: BadgeTone): string {
+  return badgeClassForStyle(legacyToneToStyle(tone));
+}
+
+export const BADGE_PALETTE_GROUPS: ReadonlyArray<{
+  label: string;
+  palettes: readonly BadgePalette[];
+}> = [
+  { label: 'Neutre', palettes: ['neutral'] },
+  {
+    label: 'Gris',
+    palettes: ['slate', 'gray', 'zinc', 'stone'],
+  },
+  {
+    label: 'Rouges & chauds',
+    palettes: ['red', 'orange', 'amber', 'yellow', 'rose'],
+  },
+  {
+    label: 'Roses & violets',
+    palettes: ['pink', 'fuchsia', 'purple', 'violet'],
+  },
+  {
+    label: 'Bleus',
+    palettes: ['indigo', 'blue', 'sky', 'cyan'],
+  },
+  {
+    label: 'Verts & sarcelle',
+    palettes: ['teal', 'emerald', 'green', 'lime'],
+  },
+];
+
+export const BADGE_SURFACE_LABELS: Record<BadgeSurface, string> = {
+  pastel: 'Pastel',
+  soft: 'Doux (moyen)',
+  solid: 'Plein',
+  dark: 'Foncé',
+  outline: 'Contour',
+};
+
+export const BADGE_TEXT_PRESET_LABELS: Record<BadgeTextPreset, string> = {
+  auto: 'Automatique (contraste)',
+  dark: 'Texte foncé',
+  light: 'Texte clair',
+  muted: 'Texte atténué',
+};
 
 export const PROJECT_TASK_STATUSES = [
   'DRAFT',
@@ -55,84 +172,88 @@ export const PROJECT_TASK_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as 
 
 export type ProjectTaskPriorityKey = (typeof PROJECT_TASK_PRIORITIES)[number];
 
-/** Classes Tailwind complètes par ton (pastel clair + texte foncé ; dark : fond dense + texte clair). */
-export const BADGE_TONE_CLASSES: Record<BadgeTone, string> = {
-  neutral:
-    'border-border bg-background text-foreground dark:border-border dark:bg-muted/50 dark:text-foreground',
-  slate:
-    'border-slate-200 bg-slate-100 text-slate-900 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-50',
-  gray: 'border-gray-200 bg-gray-100 text-gray-900 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-50',
-  zinc: 'border-zinc-200 bg-zinc-100 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-50',
-  stone:
-    'border-stone-200 bg-stone-100 text-stone-900 dark:border-stone-700 dark:bg-stone-900/80 dark:text-stone-50',
-  red: 'border-red-200 bg-red-100 text-red-900 dark:border-red-900 dark:bg-red-950/70 dark:text-red-50',
-  orange:
-    'border-orange-200 bg-orange-100 text-orange-950 dark:border-orange-800 dark:bg-orange-950/70 dark:text-orange-50',
-  amber:
-    'border-amber-200 bg-amber-100 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-50',
-  yellow:
-    'border-yellow-200 bg-yellow-100 text-yellow-950 dark:border-yellow-800 dark:bg-yellow-950/70 dark:text-yellow-50',
-  rose: 'border-rose-200 bg-rose-100 text-rose-900 dark:border-rose-800 dark:bg-rose-950/70 dark:text-rose-50',
-  pink: 'border-pink-200 bg-pink-100 text-pink-900 dark:border-pink-800 dark:bg-pink-950/70 dark:text-pink-50',
-  fuchsia:
-    'border-fuchsia-200 bg-fuchsia-100 text-fuchsia-900 dark:border-fuchsia-800 dark:bg-fuchsia-950/70 dark:text-fuchsia-50',
-  purple:
-    'border-purple-200 bg-purple-100 text-purple-900 dark:border-purple-800 dark:bg-purple-950/70 dark:text-purple-50',
-  violet:
-    'border-violet-200 bg-violet-100 text-violet-900 dark:border-violet-800 dark:bg-violet-950/70 dark:text-violet-50',
-  indigo:
-    'border-indigo-200 bg-indigo-100 text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/70 dark:text-indigo-50',
-  blue: 'border-blue-200 bg-blue-100 text-blue-900 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-50',
-  sky: 'border-sky-200 bg-sky-100 text-sky-900 dark:border-sky-800 dark:bg-sky-950/70 dark:text-sky-50',
-  cyan: 'border-cyan-200 bg-cyan-100 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-50',
-  teal: 'border-teal-200 bg-teal-100 text-teal-900 dark:border-teal-800 dark:bg-teal-950/70 dark:text-teal-50',
-  emerald:
-    'border-emerald-200 bg-emerald-100 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-50',
-  green:
-    'border-green-200 bg-green-100 text-green-900 dark:border-green-800 dark:bg-green-950/70 dark:text-green-50',
-  lime: 'border-lime-200 bg-lime-100 text-lime-900 dark:border-lime-800 dark:bg-lime-950/70 dark:text-lime-50',
+const DEFAULT_TASK_STATUS: Record<ProjectTaskStatusKey, BadgeStyle> = {
+  DRAFT: { palette: 'slate', surface: 'pastel', textColor: 'auto' },
+  TODO: { palette: 'neutral', surface: 'pastel', textColor: 'auto' },
+  IN_PROGRESS: { palette: 'sky', surface: 'pastel', textColor: 'auto' },
+  BLOCKED: { palette: 'red', surface: 'pastel', textColor: 'auto' },
+  DONE: { palette: 'emerald', surface: 'pastel', textColor: 'auto' },
+  CANCELLED: { palette: 'slate', surface: 'pastel', textColor: 'auto' },
 };
 
-export function badgeClassForTone(tone: BadgeTone): string {
-  return cn('font-normal', BADGE_TONE_CLASSES[tone]);
-}
-
-const DEFAULT_TASK_STATUS: Record<
-  ProjectTaskStatusKey,
-  { label: string; tone: BadgeTone }
-> = {
-  DRAFT: { label: 'Brouillon', tone: 'slate' },
-  TODO: { label: 'À faire', tone: 'neutral' },
-  IN_PROGRESS: { label: 'En cours', tone: 'sky' },
-  BLOCKED: { label: 'Bloquée', tone: 'red' },
-  DONE: { label: 'Terminée', tone: 'emerald' },
-  CANCELLED: { label: 'Annulée', tone: 'slate' },
+const DEFAULT_TASK_STATUS_LABELS: Record<ProjectTaskStatusKey, string> = {
+  DRAFT: 'Brouillon',
+  TODO: 'À faire',
+  IN_PROGRESS: 'En cours',
+  BLOCKED: 'Bloquée',
+  DONE: 'Terminée',
+  CANCELLED: 'Annulée',
 };
 
-const DEFAULT_TASK_PRIORITY: Record<
-  ProjectTaskPriorityKey,
-  { label: string; tone: BadgeTone }
-> = {
-  LOW: { label: 'Basse', tone: 'neutral' },
-  MEDIUM: { label: 'Moyenne', tone: 'slate' },
-  HIGH: { label: 'Haute', tone: 'amber' },
-  CRITICAL: { label: 'Critique', tone: 'red' },
+const DEFAULT_TASK_PRIORITY: Record<ProjectTaskPriorityKey, BadgeStyle> = {
+  LOW: { palette: 'neutral', surface: 'pastel', textColor: 'auto' },
+  MEDIUM: { palette: 'slate', surface: 'pastel', textColor: 'auto' },
+  HIGH: { palette: 'amber', surface: 'pastel', textColor: 'auto' },
+  CRITICAL: { palette: 'red', surface: 'pastel', textColor: 'auto' },
 };
 
-export type BadgeEntry = { label: string; tone: BadgeTone; className: string };
+const DEFAULT_TASK_PRIORITY_LABELS: Record<ProjectTaskPriorityKey, string> = {
+  LOW: 'Basse',
+  MEDIUM: 'Moyenne',
+  HIGH: 'Haute',
+  CRITICAL: 'Critique',
+};
+
+/** Entrée fusionnée pour l’affichage (tableaux, pastilles). */
+export type BadgeEntry = {
+  label: string;
+  palette: BadgePalette;
+  surface: BadgeSurface;
+  textColor: BadgeTextPreset;
+  className: string;
+};
+
+/** Surcharges JSON (champs partiels + `tone` legacy). */
+export type UiBadgeStyleFields = {
+  label?: string;
+  tone?: BadgeTone;
+  palette?: BadgePalette;
+  surface?: BadgeSurface;
+  textColor?: BadgeTextPreset;
+};
 
 export type UiBadgeConfig = {
-  projectTaskStatus?: Partial<
-    Record<ProjectTaskStatusKey, { label?: string; tone?: BadgeTone }>
+  projectTaskStatus?: Partial<Record<ProjectTaskStatusKey, UiBadgeStyleFields>>;
+  projectTaskPriority?: Partial<Record<ProjectTaskPriorityKey, UiBadgeStyleFields>>;
+  custom?: Array<
+    { key: string; label: string } & UiBadgeStyleFields
   >;
-  projectTaskPriority?: Partial<
-    Record<ProjectTaskPriorityKey, { label?: string; tone?: BadgeTone }>
-  >;
-  custom?: Array<{ key: string; label: string; tone: BadgeTone }>;
 };
 
-function isBadgeTone(v: unknown): v is BadgeTone {
-  return typeof v === 'string' && (BADGE_TONES as readonly string[]).includes(v);
+function isBadgePalette(v: unknown): v is BadgePalette {
+  return typeof v === 'string' && (BADGE_PALETTES as readonly string[]).includes(v);
+}
+
+function isBadgeSurface(v: unknown): v is BadgeSurface {
+  return typeof v === 'string' && (BADGE_SURFACES as readonly string[]).includes(v);
+}
+
+function isBadgeTextPreset(v: unknown): v is BadgeTextPreset {
+  return typeof v === 'string' && (BADGE_TEXT_PRESETS as readonly string[]).includes(v);
+}
+
+function normalizeBadgeStyle(
+  entry: UiBadgeStyleFields | undefined,
+  def: BadgeStyle,
+): BadgeStyle {
+  if (!entry) return def;
+  const palette =
+    entry.palette ??
+    (entry.tone != null && isBadgePalette(entry.tone) ? entry.tone : undefined) ??
+    def.palette;
+  const surface = entry.surface ?? def.surface;
+  const textColor = entry.textColor ?? def.textColor;
+  return { palette, surface, textColor };
 }
 
 /** Parse JSON API → structure typée (permissif). */
@@ -143,16 +264,24 @@ export function parseUiBadgeConfig(raw: unknown): UiBadgeConfig | null {
   const o = raw as Record<string, unknown>;
   const out: UiBadgeConfig = {};
 
-  if (o.projectTaskStatus && typeof o.projectTaskStatus === 'object' && !Array.isArray(o.projectTaskStatus)) {
+  if (
+    o.projectTaskStatus &&
+    typeof o.projectTaskStatus === 'object' &&
+    !Array.isArray(o.projectTaskStatus)
+  ) {
     const m: UiBadgeConfig['projectTaskStatus'] = {};
     for (const k of Object.keys(o.projectTaskStatus)) {
       if (!(PROJECT_TASK_STATUSES as readonly string[]).includes(k)) continue;
       const e = (o.projectTaskStatus as Record<string, unknown>)[k];
       if (!e || typeof e !== 'object') continue;
       const ent = e as Record<string, unknown>;
-      const label = typeof ent.label === 'string' ? ent.label : undefined;
-      const tone = isBadgeTone(ent.tone) ? ent.tone : undefined;
-      m[k as ProjectTaskStatusKey] = { label, tone };
+      const row: UiBadgeStyleFields = {};
+      if (typeof ent.label === 'string') row.label = ent.label;
+      if (isBadgePalette(ent.tone)) row.tone = ent.tone;
+      if (isBadgePalette(ent.palette)) row.palette = ent.palette;
+      if (isBadgeSurface(ent.surface)) row.surface = ent.surface;
+      if (isBadgeTextPreset(ent.textColor)) row.textColor = ent.textColor;
+      m[k as ProjectTaskStatusKey] = row;
     }
     out.projectTaskStatus = m;
   }
@@ -168,9 +297,13 @@ export function parseUiBadgeConfig(raw: unknown): UiBadgeConfig | null {
       const e = (o.projectTaskPriority as Record<string, unknown>)[k];
       if (!e || typeof e !== 'object') continue;
       const ent = e as Record<string, unknown>;
-      const label = typeof ent.label === 'string' ? ent.label : undefined;
-      const tone = isBadgeTone(ent.tone) ? ent.tone : undefined;
-      m[k as ProjectTaskPriorityKey] = { label, tone };
+      const row: UiBadgeStyleFields = {};
+      if (typeof ent.label === 'string') row.label = ent.label;
+      if (isBadgePalette(ent.tone)) row.tone = ent.tone;
+      if (isBadgePalette(ent.palette)) row.palette = ent.palette;
+      if (isBadgeSurface(ent.surface)) row.surface = ent.surface;
+      if (isBadgeTextPreset(ent.textColor)) row.textColor = ent.textColor;
+      m[k as ProjectTaskPriorityKey] = row;
     }
     out.projectTaskPriority = m;
   }
@@ -180,13 +313,19 @@ export function parseUiBadgeConfig(raw: unknown): UiBadgeConfig | null {
     for (const row of o.custom) {
       if (!row || typeof row !== 'object') continue;
       const r = row as Record<string, unknown>;
-      if (
-        typeof r.key === 'string' &&
-        typeof r.label === 'string' &&
-        isBadgeTone(r.tone)
-      ) {
-        custom.push({ key: r.key, label: r.label, tone: r.tone });
-      }
+      if (typeof r.key !== 'string' || typeof r.label !== 'string') continue;
+      const ent: UiBadgeStyleFields = {};
+      if (isBadgePalette(r.tone)) ent.tone = r.tone;
+      if (isBadgePalette(r.palette)) ent.palette = r.palette;
+      if (isBadgeSurface(r.surface)) ent.surface = r.surface;
+      if (isBadgeTextPreset(r.textColor)) ent.textColor = r.textColor;
+      const hasStyleHint =
+        isBadgePalette(r.tone) ||
+        isBadgePalette(r.palette) ||
+        isBadgeSurface(r.surface) ||
+        isBadgeTextPreset(r.textColor);
+      if (!hasStyleHint) continue;
+      custom.push({ key: r.key, label: r.label, ...ent });
     }
     out.custom = custom;
   }
@@ -200,9 +339,6 @@ export type MergedUiBadges = {
   custom: Array<BadgeEntry & { key: string }>;
 };
 
-/**
- * Fusion : défauts code → surcharges **plateforme** → surcharges **client**.
- */
 export function mergeUiBadgeConfig(
   platformStored: UiBadgeConfig | null | undefined,
   clientStored: UiBadgeConfig | null | undefined,
@@ -212,12 +348,24 @@ export function mergeUiBadgeConfig(
     const def = DEFAULT_TASK_STATUS[key];
     const p = platformStored?.projectTaskStatus?.[key];
     const c = clientStored?.projectTaskStatus?.[key];
-    const label = c?.label?.trim() || p?.label?.trim() || def.label;
-    const tone = c?.tone ?? p?.tone ?? def.tone;
+    const mergedFields: UiBadgeStyleFields = {
+      label: c?.label ?? p?.label,
+      tone: c?.tone ?? p?.tone,
+      palette: c?.palette ?? p?.palette,
+      surface: c?.surface ?? p?.surface,
+      textColor: c?.textColor ?? p?.textColor,
+    };
+    const style = normalizeBadgeStyle(mergedFields, def);
+    const label =
+      mergedFields.label?.trim() ||
+      p?.label?.trim() ||
+      c?.label?.trim() ||
+      DEFAULT_TASK_STATUS_LABELS[key];
+
     projectTaskStatus[key] = {
       label,
-      tone,
-      className: badgeClassForTone(tone),
+      ...style,
+      className: badgeClassForStyle(style),
     };
   }
 
@@ -226,40 +374,53 @@ export function mergeUiBadgeConfig(
     const def = DEFAULT_TASK_PRIORITY[key];
     const p = platformStored?.projectTaskPriority?.[key];
     const c = clientStored?.projectTaskPriority?.[key];
-    const label = c?.label?.trim() || p?.label?.trim() || def.label;
-    const tone = c?.tone ?? p?.tone ?? def.tone;
+    const mergedFields: UiBadgeStyleFields = {
+      label: c?.label ?? p?.label,
+      tone: c?.tone ?? p?.tone,
+      palette: c?.palette ?? p?.palette,
+      surface: c?.surface ?? p?.surface,
+      textColor: c?.textColor ?? p?.textColor,
+    };
+    const style = normalizeBadgeStyle(mergedFields, def);
+    const label =
+      mergedFields.label?.trim() ||
+      p?.label?.trim() ||
+      c?.label?.trim() ||
+      DEFAULT_TASK_PRIORITY_LABELS[key];
+
     projectTaskPriority[key] = {
       label,
-      tone,
-      className: badgeClassForTone(tone),
+      ...style,
+      className: badgeClassForStyle(style),
     };
   }
 
-  const byKey = new Map<
-    string,
-    { key: string; label: string; tone: BadgeTone }
-  >();
+  const byKey = new Map<string, { key: string; label: string } & UiBadgeStyleFields>();
   for (const row of platformStored?.custom ?? []) {
     byKey.set(row.key, row);
   }
+  const defCustom: BadgeStyle = {
+    palette: 'neutral',
+    surface: 'pastel',
+    textColor: 'auto',
+  };
   for (const row of clientStored?.custom ?? []) {
     byKey.set(row.key, row);
   }
-  const custom = [...byKey.values()].map((c) => ({
-    key: c.key,
-    label: c.label,
-    tone: c.tone,
-    className: badgeClassForTone(c.tone),
-  }));
+  const custom = [...byKey.values()].map((row) => {
+    const style = normalizeBadgeStyle(row, defCustom);
+    return {
+      key: row.key,
+      label: row.label,
+      ...style,
+      className: badgeClassForStyle(style),
+    };
+  });
 
   return { projectTaskStatus, projectTaskPriority, custom };
 }
 
-/** Libellés par code (fallback code brut si inconnu). */
-export function taskStatusLabel(
-  merged: MergedUiBadges,
-  status: string,
-): string {
+export function taskStatusLabel(merged: MergedUiBadges, status: string): string {
   if ((PROJECT_TASK_STATUSES as readonly string[]).includes(status)) {
     return merged.projectTaskStatus[status as ProjectTaskStatusKey].label;
   }

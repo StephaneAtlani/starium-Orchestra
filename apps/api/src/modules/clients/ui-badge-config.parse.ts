@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-/** Aligné sur `apps/web/src/lib/ui/badge-registry.ts` → BADGE_TONES */
-const BADGE_TONES = new Set([
+/** Aligné sur `apps/web/src/lib/ui/badge-registry.ts` */
+const BADGE_PALETTES = new Set([
   'neutral',
   'slate',
   'gray',
@@ -26,6 +26,16 @@ const BADGE_TONES = new Set([
   'green',
   'lime',
 ]);
+
+const BADGE_SURFACES = new Set([
+  'pastel',
+  'soft',
+  'solid',
+  'dark',
+  'outline',
+]);
+
+const BADGE_TEXT_PRESETS = new Set(['auto', 'dark', 'light', 'muted']);
 
 const TASK_STATUS_KEYS = new Set([
   'DRAFT',
@@ -112,7 +122,6 @@ export function parseUiBadgeConfigPayload(raw: unknown): Prisma.InputJsonValue {
       }
       const key = item.key;
       const label = item.label;
-      const tone = item.tone;
       if (typeof key !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(key)) {
         throw new BadRequestException(
           `custom[${i}].key : slug requis (a-z, 2-64 car.)`,
@@ -123,10 +132,8 @@ export function parseUiBadgeConfigPayload(raw: unknown): Prisma.InputJsonValue {
           `custom[${i}].label : chaîne 1–80 caractères`,
         );
       }
-      if (typeof tone !== 'string' || !BADGE_TONES.has(tone)) {
-        throw new BadRequestException(`custom[${i}].tone invalide`);
-      }
-      custom.push({ key, label, tone });
+      const style = parseEntry(item, `custom[${i}]`, true);
+      custom.push({ key, label, ...style });
     }
     out.custom = custom;
   }
@@ -134,7 +141,11 @@ export function parseUiBadgeConfigPayload(raw: unknown): Prisma.InputJsonValue {
   return out as Prisma.InputJsonValue;
 }
 
-function parseEntry(entry: unknown, path: string): Record<string, unknown> {
+function parseEntry(
+  entry: unknown,
+  path: string,
+  isCustomRow = false,
+): Record<string, unknown> {
   if (entry == null) {
     return {};
   }
@@ -149,10 +160,48 @@ function parseEntry(entry: unknown, path: string): Record<string, unknown> {
     out.label = entry.label;
   }
   if ('tone' in entry && entry.tone != null) {
-    if (typeof entry.tone !== 'string' || !BADGE_TONES.has(entry.tone)) {
+    if (typeof entry.tone !== 'string' || !BADGE_PALETTES.has(entry.tone)) {
       throw new BadRequestException(`${path}.tone invalide`);
     }
     out.tone = entry.tone;
   }
+  if ('palette' in entry && entry.palette != null) {
+    if (typeof entry.palette !== 'string' || !BADGE_PALETTES.has(entry.palette)) {
+      throw new BadRequestException(`${path}.palette invalide`);
+    }
+    out.palette = entry.palette;
+  }
+  if ('surface' in entry && entry.surface != null) {
+    if (typeof entry.surface !== 'string' || !BADGE_SURFACES.has(entry.surface)) {
+      throw new BadRequestException(`${path}.surface invalide`);
+    }
+    out.surface = entry.surface;
+  }
+  if ('textColor' in entry && entry.textColor != null) {
+    if (
+      typeof entry.textColor !== 'string' ||
+      !BADGE_TEXT_PRESETS.has(entry.textColor)
+    ) {
+      throw new BadRequestException(`${path}.textColor invalide`);
+    }
+    out.textColor = entry.textColor;
+  }
+
+  if (isCustomRow) {
+    const hasLegacy = out.tone != null;
+    const hasPalette = out.palette != null;
+    if (hasPalette) {
+      if (out.surface == null || out.textColor == null) {
+        throw new BadRequestException(
+          `${path} : surface et textColor requis avec palette`,
+        );
+      }
+    } else if (!hasLegacy) {
+      throw new BadRequestException(
+        `${path} : tone ou (palette + surface + textColor) requis`,
+      );
+    }
+  }
+
   return out;
 }

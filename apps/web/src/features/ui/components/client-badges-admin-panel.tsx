@@ -11,7 +11,9 @@ import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -27,9 +29,15 @@ import { useAuth } from '@/context/auth-context';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
-  BADGE_TONES,
-  badgeClassForTone,
-  type BadgeTone,
+  BADGE_PALETTE_GROUPS,
+  BADGE_SURFACE_LABELS,
+  BADGE_SURFACES,
+  BADGE_TEXT_PRESET_LABELS,
+  BADGE_TEXT_PRESETS,
+  badgeClassForStyle,
+  type BadgePalette,
+  type BadgeSurface,
+  type BadgeTextPreset,
   mergeUiBadgeConfig,
   parseUiBadgeConfig,
   PROJECT_TASK_PRIORITIES,
@@ -38,27 +46,91 @@ import {
 } from '@/lib/ui/badge-registry';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 
-type Row = { label: string; tone: BadgeTone };
+function PaletteSelectItems() {
+  return (
+    <>
+      {BADGE_PALETTE_GROUPS.map((g) => (
+        <SelectGroup key={g.label}>
+          <SelectLabel>{g.label}</SelectLabel>
+          {g.palettes.map((p) => (
+            <SelectItem key={p} value={p}>
+              {p}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      ))}
+    </>
+  );
+}
+
+function SurfaceSelectItems() {
+  return (
+    <>
+      {BADGE_SURFACES.map((s) => (
+        <SelectItem key={s} value={s}>
+          {BADGE_SURFACE_LABELS[s]}
+        </SelectItem>
+      ))}
+    </>
+  );
+}
+
+function TextPresetSelectItems() {
+  return (
+    <>
+      {BADGE_TEXT_PRESETS.map((t) => (
+        <SelectItem key={t} value={t}>
+          {BADGE_TEXT_PRESET_LABELS[t]}
+        </SelectItem>
+      ))}
+    </>
+  );
+}
+
+type Row = {
+  label: string;
+  palette: BadgePalette;
+  surface: BadgeSurface;
+  textColor: BadgeTextPreset;
+};
+
+type CustomRow = { key: string; label: string } & Row;
 
 function buildPayload(
   status: Record<string, Row>,
   priority: Record<string, Row>,
-  custom: Array<{ key: string; label: string; tone: BadgeTone }>,
+  custom: CustomRow[],
 ): UiBadgeConfig {
   return {
     projectTaskStatus: Object.fromEntries(
       PROJECT_TASK_STATUSES.map((k) => [
         k,
-        { label: status[k].label, tone: status[k].tone },
+        {
+          label: status[k].label,
+          palette: status[k].palette,
+          surface: status[k].surface,
+          textColor: status[k].textColor,
+        },
       ]),
     ) as UiBadgeConfig['projectTaskStatus'],
     projectTaskPriority: Object.fromEntries(
       PROJECT_TASK_PRIORITIES.map((k) => [
         k,
-        { label: priority[k].label, tone: priority[k].tone },
+        {
+          label: priority[k].label,
+          palette: priority[k].palette,
+          surface: priority[k].surface,
+          textColor: priority[k].textColor,
+        },
       ]),
     ) as UiBadgeConfig['projectTaskPriority'],
-    custom,
+    custom: custom.map((c) => ({
+      key: c.key,
+      label: c.label,
+      palette: c.palette,
+      surface: c.surface,
+      textColor: c.textColor,
+    })),
   };
 }
 
@@ -83,12 +155,12 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<Record<string, Row> | null>(null);
   const [priority, setPriority] = useState<Record<string, Row> | null>(null);
-  const [custom, setCustom] = useState<
-    Array<{ key: string; label: string; tone: BadgeTone }>
-  >([]);
+  const [custom, setCustom] = useState<CustomRow[]>([]);
   const [newKey, setNewKey] = useState('');
   const [newLabel, setNewLabel] = useState('');
-  const [newTone, setNewTone] = useState<BadgeTone>('neutral');
+  const [newPalette, setNewPalette] = useState<BadgePalette>('neutral');
+  const [newSurface, setNewSurface] = useState<BadgeSurface>('pastel');
+  const [newTextColor, setNewTextColor] = useState<BadgeTextPreset>('auto');
 
   const idPrefix = scope === 'platform' ? 'badge-plat' : 'badge-client';
 
@@ -97,22 +169,34 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
       const m = mergeUiBadgeConfig(platform, client);
       const st: Record<string, Row> = {};
       for (const k of PROJECT_TASK_STATUSES) {
+        const e = m.projectTaskStatus[k];
         st[k] = {
-          label: m.projectTaskStatus[k].label,
-          tone: m.projectTaskStatus[k].tone,
+          label: e.label,
+          palette: e.palette,
+          surface: e.surface,
+          textColor: e.textColor,
         };
       }
       const pr: Record<string, Row> = {};
       for (const k of PROJECT_TASK_PRIORITIES) {
+        const e = m.projectTaskPriority[k];
         pr[k] = {
-          label: m.projectTaskPriority[k].label,
-          tone: m.projectTaskPriority[k].tone,
+          label: e.label,
+          palette: e.palette,
+          surface: e.surface,
+          textColor: e.textColor,
         };
       }
       setStatus(st);
       setPriority(pr);
       setCustom(
-        m.custom.map((c) => ({ key: c.key, label: c.label, tone: c.tone })),
+        m.custom.map((c) => ({
+          key: c.key,
+          label: c.label,
+          palette: c.palette,
+          surface: c.surface,
+          textColor: c.textColor,
+        })),
       );
     },
     [],
@@ -259,10 +343,21 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
       toast.error('Libellé requis');
       return;
     }
-    setCustom((prev) => [...prev, { key, label, tone: newTone }]);
+    setCustom((prev) => [
+      ...prev,
+      {
+        key,
+        label,
+        palette: newPalette,
+        surface: newSurface,
+        textColor: newTextColor,
+      },
+    ]);
     setNewKey('');
     setNewLabel('');
-    setNewTone('neutral');
+    setNewPalette('neutral');
+    setNewSurface('pastel');
+    setNewTextColor('auto');
   };
 
   const waitClient = scope === 'client' && !clientId;
@@ -337,10 +432,12 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="w-32 text-xs uppercase">Code</TableHead>
-                <TableHead className="text-xs uppercase">Libellé affiché</TableHead>
-                <TableHead className="w-44 text-xs uppercase">Ton</TableHead>
-                <TableHead className="w-40 text-xs uppercase">Aperçu</TableHead>
+                <TableHead className="w-28 text-xs uppercase">Code</TableHead>
+                <TableHead className="min-w-[8rem] text-xs uppercase">Libellé</TableHead>
+                <TableHead className="w-36 text-xs uppercase">Palette</TableHead>
+                <TableHead className="w-44 text-xs uppercase">Ton de surface</TableHead>
+                <TableHead className="w-48 text-xs uppercase">Couleur du texte</TableHead>
+                <TableHead className="w-36 text-xs uppercase">Aperçu</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -361,30 +458,85 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                   </TableCell>
                   <TableCell>
                     <Select
-                      value={status[k].tone}
+                      value={status[k].palette}
                       onValueChange={(v) =>
                         setStatus((s) =>
                           s
-                            ? { ...s, [k]: { ...s[k], tone: v as BadgeTone } }
+                            ? {
+                                ...s,
+                                [k]: { ...s[k], palette: v as BadgePalette },
+                              }
                             : s,
                         )
                       }
                       disabled={!canEdit}
                     >
-                      <SelectTrigger size="sm" className="h-8">
+                      <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {BADGE_TONES.map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {t}
-                          </SelectItem>
-                        ))}
+                        <PaletteSelectItems />
                       </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={badgeClassForTone(status[k].tone)}>
+                    <Select
+                      value={status[k].surface}
+                      onValueChange={(v) =>
+                        setStatus((s) =>
+                          s
+                            ? {
+                                ...s,
+                                [k]: { ...s[k], surface: v as BadgeSurface },
+                              }
+                            : s,
+                        )
+                      }
+                      disabled={!canEdit}
+                    >
+                      <SelectTrigger size="sm" className="h-8 min-w-[9rem]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SurfaceSelectItems />
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={status[k].textColor}
+                      onValueChange={(v) =>
+                        setStatus((s) =>
+                          s
+                            ? {
+                                ...s,
+                                [k]: {
+                                  ...s[k],
+                                  textColor: v as BadgeTextPreset,
+                                },
+                              }
+                            : s,
+                        )
+                      }
+                      disabled={!canEdit}
+                    >
+                      <SelectTrigger size="sm" className="h-8 min-w-[10rem]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <TextPresetSelectItems />
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={badgeClassForStyle({
+                        palette: status[k].palette,
+                        surface: status[k].surface,
+                        textColor: status[k].textColor,
+                      })}
+                    >
                       {status[k].label}
                     </Badge>
                   </TableCell>
@@ -401,10 +553,12 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="w-32 text-xs uppercase">Code</TableHead>
-                <TableHead className="text-xs uppercase">Libellé affiché</TableHead>
-                <TableHead className="w-44 text-xs uppercase">Ton</TableHead>
-                <TableHead className="w-40 text-xs uppercase">Aperçu</TableHead>
+                <TableHead className="w-28 text-xs uppercase">Code</TableHead>
+                <TableHead className="min-w-[8rem] text-xs uppercase">Libellé</TableHead>
+                <TableHead className="w-36 text-xs uppercase">Palette</TableHead>
+                <TableHead className="w-44 text-xs uppercase">Ton de surface</TableHead>
+                <TableHead className="w-48 text-xs uppercase">Couleur du texte</TableHead>
+                <TableHead className="w-36 text-xs uppercase">Aperçu</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -425,30 +579,85 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                   </TableCell>
                   <TableCell>
                     <Select
-                      value={priority[k].tone}
+                      value={priority[k].palette}
                       onValueChange={(v) =>
                         setPriority((s) =>
                           s
-                            ? { ...s, [k]: { ...s[k], tone: v as BadgeTone } }
+                            ? {
+                                ...s,
+                                [k]: { ...s[k], palette: v as BadgePalette },
+                              }
                             : s,
                         )
                       }
                       disabled={!canEdit}
                     >
-                      <SelectTrigger size="sm" className="h-8">
+                      <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {BADGE_TONES.map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {t}
-                          </SelectItem>
-                        ))}
+                        <PaletteSelectItems />
                       </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={badgeClassForTone(priority[k].tone)}>
+                    <Select
+                      value={priority[k].surface}
+                      onValueChange={(v) =>
+                        setPriority((s) =>
+                          s
+                            ? {
+                                ...s,
+                                [k]: { ...s[k], surface: v as BadgeSurface },
+                              }
+                            : s,
+                        )
+                      }
+                      disabled={!canEdit}
+                    >
+                      <SelectTrigger size="sm" className="h-8 min-w-[9rem]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SurfaceSelectItems />
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={priority[k].textColor}
+                      onValueChange={(v) =>
+                        setPriority((s) =>
+                          s
+                            ? {
+                                ...s,
+                                [k]: {
+                                  ...s[k],
+                                  textColor: v as BadgeTextPreset,
+                                },
+                              }
+                            : s,
+                        )
+                      }
+                      disabled={!canEdit}
+                    >
+                      <SelectTrigger size="sm" className="h-8 min-w-[10rem]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <TextPresetSelectItems />
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={badgeClassForStyle({
+                        palette: priority[k].palette,
+                        surface: priority[k].surface,
+                        textColor: priority[k].textColor,
+                      })}
+                    >
                       {priority[k].label}
                     </Badge>
                   </TableCell>
@@ -472,7 +681,9 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead className="text-xs uppercase">Clé</TableHead>
                   <TableHead className="text-xs uppercase">Libellé</TableHead>
-                  <TableHead className="w-44 text-xs uppercase">Ton</TableHead>
+                  <TableHead className="w-36 text-xs uppercase">Palette</TableHead>
+                  <TableHead className="w-44 text-xs uppercase">Ton de surface</TableHead>
+                  <TableHead className="w-48 text-xs uppercase">Couleur du texte</TableHead>
                   <TableHead className="w-24 text-xs uppercase" />
                 </TableRow>
               </TableHeader>
@@ -496,25 +707,67 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={row.tone}
+                        value={row.palette}
                         onValueChange={(v) =>
                           setCustom((prev) =>
                             prev.map((r, i) =>
-                              i === idx ? { ...r, tone: v as BadgeTone } : r,
+                              i === idx
+                                ? { ...r, palette: v as BadgePalette }
+                                : r,
                             ),
                           )
                         }
                         disabled={!canEdit}
                       >
-                        <SelectTrigger size="sm" className="h-8">
+                        <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {BADGE_TONES.map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {t}
-                            </SelectItem>
-                          ))}
+                          <PaletteSelectItems />
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={row.surface}
+                        onValueChange={(v) =>
+                          setCustom((prev) =>
+                            prev.map((r, i) =>
+                              i === idx
+                                ? { ...r, surface: v as BadgeSurface }
+                                : r,
+                            ),
+                          )
+                        }
+                        disabled={!canEdit}
+                      >
+                        <SelectTrigger size="sm" className="h-8 min-w-[9rem]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SurfaceSelectItems />
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={row.textColor}
+                        onValueChange={(v) =>
+                          setCustom((prev) =>
+                            prev.map((r, i) =>
+                              i === idx
+                                ? { ...r, textColor: v as BadgeTextPreset }
+                                : r,
+                            ),
+                          )
+                        }
+                        disabled={!canEdit}
+                      >
+                        <SelectTrigger size="sm" className="h-8 min-w-[10rem]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <TextPresetSelectItems />
                         </SelectContent>
                       </Select>
                     </TableCell>
@@ -568,20 +821,44 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
               />
             </div>
             <div className="grid gap-1.5">
-              <span className="text-xs text-muted-foreground">Ton</span>
+              <span className="text-xs text-muted-foreground">Palette</span>
               <Select
-                value={newTone}
-                onValueChange={(v) => setNewTone(v as BadgeTone)}
+                value={newPalette}
+                onValueChange={(v) => setNewPalette(v as BadgePalette)}
               >
                 <SelectTrigger size="sm" className="h-8 w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {BADGE_TONES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
+                  <PaletteSelectItems />
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <span className="text-xs text-muted-foreground">Ton de surface</span>
+              <Select
+                value={newSurface}
+                onValueChange={(v) => setNewSurface(v as BadgeSurface)}
+              >
+                <SelectTrigger size="sm" className="h-8 w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SurfaceSelectItems />
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <span className="text-xs text-muted-foreground">Texte</span>
+              <Select
+                value={newTextColor}
+                onValueChange={(v) => setNewTextColor(v as BadgeTextPreset)}
+              >
+                <SelectTrigger size="sm" className="h-8 w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <TextPresetSelectItems />
                 </SelectContent>
               </Select>
             </div>
