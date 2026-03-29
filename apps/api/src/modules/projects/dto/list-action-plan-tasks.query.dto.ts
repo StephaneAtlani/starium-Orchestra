@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -8,6 +9,21 @@ import {
   Min,
 } from 'class-validator';
 import { ProjectTaskPriority, ProjectTaskStatus } from '@prisma/client';
+
+/** Champs triables — alignés sur `ProjectTask` (liste plan). */
+export const ACTION_PLAN_TASK_SORT_FIELDS = [
+  'name',
+  'status',
+  'priority',
+  'plannedStartDate',
+  'plannedEndDate',
+  'estimatedHours',
+  'ownerUserId',
+  'createdAt',
+  'sortOrder',
+] as const;
+
+export type ActionPlanTaskSortField = (typeof ACTION_PLAN_TASK_SORT_FIELDS)[number];
 
 export class ListActionPlanTasksQueryDto {
   @IsOptional()
@@ -33,6 +49,14 @@ export class ListActionPlanTasksQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsIn([...ACTION_PLAN_TASK_SORT_FIELDS])
+  sortBy?: ActionPlanTaskSortField;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc';
 
   @IsOptional()
   @Type(() => Number)

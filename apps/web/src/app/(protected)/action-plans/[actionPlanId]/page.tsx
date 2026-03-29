@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -19,34 +20,24 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { PermissionGate } from '@/components/PermissionGate';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
+import { listClientRisks, listProjects } from '@/features/projects/api/projects.api';
 import { ActionPlanTaskCreateDialog } from '@/features/projects/components/action-plan-task-create-dialog';
 import { ActionPlanTaskEditDialog } from '@/features/projects/components/action-plan-task-edit-dialog';
+import {
+  ActionPlanTasksTable,
+  type ActionPlanTaskSortField,
+} from '@/features/projects/components/action-plan-tasks-table';
 import { useActionPlanDetailQuery } from '@/features/projects/hooks/use-action-plan-detail-query';
 import { useActionPlanTasksQuery } from '@/features/projects/hooks/use-action-plan-tasks-query';
 import { useProjectAssignableUsers } from '@/features/projects/hooks/use-project-assignable-users';
+import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import type { ActionPlanApi } from '@/features/projects/types/project.types';
 import { cn } from '@/lib/utils';
-import { AlertCircle, ChevronLeft, ClipboardList, Filter, Plus, Search } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ClipboardList, Plus } from 'lucide-react';
 
 function fmtShortDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -55,34 +46,6 @@ function fmtShortDate(iso: string | null | undefined): string {
   } catch {
     return '—';
   }
-}
-
-function formatUser(
-  id: string | null | undefined,
-  users: { id: string; firstName: string | null; lastName: string | null; email: string }[],
-): string {
-  if (!id) return '—';
-  const u = users.find((x) => x.id === id);
-  if (!u) return '—';
-  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
-  return name || u.email;
-}
-
-function formatResourcePerson(r: {
-  firstName: string | null;
-  name: string;
-  code: string | null;
-}): string {
-  const label = [r.firstName, r.name].filter(Boolean).join(' ').trim();
-  return label || r.code || '—';
-}
-
-function formatTagsCell(tags: unknown): string {
-  if (tags == null) return '—';
-  if (Array.isArray(tags) && tags.every((x) => typeof x === 'string')) {
-    return tags.length ? tags.join(', ') : '—';
-  }
-  return '—';
 }
 
 const ACTION_PLAN_STATUS_LABELS: Record<string, string> = {
@@ -99,22 +62,6 @@ const ACTION_PLAN_PRIORITY_LABELS: Record<string, string> = {
   HIGH: 'Haute',
 };
 
-const TASK_STATUS_LABELS: Record<string, string> = {
-  TODO: 'À faire',
-  IN_PROGRESS: 'En cours',
-  BLOCKED: 'Bloquée',
-  DONE: 'Terminée',
-  CANCELLED: 'Annulée',
-  DRAFT: 'Brouillon',
-};
-
-const TASK_PRIORITY_LABELS: Record<string, string> = {
-  LOW: 'Basse',
-  MEDIUM: 'Moyenne',
-  HIGH: 'Haute',
-  CRITICAL: 'Critique',
-};
-
 function planStatusBadgeClass(status: string): string {
   switch (status) {
     case 'ACTIVE':
@@ -128,34 +75,6 @@ function planStatusBadgeClass(status: string): string {
     case 'DRAFT':
     default:
       return 'border-border/80 text-foreground';
-  }
-}
-
-function taskStatusBadgeClass(status: string): string {
-  switch (status) {
-    case 'DONE':
-      return 'border-emerald-500/35 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100';
-    case 'IN_PROGRESS':
-      return 'border-sky-500/35 bg-sky-500/10 text-sky-950 dark:text-sky-100';
-    case 'BLOCKED':
-      return 'border-destructive/30 bg-destructive/10 text-destructive';
-    case 'CANCELLED':
-      return 'border-border text-muted-foreground';
-    default:
-      return 'border-border/80';
-  }
-}
-
-function taskPriorityBadgeClass(priority: string): string {
-  switch (priority) {
-    case 'CRITICAL':
-      return 'border-destructive/35 bg-destructive/10 text-destructive';
-    case 'HIGH':
-      return 'border-amber-500/40 bg-amber-500/10 font-medium text-amber-950 dark:text-amber-100';
-    case 'MEDIUM':
-      return 'border-border text-foreground';
-    default:
-      return 'border-border/80 text-muted-foreground';
   }
 }
 
@@ -179,6 +98,7 @@ export default function ActionPlanDetailPage() {
   const actionPlanId = typeof params.actionPlanId === 'string' ? params.actionPlanId : '';
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+  const authFetch = useAuthenticatedFetch();
   const { has, isSuccess: permsSuccess } = usePermissions();
   const canRead = has('projects.read');
   const canUpdateProjects = has('projects.update');
@@ -188,16 +108,55 @@ export default function ActionPlanDetailPage() {
   const [statusF, setStatusF] = useState<string>('');
   const [priorityF, setPriorityF] = useState<string>('');
   const [searchF, setSearchF] = useState('');
+  const [projectIdF, setProjectIdF] = useState<string>('');
+  const [riskIdF, setRiskIdF] = useState<string>('');
+  const [ownerUserIdF, setOwnerUserIdF] = useState<string>('');
+  const [sortByField, setSortByField] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
   const tasksQuery = useActionPlanTasksQuery(
     actionPlanId,
     {
       status: statusF || undefined,
       priority: priorityF || undefined,
+      projectId: projectIdF || undefined,
+      riskId: riskIdF || undefined,
+      ownerUserId: ownerUserIdF || undefined,
       search: searchF.trim() || undefined,
+      sortBy: sortByField || undefined,
+      sortOrder: sortByField ? sortOrder : undefined,
       limit: 100,
       offset: 0,
     },
     { enabled },
+  );
+
+  const projectsPick = useQuery({
+    queryKey: [...projectQueryKeys.all, 'action-plan-detail-projects-pick', clientId],
+    queryFn: () => listProjects(authFetch, { page: 1, limit: 200 }),
+    enabled,
+  });
+  const risksPick = useQuery({
+    queryKey: projectQueryKeys.clientRisks(clientId),
+    queryFn: () => listClientRisks(authFetch),
+    enabled: enabled && !!clientId,
+  });
+
+  const projectOptions = useMemo(
+    () =>
+      (projectsPick.data?.items ?? []).map((p) => ({
+        id: p.id,
+        label: `${p.code} — ${p.name}`,
+      })),
+    [projectsPick.data?.items],
+  );
+  const riskOptions = useMemo(
+    () =>
+      (risksPick.data ?? []).map((r) => ({
+        id: r.id,
+        label: `${r.code} — ${r.title}`,
+      })),
+    [risksPick.data],
   );
 
   const assignable = useProjectAssignableUsers({ enabled });
@@ -225,9 +184,33 @@ export default function ActionPlanDetailPage() {
     setStatusF('');
     setPriorityF('');
     setSearchF('');
+    setProjectIdF('');
+    setRiskIdF('');
+    setOwnerUserIdF('');
+    setSortByField('');
+    setSortOrder('asc');
   };
 
-  const hasActiveFilters = Boolean(statusF || priorityF || searchF.trim());
+  const applyTaskSort = useCallback((key: ActionPlanTaskSortField) => {
+    setSortByField((prev) => {
+      if (prev === key) {
+        setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
+        return prev;
+      }
+      setSortOrder('asc');
+      return key;
+    });
+  }, []);
+
+  const hasActiveFilters = Boolean(
+    statusF ||
+      priorityF ||
+      searchF.trim() ||
+      projectIdF ||
+      riskIdF ||
+      ownerUserIdF ||
+      sortByField,
+  );
 
   const pageDescription = plan
     ? `${plan.code} · ${ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status} · avancement ${plan.progressPercent}%`
@@ -346,13 +329,19 @@ export default function ActionPlanDetailPage() {
               </div>
             </section>
 
-            {/* §7 — filtres */}
-            <Card size="sm" className="overflow-hidden shadow-sm" role="search" aria-label="Filtrer les tâches">
-              <CardHeader className="flex flex-col gap-2 border-b border-border/60 pb-3 sm:flex-row sm:items-start sm:justify-between">
+            {/* §7 — filtres + tableau (double en-tête, cf. portefeuille projets) */}
+            <Card
+              size="sm"
+              className="overflow-hidden shadow-sm"
+              role="search"
+              aria-label="Filtrer et trier les tâches du plan"
+            >
+              <CardHeader className="flex flex-col gap-2 border-b border-border/60 pb-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-0.5">
-                  <CardTitle className="text-sm font-medium">Filtrer les tâches</CardTitle>
+                  <CardTitle className="text-sm font-medium">Filtrer et trier</CardTitle>
                   <CardDescription className="text-xs">
-                    Recherche par libellé, filtre par statut ou priorité.
+                    Filtres sur la deuxième ligne d’en-tête ; cliquez sur un libellé pour trier. Ligne de données
+                    : ouverture de la fiche tâche.
                   </CardDescription>
                 </div>
                 <Button
@@ -366,176 +355,51 @@ export default function ActionPlanDetailPage() {
                   Réinitialiser
                 </Button>
               </CardHeader>
-              <CardContent className="space-y-4 pt-4">
-                <div>
-                  <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <Search className="size-3.5 text-muted-foreground" aria-hidden />
-                    Recherche
-                  </div>
-                  <div className="relative max-w-lg">
-                    <Search
-                      className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                      aria-hidden
-                    />
-                    <Input
-                      className="w-full pl-9"
-                      placeholder="Nom de tâche…"
-                      value={searchF}
-                      onChange={(e) => setSearchF(e.target.value)}
-                      aria-label="Rechercher une tâche par nom"
-                    />
-                  </div>
-                </div>
-                <div className="h-px bg-border/70" />
-                <div>
-                  <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <Filter className="size-3.5 text-muted-foreground" aria-hidden />
-                    Filtrer par
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ap-task-status">Statut tâche</Label>
-                      <Select
-                        value={statusF || '__all'}
-                        onValueChange={(v) => setStatusF(!v || v === '__all' ? '' : v)}
-                      >
-                        <SelectTrigger id="ap-task-status" className="w-full min-w-0">
-                          <SelectValue placeholder="Tous" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__all">Tous</SelectItem>
-                          <SelectItem value="TODO">À faire</SelectItem>
-                          <SelectItem value="IN_PROGRESS">En cours</SelectItem>
-                          <SelectItem value="BLOCKED">Bloquée</SelectItem>
-                          <SelectItem value="DONE">Terminée</SelectItem>
-                          <SelectItem value="CANCELLED">Annulée</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ap-task-priority">Priorité</Label>
-                      <Select
-                        value={priorityF || '__all'}
-                        onValueChange={(v) => setPriorityF(!v || v === '__all' ? '' : v)}
-                      >
-                        <SelectTrigger id="ap-task-priority" className="w-full min-w-0">
-                          <SelectValue placeholder="Toutes" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__all">Toutes</SelectItem>
-                          <SelectItem value="LOW">Basse</SelectItem>
-                          <SelectItem value="MEDIUM">Moyenne</SelectItem>
-                          <SelectItem value="HIGH">Haute</SelectItem>
-                          <SelectItem value="CRITICAL">Critique</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {tasksQuery.isLoading && <LoadingState rows={5} />}
-
-            {tasksQuery.data && tasksQuery.data.items.length === 0 && !tasksQuery.isLoading && (
-              <Card size="sm" className="overflow-hidden shadow-sm">
+              {tasksQuery.isLoading && tasksQuery.data == null ? (
+                <CardContent className="py-8">
+                  <LoadingState rows={5} />
+                </CardContent>
+              ) : tasksQuery.data && tasksQuery.data.items.length === 0 ? (
                 <CardContent className="py-10">
                   <EmptyState
                     title="Aucune tâche"
                     description="Ajoutez une tâche à ce plan ou élargissez les filtres."
                   />
                 </CardContent>
-              </Card>
-            )}
-
-            {tasksQuery.data && tasksQuery.data.items.length > 0 && (
-              <Card size="sm" className="overflow-hidden shadow-sm">
-                <CardHeader className="border-b border-border/60 pb-3">
-                  <CardTitle className="text-sm font-medium">Tâches du plan</CardTitle>
-                  <CardDescription className="text-xs">
-                    Cliquez sur une ligne pour ouvrir la fiche tâche (lecture / édition selon vos droits).
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table className="min-w-[56rem]">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Tâche</TableHead>
-                        <TableHead>Statut</TableHead>
-                        <TableHead>Priorité</TableHead>
-                        <TableHead>Projet</TableHead>
-                        <TableHead>Risque</TableHead>
-                        <TableHead>Début</TableHead>
-                        <TableHead>Échéance</TableHead>
-                        <TableHead>Charge (h)</TableHead>
-                        <TableHead>Tags</TableHead>
-                        <TableHead>Responsable</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {tasksQuery.data.items.map((row) => (
-                        <TableRow
-                          key={row.id}
-                          className="cursor-pointer"
-                          tabIndex={0}
-                          onClick={() => setSelectedTaskId(row.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              setSelectedTaskId(row.id);
-                            }
-                          }}
-                        >
-                          <TableCell className="font-medium">{row.name}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={cn('font-normal', taskStatusBadgeClass(row.status))}
-                            >
-                              {TASK_STATUS_LABELS[row.status] ?? row.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={cn('font-normal', taskPriorityBadgeClass(row.priority))}
-                            >
-                              {TASK_PRIORITY_LABELS[row.priority] ?? row.priority}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {row.project ? `${row.project.code} — ${row.project.name}` : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {row.risk ? `${row.risk.code} — ${row.risk.title}` : '—'}
-                          </TableCell>
-                          <TableCell className="tabular-nums">{fmtShortDate(row.plannedStartDate)}</TableCell>
-                          <TableCell className="tabular-nums">{fmtShortDate(row.plannedEndDate)}</TableCell>
-                          <TableCell className="tabular-nums">
-                            {row.estimatedHours != null && !Number.isNaN(Number(row.estimatedHours))
-                              ? String(row.estimatedHours)
-                              : '—'}
-                          </TableCell>
-                          <TableCell className="max-w-[140px] truncate text-muted-foreground">
-                            {formatTagsCell(row.tags)}
-                          </TableCell>
-                          <TableCell>
-                            {row.responsibleResource
-                              ? formatResourcePerson(row.responsibleResource)
-                              : formatUser(row.ownerUserId, users)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-                <CardFooter className="border-t border-border/60 bg-muted/15 py-2 text-xs text-muted-foreground">
-                  {tasksQuery.data.items.length === tasksQuery.data.total
-                    ? `${tasksQuery.data.total} tâche${tasksQuery.data.total > 1 ? 's' : ''}`
-                    : `Affichage de ${tasksQuery.data.items.length} sur ${tasksQuery.data.total} tâche${tasksQuery.data.total > 1 ? 's' : ''}`}
-                </CardFooter>
-              </Card>
-            )}
+              ) : tasksQuery.data && tasksQuery.data.items.length > 0 ? (
+                <>
+                  <CardContent className="p-0">
+                    <ActionPlanTasksTable
+                      items={tasksQuery.data.items}
+                      users={users}
+                      search={searchF}
+                      onSearchChange={setSearchF}
+                      status={statusF}
+                      onStatusChange={setStatusF}
+                      priority={priorityF}
+                      onPriorityChange={setPriorityF}
+                      projectId={projectIdF}
+                      onProjectIdChange={setProjectIdF}
+                      riskId={riskIdF}
+                      onRiskIdChange={setRiskIdF}
+                      ownerUserId={ownerUserIdF}
+                      onOwnerUserIdChange={setOwnerUserIdF}
+                      projectOptions={projectOptions}
+                      riskOptions={riskOptions}
+                      sortBy={sortByField}
+                      sortOrder={sortOrder}
+                      onSort={applyTaskSort}
+                      onRowClick={(id) => setSelectedTaskId(id)}
+                    />
+                  </CardContent>
+                  <CardFooter className="border-t border-border/60 bg-muted/15 py-2 text-xs text-muted-foreground">
+                    {tasksQuery.data.items.length === tasksQuery.data.total
+                      ? `${tasksQuery.data.total} tâche${tasksQuery.data.total > 1 ? 's' : ''}`
+                      : `Affichage de ${tasksQuery.data.items.length} sur ${tasksQuery.data.total} tâche${tasksQuery.data.total > 1 ? 's' : ''}`}
+                  </CardFooter>
+                </>
+              ) : null}
+            </Card>
           </>
         )}
 

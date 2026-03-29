@@ -17,6 +17,8 @@ export function useActionPlanTasksQuery(
     riskId?: string;
     ownerUserId?: string;
     search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
     offset?: number;
     limit?: number;
   },

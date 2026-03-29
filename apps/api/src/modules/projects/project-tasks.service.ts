@@ -18,7 +18,10 @@ import { ActionPlansService } from './action-plans.service';
 import { CreateActionPlanTaskDto } from './dto/create-action-plan-task.dto';
 import { CreateProjectTaskDto } from './dto/create-project-task.dto';
 import type { ProjectTaskChecklistItemInputDto } from './dto/project-task-checklist-item.dto';
-import { ListActionPlanTasksQueryDto } from './dto/list-action-plan-tasks.query.dto';
+import {
+  ACTION_PLAN_TASK_SORT_FIELDS,
+  ListActionPlanTasksQueryDto,
+} from './dto/list-action-plan-tasks.query.dto';
 import { ListProjectTasksQueryDto } from './dto/list-project-tasks.query.dto';
 import { UpdateActionPlanTaskDto } from './dto/update-action-plan-task.dto';
 import { UpdateProjectTaskDto } from './dto/update-project-task.dto';
@@ -119,10 +122,17 @@ export class ProjectTasksService {
       };
     }
 
+    const sortField = query.sortBy;
+    const dir = query.sortOrder === 'desc' ? 'desc' : 'asc';
+    const orderBy: Prisma.ProjectTaskOrderByWithRelationInput[] =
+      sortField && (ACTION_PLAN_TASK_SORT_FIELDS as readonly string[]).includes(sortField)
+        ? [{ [sortField]: dir }]
+        : [{ sortOrder: 'asc' }, { plannedStartDate: 'asc' }, { createdAt: 'asc' }];
+
     const [rows, total] = await Promise.all([
       this.prisma.projectTask.findMany({
         where,
-        orderBy: [{ sortOrder: 'asc' }, { plannedStartDate: 'asc' }, { createdAt: 'asc' }],
+        orderBy,
         skip: offset,
         take: limit,
         include: {
