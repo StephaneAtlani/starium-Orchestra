@@ -47,9 +47,12 @@ const pastel = (c) =>
 const dark = (c) =>
   `border-${c}-800 bg-${c}-700 dark:border-${c}-700 dark:bg-${c}-800`;
 
-/** Vif : saturation forte, pastille « punch » */
+/**
+ * Vif : bord plus clair que le fond — sans ombre (plat).
+ * Clair : bord 400 / fond 500 — sombre : idem.
+ */
 const vivid = (c) =>
-  `border-${c}-600 bg-${c}-500 shadow-sm dark:border-${c}-500 dark:bg-${c}-600`;
+  `border-${c}-400 bg-${c}-500 dark:border-${c}-400 dark:bg-${c}-500`;
 
 const SURFACES = { pastel, dark, vivid };
 

@@ -79,7 +79,7 @@ const NEUTRAL_BASE: Record<BadgeSurface, string> = {
   dark:
     'border-slate-800 bg-slate-700 dark:border-slate-700 dark:bg-slate-800',
   vivid:
-    'border-primary bg-primary dark:border-primary dark:bg-primary shadow-sm',
+    'border-primary bg-primary ring-2 ring-primary/25 dark:border-primary dark:bg-primary dark:ring-primary/35',
 };
 
 const NEUTRAL_TEXT_AUTO: Record<BadgeSurface, string> = {
