@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
@@ -16,6 +17,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +26,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { usePermissions } from '@/hooks/use-permissions';
 import {
   getClientRisk,
   getProjectRisk,
@@ -31,6 +34,10 @@ import {
   listAssignableUsers,
 } from '../api/projects.api';
 import type { CreateProjectRiskPayload } from '../api/projects.api';
+import {
+  ActionPlanTaskCreateDialog,
+  type ActionPlanTaskCreatePrefill,
+} from './action-plan-task-create-dialog';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { useDebouncedServerAutosave } from '@/hooks/use-debounced-server-autosave';
 import type { ProjectListItem, ProjectRiskApi, ProjectRiskCriticalityLevel } from '../types/project.types';
@@ -40,6 +47,7 @@ import {
   RISK_STATUS_LABEL,
   RISK_TREATMENT_STRATEGY_LABEL,
 } from '../constants/project-enum-labels';
+import { ListPlus } from 'lucide-react';
 
 const PI_OPTIONS = [1, 2, 3, 4, 5] as const;
 const NONE = '__none__';
@@ -352,8 +360,11 @@ export function ProjectRiskEbiosDialog({
   projectOptions = [],
 }: ProjectRiskEbiosDialogProps) {
   const authFetch = useAuthenticatedFetch();
+  const router = useRouter();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+  const { has, isSuccess: permsSuccess } = usePermissions();
+  const canUpdateProjects = permsSuccess && has('projects.update');
 
   const assignableQuery = useQuery({
     queryKey: ['projects', 'assignable-users', clientId],
@@ -413,6 +424,8 @@ export function ProjectRiskEbiosDialog({
   const [ownerUserId, setOwnerUserId] = useState<string>(OWNER_NONE);
   /** Registre client : projet facultatif (Hors projet = PROJECT_NONE). */
   const [linkedProjectId, setLinkedProjectId] = useState<string>(PROJECT_NONE);
+
+  const [addToPlanOpen, setAddToPlanOpen] = useState(false);
 
   const savedSnapshotRef = useRef<string>('');
   const loadedKeyRef = useRef<string | null>(null);
@@ -662,7 +675,41 @@ export function ProjectRiskEbiosDialog({
     [open, buildPayload, isPending, onSave, onOpenChange],
   );
 
+  const addTaskFromRiskPrefill = useMemo((): ActionPlanTaskCreatePrefill | null => {
+    if (!riskResolved?.id) return null;
+    return {
+      name: title.trim() ? `Traitement : ${title.trim()}` : 'Tâche liée au risque',
+      description: mitigationPlan.trim() || null,
+      projectId: riskResolved.projectId ?? null,
+      riskId: riskResolved.id,
+    };
+  }, [riskResolved?.id, riskResolved?.projectId, title, mitigationPlan]);
+
+  const treatmentHeaderExtra =
+    riskResolved?.id && canUpdateProjects ? (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="gap-1.5"
+        onClick={() => setAddToPlanOpen(true)}
+        disabled={isPending}
+      >
+        <ListPlus className="size-3.5 shrink-0" aria-hidden />
+        Ajouter au plan d’action
+      </Button>
+    ) : riskResolved?.id ? (
+      <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
+        Droits insuffisants pour créer une tâche de plan.
+      </span>
+    ) : (
+      <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
+        Enregistrez le risque pour l’associer à un plan d’action.
+      </span>
+    );
+
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton
@@ -1000,6 +1047,7 @@ export function ProjectRiskEbiosDialog({
               step={4}
               title="Traitement du risque"
               hint="Stratégie obligatoire ; plans optionnels."
+              headerExtra={treatmentHeaderExtra}
             >
               <div className="space-y-2">
                 <Label>Stratégie de traitement</Label>
@@ -1251,5 +1299,26 @@ export function ProjectRiskEbiosDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    <ActionPlanTaskCreateDialog
+      open={addToPlanOpen}
+      onOpenChange={setAddToPlanOpen}
+      prefill={addTaskFromRiskPrefill}
+      title="Nouvelle tâche dans le plan"
+      description={
+        <span className="block space-y-1.5">
+          <span>
+            Tâche liée au risque{' '}
+            <span className="font-mono font-medium text-foreground">{riskResolved?.code ?? '—'}</span>
+            . Intitulé, description et rattachements sont préremplis — vous pouvez les ajuster.
+          </span>
+          <span className="block text-xs text-muted-foreground">
+            Étape 1 : choisir le plan · puis compléter ou valider.
+          </span>
+        </span>
+      }
+      onCreated={({ actionPlanId }) => router.push(`/action-plans/${actionPlanId}`)}
+    />
+    </>
   );
 }
