@@ -1,0 +1,14 @@
+---
+alwaysApply: true
+---
+
+## Inputs : valeur affichée, pas ID
+
+Règle **obligatoire** pour tout code UI (Next.js) et toute spec / RFC qui touche aux formulaires ou listes.
+
+1. **Tout** champ où l’utilisateur choisit ou voit une donnée référencée (utilisateur, client, statut, entité métier, liste admin, etc.) doit montrer un **libellé métier** — pas un identifiant technique (UUID, entier) comme texte principal.
+2. Couvre : `Select`, `Combobox`, autocomplete, champs contrôlés, colonnes de table, placeholders, options, badges, résultats de recherche.
+3. L’ID peut rester la valeur soumise au backend ; l’UI **mappe** ID → libellé via options labellisées, champs dérivés API, ou helpers.
+4. Côté API / DTOs : exposer les champs utiles au libellé quand une relation est affichée (`name`, `title`, `code`, `label`, etc.).
+
+Aligné avec la section *Inputs et référentiels* de `.cursorrules` et `docs/FRONTEND_UI-UX.md`.

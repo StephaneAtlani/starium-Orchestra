@@ -241,6 +241,14 @@ Expected folders:
 * Keep components small and composable.
 * Separate page components from business components.
 
+### Inputs et référentiels : afficher la valeur, pas l’ID
+
+* **Obligatoire pour toute saisie et tout choix** : select, combobox, autocomplete, champs liés à une entité (utilisateur, client, statut, référentiel, etc.), ainsi que les libellés affichés dans les tableaux, cartes et résumés de formulaire.
+* L’utilisateur voit un **libellé métier** : nom, code, titre, libellé configuré, email lisible, etc. **Jamais** un identifiant technique seul (UUID, entier interne) comme texte visible, placeholder ou option affichée.
+* Le modèle de données peut garder l’ID en interne pour les mutations ; côté UI, **mapper systématiquement** l’ID vers le libellé (options avec `label` / `getOptionLabel`, jointures ou champs dérivés renvoyés par l’API).
+* Même règle pour les badges, tags, pills et résultats de recherche : texte = valeur humaine, pas clé primaire.
+* Prévoir dans les DTOs / réponses API les champs nécessaires au libellé (`name`, `title`, `code`, `label`, etc.) quand une relation est affichée.
+
 ### Data access
 
 * All data access goes through API service functions.
@@ -605,4 +613,4 @@ A task is done only if:
 6. Testability
 7. Clear API design
 8. Multi-client fractional CIO workflow
-9. Dans les inputs met les nom (value) et pas les id en affichage
+9. **Inputs et référentiels** : toujours afficher une valeur métier lisible ; jamais un ID brut en UI (voir section *Frontend rules* — *Inputs et référentiels*).
