@@ -106,6 +106,47 @@ export function useUpdateBudgetLinePlanningManualMutation(
   });
 }
 
+/** PUT manuel avec `lineId` variable — grille multi-lignes (RFC-024). */
+export function useUpdateBudgetLinePlanningManualForBudgetMutation(budgetId: string | null) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    BudgetLinePlanningResponse,
+    ApiFormError,
+    { lineId: string; payload: UpdateBudgetLinePlanningManualPayload }
+  >({
+    mutationFn: async ({ lineId, payload }) =>
+      updateBudgetLinePlanningManual(authFetch, lineId, payload),
+    onSuccess: async (_data, variables) => {
+      if (clientId && variables.lineId) {
+        await queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.budgetLinePlanning(clientId, variables.lineId),
+        });
+      }
+      if (clientId && budgetId) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: budgetQueryKeys.budgetLinesByBudget(clientId, budgetId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: budgetQueryKeys.budgetDetail(clientId, budgetId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: budgetQueryKeys.budgetSummary(clientId, budgetId),
+          }),
+        ]);
+      }
+      toast.success('Planning de la ligne mis à jour.');
+    },
+    onError: (err) => {
+      throw err;
+    },
+  });
+}
+
 export function useApplyBudgetLineAnnualSpreadMutation(
   lineId: string | null,
   budgetId: string | null,

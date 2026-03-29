@@ -16,6 +16,7 @@ import { BudgetLineInvoicesTab } from './budget-line-invoices-tab';
 import { BudgetLineAllocationsTab } from './budget-line-allocations-tab';
 import { BudgetLineDsiInfoTab } from './budget-line-dsi-info-tab';
 import { BudgetLineTimelineTab } from './budget-line-timeline-tab';
+import { BudgetLinePlanningTab } from './budget-line-planning-tab';
 import { CreateOrderDialog } from './create-order-dialog';
 import { CreateInvoiceDialog } from './create-invoice-dialog';
 import { CreateFinancialEventDialog } from './create-financial-event-dialog';
@@ -25,6 +26,7 @@ import { useBudgetDetail } from '../../hooks/use-budgets';
 
 export type BudgetLineDrawerTab =
   | 'overview'
+  | 'previsionnel'
   | 'commitments'
   | 'invoices'
   | 'allocations'
@@ -216,6 +218,7 @@ export function BudgetLineIntelligenceDrawer({
                   <div className="sticky top-0 z-10 -mx-4 border-b border-border/60 bg-background/90 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/80 shadow-sm">
                     <TabsList variant="line" className="w-full justify-start gap-1">
                       <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
+                      <TabsTrigger value="previsionnel">Prévisionnel</TabsTrigger>
                       <TabsTrigger value="commitments">Commandes</TabsTrigger>
                       <TabsTrigger value="invoices">Factures</TabsTrigger>
                       <TabsTrigger value="allocations">Allocations</TabsTrigger>
@@ -235,6 +238,13 @@ export function BudgetLineIntelligenceDrawer({
                         envelopeCode={envelopeCode}
                         envelopeType={envelopeType}
                         lastEvent={lastEvent}
+                      />
+                    </TabsContent>
+                    <TabsContent value="previsionnel">
+                      <BudgetLinePlanningTab
+                        budgetLineId={line.id}
+                        currency={line.currency}
+                        enabled={activeTab === 'previsionnel'}
                       />
                     </TabsContent>
                     <TabsContent value="commitments">
