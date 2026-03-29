@@ -1,7 +1,6 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { PROJECT_RISK_CRITICALITY_LABEL } from '../../constants/project-enum-labels';
 import type { ProjectRiskCriticalityLevel } from '../../types/project.types';
 
@@ -21,8 +20,6 @@ function criticalityBadgeClass(level: string): string {
 export function RiskLevelBadge({ level }: { level: ProjectRiskCriticalityLevel | string }) {
   const label = PROJECT_RISK_CRITICALITY_LABEL[level as ProjectRiskCriticalityLevel] ?? level;
   return (
-    <Badge variant="outline" className={cn('font-normal', criticalityBadgeClass(level))}>
-      {label}
-    </Badge>
+    <RegistryBadge className={criticalityBadgeClass(level)}>{label}</RegistryBadge>
   );
 }

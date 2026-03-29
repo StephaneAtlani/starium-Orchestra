@@ -10,7 +10,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { Globe2, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -317,18 +317,17 @@ function BadgeKeyTable({
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={badgeClassForStyle({
-                      palette: rows[k].palette,
-                      surface: rows[k].surface,
-                      textColor: rows[k].textColor,
-                    })}
-                  >
-                    {rows[k].label}
-                  </Badge>
-                </TableCell>
+                  <TableCell>
+                    <RegistryBadge
+                      className={badgeClassForStyle({
+                        palette: rows[k].palette,
+                        surface: rows[k].surface,
+                        textColor: rows[k].textColor,
+                      })}
+                    >
+                      {rows[k].label}
+                    </RegistryBadge>
+                  </TableCell>
               </TableRow>
             ))}
           </TableBody>

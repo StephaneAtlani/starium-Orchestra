@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { ProjectListItem } from '../types/project.types';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
@@ -544,8 +544,7 @@ export function ProjectsListTable({
                     : 'Projet structuré : livrables, jalons et risques suivis dans la fiche.'
                 }
               >
-                <Badge
-                  variant="outline"
+                <RegistryBadge
                   className={cn(
                     'text-xs',
                     projectKindBadgeClass(badgeMerged, p.kind),
@@ -555,7 +554,7 @@ export function ProjectsListTable({
                     badgeMerged.projectKind[p.kind as ProjectKindBadgeKey]
                       .label
                   }
-                </Badge>
+                </RegistryBadge>
               </CellTip>
             </TableCell>
             <TableCell className="align-top py-3">
@@ -568,12 +567,9 @@ export function ProjectsListTable({
                     p.status as ProjectLifecycleStatusKey
                   ];
                 return ls ? (
-                  <Badge
-                    variant="outline"
-                    className={cn('font-normal text-sm', ls.className)}
-                  >
+                  <RegistryBadge className={cn('text-sm', ls.className)}>
                     {ls.label}
-                  </Badge>
+                  </RegistryBadge>
                 ) : (
                   <span>{PROJECT_STATUS_LABEL[p.status] ?? p.status}</span>
                 );
@@ -583,9 +579,12 @@ export function ProjectsListTable({
               {(p.myRoles ?? (p.myRole ? [p.myRole] : [])).length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                   {(p.myRoles ?? (p.myRole ? [p.myRole] : [])).map((role) => (
-                    <Badge key={role} variant="outline" className="font-normal text-xs">
+                    <RegistryBadge
+                      key={role}
+                      className="border border-border/80 bg-muted/40 text-xs text-foreground"
+                    >
                       {role}
-                    </Badge>
+                    </RegistryBadge>
                   ))}
                 </div>
               ) : (
@@ -639,14 +638,13 @@ export function ProjectsListTable({
               {(p.tags ?? []).length > 0 ? (
                 <div className="flex max-w-[18rem] flex-wrap gap-1">
                   {(p.tags ?? []).map((tag) => (
-                    <Badge
+                    <RegistryBadge
                       key={tag.id}
-                      variant="secondary"
                       className="text-[0.65rem]"
                       style={tagBadgeStyle(tag.color)}
                     >
                       {tag.name}
-                    </Badge>
+                    </RegistryBadge>
                   ))}
                 </div>
               ) : (

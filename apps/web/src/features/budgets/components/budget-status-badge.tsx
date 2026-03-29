@@ -1,15 +1,17 @@
 'use client';
 
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
+import { cn } from '@/lib/utils';
 
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  DRAFT: 'outline',
-  ACTIVE: 'default',
-  LOCKED: 'secondary',
-  ARCHIVED: 'secondary',
-  CLOSED: 'secondary',
-  SUPERSEDED: 'outline',
+/** Même sémantique qu’avant (default / secondary / outline), sans variante shadcn qui écrase les couleurs. */
+const STATUS_CLASS: Record<string, string> = {
+  DRAFT: 'border border-border text-foreground',
+  ACTIVE: 'bg-primary text-primary-foreground',
+  LOCKED: 'bg-secondary text-secondary-foreground',
+  ARCHIVED: 'bg-secondary text-secondary-foreground',
+  CLOSED: 'bg-secondary text-secondary-foreground',
+  SUPERSEDED: 'border border-border text-foreground',
 };
 
 interface BudgetStatusBadgeProps {
@@ -18,10 +20,12 @@ interface BudgetStatusBadgeProps {
 }
 
 export function BudgetStatusBadge({ status, className }: BudgetStatusBadgeProps) {
-  const variant = STATUS_VARIANT[status] ?? 'outline';
   return (
-    <Badge variant={variant} className={className} data-testid="budget-status-badge">
+    <RegistryBadge
+      className={cn(STATUS_CLASS[status] ?? 'border border-border text-foreground', className)}
+      data-testid="budget-status-badge"
+    >
       {status}
-    </Badge>
+    </RegistryBadge>
   );
 }

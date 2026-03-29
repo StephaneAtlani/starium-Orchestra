@@ -6,7 +6,7 @@ import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   Table,
   TableBody,
@@ -100,9 +100,9 @@ export function MembersList() {
                         .filter(Boolean)
                         .join(' ') || '—'}
                       {member.isDirectorySynced ? (
-                        <Badge variant="secondary" className="ml-2">
+                        <RegistryBadge className="ml-2 bg-secondary text-secondary-foreground">
                           ADDS
-                        </Badge>
+                        </RegistryBadge>
                       ) : null}
                     </TableCell>
                     <TableCell>{member.email}</TableCell>

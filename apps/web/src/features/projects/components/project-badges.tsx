@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import type { ProjectListItem, ProjectSignals } from '../types/project.types';
 import type { MergedUiBadges } from '@/lib/ui/badge-registry';
 import {
@@ -10,9 +11,6 @@ import {
   type ProjectComputedHealthKey,
   type ProjectPortfolioSignalKey,
 } from '@/lib/ui/badge-registry';
-
-const chip =
-  'inline-flex min-h-[1.375rem] items-center rounded-md border px-2 py-0.5 text-xs font-medium leading-none';
 
 const legacyHealthStyles: Record<ProjectListItem['computedHealth'], string> = {
   RED: 'border-destructive/35 bg-destructive/[0.08] text-destructive',
@@ -50,31 +48,28 @@ export function HealthBadge({
       ? projectComputedHealthShortLabel(hk)
       : merged.projectComputedHealth[hk].label;
     return (
-      <span
+      <RegistryBadge
         className={cn(
-          chip,
           compact && '!min-h-0 px-1.5 py-0.5 text-[0.65rem]',
-          'font-normal',
           projectComputedHealthBadgeClass(merged, health),
         )}
         data-health={health.toLowerCase()}
       >
         {label}
-      </span>
+      </RegistryBadge>
     );
   }
 
   return (
-    <span
+    <RegistryBadge
       className={cn(
-        chip,
         compact && '!min-h-0 px-1.5 py-0.5 text-[0.65rem]',
         legacyHealthStyles[health],
       )}
       data-health={health.toLowerCase()}
     >
       {compact ? legacyHealthLabelsCompact[health] : legacyHealthLabels[health]}
-    </span>
+    </RegistryBadge>
   );
 }
 
@@ -124,16 +119,12 @@ export function ProjectPortfolioBadges({
           ? merged.projectPortfolioSignal[i.key].label
           : i.label;
         const className = merged
-          ? cn(
-              chip,
-              'font-normal',
-              projectPortfolioSignalBadgeClass(merged, i.key),
-            )
-          : cn(chip, legacyVariantClass[legacyVariantForKey(i.key)]);
+          ? projectPortfolioSignalBadgeClass(merged, i.key)
+          : legacyVariantClass[legacyVariantForKey(i.key)];
         return (
-          <span key={i.key} className={className}>
+          <RegistryBadge key={i.key} className={className}>
             {label}
-          </span>
+          </RegistryBadge>
         );
       })}
     </div>

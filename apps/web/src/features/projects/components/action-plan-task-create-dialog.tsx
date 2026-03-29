@@ -11,7 +11,7 @@ import {
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -435,9 +435,9 @@ export function ActionPlanTaskCreateDialog({
             <div className="flex flex-wrap items-center gap-2 gap-y-1">
               <DialogTitle className="text-left">{dialogTitle}</DialogTitle>
               {hasPrefill ? (
-                <Badge variant="secondary" className="shrink-0 font-normal text-muted-foreground">
+                <RegistryBadge className="shrink-0 border border-border bg-muted/50 text-muted-foreground">
                   Prérempli (risque)
-                </Badge>
+                </RegistryBadge>
               ) : null}
             </div>
             <DialogDescription className="mt-2 text-left">{headerDescription}</DialogDescription>

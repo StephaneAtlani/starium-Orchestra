@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
@@ -83,12 +83,10 @@ function PlanMetaBadges({ plan }: { plan: ActionPlanApi }) {
   const pr = ACTION_PLAN_PRIORITY_LABELS[plan.priority] ?? plan.priority;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Badge variant="outline" className={cn('font-normal', planStatusBadgeClass(plan.status))}>
-        {st}
-      </Badge>
-      <Badge variant="outline" className="border-border/80 font-normal">
+      <RegistryBadge className={planStatusBadgeClass(plan.status)}>{st}</RegistryBadge>
+      <RegistryBadge className="border-border/80 text-foreground">
         Priorité {pr}
-      </Badge>
+      </RegistryBadge>
     </div>
   );
 }

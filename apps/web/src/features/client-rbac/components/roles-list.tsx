@@ -6,7 +6,7 @@ import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   Table,
   TableBody,
@@ -144,9 +144,9 @@ export function RolesList() {
                       <TableCell>
                         <span className="font-medium">{role.name}</span>
                         {role.scope === 'GLOBAL' && (
-                          <Badge variant="secondary" className="ml-2">
+                          <RegistryBadge className="ml-2 bg-secondary text-secondary-foreground">
                             Global
-                          </Badge>
+                          </RegistryBadge>
                         )}
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-muted-foreground">

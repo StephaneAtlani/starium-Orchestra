@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   Select,
   SelectContent,
@@ -595,9 +595,9 @@ function ProjectDetailTabbedContent({
                             }
                             title="Retirer cette etiquette"
                           >
-                            <Badge variant="secondary" style={tagBadgeStyle(tag.color)}>
+                            <RegistryBadge style={tagBadgeStyle(tag.color)}>
                               {tag.name} ×
-                            </Badge>
+                            </RegistryBadge>
                           </button>
                         ))}
                       </div>

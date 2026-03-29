@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   Table,
   TableBody,
@@ -75,21 +75,20 @@ export function ProjectDocumentsSection({ projectId }: { projectId: string }) {
                         <div className="min-w-0 space-y-1">
                           <p className="min-w-0 truncate font-medium text-foreground">{name}</p>
                           <div className="flex flex-wrap items-center gap-2 md:hidden">
-                            <Badge variant="outline" className="text-[11px] font-normal">
+                            <RegistryBadge className="border border-border text-[11px] text-foreground">
                               {categoryLabel}
-                            </Badge>
-                            <Badge
-                              variant="secondary"
+                            </RegistryBadge>
+                            <RegistryBadge
                               className={cn(
-                                'text-[11px] font-normal',
+                                'bg-secondary text-secondary-foreground text-[11px]',
                                 d.storageType === 'MICROSOFT' && 'opacity-75',
                               )}
                             >
                               {storageLabel}
-                            </Badge>
-                            <Badge variant="outline" className="text-[11px] font-normal">
+                            </RegistryBadge>
+                            <RegistryBadge className="border border-border text-[11px] text-foreground">
                               {statusLabel}
-                            </Badge>
+                            </RegistryBadge>
                           </div>
                           {d.description ? (
                             <p className="line-clamp-2 text-xs text-muted-foreground">
@@ -110,22 +109,24 @@ export function ProjectDocumentsSection({ projectId }: { projectId: string }) {
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        <Badge variant="outline" className="text-xs font-normal">
+                        <RegistryBadge className="border border-border text-xs text-foreground">
                           {categoryLabel}
-                        </Badge>
+                        </RegistryBadge>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        <Badge
-                          variant="secondary"
-                          className={cn('text-xs font-normal', d.storageType === 'MICROSOFT' && 'opacity-75')}
+                        <RegistryBadge
+                          className={cn(
+                            'bg-secondary text-secondary-foreground text-xs',
+                            d.storageType === 'MICROSOFT' && 'opacity-75',
+                          )}
                         >
                           {storageLabel}
-                        </Badge>
+                        </RegistryBadge>
                       </TableCell>
                       <TableCell className="hidden xl:table-cell">
-                        <Badge variant="outline" className="text-xs font-normal">
+                        <RegistryBadge className="border border-border text-xs text-foreground">
                           {statusLabel}
-                        </Badge>
+                        </RegistryBadge>
                       </TableCell>
                       <TableCell className="hidden xl:table-cell text-right text-sm text-muted-foreground tabular-nums">
                         {formatBytes(d.sizeBytes)}

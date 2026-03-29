@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   Tooltip,
   TooltipContent,
@@ -416,20 +416,14 @@ export function ActionPlanTasksTable({
             >
               <TableCell className="font-medium">{row.name}</TableCell>
               <TableCell>
-                <Badge
-                  variant="outline"
-                  className={cn('font-normal', taskStatusBadgeClass(merged, row.status))}
-                >
+                <RegistryBadge className={taskStatusBadgeClass(merged, row.status)}>
                   {taskStatusLabel(merged, row.status)}
-                </Badge>
+                </RegistryBadge>
               </TableCell>
               <TableCell>
-                <Badge
-                  variant="outline"
-                  className={cn('font-normal', taskPriorityBadgeClass(merged, row.priority))}
-                >
+                <RegistryBadge className={taskPriorityBadgeClass(merged, row.priority)}>
                   {taskPriorityLabel(merged, row.priority)}
-                </Badge>
+                </RegistryBadge>
               </TableCell>
               <TableCell>
                 {row.project ? `${row.project.code} — ${row.project.name}` : '—'}

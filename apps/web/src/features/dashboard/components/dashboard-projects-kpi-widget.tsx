@@ -18,7 +18,7 @@ import { usePortfolioSummaryQuery } from '@/features/projects/hooks/use-portfoli
 import { projectsList } from '@/features/projects/constants/project-routes';
 import type { ProjectsPortfolioSummary } from '@/features/projects/types/project.types';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -360,9 +360,9 @@ export function DashboardProjectsKpiWidget() {
                 <>
                   {' '}
                   ·{' '}
-                  <Badge variant="secondary" className="font-normal">
+                  <RegistryBadge className="bg-secondary text-secondary-foreground">
                     {data.totalProjects} projet{data.totalProjects > 1 ? 's' : ''}
-                  </Badge>
+                  </RegistryBadge>
                 </>
               ) : null}
             </span>

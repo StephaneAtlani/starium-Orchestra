@@ -14,7 +14,7 @@ import { useSuppliersDashboardQuery } from '@/features/procurement/hooks/use-sup
 import type { SuppliersDashboardStats } from '@/features/procurement/types/supplier.types';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -354,9 +354,9 @@ export function DashboardSuppliersKpiWidget() {
                 <>
                   {' '}
                   ·{' '}
-                  <Badge variant="secondary" className="font-normal">
+                  <RegistryBadge className="bg-secondary text-secondary-foreground">
                     {data.suppliersListed} au catalogue
-                  </Badge>
+                  </RegistryBadge>
                 </>
               ) : null}
             </span>

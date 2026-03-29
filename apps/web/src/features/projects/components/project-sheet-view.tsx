@@ -26,7 +26,7 @@ import {
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -1299,9 +1299,9 @@ export function ProjectSheetView({
                 <h4 className="text-sm font-semibold tracking-tight text-foreground">
                   Indicateurs de lecture
                 </h4>
-                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                <RegistryBadge className="bg-secondary text-secondary-foreground font-normal text-[10px] uppercase tracking-wide">
                   Décision
-                </Badge>
+                </RegistryBadge>
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
                 Vue synthétique pour l’arbitrage : rentabilité, priorité portefeuille, critères valeur et
@@ -1588,9 +1588,9 @@ export function ProjectSheetView({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <h4 className="text-sm font-semibold tracking-tight text-foreground">Arbitrage</h4>
-                  <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                  <RegistryBadge className="bg-secondary text-secondary-foreground font-normal text-[10px] uppercase tracking-wide">
                     3 niveaux
-                  </Badge>
+                  </RegistryBadge>
                 </div>
                 {!sheetReadOnlyOverride ? (
                   <Button
@@ -1661,9 +1661,9 @@ export function ProjectSheetView({
                             Niveau {i + 1}
                           </p>
                           {!unlocked ? (
-                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                            <RegistryBadge className="h-5 border border-border px-1.5 text-[10px] text-foreground">
                               Verrouillé
-                            </Badge>
+                            </RegistryBadge>
                           ) : null}
                         </div>
                         <p className="mt-0.5 text-sm font-semibold leading-snug text-foreground">
@@ -2057,9 +2057,9 @@ export function ProjectSheetView({
             <div className="mb-5 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="text-sm font-semibold tracking-tight text-foreground">Matrice SWOT</h4>
-                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                <RegistryBadge className="bg-secondary text-secondary-foreground font-normal text-[10px] uppercase tracking-wide">
                   Stratégie
-                </Badge>
+                </RegistryBadge>
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
                 Interne / externe × favorable / défavorable — lignes libres par quadrant.
@@ -2198,9 +2198,9 @@ export function ProjectSheetView({
             <div className="mb-5 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="text-sm font-semibold tracking-tight text-foreground">Matrice TOWS</h4>
-                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                <RegistryBadge className="bg-secondary text-secondary-foreground font-normal text-[10px] uppercase tracking-wide">
                   Décision
-                </Badge>
+                </RegistryBadge>
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
                 Croisement forces-faiblesses (lignes) × opportunités-menaces (colonnes) — stratégies par
@@ -2382,9 +2382,9 @@ export function ProjectSheetView({
                         {formatMilestoneDate(m.targetDate)}
                       </time>
                       <p className="mt-1 font-medium leading-snug text-foreground">{m.name}</p>
-                      <Badge variant="outline" className="mt-2 text-xs font-normal">
+                      <RegistryBadge className="mt-2 border border-border text-xs text-foreground">
                         {MILESTONE_STATUS_LABEL[m.status] ?? m.status}
-                      </Badge>
+                      </RegistryBadge>
                     </div>
                   </li>
                 ))}

@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { ChevronLeft, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
@@ -331,21 +331,18 @@ function RisksTable({
               <TableCell className="text-center tabular-nums">{r.impact}</TableCell>
               <TableCell className="text-center tabular-nums">{r.criticalityScore}</TableCell>
               <TableCell>
-                <Badge
-                  variant="outline"
-                  className={cn('font-normal', criticalityBadgeClass(r.criticalityLevel))}
-                >
+                <RegistryBadge className={criticalityBadgeClass(r.criticalityLevel)}>
                   {PROJECT_RISK_CRITICALITY_LABEL[r.criticalityLevel] ?? r.criticalityLevel}
-                </Badge>
+                </RegistryBadge>
               </TableCell>
               <TableCell className="text-sm">
                 {RISK_STATUS_LABEL[r.status] ?? r.status}
               </TableCell>
               <TableCell>
                 {r.complianceRequirementId ? (
-                  <Badge variant="secondary" className="text-xs">
+                  <RegistryBadge className="bg-secondary text-secondary-foreground text-xs">
                     Lien exigence
-                  </Badge>
+                  </RegistryBadge>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}

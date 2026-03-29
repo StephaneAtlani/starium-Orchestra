@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   Tooltip,
   TooltipContent,
@@ -1354,15 +1354,14 @@ export const ProjectTaskPlanningSection = forwardRef<
                                     );
                                     const fg = pickReadableTextOnBackground(bg);
                                     return (
-                                      <Badge
+                                      <RegistryBadge
                                         key={label.id}
-                                        variant="outline"
                                         className="border-transparent px-2 py-0.5 text-[10px] font-medium"
                                         style={{ backgroundColor: bg, color: fg }}
                                         title={label.label}
                                       >
                                         {label.label}
-                                      </Badge>
+                                      </RegistryBadge>
                                     );
                                   })}
                                 {(hiddenCount > 0 || collapseAllIntoCounter) ? (

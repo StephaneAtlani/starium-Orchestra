@@ -8,7 +8,7 @@ import { useActiveClient } from '../../hooks/use-active-client';
 import { useActiveClientEmailDisplay } from '../../hooks/use-active-client-email-display';
 import { ClientSwitcher } from '../ClientSwitcher';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Bell, Calendar, ChevronDown, FileText, Menu, Search, UserCircle, X } from 'lucide-react';
 import { useSidebarNav } from './sidebar-nav-context';
 
@@ -168,12 +168,9 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
             ) : null}
             <span className="shrink-0 font-medium starium-text">Dashboard</span>
             {user?.platformRole === 'PLATFORM_ADMIN' && (
-              <Badge
-                variant="outline"
-                className="ml-1 hidden shrink-0 px-2 py-0.5 text-[0.65rem] sm:inline-flex starium-border starium-primary"
-              >
+              <RegistryBadge className="ml-1 hidden shrink-0 border border-border px-2 py-0.5 text-[0.65rem] sm:inline-flex starium-border starium-primary">
                 Admin
-              </Badge>
+              </RegistryBadge>
             )}
           </nav>
         </div>
