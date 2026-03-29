@@ -25,4 +25,4 @@ Tu dois toujours :
 La documentation est dans /docs/
 
 Pour la partie UX/UI base toi sur docs/FRONTEND_UI-UX.md
-Les input doit afficher la valeur pas l'ID
+Dans les inputs met les nom (value) et pas les id en affichage
