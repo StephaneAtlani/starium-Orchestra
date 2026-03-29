@@ -47,7 +47,7 @@ import {
   RISK_STATUS_LABEL,
   RISK_TREATMENT_STRATEGY_LABEL,
 } from '../constants/project-enum-labels';
-import { ListPlus } from 'lucide-react';
+import { CloudUpload, ListPlus, Loader2 } from 'lucide-react';
 
 const PI_OPTIONS = [1, 2, 3, 4, 5] as const;
 const NONE = '__none__';
@@ -719,23 +719,44 @@ export function ProjectRiskEbiosDialog({
           onSubmit={(e) => e.preventDefault()}
           className="flex flex-col gap-4"
         >
-          <DialogHeader className="space-y-3 text-left">
-            <div className="flex flex-wrap items-baseline gap-2 gap-y-1">
-              <DialogTitle className="text-lg font-semibold tracking-tight">
-                {mode === 'create' ? 'Nouveau risque' : 'Modifier le risque'}
-              </DialogTitle>
-              <Badge variant="secondary" className="font-normal">
-                EBIOS RM
-              </Badge>
+          <DialogHeader className="-mx-4 -mt-4 space-y-3 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+            <div className="pr-8">
+              <div className="flex flex-wrap items-center gap-2 gap-y-1">
+                <DialogTitle className="text-left">
+                  {mode === 'create' ? 'Nouveau risque' : 'Modifier le risque'}
+                </DialogTitle>
+                <Badge variant="secondary" className="shrink-0 font-normal text-muted-foreground">
+                  EBIOS RM
+                </Badge>
+              </div>
+              <DialogDescription className="mt-2 text-left">
+                Scénario, évaluation, impact métier, traitement, résiduel et suivi (ISO 27005).
+              </DialogDescription>
             </div>
-            <DialogDescription className="text-sm leading-relaxed">
-              Scénario, évaluation, impact métier, traitement, résiduel et suivi — aligné ISO 27005.
-              Les changements sont enregistrés automatiquement (dès que le formulaire est valide).
-            </DialogDescription>
+            <div
+              className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
+                  <span>Enregistrement en cours…</span>
+                </>
+              ) : (
+                <>
+                  <CloudUpload className="size-3.5 shrink-0 text-muted-foreground/90" aria-hidden />
+                  <span>
+                    Sauvegarde automatique lorsque le formulaire est valide (délai court après
+                    modification).
+                  </span>
+                </>
+              )}
+            </div>
           </DialogHeader>
 
           {riskApiScope === 'client' ? (
-            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/25 p-3">
+            <div className="space-y-2 rounded-lg border border-border/70 bg-card p-3 shadow-sm">
               <Label htmlFor="ebios-linked-project">Projet (facultatif)</Label>
               <Select
                 value={linkedProjectId}
@@ -989,7 +1010,7 @@ export function ProjectRiskEbiosDialog({
               {mode === 'edit' && riskResolved ? (
                 <div
                   className={cn(
-                    'flex flex-col gap-1.5 rounded-lg border border-border/60 bg-muted/25 px-3 py-2.5 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1',
+                    'flex flex-col gap-1.5 rounded-lg border border-border/70 bg-card px-3 py-2.5 text-sm shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1',
                   )}
                 >
                   <span className="text-muted-foreground">Criticité enregistrée</span>

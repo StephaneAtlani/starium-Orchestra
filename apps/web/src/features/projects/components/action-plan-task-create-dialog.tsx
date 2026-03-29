@@ -10,12 +10,14 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -41,6 +43,7 @@ import { useActionPlansListQuery } from '@/features/projects/hooks/use-action-pl
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import { cn } from '@/lib/utils';
 import {
+  AlertCircle,
   CalendarClock,
   ClipboardList,
   FolderKanban,
@@ -64,9 +67,10 @@ const FORM_PRIORITY_LABELS: Record<string, string> = {
   CRITICAL: 'Critique',
 };
 
+/** Aligné formulaire projet — FRONTEND_UI-UX.md §11.1 */
 const textareaClass = cn(
-  'flex min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs',
-  'outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+  'min-h-[88px] w-full resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm transition-colors outline-none',
+  'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
 );
 
 function formatResourcePerson(r: {
@@ -92,23 +96,31 @@ function parseTagsInput(raw: string): string[] | undefined {
   return parts;
 }
 
-function FormSection({
+/** Même esprit que `Section` dans `project-create-form.tsx` — §7 (pas d’uppercase global). */
+function DialogFormSection({
+  id,
   title,
+  description,
   icon: Icon,
   children,
-  className,
 }: {
+  id: string;
   title: string;
-  icon?: ComponentType<{ className?: string }>;
+  description?: string;
+  icon: ComponentType<{ className?: string }>;
   children: React.ReactNode;
-  className?: string;
 }) {
   return (
-    <section className={cn('space-y-3', className)}>
-      <h3 className="flex items-center gap-2 border-b border-border/50 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {Icon ? <Icon className="size-3.5 shrink-0 opacity-80" aria-hidden /> : null}
-        {title}
-      </h3>
+    <section className="space-y-6" aria-labelledby={id}>
+      <div className="border-b border-border/70 pb-3">
+        <h2 id={id} className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Icon className="size-4 text-muted-foreground" aria-hidden />
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
       <div className="space-y-3">{children}</div>
     </section>
   );
@@ -357,120 +369,124 @@ export function ActionPlanTaskCreateDialog({
     >
       <DialogContent
         showCloseButton
-        className="flex max-h-[min(92vh,840px)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+        className="flex max-h-[min(92vh,840px)] w-full flex-col gap-0 overflow-hidden p-4 sm:max-w-3xl"
       >
-        <DialogHeader className="shrink-0 space-y-3 border-b border-border/60 bg-muted/20 px-5 py-4 text-left">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <DialogTitle className="pr-8 text-left text-base font-semibold leading-snug tracking-tight sm:text-lg">
-              {dialogTitle}
-            </DialogTitle>
+        <DialogHeader className="shrink-0 space-y-2 border-b border-border/60 pb-4 text-left">
+          <div className="flex flex-wrap items-start justify-between gap-2 pr-8">
+            <DialogTitle className="text-left">{dialogTitle}</DialogTitle>
             {hasPrefill ? (
-              <Badge
-                variant="secondary"
-                className="shrink-0 border border-border/60 bg-background/80 text-[0.65rem] font-normal text-muted-foreground"
-              >
+              <Badge variant="secondary" className="shrink-0 font-normal text-muted-foreground">
                 Prérempli (risque)
               </Badge>
             ) : null}
           </div>
           {defaultDescription ? (
-            <DialogDescription className="text-left text-sm leading-relaxed">
-              {defaultDescription}
-            </DialogDescription>
+            <DialogDescription className="text-left">{defaultDescription}</DialogDescription>
           ) : null}
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-          <div className="space-y-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4">
+          <div className="space-y-8">
             {needsPlanPick ? (
-              <div className="rounded-xl border border-border/70 bg-muted/30 p-4 shadow-sm">
-                <div className="mb-3 flex items-center gap-2">
+              <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                <Label
+                  htmlFor="ap-create-plan"
+                  className="text-sm font-medium text-foreground"
+                >
+                  Plan d’action
+                </Label>
+                <p id="ap-create-plan-hint" className="mt-1 text-xs text-muted-foreground">
+                  La tâche sera ajoutée au plan sélectionné.
+                </p>
+                <div className="mt-3 flex items-start gap-3">
                   <span
-                    className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
                     aria-hidden
                   >
                     <FolderKanban className="size-4" />
                   </span>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Plan d’action cible</p>
-                    <p className="text-xs text-muted-foreground">
-                      La tâche sera créée dans ce plan.
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    {actionPlansQuery.isLoading ? (
+                      <p className="text-sm text-muted-foreground">Chargement des plans…</p>
+                    ) : actionPlansQuery.data?.items?.length ? (
+                      <Select
+                        value={selectedPlanId}
+                        items={actionPlanSelectItems}
+                        onValueChange={(v) => setSelectedPlanId(v ?? '')}
+                      >
+                        <SelectTrigger
+                          id="ap-create-plan"
+                          className="h-10 w-full min-w-0"
+                          aria-describedby="ap-create-plan-hint"
+                        >
+                          <SelectValue placeholder="Choisir un plan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {actionPlansQuery.data.items.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.code} — {p.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Aucun plan sur ce client.{' '}
+                        <Link
+                          href="/action-plans"
+                          className="font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          Créer un plan d’action
+                        </Link>
+                      </p>
+                    )}
                   </div>
                 </div>
-                {actionPlansQuery.isLoading ? (
-                  <p className="text-sm text-muted-foreground">Chargement des plans…</p>
-                ) : actionPlansQuery.data?.items?.length ? (
-                  <Select
-                    value={selectedPlanId}
-                    items={actionPlanSelectItems}
-                    onValueChange={(v) => setSelectedPlanId(v ?? '')}
-                  >
-                    <SelectTrigger id="ap-create-plan" className="h-10 w-full min-w-0 bg-background">
-                      <SelectValue placeholder="Choisir un plan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {actionPlansQuery.data.items.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.code} — {p.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Aucun plan sur ce client.{' '}
-                    <Link
-                      href="/action-plans"
-                      className="font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      Créer un plan d’action
-                    </Link>
-                  </p>
-                )}
               </div>
             ) : null}
 
-            <FormSection title="Contenu" icon={ClipboardList}>
+            <DialogFormSection
+              id="ap-task-content"
+              title="Contenu"
+              description="Intitulé obligatoire ; description recommandée pour le pilotage."
+              icon={ClipboardList}
+            >
               <div className="space-y-1.5">
-                <Label htmlFor="ap-create-name" className="text-xs text-muted-foreground">
-                  Intitulé
-                </Label>
+                <Label htmlFor="ap-create-name">Intitulé</Label>
                 <Input
                   id="ap-create-name"
                   value={tName}
                   onChange={(e) => setTName(e.target.value)}
                   placeholder="Nom de la tâche"
-                  className="bg-background"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="ap-create-desc" className="text-xs text-muted-foreground">
-                  Description
-                </Label>
+                <Label htmlFor="ap-create-desc">Description</Label>
                 <textarea
                   id="ap-create-desc"
                   value={tDescription}
                   onChange={(e) => setTDescription(e.target.value)}
                   placeholder="Contexte, périmètre, critères de done…"
-                  className={cn(textareaClass, 'bg-background')}
+                  className={textareaClass}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Recommandé pour le pilotage et le cadrage partagé.
-                </p>
               </div>
-            </FormSection>
+            </DialogFormSection>
 
-            <FormSection title="Pilotage" icon={Layers}>
+            <DialogFormSection
+              id="ap-task-pilotage"
+              title="Pilotage"
+              description="Statut, priorité, échéances et charge."
+              icon={Layers}
+            >
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Statut</Label>
+                  <Label>Statut</Label>
                   <Select
                     value={tStatus}
                     onValueChange={(v) => setTStatus(v ?? 'TODO')}
                     items={FORM_STATUS_LABELS}
                   >
-                    <SelectTrigger className="w-full min-w-0 bg-background">
+                    <SelectTrigger className="w-full min-w-0">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -483,13 +499,13 @@ export function ActionPlanTaskCreateDialog({
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Priorité</Label>
+                  <Label>Priorité</Label>
                   <Select
                     value={tPriority}
                     onValueChange={(v) => setTPriority(v ?? 'MEDIUM')}
                     items={FORM_PRIORITY_LABELS}
                   >
-                    <SelectTrigger className="w-full min-w-0 bg-background">
+                    <SelectTrigger className="w-full min-w-0">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -502,21 +518,18 @@ export function ActionPlanTaskCreateDialog({
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="ap-create-tags" className="text-xs text-muted-foreground">
-                  Tags
-                </Label>
+                <Label htmlFor="ap-create-tags">Tags</Label>
                 <Input
                   id="ap-create-tags"
                   value={tTagsRaw}
                   onChange={(e) => setTTagsRaw(e.target.value)}
                   placeholder="virgules ou point-virgules"
-                  className="bg-background"
                 />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="ap-create-start" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <CalendarClock className="size-3 opacity-70" aria-hidden />
+                  <Label htmlFor="ap-create-start" className="inline-flex items-center gap-1.5">
+                    <CalendarClock className="size-3.5 text-muted-foreground" aria-hidden />
                     Début planifié
                   </Label>
                   <Input
@@ -524,12 +537,11 @@ export function ActionPlanTaskCreateDialog({
                     type="date"
                     value={tPlannedStart}
                     onChange={(e) => setTPlannedStart(e.target.value)}
-                    className="bg-background"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="ap-create-end" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <CalendarClock className="size-3 opacity-70" aria-hidden />
+                  <Label htmlFor="ap-create-end" className="inline-flex items-center gap-1.5">
+                    <CalendarClock className="size-3.5 text-muted-foreground" aria-hidden />
                     Échéance
                   </Label>
                   <Input
@@ -537,32 +549,37 @@ export function ActionPlanTaskCreateDialog({
                     type="date"
                     value={tPlannedEnd}
                     onChange={(e) => setTPlannedEnd(e.target.value)}
-                    className="bg-background"
                   />
                 </div>
               </div>
-              <div className="space-y-1.5 sm:max-w-[50%]">
-                <Label htmlFor="ap-create-hours" className="text-xs text-muted-foreground">
-                  Charge estimée (h)
-                </Label>
+              <div className="space-y-1.5 sm:max-w-xs">
+                <Label htmlFor="ap-create-hours">Charge estimée (h)</Label>
                 <Input
                   id="ap-create-hours"
                   inputMode="decimal"
                   value={tEstimatedHours}
                   onChange={(e) => setTEstimatedHours(e.target.value)}
                   placeholder="ex. 4 ou 0,5"
-                  className="bg-background"
                 />
               </div>
-            </FormSection>
+            </DialogFormSection>
 
-            <FormSection title="Rattachements" icon={Link2}>
+            <DialogFormSection
+              id="ap-task-rattachements"
+              title="Rattachements"
+              description="Projet, phase, risque catalogue et référent personne (catalogue RH)."
+              icon={Link2}
+            >
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Projet</Label>
+                <Label>Projet</Label>
                 {projectsMini.isError && (
-                  <p className="text-xs text-destructive">
-                    Impossible de charger les projets (réseau ou droits).
-                  </p>
+                  <Alert variant="destructive" className="py-2">
+                    <AlertCircle />
+                    <AlertTitle>Projets indisponibles</AlertTitle>
+                    <AlertDescription>
+                      Impossible de charger les projets (réseau ou droits).
+                    </AlertDescription>
+                  </Alert>
                 )}
                 {projectsMini.isSuccess && (projectsMini.data?.items?.length ?? 0) === 0 && (
                   <p className="text-xs text-muted-foreground">
@@ -574,7 +591,7 @@ export function ActionPlanTaskCreateDialog({
                   onValueChange={(v) => setTProjectId(!v || v === '__none' ? '' : v)}
                   items={projectSelectItems}
                 >
-                  <SelectTrigger className="w-full min-w-0 bg-background">
+                  <SelectTrigger className="w-full min-w-0">
                     <SelectValue placeholder="Aucun" />
                   </SelectTrigger>
                   <SelectContent>
@@ -589,13 +606,13 @@ export function ActionPlanTaskCreateDialog({
               </div>
               {tProjectId ? (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Phase</Label>
+                  <Label>Phase</Label>
                   <Select
                     value={tPhaseId || '__none'}
                     onValueChange={(v) => setTPhaseId(!v || v === '__none' ? '' : v)}
                     items={phaseSelectItems}
                   >
-                    <SelectTrigger className="w-full min-w-0 bg-background">
+                    <SelectTrigger className="w-full min-w-0">
                       <SelectValue placeholder="Sans phase" />
                     </SelectTrigger>
                     <SelectContent>
@@ -610,13 +627,13 @@ export function ActionPlanTaskCreateDialog({
                 </div>
               ) : null}
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Risque</Label>
+                <Label>Risque</Label>
                 <Select
                   value={tRiskId || '__none'}
                   onValueChange={(v) => setTRiskId(!v || v === '__none' ? '' : v)}
                   items={riskSelectItems}
                 >
-                  <SelectTrigger className="w-full min-w-0 bg-background">
+                  <SelectTrigger className="w-full min-w-0">
                     <SelectValue placeholder="Aucun" />
                   </SelectTrigger>
                   <SelectContent>
@@ -630,14 +647,18 @@ export function ActionPlanTaskCreateDialog({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <UserRound className="size-3 opacity-70" aria-hidden />
+                <Label className="inline-flex items-center gap-1.5">
+                  <UserRound className="size-3.5 text-muted-foreground" aria-hidden />
                   Responsable personne (référent métier)
                 </Label>
                 {resourcesHuman.isError && (
-                  <p className="text-xs text-destructive">
-                    Impossible de charger le répertoire personnes.
-                  </p>
+                  <Alert variant="destructive" className="py-2">
+                    <AlertCircle />
+                    <AlertTitle>Répertoire personnes</AlertTitle>
+                    <AlertDescription>
+                      Impossible de charger le répertoire (réseau ou droits).
+                    </AlertDescription>
+                  </Alert>
                 )}
                 {resourcesHuman.isSuccess && humanResources.length === 0 && (
                   <p className="text-xs text-muted-foreground">
@@ -651,7 +672,7 @@ export function ActionPlanTaskCreateDialog({
                   }
                   items={responsibleSelectItems}
                 >
-                  <SelectTrigger className="w-full min-w-0 bg-background">
+                  <SelectTrigger className="w-full min-w-0">
                     <SelectValue placeholder="Aucune personne" />
                   </SelectTrigger>
                   <SelectContent>
@@ -667,11 +688,11 @@ export function ActionPlanTaskCreateDialog({
                   Personne du catalogue RH — distincte d’un compte utilisateur Starium.
                 </p>
               </div>
-            </FormSection>
+            </DialogFormSection>
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border/60 bg-muted/30 px-5 py-4 sm:flex-row sm:justify-end">
+        <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
@@ -687,7 +708,7 @@ export function ActionPlanTaskCreateDialog({
           >
             {creating ? 'Création…' : 'Créer la tâche'}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
