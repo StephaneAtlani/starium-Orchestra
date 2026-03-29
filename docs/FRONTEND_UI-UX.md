@@ -432,6 +432,44 @@ Implémentation : **`apps/web/src/components/ui/dialog.tsx`** (Base UI `Backdrop
 | **Titre** | `DialogTitle` : `text-lg font-semibold tracking-tight text-foreground` (cohérent avec les modales métier §12.2). |
 | **Pied** | `DialogFooter` : `border-t border-border/60` sur le séparateur (§2). |
 
+#### 11.3.1 Modale formulaire dense — bandeau d’en-tête (norme)
+
+À utiliser pour **les nouvelles modales** formulaire (longues ou sections multiples) et pour **rafraîchir graphiquement** les modales existantes lorsque c’est demandé. Référence d’implémentation : **`ProjectRiskEbiosDialog`** — `features/projects/components/project-risk-ebios-dialog.tsx`.
+
+| Zone | Pattern |
+|------|---------|
+| **`DialogContent`** | `p-4` (défaut du composant) + `max-h-[min(90vh,…)]`, `w-full`, `overflow-y-auto`, largeur métier (`sm:max-w-4xl lg:max-w-5xl` ou plus étroit selon le contenu). |
+| **Formulaire** | `form` en `flex flex-col gap-4` entre l’en-tête et les blocs. |
+| **`DialogHeader` (bandeau)** | Compensation du padding du panneau : **`-mx-4 -mt-4`**, **`rounded-t-xl`**, **`border-b border-border/60`**, **`bg-card`**, **`shadow-sm`**, **`pb-4 pt-4`**, **`text-left`**. |
+| **Alignement du texte** | **`pl-7 sm:pl-8`** + **`pr-4`** sur le header : le texte aligne le **contenu** des encarts du corps (`p-3` / `CardContent` `px-3` / `sm:px-4`), pas seulement le bord intérieur du `DialogContent` (`p-4` seul). |
+| **Titre + fermeture** | Rangée titre / `Badge` optionnel dans un bloc avec **`pr-8`** pour laisser la place au bouton **fermer** (`showCloseButton`). |
+| **`DialogTitle`** | Styles par défaut du composant ; **`Badge`** `variant="secondary"` + `font-normal text-muted-foreground` si contexte (méthode, module). |
+| **`DialogDescription`** | **Une phrase** ; pas d’information d’autosave dans la description (voir ligne d’état). |
+| **Ligne d’état** | Sous la description : `text-xs text-muted-foreground`, icône Lucide, **`role="status"`** + **`aria-live="polite"`** (sauvegarde auto, enregistrement en cours, etc.). |
+| **Corps** | Encarts **`rounded-lg` / `rounded-xl`**, **`border-border/70`**, **`bg-card`**, **`p-3`** ou **`shadow-sm`** — alignés §12.2 ; erreurs **`Alert`** §9. |
+| **Pied** | **`DialogFooter`** si actions explicites (Annuler / Valider) ; sinon **pas de pied** si le flux est autosave uniquement. |
+
+**Prompts à coller (Cursor / agent)** — compléter les `[…]` :
+
+*Nouvelle modale (gabarit §11.3.1)*
+
+```text
+Crée une modale [nom / rôle métier] dans [chemin ou feature, ex. features/xxx/components/…].
+Respecte docs/FRONTEND_UI-UX.md §11.3.1 (norme modale formulaire dense) et la référence
+ProjectRiskEbiosDialog (project-risk-ebios-dialog.tsx) : DialogContent, bandeau DialogHeader
+(-mx-4 -mt-4, bg-card, pl-7 sm:pl-8, ligne d’état si besoin), encarts corps type §12.2, Alert §9,
+DialogFooter seulement si actions explicites. [Précise périmètre fonctionnel, champs, API, client scope.]
+```
+
+*Adapter une modale existante*
+
+```text
+Refactor l’UX/UI de la modale [fichier.tsx] pour appliquer le gabarit docs/FRONTEND_UI-UX.md §11.3.1
+(même structure que ProjectRiskEbiosDialog : bandeau d’en-tête, alignement pl-7 sm:pl-8, description
+courte, ligne d’état optionnelle, corps en encarts). Ne change pas la logique métier ni les appels API
+hors ce qui est nécessaire au layout. [Contraintes : autosave oui/non, pied oui/non.]
+```
+
 ---
 
 ## 12. Typographie (rappel)
@@ -516,4 +554,4 @@ Implémentation : `app/(protected)/resources/page.tsx`.
 
 ---
 
-*Dernière mise à jour : §11.3 modales globales (`dialog.tsx` — voile, panneau, titre, pied) ; §12.4 page `Ressources` (liste en `Card` + `Table`) ; §12.3 `PersonCatalogPickerDialog` (équipe + création projet) ; §12.2 modale responsable projet (historique onglets — remplacé par tableau partagé) ; §12.1 2FA ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*
+*Dernière mise à jour : §11.3.1 norme modale formulaire dense (bandeau header, alignement `pl-7 sm:pl-8` — réf. `ProjectRiskEbiosDialog`) ; §11.3 modales globales (`dialog.tsx`) ; §12.4 page `Ressources` ; §12.3 `PersonCatalogPickerDialog` ; §12.2 modale responsable projet ; §12.1 2FA ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*
