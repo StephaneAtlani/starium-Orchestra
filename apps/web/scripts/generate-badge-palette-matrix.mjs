@@ -40,9 +40,12 @@ const COLORS = [
 const pastel = (c) =>
   `border-${c}-200/80 bg-${c}-50 dark:border-${c}-400/35 dark:bg-${c}-400/18`;
 
-/** Foncé : profond, peu saturé (lisible, sobre) */
+/**
+ * Foncé : lisible sans aller jusqu’aux 900/950 (trop « noir » en clair comme en sombre).
+ * Clair : bord 800 / fond 700 — sombre : bord 700 / fond 800.
+ */
 const dark = (c) =>
-  `border-${c}-900 bg-${c}-800 dark:border-${c}-950 dark:bg-${c}-950`;
+  `border-${c}-800 bg-${c}-700 dark:border-${c}-700 dark:bg-${c}-800`;
 
 /** Vif : saturation forte, pastille « punch » */
 const vivid = (c) =>

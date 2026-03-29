@@ -2362,8 +2362,32 @@ async function ensureDemoProjectsForAllClients(): Promise<void> {
   }
 }
 
+/** Applique `default-platform-ui-badge-config.json` en base uniquement si aucune config plateforme encore stockée. */
+async function ensurePlatformUiBadgeDefaultsFromFile(): Promise<void> {
+  const row = await prisma.platformUiBadgeSettings.findUnique({
+    where: { id: "default" },
+    select: { badgeConfig: true },
+  });
+  if (row?.badgeConfig != null) {
+    return;
+  }
+  const badgePath = path.join(__dirname, "default-platform-ui-badge-config.json");
+  const raw = fs.readFileSync(badgePath, "utf8");
+  const config = JSON.parse(raw) as object;
+  await prisma.platformUiBadgeSettings.upsert({
+    where: { id: "default" },
+    create: { id: "default", badgeConfig: config, updatedAt: new Date() },
+    update: { badgeConfig: config, updatedAt: new Date() },
+  });
+  console.log(
+    "✅ PlatformUiBadgeSettings : défauts badges chargés depuis default-platform-ui-badge-config.json",
+  );
+}
+
 async function main() {
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
+
+  await ensurePlatformUiBadgeDefaultsFromFile();
 
   await ensureComplianceModuleAndPermissions();
   await ensureRisksModuleAndPermissions();

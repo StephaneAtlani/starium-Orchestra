@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { parseUiBadgeConfigPayload } from './ui-badge-config.parse';
+import { getDefaultPlatformBadgeConfig } from './platform-ui-badge-defaults';
 
 const PLATFORM_ROW_ID = 'default';
 
@@ -14,7 +15,10 @@ export class PlatformUiBadgeSettingsService {
       where: { id: PLATFORM_ROW_ID },
       select: { badgeConfig: true },
     });
-    return { config: (row?.badgeConfig as Prisma.JsonValue) ?? null };
+    const stored = row?.badgeConfig as Prisma.JsonValue | null | undefined;
+    return {
+      config: stored ?? getDefaultPlatformBadgeConfig(),
+    };
   }
 
   async updateDefaults(body: unknown): Promise<{ config: Prisma.JsonValue | null }> {

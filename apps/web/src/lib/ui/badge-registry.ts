@@ -77,7 +77,7 @@ const NEUTRAL_BASE: Record<BadgeSurface, string> = {
   pastel:
     'border-border bg-background dark:border-border dark:bg-muted/50',
   dark:
-    'border-slate-800 bg-slate-900 dark:border-slate-950 dark:bg-slate-950',
+    'border-slate-800 bg-slate-700 dark:border-slate-700 dark:bg-slate-800',
   vivid:
     'border-primary bg-primary dark:border-primary dark:bg-primary shadow-sm',
 };
@@ -219,8 +219,8 @@ export const PROJECT_TASK_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as 
 export type ProjectTaskPriorityKey = (typeof PROJECT_TASK_PRIORITIES)[number];
 
 /**
- * Défauts code (fusion sans JSON plateforme/client). Pour la même chose en base plateforme :
- * `apps/api/prisma/default-platform-ui-badge-config.json` + migration `20260331190000_platform_ui_badge_default_config`.
+ * Défauts code (fusion sans JSON plateforme/client). Source alignée :
+ * `apps/api/prisma/default-platform-ui-badge-config.json` (API + seed + migrations).
  */
 const DEFAULT_TASK_STATUS: Record<ProjectTaskStatusKey, BadgeStyle> = {
   DRAFT: { palette: 'stone', surface: 'pastel', textColor: 'auto' },

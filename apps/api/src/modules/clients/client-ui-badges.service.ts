@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { parseUiBadgeConfigPayload } from './ui-badge-config.parse';
+import { getDefaultPlatformBadgeConfig } from './platform-ui-badge-defaults';
 
 @Injectable()
 export class ClientUiBadgesService {
@@ -21,9 +22,13 @@ export class ClientUiBadgesService {
     if (!row) {
       throw new NotFoundException('Client introuvable');
     }
+    const platformStored = platformRow?.badgeConfig as
+      | Prisma.JsonValue
+      | null
+      | undefined;
     return {
       clientConfig: row.uiBadgeConfig as Prisma.JsonValue | null,
-      platformDefaults: (platformRow?.badgeConfig as Prisma.JsonValue) ?? null,
+      platformDefaults: platformStored ?? getDefaultPlatformBadgeConfig(),
     };
   }
 
