@@ -213,17 +213,55 @@ Variante optionnelle : bandeau avec fond **§9** (ambre) si besoin de signal sur
 
 ---
 
-## 7. Filtres — panneau (cockpit Projets)
+## 7. Filtres — cockpit portefeuille Projets (référence)
 
-Pattern **liste / cockpit** : une `**Card size="sm"`** avec en-tête (titre + description + **Réinitialiser**), puis sections séparées par un filet `h-px bg-border/70` :
+L’écran **`/projects`** (`app/(protected)/projects/page.tsx`) regroupe **filtres, tableau et pagination dans une seule** `Card size="sm"` (`overflow-hidden shadow-sm`) : le bandeau d’actions ne répète pas une deuxième carte pour les critères — les **filtres par colonne** vivent **dans le tableau**, sous les libellés d’en-tête.
 
-1. **Recherche** — champ avec icône `Search` en préfixe, `max-w-lg`.
-2. **Filtrer par** — grille responsive `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` : **Nature** (Tous / Projet / Activité, paramètre URL `kind`), **statut**, **priorité**, **criticité** ; labels `Label` + `Select` pleine largeur dans la colonne.
-3. **Tri** — critère + ordre + case à cocher option (ex. « À risque ») dans un `label` bordé pour l’action booléenne.
+### 7.1 Barre « Filtrer et trier » (`ProjectsToolbar`)
 
-Titres de section : petite ligne avec icône Lucide (`Search`, `Filter`, `ArrowDownWideNarrow`) + libellé en `text-xs font-semibold`, pas d’uppercase global sur tout le bloc.
+- Fichier : `apps/web/src/features/projects/components/projects-toolbar.tsx`.
+- Rendu avec **`embedded`** : seuls le header et les actions (pas de `Card` racine) — le parent est la `Card` de la page.
+- **`CardHeader`** : `border-b border-border/60`, titre **`CardTitle`** `text-sm font-medium` : « Filtrer et trier ».
+- **Actions à droite** (`flex gap-2`, `size="sm"`) :
+  - **Mes projets** — `Button` `variant={myProjectsOnly ? 'default' : 'outline'}` : filtre « uniquement les projets où l’utilisateur a un rôle » (`myProjectsOnly`).
+  - **Plein écran** — bascule `document.documentElement.requestFullscreen` / `exitFullscreen` (icônes `Expand` / `Minimize`).
+  - **Réinitialiser** — `onReset` (état filtres + tri via `use-projects-list-filters`).
+- Conteneur : `role="search"` + `aria-label="Filtrer et trier la liste des projets"`.
 
-Voir : `features/projects/components/projects-toolbar.tsx`.
+### 7.2 Tableau : double ligne d’en-tête + filtres inline (`ProjectsListTable`)
+
+- Fichier : `apps/web/src/features/projects/components/projects-list-table.tsx`.
+- **`TooltipProvider delay={250}`** autour du `Table` pour les infobulles d’en-tête et de cellules.
+- **Première ligne** (`TableHeader` → `TableRow`) : libellés de colonnes en petit capitales — classe type `text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground`.
+  - **`HeaderTip`** : libellé souligné en pointillés + `cursor-help`, tooltip explicatif (pas de répétition du contenu en dessous).
+  - **`SortHeaderButton`** : tri sur colonnes concernées (`sortBy` / `sortOrder` dans les filtres) ; icônes `ArrowUp` / `ArrowDown` / `ArrowUpDown`.
+  - Colonnes typiques : **Catégorie**, **Projet** (tri nom), **Nature**, **Santé** (tri), **Statut** (tri), **Mon rôle**, **Avancement** (sous-titre « manuel / dérivé » + tri), **Échéance** (tri), **T · R · J**, **Signaux**, **Étiquettes**.
+- **Deuxième ligne** (`TableRow` avec `border-t border-border/50 bg-muted/35`) : **contrôles de filtre** alignés sur les colonnes — `Select` / `Input` en `size="sm"`, `h-7`, `text-xs`, `SelectTrigger` pleine largeur dans la cellule.
+  - **Catégorie** — `Select` groupé par racine (`SelectGroup` / `SelectLabel`), option « Toutes catégories » ; données `listProjectPortfolioCategories`.
+  - **Projet** — `Input` recherche texte (`search`).
+  - **Nature** — `kind` : Projet / Activité (`PROJECT_KIND_LABEL`).
+  - **Santé** — `computedHealth` : Bon / Attention / Critique.
+  - **Statut** — `status` (`PROJECT_STATUS_LABEL`).
+  - **Mon rôle** — options dérivées des rôles présents dans les lignes affichées.
+  - Colonnes sans filtre sur cette ligne : **em dash** (`—`) centré en `text-muted-foreground` pour garder l’alignement visuel.
+- **Colonnes sticky** (catégorie + projet) : `sticky left-0` / `left-[11rem]`, `z-30`, `bg-muted`, ombre de séparation `shadow-[1px_0_0_0_hsl(var(--border))]` pour le défilement horizontal.
+- **Largeur minimale** : `Table className="min-w-[56rem]"` (cf. §8.1).
+
+### 7.3 Page — assemblage
+
+```text
+PageContainer
+  PageHeader
+  ProjectsPortfolioKpi
+  LoadingState / Alert erreur
+  Card (liste)
+    ProjectsToolbar embedded
+    CardContent p-0 → ProjectsListTable   (si données)
+    CardFooter → PaginationSummary + Précédent / Suivant
+    ou CardContent → EmptyState / LoadingState
+```
+
+Autres écrans (ex. **plan d’action détail**, §11) peuvent utiliser une **variante** : `Card` filtres **séparée** avec sections Recherche / Filtrer par et filets `h-px bg-border/70` — même esprit de tokens (`border-border/60`, `Card size="sm"`), mais **sans** ligne de filtres dans le tableau lorsque la grille de colonnes est plus simple.
 
 ---
 
@@ -398,9 +436,9 @@ Ordre recommandé dans `PageContainer` :
 
 1. `PageHeader` (titre, description, actions)
 2. `**Card**` + bloc KPI portefeuille (**§6.1** — grille compacte `projects-portfolio-kpi`, pas `KpiCard`)
-3. Toolbar filtres (panneau §7 — inclut filtre **Nature**)
+3. **Une** `Card` liste : **`ProjectsToolbar` embedded** + **`ProjectsListTable`** (filtres inline sous les en-têtes — **§7**) + pagination en `CardFooter` ; pas de seconde carte « filtres » au-dessus du tableau sur cet écran.
 4. `LoadingState` / `**Alert` erreur API** (§9) / `**Card` + `EmptyState`**
-5. `Card` + tableau (**§8** / **§8.1**) + pagination
+5. Détail tableau et colonnes : **§8** / **§8.1**
 
 Route : `app/(protected)/projects/page.tsx`.  
 Feature : `features/projects/` (hooks, `project-query-keys`, API).
