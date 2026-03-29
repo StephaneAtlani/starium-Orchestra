@@ -27,6 +27,10 @@ interface BudgetLineFormPageProps {
   lineId?: string;
   variant?: 'page' | 'embedded';
   onCloseEmbedded?: () => void;
+  /** Avec création sans navigation (modale). */
+  skipRedirectAfterCreate?: boolean;
+  /** Après création réussie (ex. fermer la modale). */
+  onCreateSuccess?: () => void;
 }
 
 export function BudgetLineFormPage({
@@ -36,6 +40,8 @@ export function BudgetLineFormPage({
   lineId,
   variant = 'page',
   onCloseEmbedded,
+  skipRedirectAfterCreate = false,
+  onCreateSuccess,
 }: BudgetLineFormPageProps) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -57,7 +63,10 @@ export function BudgetLineFormPage({
   const isEnvelopeOptionsSuccess = envelopesQuery.isSuccess;
   const generalLedgerOptions = generalLedgerData?.items ?? [];
 
-  const createMutation = useCreateBudgetLine(resolvedBudgetId ?? null);
+  const createMutation = useCreateBudgetLine(resolvedBudgetId ?? null, {
+    skipRedirect: skipRedirectAfterCreate,
+    onCreated: onCreateSuccess,
+  });
   const updateMutation = useUpdateBudgetLine(lineId ?? null, resolvedBudgetId ?? null);
 
   const isEdit = mode === 'edit';

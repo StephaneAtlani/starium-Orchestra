@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -12,12 +13,27 @@ import type { BudgetLineFormValues } from '../schemas/budget-line-form.schema';
 import { lineFormToCreatePayload } from '../mappers/budget-form.mappers';
 import type { ApiFormError } from '../api/types';
 
-export function useCreateBudgetLine(budgetId: string | null) {
+export type CreateBudgetLineOptions = {
+  /** Pas de redirection vers la page budget (ex. formulaire en modale). */
+  skipRedirect?: boolean;
+  /** Après invalidation des caches (ex. fermer la modale). */
+  onCreated?: () => void;
+};
+
+export function useCreateBudgetLine(
+  budgetId: string | null,
+  options?: CreateBudgetLineOptions,
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const queryClient = useQueryClient();
   const router = useRouter();
   const clientId = activeClient?.id ?? '';
+
+  const skipRedirectRef = useRef(options?.skipRedirect);
+  skipRedirectRef.current = options?.skipRedirect;
+  const onCreatedRef = useRef(options?.onCreated);
+  onCreatedRef.current = options?.onCreated;
 
   return useMutation({
     mutationFn: async (values: BudgetLineFormValues) => {
@@ -29,7 +45,11 @@ export function useCreateBudgetLine(budgetId: string | null) {
       if (bid) {
         queryClient.invalidateQueries({ queryKey: budgetQueryKeys.budgetLinesByBudget(clientId, bid) });
         queryClient.invalidateQueries({ queryKey: budgetQueryKeys.budgetDetail(clientId, bid) });
-        router.push(budgetDetail(bid));
+        queryClient.invalidateQueries({ queryKey: budgetQueryKeys.budgetSummary(clientId, bid) });
+        onCreatedRef.current?.();
+        if (!skipRedirectRef.current) {
+          router.push(budgetDetail(bid));
+        }
       }
       toast.success('Ligne créée.');
     },

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useMemo, useState } from 'react';
-import { Calculator, X } from 'lucide-react';
+import { Calculator } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -422,94 +423,96 @@ export function BudgetLineForm({
 
       {hasPlanning && (
         <Dialog open={showQuickCalculator} onOpenChange={setShowQuickCalculator}>
-          <DialogContent className="max-w-md sm:max-w-lg" showCloseButton={false}>
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1">
-                  <Calculator className="size-4" />
-                  <span>Calculette rapide</span>
-                </span>
-                <button
-                  type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-                  onClick={() => setShowQuickCalculator(false)}
-                  aria-label="Fermer la calculette"
-                >
-                  <X className="size-3.5" />
-                </button>
-              </DialogTitle>
+          <DialogContent
+            showCloseButton
+            overlayClassName="z-[90]"
+            className="max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-2xl lg:max-w-3xl z-[95]"
+          >
+            <DialogHeader className="-mx-4 -mt-4 space-y-2 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+              <div className="pr-8">
+                <DialogTitle className="flex items-center gap-2 text-left text-foreground">
+                  <Calculator className="size-5 shrink-0 text-foreground/80" aria-hidden />
+                  Calculette rapide
+                </DialogTitle>
+                <DialogDescription className="mt-2 text-left text-foreground/90">
+                  Quantité × prix unitaire ou saisie directe par mois ; les raccourcis répartissent le
+                  total sur la grille.
+                </DialogDescription>
+              </div>
             </DialogHeader>
-            <div className="space-y-4 text-sm">
-              <p className="text-xs text-muted-foreground">
-                Saisissez une quantité et un prix unitaire, ou remplissez directement les montants par mois.
-              </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="calcQuantity">Quantité</Label>
-                  <Input
-                    id="calcQuantity"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={calcQuantity}
-                    onChange={(e) =>
-                      setCalcQuantity(e.target.value === '' ? '' : Number(e.target.value))
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="calcUnitPrice">Prix unitaire</Label>
-                  <Input
-                    id="calcUnitPrice"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={calcUnitPrice}
-                    onChange={(e) =>
-                      setCalcUnitPrice(e.target.value === '' ? '' : Number(e.target.value))
-                    }
-                  />
+
+            <div className="flex flex-col gap-4">
+              <div className="rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
+                <p className="mb-3 text-sm font-semibold text-foreground">Saisie rapide</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="calcQuantity">Quantité</Label>
+                    <Input
+                      id="calcQuantity"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={calcQuantity}
+                      onChange={(e) =>
+                        setCalcQuantity(e.target.value === '' ? '' : Number(e.target.value))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="calcUnitPrice">Prix unitaire</Label>
+                    <Input
+                      id="calcUnitPrice"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={calcUnitPrice}
+                      onChange={(e) =>
+                        setCalcUnitPrice(e.target.value === '' ? '' : Number(e.target.value))
+                      }
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="space-y-3 pt-1">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">Répartition par mois.</p>
-                  <div className="flex flex-wrap items-center gap-1.5">
+
+              <div className="rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-semibold text-foreground">Répartition par mois</p>
+                  <div className="flex flex-wrap gap-1.5">
                     <Button
                       type="button"
                       variant="outline"
                       size="xs"
-                      className="h-6 px-2 text-[11px]"
+                      className="h-7 px-2 text-[11px]"
                       disabled={effectiveTotal <= 0}
                       onClick={() => applySpread('MONTHLY')}
                     >
-                      x12 mois
+                      12 mois
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       size="xs"
-                      className="h-6 px-2 text-[11px]"
+                      className="h-7 px-2 text-[11px]"
                       disabled={effectiveTotal <= 0}
                       onClick={() => applySpread('QUARTERLY')}
                     >
-                      x4 trimestres
+                      4 trimestres
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       size="xs"
-                      className="h-6 px-2 text-[11px]"
+                      className="h-7 px-2 text-[11px]"
                       disabled={effectiveTotal <= 0}
                       onClick={() => applySpread('SEMESTER')}
                     >
-                      x2 semestres
+                      2 semestres
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       size="xs"
-                      className="h-6 px-2 text-[11px]"
+                      className="h-7 px-2 text-[11px]"
                       disabled={effectiveTotal <= 0}
                       onClick={() => applySpread('YEARLY')}
                     >
@@ -520,7 +523,9 @@ export function BudgetLineForm({
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
                   {MONTH_LABELS.map((label, index) => (
                     <div key={label} className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground leading-none">{label}</Label>
+                      <Label className="text-[11px] font-medium text-foreground/90 leading-none">
+                        {label}
+                      </Label>
                       <Input
                         type="number"
                         min={0}
@@ -539,16 +544,24 @@ export function BudgetLineForm({
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center justify-between rounded-md border border-dashed border-border bg-muted/40 px-3 py-2 text-xs sm:text-sm">
-                  <span className="text-xs text-muted-foreground">Montant total</span>
-                  <span className="font-semibold tabular-nums text-right">
+                <div className="mt-3 flex items-center justify-between rounded-md border border-dashed border-border/80 bg-muted/30 px-3 py-2">
+                  <span className="text-sm font-medium text-foreground">Montant total</span>
+                  <span className="font-semibold tabular-nums text-foreground">
                     {Number.isFinite(effectiveTotal) ? effectiveTotal.toFixed(2) : '0.00'}
                   </span>
                 </div>
               </div>
             </div>
-            <DialogFooter className="mt-2">
+
+            <DialogFooter>
               <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowQuickCalculator(false)}
+                >
+                  Fermer
+                </Button>
                 <Button
                   type="button"
                   variant="secondary"
@@ -558,7 +571,7 @@ export function BudgetLineForm({
                   }}
                   disabled={effectiveTotal <= 0}
                 >
-                  Appliquer sur montant initial
+                  Appliquer au montant initial
                 </Button>
                 <Button
                   type="button"
@@ -568,7 +581,7 @@ export function BudgetLineForm({
                   }}
                   disabled={effectiveTotal <= 0}
                 >
-                  Appliquer sur montant révisé
+                  Appliquer au montant révisé
                 </Button>
               </div>
             </DialogFooter>

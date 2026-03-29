@@ -29,8 +29,8 @@ import {
   budgetReallocations,
   budgetEdit,
   budgetEnvelopeNew,
-  budgetLineNew,
 } from '@/features/budgets/constants/budget-routes';
+import { NewBudgetLineDialog } from '@/features/budgets/components/new-budget-line-dialog';
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,6 +76,7 @@ export default function BudgetDetailPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedBudgetLineId, setSelectedBudgetLineId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<BudgetLineDrawerTab>('overview');
+  const [newLineDialogOpen, setNewLineDialogOpen] = useState(false);
 
   const [filters, setFilters] = useState<BudgetExplorerFilters>({});
   const [sortPreset, setSortPreset] = useState<ExplorerSortPreset>('default');
@@ -378,12 +379,13 @@ export default function BudgetDetailPage() {
               </PermissionGate>
               <PermissionGate permission="budgets.create">
                 <>
-                  <Link
-                    href={budgetLineNew(budgetId!)}
-                    className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
+                  <Button
+                    type="button"
+                    className="h-7 px-2.5 text-[0.8rem] font-medium"
+                    onClick={() => setNewLineDialogOpen(true)}
                   >
                     Nouvelle ligne
-                  </Link>
+                  </Button>
                   <Link
                     href={budgetEnvelopeNew(budgetId!)}
                     className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
@@ -561,6 +563,12 @@ export default function BudgetDetailPage() {
             </Link>
           </CardContent>
         </Card>
+
+        <NewBudgetLineDialog
+          open={newLineDialogOpen}
+          onOpenChange={setNewLineDialogOpen}
+          budgetId={budgetId!}
+        />
 
         <BudgetLineIntelligenceDrawer
           open={isDrawerOpen}
