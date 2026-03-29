@@ -239,6 +239,11 @@ export type ActionPlanTaskApi = ProjectTaskApi & {
   risk?: { id: string; code: string; title: string } | null;
 };
 
+/** `GET /api/risks/:riskId/action-plan-tasks` — méta plan pour libellés (valeurs affichées, pas seulement les id). */
+export type RiskLinkedActionPlanTaskApi = ActionPlanTaskApi & {
+  actionPlan: { id: string; code: string; title: string } | null;
+};
+
 /** Niveau persisté côté API (RFC-PROJ-RISK-001). */
 export type ProjectRiskCriticalityLevel =
   | 'LOW'

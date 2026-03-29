@@ -376,6 +376,12 @@ export function ActionPlanTaskCreateDialog({
       await queryClient.invalidateQueries({
         queryKey: [...projectQueryKeys.all, 'action-plans', clientId],
       });
+      const linkedRiskId = tRiskId || prefill?.riskId;
+      if (linkedRiskId) {
+        await queryClient.invalidateQueries({
+          queryKey: projectQueryKeys.riskActionPlanTasks(clientId, linkedRiskId),
+        });
+      }
       onCreated?.({ actionPlanId: effectivePlanId });
       resetTaskForm();
       onOpenChange(false);

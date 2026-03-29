@@ -142,6 +142,49 @@ export class ProjectTasksService {
     return { items, total, limit, offset };
   }
 
+  /**
+   * Tâches rattachées à un risque et à un plan d’actions (RFC-PLA-001) — fiche risque EBIOS.
+   */
+  async listActionPlanTasksForRisk(clientId: string, riskId: string) {
+    const risk = await this.prisma.projectRisk.findFirst({
+      where: { id: riskId, clientId },
+      select: { id: true },
+    });
+    if (!risk) throw new NotFoundException('Risk not found');
+
+    const rows = await this.prisma.projectTask.findMany({
+      where: {
+        clientId,
+        riskId,
+        actionPlanId: { not: null },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+      include: {
+        checklistItems: { orderBy: { sortOrder: 'asc' } },
+        labelAssignments: { select: { labelId: true } },
+        project: { select: { id: true, code: true, name: true } },
+        risk: { select: { id: true, code: true, title: true } },
+        actionPlan: { select: { id: true, code: true, title: true } },
+        responsibleResource: {
+          select: { id: true, name: true, firstName: true, code: true, type: true },
+        },
+      },
+    });
+
+    const items = rows.map((row) => {
+      const { actionPlan, ...taskRow } = row;
+      const mapped = this.mapTaskWithChecklistAndLinks(taskRow);
+      return {
+        ...mapped,
+        actionPlan: actionPlan
+          ? { id: actionPlan.id, code: actionPlan.code, title: actionPlan.title }
+          : null,
+      };
+    });
+
+    return { items };
+  }
+
   async getOne(clientId: string, projectId: string, taskId: string) {
     await this.projects.getProjectForScope(clientId, projectId);
     const task = await this.prisma.projectTask.findFirst({

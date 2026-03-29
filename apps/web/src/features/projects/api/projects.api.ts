@@ -12,6 +12,7 @@ import type {
   ProjectDocumentApi,
   ProjectMilestoneApi,
   ProjectRiskApi,
+  RiskLinkedActionPlanTaskApi,
   ProjectSheet,
   ProjectTaskApi,
   ProjectTaskPhaseApi,
@@ -423,6 +424,16 @@ export async function getClientRisk(authFetch: AuthFetch, riskId: string): Promi
   const res = await authFetch(`${RISKS_CLIENT_BASE}/${riskId}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectRiskApi>;
+}
+
+/** Tâches plan d’actions liées à ce risque (EBIOS — lien « voir l’action »). */
+export async function listRiskActionPlanTasks(
+  authFetch: AuthFetch,
+  riskId: string,
+): Promise<{ items: RiskLinkedActionPlanTaskApi[] }> {
+  const res = await authFetch(`${RISKS_CLIENT_BASE}/${riskId}/action-plan-tasks`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ items: RiskLinkedActionPlanTaskApi[] }>;
 }
 
 export async function updateClientRisk(

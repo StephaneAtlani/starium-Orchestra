@@ -290,6 +290,12 @@ export function ActionPlanTaskEditDialog({
       await queryClient.invalidateQueries({
         queryKey: projectQueryKeys.actionPlanDetail(clientId, actionPlanId),
       });
+      const rid = task?.riskId;
+      if (clientId && rid) {
+        await queryClient.invalidateQueries({
+          queryKey: projectQueryKeys.riskActionPlanTasks(clientId, rid),
+        });
+      }
     },
     onError: (e: Error) => {
       toast.error(e.message || 'Enregistrement impossible');

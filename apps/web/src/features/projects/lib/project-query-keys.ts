@@ -31,6 +31,9 @@ export const projectQueryKeys = {
   /** `GET /api/risks` — registre client-scoped. */
   clientRisks: (clientId: string) =>
     [...projectQueryKeys.all, 'client-risks', clientId] as const,
+  /** Tâches de plan liées à un risque — `GET /api/risks/:riskId/action-plan-tasks`. */
+  riskActionPlanTasks: (clientId: string, riskId: string) =>
+    [...projectQueryKeys.all, 'risk-action-plan-tasks', clientId, riskId] as const,
   /** Phase 1 seule (méta projets paginés) — filtres / libellés projet. */
   risksRegistryProjects: (clientId: string) =>
     [...projectQueryKeys.all, 'risks-registry', 'projects', clientId] as const,

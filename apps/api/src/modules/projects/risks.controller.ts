@@ -18,6 +18,7 @@ import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import { ClientScopedRisksService } from './client-scoped-risks.service';
+import { ProjectTasksService } from './project-tasks.service';
 import { CreateClientScopedRiskDto } from './dto/create-client-scoped-risk.dto';
 import { UpdateClientScopedRiskDto } from './dto/update-client-scoped-risk.dto';
 import { UpdateProjectRiskStatusDto } from './dto/update-project-risk-status.dto';
@@ -25,12 +26,24 @@ import { UpdateProjectRiskStatusDto } from './dto/update-project-risk-status.dto
 @Controller('risks')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class RisksController {
-  constructor(private readonly risks: ClientScopedRisksService) {}
+  constructor(
+    private readonly risks: ClientScopedRisksService,
+    private readonly projectTasks: ProjectTasksService,
+  ) {}
 
   @Get()
   @RequirePermissions('projects.read')
   list(@ActiveClientId() clientId: string | undefined) {
     return this.risks.listForClient(clientId!);
+  }
+
+  @Get(':riskId/action-plan-tasks')
+  @RequirePermissions('projects.read')
+  listActionPlanTasksForRisk(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('riskId') riskId: string,
+  ) {
+    return this.projectTasks.listActionPlanTasksForRisk(clientId!, riskId);
   }
 
   @Get(':riskId')

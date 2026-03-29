@@ -31,15 +31,22 @@ import {
   getProjectRisk,
   getRiskTaxonomyCatalog,
   listAssignableUsers,
+  listRiskActionPlanTasks,
 } from '../api/projects.api';
 import type { CreateProjectRiskPayload } from '../api/projects.api';
 import {
   ActionPlanTaskCreateDialog,
   type ActionPlanTaskCreatePrefill,
 } from './action-plan-task-create-dialog';
+import { ActionPlanTaskEditDialog } from './action-plan-task-edit-dialog';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { useDebouncedServerAutosave } from '@/hooks/use-debounced-server-autosave';
-import type { ProjectListItem, ProjectRiskApi, ProjectRiskCriticalityLevel } from '../types/project.types';
+import type {
+  ProjectListItem,
+  ProjectRiskApi,
+  ProjectRiskCriticalityLevel,
+  RiskLinkedActionPlanTaskApi,
+} from '../types/project.types';
 import {
   PROJECT_RISK_CRITICALITY_LABEL,
   RISK_PI_SCALE_LABEL,
@@ -363,6 +370,7 @@ export function ProjectRiskEbiosDialog({
   const clientId = activeClient?.id ?? '';
   const { has, isSuccess: permsSuccess } = usePermissions();
   const canUpdateProjects = permsSuccess && has('projects.update');
+  const canReadProjects = permsSuccess && has('projects.read');
 
   const assignableQuery = useQuery({
     queryKey: ['projects', 'assignable-users', clientId],
@@ -400,6 +408,17 @@ export function ProjectRiskEbiosDialog({
     [mode, risk, riskDetailQuery.data],
   );
 
+  const riskPlanTasksQuery = useQuery({
+    queryKey: projectQueryKeys.riskActionPlanTasks(clientId, riskResolved?.id ?? ''),
+    queryFn: () => listRiskActionPlanTasks(authFetch, riskResolved!.id),
+    enabled:
+      open &&
+      Boolean(clientId) &&
+      Boolean(riskResolved?.id) &&
+      mode === 'edit' &&
+      canReadProjects,
+  });
+
   const [title, setTitle] = useState('');
   const [threatSource, setThreatSource] = useState('');
   const [description, setDescription] = useState('');
@@ -424,6 +443,8 @@ export function ProjectRiskEbiosDialog({
   const [linkedProjectId, setLinkedProjectId] = useState<string>(PROJECT_NONE);
 
   const [addToPlanOpen, setAddToPlanOpen] = useState(false);
+  const [planTaskViewOpen, setPlanTaskViewOpen] = useState(false);
+  const [planTaskView, setPlanTaskView] = useState<RiskLinkedActionPlanTaskApi | null>(null);
 
   const savedSnapshotRef = useRef<string>('');
   const loadedKeyRef = useRef<string | null>(null);
@@ -683,28 +704,63 @@ export function ProjectRiskEbiosDialog({
     };
   }, [riskResolved?.id, riskResolved?.projectId, title, mitigationPlan]);
 
-  const treatmentHeaderExtra =
-    riskResolved?.id && canUpdateProjects ? (
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="gap-1.5"
-        onClick={() => setAddToPlanOpen(true)}
-        disabled={isPending}
-      >
-        <ListPlus className="size-3.5 shrink-0" aria-hidden />
-        Ajouter au plan d’action
-      </Button>
-    ) : riskResolved?.id ? (
-      <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
-        Droits insuffisants pour créer une tâche de plan.
-      </span>
-    ) : (
-      <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
-        Enregistrez le risque pour l’associer à un plan d’action.
-      </span>
-    );
+  const linkedPlanTasks = riskPlanTasksQuery.data?.items ?? [];
+
+  const treatmentHeaderExtra = !riskResolved?.id ? (
+    <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
+      Enregistrez le risque pour l’associer à un plan d’action.
+    </span>
+  ) : riskPlanTasksQuery.isLoading ? (
+    <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+  ) : riskPlanTasksQuery.isError ? (
+    <span className="max-w-[14rem] text-right text-xs text-destructive">
+      Actions plan indisponibles.
+    </span>
+  ) : linkedPlanTasks.length > 0 && canReadProjects ? (
+    <div className="flex max-w-[min(22rem,100%)] flex-col items-end gap-1.5 text-right">
+      <p className="text-xs text-muted-foreground">
+        {linkedPlanTasks.length === 1
+          ? 'Action inscrite au plan d’action'
+          : 'Actions inscrites au plan d’action'}
+      </p>
+      {linkedPlanTasks.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          className="inline-flex max-w-full items-center justify-end gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+          onClick={() => {
+            if (!t.actionPlanId) return;
+            setPlanTaskView(t);
+            setPlanTaskViewOpen(true);
+          }}
+        >
+          <span className="truncate">
+            {t.actionPlan ? `${t.actionPlan.code} — ${t.name}` : t.name}
+          </span>
+        </button>
+      ))}
+    </div>
+  ) : linkedPlanTasks.length > 0 && !canReadProjects ? (
+    <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
+      Déjà lié à un plan d’action. Droits insuffisants pour ouvrir la tâche.
+    </span>
+  ) : canUpdateProjects ? (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="gap-1.5"
+      onClick={() => setAddToPlanOpen(true)}
+      disabled={isPending}
+    >
+      <ListPlus className="size-3.5 shrink-0" aria-hidden />
+      Ajouter au plan d’action
+    </Button>
+  ) : (
+    <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
+      Droits insuffisants pour créer une tâche de plan.
+    </span>
+  );
 
   return (
     <>
@@ -1324,6 +1380,17 @@ export function ProjectRiskEbiosDialog({
       onOpenChange={setAddToPlanOpen}
       prefill={addTaskFromRiskPrefill}
       title="Nouvelle tâche dans le plan"
+    />
+
+    <ActionPlanTaskEditDialog
+      open={planTaskViewOpen}
+      onOpenChange={(o) => {
+        setPlanTaskViewOpen(o);
+        if (!o) setPlanTaskView(null);
+      }}
+      actionPlanId={planTaskView?.actionPlanId ?? ''}
+      task={planTaskView}
+      canEdit={canUpdateProjects}
     />
     </>
   );
