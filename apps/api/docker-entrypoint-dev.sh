@@ -17,6 +17,9 @@ echo "[api-dev] prisma generate..."
 pnpm --filter @starium-orchestra/api exec prisma generate
 echo "[api-dev] prisma db seed..."
 pnpm --filter @starium-orchestra/api exec prisma db seed
+echo "[api-dev] build workspace shared packages (dist exclu par .dockerignore / volume)..."
+pnpm --filter @starium-orchestra/types build
+pnpm --filter @starium-orchestra/budget-exercise-calendar build
 cd /app/apps/api
 # dist/ persiste dans le conteneur entre restarts : sans ça, Nest peut servir un vieux
 # projects.service.js (ex. ownerFreeLabel dans project.create) alors que src/ est à jour.
