@@ -375,5 +375,6 @@ budgets.update
 | DTO réponse / apply-mode | `apps/api/src/modules/budget-management/budget-lines/dto/` |
 | Calendrier d’exercice (partagé API + web) | `packages/budget-exercise-calendar/` |
 | Mapping audit (filtres legacy) | `apps/api/src/modules/audit-logs/budget-planning-audit-action-map.ts` + fusion dans `audit-logs-read-legacy.ts` |
-| UI grille + calculette + synthèse | `apps/web/src/features/budgets/components/budget-line-planning-*.tsx` |
+| UI pilotage (tableau multi-vues Prévisionnel / Atterrissage / Forecast) | `apps/web/src/features/budgets/components/budget-pilotage-section.tsx`, `budget-table.tsx` ; requêtes `use-budget-pilotage-planning-queries.ts`, mutations `use-budget-line-planning.ts`, agrégation affichage `lib/budget-planning-grid.ts` |
+| *(Périmètre)* | L’**explorateur** (`budget-explorer-row.tsx`, RFC-FE-004) **n’expose pas** de modale planning ni de calculatrice : l’édition des mois passe par l’onglet **Pilotage** sur `/budgets/[budgetId]`. |
 | Journal des changements API / alias | [CHANGELOG.md](../../CHANGELOG.md) à la racine du repo |

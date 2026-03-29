@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+🟡 **Partielle (MVP frontend)** — écran pilotage sur `/budgets/[budgetId]` (onglet **Pilotage**) : vues Prévisionnel / Atterrissage / Forecast, densité, pagination > 50 lignes ; prévoir itérations (voir §15).
 
 ## Priorité
 
@@ -22,7 +22,7 @@ Mettre en place une **interface de pilotage budgétaire unifiée** permettant :
 
 * une **édition rapide type Excel** (prévisionnel)
 * une **lecture décisionnelle DAF/DG** (atterrissage)
-* une **simulation de scénarios** (forecast)
+* une **vue forecast** : en **cible produit**, comparaison / simulation multi-scénarios ; en **MVP**, lecture **Baseline** uniquement (données RFC-023 / GET planning), sans recalcul ni scénarios inventés côté UI (voir §7 et §15).
 
 👉 Le tout basé sur **un tableau unique multi-vues**, sans explosion de colonnes.
 
@@ -56,7 +56,7 @@ Interdictions :
 | -------- | --------------------------------- |
 | Vue      | change la logique métier affichée |
 | Densité  | change le niveau de détail        |
-| Scénario | change le dataset forecast        |
+| Scénario | **MVP** : affichage Baseline seul (sélecteur avec autres entrées désactivées, libellé « À venir ») ; **cible** : changer le jeu de données forecast quand l’API multi-scénarios existera |
 
 ---
 
@@ -157,7 +157,9 @@ Il est alimenté différemment selon :
 
 ## Objectif
 
-👉 simulation et comparaison de scénarios
+👉 **Vision produit** : simulation et comparaison de scénarios lorsque le backend exposera plusieurs jeux de données forecast.
+
+👉 **MVP implémenté** : même structure de tableau, mais **un seul scénario réellement piloté** : **Baseline** (montants issus du planning RFC-023, ex. `planningTotalAmount` vs colonnes documentées dans le code `BudgetTable`). Les autres libellés (Révisé, Optimiste, Pessimiste) sont **présents dans le sélecteur en options désactivées** avec le suffixe **« À venir »** — **aucune** simulation, multiplicateur ou extrapolation côté frontend.
 
 ---
 
@@ -167,22 +169,24 @@ Il est alimenté différemment selon :
 | Ligne | Budget révisé | Forecast scénario | Atterrissage | Écart |
 ```
 
+*(Colonne forecast étiquetée **Forecast (Baseline)** en MVP.)*
+
 ---
 
 ## Scénarios
 
-Sélecteur :
+Sélecteur (composant `BudgetScenarioSelect`) :
 
 ```text
 Scénario : [ Baseline ▼ ]
 ```
 
-### Exemples
+### Catalogue (cible long terme)
 
-* Baseline
-* Révisé
-* Optimiste
-* Pessimiste
+* Baseline *(seul actif en MVP)*
+* Révisé — À venir *(désactivé)*
+* Optimiste — À venir *(désactivé)*
+* Pessimiste — À venir *(désactivé)*
 
 ---
 
@@ -190,7 +194,7 @@ Scénario : [ Baseline ▼ ]
 
 * pas de colonnes multiples pour chaque scénario
 * un seul scénario actif à la fois
-* changement = refresh dataset
+* **MVP** : pas de changement de dataset via le sélecteur (valeur verrouillée sur Baseline) ; **cible** : changement de scénario = refresh du dataset côté API
 
 ---
 
@@ -219,7 +223,7 @@ Scénario : [ Baseline ▼ ]
 
 * Prévisionnel = édition
 * Atterrissage = décision
-* Forecast = simulation
+* Forecast = **cible** simulation multi-scénarios ; **MVP** = lecture comparative Baseline (pas d’édition, pas de scénarios alternatifs côté données)
 
 ---
 
@@ -279,17 +283,27 @@ BudgetScenarioSelect
 ## Structure
 
 ```text
-/features/budgets/
+apps/web/src/features/budgets/
   components/
     budget-table.tsx
     budget-view-tabs.tsx
     budget-density-toggle.tsx
     budget-scenario-select.tsx
+    budget-pilotage-section.tsx      # orchestration (exercice, queries, pagination, brouillon 12 mois)
+    budget-structure-pilotage-tabs.tsx  # Structure | Pilotage (page détail budget)
+  lib/
+    budget-planning-grid.ts          # agrégation T1–T4 affichage, payload PUT 12 mois
+    budget-exercise-month-labels.ts  # libellés mois via @starium-orchestra/budget-exercise-calendar
+  hooks/
+    use-budget-pilotage-planning-queries.ts
+    use-budget-line-planning.ts      # dont mutation PUT multi-lignes budget
 ```
 
 ---
 
 # 12. Roadmap
+
+Les trois phases ci-dessous sont **largement couvertes en MVP** sur l’onglet Pilotage (une seule livraison incrémentale) ; des finitions restent possibles (navigation clavier §5, scénarios Forecast côté API, endpoint batch planning).
 
 ## Phase 1
 
@@ -305,7 +319,7 @@ BudgetScenarioSelect
 ## Phase 3
 
 * Vue Forecast
-* scénarios
+* scénarios **côté API** (le MVP front couvre l’UI Baseline + placeholders « À venir »)
 
 ---
 
@@ -320,4 +334,16 @@ BudgetScenarioSelect
 
 # 14. Résumé
 
-> Un tableau unique, trois vues métier, un toggle de densité, et un sélecteur de scénario pour piloter simplement le budget.
+> Un tableau unique, trois vues métier, un toggle de densité, et un sélecteur de scénario (**MVP** : Baseline seul + entrées futures visibles mais non actionnables) pour piloter simplement le budget.
+
+---
+
+# 15. Implémentation (référence code, web)
+
+* **Entrée UX** : page `apps/web/src/app/(protected)/budgets/[budgetId]/page.tsx` — bascule **Structure** (explorateur existant) / **Pilotage** (`BudgetPilotageSection`). Un seul tableau de pilotage à la fois.
+* **Données** : `GET` / `PUT` `/api/budget-lines/:id/planning` via `apps/web/src/features/budgets/api/budget-line-planning.api.ts` (RFC-023) ; pas de `clientId` arbitraire côté front — isolation portée par l’API et le client actif.
+* **Libellés des 12 mois** : dérivés de `BudgetExercise.startDate` via `getExerciseMonthColumnLabels` (package **`@starium-orchestra/budget-exercise-calendar`**), pas des réponses planning prises comme source unique.
+* **Édition** : état local 12 mois par ligne ; PUT avec payload complet ; mode **condensé** = lecture seule + message invitant au mode mensuel.
+* **Performance** : au-delà de **50** lignes, pagination côté pilotage ; évolution possible : `GET` batch planning (hors MVP), lazy / intersection pour les fenêtres de lignes.
+* **Forecast (MVP)** : affichage type Baseline à partir des champs planning (`BudgetTable`, vue `forecast`) ; **`BudgetScenarioSelect`** : `Select` shadcn avec **Baseline** sélectionnable et **Révisé / Optimiste / Pessimiste** en `SelectItem` **désactivés**, libellés **« … — À venir »** — pas de simulation métier ni branchement de requête sur un autre scénario tant que l’API ne le fournit pas.
+* **Permissions** : édition soumise à la permission **`budgets.update`** (cohérent avec les guards API).

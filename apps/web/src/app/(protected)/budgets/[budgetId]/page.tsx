@@ -33,6 +33,11 @@ import {
   type ExplorerSortPreset,
 } from '@/features/budgets/types/budget-explorer.types';
 import { BudgetLineIntelligenceDrawer, type BudgetLineDrawerTab } from '@/features/budgets/components/budget-line-drawer/budget-line-intelligence-drawer';
+import { BudgetPilotageSection } from '@/features/budgets/components/budget-pilotage-section';
+import {
+  BudgetStructurePilotageTabs,
+  type BudgetMainSectionTab,
+} from '@/features/budgets/components/budget-structure-pilotage-tabs';
 import type { BudgetEnvelope, BudgetLine } from '@/features/budgets/types/budget-management.types';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import { formatTaxAwareAmount } from '@/lib/format-tax-aware-amount';
@@ -47,8 +52,7 @@ export default function BudgetDetailPage() {
   const p = useParams();
   const budgetId = typeof p.budgetId === 'string' ? p.budgetId : null;
 
-  const { budget, envelopes, lines, isLoading, error, refetch } =
-    useBudgetExplorer(budgetId);
+  const { budget, envelopes, lines, isLoading, error } = useBudgetExplorer(budgetId);
 
   const { taxDisplayMode, setTaxDisplayMode, isLoading: isTaxLoading } =
     useTaxDisplayMode();
@@ -58,6 +62,7 @@ export default function BudgetDetailPage() {
   const [activeTab, setActiveTab] = useState<BudgetLineDrawerTab>('overview');
 
   const [filters, setFilters] = useState<BudgetExplorerFilters>({});
+  const [mainSection, setMainSection] = useState<BudgetMainSectionTab>('structure');
   const [sortPreset, setSortPreset] = useState<ExplorerSortPreset>('default');
   const explorerSort = useMemo(
     () => explorerSortPresetToState(sortPreset),
@@ -263,7 +268,9 @@ export default function BudgetDetailPage() {
           <BudgetKpiCards items={kpiItems} className="mb-6" />
         )}
 
-        {isEmptyGlobal && (
+        <BudgetStructurePilotageTabs value={mainSection} onValueChange={setMainSection} />
+
+        {mainSection === 'structure' && isEmptyGlobal && (
           <BudgetEmptyState
             title="Aucune enveloppe"
             description="Ce budget n’a pas encore d’enveloppe. Les lignes budgétaires apparaîtront ici une fois la structure créée."
@@ -271,7 +278,7 @@ export default function BudgetDetailPage() {
           />
         )}
 
-        {!isEmptyGlobal && (
+        {mainSection === 'structure' && !isEmptyGlobal && (
           <Card className="mb-6">
             <CardHeader className="border-b border-border/60 pb-4">
               <BudgetExplorerToolbar
@@ -300,6 +307,17 @@ export default function BudgetDetailPage() {
               />
             </CardContent>
           </Card>
+        )}
+
+        {mainSection === 'pilotage' && (
+          <div className="mb-6">
+            <BudgetPilotageSection
+              budgetId={budget.id}
+              exerciseId={budget.exerciseId}
+              currency={currency}
+              lines={lines ?? []}
+            />
+          </div>
         )}
 
         <Card>

@@ -203,11 +203,13 @@ Le header affiche immédiatement :
   * commande non couverte
 * actions rapides :
 
-  * ajouter commande
-  * ajouter facture
-  * ajouter autre événement
-  * ouvrir la page complète (si route dédiée conservée)
+  * nouvelle commande
+  * nouvelle facture
+  * engagement financier
+  * consommation
   * fermer
+
+* **Non affiché dans le header (implémentation actuelle)** : pas de bouton « modifier » ni de lien vers `/budget-lines/:id/edit` — l’édition des champs ligne se fait dans l’onglet **Vue d’ensemble** du drawer (voir §6.1 bis). La route `/budget-lines/[lineId]/edit` peut rester accessible depuis d’autres listes.
 
 Exemple visuel :
 
@@ -215,8 +217,17 @@ Exemple visuel :
 [BL-001] Licences Microsoft 365
 RUN / Poste de travail / ACTIVE / OPEX / EUR
 Alerte: reste faible | 2 factures ce mois | 1 engagement en attente
-[+ Commande] [+ Facture] [+ Événement] [Ouvrir la fiche] [Fermer]
+[+ Commande] [+ Facture] [+ Engagement] [+ Consommation] [Fermer]
 ```
+
+### 6.1 bis — Vue d’ensemble (édition)
+
+Avec la permission `budgets.update` :
+
+* champs éditables (nom, description, code, montant révisé, scope d’allocation, **responsable du budget** via `PATCH` sur le budget et sélecteur d’utilisateurs `GET /api/users` avec libellés) : **affichage lecture seule** jusqu’au **clic**, puis contrôle de saisie et **sauvegarde automatique** (debounce sur les textes).
+* Après mutation : invalidation React Query étendue aux vues **cockpit budget** (`dashboard`) et **listes lignes par enveloppe** pour resynchroniser les tableaux sous-jacents.
+
+Les montants **calculés** (engagé, consommé, restant, etc.) restent en lecture seule.
 
 ---
 
@@ -511,7 +522,12 @@ features/budgets/
     └── financial-core.types.ts
 ```
 
-Cette structure reste conforme à l’architecture frontend feature-first recommandée. 
+Cette structure reste conforme à l’architecture frontend feature-first recommandée.
+
+### 10.3 Hooks utiles (évolution)
+
+* `use-inline-update-budget-line.ts` — PATCH ligne + invalidations (dont cockpit / enveloppes).
+* `use-patch-budget-owner.ts` — PATCH budget (`ownerUserId`).
 
 ---
 

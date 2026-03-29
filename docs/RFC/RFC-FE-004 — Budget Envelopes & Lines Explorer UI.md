@@ -519,4 +519,5 @@ L’implémentation suit le plan détaillé (`.cursor/plans/` ou équivalent) et
 - **Query keys** : `budgetEnvelopes(clientId, budgetId, { full: true })` pour l’explorer ; `budgetLinesByBudget(clientId, budgetId)` sans filtres. Toutes tenant-aware.
 - **États** : loading, error, empty global (aucune enveloppe), empty filtré (message distinct). Expansion par défaut : racines ouvertes, sous-niveaux fermés.
 - **Critères d’acceptation** (§18) : tous couverts.
+- **Lignes (comportement actuel)** : le tableau des lignes est en **lecture seule** pour les montants et libellés ; **aucune** édition inline ni bouton « Prévisionnel / planning » dans la ligne. Le **clic sur le nom** de ligne ouvre le **drawer** intelligence ligne ([RFC-FE-ADD-006](./RFC-FE-ADD-006%20%E2%80%94%20Budget%20Line%20Intelligence%20Drawer%20UI.md)). L’édition du **planning mensuel** (RFC-023) se fait via l’onglet **Pilotage** sur la même page (`BudgetPilotageSection`, [RFC-024](./RFC-024%20%E2%80%94%20Budget%20UI.md)).
 
