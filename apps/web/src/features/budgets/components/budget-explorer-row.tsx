@@ -259,7 +259,8 @@ function BudgetExplorerLineRow({
   const inlineMutation = useInlineUpdateBudgetLine(line.id, budgetId);
   const { has, isLoading: isPermissionsLoading } = usePermissions();
   const canEditLine = !isPermissionsLoading && has('budgets.update');
-  const canEdit = has('budgets.update');
+  /** GET /planning est en budgets.read — le bouton doit être visible pour tout lecteur budget. */
+  const canViewPlanning = !isPermissionsLoading && has('budgets.read');
   const [isPlanningOpen, setIsPlanningOpen] = useState(false);
   const [selectedTool, setSelectedTool] = useState<PlanningCalculatorTool>('GROWTH');
   const [planningError, setPlanningError] = useState<ApiFormError | null>(null);
@@ -293,7 +294,7 @@ function BudgetExplorerLineRow({
   }, [isEditable, line.name, line.revisedAmount, line.expenseType, line.status]);
 
   const handleSave = async () => {
-    if (!canEdit) return;
+    if (!canEditLine) return;
     if (draftName.trim().length === 0) return;
 
     const payload = {
@@ -310,7 +311,7 @@ function BudgetExplorerLineRow({
 
   const handleToggleLock = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!onToggleEditable || !canEdit) return;
+    if (!onToggleEditable || !canEditLine) return;
     if (isEditable) {
       await handleSave();
     } else {
@@ -343,7 +344,7 @@ function BudgetExplorerLineRow({
           style={{ paddingLeft: `${12 + (depth + 1) * 20}px` }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            {isEditable && canEdit ? (
+            {isEditable && canEditLine ? (
               <select
                 className="flex h-6 shrink-0 rounded-md border border-input bg-background px-1.5 text-[10px] ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={draftStatus}
@@ -380,48 +381,54 @@ function BudgetExplorerLineRow({
                 {line.name}
               </button>
             )}
-            {canEdit && (
-              <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1">
+              {canViewPlanning && (
                 <button
                   type="button"
                   onClick={() => setIsPlanningOpen(true)}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-                  aria-label="Ouvrir le planning de la ligne"
+                  className="inline-flex h-6 max-w-[9rem] items-center justify-center gap-1 rounded-full border border-input bg-background px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground sm:px-2"
+                  title="Prévisionnel — planning mensuel et atterrissage"
+                  aria-label="Ouvrir le prévisionnel (planning de la ligne)"
                 >
-                  <Calculator className="size-3.5" />
+                  <Calculator className="size-3.5 shrink-0" />
+                  <span className="hidden text-[11px] font-medium sm:inline">Prévisionnel</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={handleToggleLock}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-                  aria-label={isEditable ? 'Verrouiller la ligne' : 'Déverrouiller la ligne'}
-                >
-                  {isEditable ? <LockOpen className="size-3.5" /> : <Lock className="size-3.5" />}
-                </button>
-                {isEditable && (
+              )}
+              {canEditLine && (
+                <>
                   <button
                     type="button"
-                    onClick={handleSave}
-                    className="inline-flex h-6 items-center justify-center rounded-md border border-input bg-background px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                    disabled={inlineMutation.isPending}
+                    onClick={handleToggleLock}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label={isEditable ? 'Verrouiller la ligne' : 'Déverrouiller la ligne'}
                   >
-                    {inlineMutation.isPending ? (
-                      'Enreg.'
-                    ) : (
-                      <>
-                        <Check className="mr-1 size-3" />
-                        Enreg.
-                      </>
-                    )}
+                    {isEditable ? <LockOpen className="size-3.5" /> : <Lock className="size-3.5" />}
                   </button>
-                )}
-              </div>
-            )}
+                  {isEditable && (
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      className="inline-flex h-6 items-center justify-center rounded-md border border-input bg-background px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                      disabled={inlineMutation.isPending}
+                    >
+                      {inlineMutation.isPending ? (
+                        'Enreg.'
+                      ) : (
+                        <>
+                          <Check className="mr-1 size-3" />
+                          Enreg.
+                        </>
+                      )}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </TableCell>
         <TableCell className="text-muted-foreground">—</TableCell>
         <TableCell>
-          {isEditable && canEdit ? (
+          {isEditable && canEditLine ? (
             <select
               className="flex h-8 w-28 rounded-lg border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={draftExpenseType}
@@ -511,7 +518,7 @@ function BudgetExplorerLineRow({
           }
         }}
       >
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="w-[90vw] max-w-[90vw] sm:max-w-[90vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-2">
               <span>Planning de la ligne</span>
@@ -527,7 +534,7 @@ function BudgetExplorerLineRow({
               </div>
             )}
             <BudgetLinePlanningToolbar
-              canEdit={canEdit}
+              canEdit={canEditLine}
               selectedTool={selectedTool}
               onSelectTool={setSelectedTool}
             />
@@ -537,7 +544,7 @@ function BudgetExplorerLineRow({
                   lineId={line.id}
                   budgetId={budgetId}
                   currency={line.currency}
-                  canEdit={canEdit}
+                  canEdit={canEditLine}
                   onError={(err) => setPlanningError(err)}
                 />
               </div>
@@ -546,7 +553,7 @@ function BudgetExplorerLineRow({
                 budgetId={budgetId}
                 currency={line.currency}
                 selectedTool={selectedTool}
-                canEdit={canEdit}
+                canEdit={canEditLine}
                 onError={(err) => setPlanningError(err)}
               />
             </div>
