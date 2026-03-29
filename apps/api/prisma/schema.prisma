@@ -193,6 +193,16 @@ model Client {
   microsoftOAuthClientSecretEncrypted   String?
   /// Segment d’autorité (`common`, GUID tenant, `organizations`…). Défaut `common` si vide.
   microsoftOAuthAuthorityTenant         String?
+
+  /// Surcharges libellés / tons des badges UI (tâches, priorités, entrées custom) — fusion côté app avec `badge-registry`.
+  uiBadgeConfig Json?
+}
+
+/// Défauts globaux badges UI (id = `default`) — fusionnés avant `Client.uiBadgeConfig`.
+model PlatformUiBadgeSettings {
+  id          String   @id @default("default")
+  badgeConfig Json?
+  updatedAt   DateTime @updatedAt
 }
 
 /// Paramètres OAuth Microsoft **plateforme** (une ligne, id = `default`) — redirect URI, scopes, timeouts.

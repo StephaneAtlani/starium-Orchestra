@@ -81,4 +81,8 @@ export const projectQueryKeys = {
     params: Record<string, unknown>,
   ) =>
     [...projectQueryKeys.all, 'action-plan-tasks', clientId, actionPlanId, params] as const,
+
+  /** `GET/PATCH /api/clients/active/ui-badges` — tons / libellés badges (tâches, priorités). */
+  clientUiBadges: (clientId: string) =>
+    [...projectQueryKeys.all, 'client-ui-badges', clientId] as const,
 };

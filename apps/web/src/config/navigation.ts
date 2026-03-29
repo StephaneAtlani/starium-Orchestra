@@ -13,6 +13,7 @@ import {
   Users,
   FileText,
   Scale,
+  Tags,
   Wallet,
 } from 'lucide-react';
 
@@ -188,6 +189,13 @@ export const navigation: NavigationSection[] = [
         label: 'Audit logs',
         href: '/admin/audit',
         icon: FileText,
+        scope: 'platform',
+        platformOnly: true,
+      },
+      {
+        label: 'Badges (plateforme)',
+        href: '/admin/ui-badges',
+        icon: Tags,
         scope: 'platform',
         platformOnly: true,
       },

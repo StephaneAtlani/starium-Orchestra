@@ -26,25 +26,18 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { ActionPlanTaskApi } from '@/features/projects/types/project.types';
+import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
+import {
+  PROJECT_TASK_PRIORITIES,
+  PROJECT_TASK_STATUSES,
+  taskPriorityBadgeClass,
+  taskPriorityLabel,
+  taskStatusBadgeClass,
+  taskStatusLabel,
+} from '@/lib/ui/badge-registry';
 import { cn } from '@/lib/utils';
 
 const th = 'text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground';
-
-const TASK_STATUS_LABELS: Record<string, string> = {
-  TODO: 'À faire',
-  IN_PROGRESS: 'En cours',
-  BLOCKED: 'Bloquée',
-  DONE: 'Terminée',
-  CANCELLED: 'Annulée',
-  DRAFT: 'Brouillon',
-};
-
-const TASK_PRIORITY_LABELS: Record<string, string> = {
-  LOW: 'Basse',
-  MEDIUM: 'Moyenne',
-  HIGH: 'Haute',
-  CRITICAL: 'Critique',
-};
 
 /** Champs alignés sur l’API `GET .../tasks?sortBy=` */
 export type ActionPlanTaskSortField =
@@ -108,45 +101,6 @@ function SortHeaderButton({
       )}
     </button>
   );
-}
-
-/**
- * Couleurs des pastilles statut / priorité (table plan d’action).
- * Définition : **ce fichier uniquement** — helpers ci-dessous ; le composant
- * `Badge` ajoute la base (`apps/web/src/components/ui/badge.tsx`, variante
- * `outline` → `border-border text-foreground`), puis `cn()` fusionne avec ces classes
- * (les `text-*` explicites gagnent sur le défaut outline).
- * Alignement lisibilité clair/sombre : `docs/FRONTEND_UI-UX.md` (tokens §2).
- */
-function taskStatusBadgeClass(status: string): string {
-  switch (status) {
-    case 'DONE':
-      return 'border-emerald-500/35 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100';
-    case 'IN_PROGRESS':
-      return 'border-sky-500/35 bg-sky-500/10 text-sky-950 dark:text-sky-100';
-    case 'BLOCKED':
-      return 'border-red-500/35 bg-destructive/10 text-red-950 dark:text-red-100';
-    case 'CANCELLED':
-      return 'border-border/80 bg-muted/45 text-muted-foreground dark:text-muted-foreground';
-    case 'DRAFT':
-    case 'TODO':
-    default:
-      return 'border-border/80 bg-muted/25 text-foreground dark:text-foreground';
-  }
-}
-
-function taskPriorityBadgeClass(priority: string): string {
-  switch (priority) {
-    case 'CRITICAL':
-      return 'border-red-500/35 bg-destructive/10 text-red-950 dark:text-red-100';
-    case 'HIGH':
-      return 'border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100';
-    case 'MEDIUM':
-      return 'border-border/80 bg-muted/35 text-foreground dark:text-foreground';
-    case 'LOW':
-    default:
-      return 'border-border/80 bg-muted/20 text-muted-foreground dark:text-muted-foreground';
-  }
 }
 
 function fmtShortDate(iso: string | null | undefined): string {
@@ -231,6 +185,7 @@ export function ActionPlanTasksTable({
   onSort,
   onRowClick,
 }: ActionPlanTasksTableProps) {
+  const { merged } = useClientUiBadgeConfig();
   const statusKey = status || '__all';
   const priorityKey = priority || '__all';
   const projectKey = projectId || '__all';
@@ -351,12 +306,11 @@ export function ActionPlanTasksTable({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">Tous</SelectItem>
-                  <SelectItem value="TODO">À faire</SelectItem>
-                  <SelectItem value="IN_PROGRESS">En cours</SelectItem>
-                  <SelectItem value="BLOCKED">Bloquée</SelectItem>
-                  <SelectItem value="DONE">Terminée</SelectItem>
-                  <SelectItem value="CANCELLED">Annulée</SelectItem>
-                  <SelectItem value="DRAFT">Brouillon</SelectItem>
+                  {PROJECT_TASK_STATUSES.map((k) => (
+                    <SelectItem key={k} value={k}>
+                      {merged.projectTaskStatus[k].label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </TableHead>
@@ -370,10 +324,11 @@ export function ActionPlanTasksTable({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">Toutes</SelectItem>
-                  <SelectItem value="LOW">Basse</SelectItem>
-                  <SelectItem value="MEDIUM">Moyenne</SelectItem>
-                  <SelectItem value="HIGH">Haute</SelectItem>
-                  <SelectItem value="CRITICAL">Critique</SelectItem>
+                  {PROJECT_TASK_PRIORITIES.map((k) => (
+                    <SelectItem key={k} value={k}>
+                      {merged.projectTaskPriority[k].label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </TableHead>
@@ -461,16 +416,19 @@ export function ActionPlanTasksTable({
             >
               <TableCell className="font-medium">{row.name}</TableCell>
               <TableCell>
-                <Badge variant="outline" className={cn('font-normal', taskStatusBadgeClass(row.status))}>
-                  {TASK_STATUS_LABELS[row.status] ?? row.status}
+                <Badge
+                  variant="outline"
+                  className={cn('font-normal', taskStatusBadgeClass(merged, row.status))}
+                >
+                  {taskStatusLabel(merged, row.status)}
                 </Badge>
               </TableCell>
               <TableCell>
                 <Badge
                   variant="outline"
-                  className={cn('font-normal', taskPriorityBadgeClass(row.priority))}
+                  className={cn('font-normal', taskPriorityBadgeClass(merged, row.priority))}
                 >
-                  {TASK_PRIORITY_LABELS[row.priority] ?? row.priority}
+                  {taskPriorityLabel(merged, row.priority)}
                 </Badge>
               </TableCell>
               <TableCell>
