@@ -83,7 +83,9 @@ const NEUTRAL_BASE: Record<BadgeSurface, string> = {
 };
 
 const NEUTRAL_TEXT_AUTO: Record<BadgeSurface, string> = {
-  pastel: 'text-foreground',
+  /** Auto : pas `text-foreground` en sombre (≈ blanc) — même idée que la matrice chromatique. */
+  pastel:
+    'text-neutral-900 font-semibold dark:text-zinc-500',
   dark: 'text-white dark:text-white',
   vivid: 'text-primary-foreground dark:text-primary-foreground',
 };

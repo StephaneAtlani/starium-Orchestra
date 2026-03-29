@@ -433,7 +433,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold">Statuts de tâche (projets / plans d’action)</h3>
-        <div className="rounded-xl border border-border/70 overflow-hidden">
+        <div className="rounded-xl border border-border/70 overflow-hidden bg-white">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -554,7 +554,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold">Priorités de tâche</h3>
-        <div className="rounded-xl border border-border/70 overflow-hidden">
+        <div className="rounded-xl border border-border/70 overflow-hidden bg-white">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -680,7 +680,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
           client prévaut. Même ordre : ton de surface → palette → texte.
         </p>
         {custom.length > 0 && (
-          <div className="rounded-xl border border-border/70 overflow-hidden">
+          <div className="rounded-xl border border-border/70 overflow-hidden bg-white">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">

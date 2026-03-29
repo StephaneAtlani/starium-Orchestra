@@ -50,10 +50,23 @@ const vivid = (c) =>
 
 const SURFACES = { pastel, dark, vivid };
 
+/**
+ * Texte auto sur pastel :
+ * - Clair : 950 (ou neutre pour jaune/citron/ambre).
+ * - Sombre : **pas** `text-*-50` (presque blanc) — on utilise `*-500` pour garder la teinte
+ *   sans effet « toujours blanc » sur le voile `dark:bg-*-400/18`.
+ */
+const PASTEL_AUTO_LIGHT_TEXT_NEUTRAL = new Set(['yellow', 'lime', 'amber']);
+
+function pastelTextAuto(c) {
+  const light = PASTEL_AUTO_LIGHT_TEXT_NEUTRAL.has(c)
+    ? 'text-neutral-900'
+    : `text-${c}-900`;
+  return `${light} font-semibold dark:text-${c}-500`;
+}
+
 const TEXT_AUTO = {
-  /** Pastel : max contraste sur fond clair (950) et sur fond sombre teinté (50). */
-  pastel: (c) =>
-    `text-${c}-950 font-medium dark:text-${c}-50`,
+  pastel: (c) => pastelTextAuto(c),
   dark: () => 'text-white dark:text-white',
   vivid: () => 'text-white dark:text-white',
 };
