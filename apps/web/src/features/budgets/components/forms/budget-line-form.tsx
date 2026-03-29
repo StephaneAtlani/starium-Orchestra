@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Calculator } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +24,7 @@ import { budgetEnvelopeNew } from '../../constants/budget-routes';
 import type { ApiFormError } from '../../api/types';
 import type { GeneralLedgerAccountOption } from '../../api/general-ledger-accounts.api';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { cn } from '@/lib/utils';
 
 const EXPENSE_TYPE_OPTIONS = [
   { value: 'CAPEX', label: 'CAPEX' },
@@ -61,6 +62,10 @@ interface BudgetLineFormProps {
   hasPlanning?: boolean;
   /** Callback pour ouvrir la calculette de planning. */
   onOpenPlanning?: () => void;
+  /** 12 libellés alignés sur le début d’exercice (RFC-023) — sinon calendrier Jan–Déc. */
+  monthColumnLabels?: string[];
+  /** Période d’exercice budgétaire (affichage calculette). */
+  exercisePeriodHint?: string | null;
 }
 
 export function BudgetLineForm({
@@ -81,6 +86,8 @@ export function BudgetLineForm({
   budgetTaxMode = 'HT',
   hasPlanning = false,
   onOpenPlanning,
+  monthColumnLabels,
+  exercisePeriodHint = null,
 }: BudgetLineFormProps) {
   const noEnvelopes = envelopeOptionsSuccess && envelopeOptions.length === 0;
   const envelopeSelectLoading = !envelopeOptionsSuccess || envelopeOptionsLoading;
@@ -90,6 +97,33 @@ export function BudgetLineForm({
   const canSubmit = !noEnvelopes && (isBudgetAccountingEnabled ? !noGeneralLedger : true);
 
   const [showQuickCalculator, setShowQuickCalculator] = useState(false);
+  /** Champ montant depuis lequel la calculette a été ouverte (bouton Appliquer unique). */
+  const [calculetteApplyTarget, setCalculetteApplyTarget] = useState<'initial' | 'revised' | null>(
+    null,
+  );
+  /** Évite de rouvrir la calculette tout de suite quand le focus revient au champ après fermeture de la modale. */
+  const suppressCalcOpenFromFocusRef = useRef(false);
+
+  const onQuickCalculatorOpenChange = useCallback((open: boolean) => {
+    setShowQuickCalculator(open);
+    if (!open) {
+      setCalculetteApplyTarget(null);
+      suppressCalcOpenFromFocusRef.current = true;
+      window.setTimeout(() => {
+        suppressCalcOpenFromFocusRef.current = false;
+      }, 450);
+    }
+  }, []);
+
+  const openCalculetteForField = useCallback(
+    (target: 'initial' | 'revised') => {
+      if (!hasPlanning || suppressCalcOpenFromFocusRef.current) return;
+      setCalculetteApplyTarget(target);
+      setShowQuickCalculator(true);
+    },
+    [hasPlanning],
+  );
+
   const [calcQuantity, setCalcQuantity] = useState<number | ''>('');
   const [calcUnitPrice, setCalcUnitPrice] = useState<number | ''>('');
   const [monthValues, setMonthValues] = useState<number[]>(() => Array(12).fill(0));
@@ -97,6 +131,11 @@ export function BudgetLineForm({
   const monthTotal = useMemo(
     () => monthValues.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0),
     [monthValues],
+  );
+
+  const planningMonthLabels = useMemo(
+    () => (monthColumnLabels?.length === 12 ? monthColumnLabels : MONTH_LABELS),
+    [monthColumnLabels],
   );
 
   const effectiveTotal = useMemo(() => {
@@ -329,21 +368,9 @@ export function BudgetLineForm({
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="initialAmount">
-                    {budgetTaxMode === 'TTC' ? 'Montant initial TTC *' : 'Montant initial HT *'}
-                  </Label>
-                  {hasPlanning && (
-                    <button
-                      type="button"
-                      onClick={() => setShowQuickCalculator(true)}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label="Ouvrir la calculette de planning"
-                    >
-                      <Calculator className="size-3.5" />
-                    </button>
-                  )}
-                </div>
+                <Label htmlFor="initialAmount">
+                  {budgetTaxMode === 'TTC' ? 'Montant initial TTC *' : 'Montant initial HT *'}
+                </Label>
                 <Input
                   id="initialAmount"
                   type="number"
@@ -352,25 +379,27 @@ export function BudgetLineForm({
                   {...register('initialAmount', { valueAsNumber: true })}
                   aria-invalid={!!errors.initialAmount}
                   disabled={isEdit}
+                  readOnly={hasPlanning && !isEdit}
+                  title={
+                    hasPlanning && !isEdit
+                      ? 'Saisie via la calculette — cliquez sur le champ pour ouvrir'
+                      : undefined
+                  }
+                  className={cn(hasPlanning && !isEdit && 'cursor-pointer bg-muted/30')}
+                  onFocus={
+                    hasPlanning && !isEdit ? () => openCalculetteForField('initial') : undefined
+                  }
+                  onWheel={
+                    hasPlanning && !isEdit ? (e) => e.preventDefault() : undefined
+                  }
+                  inputMode={hasPlanning && !isEdit ? 'none' : undefined}
                 />
                 {errors.initialAmount && <p className="text-sm text-destructive">{errors.initialAmount.message}</p>}
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="revisedAmount">
-                    {budgetTaxMode === 'TTC' ? 'Montant révisé TTC' : 'Montant révisé HT'}
-                  </Label>
-                  {hasPlanning && (
-                    <button
-                      type="button"
-                      onClick={() => setShowQuickCalculator(true)}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label="Ouvrir la calculette de planning"
-                    >
-                      <Calculator className="size-3.5" />
-                    </button>
-                  )}
-                </div>
+                <Label htmlFor="revisedAmount">
+                  {budgetTaxMode === 'TTC' ? 'Montant révisé TTC' : 'Montant révisé HT'}
+                </Label>
                 <Input
                   id="revisedAmount"
                   type="number"
@@ -381,6 +410,16 @@ export function BudgetLineForm({
                       v === '' || v === undefined ? undefined : (Number(v) as number),
                   })}
                   aria-invalid={!!errors.revisedAmount}
+                  readOnly={hasPlanning}
+                  title={
+                    hasPlanning
+                      ? 'Saisie via la calculette — cliquez sur le champ pour ouvrir'
+                      : undefined
+                  }
+                  className={cn(hasPlanning && 'cursor-pointer bg-muted/30')}
+                  onFocus={hasPlanning ? () => openCalculetteForField('revised') : undefined}
+                  onWheel={hasPlanning ? (e) => e.preventDefault() : undefined}
+                  inputMode={hasPlanning ? 'none' : undefined}
                 />
                 {errors.revisedAmount && <p className="text-sm text-destructive">{errors.revisedAmount.message}</p>}
               </div>
@@ -422,7 +461,7 @@ export function BudgetLineForm({
       </form>
 
       {hasPlanning && (
-        <Dialog open={showQuickCalculator} onOpenChange={setShowQuickCalculator}>
+        <Dialog open={showQuickCalculator} onOpenChange={onQuickCalculatorOpenChange}>
           <DialogContent
             showCloseButton
             overlayClassName="z-[90]"
@@ -436,7 +475,7 @@ export function BudgetLineForm({
                 </DialogTitle>
                 <DialogDescription className="mt-2 text-left text-foreground/90">
                   Quantité × prix unitaire ou saisie directe par mois ; les raccourcis répartissent le
-                  total sur la grille.
+                  total sur les 12 mois d’exercice (alignés sur le budget).
                 </DialogDescription>
               </div>
             </DialogHeader>
@@ -475,14 +514,18 @@ export function BudgetLineForm({
               </div>
 
               <div className="rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
-                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm font-semibold text-foreground">Répartition par mois</p>
-                  <div className="flex flex-wrap gap-1.5">
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-semibold text-foreground">Répartition par mois</p>
+                    {exercisePeriodHint ? (
+                      <p className="text-xs leading-snug text-foreground/85">{exercisePeriodHint}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
                     <Button
                       type="button"
-                      variant="outline"
-                      size="xs"
-                      className="h-7 px-2 text-[11px]"
+                      variant="secondary"
+                      size="sm"
                       disabled={effectiveTotal <= 0}
                       onClick={() => applySpread('MONTHLY')}
                     >
@@ -490,9 +533,8 @@ export function BudgetLineForm({
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
-                      size="xs"
-                      className="h-7 px-2 text-[11px]"
+                      variant="secondary"
+                      size="sm"
                       disabled={effectiveTotal <= 0}
                       onClick={() => applySpread('QUARTERLY')}
                     >
@@ -500,9 +542,8 @@ export function BudgetLineForm({
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
-                      size="xs"
-                      className="h-7 px-2 text-[11px]"
+                      variant="secondary"
+                      size="sm"
                       disabled={effectiveTotal <= 0}
                       onClick={() => applySpread('SEMESTER')}
                     >
@@ -510,9 +551,8 @@ export function BudgetLineForm({
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
-                      size="xs"
-                      className="h-7 px-2 text-[11px]"
+                      variant="secondary"
+                      size="sm"
                       disabled={effectiveTotal <= 0}
                       onClick={() => applySpread('YEARLY')}
                     >
@@ -521,8 +561,8 @@ export function BudgetLineForm({
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-                  {MONTH_LABELS.map((label, index) => (
-                    <div key={label} className="space-y-1">
+                  {planningMonthLabels.map((label, index) => (
+                    <div key={`ex-m-${index}`} className="space-y-1">
                       <Label className="text-[11px] font-medium text-foreground/90 leading-none">
                         {label}
                       </Label>
@@ -553,37 +593,61 @@ export function BudgetLineForm({
               </div>
             </div>
 
-            <DialogFooter>
-              <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+            <DialogFooter className="flex-row flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onQuickCalculatorOpenChange(false)}
+              >
+                Fermer
+              </Button>
+              {calculetteApplyTarget === null ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setValue('initialAmount', effectiveTotal);
+                      onQuickCalculatorOpenChange(false);
+                    }}
+                    disabled={effectiveTotal <= 0}
+                  >
+                    Appliquer au montant initial
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setValue('revisedAmount', effectiveTotal);
+                      onQuickCalculatorOpenChange(false);
+                    }}
+                    disabled={effectiveTotal <= 0}
+                  >
+                    Appliquer au montant révisé
+                  </Button>
+                </>
+              ) : calculetteApplyTarget === 'initial' ? (
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() => setShowQuickCalculator(false)}
-                >
-                  Fermer
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
                   onClick={() => {
                     setValue('initialAmount', effectiveTotal);
-                    setShowQuickCalculator(false);
+                    onQuickCalculatorOpenChange(false);
                   }}
                   disabled={effectiveTotal <= 0}
                 >
                   Appliquer au montant initial
                 </Button>
+              ) : (
                 <Button
                   type="button"
                   onClick={() => {
                     setValue('revisedAmount', effectiveTotal);
-                    setShowQuickCalculator(false);
+                    onQuickCalculatorOpenChange(false);
                   }}
                   disabled={effectiveTotal <= 0}
                 >
                   Appliquer au montant révisé
                 </Button>
-              </div>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

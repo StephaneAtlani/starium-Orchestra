@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BudgetPageHeader } from '../budget-page-header';
 import { BudgetEmptyState } from '../budget-empty-state';
@@ -11,6 +11,8 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { getLine } from '../../api/budget-management.api';
 import { useBudgetEnvelopesAll } from '../../hooks/use-budget-envelopes';
 import { useBudgetDetail } from '../../hooks/use-budgets';
+import { useBudgetExerciseSummary } from '../../hooks/use-budget-exercises';
+import { getBudgetMonthColumnLabelsFromExerciseStartIso } from '../../lib/budget-month-labels';
 import { useGeneralLedgerAccountOptions } from '../../hooks/use-general-ledger-account-options';
 import { useCreateBudgetLine } from '../../hooks/use-create-budget-line';
 import { useUpdateBudgetLine } from '../../hooks/use-update-budget-line';
@@ -55,6 +57,7 @@ export function BudgetLineFormPage({
 
   const resolvedBudgetId = budgetId ?? line?.budgetId;
   const { data: budget } = useBudgetDetail(resolvedBudgetId ?? null);
+  const { data: budgetExercise } = useBudgetExerciseSummary(budget?.exerciseId ?? null);
   const envelopesQuery = useBudgetEnvelopesAll(resolvedBudgetId ?? null);
   const { data: generalLedgerData } = useGeneralLedgerAccountOptions();
 
@@ -129,6 +132,28 @@ export function BudgetLineFormPage({
   const cancelHref = budgetDetail(resolvedBudgetId);
   const budgetLabel = budget?.name ?? resolvedBudgetId;
 
+  const monthColumnLabels = useMemo((): string[] | undefined => {
+    if (!budgetExercise?.startDate) return undefined;
+    try {
+      return getBudgetMonthColumnLabelsFromExerciseStartIso(budgetExercise.startDate);
+    } catch {
+      return undefined;
+    }
+  }, [budgetExercise?.startDate]);
+
+  const exercisePeriodHint = useMemo((): string | null => {
+    if (!budgetExercise?.startDate || !budgetExercise?.endDate) return null;
+    const fmt = new Intl.DateTimeFormat('fr-FR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+    const start = new Date(budgetExercise.startDate);
+    const end = new Date(budgetExercise.endDate);
+    return `Exercice ${fmt.format(start)} → ${fmt.format(end)} · 12 mois (mois 1 = premier mois d’exercice)`;
+  }, [budgetExercise?.startDate, budgetExercise?.endDate]);
+
   return (
     <>
       {variant === 'page' && (
@@ -170,6 +195,8 @@ export function BudgetLineFormPage({
           envelopeOptionsSuccess={isEnvelopeOptionsSuccess}
           generalLedgerOptions={generalLedgerOptions}
           hasPlanning
+          monthColumnLabels={monthColumnLabels}
+          exercisePeriodHint={exercisePeriodHint}
         />
       </div>
     </>

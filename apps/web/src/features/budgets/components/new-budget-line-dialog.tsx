@@ -27,7 +27,7 @@ export function NewBudgetLineDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-h-[min(90vh,880px)] gap-0 overflow-y-auto p-0 sm:max-w-2xl"
+        className="max-h-[min(90vh,920px)] w-full gap-0 overflow-y-auto p-0 sm:max-w-4xl lg:max-w-5xl"
         showCloseButton
       >
         <div className="border-b border-border/60 px-4 py-3 pr-12 sm:px-6 sm:pr-14">
