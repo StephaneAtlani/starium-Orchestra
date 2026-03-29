@@ -59,6 +59,18 @@ import {
 } from '@/lib/ui/badge-registry';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 
+function labelSurface(s: BadgeSurface): string {
+  return BADGE_SURFACE_LABELS[s];
+}
+
+function labelPalette(p: BadgePalette): string {
+  return BADGE_PALETTE_LABELS[p];
+}
+
+function labelTextPreset(t: BadgeTextPreset): string {
+  return BADGE_TEXT_PRESET_LABELS[t];
+}
+
 function PaletteSelectItems() {
   return (
     <>
@@ -249,7 +261,7 @@ function BadgeKeyTable({
                     disabled={!canEdit}
                   >
                     <SelectTrigger size="sm" className="h-8 min-w-[9rem]">
-                      <SelectValue />
+                      <SelectValue>{labelSurface(rows[k].surface)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SurfaceSelectItems />
@@ -272,7 +284,7 @@ function BadgeKeyTable({
                     disabled={!canEdit}
                   >
                     <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
-                      <SelectValue />
+                      <SelectValue>{labelPalette(rows[k].palette)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <PaletteSelectItems />
@@ -298,7 +310,7 @@ function BadgeKeyTable({
                     disabled={!canEdit}
                   >
                     <SelectTrigger size="sm" className="h-8 min-w-[10rem]">
-                      <SelectValue />
+                      <SelectValue>{labelTextPreset(rows[k].textColor)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <TextPresetSelectItems />
@@ -796,7 +808,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                         disabled={!canEdit}
                       >
                         <SelectTrigger size="sm" className="h-8 min-w-[9rem]">
-                          <SelectValue />
+                          <SelectValue>{labelSurface(row.surface)}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SurfaceSelectItems />
@@ -818,7 +830,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                         disabled={!canEdit}
                       >
                         <SelectTrigger size="sm" className="h-8 min-w-[7rem]">
-                          <SelectValue />
+                          <SelectValue>{labelPalette(row.palette)}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <PaletteSelectItems />
@@ -840,7 +852,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                         disabled={!canEdit}
                       >
                         <SelectTrigger size="sm" className="h-8 min-w-[10rem]">
-                          <SelectValue />
+                          <SelectValue>{labelTextPreset(row.textColor)}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <TextPresetSelectItems />
@@ -903,7 +915,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                 onValueChange={(v) => setNewSurface(v as BadgeSurface)}
               >
                 <SelectTrigger size="sm" className="h-8 w-44">
-                  <SelectValue />
+                  <SelectValue>{labelSurface(newSurface)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SurfaceSelectItems />
@@ -917,7 +929,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                 onValueChange={(v) => setNewPalette(v as BadgePalette)}
               >
                 <SelectTrigger size="sm" className="h-8 w-40">
-                  <SelectValue />
+                  <SelectValue>{labelPalette(newPalette)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <PaletteSelectItems />
@@ -931,7 +943,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
                 onValueChange={(v) => setNewTextColor(v as BadgeTextPreset)}
               >
                 <SelectTrigger size="sm" className="h-8 w-48">
-                  <SelectValue />
+                  <SelectValue>{labelTextPreset(newTextColor)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <TextPresetSelectItems />
