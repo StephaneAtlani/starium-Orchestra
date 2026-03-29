@@ -30,6 +30,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
   BADGE_PALETTE_GROUPS,
+  BADGE_PALETTE_LABELS,
   BADGE_SURFACE_LABELS,
   BADGE_SURFACES,
   BADGE_TEXT_PRESET_LABELS,
@@ -54,7 +55,7 @@ function PaletteSelectItems() {
           <SelectLabel>{g.label}</SelectLabel>
           {g.palettes.map((p) => (
             <SelectItem key={p} value={p}>
-              {p}
+              {BADGE_PALETTE_LABELS[p]}
             </SelectItem>
           ))}
         </SelectGroup>
@@ -800,7 +801,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
         )}
 
         {canEdit && (
-          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-border/80 p-4">
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-border/80 bg-white p-4">
             <div className="grid gap-1.5">
               <Label htmlFor={`${idPrefix}-new-key`} className="text-xs">
                 Nouvelle clé

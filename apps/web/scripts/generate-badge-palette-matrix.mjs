@@ -60,9 +60,9 @@ const PASTEL_AUTO_LIGHT_TEXT_NEUTRAL = new Set(['yellow', 'lime', 'amber']);
 
 function pastelTextAuto(c) {
   const light = PASTEL_AUTO_LIGHT_TEXT_NEUTRAL.has(c)
-    ? 'text-neutral-900'
-    : `text-${c}-900`;
-  return `${light} font-semibold dark:text-${c}-500`;
+    ? 'text-neutral-950'
+    : `text-${c}-950`;
+  return `${light} dark:text-${c}-500`;
 }
 
 const TEXT_AUTO = {

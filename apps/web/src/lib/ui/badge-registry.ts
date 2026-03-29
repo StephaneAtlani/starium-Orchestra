@@ -85,7 +85,7 @@ const NEUTRAL_BASE: Record<BadgeSurface, string> = {
 const NEUTRAL_TEXT_AUTO: Record<BadgeSurface, string> = {
   /** Auto : pas `text-foreground` en sombre (≈ blanc) — même idée que la matrice chromatique. */
   pastel:
-    'text-neutral-900 font-semibold dark:text-zinc-500',
+    'text-neutral-950 dark:text-zinc-500',
   dark: 'text-white dark:text-white',
   vivid: 'text-primary-foreground dark:text-primary-foreground',
 };
@@ -101,9 +101,9 @@ const TEXT_PRESET_CLASS: Record<'light' | 'muted', string> = {
  */
 function textDarkPresetClass(palette: BadgePalette): string {
   if (palette === 'neutral') {
-    return 'text-slate-950 dark:text-slate-950 font-semibold';
+    return 'text-slate-950 dark:text-slate-950';
   }
-  return `text-${palette}-950 dark:text-${palette}-950 font-semibold`;
+  return `text-${palette}-950 dark:text-${palette}-950`;
 }
 
 export function badgeClassForStyle(style: BadgeStyle): string {
@@ -164,6 +164,32 @@ export const BADGE_PALETTE_GROUPS: ReadonlyArray<{
   },
 ];
 
+/** Libellés UI (fr) — valeur API = clé Tailwind, pas l’id technique seul à l’affichage. */
+export const BADGE_PALETTE_LABELS: Record<BadgePalette, string> = {
+  neutral: 'Neutre',
+  slate: 'Ardoise',
+  gray: 'Gris',
+  zinc: 'Zinc',
+  stone: 'Pierre',
+  red: 'Rouge',
+  orange: 'Orange',
+  amber: 'Ambre',
+  yellow: 'Jaune',
+  rose: 'Rose',
+  pink: 'Rose vif',
+  fuchsia: 'Fuchsia',
+  purple: 'Pourpre',
+  violet: 'Violet',
+  indigo: 'Indigo',
+  blue: 'Bleu',
+  sky: 'Bleu ciel',
+  cyan: 'Cyan',
+  teal: 'Sarcelle',
+  emerald: 'Émeraude',
+  green: 'Vert',
+  lime: 'Citron vert',
+};
+
 export const BADGE_SURFACE_LABELS: Record<BadgeSurface, string> = {
   pastel: 'Pastel',
   dark: 'Foncé',
@@ -193,12 +219,12 @@ export const PROJECT_TASK_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as 
 export type ProjectTaskPriorityKey = (typeof PROJECT_TASK_PRIORITIES)[number];
 
 const DEFAULT_TASK_STATUS: Record<ProjectTaskStatusKey, BadgeStyle> = {
-  DRAFT: { palette: 'slate', surface: 'pastel', textColor: 'auto' },
-  TODO: { palette: 'neutral', surface: 'pastel', textColor: 'auto' },
+  DRAFT: { palette: 'stone', surface: 'pastel', textColor: 'auto' },
+  TODO: { palette: 'indigo', surface: 'pastel', textColor: 'auto' },
   IN_PROGRESS: { palette: 'sky', surface: 'pastel', textColor: 'auto' },
   BLOCKED: { palette: 'red', surface: 'pastel', textColor: 'auto' },
   DONE: { palette: 'emerald', surface: 'pastel', textColor: 'auto' },
-  CANCELLED: { palette: 'slate', surface: 'pastel', textColor: 'auto' },
+  CANCELLED: { palette: 'stone', surface: 'pastel', textColor: 'auto' },
 };
 
 const DEFAULT_TASK_STATUS_LABELS: Record<ProjectTaskStatusKey, string> = {
@@ -212,7 +238,7 @@ const DEFAULT_TASK_STATUS_LABELS: Record<ProjectTaskStatusKey, string> = {
 
 const DEFAULT_TASK_PRIORITY: Record<ProjectTaskPriorityKey, BadgeStyle> = {
   LOW: { palette: 'neutral', surface: 'pastel', textColor: 'auto' },
-  MEDIUM: { palette: 'slate', surface: 'pastel', textColor: 'auto' },
+  MEDIUM: { palette: 'indigo', surface: 'pastel', textColor: 'auto' },
   HIGH: { palette: 'amber', surface: 'pastel', textColor: 'auto' },
   CRITICAL: { palette: 'red', surface: 'pastel', textColor: 'auto' },
 };
