@@ -419,6 +419,7 @@ function BudgetExplorerLineRow({
             canEditPlanning={pilotage.canEditPlanning}
             isMutating={pilotage.mutatingLineId === line.id}
             onMonthCommit={pilotage.onMonthCommit}
+            taxDisplayMode={pilotage.taxDisplayMode}
           />
         )}
       </TableRow>

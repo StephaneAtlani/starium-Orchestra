@@ -61,6 +61,67 @@ export function buildManualPlanningPutPayload(amounts12: Amounts12): {
 }
 
 /**
+ * Répartit `total` sur 12 mois (centimes entiers ; le reste est réparti sur les premiers mois).
+ * Utilisé quand la calculette n’a pas de grille mensuelle mais un montant ligne (révisé ou initial).
+ */
+export function spreadTotalEvenlyAcross12(total: number): Amounts12 {
+  if (!Number.isFinite(total) || total < 0) {
+    throw new RangeError('spreadTotalEvenlyAcross12: total must be finite and >= 0');
+  }
+  if (total === 0) {
+    return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  }
+  const cents = Math.round(total * 100);
+  const base = Math.floor(cents / 12);
+  const rem = cents - base * 12;
+  const out: number[] = [];
+  for (let i = 0; i < 12; i++) {
+    const extra = i < rem ? 1 : 0;
+    out.push((base + extra) / 100);
+  }
+  if (!isAmounts12(out)) {
+    throw new Error('spreadTotalEvenlyAcross12: internal length error');
+  }
+  return out;
+}
+
+/**
+ * Création de ligne + calculette : alimente le prévisionnel (PUT manuel 12 mois).
+ * — Si au moins un mois > 0 dans la grille : on reprend ces montants (12 cases).
+ * — Sinon : répartition uniforme du montant révisé si > 0, sinon du montant initial.
+ * Retourne `null` si aucun montant exploitable (pas d’appel PUT).
+ */
+export function derivePlanningAmounts12ForNewLine(
+  monthValues: readonly number[],
+  initialAmount: number,
+  revisedAmount: number | undefined | '',
+): Amounts12 | null {
+  const hasMonth =
+    monthValues.length > 0 && monthValues.some((v) => Number.isFinite(v) && v > 0);
+  if (hasMonth) {
+    const padded = Array.from({ length: 12 }, (_, i) =>
+      i < monthValues.length && Number.isFinite(monthValues[i]) ? monthValues[i] : 0,
+    );
+    if (!isAmounts12(padded)) {
+      throw new Error('derivePlanningAmounts12ForNewLine: internal length error');
+    }
+    return padded;
+  }
+
+  let total = 0;
+  if (revisedAmount !== undefined && revisedAmount !== '') {
+    const r = Number(revisedAmount);
+    if (Number.isFinite(r) && r > 0) total = r;
+  }
+  if (total <= 0) {
+    const i = Number(initialAmount ?? 0);
+    if (Number.isFinite(i) && i > 0) total = i;
+  }
+  if (!Number.isFinite(total) || total <= 0) return null;
+  return spreadTotalEvenlyAcross12(total);
+}
+
+/**
  * Copie les 12 montants en modifiant un seul index (0..11).
  */
 export function replaceMonthAmount(amounts12: Amounts12, monthIndex0: number, amount: number): Amounts12 {

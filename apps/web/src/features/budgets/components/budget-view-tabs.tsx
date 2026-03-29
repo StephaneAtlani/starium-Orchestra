@@ -11,6 +11,7 @@ export interface BudgetViewTabsProps {
 }
 
 const ITEMS: { id: BudgetPilotageMode; label: string }[] = [
+  { id: 'dashboard', label: 'Dashboard' },
   { id: 'synthese', label: 'Synthèse' },
   { id: 'previsionnel', label: 'Prévisionnel' },
   { id: 'atterrissage', label: 'Atterrissage' },

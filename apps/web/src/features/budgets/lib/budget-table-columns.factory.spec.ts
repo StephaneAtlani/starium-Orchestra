@@ -36,4 +36,9 @@ describe('budget-table-columns.factory', () => {
     expect(countBudgetPilotageDataColumns('atterrissage', 'mensuel')).toBe(6);
     expect(countBudgetPilotageDataColumns('forecast', 'condense')).toBe(4);
   });
+
+  it('dashboard : pas de colonnes pilotage (vue dédiée)', () => {
+    expect(() => getBudgetPilotageColumnHeaders('dashboard', 'mensuel', M12)).toThrow();
+    expect(() => countBudgetPilotageDataColumns('dashboard', 'mensuel')).toThrow();
+  });
 });

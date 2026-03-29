@@ -42,6 +42,9 @@ export interface ExplorerLineNode extends ExplorerNodeBase {
   name: string;
   expenseType: string;
   status: string;
+  initialAmount: number;
+  /** Présent si le budget est en mode TTC côté API. */
+  initialAmountTtc: number | null;
   revisedAmount: number;
   committedAmount: number;
   consumedAmount: number;

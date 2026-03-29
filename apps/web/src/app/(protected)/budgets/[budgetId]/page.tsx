@@ -11,6 +11,7 @@ import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-sta
 import { BudgetExplorerToolbar } from '@/features/budgets/components/budget-explorer-toolbar';
 import { BudgetExplorerTable } from '@/features/budgets/components/budget-explorer-table';
 import { BudgetViewTabs } from '@/features/budgets/components/budget-view-tabs';
+import { BudgetDetailDashboard } from '@/features/budgets/components/budget-detail-dashboard';
 import { BudgetDensityToggle } from '@/features/budgets/components/budget-density-toggle';
 import { BudgetScenarioSelect } from '@/features/budgets/components/budget-scenario-select';
 import { LoadingState } from '@/components/feedback/loading-state';
@@ -34,7 +35,7 @@ import { NewBudgetLineDialog } from '@/features/budgets/components/new-budget-li
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   explorerSortPresetToState,
@@ -45,6 +46,10 @@ import { BudgetLineIntelligenceDrawer, type BudgetLineDrawerTab } from '@/featur
 import type { BudgetEnvelope, BudgetLine } from '@/features/budgets/types/budget-management.types';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import { formatTaxAwareAmount } from '@/lib/format-tax-aware-amount';
+import {
+  budgetKpiAmountForTaxMode,
+  formatSignedDeltaPercent,
+} from '@/features/budgets/lib/budget-formatters';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { saveBudgetCockpitSelection } from '@/features/budgets/lib/budget-cockpit-selection-storage';
 import {
@@ -70,8 +75,12 @@ export default function BudgetDetailPage() {
 
   const { budget, envelopes, lines, isLoading, error } = useBudgetExplorer(budgetId);
 
-  const { taxDisplayMode, setTaxDisplayMode, isLoading: isTaxLoading } =
-    useTaxDisplayMode();
+  const {
+    taxDisplayMode,
+    setTaxDisplayMode,
+    isLoading: isTaxLoading,
+    defaultTaxRate,
+  } = useTaxDisplayMode();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedBudgetLineId, setSelectedBudgetLineId] = useState<string | null>(null);
@@ -123,7 +132,11 @@ export default function BudgetDetailPage() {
     });
   }, []);
 
-  const { data: summary } = useBudgetSummary(budgetId);
+  const {
+    data: budgetSummaryKpi,
+    isLoading: summaryLoading,
+    isError: summaryError,
+  } = useBudgetSummary(budgetId);
   const { activeClient } = useActiveClient();
   const { data: exercise, isLoading: exerciseLoading } = useBudgetExerciseSummary(
     budget?.exerciseId ?? null,
@@ -170,6 +183,7 @@ export default function BudgetDetailPage() {
 
   const planningQueriesEnabled =
     pilotageMode !== 'synthese' &&
+    pilotageMode !== 'dashboard' &&
     monthColumnLabels.length === 12 &&
     planningFetchedLineIds.length > 0;
 
@@ -286,62 +300,84 @@ export default function BudgetDetailPage() {
     );
   }
 
-  const kpi = summary?.kpi;
+  const kpi = budgetSummaryKpi;
   const currency = budget.currency;
   const isBudgetTtcProjection = taxDisplayMode === 'TTC' && budget.taxMode !== taxDisplayMode;
   const kpiItems = kpi
-    ? [
-        {
-          label: 'Initial',
-          value: formatTaxAwareAmount({
-            htValue: kpi.totalInitialAmount,
-            ttcValue: kpi.totalInitialAmountTtc ?? null,
-            currency,
-            mode: taxDisplayMode,
-            isApproximation: isBudgetTtcProjection,
-          }),
-        },
-        {
-          label: 'Révisé',
-          value: formatTaxAwareAmount({
-            htValue: kpi.totalRevisedAmount,
-            ttcValue: kpi.totalRevisedAmountTtc ?? null,
-            currency,
-            mode: taxDisplayMode,
-            isApproximation: isBudgetTtcProjection,
-          }),
-        },
-        {
-          label: 'Engagé',
-          value: formatTaxAwareAmount({
-            htValue: kpi.totalCommittedAmount,
-            ttcValue: kpi.totalCommittedAmountTtc ?? null,
-            currency,
-            mode: taxDisplayMode,
-            isApproximation: isBudgetTtcProjection,
-          }),
-        },
-        {
-          label: 'Consommé',
-          value: formatTaxAwareAmount({
-            htValue: kpi.totalConsumedAmount,
-            ttcValue: kpi.totalConsumedAmountTtc ?? null,
-            currency,
-            mode: taxDisplayMode,
-            isApproximation: isBudgetTtcProjection,
-          }),
-        },
-        {
-          label: 'Restant',
-          value: formatTaxAwareAmount({
-            htValue: kpi.totalRemainingAmount,
-            ttcValue: kpi.totalRemainingAmountTtc ?? null,
-            currency,
-            mode: taxDisplayMode,
-            isApproximation: isBudgetTtcProjection,
-          }),
-        },
-      ]
+    ? (() => {
+        const forecastN = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'forecast');
+        const initialN = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'initial');
+        const revisedN = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'revised');
+        const pVsI = formatSignedDeltaPercent(forecastN, initialN);
+        const pVsR = formatSignedDeltaPercent(forecastN, revisedN);
+        const previSub = [pVsI != null ? `vs initial ${pVsI}` : null, pVsR != null ? `vs révisé ${pVsR}` : null]
+          .filter((s): s is string => Boolean(s))
+          .join(' · ');
+
+        return [
+          {
+            label: 'Initial',
+            value: formatTaxAwareAmount({
+              htValue: kpi.totalInitialAmount,
+              ttcValue: kpi.totalInitialAmountTtc ?? null,
+              currency,
+              mode: taxDisplayMode,
+              isApproximation: isBudgetTtcProjection,
+            }),
+          },
+          {
+            label: 'Révisé',
+            value: formatTaxAwareAmount({
+              htValue: kpi.totalRevisedAmount,
+              ttcValue: kpi.totalRevisedAmountTtc ?? null,
+              currency,
+              mode: taxDisplayMode,
+              isApproximation: isBudgetTtcProjection,
+            }),
+          },
+          {
+            label: 'Prévisionnel',
+            value: formatTaxAwareAmount({
+              htValue: kpi.totalForecastAmount,
+              ttcValue: kpi.totalForecastAmountTtc ?? null,
+              currency,
+              mode: taxDisplayMode,
+              isApproximation: isBudgetTtcProjection,
+            }),
+            ...(previSub ? { subtext: previSub } : {}),
+          },
+          {
+            label: 'Engagé',
+            value: formatTaxAwareAmount({
+              htValue: kpi.totalCommittedAmount,
+              ttcValue: kpi.totalCommittedAmountTtc ?? null,
+              currency,
+              mode: taxDisplayMode,
+              isApproximation: isBudgetTtcProjection,
+            }),
+          },
+          {
+            label: 'Consommé',
+            value: formatTaxAwareAmount({
+              htValue: kpi.totalConsumedAmount,
+              ttcValue: kpi.totalConsumedAmountTtc ?? null,
+              currency,
+              mode: taxDisplayMode,
+              isApproximation: isBudgetTtcProjection,
+            }),
+          },
+          {
+            label: 'Restant',
+            value: formatTaxAwareAmount({
+              htValue: kpi.totalRemainingAmount,
+              ttcValue: kpi.totalRemainingAmountTtc ?? null,
+              currency,
+              mode: taxDisplayMode,
+              isApproximation: isBudgetTtcProjection,
+            }),
+          },
+        ];
+      })()
     : [];
 
   const isEmptyGlobal = tree.length === 0;
@@ -357,7 +393,9 @@ export default function BudgetDetailPage() {
   const envelopeType = selectedEnvelope?.type ?? null;
 
   const pilotageReady =
-    pilotageMode === 'synthese' || (monthColumnLabels.length === 12 && !exerciseLoading);
+    pilotageMode === 'dashboard' ||
+    pilotageMode === 'synthese' ||
+    (monthColumnLabels.length === 12 && !exerciseLoading);
 
   return (
     <RequireActiveClient>
@@ -402,7 +440,8 @@ export default function BudgetDetailPage() {
           <BudgetStatusBadge status={budget.status} />
         </div>
 
-        {kpiItems.length > 0 && (
+        {/* KPI compacts : uniquement si pas encore de structure (pas de doublon avec l’onglet Dashboard + tableau). */}
+        {kpiItems.length > 0 && isEmptyGlobal && (
           <BudgetKpiCards items={kpiItems} className="mb-6" />
         )}
 
@@ -436,7 +475,9 @@ export default function BudgetDetailPage() {
                     </AlertDescription>
                   </Alert>
                 )}
-                {pilotageMode !== 'synthese' && needsPlanningPagination && (
+                {pilotageMode !== 'synthese' &&
+                  pilotageMode !== 'dashboard' &&
+                  needsPlanningPagination && (
                   <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                     <span>
                       Lignes {flatLineIds.length} — chargement planning par tranche (
@@ -483,6 +524,34 @@ export default function BudgetDetailPage() {
                 <div className="p-6">
                   <LoadingState rows={2} />
                 </div>
+              ) : pilotageMode === 'dashboard' ? (
+                summaryError ? (
+                  <div className="p-6">
+                    <Alert variant="destructive">
+                      <AlertTitle>Résumé budgétaire indisponible</AlertTitle>
+                      <AlertDescription>
+                        Impossible de charger les indicateurs agrégés pour ce budget.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                ) : summaryLoading && !budgetSummaryKpi ? (
+                  <div className="p-6">
+                    <LoadingState rows={2} />
+                  </div>
+                ) : budgetSummaryKpi ? (
+                  <div className="p-4 sm:p-6">
+                    <BudgetDetailDashboard
+                      kpi={budgetSummaryKpi}
+                      currency={currency}
+                      taxDisplayMode={taxDisplayMode}
+                      defaultTaxRate={budget.defaultTaxRate ?? defaultTaxRate}
+                    />
+                  </div>
+                ) : (
+                  <div className="p-6 text-sm text-muted-foreground">
+                    Aucune donnée de synthèse pour ce budget.
+                  </div>
+                )
               ) : (
                 <BudgetExplorerTable
                   nodes={filteredTree}

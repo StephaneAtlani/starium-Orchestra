@@ -52,6 +52,11 @@ export function getBudgetPilotageColumnHeaders(
   density: BudgetPilotageDensity,
   monthLabels: string[],
 ): BudgetPilotageColumnHeader[] {
+  if (mode === 'dashboard') {
+    throw new Error(
+      'getBudgetPilotageColumnHeaders: mode dashboard — pas de colonnes pilotage',
+    );
+  }
   if (mode === 'synthese') {
     throw new Error(
       'getBudgetPilotageColumnHeaders: le mode synthèse utilise le tableau classique, pas la factory',
@@ -73,6 +78,9 @@ export function countBudgetPilotageDataColumns(
   mode: BudgetPilotageMode,
   density: BudgetPilotageDensity,
 ): number {
+  if (mode === 'dashboard') {
+    throw new Error('countBudgetPilotageDataColumns: mode dashboard — pas de colonnes pilotage');
+  }
   if (mode === 'synthese') {
     throw new Error('countBudgetPilotageDataColumns: mode synthèse — tableau classique');
   }

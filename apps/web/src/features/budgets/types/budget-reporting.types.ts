@@ -15,6 +15,15 @@ export interface BudgetSummaryKpi {
   totalCommittedAmountTtc?: number | null;
   totalConsumedAmountTtc?: number | null;
   totalRemainingAmountTtc?: number | null;
+  /** Ratios 0–1 (agrégat API). */
+  consumptionRate?: number;
+  commitmentRate?: number;
+  forecastRate?: number;
+  forecastGapAmount?: number;
+  lineCount?: number;
+  overConsumedLineCount?: number;
+  overCommittedLineCount?: number;
+  negativeRemainingLineCount?: number;
   currency: string | null;
 }
 

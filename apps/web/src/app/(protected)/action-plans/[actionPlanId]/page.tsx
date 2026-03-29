@@ -11,6 +11,12 @@ import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
+import {
+  PROJECT_ENTITY_PRIORITY_KEYS,
+  type ProjectEntityPriorityKey,
+  type ProjectLifecycleStatusKey,
+} from '@/lib/ui/badge-registry';
+import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
@@ -62,30 +68,46 @@ const ACTION_PLAN_PRIORITY_LABELS: Record<string, string> = {
   HIGH: 'Haute',
 };
 
-function planStatusBadgeClass(status: string): string {
-  switch (status) {
-    case 'ACTIVE':
-      return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100';
-    case 'ON_HOLD':
-      return 'border-amber-500/40 bg-amber-500/10 font-medium text-amber-950 dark:text-amber-100';
-    case 'COMPLETED':
-      return 'border-sky-500/40 bg-sky-500/10 text-sky-950 dark:text-sky-100';
-    case 'CANCELLED':
-      return 'border-border text-muted-foreground';
-    case 'DRAFT':
-    default:
-      return 'border-border/80 text-foreground';
-  }
+/** Style = cycle de vie projet (RFC-PLA-001 `ACTIVE` ≈ `IN_PROGRESS`). */
+function actionPlanStatusToLifecycleKey(
+  status: string,
+): ProjectLifecycleStatusKey {
+  const m: Record<string, ProjectLifecycleStatusKey> = {
+    DRAFT: 'DRAFT',
+    ACTIVE: 'IN_PROGRESS',
+    ON_HOLD: 'ON_HOLD',
+    COMPLETED: 'COMPLETED',
+    CANCELLED: 'CANCELLED',
+  };
+  return m[status] ?? 'DRAFT';
 }
 
 function PlanMetaBadges({ plan }: { plan: ActionPlanApi }) {
-  const st = ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status;
-  const pr = ACTION_PLAN_PRIORITY_LABELS[plan.priority] ?? plan.priority;
+  const { merged } = useClientUiBadgeConfig();
+  const lifecycleKey = actionPlanStatusToLifecycleKey(plan.status);
+  const statusBadge = merged.projectLifecycleStatus[lifecycleKey];
+  const statusLabel = ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status;
+
+  const priorityKnown = (
+    PROJECT_ENTITY_PRIORITY_KEYS as readonly string[]
+  ).includes(plan.priority);
+  const priorityEntry = priorityKnown
+    ? merged.projectEntityPriority[plan.priority as ProjectEntityPriorityKey]
+    : undefined;
+  const priorityWord =
+    priorityEntry?.label ??
+    ACTION_PLAN_PRIORITY_LABELS[plan.priority] ??
+    plan.priority;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <RegistryBadge className={planStatusBadgeClass(plan.status)}>{st}</RegistryBadge>
-      <RegistryBadge className="border-border/80 text-foreground">
-        Priorité {pr}
+      <RegistryBadge className={statusBadge.className}>{statusLabel}</RegistryBadge>
+      <RegistryBadge
+        className={
+          priorityEntry?.className ?? 'border-border/80 text-foreground'
+        }
+      >
+        Priorité {priorityWord}
       </RegistryBadge>
     </div>
   );

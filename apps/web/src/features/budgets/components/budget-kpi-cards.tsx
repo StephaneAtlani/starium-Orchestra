@@ -7,6 +7,8 @@ export interface BudgetKpiCardItem {
   label: string;
   value: string;
   trend?: 'positive' | 'negative' | 'neutral';
+  /** Ex. écarts % sous le montant (prévisionnel vs références). */
+  subtext?: string;
 }
 
 interface BudgetKpiCardsProps {
@@ -28,7 +30,12 @@ export function BudgetKpiCards({ items, className }: BudgetKpiCardsProps) {
           <CardHeader className="pb-1">
             <span className="text-sm text-muted-foreground">{item.label}</span>
           </CardHeader>
-          <CardContent className="text-xl font-semibold">{item.value}</CardContent>
+          <CardContent className="space-y-1">
+            <div className="text-xl font-semibold">{item.value}</div>
+            {item.subtext ? (
+              <p className="text-xs leading-snug text-muted-foreground">{item.subtext}</p>
+            ) : null}
+          </CardContent>
         </Card>
       ))}
     </div>

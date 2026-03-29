@@ -19,6 +19,8 @@ import { useUpdateBudgetLine } from '../../hooks/use-update-budget-line';
 import { lineApiToForm } from '../../mappers/budget-form.mappers';
 import { budgetDetail } from '../../constants/budget-routes';
 import type { BudgetLineFormValues } from '../../schemas/budget-line-form.schema';
+import type { BudgetLineFormSubmitMeta } from '../forms/budget-line-form';
+import type { CreateBudgetLineMutationInput } from '../../hooks/use-create-budget-line';
 import type { ApiFormError } from '../../api/types';
 // Ancienne zone de "planning détaillé" désactivée : la calculette rapide embarque désormais la logique principale.
 
@@ -121,11 +123,14 @@ export function BudgetLineFormPage({
     ? lineApiToForm(line, budget?.taxMode ?? 'HT')
     : { budgetId: resolvedBudgetId, envelopeId, currency: 'EUR', status: 'DRAFT' };
 
-  const handleSubmit = (values: BudgetLineFormValues) => {
+  const handleSubmit = (values: BudgetLineFormValues, meta?: BudgetLineFormSubmitMeta) => {
     if (isEdit) {
       updateMutation.mutate(values);
     } else {
-      createMutation.mutate(values);
+      const payload: CreateBudgetLineMutationInput = meta?.planningAmounts12
+        ? { ...values, planningAmounts12: meta.planningAmounts12 }
+        : values;
+      createMutation.mutate(payload);
     }
   };
 

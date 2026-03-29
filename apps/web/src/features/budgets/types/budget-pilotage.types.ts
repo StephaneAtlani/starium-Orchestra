@@ -4,6 +4,7 @@
 
 /** `synthese` = vue explorateur historique (KPI par ligne, tri). */
 export type BudgetPilotageMode =
+  | 'dashboard'
   | 'synthese'
   | 'previsionnel'
   | 'atterrissage'

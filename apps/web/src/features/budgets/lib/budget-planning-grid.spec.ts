@@ -3,7 +3,9 @@ import {
   aggregateMonthsToQuarters,
   amounts12FromPlanningMonths,
   buildManualPlanningPutPayload,
+  derivePlanningAmounts12ForNewLine,
   replaceMonthAmount,
+  spreadTotalEvenlyAcross12,
   sumAmounts12,
 } from './budget-planning-grid';
 
@@ -41,5 +43,25 @@ describe('budget-planning-grid', () => {
     const n = replaceMonthAmount(base, 3, 42);
     expect(n[3]).toBe(42);
     expect(n[0]).toBe(0);
+  });
+
+  it('spreadTotalEvenlyAcross12 répartit le total en centimes', () => {
+    const a = spreadTotalEvenlyAcross12(100);
+    expect(sumAmounts12(a)).toBeCloseTo(100, 5);
+    expect(a.length).toBe(12);
+  });
+
+  it('derivePlanningAmounts12ForNewLine reprend la grille si un mois > 0', () => {
+    const months = [10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const d = derivePlanningAmounts12ForNewLine(months, 999, '');
+    expect(d?.[0]).toBe(10);
+    expect(sumAmounts12(d!)).toBe(10);
+  });
+
+  it('derivePlanningAmounts12ForNewLine sans grille utilise le montant révisé puis initial', () => {
+    const zeros = Array(12).fill(0);
+    expect(derivePlanningAmounts12ForNewLine(zeros, 0, 1200)?.every((x) => x === 100)).toBe(true);
+    expect(derivePlanningAmounts12ForNewLine(zeros, 600, '')?.every((x) => x === 50)).toBe(true);
+    expect(derivePlanningAmounts12ForNewLine(zeros, 0, 0)).toBeNull();
   });
 });

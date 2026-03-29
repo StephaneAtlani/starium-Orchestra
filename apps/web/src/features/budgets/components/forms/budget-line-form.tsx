@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { buildBudgetLineFormSchema, type BudgetLineFormValues } from '../../schemas/budget-line-form.schema';
+import { derivePlanningAmounts12ForNewLine } from '../../lib/budget-planning-grid';
 import { BudgetFormActions } from './budget-form-actions';
 import { budgetEnvelopeNew } from '../../constants/budget-routes';
 import type { ApiFormError } from '../../api/types';
@@ -40,9 +41,14 @@ const STATUS_OPTIONS = [
 
 const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 
+export type BudgetLineFormSubmitMeta = {
+  /** 12 montants (mois 1..12 exercice) pour alimenter le prévisionnel après création. */
+  planningAmounts12?: number[];
+};
+
 interface BudgetLineFormProps {
   defaultValues: Partial<BudgetLineFormValues>;
-  onSubmit: (values: BudgetLineFormValues) => void;
+  onSubmit: (values: BudgetLineFormValues, meta?: BudgetLineFormSubmitMeta) => void;
   isSubmitting?: boolean;
   submitLabel?: string;
   cancelHref?: string;
@@ -154,8 +160,22 @@ export function BudgetLineForm({
     return qp;
   }, [calcQuantity, calcUnitPrice, monthTotal, monthValues]);
 
-  const applySpread = (mode: 'MONTHLY' | 'QUARTERLY' | 'SEMESTER' | 'YEARLY') => {
-    if (!Number.isFinite(effectiveTotal) || effectiveTotal <= 0) return;
+  /** True tant qu’un montant est attribué (même règle que l’affichage « Montant total » à 2 décimales). */
+  const canApplyCalculetteTotal = useMemo(() => {
+    if (!Number.isFinite(effectiveTotal)) return false;
+    return Number(effectiveTotal.toFixed(2)) > 0;
+  }, [effectiveTotal]);
+
+  /** Montant réellement posé sur au moins un mois (obligatoire pour « Appliquer » vers la ligne). */
+  const hasMonthAttribution = useMemo(
+    () => monthValues.some((v) => Number.isFinite(v) && v > 0),
+    [monthValues],
+  );
+
+  const applySpread = (
+    mode: 'MONTHLY' | 'QUARTERLY' | 'SEMESTER' | 'FIRST_MONTH' | 'LAST_MONTH',
+  ) => {
+    if (!Number.isFinite(effectiveTotal) || Number(effectiveTotal.toFixed(2)) <= 0) return;
 
     if (mode === 'MONTHLY') {
       const value = Number((effectiveTotal / 12).toFixed(2));
@@ -185,9 +205,16 @@ export function BudgetLineForm({
       return;
     }
 
-    if (mode === 'YEARLY') {
+    if (mode === 'FIRST_MONTH') {
       setMonthValues(
         Array.from({ length: 12 }, (_, i) => (i === 0 ? effectiveTotal : 0)),
+      );
+      return;
+    }
+
+    if (mode === 'LAST_MONTH') {
+      setMonthValues(
+        Array.from({ length: 12 }, (_, i) => (i === 11 ? effectiveTotal : 0)),
       );
     }
   };
@@ -225,9 +252,24 @@ export function BudgetLineForm({
     if (first) document.getElementById(String(first))?.focus();
   };
 
+  const submitWithPlanning = (values: BudgetLineFormValues) => {
+    if (!isEdit && hasPlanning) {
+      const amounts = derivePlanningAmounts12ForNewLine(
+        monthValues,
+        values.initialAmount,
+        values.revisedAmount,
+      );
+      if (amounts) {
+        onSubmit(values, { planningAmounts12: [...amounts] });
+        return;
+      }
+    }
+    onSubmit(values);
+  };
+
   return (
     <>
-      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
+      <form onSubmit={handleSubmit(submitWithPlanning, onInvalid)} className="space-y-6">
         {submitError && (
           <Alert variant="destructive">
             <AlertDescription>{submitError.message}</AlertDescription>
@@ -464,8 +506,8 @@ export function BudgetLineForm({
         <Dialog open={showQuickCalculator} onOpenChange={onQuickCalculatorOpenChange}>
           <DialogContent
             showCloseButton
-            overlayClassName="z-[90]"
-            className="max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-2xl lg:max-w-3xl z-[95]"
+            overlayClassName="z-[100] bg-black/40 backdrop-blur-md dark:bg-black/55"
+            className="z-[110] max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-2xl lg:max-w-3xl"
           >
             <DialogHeader className="-mx-4 -mt-4 space-y-2 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
               <div className="pr-8">
@@ -511,54 +553,68 @@ export function BudgetLineForm({
                     />
                   </div>
                 </div>
-              </div>
-
-              <div className="rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
-                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-semibold text-foreground">Répartition par mois</p>
-                    {exercisePeriodHint ? (
-                      <p className="text-xs leading-snug text-foreground/85">{exercisePeriodHint}</p>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                <div
+                  className="mt-4 border-t border-border/60 pt-4"
+                  role="group"
+                  aria-label="Appliquer une répartition sur la grille mensuelle"
+                >
+                  <p className="mb-2.5 text-xs font-semibold text-foreground">Appliquer</p>
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="default"
                       size="sm"
-                      disabled={effectiveTotal <= 0}
+                      disabled={!canApplyCalculetteTotal}
                       onClick={() => applySpread('MONTHLY')}
                     >
                       12 mois
                     </Button>
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="default"
                       size="sm"
-                      disabled={effectiveTotal <= 0}
+                      disabled={!canApplyCalculetteTotal}
                       onClick={() => applySpread('QUARTERLY')}
                     >
                       4 trimestres
                     </Button>
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="default"
                       size="sm"
-                      disabled={effectiveTotal <= 0}
+                      disabled={!canApplyCalculetteTotal}
                       onClick={() => applySpread('SEMESTER')}
                     >
                       2 semestres
                     </Button>
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="default"
                       size="sm"
-                      disabled={effectiveTotal <= 0}
-                      onClick={() => applySpread('YEARLY')}
+                      disabled={!canApplyCalculetteTotal}
+                      onClick={() => applySpread('FIRST_MONTH')}
                     >
-                      1 fois / an
+                      Premier mois
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      disabled={!canApplyCalculetteTotal}
+                      onClick={() => applySpread('LAST_MONTH')}
+                    >
+                      Dernier mois
                     </Button>
                   </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
+                <div className="mb-3 space-y-1">
+                  <p className="text-sm font-semibold text-foreground">Répartition par mois</p>
+                  {exercisePeriodHint ? (
+                    <p className="text-xs leading-snug text-foreground/85">{exercisePeriodHint}</p>
+                  ) : null}
                 </div>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
                   {planningMonthLabels.map((label, index) => (
@@ -606,21 +662,33 @@ export function BudgetLineForm({
                   <Button
                     type="button"
                     variant="secondary"
+                    title={
+                      !hasMonthAttribution
+                        ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
+                        : undefined
+                    }
                     onClick={() => {
+                      if (!hasMonthAttribution) return;
                       setValue('initialAmount', effectiveTotal);
                       onQuickCalculatorOpenChange(false);
                     }}
-                    disabled={effectiveTotal <= 0}
+                    disabled={!hasMonthAttribution}
                   >
                     Appliquer au montant initial
                   </Button>
                   <Button
                     type="button"
+                    title={
+                      !hasMonthAttribution
+                        ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
+                        : undefined
+                    }
                     onClick={() => {
+                      if (!hasMonthAttribution) return;
                       setValue('revisedAmount', effectiveTotal);
                       onQuickCalculatorOpenChange(false);
                     }}
-                    disabled={effectiveTotal <= 0}
+                    disabled={!hasMonthAttribution}
                   >
                     Appliquer au montant révisé
                   </Button>
@@ -628,22 +696,34 @@ export function BudgetLineForm({
               ) : calculetteApplyTarget === 'initial' ? (
                 <Button
                   type="button"
+                  title={
+                    !hasMonthAttribution
+                      ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
+                      : undefined
+                  }
                   onClick={() => {
+                    if (!hasMonthAttribution) return;
                     setValue('initialAmount', effectiveTotal);
                     onQuickCalculatorOpenChange(false);
                   }}
-                  disabled={effectiveTotal <= 0}
+                  disabled={!hasMonthAttribution}
                 >
                   Appliquer au montant initial
                 </Button>
               ) : (
                 <Button
                   type="button"
+                  title={
+                    !hasMonthAttribution
+                      ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
+                      : undefined
+                  }
                   onClick={() => {
+                    if (!hasMonthAttribution) return;
                     setValue('revisedAmount', effectiveTotal);
                     onQuickCalculatorOpenChange(false);
                   }}
-                  disabled={effectiveTotal <= 0}
+                  disabled={!hasMonthAttribution}
                 >
                   Appliquer au montant révisé
                 </Button>
