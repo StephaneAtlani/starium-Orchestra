@@ -74,15 +74,7 @@ import {
 } from '../lib/project-review-post-mortem';
 import { formatCurrencyAmountFr } from '@/lib/currency-format';
 import { usePermissions } from '@/hooks/use-permissions';
-
-function tagBadgeStyle(color: string | null | undefined) {
-  const background = color ?? '#64748B';
-  return {
-    backgroundColor: background,
-    borderColor: background,
-    color: '#FFFFFF',
-  } as const;
-}
+import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -595,7 +587,7 @@ function ProjectDetailTabbedContent({
                             }
                             title="Retirer cette etiquette"
                           >
-                            <RegistryBadge style={tagBadgeStyle(tag.color)}>
+                            <RegistryBadge style={projectTagBadgeStyle(tag.color)}>
                               {tag.name} ×
                             </RegistryBadge>
                           </button>

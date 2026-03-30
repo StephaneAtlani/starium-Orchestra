@@ -6,6 +6,7 @@ import {
   labelArbGlobal,
   labelArbLevel,
 } from '../lib/portfolio-gantt-tooltip-labels';
+import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
@@ -75,7 +76,8 @@ export function PortfolioGanttSidebarTooltipContent({
             {tags.map((t) => (
               <li
                 key={t.id}
-                className="rounded-md border border-background/25 bg-background/10 px-1.5 py-0.5 text-[0.75rem] text-background/95"
+                className="rounded-md border px-1.5 py-0.5 text-[0.75rem] font-medium shadow-sm"
+                style={projectTagBadgeStyle(t.color)}
               >
                 {t.name}
               </li>

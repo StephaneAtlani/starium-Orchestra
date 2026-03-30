@@ -49,6 +49,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { listProjectPortfolioCategories } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
+import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -69,15 +70,6 @@ const SORT_LABEL: Record<ProjectsListFilters['sortBy'], string> = {
   computedHealth: 'Santé',
   progressPercent: 'Avancement',
 };
-
-function tagBadgeStyle(color: string | null | undefined) {
-  const background = color ?? '#64748B';
-  return {
-    backgroundColor: background,
-    borderColor: background,
-    color: '#FFFFFF',
-  } as const;
-}
 
 function HeaderTip({
   children,
@@ -641,7 +633,7 @@ export function ProjectsListTable({
                     <RegistryBadge
                       key={tag.id}
                       className="text-[0.65rem]"
-                      style={tagBadgeStyle(tag.color)}
+                      style={projectTagBadgeStyle(tag.color)}
                     >
                       {tag.name}
                     </RegistryBadge>
