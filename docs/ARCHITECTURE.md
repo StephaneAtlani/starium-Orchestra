@@ -92,7 +92,7 @@ apps/
 └── web/   → Next.js frontend
     ├── app/ (routes, layouts)
     ├── components/ (UI partagée)
-    ├── features/budgets
+    ├── features/budgets (dont `forecast/` — UI forecast & comparaison budgétaire, [RFC-FE-BUD-030](./RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md))
     ├── features/procurement
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)

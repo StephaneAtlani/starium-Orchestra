@@ -20,6 +20,7 @@ import { BudgetDashboardHeader } from './components/budget-dashboard-header';
 import { BudgetCockpitWidgetRenderer } from './components/budget-cockpit-widget-renderer';
 import { CockpitSurfaceCard } from './components/budget-cockpit-primitives';
 import { BudgetCockpitUserSettingsDialog } from '@/features/budgets/cockpit-settings/budget-cockpit-user-settings-dialog';
+import { budgetReporting } from '@/features/budgets/constants/budget-routes';
 
 export function BudgetDashboardPage() {
   const criticalRef = useRef<HTMLDivElement>(null);
@@ -50,6 +51,8 @@ export function BudgetDashboardPage() {
   } = useBudgetDashboardPage();
 
   const isAggregatedBudgetMode = budgetId === '__ALL__';
+  const forecastReportingHref =
+    budgetId && !isAggregatedBudgetMode ? budgetReporting(budgetId) : undefined;
 
   const {
     taxDisplayMode,
@@ -137,6 +140,7 @@ export function BudgetDashboardPage() {
                 if (!useUserOverrides) onUserOverridesModeChange(true);
                 setSettingsOpen(true);
               }}
+              forecastReportingHref={forecastReportingHref}
             />
 
             <CockpitSurfaceCard

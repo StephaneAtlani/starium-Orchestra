@@ -13,7 +13,6 @@ import { BudgetExplorerTable } from '@/features/budgets/components/budget-explor
 import { BudgetViewTabs } from '@/features/budgets/components/budget-view-tabs';
 import { BudgetDetailDashboard } from '@/features/budgets/components/budget-detail-dashboard';
 import { BudgetDensityToggle } from '@/features/budgets/components/budget-density-toggle';
-import { BudgetScenarioSelect } from '@/features/budgets/components/budget-scenario-select';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer';
 import { useBudgetExplorerTree } from '@/features/budgets/hooks/use-budget-explorer-tree';
@@ -53,6 +52,7 @@ import {
 import { useActiveClient } from '@/hooks/use-active-client';
 import { saveBudgetCockpitSelection } from '@/features/budgets/lib/budget-cockpit-selection-storage';
 import {
+  collectAllEnvelopeIds,
   collectEnvelopeIdsWithFilteredChildren,
   hasActiveBudgetExplorerFilters,
 } from '@/features/budgets/lib/filter-budget-tree';
@@ -65,6 +65,8 @@ import {
   type Amounts12,
 } from '@/features/budgets/lib/budget-planning-grid';
 import type { BudgetPilotageDensity, BudgetPilotageMode } from '@/features/budgets/types/budget-pilotage.types';
+import { useBudgetForecast } from '@/features/budgets/forecast/hooks/use-budget-forecast';
+import { ForecastKpiCards } from '@/features/budgets/forecast/components/forecast-kpi-cards';
 
 export default function BudgetDetailPage() {
   const p = useParams();
@@ -253,6 +255,15 @@ export default function BudgetDetailPage() {
     }
   }, [tree]);
 
+  const isEmptyGlobalForForecastHook = tree.length === 0;
+  const forecastQuery = useBudgetForecast(budgetId, {
+    enabled:
+      !!budgetId &&
+      !!budget &&
+      !isEmptyGlobalForForecastHook &&
+      pilotageMode === 'forecast',
+  });
+
   if (isLoading) {
     return (
       <RequireActiveClient>
@@ -358,6 +369,19 @@ export default function BudgetDetailPage() {
   const isEmptyGlobal = tree.length === 0;
   const isEmptyFiltered = filteredTree.length === 0 && tree.length > 0;
 
+  const allEnvelopeIds = useMemo(
+    () => collectAllEnvelopeIds(filteredTree),
+    [filteredTree],
+  );
+
+  const onExpandAllEnvelopes = useCallback(() => {
+    setExpandedIds(new Set(allEnvelopeIds));
+  }, [allEnvelopeIds]);
+
+  const onCollapseAllEnvelopes = useCallback(() => {
+    setExpandedIds(new Set());
+  }, []);
+
   const selectedLine = (lines ?? []).find((l: BudgetLine) => l.id === selectedBudgetLineId) ?? null;
   const selectedEnvelope =
     selectedLine && envelopes
@@ -370,6 +394,7 @@ export default function BudgetDetailPage() {
   const pilotageReady =
     pilotageMode === 'dashboard' ||
     pilotageMode === 'synthese' ||
+    pilotageMode === 'forecast' ||
     (monthColumnLabels.length === 12 && !exerciseLoading);
 
   return (
@@ -440,7 +465,14 @@ export default function BudgetDetailPage() {
                       onDensityChange={setPilotageDensity}
                     />
                   )}
-                  {pilotageMode === 'forecast' && <BudgetScenarioSelect />}
+                  {pilotageMode === 'forecast' ? (
+                    <Link
+                      href={budgetReporting(budgetId!)}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      Ouvrir forecast & comparaison
+                    </Link>
+                  ) : null}
                 </div>
                 {pilotageMode === 'previsionnel' && pilotageDensity === 'condense' && (
                   <Alert>
@@ -463,6 +495,22 @@ export default function BudgetDetailPage() {
               {!pilotageReady ? (
                 <div className="p-6">
                   <LoadingState rows={2} />
+                </div>
+              ) : pilotageMode === 'forecast' ? (
+                <div className="space-y-4 p-4 sm:p-6">
+                  <ForecastKpiCards
+                    data={forecastQuery.data}
+                    isLoading={forecastQuery.isLoading}
+                    error={forecastQuery.error as Error | null}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    <Link
+                      href={budgetReporting(budgetId!)}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Comparaison détaillée (baseline, snapshot, versions)
+                    </Link>
+                  </p>
                 </div>
               ) : pilotageMode === 'dashboard' ? (
                 summaryError ? (
@@ -497,6 +545,8 @@ export default function BudgetDetailPage() {
                   nodes={filteredTree}
                   expandedIds={expandedIds}
                   onToggleExpand={onToggleExpand}
+                  onExpandAllEnvelopes={onExpandAllEnvelopes}
+                  onCollapseAllEnvelopes={onCollapseAllEnvelopes}
                   onBudgetLineClick={onBudgetLineClick}
                   emptyMessage="Aucune enveloppe."
                   emptyFilteredMessage="Aucun résultat pour ces filtres."

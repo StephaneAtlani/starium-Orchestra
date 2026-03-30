@@ -101,4 +101,39 @@ export const budgetQueryKeys = {
 
   generalLedgerAccountOptions: (clientId: string) =>
     ['general-ledger-account-options', clientId] as const,
+
+  /** RFC-FE-BUD-030 — forecast budget */
+  budgetForecast: (clientId: string, budgetId: string) =>
+    ['budgets', clientId, 'budget-forecast', budgetId] as const,
+
+  /** RFC-FE-BUD-030 — forecast enveloppe */
+  envelopeForecast: (clientId: string, envelopeId: string) =>
+    ['budgets', clientId, 'envelope-forecast', envelopeId] as const,
+
+  /** RFC-FE-BUD-030 — lignes forecast (pagination dans la clé) */
+  envelopeForecastLines: (
+    clientId: string,
+    envelopeId: string,
+    params: { limit: number; offset: number },
+  ) => ['budgets', clientId, 'envelope-forecast-lines', envelopeId, params] as const,
+
+  /** RFC-FE-BUD-030 — comparaison (targetId dans la clé) */
+  budgetComparison: (
+    clientId: string,
+    budgetId: string,
+    compareTo: string,
+    targetId: string | undefined,
+  ) =>
+    ['budgets', clientId, 'budget-comparison', budgetId, compareTo, targetId ?? ''] as const,
+
+  /** Liste snapshots pour sélecteur (par budget) */
+  budgetSnapshotsList: (
+    clientId: string,
+    budgetId: string,
+    params?: { limit?: number; offset?: number },
+  ) => ['budgets', clientId, 'budget-snapshots-list', budgetId, params] as const,
+
+  /** Historique de versions pour sélecteur */
+  budgetVersionHistory: (clientId: string, budgetId: string) =>
+    ['budgets', clientId, 'budget-version-history', budgetId] as const,
 };

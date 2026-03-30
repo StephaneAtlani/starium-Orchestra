@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémenté (MVP) — aligné dépôt **2026-03** (voir §14).
 
 ## Priorité
 
@@ -55,23 +55,39 @@ Permettre à la **DAF / DG** de :
 
 ## Structure
 
+Les clients HTTP restent sous `features/budgets/api/` ; les écrans et hooks sous `features/budgets/forecast/` (évite les imports circulaires et suit le plan d’implémentation).
+
 ```
 apps/web/src/features/budgets/
+  api/
+    budget-forecast.api.ts          # getBudgetForecast, getEnvelopeForecast, listEnvelopeForecastLines + réexport compare*
+    budget-comparison.api.ts        # compareBudget, compareSnapshots, compareVersions
+    budget-snapshots.api.ts         # listBudgetSnapshots (sélecteur snapshot)
+    budget-versioning.api.ts        # getVersionHistory (sélecteur version)
+  types/
+    budget-forecast.types.ts
+    budget-snapshots-list.types.ts
+    budget-version-history.types.ts
+  lib/
+    budget-formatters.ts            # formatCurrency (DAF, 2 décimales) pour forecast/comparaison
   forecast/
-    api/
-      budget-forecast.api.ts
-      budget-comparison.api.ts
-    types/
-      budget-forecast.types.ts
-      budget-comparison.types.ts
     components/
-      ForecastKpiCards.tsx
-      ForecastTable.tsx
-      ComparisonTable.tsx
-      StatusBadge.tsx
+      forecast-kpi-cards.tsx
+      forecast-kpi-skeleton.tsx
+      forecast-table.tsx
+      comparison-table.tsx
+      forecast-status-badge.tsx
+      budget-comparison-selector.tsx
     hooks/
-      useBudgetForecast.ts
-      useBudgetComparison.ts
+      use-budget-forecast.ts
+      use-envelope-forecast.ts
+      use-envelope-forecast-lines.ts
+      use-budget-comparison.ts
+      use-budget-snapshots-for-select.ts
+      use-budget-version-history.ts
+    lib/
+      comparison-diff.ts
+    budget-reporting-forecast-page.tsx
 ```
 
 ---
@@ -86,9 +102,14 @@ apps/web/src/features/budgets/
 
 ### Comparaison
 
-* `GET /api/budget-comparisons/budgets/:budgetId`
-* `GET /api/budget-comparisons/snapshots`
-* `GET /api/budget-comparisons/versions`
+* `GET /api/budget-comparisons/budgets/:budgetId` (`compareTo`, `targetId` optionnel selon mode)
+* `GET /api/budget-comparisons/snapshots` (`leftId`, `rightId`)
+* `GET /api/budget-comparisons/versions` (`leftId`, `rightId`)
+
+### Listes pour sélecteurs (hors comparaison directe)
+
+* `GET /api/budget-snapshots?budgetId=…` — libellés options snapshot
+* `GET /api/budgets/:id/version-history` — libellés options version (même jeu de versions que la comparaison)
 
 ---
 
@@ -194,7 +215,9 @@ Colonnes :
 
 ---
 
-## 6.3 StatusBadge
+## 6.3 ForecastStatusBadge
+
+Composant **`ForecastStatusBadge`** (distinct de `BudgetStatusBadge` statut exercice/budget).
 
 ```ts
 OK → gris
@@ -256,15 +279,15 @@ Colonnes :
 
 ## useBudgetForecast
 
-```ts
-useQuery(['budgetForecast', budgetId])
-```
+Clés TanStack Query : `budgetQueryKeys.budgetForecast(clientId, budgetId)` (voir `lib/budget-query-keys.ts`). `staleTime` ~45s ; pas de `keepPreviousData` sur le forecast budget seul.
 
 ## useBudgetComparison
 
-```ts
-useQuery(['budgetComparison', params])
-```
+`budgetQueryKeys.budgetComparison(clientId, budgetId, compareTo, targetId | undefined)` ; `enabled` false si `snapshot`/`version` sans `targetId`. Une seule query `compareBudget` — pas de fetch parallèle via `useEffect`.
+
+## useEnvelopeForecast / useEnvelopeForecastLines
+
+`budgetQueryKeys.envelopeForecast` / `envelopeForecastLines` ; sur les lignes enveloppe, **`placeholderData: keepPreviousData`** (pagination sans flash).
 
 ---
 
@@ -326,3 +349,17 @@ Le frontend :
 * un cockpit lisible
 * une vraie valeur métier DAF
 * une cohérence totale avec ton backend
+
+---
+
+## 14. Implémentation (référence dépôt)
+
+| Élément | Réalisation |
+|--------|-------------|
+| **Route reporting** | `apps/web/src/app/(protected)/budgets/[budgetId]/reporting/page.tsx` → `BudgetReportingForecastPage` |
+| **Cockpit** | Lien « Forecast & comparaison » dans `features/budgets/dashboard/components/budget-dashboard-header.tsx` si un budget réel est sélectionné (`budgetReporting(budgetId)`), hors mode agrégé `__ALL__` |
+| **Enveloppe** | `app/(protected)/budget-envelopes/[envelopeId]/page.tsx` — bloc CockpitSurfaceCard forecast + `ForecastTable` paginée |
+| **Budget détail** | Onglet **Forecast** sur `/budgets/[budgetId]` : `ForecastKpiCards` + liens vers reporting |
+| **Tests Vitest** | `forecast-status-badge.spec.ts`, `comparison-diff.spec.ts`, `formatCurrency` dans `budget-formatters.spec.ts` |
+
+Hors scope documenté ici : **drawer détail ligne** au clic (placeholder / futur).

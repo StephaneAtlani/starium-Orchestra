@@ -1,9 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import {
   budgetKpiAmountForTaxMode,
+  formatCurrency,
   formatSignedDeltaPercent,
 } from './budget-formatters';
 import type { BudgetSummaryKpi } from '@/features/budgets/types/budget-reporting.types';
+
+describe('formatCurrency (RFC-FE-BUD-030)', () => {
+  it('formate avec 2 décimales et devise', () => {
+    const s = formatCurrency(1234.5, 'EUR');
+    expect(s).toMatch(/1/);
+    expect(s).toMatch(/34/);
+    expect(s).toMatch(/50/);
+    expect(s).toMatch(/€/);
+  });
+
+  it('utilise EUR si currency null', () => {
+    const s = formatCurrency(100, null);
+    expect(s).toMatch(/€/);
+  });
+});
 
 describe('formatSignedDeltaPercent', () => {
   it('retourne null si dénominateur nul', () => {

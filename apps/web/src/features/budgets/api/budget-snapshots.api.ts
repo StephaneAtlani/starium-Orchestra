@@ -1,11 +1,19 @@
-/**
- * Stub — API budget-snapshots (futures RFC).
- * Pas d’implémentation des appels dans cette RFC.
- */
+import type { ListBudgetSnapshotsResult } from '../types/budget-snapshots-list.types';
 
 export type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
-// Stub: à implémenter dans une RFC dédiée (snapshots UI).
-export async function list(_authFetch: AuthFetch, _budgetId: string): Promise<{ items: never[]; total: number }> {
-  return { items: [], total: 0 };
+export async function listBudgetSnapshots(
+  authFetch: AuthFetch,
+  budgetId: string,
+  params?: { limit?: number; offset?: number },
+): Promise<ListBudgetSnapshotsResult> {
+  const search = new URLSearchParams();
+  search.set('budgetId', budgetId);
+  if (params?.limit != null) search.set('limit', String(params.limit));
+  if (params?.offset != null) search.set('offset', String(params.offset));
+  const res = await authFetch(`/api/budget-snapshots?${search.toString()}`);
+  if (!res.ok) {
+    throw new Error('Erreur lors du chargement des snapshots');
+  }
+  return res.json();
 }

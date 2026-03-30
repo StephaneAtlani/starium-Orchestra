@@ -17,6 +17,26 @@ export function formatAmount(value: number, currency?: string): string {
   return formatCurrencyAmountFr(value, currency);
 }
 
+/**
+ * Montants DAF — forecast & comparaison (2 décimales, séparateurs milliers, symbole devise).
+ * `currency` null → EUR par défaut (aligné pilotage budget).
+ */
+export function formatCurrency(amount: number, currency: string | null): string {
+  const code = currency?.trim() || 'EUR';
+  try {
+    return normalizeFrNumberGrouping(
+      new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: code,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount),
+    );
+  } catch {
+    return formatNumberFr(amount, { minFraction: 2, maxFraction: 2 });
+  }
+}
+
 export function formatPercent(value: number): string {
   return normalizeFrNumberGrouping(
     new Intl.NumberFormat('fr-FR', {

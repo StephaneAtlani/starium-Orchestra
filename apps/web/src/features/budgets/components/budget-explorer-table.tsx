@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronsDown, ChevronsUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { ExplorerNode } from '../types/budget-explorer.types';
+import { collectAllEnvelopeIds } from '../lib/filter-budget-tree';
 import {
   explorerSortPresetToState,
   toggleExplorerSortColumn,
@@ -49,6 +51,10 @@ interface BudgetExplorerTableProps {
   nodes: ExplorerNode[];
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
+  /** Développe toutes les enveloppes de l’arbre affiché. */
+  onExpandAllEnvelopes?: () => void;
+  /** Réduit toutes les enveloppes. */
+  onCollapseAllEnvelopes?: () => void;
   onBudgetLineClick?: (lineId: string) => void;
   emptyMessage?: string;
   emptyFilteredMessage?: string;
@@ -68,6 +74,7 @@ function ExplorerSortableHead({
   onSortPresetChange,
   align = 'left',
   headClassName,
+  prefix,
 }: {
   label: string;
   column: SortableColumn;
@@ -75,6 +82,8 @@ function ExplorerSortableHead({
   onSortPresetChange: (preset: ExplorerSortPreset) => void;
   align?: 'left' | 'right';
   headClassName?: string;
+  /** Ex. boutons tout développer / réduire les enveloppes (colonne Sous-budget). */
+  prefix?: React.ReactNode;
 }) {
   const state = explorerSortPresetToState(sortPreset);
   const active = state.column === column;
@@ -89,27 +98,70 @@ function ExplorerSortableHead({
         headClassName,
       )}
     >
-      <button
-        type="button"
+      <div
         className={cn(
-          '-mx-1 inline-flex max-w-full items-center gap-1 rounded-md px-1 py-0.5 text-left font-medium hover:bg-muted/80 hover:text-foreground',
-          align === 'right' && 'w-full justify-end text-right',
+          'flex max-w-full items-center gap-1.5',
+          align === 'right' && 'justify-end',
         )}
-        onClick={() => onSortPresetChange(toggleExplorerSortColumn(sortPreset, column))}
-        aria-sort={
-          active ? (state.direction === 'asc' ? 'ascending' : 'descending') : 'none'
-        }
       >
-        <span className="whitespace-nowrap">{label}</span>
-        <Icon
+        {prefix}
+        <button
+          type="button"
           className={cn(
-            'size-3.5 shrink-0',
-            active ? 'text-primary' : 'text-muted-foreground opacity-60',
+            '-mx-1 inline-flex min-w-0 max-w-full flex-1 items-center gap-1 rounded-md px-1 py-0.5 text-left font-medium hover:bg-muted/80 hover:text-foreground',
+            align === 'right' && 'w-full justify-end text-right',
           )}
-          aria-hidden
-        />
-      </button>
+          onClick={() => onSortPresetChange(toggleExplorerSortColumn(sortPreset, column))}
+          aria-sort={
+            active ? (state.direction === 'asc' ? 'ascending' : 'descending') : 'none'
+          }
+        >
+          <span className="whitespace-nowrap">{label}</span>
+          <Icon
+            className={cn(
+              'size-3.5 shrink-0',
+              active ? 'text-primary' : 'text-muted-foreground opacity-60',
+            )}
+            aria-hidden
+          />
+        </button>
+      </div>
     </TableHead>
+  );
+}
+
+function EnvelopeTreeBulkControls({
+  onExpandAll,
+  onCollapseAll,
+}: {
+  onExpandAll: () => void;
+  onCollapseAll: () => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-0.5" role="group" aria-label="Enveloppes">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-7 text-muted-foreground hover:text-foreground"
+        onClick={onExpandAll}
+        title="Tout développer"
+        aria-label="Tout développer les enveloppes"
+      >
+        <ChevronsDown className="size-4" aria-hidden />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-7 text-muted-foreground hover:text-foreground"
+        onClick={onCollapseAll}
+        title="Tout réduire"
+        aria-label="Tout réduire les enveloppes"
+      >
+        <ChevronsUp className="size-4" aria-hidden />
+      </Button>
+    </div>
   );
 }
 
@@ -117,6 +169,8 @@ export function BudgetExplorerTable({
   nodes,
   expandedIds,
   onToggleExpand,
+  onExpandAllEnvelopes,
+  onCollapseAllEnvelopes,
   onBudgetLineClick,
   emptyMessage = DEFAULT_EMPTY,
   emptyFilteredMessage = DEFAULT_FILTERED_EMPTY,
@@ -126,6 +180,21 @@ export function BudgetExplorerTable({
   const isSynthese = pilotage.mode === 'synthese';
   const sortPreset = pilotage.sortPreset ?? 'default';
   const onSortPresetChange = pilotage.onSortPresetChange ?? (() => {});
+
+  const envelopeCountForBulk = React.useMemo(
+    () => collectAllEnvelopeIds(nodes).length,
+    [nodes],
+  );
+
+  const bulkControls =
+    onExpandAllEnvelopes &&
+    onCollapseAllEnvelopes &&
+    envelopeCountForBulk > 0 ? (
+      <EnvelopeTreeBulkControls
+        onExpandAll={onExpandAllEnvelopes}
+        onCollapseAll={onCollapseAllEnvelopes}
+      />
+    ) : null;
 
   const headers = isSynthese
     ? []
@@ -165,6 +234,7 @@ export function BudgetExplorerTable({
               sortPreset={sortPreset}
               onSortPresetChange={onSortPresetChange}
               headClassName="min-w-[260px] max-w-[28rem]"
+              prefix={bulkControls}
             />
             <TableHead className="min-w-[7rem] whitespace-nowrap">Responsable</TableHead>
             <TableHead className="min-w-[5.5rem] whitespace-nowrap">Type</TableHead>
@@ -249,7 +319,12 @@ export function BudgetExplorerTable({
     <Table className={cn(tableMinW)} data-testid="budget-explorer-table">
       <TableHeader>
         <TableRow>
-          <TableHead className="min-w-[260px] max-w-[28rem]">Sous-budget</TableHead>
+          <TableHead className="min-w-[260px] max-w-[28rem]">
+            <div className="flex items-center gap-1.5">
+              {bulkControls}
+              <span className="font-medium">Sous-budget</span>
+            </div>
+          </TableHead>
           {headers.map((h) => (
             <TableHead
               key={h.id}

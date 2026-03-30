@@ -10,7 +10,7 @@
 | Nouveau RFC Budget Workflow      | Workflow budgétaire                     | Mettre en place le cycle DRAFT → SUBMITTED → VALIDATED, rôles de validation DAF/DG, verrouillage après validation                                                 | ❌ À faire               |
 | RFC-031 + RFC-FE-035             | Déversement & allocation stratégique    | Permettre la répartition réelle des décisions budgétaires vers les bonnes lignes / enveloppes avec UX dédiée                                                      | ❌ À faire               |
 | Extension RFC-016 + UI Alertes   | Alerting avancé & règles personnalisées | Ajouter règles complexes, seuils multi-critères, personnalisation, historique des alertes et UX de paramétrage                                                    | ❌ À faire               |
-| RFC-019 + RFC-015-3 + UI compare | Versioning & snapshots exploitables     | Rendre les snapshots et versions réellement exploitables côté métier : comparaison UI, timeline, lecture des écarts                                               | ⚠️ Backend OK / Front ❌ |
+| RFC-019 + RFC-015-3 + UI compare | Versioning & snapshots exploitables     | Comparaison forecast / baseline / snapshot / version : **RFC-FE-BUD-030** (MVP sur `/budgets/[budgetId]/reporting`, cockpit, enveloppe). Reste : timeline dédiée, lecture écarts avancée, finitions hors scope MVP | ⚠️ Partiel (comparaison UI MVP) |
 | RFC-021                          | Axes analytiques                        | Ajouter comptes comptables, comptes analytiques, cost centers, splits analytiques, lecture DAF-ready                                                              | ❌ À faire               |
 | RFC-025 + UI procurement         | Intégration procurement                 | Exploiter pleinement les PO / factures / engagements côté UX budget pour relier budget au réel achats                                                             | ⚠️ Partiel              |
 | RFC-018 + UI import              | Import / Export & interop               | Construire le wizard d’import UI : upload, mapping, preview, exécution, lecture des erreurs et réutilisation mapping                                              | ⚠️ Backend OK / Front ❌ |
@@ -43,7 +43,7 @@ Les RFC backend déjà abouties sont bien documentées dans l’état du module 
 | Explicabilité | Impossible aujourd’hui d’expliquer proprement une cellule ou un écart de façon fluide  |
 | Gouvernance   | Pas encore de workflow budgétaire métier complet                                       |
 | Analytique    | Pas encore de lecture comptable / analytique exploitable                               |
-| Adoption      | Import/versioning/snapshots restent peu exploitables tant que l’UI métier n’existe pas |
+| Adoption      | Comparaison forecast/baseline/snapshot/version : UI MVP ([RFC-FE-BUD-030](./RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md)) ; import / timeline snapshots / finitions adoption à poursuivre |
 | Réel achats   | L’intégration procurement n’est pas encore assez visible côté budget                   |
 
 

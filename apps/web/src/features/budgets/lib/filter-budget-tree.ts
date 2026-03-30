@@ -98,3 +98,18 @@ export function collectEnvelopeIdsWithFilteredChildren(
   walk(nodes);
   return ids;
 }
+
+/** Tous les ids d’enveloppes dans l’arbre (pour « tout développer »). */
+export function collectAllEnvelopeIds(nodes: ExplorerNode[]): string[] {
+  const ids: string[] = [];
+  const walk = (list: ExplorerNode[]) => {
+    for (const n of list) {
+      if (n.type === 'envelope') {
+        ids.push(n.id);
+        if (n.children.length > 0) walk(n.children);
+      }
+    }
+  };
+  walk(nodes);
+  return ids;
+}
