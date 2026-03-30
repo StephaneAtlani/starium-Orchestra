@@ -264,6 +264,19 @@ export default function BudgetDetailPage() {
       pilotageMode === 'forecast',
   });
 
+  const allEnvelopeIds = useMemo(
+    () => collectAllEnvelopeIds(filteredTree),
+    [filteredTree],
+  );
+
+  const onExpandAllEnvelopes = useCallback(() => {
+    setExpandedIds(new Set(allEnvelopeIds));
+  }, [allEnvelopeIds]);
+
+  const onCollapseAllEnvelopes = useCallback(() => {
+    setExpandedIds(new Set());
+  }, []);
+
   if (isLoading) {
     return (
       <RequireActiveClient>
@@ -368,19 +381,6 @@ export default function BudgetDetailPage() {
 
   const isEmptyGlobal = tree.length === 0;
   const isEmptyFiltered = filteredTree.length === 0 && tree.length > 0;
-
-  const allEnvelopeIds = useMemo(
-    () => collectAllEnvelopeIds(filteredTree),
-    [filteredTree],
-  );
-
-  const onExpandAllEnvelopes = useCallback(() => {
-    setExpandedIds(new Set(allEnvelopeIds));
-  }, [allEnvelopeIds]);
-
-  const onCollapseAllEnvelopes = useCallback(() => {
-    setExpandedIds(new Set());
-  }, []);
 
   const selectedLine = (lines ?? []).find((l: BudgetLine) => l.id === selectedBudgetLineId) ?? null;
   const selectedEnvelope =
