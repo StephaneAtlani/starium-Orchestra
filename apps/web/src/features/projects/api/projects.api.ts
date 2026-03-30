@@ -589,8 +589,35 @@ export async function updateProjectMilestone(
   return res.json() as Promise<ProjectMilestoneApi>;
 }
 
+/** Tâche dans le payload Gantt (sous-ensemble des champs liste + isLate optionnel API). */
+export type ProjectGanttTaskPayload = {
+  id: string;
+  phaseId: string | null;
+  dependsOnTaskId: string | null;
+  dependencyType: string | null;
+  name: string;
+  status: string;
+  priority: string;
+  progress: number;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
+  sortOrder: number;
+  createdAt: string;
+  isLate?: boolean;
+};
+
 export type ProjectGanttPayload = {
   projectId: string;
+  /** Canonique — fallback normalisé si absent (rétrocompat). */
+  project?: {
+    id: string;
+    name: string;
+    status: string;
+    plannedStartDate: string | null;
+    plannedEndDate: string | null;
+  };
   phases: Array<{
     id: string;
     name: string;
@@ -599,24 +626,10 @@ export type ProjectGanttPayload = {
     derivedEndDate: string | null;
     derivedDurationDays: number | null;
     derivedProgress: number | null;
-    tasks: ProjectTaskApi[];
+    tasks: ProjectGanttTaskPayload[];
   }>;
-  tasks: Array<{
-    id: string;
-    phaseId: string | null;
-    dependsOnTaskId: string | null;
-    dependencyType: string | null;
-    name: string;
-    status: string;
-    priority: string;
-    progress: number;
-    plannedStartDate: string | null;
-    plannedEndDate: string | null;
-    actualStartDate: string | null;
-    actualEndDate: string | null;
-    sortOrder: number;
-    createdAt: string;
-  }>;
+  /** Legacy : liste plate (ordre Prisma) — fusionnée avec phases dans `normalizeProjectGanttPayload`. */
+  tasks: ProjectGanttTaskPayload[];
   ungroupedTasks: Array<{
     id: string;
     phaseId: null;
@@ -632,6 +645,7 @@ export type ProjectGanttPayload = {
     actualEndDate: string | null;
     sortOrder: number;
     createdAt: string;
+    isLate?: boolean;
   }>;
   milestones: Array<{
     id: string;
@@ -641,6 +655,7 @@ export type ProjectGanttPayload = {
     linkedTaskId: string | null;
     phaseId: string | null;
     sortOrder: number;
+    isLate?: boolean;
   }>;
 };
 

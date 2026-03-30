@@ -230,6 +230,8 @@ export type ProjectTaskApi = {
   taskLabelIds?: string[];
   /** Présent sur les réponses API liste ; utilisé pour tri client (RFC-PROJ-012). */
   createdAt?: string;
+  /** Calculé côté API (GET gantt) — ne pas recalculer côté UI. */
+  isLate?: boolean;
 };
 
 /** Tâche vue depuis un plan (liens projet / risque enrichis). RFC-PLA-001 */

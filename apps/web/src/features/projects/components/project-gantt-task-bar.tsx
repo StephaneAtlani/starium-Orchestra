@@ -24,6 +24,7 @@ export function ProjectGanttTaskBar({
   tone = GANTT_BAR_TONE_DEFAULT,
   summaryStacked = false,
   statusLabel,
+  isLate = false,
 }: {
   taskId: string;
   leftPx: number;
@@ -45,6 +46,8 @@ export function ProjectGanttTaskBar({
   summaryStacked?: boolean;
   /** Libellé statut pour le tooltip (affichage texte à droite de la barre géré par le panneau). */
   statusLabel?: string;
+  /** Retard métier (API GET gantt) — contour d’alerte. */
+  isLate?: boolean;
 }) {
   const linkHandles = Boolean(canEdit && showLinkPorts && onLinkOutPointerDown);
   const barInset = summaryStacked ? 'top-3 bottom-1.5' : 'top-2 bottom-2';
@@ -53,7 +56,12 @@ export function ProjectGanttTaskBar({
   if (!canEdit) {
     return (
       <div
-        className={cn(tone.track, 'absolute rounded-sm', barInset)}
+        className={cn(
+          tone.track,
+          'absolute rounded-sm',
+          barInset,
+          isLate && 'ring-1 ring-destructive/80 ring-offset-1 ring-offset-background',
+        )}
         style={{ left: leftPx, width: barW }}
         title={tip}
       >
@@ -69,7 +77,11 @@ export function ProjectGanttTaskBar({
 
   return (
     <div
-      className={cn('absolute flex touch-none rounded-sm', barInset)}
+      className={cn(
+        'absolute flex touch-none rounded-sm',
+        barInset,
+        isLate && 'ring-1 ring-destructive/80 ring-offset-1 ring-offset-background',
+      )}
       style={{ left: leftPx, width: barW }}
       title={`${tip} — glisser pour déplacer, poignées pour ajuster les dates${
         linkHandles ? ' ; ports lien au centre gauche/droite' : ''

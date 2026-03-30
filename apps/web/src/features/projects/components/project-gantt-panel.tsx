@@ -32,7 +32,6 @@ import {
 import type { ProjectTaskApi } from '../types/project.types';
 import {
   buildGanttBodyRows,
-  orderedTasksFromGanttPayload,
   type MilestoneForGanttBody,
 } from '../lib/build-gantt-body-rows';
 import {
@@ -53,6 +52,9 @@ import {
   type TimelineBounds,
 } from '../lib/gantt-timeline-layout';
 import { TASK_STATUS_LABEL } from '../constants/project-enum-labels';
+import { GanttProjectBanner, ProjectGanttView } from '../gantt/components/project-gantt-view';
+import { normalizeProjectGanttPayload } from '../gantt/mappers/normalize-project-gantt-payload';
+import { mapProjectGanttPayloadToRenderModel } from '../gantt/mappers/project-gantt-render-mapper';
 import { cn } from '@/lib/utils';
 import { GanttBarColorLegend } from './gantt-bar-color-legend';
 import {
@@ -195,19 +197,34 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const ganttQuery = useProjectGanttQuery(projectId);
   const payload = ganttQuery.data;
 
+  const normalized = useMemo(
+    () => (payload ? normalizeProjectGanttPayload(payload) : null),
+    [payload],
+  );
+
+  const renderModel = useMemo(
+    () =>
+      normalized
+        ? mapProjectGanttPayloadToRenderModel(normalized, {
+            taskStatusFilter,
+            showMilestones,
+          })
+        : null,
+    [normalized, taskStatusFilter, showMilestones],
+  );
+
   const milestoneTimes = useMemo(
-    () => (payload?.milestones ?? []).map((m) => new Date(m.targetDate).getTime()),
-    [payload?.milestones],
+    () => (normalized?.milestones ?? []).map((m) => new Date(m.targetDate).getTime()),
+    [normalized?.milestones],
   );
 
   const sortedMilestones = useMemo(() => {
-    const m = payload?.milestones ?? [];
+    const m = normalized?.milestones ?? [];
     return [...m].sort(
       (a, b) =>
-        new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime() ||
-        a.sortOrder - b.sortOrder,
+        a.targetDate.localeCompare(b.targetDate) || a.sortOrder - b.sortOrder,
     );
-  }, [payload?.milestones]);
+  }, [normalized?.milestones]);
 
   const visibleMilestones = useMemo(
     () => (showMilestones ? sortedMilestones : []),
@@ -220,39 +237,18 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   );
 
   const taskRootIdMap = useMemo(
-    () => buildTaskRootIdMap(payload?.tasks ?? []),
-    [payload?.tasks],
+    () => buildTaskRootIdMap(normalized?.tasks ?? []),
+    [normalized?.tasks],
   );
-
-  const phaseOptionsForBody = useMemo(() => {
-    if (!payload) return [];
-    return [...payload.phases]
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
-      .map((p) => ({ id: p.id, name: p.name, sortOrder: p.sortOrder }));
-  }, [payload]);
-
-  const orderedFlatTasks = useMemo(
-    () => (payload ? orderedTasksFromGanttPayload(payload) : []),
-    [payload],
-  );
-
-  const displayedTasksFiltered = useMemo(() => {
-    if (taskStatusFilter === 'all') return orderedFlatTasks;
-    return orderedFlatTasks.filter((t) => t.status === taskStatusFilter);
-  }, [orderedFlatTasks, taskStatusFilter]);
 
   const unifiedRows = useMemo(() => {
-    const milestonesBody: MilestoneForGanttBody[] = visibleMilestones.map((m) => ({
-      id: m.id,
-      name: m.name,
-      targetDate: m.targetDate,
-      linkedTaskId: m.linkedTaskId,
-      phaseId: m.phaseId,
-      sortOrder: m.sortOrder,
-      status: m.status,
-    }));
-    return buildGanttBodyRows(phaseOptionsForBody, displayedTasksFiltered, milestonesBody);
-  }, [phaseOptionsForBody, displayedTasksFiltered, visibleMilestones]);
+    if (!renderModel) return [];
+    return buildGanttBodyRows(
+      renderModel.phaseOptions,
+      renderModel.orderedTasksFiltered,
+      renderModel.milestonesForBody,
+    );
+  }, [renderModel]);
 
   const treeRowsForPalette = useMemo(
     () =>
@@ -294,7 +290,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         derivedProgress: number | null;
       }
     >();
-    for (const p of payload?.phases ?? []) {
+    for (const p of normalized?.phases ?? []) {
       m.set(p.id, {
         name: p.name,
         derivedStartDate: p.derivedStartDate,
@@ -303,7 +299,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
       });
     }
     return m;
-  }, [payload?.phases]);
+  }, [normalized?.phases]);
 
   const ungroupedDerived = useMemo(() => {
     const rows = unifiedRows
@@ -327,16 +323,16 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   }, [unifiedRows]);
 
   const unplannedCount = useMemo(() => {
-    if (!payload?.tasks) return 0;
-    return payload.tasks.filter(
+    if (!normalized?.tasks) return 0;
+    return normalized.tasks.filter(
       (t) => !t.plannedStartDate || !t.plannedEndDate,
     ).length;
-  }, [payload?.tasks]);
+  }, [normalized?.tasks]);
 
   const bounds = useMemo((): TimelineBounds | null => {
-    if (!payload) return null;
-    return computeTimelineBounds(payload.tasks, milestoneTimes);
-  }, [payload, milestoneTimes]);
+    if (!normalized) return null;
+    return computeTimelineBounds(normalized.tasks, milestoneTimes);
+  }, [normalized, milestoneTimes]);
 
   /** Durée affichée (jours) entre min et max de la frise. */
   const spanDays = useMemo(() => {
@@ -924,6 +920,18 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           isFullscreen && 'box-border min-h-screen overflow-hidden bg-background p-3 sm:p-4',
         )}
       >
+        <ProjectGanttView
+          banner={
+            normalized?.project?.name ? (
+              <GanttProjectBanner
+                name={normalized.project.name}
+                status={normalized.project.status}
+                plannedStartDate={normalized.project.plannedStartDate}
+                plannedEndDate={normalized.project.plannedEndDate}
+              />
+            ) : null
+          }
+        >
         <Alert>
           <Info className="size-4" />
           <AlertTitle>Aucune date à afficher</AlertTitle>
@@ -951,6 +959,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
             />
           </div>
         </div>
+        </ProjectGanttView>
       </div>
     );
   }
@@ -967,6 +976,18 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         isFullscreen && 'box-border min-h-screen overflow-hidden bg-background p-3 sm:p-4',
       )}
     >
+      <ProjectGanttView
+        banner={
+          normalized?.project?.name ? (
+            <GanttProjectBanner
+              name={normalized.project.name}
+              status={normalized.project.status}
+              plannedStartDate={normalized.project.plannedStartDate}
+              plannedEndDate={normalized.project.plannedEndDate}
+            />
+          ) : null
+        }
+      >
       {unplannedCount > 0 && (
         <Alert className="border-amber-500/40 bg-amber-500/5">
           <Info className="size-4 text-amber-800 dark:text-amber-600" />
@@ -1232,7 +1253,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
 
                     return (
                       <div
-                        key={`ph-${rowIndex}-${ur.phaseId ?? 'none'}`}
+                        key={`phase:${ur.phaseId ?? 'none'}`}
                         className="border-border/60 relative z-[2] box-border shrink-0 border-b"
                         style={{ height: GANTT_ROW_PX, width: widthPx }}
                       >
@@ -1286,15 +1307,21 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     const leftPx = dateMsToPx(tMs, bounds, pxPerDay);
                     return (
                       <div
-                        key={`ms-${m.id}-${rowIndex}`}
+                        key={`milestone:${m.id}`}
                         className="border-border/60 relative z-[2] box-border shrink-0 border-b"
                         style={{ height: GANTT_ROW_PX, width: widthPx }}
                       >
                         <div
                           className={
                             canEdit
-                              ? 'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm hover:bg-amber-400 cursor-grab touch-none active:cursor-grabbing'
-                              : 'bg-amber-500 pointer-events-none absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm'
+                              ? cn(
+                                  'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm hover:bg-amber-400 cursor-grab touch-none active:cursor-grabbing',
+                                  m.isLate && 'ring-2 ring-destructive/80 ring-offset-1 ring-offset-background',
+                                )
+                              : cn(
+                                  'bg-amber-500 pointer-events-none absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm',
+                                  m.isLate && 'ring-2 ring-destructive/80 ring-offset-1 ring-offset-background',
+                                )
                           }
                           style={{ left: leftPx }}
                           title={`${m.name} — ${new Date(tMs).toLocaleDateString('fr-FR')}`}
@@ -1332,7 +1359,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
 
                   return (
                     <div
-                      key={`task-${row.id}-${rowIndex}`}
+                      key={`task:${row.id}`}
                       className="border-border/60 relative z-[2] box-border shrink-0 border-b"
                       style={{ height: GANTT_ROW_PX, width: widthPx }}
                     >
@@ -1345,6 +1372,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                           canEdit={canEdit}
                           title={row.name}
                           statusLabel={statusLabel}
+                          isLate={Boolean(row.isLate)}
                           showLinkPorts={canEdit}
                           onPointerDownBar={(mode, ev) => beginTaskDrag(row, mode, ev)}
                           onLinkOutPointerDown={(ev) => beginLinkOut(row.id, ev)}
@@ -1391,6 +1419,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           </div>
         </div>
       </div>
+      </ProjectGanttView>
     </div>
   );
 }

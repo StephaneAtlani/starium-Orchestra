@@ -8,7 +8,7 @@ export type GanttPhaseOption = { id: string; name: string; sortOrder: number };
 export type MilestoneForGanttBody = Pick<
   ProjectMilestoneApi,
   'id' | 'name' | 'targetDate' | 'linkedTaskId' | 'phaseId' | 'sortOrder' | 'status'
->;
+> & { isLate?: boolean };
 
 export type GanttBodyRow =
   | { kind: 'phaseHeader'; phaseId: string | null; name: string }
