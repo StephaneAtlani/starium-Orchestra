@@ -118,6 +118,19 @@ export type ProjectsPortfolioSummaryDto = {
   noMilestoneProjects: number;
 };
 
+/** Une ligne projet pour la frise portefeuille (GET portfolio-gantt). */
+export type PortfolioGanttRowDto = {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  startDate: string | null;
+  targetEndDate: string | null;
+  progressPercent: number | null;
+  computedHealth: ComputedHealth;
+  isLate: boolean;
+};
+
 export type ProjectDetailDto = ProjectListItemDto & {
   description: string | null;
   sponsorUserId: string | null;
@@ -492,18 +505,15 @@ export class ProjectsService {
     return out;
   }
 
-  async list(
+  /**
+   * Liste projets filtrée / triée (même règles que `GET /projects`), sans pagination.
+   * Utilisé par `list` et par la frise portefeuille.
+   */
+  private async listProjectsEnriched(
     clientId: string,
     query: ListProjectsQueryDto,
     userId?: string,
-  ): Promise<{
-    items: ProjectListItemDto[];
-    total: number;
-    page: number;
-    limit: number;
-  }> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+  ): Promise<ProjectListItemDto[]> {
     const where: Prisma.ProjectWhereInput = { clientId };
     const andFilters: Prisma.ProjectWhereInput[] = [];
 
@@ -631,11 +641,62 @@ export class ProjectsService {
       return cmp * mult;
     });
 
+    return enriched;
+  }
+
+  async list(
+    clientId: string,
+    query: ListProjectsQueryDto,
+    userId?: string,
+  ): Promise<{
+    items: ProjectListItemDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const enriched = await this.listProjectsEnriched(clientId, query, userId);
     const total = enriched.length;
     const offset = (page - 1) * limit;
     const items = enriched.slice(offset, offset + limit);
 
     return { items, total, page, limit };
+  }
+
+  /** Frise portefeuille : mêmes filtres que la liste, une barre par projet (dates projet). */
+  async getPortfolioGantt(
+    clientId: string,
+    query: ListProjectsQueryDto,
+    userId?: string,
+  ): Promise<{ items: PortfolioGanttRowDto[] }> {
+    const enriched = await this.listProjectsEnriched(clientId, query, userId);
+    if (enriched.length === 0) {
+      return { items: [] };
+    }
+    const ids = enriched.map((e) => e.id);
+    const dates = await this.prisma.project.findMany({
+      where: { id: { in: ids }, clientId },
+      select: { id: true, startDate: true },
+    });
+    const startById = new Map(
+      dates.map((d) => [d.id, d.startDate?.toISOString() ?? null]),
+    );
+
+    return {
+      items: enriched.map((e) => ({
+        id: e.id,
+        code: e.code,
+        name: e.name,
+        status: e.status,
+        startDate: startById.get(e.id) ?? null,
+        targetEndDate: e.targetEndDate,
+        progressPercent:
+          e.progressPercent ?? e.derivedProgressPercent ?? null,
+        computedHealth: e.computedHealth,
+        isLate: e.signals.isLate,
+      })),
+    };
   }
 
   async getPortfolioSummary(

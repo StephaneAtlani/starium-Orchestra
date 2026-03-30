@@ -7,6 +7,8 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'assignable-users', clientId] as const,
   list: (clientId: string, params: ProjectsListFilters | Record<string, unknown>) =>
     [...projectQueryKeys.all, 'list', clientId, params] as const,
+  portfolioGantt: (clientId: string, params: Record<string, unknown>) =>
+    [...projectQueryKeys.all, 'portfolio-gantt', clientId, params] as const,
   detail: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'detail', clientId, projectId] as const,
   optionsTags: (clientId: string) =>

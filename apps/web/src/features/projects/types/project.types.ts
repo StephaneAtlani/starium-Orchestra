@@ -80,6 +80,23 @@ export type ProjectsPortfolioSummary = {
   noMilestoneProjects: number;
 };
 
+/** GET /api/projects/portfolio-gantt — une barre par projet (dates début / fin cible). */
+export type PortfolioGanttRow = {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  startDate: string | null;
+  targetEndDate: string | null;
+  progressPercent: number | null;
+  computedHealth: 'GREEN' | 'ORANGE' | 'RED';
+  isLate: boolean;
+};
+
+export type PortfolioGanttResponse = {
+  items: PortfolioGanttRow[];
+};
+
 export type ProjectDetail = ProjectListItem & {
   description: string | null;
   sponsorUserId: string | null;

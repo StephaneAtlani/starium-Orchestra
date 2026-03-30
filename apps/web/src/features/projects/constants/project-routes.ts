@@ -2,6 +2,11 @@ export function projectsList(): string {
   return '/projects';
 }
 
+/** Frise Gantt portefeuille (tous les projets filtrés). */
+export function projectsPortfolioGantt(): string {
+  return '/projects/portfolio-gantt';
+}
+
 /** Options / paramètres module Projets (placeholder). */
 export function projectsOptions(): string {
   return '/projects/options';

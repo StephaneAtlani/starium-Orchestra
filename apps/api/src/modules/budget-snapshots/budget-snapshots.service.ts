@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetSnapshotStatus, Prisma } from '@prisma/client';
+import { BudgetSnapshotStatus, Prisma, type BudgetSnapshot } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -474,15 +474,16 @@ export class BudgetSnapshotsService {
   }
 }
 
-function toSummary(
-  row: Prisma.BudgetSnapshotGetPayload<{
-    include?: {
-      createdByUser?: {
-        select: { firstName: true; lastName: true; email: true };
-      };
-    };
-  }>,
-): BudgetSnapshotSummary {
+/** Snapshot seul (create) ou avec `createdByUser` (list / detail). */
+type BudgetSnapshotRowForSummary = BudgetSnapshot & {
+  createdByUser?: {
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
+};
+
+function toSummary(row: BudgetSnapshotRowForSummary): BudgetSnapshotSummary {
   return {
     id: row.id,
     budgetId: row.budgetId,

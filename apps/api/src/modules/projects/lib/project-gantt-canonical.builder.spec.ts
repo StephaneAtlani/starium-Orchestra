@@ -1,11 +1,18 @@
-import { ProjectMilestoneStatus, ProjectTaskStatus } from '@prisma/client';
+import {
+  ProjectMilestoneStatus,
+  ProjectStatus,
+  ProjectTaskStatus,
+  type ProjectMilestone,
+  type ProjectTask,
+  type ProjectTaskPhase,
+} from '@prisma/client';
 import { buildCanonicalGanttPayload } from './project-gantt-canonical.builder';
 
 describe('buildCanonicalGanttPayload', () => {
   const project = {
     id: 'proj',
     name: 'Projet',
-    status: 'DRAFT',
+    status: ProjectStatus.DRAFT,
     startDate: null,
     targetEndDate: null,
   };
@@ -52,11 +59,13 @@ describe('buildCanonicalGanttPayload', () => {
     const inPhase = canon.phases[0]?.tasks ?? [];
     expect(inPhase).toHaveLength(1);
     expect(canon.ungroupedTasks).toHaveLength(0);
-    expect(new Set(tasks.map((t) => t.id)).size).toBe(tasks.length);
+    expect(new Set(tasks.map((t: (typeof tasks)[number]) => t.id)).size).toBe(
+      tasks.length,
+    );
   });
 
   it('expose isLate sur tâches et jalons', () => {
-    const phases: any[] = [];
+    const phases: ProjectTaskPhase[] = [];
     const tasks = [
       {
         id: 'late',
@@ -80,7 +89,7 @@ describe('buildCanonicalGanttPayload', () => {
         description: null,
         ownerUserId: null,
       },
-    ];
+    ] as unknown as ProjectTask[];
     const milestones = [
       {
         id: 'm1',
@@ -99,7 +108,7 @@ describe('buildCanonicalGanttPayload', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       },
-    ];
+    ] as unknown as ProjectMilestone[];
     const now = new Date('2026-01-01T12:00:00.000Z');
     const canon = buildCanonicalGanttPayload(project, phases, tasks, milestones, now);
     expect(canon.ungroupedTasks[0]?.isLate).toBe(true);

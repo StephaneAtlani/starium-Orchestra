@@ -22,11 +22,18 @@ import { usePortfolioSummaryQuery } from '@/features/projects/hooks/use-portfoli
 import { ProjectsPortfolioKpi } from '@/features/projects/components/projects-portfolio-kpi';
 import { ProjectsToolbar } from '@/features/projects/components/projects-toolbar';
 import { ProjectsListTable } from '@/features/projects/components/projects-list-table';
-import { projectNew } from '@/features/projects/constants/project-routes';
+import { projectNew, projectsPortfolioGantt } from '@/features/projects/constants/project-routes';
 import type { ApiFormError } from '@/features/budgets/api/types';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
-import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+} from 'lucide-react';
 
 export default function ProjectsPortfolioPage() {
   const { activeClient } = useActiveClient();
@@ -59,15 +66,29 @@ export default function ProjectsPortfolioPage() {
           title="Projets"
           description="Cockpit portefeuille — pilotage et signaux pour le client actif."
           actions={
-            <PermissionGate permission="projects.create">
-              <Link
-                href={projectNew()}
-                className={cn(buttonVariants({ variant: 'default', size: 'sm' }))}
-              >
-                <Plus className="size-4" />
-                Nouveau projet
-              </Link>
-            </PermissionGate>
+            <div className="flex flex-wrap items-center gap-2">
+              {permsSuccess && canReadProjects && (
+                <Link
+                  href={projectsPortfolioGantt()}
+                  className={cn(
+                    buttonVariants({ variant: 'outline', size: 'sm' }),
+                    'gap-1.5',
+                  )}
+                >
+                  <CalendarRange className="size-4" />
+                  Gantt portefeuille
+                </Link>
+              )}
+              <PermissionGate permission="projects.create">
+                <Link
+                  href={projectNew()}
+                  className={cn(buttonVariants({ variant: 'default', size: 'sm' }))}
+                >
+                  <Plus className="size-4" />
+                  Nouveau projet
+                </Link>
+              </PermissionGate>
+            </div>
           }
         />
 

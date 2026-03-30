@@ -19,6 +19,7 @@ import type {
   ProjectTeamMemberApi,
   ProjectTeamRoleApi,
   ProjectsListResponse,
+  PortfolioGanttResponse,
   ProjectsPortfolioSummary,
   ProjectSheetDecisionSnapshotDetail,
   ProjectSheetDecisionSnapshotListResponse,
@@ -67,6 +68,28 @@ export async function listHumanResourcesForTaskPickers(
   const res = await authFetch(`${BASE}/options/human-resources`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<Paginated<ResourceListItem>>;
+}
+
+export async function getPortfolioGantt(
+  authFetch: AuthFetch,
+  params?: {
+    search?: string;
+    kind?: string;
+    status?: string;
+    priority?: string;
+    criticality?: string;
+    portfolioCategoryId?: string;
+    computedHealth?: 'GREEN' | 'ORANGE' | 'RED';
+    myRole?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    atRiskOnly?: boolean;
+    myProjectsOnly?: boolean;
+  },
+): Promise<PortfolioGanttResponse> {
+  const res = await authFetch(`${BASE}/portfolio-gantt${qs(params)}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PortfolioGanttResponse>;
 }
 
 export async function listProjects(

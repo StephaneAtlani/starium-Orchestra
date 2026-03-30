@@ -48,6 +48,17 @@ export class ProjectsController {
     return this.projectsService.getPortfolioSummary(clientId!);
   }
 
+  /** Frise Gantt portefeuille — mêmes filtres query que `GET /projects` (sans pagination appliquée au tri interne). */
+  @Get('portfolio-gantt')
+  @RequirePermissions('projects.read')
+  portfolioGantt(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: ListProjectsQueryDto,
+    @RequestUserId() userId: string | undefined,
+  ) {
+    return this.projectsService.getPortfolioGantt(clientId!, query, userId);
+  }
+
   /** Membres client + répertoire personnes nom libre (équipe projet). Une seule route pour éviter la collision avec `GET :id`. */
   @Get('assignable-users')
   @RequirePermissions('projects.read')
