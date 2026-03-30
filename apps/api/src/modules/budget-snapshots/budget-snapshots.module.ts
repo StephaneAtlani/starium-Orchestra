@@ -8,5 +8,6 @@ import { BudgetSnapshotsService } from './budget-snapshots.service';
   imports: [PrismaModule, AuditLogsModule],
   controllers: [BudgetSnapshotsController],
   providers: [BudgetSnapshotsService],
+  exports: [BudgetSnapshotsService],
 })
 export class BudgetSnapshotsModule {}

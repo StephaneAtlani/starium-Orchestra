@@ -7,5 +7,6 @@ import { BudgetReportingService } from './budget-reporting.service';
   imports: [PrismaModule],
   controllers: [BudgetReportingController],
   providers: [BudgetReportingService],
+  exports: [BudgetReportingService],
 })
 export class BudgetReportingModule {}

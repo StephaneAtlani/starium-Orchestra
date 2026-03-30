@@ -24,6 +24,10 @@ import {
   BudgetVersionSummary,
   CompareLineDelta,
 } from './types/budget-versioning.types';
+import {
+  compareBudgetLinesByCode,
+  type BudgetLineComparableInput,
+} from './helpers/budget-version-compare.helper';
 
 export interface BudgetVersioningAuditContext {
   actorUserId?: string;
@@ -555,48 +559,66 @@ export class BudgetVersioningService {
       );
     }
 
-    const sourceByCode = new Map(
-      source.budgetLines.map((l) => [l.code, l]),
+    const sourceLines: BudgetLineComparableInput[] = source.budgetLines.map(
+      (l) => ({
+        id: l.id,
+        code: l.code,
+        name: l.name,
+        revisedAmount: Number(l.revisedAmount),
+        initialAmount: Number(l.initialAmount),
+        forecastAmount: Number(l.forecastAmount),
+      }),
     );
-    const targetByCode = new Map(
-      target.budgetLines.map((l) => [l.code, l]),
+    const targetLines: BudgetLineComparableInput[] = target.budgetLines.map(
+      (l) => ({
+        id: l.id,
+        code: l.code,
+        name: l.name,
+        revisedAmount: Number(l.revisedAmount),
+        initialAmount: Number(l.initialAmount),
+        forecastAmount: Number(l.forecastAmount),
+      }),
     );
-    const allCodes = new Set([
-      ...sourceByCode.keys(),
-      ...targetByCode.keys(),
-    ]);
+
+    let comparedPairs: ReturnType<typeof compareBudgetLinesByCode>;
+    try {
+      comparedPairs = compareBudgetLinesByCode({
+        left: sourceLines,
+        right: targetLines,
+        includeMissing: false,
+      });
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
+    }
+
     const lines: CompareLineDelta[] = [];
-    for (const code of allCodes) {
-      const s = sourceByCode.get(code);
-      const t = targetByCode.get(code);
-      if (!s && t) continue;
-      if (s && !t) continue;
-      if (s && t) {
-        const srcRev = Number(s.revisedAmount);
-        const tgtRev = Number(t.revisedAmount);
-        const srcInit = Number(s.initialAmount);
-        const tgtInit = Number(t.initialAmount);
-        const srcFc = Number(s.forecastAmount);
-        const tgtFc = Number(t.forecastAmount);
-        lines.push({
-          code,
-          source: {
-            revisedAmount: srcRev,
-            initialAmount: srcInit,
-            forecastAmount: srcFc,
-          },
-          target: {
-            revisedAmount: tgtRev,
-            initialAmount: tgtInit,
-            forecastAmount: tgtFc,
-          },
-          delta: {
-            revisedAmount: tgtRev - srcRev,
-            initialAmount: tgtInit - srcInit,
-            forecastAmount: tgtFc - srcFc,
-          },
-        });
-      }
+    for (const pair of comparedPairs) {
+      const s = pair.left!;
+      const t = pair.right!;
+      const srcRev = s.revisedAmount;
+      const tgtRev = t.revisedAmount;
+      const srcInit = s.initialAmount ?? 0;
+      const tgtInit = t.initialAmount ?? 0;
+      const srcFc = s.forecastAmount ?? 0;
+      const tgtFc = t.forecastAmount ?? 0;
+      lines.push({
+        code: pair.lineKey,
+        source: {
+          revisedAmount: srcRev,
+          initialAmount: srcInit,
+          forecastAmount: srcFc,
+        },
+        target: {
+          revisedAmount: tgtRev,
+          initialAmount: tgtInit,
+          forecastAmount: tgtFc,
+        },
+        delta: {
+          revisedAmount: tgtRev - srcRev,
+          initialAmount: tgtInit - srcInit,
+          forecastAmount: tgtFc - srcFc,
+        },
+      });
     }
     return {
       sourceBudgetId,
