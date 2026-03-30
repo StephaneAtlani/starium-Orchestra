@@ -78,6 +78,28 @@ export function BudgetLineFormPage({
   const submitError: ApiFormError | null =
     (createMutation.error as ApiFormError) ?? (updateMutation.error as ApiFormError) ?? null;
 
+  const monthColumnLabels = useMemo((): string[] | undefined => {
+    if (!budgetExercise?.startDate) return undefined;
+    try {
+      return getBudgetMonthColumnLabelsFromExerciseStartIso(budgetExercise.startDate);
+    } catch {
+      return undefined;
+    }
+  }, [budgetExercise?.startDate]);
+
+  const exercisePeriodHint = useMemo((): string | null => {
+    if (!budgetExercise?.startDate || !budgetExercise?.endDate) return null;
+    const fmt = new Intl.DateTimeFormat('fr-FR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+    const start = new Date(budgetExercise.startDate);
+    const end = new Date(budgetExercise.endDate);
+    return `Exercice ${fmt.format(start)} → ${fmt.format(end)} · 12 mois (mois 1 = premier mois d’exercice)`;
+  }, [budgetExercise?.startDate, budgetExercise?.endDate]);
+
   // Ancien état du planning détaillé (grille + moteurs avancés) supprimé au profit de la calculette rapide.
 
   if (isEdit && isLoading) {
@@ -136,28 +158,6 @@ export function BudgetLineFormPage({
 
   const cancelHref = budgetDetail(resolvedBudgetId);
   const budgetLabel = budget?.name ?? resolvedBudgetId;
-
-  const monthColumnLabels = useMemo((): string[] | undefined => {
-    if (!budgetExercise?.startDate) return undefined;
-    try {
-      return getBudgetMonthColumnLabelsFromExerciseStartIso(budgetExercise.startDate);
-    } catch {
-      return undefined;
-    }
-  }, [budgetExercise?.startDate]);
-
-  const exercisePeriodHint = useMemo((): string | null => {
-    if (!budgetExercise?.startDate || !budgetExercise?.endDate) return null;
-    const fmt = new Intl.DateTimeFormat('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      timeZone: 'UTC',
-    });
-    const start = new Date(budgetExercise.startDate);
-    const end = new Date(budgetExercise.endDate);
-    return `Exercice ${fmt.format(start)} → ${fmt.format(end)} · 12 mois (mois 1 = premier mois d’exercice)`;
-  }, [budgetExercise?.startDate, budgetExercise?.endDate]);
 
   return (
     <>
