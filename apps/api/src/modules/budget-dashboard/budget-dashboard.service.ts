@@ -83,12 +83,71 @@ export class BudgetDashboardService {
       dashCfg.defaultBudgetId ??
       undefined;
 
-    const { budget, exercise } = await this.resolveBudgetAndExercise(
+    const shouldAggregateBudgetsForExercise =
+      query.aggregateBudgetsForExercise === true;
+
+    const exerciseResolution = await this.resolveBudgetAndExercise(
       clientId,
-      budgetIdMerged,
+      shouldAggregateBudgetsForExercise ? undefined : budgetIdMerged,
       exerciseIdMerged,
     );
-    const budgetId = budget.id;
+
+    let budget = exerciseResolution.budget;
+    let exercise = exerciseResolution.exercise;
+
+    // Id de budget réellement utilisé pour les taxes/TTc (un seul budget “repère”),
+    // tandis que le périmètre “agrégé” s’appuie sur plusieurs budgetIds.
+    let budgetIdForTax = budget.id;
+    let budgetIdsForData: string[] = [budget.id];
+
+    if (shouldAggregateBudgetsForExercise) {
+      const budgets = await this.prisma.budget.findMany({
+        where: { clientId, exerciseId: exercise.id, status: 'ACTIVE' },
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          exerciseId: true,
+          currency: true,
+          status: true,
+        },
+      });
+
+      const budgetsFallback =
+        budgets.length > 0
+          ? budgets
+          : await this.prisma.budget.findMany({
+              where: { clientId, exerciseId: exercise.id },
+              orderBy: { updatedAt: 'desc' },
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                exerciseId: true,
+                currency: true,
+                status: true,
+              },
+            });
+
+      if (budgetsFallback.length === 0) {
+        throw new NotFoundException('No budget found for this exercise');
+      }
+
+      budgetIdForTax = budget.id; // representative already resolved above
+      budgetIdsForData = budgetsFallback.map((b) => b.id);
+
+      // Budget “synthétique” renvoyé au frontend pour piloter l’UX.
+      budget = {
+        ...budget,
+        id: '__ALL__',
+        name: 'Tous les budgets',
+        /** Chaîne vide : pas de préfixe « code — » (ce n’est pas un budget unique). */
+        code: '',
+      };
+    }
+
+    const budgetId = budgetIdForTax;
     const exerciseId = exercise.id;
 
     const includeEnvelopes = query.includeEnvelopes !== false;
@@ -96,7 +155,10 @@ export class BudgetDashboardService {
 
     const [linesForAggregation, eventsForTrend] = await Promise.all([
       this.prisma.budgetLine.findMany({
-        where: { clientId, budgetId },
+        where: {
+          clientId,
+          budgetId: { in: budgetIdsForData },
+        },
         select: {
           id: true,
           envelopeId: true,
@@ -117,7 +179,7 @@ export class BudgetDashboardService {
       this.prisma.financialEvent.findMany({
         where: {
           clientId,
-          budgetLine: { budgetId },
+          budgetLine: { budgetId: { in: budgetIdsForData } },
           eventType: {
             in: [
               FinancialEventType.COMMITMENT_REGISTERED,

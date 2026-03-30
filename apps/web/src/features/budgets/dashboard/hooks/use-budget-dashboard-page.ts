@@ -20,6 +20,8 @@ import type {
   BudgetSummary,
 } from '@/features/budgets/types/budget-list.types';
 
+const ALL_BUDGETS_SENTINEL = '__ALL__';
+
 /**
  * Les Select (Base UI) affichent la valeur brute si aucun SelectItem ne correspond.
  * Quand l’ID vient du dashboard avant que les listes soient chargées, on injecte
@@ -108,8 +110,17 @@ export function useBudgetDashboardPage() {
     return `starium.budgetCockpit.mode:${cId}:${uId}`;
   }, [activeClient?.id, user?.id]);
 
+  const animateAmountsStorageKey = useMemo(() => {
+    const cId = activeClient?.id ?? '';
+    const uId = user?.id ?? '';
+    return `starium.budgetCockpit.animateAmounts:${cId}:${uId}`;
+  }, [activeClient?.id, user?.id]);
+
   // Par défaut : version "global" (config client) tant qu’aucune préférence user n’est stockée.
   const [useUserOverrides, setUseUserOverrides] = useState(false);
+
+  /** Animation des chiffres sur les cartes KPI (localStorage par client + utilisateur). */
+  const [animateAmounts, setAnimateAmounts] = useState(true);
 
   useEffect(() => {
     if (!cockpitModeStorageKey) return;
@@ -127,13 +138,35 @@ export function useBudgetDashboardPage() {
     );
   }, [cockpitModeStorageKey, useUserOverrides, user?.id, activeClient?.id]);
 
+  useEffect(() => {
+    if (!animateAmountsStorageKey) return;
+    if (!user?.id || !activeClient?.id) return;
+    const raw = window.localStorage.getItem(animateAmountsStorageKey);
+    if (raw === '0' || raw === 'false') setAnimateAmounts(false);
+    else if (raw === '1' || raw === 'true') setAnimateAmounts(true);
+  }, [animateAmountsStorageKey, user?.id, activeClient?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !activeClient?.id) return;
+    window.localStorage.setItem(
+      animateAmountsStorageKey,
+      animateAmounts ? '1' : '0',
+    );
+  }, [animateAmountsStorageKey, animateAmounts, user?.id, activeClient?.id]);
+
   const params: BudgetDashboardQueryParams | undefined = useMemo(() => {
     // Ne pas déclencher l’appel cockpit tant qu’on n’a pas d’exercice/budget.
     if (exerciseId === undefined && budgetId === undefined) return undefined;
 
     const p: BudgetDashboardQueryParams = {};
     if (exerciseId !== undefined) p.exerciseId = exerciseId;
-    if (budgetId !== undefined) p.budgetId = budgetId;
+    if (budgetId !== undefined) {
+      if (budgetId === ALL_BUDGETS_SENTINEL) {
+        p.aggregateBudgetsForExercise = true;
+      } else {
+        p.budgetId = budgetId;
+      }
+    }
     if (useUserOverrides === false) p.useUserOverrides = false;
     return p;
   }, [exerciseId, budgetId, useUserOverrides]);
@@ -163,7 +196,11 @@ export function useBudgetDashboardPage() {
       setSelectionHydrated(true);
       return;
     }
-    const saved = loadBudgetCockpitSelection(activeClient.id);
+    const personal = useUserOverrides && !!user?.id;
+    const saved = personal
+      ? loadBudgetCockpitSelection(activeClient.id, { userId: user!.id }) ??
+        loadBudgetCockpitSelection(activeClient.id)
+      : loadBudgetCockpitSelection(activeClient.id);
     if (saved) {
       setExerciseId(saved.exerciseId);
       setBudgetId(saved.budgetId);
@@ -172,7 +209,7 @@ export function useBudgetDashboardPage() {
       setBudgetId(undefined);
     }
     setSelectionHydrated(true);
-  }, [activeClient?.id, searchParams]);
+  }, [activeClient?.id, searchParams, useUserOverrides, user?.id]);
 
   const dashboardEnabled =
     selectionHydrated &&
@@ -219,8 +256,13 @@ export function useBudgetDashboardPage() {
 
   useEffect(() => {
     if (!activeClient?.id || !exerciseId || !budgetId) return;
-    saveBudgetCockpitSelection(activeClient.id, { exerciseId, budgetId });
-  }, [activeClient?.id, exerciseId, budgetId]);
+    const personal = useUserOverrides && !!user?.id;
+    saveBudgetCockpitSelection(
+      activeClient.id,
+      { exerciseId, budgetId },
+      personal ? { userId: user!.id } : undefined,
+    );
+  }, [activeClient?.id, exerciseId, budgetId, useUserOverrides, user?.id]);
 
   const onExerciseChange = useCallback((nextExerciseId: string) => {
     setExerciseId(nextExerciseId);
@@ -251,12 +293,47 @@ export function useBudgetDashboardPage() {
 
   const budgets = useMemo(
     () =>
-      mergeBudgetOptionsForSelect(
-        budgetsQuery.data?.items ?? [],
-        data,
-        budgetId,
-      ),
-    [budgetsQuery.data?.items, data, budgetId],
+      (() => {
+        const loaded = budgetsQuery.data?.items ?? [];
+        if (!exerciseId) {
+          return mergeBudgetOptionsForSelect(loaded, data, budgetId);
+        }
+
+        // Ajoute une option synthétique dans le dropdown pour piloter l’agrégation.
+        const rep = loaded[0];
+        const withAggregateOption =
+          rep && !loaded.some((b) => b.id === ALL_BUDGETS_SENTINEL)
+            ? ([
+                {
+                  ...rep,
+                  id: ALL_BUDGETS_SENTINEL,
+                  name: 'Tous les budgets',
+                  /** Pas le code d’un budget précis : l’agrégat n’est pas un seul budget. */
+                  code: null,
+                },
+                ...loaded,
+              ] as BudgetSummary[])
+            : loaded;
+
+        // Si le backend renvoie déjà le budget synthétique (id == '__ALL__'),
+        // on aligne le label affiché avec la réponse cockpit.
+        if (data?.budget.id === ALL_BUDGETS_SENTINEL) {
+          const idx = withAggregateOption.findIndex(
+            (b) => b.id === ALL_BUDGETS_SENTINEL,
+          );
+          if (idx >= 0) {
+            withAggregateOption[idx] = {
+              ...withAggregateOption[idx],
+              name: data.budget.name,
+              code: data.budget.code,
+              currency: data.budget.currency,
+            };
+          }
+        }
+
+        return mergeBudgetOptionsForSelect(withAggregateOption, data, budgetId);
+      })(),
+    [budgetsQuery.data?.items, data, budgetId, exerciseId],
   );
 
   /** Libellés affichés dans les Select (évite l’affichage des IDs bruts si le Value ne résout pas). */
@@ -285,6 +362,8 @@ export function useBudgetDashboardPage() {
     onBudgetChange,
     useUserOverrides,
     onUserOverridesModeChange,
+    animateAmounts,
+    onAnimateAmountsChange: setAnimateAmounts,
     refresh,
     data,
     /**

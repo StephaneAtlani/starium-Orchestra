@@ -82,7 +82,8 @@ export function BudgetDashboardHeader({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
+            <div className="flex flex-wrap items-center gap-2">
 
             <Select
               value={exerciseId ?? ''}
@@ -188,6 +189,13 @@ export function BudgetDashboardHeader({
                 <Settings2 className="size-4" />
                 Personnaliser
               </Button>
+            ) : null}
+            </div>
+            {useUserOverrides ? (
+              <p className="max-w-md text-right text-xs leading-relaxed text-muted-foreground">
+                En mode personnalisé, l&apos;exercice et le budget choisis ici sont
+                mémorisés comme défaut pour votre compte (séparés du mode Global).
+              </p>
             ) : null}
           </div>
         </div>

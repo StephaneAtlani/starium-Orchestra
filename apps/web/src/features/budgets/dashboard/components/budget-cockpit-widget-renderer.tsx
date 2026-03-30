@@ -17,6 +17,8 @@ type Props = {
   data: BudgetCockpitResponse;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
+  /** Animation des grands chiffres sur la synthèse financière (préférence cockpit). */
+  animateAmounts: boolean;
   onViewCriticalLines: () => void;
   criticalRef: React.RefObject<HTMLDivElement | null>;
   onEnvelopeClick: (envelopeId: string) => void;
@@ -27,6 +29,7 @@ export function BudgetCockpitWidgetRenderer({
   data,
   taxDisplayMode,
   defaultTaxRate,
+  animateAmounts,
   onViewCriticalLines,
   criticalRef,
   onEnvelopeClick,
@@ -51,6 +54,7 @@ export function BudgetCockpitWidgetRenderer({
                   currency={budget.currency}
                   taxDisplayMode={taxDisplayMode}
                   defaultTaxRate={defaultTaxRate}
+                  animateAmounts={animateAmounts}
                 />
                 {w.data.capexOpexDistribution ? (
                   <div className="mt-4 max-w-3xl">

@@ -37,6 +37,9 @@ export async function getDashboard(
   if (params?.includeEnvelopes === false) search.set('includeEnvelopes', 'false');
   if (params?.includeLines === false) search.set('includeLines', 'false');
   if (params?.useUserOverrides === false) search.set('useUserOverrides', 'false');
+  if (params?.aggregateBudgetsForExercise === true) {
+    search.set('aggregateBudgetsForExercise', 'true');
+  }
   const qs = search.toString();
   const url = qs ? `/api/budget-dashboard?${qs}` : '/api/budget-dashboard';
   const res = await authFetch(url);

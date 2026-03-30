@@ -14,6 +14,7 @@ import type { BudgetCockpitKpiBlock } from '@/features/budgets/types/budget-dash
 import {
   formatForecastGapParts,
   formatKpiAmountParts,
+  kpiDisplayAmountNumeric,
 } from '@/features/budgets/lib/budget-dashboard-format';
 import { formatPercent } from '@/features/budgets/lib/budget-formatters';
 import { BudgetKpiCard, type BudgetKpiAmountTone } from './budget-kpi-card';
@@ -24,15 +25,22 @@ export function BudgetKpiGrid({
   currency,
   taxDisplayMode,
   defaultTaxRate,
+  animateAmounts = false,
 }: {
   kpis: BudgetCockpitKpiBlock;
   currency: string;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
+  /** Interpolation des montants sur les cartes KPI (cohérent HT/TTC avec le sélecteur). */
+  animateAmounts?: boolean;
 }) {
   const c = currency;
 
   const ecartForecast = kpis.forecast - kpis.totalBudget;
+  const ecartTtcFromApi =
+    kpis.forecastTtc != null && kpis.totalBudgetTtc != null
+      ? kpis.forecastTtc - kpis.totalBudgetTtc
+      : undefined;
   const gapParts = formatForecastGapParts(kpis, c, taxDisplayMode, defaultTaxRate);
   const ecartSub =
     ecartForecast >= 0
@@ -47,6 +55,14 @@ export function BudgetKpiGrid({
 
   const fmt = (p: Parameters<typeof formatKpiAmountParts>[0]) =>
     formatKpiAmountParts(p);
+
+  const num = (ht: number, ttcFromApi?: number | null) =>
+    kpiDisplayAmountNumeric({
+      ht,
+      ttcFromApi: ttcFromApi ?? undefined,
+      mode: taxDisplayMode,
+      defaultTaxRate,
+    });
 
   return (
     <CockpitSection
@@ -76,6 +92,8 @@ export function BudgetKpiGrid({
             mode: taxDisplayMode,
             defaultTaxRate,
           })}
+          amountDisplayValue={num(kpis.totalBudget, kpis.totalBudgetTtc)}
+          animateAmount={animateAmounts}
           icon={Wallet}
           dataTestId="kpi-total-budget"
         />
@@ -91,6 +109,8 @@ export function BudgetKpiGrid({
             mode: taxDisplayMode,
             defaultTaxRate,
           })}
+          amountDisplayValue={num(kpis.committed, kpis.committedTtc)}
+          animateAmount={animateAmounts}
           icon={Waypoints}
           dataTestId="kpi-committed"
         />
@@ -106,6 +126,8 @@ export function BudgetKpiGrid({
             mode: taxDisplayMode,
             defaultTaxRate,
           })}
+          amountDisplayValue={num(kpis.consumed, kpis.consumedTtc)}
+          animateAmount={animateAmounts}
           icon={ArrowDownRight}
           dataTestId="kpi-consumed"
         />
@@ -121,6 +143,8 @@ export function BudgetKpiGrid({
             mode: taxDisplayMode,
             defaultTaxRate,
           })}
+          amountDisplayValue={num(kpis.remaining, kpis.remainingTtc)}
+          animateAmount={animateAmounts}
           icon={PiggyBank}
           amountTone={remainingTone}
           dataTestId="kpi-remaining"
@@ -137,6 +161,8 @@ export function BudgetKpiGrid({
             mode: taxDisplayMode,
             defaultTaxRate,
           })}
+          amountDisplayValue={num(kpis.forecast, kpis.forecastTtc)}
+          animateAmount={animateAmounts}
           icon={Scale}
           dataTestId="kpi-forecast"
         />
@@ -147,6 +173,8 @@ export function BudgetKpiGrid({
           description="Forecast − budget révisé"
           parts={gapParts}
           subtext={ecartSub}
+          amountDisplayValue={num(ecartForecast, ecartTtcFromApi)}
+          animateAmount={animateAmounts}
           icon={TrendingDown}
           amountTone={gapTone}
           dataTestId="kpi-forecast-gap"

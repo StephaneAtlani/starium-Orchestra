@@ -36,6 +36,8 @@ export function BudgetDashboardPage() {
     onBudgetChange,
     useUserOverrides,
     onUserOverridesModeChange,
+    animateAmounts,
+    onAnimateAmountsChange,
     refresh,
     data,
     isLoading,
@@ -46,6 +48,8 @@ export function BudgetDashboardPage() {
     budgets,
     budgetsLoading,
   } = useBudgetDashboardPage();
+
+  const isAggregatedBudgetMode = budgetId === '__ALL__';
 
   const {
     taxDisplayMode,
@@ -185,16 +189,34 @@ export function BudgetDashboardPage() {
               open={settingsOpen}
               onOpenChange={setSettingsOpen}
               widgets={data.widgets}
+              useUserOverrides={useUserOverrides}
+              animateAmounts={animateAmounts}
+              onAnimateAmountsChange={onAnimateAmountsChange}
+              exercises={exercises}
+              budgets={budgets}
+              exerciseId={exerciseId}
+              budgetId={budgetId}
+              exerciseSelectLabel={exerciseSelectLabel}
+              budgetSelectLabel={budgetSelectLabel}
+              exercisesLoading={exercisesLoading}
+              budgetsLoading={budgetsLoading}
+              onExerciseChange={onExerciseChange}
+              onBudgetChange={onBudgetChange}
             />
 
             <BudgetCockpitWidgetRenderer
               data={data}
               taxDisplayMode={taxDisplayMode}
               defaultTaxRate={defaultTaxRate}
+              animateAmounts={animateAmounts}
               onViewCriticalLines={scrollToCritical}
               criticalRef={criticalRef}
-              onEnvelopeClick={openEnvelopeDrawer}
-              onBudgetLineClick={openBudgetLineDrawer}
+              onEnvelopeClick={
+                isAggregatedBudgetMode ? () => {} : openEnvelopeDrawer
+              }
+              onBudgetLineClick={
+                isAggregatedBudgetMode ? () => {} : openBudgetLineDrawer
+              }
             />
 
             <BudgetEnvelopeIntelligenceDrawer

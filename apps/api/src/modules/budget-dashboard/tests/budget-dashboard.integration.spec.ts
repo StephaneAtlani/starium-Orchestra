@@ -14,7 +14,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 describe('Budget dashboard integration', () => {
   let controller: BudgetDashboardController;
   let prisma: {
-    budget: { findFirst: jest.Mock };
+    budget: { findFirst: jest.Mock; findMany: jest.Mock };
     budgetExercise: { findFirst: jest.Mock };
     budgetVersionSet: { findFirst: jest.Mock };
     budgetLine: { findMany: jest.Mock };
@@ -33,6 +33,7 @@ describe('Budget dashboard integration', () => {
   const clientA = 'client-A';
   const clientB = 'client-B';
   const budgetId = 'bud-1';
+  const budgetId2 = 'bud-2';
   const exerciseId = 'ex-1';
   const passGuard = { canActivate: () => true };
 
@@ -40,6 +41,14 @@ describe('Budget dashboard integration', () => {
     id: budgetId,
     name: 'Budget A',
     code: 'BA',
+    exerciseId,
+    currency: 'EUR',
+    status: 'ACTIVE',
+  };
+  const mockBudget2 = {
+    id: budgetId2,
+    name: 'Budget B',
+    code: 'BB',
     exerciseId,
     currency: 'EUR',
     status: 'ACTIVE',
@@ -76,7 +85,7 @@ describe('Budget dashboard integration', () => {
 
   beforeAll(async () => {
     prisma = {
-      budget: { findFirst: jest.fn() },
+      budget: { findFirst: jest.fn(), findMany: jest.fn() },
       budgetExercise: { findFirst: jest.fn() },
       budgetVersionSet: { findFirst: jest.fn() },
       budgetLine: { findMany: jest.fn() },
@@ -199,6 +208,64 @@ describe('Budget dashboard integration', () => {
       const alertW = result.widgets.find((w) => w.type === 'ALERT_LIST');
       // valeur config client : w1 estActive=true dans le mockDashboardConfig
       expect(alertW?.isActive).toBe(true);
+    });
+
+    it('mode agrégé : somme sur tous les budgets du même exercice', async () => {
+      prisma.budget.findFirst.mockResolvedValue(mockBudget);
+      prisma.budget.findMany.mockResolvedValue([mockBudget, mockBudget2]);
+      prisma.budgetExercise.findFirst.mockResolvedValue(mockExercise);
+
+      // Deux lignes (représentent le cumul des deux budgets).
+      prisma.budgetLine.findMany.mockResolvedValue([
+        {
+          id: 'line-1',
+          envelopeId: 'env-1',
+          taxRate: null,
+          revisedAmount: 10,
+          committedAmount: 2,
+          remainingAmount: 8,
+          consumedAmount: 1,
+          forecastAmount: 3,
+          expenseType: 'CAPEX',
+          code: 'L-1',
+          name: 'Line 1',
+          envelope: { id: 'env-1', code: 'ENV', name: 'Envelope 1', type: 'RUN' },
+        },
+        {
+          id: 'line-2',
+          envelopeId: 'env-2',
+          taxRate: null,
+          revisedAmount: 20,
+          committedAmount: 5,
+          remainingAmount: 15,
+          consumedAmount: 4,
+          forecastAmount: 9,
+          expenseType: 'OPEX',
+          code: 'L-2',
+          name: 'Line 2',
+          envelope: { id: 'env-2', code: null, name: 'Envelope 2', type: 'BUILD' },
+        },
+      ]);
+
+      prisma.financialAllocation.findMany.mockResolvedValue([]);
+      prisma.financialEvent.findMany.mockResolvedValue([]);
+      prisma.budgetDashboardWidgetOverride.findMany.mockResolvedValue([]);
+
+      const result = await controller.getDashboard(clientA, undefined, {
+        exerciseId,
+        aggregateBudgetsForExercise: true,
+      });
+
+      expect(result.budget.id).toBe('__ALL__');
+      const kpi = result.widgets.find((w) => w.type === 'KPI');
+      expect(kpi && kpi.type === 'KPI' && kpi.data).toBeTruthy();
+      if (kpi && kpi.type === 'KPI' && kpi.data) {
+        expect(kpi.data.kpis.totalBudget).toBe(30);
+        expect(kpi.data.kpis.committed).toBe(7);
+        expect(kpi.data.kpis.consumed).toBe(5);
+        expect(kpi.data.kpis.remaining).toBe(23);
+        expect(kpi.data.kpis.forecast).toBe(12);
+      }
     });
   });
 

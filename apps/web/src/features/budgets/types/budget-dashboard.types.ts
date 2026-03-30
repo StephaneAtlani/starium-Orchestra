@@ -204,6 +204,12 @@ export interface BudgetDashboardQueryParams {
   includeLines?: boolean;
   /** true => applique les overrides utilisateur ("Personnaliser"), false => version client globale ("global"). */
   useUserOverrides?: boolean;
+
+  /**
+   * Quand true => agrège les données sur tous les budgets d’un même exercice.
+   * MVP : drilldown désactivé (pas de budget “réel” à lier).
+   */
+  aggregateBudgetsForExercise?: boolean;
 }
 
 /** Config cockpit (liste / édition). */
