@@ -21,10 +21,10 @@ import {
   groupPortfolioGanttByCategory,
   portfolioGanttBodyHeightPx,
 } from '../lib/portfolio-gantt-group';
-import {
-  portfolioGanttBarSegmentClasses,
-  portfolioGanttBarTooltipMeta,
-} from '../lib/portfolio-gantt-bar-styles';
+import { portfolioGanttBarSegmentClasses } from '../lib/portfolio-gantt-bar-styles';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { PortfolioGanttProjectTooltip } from './portfolio-gantt-project-tooltip';
+import { PortfolioGanttLegend } from './portfolio-gantt-legend';
 import { cn } from '@/lib/utils';
 
 /** Styles frise portefeuille — fonds de piste + chrome. */
@@ -70,6 +70,21 @@ function renderProjectTimelineRow(
   const eligible =
     like?.plannedStartDate && like?.plannedEndDate && bounds;
   const segment = portfolioGanttBarSegmentClasses(row);
+
+  const emptyTrack = (
+    <PortfolioGanttProjectTooltip
+      row={row}
+      side="top"
+      align="center"
+      sideOffset={6}
+      triggerClassName="absolute inset-0 block min-h-[1.25rem]"
+    >
+      <span className="sr-only">
+        {row.code} — {row.name}
+      </span>
+    </PortfolioGanttProjectTooltip>
+  );
+
   if (!eligible || !like) {
     return (
       <div
@@ -79,7 +94,9 @@ function renderProjectTimelineRow(
           portfolioGantt.projectRow.trackEmpty,
         )}
         style={{ height: PORTFOLIO_GANTT_ROW_PX, width: widthPx }}
-      />
+      >
+        {emptyTrack}
+      </div>
     );
   }
   const start = like.plannedStartDate;
@@ -93,7 +110,9 @@ function renderProjectTimelineRow(
           portfolioGantt.projectRow.trackEmpty,
         )}
         style={{ height: PORTFOLIO_GANTT_ROW_PX, width: widthPx }}
-      />
+      >
+        {emptyTrack}
+      </div>
     );
   }
   const s = new Date(start).getTime();
@@ -101,27 +120,31 @@ function renderProjectTimelineRow(
   const left = dateMsToPx(s, bounds, pxPerDay);
   const w = Math.max(4, dateMsToPx(e, bounds, pxPerDay) - left);
   const pct = Math.min(100, Math.max(0, row.progressPercent ?? 0));
-  const tip = `${row.name} — ${pct}% — ${portfolioGanttBarTooltipMeta(row)}`;
+
   return (
     <div
       key={`task:${row.id}`}
       className={cn('relative shrink-0 rounded-md border', portfolioGantt.projectRow.track)}
       style={{ height: PORTFOLIO_GANTT_ROW_PX, width: widthPx }}
     >
-      <div
-        className={cn(
+      <PortfolioGanttProjectTooltip
+        row={row}
+        side="top"
+        align="center"
+        sideOffset={6}
+        triggerClassName={cn(
           'absolute top-1/2 h-5 max-h-[calc(100%-8px)] -translate-y-1/2 rounded-md',
           segment.bar,
           segment.lateRing,
         )}
-        style={{ left, width: w }}
-        title={tip}
+        triggerStyle={{ left, width: Math.max(w, 24) }}
       >
         <div
-          className={cn('h-full rounded-l-[5px]', segment.fill)}
+          className={cn('pointer-events-none h-full rounded-l-[5px]', segment.fill)}
           style={{ width: `${pct}%` }}
+          aria-hidden
         />
-      </div>
+      </PortfolioGanttProjectTooltip>
     </div>
   );
 }
@@ -173,6 +196,8 @@ export function PortfolioGanttChart({ items }: { items: PortfolioGanttRow[] }) {
   const widthPx = layout.widthPx;
 
   return (
+    <TooltipProvider delay={250}>
+      <div className="flex min-w-0 flex-col gap-3">
     <div
       className={cn(
         'flex min-h-[min(70vh,720px)] min-w-0 flex-col overflow-hidden rounded-lg border',
@@ -215,13 +240,20 @@ export function PortfolioGanttChart({ items }: { items: PortfolioGanttRow[] }) {
                   )}
                   style={{ height: PORTFOLIO_GANTT_ROW_PX }}
                 >
-                  <Link
-                    href={projectDetail(lr.row.id)}
-                    className="hover:text-primary line-clamp-2 min-w-0 text-left text-xs leading-snug font-medium underline-offset-2 hover:underline"
-                    title={`${lr.row.code} — ${lr.row.name}`}
+                  <PortfolioGanttProjectTooltip
+                    row={lr.row}
+                    side="right"
+                    align="center"
+                    sideOffset={10}
+                    triggerClassName="block min-w-0 flex-1 text-left"
                   >
-                    <span className="text-muted-foreground">{lr.row.code}</span> · {lr.row.name}
-                  </Link>
+                    <Link
+                      href={projectDetail(lr.row.id)}
+                      className="hover:text-primary line-clamp-2 min-w-0 text-left text-xs leading-snug font-medium underline-offset-2 hover:underline"
+                    >
+                      <span className="text-muted-foreground">{lr.row.code}</span> · {lr.row.name}
+                    </Link>
+                  </PortfolioGanttProjectTooltip>
                 </div>
               ),
             )}
@@ -292,5 +324,8 @@ export function PortfolioGanttChart({ items }: { items: PortfolioGanttRow[] }) {
         </div>
       </div>
     </div>
+        <PortfolioGanttLegend />
+      </div>
+    </TooltipProvider>
   );
 }

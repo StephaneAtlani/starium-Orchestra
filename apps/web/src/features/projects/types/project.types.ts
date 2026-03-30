@@ -137,6 +137,14 @@ export type PortfolioGanttRow = {
   isLate: boolean;
   portfolioCategory: ProjectPortfolioCategoryAssignment | null;
   myRoles: string[];
+  tags: ProjectTag[];
+  ownerDisplayName: string | null;
+  sponsorDisplayName: string | null;
+  arbitrationStatus: string | null;
+  arbitrationMetierStatus: string | null;
+  arbitrationComiteStatus: string | null;
+  arbitrationCodirStatus: string | null;
+  stakeholderLines: string[];
 };
 
 export type PortfolioGanttResponse = {

@@ -135,6 +135,15 @@ export type PortfolioGanttRowDto = {
   isLate: boolean;
   portfolioCategory: ProjectListItemDto['portfolioCategory'];
   myRoles: string[];
+  tags: ProjectTagItemDto[];
+  ownerDisplayName: string | null;
+  sponsorDisplayName: string | null;
+  arbitrationStatus: string | null;
+  arbitrationMetierStatus: string | null;
+  arbitrationComiteStatus: string | null;
+  arbitrationCodirStatus: string | null;
+  /** Lignes courtes pour infobulle (sponsor, responsable, équipe). */
+  stakeholderLines: string[];
 };
 
 export type ProjectDetailDto = ProjectListItemDto & {
@@ -302,6 +311,48 @@ export class ProjectsService {
     if (ownerMember.affiliation === 'EXTERNAL') return `${free} · Externe`;
     if (ownerMember.affiliation === 'INTERNAL') return `${free} · Interne`;
     return free;
+  }
+
+  private sponsorDisplayFromUser(
+    user: {
+      firstName: string | null;
+      lastName: string | null;
+      email: string;
+    } | null,
+  ): string | null {
+    if (!user) return null;
+    return this.ownerDisplayName(user);
+  }
+
+  /** Ligne équipe projet pour infobulle Gantt portefeuille (libellés métier, pas ID). */
+  private teamMemberTooltipLine(
+    member: {
+      userId: string | null;
+      freeLabel: string | null;
+      affiliation: ProjectTeamMemberAffiliation | null;
+      role: { name: string };
+      user: {
+        firstName: string | null;
+        lastName: string | null;
+        email: string;
+      } | null;
+    },
+  ): string | null {
+    const roleName = member.role.name.trim() || 'Membre';
+    if (member.userId && member.user) {
+      return `${roleName} — ${this.ownerDisplayName(member.user)}`;
+    }
+    const fl = member.freeLabel?.trim();
+    if (fl) {
+      const aff =
+        member.affiliation === 'EXTERNAL'
+          ? ' · Externe'
+          : member.affiliation === 'INTERNAL'
+            ? ' · Interne'
+            : '';
+      return `${roleName} — ${fl}${aff}`;
+    }
+    return null;
   }
 
   private toListItem(
@@ -681,32 +732,82 @@ export class ProjectsService {
       return { items: [] };
     }
     const ids = enriched.map((e) => e.id);
-    const dates = await this.prisma.project.findMany({
+    const detailRows = await this.prisma.project.findMany({
       where: { id: { in: ids }, clientId },
-      select: { id: true, startDate: true },
+      select: {
+        id: true,
+        startDate: true,
+        arbitrationStatus: true,
+        arbitrationMetierStatus: true,
+        arbitrationComiteStatus: true,
+        arbitrationCodirStatus: true,
+        sponsor: {
+          select: { firstName: true, lastName: true, email: true },
+        },
+        teamMembers: {
+          orderBy: { createdAt: 'asc' },
+          take: 24,
+          include: {
+            role: { select: { name: true } },
+            user: { select: { firstName: true, lastName: true, email: true } },
+          },
+        },
+      },
     });
+    const detailById = new Map(detailRows.map((r) => [r.id, r]));
     const startById = new Map(
-      dates.map((d) => [d.id, d.startDate?.toISOString() ?? null]),
+      detailRows.map((d) => [d.id, d.startDate?.toISOString() ?? null]),
     );
 
     return {
-      items: enriched.map((e) => ({
-        id: e.id,
-        code: e.code,
-        name: e.name,
-        kind: e.kind,
-        status: e.status,
-        priority: e.priority,
-        criticality: e.criticality,
-        startDate: startById.get(e.id) ?? null,
-        targetEndDate: e.targetEndDate,
-        progressPercent:
-          e.progressPercent ?? e.derivedProgressPercent ?? null,
-        computedHealth: e.computedHealth,
-        isLate: e.signals.isLate,
-        portfolioCategory: e.portfolioCategory,
-        myRoles: e.myRoles ?? [],
-      })),
+      items: enriched.map((e) => {
+        const d = detailById.get(e.id);
+        const sponsorName = d?.sponsor
+          ? this.sponsorDisplayFromUser(d.sponsor)
+          : null;
+        const stakeholderLines: string[] = [];
+        if (sponsorName) {
+          stakeholderLines.push(`Sponsor : ${sponsorName}`);
+        }
+        if (e.ownerDisplayName) {
+          stakeholderLines.push(`Responsable : ${e.ownerDisplayName}`);
+        }
+        if (d?.teamMembers?.length) {
+          for (const m of d.teamMembers) {
+            if (stakeholderLines.length >= 14) break;
+            const line = this.teamMemberTooltipLine(m);
+            if (line && !stakeholderLines.includes(line)) {
+              stakeholderLines.push(line);
+            }
+          }
+        }
+
+        return {
+          id: e.id,
+          code: e.code,
+          name: e.name,
+          kind: e.kind,
+          status: e.status,
+          priority: e.priority,
+          criticality: e.criticality,
+          startDate: startById.get(e.id) ?? null,
+          targetEndDate: e.targetEndDate,
+          progressPercent:
+            e.progressPercent ?? e.derivedProgressPercent ?? null,
+          computedHealth: e.computedHealth,
+          isLate: e.signals.isLate,
+          portfolioCategory: e.portfolioCategory,
+          myRoles: e.myRoles ?? [],
+          tags: e.tags,
+          ownerDisplayName: e.ownerDisplayName,
+          sponsorDisplayName: sponsorName,
+          arbitrationStatus: d?.arbitrationStatus ?? null,
+          arbitrationMetierStatus: d?.arbitrationMetierStatus ?? null,
+          arbitrationComiteStatus: d?.arbitrationComiteStatus ?? null,
+          arbitrationCodirStatus: d?.arbitrationCodirStatus ?? null,
+          stakeholderLines,
+        };
+      }),
     };
   }
 
