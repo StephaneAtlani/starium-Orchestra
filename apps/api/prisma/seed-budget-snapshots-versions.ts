@@ -86,7 +86,7 @@ async function cloneBudgetLineWithAnalytics(
   }
 }
 
-async function attachVersionSetInPlace(
+export async function attachVersionSetInPlace(
   prisma: PrismaClient,
   budgetId: string,
 ): Promise<boolean> {
@@ -131,7 +131,7 @@ async function attachVersionSetInPlace(
   return true;
 }
 
-async function ensureDraftRevision(
+export async function ensureDraftRevision(
   prisma: PrismaClient,
   budgetId: string,
 ): Promise<boolean> {
@@ -311,7 +311,7 @@ async function createOneSnapshot(
   throw lastError ?? new Error("createOneSnapshot: échec code unique");
 }
 
-async function ensureSnapshotsForBudget(
+export async function ensureSnapshotsForBudget(
   prisma: PrismaClient,
   budgetId: string,
   budgetCode: string,
