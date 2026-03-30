@@ -41,7 +41,7 @@ export function PortfolioGanttProjectTooltip({
   return (
     <Tooltip>
       <TooltipTrigger
-        className={cn('cursor-help', triggerClassName)}
+        className={cn('cursor-pointer', triggerClassName)}
         style={triggerStyle}
       >
         {children}

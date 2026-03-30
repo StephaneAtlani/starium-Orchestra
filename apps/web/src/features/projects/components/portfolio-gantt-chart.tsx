@@ -249,7 +249,7 @@ export function PortfolioGanttChart({ items }: { items: PortfolioGanttRow[] }) {
                   >
                     <Link
                       href={projectDetail(lr.row.id)}
-                      className="hover:text-primary line-clamp-2 min-w-0 text-left text-xs leading-snug font-medium underline-offset-2 hover:underline"
+                      className="cursor-pointer hover:text-primary line-clamp-2 min-w-0 text-left text-xs leading-snug font-medium underline-offset-2 hover:underline"
                     >
                       <span className="text-muted-foreground">{lr.row.code}</span> · {lr.row.name}
                     </Link>
