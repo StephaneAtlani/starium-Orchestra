@@ -192,5 +192,31 @@
       "surface": "pastel",
       "textColor": "auto"
     }
+  },
+  "budgetStatus": {
+    "DRAFT": {
+      "label": "Brouillon",
+      "palette": "stone",
+      "surface": "pastel",
+      "textColor": "auto"
+    },
+    "ACTIVE": {
+      "label": "Actif",
+      "palette": "emerald",
+      "surface": "pastel",
+      "textColor": "auto"
+    },
+    "LOCKED": {
+      "label": "Verrouillé",
+      "palette": "zinc",
+      "surface": "pastel",
+      "textColor": "auto"
+    },
+    "ARCHIVED": {
+      "label": "Archivé",
+      "palette": "gray",
+      "surface": "pastel",
+      "textColor": "auto"
+    }
   }
 }

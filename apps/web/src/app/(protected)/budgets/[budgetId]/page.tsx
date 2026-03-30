@@ -3,9 +3,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { Pencil } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
-import { BudgetPageHeader } from '@/features/budgets/components/budget-page-header';
 import { BudgetKpiCards } from '@/features/budgets/components/budget-kpi-cards';
 import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
 import { BudgetExplorerToolbar } from '@/features/budgets/components/budget-explorer-toolbar';
@@ -31,11 +31,13 @@ import {
   budgetEnvelopeNew,
 } from '@/features/budgets/constants/budget-routes';
 import { NewBudgetLineDialog } from '@/features/budgets/components/new-budget-line-dialog';
+import { CreateBudgetSnapshotDialog } from '@/features/budgets/components/create-budget-snapshot-dialog';
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   explorerSortPresetToState,
   type BudgetExplorerFilters,
@@ -85,6 +87,7 @@ export default function BudgetDetailPage() {
   const [selectedBudgetLineId, setSelectedBudgetLineId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<BudgetLineDrawerTab>('overview');
   const [newLineDialogOpen, setNewLineDialogOpen] = useState(false);
+  const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
 
   const [filters, setFilters] = useState<BudgetExplorerFilters>({});
   const [sortPreset, setSortPreset] = useState<ExplorerSortPreset>('default');
@@ -281,7 +284,10 @@ export default function BudgetDetailPage() {
     return (
       <RequireActiveClient>
         <PageContainer>
-          <BudgetPageHeader title="Budget" description="Chargement…" />
+          <header className="mb-6 space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Budget</h1>
+            <p className="text-sm text-muted-foreground">Chargement…</p>
+          </header>
           <LoadingState rows={3} />
         </PageContainer>
       </RequireActiveClient>
@@ -292,7 +298,9 @@ export default function BudgetDetailPage() {
     return (
       <RequireActiveClient>
         <PageContainer>
-          <BudgetPageHeader title="Budget" />
+          <header className="mb-6">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Budget</h1>
+          </header>
           <BudgetEmptyState title="Aucun budget à afficher" description="" />
         </PageContainer>
       </RequireActiveClient>
@@ -400,45 +408,70 @@ export default function BudgetDetailPage() {
   return (
     <RequireActiveClient>
       <PageContainer>
-        <BudgetPageHeader
-          title={budget.name}
-          description={
-            budget.code ? `${budget.code} · ${budget.currency}` : budget.currency
-          }
-          actions={
-            <div className="flex items-center gap-2">
-              <PermissionGate permission="budgets.update">
-                <Link
-                  href={budgetEdit(budgetId!)}
-                  className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
-                >
-                  Modifier
-                </Link>
-              </PermissionGate>
-              <PermissionGate permission="budgets.create">
-                <>
-                  <Button
-                    type="button"
-                    className="h-7 px-2.5 text-[0.8rem] font-medium"
-                    onClick={() => setNewLineDialogOpen(true)}
-                  >
-                    Nouvelle ligne
-                  </Button>
-                  <Link
-                    href={budgetEnvelopeNew(budgetId!)}
-                    className="inline-flex h-7 items-center justify-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
-                  >
-                    Nouvelle enveloppe
-                  </Link>
-                </>
-              </PermissionGate>
+        <header className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                {budget.name}
+              </h1>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
+                {budget.code ? (
+                  <span className="font-medium text-foreground">{budget.code}</span>
+                ) : null}
+                {budget.code ? (
+                  <span className="text-muted-foreground" aria-hidden>
+                    ·
+                  </span>
+                ) : null}
+                <span className="text-muted-foreground">{budget.currency}</span>
+                <span className="text-muted-foreground" aria-hidden>
+                  ·
+                </span>
+                <BudgetStatusBadge status={budget.status} className="shrink-0" />
+              </div>
             </div>
-          }
-        />
+            <PermissionGate permission="budgets.update">
+              <Link
+                href={budgetEdit(budget.id)}
+                className={cn(
+                  buttonVariants({ variant: 'ghost', size: 'icon' }),
+                  'size-9 shrink-0 text-muted-foreground hover:text-foreground',
+                )}
+                aria-label={`Modifier le budget ${budget.name}`}
+              >
+                <Pencil className="size-4" />
+              </Link>
+            </PermissionGate>
+          </div>
 
-        <div className="mb-4">
-          <BudgetStatusBadge status={budget.status} />
-        </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
+            <PermissionGate permission="budgets.create">
+              <Button
+                type="button"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setSnapshotDialogOpen(true)}
+              >
+                <span className="inline sm:hidden">Snapshot</span>
+                <span className="hidden sm:inline">Créer un snapshot</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setNewLineDialogOpen(true)}
+              >
+                Nouvelle ligne
+              </Button>
+              <Link
+                href={budgetEnvelopeNew(budget.id)}
+                className={cn(buttonVariants({ size: 'sm' }), 'shrink-0')}
+              >
+                Nouvelle enveloppe
+              </Link>
+            </PermissionGate>
+          </div>
+        </header>
 
         {/* KPI compacts : uniquement si pas encore de structure (pas de doublon avec l’onglet Dashboard + tableau). */}
         {kpiItems.length > 0 && isEmptyGlobal && (
@@ -626,6 +659,12 @@ export default function BudgetDetailPage() {
           open={newLineDialogOpen}
           onOpenChange={setNewLineDialogOpen}
           budgetId={budgetId!}
+        />
+
+        <CreateBudgetSnapshotDialog
+          budgetId={budgetId!}
+          open={snapshotDialogOpen}
+          onOpenChange={setSnapshotDialogOpen}
         />
 
         <BudgetLineIntelligenceDrawer

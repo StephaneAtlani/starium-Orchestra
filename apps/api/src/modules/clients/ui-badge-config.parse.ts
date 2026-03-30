@@ -77,6 +77,13 @@ const PROJECT_PORTFOLIO_SIGNAL_KEYS = new Set([
   'noowner',
 ]);
 
+const BUDGET_STATUS_KEYS = new Set([
+  'DRAFT',
+  'ACTIVE',
+  'LOCKED',
+  'ARCHIVED',
+]);
+
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -127,6 +134,7 @@ export function parseUiBadgeConfigPayload(raw: unknown): Prisma.InputJsonValue {
     'projectEntityPriority',
     'projectComputedHealth',
     'projectPortfolioSignal',
+    'budgetStatus',
   ]);
   for (const k of Object.keys(raw)) {
     if (!allowedTop.has(k)) {
@@ -246,6 +254,16 @@ export function parseUiBadgeConfigPayload(raw: unknown): Prisma.InputJsonValue {
   );
   if (projectPortfolioSignal) {
     out.projectPortfolioSignal = projectPortfolioSignal;
+  }
+
+  const budgetStatus = parseBadgeMapSection(
+    raw,
+    'budgetStatus',
+    BUDGET_STATUS_KEYS,
+    (k) => `budgetStatus inconnu: ${k}`,
+  );
+  if (budgetStatus) {
+    out.budgetStatus = budgetStatus;
   }
 
   return out as Prisma.InputJsonValue;

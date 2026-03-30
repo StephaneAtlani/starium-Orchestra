@@ -1,11 +1,16 @@
 'use client';
 
-import React from 'react';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { cn } from '@/lib/utils';
+import {
+  BUDGET_STATUS_KEYS,
+  budgetStatusBadgeClass,
+  budgetStatusLabel,
+} from '@/lib/ui/badge-registry';
+import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 
-/** Même sémantique qu’avant (default / secondary / outline), sans variante shadcn qui écrase les couleurs. */
-const STATUS_CLASS: Record<string, string> = {
+/** Valeurs hors enum courant (ex. anciennes données) — repli visuel. */
+const STATUS_CLASS_FALLBACK: Record<string, string> = {
   DRAFT: 'border border-border text-foreground',
   ACTIVE: 'bg-primary text-primary-foreground',
   LOCKED: 'bg-secondary text-secondary-foreground',
@@ -14,18 +19,49 @@ const STATUS_CLASS: Record<string, string> = {
   SUPERSEDED: 'border border-border text-foreground',
 };
 
+const STATUS_LABEL_FR: Record<string, string> = {
+  DRAFT: 'Brouillon',
+  ACTIVE: 'Actif',
+  LOCKED: 'Verrouillé',
+  ARCHIVED: 'Archivé',
+  CLOSED: 'Clos',
+  SUPERSEDED: 'Remplacé',
+};
+
 interface BudgetStatusBadgeProps {
   status: string;
   className?: string;
 }
 
 export function BudgetStatusBadge({ status, className }: BudgetStatusBadgeProps) {
+  const { merged } = useClientUiBadgeConfig();
+  const inRegistry = (BUDGET_STATUS_KEYS as readonly string[]).includes(status);
+
+  if (inRegistry) {
+    return (
+      <RegistryBadge
+        className={cn(budgetStatusBadgeClass(merged, status), className)}
+        data-testid="budget-status-badge"
+        data-status={status}
+        title={status}
+      >
+        {budgetStatusLabel(merged, status)}
+      </RegistryBadge>
+    );
+  }
+
+  const label = STATUS_LABEL_FR[status] ?? status;
   return (
     <RegistryBadge
-      className={cn(STATUS_CLASS[status] ?? 'border border-border text-foreground', className)}
+      className={cn(
+        STATUS_CLASS_FALLBACK[status] ?? 'border border-border text-foreground',
+        className,
+      )}
       data-testid="budget-status-badge"
+      data-status={status}
+      title={status}
     >
-      {status}
+      {label}
     </RegistryBadge>
   );
 }

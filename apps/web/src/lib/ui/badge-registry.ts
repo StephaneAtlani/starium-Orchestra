@@ -284,6 +284,15 @@ export const PROJECT_PORTFOLIO_SIGNAL_KEYS = [
 ] as const;
 export type ProjectPortfolioSignalKey = (typeof PROJECT_PORTFOLIO_SIGNAL_KEYS)[number];
 
+/** Statuts budget / exercice (`BudgetStatus` Prisma). */
+export const BUDGET_STATUS_KEYS = [
+  'DRAFT',
+  'ACTIVE',
+  'LOCKED',
+  'ARCHIVED',
+] as const;
+export type BudgetStatusBadgeKey = (typeof BUDGET_STATUS_KEYS)[number];
+
 const DEFAULT_PROJECT_KIND: Record<ProjectKindBadgeKey, BadgeStyle> = {
   PROJECT: { palette: 'slate', surface: 'pastel', textColor: 'auto' },
   ACTIVITY: { palette: 'cyan', surface: 'pastel', textColor: 'auto' },
@@ -369,6 +378,20 @@ const DEFAULT_PROJECT_PORTFOLIO_LABELS: Record<ProjectPortfolioSignalKey, string
   noowner: 'Sans responsable',
 };
 
+const DEFAULT_BUDGET_STATUS: Record<BudgetStatusBadgeKey, BadgeStyle> = {
+  DRAFT: { palette: 'stone', surface: 'pastel', textColor: 'auto' },
+  ACTIVE: { palette: 'emerald', surface: 'pastel', textColor: 'auto' },
+  LOCKED: { palette: 'zinc', surface: 'pastel', textColor: 'auto' },
+  ARCHIVED: { palette: 'gray', surface: 'pastel', textColor: 'auto' },
+};
+
+const DEFAULT_BUDGET_STATUS_LABELS: Record<BudgetStatusBadgeKey, string> = {
+  DRAFT: 'Brouillon',
+  ACTIVE: 'Actif',
+  LOCKED: 'Verrouillé',
+  ARCHIVED: 'Archivé',
+};
+
 /** Entrée fusionnée pour l’affichage (tableaux, pastilles). */
 export type BadgeEntry = {
   label: string;
@@ -408,6 +431,8 @@ export type UiBadgeConfig = {
   projectPortfolioSignal?: Partial<
     Record<ProjectPortfolioSignalKey, UiBadgeStyleFields>
   >;
+  /** Statuts budget / exercice (alignés `BudgetStatus`). */
+  budgetStatus?: Partial<Record<BudgetStatusBadgeKey, UiBadgeStyleFields>>;
 };
 
 function isBadgePalette(v: unknown): v is BadgePalette {
@@ -506,6 +531,9 @@ export function parseUiBadgeConfig(raw: unknown): UiBadgeConfig | null {
   );
   if (pps) out.projectPortfolioSignal = pps;
 
+  const bs = parseKeyedStyleMap(o.budgetStatus, BUDGET_STATUS_KEYS);
+  if (bs) out.budgetStatus = bs;
+
   if (Array.isArray(o.custom)) {
     const custom: NonNullable<UiBadgeConfig['custom']> = [];
     for (const row of o.custom) {
@@ -541,6 +569,7 @@ export type MergedUiBadges = {
   projectEntityPriority: Record<ProjectEntityPriorityKey, BadgeEntry>;
   projectComputedHealth: Record<ProjectComputedHealthKey, BadgeEntry>;
   projectPortfolioSignal: Record<ProjectPortfolioSignalKey, BadgeEntry>;
+  budgetStatus: Record<BudgetStatusBadgeKey, BadgeEntry>;
 };
 
 function mergeBadgeGroup<K extends string>(
@@ -638,6 +667,14 @@ export function mergeUiBadgeConfig(
     clientStored?.projectPortfolioSignal,
   );
 
+  const budgetStatus = mergeBadgeGroup(
+    BUDGET_STATUS_KEYS,
+    DEFAULT_BUDGET_STATUS,
+    DEFAULT_BUDGET_STATUS_LABELS,
+    platformStored?.budgetStatus,
+    clientStored?.budgetStatus,
+  );
+
   const byKey = new Map<string, { key: string; label: string } & UiBadgeStyleFields>();
   for (const row of platformStored?.custom ?? []) {
     byKey.set(row.key, row);
@@ -669,6 +706,7 @@ export function mergeUiBadgeConfig(
     projectEntityPriority,
     projectComputedHealth,
     projectPortfolioSignal,
+    budgetStatus,
   };
 }
 
@@ -743,4 +781,21 @@ export function projectPortfolioSignalBadgeClass(
   signal: ProjectPortfolioSignalKey,
 ): string {
   return merged.projectPortfolioSignal[signal].className;
+}
+
+export function budgetStatusLabel(merged: MergedUiBadges, status: string): string {
+  if ((BUDGET_STATUS_KEYS as readonly string[]).includes(status)) {
+    return merged.budgetStatus[status as BudgetStatusBadgeKey].label;
+  }
+  return status;
+}
+
+export function budgetStatusBadgeClass(
+  merged: MergedUiBadges,
+  status: string,
+): string {
+  if ((BUDGET_STATUS_KEYS as readonly string[]).includes(status)) {
+    return merged.budgetStatus[status as BudgetStatusBadgeKey].className;
+  }
+  return merged.budgetStatus.DRAFT.className;
 }

@@ -54,6 +54,7 @@ import {
   PROJECT_PORTFOLIO_SIGNAL_KEYS,
   PROJECT_TASK_PRIORITIES,
   PROJECT_TASK_STATUSES,
+  BUDGET_STATUS_KEYS,
   type BadgeEntry,
   type UiBadgeConfig,
 } from '@/lib/ui/badge-registry';
@@ -160,6 +161,7 @@ function buildPayload(
   projectEntityPriority: Record<string, Row>,
   projectComputedHealth: Record<string, Row>,
   projectPortfolioSignal: Record<string, Row>,
+  budgetStatus: Record<string, Row>,
   custom: CustomRow[],
 ): UiBadgeConfig {
   return {
@@ -191,6 +193,10 @@ function buildPayload(
       [...PROJECT_PORTFOLIO_SIGNAL_KEYS],
       projectPortfolioSignal,
     ) as UiBadgeConfig['projectPortfolioSignal'],
+    budgetStatus: entryPayloadFromRows(
+      [...BUDGET_STATUS_KEYS],
+      budgetStatus,
+    ) as UiBadgeConfig['budgetStatus'],
     custom: custom.map((c) => ({
       key: c.key,
       label: c.label,
@@ -374,6 +380,10 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
   const [projectPortfolioSignal, setProjectPortfolioSignal] = useState<
     Record<string, Row> | null
   >(null);
+  const [budgetStatus, setBudgetStatus] = useState<Record<
+    string,
+    Row
+  > | null>(null);
   const [custom, setCustom] = useState<CustomRow[]>([]);
   const [newKey, setNewKey] = useState('');
   const [newLabel, setNewLabel] = useState('');
@@ -427,6 +437,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
           m.projectPortfolioSignal,
         ),
       );
+      setBudgetStatus(rowMapFromMerged(BUDGET_STATUS_KEYS, m.budgetStatus));
       setCustom(
         m.custom.map((c) => ({
           key: c.key,
@@ -528,6 +539,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
       !projectEntityPriority ||
       !projectComputedHealth ||
       !projectPortfolioSignal ||
+      !budgetStatus ||
       !canEdit
     ) {
       return;
@@ -542,6 +554,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
         projectEntityPriority,
         projectComputedHealth,
         projectPortfolioSignal,
+        budgetStatus,
         custom,
       );
       if (scope === 'platform') {
@@ -628,7 +641,8 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
     !projectLifecycle ||
     !projectEntityPriority ||
     !projectComputedHealth ||
-    !projectPortfolioSignal
+    !projectPortfolioSignal ||
+    !budgetStatus
   ) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -752,6 +766,14 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
         keys={PROJECT_PORTFOLIO_SIGNAL_KEYS}
         rows={projectPortfolioSignal}
         setRows={setProjectPortfolioSignal}
+        canEdit={canEdit}
+      />
+
+      <BadgeKeyTable
+        title="Budgets / exercices — statut (DRAFT, ACTIVE, LOCKED, ARCHIVED)"
+        keys={BUDGET_STATUS_KEYS}
+        rows={budgetStatus}
+        setRows={setBudgetStatus}
         canEdit={canEdit}
       />
 
