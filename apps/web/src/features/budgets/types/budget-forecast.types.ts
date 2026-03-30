@@ -78,6 +78,8 @@ export interface BudgetComparisonLineItem {
 
 export interface BudgetComparisonResponse {
   compareTo?: BudgetComparisonMode;
+  /** Colonne source statut / variance (API). Défaut UI : live vs ref. → gauche ; paires sans live → droite. */
+  pilotageColumn?: 'left' | 'right';
   /** Libellés pour les colonnes de montants (réponse API). */
   leftLabel?: string;
   rightLabel?: string;

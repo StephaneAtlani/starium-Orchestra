@@ -18,9 +18,12 @@ export function forecastStatusToneClass(status: ForecastLineStatus): string {
 export function ForecastStatusBadge({
   status,
   className,
+  title,
 }: {
   status: ForecastLineStatus;
   className?: string;
+  /** Infobulle (règle métier : pourquoi ce statut). */
+  title?: string;
 }) {
   return (
     <span
@@ -30,6 +33,7 @@ export function ForecastStatusBadge({
         className,
       )}
       data-testid={`forecast-status-${status}`}
+      title={title}
     >
       {status}
     </span>

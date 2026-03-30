@@ -34,12 +34,12 @@ function snapshotFallbackLabel(s: BudgetSnapshotSummaryDto): string {
 }
 
 /** Libellé métier : nom du snapshot, sinon code + date. */
-function snapshotDisplayLabel(s: BudgetSnapshotSummaryDto): string {
+export function snapshotDisplayLabel(s: BudgetSnapshotSummaryDto): string {
   const n = s.name?.trim();
   return n || snapshotFallbackLabel(s);
 }
 
-function versionLabel(v: BudgetVersionSummaryDto): string {
+export function versionDisplayLabel(v: BudgetVersionSummaryDto): string {
   const base = v.versionLabel?.trim() || v.code;
   const n = v.versionNumber != null ? `v${v.versionNumber}` : '';
   return n ? `${base} (${n})` : base;
@@ -74,7 +74,7 @@ export function BudgetComparisonSelector({
       ? versions.find((v) => v.id === targetId)
       : undefined;
   const versionTriggerLabel = selectedVersionForLabel
-    ? versionLabel(selectedVersionForLabel)
+    ? versionDisplayLabel(selectedVersionForLabel)
     : undefined;
 
   return (
@@ -153,7 +153,7 @@ export function BudgetComparisonSelector({
               <SelectContent>
                 {versionOptions.map((v) => (
                   <SelectItem key={v.id} value={v.id}>
-                    {versionLabel(v)}
+                    {versionDisplayLabel(v)}
                   </SelectItem>
                 ))}
               </SelectContent>

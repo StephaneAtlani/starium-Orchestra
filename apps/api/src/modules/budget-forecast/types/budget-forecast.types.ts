@@ -77,6 +77,8 @@ export interface BudgetComparisonLineResponse {
 
 export interface BudgetComparisonResponse {
   compareTo?: 'baseline' | 'snapshot' | 'version';
+  /** Colonne dont proviennent statut / variance forecast (révisé, consommé, prévisionnel). */
+  pilotageColumn?: 'left' | 'right';
   /** Libellés pour en-têtes de colonnes (montants gauche / droite). */
   leftLabel?: string;
   rightLabel?: string;

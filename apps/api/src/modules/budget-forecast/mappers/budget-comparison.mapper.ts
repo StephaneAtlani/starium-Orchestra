@@ -83,6 +83,8 @@ export function mapComparedPairsToLines(params: {
 
 export function buildBudgetComparisonResponse(params: {
   compareTo?: 'baseline' | 'snapshot' | 'version';
+  /** Aligné sur `getLineComputedValues` : liveSide null → droite. */
+  liveSide: SideName | null;
   leftLabel?: string;
   rightLabel?: string;
   left?: { kind: string; budgetId?: string; snapshotId?: string };
@@ -92,8 +94,14 @@ export function buildBudgetComparisonResponse(params: {
   budgetId?: string;
   currency: string | null;
   pairs: ComparedPair[];
-  liveSide: SideName | null;
 }): BudgetComparisonResponse {
+  const pilotageColumn: 'left' | 'right' =
+    params.liveSide === 'left'
+      ? 'left'
+      : params.liveSide === 'right'
+        ? 'right'
+        : 'right';
+
   const lines = mapComparedPairsToLines({
     pairs: params.pairs,
     liveSide: params.liveSide,
@@ -136,6 +144,7 @@ export function buildBudgetComparisonResponse(params: {
 
   return {
     compareTo: params.compareTo,
+    pilotageColumn,
     leftLabel: params.leftLabel,
     rightLabel: params.rightLabel,
     left: params.left,
