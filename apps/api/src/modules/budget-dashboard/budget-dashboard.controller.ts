@@ -21,6 +21,7 @@ import { BudgetDashboardConfigService } from './budget-dashboard-config.service'
 import { BudgetDashboardService } from './budget-dashboard.service';
 import { CreateBudgetDashboardConfigDto } from './dto/create-budget-dashboard-config.dto';
 import { DashboardQueryDto } from './dto/dashboard.query.dto';
+import { PatchBudgetDashboardUserOverridesDto } from './dto/budget-dashboard-user-overrides.dto';
 import { UpdateBudgetDashboardConfigDto } from './dto/update-budget-dashboard-config.dto';
 
 @Controller('budget-dashboard')
@@ -35,9 +36,33 @@ export class BudgetDashboardController {
   @RequirePermissions('budgets.read')
   getDashboard(
     @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() actorUserId: string | undefined,
     @Query() query: DashboardQueryDto,
   ) {
-    return this.service.getDashboard(clientId!, query);
+    return this.service.getDashboard(clientId!, query, actorUserId);
+  }
+
+  /**
+   * Override utilisateur minimal des widgets du cockpit.
+   * Sparse patch : un override absent du payload => inchangé.
+   */
+  @Get('user-overrides')
+  @RequirePermissions('budgets.read')
+  listUserOverrides(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() userId: string | undefined,
+  ) {
+    return this.service.listUserWidgetOverrides(clientId!, userId!);
+  }
+
+  @Patch('user-overrides')
+  @RequirePermissions('budgets.update')
+  patchUserOverrides(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() userId: string | undefined,
+    @Body() body: PatchBudgetDashboardUserOverridesDto,
+  ) {
+    return this.service.patchUserWidgetOverrides(clientId!, userId!, body);
   }
 
   @Get('configs')

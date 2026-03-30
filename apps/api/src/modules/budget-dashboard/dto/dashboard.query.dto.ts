@@ -25,4 +25,13 @@ export class DashboardQueryDto {
   @Transform(({ value }) => toBoolean(value))
   @IsBoolean()
   includeLines?: boolean;
+
+  /**
+   * Quand false : n'applique pas les overrides utilisateur (mode "global").
+   * Quand absent : comportement inchangé (mode "personnaliser").
+   */
+  @IsOptional()
+  @Transform(({ value }) => toBoolean(value))
+  @IsBoolean()
+  useUserOverrides?: boolean;
 }

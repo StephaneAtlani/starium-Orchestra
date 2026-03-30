@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { LayoutDashboard, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -33,6 +34,9 @@ export function BudgetDashboardHeader({
   taxDisplayMode,
   onTaxDisplayModeChange,
   taxDisplayLoading,
+  onCustomize,
+  useUserOverrides,
+  onUseUserOverridesModeChange,
 }: {
   exercises: BudgetExerciseSummary[];
   budgets: BudgetSummary[];
@@ -50,6 +54,10 @@ export function BudgetDashboardHeader({
   taxDisplayMode: TaxDisplayMode;
   onTaxDisplayModeChange: (next: TaxDisplayMode) => void;
   taxDisplayLoading?: boolean;
+  onCustomize?: () => void;
+  /** true => "Personnaliser", false => "Global (client)". */
+  useUserOverrides: boolean;
+  onUseUserOverridesModeChange: (next: boolean) => void;
 }) {
   return (
     <header className="space-y-6">
@@ -75,6 +83,7 @@ export function BudgetDashboardHeader({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+
             <Select
               value={exerciseId ?? ''}
               onValueChange={(v) => {
@@ -159,6 +168,27 @@ export function BudgetDashboardHeader({
             >
               Ouvrir les budgets
             </Link>
+
+            <span className="text-sm text-muted-foreground">{'Global'}</span>
+            <Switch
+              checked={useUserOverrides}
+              onCheckedChange={onUseUserOverridesModeChange}
+              aria-label="Mode cockpit budget"
+            />
+            <span className="text-sm">{'Personnalisé'}</span>
+
+            {onCustomize && useUserOverrides ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-border bg-background shadow-sm whitespace-nowrap gap-2"
+                onClick={onCustomize}
+              >
+                <Settings2 className="size-4" />
+                Personnaliser
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { BudgetDashboardWidgetType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
@@ -20,7 +20,14 @@ describe('Budget dashboard integration', () => {
     budgetLine: { findMany: jest.Mock };
     financialAllocation: { findMany: jest.Mock };
     financialEvent: { findMany: jest.Mock };
+    budgetDashboardWidget: { findMany: jest.Mock };
+    budgetDashboardWidgetOverride: {
+      findMany: jest.Mock;
+      upsert: jest.Mock;
+      delete: jest.Mock;
+    };
     client: { findUnique: jest.Mock };
+    $transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
   };
 
   const clientA = 'client-A';
@@ -75,7 +82,14 @@ describe('Budget dashboard integration', () => {
       budgetLine: { findMany: jest.fn() },
       financialAllocation: { findMany: jest.fn() },
       financialEvent: { findMany: jest.fn() },
+      budgetDashboardWidget: { findMany: jest.fn() },
+      budgetDashboardWidgetOverride: {
+        findMany: jest.fn(),
+        upsert: jest.fn(),
+        delete: jest.fn(),
+      },
       client: { findUnique: jest.fn().mockResolvedValue({ defaultTaxRate: null }) },
+      $transaction: async (fn) => fn(prisma as unknown),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -111,8 +125,9 @@ describe('Budget dashboard integration', () => {
       prisma.budgetLine.findMany.mockResolvedValue([]);
       prisma.financialAllocation.findMany.mockResolvedValue([]);
       prisma.financialEvent.findMany.mockResolvedValue([]);
+      prisma.budgetDashboardWidgetOverride.findMany.mockResolvedValue([]);
 
-      const result = await controller.getDashboard(clientA, {});
+      const result = await controller.getDashboard(clientA, undefined, {});
 
       expect(result).toBeDefined();
       expect(result.exercise.id).toBe(exerciseId);
@@ -140,6 +155,51 @@ describe('Budget dashboard integration', () => {
       );
       expect((trend?.data as { series?: unknown })?.series).toEqual([]);
     });
+
+    it("applique overrides user (isActive/position) et ignore un override orphelin", async () => {
+      const actorUserId = 'user-1';
+
+      prisma.budget.findFirst.mockResolvedValue(mockBudget);
+      prisma.budgetExercise.findFirst.mockResolvedValue(mockExercise);
+      prisma.budgetLine.findMany.mockResolvedValue([]);
+      prisma.financialAllocation.findMany.mockResolvedValue([]);
+      prisma.financialEvent.findMany.mockResolvedValue([]);
+
+      prisma.budgetDashboardWidgetOverride.findMany.mockResolvedValue([
+        { widgetId: 'w1', isActive: false, position: 99 }, // doit être appliqué
+        { widgetId: 'w-orphan', isActive: false, position: 0 }, // doit être ignoré
+      ]);
+
+      const result = await controller.getDashboard(clientA, actorUserId, {});
+
+      const alertW = result.widgets.find((w) => w.type === 'ALERT_LIST');
+      expect(alertW?.isActive).toBe(false);
+      expect(alertW?.data).toBeNull();
+    });
+
+    it('mode global : ignore les overrides utilisateur', async () => {
+      const actorUserId = 'user-1';
+
+      prisma.budget.findFirst.mockResolvedValue(mockBudget);
+      prisma.budgetExercise.findFirst.mockResolvedValue(mockExercise);
+      prisma.budgetLine.findMany.mockResolvedValue([]);
+      prisma.financialAllocation.findMany.mockResolvedValue([]);
+      prisma.financialEvent.findMany.mockResolvedValue([]);
+
+      prisma.budgetDashboardWidgetOverride.findMany.mockResolvedValue([
+        { widgetId: 'w1', isActive: false, position: 99 },
+      ]);
+
+      const result = await controller.getDashboard(
+        clientA,
+        actorUserId,
+        { useUserOverrides: false },
+      );
+
+      const alertW = result.widgets.find((w) => w.type === 'ALERT_LIST');
+      // valeur config client : w1 estActive=true dans le mockDashboardConfig
+      expect(alertW?.isActive).toBe(true);
+    });
   });
 
   describe('isolation client', () => {
@@ -156,17 +216,104 @@ describe('Budget dashboard integration', () => {
       prisma.budgetLine.findMany.mockResolvedValue([]);
       prisma.financialAllocation.findMany.mockResolvedValue([]);
       prisma.financialEvent.findMany.mockResolvedValue([]);
+      prisma.budgetDashboardWidgetOverride.findMany.mockResolvedValue([]);
 
-      const resultA = await controller.getDashboard(clientA, { budgetId });
+      const resultA = await controller.getDashboard(clientA, undefined, { budgetId });
       expect(resultA.budget.id).toBe(budgetId);
 
       await expect(
-        controller.getDashboard(clientB, { budgetId }),
+        controller.getDashboard(clientB, undefined, { budgetId }),
       ).rejects.toThrow(NotFoundException);
 
       expect(prisma.budget.findFirst).toHaveBeenCalledWith({
         where: { id: budgetId, clientId: clientB },
       });
+    });
+  });
+
+  describe('PATCH /budget-dashboard/user-overrides', () => {
+    it("PATCH sparse n’efface pas les overrides absents du payload", async () => {
+      const actorUserId = 'user-1';
+
+      // Valide que w1 existe bien pour le client
+      prisma.budgetDashboardWidget.findMany.mockResolvedValue([{ id: 'w1' }]);
+
+      // 1) lookup des overrides existants uniquement pour [w1] => aucun
+      prisma.budgetDashboardWidgetOverride.findMany.mockImplementation(
+        (args: any) => {
+          const inList = args?.where?.widgetId?.in ?? [];
+          if (inList.includes('w1') && inList.length === 1) {
+            return Promise.resolve([]);
+          }
+          // 2) listUserWidgetOverrides (final) sur tous les widgets de la config
+          return Promise.resolve([
+            { widgetId: 'w1', isActive: false, position: 10 },
+            { widgetId: 'w2', isActive: true, position: 77 },
+          ]);
+        },
+      );
+
+      prisma.budgetDashboardWidgetOverride.upsert.mockResolvedValue({} as any);
+      prisma.budgetDashboardWidgetOverride.delete.mockResolvedValue({} as any);
+
+      const result = await controller.patchUserOverrides(clientA, actorUserId, {
+        overrides: [{ widgetId: 'w1', isActive: false, position: 10 }],
+      });
+
+      expect(prisma.budgetDashboardWidgetOverride.upsert).toHaveBeenCalledTimes(1);
+      // Le résultat doit contenir w2 inchangé
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ widgetId: 'w2', isActive: true, position: 77 }),
+        ]),
+      );
+    });
+
+    it("reset via null supprime l’effet override", async () => {
+      const actorUserId = 'user-1';
+
+      prisma.budgetDashboardWidget.findMany.mockResolvedValue([{ id: 'w1' }]);
+
+      prisma.budgetDashboardWidgetOverride.findMany.mockImplementation(
+        (args: any) => {
+          const inList = args?.where?.widgetId?.in ?? [];
+          if (inList.includes('w1') && inList.length === 1) {
+            return Promise.resolve([
+              { widgetId: 'w1', isActive: false, position: 10 },
+            ]);
+          }
+          return Promise.resolve([
+            { widgetId: 'w2', isActive: true, position: 77 },
+          ]);
+        },
+      );
+
+      prisma.budgetDashboardWidgetOverride.upsert.mockResolvedValue({} as any);
+      prisma.budgetDashboardWidgetOverride.delete.mockResolvedValue({} as any);
+
+      const result = await controller.patchUserOverrides(clientA, actorUserId, {
+        overrides: [{ widgetId: 'w1', isActive: null, position: null }],
+      });
+
+      expect(prisma.budgetDashboardWidgetOverride.delete).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(
+        expect.not.arrayContaining([
+          expect.objectContaining({ widgetId: 'w1' }),
+        ]),
+      );
+    });
+
+    it('rejet 400 si settings non vide est envoyé', async () => {
+      const actorUserId = 'user-1';
+
+      // Pour la validation des widgetIds : accepter w1
+      prisma.budgetDashboardWidget.findMany.mockResolvedValue([{ id: 'w1' }]);
+
+      await expect(
+        controller.patchUserOverrides(clientA, actorUserId, {
+          overrides: [{ widgetId: 'w1', isActive: false, settings: { limit: 10 } }],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });

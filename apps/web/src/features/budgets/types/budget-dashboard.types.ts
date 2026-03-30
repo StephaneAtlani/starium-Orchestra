@@ -202,6 +202,8 @@ export interface BudgetDashboardQueryParams {
   budgetId?: string;
   includeEnvelopes?: boolean;
   includeLines?: boolean;
+  /** true => applique les overrides utilisateur ("Personnaliser"), false => version client globale ("global"). */
+  useUserOverrides?: boolean;
 }
 
 /** Config cockpit (liste / édition). */

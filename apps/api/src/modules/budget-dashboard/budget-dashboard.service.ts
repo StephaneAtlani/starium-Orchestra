@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AllocationType, FinancialEventType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
 import { TaxCalculator } from '../financial-core/helpers/tax-calculator';
 import type { DashboardQueryDto } from './dto/dashboard.query.dto';
+import type { PatchBudgetDashboardUserOverridesDto } from './dto/budget-dashboard-user-overrides.dto';
 import type {
   BudgetCockpitEnvelopeRow,
   BudgetCockpitResponse,
@@ -62,6 +63,7 @@ export class BudgetDashboardService {
   async getDashboard(
     clientId: string,
     query: DashboardQueryDto,
+    actorUserId?: string,
   ): Promise<BudgetCockpitResponse> {
     const dashCfg =
       await this.dashboardConfigService.ensureDefaultConfig(clientId);
@@ -273,16 +275,38 @@ export class BudgetDashboardService {
     const layoutJson = dashCfg.layoutConfig as Record<string, unknown> | null;
     const filtersJson = dashCfg.filtersConfig as Record<string, unknown> | null;
 
-    const widgets: BudgetCockpitWidgetPayload[] = [...dashCfg.widgets]
-      .sort((a, b) => a.position - b.position)
+    const widgetIds = dashCfg.widgets.map((w) => w.id);
+    const shouldApplyUserOverrides =
+      actorUserId && query.useUserOverrides !== false;
+
+    const widgetOverrides = shouldApplyUserOverrides
+      ? await this.prisma.budgetDashboardWidgetOverride.findMany({
+          where: {
+            clientId,
+            userId: actorUserId,
+            widgetId: { in: widgetIds },
+          },
+          select: { widgetId: true, isActive: true, position: true },
+        })
+      : [];
+
+    const widgetOverridesById = new Map(
+      widgetOverrides.map((o) => [o.widgetId, o] as const),
+    );
+
+    const widgets = [...dashCfg.widgets]
       .map((w) => {
         const settings =
           (w.settings as Record<string, unknown> | null) ?? null;
-        if (!w.isActive) {
+        const ov = widgetOverridesById.get(w.id);
+        const isActiveEffective = ov?.isActive ?? w.isActive;
+        const positionEffective = ov?.position ?? w.position;
+
+        if (!isActiveEffective) {
           return {
             id: w.id,
             type: w.type,
-            position: w.position,
+            position: positionEffective,
             title: w.title,
             size: w.size,
             isActive: false,
@@ -290,12 +314,13 @@ export class BudgetDashboardService {
             data: null,
           } as BudgetCockpitWidgetPayload;
         }
+
         switch (w.type) {
           case 'KPI':
             return {
               id: w.id,
               type: 'KPI',
-              position: w.position,
+              position: positionEffective,
               title: w.title,
               size: w.size,
               isActive: true,
@@ -312,7 +337,7 @@ export class BudgetDashboardService {
             return {
               id: w.id,
               type: 'ALERT_LIST',
-              position: w.position,
+              position: positionEffective,
               title: w.title,
               size: w.size,
               isActive: true,
@@ -326,7 +351,7 @@ export class BudgetDashboardService {
             return {
               id: w.id,
               type: 'ENVELOPE_LIST',
-              position: w.position,
+              position: positionEffective,
               title: w.title,
               size: w.size,
               isActive: true,
@@ -340,7 +365,7 @@ export class BudgetDashboardService {
             return {
               id: w.id,
               type: 'LINE_LIST',
-              position: w.position,
+              position: positionEffective,
               title: w.title,
               size: w.size,
               isActive: true,
@@ -356,7 +381,7 @@ export class BudgetDashboardService {
               return {
                 id: w.id,
                 type: 'CHART',
-                position: w.position,
+                position: positionEffective,
                 title: w.title,
                 size: w.size,
                 isActive: true,
@@ -379,7 +404,7 @@ export class BudgetDashboardService {
             return {
               id: w.id,
               type: 'CHART',
-              position: w.position,
+              position: positionEffective,
               title: w.title,
               size: w.size,
               isActive: true,
@@ -395,7 +420,7 @@ export class BudgetDashboardService {
             return {
               id: w.id,
               type: w.type,
-              position: w.position,
+              position: positionEffective,
               title: w.title,
               size: w.size,
               isActive: true,
@@ -403,7 +428,9 @@ export class BudgetDashboardService {
               data: null,
             } as BudgetCockpitWidgetPayload;
         }
-      });
+      }) as BudgetCockpitWidgetPayload[];
+
+    widgets.sort((a, b) => a.position - b.position);
 
     return {
       config: {
@@ -430,6 +457,150 @@ export class BudgetDashboardService {
       },
       widgets,
     };
+  }
+
+  /**
+   * Overrides utilisateur (sparse) du cockpit budget.
+   * MVP : seuls `isActive` / `position` sont utilisables. `settings` est interdit sauf null/undefined.
+   *
+   * Orphelins : tout override dont `widgetId` n'est plus présent dans la config client courante
+   * est filtré au moment de la lecture.
+   */
+  async listUserWidgetOverrides(
+    clientId: string,
+    userId: string,
+  ): Promise<
+    Array<{
+      widgetId: string;
+      isActive: boolean | null;
+      position: number | null;
+    }>
+  > {
+    const dashCfg = await this.dashboardConfigService.ensureDefaultConfig(clientId);
+    const widgetIds = dashCfg.widgets.map((w) => w.id);
+    if (widgetIds.length === 0) return [];
+
+    const overrides = await this.prisma.budgetDashboardWidgetOverride.findMany({
+      where: {
+        clientId,
+        userId,
+        widgetId: { in: widgetIds },
+      },
+      select: { widgetId: true, isActive: true, position: true },
+    });
+
+    return overrides.map((o) => ({
+      widgetId: o.widgetId,
+      isActive: o.isActive ?? null,
+      position: o.position ?? null,
+    }));
+  }
+
+  /**
+   * PATCH sparse réel :
+   * - override absent du payload => inchangé
+   * - override présent => upsert/merge
+   * - reset MVP via `null` : `isActive: null`, `position: null`, `settings: null`
+   *   => retire l'effet override sur ces champs
+   */
+  async patchUserWidgetOverrides(
+    clientId: string,
+    userId: string,
+    body: PatchBudgetDashboardUserOverridesDto,
+  ): Promise<
+    Array<{
+      widgetId: string;
+      isActive: boolean | null;
+      position: number | null;
+    }>
+  > {
+    const overrides = body.overrides ?? [];
+    if (overrides.length === 0) return [];
+
+    for (const o of overrides) {
+      if (o.settings !== undefined && o.settings !== null) {
+        const keys = Object.keys(o.settings ?? {});
+        if (keys.length > 0) {
+          throw new BadRequestException('settings user non autorisé en MVP');
+        }
+      }
+    }
+
+    const widgetIds = [...new Set(overrides.map((o) => o.widgetId))];
+
+    const widgets = await this.prisma.budgetDashboardWidget.findMany({
+      where: { clientId, id: { in: widgetIds } },
+      select: { id: true },
+    });
+    const allowedWidgetIds = new Set(widgets.map((w) => w.id));
+    for (const id of widgetIds) {
+      if (!allowedWidgetIds.has(id)) {
+        throw new BadRequestException(`WidgetOverride: widgetId inconnu (${id})`);
+      }
+    }
+
+    const existing = await this.prisma.budgetDashboardWidgetOverride.findMany({
+      where: { clientId, userId, widgetId: { in: widgetIds } },
+      select: { widgetId: true, isActive: true, position: true },
+    });
+    const existingByWidgetId = new Map(existing.map((e) => [e.widgetId, e] as const));
+
+    const normaliseField = <T>(
+      hasField: boolean,
+      value: T | null | undefined,
+      existingValue: T | null | undefined,
+    ): T | null => {
+      if (!hasField) return (existingValue ?? null) as T | null;
+      if (value === null) return null;
+      return value as unknown as T;
+    };
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const input of overrides) {
+        const hasIsActive = Object.prototype.hasOwnProperty.call(input, 'isActive');
+        const hasPosition = Object.prototype.hasOwnProperty.call(input, 'position');
+
+        const ex = existingByWidgetId.get(input.widgetId);
+        const nextIsActive = normaliseField<boolean>(
+          hasIsActive,
+          input.isActive,
+          ex?.isActive,
+        );
+        const nextPosition = normaliseField<number>(
+          hasPosition,
+          input.position,
+          ex?.position,
+        );
+
+        const shouldDelete = nextIsActive === null && nextPosition === null;
+
+        if (shouldDelete) {
+          if (ex) {
+            await tx.budgetDashboardWidgetOverride.delete({
+              where: { clientId_userId_widgetId: { clientId, userId, widgetId: input.widgetId } },
+            });
+          }
+          continue;
+        }
+
+        await tx.budgetDashboardWidgetOverride.upsert({
+          where: { clientId_userId_widgetId: { clientId, userId, widgetId: input.widgetId } },
+          create: {
+            clientId,
+            userId,
+            widgetId: input.widgetId,
+            isActive: nextIsActive,
+            position: nextPosition,
+          },
+          update: {
+            isActive: nextIsActive,
+            position: nextPosition,
+          },
+        });
+      }
+    });
+
+    return this.listUserWidgetOverrides(clientId, userId);
   }
 
   private async resolveBudgetAndExercise(

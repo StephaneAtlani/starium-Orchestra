@@ -10,6 +10,23 @@ import type {
 
 export type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
+export type BudgetDashboardWidgetUserOverrideDto = {
+  widgetId: string;
+  isActive: boolean | null;
+  position: number | null;
+};
+
+export type BudgetDashboardWidgetUserOverridePatchInput = {
+  widgetId: string;
+  isActive?: boolean | null;
+  position?: number | null;
+  /**
+   * MVP interdite côté backend : si envoyé avec des clés => 400.
+   * On la laisse typée pour compatibilité payload éventuel.
+   */
+  settings?: Record<string, unknown> | null;
+};
+
 export async function getDashboard(
   authFetch: AuthFetch,
   params?: BudgetDashboardQueryParams,
@@ -19,6 +36,7 @@ export async function getDashboard(
   if (params?.budgetId) search.set('budgetId', params.budgetId);
   if (params?.includeEnvelopes === false) search.set('includeEnvelopes', 'false');
   if (params?.includeLines === false) search.set('includeLines', 'false');
+  if (params?.useUserOverrides === false) search.set('useUserOverrides', 'false');
   const qs = search.toString();
   const url = qs ? `/api/budget-dashboard?${qs}` : '/api/budget-dashboard';
   const res = await authFetch(url);
@@ -53,5 +71,33 @@ export async function patchBudgetDashboardConfig(
     const t = await res.text();
     throw new Error(t || 'Erreur lors de la mise à jour');
   }
+  return res.json();
+}
+
+export async function getBudgetDashboardUserOverrides(
+  authFetch: AuthFetch,
+): Promise<BudgetDashboardWidgetUserOverrideDto[]> {
+  const res = await authFetch('/api/budget-dashboard/user-overrides');
+  if (!res.ok) {
+    throw new Error('Erreur lors du chargement des overrides utilisateur');
+  }
+  return res.json();
+}
+
+export async function patchBudgetDashboardUserOverrides(
+  authFetch: AuthFetch,
+  body: { overrides: BudgetDashboardWidgetUserOverridePatchInput[] },
+): Promise<BudgetDashboardWidgetUserOverrideDto[]> {
+  const res = await authFetch('/api/budget-dashboard/user-overrides', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || 'Erreur lors de la mise à jour des overrides utilisateur');
+  }
+
   return res.json();
 }

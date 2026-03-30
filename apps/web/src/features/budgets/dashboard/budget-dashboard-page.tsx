@@ -19,6 +19,7 @@ import { BudgetDashboardErrorState } from './components/budget-dashboard-error-s
 import { BudgetDashboardHeader } from './components/budget-dashboard-header';
 import { BudgetCockpitWidgetRenderer } from './components/budget-cockpit-widget-renderer';
 import { CockpitSurfaceCard } from './components/budget-cockpit-primitives';
+import { BudgetCockpitUserSettingsDialog } from '@/features/budgets/cockpit-settings/budget-cockpit-user-settings-dialog';
 
 export function BudgetDashboardPage() {
   const criticalRef = useRef<HTMLDivElement>(null);
@@ -33,6 +34,8 @@ export function BudgetDashboardPage() {
     budgetSelectLabel,
     onExerciseChange,
     onBudgetChange,
+    useUserOverrides,
+    onUserOverridesModeChange,
     refresh,
     data,
     isLoading,
@@ -59,6 +62,7 @@ export function BudgetDashboardPage() {
 
   const [isEnvelopeDrawerOpen, setIsEnvelopeDrawerOpen] = useState(false);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const openBudgetLineDrawer = useCallback((lineId: string) => {
     setSelectedBudgetLineId(lineId);
@@ -120,6 +124,15 @@ export function BudgetDashboardPage() {
               taxDisplayMode={taxDisplayMode}
               onTaxDisplayModeChange={setTaxDisplayMode}
               taxDisplayLoading={taxDisplayLoading}
+              useUserOverrides={useUserOverrides}
+              onUseUserOverridesModeChange={(next) => {
+                onUserOverridesModeChange(next);
+                if (!next) setSettingsOpen(false);
+              }}
+              onCustomize={() => {
+                if (!useUserOverrides) onUserOverridesModeChange(true);
+                setSettingsOpen(true);
+              }}
             />
 
             <CockpitSurfaceCard
@@ -167,6 +180,12 @@ export function BudgetDashboardPage() {
                 </div>
               </dl>
             </CockpitSurfaceCard>
+
+            <BudgetCockpitUserSettingsDialog
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+              widgets={data.widgets}
+            />
 
             <BudgetCockpitWidgetRenderer
               data={data}

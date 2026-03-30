@@ -189,6 +189,7 @@ model Client {
   riskTypes              RiskType[]
   budgetDashboardConfigs BudgetDashboardConfig[]
   budgetDashboardWidgets BudgetDashboardWidget[]
+  budgetDashboardWidgetOverrides BudgetDashboardWidgetOverride[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -281,6 +282,7 @@ model User {
   microsoftConnectionsConnected      MicrosoftConnection[] @relation("MicrosoftConnectedBy")
   uploadedProjectDocuments           ProjectDocument[]     @relation("ProjectDocumentUploadedBy")
   ownedActionPlans                   ActionPlan[]          @relation("ActionPlanOwner")
+  budgetDashboardWidgetOverrides   BudgetDashboardWidgetOverride[]
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -1911,10 +1913,38 @@ model BudgetDashboardWidget {
 
   client Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
   config BudgetDashboardConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  overrides BudgetDashboardWidgetOverride[]
 
   @@unique([configId, position])
   @@index([clientId])
   @@index([clientId, configId])
+}
+
+/// Override utilisateur minimal pour le cockpit budget (MVP).
+/// Source de vérité côté client : `BudgetDashboardConfig` + `BudgetDashboardWidget`.
+/// Les overrides ne modifient que `isActive` / `position` (et `settings` est interdit en MVP si non null/non vide).
+model BudgetDashboardWidgetOverride {
+  id String @id @default(cuid())
+
+  clientId String
+  userId String
+  widgetId String
+
+  isActive Boolean?
+  position Int?
+  settings Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  widget BudgetDashboardWidget @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, userId, widgetId])
+  @@index([clientId])
+  @@index([userId])
+  @@index([widgetId])
 }
 
 model BudgetEnvelope {

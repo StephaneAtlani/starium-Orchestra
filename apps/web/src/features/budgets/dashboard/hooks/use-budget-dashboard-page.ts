@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { useAuth } from '@/context/auth-context';
 import { useBudgetDashboardQuery } from '@/features/budgets/hooks/use-budget-dashboard';
 import { useBudgetExerciseOptionsQuery } from '@/features/budgets/hooks/use-budget-exercise-options-query';
 import { useBudgetsQuery } from '@/features/budgets/hooks/use-budgets-query';
@@ -94,18 +95,48 @@ function mergeBudgetOptionsForSelect(
 
 export function useBudgetDashboardPage() {
   const { activeClient } = useActiveClient();
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const [exerciseId, setExerciseId] = useState<string | undefined>();
   const [budgetId, setBudgetId] = useState<string | undefined>();
   /** Évite un fetch « défaut serveur » avant lecture du localStorage (refresh). */
   const [selectionHydrated, setSelectionHydrated] = useState(false);
 
+  const cockpitModeStorageKey = useMemo(() => {
+    const cId = activeClient?.id ?? '';
+    const uId = user?.id ?? '';
+    return `starium.budgetCockpit.mode:${cId}:${uId}`;
+  }, [activeClient?.id, user?.id]);
+
+  // Par défaut : version "global" (config client) tant qu’aucune préférence user n’est stockée.
+  const [useUserOverrides, setUseUserOverrides] = useState(false);
+
+  useEffect(() => {
+    if (!cockpitModeStorageKey) return;
+    if (!user?.id || !activeClient?.id) return;
+    const raw = window.localStorage.getItem(cockpitModeStorageKey);
+    // MVP : défaut = global, seul la valeur explicite 'personal' active les overrides user.
+    setUseUserOverrides(raw === 'personal');
+  }, [cockpitModeStorageKey, user?.id, activeClient?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !activeClient?.id) return;
+    window.localStorage.setItem(
+      cockpitModeStorageKey,
+      useUserOverrides ? 'personal' : 'global',
+    );
+  }, [cockpitModeStorageKey, useUserOverrides, user?.id, activeClient?.id]);
+
   const params: BudgetDashboardQueryParams | undefined = useMemo(() => {
+    // Ne pas déclencher l’appel cockpit tant qu’on n’a pas d’exercice/budget.
+    if (exerciseId === undefined && budgetId === undefined) return undefined;
+
     const p: BudgetDashboardQueryParams = {};
     if (exerciseId !== undefined) p.exerciseId = exerciseId;
     if (budgetId !== undefined) p.budgetId = budgetId;
-    return Object.keys(p).length > 0 ? p : undefined;
-  }, [exerciseId, budgetId]);
+    if (useUserOverrides === false) p.useUserOverrides = false;
+    return p;
+  }, [exerciseId, budgetId, useUserOverrides]);
 
   const exercisesQuery = useBudgetExerciseOptionsQuery();
   const exercisesReady = !exercisesQuery.isLoading;
@@ -200,6 +231,10 @@ export function useBudgetDashboardPage() {
     setBudgetId(nextBudgetId);
   }, []);
 
+  const onUserOverridesModeChange = useCallback((next: boolean) => {
+    setUseUserOverrides(next);
+  }, []);
+
   const refresh = useCallback(() => {
     void refetch();
   }, [refetch]);
@@ -248,6 +283,8 @@ export function useBudgetDashboardPage() {
     budgetSelectLabel,
     onExerciseChange,
     onBudgetChange,
+    useUserOverrides,
+    onUserOverridesModeChange,
     refresh,
     data,
     /**
