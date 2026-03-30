@@ -121,6 +121,16 @@ export function useDashboardWidgets() {
     }));
   }, [persist]);
 
+  const setBudgetKpiAnimateNumbers = useCallback(
+    (animateKpiNumbers: boolean) => {
+      persist((prev) => ({
+        ...prev,
+        budgetKpis: { ...prev.budgetKpis, animateKpiNumbers },
+      }));
+    },
+    [persist],
+  );
+
   const setProjectKpisVisible = useCallback(
     (visible: boolean) => {
       persist((prev) => ({
@@ -214,6 +224,7 @@ export function useDashboardWidgets() {
     resetBudgetKpisDefaults,
     setBudgetScope,
     resetBudgetScope,
+    setBudgetKpiAnimateNumbers,
     setProjectKpisVisible,
     toggleProjectKpi,
     resetProjectKpisDefaults,

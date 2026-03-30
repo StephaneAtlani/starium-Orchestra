@@ -2,7 +2,7 @@
  * Configuration des widgets de la page `/dashboard` — persistée par utilisateur et client actif.
  */
 
-export const DASHBOARD_WIDGETS_VERSION = 4 as const;
+export const DASHBOARD_WIDGETS_VERSION = 5 as const;
 
 /** Périmètre cockpit pour le widget — vide = résolution serveur (exercice / budget actifs). */
 export interface DashboardBudgetWidgetScope {
@@ -47,6 +47,8 @@ export interface DashboardBudgetWidgetConfig {
   kpis: DashboardBudgetKpiKey[];
   /** Budget / exercice affichés — absent = défaut serveur */
   scope?: DashboardBudgetWidgetScope;
+  /** Animer les montants (compteur). Défaut : true. */
+  animateKpiNumbers?: boolean;
 }
 
 /** KPIs portefeuille projets (alignés sur `ProjectsPortfolioSummary`). */
@@ -138,6 +140,7 @@ export function defaultDashboardWidgetsConfig(): DashboardWidgetsConfig {
       visible: true,
       kpis: [...DEFAULT_DASHBOARD_BUDGET_KPIS],
       scope: undefined,
+      animateKpiNumbers: true,
     },
     projectKpis: {
       visible: true,
@@ -210,7 +213,7 @@ export function mergeDashboardWidgetsConfig(
   if (!raw || typeof raw !== 'object') return base;
   const o = raw as Record<string, unknown>;
   const v = o.version;
-  if (v !== 1 && v !== 2 && v !== 3 && v !== 4) return base;
+  if (v !== 1 && v !== 2 && v !== 3 && v !== 4 && v !== 5) return base;
   const bk = o.budgetKpis as Record<string, unknown> | undefined;
   if (!bk || typeof bk !== 'object') return base;
 
@@ -225,8 +228,10 @@ export function mergeDashboardWidgetsConfig(
     if (filtered.length > 0) kpis = filtered;
   }
 
-  const scope =
-    v === 2 || v === 3 ? mergeScope(bk.scope) : undefined;
+  const scope = mergeScope(bk.scope);
+
+  const animateKpiNumbers =
+    typeof bk.animateKpiNumbers === 'boolean' ? bk.animateKpiNumbers : true;
 
   let projectKpis = base.projectKpis;
   const pk = o.projectKpis as Record<string, unknown> | undefined;
@@ -262,7 +267,7 @@ export function mergeDashboardWidgetsConfig(
 
   return {
     version: DASHBOARD_WIDGETS_VERSION,
-    budgetKpis: { visible, kpis, scope },
+    budgetKpis: { visible, kpis, scope, animateKpiNumbers },
     projectKpis,
     supplierKpis,
   };

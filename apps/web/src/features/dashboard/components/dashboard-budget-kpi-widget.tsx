@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   ArrowDownRight,
   PiggyBank,
+  RefreshCw,
   Scale,
   TrendingDown,
   Wallet,
@@ -22,6 +23,7 @@ import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-da
 import {
   formatForecastGapParts,
   formatKpiAmountParts,
+  kpiDisplayAmountNumeric,
 } from '@/features/budgets/lib/budget-dashboard-format';
 import {
   budgetDashboard,
@@ -64,6 +66,18 @@ import {
   type DashboardWidgetsConfig,
 } from '../types/dashboard-widgets.types';
 
+function formatDashboardDataAge(updatedAtMs: number): string {
+  const diffSec = Math.round((Date.now() - updatedAtMs) / 1000);
+  if (diffSec < 8) return 'à l’instant';
+  if (diffSec < 60) return `il y a ${diffSec} s`;
+  const min = Math.floor(diffSec / 60);
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 48) return `il y a ${h} h`;
+  const d = Math.floor(h / 24);
+  return `il y a ${d} j`;
+}
+
 function KpiSkeleton() {
   return (
     <div
@@ -89,18 +103,31 @@ function BudgetKpiCardsByKeys({
   taxDisplayMode,
   defaultTaxRate,
   keys,
+  animateKpiNumbers,
 }: {
   data: BudgetDashboardResponse;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
   keys: DashboardBudgetKpiKey[];
+  animateKpiNumbers: boolean;
 }) {
   const { kpis, budget } = data;
   const c = budget.currency;
   const fmt = (p: Parameters<typeof formatKpiAmountParts>[0]) =>
     formatKpiAmountParts(p);
+  const num = (ht: number, ttcFromApi?: number | null) =>
+    kpiDisplayAmountNumeric({
+      ht,
+      ttcFromApi: ttcFromApi ?? undefined,
+      mode: taxDisplayMode,
+      defaultTaxRate,
+    });
 
   const ecartForecast = kpis.forecast - kpis.totalBudget;
+  const ecartTtcFromApi =
+    kpis.forecastTtc != null && kpis.totalBudgetTtc != null
+      ? kpis.forecastTtc - kpis.totalBudgetTtc
+      : undefined;
   const gapParts = formatForecastGapParts(
     {
       totalBudget: kpis.totalBudget,
@@ -136,6 +163,8 @@ function BudgetKpiCardsByKeys({
           mode: taxDisplayMode,
           defaultTaxRate,
         })}
+        amountDisplayValue={num(kpis.totalBudget, kpis.totalBudgetTtc)}
+        animateAmount={animateKpiNumbers}
         icon={Wallet}
         dataTestId="dashboard-kpi-total-budget"
       />
@@ -152,6 +181,8 @@ function BudgetKpiCardsByKeys({
           mode: taxDisplayMode,
           defaultTaxRate,
         })}
+        amountDisplayValue={num(kpis.committed, kpis.committedTtc)}
+        animateAmount={animateKpiNumbers}
         icon={Waypoints}
         dataTestId="dashboard-kpi-committed"
       />
@@ -168,6 +199,8 @@ function BudgetKpiCardsByKeys({
           mode: taxDisplayMode,
           defaultTaxRate,
         })}
+        amountDisplayValue={num(kpis.consumed, kpis.consumedTtc)}
+        animateAmount={animateKpiNumbers}
         icon={ArrowDownRight}
         dataTestId="dashboard-kpi-consumed"
       />
@@ -184,6 +217,8 @@ function BudgetKpiCardsByKeys({
           mode: taxDisplayMode,
           defaultTaxRate,
         })}
+        amountDisplayValue={num(kpis.remaining, kpis.remainingTtc)}
+        animateAmount={animateKpiNumbers}
         icon={PiggyBank}
         amountTone={remainingTone}
         dataTestId="dashboard-kpi-remaining"
@@ -201,6 +236,8 @@ function BudgetKpiCardsByKeys({
           mode: taxDisplayMode,
           defaultTaxRate,
         })}
+        amountDisplayValue={num(kpis.forecast, kpis.forecastTtc)}
+        animateAmount={animateKpiNumbers}
         icon={Scale}
         dataTestId="dashboard-kpi-forecast"
       />
@@ -212,6 +249,8 @@ function BudgetKpiCardsByKeys({
         description="Forecast − budget révisé"
         parts={gapParts}
         subtext={ecartSub}
+        amountDisplayValue={num(ecartForecast, ecartTtcFromApi)}
+        animateAmount={animateKpiNumbers}
         icon={TrendingDown}
         amountTone={gapTone}
         dataTestId="dashboard-kpi-forecast-gap"
@@ -262,6 +301,7 @@ function BudgetWidgetSettingsDialog({
   resetBudgetKpisDefaults,
   setBudgetScope,
   resetBudgetScope,
+  setBudgetKpiAnimateNumbers,
   exercises,
   budgets,
   listsLoading,
@@ -274,6 +314,7 @@ function BudgetWidgetSettingsDialog({
   resetBudgetKpisDefaults: () => void;
   setBudgetScope: (scope: DashboardBudgetWidgetScope | undefined) => void;
   resetBudgetScope: () => void;
+  setBudgetKpiAnimateNumbers: (animate: boolean) => void;
   exercises: BudgetExerciseSummary[];
   budgets: BudgetSummary[];
   listsLoading: boolean;
@@ -300,6 +341,16 @@ function BudgetWidgetSettingsDialog({
               onChange={(e) => setBudgetKpisVisible(e.target.checked)}
             />
             <span className="text-sm font-medium">Afficher le widget sur le dashboard</span>
+          </label>
+
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              className="size-4 rounded border-input"
+              checked={config.budgetKpis.animateKpiNumbers !== false}
+              onChange={(e) => setBudgetKpiAnimateNumbers(e.target.checked)}
+            />
+            <span className="text-sm font-medium">Animer les montants (compteur)</span>
           </label>
 
           <div className="space-y-2 border-t border-border pt-3">
@@ -424,6 +475,7 @@ export function DashboardBudgetKpiWidget() {
     resetBudgetKpisDefaults,
     setBudgetScope,
     resetBudgetScope,
+    setBudgetKpiAnimateNumbers,
   } = useDashboardWidgets();
   const [settingsOpen, setSettingsOpen] = React.useState(false);
 
@@ -470,6 +522,9 @@ export function DashboardBudgetKpiWidget() {
   });
 
   const data = query.data;
+  const dataUpdatedAt = query.dataUpdatedAt;
+  const refetchDashboard = query.refetch;
+  const isRefetching = query.isFetching && !query.isLoading;
   const err = query.error instanceof Error ? query.error.message : null;
   /** Message immédiat dès que les listes confirment l’absence d’exercice, sans attendre le 404 du cockpit. */
   const errMsg =
@@ -531,6 +586,7 @@ export function DashboardBudgetKpiWidget() {
           resetBudgetKpisDefaults={resetBudgetKpisDefaults}
           setBudgetScope={setBudgetScope}
           resetBudgetScope={resetBudgetScope}
+          setBudgetKpiAnimateNumbers={setBudgetKpiAnimateNumbers}
           exercises={exerciseOptions}
           budgets={budgets}
           listsLoading={listsLoading}
@@ -577,10 +633,32 @@ export function DashboardBudgetKpiWidget() {
             </p>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2 sm:justify-end">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+          {data && dataUpdatedAt > 0 ? (
+            <span
+              className="text-xs text-muted-foreground tabular-nums"
+              title={new Date(dataUpdatedAt).toLocaleString('fr-FR')}
+            >
+              Mis à jour {formatDashboardDataAge(dataUpdatedAt)}
+            </span>
+          ) : null}
           {taxLoading ? (
             <span className="text-xs text-muted-foreground">TVA…</span>
           ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="inline-flex whitespace-nowrap gap-2"
+            disabled={query.isFetching}
+            onClick={() => void refetchDashboard()}
+            aria-label="Actualiser les indicateurs budget"
+          >
+            <RefreshCw
+              className={cn('size-4 shrink-0', isRefetching && 'animate-spin')}
+            />
+            Actualiser
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -617,6 +695,7 @@ export function DashboardBudgetKpiWidget() {
         resetBudgetKpisDefaults={resetBudgetKpisDefaults}
         setBudgetScope={setBudgetScope}
         resetBudgetScope={resetBudgetScope}
+        setBudgetKpiAnimateNumbers={setBudgetKpiAnimateNumbers}
         exercises={exerciseOptions}
         budgets={budgets}
         listsLoading={listsLoading}
@@ -652,6 +731,7 @@ export function DashboardBudgetKpiWidget() {
           taxDisplayMode={taxDisplayMode}
           defaultTaxRate={defaultTaxRate}
           keys={config.budgetKpis.kpis}
+          animateKpiNumbers={config.budgetKpis.animateKpiNumbers !== false}
         />
       ) : null}
     </section>
