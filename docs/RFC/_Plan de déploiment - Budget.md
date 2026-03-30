@@ -2,7 +2,7 @@
 
 | Phase  | Désignation                                | Objectif métier                                                                 | Backend RFC                                                                 | Frontend RFC               | UX clé                                      | État                    |
 | ------ | ------------------------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------- | ------------------------------------------- | ----------------------- |
-| **0**  | **Cockpit Budget & Dashboard**             | Vision lecture rapide + actions rapides : KPI, alertes simples, drill-down      | **RFC-016 + RFC-022 uniquement** (reporting / dashboard ; pas d’alerting avancé ici) | Budget Dashboard UI        | Cockpit, drill-down navigation              | ❌ À faire               |
+| **0**  | **Cockpit Budget & Dashboard**             | Vision lecture rapide + actions rapides : KPI, alertes simples, drill-down      | **RFC-016 + RFC-022 uniquement** (reporting / dashboard ; pas d’alerting avancé ici) | Budget Dashboard UI        | Cockpit, drill-down navigation              | ⚠️ Partiel (MVP)        |
 | **1**  | **Planning budgétaire mensuel**            | Remplacer Excel par une planification 12 mois (surface **tableur cockpit**)  | **RFC-023** (prévisionnel / atterrissage — API existante) + RFC-024 (moteur étendu si besoin) | RFC-FE-029 + refonte UX § ci-dessous | **Grille principale**, calculette secondaire, synthèse non dupliquée | ⚠️ **Partiel** — voir section *Phase 1 — livré côté front* |
 | **2**  | **Cellule intelligente & calculs**         | Explication des montants (forecast / committed / consumed) + traçabilité      | RFC-024 (moteur de calcul) + **financial-core existant** (pas RFC-025)     | RFC-FE-030 / 031           | Drawer détail, drill-down navigation        | ❌ À faire               |
 | **3**  | **Vue enveloppe & atterrissage**          | Pilotage enveloppe : KPI, comparatifs et projection                             | RFC-024 (agrégations) + **RFC-029** (rôle : modèle / API enveloppe & landing) | RFC-FE-032 / 033           | Drawer détail, drill-down navigation        | ❌ À faire               |
@@ -29,6 +29,7 @@
 
 * **Références backend** : **RFC-016** (reporting / agrégations exposées au dashboard) + **RFC-022** (cockpit budget). Ne pas implémenter ici les règles d’**alerting avancé** (phase 6) ni un moteur de règles métier complexe.
 * **Niveaux de lecture** : **exercice** → **budget** → **enveloppe** (navigation et regroupements cohérents avec ces trois niveaux).
+* **Cockpit configurable (RFC-022) — MVP** : widgets paramétrables (activation / ordre) via `BudgetDashboardConfig` + API `/api/budget-dashboard/configs` ; rendu côté UI via `WidgetRenderer` ; page `/budgets/cockpit-settings` et drill-down sur le dashboard.
 * **Widgets obligatoires** :
   * KPI globaux (synthèse budget / enveloppes / consommation vs prévu selon le modèle RFC-016 / 022) ;
   * **Alertes simples** intégrées au cockpit : dépassement (**overrun**), solde restant négatif (**negative remaining**) — seuils lisibles, pas de moteur de règles personnalisées ;
@@ -83,6 +84,7 @@ Chaque phase du tableau a une **finalité métier** distincte, une **dépendance
 ### ⚠️ Partiel (déséquilibré)
 
 * **Planning mensuel (phase 1)** : parcours principal prévisionnel + création ligne + références init./rév. en grille **livré** ; perfectionnement et alignement RFC complets **en cours**.
+* **Cockpit Budget & Dashboard (phase 0)** : visible côté métier en **MVP** (KPI + alertes simples + configuration widgets) ; finition transversale et parcours hors grille / drawer à compléter.
 * Procurement (pas encore intégré UX)
 * Versioning (pas exploitable métier)
 * Import (pas utilisable UI)
@@ -91,10 +93,9 @@ Chaque phase du tableau a une **finalité métier** distincte, une **dépendance
 
 ### ❌ Critique (manquant)
 
-* Dashboard cockpit (phase 0) et **alertes simples** associées
 * Workflow (RFC Budget Workflow)
 * **Alerting avancé** (phase 6) et UX règles
-* **Cockpit** (phase 0) et finition UX transversale (cohérence drill-down, drawer, parcours hors grille déjà amorcée)
+* Finition UX transversale (cohérence drill-down, drawer, parcours hors grille)
 
 ---
 
@@ -116,7 +117,7 @@ L’**alerting avancé** (phase 6 du plan) intervient après socle cockpit et pi
 # 🧠 Conclusion
 
 👉 Le backend reste **très avancé** sur le périmètre budget / financial-core.
-👉 Le **pilotage prévisionnel en grille** commence à être **visible côté métier** (phase 1 partielle) ; le **cockpit** et le **workflow** restent les prochains sauts de valeur perception produit.
+👉 Le **pilotage prévisionnel en grille** commence à être **visible côté métier** (phase 1 partielle) ; le **cockpit** est désormais livré en **MVP**, il reste à finaliser la finition transversale avant le workflow complet et l’alerting avancé.
 
 Ce tableau te donne :
 
