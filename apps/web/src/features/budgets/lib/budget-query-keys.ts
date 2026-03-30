@@ -126,12 +126,13 @@ export const budgetQueryKeys = {
   ) =>
     ['budgets', clientId, 'budget-comparison', budgetId, compareTo, targetId ?? ''] as const,
 
-  /** Liste snapshots pour sélecteur (par budget) */
-  budgetSnapshotsList: (
-    clientId: string,
-    budgetId: string,
-    params?: { limit?: number; offset?: number },
-  ) => ['budgets', clientId, 'budget-snapshots-list', budgetId, params] as const,
+  /** Liste snapshots (par budget) */
+  budgetSnapshotsList: (clientId: string, budgetId: string) =>
+    ['budgets', clientId, 'budget-snapshots-list', budgetId] as const,
+
+  /** Détail snapshot (par id) */
+  budgetSnapshotDetail: (clientId: string, snapshotId: string) =>
+    ['budgets', clientId, 'budget-snapshot-detail', snapshotId] as const,
 
   /** Historique de versions pour sélecteur */
   budgetVersionHistory: (clientId: string, budgetId: string) =>

@@ -19,10 +19,7 @@ export function useBudgetSnapshotsForSelect(
     (options?.enabled ?? true) && !!clientId && !!budgetId;
 
   return useQuery({
-    queryKey: budgetQueryKeys.budgetSnapshotsList(clientId, budgetId ?? '', {
-      limit: 100,
-      offset: 0,
-    }),
+    queryKey: budgetQueryKeys.budgetSnapshotsList(clientId, budgetId ?? ''),
     queryFn: () =>
       listBudgetSnapshots(authFetch, budgetId!, { limit: 100, offset: 0 }),
     enabled,

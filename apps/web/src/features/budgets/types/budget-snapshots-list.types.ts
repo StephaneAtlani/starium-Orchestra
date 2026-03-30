@@ -24,6 +24,7 @@ export interface BudgetSnapshotSummaryDto {
   totalConsumedAmount: number;
   totalRemainingAmount: number;
   createdByUserId: string | null;
+  createdByLabel: string | null;
   createdAt: string;
 }
 
@@ -32,4 +33,40 @@ export interface ListBudgetSnapshotsResult {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface BudgetSnapshotLineDto {
+  id: string;
+  budgetLineId: string;
+  envelopeName: string | null;
+  lineCode: string;
+  lineName: string;
+  expenseType: string;
+  currency: string;
+  lineStatus: string;
+  initialAmount: number;
+  revisedAmount: number;
+  forecastAmount: number;
+  committedAmount: number;
+  consumedAmount: number;
+  remainingAmount: number;
+}
+
+export interface BudgetSnapshotDetailDto extends BudgetSnapshotSummaryDto {
+  totals: {
+    initialAmount: number;
+    revisedAmount: number;
+    forecastAmount: number;
+    committedAmount: number;
+    consumedAmount: number;
+    remainingAmount: number;
+  };
+  lines: BudgetSnapshotLineDto[];
+}
+
+export interface CreateBudgetSnapshotInput {
+  budgetId: string;
+  label?: string;
+  name?: string;
+  description?: string;
 }
