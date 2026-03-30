@@ -56,10 +56,7 @@ import {
   collectEnvelopeIdsWithFilteredChildren,
   hasActiveBudgetExplorerFilters,
 } from '@/features/budgets/lib/filter-budget-tree';
-import {
-  BUDGET_PILOTAGE_PAGE_SIZE,
-  flattenExplorerBudgetLineIds,
-} from '@/features/budgets/lib/budget-explorer-flat-lines';
+import { flattenExplorerBudgetLineIds } from '@/features/budgets/lib/budget-explorer-flat-lines';
 import { getBudgetMonthColumnLabelsFromExerciseStartIso } from '@/features/budgets/lib/budget-month-labels';
 import {
   amounts12FromPlanningMonths,
@@ -100,7 +97,6 @@ export default function BudgetDetailPage() {
 
   const [pilotageMode, setPilotageMode] = useState<BudgetPilotageMode>('synthese');
   const [pilotageDensity, setPilotageDensity] = useState<BudgetPilotageDensity>('mensuel');
-  const [pilotagePage, setPilotagePage] = useState(0);
   const [draftAmounts12ByLineId, setDraftAmounts12ByLineId] = useState<
     Record<string, Amounts12 | undefined>
   >({});
@@ -157,29 +153,8 @@ export default function BudgetDetailPage() {
     [filteredTree],
   );
 
-  const needsPlanningPagination = flatLineIds.length > BUDGET_PILOTAGE_PAGE_SIZE;
-  const planningPageCount = Math.max(
-    1,
-    Math.ceil(flatLineIds.length / BUDGET_PILOTAGE_PAGE_SIZE) || 1,
-  );
-
-  const planningFetchedLineIds = useMemo(() => {
-    if (!needsPlanningPagination) {
-      return flatLineIds;
-    }
-    const start = pilotagePage * BUDGET_PILOTAGE_PAGE_SIZE;
-    return flatLineIds.slice(start, start + BUDGET_PILOTAGE_PAGE_SIZE);
-  }, [flatLineIds, needsPlanningPagination, pilotagePage]);
-
-  useEffect(() => {
-    if (pilotagePage >= planningPageCount) {
-      setPilotagePage(Math.max(0, planningPageCount - 1));
-    }
-  }, [pilotagePage, planningPageCount]);
-
-  useEffect(() => {
-    setPilotagePage(0);
-  }, [filters, flatLineIds.length]);
+  /** Toutes les lignes visibles : pas de pagination côté planning (requêtes parallèles par ligne). */
+  const planningFetchedLineIds = flatLineIds;
 
   const planningQueriesEnabled =
     pilotageMode !== 'synthese' &&
@@ -475,41 +450,6 @@ export default function BudgetDetailPage() {
                     </AlertDescription>
                   </Alert>
                 )}
-                {pilotageMode !== 'synthese' &&
-                  pilotageMode !== 'dashboard' &&
-                  needsPlanningPagination && (
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <span>
-                      Lignes {flatLineIds.length} — chargement planning par tranche (
-                      {BUDGET_PILOTAGE_PAGE_SIZE} max).
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={pilotagePage <= 0}
-                        onClick={() => setPilotagePage((p) => Math.max(0, p - 1))}
-                      >
-                        Précédent
-                      </Button>
-                      <span className="tabular-nums">
-                        Page {pilotagePage + 1} / {planningPageCount}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={pilotagePage >= planningPageCount - 1}
-                        onClick={() =>
-                          setPilotagePage((p) => Math.min(planningPageCount - 1, p + 1))
-                        }
-                      >
-                        Suivant
-                      </Button>
-                    </div>
-                  </div>
-                )}
                 <BudgetExplorerToolbar
                   filters={filters}
                   setFilters={setFilters}
@@ -572,7 +512,6 @@ export default function BudgetDetailPage() {
                     planningByLineId,
                     planningQueriesLoading: planningQueriesLoading,
                     planningFetchedLineIds,
-                    needsPagination: needsPlanningPagination,
                     amounts12ByLineId,
                     draftAmounts12ByLineId,
                     mutatingLineId,

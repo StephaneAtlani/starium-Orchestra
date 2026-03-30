@@ -32,7 +32,6 @@ export interface BudgetExplorerPilotageBindings {
   planningByLineId: Map<string, BudgetLinePlanningResponse>;
   planningQueriesLoading: boolean;
   planningFetchedLineIds: readonly string[];
-  needsPagination: boolean;
   amounts12ByLineId: Map<string, Amounts12 | null>;
   draftAmounts12ByLineId: Record<string, Amounts12 | undefined>;
   mutatingLineId: string | null;

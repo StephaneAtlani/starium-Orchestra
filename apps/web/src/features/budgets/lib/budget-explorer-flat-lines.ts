@@ -1,8 +1,5 @@
 import type { ExplorerNode } from '../types/budget-explorer.types';
 
-/** Seuil RFC-024 : pagination / chargement planning par tranche. */
-export const BUDGET_PILOTAGE_PAGE_SIZE = 50;
-
 /**
  * Liste plate des ids de lignes budgétaires (ordre profondeur d’abord, comme le rendu).
  */

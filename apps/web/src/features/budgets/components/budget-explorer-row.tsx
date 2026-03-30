@@ -367,8 +367,6 @@ function BudgetExplorerLineRow({
   }
 
   const hasPlanningFetch = pilotage.planningFetchedLineIds.includes(line.id);
-  const hidePlanningData =
-    pilotage.needsPagination && !pilotage.planningFetchedLineIds.includes(line.id);
   const planning = hasPlanningFetch ? pilotage.planningByLineId.get(line.id) : undefined;
   const planningRowLoading =
     hasPlanningFetch &&
@@ -405,23 +403,19 @@ function BudgetExplorerLineRow({
             </button>
           </div>
         </TableCell>
-        {hidePlanningData ? (
-          <PilotageEnvelopeDataCells colCount={pilotageDataColCount} />
-        ) : (
-          <PilotageLineDataCells
-            line={line}
-            mode={pilotage.mode}
-            density={pilotage.density}
-            monthColumnLabels={pilotage.monthColumnLabels}
-            planning={planning}
-            planningRowLoading={planningRowLoading}
-            amounts12={amounts12}
-            canEditPlanning={pilotage.canEditPlanning}
-            isMutating={pilotage.mutatingLineId === line.id}
-            onMonthCommit={pilotage.onMonthCommit}
-            taxDisplayMode={pilotage.taxDisplayMode}
-          />
-        )}
+        <PilotageLineDataCells
+          line={line}
+          mode={pilotage.mode}
+          density={pilotage.density}
+          monthColumnLabels={pilotage.monthColumnLabels}
+          planning={planning}
+          planningRowLoading={planningRowLoading}
+          amounts12={amounts12}
+          canEditPlanning={pilotage.canEditPlanning}
+          isMutating={pilotage.mutatingLineId === line.id}
+          onMonthCommit={pilotage.onMonthCommit}
+          taxDisplayMode={pilotage.taxDisplayMode}
+        />
       </TableRow>
     </>
   );
