@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -10,6 +11,7 @@ import { AlertCircle, CalendarRange, ChevronLeft } from 'lucide-react';
 import { useProjectsListFilters } from '../hooks/use-projects-list-filters';
 import { usePortfolioGanttQuery } from '../hooks/use-portfolio-gantt-query';
 import { ProjectsToolbar } from './projects-toolbar';
+import { ProjectsPortfolioFiltersBar } from './projects-portfolio-filters-bar';
 import { PortfolioGanttChart } from './portfolio-gantt-chart';
 import { projectsList } from '../constants/project-routes';
 import { cn } from '@/lib/utils';
@@ -22,6 +24,17 @@ export function PortfolioGanttPage() {
   const { data, isLoading, isError, error, refetch } = usePortfolioGanttQuery(apiParams, {
     enabled: canRead,
   });
+
+  const myRoleOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of data?.items ?? []) {
+      for (const r of row.myRoles ?? []) {
+        const t = r.trim();
+        if (t) set.add(t);
+      }
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [data?.items]);
 
   return (
     <>
@@ -49,6 +62,11 @@ export function PortfolioGanttPage() {
       ) : (
         <Card size="sm" className="min-w-0 overflow-hidden shadow-sm">
           <ProjectsToolbar filters={filters} setFilters={setFilters} onReset={reset} embedded />
+          <ProjectsPortfolioFiltersBar
+            filters={filters}
+            setFilters={setFilters}
+            myRoleOptions={myRoleOptions}
+          />
           <CardContent className="p-4 sm:p-6">
             {isLoading && !data && <LoadingState rows={5} />}
             {isError && (

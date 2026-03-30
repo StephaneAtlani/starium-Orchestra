@@ -129,6 +129,8 @@ export type PortfolioGanttRowDto = {
   progressPercent: number | null;
   computedHealth: ComputedHealth;
   isLate: boolean;
+  portfolioCategory: ProjectListItemDto['portfolioCategory'];
+  myRoles: string[];
 };
 
 export type ProjectDetailDto = ProjectListItemDto & {
@@ -695,6 +697,8 @@ export class ProjectsService {
           e.progressPercent ?? e.derivedProgressPercent ?? null,
         computedHealth: e.computedHealth,
         isLate: e.signals.isLate,
+        portfolioCategory: e.portfolioCategory,
+        myRoles: e.myRoles ?? [],
       })),
     };
   }
