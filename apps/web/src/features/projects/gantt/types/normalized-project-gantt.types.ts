@@ -8,5 +8,6 @@ export type NormalizedProjectGanttPayload = ProjectGanttPayload & {
     status: string;
     plannedStartDate: string | null;
     plannedEndDate: string | null;
+    businessProblem: string | null;
   };
 };

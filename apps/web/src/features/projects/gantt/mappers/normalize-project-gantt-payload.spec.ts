@@ -60,6 +60,7 @@ describe('normalizeProjectGanttPayload', () => {
     const n = normalizeProjectGanttPayload(basePayload);
     expect(n.project.id).toBe('p1');
     expect(n.project.status).toBe('UNKNOWN');
+    expect(n.project.businessProblem).toBeNull();
   });
 
   it('force isLate à boolean', () => {

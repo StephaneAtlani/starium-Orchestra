@@ -619,6 +619,8 @@ export type ProjectGanttTaskPayload = {
   dependsOnTaskId: string | null;
   dependencyType: string | null;
   name: string;
+  /** Description (formulaire planning) — renvoyée par GET gantt pour infobulles. */
+  description?: string | null;
   status: string;
   priority: string;
   progress: number;
@@ -640,6 +642,8 @@ export type ProjectGanttPayload = {
     status: string;
     plannedStartDate: string | null;
     plannedEndDate: string | null;
+    /** Objectif métier (pourquoi) — aligné fiche projet. */
+    businessProblem?: string | null;
   };
   phases: Array<{
     id: string;
@@ -659,6 +663,7 @@ export type ProjectGanttPayload = {
     dependsOnTaskId: string | null;
     dependencyType: string | null;
     name: string;
+    description?: string | null;
     status: string;
     priority: string;
     progress: number;

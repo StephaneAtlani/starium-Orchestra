@@ -62,6 +62,17 @@ import {
   type ProjectTaskPlanningSectionHandle,
 } from './project-task-planning-section';
 import { ProjectGanttTaskBar } from './project-gantt-task-bar';
+import {
+  ProjectGanttMilestoneTooltipContent,
+  ProjectGanttTaskTooltipContent,
+  PROJECT_GANTT_TOOLTIP_CONTENT_CLASS,
+} from './project-gantt-entity-tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Info, Maximize2, Minimize2, Minus, Plus, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -152,6 +163,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const [showMilestones, setShowMilestones] = useState(true);
   /** Nom, % et statut sur les barres de la frise (style MS Project). */
   const [showGanttBarLabels, setShowGanttBarLabels] = useState(true);
+  /** Infobulles riches sur les barres tâches et jalons de la frise. */
+  const [showGanttFriseTooltips, setShowGanttFriseTooltips] = useState(true);
   /** Couleur des barres tâches : défaut, priorité, statut ou regroupement par racine. */
   const [barColorMode, setBarColorMode] = useState<GanttBarColorMode>('default');
   const [timelineViewportW, setTimelineViewportW] = useState(0);
@@ -328,6 +341,16 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
       (t) => !t.plannedStartDate || !t.plannedEndDate,
     ).length;
   }, [normalized?.tasks]);
+
+  const taskNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of normalized?.tasks ?? []) {
+      m.set(t.id, t.name);
+    }
+    return m;
+  }, [normalized?.tasks]);
+
+  const projectBusinessProblem = normalized?.project.businessProblem ?? null;
 
   const bounds = useMemo((): TimelineBounds | null => {
     if (!normalized) return null;
@@ -864,6 +887,18 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           />
           <span className="text-muted-foreground">Libellés frise</span>
         </label>
+        <label
+          className="flex cursor-pointer items-center gap-2"
+          title="Décocher pour masquer les infobulles sur les barres et jalons de la frise"
+        >
+          <input
+            type="checkbox"
+            className="border-input size-3.5 rounded"
+            checked={showGanttFriseTooltips}
+            onChange={(e) => setShowGanttFriseTooltips(e.target.checked)}
+          />
+          <span className="text-muted-foreground">Infobulles</span>
+        </label>
         <div
           className="flex items-center gap-1.5 border-border/60 border-l pl-3"
           title="Couleur des barres sur la frise (lecture seule, ne modifie pas les données)"
@@ -920,6 +955,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           isFullscreen && 'box-border min-h-screen overflow-hidden bg-background p-3 sm:p-4',
         )}
       >
+        <TooltipProvider delay={250}>
         <ProjectGanttView
           banner={
             normalized?.project?.name ? (
@@ -960,6 +996,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           </div>
         </div>
         </ProjectGanttView>
+        </TooltipProvider>
       </div>
     );
   }
@@ -976,6 +1013,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         isFullscreen && 'box-border min-h-screen overflow-hidden bg-background p-3 sm:p-4',
       )}
     >
+      <TooltipProvider delay={250}>
       <ProjectGanttView
         banner={
           normalized?.project?.name ? (
@@ -1311,24 +1349,65 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                         className="border-border/60 relative z-[2] box-border shrink-0 border-b"
                         style={{ height: GANTT_ROW_PX, width: widthPx }}
                       >
-                        <div
-                          className={
-                            canEdit
-                              ? cn(
-                                  'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm hover:bg-amber-400 cursor-grab touch-none active:cursor-grabbing',
-                                  m.isLate && 'ring-2 ring-destructive/80 ring-offset-1 ring-offset-background',
-                                )
-                              : cn(
-                                  'bg-amber-500 pointer-events-none absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm',
-                                  m.isLate && 'ring-2 ring-destructive/80 ring-offset-1 ring-offset-background',
-                                )
-                          }
-                          style={{ left: leftPx }}
-                          title={`${m.name} — ${new Date(tMs).toLocaleDateString('fr-FR')}`}
-                          onPointerDown={
-                            canEdit ? (e) => beginMilestoneDrag(m, e) : undefined
-                          }
-                        />
+                        {showGanttFriseTooltips ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              className={cn(
+                                'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm',
+                                canEdit
+                                  ? 'cursor-grab touch-none hover:bg-amber-400 active:cursor-grabbing'
+                                  : 'cursor-default',
+                                m.isLate &&
+                                  'ring-2 ring-destructive/80 ring-offset-1 ring-offset-background',
+                              )}
+                              style={{ left: leftPx }}
+                              onPointerDown={
+                                canEdit ? (e) => beginMilestoneDrag(m, e) : undefined
+                              }
+                              aria-label={m.name}
+                            />
+                            <TooltipContent
+                              side="top"
+                              align="start"
+                              sideOffset={8}
+                              className={cn(
+                                PROJECT_GANTT_TOOLTIP_CONTENT_CLASS,
+                                'z-[100] max-w-none items-start',
+                              )}
+                            >
+                              <ProjectGanttMilestoneTooltipContent
+                                milestone={m}
+                                linkedTaskName={
+                                  m.linkedTaskId
+                                    ? taskNameById.get(m.linkedTaskId) ?? null
+                                    : null
+                                }
+                                phaseName={
+                                  m.phaseId
+                                    ? phaseInfoById.get(m.phaseId)?.name ?? null
+                                    : null
+                                }
+                                projectBusinessProblem={projectBusinessProblem}
+                              />
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <div
+                            className={cn(
+                              'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm',
+                              canEdit
+                                ? 'cursor-grab touch-none hover:bg-amber-400 active:cursor-grabbing'
+                                : 'cursor-default',
+                              m.isLate &&
+                                'ring-2 ring-destructive/80 ring-offset-1 ring-offset-background',
+                            )}
+                            style={{ left: leftPx }}
+                            title={`${m.name} — ${new Date(tMs).toLocaleDateString('fr-FR')}`}
+                            onPointerDown={
+                              canEdit ? (e) => beginMilestoneDrag(m, e) : undefined
+                            }
+                          />
+                        )}
                       </div>
                     );
                   }
@@ -1383,6 +1462,23 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                                 taskRootIdMap.get(row.id) ?? row.id,
                               ) ?? 0,
                           })}
+                          tooltipContent={
+                            showGanttFriseTooltips ? (
+                              <ProjectGanttTaskTooltipContent
+                                task={row}
+                                phaseName={
+                                  row.phaseId
+                                    ? phaseInfoById.get(row.phaseId)?.name ?? null
+                                    : null
+                                }
+                                predecessorName={
+                                  row.dependsOnTaskId
+                                    ? taskNameById.get(row.dependsOnTaskId) ?? null
+                                    : null
+                                }
+                              />
+                            ) : undefined
+                          }
                         />
                       )}
                       {eligible && dates && showGanttBarLabels && (
@@ -1420,6 +1516,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         </div>
       </div>
       </ProjectGanttView>
+      </TooltipProvider>
     </div>
   );
 }

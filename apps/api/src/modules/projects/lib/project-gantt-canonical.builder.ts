@@ -13,6 +13,8 @@ export type GanttTaskPayloadDto = {
   dependsOnTaskId: string | null;
   dependencyType: string | null;
   name: string;
+  /** Texte libre — aligné formulaire planning / fiche tâche. */
+  description: string | null;
   status: string;
   priority: string;
   progress: number;
@@ -32,6 +34,8 @@ export type CanonicalGanttPayload = {
     status: string;
     plannedStartDate: string | null;
     plannedEndDate: string | null;
+    /** Objectif métier (pourquoi) — texte libre fiche projet. */
+    businessProblem: string | null;
   };
   phases: Array<{
     id: string;
@@ -106,6 +110,7 @@ export function mapProjectTaskToGanttDto(
     dependsOnTaskId: sanitizedDep,
     dependencyType: t.dependencyType,
     name: t.name,
+    description: t.description?.trim() ? t.description.trim() : null,
     status: t.status,
     priority: t.priority,
     progress: t.progress,
@@ -126,7 +131,10 @@ export function mapProjectTaskToGanttDto(
  * Seul point de construction de la structure canonique { project, phases, ungroupedTasks, milestones }.
  */
 export function buildCanonicalGanttPayload(
-  project: Pick<Project, 'id' | 'name' | 'status' | 'startDate' | 'targetEndDate'>,
+  project: Pick<
+    Project,
+    'id' | 'name' | 'status' | 'startDate' | 'targetEndDate' | 'businessProblem'
+  >,
   phases: ProjectTaskPhase[],
   tasks: ProjectTask[],
   milestones: ProjectMilestone[],
@@ -175,6 +183,7 @@ export function buildCanonicalGanttPayload(
     ),
   }));
 
+  const bp = project.businessProblem?.trim();
   return {
     project: {
       id: project.id,
@@ -182,6 +191,7 @@ export function buildCanonicalGanttPayload(
       status: project.status,
       plannedStartDate: project.startDate?.toISOString() ?? null,
       plannedEndDate: project.targetEndDate?.toISOString() ?? null,
+      businessProblem: bp ? bp : null,
     },
     phases: phasesOut,
     ungroupedTasks: mapList(ungrouped),

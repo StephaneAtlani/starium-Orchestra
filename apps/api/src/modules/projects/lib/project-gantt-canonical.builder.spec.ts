@@ -15,6 +15,7 @@ describe('buildCanonicalGanttPayload', () => {
     status: ProjectStatus.DRAFT,
     startDate: null,
     targetEndDate: null,
+    businessProblem: null as string | null,
   };
 
   it('ne duplique pas les tâches entre phases et ungrouped', () => {
@@ -56,6 +57,7 @@ describe('buildCanonicalGanttPayload', () => {
     const milestones: any[] = [];
 
     const canon = buildCanonicalGanttPayload(project, phases, tasks, milestones);
+    expect(canon.project.businessProblem).toBeNull();
     const inPhase = canon.phases[0]?.tasks ?? [];
     expect(inPhase).toHaveLength(1);
     expect(canon.ungroupedTasks).toHaveLength(0);

@@ -34,6 +34,7 @@ export class ProjectGanttService {
           status: true,
           startDate: true,
           targetEndDate: true,
+          businessProblem: true,
         },
       }),
       this.prisma.projectTaskPhase.findMany({

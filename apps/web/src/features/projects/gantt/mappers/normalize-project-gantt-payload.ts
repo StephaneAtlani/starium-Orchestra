@@ -8,12 +8,13 @@ import type { NormalizedProjectGanttPayload } from '../types/normalized-project-
 export function normalizeProjectGanttPayload(
   raw: ProjectGanttPayload,
 ): NormalizedProjectGanttPayload {
-  const project = raw.project ?? {
-    id: raw.projectId,
-    name: '',
-    status: 'UNKNOWN',
-    plannedStartDate: null,
-    plannedEndDate: null,
+  const project = {
+    id: raw.project?.id ?? raw.projectId,
+    name: raw.project?.name ?? '',
+    status: raw.project?.status ?? 'UNKNOWN',
+    plannedStartDate: raw.project?.plannedStartDate ?? null,
+    plannedEndDate: raw.project?.plannedEndDate ?? null,
+    businessProblem: raw.project?.businessProblem ?? null,
   };
 
   const taskFlags = <T extends { isLate?: boolean }>(t: T) => ({
