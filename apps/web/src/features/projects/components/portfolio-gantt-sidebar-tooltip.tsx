@@ -3,8 +3,9 @@
 import type { ReactNode } from 'react';
 import type { PortfolioGanttRow } from '../types/project.types';
 import {
-  labelArbGlobal,
+  arbitrationFocusStep,
   labelArbLevel,
+  PORTFOLIO_ARBITRATION_ACTIVE_LEVEL_LABEL,
 } from '../lib/portfolio-gantt-tooltip-labels';
 import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 
@@ -23,28 +24,31 @@ export function PortfolioGanttSidebarTooltipContent({
 }) {
   const tags = row.tags ?? [];
   const stakeholderLines = row.stakeholderLines ?? [];
-  const global = labelArbGlobal(row.arbitrationStatus);
   const metier = labelArbLevel(row.arbitrationMetierStatus);
   const comite = labelArbLevel(row.arbitrationComiteStatus);
   const codir = labelArbLevel(row.arbitrationCodirStatus);
   const hasArb =
-    global != null ||
-    metier != null ||
-    comite != null ||
-    codir != null;
+    metier != null || comite != null || codir != null;
+  const focusStep = arbitrationFocusStep(
+    row.arbitrationMetierStatus,
+    row.arbitrationComiteStatus,
+    row.arbitrationCodirStatus,
+  );
+  const arbitrageNiveauActif =
+    PORTFOLIO_ARBITRATION_ACTIVE_LEVEL_LABEL[focusStep];
+  const objectifMetier = row.businessProblem?.trim() ?? '';
 
   return (
-    <div className="max-w-[min(20rem,calc(100vw-2rem))] space-y-2.5 text-left">
+    <div className="flex w-full max-w-[min(34rem,calc(100vw-2rem))] gap-3 text-left">
+      <div className="min-w-0 flex-1 space-y-2.5">
       <div>
         <SectionTitle>Validation & arbitrage</SectionTitle>
         {hasArb ? (
           <ul className="mt-1.5 list-none space-y-1 text-[0.8125rem] leading-snug text-background/95">
-            {global != null && (
-              <li>
-                <span className="text-background/75">Décision globale · </span>
-                {global}
-              </li>
-            )}
+            <li>
+              <span className="text-background/75">Arbitrage · Niveau actif · </span>
+              {arbitrageNiveauActif}
+            </li>
             {metier != null && (
               <li>
                 <span className="text-background/75">Métier · </span>
@@ -59,7 +63,7 @@ export function PortfolioGanttSidebarTooltipContent({
             )}
             {codir != null && (
               <li>
-                <span className="text-background/75">Sponsor / CODIR · </span>
+                <span className="text-background/75">COPIL / COPRO · </span>
                 {codir}
               </li>
             )}
@@ -99,6 +103,17 @@ export function PortfolioGanttSidebarTooltipContent({
         ) : (
           <p className="mt-1 text-[0.8125rem] text-background/80">Non renseigné</p>
         )}
+      </div>
+      </div>
+
+      <div className="w-[min(11.5rem,32vw)] shrink-0 border-l border-background/20 pl-3">
+        <SectionTitle>Objectif métier</SectionTitle>
+        <p
+          className="mt-1.5 line-clamp-6 break-words text-[0.8125rem] leading-snug text-background/95"
+          title={objectifMetier || undefined}
+        >
+          {objectifMetier || '—'}
+        </p>
       </div>
     </div>
   );

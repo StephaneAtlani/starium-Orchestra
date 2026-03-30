@@ -144,6 +144,8 @@ export type PortfolioGanttRow = {
   arbitrationMetierStatus: string | null;
   arbitrationComiteStatus: string | null;
   arbitrationCodirStatus: string | null;
+  /** Objectif métier (pourquoi) — fiche projet. */
+  businessProblem: string | null;
   stakeholderLines: string[];
 };
 

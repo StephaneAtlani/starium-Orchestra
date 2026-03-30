@@ -142,6 +142,8 @@ export type PortfolioGanttRowDto = {
   arbitrationMetierStatus: string | null;
   arbitrationComiteStatus: string | null;
   arbitrationCodirStatus: string | null;
+  /** Objectif métier (fiche projet) — texte libre. */
+  businessProblem: string | null;
   /** Lignes courtes pour infobulle (sponsor, responsable, équipe). */
   stakeholderLines: string[];
 };
@@ -741,6 +743,7 @@ export class ProjectsService {
         arbitrationMetierStatus: true,
         arbitrationComiteStatus: true,
         arbitrationCodirStatus: true,
+        businessProblem: true,
         sponsor: {
           select: { firstName: true, lastName: true, email: true },
         },
@@ -805,6 +808,7 @@ export class ProjectsService {
           arbitrationMetierStatus: d?.arbitrationMetierStatus ?? null,
           arbitrationComiteStatus: d?.arbitrationComiteStatus ?? null,
           arbitrationCodirStatus: d?.arbitrationCodirStatus ?? null,
+          businessProblem: d?.businessProblem?.trim() ? d.businessProblem.trim() : null,
           stakeholderLines,
         };
       }),

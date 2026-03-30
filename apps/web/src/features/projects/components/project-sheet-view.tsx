@@ -2519,8 +2519,11 @@ export function ProjectSheetView({
                               Auteur inconnu
                             </span>
                           )}
-                          <span className="mt-1 block font-mono text-[10px] text-muted-foreground/70">
-                            Réf. {row.id}
+                          <span className="mt-1 block text-[10px] leading-snug text-muted-foreground/70">
+                            Réf.{' '}
+                            {(sheet?.name?.trim()
+                              ? sheet.name
+                              : sheet?.code?.trim()) ?? '—'}
                           </span>
                         </button>
                       </li>

@@ -11,7 +11,7 @@ import type { PortfolioGanttRow } from '../types/project.types';
 import { cn } from '@/lib/utils';
 
 export const PORTFOLIO_GANTT_TOOLTIP_CONTENT_CLASS =
-  'max-w-[min(22rem,calc(100vw-2rem))] flex-col items-start gap-0 px-3 py-2.5 text-left';
+  'max-w-[min(34rem,calc(100vw-2rem))] flex-col items-start gap-0 px-3 py-2.5 text-left';
 
 type PortfolioGanttProjectTooltipProps = {
   row: PortfolioGanttRow;
