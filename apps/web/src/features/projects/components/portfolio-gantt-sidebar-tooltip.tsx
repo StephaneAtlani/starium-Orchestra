@@ -8,6 +8,10 @@ import {
   PORTFOLIO_ARBITRATION_ACTIVE_LEVEL_LABEL,
 } from '../lib/portfolio-gantt-tooltip-labels';
 import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
+import {
+  PROJECT_CRITICALITY_LABEL,
+  PROJECT_PRIORITY_LABEL,
+} from '../constants/project-enum-labels';
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
@@ -37,6 +41,14 @@ export function PortfolioGanttSidebarTooltipContent({
   const arbitrageNiveauActif =
     PORTFOLIO_ARBITRATION_ACTIVE_LEVEL_LABEL[focusStep];
   const objectifMetier = row.businessProblem?.trim() ?? '';
+  const priorityLabel =
+    PROJECT_PRIORITY_LABEL[row.priority] ?? row.priority;
+  const criticalityLabel =
+    PROJECT_CRITICALITY_LABEL[row.criticality] ?? row.criticality;
+  const progressText =
+    row.progressPercent != null && Number.isFinite(row.progressPercent)
+      ? `${Math.round(row.progressPercent)} %`
+      : '—';
 
   return (
     <div className="flex w-full max-w-[min(34rem,calc(100vw-2rem))] gap-3 text-left">
@@ -71,6 +83,24 @@ export function PortfolioGanttSidebarTooltipContent({
         ) : (
           <p className="mt-1 text-[0.8125rem] text-background/80">Non renseigné</p>
         )}
+      </div>
+
+      <div>
+        <SectionTitle>Pilotage</SectionTitle>
+        <ul className="mt-1.5 list-none space-y-1 text-[0.8125rem] leading-snug text-background/95">
+          <li>
+            <span className="text-background/75">Avancement · </span>
+            {progressText}
+          </li>
+          <li>
+            <span className="text-background/75">Criticité · </span>
+            {criticalityLabel}
+          </li>
+          <li>
+            <span className="text-background/75">Priorité · </span>
+            {priorityLabel}
+          </li>
+        </ul>
       </div>
 
       <div>
