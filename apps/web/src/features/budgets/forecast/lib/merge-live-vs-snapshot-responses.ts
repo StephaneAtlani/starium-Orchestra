@@ -8,7 +8,8 @@ export type MergedLiveVsManySnapshotsRow = {
   name: string;
   leftRevised: number;
   rightRevised: number[];
-  varianceForecast: number;
+  /** Écart prévisionnel (1ʳᵉ cible) : droite − gauche, même logique que la comparaison paire. */
+  forecastDiffFirst: number;
   status: ForecastLineStatus;
 };
 
@@ -68,7 +69,8 @@ export function mergeLiveVsManySnapshotResponses(
         name: first.name,
         leftRevised: first.left.revisedAmount,
         rightRevised,
-        varianceForecast: primary.varianceForecast,
+        forecastDiffFirst:
+          primary.right.forecastAmount - primary.left.forecastAmount,
         status: primary.status,
       },
     ];

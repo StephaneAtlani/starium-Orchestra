@@ -11,9 +11,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { formatCurrency } from '@/features/budgets/lib/budget-formatters';
+import {
+  formatCurrency,
+  formatSignedDeltaPercent,
+} from '@/features/budgets/lib/budget-formatters';
 import type {
-  BudgetComparisonLineItem,
   BudgetComparisonResponse,
   ForecastLineStatus,
 } from '@/features/budgets/types/budget-forecast.types';
@@ -67,10 +69,6 @@ function resolvePilotageColumn(data: BudgetComparisonResponse): 'left' | 'right'
   return data.compareTo != null ? 'left' : 'right';
 }
 
-function pilotAmounts(row: BudgetComparisonLineItem, col: 'left' | 'right') {
-  return col === 'left' ? row.left : row.right;
-}
-
 function statusExplanation(
   status: ForecastLineStatus,
   pilotLabel: string,
@@ -105,10 +103,10 @@ function ComparisonContextBanner({ data }: { data: BudgetComparisonResponse }) {
         <span className="text-foreground">Droite :</span> {rightName}
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
-        <span className="text-foreground">Pilotage (statut / variance) :</span> colonne{' '}
-        <strong>{pilotCol === 'left' ? 'gauche' : 'droite'}</strong> (« {pilotName} »). Les colonnes
-        supplémentaires montrent le <strong>consommé</strong> et le <strong>prévisionnel</strong> sur
-        ce même périmètre pour expliquer OK / WARNING / CRITICAL.
+        <span className="text-foreground">Statut ligne (OK / WARNING / CRITICAL) :</span> calculé sur la
+        colonne <strong>{pilotCol === 'left' ? 'gauche' : 'droite'}</strong> (« {pilotName} ») — révisé,
+        consommé et prévisionnel de ce côté. Les montants consommé / prévisionnel sont affichés{' '}
+        <strong>gauche et droite</strong> pour comparer les deux budgets ligne à ligne.
       </p>
     </div>
   );
@@ -140,26 +138,82 @@ function lineDiff(
   return right - left;
 }
 
+/** Δ % = (droite − gauche) / gauche — couleur alignée sur le signe de l’écart absolu. */
+function ComparisonPctCell({
+  leftAmount,
+  rightAmount,
+  className,
+}: {
+  leftAmount: number;
+  rightAmount: number;
+  className?: string;
+}) {
+  const diff = lineDiff(leftAmount, rightAmount);
+  const pct = formatSignedDeltaPercent(rightAmount, leftAmount);
+  return (
+    <TableCell
+      className={cn(
+        'text-right tabular-nums',
+        pct ? comparisonDiffClass(diff) : 'text-muted-foreground',
+        className,
+      )}
+    >
+      {pct ?? '—'}
+    </TableCell>
+  );
+}
+
+function ComparisonDiffCell({
+  leftAmount,
+  rightAmount,
+  currency,
+  className,
+}: {
+  leftAmount: number;
+  rightAmount: number;
+  currency: string | null;
+  className?: string;
+}) {
+  const d = lineDiff(leftAmount, rightAmount);
+  return (
+    <TableCell
+      className={cn(
+        'text-right tabular-nums',
+        comparisonDiffClass(d),
+        className,
+      )}
+    >
+      {formatCurrency(d, currency)}
+    </TableCell>
+  );
+}
+
+/** Séparateur visuel entre blocs (en-têtes). */
+const GROUP_SEP_HEAD = 'border-l border-border/80 bg-muted/20';
+/** 1ʳᵉ colonne d’un bloc pilotage (lignes). */
+const GROUP_SEP_CELL = 'border-l border-border/80';
+
 /** En-tête figé en haut + 1ʳᵉ colonne figée à gauche dans le scroll. */
 const STICKY_HEAD = 'sticky top-0 z-20 bg-muted/95 backdrop-blur-sm';
+/** Coin + 1ʳᵉ colonne : fond opaque pour ne pas voir le tableau défiler en transparence. */
 const STICKY_CORNER =
-  'sticky left-0 top-0 z-30 border-r border-border bg-muted/95 backdrop-blur-sm shadow-[4px_0_14px_-6px_rgba(0,0,0,0.12)]';
+  'sticky left-0 top-0 z-30 border-r border-border bg-muted shadow-[4px_0_14px_-6px_rgba(0,0,0,0.12)]';
 const STICKY_LINE_COL =
-  'sticky left-0 z-10 border-r border-border bg-card shadow-[4px_0_14px_-6px_rgba(0,0,0,0.08)]';
-const STICKY_LINE_COL_FOOT = 'sticky left-0 z-10 border-r border-border bg-muted/30';
+  'sticky left-0 z-10 border-r border-border bg-background shadow-[4px_0_14px_-6px_rgba(0,0,0,0.08)]';
+const STICKY_LINE_COL_FOOT = 'sticky left-0 z-10 border-r border-border bg-muted';
 
 /** Groupes de colonnes affichables (la comparaison API est inchangée). */
 export type ComparisonColumnGroups = {
+  /** Bloc : gauche / droite / écart (D−G) / Δ % — par ligne. */
   revised: boolean;
+  /** Deux blocs : consommé puis prévisionnel (même structure). */
   pilotage: boolean;
-  ecarts: boolean;
   statut: boolean;
 };
 
 const DEFAULT_COLUMN_GROUPS: ComparisonColumnGroups = {
   revised: true,
   pilotage: true,
-  ecarts: true,
   statut: true,
 };
 
@@ -172,8 +226,7 @@ function ComparisonColumnToggles({
 }) {
   const toggle = (key: keyof ComparisonColumnGroups) => {
     const next = { ...value, [key]: !value[key] };
-    const anyVisible =
-      next.revised || next.pilotage || next.ecarts || next.statut;
+    const anyVisible = next.revised || next.pilotage || next.statut;
     if (!anyVisible) return;
     onChange(next);
   };
@@ -185,18 +238,13 @@ function ComparisonColumnToggles({
   }[] = [
     {
       key: 'revised',
-      label: 'Montants révisés',
-      hint: 'Gauche / droite (budgets comparés)',
+      label: 'Révisé',
+      hint: 'Gauche, droite, écart et Δ % regroupés',
     },
     {
       key: 'pilotage',
       label: 'Pilotage',
-      hint: 'Consommé et prévisionnel (périmètre statut)',
-    },
-    {
-      key: 'ecarts',
-      label: 'Écarts',
-      hint: 'Écart révisé et variance forecast',
+      hint: 'Consommé et prévisionnel — chacun : gauche, droite, écart, Δ %',
     },
     {
       key: 'statut',
@@ -295,28 +343,37 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
   const pilotCol = resolvePilotageColumn(data);
   const pilotLabelForHeader =
     pilotCol === 'left' ? leftColTitle : rightColTitle;
-  const sumPilotConsumed = data.lines.reduce(
-    (s, r) => s + pilotAmounts(r, pilotCol).consumedAmount,
+  const sumLeftConsumed = data.lines.reduce(
+    (s, r) => s + r.left.consumedAmount,
     0,
   );
-  const sumPilotForecast = data.lines.reduce(
-    (s, r) => s + pilotAmounts(r, pilotCol).forecastAmount,
+  const sumRightConsumed = data.lines.reduce(
+    (s, r) => s + r.right.consumedAmount,
+    0,
+  );
+  const sumLeftForecast = data.lines.reduce(
+    (s, r) => s + r.left.forecastAmount,
+    0,
+  );
+  const sumRightForecast = data.lines.reduce(
+    (s, r) => s + r.right.forecastAmount,
     0,
   );
 
   const visibleColCount =
     1 +
-    (cols.revised ? 2 : 0) +
-    (cols.pilotage ? 2 : 0) +
-    (cols.ecarts ? 2 : 0) +
+    (cols.revised ? 4 : 0) +
+    (cols.pilotage ? 8 : 0) +
     (cols.statut ? 1 : 0);
 
   const tableMinW =
-    visibleColCount >= 8
-      ? 'min-w-[56rem]'
-      : visibleColCount >= 5
-        ? 'min-w-[36rem]'
-        : 'min-w-[20rem]';
+    visibleColCount >= 14
+      ? 'min-w-[80rem]'
+      : visibleColCount >= 10
+        ? 'min-w-[64rem]'
+        : visibleColCount >= 6
+          ? 'min-w-[40rem]'
+          : 'min-w-[20rem]';
 
   return (
     <div className="space-y-0">
@@ -336,53 +393,85 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
             </TableHead>
             {cols.revised ? (
               <>
-                <TableHead className={cn(STICKY_HEAD, 'max-w-[14rem] text-right align-bottom')}>
+                <TableHead className={cn(STICKY_HEAD, 'max-w-[12rem] text-right align-bottom')}>
                   <AmountColumnHeader title={leftColTitle} />
                 </TableHead>
-                <TableHead className={cn(STICKY_HEAD, 'max-w-[14rem] text-right align-bottom')}>
+                <TableHead className={cn(STICKY_HEAD, 'max-w-[12rem] text-right align-bottom')}>
                   <AmountColumnHeader title={rightColTitle} />
+                </TableHead>
+                <TableHead className={cn(STICKY_HEAD, 'min-w-[6.5rem] text-right align-bottom')}>
+                  <span className="flex flex-col items-end gap-0.5">
+                    <span className="font-medium">Écart</span>
+                    <span className="text-[0.65rem] font-normal text-muted-foreground">
+                      révisé (D − G)
+                    </span>
+                  </span>
+                </TableHead>
+                <TableHead className={cn(STICKY_HEAD, 'w-[5.25rem] text-right align-bottom')}>
+                  <span className="flex flex-col items-end gap-0.5">
+                    <span className="font-medium">Δ %</span>
+                    <span className="text-[0.65rem] font-normal text-muted-foreground">
+                      révisé
+                    </span>
+                  </span>
                 </TableHead>
               </>
             ) : null}
             {cols.pilotage ? (
               <>
-                <TableHead className={cn(STICKY_HEAD, 'max-w-[11rem] text-right align-bottom')}>
-                  <span className="flex flex-col items-end gap-0.5">
-                    <span className="line-clamp-2 text-right font-medium leading-tight">
-                      Consommé (pilotage)
-                    </span>
-                    <span className="text-[0.7rem] font-normal uppercase tracking-wide text-muted-foreground">
-                      {pilotLabelForHeader}
-                    </span>
-                  </span>
+                <TableHead
+                  className={cn(
+                    STICKY_HEAD,
+                    GROUP_SEP_HEAD,
+                    'max-w-[11rem] text-right align-bottom',
+                  )}
+                >
+                  <AmountColumnHeader title={leftColTitle} subtitle="Consommé" />
                 </TableHead>
                 <TableHead className={cn(STICKY_HEAD, 'max-w-[11rem] text-right align-bottom')}>
+                  <AmountColumnHeader title={rightColTitle} subtitle="Consommé" />
+                </TableHead>
+                <TableHead className={cn(STICKY_HEAD, 'min-w-[6.5rem] text-right align-bottom')}>
                   <span className="flex flex-col items-end gap-0.5">
-                    <span className="line-clamp-2 text-right font-medium leading-tight">
-                      Prévisionnel (pilotage)
-                    </span>
-                    <span className="text-[0.7rem] font-normal uppercase tracking-wide text-muted-foreground">
-                      {pilotLabelForHeader}
+                    <span className="font-medium">Écart</span>
+                    <span className="text-[0.65rem] font-normal text-muted-foreground">
+                      consommé (D − G)
                     </span>
                   </span>
                 </TableHead>
-              </>
-            ) : null}
-            {cols.ecarts ? (
-              <>
-                <TableHead className={cn(STICKY_HEAD, 'text-right align-bottom')}>
+                <TableHead className={cn(STICKY_HEAD, 'w-[5.25rem] text-right align-bottom')}>
                   <span className="flex flex-col items-end gap-0.5">
-                    <span>Écart révisé</span>
-                    <span className="text-[0.7rem] font-normal text-muted-foreground">
-                      (droite − gauche)
+                    <span className="font-medium">Δ %</span>
+                    <span className="text-[0.65rem] font-normal text-muted-foreground">
+                      consommé
                     </span>
                   </span>
                 </TableHead>
-                <TableHead className={cn(STICKY_HEAD, 'max-w-[10rem] text-right align-bottom')}>
+                <TableHead
+                  className={cn(
+                    STICKY_HEAD,
+                    GROUP_SEP_HEAD,
+                    'max-w-[11rem] text-right align-bottom',
+                  )}
+                >
+                  <AmountColumnHeader title={leftColTitle} subtitle="Prévisionnel" />
+                </TableHead>
+                <TableHead className={cn(STICKY_HEAD, 'max-w-[11rem] text-right align-bottom')}>
+                  <AmountColumnHeader title={rightColTitle} subtitle="Prévisionnel" />
+                </TableHead>
+                <TableHead className={cn(STICKY_HEAD, 'min-w-[6.5rem] text-right align-bottom')}>
                   <span className="flex flex-col items-end gap-0.5">
-                    <span>Variance forecast</span>
-                    <span className="text-[0.7rem] font-normal text-muted-foreground">
-                      ({pilotLabelForHeader})
+                    <span className="font-medium">Écart</span>
+                    <span className="text-[0.65rem] font-normal text-muted-foreground">
+                      prévi. (D − G)
+                    </span>
+                  </span>
+                </TableHead>
+                <TableHead className={cn(STICKY_HEAD, 'w-[5.25rem] text-right align-bottom')}>
+                  <span className="flex flex-col items-end gap-0.5">
+                    <span className="font-medium">Δ %</span>
+                    <span className="text-[0.65rem] font-normal text-muted-foreground">
+                      prévi.
                     </span>
                   </span>
                 </TableHead>
@@ -395,14 +484,12 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
         </TableHeader>
         <TableBody>
           {data.lines.map((row) => {
-            const d = lineDiff(row.left.revisedAmount, row.right.revisedAmount);
-            const pil = pilotAmounts(row, pilotCol);
             return (
               <TableRow key={row.lineKey} className="group hover:bg-muted/50">
                 <TableCell
                   className={cn(
                     STICKY_LINE_COL,
-                    'max-w-[18rem] whitespace-normal group-hover:bg-muted/50',
+                    'max-w-[18rem] whitespace-normal group-hover:bg-muted',
                   )}
                 >
                   {row.name}
@@ -415,26 +502,61 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
                     <TableCell className="text-right tabular-nums">
                       {formatCurrency(row.right.revisedAmount, cur)}
                     </TableCell>
+                    <ComparisonDiffCell
+                      leftAmount={row.left.revisedAmount}
+                      rightAmount={row.right.revisedAmount}
+                      currency={cur}
+                    />
+                    <ComparisonPctCell
+                      leftAmount={row.left.revisedAmount}
+                      rightAmount={row.right.revisedAmount}
+                    />
                   </>
                 ) : null}
                 {cols.pilotage ? (
                   <>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCurrency(pil.consumedAmount, cur)}
+                    <TableCell
+                      className={cn(
+                        'text-right tabular-nums',
+                        GROUP_SEP_CELL,
+                        'group-hover:bg-muted',
+                      )}
+                    >
+                      {formatCurrency(row.left.consumedAmount, cur)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatCurrency(pil.forecastAmount, cur)}
+                      {formatCurrency(row.right.consumedAmount, cur)}
                     </TableCell>
-                  </>
-                ) : null}
-                {cols.ecarts ? (
-                  <>
-                    <TableCell className={cn('text-right tabular-nums', comparisonDiffClass(d))}>
-                      {formatCurrency(d, cur)}
+                    <ComparisonDiffCell
+                      leftAmount={row.left.consumedAmount}
+                      rightAmount={row.right.consumedAmount}
+                      currency={cur}
+                    />
+                    <ComparisonPctCell
+                      leftAmount={row.left.consumedAmount}
+                      rightAmount={row.right.consumedAmount}
+                    />
+                    <TableCell
+                      className={cn(
+                        'text-right tabular-nums',
+                        GROUP_SEP_CELL,
+                        'group-hover:bg-muted',
+                      )}
+                    >
+                      {formatCurrency(row.left.forecastAmount, cur)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatCurrency(row.varianceForecast, cur)}
+                      {formatCurrency(row.right.forecastAmount, cur)}
                     </TableCell>
+                    <ComparisonDiffCell
+                      leftAmount={row.left.forecastAmount}
+                      rightAmount={row.right.forecastAmount}
+                      currency={cur}
+                    />
+                    <ComparisonPctCell
+                      leftAmount={row.left.forecastAmount}
+                      rightAmount={row.right.forecastAmount}
+                    />
                   </>
                 ) : null}
                 {cols.statut ? (
@@ -462,31 +584,49 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
                 <TableCell className="text-right tabular-nums">
                   {formatCurrency(data.totals.budget, cur)}
                 </TableCell>
+                <ComparisonDiffCell
+                  leftAmount={sumLeftBudget}
+                  rightAmount={data.totals.budget}
+                  currency={cur}
+                />
+                <ComparisonPctCell
+                  leftAmount={sumLeftBudget}
+                  rightAmount={data.totals.budget}
+                />
               </>
             ) : null}
             {cols.pilotage ? (
               <>
-                <TableCell className="text-right tabular-nums">
-                  {formatCurrency(sumPilotConsumed, cur)}
+                <TableCell className={cn('text-right tabular-nums', GROUP_SEP_CELL)}>
+                  {formatCurrency(sumLeftConsumed, cur)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatCurrency(sumPilotForecast, cur)}
+                  {formatCurrency(sumRightConsumed, cur)}
                 </TableCell>
-              </>
-            ) : null}
-            {cols.ecarts ? (
-              <>
-                <TableCell
-                  className={cn(
-                    'text-right tabular-nums',
-                    comparisonDiffClass(data.diff.revisedAmount),
-                  )}
-                >
-                  {formatCurrency(data.diff.revisedAmount, cur)}
+                <ComparisonDiffCell
+                  leftAmount={sumLeftConsumed}
+                  rightAmount={sumRightConsumed}
+                  currency={cur}
+                />
+                <ComparisonPctCell
+                  leftAmount={sumLeftConsumed}
+                  rightAmount={sumRightConsumed}
+                />
+                <TableCell className={cn('text-right tabular-nums', GROUP_SEP_CELL)}>
+                  {formatCurrency(sumLeftForecast, cur)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatCurrency(data.variance.forecast, cur)}
+                  {formatCurrency(sumRightForecast, cur)}
                 </TableCell>
+                <ComparisonDiffCell
+                  leftAmount={sumLeftForecast}
+                  rightAmount={sumRightForecast}
+                  currency={cur}
+                />
+                <ComparisonPctCell
+                  leftAmount={sumLeftForecast}
+                  rightAmount={sumRightForecast}
+                />
               </>
             ) : null}
             {cols.statut ? <TableCell /> : null}

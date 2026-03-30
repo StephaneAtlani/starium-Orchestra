@@ -42,6 +42,7 @@ import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
 import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
 import { ensureDemoProjectTagsAndLabels } from "./seed-project-demo-tags";
 import { ensureRiskTaxonomyForClient } from "../src/modules/risk-taxonomy/risk-taxonomy-defaults";
+import { ensureBudgetSnapshotsAndVersions } from "./seed-budget-snapshots-versions";
 
 const prisma = new PrismaClient();
 const PASSWORD = "aa";
@@ -2583,6 +2584,8 @@ async function main() {
   for (const clientSeed of CLIENTS) {
     await seedClient(clientSeed, passwordHash);
   }
+
+  await ensureBudgetSnapshotsAndVersions(prisma);
 
   await ensureDemoProjectsForAllClients();
 

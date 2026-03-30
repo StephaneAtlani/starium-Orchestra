@@ -10,7 +10,7 @@ describe('forecastStatusToneClass', () => {
     expect(forecastStatusToneClass('WARNING')).toContain('amber');
   });
 
-  it('CRITICAL → rouge', () => {
-    expect(forecastStatusToneClass('CRITICAL')).toContain('red');
+  it('CRITICAL → ton critique (destructive)', () => {
+    expect(forecastStatusToneClass('CRITICAL')).toContain('destructive');
   });
 });

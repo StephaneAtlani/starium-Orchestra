@@ -41,8 +41,8 @@ export function MultiLiveVsSnapshotsTable({ merged }: MultiLiveVsSnapshotsTableP
                 <span className="line-clamp-2 whitespace-normal break-words">{label}</span>
               </TableHead>
             ))}
-            <TableHead className="text-right">Diff. (1ʳᵉ cible)</TableHead>
-            <TableHead className="text-right">Variance fcst (1ʳᵉ)</TableHead>
+            <TableHead className="text-right">Diff. révisé (1ʳᵉ cible)</TableHead>
+            <TableHead className="text-right">Écart prévi. (1ʳᵉ)</TableHead>
             <TableHead>Statut (1ʳᵉ)</TableHead>
           </TableRow>
         </TableHeader>
@@ -68,8 +68,13 @@ export function MultiLiveVsSnapshotsTable({ merged }: MultiLiveVsSnapshotsTableP
                 >
                   {formatCurrency(d, cur)}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatCurrency(row.varianceForecast, cur)}
+                <TableCell
+                  className={cn(
+                    'text-right tabular-nums',
+                    comparisonDiffClass(row.forecastDiffFirst),
+                  )}
+                >
+                  {formatCurrency(row.forecastDiffFirst, cur)}
                 </TableCell>
                 <TableCell>
                   <ForecastStatusBadge status={row.status} />
@@ -102,18 +107,23 @@ export function MultiLiveVsSnapshotsTable({ merged }: MultiLiveVsSnapshotsTableP
                 cur,
               )}
             </TableCell>
-            <TableCell className="text-right tabular-nums">
-              {formatCurrency(pr.variance.forecast, cur)}
+            <TableCell
+              className={cn(
+                'text-right tabular-nums',
+                comparisonDiffClass(pr.diff.forecastAmount),
+              )}
+            >
+              {formatCurrency(pr.diff.forecastAmount, cur)}
             </TableCell>
             <TableCell />
           </TableRow>
           <TableRow className="text-xs text-muted-foreground hover:bg-muted/20">
             <TableCell colSpan={colCount}>
               <p className="max-w-3xl">
-                Plusieurs snapshots : les colonnes <strong>Diff.</strong>,{' '}
-                <strong>Variance fcst</strong> et <strong>Statut</strong> concernent la{' '}
-                <strong>première cible</strong> sélectionnée (ordre de la liste). Comparez
-                les montants révisés colonne par colonne pour les autres.
+                Plusieurs snapshots : les colonnes <strong>écarts</strong> et{' '}
+                <strong>Statut</strong> concernent la <strong>première cible</strong> sélectionnée
+                (ordre de la liste). Comparez les montants révisés colonne par colonne pour les
+                autres.
               </p>
               <p className="mt-1">
                 Forecast agrégé (1ʳᵉ cible) : {formatCurrency(pr.totals.forecast, cur)} ·
