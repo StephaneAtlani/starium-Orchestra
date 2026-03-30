@@ -21,9 +21,13 @@ import {
   groupPortfolioGanttByCategory,
   portfolioGanttBodyHeightPx,
 } from '../lib/portfolio-gantt-group';
+import {
+  portfolioGanttBarSegmentClasses,
+  portfolioGanttBarTooltipMeta,
+} from '../lib/portfolio-gantt-bar-styles';
 import { cn } from '@/lib/utils';
 
-/** Styles frise portefeuille — barres de santé + fonds de piste. */
+/** Styles frise portefeuille — fonds de piste + chrome. */
 const portfolioGantt = {
   outer: 'border-border/50 bg-card/40 dark:bg-card/20',
   sidebarHeader: 'border-border/40 bg-muted/30',
@@ -46,24 +50,6 @@ const portfolioGantt = {
   },
 } as const;
 
-const healthBarStyles: Record<
-  PortfolioGanttRow['computedHealth'],
-  { bar: string; fill: string }
-> = {
-  GREEN: {
-    bar: 'border border-emerald-600/45 bg-emerald-500/[0.22] shadow-sm dark:border-emerald-500/35 dark:bg-emerald-500/18',
-    fill: 'bg-emerald-600/55 dark:bg-emerald-400/45',
-  },
-  ORANGE: {
-    bar: 'border border-amber-600/50 bg-amber-500/[0.22] shadow-sm dark:border-amber-500/40 dark:bg-amber-500/15',
-    fill: 'bg-amber-600/50 dark:bg-amber-400/40',
-  },
-  RED: {
-    bar: 'border border-red-600/55 bg-red-500/[0.2] shadow-sm dark:border-red-500/45 dark:bg-red-500/22',
-    fill: 'bg-red-600/60 dark:bg-red-400/45',
-  },
-};
-
 function rowToGanttLike(row: PortfolioGanttRow): GanttTaskLike | null {
   const end = row.targetEndDate;
   const start = row.startDate;
@@ -83,7 +69,7 @@ function renderProjectTimelineRow(
   const like = rowToGanttLike(row);
   const eligible =
     like?.plannedStartDate && like?.plannedEndDate && bounds;
-  const styles = healthBarStyles[row.computedHealth];
+  const segment = portfolioGanttBarSegmentClasses(row);
   if (!eligible || !like) {
     return (
       <div
@@ -115,6 +101,7 @@ function renderProjectTimelineRow(
   const left = dateMsToPx(s, bounds, pxPerDay);
   const w = Math.max(4, dateMsToPx(e, bounds, pxPerDay) - left);
   const pct = Math.min(100, Math.max(0, row.progressPercent ?? 0));
+  const tip = `${row.name} — ${pct}% — ${portfolioGanttBarTooltipMeta(row)}`;
   return (
     <div
       key={`task:${row.id}`}
@@ -124,15 +111,14 @@ function renderProjectTimelineRow(
       <div
         className={cn(
           'absolute top-1/2 h-5 max-h-[calc(100%-8px)] -translate-y-1/2 rounded-md',
-          styles.bar,
-          row.isLate &&
-            'ring-2 ring-amber-500/90 ring-offset-1 ring-offset-background dark:ring-amber-400/80',
+          segment.bar,
+          segment.lateRing,
         )}
         style={{ left, width: w }}
-        title={`${row.name} — ${pct}% — ${row.status}`}
+        title={tip}
       >
         <div
-          className={cn('h-full rounded-l-[5px]', styles.fill)}
+          className={cn('h-full rounded-l-[5px]', segment.fill)}
           style={{ width: `${pct}%` }}
         />
       </div>

@@ -123,7 +123,11 @@ export type PortfolioGanttRowDto = {
   id: string;
   code: string;
   name: string;
+  /** PROJECT | ACTIVITY */
+  kind: string;
   status: string;
+  priority: string;
+  criticality: string;
   startDate: string | null;
   targetEndDate: string | null;
   progressPercent: number | null;
@@ -690,7 +694,10 @@ export class ProjectsService {
         id: e.id,
         code: e.code,
         name: e.name,
+        kind: e.kind,
         status: e.status,
+        priority: e.priority,
+        criticality: e.criticality,
         startDate: startById.get(e.id) ?? null,
         targetEndDate: e.targetEndDate,
         progressPercent:

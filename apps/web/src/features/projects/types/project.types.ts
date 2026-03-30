@@ -125,7 +125,11 @@ export type PortfolioGanttRow = {
   id: string;
   code: string;
   name: string;
+  /** PROJECT | ACTIVITY */
+  kind: string;
   status: string;
+  priority: string;
+  criticality: string;
   startDate: string | null;
   targetEndDate: string | null;
   progressPercent: number | null;
