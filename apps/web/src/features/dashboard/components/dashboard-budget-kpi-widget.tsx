@@ -604,43 +604,43 @@ export function DashboardBudgetKpiWidget() {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-        <div className="min-w-0 flex-1 space-y-1">
+      <div className="flex flex-col gap-3">
+        <div className="w-full min-w-0 space-y-1">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Budget
           </h2>
           {data ? (
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span className="inline-flex flex-wrap items-center gap-2">
-                <span className="font-medium text-foreground">{data.budget.name}</span>
-                {alertCount > 0 ? (
-                  <Badge
-                    variant="outline"
-                    className="border-destructive/25 bg-destructive/10 text-destructive"
-                  >
-                    {alertCount} alerte{alertCount > 1 ? 's' : ''}
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="secondary"
-                    className="font-normal text-muted-foreground"
-                  >
-                    0 alerte
-                  </Badge>
-                )}
+            <div className="flex w-full min-w-0 flex-nowrap items-center gap-x-2 overflow-x-auto text-sm text-muted-foreground [scrollbar-width:thin]">
+              <span className="shrink-0 font-medium text-foreground">
+                {data.budget.name}
               </span>
-              <span className="text-muted-foreground">
+              <span className="shrink-0 whitespace-nowrap text-muted-foreground">
                 · {data.exercise.name}
                 {data.exercise.code ? ` (${data.exercise.code})` : null}
               </span>
-            </p>
+              {alertCount > 0 ? (
+                <Badge
+                  variant="outline"
+                  className="border-destructive/25 bg-destructive/10 text-destructive shrink-0"
+                >
+                  {alertCount} alerte{alertCount > 1 ? 's' : ''}
+                </Badge>
+              ) : (
+                <Badge
+                  variant="secondary"
+                  className="shrink-0 font-normal text-muted-foreground"
+                >
+                  0 alerte
+                </Badge>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               Synthèse du budget actif pour ce client.
             </p>
           )}
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 justify-end">
           {data && dataUpdatedAt > 0 ? (
             <span
               className="text-xs text-muted-foreground tabular-nums"
