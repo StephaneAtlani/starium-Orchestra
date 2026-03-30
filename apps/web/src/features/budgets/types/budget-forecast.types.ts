@@ -78,6 +78,9 @@ export interface BudgetComparisonLineItem {
 
 export interface BudgetComparisonResponse {
   compareTo?: BudgetComparisonMode;
+  /** Libellés pour les colonnes de montants (réponse API). */
+  leftLabel?: string;
+  rightLabel?: string;
   left?: { kind: string; budgetId?: string; snapshotId?: string };
   right?: { kind: string; budgetId?: string; snapshotId?: string };
   leftSnapshotId?: string;

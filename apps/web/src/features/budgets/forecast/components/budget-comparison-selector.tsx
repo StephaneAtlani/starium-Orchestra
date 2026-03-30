@@ -27,9 +27,16 @@ export interface BudgetComparisonSelectorProps {
   versionsError?: boolean;
 }
 
-function snapshotLabel(s: BudgetSnapshotSummaryDto): string {
+/** Repli si pas de nom : code + date (lisible, distinct de l’id). */
+function snapshotFallbackLabel(s: BudgetSnapshotSummaryDto): string {
   const date = formatDate(s.snapshotDate);
   return `${s.code} — ${date}`;
+}
+
+/** Libellé métier : nom du snapshot, sinon code + date. */
+function snapshotDisplayLabel(s: BudgetSnapshotSummaryDto): string {
+  const n = s.name?.trim();
+  return n || snapshotFallbackLabel(s);
 }
 
 function versionLabel(v: BudgetVersionSummaryDto): string {
@@ -53,6 +60,22 @@ export function BudgetComparisonSelector({
   const showTarget = compareTo === 'snapshot' || compareTo === 'version';
 
   const versionOptions = versions.filter((v) => v.id !== currentBudgetId);
+
+  const selectedSnapshot =
+    targetId && compareTo === 'snapshot'
+      ? snapshots.find((s) => s.id === targetId)
+      : undefined;
+  const snapshotTriggerLabel = selectedSnapshot
+    ? snapshotDisplayLabel(selectedSnapshot)
+    : undefined;
+
+  const selectedVersionForLabel =
+    targetId && compareTo === 'version'
+      ? versions.find((v) => v.id === targetId)
+      : undefined;
+  const versionTriggerLabel = selectedVersionForLabel
+    ? versionLabel(selectedVersionForLabel)
+    : undefined;
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
@@ -93,12 +116,14 @@ export function BudgetComparisonSelector({
                         ? 'Aucun snapshot'
                         : 'Choisir un snapshot'
                   }
-                />
+                >
+                  {snapshotTriggerLabel}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {snapshots.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {snapshotLabel(s)}
+                    {snapshotDisplayLabel(s)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -121,7 +146,9 @@ export function BudgetComparisonSelector({
                           ? 'Aucune autre version'
                           : 'Choisir une version'
                   }
-                />
+                >
+                  {versionTriggerLabel}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {versionOptions.map((v) => (

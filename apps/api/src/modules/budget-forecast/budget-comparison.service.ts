@@ -74,6 +74,8 @@ export class BudgetComparisonService {
         compareTo,
         leftBudgetId: leftBudget.id,
         rightBudgetId: rightBudget.id,
+        leftLabel: leftBudget.name,
+        rightLabel: rightBudget.name,
         leftLines: this.toComparableBudgetLines(leftBudget.budgetLines),
         rightLines: this.toComparableBudgetLines(rightBudget.budgetLines),
         leftCurrency: leftBudget.currency,
@@ -106,6 +108,8 @@ export class BudgetComparisonService {
         compareTo,
         budgetId: leftBudget.id,
         snapshotId: snapshot.id,
+        leftLabel: leftBudget.name,
+        rightLabel: this.snapshotComparisonLabel(snapshot),
         leftLines: this.toComparableBudgetLines(leftBudget.budgetLines),
         rightLines: snapshot.lines.map((line) => ({
           id: line.budgetLineId,
@@ -150,6 +154,8 @@ export class BudgetComparisonService {
       compareTo,
       leftBudgetId: leftBudget.id,
       rightBudgetId: rightBudget.id,
+      leftLabel: leftBudget.name,
+      rightLabel: rightBudget.name,
       leftLines: this.toComparableBudgetLines(leftBudget.budgetLines),
       rightLines: this.toComparableBudgetLines(rightBudget.budgetLines),
       leftCurrency: leftBudget.currency,
@@ -211,6 +217,8 @@ export class BudgetComparisonService {
       rightSnapshotId: rightId,
       budgetId: leftSnapshot.budgetId,
       currency: rightSnapshot.budgetCurrency,
+      leftLabel: this.snapshotComparisonLabel(leftSnapshot),
+      rightLabel: this.snapshotComparisonLabel(rightSnapshot),
       pairs: comparedPairs,
       liveSide: null,
     });
@@ -253,6 +261,8 @@ export class BudgetComparisonService {
       right: { kind: 'version', budgetId: rightBudget.id },
       budgetId: rightBudget.id,
       currency: rightBudget.currency,
+      leftLabel: leftBudget.name,
+      rightLabel: rightBudget.name,
       pairs: comparedPairs,
       liveSide: null,
     });
@@ -264,6 +274,8 @@ export class BudgetComparisonService {
     compareTo: BudgetComparisonMode;
     leftBudgetId: string;
     rightBudgetId: string;
+    leftLabel: string;
+    rightLabel: string;
     leftLines: BudgetLineComparableInput[];
     rightLines: BudgetLineComparableInput[];
     leftCurrency: string;
@@ -277,6 +289,8 @@ export class BudgetComparisonService {
     });
     return buildBudgetComparisonResponse({
       compareTo: params.compareTo,
+      leftLabel: params.leftLabel,
+      rightLabel: params.rightLabel,
       left: { kind: 'live', budgetId: params.leftBudgetId },
       right: {
         kind: params.compareTo === BudgetComparisonMode.BASELINE ? 'baseline' : 'version',
@@ -293,6 +307,8 @@ export class BudgetComparisonService {
     compareTo: BudgetComparisonMode;
     budgetId: string;
     snapshotId: string;
+    leftLabel: string;
+    rightLabel: string;
     leftLines: BudgetLineComparableInput[];
     rightLines: BudgetLineComparableInput[];
     leftCurrency: string;
@@ -306,6 +322,8 @@ export class BudgetComparisonService {
     });
     return buildBudgetComparisonResponse({
       compareTo: params.compareTo,
+      leftLabel: params.leftLabel,
+      rightLabel: params.rightLabel,
       left: { kind: 'live', budgetId: params.budgetId },
       right: { kind: 'snapshot', snapshotId: params.snapshotId },
       budgetId: params.budgetId,
@@ -313,6 +331,29 @@ export class BudgetComparisonService {
       pairs: comparedPairs,
       liveSide: 'left',
     });
+  }
+
+  /** Libellé colonne pour un snapshot (nom ; sinon code + date comme l’UI liste). */
+  private snapshotComparisonLabel(snapshot: {
+    name?: string | null;
+    code?: string | null;
+    snapshotDate?: Date | null;
+  }): string {
+    const name = snapshot.name?.trim();
+    if (name) {
+      return name;
+    }
+    const code = snapshot.code?.trim() || 'Snapshot';
+    const d = snapshot.snapshotDate;
+    if (d instanceof Date && !Number.isNaN(d.getTime())) {
+      const dateStr = d.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+      return `${code} — ${dateStr}`;
+    }
+    return code;
   }
 
   private compareComparableLines(params: {

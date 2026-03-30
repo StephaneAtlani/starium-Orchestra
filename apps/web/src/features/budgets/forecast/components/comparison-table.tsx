@@ -76,6 +76,8 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
 
   const cur = data.currency;
   const sumLeftBudget = data.lines.reduce((s, r) => s + r.left.revisedAmount, 0);
+  const leftColTitle = data.leftLabel?.trim() || 'Référence (gauche)';
+  const rightColTitle = data.rightLabel?.trim() || 'Comparé (droite)';
 
   return (
     <div className="overflow-x-auto rounded-md border border-border">
@@ -83,8 +85,12 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead>Ligne</TableHead>
-            <TableHead className="text-right">Budget (gauche)</TableHead>
-            <TableHead className="text-right">Budget (droite)</TableHead>
+            <TableHead className="max-w-[14rem] text-right">
+              <span className="line-clamp-2 whitespace-normal break-words">{leftColTitle}</span>
+            </TableHead>
+            <TableHead className="max-w-[14rem] text-right">
+              <span className="line-clamp-2 whitespace-normal break-words">{rightColTitle}</span>
+            </TableHead>
             <TableHead className="text-right">Diff.</TableHead>
             <TableHead className="text-right">Variance forecast</TableHead>
             <TableHead>Statut</TableHead>

@@ -83,6 +83,8 @@ export function mapComparedPairsToLines(params: {
 
 export function buildBudgetComparisonResponse(params: {
   compareTo?: 'baseline' | 'snapshot' | 'version';
+  leftLabel?: string;
+  rightLabel?: string;
   left?: { kind: string; budgetId?: string; snapshotId?: string };
   right?: { kind: string; budgetId?: string; snapshotId?: string };
   leftSnapshotId?: string;
@@ -134,6 +136,8 @@ export function buildBudgetComparisonResponse(params: {
 
   return {
     compareTo: params.compareTo,
+    leftLabel: params.leftLabel,
+    rightLabel: params.rightLabel,
     left: params.left,
     right: params.right,
     leftSnapshotId: params.leftSnapshotId,

@@ -77,6 +77,9 @@ export interface BudgetComparisonLineResponse {
 
 export interface BudgetComparisonResponse {
   compareTo?: 'baseline' | 'snapshot' | 'version';
+  /** Libellés pour en-têtes de colonnes (montants gauche / droite). */
+  leftLabel?: string;
+  rightLabel?: string;
   left?: { kind: string; budgetId?: string; snapshotId?: string };
   right?: { kind: string; budgetId?: string; snapshotId?: string };
   leftSnapshotId?: string;

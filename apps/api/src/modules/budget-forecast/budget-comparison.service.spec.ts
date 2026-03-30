@@ -98,6 +98,9 @@ describe('BudgetComparisonService', () => {
         id: 's-left',
         budgetId: 'b1',
         budgetCurrency: 'EUR',
+        name: 'Snapshot gauche',
+        code: 'SN-L',
+        snapshotDate: new Date('2025-06-01'),
         lines: [
           {
             budgetLineId: 'l1',
@@ -113,6 +116,9 @@ describe('BudgetComparisonService', () => {
         id: 's-right',
         budgetId: 'b1',
         budgetCurrency: 'EUR',
+        name: 'Snapshot droite',
+        code: 'SN-R',
+        snapshotDate: new Date('2025-06-01'),
         lines: [
           {
             budgetLineId: 'l1',
