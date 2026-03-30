@@ -3,7 +3,7 @@
 | Phase  | Désignation                                | Objectif métier                                                                 | Backend RFC                                                                 | Frontend RFC               | UX clé                                      | État                    |
 | ------ | ------------------------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------- | ------------------------------------------- | ----------------------- |
 | **0**  | **Cockpit Budget & Dashboard**             | Vision lecture rapide + actions rapides : KPI, alertes simples, drill-down      | **RFC-016 + RFC-022 uniquement** (reporting / dashboard ; pas d’alerting avancé ici) | Budget Dashboard UI        | Cockpit, drill-down navigation              | ❌ À faire               |
-| **1**  | **Planning budgétaire mensuel**            | Remplacer Excel par une planification 12 mois (surface **tableur cockpit**)  | **RFC-023** (prévisionnel / atterrissage — API existante) + RFC-024 (moteur étendu si besoin) | RFC-FE-029 + refonte UX § ci-dessous | **Grille principale**, calculette secondaire, synthèse non dupliquée | ⚠️ MVP technique / UX à aligner |
+| **1**  | **Planning budgétaire mensuel**            | Remplacer Excel par une planification 12 mois (surface **tableur cockpit**)  | **RFC-023** (prévisionnel / atterrissage — API existante) + RFC-024 (moteur étendu si besoin) | RFC-FE-029 + refonte UX § ci-dessous | **Grille principale**, calculette secondaire, synthèse non dupliquée | ⚠️ **Partiel** — voir section *Phase 1 — livré côté front* |
 | **2**  | **Cellule intelligente & calculs**         | Explication des montants (forecast / committed / consumed) + traçabilité      | RFC-024 (moteur de calcul) + **financial-core existant** (pas RFC-025)     | RFC-FE-030 / 031           | Drawer détail, drill-down navigation        | ❌ À faire               |
 | **3**  | **Vue enveloppe & atterrissage**          | Pilotage enveloppe : KPI, comparatifs et projection                             | RFC-024 (agrégations) + **RFC-029** (rôle : modèle / API enveloppe & landing) | RFC-FE-032 / 033           | Drawer détail, drill-down navigation        | ❌ À faire               |
 | **4**  | **Workflow budgétaire (gouvernance)**      | Cycle de vie budget : soumission, validation, figement                          | **RFC Budget Workflow** (nouveau ; remplace **RFC-020 annulée**)           | UI validation budget       | Workflow, états, verrouillage               | ❌ À faire               |
@@ -16,6 +16,14 @@
 | **11** | **Vue multi-client (DSI à temps partagé)** | Pilotage transversal                                                          | Extension reporting                                                         | Global cockpit UI          | Cockpit multi-client                        | ❌ À faire               |
 
 **Alignement UX globale** : lecture rapide dans les vues synthétiques (cockpit, cartes KPI), action rapide via drill-down (enveloppe → ligne), détail approfondi dans un **drawer** ; la **grid planning** reste le mode principal pour la saisie mensuelle.
+
+### Phase 1 — livré côté front (état au 2026-03)
+
+* **Tableau unique budget** (RFC-024) : onglets Prévisionnel / Atterrissage / Forecast, densité Mensuel / Condensé, alignement des libellés de mois sur l’exercice.
+* **Prévisionnel** : grille 12 mois + total, édition cellule mois (PUT planning manuel), chargement planning par pagination des lignes ; vue condensée T1–T4.
+* **Référence init. / rév.** : sous chaque mois (et sous trimestres / total), affichage du budget initial et révisé **répartis uniformément** sur la période (cohérent avec la logique de répartition 12 mois) ; respect du mode d’affichage HT/TTC de la page.
+* **Création de ligne** : calculette (quantité × PU ou saisie mensuelle) ; à l’enregistrement, **alimentation du prévisionnel** via enchaînement création ligne → PUT planning 12 mois lorsque des montants sont dérivables.
+* **Reste à cadrer / itérer** : parité exhaustive avec tous les scénarios RFC-023 (modes de planning avancés), polish UX globale, tests E2E métier, et tout ce qui dépend encore du **cockpit** (phase 0) ou du **workflow** (phase 4).
 
 ### Phase 0 — périmètre strict (implémentation)
 
@@ -74,6 +82,7 @@ Chaque phase du tableau a une **finalité métier** distincte, une **dépendance
 
 ### ⚠️ Partiel (déséquilibré)
 
+* **Planning mensuel (phase 1)** : parcours principal prévisionnel + création ligne + références init./rév. en grille **livré** ; perfectionnement et alignement RFC complets **en cours**.
 * Procurement (pas encore intégré UX)
 * Versioning (pas exploitable métier)
 * Import (pas utilisable UI)
@@ -83,23 +92,22 @@ Chaque phase du tableau a une **finalité métier** distincte, une **dépendance
 ### ❌ Critique (manquant)
 
 * Dashboard cockpit (phase 0) et **alertes simples** associées
-* Planning mensuel
 * Workflow (RFC Budget Workflow)
 * **Alerting avancé** (phase 6) et UX règles
-* UX globale (cockpit + grid + drawer + drill-down)
+* **Cockpit** (phase 0) et finition UX transversale (cohérence drill-down, drawer, parcours hors grille déjà amorcée)
 
 ---
 
 # 🎯 Priorité réelle (ordre recommandé)
 
-| Priorité | Phase                      |
-| -------- | -------------------------- |
-| 🔥 1     | Cockpit Budget & Dashboard |
-| 🔥 2     | Planning mensuel           |
-| 🔥 3     | Cellule intelligente       |
-| 🔥 4     | Vue enveloppe & landing    |
-| 🔥 5     | Workflow                   |
-| 🔥 6     | Déversement                |
+| Priorité | Phase                      | Commentaire court                                      |
+| -------- | -------------------------- | -------------------------------------------------------- |
+| 🔥 1     | Cockpit Budget & Dashboard | Toujours le levier de visibilité métier                  |
+| 🔥 2     | Planning mensuel           | Socle grille **amorcé** — poursuivre finition + parité RFC |
+| 🔥 3     | Cellule intelligente       |                                                          |
+| 🔥 4     | Vue enveloppe & landing    |                                                          |
+| 🔥 5     | Workflow                   |                                                          |
+| 🔥 6     | Déversement                |                                                          |
 
 L’**alerting avancé** (phase 6 du plan) intervient après socle cockpit et pilotage ; les **alertes simples** sont livrées avec la phase 0.
 
@@ -107,8 +115,8 @@ L’**alerting avancé** (phase 6 du plan) intervient après socle cockpit et pi
 
 # 🧠 Conclusion
 
-👉 Ton backend est déjà **très avancé**
-👉 Ton produit est encore **invisible côté métier**
+👉 Le backend reste **très avancé** sur le périmètre budget / financial-core.
+👉 Le **pilotage prévisionnel en grille** commence à être **visible côté métier** (phase 1 partielle) ; le **cockpit** et le **workflow** restent les prochains sauts de valeur perception produit.
 
 Ce tableau te donne :
 
