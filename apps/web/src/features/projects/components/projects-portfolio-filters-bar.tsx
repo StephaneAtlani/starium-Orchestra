@@ -36,12 +36,18 @@ export interface ProjectsPortfolioFiltersBarProps {
   setFilters: (updates: Partial<ProjectsListFilters>) => void;
   /** Rôles dérivés des lignes chargées (Gantt / liste). */
   myRoleOptions: string[];
+  /** Gantt portefeuille : case « Infobulles » sur la ligne des options rapides. */
+  portfolioGanttTooltips?: {
+    enabled: boolean;
+    onEnabledChange: (enabled: boolean) => void;
+  };
 }
 
 export function ProjectsPortfolioFiltersBar({
   filters,
   setFilters,
   myRoleOptions,
+  portfolioGanttTooltips,
 }: ProjectsPortfolioFiltersBarProps) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -284,6 +290,20 @@ export function ProjectsPortfolioFiltersBar({
           />
           <span>À risque (santé ≠ bon ou bloqué / retard)</span>
         </label>
+        {portfolioGanttTooltips ? (
+          <label
+            className="flex cursor-pointer items-center gap-2 text-xs"
+            title="Décocher pour masquer les infobulles sur la liste et la frise"
+          >
+            <input
+              type="checkbox"
+              className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
+              checked={portfolioGanttTooltips.enabled}
+              onChange={(e) => portfolioGanttTooltips.onEnabledChange(e.target.checked)}
+            />
+            <span>Infobulles</span>
+          </label>
+        ) : null}
       </div>
     </div>
   );

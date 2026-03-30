@@ -23,6 +23,8 @@ type PortfolioGanttProjectTooltipProps = {
   triggerClassName?: string;
   triggerStyle?: CSSProperties;
   children: ReactNode;
+  /** Si false, affiche uniquement le déclencheur (pas d’infobulle). */
+  tooltipsEnabled?: boolean;
 };
 
 /**
@@ -37,7 +39,15 @@ export function PortfolioGanttProjectTooltip({
   triggerClassName,
   triggerStyle,
   children,
+  tooltipsEnabled = true,
 }: PortfolioGanttProjectTooltipProps) {
+  if (!tooltipsEnabled) {
+    return (
+      <div className={cn('cursor-pointer', triggerClassName)} style={triggerStyle}>
+        {children}
+      </div>
+    );
+  }
   return (
     <Tooltip>
       <TooltipTrigger

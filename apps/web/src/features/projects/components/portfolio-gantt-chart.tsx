@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Minus, Plus, RotateCcw } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import type { PortfolioGanttRow } from '../types/project.types';
 import { projectDetail } from '../constants/project-routes';
 import {
@@ -26,6 +28,15 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { PortfolioGanttProjectTooltip } from './portfolio-gantt-project-tooltip';
 import { PortfolioGanttLegend } from './portfolio-gantt-legend';
 import { cn } from '@/lib/utils';
+
+/** Zoom sur l’échelle temps (multiplicateur sur px/j, base = vue adaptée à la largeur). */
+const PORTFOLIO_GANTT_TIME_ZOOM_MIN = 0.2;
+const PORTFOLIO_GANTT_TIME_ZOOM_MAX = 5;
+const PORTFOLIO_GANTT_TIME_ZOOM_STEP = 1.12;
+
+function clampPortfolioTimeZoom(z: number): number {
+  return Math.min(PORTFOLIO_GANTT_TIME_ZOOM_MAX, Math.max(PORTFOLIO_GANTT_TIME_ZOOM_MIN, z));
+}
 
 /** Styles frise portefeuille — fonds de piste + chrome. */
 const portfolioGantt = {
@@ -65,6 +76,7 @@ function renderProjectTimelineRow(
   bounds: TimelineBounds,
   pxPerDay: number,
   widthPx: number,
+  tooltipsEnabled: boolean,
 ) {
   const like = rowToGanttLike(row);
   const eligible =
@@ -77,6 +89,7 @@ function renderProjectTimelineRow(
       side="top"
       align="center"
       sideOffset={6}
+      tooltipsEnabled={tooltipsEnabled}
       triggerClassName="absolute inset-0 block min-h-[1.25rem]"
     >
       <span className="sr-only">
@@ -132,6 +145,7 @@ function renderProjectTimelineRow(
         side="top"
         align="center"
         sideOffset={6}
+        tooltipsEnabled={tooltipsEnabled}
         triggerClassName={cn(
           'absolute top-1/2 h-5 max-h-[calc(100%-8px)] -translate-y-1/2 rounded-md',
           segment.bar,
@@ -149,9 +163,26 @@ function renderProjectTimelineRow(
   );
 }
 
-export function PortfolioGanttChart({ items }: { items: PortfolioGanttRow[] }) {
+export function PortfolioGanttChart({
+  items,
+  tooltipsEnabled = true,
+}: {
+  items: PortfolioGanttRow[];
+  /** Si false, pas d’infobulle sur les lignes et barres (liens liste restent cliquables). */
+  tooltipsEnabled?: boolean;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [viewportW, setViewportW] = useState(960);
+  /** 100 % = densité qui remplit la largeur visible (comme avant l’ajout du zoom). */
+  const [timeZoom, setTimeZoom] = useState(1);
+
+  const zoomTimeIn = useCallback(() => {
+    setTimeZoom((z) => clampPortfolioTimeZoom(z * PORTFOLIO_GANTT_TIME_ZOOM_STEP));
+  }, []);
+  const zoomTimeOut = useCallback(() => {
+    setTimeZoom((z) => clampPortfolioTimeZoom(z / PORTFOLIO_GANTT_TIME_ZOOM_STEP));
+  }, []);
+  const resetTimeZoom = useCallback(() => setTimeZoom(1), []);
 
   const layoutRows = useMemo(
     () => flattenPortfolioGanttLayout(groupPortfolioGanttByCategory(items)),
@@ -174,15 +205,33 @@ export function PortfolioGanttChart({ items }: { items: PortfolioGanttRow[] }) {
     const b: TimelineBounds | null = computeTimelineBounds(likes, []);
     if (!b) return { bounds: null as TimelineBounds | null, pxPerDay: 4, layout: null };
     const span = (b.max - b.min) / GANTT_DAY_MS;
-    const px = Math.max(2, viewportW / Math.max(span, 21));
+    const pxBase = Math.max(2, viewportW / Math.max(span, 21));
+    const px = pxBase * timeZoom;
     const lay = dateRangeToTimelineLayout(b, px);
     return { bounds: b, pxPerDay: px, layout: lay };
-  }, [items, viewportW]);
+  }, [items, viewportW, timeZoom]);
 
   const bodyHeightPx = useMemo(
     () => portfolioGanttBodyHeightPx(layoutRows),
     [layoutRows],
   );
+
+  /** Zoom : molette + Ctrl/Cmd sur la zone frise (scroll horizontal inchangé sans modificateur). */
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const delta = e.deltaY;
+      setTimeZoom((z) => {
+        const next = delta > 0 ? z / PORTFOLIO_GANTT_TIME_ZOOM_STEP : z * PORTFOLIO_GANTT_TIME_ZOOM_STEP;
+        return clampPortfolioTimeZoom(next);
+      });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [bounds, layout]);
 
   if (!bounds || !layout) {
     return (
@@ -200,11 +249,55 @@ export function PortfolioGanttChart({ items }: { items: PortfolioGanttRow[] }) {
       <div className="flex min-w-0 flex-col gap-3">
     <div
       className={cn(
-        'flex min-h-[min(70vh,720px)] min-w-0 flex-col overflow-hidden rounded-lg border',
+        'flex min-w-0 flex-col overflow-hidden rounded-lg border',
         portfolioGantt.outer,
       )}
     >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-row">
+      <div className="bg-muted/30 flex min-w-0 shrink-0 flex-wrap items-center gap-3 border-b border-border/60 px-3 py-2">
+        <div
+          className="flex items-center gap-1.5"
+          title="Ctrl + molette sur la frise pour zoomer"
+        >
+          <span className="text-muted-foreground shrink-0 text-xs">Zoom temps</span>
+          <div className="bg-background/80 inline-flex items-center rounded-md border shadow-sm">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-r-none"
+              onClick={zoomTimeOut}
+              aria-label="Zoom arrière sur la frise"
+            >
+              <Minus className="size-3.5" />
+            </Button>
+            <span className="text-muted-foreground min-w-[2.75rem] px-1 text-center text-[11px] tabular-nums">
+              {Math.round(timeZoom * 100)}%
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-none border-x border-border/60"
+              onClick={zoomTimeIn}
+              aria-label="Zoom avant sur la frise"
+            >
+              <Plus className="size-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-l-none"
+              onClick={resetTimeZoom}
+              aria-label="Réinitialiser le zoom temps"
+              title="100 %"
+            >
+              <RotateCcw className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+      <div className="flex min-h-[min(70vh,720px)] min-h-0 min-w-0 flex-1 flex-row">
         <div
           className="border-border/50 bg-muted/20 shrink-0 overflow-y-auto border-r dark:bg-muted/10"
           style={{ width: 280, minWidth: 200 }}
@@ -245,6 +338,7 @@ export function PortfolioGanttChart({ items }: { items: PortfolioGanttRow[] }) {
                     side="right"
                     align="center"
                     sideOffset={10}
+                    tooltipsEnabled={tooltipsEnabled}
                     triggerClassName="block min-w-0 flex-1 text-left"
                   >
                     <Link
@@ -315,7 +409,13 @@ export function PortfolioGanttChart({ items }: { items: PortfolioGanttRow[] }) {
                       style={{ height: GANTT_CATEGORY_HEADER_PX, width: widthPx }}
                     />
                   ) : (
-                    renderProjectTimelineRow(lr.row, bounds, pxPerDay, widthPx)
+                    renderProjectTimelineRow(
+                      lr.row,
+                      bounds,
+                      pxPerDay,
+                      widthPx,
+                      tooltipsEnabled,
+                    )
                   ),
                 )}
               </div>
