@@ -187,6 +187,8 @@ model Client {
   complianceEvidences    ComplianceEvidence[]
   riskDomains            RiskDomain[]
   riskTypes              RiskType[]
+  budgetDashboardConfigs BudgetDashboardConfig[]
+  budgetDashboardWidgets BudgetDashboardWidget[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -1781,6 +1783,7 @@ model BudgetExercise {
   budgets   Budget[]
   budgetSnapshots BudgetSnapshot[]
   budgetVersionSets BudgetVersionSet[]
+  dashboardConfigsAsDefault BudgetDashboardConfig[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -1846,6 +1849,7 @@ model Budget {
   budgetSnapshots BudgetSnapshot[]
   budgetReallocations BudgetReallocation[]
   budgetImportJobs    BudgetImportJob[]
+  dashboardConfigsAsDefault BudgetDashboardConfig[]
 
   @@unique([clientId, code])
   @@unique([versionSetId, versionNumber])
@@ -1855,6 +1859,62 @@ model Budget {
   @@index([clientId, versionSetId])
   @@index([clientId, versionStatus])
   @@index([clientId, versionKind])
+}
+
+/// Configuration cockpit budgétaire (RFC-022).
+model BudgetDashboardConfig {
+  id                  String   @id @default(cuid())
+  clientId            String
+  name                String
+  isDefault           Boolean  @default(false)
+  defaultExerciseId   String?
+  defaultBudgetId     String?
+  layoutConfig        Json     @default("{}")
+  filtersConfig       Json?
+  thresholdsConfig    Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  defaultExercise BudgetExercise?  @relation(fields: [defaultExerciseId], references: [id], onDelete: SetNull)
+  defaultBudget   Budget?          @relation(fields: [defaultBudgetId], references: [id], onDelete: SetNull)
+  widgets         BudgetDashboardWidget[]
+
+  @@index([clientId])
+}
+
+enum BudgetDashboardWidgetType {
+  KPI
+  ALERT_LIST
+  ENVELOPE_LIST
+  LINE_LIST
+  CHART
+}
+
+enum BudgetDashboardChartType {
+  RUN_BUILD_BREAKDOWN
+  CONSUMPTION_TREND
+}
+
+model BudgetDashboardWidget {
+  id        String                    @id @default(cuid())
+  clientId  String
+  configId  String
+  type      BudgetDashboardWidgetType
+  title     String
+  position  Int
+  size      String                    @default("full")
+  settings  Json?
+  isActive  Boolean                   @default(true)
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+
+  client Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  config BudgetDashboardConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([configId, position])
+  @@index([clientId])
+  @@index([clientId, configId])
 }
 
 model BudgetEnvelope {

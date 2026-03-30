@@ -6,19 +6,29 @@ import { fromDecimal } from '../budget-management/helpers/decimal.helper';
 import { TaxCalculator } from '../financial-core/helpers/tax-calculator';
 import type { DashboardQueryDto } from './dto/dashboard.query.dto';
 import type {
+  BudgetCockpitEnvelopeRow,
+  BudgetCockpitResponse,
+  BudgetCockpitRiskEnvelopeRow,
+  BudgetCockpitWidgetPayload,
   BudgetDashboardLineRow,
-  BudgetDashboardResponse,
+  BudgetDashboardThresholdsConfig,
 } from './types/budget-dashboard.types';
+import { BudgetDashboardConfigService } from './budget-dashboard-config.service';
 
 type DecimalLike = Prisma.Decimal | null | undefined;
 
-const TOP_LIMIT = 10;
+const TOP_LIMIT_DEFAULT = 10;
 
 type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
-function riskLevel(ratio: number): RiskLevel {
-  if (ratio < 0.7) return 'LOW';
-  if (ratio <= 0.9) return 'MEDIUM';
+function riskLevelForEnvelope(
+  ratio: number,
+  thresholds: BudgetDashboardThresholdsConfig | null | undefined,
+): RiskLevel {
+  const lowBelow = thresholds?.consumptionRateWarning ?? 0.7;
+  const mediumBelow = thresholds?.consumptionRateCritical ?? 0.9;
+  if (ratio < lowBelow) return 'LOW';
+  if (ratio <= mediumBelow) return 'MEDIUM';
   return 'HIGH';
 }
 
@@ -29,8 +39,11 @@ function lineRiskLevelFromAmounts(
   consumed: number,
   forecast: number,
   remaining: number,
+  thresholds: BudgetDashboardThresholdsConfig | null | undefined,
 ): BudgetDashboardLineRow['lineRiskLevel'] {
-  if (remaining < 0 || consumed > revised || forecast > revised) {
+  const flagNegative =
+    thresholds?.negativeRemaining !== false && remaining < 0;
+  if (flagNegative || consumed > revised || forecast > revised) {
     return 'CRITICAL';
   }
   if (committed > revised) {
@@ -41,16 +54,37 @@ function lineRiskLevelFromAmounts(
 
 @Injectable()
 export class BudgetDashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dashboardConfigService: BudgetDashboardConfigService,
+  ) {}
 
   async getDashboard(
     clientId: string,
     query: DashboardQueryDto,
-  ): Promise<BudgetDashboardResponse> {
+  ): Promise<BudgetCockpitResponse> {
+    const dashCfg =
+      await this.dashboardConfigService.ensureDefaultConfig(clientId);
+    const filters = dashCfg.filtersConfig as Record<string, unknown> | null;
+    const thresholds =
+      dashCfg.thresholdsConfig as BudgetDashboardThresholdsConfig | null;
+    const topLimit = thresholds?.maxAlertItems ?? TOP_LIMIT_DEFAULT;
+
+    const exerciseIdMerged =
+      query.exerciseId ??
+      (filters?.exerciseId as string | undefined) ??
+      dashCfg.defaultExerciseId ??
+      undefined;
+    const budgetIdMerged =
+      query.budgetId ??
+      (filters?.budgetId as string | undefined) ??
+      dashCfg.defaultBudgetId ??
+      undefined;
+
     const { budget, exercise } = await this.resolveBudgetAndExercise(
       clientId,
-      query.budgetId,
-      query.exerciseId,
+      budgetIdMerged,
+      exerciseIdMerged,
     );
     const budgetId = budget.id;
     const exerciseId = exercise.id;
@@ -200,6 +234,8 @@ export class BudgetDashboardService {
             };
           })();
 
+    const monthlyTrend = this.buildMonthlyTrend(eventsForTrend);
+
     const capex = linesForAggregation
       .filter((l) => l.expenseType === 'CAPEX')
       .reduce((s, l) => s + fromDecimal(l.revisedAmount), 0);
@@ -207,13 +243,179 @@ export class BudgetDashboardService {
       .filter((l) => l.expenseType === 'OPEX')
       .reduce((s, l) => s + fromDecimal(l.revisedAmount), 0);
 
-    const monthlyTrend = this.buildMonthlyTrend(eventsForTrend);
-
     const runBuildDistribution =
       this.buildRunBuildDistribution(linesForAggregation);
     const alertsSummary = this.buildAlertsSummary(linesForAggregation);
 
-    const response: BudgetDashboardResponse = {
+    const kpiBlock = {
+      totalBudget,
+      committed,
+      consumed,
+      forecast,
+      remaining,
+      consumptionRate,
+      ...ttcTotals,
+    };
+
+    const topEnvelopes = includeEnvelopes
+      ? this.buildTopEnvelopes(linesForAggregation, topLimit)
+      : [];
+    const riskEnvelopes = includeEnvelopes
+      ? this.buildRiskEnvelopes(linesForAggregation, thresholds)
+      : [];
+    const topBudgetLines = includeLines
+      ? this.buildTopBudgetLines(linesForAggregation, thresholds, topLimit)
+      : [];
+    const criticalBudgetLines = includeLines
+      ? this.buildCriticalBudgetLines(linesForAggregation, thresholds, topLimit)
+      : [];
+
+    const layoutJson = dashCfg.layoutConfig as Record<string, unknown> | null;
+    const filtersJson = dashCfg.filtersConfig as Record<string, unknown> | null;
+
+    const widgets: BudgetCockpitWidgetPayload[] = [...dashCfg.widgets]
+      .sort((a, b) => a.position - b.position)
+      .map((w) => {
+        const settings =
+          (w.settings as Record<string, unknown> | null) ?? null;
+        if (!w.isActive) {
+          return {
+            id: w.id,
+            type: w.type,
+            position: w.position,
+            title: w.title,
+            size: w.size,
+            isActive: false,
+            settings,
+            data: null,
+          } as BudgetCockpitWidgetPayload;
+        }
+        switch (w.type) {
+          case 'KPI':
+            return {
+              id: w.id,
+              type: 'KPI',
+              position: w.position,
+              title: w.title,
+              size: w.size,
+              isActive: true,
+              settings,
+              data: {
+                kpis: kpiBlock,
+                capexOpexDistribution: { capex, opex },
+                drilldownLinks: settings?.drilldownLinks as
+                  | Record<string, string>
+                  | undefined,
+              },
+            };
+          case 'ALERT_LIST':
+            return {
+              id: w.id,
+              type: 'ALERT_LIST',
+              position: w.position,
+              title: w.title,
+              size: w.size,
+              isActive: true,
+              settings,
+              data: {
+                items: criticalBudgetLines,
+                totals: alertsSummary,
+              },
+            };
+          case 'ENVELOPE_LIST':
+            return {
+              id: w.id,
+              type: 'ENVELOPE_LIST',
+              position: w.position,
+              title: w.title,
+              size: w.size,
+              isActive: true,
+              settings,
+              data: {
+                topEnvelopes,
+                riskEnvelopes,
+              },
+            };
+          case 'LINE_LIST':
+            return {
+              id: w.id,
+              type: 'LINE_LIST',
+              position: w.position,
+              title: w.title,
+              size: w.size,
+              isActive: true,
+              settings,
+              data: {
+                topBudgetLines,
+                criticalBudgetLines,
+              },
+            };
+          case 'CHART': {
+            const ct = settings?.chartType;
+            if (ct === 'RUN_BUILD_BREAKDOWN') {
+              return {
+                id: w.id,
+                type: 'CHART',
+                position: w.position,
+                title: w.title,
+                size: w.size,
+                isActive: true,
+                settings,
+                data: {
+                  chartType: 'RUN_BUILD_BREAKDOWN',
+                  series: {
+                    run: runBuildDistribution.run,
+                    build: runBuildDistribution.build,
+                    transverse: runBuildDistribution.transverse,
+                  },
+                  labels: {
+                    run: 'Run',
+                    build: 'Build',
+                    transverse: 'Transverse',
+                  },
+                },
+              };
+            }
+            return {
+              id: w.id,
+              type: 'CHART',
+              position: w.position,
+              title: w.title,
+              size: w.size,
+              isActive: true,
+              settings,
+              data: {
+                chartType: 'CONSUMPTION_TREND',
+                series: monthlyTrend,
+                labels: { committed: 'Engagé', consumed: 'Consommé' },
+              },
+            };
+          }
+          default:
+            return {
+              id: w.id,
+              type: w.type,
+              position: w.position,
+              title: w.title,
+              size: w.size,
+              isActive: true,
+              settings,
+              data: null,
+            } as BudgetCockpitWidgetPayload;
+        }
+      });
+
+    return {
+      config: {
+        id: dashCfg.id,
+        name: dashCfg.name,
+        isDefault: dashCfg.isDefault,
+        defaultExerciseId: dashCfg.defaultExerciseId,
+        defaultBudgetId: dashCfg.defaultBudgetId,
+        layoutConfig: layoutJson ?? {},
+        filtersConfig: filtersJson,
+        thresholdsConfig: thresholds,
+      },
       exercise: {
         id: exercise.id,
         name: exercise.name,
@@ -226,32 +428,8 @@ export class BudgetDashboardService {
         currency: budget.currency,
         status: budget.status,
       },
-      kpis: {
-        totalBudget,
-        committed,
-        consumed,
-        forecast,
-        remaining,
-        consumptionRate,
-        ...ttcTotals,
-      },
-      runBuildDistribution,
-      alertsSummary,
-      capexOpexDistribution: { capex, opex },
-      monthlyTrend,
+      widgets,
     };
-
-    if (includeEnvelopes) {
-      response.topEnvelopes = this.buildTopEnvelopes(linesForAggregation);
-      response.riskEnvelopes = this.buildRiskEnvelopes(linesForAggregation);
-    }
-    if (includeLines) {
-      response.topBudgetLines = this.buildTopBudgetLines(linesForAggregation);
-      response.criticalBudgetLines =
-        this.buildCriticalBudgetLines(linesForAggregation);
-    }
-
-    return response;
   }
 
   private async resolveBudgetAndExercise(
@@ -483,7 +661,7 @@ export class BudgetDashboardService {
       revisedAmount: DecimalLike;
       envelope: { type: string };
     }[],
-  ): BudgetDashboardResponse['runBuildDistribution'] {
+  ): { run: number; build: number; transverse: number } {
     let run = 0;
     let build = 0;
     let transverse = 0;
@@ -514,7 +692,12 @@ export class BudgetDashboardService {
       forecastAmount: DecimalLike;
       remainingAmount: DecimalLike;
     }[],
-  ): BudgetDashboardResponse['alertsSummary'] {
+  ): {
+    negativeRemaining: number;
+    overCommitted: number;
+    overConsumed: number;
+    forecastOverBudget: number;
+  } {
     let negativeRemaining = 0;
     let overCommitted = 0;
     let overConsumed = 0;
@@ -550,6 +733,7 @@ export class BudgetDashboardService {
       forecastAmount: DecimalLike;
       remainingAmount: DecimalLike;
     },
+    thresholds: BudgetDashboardThresholdsConfig | null | undefined,
   ): BudgetDashboardLineRow {
     const revised = fromDecimal(l.revisedAmount);
     const committed = fromDecimal(l.committedAmount);
@@ -572,6 +756,7 @@ export class BudgetDashboardService {
         consumed,
         forecast,
         remaining,
+        thresholds,
       ),
     };
   }
@@ -584,7 +769,8 @@ export class BudgetDashboardService {
       consumedAmount: DecimalLike;
       remainingAmount: DecimalLike;
     }[],
-  ): BudgetDashboardResponse['topEnvelopes'] {
+    topLimit: number,
+  ): BudgetCockpitEnvelopeRow[] {
     const byEnvelope = new Map<
       string,
       {
@@ -616,7 +802,7 @@ export class BudgetDashboardService {
     }
     return [...byEnvelope.values()]
       .sort((a, b) => b.consumed - a.consumed)
-      .slice(0, TOP_LIMIT);
+      .slice(0, topLimit);
   }
 
   private buildRiskEnvelopes(
@@ -626,7 +812,8 @@ export class BudgetDashboardService {
       forecastAmount: DecimalLike;
       revisedAmount: DecimalLike;
     }[],
-  ): BudgetDashboardResponse['riskEnvelopes'] {
+    thresholds: BudgetDashboardThresholdsConfig | null | undefined,
+  ): BudgetCockpitRiskEnvelopeRow[] {
     const byEnvelope = new Map<
       string,
       {
@@ -659,7 +846,7 @@ export class BudgetDashboardService {
       return {
         ...row,
         riskRatio,
-        riskLevel: riskLevel(riskRatio),
+        riskLevel: riskLevelForEnvelope(riskRatio, thresholds),
       };
     });
   }
@@ -676,14 +863,16 @@ export class BudgetDashboardService {
       forecastAmount: DecimalLike;
       remainingAmount: DecimalLike;
     }[],
-  ): BudgetDashboardResponse['topBudgetLines'] {
+    thresholds: BudgetDashboardThresholdsConfig | null | undefined,
+    topLimit: number,
+  ): BudgetDashboardLineRow[] {
     return [...lines]
       .sort(
         (a, b) =>
           fromDecimal(b.consumedAmount) - fromDecimal(a.consumedAmount),
       )
-      .slice(0, TOP_LIMIT)
-      .map((l) => this.mapBudgetLineRow(l));
+      .slice(0, topLimit)
+      .map((l) => this.mapBudgetLineRow(l, thresholds));
   }
 
   private buildCriticalBudgetLines(
@@ -698,8 +887,10 @@ export class BudgetDashboardService {
       forecastAmount: DecimalLike;
       remainingAmount: DecimalLike;
     }[],
-  ): BudgetDashboardResponse['criticalBudgetLines'] {
-    const enriched = lines.map((l) => this.mapBudgetLineRow(l));
+    thresholds: BudgetDashboardThresholdsConfig | null | undefined,
+    topLimit: number,
+  ): BudgetDashboardLineRow[] {
+    const enriched = lines.map((l) => this.mapBudgetLineRow(l, thresholds));
     const flagged = enriched.filter((r) => r.lineRiskLevel !== 'OK');
     const rank = (lvl: BudgetDashboardLineRow['lineRiskLevel']) =>
       lvl === 'CRITICAL' ? 0 : 1;
@@ -709,6 +900,6 @@ export class BudgetDashboardService {
         if (dr !== 0) return dr;
         return b.consumed - a.consumed;
       })
-      .slice(0, TOP_LIMIT);
+      .slice(0, topLimit);
   }
 }

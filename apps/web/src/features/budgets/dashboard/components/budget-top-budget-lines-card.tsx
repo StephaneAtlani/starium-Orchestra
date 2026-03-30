@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
-import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
+import type { BudgetDashboardLineRow } from '@/features/budgets/types/budget-dashboard.types';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { cn } from '@/lib/utils';
 import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
@@ -41,7 +41,7 @@ export function BudgetTopBudgetLinesCard({
   defaultTaxRate,
   onBudgetLineClick,
 }: {
-  rows: NonNullable<BudgetDashboardResponse['topBudgetLines']>;
+  rows: BudgetDashboardLineRow[];
   currency: string;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;

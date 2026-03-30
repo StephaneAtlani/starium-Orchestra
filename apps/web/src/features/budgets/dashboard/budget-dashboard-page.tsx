@@ -17,13 +17,7 @@ import { BudgetDashboardSkeleton } from './components/budget-dashboard-skeleton'
 import { BudgetDashboardEmptyState } from './components/budget-dashboard-empty-state';
 import { BudgetDashboardErrorState } from './components/budget-dashboard-error-state';
 import { BudgetDashboardHeader } from './components/budget-dashboard-header';
-import { BudgetKpiGrid } from './components/budget-kpi-grid';
-import { BudgetAlertsPanel } from './components/budget-alerts-panel';
-import { BudgetAnalyticsGrid } from './components/budget-analytics-grid';
-import { BudgetTopEnvelopesCard } from './components/budget-top-envelopes-card';
-import { BudgetEnvelopesTable } from './components/budget-envelopes-table';
-import { BudgetLinesCritiqueTable } from './components/budget-lines-critique-table';
-import { BudgetTopBudgetLinesCard } from './components/budget-top-budget-lines-card';
+import { BudgetCockpitWidgetRenderer } from './components/budget-cockpit-widget-renderer';
 import { CockpitSurfaceCard } from './components/budget-cockpit-primitives';
 
 export function BudgetDashboardPage() {
@@ -174,65 +168,15 @@ export function BudgetDashboardPage() {
               </dl>
             </CockpitSurfaceCard>
 
-            <BudgetKpiGrid
+            <BudgetCockpitWidgetRenderer
               data={data}
               taxDisplayMode={taxDisplayMode}
               defaultTaxRate={defaultTaxRate}
-            />
-
-            <BudgetAlertsPanel
-              alertsSummary={data.alertsSummary}
               onViewCriticalLines={scrollToCritical}
+              criticalRef={criticalRef}
+              onEnvelopeClick={openEnvelopeDrawer}
+              onBudgetLineClick={openBudgetLineDrawer}
             />
-
-            <BudgetAnalyticsGrid
-              data={data}
-              taxDisplayMode={taxDisplayMode}
-              defaultTaxRate={defaultTaxRate}
-            />
-
-            {data.topEnvelopes && data.topEnvelopes.length > 0 && (
-              <BudgetTopEnvelopesCard
-                rows={data.topEnvelopes}
-                currency={data.budget.currency}
-                taxDisplayMode={taxDisplayMode}
-                defaultTaxRate={defaultTaxRate}
-                onEnvelopeClick={openEnvelopeDrawer}
-              />
-            )}
-
-            {data.riskEnvelopes && data.riskEnvelopes.length > 0 && (
-              <BudgetEnvelopesTable
-                rows={data.riskEnvelopes}
-                currency={data.budget.currency}
-                taxDisplayMode={taxDisplayMode}
-                defaultTaxRate={defaultTaxRate}
-                onEnvelopeClick={openEnvelopeDrawer}
-              />
-            )}
-
-            <div ref={criticalRef}>
-              {data.criticalBudgetLines && (
-                <BudgetLinesCritiqueTable
-                  rows={data.criticalBudgetLines}
-                  currency={data.budget.currency}
-                  budgetId={data.budget.id}
-                  taxDisplayMode={taxDisplayMode}
-                  defaultTaxRate={defaultTaxRate}
-                  onBudgetLineClick={openBudgetLineDrawer}
-                />
-              )}
-            </div>
-
-            {data.topBudgetLines && data.topBudgetLines.length > 0 && (
-              <BudgetTopBudgetLinesCard
-                rows={data.topBudgetLines}
-                currency={data.budget.currency}
-                taxDisplayMode={taxDisplayMode}
-                defaultTaxRate={defaultTaxRate}
-                onBudgetLineClick={openBudgetLineDrawer}
-              />
-            )}
 
             <BudgetEnvelopeIntelligenceDrawer
               open={isEnvelopeDrawerOpen}

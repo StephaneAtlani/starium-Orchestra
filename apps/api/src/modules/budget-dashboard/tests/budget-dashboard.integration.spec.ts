@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
+import { BudgetDashboardWidgetType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { PrismaModule } from '../../../prisma/prisma.module';
+import { BudgetDashboardConfigService } from '../budget-dashboard-config.service';
 import { BudgetDashboardController } from '../budget-dashboard.controller';
 import { BudgetDashboardService } from '../budget-dashboard.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -37,6 +39,34 @@ describe('Budget dashboard integration', () => {
   };
   const mockExercise = { id: exerciseId, name: 'Ex A', code: '2025' };
 
+  const mockDashboardConfig = () => ({
+    id: 'cfg-1',
+    name: 'Cockpit par défaut',
+    isDefault: true,
+    clientId: clientA,
+    defaultExerciseId: null,
+    defaultBudgetId: null,
+    layoutConfig: { columns: 2 },
+    filtersConfig: null,
+    thresholdsConfig: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    widgets: [
+      { id: 'w0', clientId: clientA, configId: 'cfg-1', type: BudgetDashboardWidgetType.KPI, position: 0, title: 'KPI', size: 'full', isActive: true, settings: null, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'w1', clientId: clientA, configId: 'cfg-1', type: BudgetDashboardWidgetType.ALERT_LIST, position: 1, title: 'A', size: 'full', isActive: true, settings: null, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'w2', clientId: clientA, configId: 'cfg-1', type: BudgetDashboardWidgetType.ENVELOPE_LIST, position: 2, title: 'E', size: 'full', isActive: true, settings: null, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'w3', clientId: clientA, configId: 'cfg-1', type: BudgetDashboardWidgetType.LINE_LIST, position: 3, title: 'L', size: 'full', isActive: true, settings: null, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'w4', clientId: clientA, configId: 'cfg-1', type: BudgetDashboardWidgetType.CHART, position: 4, title: 'C1', size: 'full', isActive: true, settings: { chartType: 'RUN_BUILD_BREAKDOWN' }, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'w5', clientId: clientA, configId: 'cfg-1', type: BudgetDashboardWidgetType.CHART, position: 5, title: 'C2', size: 'full', isActive: true, settings: { chartType: 'CONSUMPTION_TREND' }, createdAt: new Date(), updatedAt: new Date() },
+    ],
+  });
+
+  const mockConfigService = {
+    ensureDefaultConfig: jest.fn().mockImplementation((clientId: string) =>
+      Promise.resolve(mockDashboardConfig()),
+    ),
+  };
+
   beforeAll(async () => {
     prisma = {
       budget: { findFirst: jest.fn() },
@@ -54,6 +84,7 @@ describe('Budget dashboard integration', () => {
       providers: [
         BudgetDashboardService,
         { provide: PrismaService, useValue: prisma },
+        { provide: BudgetDashboardConfigService, useValue: mockConfigService },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -86,16 +117,28 @@ describe('Budget dashboard integration', () => {
       expect(result).toBeDefined();
       expect(result.exercise.id).toBe(exerciseId);
       expect(result.budget.id).toBe(budgetId);
-      expect(result.kpis).toBeDefined();
-      expect(result.runBuildDistribution).toEqual({ run: 0, build: 0, transverse: 0 });
-      expect(result.alertsSummary).toEqual({
-        negativeRemaining: 0,
-        overCommitted: 0,
-        overConsumed: 0,
-        forecastOverBudget: 0,
-      });
-      expect(result.capexOpexDistribution).toBeDefined();
-      expect(result.monthlyTrend).toEqual([]);
+      expect(result.config).toBeDefined();
+      const kpi = result.widgets.find((w) => w.type === 'KPI');
+      expect(kpi && kpi.type === 'KPI' && kpi.data).toBeTruthy();
+      if (kpi && kpi.type === 'KPI' && kpi.data) {
+        expect(kpi.data.kpis).toBeDefined();
+      }
+      const chartRb = result.widgets.find(
+        (w) =>
+          w.type === 'CHART' &&
+          w.settings &&
+          (w.settings as { chartType?: string }).chartType === 'RUN_BUILD_BREAKDOWN',
+      );
+      expect(chartRb?.data && 'series' in (chartRb.data as object)).toBeTruthy();
+      const alertW = result.widgets.find((w) => w.type === 'ALERT_LIST');
+      expect(alertW?.data && 'totals' in (alertW.data as object)).toBeTruthy();
+      const trend = result.widgets.find(
+        (w) =>
+          w.type === 'CHART' &&
+          w.data &&
+          (w.data as { chartType?: string }).chartType === 'CONSUMPTION_TREND',
+      );
+      expect((trend?.data as { series?: unknown })?.series).toEqual([]);
     });
   });
 

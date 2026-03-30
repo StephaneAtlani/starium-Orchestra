@@ -11,8 +11,8 @@ import {
   saveBudgetCockpitSelection,
 } from '@/features/budgets/lib/budget-cockpit-selection-storage';
 import type {
+  BudgetCockpitResponse,
   BudgetDashboardQueryParams,
-  BudgetDashboardResponse,
 } from '@/features/budgets/types/budget-dashboard.types';
 import type {
   BudgetExerciseSummary,
@@ -26,7 +26,7 @@ import type {
  */
 function mergeExerciseOptionsForSelect(
   loaded: BudgetExerciseSummary[],
-  cockpit: BudgetDashboardResponse | undefined,
+  cockpit: BudgetCockpitResponse | undefined,
   selectedId: string | undefined,
 ): BudgetExerciseSummary[] {
   if (!cockpit || !selectedId || cockpit.exercise.id !== selectedId) {
@@ -57,20 +57,20 @@ function formatBudgetLabel(b: BudgetSummary): string {
 }
 
 function exerciseLabelFromCockpit(
-  cockpit: BudgetDashboardResponse['exercise'],
+  cockpit: BudgetCockpitResponse['exercise'],
 ): string {
   return `${cockpit.code ? `${cockpit.code} — ` : ''}${cockpit.name}`;
 }
 
 function budgetLabelFromCockpit(
-  cockpit: BudgetDashboardResponse['budget'],
+  cockpit: BudgetCockpitResponse['budget'],
 ): string {
   return `${cockpit.code ? `${cockpit.code} — ` : ''}${cockpit.name}`;
 }
 
 function mergeBudgetOptionsForSelect(
   loaded: BudgetSummary[],
-  cockpit: BudgetDashboardResponse | undefined,
+  cockpit: BudgetCockpitResponse | undefined,
   selectedId: string | undefined,
 ): BudgetSummary[] {
   if (!cockpit || !selectedId || cockpit.budget.id !== selectedId) {

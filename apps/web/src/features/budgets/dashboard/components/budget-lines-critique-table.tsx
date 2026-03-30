@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
-import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
+import type { BudgetDashboardLineRow } from '@/features/budgets/types/budget-dashboard.types';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { budgetDetail, budgetLineEdit } from '@/features/budgets/constants/budget-routes';
 import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
@@ -44,7 +44,7 @@ export function BudgetLinesCritiqueTable({
   defaultTaxRate,
   onBudgetLineClick,
 }: {
-  rows: NonNullable<BudgetDashboardResponse['criticalBudgetLines']>;
+  rows: BudgetDashboardLineRow[];
   currency: string;
   budgetId: string;
   taxDisplayMode: TaxDisplayMode;

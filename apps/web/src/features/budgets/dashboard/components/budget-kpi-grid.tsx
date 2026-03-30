@@ -10,7 +10,7 @@ import {
   Waypoints,
 } from 'lucide-react';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
-import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
+import type { BudgetCockpitKpiBlock } from '@/features/budgets/types/budget-dashboard.types';
 import {
   formatForecastGapParts,
   formatKpiAmountParts,
@@ -20,16 +20,17 @@ import { BudgetKpiCard, type BudgetKpiAmountTone } from './budget-kpi-card';
 import { CockpitSection } from './budget-cockpit-primitives';
 
 export function BudgetKpiGrid({
-  data,
+  kpis,
+  currency,
   taxDisplayMode,
   defaultTaxRate,
 }: {
-  data: BudgetDashboardResponse;
+  kpis: BudgetCockpitKpiBlock;
+  currency: string;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
 }) {
-  const { kpis, budget } = data;
-  const c = budget.currency;
+  const c = currency;
 
   const ecartForecast = kpis.forecast - kpis.totalBudget;
   const gapParts = formatForecastGapParts(kpis, c, taxDisplayMode, defaultTaxRate);

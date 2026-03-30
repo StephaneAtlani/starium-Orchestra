@@ -19,7 +19,11 @@ import type { BudgetExerciseSummary } from '@/features/budgets/types/budget-list
 import type { BudgetSummary } from '@/features/budgets/types/budget-list.types';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
-import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
+import type { BudgetCockpitResponse } from '@/features/budgets/types/budget-dashboard.types';
+import {
+  getCockpitAlertsSummary,
+  getCockpitKpiData,
+} from '@/features/budgets/types/budget-dashboard.types';
 import {
   formatForecastGapParts,
   formatKpiAmountParts,
@@ -105,13 +109,16 @@ function BudgetKpiCardsByKeys({
   keys,
   animateKpiNumbers,
 }: {
-  data: BudgetDashboardResponse;
+  data: BudgetCockpitResponse;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
   keys: DashboardBudgetKpiKey[];
   animateKpiNumbers: boolean;
 }) {
-  const { kpis, budget } = data;
+  const kpiPayload = getCockpitKpiData(data);
+  if (!kpiPayload) return null;
+  const { kpis } = kpiPayload;
+  const { budget } = data;
   const c = budget.currency;
   const fmt = (p: Parameters<typeof formatKpiAmountParts>[0]) =>
     formatKpiAmountParts(p);
@@ -533,7 +540,7 @@ export function DashboardBudgetKpiWidget() {
   const showKpiSkeleton =
     query.isLoading && !data && !emptyNoExerciseContext;
 
-  const alertCount = data ? totalBudgetAlerts(data.alertsSummary) : 0;
+  const alertCount = data ? totalBudgetAlerts(getCockpitAlertsSummary(data)) : 0;
 
   if (!hydrated) {
     return (
