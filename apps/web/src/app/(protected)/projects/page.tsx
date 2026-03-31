@@ -189,7 +189,7 @@ export default function ProjectsPortfolioPage() {
             )}
 
             {!error && (
-              <Card size="sm" className="overflow-hidden shadow-sm">
+              <Card size="sm" className="max-h-[min(75vh,800px)] overflow-hidden shadow-sm">
                 <ProjectsToolbar
                   filters={filters}
                   setFilters={setFilters}
@@ -198,7 +198,7 @@ export default function ProjectsPortfolioPage() {
                 />
                 {data && data.items.length > 0 ? (
                   <>
-                    <CardContent className="p-0">
+                    <CardContent className="min-h-0 flex-1 overflow-auto p-0">
                       <ProjectsListTable
                         items={data.items}
                         filters={filters}

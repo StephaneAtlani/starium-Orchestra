@@ -226,8 +226,8 @@ export function ProjectsListTable({
   ).sort((a, b) => a.localeCompare(b));
   return (
     <TooltipProvider delay={250}>
-      <Table className="min-w-[56rem] text-sm">
-      <TableHeader className="bg-muted/50 [&_tr]:border-b-0">
+      <Table noWrapper className="min-w-[56rem] text-sm">
+      <TableHeader className="sticky top-0 z-20 bg-muted [&_tr]:border-b-0">
         <TableRow className="border-0 hover:bg-transparent">
           <TableHead
             className={cn(
