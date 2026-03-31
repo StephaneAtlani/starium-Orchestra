@@ -7,7 +7,7 @@ import {
   Min,
 } from 'class-validator';
 import { BudgetImportEntityType, BudgetImportSourceType } from '@prisma/client';
-import { MappingConfig } from '../types/mapping.types';
+import type { MappingConfig } from '../types/mapping.types';
 
 export class CreateBudgetImportMappingDto {
   @IsString()

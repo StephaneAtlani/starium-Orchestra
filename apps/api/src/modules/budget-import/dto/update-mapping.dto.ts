@@ -5,7 +5,7 @@ import {
   IsString,
   Min,
 } from 'class-validator';
-import { MappingConfig } from '../types/mapping.types';
+import type { MappingConfig } from '../types/mapping.types';
 
 export class UpdateBudgetImportMappingDto {
   @IsOptional()

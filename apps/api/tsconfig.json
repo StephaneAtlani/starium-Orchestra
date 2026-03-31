@@ -7,7 +7,7 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "module": "CommonJS",
+    "module": "Node16",
     "moduleResolution": "node16",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
