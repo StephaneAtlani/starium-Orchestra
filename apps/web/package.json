@@ -3,17 +3,19 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3002",
+    "dev": "NODE_OPTIONS='--max-http-header-size=262144' next dev -p 3002",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "clean": "rm -rf .next node_modules/.cache"
+    "clean": "rm -rf .next node_modules/.cache",
+    "generate:badge-matrix": "node scripts/generate-badge-palette-matrix.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
     "@hookform/resolvers": "^5.2.2",
+    "@starium-orchestra/budget-exercise-calendar": "workspace:*",
     "@starium-orchestra/types": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
     "class-variance-authority": "^0.7.1",

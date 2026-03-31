@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,8 @@ export type SupplierSearchComboboxProps = {
   onValidateOnBlur?: (value: string) => Promise<void> | void;
   /** Indique qu'un fournisseur a été sélectionné (masque le hint doublon) */
   hasSupplierSelection?: boolean;
+  /** Ouvre la modale "Nouveau fournisseur" (bouton + à droite) */
+  onRequestOpenCreateDialog?: (draftName: string) => void;
   /** Demande d'ouverture du quick-create (prérempli avec le texte saisi) */
   onRequestQuickCreate?: (draftName: string) => void;
 };
@@ -55,6 +57,7 @@ export const SupplierSearchCombobox = React.forwardRef<
     onManualInput,
     onValidateOnBlur,
     hasSupplierSelection,
+    onRequestOpenCreateDialog,
     onRequestQuickCreate,
   },
   ref,
@@ -148,6 +151,26 @@ export const SupplierSearchCombobox = React.forwardRef<
         >
           <Search className="size-4 opacity-70" />
         </Button>
+        {onRequestOpenCreateDialog ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-8 shrink-0"
+            disabled={disabled}
+            aria-label="Créer un fournisseur"
+            title="Créer un fournisseur"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPickerOpen(false);
+              setFieldActive(false);
+              onRequestOpenCreateDialog(normalizedValue);
+            }}
+          >
+            <Plus className="size-4 opacity-70" />
+          </Button>
+        ) : null}
         {fieldActive && (
           <div
             className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border border-border bg-white p-2 shadow-lg"

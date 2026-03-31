@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { fetchPasswordLoginEligibilityApi } from '@/services/auth';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { resolveActiveClient } from '@/lib/auth/resolve-active-client';
 import type { MeClient } from '@/services/me';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
@@ -21,20 +19,74 @@ import {
 const ACTIVE_CLIENT_KEY = 'starium.activeClient';
 const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
 
-export default function LoginPage() {
+/** Messages alignés sur les `reason` renvoyées par GET /api/auth/microsoft/callback (query). */
+function messageForMicrosoftCallbackError(reason: string | null): string {
+  switch (reason) {
+    case 'email_unknown':
+    case 'email_not_verified':
+    case 'email_ambiguous':
+    case 'missing_or_unreliable_email':
+      return 'Aucun compte Starium existant ne correspond à cette identité Microsoft.';
+    case 'user_without_valid_access':
+      return 'Ce compte n’a pas d’accès actif à un client Starium. Contactez un administrateur.';
+    case 'invalid_or_expired_state':
+      return 'La session de connexion Microsoft a expiré ou est invalide. Réessayez depuis « Se connecter avec Microsoft ».';
+    case 'missing_code_or_state':
+      return 'Réponse Microsoft incomplète. Réessayez la connexion.';
+    case 'microsoft_oauth_error':
+      return 'Microsoft a refusé ou interrompu la connexion. Réessayez.';
+    case 'callback_processing_error':
+      return 'Erreur lors du traitement de la connexion Microsoft. Réessayez dans quelques instants.';
+    case 'microsoft_id_token_invalid':
+      return 'Le jeton Microsoft n’a pas pu être validé. Vérifiez que l’ID d’application (client) Entra correspond à la configuration de l’API (audience / client_id).';
+    case 'microsoft_sso_misconfigured':
+      return 'Configuration SSO Microsoft incomplète (client, secret, URL de redirection). Vérifiez l’environnement de l’API ou l’administration plateforme.';
+    case 'database_schema_mismatch':
+      return 'La base de données n’est pas à jour : exécutez les migrations (ex. prisma migrate deploy) puis réessayez.';
+    case 'microsoft_token_invalid_grant':
+      return 'Le code Microsoft a expiré ou a déjà été utilisé, ou l’URL de redirection ne correspond pas à Entra. Réessayez « Se connecter avec Microsoft » depuis le début.';
+    case 'microsoft_oauth_unauthorized_client':
+      return 'L’application n’est pas autorisée pour ce flux OAuth (client Entra / secret / redirect URI). Vérifiez la configuration.';
+    case 'prisma_validation_error':
+    case 'prisma_unknown_error':
+    case 'prisma_init_error':
+      return 'Erreur base de données ou schéma Prisma. Vérifiez les migrations et la connexion à la base.';
+    case 'jwt_misconfigured':
+      return 'Configuration JWT invalide sur l’API (secret / durées). Contactez un administrateur.';
+    default:
+      if (reason === 'access_denied' || reason?.includes('access_denied')) {
+        return 'Connexion Microsoft annulée.';
+      }
+      if (reason) {
+        return `Connexion Microsoft impossible (code : ${reason}). Si le problème persiste, vérifiez la configuration SSO côté serveur.`;
+      }
+      return 'Connexion Microsoft impossible. Réessayez ou contactez le support.';
+  }
+}
+
+function looksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function LoginPageContent() {
   const router = useRouter();
   const {
     user,
     isAuthenticated,
     isLoading,
     login,
+    startMicrosoftSso,
+    completeMicrosoftSso,
     completeMfaTotp,
     sendMfaFallbackEmail,
     completeMfaEmail,
   } = useAuth();
+  const searchParams = useSearchParams();
   const { setActiveClient } = useActiveClient();
-  const authenticatedFetch = useAuthenticatedFetch();
   const didLoginThisSession = useRef(false);
+  const didHandleMicrosoftCallback = useRef(false);
+  /** Évite la course avec l’effet « déjà connecté → /dashboard » pendant le SSO Microsoft. */
+  const ssoFlowInProgress = useRef(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,16 +99,131 @@ export default function LoginPage() {
   const [emailSending, setEmailSending] = useState(false);
   /** Enregistrer cet appareil (30 j. sans 2FA sur ce navigateur après mot de passe). */
   const [trustThisDevice, setTrustThisDevice] = useState(true);
+  /** null = pas encore vérifié ; false = compte réservé à Microsoft (après SSO). */
+  const [passwordLoginAllowed, setPasswordLoginAllowed] = useState<
+    boolean | null
+  >(null);
+  const [checkingPasswordEligibility, setCheckingPasswordEligibility] =
+    useState(false);
 
   useEffect(() => {
     if (isLoading) return;
+    if (ssoFlowInProgress.current) return;
     if (isAuthenticated && user && !didLoginThisSession.current) {
       router.replace('/dashboard');
     }
   }, [isLoading, isAuthenticated, user, router]);
 
+  useEffect(() => {
+    if (didHandleMicrosoftCallback.current) return;
+    const status = searchParams.get('status');
+    const reason = searchParams.get('reason');
+    if (status === 'error') {
+      didHandleMicrosoftCallback.current = true;
+      setError(messageForMicrosoftCallbackError(reason));
+      return;
+    }
+    if (status !== 'success' || typeof window === 'undefined') {
+      return;
+    }
+
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const accessToken = hash.get('accessToken');
+    const refreshToken = hash.get('refreshToken');
+    if (!accessToken || !refreshToken) {
+      didHandleMicrosoftCallback.current = true;
+      setError('Connexion Microsoft incomplète.');
+      return;
+    }
+
+    didHandleMicrosoftCallback.current = true;
+    ssoFlowInProgress.current = true;
+    setSubmitting(true);
+    void completeMicrosoftSso(accessToken, refreshToken)
+      .then(async ({ user: loggedInUser, accessToken: token }) => {
+        const res = await fetch('/api/me/clients', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          throw new Error('Impossible de récupérer la liste des clients');
+        }
+        const clients = (await res.json()) as MeClient[];
+        let storedActiveClientId: string | null = null;
+        const stored = window.localStorage.getItem(ACTIVE_CLIENT_KEY);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as { id?: string };
+            storedActiveClientId = parsed?.id ?? null;
+          } catch {
+            // ignore
+          }
+        }
+        const resolution = resolveActiveClient(
+          clients,
+          loggedInUser.platformRole,
+          storedActiveClientId,
+        );
+        if (resolution.type === 'redirect') {
+          router.replace(resolution.to);
+          return;
+        }
+        if (resolution.type === 'blocked') {
+          router.replace('/no-client');
+          return;
+        }
+        setActiveClient(resolution.client);
+        window.sessionStorage.setItem(
+          BOOTSTRAP_FROM_LOGIN_KEY,
+          JSON.stringify({ client: resolution.client }),
+        );
+        router.replace(resolution.to);
+      })
+      .catch((err: unknown) => {
+        setError(
+          err instanceof Error ? err.message : 'Connexion Microsoft impossible.',
+        );
+      })
+      .finally(() => {
+        ssoFlowInProgress.current = false;
+        setSubmitting(false);
+      });
+  }, [completeMicrosoftSso, router, searchParams, setActiveClient]);
+
+  async function refreshPasswordEligibility() {
+    const trimmed = email.trim();
+    if (!looksLikeEmail(trimmed)) {
+      setPasswordLoginAllowed(null);
+      return;
+    }
+    setCheckingPasswordEligibility(true);
+    try {
+      const { passwordLoginAllowed: allowed } =
+        await fetchPasswordLoginEligibilityApi(trimmed);
+      setPasswordLoginAllowed(allowed);
+    } finally {
+      setCheckingPasswordEligibility(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    let allowed = passwordLoginAllowed;
+    if (looksLikeEmail(email) && allowed === null) {
+      setCheckingPasswordEligibility(true);
+      try {
+        const r = await fetchPasswordLoginEligibilityApi(email.trim());
+        allowed = r.passwordLoginAllowed;
+        setPasswordLoginAllowed(allowed);
+      } finally {
+        setCheckingPasswordEligibility(false);
+      }
+    }
+    if (allowed === false) {
+      setError(
+        'Connexion par mot de passe désactivée pour ce compte. Utilisez « Se connecter avec Microsoft ».',
+      );
+      return;
+    }
     setError(null);
     setSubmitting(true);
     didLoginThisSession.current = true;
@@ -120,6 +287,16 @@ export default function LoginPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Identifiants invalides');
     } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleMicrosoftSsoStart() {
+    setError(null);
+    setSubmitting(true);
+    const result = await startMicrosoftSso();
+    if (!result.ok) {
+      setError(result.message);
       setSubmitting(false);
     }
   }
@@ -329,10 +506,20 @@ export default function LoginPage() {
                       type="email"
                       autoComplete="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setPasswordLoginAllowed(null);
+                      }}
+                      onBlur={() => void refreshPasswordEligibility()}
                       required
                     />
                   </div>
+                  {passwordLoginAllowed === false && (
+                    <p className="text-sm text-muted-foreground">
+                      Ce compte utilise la connexion Microsoft : le mot de passe
+                      Starium n’est plus disponible pour cet email.
+                    </p>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="password">Mot de passe</Label>
                     <Input
@@ -341,7 +528,8 @@ export default function LoginPage() {
                       autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      required
+                      disabled={passwordLoginAllowed === false}
+                      required={passwordLoginAllowed !== false}
                     />
                   </div>
                   {error && (
@@ -352,9 +540,22 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     className="mt-2 w-full"
-                    disabled={submitting}
+                    disabled={
+                      submitting ||
+                      passwordLoginAllowed === false ||
+                      checkingPasswordEligibility
+                    }
                   >
                     {submitting ? 'Connexion…' : 'Se connecter'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={submitting}
+                    onClick={() => void handleMicrosoftSsoStart()}
+                  >
+                    Se connecter avec Microsoft
                   </Button>
                 </form>
               )}
@@ -491,5 +692,19 @@ export default function LoginPage() {
         </div>
       </Card>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-background p-6">
+          <p className="text-sm text-muted-foreground">Chargement…</p>
+        </main>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   );
 }

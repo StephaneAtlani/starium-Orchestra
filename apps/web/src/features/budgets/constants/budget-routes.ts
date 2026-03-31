@@ -88,6 +88,10 @@ export function budgetImports(): string {
   return `${BUDGETS_ROOT}/imports`;
 }
 
+export function budgetImport(budgetId: string): string {
+  return `${BUDGETS_ROOT}/${budgetId}/import`;
+}
+
 export function budgetDashboard(): string {
   return `${BUDGETS_ROOT}/dashboard`;
 }

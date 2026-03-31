@@ -6,7 +6,7 @@
 
 import type {
   BudgetListItemWithKpi,
-  BudgetSummaryResponse,
+  BudgetSummaryKpi,
   EnvelopeListItemWithKpi,
   ExerciseSummaryResponse,
   LineListItemWithRates,
@@ -57,12 +57,13 @@ export async function listBudgetsForExercise(
   return handleResponse<PaginatedReportingResponse<BudgetListItemWithKpi>>(res);
 }
 
+/** GET renvoie directement les KPI agrégés (pas d’enveloppe `{ kpi }` — aligné Nest `BudgetReportingService.getBudgetSummary`). */
 export async function getBudgetSummary(
   authFetch: AuthFetch,
   budgetId: string,
-): Promise<BudgetSummaryResponse> {
+): Promise<BudgetSummaryKpi> {
   const res = await authFetch(`${BASE}/budgets/${budgetId}/summary`);
-  return handleResponse<BudgetSummaryResponse>(res);
+  return handleResponse<BudgetSummaryKpi>(res);
 }
 
 export async function listEnvelopesForBudget(

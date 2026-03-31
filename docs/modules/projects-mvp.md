@@ -2,7 +2,7 @@
 
 Ce document décrit l’implémentation **MVP** du module Projets : modèle de données, API, pilotage backend et UI. Il complète la RFC produit [RFC-PROJ-001](../RFC/RFC-PROJ-001%20%E2%80%94%20Cadrage%20fonctionnel%20du%20module%20Projets.md).
 
-**Périmètre MVP initial** : pas de ticketing. Les **liens projet ↔ lignes budgétaires** sont couverts par **RFC-PROJ-010** (module `project-budget`, modèle `ProjectBudgetLink`). Pas de lien fournisseur avancé sur le projet (hors champs optionnels). Les **tâches structurées, activités dérivées, jalons enrichis et endpoint Gantt backend** sont couverts par **[RFC-PROJ-011](../RFC/RFC-PROJ-011%20%E2%80%94%20T%C3%A2ches%20%20activit%C3%A9s%20jalons%20et%20base%20Gantt.md)** (pas d’**UI Gantt** visuelle au MVP — prévu hors scope RFC §5). Les anciennes pistes « PortfolioItem » / portefeuille projets+activités du [plan de déploiement Projet](../RFC/_Plan%20de%20déploiment%20-%20Projet.md) sont **remplacées** pour le MVP par le modèle **`Project`** + sous-ressources ci-dessous.
+**Périmètre MVP initial** : pas de ticketing. Les **liens projet ↔ lignes budgétaires** sont couverts par **RFC-PROJ-010** (module `project-budget`, modèle `ProjectBudgetLink`). Pas de lien fournisseur avancé sur le projet (hors champs optionnels). Les **tâches structurées, activités dérivées, jalons enrichis** et le **payload `GET /gantt`** sont couverts par **[RFC-PROJ-011](../RFC/RFC-PROJ-011%20%E2%80%94%20T%C3%A2ches%20%20activit%C3%A9s%20jalons%20et%20base%20Gantt.md)** ; l’**UI Gantt** (grille + frise alignées, dépendances, drag / resize) est décrite et implémentée sous **[RFC-PROJ-012 — Gantt Tâches et Jalons](../RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md)** (à ne pas confondre avec l’autre fichier **RFC-PROJ-012 — Project Sheet**). Les anciennes pistes « PortfolioItem » / portefeuille projets+activités du [plan de déploiement Projet](../RFC/_Plan%20de%20déploiment%20-%20Projet.md) sont **remplacées** pour le MVP par le modèle **`Project`** + sous-ressources ci-dessous ; ce plan long terme inclut aussi des **points bloquants** transverses (archivage, statuts actifs, imports, alertes, exports).
 
 ---
 
@@ -14,11 +14,11 @@ Modèles (`apps/api/prisma/schema.prisma`) :
 |--------|------|
 | **Project** | Projet client-scopé (`clientId`), code unique par client, type / statut / priorité / criticité, dates, `progressPercent` manuel (0–100), budget cible optionnel, notes pilotage, responsable via `ownerUserId` **ou** personne nom libre (`ownerFreeLabel` + `ownerAffiliation`). |
 | **ProjectTask** | Tâche planifiable (`clientId` + `projectId`) : nom, dates planifiées/réelles, `progress`, hiérarchie parent/enfant, dépendance simple (`dependsOnTaskId`), responsable `ownerUserId`, lien budget optionnel — **RFC-PROJ-011**. |
-| **ProjectRisk** | Risque avec `ProjectRiskProbability` et `ProjectRiskImpact` (criticité **dérivée** du score P×I, pas de champ redondant). |
+| **ProjectRisk** | Risque avec `ProjectRiskProbability` et `ProjectRiskImpact` (criticité **dérivée** du score P×I, pas de champ redondant). Champs et formulaire **EBIOS RM** minimal : **[RFC-PROJ-018](../RFC/RFC-PROJ-018%20%E2%80%94%20ProjectRisk%20EBIOS%20RM%20minimal.md)**. |
 | **ProjectMilestone** | Jalon sans durée (`targetDate`, `achievedDate`, lien tâche optionnel `linkedTaskId`, statut dont `ACHIEVED`, `DELAYED`) — **RFC-PROJ-011**. |
 | **ProjectActivity** | Activité dérivée d’une tâche source, `projectId` obligatoire (MVP), hors payload Gantt — **RFC-PROJ-011**. |
 | **ProjectBudgetLink** | Liaison projet ↔ ligne budgétaire (`clientId`, mode d’allocation FULL / PERCENTAGE / FIXED) — RFC-PROJ-010. |
-| **ProjectReview** (+ participants, décisions, action items) | Point projet COPIL/COPRO (RFC-PROJ-013) : statut brouillon / finalisé / annulé, `contentPayload` / `executiveSummary`, `snapshotPayload` à la finalisation, isolation `clientId` + `projectId`. |
+| **ProjectReview** (+ participants, décisions, action items) | Point projet (RFC-PROJ-013) : types `COPIL` / `COPRO` / … / **`POST_MORTEM`** (retour d’expérience — projets `COMPLETED` \| `CANCELLED` \| `ARCHIVED` uniquement) ; statut brouillon / finalisé / annulé ; `contentPayload` (ex. `postMortem` pour un REX) / `executiveSummary` ; `nextReviewDate` interdit pour `POST_MORTEM` ; `snapshotPayload` à la finalisation ; isolation `clientId` + `projectId`. |
 
 **Non persisté au MVP** : `computedHealth`, `signals`, `warnings`, `derivedProgressPercent` (calculs à la lecture dans `projects-pilotage.service.ts`).
 
@@ -80,19 +80,22 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 ## 4. Règles cockpit (résumé)
 
-- **Signaux** (`signals`) : `isLate`, `isBlocked`, `hasNoOwner`, `hasNoTasks`, `hasNoRisks`, `hasNoMilestones`, `hasPlanningDrift`, `isCritical` — calculés backend.
+- **Signaux** (`signals`), **santé** (`computedHealth`), **warnings** : calculés dans `projects-pilotage.service.ts` ; exposition liste / détail via les mêmes champs.
 - **Statuts « actifs »** pour plusieurs signaux (ex. absence de tâches / jalons / risques) : `PLANNED`, `IN_PROGRESS`, `ON_HOLD` (aligné sur la RFC plan « projet actif »).
+- **`isBlocked` / `BLOCKED`** : **`ON_HOLD` uniquement**. Les risques `OPEN` à criticité HIGH/CRITICAL influencent la **santé** (`RED`) et `isCritical`, mais ne déclenchent plus l’alerte « Bloqué ».
 - **Warnings** : codes `NO_OWNER`, `NO_TASKS`, `NO_RISKS`, `NO_MILESTONES`, `PLANNING_DRIFT`, `BLOCKED`.
+- **Détail des règles** (santé RED/ORANGE/GREEN, chaque booléen `signals`, correspondance pastilles vs alertes) : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8.3.
 
 ---
 
 ## 5. Frontend
 
-- **Feature** : `apps/web/src/features/projects/` (API client, hooks React Query, types, composants) — section **Budget** sur le détail projet (`ProjectBudgetSection`, RFC-PROJ-010) ; **fiche décisionnelle** sur le détail (`ProjectSheetView`, `GET/PATCH …/project-sheet`, autosave) ; onglet **Points projet** (`ProjectReviewsTab`, RFC-PROJ-013) sur `/projects/[projectId]`
-- **Routes** : `apps/web/src/app/(protected)/projects/` — `/projects`, `/projects/new`, `/projects/[projectId]`, `/projects/options` (placeholder **Option** module Projets)
+- **Feature** : `apps/web/src/features/projects/` (API client, hooks React Query, types, composants) — section **Budget** sur le détail projet (`ProjectBudgetSection`, RFC-PROJ-010) ; **fiche décisionnelle** sur le détail (`ProjectSheetView`, `GET/PATCH …/project-sheet`, autosave) ; onglet **Points projet** (`ProjectReviewsTab`, RFC-PROJ-013) sur `/projects/[projectId]` ; **Planning / Gantt** (`ProjectGanttPanel`, `ProjectTaskPlanningSection` en `gantt-sidebar`, payload `useProjectGanttQuery` aligné sur la grille — RFC-PROJ-012 Gantt) ; **Options projet** (RFC-PROJ-OPT-001) : `apps/web/src/features/projects/options/` — route `/projects/[projectId]/options`, onglet **Options** dans `ProjectWorkspaceTabs`
+- **Routes** : `apps/web/src/app/(protected)/projects/` — `/projects`, `/projects/new`, `/projects/[projectId]`, `/projects/[projectId]/options`, `/projects/[projectId]/planning`, `/projects/[projectId]/sheet`, `/projects/options` (entrée sidebar **Option** module — placeholder ou paramètres globaux module)
 - **Navigation** : `apps/web/src/config/navigation.ts` — entrée **Projets** en sous-menu (survol, même principe que Budgets) : **Portefeuille projet** → `/projects`, **Option** → `/projects/options` ; implémentation `apps/web/src/components/shell/sidebar.tsx`. `moduleCode: 'projects'`, `requiredPermissions: ['projects.read']`
 - **Sécurité UI** : `RequireActiveClient`, `PermissionGate`, données via `authFetch` + TanStack Query — **pas** de calcul cockpit de santé côté client (affichage des champs renvoyés par l’API)
 - **Cockpit liste** : filtres incluant **nature** (`kind` : projet / activité, query alignée backend) ; KPI portefeuille en **bandeaux compacts** (pas les cartes KPI génériques d’autres écrans) — détail visuel : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §6–8.
+- **Signaux / alertes (détail & fiches)** : même jeu `computedHealth` + `signals` + `warnings` qu’en liste ; éviter la surcharge du header — voir [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8.2.
 - **Création** : formulaire **deux colonnes** sur grand écran ; responsable désigné soit via compte client, soit via personne nom libre (**Interne/Externe**) depuis le répertoire **`GET /api/projects/assignable-users`** (`users` + `freePersons`), pas l’endpoint admin global utilisateurs.
 
 ---
@@ -101,6 +104,8 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 - Module `projects` et permissions `projects.read|create|update|delete` : `apps/api/prisma/seed.js`, profils `apps/api/prisma/default-profiles.json`
 - Client démo : activation du module projets où prévu dans le seed
+- **Points projet démo** (RFC-PROJ-013) : `apps/api/prisma/seed-project-demo-reviews.ts` — jeux cohérents sur `{prefix}-SEED-01` … `10`, dont des **retours d’expérience** (`POST_MORTEM`, `contentPayload.postMortem`) sur certains projets (**SEED-03**, **SEED-06**, **SEED-09**)
+- **Étiquettes démo** (RFC-PROJ-017) : `apps/api/prisma/seed-project-demo-tags.ts` — `ProjectTag` + affectations par projet, `ProjectTaskLabel` + affectations sur chaque tâche démo (rotation Priorité / Documentation / Recette), `ProjectMilestoneLabel` sur les deux premiers jalons du projet **SEED-01** ; réinitialisation des labels tâche/jalon démo à chaque seed
 - Rôles système d’équipe projet garantis par client (idempotent) : `SPONSOR`, `OWNER` et rôle référent métier (créés/ré-assurés via `ensureDefaultTeamRolesForClient`, appelés notamment sur `listRoles`, `getTeam` et création projet)
 
 ---
@@ -114,5 +119,6 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 
 ## 8. Évolutions documentées ailleurs
 
+- **Registre documents projet (`ProjectDocument`)** : [RFC-PROJ-DOC-001](../RFC/RFC-PROJ-DOC-001%20—%20Modèle.md) — implémenté (API `/api/projects/:projectId/documents`, audit, liste read-only sur fiche projet ; pas d’upload binaire au MVP).
 - **Lien projet ↔ budget (lignes)** : RFC-PROJ-010 — implémenté (`project-budget`).
 - Autres RFC numérotées RFC-PROJ-002 … dans les roadmaps historiques peuvent rester des **extensions** futures (fournisseurs, ressources, cockpit avancé). Le MVP actuel les **recouvre partiellement** sous RFC-PROJ-001 sans les publier comme RFC séparées partout.

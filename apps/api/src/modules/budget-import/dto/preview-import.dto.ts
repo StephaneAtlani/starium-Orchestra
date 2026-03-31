@@ -46,6 +46,11 @@ export class PreviewImportDto {
   @IsNotEmpty()
   fileToken!: string;
 
+  /** Onglet Excel à importer (si absent : premier onglet, comportement parseur). */
+  @IsOptional()
+  @IsString()
+  sheetName?: string;
+
   @IsObject()
   mapping!: MappingConfig;
 

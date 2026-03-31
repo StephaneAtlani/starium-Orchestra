@@ -52,8 +52,11 @@ export class BudgetSnapshotsController {
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
-    return this.service.getById(clientId!, id);
+    const context: SnapshotAuditContext = { actorUserId, meta };
+    return this.service.getById(clientId!, id, context);
   }
 
   @Post()

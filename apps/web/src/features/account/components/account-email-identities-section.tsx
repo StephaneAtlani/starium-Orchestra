@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import type { MeEmailIdentity } from '@/services/me';
+import { useAuth } from '@/context/auth-context';
 
 function formatQueryErrorMessage(error: unknown): string {
   const base =
@@ -56,6 +57,8 @@ function IdentityRow({
   onDeactivate: () => void;
   saving: boolean;
 }) {
+  const locked =
+    Boolean(identity.isAccountPrimary) || Boolean(identity.directoryManaged);
   const isEditing = editingId === identity.id;
 
   if (isEditing) {
@@ -138,6 +141,16 @@ function IdentityRow({
           ) : null}
         </div>
         <div className="flex flex-wrap gap-1.5">
+          {identity.isAccountPrimary ? (
+            <Badge variant="secondary" className="font-normal">
+              Compte
+            </Badge>
+          ) : null}
+          {identity.directoryManaged ? (
+            <Badge variant="secondary" className="font-normal">
+              Annuaire AD
+            </Badge>
+          ) : null}
           {identity.isActive ? (
             <Badge variant="secondary" className="font-normal">
               Actif
@@ -163,53 +176,88 @@ function IdentityRow({
             </Badge>
           )}
         </div>
+        {locked ? (
+          <p className="text-xs text-muted-foreground">
+            {identity.isAccountPrimary
+              ? 'E-mail de connexion au compte : non modifiable ici.'
+              : 'Synchronisé depuis l’annuaire d’entreprise : non modifiable ici.'}
+          </p>
+        ) : null}
       </div>
       <div className="mt-3 flex shrink-0 flex-wrap items-center gap-1 sm:mt-0 sm:justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 text-muted-foreground hover:text-foreground"
-          disabled={saving}
-          onClick={() => {
-            setEditingId(identity.id);
-            setEditForm({
-              email: identity.email,
-              displayName: identity.displayName ?? '',
-              replyToEmail: identity.replyToEmail ?? '',
-            });
-          }}
-        >
-          Modifier
-        </Button>
-        {identity.isActive ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 text-muted-foreground hover:text-foreground"
-            disabled={saving}
-            onClick={onDeactivate}
-          >
-            Désactiver
-          </Button>
+        {!locked ? (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 text-muted-foreground hover:text-foreground"
+              disabled={saving}
+              onClick={() => {
+                setEditingId(identity.id);
+                setEditForm({
+                  email: identity.email,
+                  displayName: identity.displayName ?? '',
+                  replyToEmail: identity.replyToEmail ?? '',
+                });
+              }}
+            >
+              Modifier
+            </Button>
+            {identity.isActive ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 text-muted-foreground hover:text-foreground"
+                disabled={saving}
+                onClick={onDeactivate}
+              >
+                Désactiver
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={saving}
+              onClick={onDelete}
+            >
+              Supprimer
+            </Button>
+          </>
         ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          disabled={saving}
-          onClick={onDelete}
-        >
-          Supprimer
-        </Button>
+      </div>
+    </li>
+  );
+}
+
+function AccountProfileEmailRow({ email }: { email: string }) {
+  return (
+    <li className="px-4 py-4 sm:flex sm:items-start sm:justify-between sm:gap-6">
+      <div className="min-w-0 flex-1 space-y-2">
+        <div>
+          <p className="text-sm font-semibold leading-snug text-foreground">
+            {email}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            E-mail de connexion au compte (non modifiable ici)
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="secondary" className="font-normal">
+            Compte
+          </Badge>
+        </div>
       </div>
     </li>
   );
 }
 
 export function AccountEmailIdentitiesSection() {
+  const { user } = useAuth();
+  const accountEmail = user?.email ?? '';
   const { data: identities, isLoading, error, refetch } =
     useEmailIdentitiesQuery();
   const identityList = identities ?? [];
@@ -347,6 +395,10 @@ export function AccountEmailIdentitiesSection() {
                 onDeactivate={() => void handleDeactivate(identity.id)}
               />
             ))}
+          </ul>
+        ) : !isLoading && accountEmail ? (
+          <ul className="divide-y divide-border/50">
+            <AccountProfileEmailRow email={accountEmail} />
           </ul>
         ) : !isLoading ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">

@@ -42,6 +42,7 @@ function mockSnapshot(overrides: Record<string, unknown> = {}) {
     totalRemainingAmount: 23000,
     totalInitialAmount: 100000,
     createdByUserId: null,
+    createdByUser: null,
     createdAt: new Date('2026-03-14T12:00:00Z'),
     lines: [],
     ...overrides,
@@ -163,7 +164,50 @@ describe('BudgetSnapshotsService', () => {
         }),
       );
       expect(result.id).toBe('snap-new');
+      expect(result.createdByLabel).toBeNull();
       expect((result as unknown as Record<string, unknown>).lines).toBeUndefined();
+    });
+
+    it('accepte label sans name et persiste name résolu', async () => {
+      prisma.budget.findFirst.mockResolvedValue(mockBudget());
+      prisma.budgetLine.findMany.mockResolvedValue([]);
+      const createdSnap = mockSnapshot({
+        id: 'snap-label',
+        name: 'Avant arbitrage DG',
+        code: 'SNAP-20260314-112233',
+        lines: undefined,
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) => {
+        const tx = {
+          budgetSnapshot: {
+            create: jest.fn().mockResolvedValue(createdSnap),
+          },
+          budgetSnapshotLine: {
+            createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+        };
+        return fn(tx);
+      });
+
+      const result = await service.create(
+        clientId,
+        { budgetId, label: 'Avant arbitrage DG' },
+        { actorUserId: 'user-1', meta: {} },
+      );
+
+      expect(result.name).toBe('Avant arbitrage DG');
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          newValue: expect.objectContaining({ name: 'Avant arbitrage DG' }),
+        }),
+      );
+    });
+
+    it('refuse si name et label absents', async () => {
+      await expect(service.create(clientId, { budgetId })).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.budget.findFirst).not.toHaveBeenCalled();
     });
 
     it('refuse si budget introuvable', async () => {
@@ -207,6 +251,11 @@ describe('BudgetSnapshotsService', () => {
           orderBy: [{ snapshotDate: 'desc' }, { createdAt: 'desc' }],
           skip: 0,
           take: 20,
+          include: {
+            createdByUser: {
+              select: { firstName: true, lastName: true, email: true },
+            },
+          },
         }),
       );
       expect(result.items).toHaveLength(1);
@@ -219,16 +268,38 @@ describe('BudgetSnapshotsService', () => {
   describe('getById', () => {
     it('retourne le détail avec totaux et lignes', async () => {
       const snap = mockSnapshot({
+        createdByUser: {
+          firstName: 'Alice',
+          lastName: 'Martin',
+          email: 'alice@example.com',
+        },
         lines: [mockSnapshotLine()],
       });
       prisma.budgetSnapshot.findFirst.mockResolvedValue(snap);
 
-      const result = await service.getById(clientId, 'snap-1');
+      const result = await service.getById(clientId, 'snap-1', {
+        actorUserId: 'viewer-1',
+        meta: {},
+      });
 
       expect(prisma.budgetSnapshot.findFirst).toHaveBeenCalledWith({
         where: { id: 'snap-1', clientId },
-        include: { lines: true },
+        include: {
+          lines: true,
+          createdByUser: {
+            select: { firstName: true, lastName: true, email: true },
+          },
+        },
       });
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'budget_snapshot.viewed',
+          resourceType: 'budget_snapshot',
+          resourceId: 'snap-1',
+          userId: 'viewer-1',
+        }),
+      );
+      expect(result.createdByLabel).toBe('Alice Martin');
       expect(result.totals).toBeDefined();
       expect(result.lines).toHaveLength(1);
     });
@@ -239,6 +310,19 @@ describe('BudgetSnapshotsService', () => {
       await expect(service.getById(clientId, 'absent')).rejects.toThrow(
         NotFoundException,
       );
+      expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+
+    it('fallback createdByLabel sur email', async () => {
+      prisma.budgetSnapshot.findFirst.mockResolvedValue(
+        mockSnapshot({
+          createdByUser: { firstName: null, lastName: null, email: 'ops@example.com' },
+          lines: [],
+        }),
+      );
+
+      const result = await service.getById(clientId, 'snap-1');
+      expect(result.createdByLabel).toBe('ops@example.com');
     });
   });
 

@@ -89,7 +89,7 @@ La tâche peut :
 
 * avoir des dates prévues et réelles
 * dépendre d’une autre tâche
-* appartenir à une hiérarchie
+* être rattachée à une phase fonctionnelle (optionnel)
 * avoir un responsable
 * porter une progression
 * être liée à une ligne budgétaire
@@ -144,7 +144,7 @@ Un jalon :
 * règles métier
 * CRUD backend
 * dépendances simples entre tâches
-* hiérarchie parent / enfant
+* phases fonctionnelles de tâches
 * dates planifiées et réelles
 * progression
 * lien optionnel budget
@@ -225,7 +225,7 @@ model ProjectTask {
   clientId           String
   projectId          String
 
-  parentTaskId       String?
+  phaseId            String?
   dependsOnTaskId    String?
 
   code               String?
@@ -257,8 +257,7 @@ model ProjectTask {
   client             Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  parentTask         ProjectTask?  @relation("ProjectTaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
-  childTasks         ProjectTask[] @relation("ProjectTaskHierarchy")
+  phase              ProjectTaskPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
 
   dependsOnTask      ProjectTask?  @relation("ProjectTaskDependency", fields: [dependsOnTaskId], references: [id], onDelete: SetNull)
   dependentTasks     ProjectTask[] @relation("ProjectTaskDependency")
@@ -273,7 +272,8 @@ model ProjectTask {
   @@index([clientId])
   @@index([projectId])
   @@index([clientId, projectId])
-  @@index([parentTaskId])
+  @@index([phaseId])
+  @@index([projectId, phaseId, sortOrder])
   @@index([dependsOnTaskId])
   @@index([status])
   @@index([priority])
@@ -338,6 +338,7 @@ model ProjectMilestone {
   clientId         String
   projectId        String
   linkedTaskId     String?
+  phaseId          String?
 
   code             String?
   name             String
@@ -360,6 +361,7 @@ model ProjectMilestone {
   client           Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   linkedTask       ProjectTask? @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  phase            ProjectTaskPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
 
   ownerUser        User? @relation("ProjectMilestoneOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   createdByUser    User? @relation("ProjectMilestoneCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
@@ -368,6 +370,8 @@ model ProjectMilestone {
   @@index([clientId])
   @@index([projectId])
   @@index([linkedTaskId])
+  @@index([phaseId])
+  @@index([projectId, phaseId])
   @@index([targetDate])
   @@index([status])
 }
@@ -415,7 +419,7 @@ Conformité avec les règles produit multi-client de Starium Orchestra
 * si `actualEndDate` est renseignée, elle doit être ≥ `actualStartDate` si présente
 * si `plannedEndDate` est renseignée, elle doit être ≥ `plannedStartDate` si présente
 * une tâche ne peut pas dépendre d’elle-même
-* une tâche parente et une tâche dépendante doivent appartenir au même projet et au même client
+* une phase et une tâche dépendante doivent appartenir au même projet et au même client
 
 ---
 
@@ -438,18 +442,21 @@ Règles :
 
 ---
 
-### 8.4 Hiérarchie
+### 8.4 Phases
 
 Une tâche peut avoir :
 
-* zéro ou une tâche parente
-* zéro à plusieurs sous-tâches
+* zéro ou une phase
+
+Une phase peut avoir :
+
+* zéro à plusieurs tâches
 
 Règles :
 
-* parent et enfant doivent appartenir au même projet
-* une tâche ne peut pas être sa propre parente
-* une tâche ne peut pas créer une boucle hiérarchique
+* phase et tâche doivent appartenir au même projet et au même client
+* pas de hiérarchie récursive de tâches
+* suppression d’une phase : detach automatique des tâches (`phaseId = null`)
 
 ---
 
@@ -471,6 +478,7 @@ Règles :
 * `achievedDate` est optionnelle
 * si `status = ACHIEVED`, alors `achievedDate` est recommandée
 * un jalon peut être lié à une tâche, sans que cela soit obligatoire
+* un jalon peut être rattaché à une phase (`phaseId`) ; même contrainte de scope projet/client que les tâches
 
 ---
 
@@ -502,7 +510,7 @@ Le Gantt futur est calculé à partir de :
 
 * dates prévues
 * dates réelles
-* hiérarchie parent / enfant
+* regroupement par phase fonctionnelle
 * dépendances
 * progression
 * jalons
@@ -547,7 +555,7 @@ Filtres possibles :
 
 * `status`
 * `priority`
-* `parentTaskId`
+* `phaseId`
 * `ownerUserId`
 * `search`
 * `offset`
@@ -575,7 +583,7 @@ Body :
   "priority": "HIGH",
   "plannedStartDate": "2026-03-25T08:00:00.000Z",
   "plannedEndDate": "2026-03-30T18:00:00.000Z",
-  "parentTaskId": null,
+  "phaseId": null,
   "dependsOnTaskId": null,
   "dependencyType": null,
   "ownerUserId": "usr_001",
@@ -657,6 +665,7 @@ Liste les jalons du projet.
 Filtres possibles :
 
 * `status`
+* `phaseId`
 * `linkedTaskId`
 * `dateFrom`
 * `dateTo`
@@ -677,6 +686,7 @@ Body :
   "description": "Mise en production",
   "status": "PLANNED",
   "targetDate": "2026-04-15T08:00:00.000Z",
+  "phaseId": "phase_001",
   "linkedTaskId": "task_010",
   "ownerUserId": "usr_001",
   "sortOrder": 100
@@ -711,7 +721,7 @@ Réponse :
   "tasks": [
     {
       "id": "task_001",
-      "parentTaskId": null,
+      "phaseId": null,
       "dependsOnTaskId": null,
       "dependencyType": null,
       "name": "Préparer la migration",
@@ -731,6 +741,7 @@ Réponse :
       "name": "Go Live",
       "status": "PLANNED",
       "targetDate": "2026-04-15T08:00:00.000Z",
+      "phaseId": "phase_001",
       "linkedTaskId": "task_010",
       "sortOrder": 100
     }
@@ -767,13 +778,18 @@ Les actions suivantes doivent être auditées :
 ```text
 project_task.created
 project_task.updated
+project.task.phase.changed
+project.task_phase.created
+project.task_phase.updated
+project.task_phase.deleted
+project.task_phase.reordered
 project_activity.created
 project_activity.updated
 project_milestone.created
 project_milestone.updated
 ```
 
-Format aligné avec la convention `<resource>.<action>` déjà utilisée dans le projet 
+Pattern contractuel figé : les libellés d’actions d’audit sont ceux de `PROJECT_AUDIT_ACTION` (source unique), sans alias ni variante locale.
 
 Exemple :
 
@@ -845,7 +861,7 @@ plannedStartDate?
 plannedEndDate?
 actualStartDate?
 actualEndDate?
-parentTaskId?
+phaseId?
 dependsOnTaskId?
 dependencyType?
 ownerUserId?
@@ -945,6 +961,8 @@ Cette RFC prépare les écrans suivants :
 * alertes projet
 * synthèse portefeuille
 
+Le frontend consomme l’ordre renvoyé par le backend (phases, tâches par phase, tâches sans phase) **tel quel, sans post-tri**.
+
 Ce découpage est cohérent avec le frontend cockpit et la structuration par features du projet  
 
 ---
@@ -954,7 +972,7 @@ Ce découpage est cohérent avec le frontend cockpit et la structuration par fea
 À l’issue de cette RFC, Starium Orchestra disposera d’un socle projet robuste pour :
 
 * structurer le travail projet
-* gérer les tâches et sous-tâches
+* gérer les tâches par phases fonctionnelles
 * suivre le récurrent basé sur des tâches
 * poser des jalons métier
 * exposer une base backend fiable pour le Gantt
@@ -964,7 +982,7 @@ Ce découpage est cohérent avec le frontend cockpit et la structuration par fea
 
 ## 19. Implémentation dans le dépôt (référence)
 
-**Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — enums `ProjectTaskDependencyType`, `ProjectActivityFrequency`, `ProjectActivityStatus` ; `ProjectTask` (nom, dates planifiées/réelles, `progress`, hiérarchie, dépendance simple, `ownerUserId`, lien budget optionnel) ; `ProjectMilestone` (`achievedDate`, `linkedTaskId`, …) ; `ProjectActivity` avec **`projectId` obligatoire** (MVP). Migration : `apps/api/prisma/migrations/20260322140000_rfc_proj_011_tasks_activities_gantt/migration.sql` (backfill `title`→`name`, `REACHED`→`ACHIEVED`, etc.).
+**Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — enums `ProjectTaskDependencyType`, `ProjectActivityFrequency`, `ProjectActivityStatus` ; `ProjectTask` (nom, dates planifiées/réelles, `progress`, `phaseId`, dépendance simple, `ownerUserId`, lien budget optionnel) ; `ProjectTaskPhase` (conteneur fonctionnel), `ProjectMilestone` (`achievedDate`, `linkedTaskId`, `phaseId`, …) ; `ProjectActivity` avec **`projectId` obligatoire** (MVP). Migrations : socle RFC-PROJ-011 + migration de remplacement hiérarchie → phases + extension jalons (`phaseId`), avec garde-fou d’idempotence (anti double exécution).
 
 **Backend** : `apps/api/src/modules/projects/` — `project-tasks.service.ts`, `project-milestones.service.ts`, `project-activities.service.ts`, `project-gantt.service.ts` ; contrôleurs `project-tasks`, `project-milestones`, `project-activities`, `project-gantt` ; `projects.module.ts`. **Isolation** : `clientId` actif + `getProjectForScope` ; pas de `clientId` dans les corps. **MVP** : **pas de `DELETE`** sur les tâches (éviter effets de bord jalons / action items revue / activités) ; listes paginées `{ items, total, limit, offset }` pour tâches, activités, jalons. **`GET /api/projects/:projectId/gantt`** : uniquement `ProjectTask` + `ProjectMilestone` (pas d’activités). Permissions : sous-ressources en `projects.read` / `projects.update` (aligné module existant).
 

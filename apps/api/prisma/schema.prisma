@@ -56,6 +56,55 @@ enum BudgetTaxMode {
   TTC
 }
 
+enum MicrosoftConnectionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ERROR
+}
+
+enum MicrosoftAuthMode {
+  DELEGATED
+}
+
+enum MicrosoftSyncStatus {
+  PENDING
+  SYNCED
+  ERROR
+}
+
+enum DirectoryProviderType {
+  MICROSOFT_GRAPH
+  LDAP
+}
+
+enum DirectorySyncJobStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum DirectorySyncMode {
+  FULL
+  GROUP_FILTERED
+}
+
+enum CollaboratorStatus {
+  ACTIVE
+  INACTIVE
+  DISABLED_SYNC
+}
+
+enum CollaboratorSource {
+  MANUAL
+  DIRECTORY_SYNC
+}
+
+enum ExternalDirectoryType {
+  MICROSOFT_GRAPH
+  LDAP
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -82,6 +131,8 @@ model Client {
   financialAllocations       FinancialAllocation[]
   financialEvents            FinancialEvent[]
   suppliers                  Supplier[]
+  supplierContacts           SupplierContact[]
+  supplierCategories         SupplierCategory[]
   purchaseOrders             PurchaseOrder[]
   invoices                   Invoice[]
   budgetSnapshots            BudgetSnapshot[]
@@ -110,16 +161,78 @@ model Client {
   projectTags                   ProjectTag[]
   projectTagAssignments         ProjectTagAssignment[]
   projectPortfolioCategories    ProjectPortfolioCategory[]
+  actionPlans                     ActionPlan[]
   budgetLinePlanningMonths   BudgetLinePlanningMonth[]
   budgetLinePlanningScenarios BudgetLinePlanningScenario[]
   resourceRoles                 ResourceRole[]
   resources                     Resource[]
+  microsoftConnections          MicrosoftConnection[]
+  projectMicrosoftLinks         ProjectMicrosoftLink[]
+  projectTaskSyncs             ProjectTaskMicrosoftSync[]
+  projectDocumentMicrosoftSyncs ProjectDocumentMicrosoftSync[]
+  projectDocuments              ProjectDocument[]
+  projectTaskBuckets            ProjectTaskBucket[]
+  projectTaskPhases            ProjectTaskPhase[]
+  projectTaskChecklistItems     ProjectTaskChecklistItem[]
+  projectTaskLabels            ProjectTaskLabel[]
+  projectTaskLabelAssignments ProjectTaskLabelAssignment[]
+  projectMilestoneLabels       ProjectMilestoneLabel[]
+  projectMilestoneLabelAssignments ProjectMilestoneLabelAssignment[]
+  directoryConnections          DirectoryConnection[]
+  directoryGroupScopes          DirectoryGroupScope[]
+  directorySyncJobs             DirectorySyncJob[]
+  collaborators                 Collaborator[]
+  complianceFrameworks   ComplianceFramework[]
+  complianceStatuses     ComplianceStatus[]
+  complianceEvidences    ComplianceEvidence[]
+  riskDomains            RiskDomain[]
+  riskTypes              RiskType[]
+  budgetDashboardConfigs BudgetDashboardConfig[]
+  budgetDashboardWidgets BudgetDashboardWidget[]
+  budgetDashboardWidgetOverrides BudgetDashboardWidgetOverride[]
+
+  /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
+  microsoftOAuthClientId                String?
+  microsoftOAuthClientSecretEncrypted   String?
+  /// Segment d’autorité (`common`, GUID tenant, `organizations`…). Défaut `common` si vide.
+  microsoftOAuthAuthorityTenant         String?
+
+  /// Surcharges libellés / tons des badges UI (tâches, priorités, entrées custom) — fusion côté app avec `badge-registry`.
+  uiBadgeConfig Json?
+}
+
+/// Défauts globaux badges UI (id = `default`) — fusionnés avant `Client.uiBadgeConfig`.
+model PlatformUiBadgeSettings {
+  id          String   @id @default("default")
+  badgeConfig Json?
+  updatedAt   DateTime @updatedAt
+}
+
+/// Paramètres OAuth Microsoft **plateforme** (une ligne, id = `default`) — redirect URI, scopes, timeouts.
+/// Fusion avec variables d’environnement : la DB prime si la valeur est renseignée.
+model PlatformMicrosoftSettings {
+  id                    String   @id @default("default")
+  redirectUri           String?
+  graphScopes           String?
+  oauthSuccessUrl       String?
+  oauthErrorUrl         String?
+  oauthStateTtlSeconds  Int?
+  refreshLeewaySeconds  Int?
+  tokenHttpTimeoutMs    Int?
+  /// Application Entra pour le SSO utilisateur (login). Secret chiffré au repos (même mécanisme que les autres secrets Microsoft).
+  ssoOAuthClientId              String?
+  ssoOAuthClientSecretEncrypted String?
+  /// Segment d’autorité OAuth SSO (`common`, GUID tenant, …). Défaut `common` si vide.
+  ssoOAuthAuthorityTenant       String?
+  updatedAt             DateTime @updatedAt
 }
 
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
   passwordHash  String
+  /// Si false : connexion email/mot de passe interdite (ex. après première connexion Microsoft SSO).
+  passwordLoginEnabled Boolean @default(true)
   firstName     String?
   lastName      String?
   /// Service / département (profil modifiable par l’utilisateur)
@@ -166,6 +279,10 @@ model User {
   finalizedProjectReviews            ProjectReview[]                  @relation("ProjectReviewFinalizedBy")
   projectReviewParticipants          ProjectReviewParticipant[]
   emailIdentities                    UserEmailIdentity[]
+  microsoftConnectionsConnected      MicrosoftConnection[] @relation("MicrosoftConnectedBy")
+  uploadedProjectDocuments           ProjectDocument[]     @relation("ProjectDocumentUploadedBy")
+  ownedActionPlans                   ActionPlan[]          @relation("ActionPlanOwner")
+  budgetDashboardWidgetOverrides   BudgetDashboardWidgetOverride[]
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -179,6 +296,8 @@ model UserEmailIdentity {
   replyToEmail      String?
   isVerified        Boolean  @default(false)
   isActive          Boolean  @default(true)
+  /** true si l’identité est pilotée par la synchro annuaire (AD DS / Graph), pas par l’utilisateur. */
+  directoryManaged  Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   clientUsersDefault ClientUser[] @relation("ClientUserDefaultEmail")
@@ -350,6 +469,8 @@ model Resource {
 
   client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   resourceRole ResourceRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  /// Tâches projet / plan dont cette ressource humaine est responsable (MVP pilotage).
+  responsibleForProjectTasks ProjectTask[] @relation("ProjectTaskResponsibleResource")
 
   @@unique([clientId, email])
   @@unique([clientId, code])
@@ -387,6 +508,21 @@ enum ProjectStatus {
 }
 
 enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+/// RFC-PLA-001 — plan d’actions (cockpit tâches)
+enum ActionPlanStatus {
+  DRAFT
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ActionPlanPriority {
   LOW
   MEDIUM
   HIGH
@@ -438,23 +574,42 @@ enum ProjectActivityStatus {
   CANCELLED
 }
 
+/// RFC-PROJ-RISK-001 — registre des risques projet
 enum ProjectRiskStatus {
   OPEN
+  MONITORED
   MITIGATED
   CLOSED
-  ACCEPTED
 }
 
-enum ProjectRiskProbability {
+/// Criticité dérivée du score (probabilité × impact), persistée.
+enum ProjectRiskCriticality {
   LOW
   MEDIUM
   HIGH
+  CRITICAL
 }
 
-enum ProjectRiskImpact {
-  LOW
-  MEDIUM
-  HIGH
+enum ProjectRiskTreatmentStrategy {
+  AVOID
+  REDUCE
+  TRANSFER
+  ACCEPT
+}
+
+/// RFC-PROJ-018 — catégorie d’impact métier (optionnel).
+enum ProjectRiskImpactCategory {
+  FINANCIAL
+  OPERATIONAL
+  LEGAL
+  REPUTATION
+}
+
+enum ComplianceAssessmentStatus {
+  COMPLIANT
+  PARTIALLY_COMPLIANT
+  NON_COMPLIANT
+  NOT_APPLICABLE
 }
 
 enum ProjectMilestoneStatus {
@@ -532,12 +687,38 @@ enum ProjectReviewType {
   RISK_REVIEW
   MILESTONE_REVIEW
   AD_HOC
+  /// Retour d'expérience — bilan de fin de projet (terminés / annulés / archivés uniquement)
+  POST_MORTEM
 }
 
 enum ProjectReviewStatus {
   DRAFT
   FINALIZED
   CANCELLED
+}
+
+/// RFC-PROJ-DOC-001 — registre métier documentaire projet (sans stockage binaire MVP)
+enum ProjectDocumentStorageType {
+  STARIUM
+  EXTERNAL
+  MICROSOFT
+}
+
+enum ProjectDocumentStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum ProjectDocumentCategory {
+  GENERAL
+  CONTRACT
+  SPECIFICATION
+  DELIVERABLE
+  REPORT
+  FINANCIAL
+  COMPLIANCE
+  OTHER
 }
 
 model Project {
@@ -619,10 +800,20 @@ model Project {
   sponsor  User?  @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
   owner    User?  @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   portfolioCategory ProjectPortfolioCategory? @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
+  microsoftLink ProjectMicrosoftLink?
+  microsoftTaskSyncs ProjectTaskMicrosoftSync[]
+  microsoftDocumentSyncs ProjectDocumentMicrosoftSync[]
 
   tasks       ProjectTask[]
+  taskPhases  ProjectTaskPhase[]
+  taskBuckets ProjectTaskBucket[]
+  taskChecklistItems ProjectTaskChecklistItem[]
+  taskLabels ProjectTaskLabel[]
+  taskLabelAssignments ProjectTaskLabelAssignment[]
   risks       ProjectRisk[]
   milestones  ProjectMilestone[]
+  milestoneLabels ProjectMilestoneLabel[]
+  milestoneLabelAssignments ProjectMilestoneLabelAssignment[]
   activities  ProjectActivity[]
   budgetLinks ProjectBudgetLink[]
   teamMembers ProjectTeamMember[]
@@ -630,6 +821,7 @@ model Project {
   sheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
   projectReviews         ProjectReview[]
   projectReviewActionItems ProjectReviewActionItem[]
+  documents ProjectDocument[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -637,6 +829,48 @@ model Project {
   @@index([clientId, kind])
   @@index([clientId, portfolioCategoryId])
   @@index([targetEndDate])
+}
+
+/// RFC-PROJ-DOC-001 — registre des documents rattachés à un projet (métadonnées + gouvernance).
+/// NB: pas d'upload/download binaire dans le MVP ; pas de logique Microsoft dans cette RFC.
+model ProjectDocument {
+  id                String                     @id @default(cuid())
+  clientId          String
+  projectId         String
+
+  name              String
+  originalFilename  String?
+  mimeType          String?
+  extension         String?
+  sizeBytes         Int?
+
+  category          ProjectDocumentCategory    @default(GENERAL)
+  status            ProjectDocumentStatus      @default(ACTIVE)
+  storageType       ProjectDocumentStorageType @default(STARIUM)
+
+  storageKey        String?
+  externalUrl       String?
+
+  description       String?
+  tags              Json?
+
+  uploadedByUserId  String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  archivedAt        DateTime?
+  deletedAt         DateTime?
+
+  client            Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project           Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedByUser    User?                      @relation("ProjectDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  microsoftSync     ProjectDocumentMicrosoftSync?
+
+  @@index([clientId])
+  @@index([projectId])
+  @@index([clientId, projectId])
+  @@index([clientId, status])
+  @@index([clientId, projectId, status])
+  @@index([storageType])
 }
 
 model ProjectPortfolioCategory {
@@ -875,14 +1109,89 @@ model ProjectBudgetLink {
   @@index([clientId])
 }
 
-/// RFC-PROJ-011 — tâche projet planifiable (Gantt-ready)
+/// Buckets Kanban / Planner par projet (Starium ou miroir Microsoft selon `ProjectMicrosoftLink.useMicrosoftPlannerBuckets`).
+model ProjectTaskBucket {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  name    String
+  sortOrder Int    @default(0)
+  /// Renseigné quand le bucket provient d’un plan Planner (sync Microsoft).
+  plannerBucketId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   ProjectTask[]
+
+  @@unique([projectId, plannerBucketId])
+  @@index([clientId])
+  @@index([projectId])
+}
+
+/// Regroupement fonctionnel des tâches d'un projet (phase non éditée depuis la barre Gantt).
+model ProjectTaskPhase {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  name      String
+  sortOrder Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   ProjectTask[]
+  milestones ProjectMilestone[]
+
+  @@index([clientId, projectId])
+  @@index([projectId, sortOrder])
+  @@unique([projectId, sortOrder])
+}
+
+/// RFC-PLA-001 — plan d’actions (agrégateur de `ProjectTask`)
+model ActionPlan {
+  id              String @id @default(cuid())
+  clientId        String
+  title           String
+  code            String
+  description     String?
+  status          ActionPlanStatus
+  priority        ActionPlanPriority
+  ownerUserId     String?
+  startDate       DateTime?
+  targetDate      DateTime?
+  progressPercent Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  owner  User?  @relation("ActionPlanOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  tasks  ProjectTask[]
+
+  @@unique([clientId, code])
+  @@index([clientId])
+}
+
+/// RFC-PROJ-011 — tâche projet planifiable (Gantt-ready) ; `projectId` optionnel (RFC-PLA-001).
 model ProjectTask {
   id              String @id @default(cuid())
   clientId        String
-  projectId       String
+  projectId       String?
 
-  parentTaskId    String?
+  actionPlanId String?
+  riskId       String?
+
+  phaseId         String?
   dependsOnTaskId String?
+
+  bucketId String?
 
   code        String?
   name        String
@@ -902,7 +1211,14 @@ model ProjectTask {
   dependencyType ProjectTaskDependencyType?
 
   ownerUserId   String?
+  /// Responsable métier (ressource humaine — RFC-RES-001) ; distinct de `ownerUserId` (compte Starium).
+  responsibleResourceId String?
   budgetLineId  String?
+
+  /// Charge estimée (heures) — pilotage plan / tâche.
+  estimatedHours Float?
+  /// Étiquettes libres (JSON string[]) — MVP hors étiquettes projet.
+  tags Json?
 
   createdByUserId String?
   updatedByUserId String?
@@ -910,12 +1226,15 @@ model ProjectTask {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client   Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client     Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project    Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  actionPlan ActionPlan? @relation(fields: [actionPlanId], references: [id], onDelete: SetNull)
+  risk       ProjectRisk? @relation(fields: [riskId], references: [id], onDelete: SetNull)
   budgetLine BudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  bucket   ProjectTaskBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
+  phase    ProjectTaskPhase?  @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  responsibleResource Resource? @relation("ProjectTaskResponsibleResource", fields: [responsibleResourceId], references: [id], onDelete: SetNull)
 
-  parentTask    ProjectTask?  @relation("ProjectTaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
-  childTasks    ProjectTask[]   @relation("ProjectTaskHierarchy")
   dependsOnTask ProjectTask?  @relation("ProjectTaskDependency", fields: [dependsOnTaskId], references: [id], onDelete: SetNull)
   dependentTasks ProjectTask[]  @relation("ProjectTaskDependency")
 
@@ -927,43 +1246,326 @@ model ProjectTask {
   milestones               ProjectMilestone[]
   projectReviewActionItems ProjectReviewActionItem[]
 
+  microsoftTaskSync ProjectTaskMicrosoftSync?
+  checklistItems    ProjectTaskChecklistItem[]
+  labelAssignments ProjectTaskLabelAssignment[]
+
   @@index([clientId])
   @@index([projectId])
   @@index([clientId, projectId])
-  @@index([parentTaskId])
+  @@index([clientId, actionPlanId])
+  @@index([clientId, riskId])
+  @@index([actionPlanId])
+  @@index([riskId])
+  @@index([phaseId])
+  @@index([projectId, phaseId, sortOrder])
   @@index([dependsOnTaskId])
   @@index([status])
   @@index([priority])
   @@index([plannedStartDate])
   @@index([plannedEndDate])
+  @@index([bucketId])
+  @@index([responsibleResourceId])
 }
 
-model ProjectRisk {
+/// Sous-éléments type « liste de contrôle » (sync Microsoft Planner : plannerTaskDetails.checklist).
+model ProjectTaskChecklistItem {
   id        String @id @default(cuid())
   clientId  String
   projectId String
+  projectTaskId String
 
-  title       String
-  description String?
-
-  probability ProjectRiskProbability
-  impact      ProjectRiskImpact
-
-  actionPlan   String?
-  ownerUserId  String?
-
-  status     ProjectRiskStatus
-  reviewDate DateTime?
+  title     String
+  isChecked Boolean @default(false)
+  sortOrder Int     @default(0)
+  /// Clé GUID côté Graph (identique au nom de propriété dans `checklist` Planner).
+  plannerChecklistItemKey String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  owner   User?   @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  task ProjectTask @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
 
+  @@unique([projectTaskId, plannerChecklistItemKey])
   @@index([clientId])
   @@index([projectId])
+  @@index([projectTaskId])
+}
+
+/// Définition d’étiquette « Starium » pour une tâche projet (peut être liée à une catégorie Planner Microsoft).
+model ProjectTaskLabel {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  name    String
+  color   String?
+  sortOrder Int @default(0)
+
+  /// Clé catégorie Planner Microsoft (`category1`..`category25` via v1.0/Graph plan details).
+  plannerCategoryId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  assignments ProjectTaskLabelAssignment[]
+
+  @@unique([clientId, projectId, name])
+  @@index([clientId])
+  @@index([projectId])
+}
+
+model ProjectTaskLabelAssignment {
+  id String @id @default(cuid())
+
+  clientId  String
+  projectId String
+
+  projectTaskId String
+  labelId       String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  task  ProjectTask    @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
+  label ProjectTaskLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, projectTaskId, labelId])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([projectTaskId])
+  @@index([labelId])
+}
+
+/// Définition d’étiquette « Starium » pour un jalon projet.
+model ProjectMilestoneLabel {
+  id String @id @default(cuid())
+
+  clientId  String
+  projectId String
+
+  name    String
+  color   String?
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  assignments ProjectMilestoneLabelAssignment[]
+
+  @@unique([clientId, projectId, name])
+  @@index([clientId])
+  @@index([projectId])
+}
+
+model ProjectMilestoneLabelAssignment {
+  id String @id @default(cuid())
+
+  clientId  String
+  projectId String
+
+  projectMilestoneId String
+  labelId             String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  milestone ProjectMilestone @relation(fields: [projectMilestoneId], references: [id], onDelete: Cascade)
+  label     ProjectMilestoneLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, projectMilestoneId, labelId])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([projectMilestoneId])
+  @@index([labelId])
+}
+
+/// Instance référentiel conformité par client (MVP — pas de catalogue global).
+model ComplianceFramework {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  version   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client       Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requirements ComplianceRequirement[]
+
+  @@unique([clientId, name, version])
+  @@index([clientId])
+}
+
+model ComplianceRequirement {
+  id          String   @id @default(cuid())
+  frameworkId String
+  code        String
+  title       String
+  description String?
+  category    String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  framework ComplianceFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  statuses  ComplianceStatus[]
+  evidences ComplianceEvidence[]
+  projectRisks ProjectRisk[]
+
+  @@unique([frameworkId, code])
+  @@index([frameworkId])
+}
+
+model ComplianceStatus {
+  id                   String                   @id @default(cuid())
+  clientId             String
+  requirementId        String
+  status               ComplianceAssessmentStatus
+  lastAssessmentDate   DateTime?
+  comment              String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, requirementId])
+  @@index([clientId])
+  @@index([requirementId])
+}
+
+model ComplianceEvidence {
+  id              String   @id @default(cuid())
+  clientId        String
+  requirementId   String
+  name            String
+  description     String?
+  url             String?
+  fileId          String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, requirementId])
+}
+
+/// Domaine de risque configurable (taxonomie client, 1 → N types).
+model RiskDomain {
+  id          String     @id @default(cuid())
+  clientId    String
+  client      Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  description String?
+  isActive    Boolean    @default(true)
+  types       RiskType[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([clientId, code])
+  @@index([clientId])
+}
+
+/// Type de risque sous un domaine (taxonomie client).
+model RiskType {
+  id           String       @id @default(cuid())
+  clientId     String
+  domainId     String
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  domain       RiskDomain   @relation(fields: [domainId], references: [id], onDelete: Restrict)
+  code         String
+  name         String
+  isActive     Boolean      @default(true)
+  projectRisks ProjectRisk[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([domainId, code])
+  @@index([clientId])
+  @@index([domainId])
+}
+
+/// RFC-PROJ-RISK-001 — risque projet (registre) ; peut être hors projet (`projectId` null).
+model ProjectRisk {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String?
+
+  code        String
+  title       String
+  /// Scénario structuré type « Si X alors Y » (peut être renommé riskScenario en migration ultérieure).
+  description String?
+  category    String?
+
+  /// RFC-PROJ-018 — origine de la menace (ex. cyberattaque, fournisseur).
+  threatSource String @default("—")
+  /// RFC-PROJ-018 — conséquences pour l’organisation.
+  businessImpact String @default("—")
+  /// Justification du score de probabilité (optionnel).
+  likelihoodJustification String?
+  impactCategory          ProjectRiskImpactCategory?
+
+  /// 1–5
+  probability Int
+  /// 1–5
+  impact      Int
+  criticalityScore   Int
+  criticalityLevel   ProjectRiskCriticality
+
+  mitigationPlan    String?
+  contingencyPlan   String?
+  ownerUserId       String?
+
+  status     ProjectRiskStatus
+  reviewDate DateTime?
+  dueDate    DateTime?
+  detectedAt DateTime?
+  closedAt   DateTime?
+  sortOrder  Int @default(0)
+
+  complianceRequirementId String?
+  treatmentStrategy       ProjectRiskTreatmentStrategy
+  residualRiskLevel       ProjectRiskCriticality?
+  /// RFC-PROJ-018 — justification du niveau résiduel (optionnel).
+  residualJustification String?
+
+  /// Classification métier : FK vers `RiskType` (domaine dérivé via jointure).
+  riskTypeId String
+  riskType   RiskType @relation(fields: [riskTypeId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  owner   User?    @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  complianceRequirement ComplianceRequirement? @relation(fields: [complianceRequirementId], references: [id], onDelete: SetNull)
+
+  tasks ProjectTask[]
+
+  /// Unicité (projectId, code) et (clientId, code) pour projectId null : index partiels SQL — voir migration.
+  @@index([clientId])
+  @@index([projectId])
+  @@index([projectId, sortOrder])
+  @@index([complianceRequirementId])
+  @@index([riskTypeId])
 }
 
 /// RFC-PROJ-011 — jalon (sans durée)
@@ -972,6 +1574,7 @@ model ProjectMilestone {
   clientId     String
   projectId    String
   linkedTaskId String?
+  phaseId      String?
 
   code        String?
   name        String
@@ -994,14 +1597,19 @@ model ProjectMilestone {
   client   Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   linkedTask ProjectTask? @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  phase      ProjectTaskPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
 
   ownerUser     User? @relation("ProjectMilestoneOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   createdByUser User? @relation("ProjectMilestoneCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   updatedByUser User? @relation("ProjectMilestoneUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
+  labelAssignments ProjectMilestoneLabelAssignment[]
+
   @@index([clientId])
   @@index([projectId])
   @@index([linkedTaskId])
+  @@index([phaseId])
+  @@index([projectId, phaseId])
   @@index([targetDate])
   @@index([status])
 }
@@ -1177,6 +1785,7 @@ model BudgetExercise {
   budgets   Budget[]
   budgetSnapshots BudgetSnapshot[]
   budgetVersionSets BudgetVersionSet[]
+  dashboardConfigsAsDefault BudgetDashboardConfig[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -1242,6 +1851,7 @@ model Budget {
   budgetSnapshots BudgetSnapshot[]
   budgetReallocations BudgetReallocation[]
   budgetImportJobs    BudgetImportJob[]
+  dashboardConfigsAsDefault BudgetDashboardConfig[]
 
   @@unique([clientId, code])
   @@unique([versionSetId, versionNumber])
@@ -1251,6 +1861,90 @@ model Budget {
   @@index([clientId, versionSetId])
   @@index([clientId, versionStatus])
   @@index([clientId, versionKind])
+}
+
+/// Configuration cockpit budgétaire (RFC-022).
+model BudgetDashboardConfig {
+  id                  String   @id @default(cuid())
+  clientId            String
+  name                String
+  isDefault           Boolean  @default(false)
+  defaultExerciseId   String?
+  defaultBudgetId     String?
+  layoutConfig        Json     @default("{}")
+  filtersConfig       Json?
+  thresholdsConfig    Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  defaultExercise BudgetExercise?  @relation(fields: [defaultExerciseId], references: [id], onDelete: SetNull)
+  defaultBudget   Budget?          @relation(fields: [defaultBudgetId], references: [id], onDelete: SetNull)
+  widgets         BudgetDashboardWidget[]
+
+  @@index([clientId])
+}
+
+enum BudgetDashboardWidgetType {
+  KPI
+  ALERT_LIST
+  ENVELOPE_LIST
+  LINE_LIST
+  CHART
+}
+
+enum BudgetDashboardChartType {
+  RUN_BUILD_BREAKDOWN
+  CONSUMPTION_TREND
+}
+
+model BudgetDashboardWidget {
+  id        String                    @id @default(cuid())
+  clientId  String
+  configId  String
+  type      BudgetDashboardWidgetType
+  title     String
+  position  Int
+  size      String                    @default("full")
+  settings  Json?
+  isActive  Boolean                   @default(true)
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+
+  client Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  config BudgetDashboardConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  overrides BudgetDashboardWidgetOverride[]
+
+  @@unique([configId, position])
+  @@index([clientId])
+  @@index([clientId, configId])
+}
+
+/// Override utilisateur minimal pour le cockpit budget (MVP).
+/// Source de vérité côté client : `BudgetDashboardConfig` + `BudgetDashboardWidget`.
+/// Les overrides ne modifient que `isActive` / `position` (et `settings` est interdit en MVP si non null/non vide).
+model BudgetDashboardWidgetOverride {
+  id String @id @default(cuid())
+
+  clientId String
+  userId String
+  widgetId String
+
+  isActive Boolean?
+  position Int?
+  settings Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  widget BudgetDashboardWidget @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, userId, widgetId])
+  @@index([clientId])
+  @@index([userId])
+  @@index([widgetId])
 }
 
 model BudgetEnvelope {
@@ -1606,20 +2300,89 @@ model BudgetReallocation {
 model Supplier {
   id             String         @id @default(cuid())
   clientId       String
+  supplierCategoryId String?
   name           String
+  normalizedName String
   code           String?
   siret          String?
+  externalId     String?
+  email          String?
+  phone          String?
+  website        String?
+  logoUrl        String?
+  logoMimeType   String?
   vatNumber      String?
+  notes          String?
   status         SupplierStatus @default(ACTIVE)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplierCategory SupplierCategory? @relation(fields: [supplierCategoryId], references: [id], onDelete: SetNull)
+  contacts       SupplierContact[]
   purchaseOrders PurchaseOrder[]
   invoices       Invoice[]
 
-  @@unique([clientId, name])
+  @@unique([clientId, normalizedName])
   @@index([clientId])
-  @@index([clientId, name])
+  @@index([clientId, status])
+  @@index([clientId, vatNumber])
+  @@index([clientId, externalId])
+  @@index([supplierCategoryId])
+  @@index([clientId, supplierCategoryId])
+}
+
+model SupplierContact {
+  id              String   @id @default(cuid())
+  clientId        String
+  supplierId      String
+  firstName       String?
+  lastName        String?
+  fullName        String
+  normalizedName  String
+  role            String?
+  email           String?
+  emailNormalized String?
+  phone           String?
+  mobile          String?
+  photoUrl        String?
+  photoMimeType   String?
+  isPrimary       Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, normalizedName])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([clientId, supplierId])
+  @@index([clientId, isActive])
+  @@index([supplierId, isPrimary])
+  @@index([clientId, emailNormalized])
+}
+
+model SupplierCategory {
+  id             String     @id @default(cuid())
+  clientId       String
+  name           String
+  normalizedName String
+  code           String?
+  color          String?
+  icon           String?
+  sortOrder      Int        @default(0)
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  client         Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  suppliers      Supplier[]
+
+  @@unique([clientId, normalizedName])
+  @@index([clientId])
+  @@index([clientId, isActive])
+  @@index([clientId, sortOrder])
 }
 
 model PurchaseOrder {
@@ -1920,4 +2683,249 @@ model SecurityLog {
   @@index([event])
   @@index([userId])
   @@index([createdAt])
+}
+
+model MicrosoftOAuthState {
+  id             String   @id @default(cuid())
+  stateTokenHash String   @unique
+  userId         String?
+  clientId       String?
+  /// Redirect URI OAuth utilisée pour cette demande (SSO plateforme ou connexion client).
+  redirectUri    String?
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([consumedAt])
+}
+
+/// Connexion OAuth Microsoft 365 par client Starium (tokens chiffrés côté API uniquement).
+model MicrosoftConnection {
+  id                    String                    @id @default(cuid())
+  clientId              String
+  tenantId              String
+  tenantName            String?
+  status                MicrosoftConnectionStatus @default(ACTIVE)
+  authMode              MicrosoftAuthMode         @default(DELEGATED)
+  accessTokenEncrypted  String?
+  refreshTokenEncrypted String?
+  tokenExpiresAt        DateTime?
+  connectedByUserId     String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  client          Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  connectedByUser User?  @relation("MicrosoftConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
+  projectLinks   ProjectMicrosoftLink[]
+
+  @@unique([clientId, tenantId])
+  @@index([clientId])
+  @@index([status])
+}
+
+/// Pré-requis de rattrapage repo : persistance du lien projet ↔ Microsoft (RFC-PROJ-INT-007).
+model ProjectMicrosoftLink {
+  id String @id @default(cuid())
+
+  clientId              String
+  projectId             String @unique
+  microsoftConnectionId String?
+
+  isEnabled Boolean @default(false)
+
+  teamId         String?
+  teamName       String?
+  channelId      String?
+  channelName    String?
+  plannerPlanId  String?
+  plannerPlanTitle String?
+
+  filesDriveId   String?
+  filesFolderId  String?
+
+  syncTasksEnabled      Boolean @default(true)
+  syncDocumentsEnabled  Boolean @default(true)
+  /// Si true : les buckets du planning sont ceux du plan Planner (remplace les buckets Starium).
+  useMicrosoftPlannerBuckets Boolean @default(false)
+
+  /// Si true : la sync Planner inclut aussi les labels Microsoft (Planner categories).
+  useMicrosoftPlannerLabels Boolean @default(false)
+
+  lastSyncAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client                Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project               Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  microsoftConnection   MicrosoftConnection? @relation(fields: [microsoftConnectionId], references: [id], onDelete: SetNull)
+
+  taskSyncs ProjectTaskMicrosoftSync[]
+  documentSyncs ProjectDocumentMicrosoftSync[]
+
+  @@index([clientId])
+  @@index([microsoftConnectionId])
+}
+
+/// RFC-PROJ-INT-009 — mapping sync one-way ProjectDocument → Teams/SharePoint drive.
+model ProjectDocumentMicrosoftSync {
+  id                     String @id @default(cuid())
+
+  clientId               String
+  projectId              String
+  /// Un seul mapping sync par document (RFC-009).
+  projectDocumentId      String @unique
+  projectMicrosoftLinkId String
+
+  driveId                String
+  driveItemId            String
+  folderPath             String
+
+  syncStatus             MicrosoftSyncStatus @default(PENDING)
+  lastPushedAt           DateTime?
+  lastError              String?
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  client                 Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project                Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectDocument        ProjectDocument        @relation(fields: [projectDocumentId], references: [id], onDelete: Cascade)
+  projectMicrosoftLink   ProjectMicrosoftLink   @relation(fields: [projectMicrosoftLinkId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, projectId])
+  @@index([driveItemId])
+}
+
+model ProjectTaskMicrosoftSync {
+  id String @id @default(cuid())
+
+  clientId              String
+  projectId             String
+  projectTaskId         String @unique
+  projectMicrosoftLinkId String
+
+  plannerTaskId         String
+  lastPushedAt          DateTime?
+  lastPullFromMicrosoftAt DateTime?
+  lastSyncedPlannerEtag String?
+  lastSyncedTaskUpdatedAt DateTime?
+  syncStatus            MicrosoftSyncStatus @default(PENDING)
+  lastError             String?
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectTask ProjectTask @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
+  projectMicrosoftLink ProjectMicrosoftLink @relation(fields: [projectMicrosoftLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, projectTaskId])
+  @@index([clientId, projectId])
+  @@index([plannerTaskId])
+}
+
+model DirectoryConnection {
+  id                      String                @id @default(cuid())
+  clientId                String
+  name                    String
+  providerType            DirectoryProviderType @default(MICROSOFT_GRAPH)
+  isActive                Boolean               @default(true)
+  isSyncEnabled           Boolean               @default(false)
+  lockSyncedCollaborators Boolean               @default(true)
+  usersScope              Json?
+  metadata                Json?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+
+  client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  groupScopes DirectoryGroupScope[]
+  syncJobs    DirectorySyncJob[]
+
+  @@index([clientId])
+  @@index([clientId, isActive])
+}
+
+model DirectoryGroupScope {
+  id           String   @id @default(cuid())
+  clientId     String
+  connectionId String
+  groupId      String
+  groupName    String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client     Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  connection DirectoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, groupId])
+  @@index([clientId, connectionId])
+}
+
+model DirectorySyncJob {
+  id               String               @id @default(cuid())
+  clientId         String
+  connectionId     String
+  status           DirectorySyncJobStatus
+  mode             DirectorySyncMode
+  startedAt        DateTime             @default(now())
+  finishedAt       DateTime?
+  totalFound       Int                  @default(0)
+  createdCount     Int                  @default(0)
+  updatedCount     Int                  @default(0)
+  deactivatedCount Int                  @default(0)
+  skippedCount     Int                  @default(0)
+  errorCount       Int                  @default(0)
+  summary          Json?
+  triggeredByUserId String?
+
+  client     Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  connection DirectoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, connectionId])
+  @@index([startedAt])
+}
+
+model Collaborator {
+  id                    String                @id @default(cuid())
+  clientId              String
+  firstName             String?
+  lastName              String?
+  displayName           String
+  email                 String?
+  username              String?
+  jobTitle              String?
+  department            String?
+  phone                 String?
+  mobile                String?
+  employeeNumber        String?
+  managerId             String?
+  status                CollaboratorStatus    @default(ACTIVE)
+  source                CollaboratorSource    @default(MANUAL)
+  externalDirectoryId   String?
+  externalDirectoryType ExternalDirectoryType?
+  externalUsername      String?
+  externalRef           String?
+  lastSyncedAt          DateTime?
+  syncHash              String?
+  skills                Json?
+  internalNotes         String?
+  internalTags          Json?
+  assignments           Json?
+  metadata              Json?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  client       Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  manager      Collaborator?  @relation("CollaboratorManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports      Collaborator[] @relation("CollaboratorManager")
+
+  @@unique([clientId, externalDirectoryId])
+  @@index([clientId, email])
+  @@index([clientId, username])
+  @@index([clientId, source])
+  @@index([clientId, externalDirectoryType])
 }

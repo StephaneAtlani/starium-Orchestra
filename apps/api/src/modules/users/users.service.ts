@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ClientUserRole, ClientUserStatus } from '@prisma/client';
+import { ClientUserRole, ClientUserStatus, CollaboratorSource } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -30,6 +30,8 @@ export interface UserResponse {
   lastName: string | null;
   role: ClientUserRole;
   status: ClientUserStatus;
+  isDirectorySynced?: boolean;
+  isDirectoryLocked?: boolean;
 }
 
 /** Résumé utilisateur global exposé par les endpoints plateforme (sans passwordHash). */
@@ -58,6 +60,7 @@ export class UsersService {
   private toResponse(
     user: { id: string; email: string; firstName: string | null; lastName: string | null },
     clientUser: { role: ClientUserRole; status: ClientUserStatus },
+    options?: { isDirectorySynced?: boolean; isDirectoryLocked?: boolean },
   ): UserResponse {
     return {
       id: user.id,
@@ -66,6 +69,8 @@ export class UsersService {
       lastName: user.lastName,
       role: clientUser.role,
       status: clientUser.status,
+      isDirectorySynced: options?.isDirectorySynced ?? false,
+      isDirectoryLocked: options?.isDirectoryLocked ?? false,
     };
   }
 
@@ -75,9 +80,44 @@ export class UsersService {
       where: { clientId },
       include: { user: true },
     });
-    return clientUsers.map((cu) =>
-      this.toResponse(cu.user, { role: cu.role, status: cu.status }),
+    const emails = clientUsers
+      .map((cu) => cu.user.email?.trim().toLowerCase())
+      .filter((v): v is string => Boolean(v));
+    const lockPolicy = await this.getDirectoryLockPolicy(clientId);
+    const syncedCollaborators =
+      emails.length > 0
+        ? await this.prisma.collaborator.findMany({
+            where: {
+              clientId,
+              source: CollaboratorSource.DIRECTORY_SYNC,
+              OR: [
+                { email: { in: emails } },
+                { username: { in: emails } },
+                { externalUsername: { in: emails } },
+              ],
+            },
+            select: { email: true, username: true, externalUsername: true },
+          })
+        : [];
+    const syncedEmails = new Set(
+      syncedCollaborators.flatMap((row) =>
+        [row.email, row.username, row.externalUsername]
+          .map((v) => v?.trim().toLowerCase())
+          .filter((v): v is string => Boolean(v)),
+      ),
     );
+
+    return clientUsers.map((cu) => {
+      const isDirectorySynced = syncedEmails.has(cu.user.email.toLowerCase());
+      return this.toResponse(
+        cu.user,
+        { role: cu.role, status: cu.status },
+        {
+          isDirectorySynced,
+          isDirectoryLocked: isDirectorySynced && lockPolicy,
+        },
+      );
+    });
   }
 
   /**
@@ -436,6 +476,27 @@ export class UsersService {
       throw new NotFoundException('Utilisateur non rattaché à ce client');
     }
 
+    const lockPolicy = await this.getDirectoryLockPolicy(clientId);
+    if (lockPolicy) {
+      const synced = await this.prisma.collaborator.findFirst({
+        where: {
+          clientId,
+          source: CollaboratorSource.DIRECTORY_SYNC,
+          OR: [
+            { email: { equals: user.email, mode: 'insensitive' } },
+            { username: { equals: user.email, mode: 'insensitive' } },
+            { externalUsername: { equals: user.email, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (synced) {
+        throw new BadRequestException(
+          'Ce membre est synchronisé depuis l’annuaire et verrouillé par la politique active.',
+        );
+      }
+    }
+
     if (
       context?.actorUserId &&
       context.actorUserId === userId &&
@@ -520,6 +581,15 @@ export class UsersService {
       role: updatedClientUser.role,
       status: updatedClientUser.status,
     });
+  }
+
+  private async getDirectoryLockPolicy(clientId: string): Promise<boolean> {
+    const row = await this.prisma.directoryConnection.findFirst({
+      where: { clientId, isActive: true },
+      orderBy: { updatedAt: 'desc' },
+      select: { isSyncEnabled: true, lockSyncedCollaborators: true },
+    });
+    return Boolean(row?.isSyncEnabled && row?.lockSyncedCollaborators);
   }
 
   /** Supprime le lien ClientUser uniquement (le User global n’est pas supprimé). */

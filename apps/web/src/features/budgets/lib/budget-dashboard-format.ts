@@ -45,6 +45,20 @@ function formatFrInt(n: number): string {
   return formatNumberFr(n);
 }
 
+/** Valeur numérique alignée sur l’affichage HT/TTC des cartes KPI (pour animation). */
+export function kpiDisplayAmountNumeric(params: {
+  ht: number;
+  ttcFromApi?: number | null;
+  mode: TaxDisplayMode;
+  defaultTaxRate: number | null;
+}): number {
+  const { ht, ttcFromApi, mode, defaultTaxRate } = params;
+  const ttc = resolveTtcDisplay(ht, ttcFromApi, defaultTaxRate);
+  if (mode === 'HT') return ht;
+  if (ttc != null) return ttc;
+  return ht;
+}
+
 export function formatKpiAmountParts(params: {
   ht: number;
   ttcFromApi?: number | null;

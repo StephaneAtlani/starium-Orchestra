@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
-import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
+import type { BudgetCockpitRiskEnvelopeRow } from '@/features/budgets/types/budget-dashboard.types';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
 import { EnvelopeRiskLabel } from './budget-cockpit-status-labels';
@@ -38,7 +38,7 @@ export function BudgetEnvelopesTable({
   defaultTaxRate,
   onEnvelopeClick,
 }: {
-  rows: NonNullable<BudgetDashboardResponse['riskEnvelopes']>;
+  rows: BudgetCockpitRiskEnvelopeRow[];
   currency: string;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;

@@ -25,4 +25,8 @@ Tu dois toujours :
 La documentation est dans /docs/
 
 Pour la partie UX/UI base toi sur docs/FRONTEND_UI-UX.md
-Les input doit afficher la valeur pas l'ID
+
+**Inputs et référentiels (valeur, pas ID)** — règle globale Starium :
+- Tous les champs de saisie / sélection (select, combobox, autocomplete, champs liés à une entité) affichent un libellé métier (nom, code, titre, etc.), jamais un UUID ou ID interne comme texte visible.
+- Les mutations peuvent utiliser l’ID en interne ; l’affichage et les options listées restent sur des valeurs humaines ; prévoir les champs API nécessaires (`name`, `title`, `code`, etc.).
+- Idem pour tableaux, badges, recherche et résumés de formulaire.

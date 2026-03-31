@@ -37,6 +37,22 @@ export const PROJECT_CRITICALITY_LABEL: Record<string, string> = {
   HIGH: 'Haute',
 };
 
+/** Grille probabilité / impact des risques projet (même valeurs que la fiche). */
+export const RISK_TIER_LABEL: Record<string, string> = {
+  LOW: 'Faible',
+  MEDIUM: 'Moyen',
+  HIGH: 'Élevé',
+};
+
+/** Échelle 1–5 — vraisemblance et gravité d’impact (registre risques / EBIOS). */
+export const RISK_PI_SCALE_LABEL: Record<string, string> = {
+  '1': '1 — Négligeable',
+  '2': '2 — Faible',
+  '3': '3 — Moyen',
+  '4': '4 — Élevé',
+  '5': '5 — Très élevé',
+};
+
 export const TASK_PRIORITY_LABEL: Record<string, string> = {
   LOW: 'Basse',
   MEDIUM: 'Moyenne',
@@ -55,9 +71,36 @@ export const TASK_STATUS_LABEL: Record<string, string> = {
 
 export const RISK_STATUS_LABEL: Record<string, string> = {
   OPEN: 'Ouvert',
+  MONITORED: 'Sous surveillance',
   MITIGATED: 'Atténué',
   CLOSED: 'Clôturé',
-  ACCEPTED: 'Accepté',
+};
+
+/** Criticité issue du score P×I (registre / fiche risque). */
+export const PROJECT_RISK_CRITICALITY_LABEL: Record<string, string> = {
+  LOW: 'Faible',
+  MEDIUM: 'Moyenne',
+  HIGH: 'Haute',
+  CRITICAL: 'Critique',
+};
+
+/**
+ * Stratégies de traitement du risque (ISO 27005 / logique type EBIOS RM).
+ * AVOID = supprimer la source, REDUCE = mesures, TRANSFER = assurance/délégation, ACCEPT = assumer.
+ */
+export const RISK_TREATMENT_STRATEGY_LABEL: Record<string, string> = {
+  AVOID: 'Éviter',
+  REDUCE: 'Réduire',
+  TRANSFER: 'Transférer',
+  ACCEPT: 'Accepter',
+};
+
+/** RFC-PROJ-018 — catégorie d’impact métier. */
+export const PROJECT_RISK_IMPACT_CATEGORY_LABEL: Record<string, string> = {
+  FINANCIAL: 'Financier',
+  OPERATIONAL: 'Opérationnel',
+  LEGAL: 'Juridique',
+  REPUTATION: 'Réputation',
 };
 
 export const MILESTONE_STATUS_LABEL: Record<string, string> = {
@@ -65,6 +108,29 @@ export const MILESTONE_STATUS_LABEL: Record<string, string> = {
   ACHIEVED: 'Atteint',
   DELAYED: 'En retard',
   CANCELLED: 'Annulé',
+};
+
+export const PROJECT_DOCUMENT_STORAGE_TYPE_LABEL: Record<string, string> = {
+  STARIUM: 'Starium',
+  EXTERNAL: 'Externe',
+  MICROSOFT: 'Microsoft (réservé)',
+};
+
+export const PROJECT_DOCUMENT_STATUS_LABEL: Record<string, string> = {
+  ACTIVE: 'Actif',
+  ARCHIVED: 'Archivé',
+  DELETED: 'Supprimé',
+};
+
+export const PROJECT_DOCUMENT_CATEGORY_LABEL: Record<string, string> = {
+  GENERAL: 'Général',
+  CONTRACT: 'Contrat',
+  SPECIFICATION: 'Spécification',
+  DELIVERABLE: 'Livrable',
+  REPORT: 'Rapport',
+  FINANCIAL: 'Financier',
+  COMPLIANCE: 'Conformité',
+  OTHER: 'Autre',
 };
 
 export const COMPUTED_HEALTH_LABEL: Record<string, string> = {
@@ -90,6 +156,7 @@ export const PROJECT_REVIEW_TYPE_LABEL: Record<string, string> = {
   RISK_REVIEW: 'Revue risques',
   MILESTONE_REVIEW: 'Revue jalons',
   AD_HOC: 'Ad hoc',
+  POST_MORTEM: "Retour d'expérience",
 };
 
 export const PROJECT_REVIEW_STATUS_LABEL: Record<string, string> = {

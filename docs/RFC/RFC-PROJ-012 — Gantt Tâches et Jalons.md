@@ -50,7 +50,7 @@ Mettre en place un **système de planification projet** permettant :
 
 * CRUD tâches
 * CRUD jalons
-* hiérarchie tâches
+* groupement des tâches par phases fonctionnelles
 * dépendances simples
 * dates prévues et réelles
 * progression
@@ -124,7 +124,7 @@ model ProjectTask {
   actualStartDate    DateTime?
   actualEndDate      DateTime?
 
-  parentTaskId       String?
+  phaseId            String?
   dependsOnTaskId    String?
   dependencyType     ProjectTaskDependencyType?
 
@@ -134,8 +134,7 @@ model ProjectTask {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  parentTask         ProjectTask?  @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
-  childTasks         ProjectTask[] @relation("TaskHierarchy")
+  phase              ProjectTaskPhase? @relation(fields: [phaseId], references: [id])
 
   dependsOnTask      ProjectTask?  @relation("TaskDependency", fields: [dependsOnTaskId], references: [id])
   dependentTasks     ProjectTask[] @relation("TaskDependency")
@@ -153,6 +152,7 @@ model ProjectMilestone {
   id            String   @id @default(cuid())
   clientId      String
   projectId     String
+  phaseId       String?
 
   name          String
   description   String?
@@ -168,6 +168,8 @@ model ProjectMilestone {
   updatedAt     DateTime @updatedAt
 
   @@index([clientId, projectId])
+  @@index([phaseId])
+  @@index([projectId, phaseId])
 }
 ```
 
@@ -274,7 +276,9 @@ GET /api/projects/:projectId/gantt
     {
       "id": "ms_1",
       "name": "Go Live",
-      "targetDate": "2026-03-15"
+      "targetDate": "2026-03-15",
+      "phaseId": "phase_1",
+      "linkedTaskId": "task_1"
     }
   ]
 }
@@ -300,7 +304,7 @@ Projet
 * création via bouton
 * édition via dialogue modal (création / modification)
 * tableau structuré
-* sous-tâches visibles
+* tâches groupées sous leur phase visible
 
 ---
 
@@ -316,8 +320,10 @@ Projet
 
 ### Gauche
 
-* grille des tâches (hiérarchie, actions CRUD si `projects.update`) — même logique métier que l’onglet Tâches (`ProjectTaskPlanningSection`, variant `gantt-sidebar`)
-* lignes jalons en bas de grille (alignées avec la frise) ; date cible éditable par drag sur la frise si `projects.update`
+* grille des tâches groupées par phase (actions CRUD si `projects.update`) — même logique métier que l’onglet Tâches (`ProjectTaskPlanningSection`, variant `gantt-sidebar`)
+* jalons affichés dans leur groupe de phase (pas en bloc séparé en bas)
+* si un jalon est lié à une tâche et que les deux partagent la même phase, la tâche est affichée juste après le jalon
+* toggle `Jalons` : masque les jalons dans la frise **et** dans la grille gauche
 
 ### Droite
 
@@ -365,7 +371,7 @@ project_milestone.updated
 * progress
 * dates
 * dépendances
-* hiérarchie
+* phases (barres de groupe dérivées backend) + tâches
 * calcul layout frise (bornes, largeur, positionnement px) — `gantt-timeline-layout.spec.ts`
 * géométrie des liens de dépendance — `gantt-dependency-geometry.spec.ts`
 
@@ -390,11 +396,12 @@ project_milestone.updated
 * [`lib/gantt-timeline-layout.spec.ts`](../../apps/web/src/features/projects/lib/gantt-timeline-layout.spec.ts) — tests Vitest sur le calcul de layout
 * [`lib/gantt-dependency-geometry.ts`](../../apps/web/src/features/projects/lib/gantt-dependency-geometry.ts) — chemins SVG des liens selon `dependencyType`, `buildDependencyPaths`
 * [`lib/gantt-dependency-geometry.spec.ts`](../../apps/web/src/features/projects/lib/gantt-dependency-geometry.spec.ts) — tests Vitest sur la géométrie des dépendances
+* [`lib/build-gantt-body-rows.ts`](../../apps/web/src/features/projects/lib/build-gantt-body-rows.ts) — **ordre unique** des lignes (phases, jalons avec tâche liée, tâches) partagé entre la grille et la frise ; le panneau Gantt construit ce corps à partir du payload `GET /gantt` et le transmet à `ProjectTaskPlanningSection` via la prop `ganttUnifiedBodyRows` (la grille réconcilie avec les requêtes tâches/jalons pour l’édition inline)
 * [`hooks/use-project-planning-mutations.ts`](../../apps/web/src/features/projects/hooks/use-project-planning-mutations.ts) — option `silentToast` sur `useUpdateProjectTaskMutation` / `useUpdateProjectMilestoneMutation` pour limiter les toasts lors des gestes sur la frise (succès dédié pour le lien « Dépendance enregistrée » dans le panneau Gantt)
 
 **Backend** : inchangé par rapport à la RFC — `GET /api/projects/:projectId/gantt`, `PATCH` tâche / jalon ; isolation client (pas de `clientId` arbitraire côté client). Les rejets métier (ex. cycle de dépendance) sont renvoyés par l’API et affichés via toast.
 
-**Performance** : calculs de layout, géométrie des liens et arbres mémoïsés côté React ; virtualisation possible en phase 2 si volumétrie importante.
+**Performance** : calculs de layout, géométrie des liens et lignes corps mémoïsés côté React ; virtualisation possible en phase 2 si volumétrie importante.
 
 ---
 

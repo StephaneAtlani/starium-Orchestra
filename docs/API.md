@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 (Client RBAC Administration), RFC-PROJ-001 (module Projets MVP).
+Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
 
 ---
 
@@ -1214,6 +1214,8 @@ Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `
 
 **Note** : les routes `GET /api/budget-lines/:id/allocations` et `GET /api/budget-lines/:id/events` sont documentées en §16 (noyau financier).
 
+**Planning prévisionnel ([RFC-023 — Budget Prévisionnel](RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md))** — sous `/api/budget-lines/:id/planning` : `GET` (query optionnelle `referenceDate`), `PUT` (saisie manuelle des 12 mois), `POST .../planning/apply-mode` (corps discriminant par `mode`), routes `POST .../planning/apply-*` (**legacy**, mêmes comportements), `POST .../planning/calculate`, `POST .../planning/apply-calculation`. **Permissions** : `budgets.read` / `budgets.update`. Réponse : montants d’atterrissage et écarts calculés côté serveur ; champs canoniques `planningDelta`, `landingVariance` (alias de transition documentés dans [CHANGELOG.md](../CHANGELOG.md)).
+
 ---
 
 ### Référentiels RFC-021 (comptes et centres de coûts)
@@ -1809,9 +1811,9 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ---
 
-## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|gantt|activities|risks|milestones|budget-links|project-sheet|reviews`
+## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
 
-Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload Gantt backend — pas d’UI Gantt au MVP), **RFC-PROJ-012** (fiche décisionnelle), **RFC-PROJ-013** (points projet COPIL/COPRO), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload **`GET /gantt`**), **RFC-PROJ-012** — *deux livrables distincts dans le dépôt* : [fiche décisionnelle Project Sheet](RFC/RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [UI Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
 ### Guards et headers
 
@@ -1848,20 +1850,57 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 - **POST /api/projects/:projectId/reviews/:reviewId/finalize** — Finalisation : snapshot serveur en transaction, statut `FINALIZED`. Audits **`project.review.finalized`**. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation depuis brouillon. Audit **`project.review.cancelled`**. **`projects.update`**
 
+**Type `POST_MORTEM` (retour d’expérience)** : création autorisée seulement si le projet est **`COMPLETED`**, **`CANCELLED`** ou **`ARCHIVED`** ; si le projet est dans l’un de ces états, toute **nouvelle** revue doit être de ce type. **`nextReviewDate`** ne doit pas être renseigné (pas de prochain point après un REX). Le corps peut inclure **`contentPayload`** avec un objet **`postMortem`** (structure côté client).
+
 Audits complémentaires : **`project.review.created`**, **`project.review.updated`**.
+
+### Documents projet (RFC-PROJ-DOC-001) — `/api/projects/:projectId/documents`
+
+Registre métier **sans** upload ni téléchargement binaire côté API MVP. Isolation **client actif** + `projectId` dans l’URL ; lectures excluent les documents en statut `DELETED`.
+
+- **GET** — Liste (`status != DELETED`, tri `updatedAt` desc puis `createdAt` desc). **`projects.read`**
+- **GET /api/projects/:projectId/documents/:documentId** — Détail. **`projects.read`**
+- **POST** — Création (`CreateProjectDocumentDto`) : MVP **`storageType`** `STARIUM` \| `EXTERNAL` uniquement (`STARIUM` ⇒ `storageKey` requis ; `EXTERNAL` ⇒ `externalUrl` URL valide). **`projects.update`**
+- **PATCH /api/projects/:projectId/documents/:documentId** — Métadonnées (`name`, `category`, `description`, `tags`) ; pas de `status` via PATCH. Audit **`project.document.updated`** si diff. **`projects.update`**
+- **POST /api/projects/:projectId/documents/:documentId/archive** — `ARCHIVED` + `archivedAt` (idempotent si déjà archivé). Audit **`project.document.archived`**. **`projects.update`**
+- **DELETE /api/projects/:projectId/documents/:documentId** — Suppression logique `DELETED` + `deletedAt` (idempotent si déjà supprimé). Audit **`project.document.deleted`**. **`projects.update`**
+
+Audits : **`project.document.created`**, **`project.document.updated`**, **`project.document.archived`**, **`project.document.deleted`**.
+
+### Lien Microsoft projet (RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016) — `/api/projects/:projectId/microsoft-link`
+
+Configuration du lien projet ↔ Teams / Planner / drive fichiers ; sync **manuelle** vers Planner (tâches) et vers le **drive** SharePoint du canal (documents). **Isolation** : `projectId` + **client actif** ; pas de `clientId` dans le body.
+
+**Guards** : `JwtAuthGuard`, `ActiveClientGuard`, `MicrosoftIntegrationAccessGuard`, `@RequirePermissions('projects.update')` (même logique d’accès Microsoft que les routes `/api/microsoft/*` — voir section Intégration Microsoft 365).
+
+- **GET** — Lecture config `ProjectMicrosoftLink` (404 si non créée). **`projects.read`**
+- **PUT** — Création / mise à jour (`UpdateProjectMicrosoftLinkDto`) : `isEnabled`, `teamId`, `channelId`, `plannerPlanId`, `syncTasksEnabled`, `syncDocumentsEnabled`, `useMicrosoftPlannerBuckets` (remplace les buckets Starium par l’import des buckets du plan Planner — RFC-PROJ-OPT-001), `filesDriveId`, `filesFolderId`, libellés optionnels. **`projects.update`**
+- **POST /api/projects/:projectId/microsoft-link/sync-tasks** — Sync bidirectionnelle des tâches (Phase A `Planner -> Starium`, puis Phase B `Starium -> Planner`, arrêt au premier échec, `lastSyncAt` mis à jour uniquement en succès complet). Contrat de réponse : `{ projectId, status, summary: { plannerTasksRead, createdInStarium, updatedInStarium, syncedToPlanner, conflictsResolvedByStarium, errors }, lastSyncAt }`. Audits : **`project.microsoft_tasks.bidirectional_sync_started`**, **`project.microsoft_tasks.imported`**, **`project.microsoft_tasks.updated_from_microsoft`**, **`project.microsoft_tasks.conflict_resolved_starium_wins`**, **`project.microsoft_tasks.bidirectional_sync_completed`**, **`project.microsoft_sync.failed`**. **`projects.update`**
+- **POST /api/projects/:projectId/microsoft-link/sync-documents** — Sync one-way des `ProjectDocument` **STARIUM** (fichiers lus via `PROJECT_DOCUMENTS_STORAGE_ROOT`) vers le dossier `starium-project-{projectId}` du drive configuré. Réponse `{ total, synced, failed, skipped }`. Audits **`project.microsoft_documents.synced`** ou **`project.microsoft_sync.failed`**. **`projects.update`**
+
+**UI (RFC-PROJ-OPT-001)** : page **`/projects/[projectId]/options`** (`apps/web/src/features/projects/options/`) — paramètres projet (réutilise **`PATCH /api/projects/:id`**), onglet Planning (buckets), configuration et état de la liaison (routes ci-dessus), connexion Microsoft côté client (**`GET /api/microsoft/connection`**, démarrage OAuth **`GET /api/microsoft/auth/url`** → lecture de l’URL dans la réponse → redirection). Isolation **client actif** inchangée (header `X-Client-Id`).
+
+### Buckets planning — `/api/projects/:projectId/task-buckets` (RFC-PROJ-OPT-001)
+
+Ressource **`ProjectTaskBucket`** par projet ; lecture de `useMicrosoftPlannerBuckets` sur la liaison Microsoft dans la réponse **GET**. Si les buckets proviennent du plan Planner, création / mise à jour / suppression manuelle côté API est refusée (colonnes gérées dans Teams / Planner).
+
+- **GET** — `{ items, useMicrosoftPlannerBuckets }`. **`projects.read`**
+- **POST** — Création (`CreateProjectTaskBucketDto`). **`projects.update`**
+- **PATCH /api/projects/:projectId/task-buckets/:bucketId** — **`projects.update`**
+- **DELETE** — **`projects.update`**
 
 ### Tâches — `/api/projects/:projectId/tasks` (RFC-PROJ-011)
 
 Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord jalons / revues / activités). Listes paginées : réponse `{ items, total, limit, offset }` (query filtres selon implémentation : statut, parent, dates, etc.).
 
 - **GET** — Liste paginée des tâches du projet. **`projects.read`**
-- **POST** — Création. **`projects.update`** (mutation du périmètre projet)
+- **POST** — Création (champs dont `bucketId` optionnel — référence un `ProjectTaskBucket` du même projet). **`projects.update`** (mutation du périmètre projet)
 - **GET /api/projects/:projectId/tasks/:id** — Détail d’une tâche. **`projects.read`**
-- **PATCH /api/projects/:projectId/tasks/:id** — **`projects.update`**
+- **PATCH /api/projects/:projectId/tasks/:id** — (champs dont `bucketId` optionnel). **`projects.update`**
 
 ### Gantt-ready — `/api/projects/:projectId/gantt` (RFC-PROJ-011)
 
-- **GET** — Agrégat **tâches + jalons** pour un affichage type diagramme de Gantt côté client (les **activités** ne font pas partie de ce payload). **`projects.read`**
+- **GET** — Agrégat **tâches + jalons** pour l’UI Gantt (les **activités** ne font pas partie de ce payload). **`projects.read`** — consommé par la route **`/projects/[projectId]/planning`** (voir [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md)).
 
 ### Activités — `/api/projects/:projectId/activities` (RFC-PROJ-011)
 
@@ -1895,3 +1934,103 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 **Erreurs :** 400 (invariant allocation, DTO), 409 (budget/exercice fermé, ligne non ACTIVE, doublon `(projectId, budgetLineId)`, suppression laissant un résidu incohérent), 404 (hors scope client).
 
 **Erreurs courantes (reste du module projets) :** 401, 403 (module inactif ou permission manquante), 404 (projet ou sous-ressource hors périmètre client), 409 (ex. code projet déjà utilisé).
+
+---
+
+## Intégration Microsoft 365 — `/api/microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-005)
+
+Toutes les routes ci-dessous sont préfixées par **`/api`**. Les jetons Microsoft (**access** / **refresh**) ne sont **jamais** renvoyés au client : ils sont stockés chiffrés côté serveur et associés au **client Starium** concerné — **`clientId` du contexte client actif** sur les routes JWT, **`clientId` issu du `state` validé** sur le callback OAuth (pas d’`clientId` dans le body des requêtes).
+
+**Accès (routes authentifiées ci-dessous)** : **`ClientUserRole.CLIENT_ADMIN`** sur le client actif **ou**, à défaut, module **Projets** actif pour le client + permission métier **`projects.update`** (`MicrosoftIntegrationAccessGuard`).
+
+**UX** : **Administration client** → `/client/administration/microsoft-365` — accès aligné sur les mêmes règles que ci-dessus : **administrateur du client** **ou** utilisateur avec **`projects.update`** (module Projets activé pour le client, vérifié côté API).
+
+### GET /api/microsoft/auth/url
+
+Démarre le flux OAuth délégué : retourne une URL de consentement Microsoft et un `state` signé (JWT Starium + `jti` anti-replay).
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+- `X-Client-Id: <clientId>` (client actif)
+
+**Permission :** `@RequirePermissions('projects.update')` si l’utilisateur n’est pas **client admin** (voir ci-dessus).
+
+**Réponse 200**
+
+```json
+{
+  "authorizationUrl": "https://login.microsoftonline.com/..."
+}
+```
+
+---
+
+### GET /api/microsoft/auth/callback
+
+Callback **public** (redirect navigateur Microsoft). Pas de JWT. Paramètres query : `code`, `state` (succès) ou `error`, `error_description` (échec côté Microsoft). Rate limiting léger par IP. Réponse : **302** vers `MICROSOFT_OAUTH_SUCCESS_URL` ou `MICROSOFT_OAUTH_ERROR_URL` avec paramètres de query contrôlés (`microsoft`, `code`, etc.) — jamais de jetons dans l’URL.
+
+---
+
+### GET /api/microsoft/connection
+
+État de la connexion Microsoft pour le **client actif** (une connexion `ACTIVE` par client en logique métier).
+
+**Headers** : JWT + `X-Client-Id`
+
+**Permission :** même règle que `GET .../auth/url`.
+
+**Réponse 200**
+
+```json
+{
+  "connection": {
+    "id": "…",
+    "tenantId": "…",
+    "tenantName": null,
+    "status": "ACTIVE",
+    "tokenExpiresAt": "2025-01-01T12:00:00.000Z",
+    "connectedByUserId": "…",
+    "createdAt": "…",
+    "updatedAt": "…"
+  }
+}
+```
+
+`connection` peut être `null` si aucune connexion active.
+
+Les champs `accessTokenEncrypted` / `refreshTokenEncrypted` ne figurent **pas** dans la réponse.
+
+---
+
+### DELETE /api/microsoft/connection
+
+Révocation logique de la connexion Microsoft pour le client actif (effacement des jetons en base après overwrite).
+
+**Headers** : JWT + `X-Client-Id`
+
+**Permission :** même règle que `GET .../auth/url`.
+
+**Réponse 204** (No Content), idempotent si déjà absent.
+
+---
+
+### Configuration OAuth commune (plateforme) — `GET|PATCH /api/platform/microsoft-settings`
+
+Paramètres **globaux** Starium : URI de redirection OAuth (callback `/api/microsoft/auth/callback`), scopes Microsoft Graph, URLs succès/erreur après callback, TTL `state`, marges refresh, timeout HTTP token. Repli sur variables d’environnement si la ligne `PlatformMicrosoftSettings` est vide.
+
+**Guards** : `JwtAuthGuard`, `PlatformAdminGuard` — **pas** de `X-Client-Id` (le frontend ne l’envoie pas sur `/api/platform/*`).
+
+**PATCH** : corps JSON partiel (`redirectUri`, `graphScopes`, `oauthSuccessUrl`, `oauthErrorUrl`, entiers optionnels pour TTL / timeouts). Réponse : même forme que **GET** (objets `stored` + `resolved`).
+
+---
+
+### Identifiants Azure AD par client Starium — `GET|PUT /api/clients/active/microsoft-oauth`
+
+Lecture / mise à jour des champs **BYO** sur le `Client` actif : ID d’application, tenant d’autorité optionnel, secret (le secret n’est pas renvoyé en lecture ; indicateur `hasClientSecret`). Retourne aussi l’URI de redirection et les scopes **effectifs** issus de la config plateforme (`platformRedirectUri`, `graphScopes`).
+
+**Headers** : JWT + **`X-Client-Id`** (obligatoire).
+
+**Guards** : `ActiveClientGuard`, `MicrosoftIntegrationAccessGuard`, `@RequirePermissions('projects.update')` si l’utilisateur n’est pas **client admin** (même logique que `/api/microsoft/auth/url`).
+
+**Réponse GET (200)** : champs métier sans secret en clair ; **PUT** : 200 avec corps aligné sur le GET.

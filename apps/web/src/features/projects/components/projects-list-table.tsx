@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { ProjectListItem } from '../types/project.types';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
@@ -38,11 +38,18 @@ import {
 } from '../constants/project-enum-labels';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { cn } from '@/lib/utils';
+import {
+  projectKindBadgeClass,
+  type ProjectKindBadgeKey,
+  type ProjectLifecycleStatusKey,
+} from '@/lib/ui/badge-registry';
+import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { listProjectPortfolioCategories } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
+import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -63,15 +70,6 @@ const SORT_LABEL: Record<ProjectsListFilters['sortBy'], string> = {
   computedHealth: 'Santé',
   progressPercent: 'Avancement',
 };
-
-function tagBadgeStyle(color: string | null | undefined) {
-  const background = color ?? '#64748B';
-  return {
-    backgroundColor: background,
-    borderColor: background,
-    color: '#FFFFFF',
-  } as const;
-}
 
 function HeaderTip({
   children,
@@ -153,15 +151,26 @@ function CellTip({
   tip,
   children,
   className,
+  /** Texte long : retours à la ligne dans la cellule (évite une seule ligne très large). */
+  wrap = false,
 }: {
   tip: string;
   children: ReactNode;
   className?: string;
+  wrap?: boolean;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<span className={cn('inline-flex max-w-full cursor-help', className)} />}
+        render={
+          <span
+            className={cn(
+              'max-w-full cursor-help',
+              wrap ? 'block w-full whitespace-normal' : 'inline-flex',
+              className,
+            )}
+          />
+        }
       >
         {children}
       </TooltipTrigger>
@@ -198,6 +207,7 @@ export function ProjectsListTable({
       fullLabel: `${root.name} / ${child.name}`,
     })),
   }));
+  const { merged: badgeMerged } = useClientUiBadgeConfig();
   const categoryOptions = categoryGroups.flatMap((group) =>
     group.children.map((child) => ({ id: child.id, label: child.fullLabel })),
   );
@@ -222,7 +232,7 @@ export function ProjectsListTable({
           <TableHead
             className={cn(
               th,
-              'sticky left-0 z-30 min-w-[11rem] bg-muted/50 pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
+              'sticky left-0 z-30 min-w-[11rem] bg-muted pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
             )}
           >
             <HeaderTip tip="Categorie portefeuille rattachee au projet (racine / sous-categorie).">
@@ -232,7 +242,7 @@ export function ProjectsListTable({
           <TableHead
             className={cn(
               th,
-              'sticky left-[11rem] z-30 min-w-[12rem] bg-muted/50 pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
+              'sticky left-[11rem] z-30 min-w-[12rem] bg-muted pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
             )}
           >
             <HeaderTip tip="Nom du projet, code interne, criticité et responsable. Cliquez sur le nom pour ouvrir la fiche.">
@@ -329,7 +339,7 @@ export function ProjectsListTable({
         </TableRow>
         <TableRow className="border-t border-border/50 bg-muted/35 hover:bg-muted/35">
           {/* CATEGORIE */}
-          <TableHead className="sticky left-0 z-30 bg-muted/35 p-2 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
+          <TableHead className="sticky left-0 z-30 bg-muted p-2 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
             <Select
               value={categoryKey}
               onValueChange={(v) =>
@@ -366,7 +376,7 @@ export function ProjectsListTable({
             </Select>
           </TableHead>
           {/* PROJET */}
-          <TableHead className="sticky left-[11rem] z-30 bg-muted/35 p-2 shadow-[1px_0_0_0_hsl(var(--border))]">
+          <TableHead className="sticky left-[11rem] z-30 bg-muted p-2 shadow-[1px_0_0_0_hsl(var(--border))]">
             <Input
               value={filters.search ?? ''}
               onChange={(e) => setFilters({ search: e.target.value || undefined })}
@@ -472,16 +482,17 @@ export function ProjectsListTable({
       <TableBody>
         {items.map((p) => (
           <TableRow key={p.id} className="group">
-            <TableCell className="sticky left-0 z-20 align-top bg-background py-3 pl-4 shadow-[1px_0_0_0_hsl(var(--border))]">
+            <TableCell className="sticky left-0 z-20 align-top bg-background py-3 pl-4 shadow-[1px_0_0_0_hsl(var(--border))] whitespace-normal break-words min-w-[11rem] max-w-[15rem]">
               {p.portfolioCategory ? (
                 <CellTip
+                  wrap
                   tip={
                     p.portfolioCategory.parentName
                       ? `${p.portfolioCategory.parentName} / ${p.portfolioCategory.name}`
                       : p.portfolioCategory.name
                   }
                 >
-                  <span className="text-xs text-foreground">
+                  <span className="text-xs leading-snug text-foreground">
                     {p.portfolioCategory.parentName ? (
                       <>
                         <span className="text-muted-foreground">{p.portfolioCategory.parentName}</span>
@@ -525,24 +536,47 @@ export function ProjectsListTable({
                     : 'Projet structuré : livrables, jalons et risques suivis dans la fiche.'
                 }
               >
-                <Badge variant="secondary" className="font-normal text-xs">
-                  {PROJECT_KIND_LABEL[p.kind] ?? p.kind}
-                </Badge>
+                <RegistryBadge
+                  className={cn(
+                    'text-xs',
+                    projectKindBadgeClass(badgeMerged, p.kind),
+                  )}
+                >
+                  {
+                    badgeMerged.projectKind[p.kind as ProjectKindBadgeKey]
+                      .label
+                  }
+                </RegistryBadge>
               </CellTip>
             </TableCell>
             <TableCell className="align-top py-3">
-              <HealthBadge health={p.computedHealth} compact />
+              <HealthBadge health={p.computedHealth} compact merged={badgeMerged} />
             </TableCell>
             <TableCell className="align-top py-3 text-sm">
-              {PROJECT_STATUS_LABEL[p.status] ?? p.status}
+              {(() => {
+                const ls =
+                  badgeMerged.projectLifecycleStatus[
+                    p.status as ProjectLifecycleStatusKey
+                  ];
+                return ls ? (
+                  <RegistryBadge className={cn('text-sm', ls.className)}>
+                    {ls.label}
+                  </RegistryBadge>
+                ) : (
+                  <span>{PROJECT_STATUS_LABEL[p.status] ?? p.status}</span>
+                );
+              })()}
             </TableCell>
             <TableCell className="align-top py-3 text-sm">
               {(p.myRoles ?? (p.myRole ? [p.myRole] : [])).length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                   {(p.myRoles ?? (p.myRole ? [p.myRole] : [])).map((role) => (
-                    <Badge key={role} variant="outline" className="font-normal text-xs">
+                    <RegistryBadge
+                      key={role}
+                      className="border border-border/80 bg-muted/40 text-xs text-foreground"
+                    >
                       {role}
-                    </Badge>
+                    </RegistryBadge>
                   ))}
                 </div>
               ) : (
@@ -589,21 +623,20 @@ export function ProjectsListTable({
             </TableCell>
             <TableCell className="align-top py-3 pr-4">
               <div className="max-w-[18rem]">
-                <ProjectPortfolioBadges signals={p.signals} />
+                <ProjectPortfolioBadges signals={p.signals} merged={badgeMerged} />
               </div>
             </TableCell>
             <TableCell className="align-top py-3 pr-4">
               {(p.tags ?? []).length > 0 ? (
                 <div className="flex max-w-[18rem] flex-wrap gap-1">
                   {(p.tags ?? []).map((tag) => (
-                    <Badge
+                    <RegistryBadge
                       key={tag.id}
-                      variant="secondary"
                       className="text-[0.65rem]"
-                      style={tagBadgeStyle(tag.color)}
+                      style={projectTagBadgeStyle(tag.color)}
                     >
                       {tag.name}
-                    </Badge>
+                    </RegistryBadge>
                   ))}
                 </div>
               ) : (

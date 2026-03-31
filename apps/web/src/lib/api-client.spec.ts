@@ -107,4 +107,31 @@ describe('getXClientIdHeaderValue', () => {
       getXClientIdHeaderValue('/other/path', { activeClientId: clientId }),
     ).toBeNull();
   });
+
+  it('returns null for plateforme /api/clients (sans envoyer X-Client-Id)', () => {
+    expect(
+      getXClientIdHeaderValue('/api/clients', { activeClientId: clientId }),
+    ).toBeNull();
+  });
+
+  it('returns null pour /api/clients/:id (admin plateforme)', () => {
+    expect(
+      getXClientIdHeaderValue('/api/clients/550e8400-e29b-41d4-a716-446655440000', {
+        activeClientId: clientId,
+      }),
+    ).toBeNull();
+  });
+
+  it('returns activeClientId pour /api/clients/active/* (ActiveClientGuard)', () => {
+    expect(
+      getXClientIdHeaderValue('/api/clients/active/microsoft-oauth', {
+        activeClientId: clientId,
+      }),
+    ).toBe(clientId);
+    expect(
+      getXClientIdHeaderValue('/api/clients/active/tax-settings', {
+        activeClientId: clientId,
+      }),
+    ).toBe(clientId);
+  });
 });

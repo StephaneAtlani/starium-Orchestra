@@ -20,5 +20,35 @@ export class UpdateSupplierDto {
   @IsString()
   @MaxLength(64)
   vatNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  externalId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  website?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  supplierCategoryId?: string | null;
 }
 

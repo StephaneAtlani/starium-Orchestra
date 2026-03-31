@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { normalizeEmail } from '../me/email-identity.util';
 import { JWT_ACCESS_EXPIRATION, JWT_REFRESH_EXPIRATION } from './auth.constants';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { SecurityLogsService } from '../security-logs/security-logs.service';
@@ -16,6 +17,8 @@ import { MfaService } from '../mfa/mfa.service';
 import { TrustedDeviceService } from './trusted-device.service';
 
 const INVALID_CREDENTIALS = 'Identifiants invalides';
+const PASSWORD_LOGIN_DISABLED =
+  'Connexion par mot de passe désactivée pour ce compte. Utilisez « Se connecter avec Microsoft ».';
 
 export type LoginResponse =
   | {
@@ -59,6 +62,53 @@ export class AuthService {
     @Inject(JWT_REFRESH_EXPIRATION) private readonly refreshExpiration: number,
   ) {}
 
+  /**
+   * Indique si la connexion par mot de passe est permise pour cet email (aligné sur le login : casse insensible).
+   * Si l’email est inconnu, renvoie true pour ne pas révéler l’existence du compte.
+   */
+  async getPasswordLoginEligibility(
+    email: string,
+  ): Promise<{ passwordLoginAllowed: boolean }> {
+    const user = await this.findUserForPasswordAuth(email);
+    if (!user) {
+      return { passwordLoginAllowed: true };
+    }
+    return { passwordLoginAllowed: user.passwordLoginEnabled };
+  }
+
+  /**
+   * Même périmètre que le SSO Microsoft : `User.email` OU identité e-mail vérifiée.
+   * Sans ça, le SSO peut désactiver le mot de passe sur le bon user alors que le login
+   * ne résout que sur `User.email` (autre ligne / autre casse perçue).
+   */
+  private async findUserForPasswordAuth(email: string) {
+    const trimmed = email.trim();
+    if (!trimmed) return null;
+    const normalized = normalizeEmail(trimmed);
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { email: { equals: trimmed, mode: 'insensitive' } },
+          {
+            emailIdentities: {
+              some: {
+                emailNormalized: normalized,
+                isVerified: true,
+                isActive: true,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    if (users.length !== 1) {
+      return null;
+    }
+    return users[0];
+  }
+
   /** Vérifie email/password (bcrypt), émet accessToken (JWT) + refreshToken (stocké hashé). */
   async login(
     email: string,
@@ -67,7 +117,7 @@ export class AuthService {
     trustedDeviceToken?: string | null,
   ): Promise<LoginResponse> {
     try {
-      const user = await this.prisma.user.findUnique({ where: { email } });
+      const user = await this.findUserForPasswordAuth(email);
       if (!user) {
         await this.securityLogs.create({
           event: 'auth.login.failure',
@@ -79,6 +129,19 @@ export class AuthService {
           requestId: meta.requestId,
         });
         throw new UnauthorizedException(INVALID_CREDENTIALS);
+      }
+      if (!user.passwordLoginEnabled) {
+        await this.securityLogs.create({
+          event: 'auth.login.failure',
+          userId: user.id,
+          email: user.email,
+          success: false,
+          reason: 'password_login_disabled',
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+          requestId: meta.requestId,
+        });
+        throw new UnauthorizedException(PASSWORD_LOGIN_DISABLED);
       }
       let valid = false;
       try {

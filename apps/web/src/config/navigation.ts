@@ -1,13 +1,19 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  AlertTriangle,
   Building2,
   Boxes,
+  ClipboardList,
+  Cloud,
+  Handshake,
   FolderKanban,
   LayoutDashboard,
   Settings,
   Shield,
   Users,
   FileText,
+  Scale,
+  Tags,
   Wallet,
 } from 'lucide-react';
 
@@ -47,7 +53,7 @@ export const navigation: NavigationSection[] = [
     ],
   },
   {
-    section: 'Finance',
+    section: 'Pilotages',
     items: [
       {
         label: 'Budgets',
@@ -60,6 +66,12 @@ export const navigation: NavigationSection[] = [
           { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Budget', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Configuration', href: '/budgets/configuration', scope: 'client', requiredPermissions: ['budgets.read'] },
+          {
+            label: 'Fournisseurs',
+            href: '/suppliers',
+            scope: 'client',
+            requiredPermissions: ['procurement.read'],
+          },
         ],
       },
       {
@@ -84,6 +96,52 @@ export const navigation: NavigationSection[] = [
           },
         ],
       },
+      {
+        label: 'Plans d’action',
+        href: '/action-plans',
+        icon: ClipboardList,
+        scope: 'client',
+        moduleCode: 'projects',
+        requiredPermissions: ['projects.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+      },
+      {
+        label: 'Risques',
+        href: '/risks',
+        icon: AlertTriangle,
+        scope: 'client',
+        moduleCode: 'projects',
+        requiredPermissions: ['projects.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+      },
+      {
+        label: 'Fournisseurs',
+        icon: Handshake,
+        scope: 'client',
+        moduleCode: 'procurement',
+        requiredPermissions: ['procurement.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+        children: [
+          {
+            label: 'Dashboard',
+            href: '/suppliers/dashboard',
+            scope: 'client',
+            requiredPermissions: ['procurement.read'],
+          },
+          {
+            label: 'Fournisseurs',
+            href: '/suppliers',
+            scope: 'client',
+            requiredPermissions: ['procurement.read'],
+          },
+          {
+            label: 'Contacts',
+            href: '/suppliers/contacts',
+            scope: 'client',
+            requiredPermissions: ['procurement.read'],
+          },
+        ],
+      },
     ],
   },
   {
@@ -98,11 +156,27 @@ export const navigation: NavigationSection[] = [
         requiredPermissions: ['resources.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
+      {
+        label: 'Conformité',
+        href: '/compliance/dashboard',
+        icon: Scale,
+        scope: 'client',
+        moduleCode: 'compliance',
+        requiredPermissions: ['compliance.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+      },
     ],
   },
   {
     section: 'Platform',
     items: [
+      {
+        label: 'Tableau de bord',
+        href: '/admin/dashboard',
+        icon: LayoutDashboard,
+        scope: 'platform',
+        platformOnly: true,
+      },
       {
         label: 'Clients',
         href: '/admin/clients',
@@ -128,6 +202,20 @@ export const navigation: NavigationSection[] = [
         label: 'Audit logs',
         href: '/admin/audit',
         icon: FileText,
+        scope: 'platform',
+        platformOnly: true,
+      },
+      {
+        label: 'Badges (plateforme)',
+        href: '/admin/ui-badges',
+        icon: Tags,
+        scope: 'platform',
+        platformOnly: true,
+      },
+      {
+        label: 'Microsoft 365 (plateforme)',
+        href: '/admin/microsoft-settings',
+        icon: Cloud,
         scope: 'platform',
         platformOnly: true,
       },

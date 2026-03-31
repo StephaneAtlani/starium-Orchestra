@@ -120,6 +120,39 @@ export type ProjectPortfolioCategoryAssignment = {
   parentName: string | null;
 };
 
+/** GET /api/projects/portfolio-gantt — une barre par projet (dates début / fin cible). */
+export type PortfolioGanttRow = {
+  id: string;
+  code: string;
+  name: string;
+  /** PROJECT | ACTIVITY */
+  kind: string;
+  status: string;
+  priority: string;
+  criticality: string;
+  startDate: string | null;
+  targetEndDate: string | null;
+  progressPercent: number | null;
+  computedHealth: 'GREEN' | 'ORANGE' | 'RED';
+  isLate: boolean;
+  portfolioCategory: ProjectPortfolioCategoryAssignment | null;
+  myRoles: string[];
+  tags: ProjectTag[];
+  ownerDisplayName: string | null;
+  sponsorDisplayName: string | null;
+  arbitrationStatus: string | null;
+  arbitrationMetierStatus: string | null;
+  arbitrationComiteStatus: string | null;
+  arbitrationCodirStatus: string | null;
+  /** Objectif métier (pourquoi) — fiche projet. */
+  businessProblem: string | null;
+  stakeholderLines: string[];
+};
+
+export type PortfolioGanttResponse = {
+  items: PortfolioGanttRow[];
+};
+
 /** Liste paginée RFC-PROJ-011 */
 export type PaginatedList<T> = {
   items: T[];
@@ -128,9 +161,75 @@ export type PaginatedList<T> = {
   offset: number;
 };
 
+/** RFC-PLA-001 — plan d’actions */
+export type ActionPlanApi = {
+  id: string;
+  clientId: string;
+  title: string;
+  code: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  ownerUserId: string | null;
+  startDate: string | null;
+  targetDate: string | null;
+  progressPercent: number;
+  createdAt: string;
+  updatedAt: string;
+  owner?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
+};
+
+/** Élément de liste de contrôle (sync Microsoft Planner checklist). */
+export type ProjectTaskChecklistItemApi = {
+  id: string;
+  title: string;
+  isChecked: boolean;
+  sortOrder: number;
+};
+
+export type ProjectTaskLabelApi = {
+  id: string;
+  name: string;
+  color: string | null;
+  plannerCategoryId: string | null;
+};
+
+export type ProjectTaskPhaseApi = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Option UI formulaire tâche (étiquettes). */
+export type TaskLabelOption = {
+  id: string;
+  label: string;
+  color?: string | null;
+  plannerCategoryId?: string | null;
+};
+
+export type ProjectMilestoneLabelApi = {
+  id: string;
+  name: string;
+  color: string | null;
+};
+
 /** Réponses API Prisma (dates ISO). RFC-PROJ-011 */
 export type ProjectTaskApi = {
   id: string;
+  /** RFC-PLA-001 — null si tâche transverse / hors projet. */
+  projectId?: string | null;
+  actionPlanId?: string | null;
+  riskId?: string | null;
   name: string;
   code: string | null;
   description: string | null;
@@ -142,25 +241,117 @@ export type ProjectTaskApi = {
   actualStartDate: string | null;
   actualEndDate: string | null;
   sortOrder: number;
-  parentTaskId: string | null;
+  phaseId: string | null;
   dependsOnTaskId: string | null;
   dependencyType: string | null;
   ownerUserId: string | null;
+  /** Personne métier (Resource HUMAN) — distinct du compte `ownerUserId`. */
+  responsibleResourceId?: string | null;
+  responsibleResource?: {
+    id: string;
+    name: string;
+    firstName: string | null;
+    code: string | null;
+    type: string;
+  } | null;
+  estimatedHours?: number | null;
+  /** Tags libres (JSON string[] côté API). */
+  tags?: unknown;
   budgetLineId: string | null;
+  bucketId?: string | null;
+  checklistItems?: ProjectTaskChecklistItemApi[];
+  taskLabelIds?: string[];
   /** Présent sur les réponses API liste ; utilisé pour tri client (RFC-PROJ-012). */
   createdAt?: string;
+  /** Calculé côté API (GET gantt) — ne pas recalculer côté UI. */
+  isLate?: boolean;
+};
+
+/** Tâche vue depuis un plan (liens projet / risque enrichis). RFC-PLA-001 */
+export type ActionPlanTaskApi = ProjectTaskApi & {
+  projectId: string | null;
+  project?: { id: string; code: string; name: string } | null;
+  risk?: { id: string; code: string; title: string } | null;
+};
+
+/** `GET /api/risks/:riskId/action-plan-tasks` — méta plan pour libellés (valeurs affichées, pas seulement les id). */
+export type RiskLinkedActionPlanTaskApi = ActionPlanTaskApi & {
+  actionPlan: { id: string; code: string; title: string } | null;
+};
+
+/** Niveau persisté côté API (RFC-PROJ-RISK-001). */
+export type ProjectRiskCriticalityLevel =
+  | 'LOW'
+  | 'MEDIUM'
+  | 'HIGH'
+  | 'CRITICAL';
+
+export type ProjectRiskImpactCategory =
+  | 'FINANCIAL'
+  | 'OPERATIONAL'
+  | 'LEGAL'
+  | 'REPUTATION';
+
+/** Référentiel taxonomie (GET /api/risk-taxonomy/catalog). */
+export type RiskTaxonomyDomainApi = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  types: Array<{ id: string; code: string; name: string; isActive: boolean }>;
+};
+
+export type ProjectRiskDomainApi = {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+};
+
+export type ProjectRiskTypeApi = {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+  domain: ProjectRiskDomainApi;
 };
 
 export type ProjectRiskApi = {
   id: string;
+  clientId: string;
+  projectId: string | null;
+  /** Présent quand le risque est rattaché à un projet (réponse API enrichie). */
+  project?: { id: string; name: string; code: string } | null;
+  code: string;
   title: string;
   description: string | null;
-  probability: string;
-  impact: string;
+  category: string | null;
+  threatSource: string;
+  businessImpact: string;
+  likelihoodJustification: string | null;
+  impactCategory: ProjectRiskImpactCategory | null;
+  riskTypeId: string;
+  riskType?: ProjectRiskTypeApi | null;
+  probability: number;
+  impact: number;
+  criticalityScore: number;
+  criticalityLevel: ProjectRiskCriticalityLevel;
+  mitigationPlan: string | null;
+  contingencyPlan: string | null;
+  ownerUserId: string | null;
   status: string;
   reviewDate: string | null;
-  actionPlan: string | null;
-  ownerUserId: string | null;
+  dueDate: string | null;
+  detectedAt: string | null;
+  closedAt: string | null;
+  sortOrder: number;
+  complianceRequirementId: string | null;
+  treatmentStrategy: string;
+  residualRiskLevel: ProjectRiskCriticalityLevel | null;
+  residualJustification: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ProjectMilestoneApi = {
@@ -172,8 +363,45 @@ export type ProjectMilestoneApi = {
   achievedDate: string | null;
   status: string;
   linkedTaskId: string | null;
+  phaseId: string | null;
   ownerUserId: string | null;
   sortOrder: number;
+  milestoneLabelIds?: string[];
+};
+
+export type ProjectDocumentStorageType = 'STARIUM' | 'EXTERNAL' | 'MICROSOFT';
+export type ProjectDocumentStatus = 'ACTIVE' | 'ARCHIVED' | 'DELETED';
+export type ProjectDocumentCategory =
+  | 'GENERAL'
+  | 'CONTRACT'
+  | 'SPECIFICATION'
+  | 'DELIVERABLE'
+  | 'REPORT'
+  | 'FINANCIAL'
+  | 'COMPLIANCE'
+  | 'OTHER';
+
+export type ProjectDocumentApi = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  name: string;
+  originalFilename: string | null;
+  mimeType: string | null;
+  extension: string | null;
+  sizeBytes: number | null;
+  category: ProjectDocumentCategory;
+  status: ProjectDocumentStatus;
+  storageType: ProjectDocumentStorageType;
+  storageKey: string | null;
+  externalUrl: string | null;
+  description: string | null;
+  tags: string[] | null;
+  uploadedByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+  deletedAt: string | null;
 };
 
 /** RFC-PROJ-011 — activité (hors Gantt) */
@@ -439,7 +667,8 @@ export type ProjectReviewType =
   | 'CODIR_REVIEW'
   | 'RISK_REVIEW'
   | 'MILESTONE_REVIEW'
-  | 'AD_HOC';
+  | 'AD_HOC'
+  | 'POST_MORTEM';
 
 export type ProjectReviewStatus = 'DRAFT' | 'FINALIZED' | 'CANCELLED';
 

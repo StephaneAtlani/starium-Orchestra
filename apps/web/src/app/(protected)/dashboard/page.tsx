@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/card';
 import { DashboardBudgetKpiWidget } from '@/features/dashboard/components/dashboard-budget-kpi-widget';
 import { DashboardProjectsKpiWidget } from '@/features/dashboard/components/dashboard-projects-kpi-widget';
+import { DashboardSuppliersKpiWidget } from '@/features/dashboard/components/dashboard-suppliers-kpi-widget';
 
 export default function DashboardPage() {
   return (
@@ -29,6 +30,8 @@ export default function DashboardPage() {
         <DashboardBudgetKpiWidget />
 
         <DashboardProjectsKpiWidget />
+
+        <DashboardSuppliersKpiWidget />
 
         <section className="space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

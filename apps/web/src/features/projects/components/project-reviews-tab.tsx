@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -37,8 +38,16 @@ import type {
   ProjectTeamMemberApi,
 } from '../types/project.types';
 import { cn } from '@/lib/utils';
+import type { ApiFormError } from '@/features/budgets/api/types';
+import { toast } from 'sonner';
 import { CalendarRange, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
+import {
+  findDraftPostMortemReview,
+  hasFinalizedPostMortemReview,
+  isPostMortemEligibleProjectStatus,
+  REVIEW_TYPES_PILOTAGE,
+} from '../lib/project-review-post-mortem';
 import { ProjectReviewEditorDialog } from './project-review-editor-dialog';
 
 const selectFieldClass = cn(
@@ -108,15 +117,6 @@ function CreateReviewFormSection({
   );
 }
 
-const REVIEW_TYPES: ProjectReviewType[] = [
-  'COPIL',
-  'COPRO',
-  'CODIR_REVIEW',
-  'RISK_REVIEW',
-  'MILESTONE_REVIEW',
-  'AD_HOC',
-];
-
 function formatDate(iso: string | null) {
   if (!iso) return '—';
   try {
@@ -157,6 +157,15 @@ const emptyParticipantRow = (): CreateParticipantRow => ({
 });
 
 /** Une ligne par membre de l’équipe projet (compte client si présent, sinon nom libre). */
+function isApiFormError(e: unknown): e is ApiFormError {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    'message' in e &&
+    typeof (e as ApiFormError).message === 'string'
+  );
+}
+
 function createParticipantsFromProjectTeam(
   team: ProjectTeamMemberApi[],
   assignable: ProjectAssignableUser[] | undefined,
@@ -184,15 +193,33 @@ function createParticipantsFromProjectTeam(
   });
 }
 
-export function ProjectReviewsTab({ projectId }: { projectId: string }) {
+export function ProjectReviewsTab({
+  projectId,
+  projectStatus,
+}: {
+  projectId: string;
+  projectStatus: string;
+}) {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
+  const postMortemEligible = isPostMortemEligibleProjectStatus(projectStatus);
+  const createTypeOptions: ProjectReviewType[] = postMortemEligible
+    ? ['POST_MORTEM']
+    : REVIEW_TYPES_PILOTAGE;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editorReviewId, setEditorReviewId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
 
   const list = useProjectReviewsQuery(projectId);
+  const draftPostMortem = useMemo(
+    () => findDraftPostMortemReview(list.data),
+    [list.data],
+  );
+  const finalizedPostMortem = useMemo(
+    () => hasFinalizedPostMortemReview(list.data),
+    [list.data],
+  );
   const assignable = useProjectAssignableUsers();
   const teamForCreate = useProjectTeamQuery(projectId, { enabled: createOpen });
   const { create } = useProjectReviewMutations(projectId);
@@ -205,12 +232,88 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
   ]);
 
   const createFormSeededRef = useRef(false);
+  const openedPostMortemFromQueryRef = useRef(false);
+  const openedOpenReviewRef = useRef<string | null>(null);
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
 
   const resetCreateFormFields = useCallback(() => {
     setFormDate(defaultDatetimeLocal());
-    setFormType('COPIL');
+    setFormType(postMortemEligible ? 'POST_MORTEM' : 'COPIL');
     setFormTitle('');
+  }, [postMortemEligible]);
+
+  const openEditor = useCallback((id: string) => {
+    setEditorReviewId(id);
+    setEditorOpen(true);
   }, []);
+
+  /** Synthèse projet : `?createRetourExperience=1` ouvre la création ; si un brouillon REX existe, l’éditeur. */
+  useEffect(() => {
+    if (searchParams.get('createRetourExperience') !== '1') {
+      openedPostMortemFromQueryRef.current = false;
+      return;
+    }
+    if (!postMortemEligible || !canEdit) return;
+    if (list.isLoading) return;
+    if (openedPostMortemFromQueryRef.current) return;
+
+    const stripCreateParam = () => {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('createRetourExperience');
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    };
+
+    const draft = findDraftPostMortemReview(list.data);
+    if (draft) {
+      openedPostMortemFromQueryRef.current = true;
+      openEditor(draft.id);
+      stripCreateParam();
+      return;
+    }
+
+    if (
+      hasFinalizedPostMortemReview(list.data) &&
+      !findDraftPostMortemReview(list.data)
+    ) {
+      openedPostMortemFromQueryRef.current = true;
+      stripCreateParam();
+      return;
+    }
+
+    openedPostMortemFromQueryRef.current = true;
+    resetCreateFormFields();
+    setCreateOpen(true);
+    stripCreateParam();
+  }, [
+    searchParams,
+    pathname,
+    router,
+    postMortemEligible,
+    canEdit,
+    resetCreateFormFields,
+    list.isLoading,
+    list.data,
+    openEditor,
+  ]);
+
+  /** Lien « Continuer » depuis la synthèse : `?openReview=<id>`. */
+  useEffect(() => {
+    const id = searchParams.get('openReview');
+    if (!id?.trim()) {
+      openedOpenReviewRef.current = null;
+      return;
+    }
+    if (openedOpenReviewRef.current === id) return;
+    openedOpenReviewRef.current = id;
+    openEditor(id);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete('openReview');
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router, openEditor]);
 
   useEffect(() => {
     if (!createOpen) {
@@ -249,11 +352,6 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
     assignable.data,
   ]);
 
-  const openEditor = (id: string) => {
-    setEditorReviewId(id);
-    setEditorOpen(true);
-  };
-
   const onCreate = async () => {
     const reviewDate = new Date(formDate).toISOString();
     const participants = createParticipants
@@ -264,27 +362,65 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
         attended: p.attended,
         isRequired: p.isRequired,
       }));
-    const created = await create.mutateAsync({
-      reviewDate,
-      reviewType: formType,
-      title: formTitle.trim() || undefined,
-      ...(participants.length > 0 ? { participants } : {}),
-    });
-    setCreateOpen(false);
-    openEditor(created.id);
+    try {
+      const created = await create.mutateAsync({
+        reviewDate,
+        reviewType: formType,
+        title: formTitle.trim() || undefined,
+        ...(participants.length > 0 ? { participants } : {}),
+      });
+      setCreateOpen(false);
+      openEditor(created.id);
+    } catch (err) {
+      const msg = isApiFormError(err) ? err.message : 'Création du point impossible.';
+      toast.error(msg);
+    }
   };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Créez un <strong className="font-medium text-foreground">point projet</strong>, complétez le
-          compte rendu (arbitrage, synthèse, participants, décisions, actions), enregistrez puis
-          finalisez pour figer le snapshot.
+          {postMortemEligible ? (
+            finalizedPostMortem && !draftPostMortem ? (
+              <>
+                Un{' '}
+                <strong className="font-medium text-foreground">retour d&apos;expérience</strong> a été
+                finalisé pour ce projet — consultez-le dans le tableau ci-dessous.
+              </>
+            ) : (
+              <>
+                Projet clos : documentez un{' '}
+                <strong className="font-medium text-foreground">retour d&apos;expérience</strong>{' '}
+                (bilan, écarts, leçons apprises) — distinct des revues de pilotage en cours de projet.
+              </>
+            )
+          ) : (
+            <>
+              Créez un <strong className="font-medium text-foreground">point projet</strong>, complétez le
+              compte rendu (arbitrage, synthèse, participants, décisions, actions), enregistrez puis
+              finalisez pour figer le snapshot.
+            </>
+          )}
         </p>
-        {canEdit && (
-          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-            Créer un point projet
+        {canEdit &&
+          !(postMortemEligible && finalizedPostMortem && !draftPostMortem) && (
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              if (postMortemEligible && draftPostMortem) {
+                openEditor(draftPostMortem.id);
+              } else {
+                setCreateOpen(true);
+              }
+            }}
+          >
+            {postMortemEligible
+              ? draftPostMortem
+                ? "Continuer le retour d'expérience"
+                : "Créer un retour d'expérience"
+              : 'Créer un point projet'}
           </Button>
         )}
       </div>
@@ -350,11 +486,12 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
           <div className="shrink-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-5 py-4 sm:px-6">
             <DialogHeader className="gap-2 space-y-0">
               <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
-                Nouveau point projet
+                {postMortemEligible ? "Nouveau retour d'expérience" : 'Nouveau point projet'}
               </DialogTitle>
               <DialogDescription className="text-sm leading-relaxed">
-                Date, type et parties prenantes. Vous compléterez le compte rendu (synthèse,
-                décisions, actions) dans l’éditeur juste après la création.
+                {postMortemEligible
+                  ? "Date, parties prenantes, puis grille de retour d'expérience (objectifs, résultats, leçons) dans l'éditeur."
+                  : 'Date, type et parties prenantes. Vous compléterez le compte rendu (synthèse, décisions, actions) dans l’éditeur juste après la création.'}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -385,8 +522,9 @@ export function ProjectReviewsTab({ projectId }: { projectId: string }) {
                       className={selectFieldClass}
                       value={formType}
                       onChange={(e) => setFormType(e.target.value as ProjectReviewType)}
+                      disabled={postMortemEligible && createTypeOptions.length === 1}
                     >
-                      {REVIEW_TYPES.map((t) => (
+                      {createTypeOptions.map((t) => (
                         <option key={t} value={t}>
                           {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
                         </option>

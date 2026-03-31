@@ -2,7 +2,7 @@
  * Configuration des widgets de la page `/dashboard` — persistée par utilisateur et client actif.
  */
 
-export const DASHBOARD_WIDGETS_VERSION = 3 as const;
+export const DASHBOARD_WIDGETS_VERSION = 5 as const;
 
 /** Périmètre cockpit pour le widget — vide = résolution serveur (exercice / budget actifs). */
 export interface DashboardBudgetWidgetScope {
@@ -47,6 +47,8 @@ export interface DashboardBudgetWidgetConfig {
   kpis: DashboardBudgetKpiKey[];
   /** Budget / exercice affichés — absent = défaut serveur */
   scope?: DashboardBudgetWidgetScope;
+  /** Animer les montants (compteur). Défaut : true. */
+  animateKpiNumbers?: boolean;
 }
 
 /** KPIs portefeuille projets (alignés sur `ProjectsPortfolioSummary`). */
@@ -94,10 +96,41 @@ export interface DashboardProjectWidgetConfig {
   kpis: DashboardProjectKpiKey[];
 }
 
+/** KPIs alignés sur `GET /api/suppliers/dashboard` (client actif). */
+export type DashboardSupplierKpiKey =
+  | 'suppliersListed'
+  | 'suppliersArchived'
+  | 'purchaseOrdersCount'
+  | 'invoicesCount'
+  | 'contactsActiveCount';
+
+export const DASHBOARD_SUPPLIER_KPI_OPTIONS: {
+  id: DashboardSupplierKpiKey;
+  label: string;
+}[] = [
+  { id: 'suppliersListed', label: 'Fournisseurs catalogue' },
+  { id: 'suppliersArchived', label: 'Archivés' },
+  { id: 'purchaseOrdersCount', label: 'Bons de commande' },
+  { id: 'invoicesCount', label: 'Factures' },
+  { id: 'contactsActiveCount', label: 'Contacts actifs' },
+];
+
+export const DEFAULT_DASHBOARD_SUPPLIER_KPIS: DashboardSupplierKpiKey[] = [
+  'suppliersListed',
+  'purchaseOrdersCount',
+  'invoicesCount',
+];
+
+export interface DashboardSupplierWidgetConfig {
+  visible: boolean;
+  kpis: DashboardSupplierKpiKey[];
+}
+
 export interface DashboardWidgetsConfig {
   version: typeof DASHBOARD_WIDGETS_VERSION;
   budgetKpis: DashboardBudgetWidgetConfig;
   projectKpis: DashboardProjectWidgetConfig;
+  supplierKpis: DashboardSupplierWidgetConfig;
 }
 
 export function defaultDashboardWidgetsConfig(): DashboardWidgetsConfig {
@@ -107,10 +140,15 @@ export function defaultDashboardWidgetsConfig(): DashboardWidgetsConfig {
       visible: true,
       kpis: [...DEFAULT_DASHBOARD_BUDGET_KPIS],
       scope: undefined,
+      animateKpiNumbers: true,
     },
     projectKpis: {
       visible: true,
       kpis: [...DEFAULT_DASHBOARD_PROJECT_KPIS],
+    },
+    supplierKpis: {
+      visible: true,
+      kpis: [...DEFAULT_DASHBOARD_SUPPLIER_KPIS],
     },
   };
 }
@@ -175,7 +213,7 @@ export function mergeDashboardWidgetsConfig(
   if (!raw || typeof raw !== 'object') return base;
   const o = raw as Record<string, unknown>;
   const v = o.version;
-  if (v !== 1 && v !== 2 && v !== 3) return base;
+  if (v !== 1 && v !== 2 && v !== 3 && v !== 4 && v !== 5) return base;
   const bk = o.budgetKpis as Record<string, unknown> | undefined;
   if (!bk || typeof bk !== 'object') return base;
 
@@ -190,8 +228,10 @@ export function mergeDashboardWidgetsConfig(
     if (filtered.length > 0) kpis = filtered;
   }
 
-  const scope =
-    v === 2 || v === 3 ? mergeScope(bk.scope) : undefined;
+  const scope = mergeScope(bk.scope);
+
+  const animateKpiNumbers =
+    typeof bk.animateKpiNumbers === 'boolean' ? bk.animateKpiNumbers : true;
 
   let projectKpis = base.projectKpis;
   const pk = o.projectKpis as Record<string, unknown> | undefined;
@@ -209,9 +249,26 @@ export function mergeDashboardWidgetsConfig(
     projectKpis = { visible: pv, kpis: pkp };
   }
 
+  let supplierKpis = base.supplierKpis;
+  const sk = o.supplierKpis as Record<string, unknown> | undefined;
+  if (sk && typeof sk === 'object') {
+    const sv = sk.visible === false ? false : true;
+    let skp: DashboardSupplierKpiKey[] = [...DEFAULT_DASHBOARD_SUPPLIER_KPIS];
+    if (Array.isArray(sk.kpis) && sk.kpis.length > 0) {
+      const allowedS = new Set(DASHBOARD_SUPPLIER_KPI_OPTIONS.map((x) => x.id));
+      const filteredS = sk.kpis.filter(
+        (k): k is DashboardSupplierKpiKey =>
+          typeof k === 'string' && allowedS.has(k as DashboardSupplierKpiKey),
+      );
+      if (filteredS.length > 0) skp = filteredS;
+    }
+    supplierKpis = { visible: sv, kpis: skp };
+  }
+
   return {
     version: DASHBOARD_WIDGETS_VERSION,
-    budgetKpis: { visible, kpis, scope },
+    budgetKpis: { visible, kpis, scope, animateKpiNumbers },
     projectKpis,
+    supplierKpis,
   };
 }

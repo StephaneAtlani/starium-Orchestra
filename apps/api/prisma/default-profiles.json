@@ -1,8 +1,8 @@
 [
   {
     "name": "Directeur",
-    "description": "Visualisation budget et reporting (lecture seule)",
-    "permissionCodes": ["budgets.read", "projects.read"]
+    "description": "Visualisation budget, reporting, portefeuille projets et vue transverse Risques (lecture seule)",
+    "permissionCodes": ["budgets.read", "projects.read", "compliance.read"]
   },
   {
     "name": "Responsable Budgets",
@@ -40,13 +40,25 @@
   },
   {
     "name": "Chef de projet",
-    "description": "Pilotage complet du portefeuille projets (CRUD, tâches, risques, jalons)",
+    "description": "Pilotage complet du portefeuille projets (CRUD, tâches, risques, jalons) — inclut le menu Risques (/risks) et les registres par projet",
     "permissionCodes": [
       "projects.read",
       "projects.create",
       "projects.update",
-      "projects.delete"
+      "projects.delete",
+      "compliance.read",
+      "compliance.update"
     ]
+  },
+  {
+    "name": "Lecteur pilotage risques",
+    "description": "Consultation du menu Risques et du portefeuille projets (vue transverse /risks, sans modification)",
+    "permissionCodes": ["projects.read"]
+  },
+  {
+    "name": "Pilote risques projets",
+    "description": "Pilotage des risques sur tous les projets accessibles : vue /risks, registres projet, création et mise à jour des risques (pas de suppression de projet)",
+    "permissionCodes": ["projects.read", "projects.update"]
   },
   {
     "name": "Gestionnaire Procurement",

@@ -9,6 +9,7 @@ import {
   type DashboardBudgetKpiKey,
   type DashboardBudgetWidgetScope,
   type DashboardProjectKpiKey,
+  type DashboardSupplierKpiKey,
   type DashboardWidgetsConfig,
 } from '../types/dashboard-widgets.types';
 
@@ -120,6 +121,16 @@ export function useDashboardWidgets() {
     }));
   }, [persist]);
 
+  const setBudgetKpiAnimateNumbers = useCallback(
+    (animateKpiNumbers: boolean) => {
+      persist((prev) => ({
+        ...prev,
+        budgetKpis: { ...prev.budgetKpis, animateKpiNumbers },
+      }));
+    },
+    [persist],
+  );
+
   const setProjectKpisVisible = useCallback(
     (visible: boolean) => {
       persist((prev) => ({
@@ -162,6 +173,48 @@ export function useDashboardWidgets() {
     }));
   }, [persist]);
 
+  const setSupplierKpisVisible = useCallback(
+    (visible: boolean) => {
+      persist((prev) => ({
+        ...prev,
+        supplierKpis: { ...prev.supplierKpis, visible },
+      }));
+    },
+    [persist],
+  );
+
+  const toggleSupplierKpi = useCallback(
+    (key: DashboardSupplierKpiKey, checked: boolean) => {
+      persist((prev) => {
+        const current = prev.supplierKpis.kpis;
+        let next: DashboardSupplierKpiKey[];
+        if (checked) {
+          if (current.includes(key)) return prev;
+          next = [...current, key];
+        } else {
+          if (current.length <= 1) return prev;
+          next = current.filter((k) => k !== key);
+        }
+        return {
+          ...prev,
+          supplierKpis: { ...prev.supplierKpis, kpis: next },
+        };
+      });
+    },
+    [persist],
+  );
+
+  const resetSupplierKpisDefaults = useCallback(() => {
+    const base = defaultDashboardWidgetsConfig();
+    persist((prev) => ({
+      ...prev,
+      supplierKpis: {
+        ...base.supplierKpis,
+        visible: prev.supplierKpis.visible,
+      },
+    }));
+  }, [persist]);
+
   return {
     config,
     hydrated,
@@ -171,8 +224,12 @@ export function useDashboardWidgets() {
     resetBudgetKpisDefaults,
     setBudgetScope,
     resetBudgetScope,
+    setBudgetKpiAnimateNumbers,
     setProjectKpisVisible,
     toggleProjectKpi,
     resetProjectKpisDefaults,
+    setSupplierKpisVisible,
+    toggleSupplierKpi,
+    resetSupplierKpisDefaults,
   };
 }

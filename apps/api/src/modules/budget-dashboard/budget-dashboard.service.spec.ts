@@ -1,7 +1,10 @@
 import { NotFoundException } from '@nestjs/common';
+import { BudgetDashboardWidgetType } from '@prisma/client';
+import { BudgetDashboardConfigService } from './budget-dashboard-config.service';
 import { BudgetDashboardService } from './budget-dashboard.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { DashboardQueryDto } from './dto/dashboard.query.dto';
+import type { BudgetCockpitResponse } from './types/budget-dashboard.types';
 
 const clientId = 'client-1';
 const exerciseId = 'ex-1';
@@ -57,8 +60,96 @@ function mockLine(overrides: Partial<{
   };
 }
 
+function mockDashboardConfigWidgets() {
+  const base = {
+    clientId,
+    configId: 'cfg-1',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    isActive: true,
+    size: 'full',
+  };
+  return [
+    { ...base, id: 'w-kpi', type: BudgetDashboardWidgetType.KPI, position: 0, title: 'KPI', settings: null },
+    { ...base, id: 'w-al', type: BudgetDashboardWidgetType.ALERT_LIST, position: 1, title: 'Alertes', settings: null },
+    { ...base, id: 'w-env', type: BudgetDashboardWidgetType.ENVELOPE_LIST, position: 2, title: 'Env', settings: null },
+    { ...base, id: 'w-line', type: BudgetDashboardWidgetType.LINE_LIST, position: 3, title: 'Lignes', settings: null },
+    {
+      ...base,
+      id: 'w-c1',
+      type: BudgetDashboardWidgetType.CHART,
+      position: 4,
+      title: 'R/B',
+      settings: { chartType: 'RUN_BUILD_BREAKDOWN' },
+    },
+    {
+      ...base,
+      id: 'w-c2',
+      type: BudgetDashboardWidgetType.CHART,
+      position: 5,
+      title: 'Trend',
+      settings: { chartType: 'CONSUMPTION_TREND' },
+    },
+  ];
+}
+
+function mockDashboardConfig() {
+  return {
+    id: 'cfg-1',
+    name: 'Cockpit par défaut',
+    isDefault: true,
+    clientId,
+    defaultExerciseId: null,
+    defaultBudgetId: null,
+    layoutConfig: { columns: 2 },
+    filtersConfig: null,
+    thresholdsConfig: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    widgets: mockDashboardConfigWidgets(),
+  };
+}
+
+function kpiBlock(r: BudgetCockpitResponse) {
+  const w = r.widgets.find((x) => x.type === 'KPI');
+  if (!w || w.data === null || w.type !== 'KPI') throw new Error('KPI widget manquant');
+  return w.data.kpis;
+}
+
+function envelopeListData(r: BudgetCockpitResponse) {
+  const w = r.widgets.find((x) => x.type === 'ENVELOPE_LIST');
+  if (!w || w.data === null || w.type !== 'ENVELOPE_LIST') {
+    throw new Error('ENVELOPE_LIST manquant');
+  }
+  return w.data;
+}
+
+function lineListData(r: BudgetCockpitResponse) {
+  const w = r.widgets.find((x) => x.type === 'LINE_LIST');
+  if (!w || w.data === null || w.type !== 'LINE_LIST') {
+    throw new Error('LINE_LIST manquant');
+  }
+  return w.data;
+}
+
+function chartRunBuild(r: BudgetCockpitResponse) {
+  const w = r.widgets.find(
+    (x) => x.type === 'CHART' && x.settings && (x.settings as { chartType?: string }).chartType === 'RUN_BUILD_BREAKDOWN',
+  );
+  if (!w || w.data === null || w.type !== 'CHART') throw new Error('chart R/B');
+  if (w.data.chartType !== 'RUN_BUILD_BREAKDOWN') throw new Error('bad chart');
+  return w.data.series;
+}
+
+function alertListItems(r: BudgetCockpitResponse) {
+  const w = r.widgets.find((x) => x.type === 'ALERT_LIST');
+  if (!w || w.data === null || w.type !== 'ALERT_LIST') throw new Error('ALERT_LIST');
+  return w.data;
+}
+
 describe('BudgetDashboardService', () => {
   let service: BudgetDashboardService;
+  let mockConfigService: { ensureDefaultConfig: jest.Mock };
   let prisma: {
     budget: { findFirst: jest.Mock };
     budgetExercise: { findFirst: jest.Mock };
@@ -70,6 +161,9 @@ describe('BudgetDashboardService', () => {
   };
 
   beforeEach(() => {
+    mockConfigService = {
+      ensureDefaultConfig: jest.fn().mockResolvedValue(mockDashboardConfig()),
+    };
     prisma = {
       budget: { findFirst: jest.fn() },
       budgetExercise: { findFirst: jest.fn() },
@@ -79,7 +173,10 @@ describe('BudgetDashboardService', () => {
       financialEvent: { findMany: jest.fn() },
       client: { findUnique: jest.fn().mockResolvedValue({ defaultTaxRate: null }) },
     };
-    service = new BudgetDashboardService(prisma as unknown as PrismaService);
+    service = new BudgetDashboardService(
+      prisma as unknown as PrismaService,
+      mockConfigService as unknown as BudgetDashboardConfigService,
+    );
   });
 
   describe('résolution budgetId', () => {
@@ -172,8 +269,8 @@ describe('BudgetDashboardService', () => {
         budgetId,
       } as DashboardQueryDto);
 
-      expect(result.kpis.totalBudget).toBe(1500);
-      expect(result.kpis.remaining).toBe(500);
+      expect(kpiBlock(result).totalBudget).toBe(1500);
+      expect(kpiBlock(result).remaining).toBe(500);
     });
 
     it('consumptionRate = 0 si totalBudget = 0', async () => {
@@ -187,7 +284,7 @@ describe('BudgetDashboardService', () => {
         budgetId,
       } as DashboardQueryDto);
 
-      expect(result.kpis.consumptionRate).toBe(0);
+      expect(kpiBlock(result).consumptionRate).toBe(0);
     });
   });
 
@@ -223,10 +320,11 @@ describe('BudgetDashboardService', () => {
         includeEnvelopes: true,
       } as DashboardQueryDto);
 
-      expect(result.riskEnvelopes).toBeDefined();
-      const low = result.riskEnvelopes!.find((r) => r.riskLevel === 'LOW');
-      const medium = result.riskEnvelopes!.find((r) => r.riskLevel === 'MEDIUM');
-      const high = result.riskEnvelopes!.find((r) => r.riskLevel === 'HIGH');
+      const riskEnvelopes = envelopeListData(result).riskEnvelopes;
+      expect(riskEnvelopes.length).toBeGreaterThan(0);
+      const low = riskEnvelopes.find((r) => r.riskLevel === 'LOW');
+      const medium = riskEnvelopes.find((r) => r.riskLevel === 'MEDIUM');
+      const high = riskEnvelopes.find((r) => r.riskLevel === 'HIGH');
       expect(low).toBeDefined();
       expect(medium).toBeDefined();
       expect(high).toBeDefined();
@@ -238,7 +336,7 @@ describe('BudgetDashboardService', () => {
   });
 
   describe('includeEnvelopes false', () => {
-    it('ne retourne pas topEnvelopes ni riskEnvelopes', async () => {
+    it('vide les listes enveloppes dans le widget ENVELOPE_LIST', async () => {
       prisma.budget.findFirst.mockResolvedValue(mockBudget);
       prisma.budgetExercise.findFirst.mockResolvedValue(mockExercise);
       prisma.budgetLine.findMany.mockResolvedValue([mockLine()]);
@@ -250,15 +348,19 @@ describe('BudgetDashboardService', () => {
         includeEnvelopes: false,
       } as DashboardQueryDto);
 
-      expect(result.topEnvelopes).toBeUndefined();
-      expect(result.riskEnvelopes).toBeUndefined();
-      expect(result.kpis).toBeDefined();
-      expect(result.monthlyTrend).toBeDefined();
+      const env = envelopeListData(result);
+      expect(env.topEnvelopes).toEqual([]);
+      expect(env.riskEnvelopes).toEqual([]);
+      expect(kpiBlock(result)).toBeDefined();
+      const trendWidget = result.widgets.find(
+        (x) => x.type === 'CHART' && x.data && x.data.chartType === 'CONSUMPTION_TREND',
+      );
+      expect(trendWidget?.data && 'series' in trendWidget.data).toBeTruthy();
     });
   });
 
   describe('includeLines false', () => {
-    it('ne retourne pas topBudgetLines', async () => {
+    it('vide les lignes dans LINE_LIST et ALERT_LIST', async () => {
       prisma.budget.findFirst.mockResolvedValue(mockBudget);
       prisma.budgetExercise.findFirst.mockResolvedValue(mockExercise);
       prisma.budgetLine.findMany.mockResolvedValue([mockLine()]);
@@ -270,8 +372,9 @@ describe('BudgetDashboardService', () => {
         includeLines: false,
       } as DashboardQueryDto);
 
-      expect(result.topBudgetLines).toBeUndefined();
-      expect(result.criticalBudgetLines).toBeUndefined();
+      expect(lineListData(result).topBudgetLines).toEqual([]);
+      expect(lineListData(result).criticalBudgetLines).toEqual([]);
+      expect(alertListItems(result).items).toEqual([]);
     });
   });
 
@@ -300,7 +403,7 @@ describe('BudgetDashboardService', () => {
         includeEnvelopes: true,
       } as DashboardQueryDto);
 
-      expect(result.topEnvelopes!.length).toBeLessThanOrEqual(10);
+      expect(envelopeListData(result).topEnvelopes.length).toBeLessThanOrEqual(10);
     });
 
     it('topBudgetLines au plus 10', async () => {
@@ -318,7 +421,7 @@ describe('BudgetDashboardService', () => {
         includeLines: true,
       } as DashboardQueryDto);
 
-      expect(result.topBudgetLines!.length).toBeLessThanOrEqual(10);
+      expect(lineListData(result).topBudgetLines.length).toBeLessThanOrEqual(10);
     });
   });
 
@@ -347,7 +450,7 @@ describe('BudgetDashboardService', () => {
         budgetId,
       } as DashboardQueryDto);
 
-      expect(result.runBuildDistribution).toEqual({
+      expect(chartRunBuild(result)).toEqual({
         run: 100,
         build: 200,
         transverse: 50,
@@ -398,10 +501,11 @@ describe('BudgetDashboardService', () => {
         budgetId,
       } as DashboardQueryDto);
 
-      expect(result.alertsSummary.negativeRemaining).toBe(1);
-      expect(result.alertsSummary.overCommitted).toBe(1);
-      expect(result.alertsSummary.overConsumed).toBe(1);
-      expect(result.alertsSummary.forecastOverBudget).toBe(1);
+      const totals = alertListItems(result).totals;
+      expect(totals?.negativeRemaining).toBe(1);
+      expect(totals?.overCommitted).toBe(1);
+      expect(totals?.overConsumed).toBe(1);
+      expect(totals?.forecastOverBudget).toBe(1);
     });
 
     it('criticalBudgetLines exclut les lignes OK', async () => {
@@ -435,13 +539,10 @@ describe('BudgetDashboardService', () => {
         includeLines: true,
       } as DashboardQueryDto);
 
-      expect(result.criticalBudgetLines!.some((l) => l.lineId === 'ok')).toBe(
-        false,
-      );
-      expect(result.criticalBudgetLines!.some((l) => l.lineId === 'crit')).toBe(
-        true,
-      );
-      expect(result.criticalBudgetLines![0].lineRiskLevel).toBe('CRITICAL');
+      const crit = lineListData(result).criticalBudgetLines;
+      expect(crit.some((l) => l.lineId === 'ok')).toBe(false);
+      expect(crit.some((l) => l.lineId === 'crit')).toBe(true);
+      expect(crit[0].lineRiskLevel).toBe('CRITICAL');
     });
   });
 });

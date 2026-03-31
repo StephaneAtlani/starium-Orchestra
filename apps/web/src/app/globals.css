@@ -19,6 +19,8 @@
   --starium-border: #E6E8EF;
   --starium-text: #1B1B1B;
   --starium-text-muted: #6B7280;
+  /** Avertissement ambre (ex. champ obligatoire manquant) — lisible sur fond clair */
+  --starium-warning-emphasis: #451a03;
 
   /* Shadcn/semantic = même valeur (direct) */
   --background: #F8F9FC;
@@ -50,6 +52,22 @@
   --sidebar-active-bg: #EFE7FB;
   --sidebar-active-foreground: #1B1B1B;
   --sidebar-border: rgba(255, 255, 255, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --starium-warning-emphasis: #d97706;
+  }
+}
+
+/* Thème sombre explicite (classe sur <html>, ex. next-themes) */
+html.dark {
+  --starium-warning-emphasis: #d97706;
+}
+
+/* Texte d’avertissement ambre (plus foncé que les tons “alerte” clairs) */
+.starium-text-warning-emphasis {
+  color: var(--starium-warning-emphasis);
 }
 
 /* Shell : classes sémantiques (variables :root) */

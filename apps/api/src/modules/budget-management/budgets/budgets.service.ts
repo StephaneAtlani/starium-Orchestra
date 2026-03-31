@@ -51,6 +51,7 @@ export class BudgetsService {
         take: limit,
         include: {
           exercise: { select: { name: true, code: true } },
+          owner: { select: { firstName: true, lastName: true, email: true } },
         },
       }),
       this.prisma.budget.count({ where }),
@@ -69,6 +70,7 @@ export class BudgetsService {
       where: { id, clientId },
       include: {
         exercise: { select: { name: true, code: true } },
+        owner: { select: { firstName: true, lastName: true, email: true } },
       },
     });
     if (!budget) {
@@ -137,6 +139,7 @@ export class BudgetsService {
       },
       include: {
         exercise: { select: { name: true, code: true } },
+        owner: { select: { firstName: true, lastName: true, email: true } },
       },
     });
 
@@ -241,6 +244,7 @@ export class BudgetsService {
       },
       include: {
         exercise: { select: { name: true, code: true } },
+        owner: { select: { firstName: true, lastName: true, email: true } },
       },
     });
 
@@ -287,21 +291,33 @@ export class BudgetsService {
 }
 
 type BudgetRow = Awaited<ReturnType<PrismaService['budget']['findFirst']>>;
-type BudgetWithNumbers = Omit<NonNullable<BudgetRow>, 'defaultTaxRate' | 'exercise'> & {
+type BudgetWithNumbers = Omit<NonNullable<BudgetRow>, 'defaultTaxRate' | 'exercise' | 'owner'> & {
   defaultTaxRate: number | null;
   exerciseName?: string;
   exerciseCode?: string | null;
+  /** Libellé affichable (prénom + nom ou email) — dérivé de `owner` en base. */
+  ownerUserName: string | null;
 };
+
+function formatOwnerDisplayName(
+  owner: { firstName: string | null; lastName: string | null; email: string } | null | undefined,
+): string | null {
+  if (!owner) return null;
+  const name = [owner.firstName, owner.lastName].filter(Boolean).join(' ').trim();
+  return name || owner.email;
+}
 
 function toResponse(
   row: NonNullable<BudgetRow> & {
     exercise?: { name: string; code: string } | null;
+    owner?: { firstName: string | null; lastName: string | null; email: string } | null;
   },
 ): BudgetWithNumbers {
-  const { exercise, defaultTaxRate, ...rest } = row;
+  const { exercise, defaultTaxRate, owner, ...rest } = row;
   return {
     ...rest,
     defaultTaxRate: defaultTaxRate ? Number(defaultTaxRate) : null,
+    ownerUserName: formatOwnerDisplayName(owner),
     ...(exercise && {
       exerciseName: exercise.name,
       exerciseCode: exercise.code,

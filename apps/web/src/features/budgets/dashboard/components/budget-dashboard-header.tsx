@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { LayoutDashboard, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -33,6 +34,10 @@ export function BudgetDashboardHeader({
   taxDisplayMode,
   onTaxDisplayModeChange,
   taxDisplayLoading,
+  onCustomize,
+  useUserOverrides,
+  onUseUserOverridesModeChange,
+  forecastReportingHref,
 }: {
   exercises: BudgetExerciseSummary[];
   budgets: BudgetSummary[];
@@ -50,6 +55,12 @@ export function BudgetDashboardHeader({
   taxDisplayMode: TaxDisplayMode;
   onTaxDisplayModeChange: (next: TaxDisplayMode) => void;
   taxDisplayLoading?: boolean;
+  onCustomize?: () => void;
+  /** true => "Personnaliser", false => "Global (client)". */
+  useUserOverrides: boolean;
+  onUseUserOverridesModeChange: (next: boolean) => void;
+  /** RFC-FE-BUD-030 — lien vers `/budgets/:id/reporting` si un budget réel est sélectionné. */
+  forecastReportingHref?: string;
 }) {
   return (
     <header className="space-y-6">
@@ -74,7 +85,9 @@ export function BudgetDashboardHeader({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
+            <div className="flex flex-wrap items-center gap-2">
+
             <Select
               value={exerciseId ?? ''}
               onValueChange={(v) => {
@@ -159,6 +172,43 @@ export function BudgetDashboardHeader({
             >
               Ouvrir les budgets
             </Link>
+
+            {forecastReportingHref ? (
+              <Link
+                href={forecastReportingHref}
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted/80"
+              >
+                Forecast & comparaison
+              </Link>
+            ) : null}
+
+            <span className="text-sm text-muted-foreground">{'Global'}</span>
+            <Switch
+              checked={useUserOverrides}
+              onCheckedChange={onUseUserOverridesModeChange}
+              aria-label="Mode cockpit budget"
+            />
+            <span className="text-sm">{'Personnalisé'}</span>
+
+            {onCustomize && useUserOverrides ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-border bg-background shadow-sm whitespace-nowrap gap-2"
+                onClick={onCustomize}
+              >
+                <Settings2 className="size-4" />
+                Personnaliser
+              </Button>
+            ) : null}
+            </div>
+            {useUserOverrides ? (
+              <p className="max-w-md text-right text-xs leading-relaxed text-muted-foreground">
+                En mode personnalisé, l&apos;exercice et le budget choisis ici sont
+                mémorisés comme défaut pour votre compte (séparés du mode Global).
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

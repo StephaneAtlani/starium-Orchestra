@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetSnapshotStatus, Prisma } from '@prisma/client';
+import { BudgetSnapshotStatus, Prisma, type BudgetSnapshot } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -59,6 +59,7 @@ export interface BudgetSnapshotSummary {
   totalConsumedAmount: number;
   totalRemainingAmount: number;
   createdByUserId: string | null;
+  createdByLabel: string | null;
   createdAt: string;
 }
 
@@ -176,6 +177,13 @@ export class BudgetSnapshotsService {
     dto: CreateBudgetSnapshotDto,
     context?: SnapshotAuditContext,
   ): Promise<BudgetSnapshotSummary> {
+    const resolvedName = (dto.name ?? dto.label ?? '').trim();
+    if (!resolvedName) {
+      throw new BadRequestException(
+        'Either "name" or "label" is required to create a budget snapshot',
+      );
+    }
+
     const budget = await this.prisma.budget.findFirst({
       where: { id: dto.budgetId, clientId },
       include: { exercise: true },
@@ -226,7 +234,7 @@ export class BudgetSnapshotsService {
               clientId,
               budgetId: budget.id,
               exerciseId: budget.exerciseId,
-              name: dto.name,
+              name: resolvedName,
               code,
               description: dto.description ?? null,
               snapshotDate,
@@ -279,7 +287,7 @@ export class BudgetSnapshotsService {
           newValue: {
             budgetId: snapshot.budgetId,
             snapshotDate: snapshot.snapshotDate.toISOString(),
-            name: snapshot.name,
+            name: resolvedName,
             code: snapshot.code,
             linesCount: lines.length,
             totalInitialAmount: totalInitial,
@@ -328,6 +336,11 @@ export class BudgetSnapshotsService {
         orderBy: [{ snapshotDate: 'desc' }, { createdAt: 'desc' }],
         skip: offset,
         take: limit,
+        include: {
+          createdByUser: {
+            select: { firstName: true, lastName: true, email: true },
+          },
+        },
       }),
       this.prisma.budgetSnapshot.count({ where }),
     ]);
@@ -342,14 +355,30 @@ export class BudgetSnapshotsService {
   async getById(
     clientId: string,
     id: string,
+    context?: SnapshotAuditContext,
   ): Promise<BudgetSnapshotDetail> {
     const snapshot = await this.prisma.budgetSnapshot.findFirst({
       where: { id, clientId },
-      include: { lines: true },
+      include: {
+        lines: true,
+        createdByUser: {
+          select: { firstName: true, lastName: true, email: true },
+        },
+      },
     });
     if (!snapshot) {
       throw new NotFoundException('Budget snapshot not found');
     }
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: 'budget_snapshot.viewed',
+      resourceType: 'budget_snapshot',
+      resourceId: snapshot.id,
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
     return toDetail(snapshot);
   }
 
@@ -445,9 +474,16 @@ export class BudgetSnapshotsService {
   }
 }
 
-function toSummary(
-  row: Prisma.BudgetSnapshotGetPayload<object>,
-): BudgetSnapshotSummary {
+/** Snapshot seul (create) ou avec `createdByUser` (list / detail). */
+type BudgetSnapshotRowForSummary = BudgetSnapshot & {
+  createdByUser?: {
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
+};
+
+function toSummary(row: BudgetSnapshotRowForSummary): BudgetSnapshotSummary {
   return {
     id: row.id,
     budgetId: row.budgetId,
@@ -468,12 +504,18 @@ function toSummary(
     totalConsumedAmount: toNum(row.totalConsumedAmount),
     totalRemainingAmount: toNum(row.totalRemainingAmount),
     createdByUserId: row.createdByUserId,
+    createdByLabel: resolveCreatedByLabel(row.createdByUser),
     createdAt: row.createdAt.toISOString(),
   };
 }
 
 function toDetail(
-  row: Prisma.BudgetSnapshotGetPayload<{ include: { lines: true } }>,
+  row: Prisma.BudgetSnapshotGetPayload<{
+    include: {
+      lines: true;
+      createdByUser: { select: { firstName: true; lastName: true; email: true } };
+    };
+  }>,
 ): BudgetSnapshotDetail {
   const summary = toSummary(row);
   return {
@@ -503,4 +545,23 @@ function toDetail(
       remainingAmount: toNum(l.remainingAmount),
     })),
   };
+}
+
+function resolveCreatedByLabel(
+  createdByUser:
+    | {
+        firstName: string | null;
+        lastName: string | null;
+        email: string;
+      }
+    | null
+    | undefined,
+): string | null {
+  if (!createdByUser) return null;
+  const fullName = [createdByUser.firstName, createdByUser.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  if (fullName) return fullName;
+  return createdByUser.email || null;
 }

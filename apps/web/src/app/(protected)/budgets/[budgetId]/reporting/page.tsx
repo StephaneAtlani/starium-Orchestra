@@ -3,9 +3,7 @@
 import React from 'react';
 import { useParams } from 'next/navigation';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
-import { PageContainer } from '@/components/layout/page-container';
-import { BudgetPageHeader } from '@/features/budgets/components/budget-page-header';
-import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
+import { BudgetReportingForecastPage } from '@/features/budgets/forecast/budget-reporting-forecast-page';
 
 export default function BudgetReportingPage() {
   const params = useParams();
@@ -13,16 +11,11 @@ export default function BudgetReportingPage() {
 
   return (
     <RequireActiveClient>
-      <PageContainer>
-        <BudgetPageHeader
-          title="Reporting"
-          description={`Budget ${budgetId} — reporting (squelette).`}
-        />
-        <BudgetEmptyState
-          title="Contenu à venir"
-          description="Le reporting budget sera implémenté dans une RFC dédiée."
-        />
-      </PageContainer>
+      {budgetId ? (
+        <BudgetReportingForecastPage budgetId={budgetId} />
+      ) : (
+        <div className="p-6 text-sm text-muted-foreground">Budget introuvable.</div>
+      )}
     </RequireActiveClient>
   );
 }

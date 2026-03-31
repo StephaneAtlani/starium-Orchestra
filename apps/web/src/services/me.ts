@@ -9,6 +9,8 @@ export interface MeProfile {
   office: string | null;
   hasAvatar: boolean;
   platformRole: 'PLATFORM_ADMIN' | null;
+  /** false si la connexion email/mot de passe est désactivée (ex. après connexion Microsoft). */
+  passwordLoginEnabled?: boolean;
 }
 
 export type UpdateMyProfilePayload = {
@@ -47,6 +49,10 @@ export interface MeEmailIdentity {
   replyToEmail: string | null;
   isVerified: boolean;
   isActive: boolean;
+  /** Même adresse que l’e-mail de connexion au compte (non modifiable ici). */
+  isAccountPrimary: boolean;
+  /** Géré par la synchro annuaire (AD DS). */
+  directoryManaged: boolean;
   createdAt: string;
   updatedAt: string;
 }

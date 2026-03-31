@@ -210,16 +210,10 @@ function rootTaskId(
 
 /** Carte id tâche → id de la racine (premier ancêtre sans parent). */
 export function buildTaskRootIdMap(
-  tasks: Pick<ProjectTaskApi, 'id' | 'parentTaskId'>[],
+  tasks: Pick<ProjectTaskApi, 'id' | 'phaseId'>[],
 ): Map<string, string> {
-  const parentById = new Map<string, string | null>();
-  for (const t of tasks) {
-    parentById.set(t.id, t.parentTaskId ?? null);
-  }
   const out = new Map<string, string>();
-  for (const t of tasks) {
-    out.set(t.id, rootTaskId(t.id, parentById));
-  }
+  for (const t of tasks) out.set(t.id, t.phaseId ?? t.id);
   return out;
 }
 

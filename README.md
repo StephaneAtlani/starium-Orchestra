@@ -80,6 +80,7 @@ docker compose -f docker-compose.dev.yml up -d --build
 
 Important en dev Docker:
 - Si `apps/api/package.json` ou `apps/api/prisma/schema.prisma` change, redémarrer `api-dev` pour resynchroniser les dépendances et régénérer le client Prisma.
+- **Web (`web-dev`)** : les rewrites Next (`/api/*` → Nest) utilisent **`INTERNAL_API_URL`** (URL vue par le conteneur, ex. `http://api-dev:3001`). Le bundle expose **`NEXT_PUBLIC_API_URL`** au navigateur (ex. `http://localhost:3001` pour joindre l’API publiée sur l’hôte). Voir `docker-compose.dev.yml` — ne pas mettre le hostname Docker dans `NEXT_PUBLIC_*` si le navigateur est sur la machine hôte.
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d --force-recreate api-dev

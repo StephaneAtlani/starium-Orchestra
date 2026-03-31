@@ -1,5 +1,6 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
+import type { Paginated, ResourceListItem } from '@/services/resources';
 import type {
   CreateRetroplanMacroPayload,
   PaginatedList,
@@ -8,18 +9,23 @@ import type {
   AssignableUsersResponse,
   ProjectAssignableUser,
   ProjectDetail,
+  ProjectDocumentApi,
   ProjectMilestoneApi,
   ProjectRiskApi,
+  RiskLinkedActionPlanTaskApi,
   ProjectSheet,
   ProjectTaskApi,
+  ProjectTaskPhaseApi,
   ProjectTeamMemberApi,
   ProjectTeamRoleApi,
   ProjectsListResponse,
+  PortfolioGanttResponse,
   ProjectsPortfolioSummary,
   ProjectSheetDecisionSnapshotDetail,
   ProjectSheetDecisionSnapshotListResponse,
   ProjectPortfolioCategoryNode,
   ProjectTag,
+  RiskTaxonomyDomainApi,
   UpdateProjectSheetPayload,
 } from '../types/project.types';
 
@@ -53,6 +59,37 @@ export async function listAssignableUsers(
     return { users: raw as ProjectAssignableUser[], freePersons: [] };
   }
   return raw as AssignableUsersResponse;
+}
+
+/** Personnes (Resource HUMAN) pour sélecteur tâche / plan — `projects.read` (pas `resources.read`). */
+export async function listHumanResourcesForTaskPickers(
+  authFetch: AuthFetch,
+): Promise<Paginated<ResourceListItem>> {
+  const res = await authFetch(`${BASE}/options/human-resources`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<Paginated<ResourceListItem>>;
+}
+
+export async function getPortfolioGantt(
+  authFetch: AuthFetch,
+  params?: {
+    search?: string;
+    kind?: string;
+    status?: string;
+    priority?: string;
+    criticality?: string;
+    portfolioCategoryId?: string;
+    computedHealth?: 'GREEN' | 'ORANGE' | 'RED';
+    myRole?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    atRiskOnly?: boolean;
+    myProjectsOnly?: boolean;
+  },
+): Promise<PortfolioGanttResponse> {
+  const res = await authFetch(`${BASE}/portfolio-gantt${qs(params)}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PortfolioGanttResponse>;
 }
 
 export async function listProjects(
@@ -267,6 +304,13 @@ export async function listTasks(
   return res.json() as Promise<PaginatedList<ProjectTaskApi>>;
 }
 
+export type ProjectTaskChecklistItemPayload = {
+  id?: string;
+  title: string;
+  isChecked?: boolean;
+  sortOrder?: number;
+};
+
 export type CreateProjectTaskPayload = {
   name: string;
   description?: string;
@@ -278,12 +322,15 @@ export type CreateProjectTaskPayload = {
   plannedEndDate?: string;
   actualStartDate?: string;
   actualEndDate?: string;
-  parentTaskId?: string | null;
+  phaseId?: string | null;
   dependsOnTaskId?: string | null;
   dependencyType?: string | null;
   ownerUserId?: string | null;
   budgetLineId?: string | null;
+  bucketId?: string | null;
   sortOrder?: number;
+  checklistItems?: ProjectTaskChecklistItemPayload[];
+  taskLabelIds?: string[];
 };
 
 export type UpdateProjectTaskPayload = Partial<CreateProjectTaskPayload> & {
@@ -293,6 +340,7 @@ export type UpdateProjectTaskPayload = Partial<CreateProjectTaskPayload> & {
   plannedEndDate?: string | null;
   actualStartDate?: string | null;
   actualEndDate?: string | null;
+  checklistItems?: ProjectTaskChecklistItemPayload[];
 };
 
 export async function createProjectTask(
@@ -327,16 +375,110 @@ export async function updateProjectTask(
 export async function listRisks(authFetch: AuthFetch, projectId: string) {
   const res = await authFetch(`${BASE}/${projectId}/risks`);
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json() as Promise<unknown[]>;
+  return res.json() as Promise<ProjectRiskApi[]>;
+}
+
+export type RiskTaxonomyCatalogResponse = {
+  domains: RiskTaxonomyDomainApi[];
+};
+
+export async function getRiskTaxonomyCatalog(
+  authFetch: AuthFetch,
+): Promise<RiskTaxonomyCatalogResponse> {
+  const res = await authFetch('/api/risk-taxonomy/catalog');
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<RiskTaxonomyCatalogResponse>;
 }
 
 export type CreateProjectRiskPayload = {
+  /** Rattachement — `POST/PATCH /api/risks` ; `null` = hors projet. */
+  projectId?: string | null;
   title: string;
-  description?: string;
-  probability: 'LOW' | 'MEDIUM' | 'HIGH';
-  impact: 'LOW' | 'MEDIUM' | 'HIGH';
+  description: string;
+  code?: string;
+  category?: string;
+  riskTypeId: string;
+  threatSource: string;
+  businessImpact: string;
+  likelihoodJustification?: string;
+  impactCategory?: string | null;
+  probability: number;
+  impact: number;
+  mitigationPlan?: string;
+  contingencyPlan?: string;
+  ownerUserId?: string | null;
   status?: string;
+  reviewDate?: string | null;
+  dueDate?: string | null;
+  detectedAt?: string | null;
+  complianceRequirementId?: string | null;
+  treatmentStrategy: string;
+  residualRiskLevel?: string | null;
+  residualJustification?: string | null;
 };
+
+export type UpdateProjectRiskPayload = Partial<CreateProjectRiskPayload> & {
+  /** `PATCH /api/risks/:id` — détacher avec `null`. */
+  projectId?: string | null;
+};
+
+const RISKS_CLIENT_BASE = '/api/risks';
+
+export async function listClientRisks(authFetch: AuthFetch): Promise<ProjectRiskApi[]> {
+  const res = await authFetch(RISKS_CLIENT_BASE);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi[]>;
+}
+
+export async function createClientRisk(
+  authFetch: AuthFetch,
+  body: CreateProjectRiskPayload,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(RISKS_CLIENT_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function getClientRisk(authFetch: AuthFetch, riskId: string): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${RISKS_CLIENT_BASE}/${riskId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+/** Tâches plan d’actions liées à ce risque (EBIOS — lien « voir l’action »). */
+export async function listRiskActionPlanTasks(
+  authFetch: AuthFetch,
+  riskId: string,
+): Promise<{ items: RiskLinkedActionPlanTaskApi[] }> {
+  const res = await authFetch(`${RISKS_CLIENT_BASE}/${riskId}/action-plan-tasks`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ items: RiskLinkedActionPlanTaskApi[] }>;
+}
+
+export async function updateClientRisk(
+  authFetch: AuthFetch,
+  riskId: string,
+  body: UpdateProjectRiskPayload,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${RISKS_CLIENT_BASE}/${riskId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function deleteClientRisk(authFetch: AuthFetch, riskId: string): Promise<void> {
+  const res = await authFetch(`${RISKS_CLIENT_BASE}/${riskId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+}
 
 export async function createProjectRisk(
   authFetch: AuthFetch,
@@ -347,6 +489,46 @@ export async function createProjectRisk(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function getProjectRisk(
+  authFetch: AuthFetch,
+  projectId: string,
+  riskId: string,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${BASE}/${projectId}/risks/${riskId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function updateProjectRisk(
+  authFetch: AuthFetch,
+  projectId: string,
+  riskId: string,
+  body: UpdateProjectRiskPayload,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${BASE}/${projectId}/risks/${riskId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectRiskApi>;
+}
+
+export async function updateProjectRiskStatus(
+  authFetch: AuthFetch,
+  projectId: string,
+  riskId: string,
+  status: string,
+): Promise<ProjectRiskApi> {
+  const res = await authFetch(`${BASE}/${projectId}/risks/${riskId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectRiskApi>;
@@ -372,6 +554,15 @@ export async function listMilestones(
   return res.json() as Promise<PaginatedList<ProjectMilestoneApi>>;
 }
 
+export async function listProjectDocuments(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectDocumentApi[]> {
+  const res = await authFetch(`${BASE}/${projectId}/documents`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectDocumentApi[]>;
+}
+
 export type CreateProjectMilestonePayload = {
   name: string;
   description?: string;
@@ -380,8 +571,10 @@ export type CreateProjectMilestonePayload = {
   achievedDate?: string;
   status?: string;
   linkedTaskId?: string | null;
+  phaseId?: string | null;
   ownerUserId?: string | null;
   sortOrder?: number;
+  milestoneLabelIds?: string[];
 };
 
 export type UpdateProjectMilestonePayload = Partial<CreateProjectMilestonePayload> & {
@@ -419,14 +612,58 @@ export async function updateProjectMilestone(
   return res.json() as Promise<ProjectMilestoneApi>;
 }
 
+/** Tâche dans le payload Gantt (sous-ensemble des champs liste + isLate optionnel API). */
+export type ProjectGanttTaskPayload = {
+  id: string;
+  phaseId: string | null;
+  dependsOnTaskId: string | null;
+  dependencyType: string | null;
+  name: string;
+  /** Description (formulaire planning) — renvoyée par GET gantt pour infobulles. */
+  description?: string | null;
+  status: string;
+  priority: string;
+  progress: number;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
+  sortOrder: number;
+  createdAt: string;
+  isLate?: boolean;
+};
+
 export type ProjectGanttPayload = {
   projectId: string;
-  tasks: Array<{
+  /** Canonique — fallback normalisé si absent (rétrocompat). */
+  project?: {
     id: string;
-    parentTaskId: string | null;
+    name: string;
+    status: string;
+    plannedStartDate: string | null;
+    plannedEndDate: string | null;
+    /** Objectif métier (pourquoi) — aligné fiche projet. */
+    businessProblem?: string | null;
+  };
+  phases: Array<{
+    id: string;
+    name: string;
+    sortOrder: number;
+    derivedStartDate: string | null;
+    derivedEndDate: string | null;
+    derivedDurationDays: number | null;
+    derivedProgress: number | null;
+    tasks: ProjectGanttTaskPayload[];
+  }>;
+  /** Legacy : liste plate (ordre Prisma) — fusionnée avec phases dans `normalizeProjectGanttPayload`. */
+  tasks: ProjectGanttTaskPayload[];
+  ungroupedTasks: Array<{
+    id: string;
+    phaseId: null;
     dependsOnTaskId: string | null;
     dependencyType: string | null;
     name: string;
+    description?: string | null;
     status: string;
     priority: string;
     progress: number;
@@ -436,6 +673,7 @@ export type ProjectGanttPayload = {
     actualEndDate: string | null;
     sortOrder: number;
     createdAt: string;
+    isLate?: boolean;
   }>;
   milestones: Array<{
     id: string;
@@ -443,9 +681,34 @@ export type ProjectGanttPayload = {
     status: string;
     targetDate: string;
     linkedTaskId: string | null;
+    phaseId: string | null;
     sortOrder: number;
+    isLate?: boolean;
   }>;
 };
+
+export async function listProjectTaskPhases(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectTaskPhaseApi[]> {
+  const res = await authFetch(`${BASE}/${projectId}/task-phases`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTaskPhaseApi[]>;
+}
+
+export async function createProjectTaskPhase(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: { name: string; sortOrder?: number },
+): Promise<ProjectTaskPhaseApi> {
+  const res = await authFetch(`${BASE}/${projectId}/task-phases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTaskPhaseApi>;
+}
 
 export async function getProjectGantt(
   authFetch: AuthFetch,
@@ -626,4 +889,90 @@ export async function removeProjectTeamMember(
     method: 'DELETE',
   });
   if (!res.ok) throw await parseApiFormError(res);
+}
+
+const TAXONOMY = '/api/risk-taxonomy';
+
+export type RiskTaxonomyAdminDomain = {
+  id: string;
+  clientId: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  types: Array<{
+    id: string;
+    clientId: string;
+    domainId: string;
+    code: string;
+    name: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+};
+
+export async function listRiskTaxonomyAdminDomains(
+  authFetch: AuthFetch,
+): Promise<RiskTaxonomyAdminDomain[]> {
+  const res = await authFetch(`${TAXONOMY}/admin/domains`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<RiskTaxonomyAdminDomain[]>;
+}
+
+export async function createRiskTaxonomyDomain(
+  authFetch: AuthFetch,
+  body: { code: string; name: string; description?: string | null; isActive?: boolean },
+): Promise<{ id: string }> {
+  const res = await authFetch(`${TAXONOMY}/admin/domains`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function updateRiskTaxonomyDomain(
+  authFetch: AuthFetch,
+  domainId: string,
+  body: Partial<{ code: string; name: string; description: string | null; isActive: boolean }>,
+): Promise<unknown> {
+  const res = await authFetch(`${TAXONOMY}/admin/domains/${domainId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function createRiskTaxonomyType(
+  authFetch: AuthFetch,
+  domainId: string,
+  body: { code: string; name: string; isActive?: boolean },
+): Promise<{ id: string }> {
+  const res = await authFetch(`${TAXONOMY}/admin/domains/${domainId}/types`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function updateRiskTaxonomyType(
+  authFetch: AuthFetch,
+  typeId: string,
+  body: Partial<{ code: string; name: string; isActive: boolean }>,
+): Promise<unknown> {
+  const res = await authFetch(`${TAXONOMY}/admin/types/${typeId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
 }

@@ -45,8 +45,8 @@ export default function ProtectedLayout({
       return;
     }
 
-    // Routes plateforme : ne dépendent pas du client actif.
-    if (pathname.startsWith('/admin')) {
+    // Routes plateforme / outils dev : ne dépendent pas du client actif.
+    if (pathname.startsWith('/admin') || pathname.startsWith('/rbac-test')) {
       bootstrapDone.current = true;
       setBootstrapResolved(true);
       return;

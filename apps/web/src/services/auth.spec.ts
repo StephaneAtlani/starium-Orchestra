@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { loginApi } from './auth';
+import { getMicrosoftSsoAuthorizationUrlApi, loginApi } from './auth';
 
 describe('loginApi', () => {
   beforeEach(() => {
@@ -38,5 +38,32 @@ describe('loginApi', () => {
       challengeId: 'ch-1',
       expiresAt: '2030-01-01T00:00:00.000Z',
     });
+  });
+});
+
+describe('getMicrosoftSsoAuthorizationUrlApi', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('retourne l url d authorization Microsoft', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+            }),
+        }),
+      ) as unknown as typeof fetch,
+    );
+
+    const result = await getMicrosoftSsoAuthorizationUrlApi();
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.authorizationUrl).toContain('login.microsoftonline.com');
+    }
   });
 });

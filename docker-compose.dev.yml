@@ -69,6 +69,8 @@ services:
       - ./apps/web/package.json:/app/apps/web/package.json:ro
       - ./packages/types/package.json:/app/packages/types/package.json:ro
       - ./packages/config/package.json:/app/packages/config/package.json:ro
+      # Package workspace (RFC-023) : sans montage, l’image peut être vieille → pnpm ne voit pas le projet (TS2307).
+      - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
       - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
       - ./apps/api/src:/app/apps/api/src
       - ./apps/api/prisma:/app/apps/api/prisma
@@ -92,8 +94,12 @@ services:
       dockerfile: apps/web/Dockerfile.dev
     restart: unless-stopped
     environment:
-      # Proxy /api/* vers l’API depuis le conteneur Docker.
-      NEXT_PUBLIC_API_URL: http://api-dev:3001
+      # Ligne de requête OAuth (code=…) peut dépassir 16 Ko (défaut Node) → « invalid response ».
+      NODE_OPTIONS: "--max-http-header-size=262144"
+      # Client (navigateur) : API publiée sur l’hôte (ports api-dev 3001:3001). Ne pas mettre le hostname Docker ici.
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      # Serveur Next (rewrites /api/* → Nest) : URL atteignable depuis le conteneur web uniquement.
+      INTERNAL_API_URL: http://api-dev:3001
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
     ports:
@@ -101,6 +107,7 @@ services:
     volumes:
       - ./apps/web:/app/apps/web
       - web_next_cache:/app/apps/web/.next
+      - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
     depends_on:
       api-dev:
         condition: service_healthy

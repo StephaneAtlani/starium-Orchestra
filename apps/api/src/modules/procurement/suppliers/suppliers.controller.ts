@@ -3,12 +3,17 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
@@ -22,6 +27,7 @@ import { ListSuppliersQueryDto } from './dto/list-suppliers.query.dto';
 import { QuickCreateSupplierDto } from './dto/quick-create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { SuppliersService } from './suppliers.service';
+import { MAX_SUPPLIER_LOGO_BYTES } from './suppliers-logo.constants';
 
 @Controller('suppliers')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -35,6 +41,21 @@ export class SuppliersController {
     @Query() query: ListSuppliersQueryDto,
   ) {
     return this.suppliers.list(clientId!, query);
+  }
+
+  @Get('dashboard')
+  @RequirePermissions('procurement.read')
+  dashboard(@ActiveClientId() clientId: string | undefined) {
+    return this.suppliers.getDashboardStats(clientId!);
+  }
+
+  @Get(':id')
+  @RequirePermissions('procurement.read')
+  getById(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.suppliers.findById(clientId!, id);
   }
 
   @Post()
@@ -69,6 +90,42 @@ export class SuppliersController {
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     return this.suppliers.update(clientId!, id, dto, { actorUserId, meta });
+  }
+
+  @Get(':id/logo')
+  @RequirePermissions('procurement.read')
+  getLogo(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.suppliers.getLogoFile(clientId!, id);
+  }
+
+  @Post(':id/logo')
+  @RequirePermissions('procurement.update')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_SUPPLIER_LOGO_BYTES } }),
+  )
+  uploadLogo(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.suppliers.saveLogo(clientId!, id, file, { actorUserId, meta });
+  }
+
+  @Delete(':id/logo')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('procurement.update')
+  removeLogo(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.suppliers.deleteLogo(clientId!, id, { actorUserId, meta });
   }
 
   @Delete(':id')

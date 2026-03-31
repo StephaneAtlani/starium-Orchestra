@@ -77,8 +77,8 @@ Détail des contrats et codes d’erreur : [API.md §9–12](../API.md#9-gestion
 
 Section **« Administration client »** (visible uniquement si `activeClient?.role === 'CLIENT_ADMIN'`) :
 
-- **Administration** → `/client/administration` (page d’accueil avec deux cartes : Membres, Rôles)
-- Depuis cette page : **Membres** → `/client/members`, **Rôles** → `/client/roles`
+- **Administration** → `/client/administration` (page d’accueil : cartes Membres, Rôles, **Microsoft 365**)
+- Depuis cette page : **Membres** → `/client/members`, **Rôles** → `/client/roles`, **Microsoft 365** → `/client/administration/microsoft-365` (configuration OAuth par client Starium, alignée [RFC-PROJ-INT-003](../RFC/RFC-PROJ-INT-003%20—%20Auth%20Microsoft%20OAuth.md))
 
 Config : [apps/web/src/config/navigation.ts](../../apps/web/src/config/navigation.ts).
 
@@ -123,8 +123,8 @@ apps/web/src/features/client-rbac/
 
 La logique est centralisée dans **`getXClientIdHeaderValue`** ([apps/web/src/lib/api-client.ts](../../apps/web/src/lib/api-client.ts)) :
 
-- **Règle** : toutes les URLs sous `/api/` reçoivent le header `X-Client-Id` si un client actif est défini, **sauf** les routes exclues (auth, me, platform, clients).
-- **Exclusions** : `/api/auth/`, `/api/me`, `/api/me/clients`, `/api/me/default-client`, `/api/platform/`, `/api/clients`.
+- **Règle** : toutes les URLs sous `/api/` reçoivent le header `X-Client-Id` si un client actif est défini, **sauf** les routes exclues (auth, me, platform, clients plateforme).
+- **Exclusions** : `/api/auth/`, `/api/me`, `/api/me/clients`, `/api/me/default-client`, `/api/platform/`, et **pour les clients** : `/api/clients` (liste / création) et `/api/clients/:id/...` **sauf** le préfixe **`/api/clients/active/`** (routes « client actif » : elles **envoient** `X-Client-Id`, requis par `ActiveClientGuard`).
 - Utilisée par `apiFetch` et par **createAuthenticatedFetch** ([authenticated-fetch.ts](../../apps/web/src/lib/authenticated-fetch.ts)), qui est le fetch utilisé par les appels métier.
 
 ---

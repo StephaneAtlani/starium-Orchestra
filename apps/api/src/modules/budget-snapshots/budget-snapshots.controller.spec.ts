@@ -27,6 +27,8 @@ describe('BudgetSnapshotsController', () => {
     totalCommittedAmount: 60000,
     totalConsumedAmount: 22000,
     totalRemainingAmount: 23000,
+    createdByUserId: 'user-1',
+    createdByLabel: 'Alice Martin',
     createdAt: '2026-03-14T12:00:00.000Z',
   };
 
@@ -107,9 +109,12 @@ describe('BudgetSnapshotsController', () => {
       const detail = { ...mockSummary, totals: {}, lines: [] };
       (service.getById as jest.Mock).mockResolvedValue(detail);
 
-      const result = await controller.getById(clientId, 'snap-1');
+      const result = await controller.getById(clientId, 'snap-1', 'user-2', {});
 
-      expect(service.getById).toHaveBeenCalledWith(clientId, 'snap-1');
+      expect(service.getById).toHaveBeenCalledWith(clientId, 'snap-1', {
+        actorUserId: 'user-2',
+        meta: {},
+      });
       expect(result).toEqual(detail);
     });
 
@@ -119,7 +124,7 @@ describe('BudgetSnapshotsController', () => {
       );
 
       await expect(
-        controller.getById(clientId, 'absent'),
+        controller.getById(clientId, 'absent', 'user-2', {}),
       ).rejects.toThrow(NotFoundException);
     });
   });

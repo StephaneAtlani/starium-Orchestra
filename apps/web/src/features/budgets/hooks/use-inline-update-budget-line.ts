@@ -8,7 +8,11 @@ import { budgetQueryKeys } from '../lib/budget-query-keys';
 import { updateLine, type UpdateLinePayload } from '../api/budget-management.api';
 import type { ApiFormError } from '../api/types';
 
-export function useInlineUpdateBudgetLine(lineId: string | null, budgetId: string | null) {
+export function useInlineUpdateBudgetLine(
+  lineId: string | null,
+  budgetId: string | null,
+  options?: { silentSuccess?: boolean },
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const queryClient = useQueryClient();
@@ -28,12 +32,33 @@ export function useInlineUpdateBudgetLine(lineId: string | null, budgetId: strin
           queryClient.invalidateQueries({
             queryKey: budgetQueryKeys.budgetDetail(clientId, budgetId),
           }),
+          queryClient.invalidateQueries({
+            queryKey: budgetQueryKeys.budgetSummary(clientId, budgetId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: budgetQueryKeys.dashboardAll(clientId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: budgetQueryKeys.budgetEnvelopeLinesAll(clientId),
+          }),
+          lineId
+            ? queryClient.invalidateQueries({
+                queryKey: budgetQueryKeys.budgetLineDetail(clientId, lineId),
+              })
+            : Promise.resolve(),
+          lineId
+            ? queryClient.invalidateQueries({
+                queryKey: budgetQueryKeys.timeline(clientId, lineId),
+              })
+            : Promise.resolve(),
         ]);
       }
-      toast.success('Ligne mise à jour.');
+      if (!options?.silentSuccess) {
+        toast.success('Ligne mise à jour.');
+      }
     },
     onError: (err: ApiFormError) => {
-      throw err;
+      toast.error(err?.message ?? 'Impossible de mettre à jour la ligne.');
     },
   });
 }

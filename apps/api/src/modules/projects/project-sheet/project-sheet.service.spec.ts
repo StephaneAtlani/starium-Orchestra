@@ -4,8 +4,7 @@ import {
   ProjectArbitrationLevelStatus,
   ProjectArbitrationStatus,
   ProjectCopilRecommendation,
-  ProjectRiskImpact,
-  ProjectRiskProbability,
+  ProjectRiskCriticality,
   ProjectRiskStatus,
 } from '@prisma/client';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
@@ -124,8 +123,10 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
       });
       const risks = [
         {
-          probability: ProjectRiskProbability.HIGH,
-          impact: ProjectRiskImpact.HIGH,
+          criticalityLevel: 'CRITICAL' as ProjectRiskCriticality,
+          criticalityScore: 20,
+          probability: 5,
+          impact: 4,
           status: ProjectRiskStatus.OPEN,
         },
       ];

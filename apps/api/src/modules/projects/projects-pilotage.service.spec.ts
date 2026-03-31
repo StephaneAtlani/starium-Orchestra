@@ -4,9 +4,9 @@ import {
   ProjectCriticality,
   ProjectKind,
   ProjectPriority,
-  ProjectRiskImpact,
-  ProjectRiskProbability,
+  ProjectRiskCriticality,
   ProjectRiskStatus,
+  ProjectRiskTreatmentStrategy,
   ProjectStatus,
   ProjectTaskPriority,
   ProjectTaskStatus,
@@ -15,7 +15,7 @@ import {
 import {
   derivedProgressPercentFromTasks,
   ProjectsPilotageService,
-  riskScore,
+  riskScoreFromRisk,
 } from './projects-pilotage.service';
 
 describe('ProjectsPilotageService', () => {
@@ -80,10 +80,13 @@ describe('ProjectsPilotageService', () => {
     svc = new ProjectsPilotageService();
   });
 
-  describe('riskScore / riskCriticality', () => {
-    it('HIGH = 7–9', () => {
-      expect(riskScore('HIGH', 'HIGH')).toBe(9);
-      expect(riskScore('MEDIUM', 'HIGH')).toBe(6);
+  describe('riskScoreFromRisk', () => {
+    it('renvoie criticalityScore persisté', () => {
+      expect(
+        riskScoreFromRisk({
+          criticalityScore: 9,
+        } as any),
+      ).toBe(9);
     });
   });
 
@@ -106,14 +109,32 @@ describe('ProjectsPilotageService', () => {
           id: 'r1',
           clientId: 'c1',
           projectId: 'p1',
+          code: 'R-001',
           title: 'R',
           description: null,
-          probability: 'HIGH' as ProjectRiskProbability,
-          impact: 'HIGH' as ProjectRiskImpact,
-          actionPlan: null,
+          category: null,
+          threatSource: '—',
+          businessImpact: '—',
+          likelihoodJustification: null,
+          impactCategory: null,
+          probability: 5,
+          impact: 5,
+          criticalityScore: 25,
+          criticalityLevel: 'CRITICAL' as ProjectRiskCriticality,
+          mitigationPlan: null,
+          contingencyPlan: null,
           ownerUserId: null,
           status: 'OPEN' as ProjectRiskStatus,
           reviewDate: null,
+          dueDate: null,
+          detectedAt: null,
+          closedAt: null,
+          sortOrder: 0,
+          complianceRequirementId: null,
+          riskTypeId: 'rt1',
+          treatmentStrategy: ProjectRiskTreatmentStrategy.REDUCE,
+          residualRiskLevel: null,
+          residualJustification: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -151,7 +172,7 @@ describe('ProjectsPilotageService', () => {
           plannedEndDate: null,
           actualStartDate: null,
           actualEndDate: null,
-          parentTaskId: null,
+          phaseId: null,
           dependsOnTaskId: null,
           dependencyType: null,
           budgetLineId: null,
@@ -176,7 +197,7 @@ describe('ProjectsPilotageService', () => {
           plannedEndDate: null,
           actualStartDate: null,
           actualEndDate: null,
-          parentTaskId: null,
+          phaseId: null,
           dependsOnTaskId: null,
           dependencyType: null,
           budgetLineId: null,
@@ -195,6 +216,28 @@ describe('ProjectsPilotageService', () => {
     it('true when ON_HOLD', () => {
       const p = { ...baseProject, status: 'ON_HOLD' as ProjectStatus };
       expect(svc.isBlocked(p, [])).toBe(true);
+    });
+
+    it('false when COMPLETED even with OPEN high risk (no operational block)', () => {
+      const risks = [
+        {
+          status: 'OPEN' as ProjectRiskStatus,
+          criticalityLevel: 'CRITICAL' as ProjectRiskCriticality,
+        },
+      ] as any[];
+      const p = { ...baseProject, status: 'COMPLETED' as ProjectStatus };
+      expect(svc.isBlocked(p, risks)).toBe(false);
+    });
+
+    it('false when IN_PROGRESS with OPEN HIGH/CRITICAL risk (risks do not set blocked)', () => {
+      const risks = [
+        {
+          status: 'OPEN' as ProjectRiskStatus,
+          criticalityLevel: 'HIGH' as ProjectRiskCriticality,
+        },
+      ] as any[];
+      const p = { ...baseProject, status: 'IN_PROGRESS' as ProjectStatus };
+      expect(svc.isBlocked(p, risks)).toBe(false);
     });
   });
 });

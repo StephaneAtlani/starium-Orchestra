@@ -16,6 +16,9 @@ const badgeVariants = cva(
           "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 [a]:hover:bg-destructive/20",
         outline:
           "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
+        /** Couleurs portées par `className` (ex. `badgeClassForStyle`, entrées fusionnées admin badges). */
+        registry:
+          "border-transparent bg-transparent font-normal text-inherit shadow-none ring-0 focus-visible:ring-0 [a]:hover:bg-transparent",
         ghost:
           "hover:bg-muted hover:text-muted-foreground",
         link: "text-primary underline-offset-4 hover:underline",

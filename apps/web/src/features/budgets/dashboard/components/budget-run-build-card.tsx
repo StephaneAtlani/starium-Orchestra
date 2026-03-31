@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Boxes } from 'lucide-react';
-import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { CockpitSurfaceCard } from './budget-cockpit-primitives';
@@ -55,7 +54,7 @@ export function BudgetRunBuildCard({
   taxDisplayMode,
   defaultTaxRate,
 }: {
-  distribution: BudgetDashboardResponse['runBuildDistribution'];
+  distribution: { run: number; build: number; transverse: number };
   currency: string;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;

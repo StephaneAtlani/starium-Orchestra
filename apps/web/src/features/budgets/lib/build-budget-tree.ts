@@ -50,6 +50,8 @@ function lineToNode(line: BudgetLine, depth: number, sortOrder: number): Explore
     name: line.name,
     expenseType: line.expenseType,
     status: line.status,
+    initialAmount: line.initialAmount ?? 0,
+    initialAmountTtc: line.initialAmountTtc ?? null,
     revisedAmount: line.revisedAmount ?? 0,
     revisedAmountTtc: line.revisedAmountTtc ?? null,
     committedAmount: line.committedAmount ?? 0,

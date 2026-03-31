@@ -26,7 +26,7 @@ import {
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -65,13 +65,11 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
-  createProjectRisk,
-  deleteProjectRisk,
   getProjectSheetDecisionSnapshot,
   listProjectSheetDecisionSnapshots,
   updateProjectSheet,
 } from '../api/projects.api';
-import { projectsList } from '../constants/project-routes';
+import { projectsList, projectRisks } from '../constants/project-routes';
 import {
   MILESTONE_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
@@ -84,7 +82,9 @@ import {
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
+import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
+import { ProjectDocumentsSection } from './project-documents-section';
 import { ProjectTeamMatrix } from './project-team-matrix';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
@@ -107,11 +107,6 @@ const RISK_LABEL: Record<ProjectSheetRiskLevel, string> = {
   MEDIUM: 'Moyen',
   HIGH: 'Élevé',
 };
-
-function riskTierFr(t: string): string {
-  if (t === 'LOW' || t === 'MEDIUM' || t === 'HIGH') return RISK_LABEL[t];
-  return t;
-}
 
 /** Niveaux d’arbitrage — titres des cartes. */
 const ARBITRATION_LEVEL_STEPS = [
@@ -484,6 +479,7 @@ export function ProjectSheetView({
   const sheet = sheetReadOnlyOverride ?? querySheet;
 
   const projectDetailQuery = useProjectDetailQuery(projectId);
+  const { merged: badgeMerged } = useClientUiBadgeConfig();
 
   const [projectName, setProjectName] = useState('');
   const [priority, setPriority] = useState<string>('MEDIUM');
@@ -926,69 +922,7 @@ export function ProjectSheetView({
       (a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime(),
     );
   }, [milestonesQuery.data]);
-  const [newRiskTitle, setNewRiskTitle] = useState('');
-  const [newRiskProb, setNewRiskProb] = useState<ProjectSheetRiskLevel>('MEDIUM');
-  const [newRiskImpact, setNewRiskImpact] = useState<ProjectSheetRiskLevel>('MEDIUM');
-  const [deletingRiskId, setDeletingRiskId] = useState<string | null>(null);
-  /** Panneau « Détail des risques » : ouvert par défaut (état contrôlé). */
-  const [risksDetailOpen, setRisksDetailOpen] = useState(true);
   const [retroplanOpen, setRetroplanOpen] = useState(false);
-
-  const createRiskMutation = useMutation({
-    mutationFn: (vars: {
-      title: string;
-      probability: ProjectSheetRiskLevel;
-      impact: ProjectSheetRiskLevel;
-    }) =>
-      createProjectRisk(authFetch, projectId, {
-        title: vars.title.trim(),
-        probability: vars.probability,
-        impact: vars.impact,
-      }),
-    onSuccess: () => {
-      toast.success('Risque enregistré');
-      setNewRiskTitle('');
-      setNewRiskProb('MEDIUM');
-      setNewRiskImpact('MEDIUM');
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.risks(clientId, projectId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.detail(clientId, projectId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.sheet(clientId, projectId),
-      });
-    },
-    onError: (e: Error) => {
-      toast.error(e.message || 'Erreur création risque');
-    },
-  });
-
-  const deleteRiskMutation = useMutation({
-    mutationFn: (riskId: string) => deleteProjectRisk(authFetch, projectId, riskId),
-    onMutate: (riskId) => setDeletingRiskId(riskId),
-    onSettled: () => setDeletingRiskId(null),
-    onSuccess: () => {
-      toast.success('Risque supprimé');
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.risks(clientId, projectId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.detail(clientId, projectId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.sheet(clientId, projectId),
-      });
-    },
-    onError: (e: Error) => {
-      toast.error(e.message || 'Erreur suppression');
-    },
-  });
-
-  useEffect(() => {
-    setRisksDetailOpen(true);
-  }, [projectId]);
 
   if (!projectId) {
     return (
@@ -1085,7 +1019,10 @@ export function ProjectSheetView({
                 actions={
                   <div className="flex flex-wrap items-center gap-2">
                     {projectDetailQuery.data ? (
-                      <HealthBadge health={projectDetailQuery.data.computedHealth} />
+                      <HealthBadge
+                        health={projectDetailQuery.data.computedHealth}
+                        merged={badgeMerged}
+                      />
                     ) : projectDetailQuery.isLoading ? (
                       <span
                         className="text-xs text-muted-foreground"
@@ -1106,7 +1043,10 @@ export function ProjectSheetView({
                     Signaux portefeuille
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <ProjectPortfolioBadges signals={projectDetailQuery.data.signals} />
+                    <ProjectPortfolioBadges
+                      signals={projectDetailQuery.data.signals}
+                      merged={badgeMerged}
+                    />
                   </div>
                 </div>
                 {projectDetailQuery.data.warnings.length > 0 ? (
@@ -1359,9 +1299,9 @@ export function ProjectSheetView({
                 <h4 className="text-sm font-semibold tracking-tight text-foreground">
                   Indicateurs de lecture
                 </h4>
-                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                <RegistryBadge className="bg-secondary text-secondary-foreground font-normal text-[10px] uppercase tracking-wide">
                   Décision
-                </Badge>
+                </RegistryBadge>
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
                 Vue synthétique pour l’arbitrage : rentabilité, priorité portefeuille, critères valeur et
@@ -1648,9 +1588,9 @@ export function ProjectSheetView({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <h4 className="text-sm font-semibold tracking-tight text-foreground">Arbitrage</h4>
-                  <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                  <RegistryBadge className="bg-secondary text-secondary-foreground font-normal text-[10px] uppercase tracking-wide">
                     3 niveaux
-                  </Badge>
+                  </RegistryBadge>
                 </div>
                 {!sheetReadOnlyOverride ? (
                   <Button
@@ -1721,9 +1661,9 @@ export function ProjectSheetView({
                             Niveau {i + 1}
                           </p>
                           {!unlocked ? (
-                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                            <RegistryBadge className="h-5 border border-border px-1.5 text-[10px] text-foreground">
                               Verrouillé
-                            </Badge>
+                            </RegistryBadge>
                           ) : null}
                         </div>
                         <p className="mt-0.5 text-sm font-semibold leading-snug text-foreground">
@@ -2005,7 +1945,7 @@ export function ProjectSheetView({
       </Card>
 
       {/* E — Risque */}
-      <Card size="sm">
+      <Card size="sm" id="risques-projet" className="scroll-mt-20">
         <CardHeader>
           <CardTitle className="text-base">E. Risque, priorité et risques projet</CardTitle>
         </CardHeader>
@@ -2086,171 +2026,23 @@ export function ProjectSheetView({
             </div>
           </div>
 
-          {/* Saisie nouveau risque — au-dessus du détail liste (hors snapshot figé) */}
           {!sheetReadOnlyOverride ? (
-          <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="min-w-0 flex-1 space-y-2">
-              <Label htmlFor="new-risk-title">Titre</Label>
-              <Input
-                id="new-risk-title"
-                value={newRiskTitle}
-                onChange={(e) => setNewRiskTitle(e.target.value)}
-                disabled={!canEdit || createRiskMutation.isPending}
-                placeholder="ex. Dépendance fournisseur unique"
-                maxLength={500}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:w-auto sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Probabilité</Label>
-                <Select
-                  value={newRiskProb}
-                  onValueChange={(v) => setNewRiskProb(v as ProjectSheetRiskLevel)}
-                  disabled={!canEdit || createRiskMutation.isPending}
+            <div className="space-y-2 border-t border-border/70 pt-4">
+              <p className="text-sm text-muted-foreground">
+                {risksQuery.isLoading
+                  ? 'Chargement du registre des risques…'
+                  : `${risksQuery.data?.length ?? 0} risque(s) sur ce projet.`}{' '}
+                <Link
+                  href={projectRisks(projectId)}
+                  className={cn(
+                    buttonVariants({ variant: 'link' }),
+                    'h-auto inline p-0 font-medium text-primary',
+                  )}
                 >
-                  <SelectTrigger className="w-full min-w-[120px]">
-                    <SelectValue>{RISK_LABEL[newRiskProb]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {RISK_LABEL[k]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Impact</Label>
-                <Select
-                  value={newRiskImpact}
-                  onValueChange={(v) => setNewRiskImpact(v as ProjectSheetRiskLevel)}
-                  disabled={!canEdit || createRiskMutation.isPending}
-                >
-                  <SelectTrigger className="w-full min-w-[120px]">
-                    <SelectValue>{RISK_LABEL[newRiskImpact]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {RISK_LABEL[k]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  Ouvrir le registre des risques
+                </Link>
+              </p>
             </div>
-            <Button
-              type="button"
-              disabled={!canEdit || createRiskMutation.isPending || !newRiskTitle.trim()}
-              onClick={() => {
-                if (!newRiskTitle.trim()) {
-                  toast.error('Titre requis');
-                  return;
-                }
-                createRiskMutation.mutate({
-                  title: newRiskTitle,
-                  probability: newRiskProb,
-                  impact: newRiskImpact,
-                });
-              }}
-            >
-              {createRiskMutation.isPending ? 'Enregistrement…' : 'Ajouter un risque'}
-            </Button>
-          </div>
-          ) : null}
-
-          {/* Détail opérationnel — liste */}
-          {!sheetReadOnlyOverride ? (
-          <details
-            className="group rounded-lg border border-border/60"
-            open={risksDetailOpen}
-            onToggle={(e) => setRisksDetailOpen(e.currentTarget.open)}
-          >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
-              <span>Détail des risques</span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
-            </summary>
-            <div className="border-t border-border/60 px-3 pb-3 pt-2">
-              <TooltipProvider delay={250}>
-                {risksQuery.isLoading ? (
-                  <LoadingState rows={2} />
-                ) : !risksQuery.data?.length ? (
-                  <p className="text-sm text-muted-foreground">Aucun risque enregistré.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Titre</TableHead>
-                          <TableHead className="w-[140px]">Criticité</TableHead>
-                          {canEdit ? (
-                            <TableHead className="w-[44px] p-2 text-right" />
-                          ) : null}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {risksQuery.data.map((r) => {
-                          const crit = riskCriticalityForRisk(r);
-                          const piHint = `Probabilité : ${riskTierFr(r.probability)} · Impact : ${riskTierFr(r.impact)}`;
-                          const critBadge = (
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                'cursor-help',
-                                crit === 'LOW' &&
-                                  'border-emerald-600/45 bg-emerald-500/10 text-emerald-950 dark:text-emerald-500',
-                                crit === 'MEDIUM' &&
-                                  'border-amber-500/50 bg-amber-500/10 text-amber-950 dark:text-amber-600',
-                                crit === 'HIGH' &&
-                                  'border-red-500/50 bg-red-500/10 text-red-800 dark:text-red-300',
-                              )}
-                            >
-                              {riskTierFr(crit)}
-                            </Badge>
-                          );
-                          return (
-                            <TableRow key={r.id}>
-                              <TableCell className="max-w-[min(100%,280px)] font-medium">
-                                {r.title}
-                              </TableCell>
-                              <TableCell>
-                                <Tooltip>
-                                  <TooltipTrigger render={<span className="inline-flex" />}>
-                                    {critBadge}
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    {piHint}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TableCell>
-                              {canEdit ? (
-                                <TableCell className="p-2 text-right">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                    disabled={
-                                      deleteRiskMutation.isPending && deletingRiskId === r.id
-                                    }
-                                    aria-label={`Supprimer le risque ${r.title}`}
-                                    onClick={() => deleteRiskMutation.mutate(r.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </TableCell>
-                              ) : null}
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </TooltipProvider>
-            </div>
-          </details>
           ) : null}
         </CardContent>
       </Card>
@@ -2265,9 +2057,9 @@ export function ProjectSheetView({
             <div className="mb-5 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="text-sm font-semibold tracking-tight text-foreground">Matrice SWOT</h4>
-                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                <RegistryBadge className="bg-secondary text-secondary-foreground font-normal text-[10px] uppercase tracking-wide">
                   Stratégie
-                </Badge>
+                </RegistryBadge>
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
                 Interne / externe × favorable / défavorable — lignes libres par quadrant.
@@ -2406,9 +2198,9 @@ export function ProjectSheetView({
             <div className="mb-5 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="text-sm font-semibold tracking-tight text-foreground">Matrice TOWS</h4>
-                <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wide">
+                <RegistryBadge className="bg-secondary text-secondary-foreground font-normal text-[10px] uppercase tracking-wide">
                   Décision
-                </Badge>
+                </RegistryBadge>
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
                 Croisement forces-faiblesses (lignes) × opportunités-menaces (colonnes) — stratégies par
@@ -2590,9 +2382,9 @@ export function ProjectSheetView({
                         {formatMilestoneDate(m.targetDate)}
                       </time>
                       <p className="mt-1 font-medium leading-snug text-foreground">{m.name}</p>
-                      <Badge variant="outline" className="mt-2 text-xs font-normal">
+                      <RegistryBadge className="mt-2 border border-border text-xs text-foreground">
                         {MILESTONE_STATUS_LABEL[m.status] ?? m.status}
-                      </Badge>
+                      </RegistryBadge>
                     </div>
                   </li>
                 ))}
@@ -2622,6 +2414,7 @@ export function ProjectSheetView({
           </div>
         </CardContent>
       </Card>
+      <ProjectDocumentsSection projectId={projectId} />
       </>
       ) : null}
 
@@ -2726,8 +2519,11 @@ export function ProjectSheetView({
                               Auteur inconnu
                             </span>
                           )}
-                          <span className="mt-1 block font-mono text-[10px] text-muted-foreground/70">
-                            Réf. {row.id}
+                          <span className="mt-1 block text-[10px] leading-snug text-muted-foreground/70">
+                            Réf.{' '}
+                            {(sheet?.name?.trim()
+                              ? sheet.name
+                              : sheet?.code?.trim()) ?? '—'}
                           </span>
                         </button>
                       </li>

@@ -58,6 +58,7 @@ export function EditMemberDialog({
   const userId = member?.id ?? '';
   const updateMember = useUpdateClientMember(userId);
   const isEditingSelf = Boolean(member && authUser?.id === member.id);
+  const isDirectoryLocked = Boolean(member?.isDirectoryLocked);
   const canCreateResource = !permsLoading && has('resources.create');
 
   const [firstName, setFirstName] = useState('');
@@ -100,7 +101,7 @@ export function EditMemberDialog({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
     };
-    if (!isEditingSelf) {
+    if (!isEditingSelf && !isDirectoryLocked) {
       payload.role = role;
       payload.status = status;
     }
@@ -167,6 +168,7 @@ export function EditMemberDialog({
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   autoComplete="given-name"
+                  disabled={isDirectoryLocked}
                 />
               </div>
               <div className="space-y-2">
@@ -176,6 +178,7 @@ export function EditMemberDialog({
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   autoComplete="family-name"
+                  disabled={isDirectoryLocked}
                 />
               </div>
             </div>
@@ -183,7 +186,7 @@ export function EditMemberDialog({
               <Label htmlFor={isEditingSelf ? undefined : `${formId}-role`}>
                 Rôle sur ce client
               </Label>
-              {isEditingSelf ? (
+              {isEditingSelf || isDirectoryLocked ? (
                 <>
                   <p
                     id={`${formId}-role-readonly`}
@@ -192,7 +195,9 @@ export function EditMemberDialog({
                     {ROLE_LABEL[role] ?? role}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Vous ne pouvez pas modifier votre propre rôle client depuis cette interface.
+                    {isDirectoryLocked
+                      ? 'Compte synchronisé ADDS: rôle verrouillé par la politique de synchronisation.'
+                      : 'Vous ne pouvez pas modifier votre propre rôle client depuis cette interface.'}
                   </p>
                 </>
               ) : (
@@ -201,7 +206,7 @@ export function EditMemberDialog({
                   onValueChange={(v) => setRole(v as 'CLIENT_ADMIN' | 'CLIENT_USER')}
                 >
                   <SelectTrigger id={`${formId}-role`} className="w-full">
-                    <SelectValue />
+                    <SelectValue>{ROLE_LABEL[role]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CLIENT_USER">{ROLE_LABEL.CLIENT_USER}</SelectItem>
@@ -214,7 +219,7 @@ export function EditMemberDialog({
               <Label htmlFor={isEditingSelf ? undefined : `${formId}-status`}>
                 Statut
               </Label>
-              {isEditingSelf ? (
+              {isEditingSelf || isDirectoryLocked ? (
                 <>
                   <p
                     id={`${formId}-status-readonly`}
@@ -223,8 +228,9 @@ export function EditMemberDialog({
                     {STATUS_LABEL[status] ?? status}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Vous ne pouvez pas modifier le statut de votre propre compte depuis cette
-                    interface (évite de vous désactiver par erreur).
+                    {isDirectoryLocked
+                      ? 'Compte synchronisé ADDS: statut verrouillé par la politique de synchronisation.'
+                      : 'Vous ne pouvez pas modifier le statut de votre propre compte depuis cette interface (évite de vous désactiver par erreur).'}
                   </p>
                 </>
               ) : (
@@ -235,7 +241,7 @@ export function EditMemberDialog({
                   }
                 >
                   <SelectTrigger id={`${formId}-status`} className="w-full">
-                    <SelectValue />
+                    <SelectValue>{STATUS_LABEL[status]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(STATUS_LABEL) as Array<keyof typeof STATUS_LABEL>).map(
@@ -289,7 +295,7 @@ export function EditMemberDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={updateMember.isPending}
+                disabled={updateMember.isPending || isDirectoryLocked}
               >
                 {updateMember.isPending ? 'Enregistrement…' : 'Enregistrer'}
               </Button>

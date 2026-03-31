@@ -5,11 +5,17 @@ import {
   BudgetStatus,
   Prisma,
 } from '@prisma/client';
+import {
+  computeRemainingPlanningAmount,
+  defaultReferenceDateUtc,
+  getExerciseMonthColumnLabels,
+} from '@starium-orchestra/budget-exercise-calendar';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
   CreateAuditLogInput,
 } from '../../audit-logs/audit-logs.service';
+import { BUDGET_PLANNING_CANONICAL } from '../../audit-logs/budget-planning-audit-action-map';
 import { AuditContext } from '../types/audit-context';
 import { GetBudgetLinePlanningResponseDto } from './dto/get-budget-line-planning-response.dto';
 import { UpdateBudgetLinePlanningManualDto } from './dto/update-budget-line-planning-manual.dto';
@@ -28,6 +34,22 @@ import {
   QuantityGrowthTypeDto,
 } from './dto/calculate-planning.dto';
 import { ApplyCalculationPlanningDto } from './dto/apply-calculation-planning.dto';
+import { ApplyBudgetLinePlanningModeDto } from './dto/apply-budget-line-planning-mode.dto';
+
+type LineWithExerciseAndPlanning = Prisma.BudgetLineGetPayload<{
+  include: {
+    budget: {
+      select: {
+        exercise: { select: { startDate: true; endDate: true } };
+      };
+    };
+    planningMonths: true;
+    planningScenarios: {
+      orderBy: { createdAt: 'desc' };
+      take: 1;
+    };
+  };
+}>;
 
 @Injectable()
 export class BudgetLinePlanningService {
@@ -36,13 +58,17 @@ export class BudgetLinePlanningService {
     private readonly auditLogs: AuditLogsService,
   ) {}
 
-  async getPlanning(clientId: string, lineId: string): Promise<GetBudgetLinePlanningResponseDto> {
+  async getPlanning(
+    clientId: string,
+    lineId: string,
+    referenceDate: Date = defaultReferenceDateUtc(),
+  ): Promise<GetBudgetLinePlanningResponseDto> {
     const line = await this.prisma.budgetLine.findFirst({
       where: { id: lineId, clientId },
       include: {
         budget: {
           select: {
-            exercise: { select: { startDate: true } },
+            exercise: { select: { startDate: true, endDate: true } },
           },
         },
         planningMonths: true,
@@ -57,40 +83,7 @@ export class BudgetLinePlanningService {
       throw new NotFoundException('Budget line not found');
     }
 
-    const monthsByIndex = new Map<number, Prisma.Decimal>();
-    for (const m of line.planningMonths) {
-      monthsByIndex.set(m.monthIndex, m.amount);
-    }
-
-    const months: { monthIndex: number; amount: number }[] = [];
-    let total = 0;
-    for (let i = 1; i <= 12; i++) {
-      const dec = monthsByIndex.get(i) ?? new Prisma.Decimal(0);
-      const num = dec.toNumber();
-      months.push({ monthIndex: i, amount: num });
-      total += num;
-    }
-
-    const revisedAmount = (line.revisedAmount as Prisma.Decimal).toNumber();
-    const deltaVsRevised = total - revisedAmount;
-
-    const lastScenario = line.planningScenarios[0]
-      ? {
-          mode: line.planningScenarios[0].mode,
-          inputJson: line.planningScenarios[0].inputJson,
-          createdAt: line.planningScenarios[0].createdAt,
-        }
-      : undefined;
-
-    return {
-      months,
-      planningMode: line.planningMode ?? null,
-      planningTotalAmount: total,
-      revisedAmount,
-      deltaVsRevised,
-      exerciseStartDate: line.budget.exercise.startDate,
-      lastScenario,
-    };
+    return this.buildPlanningResponseFromLine(line, referenceDate);
   }
 
   async replaceManualPlanning(
@@ -98,8 +91,14 @@ export class BudgetLinePlanningService {
     lineId: string,
     dto: UpdateBudgetLinePlanningManualDto,
     context?: AuditContext,
+    referenceDate: Date = defaultReferenceDateUtc(),
   ): Promise<GetBudgetLinePlanningResponseDto> {
-    const line = await this.ensureEditableLine(clientId, lineId);
+    await this.ensureEditableLine(clientId, lineId);
+    const oldSnap = await this.loadPlanningSnapshot(clientId, lineId);
+    if (!oldSnap) {
+      throw new NotFoundException('Budget line not found');
+    }
+
     const months = this.normalizeMonths(dto.months);
 
     const result = await this.applyComputedMonths(
@@ -109,19 +108,61 @@ export class BudgetLinePlanningService {
       months,
       context,
       null,
+      referenceDate,
     );
 
-    await this.logAudit(
-      clientId,
-      context,
-      lineId,
-      'budget_line_planning.updated',
-      months,
-      BudgetLinePlanningMode.MANUAL,
-      result.planningTotalAmount,
-    );
+    await this.logPlanningAuditCanonical(clientId, context, lineId, BUDGET_PLANNING_CANONICAL.UPDATED, {
+      mode: BudgetLinePlanningMode.MANUAL,
+      oldValues: oldSnap,
+      newValues: {
+        planningTotalAmount: result.planningTotalAmount,
+        months: result.months,
+        landing: result.landing,
+        remainingPlanning: result.remainingPlanning,
+      },
+    });
 
     return result;
+  }
+
+  async applyPlanningMode(
+    clientId: string,
+    lineId: string,
+    dto: ApplyBudgetLinePlanningModeDto,
+    context?: AuditContext,
+    referenceDate: Date = defaultReferenceDateUtc(),
+  ): Promise<GetBudgetLinePlanningResponseDto> {
+    switch (dto.mode) {
+      case BudgetLinePlanningMode.MANUAL:
+        throw new BadRequestException('Use PUT /budget-lines/:id/planning for manual planning');
+      case BudgetLinePlanningMode.ANNUAL_SPREAD:
+        if (!dto.annualSpread) {
+          throw new BadRequestException('annualSpread is required for ANNUAL_SPREAD');
+        }
+        return this.applyAnnualSpread(clientId, lineId, dto.annualSpread, context, referenceDate);
+      case BudgetLinePlanningMode.QUARTERLY_SPREAD:
+        if (!dto.quarterly) {
+          throw new BadRequestException('quarterly is required for QUARTERLY_SPREAD');
+        }
+        return this.applyQuarterly(clientId, lineId, dto.quarterly, context, referenceDate);
+      case BudgetLinePlanningMode.ONE_SHOT:
+        if (!dto.oneShot) {
+          throw new BadRequestException('oneShot is required for ONE_SHOT');
+        }
+        return this.applyOneShot(clientId, lineId, dto.oneShot, context, referenceDate);
+      case BudgetLinePlanningMode.GROWTH:
+        if (!dto.growth) {
+          throw new BadRequestException('growth is required for GROWTH');
+        }
+        return this.applyGrowth(clientId, lineId, dto.growth, context, referenceDate);
+      case BudgetLinePlanningMode.CALCULATED:
+        if (!dto.calculation) {
+          throw new BadRequestException('calculation is required for CALCULATED');
+        }
+        return this.applyCalculation(clientId, lineId, dto.calculation, context, referenceDate);
+      default:
+        throw new BadRequestException(`Unsupported planning mode: ${dto.mode}`);
+    }
   }
 
   async applyAnnualSpread(
@@ -129,8 +170,13 @@ export class BudgetLinePlanningService {
     lineId: string,
     dto: ApplyAnnualSpreadDto,
     context?: AuditContext,
+    referenceDate: Date = defaultReferenceDateUtc(),
   ): Promise<GetBudgetLinePlanningResponseDto> {
-    const line = await this.ensureEditableLine(clientId, lineId);
+    await this.ensureEditableLine(clientId, lineId);
+    const oldSnap = await this.loadPlanningSnapshot(clientId, lineId);
+    if (!oldSnap) {
+      throw new NotFoundException('Budget line not found');
+    }
 
     const months = this.buildEmptyMonths();
     const count = dto.activeMonthIndexes.length;
@@ -151,17 +197,24 @@ export class BudgetLinePlanningService {
       months,
       context,
       inputJson,
+      referenceDate,
     );
 
-    await this.logAudit(
+    await this.logPlanningAuditCanonical(
       clientId,
       context,
       lineId,
-      'budget_line_planning.applied_annual_spread',
-      months,
-      BudgetLinePlanningMode.ANNUAL_SPREAD,
-      result.planningTotalAmount,
-      inputJson,
+      BUDGET_PLANNING_CANONICAL.APPLIED_MODE,
+      {
+        mode: BudgetLinePlanningMode.ANNUAL_SPREAD,
+        oldValues: oldSnap,
+        newValues: {
+          planningTotalAmount: result.planningTotalAmount,
+          months: result.months,
+          landing: result.landing,
+          input: inputJson,
+        },
+      },
     );
 
     return result;
@@ -172,8 +225,14 @@ export class BudgetLinePlanningService {
     lineId: string,
     dto: ApplyQuarterlyPlanningDto,
     context?: AuditContext,
+    referenceDate: Date = defaultReferenceDateUtc(),
   ): Promise<GetBudgetLinePlanningResponseDto> {
-    const line = await this.ensureEditableLine(clientId, lineId);
+    await this.ensureEditableLine(clientId, lineId);
+    const oldSnap = await this.loadPlanningSnapshot(clientId, lineId);
+    if (!oldSnap) {
+      throw new NotFoundException('Budget line not found');
+    }
+
     const months = this.buildEmptyMonths();
 
     for (const q of dto.quarters) {
@@ -194,17 +253,24 @@ export class BudgetLinePlanningService {
       months,
       context,
       inputJson,
+      referenceDate,
     );
 
-    await this.logAudit(
+    await this.logPlanningAuditCanonical(
       clientId,
       context,
       lineId,
-      'budget_line_planning.applied_quarterly',
-      months,
-      BudgetLinePlanningMode.QUARTERLY_SPREAD,
-      result.planningTotalAmount,
-      inputJson,
+      BUDGET_PLANNING_CANONICAL.APPLIED_MODE,
+      {
+        mode: BudgetLinePlanningMode.QUARTERLY_SPREAD,
+        oldValues: oldSnap,
+        newValues: {
+          planningTotalAmount: result.planningTotalAmount,
+          months: result.months,
+          landing: result.landing,
+          input: inputJson,
+        },
+      },
     );
 
     return result;
@@ -215,8 +281,14 @@ export class BudgetLinePlanningService {
     lineId: string,
     dto: ApplyOneShotPlanningDto,
     context?: AuditContext,
+    referenceDate: Date = defaultReferenceDateUtc(),
   ): Promise<GetBudgetLinePlanningResponseDto> {
-    const line = await this.ensureEditableLine(clientId, lineId);
+    await this.ensureEditableLine(clientId, lineId);
+    const oldSnap = await this.loadPlanningSnapshot(clientId, lineId);
+    if (!oldSnap) {
+      throw new NotFoundException('Budget line not found');
+    }
+
     this.ensureMonthIndex(dto.monthIndex);
 
     const months = this.buildEmptyMonths();
@@ -230,17 +302,24 @@ export class BudgetLinePlanningService {
       months,
       context,
       inputJson,
+      referenceDate,
     );
 
-    await this.logAudit(
+    await this.logPlanningAuditCanonical(
       clientId,
       context,
       lineId,
-      'budget_line_planning.applied_one_shot',
-      months,
-      BudgetLinePlanningMode.ONE_SHOT,
-      result.planningTotalAmount,
-      inputJson,
+      BUDGET_PLANNING_CANONICAL.APPLIED_MODE,
+      {
+        mode: BudgetLinePlanningMode.ONE_SHOT,
+        oldValues: oldSnap,
+        newValues: {
+          planningTotalAmount: result.planningTotalAmount,
+          months: result.months,
+          landing: result.landing,
+          input: inputJson,
+        },
+      },
     );
 
     return result;
@@ -251,8 +330,14 @@ export class BudgetLinePlanningService {
     lineId: string,
     dto: ApplyGrowthPlanningDto,
     context?: AuditContext,
+    referenceDate: Date = defaultReferenceDateUtc(),
   ): Promise<GetBudgetLinePlanningResponseDto> {
-    const line = await this.ensureEditableLine(clientId, lineId);
+    await this.ensureEditableLine(clientId, lineId);
+    const oldSnap = await this.loadPlanningSnapshot(clientId, lineId);
+    if (!oldSnap) {
+      throw new NotFoundException('Budget line not found');
+    }
+
     const months = this.buildGrowthMonths(dto);
 
     const inputJson = dto;
@@ -263,17 +348,24 @@ export class BudgetLinePlanningService {
       months,
       context,
       inputJson,
+      referenceDate,
     );
 
-    await this.logAudit(
+    await this.logPlanningAuditCanonical(
       clientId,
       context,
       lineId,
-      'budget_line_planning.applied_growth',
-      months,
-      BudgetLinePlanningMode.GROWTH,
-      result.planningTotalAmount,
-      inputJson,
+      BUDGET_PLANNING_CANONICAL.APPLIED_MODE,
+      {
+        mode: BudgetLinePlanningMode.GROWTH,
+        oldValues: oldSnap,
+        newValues: {
+          planningTotalAmount: result.planningTotalAmount,
+          months: result.months,
+          landing: result.landing,
+          input: inputJson,
+        },
+      },
     );
 
     return result;
@@ -290,6 +382,25 @@ export class BudgetLinePlanningService {
       throw new BadRequestException('Unsupported formulaType');
     }
 
+    const preview = this.computeQuantityFormulaPreview(dto);
+
+    await this.logPlanningAuditCanonical(clientId, undefined, lineId, BUDGET_PLANNING_CANONICAL.PREVIEWED, {
+      mode: BudgetLinePlanningMode.CALCULATED,
+      oldValues: null,
+      newValues: {
+        planningTotalAmount: preview.previewTotalAmount,
+        months: preview.previewMonths,
+        input: dto,
+      },
+    });
+
+    return preview;
+  }
+
+  private computeQuantityFormulaPreview(dto: CalculatePlanningDto): {
+    previewMonths: { monthIndex: number; amount: number }[];
+    previewTotalAmount: number;
+  } {
     const quantities = this.buildGrowthMonths({
       baseAmount: dto.quantity.startValue,
       growthType:
@@ -314,18 +425,6 @@ export class BudgetLinePlanningService {
       total += amount;
     }
 
-    // audit preview
-    await this.logAudit(
-      clientId,
-      undefined,
-      lineId,
-      'budget_line_planning.calculated_previewed',
-      months,
-      BudgetLinePlanningMode.CALCULATED,
-      total,
-      dto,
-    );
-
     return {
       previewMonths: months,
       previewTotalAmount: total,
@@ -337,14 +436,19 @@ export class BudgetLinePlanningService {
     lineId: string,
     dto: ApplyCalculationPlanningDto,
     context?: AuditContext,
+    referenceDate: Date = defaultReferenceDateUtc(),
   ): Promise<GetBudgetLinePlanningResponseDto> {
     await this.ensureEditableLine(clientId, lineId);
+    const oldSnap = await this.loadPlanningSnapshot(clientId, lineId);
+    if (!oldSnap) {
+      throw new NotFoundException('Budget line not found');
+    }
 
     if (dto.formulaType !== PlanningFormulaTypeDto.QUANTITY_X_UNIT_PRICE) {
       throw new BadRequestException('Unsupported formulaType');
     }
 
-    const preview = await this.calculateFormula(clientId, lineId, dto);
+    const preview = this.computeQuantityFormulaPreview(dto);
     const months = this.buildEmptyMonths();
     for (const m of preview.previewMonths) {
       this.ensureMonthIndex(m.monthIndex);
@@ -359,23 +463,175 @@ export class BudgetLinePlanningService {
       months,
       context,
       inputJson,
+      referenceDate,
     );
 
-    await this.logAudit(
+    await this.logPlanningAuditCanonical(
       clientId,
       context,
       lineId,
-      'budget_line_planning.applied_calculation',
-      months,
-      BudgetLinePlanningMode.CALCULATED,
-      result.planningTotalAmount,
-      inputJson,
+      BUDGET_PLANNING_CANONICAL.APPLIED_MODE,
+      {
+        mode: BudgetLinePlanningMode.CALCULATED,
+        oldValues: oldSnap,
+        newValues: {
+          planningTotalAmount: result.planningTotalAmount,
+          months: result.months,
+          landing: result.landing,
+          input: inputJson,
+        },
+      },
     );
 
     return result;
   }
 
   // --- helpers ---
+
+  private async loadPlanningSnapshot(
+    clientId: string,
+    lineId: string,
+  ): Promise<Record<string, unknown> | null> {
+    const line = await this.prisma.budgetLine.findFirst({
+      where: { id: lineId, clientId },
+      include: {
+        planningMonths: true,
+        budget: {
+          select: {
+            exercise: { select: { startDate: true, endDate: true } },
+          },
+        },
+      },
+    });
+    if (!line) {
+      return null;
+    }
+    const monthsByIndex = new Map<number, Prisma.Decimal>();
+    for (const m of line.planningMonths) {
+      monthsByIndex.set(m.monthIndex, m.amount);
+    }
+    const months: { monthIndex: number; amount: number }[] = [];
+    let planningTotalAmount = 0;
+    for (let i = 1; i <= 12; i++) {
+      const dec = monthsByIndex.get(i) ?? new Prisma.Decimal(0);
+      const num = dec.toNumber();
+      months.push({ monthIndex: i, amount: num });
+      planningTotalAmount += num;
+    }
+    return {
+      planningMode: line.planningMode ?? null,
+      planningTotalAmount,
+      months,
+      consumedAmount: (line.consumedAmount as Prisma.Decimal).toNumber(),
+      committedAmount: (line.committedAmount as Prisma.Decimal).toNumber(),
+    };
+  }
+
+  private async logPlanningAuditCanonical(
+    clientId: string,
+    context: AuditContext | undefined,
+    lineId: string,
+    action: string,
+    payload: {
+      mode: BudgetLinePlanningMode;
+      oldValues: unknown | null;
+      newValues: unknown;
+    },
+  ): Promise<void> {
+    const input: CreateAuditLogInput = {
+      clientId,
+      userId: context?.actorUserId,
+      action,
+      resourceType: 'budget_line',
+      resourceId: lineId,
+      oldValue: payload.oldValues ?? null,
+      newValue: {
+        mode: payload.mode,
+        ...(typeof payload.newValues === 'object' && payload.newValues !== null
+          ? (payload.newValues as object)
+          : { value: payload.newValues }),
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+    await this.auditLogs.create(input);
+  }
+
+  private buildPlanningResponseFromLine(
+    line: LineWithExerciseAndPlanning,
+    referenceDate: Date,
+  ): GetBudgetLinePlanningResponseDto {
+    const monthsByIndex = new Map<number, Prisma.Decimal>();
+    for (const m of line.planningMonths) {
+      monthsByIndex.set(m.monthIndex, m.amount);
+    }
+    const outMonths: { monthIndex: number; amount: number }[] = [];
+    let planningTotalAmount = 0;
+    for (let i = 1; i <= 12; i++) {
+      const dec = monthsByIndex.get(i) ?? new Prisma.Decimal(0);
+      const num = dec.toNumber();
+      outMonths.push({ monthIndex: i, amount: num });
+      planningTotalAmount += num;
+    }
+
+    return this.composePlanningDto(line, outMonths, planningTotalAmount, referenceDate);
+  }
+
+  private composePlanningDto(
+    line: LineWithExerciseAndPlanning,
+    outMonths: { monthIndex: number; amount: number }[],
+    planningTotalAmount: number,
+    referenceDate: Date,
+  ): GetBudgetLinePlanningResponseDto {
+    const exerciseStart = line.budget.exercise.startDate;
+    const exerciseEnd = line.budget.exercise.endDate;
+    const amounts12 = outMonths.map((m) => m.amount);
+    const monthColumnLabels = getExerciseMonthColumnLabels(exerciseStart);
+    const remainingPlanning = computeRemainingPlanningAmount(
+      exerciseStart,
+      exerciseEnd,
+      referenceDate,
+      amounts12,
+    );
+    const consumed = (line.consumedAmount as Prisma.Decimal).toNumber();
+    const committed = (line.committedAmount as Prisma.Decimal).toNumber();
+    const revised = (line.revisedAmount as Prisma.Decimal).toNumber();
+    const landing = consumed + committed + remainingPlanning;
+    const planningDelta = planningTotalAmount - revised;
+    const landingVariance = landing - revised;
+
+    const lastScenario = line.planningScenarios[0]
+      ? {
+          mode: line.planningScenarios[0].mode,
+          inputJson: line.planningScenarios[0].inputJson,
+          createdAt: line.planningScenarios[0].createdAt,
+        }
+      : undefined;
+
+    return {
+      months: outMonths.map((m) => ({
+        monthIndex: m.monthIndex,
+        month: m.monthIndex,
+        amount: m.amount,
+      })),
+      monthColumnLabels,
+      planningMode: line.planningMode ?? null,
+      planningTotalAmount,
+      revisedAmount: revised,
+      planningDelta,
+      landingVariance,
+      deltaVsRevised: planningDelta,
+      variance: landingVariance,
+      consumedAmount: consumed,
+      committedAmount: committed,
+      remainingPlanning,
+      landing,
+      exerciseStartDate: exerciseStart,
+      exerciseEndDate: exerciseEnd,
+      lastScenario,
+    };
+  }
 
   private async ensureEditableLine(clientId: string, lineId: string) {
     const line = await this.prisma.budgetLine.findFirst({
@@ -471,7 +727,7 @@ export class BudgetLinePlanningService {
         const qActive = qMonths.filter((m) => active.includes(m));
         if (qActive.length === 0) continue;
         if (firstQuarter) {
-          prev = applyGrowth(prev); // première application au premier trimestre actif
+          prev = applyGrowth(prev);
           firstQuarter = false;
         } else {
           prev = applyGrowth(prev);
@@ -483,7 +739,6 @@ export class BudgetLinePlanningService {
       return months;
     }
 
-    // YEARLY : même montant sur tous les mois actifs
     let annualAmount: number;
     if (dto.growthType === GrowthTypeDto.PERCENT) {
       annualAmount = dto.baseAmount * (1 + dto.growthValue / 100);
@@ -503,6 +758,7 @@ export class BudgetLinePlanningService {
     months: number[],
     context: AuditContext | undefined,
     scenarioInput: unknown | null,
+    referenceDate: Date,
   ): Promise<GetBudgetLinePlanningResponseDto> {
     if (months.length !== 12) {
       throw new BadRequestException('months array must have length 12');
@@ -541,7 +797,6 @@ export class BudgetLinePlanningService {
             clientId,
             budgetLineId: lineId,
             mode,
-            // Prisma attend un InputJsonValue (pas Prisma.JsonValue) pour ce champ
             inputJson: scenarioInput as Prisma.InputJsonValue,
             createdById: context?.actorUserId,
           },
@@ -553,7 +808,7 @@ export class BudgetLinePlanningService {
         include: {
           budget: {
             select: {
-              exercise: { select: { startDate: true } },
+              exercise: { select: { startDate: true, endDate: true } },
             },
           },
           planningMonths: true,
@@ -577,64 +832,9 @@ export class BudgetLinePlanningService {
         planningTotalAmount += num;
       }
 
-      const revisedAmount = (line.revisedAmount as Prisma.Decimal).toNumber();
-      const deltaVsRevised = planningTotalAmount - revisedAmount;
-
-      const lastScenario = line.planningScenarios[0]
-        ? {
-            mode: line.planningScenarios[0].mode,
-            inputJson: line.planningScenarios[0].inputJson,
-            createdAt: line.planningScenarios[0].createdAt,
-          }
-        : undefined;
-
-      const dto: GetBudgetLinePlanningResponseDto = {
-        months: outMonths,
-        planningMode: line.planningMode ?? null,
-        planningTotalAmount,
-        revisedAmount,
-        deltaVsRevised,
-        exerciseStartDate: line.budget.exercise.startDate,
-        lastScenario,
-      };
-      return dto;
+      return this.composePlanningDto(line, outMonths, planningTotalAmount, referenceDate);
     });
 
     return result;
   }
-
-  private async logAudit(
-    clientId: string,
-    context: AuditContext | undefined,
-    lineId: string,
-    action: string,
-    months: number[] | { monthIndex: number; amount: number }[],
-    mode: BudgetLinePlanningMode,
-    total: number,
-    inputJson?: unknown,
-  ) {
-    const monthsForAudit: { monthIndex: number; amount: number }[] =
-      (months as any[]).length > 0 && typeof (months as any[])[0] === 'number'
-        ? (months as number[]).map((amount, idx) => ({ monthIndex: idx + 1, amount }))
-        : (months as { monthIndex: number; amount: number }[]);
-
-    const input: CreateAuditLogInput = {
-      clientId,
-      userId: context?.actorUserId,
-      action,
-      resourceType: 'budget_line',
-      resourceId: lineId,
-      newValue: {
-        mode,
-        planningTotalAmount: total,
-        months: monthsForAudit,
-        input: inputJson,
-      },
-      ipAddress: context?.meta?.ipAddress,
-      userAgent: context?.meta?.userAgent,
-      requestId: context?.meta?.requestId,
-    };
-    await this.auditLogs.create(input);
-  }
 }
-

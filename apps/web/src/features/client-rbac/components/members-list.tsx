@@ -6,6 +6,7 @@ import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   Table,
   TableBody,
@@ -18,6 +19,7 @@ import { useClientMembers } from '../hooks/use-client-members';
 import { UserRolesDialog } from './user-roles-dialog';
 import { AddMemberDialog } from './add-member-dialog';
 import { EditMemberDialog } from './edit-member-dialog';
+import { MembersSyncDialog } from './members-sync-dialog';
 import type { ClientMember } from '../api/user-roles';
 
 const CLIENT_ROLE_LABEL: Record<string, string> = {
@@ -50,7 +52,12 @@ export function MembersList() {
       <PageHeader
         title="Membres"
         description="Utilisateurs du client et assignation des rôles. Les administrateurs client peuvent ajouter des membres (compte existant ou nouveau)."
-        actions={<AddMemberDialog />}
+        actions={
+          <div className="flex items-center gap-2">
+            <MembersSyncDialog />
+            <AddMemberDialog />
+          </div>
+        }
       />
       <Card>
         <CardContent className="pt-4">
@@ -92,6 +99,11 @@ export function MembersList() {
                       {[member.firstName, member.lastName]
                         .filter(Boolean)
                         .join(' ') || '—'}
+                      {member.isDirectorySynced ? (
+                        <RegistryBadge className="ml-2 bg-secondary text-secondary-foreground">
+                          ADDS
+                        </RegistryBadge>
+                      ) : null}
                     </TableCell>
                     <TableCell>{member.email}</TableCell>
                     <TableCell>
@@ -105,6 +117,7 @@ export function MembersList() {
                           variant="outline"
                           size="sm"
                           onClick={() => setEditMember(member)}
+                          disabled={Boolean(member.isDirectoryLocked)}
                         >
                           Modifier
                         </Button>

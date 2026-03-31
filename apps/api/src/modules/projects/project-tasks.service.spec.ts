@@ -8,6 +8,7 @@ import {
   PROJECT_AUDIT_ACTION,
   PROJECT_AUDIT_RESOURCE_TYPE,
 } from './project-audit.constants';
+import { ActionPlansService } from './action-plans.service';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsService } from './projects.service';
 
@@ -20,6 +21,7 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     assertClientUser: jest.Mock;
     assertBudgetLineInClient: jest.Mock;
   };
+  let actionPlans: { touchProgressForPlans: jest.Mock };
 
   const clientId = 'c1';
   const projectId = 'p1';
@@ -41,13 +43,16 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       plannedEndDate: null,
       actualStartDate: null,
       actualEndDate: null,
-      parentTaskId: null,
+      phaseId: null,
       dependsOnTaskId: null,
       dependencyType: null,
       budgetLineId: null,
       createdByUserId: null,
       updatedByUserId: null,
       sortOrder: 0,
+      actionPlanId: null,
+      riskId: null,
+      bucketId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,
@@ -58,9 +63,22 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     prisma = {
       projectTask: {
         findFirst: jest.fn(),
+        findFirstOrThrow: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+      },
+      projectTaskLabel: {
+        findMany: jest.fn(),
+      },
+      $transaction: jest.fn(),
+      projectTaskChecklistItem: {
+        findMany: jest.fn(),
+        deleteMany: jest.fn(),
+        create: jest.fn(),
+      },
+      projectTaskPhase: {
+        findFirst: jest.fn().mockResolvedValue(null),
       },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
@@ -69,10 +87,14 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       assertClientUser: jest.fn().mockResolvedValue(undefined),
       assertBudgetLineInClient: jest.fn().mockResolvedValue(undefined),
     };
+    actionPlans = {
+      touchProgressForPlans: jest.fn().mockResolvedValue(undefined),
+    };
     service = new ProjectTasksService(
       prisma,
       auditLogs as unknown as AuditLogsService,
       projects as unknown as ProjectsService,
+      actionPlans as unknown as ActionPlansService,
     );
   });
 
@@ -81,6 +103,10 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     const updated = { ...existing, name: 'B' };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
+    prisma.projectTask.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      checklistItems: [],
+    });
 
     await service.update(
       clientId,
@@ -103,6 +129,74 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     );
   });
 
+  it('update : remplace labels (taskLabelIds) via purge + create assignations', async () => {
+    const existing = baseTask();
+    const updated = { ...existing };
+
+    prisma.projectTask.findFirst.mockResolvedValue(existing);
+    prisma.projectTask.update.mockResolvedValue(updated);
+    prisma.projectTask.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      checklistItems: [],
+      labelAssignments: [{ labelId: 'l1' }, { labelId: 'l2' }],
+    });
+
+    prisma.projectTaskLabel.findMany.mockResolvedValue([
+      { id: 'l1' },
+      { id: 'l2' },
+    ]);
+
+    const txMock = {
+      projectTaskLabelAssignment: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (cb: any) => cb(txMock));
+
+    await service.update(
+      clientId,
+      projectId,
+      taskId,
+      { taskLabelIds: ['l1', 'l2', 'l1'] } as any,
+      { actorUserId: 'u1', meta: {} },
+      'u1',
+    );
+
+    expect(prisma.projectTaskLabel.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { clientId, projectId, id: { in: ['l1', 'l2'] } },
+      }),
+    );
+
+    expect(txMock.projectTaskLabelAssignment.deleteMany).toHaveBeenCalledWith(
+      { where: { clientId, projectId, projectTaskId: taskId } },
+    );
+    expect(txMock.projectTaskLabelAssignment.create).toHaveBeenCalledTimes(2);
+    expect(txMock.projectTaskLabelAssignment.create).toHaveBeenNthCalledWith(
+      1,
+      {
+        data: {
+          clientId,
+          projectId,
+          projectTaskId: taskId,
+          labelId: 'l1',
+        },
+      },
+    );
+    expect(txMock.projectTaskLabelAssignment.create).toHaveBeenNthCalledWith(
+      2,
+      {
+        data: {
+          clientId,
+          projectId,
+          projectTaskId: taskId,
+          labelId: 'l2',
+        },
+      },
+    );
+  });
+
   it('changement de statut seul : uniquement project_task.status.updated', async () => {
     const existing = baseTask({ status: ProjectTaskStatus.TODO });
     const updated = {
@@ -112,6 +206,10 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
+    prisma.projectTask.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      checklistItems: [],
+    });
 
     await service.update(
       clientId,
@@ -138,6 +236,10 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     const updated = { ...existing, ownerUserId: 'u99' };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
+    prisma.projectTask.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      checklistItems: [],
+    });
 
     await service.update(
       clientId,
@@ -174,6 +276,10 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
     };
     prisma.projectTask.findFirst.mockResolvedValue(existing);
     prisma.projectTask.update.mockResolvedValue(updated);
+    prisma.projectTask.findFirstOrThrow.mockResolvedValue({
+      ...updated,
+      checklistItems: [],
+    });
 
     await service.update(
       clientId,

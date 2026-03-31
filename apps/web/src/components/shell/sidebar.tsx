@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { navigation } from '../../config/navigation';
 import type { NavigationItem } from '../../config/navigation';
 import { useAuth } from '../../context/auth-context';
@@ -18,6 +20,7 @@ import {
   SidebarDropdownLayer,
   useSidebarDropdownPanel,
 } from './sidebar-dropdown';
+import { useSidebarNav } from './sidebar-nav-context';
 
 function visible(
   item: NavigationItem,
@@ -38,6 +41,12 @@ function visible(
       if (!has(code)) return false;
     }
   }
+  // Fallback de gating module: un item client avec moduleCode
+  // n'est visible que si la permission de lecture du module est présente.
+  if (item.scope === 'client' && item.moduleCode) {
+    if (!permsSuccess) return false;
+    if (!has(`${item.moduleCode}.read`)) return false;
+  }
   return true;
 }
 
@@ -46,14 +55,56 @@ export function Sidebar() {
   const { user } = useAuth();
   const { activeClient } = useActiveClient();
   const { panel, contextValue } = useSidebarDropdownPanel();
+  const { mobileOpen, closeMobile } = useSidebarNav();
   const platformRole = user?.platformRole ?? null;
   const clientRole = activeClient?.role ?? null;
   const { has, isSuccess: permsSuccess } = usePermissions();
 
+  useEffect(() => {
+    closeMobile();
+  }, [pathname, closeMobile]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeMobile();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen, closeMobile]);
+
   return (
-    <aside className="starium-sidebar relative z-10 hidden h-full min-h-0 shrink-0 flex-col border-r border-white/10 md:flex">
+    <div className="min-w-0 w-0 shrink-0 overflow-visible md:flex md:h-full md:w-48 md:shrink-0 md:flex-col">
+      <button
+        type="button"
+        aria-hidden={!mobileOpen}
+        className={cn(
+          'fixed inset-0 z-[55] bg-black/45 transition-opacity md:hidden',
+          mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
+        )}
+        onClick={closeMobile}
+        tabIndex={mobileOpen ? 0 : -1}
+      />
+      <aside
+        id="starium-app-sidebar"
+        className={cn(
+          'starium-sidebar flex h-full min-h-0 w-48 flex-col border-r border-white/10 bg-background',
+          'fixed inset-y-0 left-0 z-[60] transition-transform duration-200 ease-out',
+          'md:relative md:z-10 md:translate-x-0',
+          mobileOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0',
+        )}
+      >
       <SidebarDropdownContext.Provider value={contextValue}>
-        <div className="starium-sidebar-header flex h-14 min-w-0 shrink-0 items-center gap-2 border-b border-white/10 px-4">
+        <div className="starium-sidebar-header flex h-14 min-w-0 shrink-0 items-center gap-2 border-b border-white/10 px-3 md:px-4">
           <div className="min-w-0 flex flex-1 flex-col leading-tight">
             <span
               className="starium-sidebar-brand truncate text-sm font-semibold tracking-tight"
@@ -63,6 +114,16 @@ export function Sidebar() {
             </span>
             <span className="starium-sidebar-brand-muted text-xs">Cockpit</span>
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 md:hidden"
+            aria-label="Fermer le menu"
+            onClick={closeMobile}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
         <nav className="starium-sidebar-nav min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
         {navigation.map((section) => {
@@ -80,10 +141,16 @@ export function Sidebar() {
                     { label: 'Dashboard', href: '/budgets/dashboard' },
                     { label: 'Budget', href: '/budgets' },
                     { label: 'Configuration', href: '/budgets/configuration' },
+                    ...(permsSuccess && has('procurement.read')
+                      ? ([{ label: 'Fournisseurs', href: '/suppliers' }] as const)
+                      : []),
                   ];
 
                   const isBudgetChildActive = (href: string) => {
                     if (!pathname) return false;
+                    if (href === '/suppliers') {
+                      return pathname.startsWith('/suppliers');
+                    }
                     if (href === '/budgets/dashboard') {
                       return pathname === '/budgets/dashboard' || pathname.startsWith('/budgets/dashboard/');
                     }
@@ -143,6 +210,7 @@ export function Sidebar() {
                       if (pathname === '/projects') return true;
                       if (pathname.startsWith('/projects/new')) return true;
                       if (pathname.startsWith('/projects/options')) return false;
+                      if (pathname.startsWith('/action-plans')) return false;
                       return /^\/projects\/[^/]+/.test(pathname);
                     }
                     return false;
@@ -156,6 +224,65 @@ export function Sidebar() {
                     >
                       {projectsChildren.map((child) => {
                         const isActive = isProjectsChildActive(child.href);
+
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            role="menuitem"
+                            className={cn(
+                              'block px-3 py-2 text-sm starium-dropdown-link',
+                              isActive && 'starium-dropdown-link-active',
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                    </SidebarDropdown>
+                  );
+                }
+
+                const isSuppliers = item.label === 'Fournisseurs';
+                if (isSuppliers) {
+                  const suppliersChildren = [
+                    { label: 'Dashboard', href: '/suppliers/dashboard' },
+                    { label: 'Fournisseurs', href: '/suppliers' },
+                    { label: 'Contacts', href: '/suppliers/contacts' },
+                  ];
+
+                  const isSuppliersChildActive = (href: string) => {
+                    if (!pathname) return false;
+                    if (href === '/suppliers/dashboard') {
+                      return (
+                        pathname === '/suppliers/dashboard' ||
+                        pathname.startsWith('/suppliers/dashboard/')
+                      );
+                    }
+                    if (href === '/suppliers/contacts') {
+                      return (
+                        pathname === '/suppliers/contacts' ||
+                        pathname.startsWith('/suppliers/contacts/')
+                      );
+                    }
+                    if (href === '/suppliers') {
+                      if (pathname === '/suppliers') return true;
+                      if (!pathname.startsWith('/suppliers/')) return false;
+                      const sub = pathname.slice('/suppliers/'.length);
+                      const firstSegment = sub.split('/')[0];
+                      return !['dashboard', 'contacts'].includes(firstSegment);
+                    }
+                    return false;
+                  };
+
+                  return (
+                    <SidebarDropdown
+                      key="dropdown-suppliers"
+                      label={item.label}
+                      icon={item.icon}
+                    >
+                      {suppliersChildren.map((child) => {
+                        const isActive = isSuppliersChildActive(child.href);
 
                         return (
                           <Link
@@ -209,6 +336,7 @@ export function Sidebar() {
         <SidebarDropdownLayer panel={panel} />
       </SidebarDropdownContext.Provider>
     </aside>
+    </div>
   );
 }
 

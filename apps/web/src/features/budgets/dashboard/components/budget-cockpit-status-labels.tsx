@@ -26,26 +26,36 @@ export function EnvelopeRiskLabel({ level }: { level: 'LOW' | 'MEDIUM' | 'HIGH' 
   );
 }
 
+/** Aligné forecast / cockpit (tests & réutilisation). */
+export const LINE_SEVERITY_STYLES: Record<
+  'CRITICAL' | 'WARNING' | 'OK',
+  string
+> = {
+  CRITICAL:
+    'border-destructive/35 bg-destructive/[0.08] text-destructive dark:border-destructive/50 dark:bg-destructive/15',
+  WARNING:
+    'border-amber-300/80 bg-amber-50 !text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90 dark:!text-[#1c1917]',
+  OK: 'border-border bg-muted/70 text-muted-foreground',
+};
+
+export const LINE_SEVERITY_LABELS: Record<'CRITICAL' | 'WARNING' | 'OK', string> =
+  {
+    CRITICAL: 'Critique',
+    WARNING: 'Attention',
+    OK: 'OK',
+  };
+
 export function LineSeverityLabel({
   level,
 }: {
   level: 'CRITICAL' | 'WARNING' | 'OK';
 }) {
-  const styles: Record<typeof level, string> = {
-    CRITICAL:
-      'border-destructive/35 bg-destructive/[0.08] text-destructive dark:border-destructive/50 dark:bg-destructive/15',
-    WARNING:
-      'border-amber-300/80 bg-amber-50 !text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90 dark:!text-[#1c1917]',
-    OK: 'border-border bg-muted/70 text-muted-foreground',
-  };
-  const labels: Record<typeof level, string> = {
-    CRITICAL: 'Critique',
-    WARNING: 'Attention',
-    OK: 'OK',
-  };
   return (
-    <span className={cn(chip, styles[level])} data-severity={level.toLowerCase()}>
-      {labels[level]}
+    <span
+      className={cn(chip, LINE_SEVERITY_STYLES[level])}
+      data-severity={level.toLowerCase()}
+    >
+      {LINE_SEVERITY_LABELS[level]}
     </span>
   );
 }

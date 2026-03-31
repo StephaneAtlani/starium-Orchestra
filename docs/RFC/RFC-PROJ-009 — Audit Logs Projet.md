@@ -46,7 +46,7 @@ Aujourd’hui sans audit projet :
 * impossible de savoir **qui a modifié un projet**
 * aucune traçabilité des changements de planning
 * aucune preuve en cas de dérive
-* pas de base pour analyse post-mortem
+* pas de base pour analyse retour d'expérience
 
 👉 Incompatible avec un **cockpit de gouvernance IT**
 

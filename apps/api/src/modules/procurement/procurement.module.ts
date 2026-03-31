@@ -10,6 +10,13 @@ import { InvoicesController } from './invoices/invoices.controller';
 import { InvoicesService } from './invoices/invoices.service';
 import { BudgetLinesProcurementController } from './budget-lines-procurement.controller';
 import { SuppliersProcurementController } from './suppliers-procurement.controller';
+import { SupplierCategoriesController } from './supplier-categories/supplier-categories.controller';
+import { SupplierCategoriesService } from './supplier-categories/supplier-categories.service';
+import { SuppliersLogoStorageService } from './suppliers/suppliers-logo.storage';
+import { SupplierContactsController } from './supplier-contacts/supplier-contacts.controller';
+import { SupplierContactsListController } from './supplier-contacts/supplier-contacts-list.controller';
+import { SupplierContactsPhotoStorageService } from './supplier-contacts/supplier-contacts-photo.storage';
+import { SupplierContactsService } from './supplier-contacts/supplier-contacts.service';
 
 @Module({
   imports: [PrismaModule, AuditLogsModule, FinancialCoreModule],
@@ -19,9 +26,28 @@ import { SuppliersProcurementController } from './suppliers-procurement.controll
     InvoicesController,
     BudgetLinesProcurementController,
     SuppliersProcurementController,
+    SupplierCategoriesController,
+    SupplierContactsController,
+    SupplierContactsListController,
   ],
-  providers: [SuppliersService, PurchaseOrdersService, InvoicesService],
-  exports: [SuppliersService, PurchaseOrdersService, InvoicesService],
+  providers: [
+    SuppliersService,
+    PurchaseOrdersService,
+    InvoicesService,
+    SupplierCategoriesService,
+    SuppliersLogoStorageService,
+    SupplierContactsPhotoStorageService,
+    SupplierContactsService,
+  ],
+  exports: [
+    SuppliersService,
+    PurchaseOrdersService,
+    InvoicesService,
+    SupplierCategoriesService,
+    SuppliersLogoStorageService,
+    SupplierContactsPhotoStorageService,
+    SupplierContactsService,
+  ],
 })
 export class ProcurementModule {}
 

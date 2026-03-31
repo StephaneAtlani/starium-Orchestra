@@ -2,22 +2,23 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDateString,
-  IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
-import { ProjectReviewType } from '@prisma/client';
+import type { ProjectReviewType } from '@prisma/client';
 import { ProjectReviewActionItemInputDto } from './project-review-action-item.dto';
 import { ProjectReviewDecisionInputDto } from './project-review-decision.dto';
 import { ProjectReviewParticipantInputDto } from './project-review-participant.dto';
+import { PROJECT_REVIEW_TYPE_VALUES } from './project-review-type-values';
 
 export class CreateProjectReviewDto {
   @IsDateString()
   reviewDate!: string;
 
-  @IsEnum(ProjectReviewType)
+  @IsIn([...PROJECT_REVIEW_TYPE_VALUES])
   reviewType!: ProjectReviewType;
 
   @IsOptional()

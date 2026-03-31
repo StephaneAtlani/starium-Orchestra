@@ -14,12 +14,14 @@ import { projectsList, projectPlanning } from '../constants/project-routes';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
 import { ProjectPlanningTasksTab } from './project-planning-tasks-tab';
 import { ProjectPlanningMilestonesTab } from './project-planning-milestones-tab';
+import { ProjectPlanningKanbanTab } from './project-planning-kanban-tab';
 import { ProjectGanttPanel } from './project-gantt-panel';
 
 const SUB_TABS = [
   { id: 'tasks' as const, label: 'Tâches' },
   { id: 'milestones' as const, label: 'Jalons' },
   { id: 'gantt' as const, label: 'Planning / Gantt' },
+  { id: 'kanban' as const, label: 'Kanban' },
 ];
 
 function PlanningSubTabs({
@@ -27,7 +29,7 @@ function PlanningSubTabs({
   active,
 }: {
   projectId: string;
-  active: 'tasks' | 'milestones' | 'gantt';
+  active: 'tasks' | 'milestones' | 'gantt' | 'kanban';
 }) {
   return (
     <div
@@ -61,8 +63,10 @@ function PlanningSubTabs({
 export function ProjectPlanningView({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
   const subRaw = searchParams.get('sub');
-  const sub: 'tasks' | 'milestones' | 'gantt' =
-    subRaw === 'milestones' || subRaw === 'gantt' ? subRaw : 'tasks';
+  const sub: 'tasks' | 'milestones' | 'gantt' | 'kanban' =
+    subRaw === 'milestones' || subRaw === 'gantt' || subRaw === 'kanban'
+      ? subRaw
+      : 'tasks';
 
   const { data: project, isLoading, error } = useProjectDetailQuery(projectId);
 
@@ -118,6 +122,7 @@ export function ProjectPlanningView({ projectId }: { projectId: string }) {
           {sub === 'tasks' && <ProjectPlanningTasksTab projectId={projectId} />}
           {sub === 'milestones' && <ProjectPlanningMilestonesTab projectId={projectId} />}
           {sub === 'gantt' && <ProjectGanttPanel projectId={projectId} />}
+          {sub === 'kanban' && <ProjectPlanningKanbanTab projectId={projectId} />}
         </CardContent>
       </Card>
     </>

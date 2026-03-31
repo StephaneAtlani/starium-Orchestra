@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AlertCircle, Plus, Trash2, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -336,12 +336,9 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                                 {m.displayName}
                               </span>
                               {m.memberKind === 'NAMED' && m.affiliation ? (
-                                <Badge
-                                  variant="outline"
-                                  className="shrink-0 px-1.5 py-0 text-[10px] font-normal"
-                                >
+                                <RegistryBadge className="shrink-0 border border-border px-1.5 py-0 text-[10px] text-foreground">
                                   {m.affiliation === 'INTERNAL' ? 'Interne' : 'Externe'}
-                                </Badge>
+                                </RegistryBadge>
                               ) : null}
                               {canEdit ? (
                                 <button

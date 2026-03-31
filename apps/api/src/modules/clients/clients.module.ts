@@ -16,6 +16,12 @@ import { ClientModulesController } from './client-modules.controller';
 import { ClientModulesService } from './client-modules.service';
 import { ClientTaxSettingsController } from './client-tax-settings.controller';
 import { ClientTaxSettingsService } from './client-tax-settings.service';
+import { ClientUiBadgesController } from './client-ui-badges.controller';
+import { ClientUiBadgesService } from './client-ui-badges.service';
+import { PlatformUiBadgeSettingsController } from './platform-ui-badge-settings.controller';
+import { PlatformUiBadgeSettingsService } from './platform-ui-badge-settings.service';
+import { ClientAdminGuard } from '../../common/guards/client-admin.guard';
+import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
 
 @Module({
   imports: [
@@ -25,14 +31,24 @@ import { ClientTaxSettingsService } from './client-tax-settings.service';
     RolesModule,
     ProjectsModule,
     ResourcesModule,
+    RiskTaxonomyModule,
   ],
-  controllers: [ClientsController, ClientModulesController, ClientTaxSettingsController],
+  controllers: [
+    ClientsController,
+    ClientModulesController,
+    ClientTaxSettingsController,
+    ClientUiBadgesController,
+    PlatformUiBadgeSettingsController,
+  ],
   providers: [
     ClientsService,
     ClientMembershipService,
     ClientModulesService,
     PlatformAdminGuard,
     ClientTaxSettingsService,
+    ClientUiBadgesService,
+    PlatformUiBadgeSettingsService,
+    ClientAdminGuard,
     ActiveClientGuard,
     ModuleAccessGuard,
     PermissionsGuard,

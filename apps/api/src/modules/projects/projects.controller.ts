@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ResourceType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -30,6 +31,7 @@ import { AddProjectTeamMemberDto } from './dto/add-project-team-member.dto';
 import { CreateProjectTagDto } from './dto/create-project-tag.dto';
 import { UpdateProjectTagDto } from './dto/update-project-tag.dto';
 import { ReplaceProjectTagsDto } from './dto/replace-project-tags.dto';
+import { ResourcesService } from '../resources/resources.service';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -37,12 +39,24 @@ export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly projectTeamService: ProjectTeamService,
+    private readonly resourcesService: ResourcesService,
   ) {}
 
   @Get('portfolio-summary')
   @RequirePermissions('projects.read')
   portfolioSummary(@ActiveClientId() clientId: string | undefined) {
     return this.projectsService.getPortfolioSummary(clientId!);
+  }
+
+  /** Frise Gantt portefeuille — mêmes filtres query que `GET /projects` (sans pagination appliquée au tri interne). */
+  @Get('portfolio-gantt')
+  @RequirePermissions('projects.read')
+  portfolioGantt(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: ListProjectsQueryDto,
+    @RequestUserId() userId: string | undefined,
+  ) {
+    return this.projectsService.getPortfolioGantt(clientId!, query, userId);
   }
 
   /** Membres client + répertoire personnes nom libre (équipe projet). Une seule route pour éviter la collision avec `GET :id`. */
@@ -55,6 +69,20 @@ export class ProjectsController {
       this.projectsService.listAssignableFreePersons(cid),
     ]);
     return { users, freePersons };
+  }
+
+  /**
+   * Catalogue personnes (Resource HUMAN) pour rattachement tâche / plan d’action.
+   * Utilise `projects.read` — évite d’exiger le module Resources + `resources.read` pour ce seul sélecteur.
+   */
+  @Get('options/human-resources')
+  @RequirePermissions('projects.read')
+  listHumanResourcesForTaskPickers(@ActiveClientId() clientId: string | undefined) {
+    return this.resourcesService.list(clientId!, {
+      type: ResourceType.HUMAN,
+      limit: 100,
+      offset: 0,
+    });
   }
 
   @Get()

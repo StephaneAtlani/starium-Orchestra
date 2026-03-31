@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   ArrowDownRight,
   PiggyBank,
+  RefreshCw,
   Scale,
   TrendingDown,
   Wallet,
@@ -18,10 +19,15 @@ import type { BudgetExerciseSummary } from '@/features/budgets/types/budget-list
 import type { BudgetSummary } from '@/features/budgets/types/budget-list.types';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
-import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
+import type { BudgetCockpitResponse } from '@/features/budgets/types/budget-dashboard.types';
+import {
+  getCockpitAlertsSummary,
+  getCockpitKpiData,
+} from '@/features/budgets/types/budget-dashboard.types';
 import {
   formatForecastGapParts,
   formatKpiAmountParts,
+  kpiDisplayAmountNumeric,
 } from '@/features/budgets/lib/budget-dashboard-format';
 import {
   budgetDashboard,
@@ -64,6 +70,18 @@ import {
   type DashboardWidgetsConfig,
 } from '../types/dashboard-widgets.types';
 
+function formatDashboardDataAge(updatedAtMs: number): string {
+  const diffSec = Math.round((Date.now() - updatedAtMs) / 1000);
+  if (diffSec < 8) return 'à l’instant';
+  if (diffSec < 60) return `il y a ${diffSec} s`;
+  const min = Math.floor(diffSec / 60);
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 48) return `il y a ${h} h`;
+  const d = Math.floor(h / 24);
+  return `il y a ${d} j`;
+}
+
 function KpiSkeleton() {
   return (
     <div
@@ -89,18 +107,34 @@ function BudgetKpiCardsByKeys({
   taxDisplayMode,
   defaultTaxRate,
   keys,
+  animateKpiNumbers,
 }: {
-  data: BudgetDashboardResponse;
+  data: BudgetCockpitResponse;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
   keys: DashboardBudgetKpiKey[];
+  animateKpiNumbers: boolean;
 }) {
-  const { kpis, budget } = data;
+  const kpiPayload = getCockpitKpiData(data);
+  if (!kpiPayload) return null;
+  const { kpis } = kpiPayload;
+  const { budget } = data;
   const c = budget.currency;
   const fmt = (p: Parameters<typeof formatKpiAmountParts>[0]) =>
     formatKpiAmountParts(p);
+  const num = (ht: number, ttcFromApi?: number | null) =>
+    kpiDisplayAmountNumeric({
+      ht,
+      ttcFromApi: ttcFromApi ?? undefined,
+      mode: taxDisplayMode,
+      defaultTaxRate,
+    });
 
   const ecartForecast = kpis.forecast - kpis.totalBudget;
+  const ecartTtcFromApi =
+    kpis.forecastTtc != null && kpis.totalBudgetTtc != null
+      ? kpis.forecastTtc - kpis.totalBudgetTtc
+      : undefined;
   const gapParts = formatForecastGapParts(
     {
       totalBudget: kpis.totalBudget,
@@ -136,6 +170,8 @@ function BudgetKpiCardsByKeys({
           mode: taxDisplayMode,
           defaultTaxRate,
         })}
+        amountDisplayValue={num(kpis.totalBudget, kpis.totalBudgetTtc)}
+        animateAmount={animateKpiNumbers}
         icon={Wallet}
         dataTestId="dashboard-kpi-total-budget"
       />
@@ -152,6 +188,8 @@ function BudgetKpiCardsByKeys({
           mode: taxDisplayMode,
           defaultTaxRate,
         })}
+        amountDisplayValue={num(kpis.committed, kpis.committedTtc)}
+        animateAmount={animateKpiNumbers}
         icon={Waypoints}
         dataTestId="dashboard-kpi-committed"
       />
@@ -168,6 +206,8 @@ function BudgetKpiCardsByKeys({
           mode: taxDisplayMode,
           defaultTaxRate,
         })}
+        amountDisplayValue={num(kpis.consumed, kpis.consumedTtc)}
+        animateAmount={animateKpiNumbers}
         icon={ArrowDownRight}
         dataTestId="dashboard-kpi-consumed"
       />
@@ -184,6 +224,8 @@ function BudgetKpiCardsByKeys({
           mode: taxDisplayMode,
           defaultTaxRate,
         })}
+        amountDisplayValue={num(kpis.remaining, kpis.remainingTtc)}
+        animateAmount={animateKpiNumbers}
         icon={PiggyBank}
         amountTone={remainingTone}
         dataTestId="dashboard-kpi-remaining"
@@ -201,6 +243,8 @@ function BudgetKpiCardsByKeys({
           mode: taxDisplayMode,
           defaultTaxRate,
         })}
+        amountDisplayValue={num(kpis.forecast, kpis.forecastTtc)}
+        animateAmount={animateKpiNumbers}
         icon={Scale}
         dataTestId="dashboard-kpi-forecast"
       />
@@ -212,6 +256,8 @@ function BudgetKpiCardsByKeys({
         description="Forecast − budget révisé"
         parts={gapParts}
         subtext={ecartSub}
+        amountDisplayValue={num(ecartForecast, ecartTtcFromApi)}
+        animateAmount={animateKpiNumbers}
         icon={TrendingDown}
         amountTone={gapTone}
         dataTestId="dashboard-kpi-forecast-gap"
@@ -262,6 +308,7 @@ function BudgetWidgetSettingsDialog({
   resetBudgetKpisDefaults,
   setBudgetScope,
   resetBudgetScope,
+  setBudgetKpiAnimateNumbers,
   exercises,
   budgets,
   listsLoading,
@@ -274,6 +321,7 @@ function BudgetWidgetSettingsDialog({
   resetBudgetKpisDefaults: () => void;
   setBudgetScope: (scope: DashboardBudgetWidgetScope | undefined) => void;
   resetBudgetScope: () => void;
+  setBudgetKpiAnimateNumbers: (animate: boolean) => void;
   exercises: BudgetExerciseSummary[];
   budgets: BudgetSummary[];
   listsLoading: boolean;
@@ -300,6 +348,16 @@ function BudgetWidgetSettingsDialog({
               onChange={(e) => setBudgetKpisVisible(e.target.checked)}
             />
             <span className="text-sm font-medium">Afficher le widget sur le dashboard</span>
+          </label>
+
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              className="size-4 rounded border-input"
+              checked={config.budgetKpis.animateKpiNumbers !== false}
+              onChange={(e) => setBudgetKpiAnimateNumbers(e.target.checked)}
+            />
+            <span className="text-sm font-medium">Animer les montants (compteur)</span>
           </label>
 
           <div className="space-y-2 border-t border-border pt-3">
@@ -424,18 +482,31 @@ export function DashboardBudgetKpiWidget() {
     resetBudgetKpisDefaults,
     setBudgetScope,
     resetBudgetScope,
+    setBudgetKpiAnimateNumbers,
   } = useDashboardWidgets();
   const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   const { data: exerciseOptions = [], isLoading: exercisesLoading } =
     useBudgetExerciseOptionsQuery();
-  const { data: budgetsList, isLoading: budgetsLoading } = useBudgetsQuery({
-    page: 1,
-    limit: 200,
-    status: 'ALL',
-  });
+  /** Liste paginée lourde : uniquement pour le sélecteur « Personnaliser », pas pour le chargement du dashboard. */
+  const { data: budgetsList, isLoading: budgetsLoading } = useBudgetsQuery(
+    {
+      page: 1,
+      limit: 200,
+      status: 'ALL',
+    },
+    { enabled: settingsOpen },
+  );
   const budgets = budgetsList?.items ?? [];
-  const listsLoading = exercisesLoading || budgetsLoading;
+  const exercisesReady = !exercisesLoading;
+  const listsLoading =
+    exercisesLoading || (settingsOpen && budgetsLoading);
+  const hasScopedTarget = Boolean(
+    config.budgetKpis.scope?.budgetId || config.budgetKpis.scope?.exerciseId,
+  );
+  /** Résolution cockpit : il suffit de la liste exercices (pas d’attendre la liste budgets). */
+  const emptyNoExerciseContext =
+    exercisesReady && !hasScopedTarget && exerciseOptions.length === 0;
 
   const dashboardParams = React.useMemo(
     () => ({
@@ -452,11 +523,24 @@ export function DashboardBudgetKpiWidget() {
     [config.budgetKpis.scope],
   );
 
-  const query = useBudgetDashboardQuery(dashboardParams);
+  const query = useBudgetDashboardQuery(dashboardParams, {
+    /** Tant que les exercices ne sont pas connus, on lance en parallèle ; sans exercice (sans scope), pas d’appel cockpit inutile. */
+    enabled: !exercisesReady || !emptyNoExerciseContext || hasScopedTarget,
+  });
 
   const data = query.data;
+  const dataUpdatedAt = query.dataUpdatedAt;
+  const refetchDashboard = query.refetch;
+  const isRefetching = query.isFetching && !query.isLoading;
   const err = query.error instanceof Error ? query.error.message : null;
-  const alertCount = data ? totalBudgetAlerts(data.alertsSummary) : 0;
+  /** Message immédiat dès que les listes confirment l’absence d’exercice, sans attendre le 404 du cockpit. */
+  const errMsg =
+    err ??
+    (emptyNoExerciseContext && !data ? 'Aucun budget ou exercice trouvé' : null);
+  const showKpiSkeleton =
+    query.isLoading && !data && !emptyNoExerciseContext;
+
+  const alertCount = data ? totalBudgetAlerts(getCockpitAlertsSummary(data)) : 0;
 
   if (!hydrated) {
     return (
@@ -509,6 +593,7 @@ export function DashboardBudgetKpiWidget() {
           resetBudgetKpisDefaults={resetBudgetKpisDefaults}
           setBudgetScope={setBudgetScope}
           resetBudgetScope={resetBudgetScope}
+          setBudgetKpiAnimateNumbers={setBudgetKpiAnimateNumbers}
           exercises={exerciseOptions}
           budgets={budgets}
           listsLoading={listsLoading}
@@ -519,46 +604,68 @@ export function DashboardBudgetKpiWidget() {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-        <div className="min-w-0 flex-1 space-y-1">
+      <div className="flex flex-col gap-3">
+        <div className="w-full min-w-0 space-y-1">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Budget
           </h2>
           {data ? (
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span className="inline-flex flex-wrap items-center gap-2">
-                <span className="font-medium text-foreground">{data.budget.name}</span>
-                {alertCount > 0 ? (
-                  <Badge
-                    variant="outline"
-                    className="border-destructive/25 bg-destructive/10 text-destructive"
-                  >
-                    {alertCount} alerte{alertCount > 1 ? 's' : ''}
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="secondary"
-                    className="font-normal text-muted-foreground"
-                  >
-                    0 alerte
-                  </Badge>
-                )}
+            <div className="flex w-full min-w-0 flex-nowrap items-center gap-x-2 overflow-x-auto text-sm text-muted-foreground [scrollbar-width:thin]">
+              <span className="shrink-0 font-medium text-foreground">
+                {data.budget.name}
               </span>
-              <span className="text-muted-foreground">
+              <span className="shrink-0 whitespace-nowrap text-muted-foreground">
                 · {data.exercise.name}
                 {data.exercise.code ? ` (${data.exercise.code})` : null}
               </span>
-            </p>
+              {alertCount > 0 ? (
+                <Badge
+                  variant="outline"
+                  className="border-destructive/25 bg-destructive/10 text-destructive shrink-0"
+                >
+                  {alertCount} alerte{alertCount > 1 ? 's' : ''}
+                </Badge>
+              ) : (
+                <Badge
+                  variant="secondary"
+                  className="shrink-0 font-normal text-muted-foreground"
+                >
+                  0 alerte
+                </Badge>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               Synthèse du budget actif pour ce client.
             </p>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2 sm:justify-end">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 justify-end">
+          {data && dataUpdatedAt > 0 ? (
+            <span
+              className="text-xs text-muted-foreground tabular-nums"
+              title={new Date(dataUpdatedAt).toLocaleString('fr-FR')}
+            >
+              Mis à jour {formatDashboardDataAge(dataUpdatedAt)}
+            </span>
+          ) : null}
           {taxLoading ? (
             <span className="text-xs text-muted-foreground">TVA…</span>
           ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="inline-flex whitespace-nowrap gap-2"
+            disabled={query.isFetching}
+            onClick={() => void refetchDashboard()}
+            aria-label="Actualiser les indicateurs budget"
+          >
+            <RefreshCw
+              className={cn('size-4 shrink-0', isRefetching && 'animate-spin')}
+            />
+            Actualiser
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -595,12 +702,13 @@ export function DashboardBudgetKpiWidget() {
         resetBudgetKpisDefaults={resetBudgetKpisDefaults}
         setBudgetScope={setBudgetScope}
         resetBudgetScope={resetBudgetScope}
+        setBudgetKpiAnimateNumbers={setBudgetKpiAnimateNumbers}
         exercises={exerciseOptions}
         budgets={budgets}
         listsLoading={listsLoading}
       />
 
-      {query.isLoading && !data ? (
+      {showKpiSkeleton ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: Math.max(1, config.budgetKpis.kpis.length) }).map(
             (_, i) => (
@@ -608,9 +716,9 @@ export function DashboardBudgetKpiWidget() {
             ),
           )}
         </div>
-      ) : err ? (
+      ) : errMsg ? (
         <div className="rounded-xl border border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">{err}</p>
+          <p className="font-medium text-foreground">{errMsg}</p>
           <p className="mt-1">
             Accédez aux budgets depuis le menu Finance ou créez un exercice / budget.
           </p>
@@ -630,6 +738,7 @@ export function DashboardBudgetKpiWidget() {
           taxDisplayMode={taxDisplayMode}
           defaultTaxRate={defaultTaxRate}
           keys={config.budgetKpis.kpis}
+          animateKpiNumbers={config.budgetKpis.animateKpiNumbers !== false}
         />
       ) : null}
     </section>

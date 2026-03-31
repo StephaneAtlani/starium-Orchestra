@@ -1,6 +1,7 @@
 import type { ApiFormError } from './types';
 import type {
   ApplyAnnualSpreadPayload,
+  ApplyBudgetLinePlanningModePayload,
   ApplyCalculationPlanningPayload,
   ApplyGrowthPlanningPayload,
   ApplyOneShotPlanningPayload,
@@ -48,6 +49,20 @@ export async function updateBudgetLinePlanningManual(
 ): Promise<BudgetLinePlanningResponse> {
   const res = await authFetch(`${BASE_PLANNING}/${lineId}/planning`, {
     method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleJsonOrFormError<BudgetLinePlanningResponse>(res);
+}
+
+/** RFC-023 : route unifiée (les routes apply-* restent utilisables). */
+export async function applyBudgetLinePlanningMode(
+  authFetch: AuthFetch,
+  lineId: string,
+  payload: ApplyBudgetLinePlanningModePayload,
+): Promise<BudgetLinePlanningResponse> {
+  const res = await authFetch(`${BASE_PLANNING}/${lineId}/planning/apply-mode`, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });

@@ -6,13 +6,14 @@ Implémenté
 
 ## Implémentation (référence code)
 
-- **Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — `ProjectReviewType`, `ProjectReviewStatus`, `ProjectReview`, `ProjectReviewParticipant`, `ProjectReviewDecision`, `ProjectReviewActionItem`. Extensions par rapport au bloc §6 initial : `contentPayload Json?` (brouillon structuré), `nextReviewDate`, participants `isRequired`, `linkedTaskId` optionnel sur les actions (référence `ProjectTask` même scope), index complémentaires `@@index([clientId, projectId, status])` et `@@index([projectId, reviewDate])`.
+- **Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — `ProjectReviewType` (dont **`POST_MORTEM`** — retour d’expérience), `ProjectReviewStatus`, `ProjectReview`, `ProjectReviewParticipant`, `ProjectReviewDecision`, `ProjectReviewActionItem`. Extensions par rapport au bloc §6 initial : `contentPayload Json?` (brouillon structuré ; pour un REX, clé métier **`postMortem`** dans le JSON), `nextReviewDate`, participants `isRequired`, `linkedTaskId` optionnel sur les actions (référence `ProjectTask` même scope), index complémentaires `@@index([clientId, projectId, status])` et `@@index([projectId, reviewDate])`.
 - **Backend** : [`apps/api/src/modules/projects/project-reviews/`](../../apps/api/src/modules/projects/project-reviews/) — `ProjectReviewsService`, `ProjectReviewsController`, `project-reviews-snapshot.builder.ts`, DTOs dans `dto/`. Enregistrement dans [`projects.module.ts`](../../apps/api/src/modules/projects/projects.module.ts). Toutes les opérations filtrent par `clientId` + `projectId` (via `getProjectForScope`) ; le seul `reviewId` ne suffit pas à cibler une ressource.
 - **API** (préfixe `/api`) : `GET` / `POST` `/projects/:projectId/reviews`, `GET` / `PATCH` `/projects/:projectId/reviews/:reviewId`, `POST` `…/finalize`, `POST` `…/cancel`. Permissions : `projects.read` (lectures), `projects.update` (écritures). Réponse **détail** : `snapshotPayload` toujours présent dans le JSON — `null` si `status !== FINALIZED`, objet figé si `FINALIZED`. Liste : items sans charge `snapshotPayload`.
 - **Snapshot** : généré uniquement au `finalize` dans une transaction ; contrat léger (projet, health, arbitrage, compteurs tâches, risques + top 5, jalons max 5, budget synthèse, `generatedAt`).
 - **Audit** : `project.review.created`, `project.review.updated`, `project.review.finalized`, `project.review.cancelled` ; `resourceType` `project_review`.
 - **Frontend** : onglet **Points projet** sur le détail projet — [`project-detail-view.tsx`](../../apps/web/src/features/projects/components/project-detail-view.tsx) (onglets Synthèse / Points projet), [`project-reviews-tab.tsx`](../../apps/web/src/features/projects/components/project-reviews-tab.tsx), [`project-reviews.api.ts`](../../apps/web/src/features/projects/api/project-reviews.api.ts), types et clés React Query dans `project.types.ts` / `project-query-keys.ts`.
 - **Tests** : [`project-reviews.service.spec.ts`](../../apps/api/src/modules/projects/project-reviews/project-reviews.service.spec.ts).
+- **Seed démo** : [`seed-project-demo-reviews.ts`](../../apps/api/prisma/seed-project-demo-reviews.ts) — points projet riches sur les projets `{prefix}-SEED-01` … `10` ; inclut des **`POST_MORTEM`** exemples (finalisés et brouillon) sur certains jeux (`SEED-03`, `SEED-06`, `SEED-09`). Réinitialisation idempotente à chaque `prisma db seed`.
 
 ## Dépendances
 
@@ -79,8 +80,16 @@ enum ProjectReviewType {
   RISK_REVIEW
   MILESTONE_REVIEW
   AD_HOC
+  POST_MORTEM
 }
 ```
+
+### POST_MORTEM — Retour d’expérience
+
+* réservé aux projets au statut **`COMPLETED`**, **`CANCELLED`** ou **`ARCHIVED`** (sinon création / bascule de type refusée) ;
+* pour un projet **clos**, toute **nouvelle** revue doit être de type **`POST_MORTEM`** (les brouillons COPIL/COPRO ouverts avant clôture restent éditables ou convertibles en REX) ;
+* **`nextReviewDate`** interdit (pas de « prochain point » après un REX) : création et mise à jour rejettent une date renseignée ; le spawn automatique de brouillon suivant (PATCH avec `nextReviewDate` ≠ date du point) ne s’applique pas si le type effectif est `POST_MORTEM` ;
+* contenu structuré côté UI/API : `contentPayload` avec objet **`postMortem`** (champs texte + indicateurs 0–5 selon implémentation front).
 
 ### COPIL — Comité de pilotage
 
@@ -217,11 +226,13 @@ model ProjectReview {
 
   title             String?
   executiveSummary  String?
+  contentPayload    Json?
 
   facilitatorUserId String?
   finalizedAt       DateTime?
   finalizedByUserId String?
 
+  nextReviewDate    DateTime?
   snapshotPayload   Json?
 
   createdAt         DateTime @default(now())
@@ -234,6 +245,8 @@ model ProjectReview {
   actionItems       ProjectReviewActionItem[]
 
   @@index([clientId, projectId, reviewDate])
+  @@index([clientId, projectId, status])
+  @@index([projectId, reviewDate])
 }
 ```
 
@@ -251,6 +264,7 @@ model ProjectReviewParticipant {
   displayName     String?
 
   attended        Boolean @default(true)
+  isRequired      Boolean @default(false)
 
   projectReview   ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
 }
@@ -287,8 +301,10 @@ model ProjectReviewActionItem {
   title           String
   status          ProjectTaskStatus
   dueDate         DateTime?
+  linkedTaskId    String?
 
   projectReview   ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  linkedTask      ProjectTask?  @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
 }
 ```
 
@@ -328,6 +344,7 @@ Lors du `FINALIZED` :
 * snapshot généré à la finalisation
 * historique trié par date desc
 * isolation stricte par clientId
+* **REX (`POST_MORTEM`)** : éligibilité projet **`COMPLETED` \| `CANCELLED` \| `ARCHIVED`** ; pas de **`nextReviewDate`** ; pas de brouillon « prochain point » spawné pour ce type (voir §3.2 POST_MORTEM).
 
 ---
 

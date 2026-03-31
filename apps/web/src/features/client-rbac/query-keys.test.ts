@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { clientRbacKeys } from './query-keys';
 
 describe('clientRbacKeys', () => {

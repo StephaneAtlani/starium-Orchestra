@@ -6,6 +6,7 @@ import { ClientsService } from './clients.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ProjectTeamService } from '../projects/project-team.service';
 import { ResourcesModuleBootstrapService } from '../resources/resources-module-bootstrap.service';
+import { RiskTaxonomyService } from '../risk-taxonomy/risk-taxonomy.service';
 
 describe('ClientsService', () => {
   let service: ClientsService;
@@ -65,6 +66,12 @@ describe('ClientsService', () => {
             bootstrapForClient: jest.fn().mockResolvedValue(undefined),
           },
         },
+        {
+          provide: RiskTaxonomyService,
+          useValue: {
+            ensureForClient: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
@@ -102,6 +109,7 @@ describe('ClientsService', () => {
       const defaultProfiles = {
         applyForClient: jest.fn().mockResolvedValue(undefined),
       };
+      const riskTaxonomy = { ensureForClient: jest.fn().mockResolvedValue(undefined) };
       const testModule = await Test.createTestingModule({
         providers: [
           ClientsService,
@@ -116,6 +124,7 @@ describe('ClientsService', () => {
             provide: ResourcesModuleBootstrapService,
             useValue: { bootstrapForClient: jest.fn().mockResolvedValue(undefined) },
           },
+          { provide: RiskTaxonomyService, useValue: riskTaxonomy },
         ],
       }).compile();
       const svc = testModule.get<ClientsService>(ClientsService);
@@ -148,6 +157,7 @@ describe('ClientsService', () => {
       expect(resourcesBootstrap.bootstrapForClient).toHaveBeenCalledWith(
         mockClient.id,
       );
+      expect(riskTaxonomy.ensureForClient).toHaveBeenCalledWith(mockClient.id);
       expect(result).toEqual({
         id: mockClient.id,
         name: mockClient.name,
@@ -186,6 +196,10 @@ describe('ClientsService', () => {
           {
             provide: ResourcesModuleBootstrapService,
             useValue: { bootstrapForClient: jest.fn().mockResolvedValue(undefined) },
+          },
+          {
+            provide: RiskTaxonomyService,
+            useValue: { ensureForClient: jest.fn().mockResolvedValue(undefined) },
           },
         ],
       }).compile();

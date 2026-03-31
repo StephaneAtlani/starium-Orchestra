@@ -11,5 +11,9 @@ export class ListSuppliersQueryDto extends PaginationQueryDto {
   @Type(() => Boolean)
   @IsBoolean()
   includeArchived?: boolean;
+
+  @IsOptional()
+  @IsString()
+  supplierCategoryId?: string;
 }
 

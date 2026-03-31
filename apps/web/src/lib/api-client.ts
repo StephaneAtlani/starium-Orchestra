@@ -8,6 +8,7 @@ export interface ApiClientOptions {
 /**
  * Routes pour lesquelles X-Client-Id ne doit pas être envoyé (pas de contexte client requis).
  * Documenter ici toute nouvelle exclusion.
+ * Les routes `/api/clients/active/*` ne sont pas exclues : voir `isPlatformClientsRouteWithoutActiveContext`.
  */
 const EXCLUDED_API_PATHS: { prefix?: string; exact?: string }[] = [
   { prefix: '/api/auth/' },
@@ -21,14 +22,34 @@ const EXCLUDED_API_PATHS: { prefix?: string; exact?: string }[] = [
   { exact: '/api/me/avatar' },
   { prefix: '/api/me/2fa' },
   { prefix: '/api/platform/' },
-  { prefix: '/api/clients' },
 ];
+
+/**
+ * Routes /api/clients réservées à la plateforme (sans contexte « client actif »).
+ * Les routes /api/clients/active/* exigent X-Client-Id (ActiveClientGuard côté API).
+ */
+function isPlatformClientsRouteWithoutActiveContext(path: string): boolean {
+  const normalized = path.split('?')[0].split('#')[0];
+  if (normalized === '/api/clients') {
+    return true;
+  }
+  if (
+    normalized.startsWith('/api/clients/') &&
+    !normalized.startsWith('/api/clients/active')
+  ) {
+    return true;
+  }
+  return false;
+}
 
 function isExcludedApiRoute(path: string): boolean {
   const normalized = path.split('?')[0].split('#')[0];
   for (const rule of EXCLUDED_API_PATHS) {
     if (rule.exact && normalized === rule.exact) return true;
     if (rule.prefix && normalized.startsWith(rule.prefix)) return true;
+  }
+  if (isPlatformClientsRouteWithoutActiveContext(normalized)) {
+    return true;
   }
   return false;
 }

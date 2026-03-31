@@ -103,6 +103,43 @@ describe('PurchaseOrdersService', () => {
     expect(result.reference).toMatch(/^AUTO-/);
   });
 
+  it('create avec supplierName passe par SuppliersService.quickCreate', async () => {
+    suppliers.quickCreate.mockResolvedValue({ id: 'sup-qc', name: 'Quick Supplier' });
+    prisma.budgetLine.findFirst.mockResolvedValue({ id: 'bl-1', currency: 'EUR' });
+    prisma.purchaseOrder.create.mockResolvedValue({
+      id: 'po-1',
+      clientId: 'c1',
+      supplierId: 'sup-qc',
+      supplier: { id: 'sup-qc', name: 'Quick Supplier' },
+      budgetLineId: 'bl-1',
+      reference: 'PO-1',
+      label: 'Order',
+      amountHt: { toFixed: () => '100.00' },
+      taxRate: null,
+      taxAmount: null,
+      amountTtc: null,
+      orderDate: new Date(),
+      status: 'APPROVED',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await service.create('c1', {
+      supplierName: 'Quick Supplier',
+      budgetLineId: 'bl-1',
+      reference: 'PO-1',
+      label: 'Order',
+      amountHt: '100',
+      orderDate: new Date(),
+    });
+
+    expect(suppliers.quickCreate).toHaveBeenCalledWith(
+      'c1',
+      { name: 'Quick Supplier' },
+      undefined,
+    );
+  });
+
   it('update refuse metadonnees interdites', async () => {
     prisma.purchaseOrder.findFirst.mockResolvedValue({
       id: 'po-1',

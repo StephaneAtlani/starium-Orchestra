@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
-import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
+import type { BudgetCockpitEnvelopeRow } from '@/features/budgets/types/budget-dashboard.types';
 import {
   formatDashboardAmount,
   resolveTtcDisplay,
@@ -41,7 +41,7 @@ export function BudgetTopEnvelopesCard({
   defaultTaxRate,
   onEnvelopeClick,
 }: {
-  rows: NonNullable<BudgetDashboardResponse['topEnvelopes']>;
+  rows: BudgetCockpitEnvelopeRow[];
   currency: string;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;

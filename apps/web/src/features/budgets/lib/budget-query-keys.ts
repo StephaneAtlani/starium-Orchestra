@@ -71,6 +71,17 @@ export const budgetQueryKeys = {
   dashboard: (clientId: string, params?: object) =>
     ['budgets', clientId, 'dashboard', params] as const,
 
+  /** Préfixe : toutes les requêtes cockpit (params variables). */
+  dashboardAll: (clientId: string) => ['budgets', clientId, 'dashboard'] as const,
+
+  /** Préfixe : listes lignes par enveloppe (`budgetLines` avec filtres / pagination). */
+  budgetEnvelopeLinesAll: (clientId: string) =>
+    ['budgets', clientId, 'budget-lines'] as const,
+
+  /** Liste des mappings d’import CSV/XLSX (scope client) — RFC-018 wizard. */
+  budgetImportMappingsList: (clientId: string) =>
+    ['budgets', clientId, 'budget-import-mappings'] as const,
+
   // Sous-domaines futurs (snapshots, versions, reallocations, imports)
   snapshots: (clientId: string, budgetId: string, filters?: object) =>
     ['budgets', clientId, 'snapshots', budgetId, filters] as const,
@@ -94,4 +105,70 @@ export const budgetQueryKeys = {
 
   generalLedgerAccountOptions: (clientId: string) =>
     ['general-ledger-account-options', clientId] as const,
+
+  /** RFC-FE-BUD-030 — forecast budget */
+  budgetForecast: (clientId: string, budgetId: string) =>
+    ['budgets', clientId, 'budget-forecast', budgetId] as const,
+
+  /** RFC-FE-BUD-030 — forecast enveloppe */
+  envelopeForecast: (clientId: string, envelopeId: string) =>
+    ['budgets', clientId, 'envelope-forecast', envelopeId] as const,
+
+  /** RFC-FE-BUD-030 — lignes forecast (pagination dans la clé) */
+  envelopeForecastLines: (
+    clientId: string,
+    envelopeId: string,
+    params: { limit: number; offset: number },
+  ) => ['budgets', clientId, 'envelope-forecast-lines', envelopeId, params] as const,
+
+  /** RFC-FE-BUD-030 — comparaison (targetId dans la clé) */
+  budgetComparison: (
+    clientId: string,
+    budgetId: string,
+    compareTo: string,
+    targetId: string | undefined,
+  ) =>
+    ['budgets', clientId, 'budget-comparison', budgetId, compareTo, targetId ?? ''] as const,
+
+  /** Deux snapshots entre eux (GET /budget-comparisons/snapshots) */
+  budgetSnapshotPairComparison: (
+    clientId: string,
+    leftSnapshotId: string,
+    rightSnapshotId: string,
+  ) =>
+    [
+      'budgets',
+      clientId,
+      'budget-comparison',
+      'snapshot-pair',
+      leftSnapshotId,
+      rightSnapshotId,
+    ] as const,
+
+  /** Deux versions entre elles (GET /budget-comparisons/versions) */
+  budgetVersionPairComparison: (
+    clientId: string,
+    leftBudgetId: string,
+    rightBudgetId: string,
+  ) =>
+    [
+      'budgets',
+      clientId,
+      'budget-comparison',
+      'version-pair',
+      leftBudgetId,
+      rightBudgetId,
+    ] as const,
+
+  /** Liste snapshots (par budget) */
+  budgetSnapshotsList: (clientId: string, budgetId: string) =>
+    ['budgets', clientId, 'budget-snapshots-list', budgetId] as const,
+
+  /** Détail snapshot (par id) */
+  budgetSnapshotDetail: (clientId: string, snapshotId: string) =>
+    ['budgets', clientId, 'budget-snapshot-detail', snapshotId] as const,
+
+  /** Historique de versions pour sélecteur */
+  budgetVersionHistory: (clientId: string, budgetId: string) =>
+    ['budgets', clientId, 'budget-version-history', budgetId] as const,
 };

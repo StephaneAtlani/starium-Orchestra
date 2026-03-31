@@ -4,6 +4,7 @@ WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build
+RUN pnpm --filter @starium-orchestra/budget-exercise-calendar build
 RUN pnpm --filter @starium-orchestra/api exec prisma generate
 # Forcer la création des node_modules du package api (résolution require() depuis dist/)
 WORKDIR /app/apps/api

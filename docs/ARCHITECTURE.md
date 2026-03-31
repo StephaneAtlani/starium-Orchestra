@@ -92,7 +92,7 @@ apps/
 └── web/   → Next.js frontend
     ├── app/ (routes, layouts)
     ├── components/ (UI partagée)
-    ├── features/budgets
+    ├── features/budgets (dont `forecast/` — UI forecast & comparaison budgétaire, [RFC-FE-BUD-030](./RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md))
     ├── features/procurement
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)
@@ -143,8 +143,9 @@ Le modèle d’accès distingue deux niveaux de rôle :
 
 Règles d’architecture :
 
-- Les routes plateforme (`/api/clients`, `/api/platform/*`, `/api/modules`) reposent sur `platformRole` + `PlatformAdminGuard`.
-- Les routes métier client-scopées reposent sur `X-Client-Id` + `ActiveClientGuard` (puis `ClientAdminGuard` ou `PermissionsGuard` selon la ressource).
+- Les routes **plateforme** pour gérer les organisations (`GET|POST /api/clients`, `PATCH|DELETE /api/clients/:id`, `/api/clients/:clientId/users`, …), ainsi que `/api/platform/*` et `/api/modules`, reposent sur `platformRole` + `PlatformAdminGuard` — **sans** `X-Client-Id` / `ActiveClientGuard`.
+- Les routes sous **`/api/clients/active/*`** (identifiants Microsoft OAuth du client actif, paramètres fiscaux « client actif », etc.) reposent sur **`X-Client-Id`** + `ActiveClientGuard` comme le reste du métier client-scopé.
+- Les autres routes métier client-scopées reposent sur `X-Client-Id` + `ActiveClientGuard` (puis `ClientAdminGuard` ou `PermissionsGuard` selon la ressource).
 - `PLATFORM_ADMIN` ne confère pas automatiquement un rôle `CLIENT_ADMIN` sur un client.
 - `CLIENT_ADMIN` ne confère pas automatiquement toutes les permissions métier (`budgets.*`, `projects.*`, etc.).
 
@@ -160,7 +161,7 @@ Règles de données :
 - Les adresses supplémentaires sont stockées au niveau **`User`** ; le défaut **par client** est sur **`ClientUser.defaultEmailIdentityId`** (jamais sur `Client`). La FK vers l’identité est en **`onDelete: Restrict`** ; suppression ou désactivation bloquée côté métier si l’identité est encore utilisée comme défaut.
 - `GET /api/me/clients` expose pour chaque client `defaultEmailIdentityId` et un objet `defaultEmailIdentity` minimal (affichage).
 
-Côté frontend, `apps/web/src/lib/api-client.ts` exclut ces chemins de l’envoi automatique de `X-Client-Id` ; les requêtes TanStack Query utilisent les clés `['me', 'clients']` et `['me', 'email-identities']` (scope utilisateur, pas besoin de `clientId` dans la clé).
+Côté frontend, `apps/web/src/lib/api-client.ts` exclut ces chemins de l’envoi automatique de `X-Client-Id` ; les requêtes TanStack Query utilisent les clés `['me', 'clients']` et `['me', 'email-identities']` (scope utilisateur, pas besoin de `clientId` dans la clé). Les routes **CRUD plateforme** sous `/api/clients` (hors `/api/clients/active/`) sont également exclues du header ; en revanche **`/api/clients/active/*` envoie `X-Client-Id`** (aligné sur `ActiveClientGuard`).
 
 ---
 
@@ -189,7 +190,9 @@ BudgetExercise
                └── BudgetLine
 ```
 
-C’est le noyau de `budget-management`. 
+C’est le noyau de `budget-management`.
+
+Le **prévisionnel mensuel** par ligne (`BudgetLinePlanningMonth` indexé 1–12, champs `planningMode` / `planningTotalAmount` / `forecastAmount` sur `BudgetLine`) et le calcul d’**atterrissage** (consommé + engagé + prévision restante) sont décrits dans [RFC-023 — Budget Prévisionnel (Planning & Atterrissage)](./RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md). La logique d’alignement des mois sur `BudgetExercise.startDate` est partagée via le package **`@starium-orchestra/budget-exercise-calendar`** (`packages/budget-exercise-calendar/`).
 
 ---
 
@@ -456,15 +459,18 @@ Core budgétaire / financier
 Autres domaines
 ├── projects
 ├── project-budget (RFC-PROJ-010 — liens Project ↔ BudgetLine)
+├── microsoft (RFC-PROJ-INT-003 OAuth, RFC-PROJ-INT-004 client HTTP Graph)
 ├── contracts
 ├── licenses
 ├── applications
 └── ...
 ```
 
-**Module `projects` (MVP — RFC-PROJ-001)** : API `/api/projects` (+ tâches RFC-PROJ-011 avec liste paginée et **sans** `DELETE` tâche au MVP, **`GET /api/projects/:projectId/gantt`** tâches+jalons, **`/activities`**, risques, jalons, **fiche décisionnelle** `GET|PATCH /api/projects/:id/project-sheet`, **arbitrage legacy** `POST /api/projects/:id/arbitration`, **points projet** `GET|POST /api/projects/:projectId/reviews` et sous-routes RFC-PROJ-013), pilotage calculé dans `projects-pilotage.service.ts`, sous-modules `project-sheet/` (RFC-PROJ-012) et `project-reviews/` (RFC-PROJ-013), UI Next.js (`/projects`, détail projet avec onglet Points projet, placeholder `/projects/options`). Détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+**Module `projects` (MVP — RFC-PROJ-001)** : API `/api/projects` (+ tâches RFC-PROJ-011 avec liste paginée et **sans** `DELETE` tâche au MVP, **`GET|POST|PATCH|DELETE /api/projects/:projectId/task-buckets`** buckets planning `ProjectTaskBucket` + `bucketId` sur `ProjectTask`, **`GET /api/projects/:projectId/gantt`** tâches+jalons, **`/activities`**, risques (**RFC-PROJ-018** — `GET|POST|PATCH|DELETE /api/projects/:projectId/risks`), jalons, **fiche décisionnelle** `GET|PATCH /api/projects/:id/project-sheet`, **arbitrage legacy** `POST /api/projects/:id/arbitration`, **points projet** `GET|POST /api/projects/:projectId/reviews` et sous-routes RFC-PROJ-013 — types COPIL/COPRO/… et **POST_MORTEM** (REX, projet clos uniquement), pilotage calculé dans `projects-pilotage.service.ts`, sous-modules `project-sheet/` (fiche — RFC-PROJ-012 Project Sheet) et `project-reviews/` (RFC-PROJ-013), UI Next.js (`/projects`, détail projet avec onglet Points projet, **Planning Gantt** `/projects/[projectId]/planning` — RFC-PROJ-012 Gantt Tâches et Jalons, `apps/web/src/features/projects/components/project-gantt-panel.tsx`, **options par projet** `/projects/[projectId]/options` — RFC-PROJ-OPT-001, `apps/web/src/features/projects/options/` ; le chemin `/projects/options` sans id reste un **placeholder** module). Détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
 **Module `project-budget` (RFC-PROJ-010)** : API `/api/projects/:projectId/budget-links` (liste paginée) et `POST`, `/api/project-budget-links/:id` (`DELETE`), isolation `clientId`, invariants d’allocation sur les liens projet ↔ ligne budgétaire. Enregistré dans `app.module.ts` à côté de `ProjectsModule`.
+
+**Module `microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-004 / RFC-PROJ-INT-005)** : OAuth délégué Microsoft 365, jetons stockés chiffrés (`MicrosoftConnection`). **Transport Microsoft Graph** : `MicrosoftGraphService` ([RFC-PROJ-INT-004](RFC/RFC-PROJ-INT-004%20—%20Microsoft%20Graph%20Service.md)) — requêtes vers `https://graph.microsoft.com/v1.0`, Bearer via `MicrosoftOAuthService.ensureFreshAccessToken` (ex. `requestForConnection`) ; **pas d’endpoint générique « Graph »** côté API : le client appelle des routes métier qui appellent le service. **Lien projet Microsoft** ([RFC-PROJ-INT-007](RFC/RFC-PROJ-INT-007%20—%20Lien%20projet%20Microsoft.md), [RFC-PROJ-INT-008](RFC/RFC-PROJ-INT-008%20—%20Sync%20t%C3%A2ches%20vers%20Planner.md), [RFC-PROJ-INT-009](RFC/RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md)) : `GET|PUT /api/projects/:projectId/microsoft-link` (champ `useMicrosoftPlannerBuckets` pour importer les buckets Planner à la place des buckets Starium — voir RFC-PROJ-OPT-001), `POST .../sync-tasks`, `POST .../sync-documents` — contrôleurs dans `microsoft/`, isolation `projectId` + client actif ; la sync documents importe `ProjectsModule` pour `ProjectDocumentContentService` (fichiers STARIUM sur disque). Routes publiques existantes : `/api/microsoft/auth/url`, `/api/microsoft/auth/callback` (sans JWT ; `clientId` issu du `state` signé validé), `/api/microsoft/connection` ; **configuration plateforme** `GET|PATCH /api/platform/microsoft-settings` (redirect URI, scopes, timeouts — `PlatformAdminGuard`) ; **identifiants d’app Azure par client Starium** `GET|PUT /api/clients/active/microsoft-oauth` (`projects.update`, client admin ou équivalent). Repli **environnement** si la DB est vide. UI client : **Administration client** → `/client/administration/microsoft-365` (accès aligné sur l’API : **client admin** ou **`projects.update`** avec module Projets activé) ; UI plateforme : `/admin/microsoft-settings` (un utilisateur non–platform-admin y est **redirigé** vers `/client/administration/microsoft-365`). Code : `apps/api/src/modules/microsoft/`, `apps/web/src/features/microsoft-365/`, `apps/web/src/app/(protected)/admin/microsoft-settings/`.
 
 L’architecture consolidée décrit bien ce découpage modulaire côté NestJS. 
 

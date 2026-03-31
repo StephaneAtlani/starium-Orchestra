@@ -3,10 +3,12 @@
 export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT: 'project',
   PROJECT_TASK: 'project_task',
+  PROJECT_TASK_PHASE: 'project_task_phase',
   PROJECT_ACTIVITY: 'project_activity',
   PROJECT_RISK: 'project_risk',
   PROJECT_MILESTONE: 'project_milestone',
   PROJECT_BUDGET_LINK: 'project_budget_link',
+  PROJECT_DOCUMENT: 'project_document',
   /** RFC-PROJ-013 */
   PROJECT_REVIEW: 'project_review',
   PROJECT_PORTFOLIO_CATEGORY: 'project_portfolio_category',
@@ -32,6 +34,11 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_TASK_DELETED: 'project_task.deleted',
   PROJECT_TASK_STATUS_UPDATED: 'project_task.status.updated',
   PROJECT_TASK_ASSIGNED: 'project_task.assigned',
+  PROJECT_TASK_PHASE_CHANGED: 'project.task.phase.changed',
+  PROJECT_TASK_PHASE_CREATED: 'project.task_phase.created',
+  PROJECT_TASK_PHASE_UPDATED: 'project.task_phase.updated',
+  PROJECT_TASK_PHASE_DELETED: 'project.task_phase.deleted',
+  PROJECT_TASK_PHASE_REORDERED: 'project.task_phase.reordered',
 
   PROJECT_ACTIVITY_CREATED: 'project_activity.created',
   PROJECT_ACTIVITY_UPDATED: 'project_activity.updated',
@@ -40,6 +47,9 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_RISK_UPDATED: 'project_risk.updated',
   PROJECT_RISK_DELETED: 'project_risk.deleted',
   PROJECT_RISK_LEVEL_UPDATED: 'project_risk.level.updated',
+  PROJECT_RISK_STATUS_UPDATED: 'project_risk.status.updated',
+  PROJECT_RISK_CLOSED: 'project_risk.closed',
+  PROJECT_RISK_REOPENED: 'project_risk.reopened',
 
   PROJECT_MILESTONE_CREATED: 'project_milestone.created',
   PROJECT_MILESTONE_UPDATED: 'project_milestone.updated',
@@ -60,4 +70,10 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_UPDATED: 'project.review.updated',
   PROJECT_REVIEW_FINALIZED: 'project.review.finalized',
   PROJECT_REVIEW_CANCELLED: 'project.review.cancelled',
+
+  /** RFC-PROJ-DOC-001 */
+  PROJECT_DOCUMENT_CREATED: 'project.document.created',
+  PROJECT_DOCUMENT_UPDATED: 'project.document.updated',
+  PROJECT_DOCUMENT_ARCHIVED: 'project.document.archived',
+  PROJECT_DOCUMENT_DELETED: 'project.document.deleted',
 } as const;

@@ -17,6 +17,8 @@ export interface ClientMember {
   lastName: string | null;
   role: 'CLIENT_ADMIN' | 'CLIENT_USER' | string;
   status: 'ACTIVE' | 'SUSPENDED' | 'INVITED' | string;
+  isDirectorySynced?: boolean;
+  isDirectoryLocked?: boolean;
   [key: string]: unknown;
 }
 

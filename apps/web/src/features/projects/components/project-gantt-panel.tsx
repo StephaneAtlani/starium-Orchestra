@@ -29,13 +29,11 @@ import {
   resolveGanttBarTone,
   type GanttBarColorMode,
 } from '../lib/gantt-bar-palette';
+import type { ProjectTaskApi } from '../types/project.types';
 import {
-  buildVisibleChildrenMap,
-  computeVisibleSubtreeRollupBounds,
-  computeVisibleSubtreeRollupProgress,
-  taskHasVisibleChildren,
-} from '../lib/gantt-grouping-bars';
-import { buildProjectTaskTreeRows } from '../lib/project-task-tree';
+  buildGanttBodyRows,
+  type MilestoneForGanttBody,
+} from '../lib/build-gantt-body-rows';
 import {
   GANTT_DAY_MS,
   GANTT_MIN_TIMELINE_PX,
@@ -54,6 +52,9 @@ import {
   type TimelineBounds,
 } from '../lib/gantt-timeline-layout';
 import { TASK_STATUS_LABEL } from '../constants/project-enum-labels';
+import { GanttProjectBanner, ProjectGanttView } from '../gantt/components/project-gantt-view';
+import { normalizeProjectGanttPayload } from '../gantt/mappers/normalize-project-gantt-payload';
+import { mapProjectGanttPayloadToRenderModel } from '../gantt/mappers/project-gantt-render-mapper';
 import { cn } from '@/lib/utils';
 import { GanttBarColorLegend } from './gantt-bar-color-legend';
 import {
@@ -61,6 +62,17 @@ import {
   type ProjectTaskPlanningSectionHandle,
 } from './project-task-planning-section';
 import { ProjectGanttTaskBar } from './project-gantt-task-bar';
+import {
+  ProjectGanttMilestoneTooltipContent,
+  ProjectGanttTaskTooltipContent,
+  PROJECT_GANTT_TOOLTIP_CONTENT_CLASS,
+} from './project-gantt-entity-tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Info, Maximize2, Minimize2, Minus, Plus, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -129,6 +141,8 @@ function clampSidebarWidthPx(width: number, containerWidth: number): number {
 /** Écart libellé après la barre ; un peu plus si pas de prédécesseur (évite le trait SVG). */
 const GANTT_LABEL_AFTER_BAR_GAP_PX = 6;
 const GANTT_LABEL_EXTRA_GAP_WHEN_NO_PREDECESSOR_PX = 14;
+/** Décalage supplémentaire des libellés frise (nom / phase) vers la droite après la barre. */
+const GANTT_FRINGE_LABEL_SHIFT_PX = 28;
 
 export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const depMarkerId = useId().replace(/:/g, '');
@@ -149,6 +163,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const [showMilestones, setShowMilestones] = useState(true);
   /** Nom, % et statut sur les barres de la frise (style MS Project). */
   const [showGanttBarLabels, setShowGanttBarLabels] = useState(true);
+  /** Infobulles riches sur les barres tâches et jalons de la frise. */
+  const [showGanttFriseTooltips, setShowGanttFriseTooltips] = useState(true);
   /** Couleur des barres tâches : défaut, priorité, statut ou regroupement par racine. */
   const [barColorMode, setBarColorMode] = useState<GanttBarColorMode>('default');
   const [timelineViewportW, setTimelineViewportW] = useState(0);
@@ -194,65 +210,152 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   const ganttQuery = useProjectGanttQuery(projectId);
   const payload = ganttQuery.data;
 
-  const milestoneTimes = useMemo(
-    () => (payload?.milestones ?? []).map((m) => new Date(m.targetDate).getTime()),
-    [payload?.milestones],
+  const normalized = useMemo(
+    () => (payload ? normalizeProjectGanttPayload(payload) : null),
+    [payload],
   );
 
-  const treeRows = useMemo(() => {
-    if (!payload?.tasks) return [];
-    const sources = payload.tasks.map((t) => ({
-      ...t,
-      parentTaskId: t.parentTaskId,
-      sortOrder: t.sortOrder,
-      plannedStartDate: t.plannedStartDate,
-      createdAt: t.createdAt,
-    }));
-    return buildProjectTaskTreeRows(sources);
-  }, [payload?.tasks]);
+  const renderModel = useMemo(
+    () =>
+      normalized
+        ? mapProjectGanttPayloadToRenderModel(normalized, {
+            taskStatusFilter,
+            showMilestones,
+          })
+        : null,
+    [normalized, taskStatusFilter, showMilestones],
+  );
 
-  const displayTreeRows = useMemo(() => {
-    if (taskStatusFilter === 'all') return treeRows;
-    return treeRows.filter((r) => r.status === taskStatusFilter);
-  }, [treeRows, taskStatusFilter]);
+  const milestoneTimes = useMemo(
+    () => (normalized?.milestones ?? []).map((m) => new Date(m.targetDate).getTime()),
+    [normalized?.milestones],
+  );
+
+  const sortedMilestones = useMemo(() => {
+    const m = normalized?.milestones ?? [];
+    return [...m].sort(
+      (a, b) =>
+        a.targetDate.localeCompare(b.targetDate) || a.sortOrder - b.sortOrder,
+    );
+  }, [normalized?.milestones]);
+
+  const visibleMilestones = useMemo(
+    () => (showMilestones ? sortedMilestones : []),
+    [sortedMilestones, showMilestones],
+  );
+
+  const milestoneSidebarRows = useMemo(
+    () => visibleMilestones.map((m) => ({ id: m.id, name: m.name })),
+    [visibleMilestones],
+  );
 
   const taskRootIdMap = useMemo(
-    () => buildTaskRootIdMap(payload?.tasks ?? []),
-    [payload?.tasks],
+    () => buildTaskRootIdMap(normalized?.tasks ?? []),
+    [normalized?.tasks],
+  );
+
+  const unifiedRows = useMemo(() => {
+    if (!renderModel) return [];
+    return buildGanttBodyRows(
+      renderModel.phaseOptions,
+      renderModel.orderedTasksFiltered,
+      renderModel.milestonesForBody,
+    );
+  }, [renderModel]);
+
+  const treeRowsForPalette = useMemo(
+    () =>
+      unifiedRows
+        .filter((r): r is { kind: 'task'; row: ProjectTaskApi } => r.kind === 'task')
+        .map((r) => ({
+          ...r.row,
+          parentTaskId: null as string | null,
+          depth: 0,
+          createdAt: r.row.createdAt ?? '',
+        })),
+    [unifiedRows],
   );
 
   const rootIndexByRootId = useMemo(() => {
-    const ordered = orderedRootIdsFromRows(displayTreeRows, (id) => taskRootIdMap.get(id) ?? id);
+    const ordered = orderedRootIdsFromRows(treeRowsForPalette, (id) => taskRootIdMap.get(id) ?? id);
     const m = new Map<string, number>();
     ordered.forEach((rid, i) => {
       m.set(rid, i);
     });
     return m;
-  }, [displayTreeRows, taskRootIdMap]);
-
-  /** Regroupement Gantt : sous-arbre visible uniquement (aligné sidebar / filtre). */
-  const visibleChildrenMap = useMemo(
-    () => buildVisibleChildrenMap(displayTreeRows),
-    [displayTreeRows],
-  );
+  }, [treeRowsForPalette, taskRootIdMap]);
 
   const displayRowsById = useMemo(() => {
-    const m = new Map<string, (typeof displayTreeRows)[number]>();
-    for (const r of displayTreeRows) m.set(r.id, r);
+    const m = new Map<string, ProjectTaskApi>();
+    for (const ur of unifiedRows) {
+      if (ur.kind === 'task') m.set(ur.row.id, ur.row);
+    }
     return m;
-  }, [displayTreeRows]);
+  }, [unifiedRows]);
+
+  const phaseInfoById = useMemo(() => {
+    const m = new Map<
+      string,
+      {
+        name: string;
+        derivedStartDate: string | null;
+        derivedEndDate: string | null;
+        derivedProgress: number | null;
+      }
+    >();
+    for (const p of normalized?.phases ?? []) {
+      m.set(p.id, {
+        name: p.name,
+        derivedStartDate: p.derivedStartDate,
+        derivedEndDate: p.derivedEndDate,
+        derivedProgress: p.derivedProgress,
+      });
+    }
+    return m;
+  }, [normalized?.phases]);
+
+  const ungroupedDerived = useMemo(() => {
+    const rows = unifiedRows
+      .filter((r): r is { kind: 'task'; row: ProjectTaskApi } => r.kind === 'task')
+      .map((r) => r.row)
+      .filter((r) => !r.phaseId);
+    const dated = rows.filter((r) => r.plannedStartDate && r.plannedEndDate);
+    if (dated.length === 0) return null;
+    const minStart = Math.min(...dated.map((r) => new Date(r.plannedStartDate!).getTime()));
+    const maxEnd = Math.max(...dated.map((r) => new Date(r.plannedEndDate!).getTime()));
+    const progress = Math.round(
+      rows.reduce((acc, r) => acc + (Number.isFinite(r.progress) ? r.progress : 0), 0) /
+        Math.max(1, rows.length),
+    );
+    return {
+      name: 'Sans libelle de phase',
+      startMs: minStart,
+      endMs: maxEnd,
+      progress: Math.max(0, Math.min(100, progress)),
+    };
+  }, [unifiedRows]);
 
   const unplannedCount = useMemo(() => {
-    if (!payload?.tasks) return 0;
-    return payload.tasks.filter(
+    if (!normalized?.tasks) return 0;
+    return normalized.tasks.filter(
       (t) => !t.plannedStartDate || !t.plannedEndDate,
     ).length;
-  }, [payload?.tasks]);
+  }, [normalized?.tasks]);
+
+  const taskNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of normalized?.tasks ?? []) {
+      m.set(t.id, t.name);
+    }
+    return m;
+  }, [normalized?.tasks]);
+
+  const projectBusinessProblem = normalized?.project.businessProblem ?? null;
 
   const bounds = useMemo((): TimelineBounds | null => {
-    if (!payload) return null;
-    return computeTimelineBounds(payload.tasks, milestoneTimes);
-  }, [payload, milestoneTimes]);
+    if (!normalized) return null;
+    return computeTimelineBounds(normalized.tasks, milestoneTimes);
+  }, [normalized, milestoneTimes]);
 
   /** Durée affichée (jours) entre min et max de la frise. */
   const spanDays = useMemo(() => {
@@ -291,25 +394,6 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     return { ...base, widthPx: w, dayBands, showDayHeaders, weekendBands };
   }, [bounds, pxPerDay, spanDays]);
 
-  const sortedMilestones = useMemo(() => {
-    const m = payload?.milestones ?? [];
-    return [...m].sort(
-      (a, b) =>
-        new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime() ||
-        a.sortOrder - b.sortOrder,
-    );
-  }, [payload?.milestones]);
-
-  const visibleMilestones = useMemo(
-    () => (showMilestones ? sortedMilestones : []),
-    [sortedMilestones, showMilestones],
-  );
-
-  const milestoneSidebarRows = useMemo(
-    () => visibleMilestones.map((m) => ({ id: m.id, name: m.name })),
-    [visibleMilestones],
-  );
-
   const resolveTaskDates = useCallback(
     (
       taskId: string,
@@ -342,45 +426,47 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
 
   const taskRowGeoms = useMemo((): GanttTaskRowGeom[] => {
     if (!bounds) return [];
-    return displayTreeRows
-      .map((row, rowIndex) => {
-        const dates = resolveTaskDates(
-          row.id,
-          row.plannedStartDate,
-          row.plannedEndDate,
-        );
-        if (!dates) return null;
-        const leftPx = dateMsToPx(dates.startMs, bounds, pxPerDay);
-        const barW = Math.max(
-          2,
-          dateMsToPx(dates.endMs, bounds, pxPerDay) - leftPx,
-        );
-        return {
-          taskId: row.id,
-          rowIndex,
-          leftPx,
-          barW,
-          startMs: dates.startMs,
-          endMs: dates.endMs,
-          dependsOnTaskId: row.dependsOnTaskId ?? null,
-          dependencyType: row.dependencyType ?? null,
-        } satisfies GanttTaskRowGeom;
-      })
-      .filter((r): r is GanttTaskRowGeom => r !== null);
-  }, [displayTreeRows, bounds, resolveTaskDates, pxPerDay]);
+    const out: GanttTaskRowGeom[] = [];
+    for (let rowIndex = 0; rowIndex < unifiedRows.length; rowIndex++) {
+      const ur = unifiedRows[rowIndex];
+      if (ur.kind !== 'task') continue;
+      const row = ur.row;
+      const dates = resolveTaskDates(
+        row.id,
+        row.plannedStartDate,
+        row.plannedEndDate,
+      );
+      if (!dates) continue;
+      const leftPx = dateMsToPx(dates.startMs, bounds, pxPerDay);
+      const barW = Math.max(
+        2,
+        dateMsToPx(dates.endMs, bounds, pxPerDay) - leftPx,
+      );
+      out.push({
+        taskId: row.id,
+        rowIndex,
+        leftPx,
+        barW,
+        startMs: dates.startMs,
+        endMs: dates.endMs,
+        dependsOnTaskId: row.dependsOnTaskId ?? null,
+        dependencyType: row.dependencyType ?? null,
+      } satisfies GanttTaskRowGeom);
+    }
+    return out;
+  }, [unifiedRows, bounds, resolveTaskDates, pxPerDay]);
 
   const dependencyPaths = useMemo(
     () => buildDependencyPaths(taskRowGeoms, GANTT_ROW_PX),
     [taskRowGeoms],
   );
 
-  const timelineBodyHeightPx =
-    (displayTreeRows.length + visibleMilestones.length) * GANTT_ROW_PX;
+  const timelineBodyHeightPx = unifiedRows.length * GANTT_ROW_PX;
 
   const beginLinkOut = useCallback(
     (fromTaskId: string, e: React.PointerEvent) => {
       if (!canEdit || !bounds) return;
-      const row = displayTreeRows.find((r) => r.id === fromTaskId);
+      const row = displayRowsById.get(fromTaskId);
       if (!row) return;
       const dates = resolveTaskDates(
         row.id,
@@ -388,7 +474,9 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         row.plannedEndDate,
       );
       if (!dates) return;
-      const rowIndex = displayTreeRows.findIndex((r) => r.id === fromTaskId);
+      const rowIndex = unifiedRows.findIndex(
+        (u) => u.kind === 'task' && u.row.id === fromTaskId,
+      );
       const fromX = dateMsToPx(dates.endMs, bounds, pxPerDay);
       const fromY = rowCenterY(rowIndex, GANTT_ROW_PX);
       const draft: LinkDraftRef = { fromTaskId, fromX, fromY };
@@ -445,15 +533,11 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
     },
-    [canEdit, bounds, displayTreeRows, resolveTaskDates, updateTask, pxPerDay],
+    [canEdit, bounds, unifiedRows, displayRowsById, resolveTaskDates, updateTask, pxPerDay],
   );
 
   const beginTaskDrag = useCallback(
-    (
-      row: (typeof displayTreeRows)[number],
-      mode: BarMode,
-      e: React.PointerEvent,
-    ) => {
+    (row: ProjectTaskApi, mode: BarMode, e: React.PointerEvent) => {
       if (!canEdit || !row.plannedStartDate || !row.plannedEndDate) return;
       const scrollEl = timelineScrollRef.current;
       if (!scrollEl) return;
@@ -803,6 +887,18 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           />
           <span className="text-muted-foreground">Libellés frise</span>
         </label>
+        <label
+          className="flex cursor-pointer items-center gap-2"
+          title="Décocher pour masquer les infobulles sur les barres et jalons de la frise"
+        >
+          <input
+            type="checkbox"
+            className="border-input size-3.5 rounded"
+            checked={showGanttFriseTooltips}
+            onChange={(e) => setShowGanttFriseTooltips(e.target.checked)}
+          />
+          <span className="text-muted-foreground">Infobulles</span>
+        </label>
         <div
           className="flex items-center gap-1.5 border-border/60 border-l pl-3"
           title="Couleur des barres sur la frise (lecture seule, ne modifie pas les données)"
@@ -859,6 +955,19 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
           isFullscreen && 'box-border min-h-screen overflow-hidden bg-background p-3 sm:p-4',
         )}
       >
+        <TooltipProvider delay={250}>
+        <ProjectGanttView
+          banner={
+            normalized?.project?.name ? (
+              <GanttProjectBanner
+                name={normalized.project.name}
+                status={normalized.project.status}
+                plannedStartDate={normalized.project.plannedStartDate}
+                plannedEndDate={normalized.project.plannedEndDate}
+              />
+            ) : null
+          }
+        >
         <Alert>
           <Info className="size-4" />
           <AlertTitle>Aucune date à afficher</AlertTitle>
@@ -882,9 +991,12 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
               hideToolbar
               milestoneRows={milestoneSidebarRows}
               ganttTaskStatusFilter={taskStatusFilter}
+              ganttUnifiedBodyRows={unifiedRows}
             />
           </div>
         </div>
+        </ProjectGanttView>
+        </TooltipProvider>
       </div>
     );
   }
@@ -901,6 +1013,19 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         isFullscreen && 'box-border min-h-screen overflow-hidden bg-background p-3 sm:p-4',
       )}
     >
+      <TooltipProvider delay={250}>
+      <ProjectGanttView
+        banner={
+          normalized?.project?.name ? (
+            <GanttProjectBanner
+              name={normalized.project.name}
+              status={normalized.project.status}
+              plannedStartDate={normalized.project.plannedStartDate}
+              plannedEndDate={normalized.project.plannedEndDate}
+            />
+          ) : null
+        }
+      >
       {unplannedCount > 0 && (
         <Alert className="border-amber-500/40 bg-amber-500/5">
           <Info className="size-4 text-amber-800 dark:text-amber-600" />
@@ -930,7 +1055,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
             className="flex min-h-0 min-w-0 flex-1 flex-row"
           >
             <div
-              className="border-border/60 flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden border-r border-border/60"
+              className="border-border/60 flex min-h-0 min-w-0 shrink-0 flex-col overflow-x-auto border-r border-border/60"
               style={{
                 width: sidebarWidthPx,
                 minWidth: GANTT_SIDEBAR_MIN_PX,
@@ -944,6 +1069,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                 milestoneRows={milestoneSidebarRows}
                 ganttTaskStatusFilter={taskStatusFilter}
                 ganttExtraHeaderRows={showDayHeaders ? 1 : 0}
+                ganttUnifiedBodyRows={unifiedRows}
               />
             </div>
 
@@ -969,7 +1095,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
               style={{ width: widthPx, minWidth: widthPx }}
             >
               <div
-                className="border-border/40 bg-muted/30 sticky top-0 z-20 relative border-b"
+                className="border-border/40 bg-muted/30 sticky top-0 z-20 relative"
                 style={{ width: widthPx }}
               >
                 <div
@@ -1017,7 +1143,10 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                   ))}
                 </div>
                 {showDayHeaders && (
-                  <div className="relative z-[1]" style={{ height: GANTT_ROW_PX, width: widthPx }}>
+                  <div
+                    className="border-border/40 relative z-[1] border-b"
+                    style={{ height: GANTT_ROW_PX, width: widthPx }}
+                  >
                     {dayBands.map((b, i) => (
                       <div
                         key={`d-${i}-${b.label}-${b.leftPx}`}
@@ -1107,7 +1236,183 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                   />
                 )}
 
-                {displayTreeRows.map((row) => {
+                {unifiedRows.map((ur, rowIndex) => {
+                  if (ur.kind === 'phaseHeader') {
+                    const pid = ur.phaseId;
+                    let phaseMeta:
+                      | {
+                          name: string;
+                          derivedStartDate: string | null;
+                          derivedEndDate: string | null;
+                          derivedProgress: number | null;
+                        }
+                      | undefined;
+                    let phaseStartMs: number | null = null;
+                    let phaseEndMs: number | null = null;
+
+                    if (pid) {
+                      phaseMeta = phaseInfoById.get(pid);
+                      if (phaseMeta) {
+                        phaseStartMs = phaseMeta.derivedStartDate
+                          ? new Date(phaseMeta.derivedStartDate).getTime()
+                          : null;
+                        phaseEndMs = phaseMeta.derivedEndDate
+                          ? new Date(phaseMeta.derivedEndDate).getTime()
+                          : null;
+                      }
+                    } else if (ungroupedDerived) {
+                      phaseMeta = {
+                        name: ungroupedDerived.name,
+                        derivedStartDate: new Date(ungroupedDerived.startMs).toISOString(),
+                        derivedEndDate: new Date(ungroupedDerived.endMs).toISOString(),
+                        derivedProgress: ungroupedDerived.progress,
+                      };
+                      phaseStartMs = ungroupedDerived.startMs;
+                      phaseEndMs = ungroupedDerived.endMs;
+                    }
+
+                    const hasRollup =
+                      Boolean(bounds) &&
+                      Boolean(phaseMeta) &&
+                      phaseStartMs != null &&
+                      phaseEndMs != null;
+                    const rollupLeftPx =
+                      hasRollup && bounds
+                        ? dateMsToPx(phaseStartMs!, bounds, pxPerDay)
+                        : 0;
+                    const rollupW =
+                      hasRollup && bounds
+                        ? Math.max(
+                            2,
+                            dateMsToPx(phaseEndMs!, bounds, pxPerDay) - rollupLeftPx,
+                          )
+                        : 0;
+                    const rollupProgressPct = phaseMeta?.derivedProgress ?? null;
+
+                    return (
+                      <div
+                        key={`phase:${ur.phaseId ?? 'none'}`}
+                        className="border-border/60 relative z-[2] box-border shrink-0 border-b"
+                        style={{ height: GANTT_ROW_PX, width: widthPx }}
+                      >
+                        {hasRollup && phaseMeta && (
+                          <>
+                            <div
+                              className="pointer-events-none absolute top-1/2 z-[1] h-1.5 -translate-y-1/2 rounded-sm border border-primary/45 bg-primary/25 shadow-sm"
+                              style={{ left: rollupLeftPx, width: rollupW }}
+                              title={`Phase ${phaseMeta.name} : ${new Date(phaseStartMs!).toLocaleDateString('fr-FR')} → ${new Date(phaseEndMs!).toLocaleDateString('fr-FR')}${
+                                rollupProgressPct != null
+                                  ? ` — avancement moyen ${rollupProgressPct} %`
+                                  : ''
+                              }`}
+                              aria-hidden
+                            />
+                            {showGanttBarLabels && (
+                              <div
+                                className="pointer-events-none absolute top-1/2 z-[3] max-w-[min(14rem,38vw)] -translate-y-1/2 truncate text-[9px] font-medium leading-tight text-muted-foreground"
+                                style={{
+                                  left:
+                                    rollupLeftPx +
+                                    rollupW +
+                                    4 +
+                                    GANTT_FRINGE_LABEL_SHIFT_PX,
+                                }}
+                                title={`Phase ${phaseMeta.name}${
+                                  rollupProgressPct != null
+                                    ? ` — ${rollupProgressPct} %`
+                                    : ''
+                                }`}
+                              >
+                                <span className="text-foreground">
+                                  Phase: {phaseMeta.name}
+                                </span>
+                                {rollupProgressPct != null ? (
+                                  <span className="ml-1 tabular-nums opacity-90">
+                                    · {rollupProgressPct} %
+                                  </span>
+                                ) : null}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (ur.kind === 'milestone') {
+                    const m = ur.ms;
+                    const tMs = resolveMilestoneDate(m.id, m.targetDate);
+                    const leftPx = dateMsToPx(tMs, bounds, pxPerDay);
+                    return (
+                      <div
+                        key={`milestone:${m.id}`}
+                        className="border-border/60 relative z-[2] box-border shrink-0 border-b"
+                        style={{ height: GANTT_ROW_PX, width: widthPx }}
+                      >
+                        {showGanttFriseTooltips ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              className={cn(
+                                'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm',
+                                canEdit
+                                  ? 'cursor-grab touch-none hover:bg-amber-400 active:cursor-grabbing'
+                                  : 'cursor-default',
+                                m.isLate &&
+                                  'ring-2 ring-destructive/80 ring-offset-1 ring-offset-background',
+                              )}
+                              style={{ left: leftPx }}
+                              onPointerDown={
+                                canEdit ? (e) => beginMilestoneDrag(m, e) : undefined
+                              }
+                              aria-label={m.name}
+                            />
+                            <TooltipContent
+                              side="top"
+                              align="start"
+                              sideOffset={8}
+                              className={cn(
+                                PROJECT_GANTT_TOOLTIP_CONTENT_CLASS,
+                                'z-[100] max-w-none items-start',
+                              )}
+                            >
+                              <ProjectGanttMilestoneTooltipContent
+                                milestone={m}
+                                linkedTaskName={
+                                  m.linkedTaskId
+                                    ? taskNameById.get(m.linkedTaskId) ?? null
+                                    : null
+                                }
+                                phaseName={
+                                  m.phaseId
+                                    ? phaseInfoById.get(m.phaseId)?.name ?? null
+                                    : null
+                                }
+                                projectBusinessProblem={projectBusinessProblem}
+                              />
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <div
+                            className={cn(
+                              'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm',
+                              canEdit
+                                ? 'cursor-grab touch-none hover:bg-amber-400 active:cursor-grabbing'
+                                : 'cursor-default',
+                              m.isLate &&
+                                'ring-2 ring-destructive/80 ring-offset-1 ring-offset-background',
+                            )}
+                            style={{ left: leftPx }}
+                            title={`${m.name} — ${new Date(tMs).toLocaleDateString('fr-FR')}`}
+                            onPointerDown={
+                              canEdit ? (e) => beginMilestoneDrag(m, e) : undefined
+                            }
+                          />
+                        )}
+                      </div>
+                    );
+                  }
+
+                  const row = ur.row;
                   const eligible =
                     row.plannedStartDate && row.plannedEndDate && bounds;
                   const dates = resolveTaskDates(
@@ -1128,82 +1433,15 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                       )
                     : 0;
 
-                  const hasVisibleChildren = taskHasVisibleChildren(
-                    row.id,
-                    visibleChildrenMap,
-                  );
-                  const rollupBounds =
-                    hasVisibleChildren && bounds
-                      ? computeVisibleSubtreeRollupBounds(
-                          row.id,
-                          displayRowsById,
-                          visibleChildrenMap,
-                        )
-                      : null;
-                  const rollupLeftPx =
-                    rollupBounds && bounds
-                      ? dateMsToPx(rollupBounds.startMs, bounds, pxPerDay)
-                      : 0;
-                  const rollupW =
-                    rollupBounds && bounds
-                      ? Math.max(
-                          2,
-                          dateMsToPx(rollupBounds.endMs, bounds, pxPerDay) -
-                            rollupLeftPx,
-                        )
-                      : 0;
-
-                  const rollupProgressPct =
-                    rollupBounds && bounds
-                      ? computeVisibleSubtreeRollupProgress(
-                          row.id,
-                          displayRowsById,
-                          visibleChildrenMap,
-                        )
-                      : null;
-
                   const statusLabel =
                     TASK_STATUS_LABEL[row.status] ?? row.status;
 
                   return (
                     <div
-                      key={row.id}
-                      className="border-border/40 relative z-[2] shrink-0 border-b"
+                      key={`task:${row.id}`}
+                      className="border-border/60 relative z-[2] box-border shrink-0 border-b"
                       style={{ height: GANTT_ROW_PX, width: widthPx }}
                     >
-                      {rollupBounds && bounds && (
-                        <>
-                          <div
-                            className="pointer-events-none absolute top-1 z-[1] h-1.5 rounded-sm border border-primary/35 bg-primary/20 shadow-sm"
-                            style={{ left: rollupLeftPx, width: rollupW }}
-                            title={`Résumé du groupe (${row.name} et sous-tâches affichées) : ${new Date(rollupBounds.startMs).toLocaleDateString('fr-FR')} → ${new Date(rollupBounds.endMs).toLocaleDateString('fr-FR')}${
-                              rollupProgressPct != null
-                                ? ` — avancement moyen ${rollupProgressPct} %`
-                                : ''
-                            }`}
-                            aria-hidden
-                          />
-                          {showGanttBarLabels && (
-                            <div
-                              className="pointer-events-none absolute top-0.5 z-[3] max-w-[min(14rem,38vw)] truncate text-[9px] font-medium leading-tight text-muted-foreground"
-                              style={{ left: rollupLeftPx + rollupW + 4 }}
-                              title={`${row.name} (résumé)${
-                                rollupProgressPct != null
-                                  ? ` — ${rollupProgressPct} %`
-                                  : ''
-                              }`}
-                            >
-                              <span className="text-foreground">{row.name}</span>
-                              <span className="ml-0.5 opacity-75">(résumé)</span>
-                              {rollupProgressPct != null ? (
-                                <span className="ml-1 tabular-nums opacity-90">
-                                  · {rollupProgressPct} %
-                                </span>
-                              ) : null}
-                            </div>
-                          )}
-                        </>
-                      )}
                       {eligible && dates && (
                         <ProjectGanttTaskBar
                           taskId={row.id}
@@ -1213,8 +1451,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                           canEdit={canEdit}
                           title={row.name}
                           statusLabel={statusLabel}
+                          isLate={Boolean(row.isLate)}
                           showLinkPorts={canEdit}
-                          summaryStacked={Boolean(rollupBounds && bounds)}
                           onPointerDownBar={(mode, ev) => beginTaskDrag(row, mode, ev)}
                           onLinkOutPointerDown={(ev) => beginLinkOut(row.id, ev)}
                           tone={resolveGanttBarTone(barColorMode, row, {
@@ -1224,6 +1462,23 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                                 taskRootIdMap.get(row.id) ?? row.id,
                               ) ?? 0,
                           })}
+                          tooltipContent={
+                            showGanttFriseTooltips ? (
+                              <ProjectGanttTaskTooltipContent
+                                task={row}
+                                phaseName={
+                                  row.phaseId
+                                    ? phaseInfoById.get(row.phaseId)?.name ?? null
+                                    : null
+                                }
+                                predecessorName={
+                                  row.dependsOnTaskId
+                                    ? taskNameById.get(row.dependsOnTaskId) ?? null
+                                    : null
+                                }
+                              />
+                            ) : undefined
+                          }
                         />
                       )}
                       {eligible && dates && showGanttBarLabels && (
@@ -1234,10 +1489,11 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                               leftPx +
                               barW +
                               GANTT_LABEL_AFTER_BAR_GAP_PX +
+                              GANTT_FRINGE_LABEL_SHIFT_PX +
                               (row.dependsOnTaskId
                                 ? 0
                                 : GANTT_LABEL_EXTRA_GAP_WHEN_NO_PREDECESSOR_PX),
-                            top: rollupBounds && bounds ? 21 : 18,
+                            top: 18,
                             transform: 'translateY(-50%)',
                           }}
                           title={`${row.name} — ${row.progress} % — ${statusLabel}`}
@@ -1253,37 +1509,14 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     </div>
                   );
                 })}
-
-                {visibleMilestones.map((m) => {
-                  const tMs = resolveMilestoneDate(m.id, m.targetDate);
-                  const leftPx = dateMsToPx(tMs, bounds, pxPerDay);
-                  return (
-                    <div
-                      key={m.id}
-                      className="border-border/40 relative z-[2] shrink-0 border-b"
-                      style={{ height: GANTT_ROW_PX, width: widthPx }}
-                    >
-                      <div
-                        className={
-                          canEdit
-                            ? 'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm hover:bg-amber-400 cursor-grab touch-none active:cursor-grabbing'
-                            : 'bg-amber-500 pointer-events-none absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm'
-                        }
-                        style={{ left: leftPx }}
-                        title={`${m.name} — ${new Date(tMs).toLocaleDateString('fr-FR')}`}
-                        onPointerDown={
-                          canEdit ? (e) => beginMilestoneDrag(m, e) : undefined
-                        }
-                      />
-                    </div>
-                  );
-                })}
               </div>
             </div>
             </div>
           </div>
         </div>
       </div>
+      </ProjectGanttView>
+      </TooltipProvider>
     </div>
   );
 }

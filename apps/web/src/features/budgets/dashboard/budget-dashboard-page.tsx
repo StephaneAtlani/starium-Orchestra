@@ -17,14 +17,10 @@ import { BudgetDashboardSkeleton } from './components/budget-dashboard-skeleton'
 import { BudgetDashboardEmptyState } from './components/budget-dashboard-empty-state';
 import { BudgetDashboardErrorState } from './components/budget-dashboard-error-state';
 import { BudgetDashboardHeader } from './components/budget-dashboard-header';
-import { BudgetKpiGrid } from './components/budget-kpi-grid';
-import { BudgetAlertsPanel } from './components/budget-alerts-panel';
-import { BudgetAnalyticsGrid } from './components/budget-analytics-grid';
-import { BudgetTopEnvelopesCard } from './components/budget-top-envelopes-card';
-import { BudgetEnvelopesTable } from './components/budget-envelopes-table';
-import { BudgetLinesCritiqueTable } from './components/budget-lines-critique-table';
-import { BudgetTopBudgetLinesCard } from './components/budget-top-budget-lines-card';
+import { BudgetCockpitWidgetRenderer } from './components/budget-cockpit-widget-renderer';
 import { CockpitSurfaceCard } from './components/budget-cockpit-primitives';
+import { BudgetCockpitUserSettingsDialog } from '@/features/budgets/cockpit-settings/budget-cockpit-user-settings-dialog';
+import { budgetReporting } from '@/features/budgets/constants/budget-routes';
 
 export function BudgetDashboardPage() {
   const criticalRef = useRef<HTMLDivElement>(null);
@@ -39,6 +35,10 @@ export function BudgetDashboardPage() {
     budgetSelectLabel,
     onExerciseChange,
     onBudgetChange,
+    useUserOverrides,
+    onUserOverridesModeChange,
+    animateAmounts,
+    onAnimateAmountsChange,
     refresh,
     data,
     isLoading,
@@ -49,6 +49,10 @@ export function BudgetDashboardPage() {
     budgets,
     budgetsLoading,
   } = useBudgetDashboardPage();
+
+  const isAggregatedBudgetMode = budgetId === '__ALL__';
+  const forecastReportingHref =
+    budgetId && !isAggregatedBudgetMode ? budgetReporting(budgetId) : undefined;
 
   const {
     taxDisplayMode,
@@ -65,6 +69,7 @@ export function BudgetDashboardPage() {
 
   const [isEnvelopeDrawerOpen, setIsEnvelopeDrawerOpen] = useState(false);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const openBudgetLineDrawer = useCallback((lineId: string) => {
     setSelectedBudgetLineId(lineId);
@@ -126,6 +131,16 @@ export function BudgetDashboardPage() {
               taxDisplayMode={taxDisplayMode}
               onTaxDisplayModeChange={setTaxDisplayMode}
               taxDisplayLoading={taxDisplayLoading}
+              useUserOverrides={useUserOverrides}
+              onUseUserOverridesModeChange={(next) => {
+                onUserOverridesModeChange(next);
+                if (!next) setSettingsOpen(false);
+              }}
+              onCustomize={() => {
+                if (!useUserOverrides) onUserOverridesModeChange(true);
+                setSettingsOpen(true);
+              }}
+              forecastReportingHref={forecastReportingHref}
             />
 
             <CockpitSurfaceCard
@@ -174,65 +189,39 @@ export function BudgetDashboardPage() {
               </dl>
             </CockpitSurfaceCard>
 
-            <BudgetKpiGrid
+            <BudgetCockpitUserSettingsDialog
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+              widgets={data.widgets}
+              useUserOverrides={useUserOverrides}
+              animateAmounts={animateAmounts}
+              onAnimateAmountsChange={onAnimateAmountsChange}
+              exercises={exercises}
+              budgets={budgets}
+              exerciseId={exerciseId}
+              budgetId={budgetId}
+              exerciseSelectLabel={exerciseSelectLabel}
+              budgetSelectLabel={budgetSelectLabel}
+              exercisesLoading={exercisesLoading}
+              budgetsLoading={budgetsLoading}
+              onExerciseChange={onExerciseChange}
+              onBudgetChange={onBudgetChange}
+            />
+
+            <BudgetCockpitWidgetRenderer
               data={data}
               taxDisplayMode={taxDisplayMode}
               defaultTaxRate={defaultTaxRate}
-            />
-
-            <BudgetAlertsPanel
-              alertsSummary={data.alertsSummary}
+              animateAmounts={animateAmounts}
               onViewCriticalLines={scrollToCritical}
+              criticalRef={criticalRef}
+              onEnvelopeClick={
+                isAggregatedBudgetMode ? () => {} : openEnvelopeDrawer
+              }
+              onBudgetLineClick={
+                isAggregatedBudgetMode ? () => {} : openBudgetLineDrawer
+              }
             />
-
-            <BudgetAnalyticsGrid
-              data={data}
-              taxDisplayMode={taxDisplayMode}
-              defaultTaxRate={defaultTaxRate}
-            />
-
-            {data.topEnvelopes && data.topEnvelopes.length > 0 && (
-              <BudgetTopEnvelopesCard
-                rows={data.topEnvelopes}
-                currency={data.budget.currency}
-                taxDisplayMode={taxDisplayMode}
-                defaultTaxRate={defaultTaxRate}
-                onEnvelopeClick={openEnvelopeDrawer}
-              />
-            )}
-
-            {data.riskEnvelopes && data.riskEnvelopes.length > 0 && (
-              <BudgetEnvelopesTable
-                rows={data.riskEnvelopes}
-                currency={data.budget.currency}
-                taxDisplayMode={taxDisplayMode}
-                defaultTaxRate={defaultTaxRate}
-                onEnvelopeClick={openEnvelopeDrawer}
-              />
-            )}
-
-            <div ref={criticalRef}>
-              {data.criticalBudgetLines && (
-                <BudgetLinesCritiqueTable
-                  rows={data.criticalBudgetLines}
-                  currency={data.budget.currency}
-                  budgetId={data.budget.id}
-                  taxDisplayMode={taxDisplayMode}
-                  defaultTaxRate={defaultTaxRate}
-                  onBudgetLineClick={openBudgetLineDrawer}
-                />
-              )}
-            </div>
-
-            {data.topBudgetLines && data.topBudgetLines.length > 0 && (
-              <BudgetTopBudgetLinesCard
-                rows={data.topBudgetLines}
-                currency={data.budget.currency}
-                taxDisplayMode={taxDisplayMode}
-                defaultTaxRate={defaultTaxRate}
-                onBudgetLineClick={openBudgetLineDrawer}
-              />
-            )}
 
             <BudgetEnvelopeIntelligenceDrawer
               open={isEnvelopeDrawerOpen}

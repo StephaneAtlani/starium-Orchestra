@@ -1,0 +1,150 @@
+'use client';
+
+import type { ReactNode } from 'react';
+import type { PortfolioGanttRow } from '../types/project.types';
+import {
+  arbitrationFocusStep,
+  labelArbLevel,
+  PORTFOLIO_ARBITRATION_ACTIVE_LEVEL_LABEL,
+} from '../lib/portfolio-gantt-tooltip-labels';
+import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
+import {
+  PROJECT_CRITICALITY_LABEL,
+  PROJECT_PRIORITY_LABEL,
+} from '../constants/project-enum-labels';
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-background/65">
+      {children}
+    </p>
+  );
+}
+
+export function PortfolioGanttSidebarTooltipContent({
+  row,
+}: {
+  row: PortfolioGanttRow;
+}) {
+  const tags = row.tags ?? [];
+  const stakeholderLines = row.stakeholderLines ?? [];
+  const metier = labelArbLevel(row.arbitrationMetierStatus);
+  const comite = labelArbLevel(row.arbitrationComiteStatus);
+  const codir = labelArbLevel(row.arbitrationCodirStatus);
+  const hasArb =
+    metier != null || comite != null || codir != null;
+  const focusStep = arbitrationFocusStep(
+    row.arbitrationMetierStatus,
+    row.arbitrationComiteStatus,
+    row.arbitrationCodirStatus,
+  );
+  const arbitrageNiveauActif =
+    PORTFOLIO_ARBITRATION_ACTIVE_LEVEL_LABEL[focusStep];
+  const objectifMetier = row.businessProblem?.trim() ?? '';
+  const priorityLabel =
+    PROJECT_PRIORITY_LABEL[row.priority] ?? row.priority;
+  const criticalityLabel =
+    PROJECT_CRITICALITY_LABEL[row.criticality] ?? row.criticality;
+  const progressText =
+    row.progressPercent != null && Number.isFinite(row.progressPercent)
+      ? `${Math.round(row.progressPercent)} %`
+      : '—';
+
+  return (
+    <div className="flex w-full max-w-[min(34rem,calc(100vw-2rem))] gap-3 text-left">
+      <div className="min-w-0 flex-1 space-y-2.5">
+      <div>
+        <SectionTitle>Validation & arbitrage</SectionTitle>
+        {hasArb ? (
+          <ul className="mt-1.5 list-none space-y-1 text-[0.8125rem] leading-snug text-background/95">
+            <li>
+              <span className="text-background/75">Arbitrage · Niveau actif · </span>
+              {arbitrageNiveauActif}
+            </li>
+            {metier != null && (
+              <li>
+                <span className="text-background/75">Métier · </span>
+                {metier}
+              </li>
+            )}
+            {comite != null && (
+              <li>
+                <span className="text-background/75">Comité · </span>
+                {comite}
+              </li>
+            )}
+            {codir != null && (
+              <li>
+                <span className="text-background/75">COPIL / COPRO · </span>
+                {codir}
+              </li>
+            )}
+          </ul>
+        ) : (
+          <p className="mt-1 text-[0.8125rem] text-background/80">Non renseigné</p>
+        )}
+      </div>
+
+      <div>
+        <SectionTitle>Pilotage</SectionTitle>
+        <ul className="mt-1.5 list-none space-y-1 text-[0.8125rem] leading-snug text-background/95">
+          <li>
+            <span className="text-background/75">Avancement · </span>
+            {progressText}
+          </li>
+          <li>
+            <span className="text-background/75">Criticité · </span>
+            {criticalityLabel}
+          </li>
+          <li>
+            <span className="text-background/75">Priorité · </span>
+            {priorityLabel}
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <SectionTitle>Étiquettes</SectionTitle>
+        {tags.length > 0 ? (
+          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+            {tags.map((t) => (
+              <li
+                key={t.id}
+                className="rounded-md border px-1.5 py-0.5 text-[0.75rem] font-medium shadow-sm"
+                style={projectTagBadgeStyle(t.color)}
+              >
+                {t.name}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-[0.8125rem] text-background/80">Aucune étiquette</p>
+        )}
+      </div>
+
+      <div>
+        <SectionTitle>Parties prenantes</SectionTitle>
+        {stakeholderLines.length > 0 ? (
+          <ul className="mt-1.5 list-none space-y-1 text-[0.8125rem] leading-snug text-background/95">
+            {stakeholderLines.map((line, i) => (
+              <li key={`${row.id}-st-${i}`}>{line}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-[0.8125rem] text-background/80">Non renseigné</p>
+        )}
+      </div>
+      </div>
+
+      <div className="w-[min(11.5rem,32vw)] shrink-0 border-l border-background/20 pl-3">
+        <SectionTitle>Objectif métier</SectionTitle>
+        <p
+          className="mt-1.5 line-clamp-6 break-words text-[0.8125rem] leading-snug text-background/95"
+          title={objectifMetier || undefined}
+        >
+          {objectifMetier || '—'}
+        </p>
+      </div>
+    </div>
+  );
+}

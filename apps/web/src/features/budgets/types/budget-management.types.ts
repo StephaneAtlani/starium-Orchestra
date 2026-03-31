@@ -33,6 +33,8 @@ export interface Budget {
   taxMode: 'HT' | 'TTC';
   defaultTaxRate: number | null;
   ownerUserId: string | null;
+  /** Présent quand l’API joint le responsable (liste / détail budgets). */
+  ownerUserName?: string | null;
   createdAt: string;
   updatedAt: string;
   /** Présent quand l’API joint l’exercice (liste / détail budgets). */

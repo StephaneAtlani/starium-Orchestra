@@ -1,10 +1,17 @@
 'use client';
 
+import type { ReactNode } from 'react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
   GANTT_BAR_TONE_DEFAULT,
   type GanttBarTone,
 } from '../lib/gantt-bar-palette';
+import { PROJECT_GANTT_TOOLTIP_CONTENT_CLASS } from './project-gantt-entity-tooltip';
 
 const HANDLE_MAX_PX = 8;
 const LINK_PORT_PX = 6;
@@ -24,6 +31,8 @@ export function ProjectGanttTaskBar({
   tone = GANTT_BAR_TONE_DEFAULT,
   summaryStacked = false,
   statusLabel,
+  isLate = false,
+  tooltipContent,
 }: {
   taskId: string;
   leftPx: number;
@@ -32,30 +41,65 @@ export function ProjectGanttTaskBar({
   canEdit: boolean;
   title: string;
   onPointerDownBar: (mode: BarMode, e: React.PointerEvent) => void;
-  /** Port sortie (bord fin) — début du drag de lien FS */
   onLinkOutPointerDown?: (e: React.PointerEvent) => void;
-  /** Afficher ports lien (entrée gauche / sortie droite du bloc central) */
   showLinkPorts?: boolean;
-  /** Couleurs barre / poignées (priorité, statut, groupe, etc.) */
   tone?: GanttBarTone;
-  /**
-   * Barre de regroupement (résumé) affichée juste au-dessus : décale la barre tâche vers le bas
-   * (style MS Project).
-   */
   summaryStacked?: boolean;
-  /** Libellé statut pour le tooltip (affichage texte à droite de la barre géré par le panneau). */
   statusLabel?: string;
+  isLate?: boolean;
+  tooltipContent?: ReactNode;
 }) {
   const linkHandles = Boolean(canEdit && showLinkPorts && onLinkOutPointerDown);
   const barInset = summaryStacked ? 'top-3 bottom-1.5' : 'top-2 bottom-2';
   const tip = `${title} — ${progress} %${statusLabel ? ` — ${statusLabel}` : ''}`;
+  const nativeTitle = tooltipContent ? undefined : tip;
+
+  const tooltipShell = (trigger: ReactNode) =>
+    tooltipContent ? (
+      <Tooltip>
+        {trigger}
+        <TooltipContent
+          side="top"
+          align="start"
+          sideOffset={8}
+          className={cn(
+            PROJECT_GANTT_TOOLTIP_CONTENT_CLASS,
+            'z-[100] max-w-none items-start',
+          )}
+        >
+          {tooltipContent}
+        </TooltipContent>
+      </Tooltip>
+    ) : (
+      trigger
+    );
 
   if (!canEdit) {
-    return (
-      <div
-        className={cn(tone.track, 'absolute rounded-sm', barInset)}
+    const trigger = tooltipContent ? (
+      <TooltipTrigger
+        className={cn(
+          tone.track,
+          'absolute cursor-default rounded-sm',
+          barInset,
+          isLate && 'ring-1 ring-destructive/80 ring-offset-1 ring-offset-background',
+        )}
         style={{ left: leftPx, width: barW }}
-        title={tip}
+      >
+        <div
+          className={cn(tone.progress, 'h-full rounded-sm')}
+          style={{ width: `${Math.min(100, progress)}%` }}
+        />
+      </TooltipTrigger>
+    ) : (
+      <div
+        className={cn(
+          tone.track,
+          'absolute rounded-sm',
+          barInset,
+          isLate && 'ring-1 ring-destructive/80 ring-offset-1 ring-offset-background',
+        )}
+        style={{ left: leftPx, width: barW }}
+        title={nativeTitle}
       >
         <div
           className={cn(tone.progress, 'h-full rounded-sm')}
@@ -63,18 +107,13 @@ export function ProjectGanttTaskBar({
         />
       </div>
     );
+    return tooltipShell(trigger);
   }
 
   const handleW = Math.min(HANDLE_MAX_PX, Math.max(3, barW / 3));
 
-  return (
-    <div
-      className={cn('absolute flex touch-none rounded-sm', barInset)}
-      style={{ left: leftPx, width: barW }}
-      title={`${tip} — glisser pour déplacer, poignées pour ajuster les dates${
-        linkHandles ? ' ; ports lien au centre gauche/droite' : ''
-      }`}
-    >
+  const editableInner = (
+    <>
       <div
         role="separator"
         aria-label="Ajuster le début"
@@ -141,6 +180,35 @@ export function ProjectGanttTaskBar({
           onPointerDownBar('resize-end', e);
         }}
       />
+    </>
+  );
+
+  const trigger = tooltipContent ? (
+    <TooltipTrigger
+      className={cn(
+        'absolute flex touch-none rounded-sm',
+        barInset,
+        isLate && 'ring-1 ring-destructive/80 ring-offset-1 ring-offset-background',
+      )}
+      style={{ left: leftPx, width: barW }}
+    >
+      {editableInner}
+    </TooltipTrigger>
+  ) : (
+    <div
+      className={cn(
+        'absolute flex touch-none rounded-sm',
+        barInset,
+        isLate && 'ring-1 ring-destructive/80 ring-offset-1 ring-offset-background',
+      )}
+      style={{ left: leftPx, width: barW }}
+      title={`${tip} — glisser pour déplacer, poignées pour ajuster les dates${
+        linkHandles ? ' ; ports lien au centre gauche/droite' : ''
+      }`}
+    >
+      {editableInner}
     </div>
   );
+
+  return tooltipShell(trigger);
 }

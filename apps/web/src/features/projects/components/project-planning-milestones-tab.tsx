@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,18 +20,22 @@ import {
 } from '@/components/ui/table';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
-import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
+import { useProjectMilestoneLabelsQuery } from '../hooks/use-project-milestone-labels-query';
 import {
   useCreateProjectMilestoneMutation,
   useUpdateProjectMilestoneMutation,
 } from '../hooks/use-project-planning-mutations';
+import { useCreateProjectMilestoneLabelMutation } from '../hooks/use-project-labels-mutations';
 import { MILESTONE_STATUS_LABEL } from '../constants/project-enum-labels';
 import type { ProjectMilestoneApi } from '../types/project.types';
 import type {
   CreateProjectMilestonePayload,
   UpdateProjectMilestonePayload,
 } from '../api/projects.api';
+import { listProjectTaskPhases } from '../api/projects.api';
+import { cn } from '@/lib/utils';
 import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
 
 function emptyCreate(): CreateProjectMilestonePayload {
@@ -40,24 +44,57 @@ function emptyCreate(): CreateProjectMilestonePayload {
     name: '',
     targetDate: new Date(`${today}T12:00:00.000Z`).toISOString(),
     status: 'PLANNED',
+    milestoneLabelIds: [],
+    phaseId: null,
   };
 }
 
 export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string }) {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
+  const canListProjectLabels = has('projects.read') || canEdit;
+
+  const authFetch = useAuthenticatedFetch();
 
   const milestonesQuery = useProjectMilestonesQuery(projectId);
-  const tasksQuery = useProjectTasksQuery(projectId);
+  const milestoneLabelsQuery = useProjectMilestoneLabelsQuery(
+    projectId,
+    canListProjectLabels,
+  );
   const createMut = useCreateProjectMilestoneMutation(projectId);
   const updateMut = useUpdateProjectMilestoneMutation(projectId);
+  const createMilestoneLabelMut = useCreateProjectMilestoneLabelMutation(projectId);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectMilestoneApi | null>(null);
   const [form, setForm] = useState<CreateProjectMilestonePayload>(emptyCreate());
+  const [phaseOptions, setPhaseOptions] = useState<
+    Array<{ id: string; name: string; sortOrder: number }>
+  >([]);
+
+  const phaseNameById = useMemo(
+    () => new Map(phaseOptions.map((p) => [p.id, p.name] as const)),
+    [phaseOptions],
+  );
+
+  const renderPhaseLabel = (phaseId: string | null | undefined) => {
+    if (!phaseId) return 'Sans libellé de phase';
+    return phaseNameById.get(phaseId) ?? '—';
+  };
+
+  useEffect(() => {
+    void listProjectTaskPhases(authFetch, projectId)
+      .then((phases) => {
+        setPhaseOptions(
+          phases.map((p) => ({ id: p.id, name: p.name, sortOrder: p.sortOrder })),
+        );
+      })
+      .catch(() => {
+        setPhaseOptions([]);
+      });
+  }, [authFetch, projectId]);
 
   const items = milestonesQuery.data?.items ?? [];
-  const taskItems = tasksQuery.data?.items ?? [];
 
   const sortedMilestones = useMemo(() => {
     return [...items].sort((a, b) => {
@@ -66,10 +103,20 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
     });
   }, [items]);
 
-  const taskOptions = useMemo(
-    () => [...taskItems].sort((a, b) => a.name.localeCompare(b.name)),
-    [taskItems],
+  const milestoneLabelOptions = useMemo(
+    () =>
+      (milestoneLabelsQuery.data ?? []).map((l) => ({
+        id: l.id,
+        label: l.name,
+      })),
+    [milestoneLabelsQuery.data],
   );
+
+  const canCreateMilestoneLabels = canEdit;
+  const onCreateMilestoneLabel = async (name: string) => {
+    const created = await createMilestoneLabelMut.mutateAsync({ name });
+    return created.id;
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -89,6 +136,8 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
       linkedTaskId: m.linkedTaskId,
       ownerUserId: m.ownerUserId,
       sortOrder: m.sortOrder,
+      phaseId: m.phaseId ?? null,
+      milestoneLabelIds: m.milestoneLabelIds ?? [],
     });
     setOpen(true);
   };
@@ -99,10 +148,20 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
       const body: UpdateProjectMilestonePayload = { ...form };
       updateMut.mutate(
         { milestoneId: editing.id, body },
-        { onSuccess: () => setOpen(false) },
+        {
+          onSuccess: () => {
+            void milestonesQuery.refetch();
+            setOpen(false);
+          },
+        },
       );
     } else {
-      createMut.mutate(form, { onSuccess: () => setOpen(false) });
+      createMut.mutate(form, {
+        onSuccess: () => {
+          void milestonesQuery.refetch();
+          setOpen(false);
+        },
+      });
     }
   };
 
@@ -117,7 +176,7 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
         )}
       </div>
 
-      {milestonesQuery.isLoading || tasksQuery.isLoading ? (
+      {milestonesQuery.isLoading ? (
         <LoadingState rows={4} />
       ) : milestonesQuery.isError ? (
         <p className="text-destructive text-sm">Impossible de charger les jalons.</p>
@@ -128,43 +187,41 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Phase</TableHead>
                 <TableHead>Nom</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Date cible</TableHead>
-                <TableHead>Tâche liée</TableHead>
-                {canEdit && <TableHead className="w-[100px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedMilestones.map((m) => {
-                const linked = m.linkedTaskId
-                  ? taskItems.find((t) => t.id === m.linkedTaskId)
-                  : undefined;
-                return (
+              {sortedMilestones.map((m) => (
                   <TableRow key={m.id}>
-                    <TableCell>{m.name}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[12rem] truncate">
+                      {renderPhaseLabel(m.phaseId)}
+                    </TableCell>
+                    <TableCell className="max-w-[min(100%,280px)] font-medium">
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          onClick={() => openEdit(m)}
+                          className={cn(
+                            'w-full rounded-sm text-left transition-colors',
+                            'hover:bg-muted/60 hover:text-primary',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                          )}
+                        >
+                          {m.name}
+                        </button>
+                      ) : (
+                        m.name
+                      )}
+                    </TableCell>
                     <TableCell>{MILESTONE_STATUS_LABEL[m.status] ?? m.status}</TableCell>
                     <TableCell>
                       {new Date(m.targetDate).toLocaleDateString('fr-FR')}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                      {linked ? linked.name : '—'}
-                    </TableCell>
-                    {canEdit && (
-                      <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(m)}
-                        >
-                          Modifier
-                        </Button>
-                      </TableCell>
-                    )}
                   </TableRow>
-                );
-              })}
+              ))}
             </TableBody>
           </Table>
         </div>
@@ -183,8 +240,16 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
           <div className="max-h-[min(60vh,440px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
             <MilestoneFormDialogFields
               form={form}
-              onPatch={(p) => setForm({ ...form, ...p })}
-              taskOptions={taskOptions}
+              onPatch={(p) =>
+                setForm((prev) => ({
+                  ...prev,
+                  ...p,
+                }))
+              }
+              phaseOptions={phaseOptions}
+              milestoneLabelOptions={milestoneLabelOptions}
+              canCreateMilestoneLabels={canCreateMilestoneLabels}
+              onCreateMilestoneLabel={onCreateMilestoneLabel}
               fieldIdPrefix="ms"
             />
           </div>

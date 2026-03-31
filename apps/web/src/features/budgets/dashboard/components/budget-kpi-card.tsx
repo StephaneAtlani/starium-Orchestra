@@ -4,7 +4,9 @@ import React from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { formatNumberFr } from '@/lib/currency-format';
 import type { KpiAmountParts } from '@/features/budgets/lib/budget-dashboard-format';
+import { useAnimatedNumber } from '@/hooks/use-animated-number';
 
 export type BudgetKpiVisualVariant =
   | 'primary'
@@ -62,10 +64,23 @@ const amountToneClass: Record<BudgetKpiAmountTone, string> = {
 function KpiAmountBlock({
   parts,
   amountTone,
+  amountDisplayValue,
+  animateAmount,
 }: {
   parts: KpiAmountParts;
   amountTone: BudgetKpiAmountTone;
+  /** Montant affiché (HT ou TTC selon le mode) — pour animation cohérente avec `parts`. */
+  amountDisplayValue?: number;
+  animateAmount?: boolean;
 }) {
+  const animated = useAnimatedNumber(amountDisplayValue ?? 0, {
+    enabled: Boolean(animateAmount && amountDisplayValue != null),
+  });
+  const amountLabel =
+    animateAmount && amountDisplayValue != null
+      ? formatNumberFr(Math.round(animated))
+      : parts.amount;
+
   return (
     <div className="mt-3 min-h-[2.75rem]">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -82,8 +97,9 @@ function KpiAmountBlock({
             'text-3xl font-semibold tabular-nums tracking-tight',
             amountToneClass[amountTone],
           )}
+          aria-live={animateAmount ? 'polite' : undefined}
         >
-          {parts.amount}
+          {amountLabel}
         </span>
         <span className="text-sm font-medium text-muted-foreground">
           {parts.currency}
@@ -108,6 +124,8 @@ export function BudgetKpiCard({
   dataTestId,
   variant,
   amountTone = 'default',
+  amountDisplayValue,
+  animateAmount,
 }: {
   label: string;
   /** Sous-titre court sous le libellé (optionnel) */
@@ -118,6 +136,8 @@ export function BudgetKpiCard({
   dataTestId?: string;
   variant: BudgetKpiVisualVariant;
   amountTone?: BudgetKpiAmountTone;
+  amountDisplayValue?: number;
+  animateAmount?: boolean;
 }) {
   const shell = variantShell[variant];
 
@@ -152,7 +172,12 @@ export function BudgetKpiCard({
               </span>
             ) : null}
           </div>
-          <KpiAmountBlock parts={parts} amountTone={amountTone} />
+          <KpiAmountBlock
+            parts={parts}
+            amountTone={amountTone}
+            amountDisplayValue={amountDisplayValue}
+            animateAmount={animateAmount}
+          />
           {subtext ? (
             <p className="mt-2 border-t border-border/60 pt-2 text-xs leading-relaxed text-muted-foreground">
               {subtext}

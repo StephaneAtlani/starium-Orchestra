@@ -9,7 +9,9 @@ import React, {
 } from 'react';
 import { getMe, type MeProfile } from '../services/me';
 import {
+  getMicrosoftSsoAuthorizationUrlApi,
   loginApi,
+  postMicrosoftDisablePasswordLoginApi,
   verifyMfaEmailApi,
   verifyMfaTotpApi,
   sendMfaFallbackEmailApi,
@@ -30,6 +32,7 @@ export type AuthUser = {
   office: string | null;
   hasAvatar: boolean;
   platformRole: 'PLATFORM_ADMIN' | null;
+  passwordLoginEnabled: boolean;
 };
 
 const REFRESH_TOKEN_KEY = 'starium.refreshToken';
@@ -47,6 +50,7 @@ function profileToAuthUser(p: MeProfile): AuthUser {
     office: p.office ?? null,
     hasAvatar: p.hasAvatar,
     platformRole: p.platformRole,
+    passwordLoginEnabled: p.passwordLoginEnabled ?? true,
   };
 }
 
@@ -64,6 +68,11 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<LoginOutcome>;
+  startMicrosoftSso: () => Promise<{ ok: true } | { ok: false; message: string }>;
+  completeMicrosoftSso: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<{ user: AuthUser; accessToken: string }>;
   /** Finalise le login après challenge TOTP ou code de secours. */
   completeMfaTotp: (
     challengeId: string,
@@ -190,6 +199,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const startMicrosoftSso = useCallback(async () => {
+    const result = await getMicrosoftSsoAuthorizationUrlApi();
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: result.message,
+      } as const;
+    }
+    if (typeof window !== 'undefined') {
+      window.location.href = result.authorizationUrl;
+    }
+    return { ok: true } as const;
+  }, []);
+
+  const completeMicrosoftSso = useCallback(
+    async (nextAccessToken: string, nextRefreshToken: string) => {
+      const session = await applySessionTokens(
+        nextAccessToken,
+        nextRefreshToken,
+        setAccessToken,
+        setUser,
+      );
+      try {
+        const ok = await postMicrosoftDisablePasswordLoginApi(nextAccessToken);
+        if (ok) {
+          const profile = await getMe(nextAccessToken);
+          const u = profileToAuthUser(profile);
+          setUser(u);
+          return { user: u, accessToken: session.accessToken };
+        }
+      } catch {
+        // le callback OAuth a souvent déjà persisté
+      }
+      return session;
+    },
+    [],
+  );
+
   const completeMfaTotp = useCallback(
     async (challengeId: string, otp: string, trustDevice?: boolean) => {
       const data = await verifyMfaTotpApi(challengeId, otp, trustDevice);
@@ -274,6 +321,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user && !!accessToken,
     isLoading,
     login,
+    startMicrosoftSso,
+    completeMicrosoftSso,
     completeMfaTotp,
     sendMfaFallbackEmail,
     completeMfaEmail,

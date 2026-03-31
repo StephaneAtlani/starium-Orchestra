@@ -26,7 +26,8 @@ import {
 
 export function AccountSecuritySection() {
   const router = useRouter();
-  const { accessToken, logout } = useAuth();
+  const { accessToken, logout, user } = useAuth();
+  const canChangePassword = user?.passwordLoginEnabled !== false;
   const [status, setStatus] = useState<TwoFactorStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +57,8 @@ export function AccountSecuritySection() {
         <h2 className="text-base font-semibold">Sécurité</h2>
         <p className="text-sm text-muted-foreground">
           Mot de passe et double authentification (TOTP + secours email à la
-          connexion).
+          connexion). Si vous vous connectez uniquement avec Microsoft, le mot de
+          passe local est désactivé.
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -72,14 +74,21 @@ export function AccountSecuritySection() {
         )}
 
         <div className="flex flex-wrap items-center gap-3">
-          <ChangePasswordDialog
-            accessToken={accessToken}
-            onSuccess={async () => {
-              setMessage('Mot de passe modifié. Déconnexion…');
-              await logout();
-              router.replace('/login');
-            }}
-          />
+          {canChangePassword ? (
+            <ChangePasswordDialog
+              accessToken={accessToken}
+              onSuccess={async () => {
+                setMessage('Mot de passe modifié. Déconnexion…');
+                await logout();
+                router.replace('/login');
+              }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Connexion par mot de passe désactivée — utilisez Microsoft pour vous
+              connecter.
+            </p>
+          )}
         </div>
 
         <div className="rounded-lg border p-4">

@@ -60,20 +60,31 @@ export class ProjectMilestonesService {
         orderBy: [{ sortOrder: 'asc' }, { targetDate: 'asc' }],
         skip: offset,
         take: limit,
+        include: {
+          labelAssignments: { select: { labelId: true } },
+        },
       }),
       this.prisma.projectMilestone.count({ where }),
     ]);
 
-    return { items, total, limit, offset };
+    return {
+      items: items.map((m) => this.mapMilestoneWithLabels(m)),
+      total,
+      limit,
+      offset,
+    };
   }
 
   async getOne(clientId: string, projectId: string, milestoneId: string) {
     await this.projects.getProjectForScope(clientId, projectId);
     const m = await this.prisma.projectMilestone.findFirst({
       where: { id: milestoneId, clientId, projectId },
+      include: {
+        labelAssignments: { select: { labelId: true } },
+      },
     });
     if (!m) throw new NotFoundException('Milestone not found');
-    return m;
+    return this.mapMilestoneWithLabels(m);
   }
 
   async create(
@@ -86,6 +97,23 @@ export class ProjectMilestonesService {
     await this.projects.getProjectForScope(clientId, projectId);
     await this.projects.assertClientUser(clientId, dto.ownerUserId);
     await this.validateLinkedTask(clientId, projectId, dto.linkedTaskId ?? null);
+    await this.validatePhase(clientId, projectId, dto.phaseId ?? null);
+
+    const incomingMilestoneLabelIds =
+      dto.milestoneLabelIds !== undefined
+        ? Array.from(new Set(dto.milestoneLabelIds))
+        : undefined;
+    if (incomingMilestoneLabelIds) {
+      const labels = await this.prisma.projectMilestoneLabel.findMany({
+        where: { clientId, projectId, id: { in: incomingMilestoneLabelIds } },
+        select: { id: true },
+      });
+      if (labels.length !== incomingMilestoneLabelIds.length) {
+        throw new BadRequestException(
+          'milestoneLabelIds: une ou plusieurs étiquettes sont inconnues',
+        );
+      }
+    }
 
     const created = await this.prisma.projectMilestone.create({
       data: {
@@ -98,10 +126,25 @@ export class ProjectMilestonesService {
         achievedDate: dto.achievedDate ? new Date(dto.achievedDate) : null,
         status: dto.status ?? 'PLANNED',
         linkedTaskId: dto.linkedTaskId ?? null,
+        phaseId: dto.phaseId ?? null,
         ownerUserId: dto.ownerUserId ?? null,
         sortOrder: dto.sortOrder ?? 0,
         createdByUserId: actorUserId ?? null,
         updatedByUserId: actorUserId ?? null,
+        ...(incomingMilestoneLabelIds && incomingMilestoneLabelIds.length > 0
+          ? {
+              labelAssignments: {
+                create: incomingMilestoneLabelIds.map((labelId) => ({
+                  clientId,
+                  projectId,
+                  labelId,
+                })),
+              },
+            }
+          : {}),
+      },
+      include: {
+        labelAssignments: { select: { labelId: true } },
       },
     });
 
@@ -117,7 +160,7 @@ export class ProjectMilestonesService {
       requestId: context?.meta?.requestId,
     });
 
-    return created;
+    return this.mapMilestoneWithLabels(created);
   }
 
   async createRetroplanMacro(
@@ -148,6 +191,7 @@ export class ProjectMilestonesService {
             targetDate,
             achievedDate: null,
             status: 'PLANNED',
+            phaseId: null,
             sortOrder: 0,
             createdByUserId: actorUserId ?? null,
             updatedByUserId: actorUserId ?? null,
@@ -196,6 +240,9 @@ export class ProjectMilestonesService {
     const nextLinked =
       dto.linkedTaskId !== undefined ? dto.linkedTaskId : existing.linkedTaskId;
     await this.validateLinkedTask(clientId, projectId, nextLinked);
+    const nextPhase =
+      dto.phaseId !== undefined ? dto.phaseId : existing.phaseId;
+    await this.validatePhase(clientId, projectId, nextPhase);
 
     const updated = await this.prisma.projectMilestone.update({
       where: { id: milestoneId },
@@ -213,6 +260,7 @@ export class ProjectMilestonesService {
         }),
         ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.linkedTaskId !== undefined && { linkedTaskId: dto.linkedTaskId }),
+        ...(dto.phaseId !== undefined && { phaseId: dto.phaseId ?? null }),
         ...(dto.ownerUserId !== undefined && { ownerUserId: dto.ownerUserId }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
         updatedByUserId: actorUserId ?? null,
@@ -238,7 +286,23 @@ export class ProjectMilestonesService {
       });
     }
 
-    return updated;
+    if (dto.milestoneLabelIds !== undefined) {
+      await this.replaceMilestoneLabels(
+        clientId,
+        projectId,
+        milestoneId,
+        dto.milestoneLabelIds,
+      );
+    }
+
+    const final = await this.prisma.projectMilestone.findFirstOrThrow({
+      where: { id: milestoneId, clientId, projectId },
+      include: {
+        labelAssignments: { select: { labelId: true } },
+      },
+    });
+
+    return this.mapMilestoneWithLabels(final);
   }
 
   async delete(
@@ -281,5 +345,70 @@ export class ProjectMilestonesService {
     if (!t) {
       throw new BadRequestException('Linked task not found in this project');
     }
+  }
+
+  private async validatePhase(
+    clientId: string,
+    projectId: string,
+    phaseId: string | null,
+  ) {
+    if (!phaseId) return;
+    const p = await this.prisma.projectTaskPhase.findFirst({
+      where: { id: phaseId, clientId, projectId },
+    });
+    if (!p) {
+      throw new BadRequestException('Phase not found in this project');
+    }
+  }
+
+  private mapMilestoneWithLabels(
+    milestone: {
+      labelAssignments?: Array<{ labelId: string }>;
+      [k: string]: unknown;
+    } & { id: string },
+  ) {
+    const { labelAssignments, ...rest } = milestone;
+    return {
+      ...rest,
+      milestoneLabelIds: labelAssignments?.map((a) => a.labelId) ?? [],
+    };
+  }
+
+  private async replaceMilestoneLabels(
+    clientId: string,
+    projectId: string,
+    milestoneId: string,
+    incoming: string[],
+  ) {
+    const uniqueIncoming = Array.from(new Set(incoming));
+
+    if (uniqueIncoming.length > 0) {
+      const labels = await this.prisma.projectMilestoneLabel.findMany({
+        where: { clientId, projectId, id: { in: uniqueIncoming } },
+        select: { id: true },
+      });
+      if (labels.length !== uniqueIncoming.length) {
+        throw new BadRequestException(
+          'milestoneLabelIds: une ou plusieurs étiquettes sont inconnues',
+        );
+      }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectMilestoneLabelAssignment.deleteMany({
+        where: { clientId, projectId, projectMilestoneId: milestoneId },
+      });
+
+      for (const labelId of uniqueIncoming) {
+        await tx.projectMilestoneLabelAssignment.create({
+          data: {
+            clientId,
+            projectId,
+            projectMilestoneId: milestoneId,
+            labelId,
+          },
+        });
+      }
+    });
   }
 }

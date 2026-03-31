@@ -9,14 +9,18 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { BudgetDashboardResponse } from '@/features/budgets/types/budget-dashboard.types';
 import { cockpitCardClass } from './budget-dashboard-shell';
 
 export function BudgetAlertsPanel({
   alertsSummary,
   onViewCriticalLines,
 }: {
-  alertsSummary: BudgetDashboardResponse['alertsSummary'];
+  alertsSummary: {
+    negativeRemaining: number;
+    overCommitted: number;
+    overConsumed: number;
+    forecastOverBudget: number;
+  };
   onViewCriticalLines: () => void;
 }) {
   const items = [

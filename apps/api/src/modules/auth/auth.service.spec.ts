@@ -34,6 +34,7 @@ describe('AuthService', () => {
           useValue: {
             user: {
               findUnique: jest.fn(),
+              findMany: jest.fn(),
             },
             refreshToken: {
               findFirst: jest.fn(),
@@ -105,11 +106,14 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('should log auth.login.success on successful login', async () => {
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue({
-        id: 'user-1',
-        email: 'test@example.com',
-        passwordHash: 'hash',
-      } as any);
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([
+        {
+          id: 'user-1',
+          email: 'test@example.com',
+          passwordHash: 'hash',
+          passwordLoginEnabled: true,
+        },
+      ] as any);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true as any);
       jest.spyOn(prisma.refreshToken, 'create').mockResolvedValue({} as any);
 
@@ -133,11 +137,14 @@ describe('AuthService', () => {
     });
 
     it('should return MFA_REQUIRED when TOTP 2FA is enabled', async () => {
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue({
-        id: 'user-1',
-        email: 'test@example.com',
-        passwordHash: 'hash',
-      } as any);
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([
+        {
+          id: 'user-1',
+          email: 'test@example.com',
+          passwordHash: 'hash',
+          passwordLoginEnabled: true,
+        },
+      ] as any);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true as any);
       (mfa.isMfaTotpEnabled as jest.Mock).mockResolvedValue(true);
       (mfa.createLoginChallenge as jest.Mock).mockResolvedValue({
@@ -161,11 +168,14 @@ describe('AuthService', () => {
     });
 
     it('should skip MFA when trusted device token is valid', async () => {
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue({
-        id: 'user-1',
-        email: 'test@example.com',
-        passwordHash: 'hash',
-      } as any);
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([
+        {
+          id: 'user-1',
+          email: 'test@example.com',
+          passwordHash: 'hash',
+          passwordLoginEnabled: true,
+        },
+      ] as any);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true as any);
       (mfa.isMfaTotpEnabled as jest.Mock).mockResolvedValue(true);
       (trustedDevice.validateAndTouch as jest.Mock).mockResolvedValue(true);
@@ -193,7 +203,7 @@ describe('AuthService', () => {
     });
 
     it('should log auth.login.failure when user not found', async () => {
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(null);
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([]);
 
       await expect(
         service.login('unknown@example.com', 'password', meta, undefined),
@@ -207,6 +217,122 @@ describe('AuthService', () => {
           reason: 'invalid_credentials',
         }),
       );
+    });
+
+    it('refuse login si passwordLoginEnabled false (Microsoft SSO)', async () => {
+      (bcrypt.compare as jest.Mock).mockClear();
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([
+        {
+          id: 'user-1',
+          email: 'test@example.com',
+          passwordHash: 'hash',
+          passwordLoginEnabled: false,
+        },
+      ] as any);
+
+      await expect(
+        service.login('test@example.com', 'password', meta, undefined),
+      ).rejects.toBeInstanceOf(Error);
+
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(securityLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'auth.login.failure',
+          userId: 'user-1',
+          reason: 'password_login_disabled',
+        }),
+      );
+    });
+
+    it('résout l’utilisateur sans tenir compte de la casse (aligné SSO)', async () => {
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([
+        {
+          id: 'user-1',
+          email: 'Test@Example.com',
+          passwordHash: 'hash',
+          passwordLoginEnabled: true,
+        },
+      ] as any);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true as any);
+      jest.spyOn(prisma.refreshToken, 'create').mockResolvedValue({} as any);
+
+      await service.login('test@example.com', 'password', meta, undefined);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          OR: [
+            { email: { equals: 'test@example.com', mode: 'insensitive' } },
+            {
+              emailIdentities: {
+                some: {
+                  emailNormalized: 'test@example.com',
+                  isVerified: true,
+                  isActive: true,
+                },
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('refuse le mot de passe si seule identité vérifiée correspond (aligné SSO Microsoft)', async () => {
+      (bcrypt.compare as jest.Mock).mockClear();
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([
+        {
+          id: 'user-1',
+          email: 'work@company.com',
+          passwordHash: 'hash',
+          passwordLoginEnabled: false,
+        },
+      ] as any);
+
+      await expect(
+        service.login('satlani@outlook.com', 'password', meta, undefined),
+      ).rejects.toBeInstanceOf(Error);
+
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(securityLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reason: 'password_login_disabled',
+          userId: 'user-1',
+        }),
+      );
+    });
+  });
+
+  describe('getPasswordLoginEligibility', () => {
+    it('retourne true si email inconnu', async () => {
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([]);
+      await expect(
+        service.getPasswordLoginEligibility('unknown@example.com'),
+      ).resolves.toEqual({ passwordLoginAllowed: true });
+    });
+
+    it('retourne false si passwordLoginEnabled false', async () => {
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([
+        {
+          id: 'u1',
+          email: 'a@b.com',
+          passwordLoginEnabled: false,
+        },
+      ] as any);
+      await expect(
+        service.getPasswordLoginEligibility('a@b.com'),
+      ).resolves.toEqual({ passwordLoginAllowed: false });
+    });
+
+    it('retourne true si compte avec mot de passe autorisé (casse variable)', async () => {
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([
+        {
+          id: 'u1',
+          email: 'a@b.com',
+          passwordLoginEnabled: true,
+        },
+      ] as any);
+      await expect(
+        service.getPasswordLoginEligibility('A@B.COM'),
+      ).resolves.toEqual({ passwordLoginAllowed: true });
     });
   });
 

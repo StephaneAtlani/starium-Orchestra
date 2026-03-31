@@ -11,10 +11,15 @@ export class CreateBudgetSnapshotDto {
   @IsNotEmpty()
   budgetId!: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(150)
-  name!: string;
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  label?: string;
 
   @IsOptional()
   @IsString()

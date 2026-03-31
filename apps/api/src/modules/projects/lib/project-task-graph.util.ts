@@ -31,29 +31,3 @@ export async function wouldTaskDependencyCreateCycle(
   return false;
 }
 
-/** Boucle hiérarchique : enfant ne peut pas être ancêtre du parent choisi */
-export async function wouldTaskParentCreateCycle(
-  prisma: PrismaService,
-  clientId: string,
-  projectId: string,
-  taskId: string,
-  newParentId: string | null,
-): Promise<boolean> {
-  if (!newParentId) return false;
-  if (newParentId === taskId) return true;
-  const visited = new Set<string>();
-  let current: string | null = newParentId;
-  while (current) {
-    if (current === taskId) return true;
-    if (visited.has(current)) return true;
-    visited.add(current);
-    const row: { parentTaskId: string | null } | null =
-      await prisma.projectTask.findFirst({
-        where: { id: current, clientId, projectId },
-        select: { parentTaskId: true },
-      });
-    if (!row) break;
-    current = row.parentTaskId;
-  }
-  return false;
-}

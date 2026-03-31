@@ -1,7 +1,7 @@
 import type { MeClient } from '../../services/me';
 
 export type ActiveClientResolution =
-  | { type: 'redirect'; to: '/admin/clients' | '/select-client' }
+  | { type: 'redirect'; to: '/admin/dashboard' | '/admin/clients' | '/select-client' }
   | { type: 'blocked' }
   | { type: 'set-client'; client: MeClient; to: '/dashboard' };
 
@@ -19,7 +19,7 @@ export function resolveActiveClient(
 
   if (activeClients.length === 0) {
     if (platformRole === 'PLATFORM_ADMIN') {
-      return { type: 'redirect', to: '/admin/clients' };
+      return { type: 'redirect', to: '/admin/dashboard' };
     }
     return { type: 'blocked' };
   }

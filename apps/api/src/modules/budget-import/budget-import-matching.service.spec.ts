@@ -22,6 +22,25 @@ describe('BudgetImportMatchingService', () => {
       expect(result.values['amount']).toBe(1000);
     });
 
+    it('parses committedAmount and consumedAmount as decimals', () => {
+      const mapping: MappingConfig = {
+        fields: {
+          amount: 'Montant',
+          committedAmount: 'Engagé',
+          consumedAmount: 'Consommé',
+        },
+        matching: { strategy: 'EXTERNAL_ID' },
+      };
+      const row = { Montant: '1000', Engagé: '200,50', Consommé: '150,25' };
+      const result = service.normalizeRow(row, mapping, {
+        trimValues: true,
+        decimalSeparator: ',',
+      });
+      expect(result.values['amount']).toBe(1000);
+      expect(result.values['committedAmount']).toBe(200.5);
+      expect(result.values['consumedAmount']).toBe(150.25);
+    });
+
     it('computes compositeHash when strategy is COMPOSITE', () => {
       const mapping: MappingConfig = {
         fields: { date: 'Date', amount: 'Montant', supplier: 'Fournisseur' },

@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { TableToolbar } from '@/components/layout/table-toolbar';
 import { Card, CardContent } from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/data-table/data-table';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -66,7 +68,23 @@ export default function AdminClientsPage() {
       <PageHeader
         title="Clients"
         description="Gérez les organisations de la plateforme."
-        actions={<CreateClientDialog />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/admin/dashboard"
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+            >
+              Tableau de bord
+            </Link>
+            <Link
+              href="/admin/ui-badges"
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+            >
+              Badges (plateforme)
+            </Link>
+            <CreateClientDialog />
+          </div>
+        }
       />
       <TableToolbar>
         <div className="flex flex-1 items-center gap-2">

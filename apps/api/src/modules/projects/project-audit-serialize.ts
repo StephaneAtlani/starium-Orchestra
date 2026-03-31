@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import type {
   Project,
   ProjectActivity,
+  ProjectDocument,
   ProjectMilestone,
   ProjectRisk,
   ProjectTask,
@@ -150,15 +151,19 @@ export function projectTaskEntityAuditSnapshot(
   t: ProjectTask,
 ): Record<string, unknown> {
   return {
-    projectId: t.projectId,
+    projectId: t.projectId ?? null,
+    actionPlanId: t.actionPlanId ?? null,
+    riskId: t.riskId ?? null,
     name: t.name,
     code: t.code ?? null,
     description: t.description ?? null,
-    parentTaskId: t.parentTaskId ?? null,
+    phaseId: t.phaseId ?? null,
     dependsOnTaskId: t.dependsOnTaskId ?? null,
     dependencyType: t.dependencyType ?? null,
     ownerUserId: t.ownerUserId ?? null,
+    responsibleResourceId: t.responsibleResourceId ?? null,
     budgetLineId: t.budgetLineId ?? null,
+    bucketId: t.bucketId ?? null,
     status: t.status,
     priority: t.priority,
     progress: t.progress,
@@ -167,6 +172,8 @@ export function projectTaskEntityAuditSnapshot(
     actualStartDate: toAuditJson(t.actualStartDate),
     actualEndDate: toAuditJson(t.actualEndDate),
     sortOrder: t.sortOrder,
+    estimatedHours: t.estimatedHours ?? null,
+    tags: toAuditJson(t.tags),
   };
 }
 
@@ -175,14 +182,32 @@ export function projectRiskEntityAuditSnapshot(
 ): Record<string, unknown> {
   return {
     projectId: r.projectId,
+    code: r.code,
     title: r.title,
     description: r.description ?? null,
+    category: r.category ?? null,
+    riskTypeId: r.riskTypeId,
+    threatSource: r.threatSource,
+    businessImpact: r.businessImpact,
+    likelihoodJustification: r.likelihoodJustification ?? null,
+    impactCategory: r.impactCategory ?? null,
     probability: r.probability,
     impact: r.impact,
-    actionPlan: r.actionPlan ?? null,
+    criticalityScore: r.criticalityScore,
+    criticalityLevel: r.criticalityLevel,
+    mitigationPlan: r.mitigationPlan ?? null,
+    contingencyPlan: r.contingencyPlan ?? null,
     ownerUserId: r.ownerUserId ?? null,
     status: r.status,
     reviewDate: toAuditJson(r.reviewDate),
+    dueDate: toAuditJson(r.dueDate),
+    detectedAt: toAuditJson(r.detectedAt),
+    closedAt: toAuditJson(r.closedAt),
+    sortOrder: r.sortOrder,
+    complianceRequirementId: r.complianceRequirementId ?? null,
+    treatmentStrategy: r.treatmentStrategy,
+    residualRiskLevel: r.residualRiskLevel ?? null,
+    residualJustification: r.residualJustification ?? null,
   };
 }
 
@@ -190,6 +215,8 @@ export function projectRiskLevelSnapshot(r: ProjectRisk): Record<string, unknown
   return {
     probability: r.probability,
     impact: r.impact,
+    criticalityScore: r.criticalityScore,
+    criticalityLevel: r.criticalityLevel,
   };
 }
 
@@ -202,6 +229,7 @@ export function projectMilestoneEntityAuditSnapshot(
     code: m.code ?? null,
     description: m.description ?? null,
     linkedTaskId: m.linkedTaskId ?? null,
+    phaseId: m.phaseId ?? null,
     ownerUserId: m.ownerUserId ?? null,
     targetDate: toAuditJson(m.targetDate),
     achievedDate: toAuditJson(m.achievedDate),
@@ -225,5 +253,28 @@ export function projectActivityEntityAuditSnapshot(
     lastExecutionDate: toAuditJson(a.lastExecutionDate),
     ownerUserId: a.ownerUserId ?? null,
     budgetLineId: a.budgetLineId ?? null,
+  };
+}
+
+export function projectDocumentEntityAuditSnapshot(
+  d: ProjectDocument,
+): Record<string, unknown> {
+  return {
+    projectId: d.projectId,
+    name: d.name,
+    originalFilename: d.originalFilename ?? null,
+    mimeType: d.mimeType ?? null,
+    extension: d.extension ?? null,
+    sizeBytes: d.sizeBytes ?? null,
+    category: d.category,
+    status: d.status,
+    storageType: d.storageType,
+    storageKey: d.storageKey ?? null,
+    externalUrl: d.externalUrl ?? null,
+    description: d.description ?? null,
+    tags: toAuditJson(d.tags),
+    uploadedByUserId: d.uploadedByUserId ?? null,
+    archivedAt: toAuditJson(d.archivedAt),
+    deletedAt: toAuditJson(d.deletedAt),
   };
 }

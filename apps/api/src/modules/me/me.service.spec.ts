@@ -83,6 +83,7 @@ describe('MeService', () => {
         office: null,
         avatarMimeType: null,
         platformRole: null,
+        passwordLoginEnabled: true,
       } as any);
 
       const result = await service.getProfile('user-1');
@@ -97,6 +98,7 @@ describe('MeService', () => {
         office: null,
         hasAvatar: false,
         platformRole: null,
+        passwordLoginEnabled: true,
       });
     });
 
@@ -112,6 +114,7 @@ describe('MeService', () => {
         office: null,
         avatarMimeType: null,
         platformRole: 'PLATFORM_ADMIN',
+        passwordLoginEnabled: true,
       } as any);
 
       const result = await service.getProfile('admin-1');
@@ -214,11 +217,42 @@ describe('MeService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
+    it('lève ForbiddenException si identité = e-mail de connexion (primaire)', async () => {
+      prisma.userEmailIdentity.findFirst.mockResolvedValue({
+        id: 'eid-1',
+        userId: 'user-1',
+        emailNormalized: 'user@example.com',
+        directoryManaged: false,
+      } as any);
+      prisma.user.findUnique.mockResolvedValue({ email: 'user@example.com' } as any);
+      await expect(
+        service.deleteEmailIdentity('user-1', 'eid-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.userEmailIdentity.delete).not.toHaveBeenCalled();
+    });
+
+    it('lève ForbiddenException si identité gérée par annuaire (AD DS)', async () => {
+      prisma.userEmailIdentity.findFirst.mockResolvedValue({
+        id: 'eid-1',
+        userId: 'user-1',
+        emailNormalized: 'synced@example.com',
+        directoryManaged: true,
+      } as any);
+      prisma.user.findUnique.mockResolvedValue({ email: 'user@example.com' } as any);
+      await expect(
+        service.deleteEmailIdentity('user-1', 'eid-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.userEmailIdentity.delete).not.toHaveBeenCalled();
+    });
+
     it('lève ConflictException si identité utilisée comme défaut client', async () => {
       prisma.userEmailIdentity.findFirst.mockResolvedValue({
         id: 'eid-1',
         userId: 'user-1',
+        emailNormalized: 'secondary@example.com',
+        directoryManaged: false,
       } as any);
+      prisma.user.findUnique.mockResolvedValue({ email: 'user@example.com' } as any);
       prisma.clientUser.count.mockResolvedValue(1);
       await expect(
         service.deleteEmailIdentity('user-1', 'eid-1'),
