@@ -2572,6 +2572,14 @@ async function ensurePlatformUiBadgeDefaultsFromFile(): Promise<void> {
 }
 
 async function main() {
+  const isProduction = process.env.NODE_ENV === "production";
+  const allowProdSeed = process.env.ALLOW_PROD_SEED === "true";
+  if (isProduction && !allowProdSeed) {
+    throw new Error(
+      "Seed bloqué en production. Définis ALLOW_PROD_SEED=true uniquement si c'est volontaire.",
+    );
+  }
+
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
   await ensurePlatformUiBadgeDefaultsFromFile();
