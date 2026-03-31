@@ -8,6 +8,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { budgetQueryKeys } from '../lib/budget-query-keys';
+import { createEnvelope } from '../api/budget-management.api';
 import { useBudgetDetail } from '../hooks/use-budgets';
 import { useBudgetEnvelopesAll } from '../hooks/use-budget-envelopes';
 import {
@@ -472,6 +473,33 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     }
   };
 
+  const handleCreateEnvelopeInline = useCallback(
+    async (input: {
+      name: string;
+      code?: string;
+      description?: string;
+      type: string;
+      status: string;
+    }) => {
+      const created = await createEnvelope(authFetch, {
+        budgetId,
+        name: input.name,
+        code: input.code,
+        description: input.description,
+        type: input.type,
+        status: input.status,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: budgetQueryKeys.budgetEnvelopes(clientId, budgetId, { full: true }),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: budgetQueryKeys.budgetDetail(clientId, budgetId),
+      });
+      return created;
+    },
+    [authFetch, budgetId, clientId, queryClient],
+  );
+
   if (!permLoading && !hasRead) {
     return (
       <Alert variant="destructive">
@@ -530,7 +558,6 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
       {step === 'mapping' && analyzeResult ? (
         <div className="space-y-4">
           <BudgetImportMappingStep
-            budgetId={budgetId}
             configBlock={configBlock}
             analyzeResult={analyzeResult}
             excelSheetValue={sheetNameForImportPayload(analyzeResult)}
@@ -564,6 +591,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
             canMutateMappings={hasUpdate}
             envelopeImportMode={envelopeImportMode}
             onEnvelopeImportModeChange={handleEnvelopeImportModeChange}
+            onCreateEnvelope={handleCreateEnvelopeInline}
             ordersSectionEnabled={ordersSectionEnabled}
             onOrdersSectionEnabledChange={(v) => {
               setOrdersSectionEnabled(v);

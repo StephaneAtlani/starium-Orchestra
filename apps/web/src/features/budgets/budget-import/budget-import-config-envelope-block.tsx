@@ -1,7 +1,16 @@
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -11,7 +20,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { BudgetEnvelope } from '../types/budget-management.types';
-import { budgetEnvelopeNew } from '../constants/budget-routes';
 import { EMPTY_SELECT_VALUE } from './budget-import-field-labels';
 import { BudgetImportColSelect } from './budget-import-column-selects';
 import type { BudgetImportOptionsConfig, MappingConfig } from '../types/budget-imports.types';
@@ -30,7 +38,6 @@ function envelopeLabel(e: BudgetEnvelope): string {
 }
 
 export interface BudgetImportConfigEnvelopeBlockProps {
-  budgetId: string;
   columns: string[];
   envelopes: BudgetEnvelope[];
   mapping: MappingConfig;
@@ -39,10 +46,16 @@ export interface BudgetImportConfigEnvelopeBlockProps {
   onMappingChange: (m: MappingConfig) => void;
   onOptionsChange: (o: BudgetImportOptionsConfig) => void;
   onEnvelopeImportModeChange: (mode: EnvelopeImportMode) => void;
+  onCreateEnvelope: (input: {
+    name: string;
+    code?: string;
+    description?: string;
+    type: string;
+    status: string;
+  }) => Promise<BudgetEnvelope>;
 }
 
 export function BudgetImportConfigEnvelopeBlock({
-  budgetId,
   columns,
   envelopes,
   mapping,
@@ -51,8 +64,18 @@ export function BudgetImportConfigEnvelopeBlock({
   onMappingChange,
   onOptionsChange,
   onEnvelopeImportModeChange,
+  onCreateEnvelope,
 }: BudgetImportConfigEnvelopeBlockProps) {
   const fields = mapping.fields ?? {};
+  const [modalOpen, setModalOpen] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createName, setCreateName] = useState('');
+  const [createCode, setCreateCode] = useState('');
+  const [createDescription, setCreateDescription] = useState('');
+  const [createType, setCreateType] = useState('RUN');
+  const [createStatus, setCreateStatus] = useState('ACTIVE');
+
   const setField = (key: string, column: string) => {
     const next = { ...fields, [key]: column };
     if (!column) delete next[key];
@@ -110,17 +133,21 @@ export function BudgetImportConfigEnvelopeBlock({
         </p>
       </div>
 
-      <p className="text-sm">
-        <Link
-          href={budgetEnvelopeNew(budgetId)}
-          className="font-medium text-primary underline underline-offset-4"
-          target="_blank"
-          rel="noopener noreferrer"
+      <div className="space-y-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setCreateError(null);
+            setModalOpen(true);
+          }}
         >
           Créer une enveloppe
-        </Link>
-        <span className="text-muted-foreground"> — ouvre un nouvel onglet ; revenez ensuite pour choisir le mode et l’enveloppe.</span>
-      </p>
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Créez une enveloppe sans quitter l’import, puis sélectionnez-la comme enveloppe cible.
+        </p>
+      </div>
 
       {envelopeImportMode === 'from_file_columns' ? (
         <div className="rounded-lg border border-border">
@@ -171,6 +198,112 @@ export function BudgetImportConfigEnvelopeBlock({
           </SelectContent>
         </Select>
       </div>
+
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Créer une enveloppe</DialogTitle>
+            <DialogDescription>
+              L’enveloppe sera ajoutée au budget courant puis disponible immédiatement dans la liste.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-envelope-name">Nom</Label>
+              <Input
+                id="new-envelope-name"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                placeholder="Ex. RUN - Plateforme"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-envelope-code">Code (optionnel)</Label>
+              <Input
+                id="new-envelope-code"
+                value={createCode}
+                onChange={(e) => setCreateCode(e.target.value)}
+                placeholder="Ex. ENV-RUN-01"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-envelope-description">Description (optionnel)</Label>
+              <Input
+                id="new-envelope-description"
+                value={createDescription}
+                onChange={(e) => setCreateDescription(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Type</Label>
+                <Select value={createType} onValueChange={(v) => v && setCreateType(v)}>
+                  <SelectTrigger>
+                    <SelectValue>{createType}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RUN">RUN</SelectItem>
+                    <SelectItem value="BUILD">BUILD</SelectItem>
+                    <SelectItem value="TRANSVERSE">TRANSVERSE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>État</Label>
+                <Select value={createStatus} onValueChange={(v) => v && setCreateStatus(v)}>
+                  <SelectTrigger>
+                    <SelectValue>{createStatus}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DRAFT">Brouillon</SelectItem>
+                    <SelectItem value="ACTIVE">Actif</SelectItem>
+                    <SelectItem value="CLOSED">Clôturé</SelectItem>
+                    <SelectItem value="ARCHIVED">Archivé</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {createError ? <p className="text-sm text-destructive">{createError}</p> : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setModalOpen(false)} disabled={createLoading}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={createLoading || !createName.trim()}
+              onClick={async () => {
+                setCreateError(null);
+                setCreateLoading(true);
+                try {
+                  const created = await onCreateEnvelope({
+                    name: createName.trim(),
+                    code: createCode.trim() || undefined,
+                    description: createDescription.trim() || undefined,
+                    type: createType,
+                    status: createStatus,
+                  });
+                  onOptionsChange({ ...options, defaultEnvelopeId: created.id });
+                  setCreateName('');
+                  setCreateCode('');
+                  setCreateDescription('');
+                  setCreateType('RUN');
+                  setCreateStatus('ACTIVE');
+                  setModalOpen(false);
+                } catch (e) {
+                  setCreateError(e instanceof Error ? e.message : 'Impossible de créer l’enveloppe.');
+                } finally {
+                  setCreateLoading(false);
+                }
+              }}
+            >
+              {createLoading ? 'Création…' : 'Créer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

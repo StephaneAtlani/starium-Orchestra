@@ -42,7 +42,6 @@ const BLOCK_LABELS: Record<BudgetImportConfigBlockId, string> = {
 };
 
 export interface BudgetImportMappingStepProps {
-  budgetId: string;
   configBlock: BudgetImportConfigBlockId;
   analyzeResult: AnalyzeResult;
   excelSheetValue: string | undefined;
@@ -73,6 +72,13 @@ export interface BudgetImportMappingStepProps {
   canMutateMappings: boolean;
   envelopeImportMode: EnvelopeImportMode;
   onEnvelopeImportModeChange: (mode: EnvelopeImportMode) => void;
+  onCreateEnvelope: (input: {
+    name: string;
+    code?: string;
+    description?: string;
+    type: string;
+    status: string;
+  }) => Promise<BudgetEnvelope>;
   ordersSectionEnabled: boolean;
   onOrdersSectionEnabledChange: (v: boolean) => void;
   invoicesSectionEnabled: boolean;
@@ -80,7 +86,6 @@ export interface BudgetImportMappingStepProps {
 }
 
 export function BudgetImportMappingStep({
-  budgetId,
   configBlock,
   analyzeResult,
   excelSheetValue,
@@ -111,6 +116,7 @@ export function BudgetImportMappingStep({
   canMutateMappings,
   envelopeImportMode,
   onEnvelopeImportModeChange,
+  onCreateEnvelope,
   ordersSectionEnabled,
   onOrdersSectionEnabledChange,
   invoicesSectionEnabled,
@@ -201,7 +207,6 @@ export function BudgetImportMappingStep({
 
       {configBlock === 'envelope' ? (
         <BudgetImportConfigEnvelopeBlock
-          budgetId={budgetId}
           columns={columns}
           envelopes={envelopes}
           mapping={mapping}
@@ -210,6 +215,7 @@ export function BudgetImportMappingStep({
           onMappingChange={onMappingChange}
           onOptionsChange={onOptionsChange}
           onEnvelopeImportModeChange={onEnvelopeImportModeChange}
+          onCreateEnvelope={onCreateEnvelope}
         />
       ) : null}
 
