@@ -158,7 +158,7 @@ Les options d’import doivent être formalisées explicitement (mapping ou body
 - Unitaires : parser, matching (externalId, compositeHash, doublons internes DUPLICATE_SOURCE_KEY, AMBIGUOUS_MATCH), préchargement enveloppes + RowLinks, préparation hors transaction.
 - Intégration : analyze (métadonnées fileToken complètes), preview (vérif fileToken = client actif + non expiré, doublons internes, reasons), execute (préparation hors transaction puis transaction écritures uniquement : Job, BudgetLine, RowLink, update job), CRUD mappings.
 - Isolation client : fileToken d’un client refusé pour preview/execute d’un autre client.
-- Frontend (aligné §13) : tests des flux critiques du wizard (navigation 4 étapes, validation mapping avant preview, affichage erreurs ligne par ligne), avec mocks des endpoints analyze / preview / execute.
+- Frontend (aligné §13) : tests des flux critiques du wizard (navigation macro-étapes, **blocs métier** fichier/feuille → enveloppe → ligne → commandes/factures si activés, validation avant preview, affichage erreurs ligne par ligne et **rattachement visuel au bloc** quand l’UI le permet), avec mocks analyze / analyze-sheet / preview / execute.
 
 ---
 
@@ -166,32 +166,142 @@ Les options d’import doivent être formalisées explicitement (mapping ou body
 
 Objectif : rendre l’import exploitable en **cockpit Starium** (lecture rapide, décision, pas de friction) sans modifier l’architecture backend ni les modèles Prisma existants.
 
-### 13.1 Parcours en 4 étapes (obligatoire)
+**Refonte UX cible (parcours métier par blocs)** : remplacer l’écran de **mapping plat** (liste générique de colonnes) par un **assistant découpé en blocs fonctionnels successifs**, une question métier à la fois. L’implémentation **continue de sérialiser** vers le même contrat API (`mappingConfig` + `optionsConfig` + `fileToken`, etc.) : la structure par blocs est une **organisation UI et cognitive**, pas un nouveau schéma backend obligatoire. Les libellés visibles utilisateur sont en **français métier** ; éviter en surface les termes techniques (`fields`, `matching`, DTO) — les noms techniques restent dans le code et les payloads.
 
-Flux linéaire à respecter côté UI :
+---
 
-1. **Upload** — sélection / glisser-déposer du fichier (`.csv` / `.xlsx`), contrôle taille et type, appel `POST /api/budget-imports/analyze`, récupération `fileToken` + métadonnées (`columns`, `sampleRows`, `rowCount`, feuilles XLSX).
-2. **Mapping** — association colonnes source → champs cibles (montant, devise, enveloppe code/id, externalId, dates, libellés, etc.), options d’import (`importMode`, `defaultEnvelopeId`, `defaultCurrency`, `decimalSeparator`, `dateFormat`, `ignoreEmptyRows`, `trimValues`), possibilité de **charger un mapping sauvegardé** (voir §13.4).
-3. **Preview** — appel `POST /api/budget-imports/preview` avec `fileToken` + configuration ; affichage des statistiques agrégées et d’une table **ligne par ligne** avec statut (`CREATE` | `UPDATE` | `SKIP` | `ERROR`) et `reason` normalisé (aligné sur le plan §6).
-4. **Execute** — confirmation explicite (résumé des volumes CREATE/UPDATE/SKIP/ERROR), puis `POST /api/budget-imports/execute` ; écran de **résultat** (job, compteurs, lien vers détail erreurs si `FAILED` ou erreurs partielles selon politique API).
+### 13.0 Vue d’ensemble : macro-étapes inchangées côté API
 
-### 13.2 Emplacement et composants (`apps/web/src/features/budget-import/`)
+Le flux **analyze → preview → execute** et les permissions (`budgets.read` / `budgets.update`) **ne changent pas**. Côté UI, on distingue :
 
-- Arborescence dédiée : pages ou route(s) sous le périmètre budget / admin selon la navigation existante, **sans** dupliquer la logique métier (consommation stricte des APIs).
-- Composants typiques (noms indicatifs) : `BudgetImportWizard` (stepper 4 étapes), `BudgetImportUploadStep`, `BudgetImportMappingStep`, `BudgetImportPreviewStep`, `BudgetImportExecuteStep`, `BudgetImportRowStatusTable` (preview + éventuellement relecture post-job), `BudgetImportErrorList` (erreurs **ligne par ligne** avec numéro de ligne source et `reason`).
-- Réutilisation des patterns UI du cockpit (cartes, densité lisible, actions primaires claires, pas d’IDs bruts en libellé utilisateur — libellés enveloppe / budget via données déjà résolues côté API ou référentiels chargés).
+| Macro-étape | Rôle |
+|-------------|------|
+| **Configuration** (remplace l’ancien écran unique « Mapping » trop dense) | Enchaînement de **blocs métier** (fichier/feuille, enveloppe, ligne budgétaire, commandes, factures, options transverses : devise, séparateur décimal, mode d’import…). |
+| **Aperçu** | `POST …/preview` — voir §13.7 pour la présentation par blocs. |
+| **Import** | `POST …/execute` — inchangé. |
 
-### 13.3 États UI : loading, error, validation
+Un **stepper** peut afficher 4 grands jalons (*Fichier → Configuration → Aperçu → Import*) tout en découpant la phase **Configuration** en **sous-étapes ou sections** (une section = un bloc métier), pour ne jamais présenter un seul écran surcharge.
 
-- **Loading** : spinners / skeletons par étape ; désactivation des actions destructives pendant analyze, preview, execute ; indication de progression lorsque le backend expose des compteurs ou un statut de job (sinon état indéterminé avec message honnête).
-- **Error** : erreurs réseau / 403 / 413 / 422 avec message utilisateur et **action de retour** (réessayer upload, corriger mapping, revenir au preview).
-- **Validation** : validation **formulaire mapping** avant preview (champs obligatoires pour le mode choisi, cohérence devise / enveloppe par défaut) ; **blocage** si mapping incomplet (aligné §14) — pas d’appel preview tant que la config minimale n’est pas valide.
-- **Preview** : toute ligne en `ERROR` doit être visible avec **numéro de ligne** et motif ; option de filtre « erreurs uniquement » pour décision rapide.
+---
 
-### 13.4 Sauvegarde et réutilisation d’un mapping
+### 13.1 Blocs fonctionnels successifs (configuration)
 
-- CRUD mappings déjà prévu (§9) : l’UI doit permettre **enregistrer** le mapping courant (nom, description optionnelle), **lister** les mappings du client, **appliquer** un mapping existant à un nouveau fichier (réajustement des noms de colonnes si le fichier diffère — l’utilisateur valide avant preview).
-- Distinction claire entre **mapping réutilisable** (config JSON côté `BudgetImportMapping`) et **fileToken** (ponctuel, lié à un upload).
+Chaque bloc doit avoir un **titre métier**, une **phrase d’aide** et des **contrôles limités** à ce périmètre.
+
+#### Bloc 1 — Fichier / feuille
+
+- **Upload** du fichier (`.csv` / `.xlsx`), contrôles taille/type, appel `POST /api/budget-imports/analyze`, récupération `fileToken`, `columns`, `sampleRows`, `rowCount`, `sheetNames` (XLSX).
+- **Si Excel** : étape ou panneau **explicite** pour choisir l’**onglet / feuille** (`POST /api/budget-imports/analyze-sheet` avec `fileToken` + `sheetName` si déjà implémenté) — la feuille est **obligatoire** avant de poursuivre (validation locale + cohérence avec `sheetName` côté preview/execute).
+- **Si CSV** : ce bloc ne propose **pas** de sélection de feuille (étape masquée ou sautée).
+
+#### Bloc 2 — Enveloppe
+
+L’utilisateur doit pouvoir indiquer **comment** la ligne sera rattachée à une enveloppe du budget cible (aligné §6 / §16.1) :
+
+| Mode UX | Comportement | Impact mapping / options |
+|--------|----------------|---------------------------|
+| **Colonne fichier** | L’enveloppe est lue dans une colonne (code et/ou identifiant) | Mappe `envelopeCode` / `envelopeId` ; `defaultEnvelopeId` optionnel comme repli pour lignes sans code reconnu. |
+| **Enveloppe existante** | Une seule enveloppe pour tout le fichier | `defaultEnvelopeId` **obligatoire** ; **pas** de colonne enveloppe (les champs enveloppe du mapping restent vides). |
+| **Nouvelle enveloppe** | Création avant ou pendant l’assistant | **Sans nouveau endpoint d’import** : s’appuyer sur les **API / écrans existants** `budget-management` (création d’enveloppe sur le budget), puis retour au wizard avec liste d’enveloppes rafraîchie. Documenter le flux (lien « Créer une enveloppe » → retour). Si création inline non disponible, le plan impose au minimum **sélection** ou **colonne**. |
+
+Validation locale : **au moins une** résolution d’enveloppe valide avant preview (colonne + éventuel repli, ou enveloppe unique, ou combinaison documentée).
+
+#### Bloc 3 — Ligne budgétaire
+
+- **Colonne obligatoire** qui sert de **base d’identité / libellé / clé métier** pour la `BudgetLine` (ex. libellé de ligne, code métier) — correspondance vers les champs logiques existants (`name`, `label`, éventuellement clé de rapprochement via `externalId` / matching composite selon §6).
+- Le plan précise que cette étape est **la colonne structurante** de la ligne : l’utilisateur doit **voir** qu’il définit « la ligne budgétaire », pas un champ générique anonyme.
+
+#### Bloc 4 — Commandes (sous-mapping dédié)
+
+Section **optionnelle ou activable** (« Mon fichier contient des données commande ») :
+
+- Colonne **montant initial** commande (alignement sur champs normalisés existants : `amount` / `initialAmount` selon contrat technique).
+- Colonne **montant facturé / engagé** (`committedAmount` si exposé par le mapping — voir implémentation).
+- Colonne **date de commande** : **optionnelle** sauf si le contrat backend / le mode de matching l’exige (documenter la règle au moment de l’implémentation).
+
+Si la section **commandes est activée**, les champs **marqués requis** dans ce bloc doivent être **validés avant** l’appel preview.
+
+#### Bloc 5 — Factures (sous-mapping dédié)
+
+Section **optionnelle ou activable** (« Mon fichier contient des données facture ») :
+
+- Colonne **montant initial** facture.
+- Colonne **montant consommé** (`consumedAmount` si exposé).
+- Colonne **date de facture** : optionnelle ou obligatoire selon contrat backend.
+
+Même règle : si la section **factures est activée**, validation des champs requis du bloc avant preview.
+
+#### Bloc 6 — Options transverses (compact)
+
+Regrouper hors des blocs « métier » purs : **devise** (colonne et/ou défaut), **séparateur décimal**, **format de date**, **mode d’import** (`CREATE_ONLY` / `UPSERT` / `UPDATE_ONLY`), **correspondance des lignes** (référence externe / clé composite) si présent dans le design actuel — **libellés français**, pas de jargon `matching` en titre.
+
+---
+
+### 13.2 Mapping structuré (vue conceptuelle pour le plan et l’UI)
+
+Même si le **payload API** reste un `mappingConfig` + `optionsConfig` JSON plat, la **documentation produit** et l’**UI** doivent présenter une structure logique par blocs :
+
+```text
+mapping (vue métier)
+├── file / sheet          → fileToken, sourceType, sheetName (XLSX)
+├── envelope              → colonne(s) enveloppe OU enveloppe unique (defaultEnvelopeId)
+├── budgetLine            → libellé / identité ligne + clés de rapprochement
+├── purchaseOrders (cmd)  → montants + date commande (si section activée)
+└── invoices (factures)   → montants + date facture (si section activée)
+```
+
+Les **écrans** ne listent plus « une grille unique de tous les champs » : chaque bloc a ses propres sélecteurs de colonnes (listes déroulantes alimentées par les en-têtes du fichier).
+
+---
+
+### 13.3 Validation locale renforcée (avant preview)
+
+À implémenter côté client (en complément des 422 API, §14) :
+
+| Règle | Détail |
+|-------|--------|
+| Feuille Excel | Si `sourceType === XLSX` : feuille sélectionnée obligatoire (cohérence avec analyze-sheet / preview). |
+| Enveloppe | Au moins un des trois cas : colonne(s) résolue(s), ou enveloppe par défaut obligatoire en mode « une seule enveloppe », ou flux création enveloppe complété + sélection. |
+| Ligne budgétaire | Colonne identité / libellé (champ requis du bloc 3) renseignée. |
+| Commandes | Si section activée : montants requis identifiés ; date selon règle produit. |
+| Factures | Si section activée : idem. |
+| Dates | Si colonnes dates fournies pour commandes/factures : format cohérent avec `dateFormat`. |
+| Preview | **Bloquée** tant que les blocs requis ne sont pas valides. |
+
+---
+
+### 13.4 Parcours en 4 étapes API (rappel) + découpage UI
+
+Flux **API** inchangé :
+
+1. **Analyze** (upload + éventuellement analyze-sheet).
+2. **Configuration** = enchaînement des blocs §13.1 (remplace l’ancien monolithe « Mapping »).
+3. **Preview** — `POST /api/budget-imports/preview`.
+4. **Execute** — `POST /api/budget-imports/execute`.
+
+### 13.5 Emplacement et composants (`apps/web/src/features/budgets/budget-import/`)
+
+- Arborescence **sous** `features/budgets/` (chemin validé produit), **sans** dupliquer la logique métier serveur.
+- Découpage composants **suggéré** (évolutif) : `BudgetImportWizard` ; sous-composants ou sous-étapes **par bloc** (ex. `BudgetImportFileSheetStep`, `BudgetImportEnvelopeStep`, `BudgetImportBudgetLineStep`, `BudgetImportOrdersMappingStep`, `BudgetImportInvoicesMappingStep`) en plus ou à la place d’un seul `BudgetImportMappingStep` monolithique ; `BudgetImportPreviewStep`, `BudgetImportExecuteStep` ; tables d’aperçu / erreurs.
+- Réutilisation des patterns cockpit (cartes, une question claire par écran ou section, pas d’IDs bruts visibles).
+
+### 13.6 États UI : loading, error, validation
+
+- **Loading** : spinners / skeletons par étape et par appel analyze / analyze-sheet / preview / execute.
+- **Error** : messages utilisateur + retour au **bloc** concerné quand c’est possible (ex. erreur enveloppe → bloc Enveloppe).
+- **Validation** : voir §13.3 ; pas d’appel preview tant que la configuration minimale n’est pas valide.
+
+### 13.7 Preview / exécution (présentation métier)
+
+- **Preview** : au-delà de la table ligne à ligne existante (§6), le plan cible une **lecture par blocs** dans l’UI :
+  - résumé ou onglets : **lignes budgétaires détectées**, **données commande** (si section activée), **données facture** (si section activée) ;
+  - les **erreurs** sont **rattachées au bloc** concerné (enveloppe, ligne, commandes, factures) par regroupement visuel ou filtre, en réutilisant les `reason` API existantes tant que possible.
+- **Execute** : confirmation avec volumes CREATE/UPDATE/SKIP/ERROR ; écran résultat inchangé en principe.
+
+### 13.8 Sauvegarde et réutilisation d’un mapping
+
+- CRUD mappings (§9) : l’UI enregistre toujours un **JSON** compatible backend ; la **structure par blocs** peut être **reflétée** dans l’UI de reprise (« reprendre un mapping ») en réhydratant chaque section.
+- Distinction **mapping réutilisable** vs **fileToken** ponctuel (inchangé).
 
 ---
 
@@ -215,6 +325,7 @@ Ces règles **complètent** les sections 5 à 11 sans remplacer la logique trans
 ### 14.4 Mapping incomplet → blocage
 
 - Tant que les champs **minimaux** requis par le mode d’import et le mapping ne sont pas satisfaits (ex. pas de colonne montant mappée, pas d’enveloppe résolvable ni `defaultEnvelopeId` quand obligatoire) → **blocage** côté API (422) et côté UI **avant** preview ; pas d’exécution partielle sur une config invalide.
+- **Refonte UX (§13.3)** : la validation locale **par blocs** (feuille Excel, enveloppe, ligne budgétaire, sections commandes/factures activées) **complète** cette règle sans changer les contrats API.
 
 ### 14.5 Incohérence `clientId` → rejet
 
@@ -278,7 +389,7 @@ Sans modifier l’architecture ni les modèles existants : stratégie **MVP scal
 6. **Enums MVP** : BudgetImportEntityType = BUDGET_LINES, BudgetImportTargetEntityType = BUDGET_LINE.
 7. **BudgetImportJob.summary** : structure minimale `{ warningsCount, errorsByType }`.
 8. **UPDATE_ONLY** : aucune correspondance → SKIP avec raison NO_MATCH_UPDATE_ONLY.
-9. **UX / Frontend flow (§13)** : wizard 4 étapes (upload → mapping → preview → execute), feature `features/budget-import/`, états loading/error/validation, erreurs ligne par ligne, sauvegarde / réutilisation de mapping, alignement cockpit Starium.
+9. **UX / Frontend flow (§13)** : wizard **macro-étapes** analyze → configuration → preview → execute ; **configuration par blocs métier** (fichier/feuille, enveloppe avec 3 cas UX, ligne budgétaire obligatoire, sections commandes/factures optionnelles, options transverses) ; pas d’écran de mapping plat unique ; validation locale renforcée (§13.3) ; preview présentable par blocs et erreurs rattachées au bloc ; arborescence `apps/web/src/features/budgets/budget-import/` ; permissions inchangées ; alignement cockpit Starium.
 10. **Règles métier renforcées (§14)** : devise obligatoire et homogène, enveloppe introuvable → ERROR, montant invalide → ERROR, mapping incomplet → blocage, incohérence client → rejet.
 11. **Performance & scalabilité (§15)** : traitement par batch (ex. 500 lignes), piste streaming future, limites mémoire explicites, rappel préparation hors transaction.
 12. **Intégration avec autres modules (§16)** : cohérence `budget-management` (validation budget/enveloppe, hiérarchie, merge/overwrite via `importMode`), post-import financial-core + snapshot optionnel + reporting/KPI, audit structuré pour exploitation.
