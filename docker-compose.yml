@@ -78,8 +78,7 @@ services:
       # 3002 hôte → 3000 conteneur (volontaire : libère :3000 sur la machine)
       - "3002:3000"
     depends_on:
-      api:
-        condition: service_healthy
+      - api
 
 volumes:
   postgres_data: {}
