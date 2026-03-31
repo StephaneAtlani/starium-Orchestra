@@ -198,7 +198,7 @@ export default function ProjectsPortfolioPage() {
                 />
                 {data && data.items.length > 0 ? (
                   <>
-                    <CardContent className="min-h-0 flex-1 overflow-auto p-0">
+                    <CardContent className="min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0">
                       <ProjectsListTable
                         items={data.items}
                         filters={filters}
