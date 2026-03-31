@@ -158,6 +158,113 @@ Les options d’import doivent être formalisées explicitement (mapping ou body
 - Unitaires : parser, matching (externalId, compositeHash, doublons internes DUPLICATE_SOURCE_KEY, AMBIGUOUS_MATCH), préchargement enveloppes + RowLinks, préparation hors transaction.
 - Intégration : analyze (métadonnées fileToken complètes), preview (vérif fileToken = client actif + non expiré, doublons internes, reasons), execute (préparation hors transaction puis transaction écritures uniquement : Job, BudgetLine, RowLink, update job), CRUD mappings.
 - Isolation client : fileToken d’un client refusé pour preview/execute d’un autre client.
+- Frontend (aligné §13) : tests des flux critiques du wizard (navigation 4 étapes, validation mapping avant preview, affichage erreurs ligne par ligne), avec mocks des endpoints analyze / preview / execute.
+
+---
+
+## 13. UX / Frontend flow
+
+Objectif : rendre l’import exploitable en **cockpit Starium** (lecture rapide, décision, pas de friction) sans modifier l’architecture backend ni les modèles Prisma existants.
+
+### 13.1 Parcours en 4 étapes (obligatoire)
+
+Flux linéaire à respecter côté UI :
+
+1. **Upload** — sélection / glisser-déposer du fichier (`.csv` / `.xlsx`), contrôle taille et type, appel `POST /api/budget-imports/analyze`, récupération `fileToken` + métadonnées (`columns`, `sampleRows`, `rowCount`, feuilles XLSX).
+2. **Mapping** — association colonnes source → champs cibles (montant, devise, enveloppe code/id, externalId, dates, libellés, etc.), options d’import (`importMode`, `defaultEnvelopeId`, `defaultCurrency`, `decimalSeparator`, `dateFormat`, `ignoreEmptyRows`, `trimValues`), possibilité de **charger un mapping sauvegardé** (voir §13.4).
+3. **Preview** — appel `POST /api/budget-imports/preview` avec `fileToken` + configuration ; affichage des statistiques agrégées et d’une table **ligne par ligne** avec statut (`CREATE` | `UPDATE` | `SKIP` | `ERROR`) et `reason` normalisé (aligné sur le plan §6).
+4. **Execute** — confirmation explicite (résumé des volumes CREATE/UPDATE/SKIP/ERROR), puis `POST /api/budget-imports/execute` ; écran de **résultat** (job, compteurs, lien vers détail erreurs si `FAILED` ou erreurs partielles selon politique API).
+
+### 13.2 Emplacement et composants (`apps/web/src/features/budget-import/`)
+
+- Arborescence dédiée : pages ou route(s) sous le périmètre budget / admin selon la navigation existante, **sans** dupliquer la logique métier (consommation stricte des APIs).
+- Composants typiques (noms indicatifs) : `BudgetImportWizard` (stepper 4 étapes), `BudgetImportUploadStep`, `BudgetImportMappingStep`, `BudgetImportPreviewStep`, `BudgetImportExecuteStep`, `BudgetImportRowStatusTable` (preview + éventuellement relecture post-job), `BudgetImportErrorList` (erreurs **ligne par ligne** avec numéro de ligne source et `reason`).
+- Réutilisation des patterns UI du cockpit (cartes, densité lisible, actions primaires claires, pas d’IDs bruts en libellé utilisateur — libellés enveloppe / budget via données déjà résolues côté API ou référentiels chargés).
+
+### 13.3 États UI : loading, error, validation
+
+- **Loading** : spinners / skeletons par étape ; désactivation des actions destructives pendant analyze, preview, execute ; indication de progression lorsque le backend expose des compteurs ou un statut de job (sinon état indéterminé avec message honnête).
+- **Error** : erreurs réseau / 403 / 413 / 422 avec message utilisateur et **action de retour** (réessayer upload, corriger mapping, revenir au preview).
+- **Validation** : validation **formulaire mapping** avant preview (champs obligatoires pour le mode choisi, cohérence devise / enveloppe par défaut) ; **blocage** si mapping incomplet (aligné §14) — pas d’appel preview tant que la config minimale n’est pas valide.
+- **Preview** : toute ligne en `ERROR` doit être visible avec **numéro de ligne** et motif ; option de filtre « erreurs uniquement » pour décision rapide.
+
+### 13.4 Sauvegarde et réutilisation d’un mapping
+
+- CRUD mappings déjà prévu (§9) : l’UI doit permettre **enregistrer** le mapping courant (nom, description optionnelle), **lister** les mappings du client, **appliquer** un mapping existant à un nouveau fichier (réajustement des noms de colonnes si le fichier diffère — l’utilisateur valide avant preview).
+- Distinction claire entre **mapping réutilisable** (config JSON côté `BudgetImportMapping`) et **fileToken** (ponctuel, lié à un upload).
+
+---
+
+## 14. Règles métier renforcées
+
+Ces règles **complètent** les sections 5 à 11 sans remplacer la logique transactionnelle ni l’anti-doublon (§6–8).
+
+### 14.1 Devise obligatoire et homogène
+
+- La **devise** est **obligatoire** pour toute ligne importée (colonne dédiée et/ou `defaultCurrency` selon les options).
+- **Homogénéité** : toutes les lignes d’un même run d’import doivent résoudre vers la **même devise effective** que celle attendue pour le budget / le périmètre cible (selon règles `budget-management`). Toute ligne avec devise manquante, non parseable ou **incohérente** avec la règle d’homogénéité → statut **ERROR** avec motif explicite (ex. `INVALID_CURRENCY` ou extension du catalogue de reasons documentée dans l’implémentation).
+
+### 14.2 Enveloppe introuvable
+
+- Si la résolution enveloppe (colonne + `defaultEnvelopeId`) échoue (code inconnu, id hors budget, enveloppe inactive si la règle métier l’exige) → **ERROR** (pas de création silencieuse), motif du type `MISSING_ENVELOPE` ou dérivé documenté.
+
+### 14.3 Montant invalide
+
+- Montant vide, non numérique, hors bornes métier, ou incohérent après normalisation (`decimalSeparator`) → **ERROR**, motif `INVALID_AMOUNT` (déjà prévu §6).
+
+### 14.4 Mapping incomplet → blocage
+
+- Tant que les champs **minimaux** requis par le mode d’import et le mapping ne sont pas satisfaits (ex. pas de colonne montant mappée, pas d’enveloppe résolvable ni `defaultEnvelopeId` quand obligatoire) → **blocage** côté API (422) et côté UI **avant** preview ; pas d’exécution partielle sur une config invalide.
+
+### 14.5 Incohérence `clientId` → rejet
+
+- Toute incohérence entre le **client actif** du contexte JWT / header, le `budgetId` / `envelopeId` résolu et le scoping attendu par `budget-management` → **rejet** (403/404/422 selon le cas) ; aucune fuite inter-client. Le fichier et le `fileToken` restent **strictement** rattachés au client du contexte (déjà §4, §6–7).
+
+---
+
+## 15. Performance & scalabilité
+
+Sans modifier l’architecture ni les modèles existants : stratégie **MVP scalable** pour un usage SaaS.
+
+### 15.1 Traitement par batch
+
+- Au-delà d’un seuil configurable (ex. **500 lignes** par batch interne), le **parsing et la préparation** (Phase 1, §7) découpent le travail par segments pour limiter les pics CPU et faciliter le suivi ; les **écritures** restent orchestrées dans la **même** transaction Prisma définie au plan (pas de multiplication de transactions métier implicites sans décision produit).
+- Les compteurs (`totalRows`, `createdRows`, etc.) et le `summary` du job restent cohérents avec l’ensemble du fichier.
+
+### 15.2 Streaming (piste future, hors MVP obligatoire)
+
+- Prévoir dans la conception des services une **séparation** entre lecture fichier / itération lignes et persistance, de sorte qu’un **streaming** (chunked read) puisse remplacer la lecture monolithique **sans** changer le contrat d’anti-doublon ni la Phase 1 / Phase 2.
+
+### 15.3 Limitation mémoire explicite
+
+- Documenter et respecter des plafonds : taille fichier (déjà §4, §11), nombre max de lignes, et **non chargement** de l’intégralité des gros fichiers en mémoire brute si évolution vers streaming ; pour le MVP, chargement mémoire acceptable sous les limites annoncées avec revue avant montée en charge.
+
+### 15.4 Préparation hors transaction (rappel structurant)
+
+- Maintenir impérativement le principe §7 : **toute** la préparation (parse, mapping, normalisation, résolution enveloppes, matching RowLinks, détection doublons internes) **hors** `prisma.$transaction` ; la transaction ne contient que Job + lignes + RowLinks + finalisation job — garantie de performance et de sûreté déjà posée.
+
+---
+
+## 16. Intégration avec autres modules
+
+### 16.1 Cohérence avec budget-management
+
+- **Validation stricte `envelopeId` / `budgetId`** : toute enveloppe résolue doit **appartenir** au `budgetId` du job et au **client** du contexte ; vérifications alignées sur les services existants `budget-management` (pas de raccourci contournant les guards / scoping).
+- **Hiérarchie Budget → Envelope → Line** : l’import ne crée que des `BudgetLine` **sous** une enveloppe déjà rattachée au budget cible ; pas de création d’enveloppe fantôme ni de ligne orpheline.
+- **Ligne existante (merge vs overwrite)** : le comportement est **piloté** par `importMode` (`CREATE_ONLY` | `UPSERT` | `UPDATE_ONLY`) déjà défini §5–7 — à documenter en spec produit : *UPSERT* = mise à jour des champs mappés lorsque le match RowLink / clé est trouvé ; *UPDATE_ONLY* = pas de création, skips documentés ; *CREATE_ONLY* = pas de mise à jour des lignes existantes matchées (SKIP ou erreur selon règle déjà choisie côté implémentation, **sans** casser l’anti-doublon).
+
+### 16.2 Post-import : financial-core et cohérence des agrégats
+
+- **Recalcul automatique** : après succès d’un job (`COMPLETED`), déclencher les recalculs / invalidations attendus via le **financial-core** (totaux budget, enveloppes, engagements si applicable) selon les points d’extension déjà utilisés ailleurs dans la plateforme — **sans** nouveau modèle Prisma pour cet import.
+- **Snapshot après import** : possibilité de **déclencher** un snapshot budgétaire / versionnement (RFC-019 ou équivalent) **après** import réussi, de façon optionnelle ou pilotée par paramètre métier, pour figer un état « post-import ».
+
+### 16.3 Reporting et KPI
+
+- Lier l’import au **rafraîchissement** des vues reporting / KPI (RFC-016, dashboards) soit par recalcul synchrone contrôlé, soit par invalidation de cache / événement interne, pour que l’utilisateur ne voie pas des agrégats obsolètes après un import massif.
+
+### 16.4 Logs exploitables pour audit (structuration)
+
+- Les actions d’audit listées §10 restent la base ; **structurer** les payloads `newValue` / résumés pour qu’ils soient **exploitables** en production : `jobId`, `budgetId`, `importMode`, volumes CREATE/UPDATE/SKIP/ERROR, fichier d’origine (nom, pas de contenu binaire), corrélation utilisateur, et **référence** aux erreurs métier agrégées (`errorsByType`). Les détails ligne à ligne restent dans le job / réponses preview et traces applicatives selon politique de rétention — cohérent avec l’audit sans explosion de volume dans le seul journal d’audit.
 
 ---
 
@@ -171,3 +278,7 @@ Les options d’import doivent être formalisées explicitement (mapping ou body
 6. **Enums MVP** : BudgetImportEntityType = BUDGET_LINES, BudgetImportTargetEntityType = BUDGET_LINE.
 7. **BudgetImportJob.summary** : structure minimale `{ warningsCount, errorsByType }`.
 8. **UPDATE_ONLY** : aucune correspondance → SKIP avec raison NO_MATCH_UPDATE_ONLY.
+9. **UX / Frontend flow (§13)** : wizard 4 étapes (upload → mapping → preview → execute), feature `features/budget-import/`, états loading/error/validation, erreurs ligne par ligne, sauvegarde / réutilisation de mapping, alignement cockpit Starium.
+10. **Règles métier renforcées (§14)** : devise obligatoire et homogène, enveloppe introuvable → ERROR, montant invalide → ERROR, mapping incomplet → blocage, incohérence client → rejet.
+11. **Performance & scalabilité (§15)** : traitement par batch (ex. 500 lignes), piste streaming future, limites mémoire explicites, rappel préparation hors transaction.
+12. **Intégration avec autres modules (§16)** : cohérence `budget-management` (validation budget/enveloppe, hiérarchie, merge/overwrite via `importMode`), post-import financial-core + snapshot optionnel + reporting/KPI, audit structuré pour exploitation.

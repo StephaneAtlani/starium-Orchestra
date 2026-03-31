@@ -19,9 +19,11 @@ import {
   ClipboardList,
   FileStack,
   FolderKanban,
+  KeyRound,
   Link2,
   Shield,
   ShoppingCart,
+  UserCheck,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -53,12 +55,13 @@ export default function AdminPlatformDashboardPage() {
   const t = data?.totals;
   const act = data?.activity;
   const integ = data?.integrations;
+  const sess = data?.sessions;
 
   return (
     <PageContainer>
       <PageHeader
         title="Plateforme — utilisation"
-        description="Indicateurs agrégés (comptages en base) pour suivre l’adoption : organisations, utilisateurs, modules métiers et activité récente."
+        description="Sessions, courbes d’usage (audit, auth) et stocks métier — agrégation base, instantané au chargement."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link
@@ -96,7 +99,7 @@ export default function AdminPlatformDashboardPage() {
         </Alert>
       )}
 
-      {data && t && act && integ && (
+      {data && t && act && integ && sess && (
         <>
           <p className="text-muted-foreground text-xs">
             Données au{' '}
@@ -105,6 +108,39 @@ export default function AdminPlatformDashboardPage() {
             </time>
             . Graphiques mis à jour avec ces données. Recharger la page pour actualiser.
           </p>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Utilisateurs « connectés »</CardTitle>
+                <UserCheck className="text-muted-foreground size-4" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold tabular-nums">
+                  {fmtInt(sess.distinctUsersWithActiveRefresh)}
+                </div>
+                <CardDescription>
+                  Comptes distincts avec au moins un jeton refresh valide (session ouverte possible,
+                  non expiré, non révoqué).
+                </CardDescription>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Sessions refresh actives</CardTitle>
+                <KeyRound className="text-muted-foreground size-4" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold tabular-nums">
+                  {fmtInt(sess.activeRefreshTokens)}
+                </div>
+                <CardDescription>
+                  Total de jetons refresh valides (plusieurs navigateurs ou appareils par utilisateur
+                  possible).
+                </CardDescription>
+              </CardContent>
+            </Card>
+          </div>
 
           {data.series.daily.length > 0 && (
             <PlatformUsageCharts daily={data.series.daily} />

@@ -42,11 +42,22 @@ export interface PlatformUsageDailyPoint {
   auditLogs: number;
   securityLogs: number;
   newUsers: number;
+  authLogins: number;
+  authRefreshes: number;
+  /** Utilisateurs distincts avec au moins une connexion réussie ce jour-là. */
+  authDistinctUsers: number;
+  /** Clients distincts (membres actifs) concernés par au moins une connexion ce jour-là. */
+  authDistinctClients: number;
 }
 
 /** GET /platform/usage-overview — vue agrégée pour le tableau de bord plateforme. */
 export interface PlatformUsageOverview {
   generatedAt: string;
+  /** Jetons refresh valides : approximation des utilisateurs « connectés » (session ouverte possible). */
+  sessions: {
+    distinctUsersWithActiveRefresh: number;
+    activeRefreshTokens: number;
+  };
   series: {
     daily: PlatformUsageDailyPoint[];
   };

@@ -7,7 +7,22 @@ describe('PlatformUsageController', () => {
   it('should delegate GET to PlatformUsageService.getOverview', async () => {
     const overview = {
       generatedAt: '2026-01-01T00:00:00.000Z',
-      series: { daily: [] as { date: string; auditLogs: number; securityLogs: number; newUsers: number }[] },
+      sessions: {
+        distinctUsersWithActiveRefresh: 0,
+        activeRefreshTokens: 0,
+      },
+      series: {
+        daily: [] as {
+          date: string;
+          auditLogs: number;
+          securityLogs: number;
+          newUsers: number;
+          authLogins: number;
+          authRefreshes: number;
+          authDistinctUsers: number;
+          authDistinctClients: number;
+        }[],
+      },
       totals: {
         clients: 0,
         users: 0,
