@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -17,6 +17,14 @@ import { projectsList } from '../constants/project-routes';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/use-permissions';
 
+const PORTFOLIO_GANTT_TIME_ZOOM_MIN = 0.2;
+const PORTFOLIO_GANTT_TIME_ZOOM_MAX = 5;
+const PORTFOLIO_GANTT_TIME_ZOOM_STEP = 1.12;
+
+function clampPortfolioTimeZoom(z: number): number {
+  return Math.min(PORTFOLIO_GANTT_TIME_ZOOM_MAX, Math.max(PORTFOLIO_GANTT_TIME_ZOOM_MIN, z));
+}
+
 export function PortfolioGanttPage() {
   const { has } = usePermissions();
   const canRead = has('projects.read');
@@ -26,6 +34,16 @@ export function PortfolioGanttPage() {
   });
 
   const [showPortfolioGanttTooltips, setShowPortfolioGanttTooltips] = useState(true);
+  /** 100 % = densité qui remplit la largeur visible de la frise. */
+  const [portfolioTimeZoom, setPortfolioTimeZoom] = useState(1);
+
+  const zoomTimeIn = useCallback(() => {
+    setPortfolioTimeZoom((z) => clampPortfolioTimeZoom(z * PORTFOLIO_GANTT_TIME_ZOOM_STEP));
+  }, []);
+  const zoomTimeOut = useCallback(() => {
+    setPortfolioTimeZoom((z) => clampPortfolioTimeZoom(z / PORTFOLIO_GANTT_TIME_ZOOM_STEP));
+  }, []);
+  const resetTimeZoom = useCallback(() => setPortfolioTimeZoom(1), []);
 
   const myRoleOptions = useMemo(() => {
     const set = new Set<string>();
@@ -68,6 +86,12 @@ export function PortfolioGanttPage() {
             filters={filters}
             setFilters={setFilters}
             myRoleOptions={myRoleOptions}
+            portfolioGanttZoom={{
+              value: portfolioTimeZoom,
+              onZoomOut: zoomTimeOut,
+              onZoomIn: zoomTimeIn,
+              onReset: resetTimeZoom,
+            }}
             portfolioGanttTooltips={{
               enabled: showPortfolioGanttTooltips,
               onEnabledChange: setShowPortfolioGanttTooltips,
@@ -96,6 +120,8 @@ export function PortfolioGanttPage() {
                 ) : (
                   <PortfolioGanttChart
                     items={data.items}
+                    timeZoom={portfolioTimeZoom}
+                    onTimeZoomChange={setPortfolioTimeZoom}
                     tooltipsEnabled={showPortfolioGanttTooltips}
                   />
                 )}

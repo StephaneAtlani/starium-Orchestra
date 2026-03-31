@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Minus, Plus, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -36,6 +38,13 @@ export interface ProjectsPortfolioFiltersBarProps {
   setFilters: (updates: Partial<ProjectsListFilters>) => void;
   /** Rôles dérivés des lignes chargées (Gantt / liste). */
   myRoleOptions: string[];
+  /** Gantt portefeuille : pilotage du zoom temps (UI dans la barre de filtres). */
+  portfolioGanttZoom?: {
+    value: number;
+    onZoomOut: () => void;
+    onZoomIn: () => void;
+    onReset: () => void;
+  };
   /** Gantt portefeuille : case « Infobulles » sur la ligne des options rapides. */
   portfolioGanttTooltips?: {
     enabled: boolean;
@@ -47,6 +56,7 @@ export function ProjectsPortfolioFiltersBar({
   filters,
   setFilters,
   myRoleOptions,
+  portfolioGanttZoom,
   portfolioGanttTooltips,
 }: ProjectsPortfolioFiltersBarProps) {
   const authFetch = useAuthenticatedFetch();
@@ -281,6 +291,50 @@ export function ProjectsPortfolioFiltersBar({
       </div>
 
       <div className="flex flex-wrap items-center gap-4 pt-0.5">
+        {portfolioGanttZoom ? (
+          <div
+            className="flex items-center gap-1.5"
+            title="Ctrl + molette sur la frise pour zoomer"
+          >
+            <span className="text-muted-foreground shrink-0 text-xs">Zoom temps</span>
+            <div className="bg-background/80 inline-flex items-center rounded-md border shadow-sm">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-r-none"
+                onClick={portfolioGanttZoom.onZoomOut}
+                aria-label="Zoom arrière sur la frise"
+              >
+                <Minus className="size-3.5" />
+              </Button>
+              <span className="text-muted-foreground min-w-[2.75rem] px-1 text-center text-[11px] tabular-nums">
+                {Math.round(portfolioGanttZoom.value * 100)}%
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-none border-x border-border/60"
+                onClick={portfolioGanttZoom.onZoomIn}
+                aria-label="Zoom avant sur la frise"
+              >
+                <Plus className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-l-none"
+                onClick={portfolioGanttZoom.onReset}
+                aria-label="Réinitialiser le zoom temps"
+                title="100 %"
+              >
+                <RotateCcw className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        ) : null}
         <label className="flex cursor-pointer items-center gap-2 text-xs">
           <input
             type="checkbox"
