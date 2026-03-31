@@ -6,6 +6,7 @@ FROM base AS builder
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build
+RUN pnpm --filter @starium-orchestra/budget-exercise-calendar build
 RUN pnpm --filter @starium-orchestra/api exec prisma generate
 RUN pnpm --filter @starium-orchestra/api build
 

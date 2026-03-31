@@ -8,7 +8,7 @@
       "@/*": ["src/*"]
     },
     "module": "CommonJS",
-    "moduleResolution": "Node",
+    "moduleResolution": "node16",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "noEmit": false
