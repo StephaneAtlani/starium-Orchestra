@@ -227,12 +227,12 @@ export function ProjectsListTable({
   return (
     <TooltipProvider delay={250}>
       <Table noWrapper className="min-w-[56rem] text-sm">
-      <TableHeader className="sticky top-0 z-20 bg-muted [&_tr]:border-b-0">
+      <TableHeader className="sticky top-0 z-50 bg-muted [&_tr]:border-b-0">
         <TableRow className="border-0 hover:bg-transparent">
           <TableHead
             className={cn(
               th,
-              'sticky left-0 z-30 min-w-[11rem] bg-muted pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
+              'sticky left-0 z-[60] min-w-[11rem] bg-muted pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
             )}
           >
             <HeaderTip tip="Categorie portefeuille rattachee au projet (racine / sous-categorie).">
@@ -242,7 +242,7 @@ export function ProjectsListTable({
           <TableHead
             className={cn(
               th,
-              'sticky left-[11rem] z-30 min-w-[12rem] bg-muted pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
+              'sticky left-[11rem] z-[60] min-w-[12rem] bg-muted pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
             )}
           >
             <HeaderTip tip="Nom du projet, code interne, criticité et responsable. Cliquez sur le nom pour ouvrir la fiche.">
@@ -339,7 +339,7 @@ export function ProjectsListTable({
         </TableRow>
         <TableRow className="border-t border-border/50 bg-muted/35 hover:bg-muted/35">
           {/* CATEGORIE */}
-          <TableHead className="sticky left-0 z-30 bg-muted p-2 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
+          <TableHead className="sticky left-0 z-[60] bg-muted p-2 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
             <Select
               value={categoryKey}
               onValueChange={(v) =>
@@ -376,7 +376,7 @@ export function ProjectsListTable({
             </Select>
           </TableHead>
           {/* PROJET */}
-          <TableHead className="sticky left-[11rem] z-30 bg-muted p-2 shadow-[1px_0_0_0_hsl(var(--border))]">
+          <TableHead className="sticky left-[11rem] z-[60] bg-muted p-2 shadow-[1px_0_0_0_hsl(var(--border))]">
             <Input
               value={filters.search ?? ''}
               onChange={(e) => setFilters({ search: e.target.value || undefined })}
