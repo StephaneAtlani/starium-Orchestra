@@ -25,6 +25,7 @@ x-postgres-healthcheck: &postgres-healthcheck
 x-api-base-env: &api-base-env
   DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
   PORT: "3001"
+  JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
 
 x-depends-postgres-healthy: &depends-postgres-healthy
   postgres:
@@ -73,6 +74,7 @@ services:
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     environment:
+      INTERNAL_API_URL: http://api:3001
       NEXT_PUBLIC_API_URL: http://localhost:3001
     ports:
       # 3002 hôte → 3000 conteneur (volontaire : libère :3000 sur la machine)
