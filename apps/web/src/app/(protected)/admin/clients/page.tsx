@@ -71,6 +71,12 @@ export default function AdminClientsPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link
+              href="/admin/dashboard"
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+            >
+              Tableau de bord
+            </Link>
+            <Link
               href="/admin/ui-badges"
               className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
             >

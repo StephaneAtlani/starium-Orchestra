@@ -165,6 +165,13 @@ export const navigation: NavigationSection[] = [
     section: 'Platform',
     items: [
       {
+        label: 'Tableau de bord',
+        href: '/admin/dashboard',
+        icon: LayoutDashboard,
+        scope: 'platform',
+        platformOnly: true,
+      },
+      {
         label: 'Clients',
         href: '/admin/clients',
         icon: Building2,

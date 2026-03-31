@@ -30,6 +30,7 @@ import { TeamDirectoryModule } from './modules/team-directory/team-directory.mod
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { RiskTaxonomyModule } from './modules/risk-taxonomy/risk-taxonomy.module';
 import { BudgetForecastModule } from './modules/budget-forecast/budget-forecast.module';
+import { PlatformUsageModule } from './modules/platform-usage/platform-usage.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { BudgetForecastModule } from './modules/budget-forecast/budget-forecast.
     ComplianceModule,
     RiskTaxonomyModule,
     BudgetForecastModule,
+    PlatformUsageModule,
   ],
 })
 export class AppModule {}
