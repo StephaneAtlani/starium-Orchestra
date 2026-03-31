@@ -28,10 +28,11 @@ import { PortfolioGanttProjectTooltip } from './portfolio-gantt-project-tooltip'
 import { PortfolioGanttLegend } from './portfolio-gantt-legend';
 import { cn } from '@/lib/utils';
 
-/** Zoom sur l’échelle temps (multiplicateur sur px/j, base = vue adaptée à la largeur). */
+/** Zoom sur l'échelle temps (multiplicateur sur px/j, base = vue adaptée à la largeur). */
 const PORTFOLIO_GANTT_TIME_ZOOM_MIN = 0.2;
 const PORTFOLIO_GANTT_TIME_ZOOM_MAX = 5;
 const PORTFOLIO_GANTT_TIME_ZOOM_STEP = 1.12;
+const GANTT_SIDEBAR_PX = 280;
 
 function clampPortfolioTimeZoom(z: number): number {
   return Math.min(PORTFOLIO_GANTT_TIME_ZOOM_MAX, Math.max(PORTFOLIO_GANTT_TIME_ZOOM_MIN, z));
@@ -40,19 +41,19 @@ function clampPortfolioTimeZoom(z: number): number {
 /** Styles frise portefeuille — fonds de piste + chrome. */
 const portfolioGantt = {
   outer: 'border-border/50 bg-card/40 dark:bg-card/20',
-  sidebarHeader: 'border-border/40 bg-muted/30',
-  monthHeader: 'border-border/40 bg-muted/30',
+  sidebarHeader: 'border-border/40 bg-muted',
+  monthHeader: 'border-border/40 bg-muted',
   monthBand: 'border-border/30 text-muted-foreground',
   todayLine: 'bg-sky-500/70 dark:bg-sky-400/60',
   category: {
     sidebar:
-      'border-border/40 bg-primary/[0.06] text-foreground/85 border-l-[3px] border-l-primary dark:bg-primary/10',
+      'border-border/40 bg-muted text-foreground/85 border-l-[3px] border-l-primary',
     timeline:
       'border-border/40 bg-primary/[0.05] dark:bg-primary/[0.08]',
   },
   projectRow: {
     sidebar:
-      'border-border/40 bg-card hover:bg-muted/40 dark:bg-muted/15 dark:hover:bg-muted/30',
+      'border-border/40 bg-card hover:bg-muted/40 dark:bg-card dark:hover:bg-muted/30',
     track:
       'border-border/40 bg-muted/25 dark:bg-muted/20',
     trackEmpty:
@@ -211,12 +212,14 @@ export function PortfolioGanttChart({
   items: PortfolioGanttRow[];
   timeZoom: number;
   onTimeZoomChange: React.Dispatch<React.SetStateAction<number>>;
-  /** Si false, pas d’infobulle sur les lignes et barres (liens liste restent cliquables). */
+  /** Si false, pas d'infobulle sur les lignes et barres (liens liste restent cliquables). */
   tooltipsEnabled?: boolean;
   /** Si false, masque les infos textuelles affichées à droite des barres. */
   inlineInfosEnabled?: boolean;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
   const panStateRef = useRef<{
     startX: number;
     startY: number;
@@ -233,9 +236,11 @@ export function PortfolioGanttChart({
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setViewportW(Math.max(el.clientWidth, GANTT_MIN_TIMELINE_PX)));
+    const measure = () =>
+      setViewportW(Math.max(el.clientWidth - GANTT_SIDEBAR_PX, GANTT_MIN_TIMELINE_PX));
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setViewportW(Math.max(el.clientWidth, GANTT_MIN_TIMELINE_PX));
+    measure();
     return () => ro.disconnect();
   }, []);
 
@@ -257,9 +262,29 @@ export function PortfolioGanttChart({
     [layoutRows],
   );
 
-  /** Zoom : molette + Ctrl/Cmd sur la zone frise (scroll horizontal inchangé sans modificateur). */
+  /** Sync horizontal scroll du header avec le body. */
   useEffect(() => {
-    const el = scrollRef.current;
+    const body = scrollRef.current;
+    const header = headerScrollRef.current;
+    if (!body || !header) return;
+    const sync = () => {
+      header.scrollLeft = body.scrollLeft;
+    };
+    sync();
+    body.addEventListener('scroll', sync, { passive: true });
+    return () => body.removeEventListener('scroll', sync);
+  }, []);
+
+  /** Re-sync header après changement de layout (zoom, données). */
+  useEffect(() => {
+    if (scrollRef.current && headerScrollRef.current) {
+      headerScrollRef.current.scrollLeft = scrollRef.current.scrollLeft;
+    }
+  }, [layout]);
+
+  /** Zoom : molette + Ctrl/Cmd sur toute la zone gantt. */
+  useEffect(() => {
+    const el = containerRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
@@ -325,147 +350,173 @@ export function PortfolioGanttChart({
   }
 
   const widthPx = layout.widthPx;
+  const totalWidthPx = GANTT_SIDEBAR_PX + widthPx;
 
   return (
     <TooltipProvider delay={250}>
       <div className="flex min-w-0 flex-col gap-3">
         <div
           className={cn(
-            'flex min-w-0 flex-col overflow-hidden rounded-lg border',
+            'flex max-h-[min(70vh,720px)] min-w-0 flex-col overflow-hidden rounded-lg border',
             portfolioGantt.outer,
           )}
         >
-      <div className="flex min-h-[min(70vh,720px)] min-h-0 min-w-0 flex-1 flex-row">
-        <div
-          className="border-border/50 bg-muted/20 shrink-0 overflow-y-auto border-r dark:bg-muted/10"
-          style={{ width: 280, minWidth: 200 }}
-        >
           <div
-            style={{ height: 56 }}
-            className={cn('shrink-0 border-b px-2 py-2', portfolioGantt.sidebarHeader)}
-          >
-            <span className="text-muted-foreground text-xs font-medium">Projet par catégorie</span>
-          </div>
-          <div
-            className="flex min-h-0 flex-col px-2 pb-2 pt-2"
-            style={{ gap: PORTFOLIO_GANTT_ROW_GAP_PX }}
-          >
-            {layoutRows.map((lr) =>
-              lr.kind === 'category' ? (
-                <div
-                  key={lr.key}
-                  className={cn(
-                    'flex shrink-0 items-center rounded-md border px-2 text-[11px] font-semibold tracking-wide uppercase',
-                    portfolioGantt.category.sidebar,
-                  )}
-                  style={{ height: GANTT_CATEGORY_HEADER_PX }}
-                >
-                  <span className="line-clamp-2 min-w-0">{lr.label}</span>
-                </div>
-              ) : (
-                <div
-                  key={`sidebar:${lr.row.id}`}
-                  className={cn(
-                    'flex shrink-0 items-center rounded-md border px-2.5 transition-colors',
-                    portfolioGantt.projectRow.sidebar,
-                  )}
-                  style={{ height: PORTFOLIO_GANTT_ROW_PX }}
-                >
-                  <PortfolioGanttProjectTooltip
-                    row={lr.row}
-                    side="right"
-                    align="center"
-                    sideOffset={10}
-                    tooltipsEnabled={tooltipsEnabled}
-                    triggerClassName="block min-w-0 flex-1 text-left"
-                  >
-                    <Link
-                      href={projectDetail(lr.row.id)}
-                      className="cursor-pointer hover:text-primary line-clamp-2 min-w-0 text-left text-xs leading-snug font-medium underline-offset-2 hover:underline"
-                    >
-                      <span className="text-muted-foreground">{lr.row.code}</span> · {lr.row.name}
-                    </Link>
-                  </PortfolioGanttProjectTooltip>
-                </div>
-              ),
+            ref={containerRef}
+            onMouseDown={handleTimelineMouseDown}
+            className={cn(
+              'flex min-h-0 flex-1 flex-col',
+              isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
             )}
-          </div>
-        </div>
-        <div
-          ref={scrollRef}
-          onMouseDown={handleTimelineMouseDown}
-          className={cn(
-            'bg-muted/10 min-h-0 min-w-0 flex-1 overflow-auto dark:bg-muted/5',
-            isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
-          )}
-        >
-          <div style={{ width: widthPx, minWidth: '100%' }}>
+          >
+            {/* Header fixe — scroll horizontal synchronisé avec le body */}
             <div
-              className={cn('relative sticky top-0 z-10 border-b', portfolioGantt.monthHeader)}
-              style={{ height: 56, width: widthPx }}
+              className={cn('flex shrink-0 border-b', portfolioGantt.monthHeader)}
+              style={{ height: 56 }}
             >
-              {layout.monthBands.map((band, idx) => (
-                <div
-                  key={`m-${idx}-${band.label}`}
-                  className={cn(
-                    'absolute border-l px-1 text-[10px] font-medium',
-                    portfolioGantt.monthBand,
-                  )}
-                  style={{
-                    left: band.leftPx,
-                    width: Math.max(1, band.widthPx),
-                    top: 0,
-                    height: 56,
-                  }}
-                >
-                  {band.label}
-                </div>
-              ))}
-            </div>
-            <div className="relative pb-2 pt-2" style={{ width: widthPx }}>
-              {layout.todayPx != null && (
-                <div
-                  className={cn(
-                    'pointer-events-none absolute top-2 z-[5] w-0.5 rounded-full shadow-sm',
-                    portfolioGantt.todayLine,
-                  )}
-                  style={{
-                    left: layout.todayPx,
-                    height: bodyHeightPx,
-                  }}
-                  aria-hidden
-                />
-              )}
               <div
-                className="relative flex flex-col"
-                style={{ gap: PORTFOLIO_GANTT_ROW_GAP_PX }}
-              >
-                {layoutRows.map((lr) =>
-                  lr.kind === 'category' ? (
-                    <div
-                      key={`tl:${lr.key}`}
-                      className={cn(
-                        'relative shrink-0 rounded-md border',
-                        portfolioGantt.category.timeline,
-                      )}
-                      style={{ height: GANTT_CATEGORY_HEADER_PX, width: widthPx }}
-                    />
-                  ) : (
-                    renderProjectTimelineRow(
-                      lr.row,
-                      bounds,
-                      pxPerDay,
-                      widthPx,
-                      tooltipsEnabled,
-                      inlineInfosEnabled,
-                    )
-                  ),
+                className={cn(
+                  'flex shrink-0 items-center border-r px-2 py-2',
+                  portfolioGantt.sidebarHeader,
                 )}
+                style={{ width: GANTT_SIDEBAR_PX, minWidth: GANTT_SIDEBAR_PX }}
+              >
+                <span className="text-muted-foreground text-xs font-medium">
+                  Projet par catégorie
+                </span>
+              </div>
+              <div
+                ref={headerScrollRef}
+                className="min-w-0 flex-1 overflow-hidden"
+              >
+                <div className="relative" style={{ width: widthPx, height: 56 }}>
+                  {layout.monthBands.map((band, idx) => (
+                    <div
+                      key={`m-${idx}-${band.label}`}
+                      className={cn(
+                        'absolute border-l px-1 text-[10px] font-medium',
+                        portfolioGantt.monthBand,
+                      )}
+                      style={{
+                        left: band.leftPx,
+                        width: Math.max(1, band.widthPx),
+                        top: 0,
+                        height: 56,
+                      }}
+                    >
+                      {band.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {/* Body scrollable */}
+            <div
+              ref={scrollRef}
+              className="min-h-0 flex-1 overflow-auto"
+            >
+              <div style={{ width: totalWidthPx, minWidth: '100%' }}>
+                <div className="relative pb-2 pt-2">
+                  {layout.todayPx != null && (
+                    <div
+                      className={cn(
+                        'pointer-events-none absolute top-2 z-[5] w-0.5 rounded-full shadow-sm',
+                        portfolioGantt.todayLine,
+                      )}
+                      style={{
+                        left: GANTT_SIDEBAR_PX + layout.todayPx,
+                        height: bodyHeightPx,
+                      }}
+                      aria-hidden
+                    />
+                  )}
+                  <div
+                    className="flex flex-col"
+                    style={{ gap: PORTFOLIO_GANTT_ROW_GAP_PX }}
+                  >
+                    {layoutRows.map((lr) =>
+                      lr.kind === 'category' ? (
+                        <div
+                          key={lr.key}
+                          className="flex shrink-0"
+                          style={{ height: GANTT_CATEGORY_HEADER_PX }}
+                        >
+                          <div
+                            className={cn(
+                              'sticky left-0 z-10 flex shrink-0 items-center border px-2 text-[11px] font-semibold tracking-wide uppercase',
+                              portfolioGantt.category.sidebar,
+                            )}
+                            style={{
+                              width: GANTT_SIDEBAR_PX,
+                              minWidth: GANTT_SIDEBAR_PX,
+                            }}
+                          >
+                            <span className="line-clamp-2 min-w-0">
+                              {lr.label}
+                            </span>
+                          </div>
+                          <div
+                            className={cn(
+                              'shrink-0 rounded-md border',
+                              portfolioGantt.category.timeline,
+                            )}
+                            style={{
+                              height: GANTT_CATEGORY_HEADER_PX,
+                              width: widthPx,
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          key={`row:${lr.row.id}`}
+                          className="flex shrink-0"
+                          style={{ height: PORTFOLIO_GANTT_ROW_PX }}
+                        >
+                          <div
+                            className={cn(
+                              'sticky left-0 z-10 flex shrink-0 items-center border px-2.5 transition-colors',
+                              portfolioGantt.projectRow.sidebar,
+                            )}
+                            style={{
+                              width: GANTT_SIDEBAR_PX,
+                              minWidth: GANTT_SIDEBAR_PX,
+                            }}
+                          >
+                            <PortfolioGanttProjectTooltip
+                              row={lr.row}
+                              side="right"
+                              align="center"
+                              sideOffset={10}
+                              tooltipsEnabled={tooltipsEnabled}
+                              triggerClassName="block min-w-0 flex-1 text-left"
+                            >
+                              <Link
+                                href={projectDetail(lr.row.id)}
+                                className="cursor-pointer hover:text-primary line-clamp-2 min-w-0 text-left text-xs leading-snug font-medium underline-offset-2 hover:underline"
+                              >
+                                <span className="text-muted-foreground">
+                                  {lr.row.code}
+                                </span>{' '}
+                                · {lr.row.name}
+                              </Link>
+                            </PortfolioGanttProjectTooltip>
+                          </div>
+                          {renderProjectTimelineRow(
+                            lr.row,
+                            bounds,
+                            pxPerDay,
+                            widthPx,
+                            tooltipsEnabled,
+                            inlineInfosEnabled,
+                          )}
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
         </div>
         <PortfolioGanttLegend />
       </div>
