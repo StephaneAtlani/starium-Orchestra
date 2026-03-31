@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -11,18 +12,41 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { PreviewResult, PreviewRowResult } from '../types/budget-imports.types';
+import type { PreviewReason, PreviewResult, PreviewRowResult } from '../types/budget-imports.types';
 import { previewReasonLabel } from './budget-import-preview-reasons';
 
 const PREVIEW_DISPLAY_CAP = 500;
 
-export interface BudgetImportPreviewStepProps {
-  preview: PreviewResult;
-  errorMessage: string | null;
-  isLoading: boolean;
-  onContinue: () => void;
-  onBack: () => void;
+export type PreviewErrorCategory = 'all' | 'envelope' | 'amounts' | 'match' | 'ok';
+
+function categoryForReason(reason: PreviewReason | undefined, status: string): PreviewErrorCategory {
+  if (status !== 'ERROR') return 'ok';
+  switch (reason) {
+    case 'MISSING_ENVELOPE':
+      return 'envelope';
+    case 'INVALID_AMOUNT':
+    case 'INVALID_DATE':
+    case 'MISSING_REQUIRED_FIELD':
+      return 'amounts';
+    case 'DUPLICATE_SOURCE_KEY':
+    case 'AMBIGUOUS_MATCH':
+    case 'MATCHED_BY_EXTERNAL_ID':
+    case 'MATCHED_BY_COMPOSITE_KEY':
+    case 'NO_MATCH_CREATE':
+    case 'NO_MATCH_UPDATE_ONLY':
+      return 'match';
+    default:
+      return 'amounts';
+  }
 }
+
+const CATEGORY_LABELS: Record<PreviewErrorCategory, string> = {
+  all: 'Toutes',
+  envelope: 'Enveloppe',
+  amounts: 'Montants / champs',
+  match: 'Correspondance',
+  ok: 'Sans erreur',
+};
 
 const frNumber = new Intl.NumberFormat('fr-FR', {
   minimumFractionDigits: 0,
@@ -43,19 +67,39 @@ function formatDataCell(row: PreviewRowResult): string {
   return parts.length ? parts.join(' · ') : '—';
 }
 
+export interface BudgetImportPreviewStepProps {
+  preview: PreviewResult;
+  errorMessage: string | null;
+  isLoading: boolean;
+  /** Contexte wizard (aperçu uniquement ; pas renvoyé par l’API). */
+  ordersSectionEnabled?: boolean;
+  invoicesSectionEnabled?: boolean;
+  onContinue: () => void;
+  onBack: () => void;
+}
+
 export function BudgetImportPreviewStep({
   preview,
   errorMessage,
   isLoading,
+  ordersSectionEnabled = false,
+  invoicesSectionEnabled = false,
   onContinue,
   onBack,
 }: BudgetImportPreviewStepProps) {
   const [errorsOnly, setErrorsOnly] = useState(false);
+  const [category, setCategory] = useState<PreviewErrorCategory>('all');
 
   const { rows, totalShown, isTruncated } = useMemo(() => {
     let list = preview.previewRows;
     if (errorsOnly) {
       list = list.filter((r) => r.status === 'ERROR');
+    }
+    if (category !== 'all' && category !== 'ok') {
+      list = list.filter((r) => categoryForReason(r.reason, r.status) === category);
+    }
+    if (category === 'ok') {
+      list = list.filter((r) => r.status !== 'ERROR');
     }
     const total = list.length;
     const capped = list.slice(0, PREVIEW_DISPLAY_CAP);
@@ -64,7 +108,7 @@ export function BudgetImportPreviewStep({
       totalShown: total,
       isTruncated: total > PREVIEW_DISPLAY_CAP,
     };
-  }, [preview.previewRows, errorsOnly]);
+  }, [preview.previewRows, errorsOnly, category]);
 
   const s = preview.stats;
 
@@ -75,6 +119,18 @@ export function BudgetImportPreviewStep({
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       ) : null}
+
+      {(ordersSectionEnabled || invoicesSectionEnabled) && (
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="text-muted-foreground">Fichier configuré avec :</span>
+          {ordersSectionEnabled ? (
+            <Badge variant="secondary">Données commande</Badge>
+          ) : null}
+          {invoicesSectionEnabled ? (
+            <Badge variant="secondary">Données facture</Badge>
+          ) : null}
+        </div>
+      )}
 
       <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-md border border-border px-3 py-2">
@@ -99,7 +155,7 @@ export function BudgetImportPreviewStep({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -109,14 +165,32 @@ export function BudgetImportPreviewStep({
           />
           Erreurs uniquement
         </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Regrouper par :</span>
+          {(Object.keys(CATEGORY_LABELS) as PreviewErrorCategory[]).map((c) => (
+            <Button
+              key={c}
+              type="button"
+              size="sm"
+              variant={category === c ? 'default' : 'outline'}
+              className="h-8 text-xs"
+              onClick={() => setCategory(c)}
+            >
+              {CATEGORY_LABELS[c]}
+            </Button>
+          ))}
+        </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Les groupes sont dérivés côté interface à partir des motifs API (pas de blocs commandes/factures distincts dans
+        la réponse).
+      </p>
 
       {isTruncated ? (
         <Alert>
           <AlertDescription>
             Affichage des {PREVIEW_DISPLAY_CAP} premières lignes sur {totalShown}
-            {errorsOnly ? ' (après filtre)' : ''}. Utilisez le filtre erreurs pour cibler les lignes en
-            échec.
+            {errorsOnly ? ' (après filtre)' : ''}. Utilisez les filtres pour cibler les lignes.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -150,7 +224,7 @@ export function BudgetImportPreviewStep({
 
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" onClick={onBack} disabled={isLoading}>
-          Retour au mapping
+          Retour à la configuration
         </Button>
         <Button type="button" onClick={onContinue} disabled={isLoading}>
           Continuer vers l’exécution

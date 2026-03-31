@@ -6,15 +6,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { budgetQueryKeys } from '../lib/budget-query-keys';
 import { useBudgetDetail } from '../hooks/use-budgets';
 import { useBudgetEnvelopesAll } from '../hooks/use-budget-envelopes';
@@ -36,6 +28,12 @@ import type {
   PreviewResult,
 } from '../types/budget-imports.types';
 import {
+  BUDGET_IMPORT_CONFIG_BLOCK_ORDER,
+  type BudgetImportConfigBlockId,
+  budgetImportConfigBlockIndex,
+} from './budget-import-config-types';
+import {
+  deriveOrdersInvoicesSectionSwitches,
   inferEnvelopeImportModeFromMapping,
   validateMappingForPreview,
   type EnvelopeImportMode,
@@ -112,13 +110,17 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [sheetChangeError, setSheetChangeError] = useState<string | null>(null);
   const [mappingValidationError, setMappingValidationError] = useState<string | null>(null);
+  const [mappingValidationBlock, setMappingValidationBlock] = useState<BudgetImportConfigBlockId | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [executeError, setExecuteError] = useState<string | null>(null);
 
   const [mappingMutationBusy, setMappingMutationBusy] = useState(false);
 
-  /** Rattachement enveloppe : colonnes fichier vs une enveloppe unique. */
   const [envelopeImportMode, setEnvelopeImportMode] = useState<EnvelopeImportMode>('from_file_columns');
+
+  const [configBlock, setConfigBlock] = useState<BudgetImportConfigBlockId>('file_sheet');
+  const [ordersSectionEnabled, setOrdersSectionEnabled] = useState(false);
+  const [invoicesSectionEnabled, setInvoicesSectionEnabled] = useState(false);
 
   const budgetCurrency = budget?.currency ?? 'EUR';
 
@@ -131,11 +133,23 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     }
   }, [budget?.currency]);
 
+  /** Rafraîchir les enveloppes au retour onglet (ex. après création enveloppe). */
+  useEffect(() => {
+    const onFocus = () => {
+      void queryClient.invalidateQueries({
+        queryKey: budgetQueryKeys.budgetEnvelopes(clientId, budgetId, { full: true }),
+      });
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [clientId, budgetId, queryClient]);
+
   const patchMapping = useCallback((m: MappingConfig) => {
     setMapping(m);
     setPreviewResult(null);
     setExecuteResult(null);
     setMappingValidationError(null);
+    setMappingValidationBlock(null);
   }, []);
 
   const patchOptions = useCallback((o: BudgetImportOptionsConfig) => {
@@ -143,11 +157,13 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     setPreviewResult(null);
     setExecuteResult(null);
     setMappingValidationError(null);
+    setMappingValidationBlock(null);
   }, []);
 
   const handleEnvelopeImportModeChange = useCallback((mode: EnvelopeImportMode) => {
     setEnvelopeImportMode(mode);
     setMappingValidationError(null);
+    setMappingValidationBlock(null);
     setPreviewResult(null);
     setExecuteResult(null);
     if (mode === 'single_envelope') {
@@ -190,10 +206,28 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     setAnalyzeError(null);
     setSheetChangeError(null);
     setMappingValidationError(null);
+    setMappingValidationBlock(null);
     setPreviewError(null);
     setExecuteError(null);
     setEnvelopeImportMode('from_file_columns');
+    setConfigBlock('file_sheet');
+    setOrdersSectionEnabled(false);
+    setInvoicesSectionEnabled(false);
   }, [budget?.currency]);
+
+  const goNextConfigBlock = useCallback(() => {
+    const i = budgetImportConfigBlockIndex(configBlock);
+    if (i < BUDGET_IMPORT_CONFIG_BLOCK_ORDER.length - 1) {
+      setConfigBlock(BUDGET_IMPORT_CONFIG_BLOCK_ORDER[i + 1]!);
+    }
+  }, [configBlock]);
+
+  const goPrevConfigBlock = useCallback(() => {
+    const i = budgetImportConfigBlockIndex(configBlock);
+    if (i > 0) {
+      setConfigBlock(BUDGET_IMPORT_CONFIG_BLOCK_ORDER[i - 1]!);
+    }
+  }, [configBlock]);
 
   const handleAnalyzeFile = async (file: File) => {
     setAnalyzeError(null);
@@ -205,6 +239,10 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
       setPreviewResult(null);
       setExecuteResult(null);
       setMapping({ fields: guessMappingFromColumnHeaders(r.columns) });
+      const derived = deriveOrdersInvoicesSectionSwitches(guessMappingFromColumnHeaders(r.columns));
+      setOrdersSectionEnabled(derived.ordersSectionEnabled);
+      setInvoicesSectionEnabled(derived.invoicesSectionEnabled);
+      setConfigBlock('file_sheet');
       setStep('mapping');
     } catch (e) {
       setAnalyzeError(errMessage(e));
@@ -224,8 +262,13 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
       setAnalyzeResult(r);
       setPreviewResult(null);
       setExecuteResult(null);
-      setMapping({ fields: guessMappingFromColumnHeaders(r.columns) });
+      const guessed = guessMappingFromColumnHeaders(r.columns);
+      setMapping({ fields: guessed });
+      const derived = deriveOrdersInvoicesSectionSwitches(guessed);
+      setOrdersSectionEnabled(derived.ordersSectionEnabled);
+      setInvoicesSectionEnabled(derived.invoicesSectionEnabled);
       setMappingValidationError(null);
+      setMappingValidationBlock(null);
     } catch (e) {
       setSheetChangeError(errMessage(e));
     } finally {
@@ -235,12 +278,28 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
 
   const runPreview = async () => {
     if (!fileToken || !budgetId || !analyzeResult) return;
-    const v = validateMappingForPreview(mapping, options, budgetCurrency, envelopeImportMode);
+    const v = validateMappingForPreview(
+      mapping,
+      options,
+      budgetCurrency,
+      envelopeImportMode,
+      {
+        sourceType: analyzeResult.sourceType,
+        activeSheetName: sheetNameForImportPayload(analyzeResult),
+        ordersSectionEnabled,
+        invoicesSectionEnabled,
+      },
+    );
     if (!v.ok) {
       setMappingValidationError(v.message);
+      setMappingValidationBlock(v.block ?? null);
+      if (v.block) {
+        setConfigBlock(v.block);
+      }
       return;
     }
     setMappingValidationError(null);
+    setMappingValidationBlock(null);
     setPreviewError(null);
     setPreviewLoading(true);
     try {
@@ -297,12 +356,19 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     }
   };
 
+  const applyDerivedSections = useCallback((mc: MappingConfig) => {
+    const d = deriveOrdersInvoicesSectionSwitches(mc.fields ?? {});
+    setOrdersSectionEnabled(d.ordersSectionEnabled);
+    setInvoicesSectionEnabled(d.invoicesSectionEnabled);
+  }, []);
+
   const onApplySaved = () => {
     const sel = savedMappings.find((m) => m.id === selectedSavedId);
     if (!sel) return;
     const mc = sel.mappingConfig as MappingConfig;
     const oc = (sel.optionsConfig as BudgetImportOptionsConfig | null) ?? {};
     setMapping(mc);
+    applyDerivedSections(mc);
     setEnvelopeImportMode(inferEnvelopeImportModeFromMapping(mc));
     setOptions((prev) => ({
       ...prev,
@@ -317,6 +383,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     setPreviewResult(null);
     setExecuteResult(null);
     setMappingValidationError(null);
+    setMappingValidationBlock(null);
     setMappingName(sel.name);
     setIsEditingSaved(false);
   };
@@ -327,6 +394,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     const mc = sel.mappingConfig as MappingConfig;
     const oc = (sel.optionsConfig as BudgetImportOptionsConfig | null) ?? {};
     setMapping(mc);
+    applyDerivedSections(mc);
     setEnvelopeImportMode(inferEnvelopeImportModeFromMapping(mc));
     setOptions((prev) => ({
       ...prev,
@@ -339,6 +407,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     setPreviewResult(null);
     setExecuteResult(null);
     setMappingValidationError(null);
+    setMappingValidationBlock(null);
     setMappingName(sel.name);
     setIsEditingSaved(true);
   };
@@ -415,10 +484,14 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
 
   const steps: { id: WizardStep; label: string }[] = [
     { id: 'upload', label: 'Fichier' },
-    { id: 'mapping', label: 'Correspondance' },
+    { id: 'mapping', label: 'Configuration' },
     { id: 'preview', label: 'Aperçu' },
     { id: 'execute', label: 'Import' },
   ];
+
+  const configIdx = budgetImportConfigBlockIndex(configBlock);
+  const atStartConfig = configIdx === 0;
+  const atEndConfig = configIdx === BUDGET_IMPORT_CONFIG_BLOCK_ORDER.length - 1;
 
   return (
     <div className="space-y-6">
@@ -456,50 +529,16 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
 
       {step === 'mapping' && analyzeResult ? (
         <div className="space-y-4">
-          {analyzeResult.sourceType === 'XLSX' && (analyzeResult.sheetNames?.length ?? 0) > 0 ? (
-            <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-              <div className="space-y-2">
-                <Label htmlFor="excel-sheet-select">Onglet Excel à importer</Label>
-                <Select
-                  value={sheetNameForImportPayload(analyzeResult) ?? analyzeResult.sheetNames![0]!}
-                  onValueChange={(v) => {
-                    if (v == null || v === '') return;
-                    void handleExcelSheetChange(v);
-                  }}
-                  disabled={sheetChangeLoading}
-                >
-                  <SelectTrigger id="excel-sheet-select" className="w-full max-w-md">
-                    <SelectValue>
-                      {sheetNameForImportPayload(analyzeResult) ?? analyzeResult.sheetNames![0]!}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {analyzeResult.sheetNames!.map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Les colonnes affichées ci-dessous correspondent à l’onglet choisi. Changer d’onglet relit le
-                  fichier et met à jour les en-têtes (sans renvoyer le fichier).
-                </p>
-                {sheetChangeError ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>{sheetChangeError}</AlertDescription>
-                  </Alert>
-                ) : null}
-                {sheetChangeLoading ? (
-                  <p className="text-xs text-muted-foreground">Lecture de l’onglet…</p>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
           <BudgetImportMappingStep
+            budgetId={budgetId}
+            configBlock={configBlock}
+            analyzeResult={analyzeResult}
+            excelSheetValue={sheetNameForImportPayload(analyzeResult)}
+            sheetChangeLoading={sheetChangeLoading}
+            sheetChangeError={sheetChangeError}
+            onExcelSheetChange={handleExcelSheetChange}
+            onChangeFile={() => setStep('upload')}
             columns={analyzeResult.columns}
-            rowCount={analyzeResult.rowCount}
-            excelActiveSheetName={sheetNameForImportPayload(analyzeResult)}
             budgetCurrency={budgetCurrency}
             envelopes={envelopes}
             mapping={mapping}
@@ -507,6 +546,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
             onMappingChange={patchMapping}
             onOptionsChange={patchOptions}
             validationMessage={mappingValidationError}
+            validationBlock={mappingValidationBlock}
             savedMappings={savedMappings}
             mappingName={mappingName}
             onMappingNameChange={setMappingName}
@@ -524,15 +564,37 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
             canMutateMappings={hasUpdate}
             envelopeImportMode={envelopeImportMode}
             onEnvelopeImportModeChange={handleEnvelopeImportModeChange}
+            ordersSectionEnabled={ordersSectionEnabled}
+            onOrdersSectionEnabledChange={(v) => {
+              setOrdersSectionEnabled(v);
+              setMappingValidationError(null);
+              setMappingValidationBlock(null);
+              setPreviewResult(null);
+              setExecuteResult(null);
+            }}
+            invoicesSectionEnabled={invoicesSectionEnabled}
+            onInvoicesSectionEnabledChange={(v) => {
+              setInvoicesSectionEnabled(v);
+              setMappingValidationError(null);
+              setMappingValidationBlock(null);
+              setPreviewResult(null);
+              setExecuteResult(null);
+            }}
           />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="outline" onClick={() => setStep('upload')}>
-              Retour
+              Retour fichier
+            </Button>
+            <Button type="button" variant="outline" onClick={goPrevConfigBlock} disabled={atStartConfig}>
+              Précédent
+            </Button>
+            <Button type="button" variant="outline" onClick={goNextConfigBlock} disabled={atEndConfig}>
+              Suivant
             </Button>
             <Button
               type="button"
               onClick={() => void runPreview()}
-              disabled={previewLoading || sheetChangeLoading || !hasRead}
+              disabled={previewLoading || sheetChangeLoading || !hasRead || mappingMutationBusy}
             >
               {previewLoading ? 'Prévisualisation…' : 'Prévisualiser'}
             </Button>
@@ -548,6 +610,8 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
           preview={previewResult}
           errorMessage={previewError}
           isLoading={previewLoading}
+          ordersSectionEnabled={ordersSectionEnabled}
+          invoicesSectionEnabled={invoicesSectionEnabled}
           onContinue={() => setStep('execute')}
           onBack={() => setStep('mapping')}
         />
