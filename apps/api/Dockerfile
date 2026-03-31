@@ -7,7 +7,7 @@ COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build
 RUN pnpm --filter @starium-orchestra/budget-exercise-calendar build
-RUN pnpm --filter @starium-orchestra/api exec prisma generate
+RUN sh -c 'for i in 1 2 3 4 5; do pnpm --filter @starium-orchestra/api exec prisma generate && exit 0; echo "prisma generate failed (attempt $i), retrying..."; sleep $((i*5)); done; exit 1'
 RUN pnpm --filter @starium-orchestra/api build
 
 FROM base AS runner
