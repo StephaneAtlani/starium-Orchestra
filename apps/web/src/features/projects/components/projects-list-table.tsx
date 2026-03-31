@@ -337,9 +337,9 @@ export function ProjectsListTable({
             </HeaderTip>
           </TableHead>
         </TableRow>
-        <TableRow className="border-t border-border/50 bg-muted/35 hover:bg-muted/35">
+        <TableRow className="border-t border-border/50 bg-muted/35 pt-0 hover:bg-muted/35">
           {/* CATEGORIE */}
-          <TableHead className="sticky left-0 z-[60] bg-muted p-2 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
+          <TableHead className="sticky left-0 z-[60] h-auto min-h-0 bg-muted px-2 pb-2 pt-0 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
             <Select
               value={categoryKey}
               onValueChange={(v) =>
@@ -376,7 +376,7 @@ export function ProjectsListTable({
             </Select>
           </TableHead>
           {/* PROJET */}
-          <TableHead className="sticky left-[11rem] z-[60] bg-muted p-2 shadow-[1px_0_0_0_hsl(var(--border))]">
+          <TableHead className="sticky left-[11rem] z-[60] h-auto min-h-0 bg-muted px-2 pb-2 pt-0 shadow-[1px_0_0_0_hsl(var(--border))]">
             <Input
               value={filters.search ?? ''}
               onChange={(e) => setFilters({ search: e.target.value || undefined })}
@@ -385,7 +385,7 @@ export function ProjectsListTable({
             />
           </TableHead>
           {/* NATURE */}
-          <TableHead className="p-2">
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0">
             <Select
               value={kindKey}
               onValueChange={(v) => setFilters({ kind: !v || v === '__all__' ? undefined : v })}
@@ -403,7 +403,7 @@ export function ProjectsListTable({
             </Select>
           </TableHead>
           {/* SANTE */}
-          <TableHead className="p-2">
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0">
             <Select
               value={healthKey}
               onValueChange={(v) =>
@@ -432,7 +432,7 @@ export function ProjectsListTable({
             </Select>
           </TableHead>
           {/* STATUT */}
-          <TableHead className="p-2">
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0">
             <Select
               value={statusKey}
               onValueChange={(v) => setFilters({ status: !v || v === '__all__' ? undefined : v })}
@@ -453,7 +453,7 @@ export function ProjectsListTable({
             </Select>
           </TableHead>
           {/* MON ROLE */}
-          <TableHead className="p-2">
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0">
             <Select
               value={myRoleKey}
               onValueChange={(v) => setFilters({ myRole: !v || v === '__all__' ? undefined : v })}
@@ -472,11 +472,21 @@ export function ProjectsListTable({
             </Select>
           </TableHead>
           {/* AVANCEMENT / ECHEANCE / T·R·J / SIGNAUX / ETIQUETTES */}
-          <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">—</TableHead>
-          <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">—</TableHead>
-          <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">—</TableHead>
-          <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">—</TableHead>
-          <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">—</TableHead>
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
+            —
+          </TableHead>
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
+            —
+          </TableHead>
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
+            —
+          </TableHead>
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
+            —
+          </TableHead>
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
+            —
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
