@@ -34,6 +34,7 @@ export function PortfolioGanttPage() {
   });
 
   const [showPortfolioGanttTooltips, setShowPortfolioGanttTooltips] = useState(true);
+  const [showPortfolioGanttInlineInfos, setShowPortfolioGanttInlineInfos] = useState(true);
   /** 100 % = densité qui remplit la largeur visible de la frise. */
   const [portfolioTimeZoom, setPortfolioTimeZoom] = useState(1);
 
@@ -96,6 +97,10 @@ export function PortfolioGanttPage() {
               enabled: showPortfolioGanttTooltips,
               onEnabledChange: setShowPortfolioGanttTooltips,
             }}
+            portfolioGanttInlineInfos={{
+              enabled: showPortfolioGanttInlineInfos,
+              onEnabledChange: setShowPortfolioGanttInlineInfos,
+            }}
           />
           <CardContent className="p-4 sm:p-6">
             {isLoading && !data && <LoadingState rows={5} />}
@@ -123,6 +128,7 @@ export function PortfolioGanttPage() {
                     timeZoom={portfolioTimeZoom}
                     onTimeZoomChange={setPortfolioTimeZoom}
                     tooltipsEnabled={showPortfolioGanttTooltips}
+                    inlineInfosEnabled={showPortfolioGanttInlineInfos}
                   />
                 )}
                 <p className="text-muted-foreground mt-4 text-xs">

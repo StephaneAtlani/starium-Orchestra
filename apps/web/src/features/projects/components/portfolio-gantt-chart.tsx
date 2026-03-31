@@ -76,6 +76,7 @@ function renderProjectTimelineRow(
   pxPerDay: number,
   widthPx: number,
   tooltipsEnabled: boolean,
+  inlineInfosEnabled: boolean,
 ) {
   const like = rowToGanttLike(row);
   const eligible =
@@ -132,28 +133,43 @@ function renderProjectTimelineRow(
   const left = dateMsToPx(s, bounds, pxPerDay);
   const w = Math.max(4, dateMsToPx(e, bounds, pxPerDay) - left);
   const pct = Math.min(100, Math.max(0, row.progressPercent ?? 0));
-  const ownerLabel = row.ownerDisplayName?.trim() || 'Sans responsable';
   const progressLabel = `${Math.round(pct)}%`;
-  const statusLabel = row.isLate ? 'Retard' : 'OK';
-  const statusClass = row.isLate
-    ? 'text-amber-700 dark:text-amber-300'
-    : 'text-emerald-700 dark:text-emerald-300';
+  const projectTags = (row.tags ?? [])
+    .map((t) => t.name?.trim())
+    .filter((name): name is string => Boolean(name))
+    .slice(0, 3);
+  const ownerLabel = row.ownerDisplayName?.trim() || 'Sans responsable';
   const barWidth = Math.max(w, 24);
   const rightMetaLeft = Math.min(left + barWidth + 6, Math.max(8, widthPx - 220));
-  const rightMeta = (
+  const rightMeta = inlineInfosEnabled ? (
     <div
       className="pointer-events-none absolute top-1/2 z-[6] -translate-y-1/2"
       style={{ left: rightMetaLeft }}
     >
-      <span className="text-muted-foreground inline-flex max-w-[19rem] items-center gap-1.5 text-[10px] font-medium whitespace-nowrap">
-        <span className="truncate">{ownerLabel}</span>
-        <span className="opacity-50">|</span>
-        <span>{progressLabel}</span>
-        <span className="opacity-50">|</span>
-        <span className={statusClass}>{statusLabel}</span>
-      </span>
+      <div className="inline-flex max-w-[34rem] items-center gap-1.5 overflow-hidden">
+        {projectTags.length > 0 ? (
+          <>
+            {projectTags.map((tag) => (
+              <span
+                key={`${row.id}:${tag}`}
+                className="bg-muted text-foreground/90 inline-flex shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide uppercase"
+              >
+                {tag}
+              </span>
+            ))}
+            <span className="text-muted-foreground opacity-60">|</span>
+          </>
+        ) : null}
+        <span className="text-muted-foreground text-[10px] font-medium whitespace-nowrap">
+          Resp. {ownerLabel}
+        </span>
+        <span className="text-muted-foreground opacity-60">|</span>
+        <span className="text-muted-foreground text-[10px] font-medium whitespace-nowrap">
+          Av. {progressLabel}
+        </span>
+      </div>
     </div>
-  );
+  ) : null;
 
   return (
     <div
@@ -190,12 +206,15 @@ export function PortfolioGanttChart({
   timeZoom,
   onTimeZoomChange,
   tooltipsEnabled = true,
+  inlineInfosEnabled = true,
 }: {
   items: PortfolioGanttRow[];
   timeZoom: number;
   onTimeZoomChange: React.Dispatch<React.SetStateAction<number>>;
   /** Si false, pas d’infobulle sur les lignes et barres (liens liste restent cliquables). */
   tooltipsEnabled?: boolean;
+  /** Si false, masque les infos textuelles affichées à droite des barres. */
+  inlineInfosEnabled?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const panStateRef = useRef<{
@@ -438,6 +457,7 @@ export function PortfolioGanttChart({
                       pxPerDay,
                       widthPx,
                       tooltipsEnabled,
+                      inlineInfosEnabled,
                     )
                   ),
                 )}

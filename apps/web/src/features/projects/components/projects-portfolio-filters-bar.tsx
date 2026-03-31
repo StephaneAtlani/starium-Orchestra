@@ -50,6 +50,11 @@ export interface ProjectsPortfolioFiltersBarProps {
     enabled: boolean;
     onEnabledChange: (enabled: boolean) => void;
   };
+  /** Gantt portefeuille : afficher/masquer les informations textuelles sur les lignes. */
+  portfolioGanttInlineInfos?: {
+    enabled: boolean;
+    onEnabledChange: (enabled: boolean) => void;
+  };
 }
 
 export function ProjectsPortfolioFiltersBar({
@@ -58,6 +63,7 @@ export function ProjectsPortfolioFiltersBar({
   myRoleOptions,
   portfolioGanttZoom,
   portfolioGanttTooltips,
+  portfolioGanttInlineInfos,
 }: ProjectsPortfolioFiltersBarProps) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -297,7 +303,7 @@ export function ProjectsPortfolioFiltersBar({
             title="Ctrl + molette sur la frise pour zoomer"
           >
             <span className="text-muted-foreground shrink-0 text-xs">Zoom temps</span>
-            <div className="bg-background/80 inline-flex items-center rounded-md border shadow-sm">
+            <div className="bg-background/80 inline-flex items-center rounded-md border border-zinc-600/70 dark:border-zinc-500/70 shadow-sm">
               <Button
                 type="button"
                 variant="ghost"
@@ -356,6 +362,20 @@ export function ProjectsPortfolioFiltersBar({
               onChange={(e) => portfolioGanttTooltips.onEnabledChange(e.target.checked)}
             />
             <span>Infobulles</span>
+          </label>
+        ) : null}
+        {portfolioGanttInlineInfos ? (
+          <label
+            className="flex cursor-pointer items-center gap-2 text-xs"
+            title="Décocher pour masquer les infos affichées à droite des barres Gantt"
+          >
+            <input
+              type="checkbox"
+              className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
+              checked={portfolioGanttInlineInfos.enabled}
+              onChange={(e) => portfolioGanttInlineInfos.onEnabledChange(e.target.checked)}
+            />
+            <span>Infos ligne Gantt</span>
           </label>
         ) : null}
       </div>
