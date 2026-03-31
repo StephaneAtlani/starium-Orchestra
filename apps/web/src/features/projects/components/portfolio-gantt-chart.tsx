@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import type { PortfolioGanttRow } from '../types/project.types';
 import { projectDetail } from '../constants/project-routes';
@@ -133,6 +134,28 @@ function renderProjectTimelineRow(
   const left = dateMsToPx(s, bounds, pxPerDay);
   const w = Math.max(4, dateMsToPx(e, bounds, pxPerDay) - left);
   const pct = Math.min(100, Math.max(0, row.progressPercent ?? 0));
+  const ownerLabel = row.ownerDisplayName?.trim() || 'Sans responsable';
+  const progressLabel = `${Math.round(pct)}%`;
+  const statusLabel = row.isLate ? 'Retard' : 'OK';
+  const statusClass = row.isLate
+    ? 'text-amber-700 dark:text-amber-300'
+    : 'text-emerald-700 dark:text-emerald-300';
+  const barWidth = Math.max(w, 24);
+  const rightMetaLeft = Math.min(left + barWidth + 6, Math.max(8, widthPx - 220));
+  const rightMeta = (
+    <div
+      className="pointer-events-none absolute top-1/2 z-[6] -translate-y-1/2"
+      style={{ left: rightMetaLeft }}
+    >
+      <span className="text-muted-foreground inline-flex max-w-[19rem] items-center gap-1.5 text-[10px] font-medium whitespace-nowrap">
+        <span className="truncate">{ownerLabel}</span>
+        <span className="opacity-50">|</span>
+        <span>{progressLabel}</span>
+        <span className="opacity-50">|</span>
+        <span className={statusClass}>{statusLabel}</span>
+      </span>
+    </div>
+  );
 
   return (
     <div
@@ -151,7 +174,7 @@ function renderProjectTimelineRow(
           segment.bar,
           segment.lateRing,
         )}
-        triggerStyle={{ left, width: Math.max(w, 24) }}
+        triggerStyle={{ left, width: barWidth }}
       >
         <div
           className={cn('pointer-events-none h-full rounded-l-[5px]', segment.fill)}
@@ -159,6 +182,7 @@ function renderProjectTimelineRow(
           aria-hidden
         />
       </PortfolioGanttProjectTooltip>
+      {rightMeta}
     </div>
   );
 }
@@ -172,6 +196,13 @@ export function PortfolioGanttChart({
   tooltipsEnabled?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const panStateRef = useRef<{
+    startX: number;
+    startY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
+  } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
   const [viewportW, setViewportW] = useState(960);
   /** 100 % = densité qui remplit la largeur visible (comme avant l’ajout du zoom). */
   const [timeZoom, setTimeZoom] = useState(1);
@@ -232,6 +263,47 @@ export function PortfolioGanttChart({
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, [bounds, layout]);
+
+  /** Pan souris (grab) sur la zone frise sans casser les éléments interactifs. */
+  useEffect(() => {
+    if (!isPanning) return;
+    const onMouseMove = (e: MouseEvent) => {
+      const el = scrollRef.current;
+      const pan = panStateRef.current;
+      if (!el || !pan) return;
+      const dx = e.clientX - pan.startX;
+      const dy = e.clientY - pan.startY;
+      el.scrollLeft = pan.startScrollLeft - dx;
+      el.scrollTop = pan.startScrollTop - dy;
+      e.preventDefault();
+    };
+    const stopPanning = () => {
+      panStateRef.current = null;
+      setIsPanning(false);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', stopPanning);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', stopPanning);
+    };
+  }, [isPanning]);
+
+  const handleTimelineMouseDown = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('a, button, [role="button"], input, textarea, select, label')) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    panStateRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startScrollLeft: el.scrollLeft,
+      startScrollTop: el.scrollTop,
+    };
+    setIsPanning(true);
+    e.preventDefault();
+  }, []);
 
   if (!bounds || !layout) {
     return (
@@ -355,7 +427,11 @@ export function PortfolioGanttChart({
         </div>
         <div
           ref={scrollRef}
-          className="bg-muted/10 min-h-0 min-w-0 flex-1 overflow-auto dark:bg-muted/5"
+          onMouseDown={handleTimelineMouseDown}
+          className={cn(
+            'bg-muted/10 min-h-0 min-w-0 flex-1 overflow-auto dark:bg-muted/5',
+            isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+          )}
         >
           <div style={{ width: widthPx, minWidth: '100%' }}>
             <div

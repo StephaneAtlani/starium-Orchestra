@@ -23,7 +23,7 @@ x-postgres-healthcheck: &postgres-healthcheck
   retries: 5
 
 x-api-base-env: &api-base-env
-  DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
+  DATABASE_URL: "postgresql://starium:starium@postgres:5432/starium"
   PORT: "3001"
   JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
 
