@@ -50,6 +50,11 @@ export class ExecuteImportDto {
   @IsNotEmpty()
   fileToken!: string;
 
+  /** Onglet Excel à importer (si absent : premier onglet). */
+  @IsOptional()
+  @IsString()
+  sheetName?: string;
+
   @IsOptional()
   @IsString()
   mappingId?: string;

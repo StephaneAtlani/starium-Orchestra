@@ -34,6 +34,7 @@ import type {
 import type { MappingConfig } from './types/mapping.types';
 import { ExecuteImportDto } from './dto/execute-import.dto';
 import { PreviewImportDto } from './dto/preview-import.dto';
+import { AnalyzeSheetDto } from './dto/analyze-sheet.dto';
 
 const ALLOWED_EXTENSIONS = /\.(csv|xlsx)$/i;
 
@@ -41,6 +42,8 @@ export interface AnalyzeResult {
   fileToken: string;
   sourceType: BudgetImportSourceType;
   sheetNames?: string[];
+  /** Onglet Excel utilisé pour colonnes / échantillon (CSV : absent). */
+  activeSheetName?: string;
   columns: string[];
   sampleRows: Record<string, string>[];
   rowCount: number;
@@ -136,6 +139,55 @@ export class BudgetImportService {
       fileToken,
       sourceType,
       sheetNames: analyzed.sheetNames,
+      activeSheetName: analyzed.activeSheetName,
+      columns: analyzed.columns,
+      sampleRows: analyzed.sampleRows,
+      rowCount: analyzed.rowCount,
+    };
+  }
+
+  /**
+   * Ré-analyse le fichier déjà stocké pour un autre onglet Excel (même fileToken).
+   */
+  async analyzeSheet(
+    clientId: string,
+    userId: string,
+    dto: AnalyzeSheetDto,
+    meta?: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ): Promise<AnalyzeResult> {
+    const { buffer, meta: fileMeta } = this.fileStore.get(dto.fileToken, clientId, userId);
+    if (fileMeta.sourceType !== 'XLSX') {
+      throw new BadRequestException('La sélection d’onglet ne s’applique qu’aux fichiers Excel (.xlsx)');
+    }
+    const names = this.parser.listXlsxSheetNames(buffer);
+    if (!names.includes(dto.sheetName)) {
+      throw new BadRequestException(`Onglet inconnu : « ${dto.sheetName} »`);
+    }
+    const analyzed = this.parser.analyze(buffer, fileMeta.sourceType, {
+      sampleLimit: SAMPLE_ROWS_LIMIT,
+      sheetName: dto.sheetName,
+    });
+    await this.auditLogs.create({
+      clientId,
+      userId,
+      action: 'budget_import.analyzed',
+      resourceType: 'budget_import',
+      newValue: {
+        fileToken: dto.fileToken,
+        fileName: fileMeta.fileName,
+        sheetName: dto.sheetName,
+        rowCount: analyzed.rowCount,
+        reanalyzeSheet: true,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+    return {
+      fileToken: dto.fileToken,
+      sourceType: fileMeta.sourceType,
+      sheetNames: analyzed.sheetNames,
+      activeSheetName: dto.sheetName,
       columns: analyzed.columns,
       sampleRows: analyzed.sampleRows,
       rowCount: analyzed.rowCount,
@@ -156,6 +208,7 @@ export class BudgetImportService {
     const parseResult = this.parser.parse(buffer, fileMeta.sourceType, {
       headerRowIndex: 1,
       maxRows: 20000,
+      sheetName: dto.sheetName,
     });
     const resolved = this.resolveActions(
       parseResult.rows,
@@ -216,6 +269,7 @@ export class BudgetImportService {
     const parseResult = this.parser.parse(buffer, fileMeta.sourceType, {
       headerRowIndex: 1,
       maxRows: 20000,
+      sheetName: dto.sheetName,
     });
     const resolved = this.resolveActions(
       parseResult.rows,
@@ -263,7 +317,7 @@ export class BudgetImportService {
               continue;
             }
             const name = String(r.normalizedRow.values['name'] ?? r.normalizedRow.values['label'] ?? 'Imported');
-            const amount = Number(r.normalizedRow.values['amount'] ?? r.normalizedRow.values['initialAmount'] ?? 0);
+            const am = this.extractAmountsForBudgetLine(r.normalizedRow.values);
             const currency = String(r.normalizedRow.values['currency'] ?? options.defaultCurrency ?? 'EUR').toUpperCase();
             const code = await this.resolveUniqueBudgetLineCodeInTx(tx, clientId, dto.budgetId);
             const line = await tx.budgetLine.create({
@@ -280,12 +334,12 @@ export class BudgetImportService {
                 generalLedgerAccountId: defaultGlaId,
                 analyticalLedgerAccountId: null,
                 allocationScope: 'ENTERPRISE',
-                initialAmount: new Prisma.Decimal(amount),
-                revisedAmount: new Prisma.Decimal(amount),
+                initialAmount: new Prisma.Decimal(am.initial),
+                revisedAmount: new Prisma.Decimal(am.revised),
                 forecastAmount: new Prisma.Decimal(0),
-                committedAmount: new Prisma.Decimal(0),
-                consumedAmount: new Prisma.Decimal(0),
-                remainingAmount: new Prisma.Decimal(amount),
+                committedAmount: new Prisma.Decimal(am.committed),
+                consumedAmount: new Prisma.Decimal(am.consumed),
+                remainingAmount: new Prisma.Decimal(am.remaining),
               },
             });
             const existingByKey = await this.findRowLinkByKeyInTx(tx, clientId, dto.budgetId, r.normalizedRow.externalId, r.normalizedRow.compositeHash);
@@ -304,13 +358,16 @@ export class BudgetImportService {
             }
             createdRows++;
           } else if (r.action === 'UPDATE' && r.existingTargetEntityId) {
-            const amount = Number(r.normalizedRow.values['amount'] ?? r.normalizedRow.values['initialAmount'] ?? 0);
+            const am = this.extractAmountsForBudgetLine(r.normalizedRow.values);
             const currency = String(r.normalizedRow.values['currency'] ?? options.defaultCurrency ?? 'EUR').toUpperCase();
             await tx.budgetLine.updateMany({
               where: { id: r.existingTargetEntityId, clientId },
               data: {
-                revisedAmount: new Prisma.Decimal(amount),
-                remainingAmount: new Prisma.Decimal(amount),
+                initialAmount: new Prisma.Decimal(am.initial),
+                revisedAmount: new Prisma.Decimal(am.revised),
+                committedAmount: new Prisma.Decimal(am.committed),
+                consumedAmount: new Prisma.Decimal(am.consumed),
+                remainingAmount: new Prisma.Decimal(am.remaining),
                 currency,
               },
             });
@@ -376,6 +433,35 @@ export class BudgetImportService {
       });
       throw e;
     }
+  }
+
+  /**
+   * Montants ligne budgétaire depuis les champs logiques (montant, initial, engagé, consommé).
+   * `revised` = amount ou initialAmount ; reste = max(0, revised - engagé - consommé).
+   */
+  private extractAmountsForBudgetLine(
+    values: Record<string, string | number | null>,
+  ): {
+    initial: number;
+    revised: number;
+    committed: number;
+    consumed: number;
+    remaining: number;
+  } {
+    const num = (k: string): number => {
+      const v = values[k];
+      if (v == null) return 0;
+      if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+      return 0;
+    };
+    const fromInitial = num('initialAmount');
+    const fromAmount = num('amount');
+    const revised = fromAmount || fromInitial || 0;
+    const initial = fromInitial || fromAmount || revised;
+    const committed = num('committedAmount');
+    const consumed = num('consumedAmount');
+    const remaining = Math.max(0, revised - committed - consumed);
+    return { initial, revised, committed, consumed, remaining };
   }
 
   private mergeOptions(
@@ -505,8 +591,33 @@ export class BudgetImportService {
           continue;
         }
       }
-      const amount = normalized.values['amount'] ?? normalized.values['initialAmount'];
-      if (amount != null && (typeof amount === 'number' && (Number.isNaN(amount) || amount < 0))) {
+      const vAmt = normalized.values['amount'];
+      const vInit = normalized.values['initialAmount'];
+      const vComm = normalized.values['committedAmount'];
+      const vCons = normalized.values['consumedAmount'];
+      const hasAnyAmount =
+        (vAmt != null && typeof vAmt === 'number') ||
+        (vInit != null && typeof vInit === 'number') ||
+        (vComm != null && typeof vComm === 'number') ||
+        (vCons != null && typeof vCons === 'number');
+      if (!hasAnyAmount) {
+        result.push({
+          action: 'ERROR',
+          rowIndex: i + 1,
+          reason: 'MISSING_REQUIRED_FIELD',
+          normalizedRow: normalized,
+          rawRow: row,
+        });
+        continue;
+      }
+      const checkNeg = (x: unknown) =>
+        typeof x === 'number' && (Number.isNaN(x) || x < 0);
+      if (
+        checkNeg(vAmt) ||
+        checkNeg(vInit) ||
+        checkNeg(vComm) ||
+        checkNeg(vCons)
+      ) {
         result.push({
           action: 'ERROR',
           rowIndex: i + 1,

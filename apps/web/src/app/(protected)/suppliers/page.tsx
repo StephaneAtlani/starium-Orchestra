@@ -782,6 +782,16 @@ export default function SuppliersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, suppliersQuery.data]);
 
+  useEffect(() => {
+    if (searchParams.get('newSupplier') !== '1') return;
+    if (!permsSuccess || !canCreateSuppliers) {
+      window.history.replaceState({}, '', '/suppliers');
+      return;
+    }
+    setNewSupplierModalOpen(true);
+    window.history.replaceState({}, '', '/suppliers');
+  }, [searchParams, permsSuccess, canCreateSuppliers]);
+
   const openEditFromReadModal = (supplierId: string) => {
     const supplier = suppliersQuery.data?.items.find((item) => item.id === supplierId);
     if (!supplier) return;

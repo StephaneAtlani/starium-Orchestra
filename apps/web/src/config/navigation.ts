@@ -66,6 +66,12 @@ export const navigation: NavigationSection[] = [
           { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Budget', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Configuration', href: '/budgets/configuration', scope: 'client', requiredPermissions: ['budgets.read'] },
+          {
+            label: 'Fournisseurs',
+            href: '/suppliers',
+            scope: 'client',
+            requiredPermissions: ['procurement.read'],
+          },
         ],
       },
       {

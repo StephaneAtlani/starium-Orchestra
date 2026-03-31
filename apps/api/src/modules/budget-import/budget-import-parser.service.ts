@@ -25,6 +25,12 @@ export interface ParseOptions {
 
 @Injectable()
 export class BudgetImportParserService {
+  /** Noms des onglets d’un classeur Excel (sans lecture complète des lignes). */
+  listXlsxSheetNames(buffer: Buffer): string[] {
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    return workbook.SheetNames ?? [];
+  }
+
   parse(
     buffer: Buffer,
     sourceType: BudgetImportSourceType,
@@ -118,7 +124,14 @@ export class BudgetImportParserService {
     buffer: Buffer,
     sourceType: BudgetImportSourceType,
     options: { sheetName?: string; headerRowIndex?: number; sampleLimit?: number } = {},
-  ): { columns: string[]; sampleRows: ParsedSheetRow[]; rowCount: number; sheetNames?: string[] } {
+  ): {
+    columns: string[];
+    sampleRows: ParsedSheetRow[];
+    rowCount: number;
+    sheetNames?: string[];
+    /** Feuille Excel effectivement lue (CSV : undefined). */
+    activeSheetName?: string;
+  } {
     const sampleLimit = options.sampleLimit ?? 20;
     const result = this.parse(buffer, sourceType, {
       ...options,
@@ -128,11 +141,16 @@ export class BudgetImportParserService {
       sourceType === 'XLSX'
         ? this.countXlsxRows(buffer, options.sheetName, options.headerRowIndex ?? 0)
         : this.countCsvRows(buffer);
+    const activeSheetName =
+      sourceType === 'XLSX'
+        ? (options.sheetName ?? result.sheetNames?.[0])
+        : undefined;
     return {
       columns: result.columns,
       sampleRows: result.rows,
       rowCount: Math.min(fullCount, MAX_ROWS),
       sheetNames: result.sheetNames,
+      activeSheetName,
     };
   }
 

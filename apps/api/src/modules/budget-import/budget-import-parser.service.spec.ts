@@ -47,6 +47,7 @@ describe('BudgetImportParserService', () => {
       expect(result.columns).toEqual(['A', 'B', 'C']);
       expect(result.sampleRows).toHaveLength(2);
       expect(result.rowCount).toBe(3);
+      expect(result.activeSheetName).toBeUndefined();
     });
   });
 });

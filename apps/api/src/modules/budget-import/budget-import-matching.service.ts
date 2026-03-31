@@ -100,7 +100,12 @@ export class BudgetImportMatchingService {
     for (const [logicalKey, columnName] of Object.entries(fields)) {
       const raw = row[columnName] ?? '';
       const normalizedStr = this.normalizeValue(raw, options);
-      if (logicalKey === 'amount' || logicalKey === 'initialAmount') {
+      if (
+        logicalKey === 'amount' ||
+        logicalKey === 'initialAmount' ||
+        logicalKey === 'committedAmount' ||
+        logicalKey === 'consumedAmount'
+      ) {
         const n = this.parseDecimal(normalizedStr, options.decimalSeparator);
         values[logicalKey] = n;
       } else if (

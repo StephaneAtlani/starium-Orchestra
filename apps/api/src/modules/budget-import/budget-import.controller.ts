@@ -18,6 +18,7 @@ import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { BudgetImportService } from './budget-import.service';
 import { PreviewImportDto } from './dto/preview-import.dto';
 import { ExecuteImportDto } from './dto/execute-import.dto';
+import { AnalyzeSheetDto } from './dto/analyze-sheet.dto';
 import { MAX_FILE_SIZE_BYTES } from './constants';
 import type { UploadedFileType } from './types';
 
@@ -40,6 +41,17 @@ export class BudgetImportController {
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     return this.service.analyze(clientId!, userId!, file, meta);
+  }
+
+  @Post('analyze-sheet')
+  @RequirePermissions('budgets.read')
+  analyzeSheet(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() userId: string | undefined,
+    @Body() dto: AnalyzeSheetDto,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.service.analyzeSheet(clientId!, userId!, dto, meta);
   }
 
   @Post('preview')

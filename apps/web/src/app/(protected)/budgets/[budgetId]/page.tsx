@@ -29,6 +29,7 @@ import {
   budgetReallocations,
   budgetEdit,
   budgetEnvelopeNew,
+  budgetImport,
 } from '@/features/budgets/constants/budget-routes';
 import { NewBudgetLineDialog } from '@/features/budgets/components/new-budget-line-dialog';
 import { CreateBudgetSnapshotDialog } from '@/features/budgets/components/create-budget-snapshot-dialog';
@@ -445,6 +446,14 @@ export default function BudgetDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
+            <PermissionGate permission="budgets.read">
+              <Link
+                href={budgetImport(budget.id)}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
+              >
+                Importer
+              </Link>
+            </PermissionGate>
             <PermissionGate permission="budgets.create">
               <Button
                 type="button"
