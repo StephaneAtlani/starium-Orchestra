@@ -32,14 +32,15 @@ Starium Orchestra implémente une double authentification TOTP (RFC-002) avec fa
 |---|----------|----------|
 | O1 | Recovery codes fonctionnent même si le déchiffrement TOTP échoue | P0 |
 | O2 | Bouton / lien « Utiliser un code de secours » sur l'écran MFA login | P0 |
-| O3 | `MFA_ENCRYPTION_KEY` obligatoire en production (fail-fast au démarrage) | P0 |
-| O4 | Endpoint dédié `POST /auth/mfa/recovery/verify` | P1 |
-| O5 | Key versioning (`keyVersion` sur `UserMfa`) | P1 |
-| O6 | Fallback email : fail-fast ou message UI explicite si SMTP absent | P1 |
-| O7 | Audit log dédié pour authentification par recovery code | P1 |
-| O8 | Admin reset MFA d'un utilisateur (`PLATFORM_ADMIN` / `CLIENT_ADMIN`) | P1 |
-| O9 | Envelope encryption (DEK/KEK) — roadmap | P2 |
-| O10 | WebAuthn / Passkeys (NIST SP 800-63B-4) — roadmap | P3 |
+| O3 | Cliquer sur « email fallback » ne bloque jamais le retour au TOTP / recovery | P0 |
+| O4 | `MFA_ENCRYPTION_KEY` obligatoire en production (fail-fast au démarrage) | P0 |
+| O5 | Endpoint dédié `POST /auth/mfa/recovery/verify` | P1 |
+| O6 | Key versioning (`keyVersion` sur `UserMfa`) | P1 |
+| O7 | Fallback email : fail-fast ou message UI explicite si SMTP absent | P1 |
+| O8 | Audit log dédié pour authentification par recovery code | P1 |
+| O9 | Admin reset MFA d'un utilisateur (`PLATFORM_ADMIN` / `CLIENT_ADMIN`) | P1 |
+| O10 | Envelope encryption (DEK/KEK) — roadmap | P2 |
+| O11 | WebAuthn / Passkeys (NIST SP 800-63B-4) — roadmap | P3 |
 
 ---
 
@@ -110,7 +111,62 @@ verifyLoginRecovery(challengeId, recoveryCode)
   → return userId
 ```
 
-### 4.2. Nouvel endpoint API
+### 4.2. Fallback email ne bloque jamais TOTP ni recovery
+
+**Problème constaté en prod** : l'utilisateur clique « Recevoir un code par email », l'email n'arrive pas (SMTP absent), et il pense ne plus pouvoir revenir au code application.
+
+**Analyse du code actuel** :
+
+`sendLoginEmailOtp` met à jour le challenge :
+
+```typescript
+await this.prisma.mfaChallenge.update({
+  data: {
+    channel: MfaChallengeChannel.EMAIL,  // ← change le channel
+    otpCodeHash: codeHash,
+    emailSentAt: new Date(),
+    attemptCount: 0,                     // ← reset les tentatives
+  },
+});
+```
+
+`verifyLoginTotp` ne vérifie **pas** `ch.channel` — donc TOTP reste fonctionnel même après switch vers email. C'est correct mais **implicite**.
+
+**Règle absolue (O3)** :
+
+> **Le TOTP et les recovery codes sont toujours utilisables**, quel que soit l'état du fallback email (envoyé, en attente, échoué, SMTP absent). Le `channel` stocké sur le challenge est **informatif** (audit/traçabilité), **jamais restrictif**.
+
+1. **Backend** : `verifyLoginTotp` et `verifyLoginRecovery` ne doivent **jamais** vérifier le `channel` du challenge. Ajouter un commentaire explicite + un test pour verrouiller ce comportement.
+
+2. **Backend** : `sendLoginEmailOtp` est un **ajout** au challenge (il enrichit avec un OTP email), pas une **bascule exclusive**. Le TOTP reste valide avant, pendant et après l'envoi email.
+
+3. **Frontend** : depuis **chaque** écran MFA (TOTP, email, recovery), les trois options sont **toujours accessibles** : code application, code email, code de secours. Aucune transition n'est à sens unique.
+
+**Diagramme des transitions UI MFA login** :
+
+```
+                  ┌──────────────┐
+       login ──→  │    TOTP      │
+                  │  (défaut)    │
+                  └──────────────┘
+                    ↑    ↑    ↑
+                    │    │    │
+              ┌─────┘    │    └─────┐
+              │          │          │
+              ▼          ▼          ▼
+        ┌──────────┐ ┌───────┐ ┌──────────┐
+        │  EMAIL   │ │ TOTP  │ │ RECOVERY │
+        └──────────┘ └───────┘ └──────────┘
+              ↑          ↑          ↑
+              └──────────┼──────────┘
+                         │
+              Chaque écran donne accès
+              aux deux autres — TOUJOURS
+```
+
+**Principe** : les trois méthodes (TOTP, email, recovery) sont des **portes parallèles** vers le même challenge, pas des étapes séquentielles. L'utilisateur peut naviguer librement entre les trois à tout moment.
+
+### 4.3. Nouvel endpoint API
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
@@ -137,7 +193,7 @@ verifyLoginRecovery(challengeId, recoveryCode)
 }
 ```
 
-### 4.3. `MfaCryptoService` — fail-fast + key versioning
+### 4.4. `MfaCryptoService` — fail-fast + key versioning
 
 ```typescript
 constructor(config: ConfigService) {
@@ -165,7 +221,7 @@ constructor(config: ConfigService) {
 }
 ```
 
-### 4.4. Modèle Prisma — ajout `keyVersion`
+### 4.5. Modèle Prisma — ajout `keyVersion`
 
 ```prisma
 model UserMfa {
@@ -188,7 +244,7 @@ Migration :
 ALTER TABLE "UserMfa" ADD COLUMN "keyVersion" INTEGER NOT NULL DEFAULT 1;
 ```
 
-### 4.5. SMTP — fail-fast ou message explicite
+### 4.6. SMTP — fail-fast ou message explicite
 
 ```typescript
 private async deliverEmailOtp(to: string, code: string): Promise<void> {
@@ -207,7 +263,7 @@ private async deliverEmailOtp(to: string, code: string): Promise<void> {
 }
 ```
 
-### 4.6. `docker-compose.yml`
+### 4.7. `docker-compose.yml`
 
 ```yaml
 x-api-base-env: &api-base-env
@@ -337,6 +393,10 @@ completeMfaRecovery: (
 | `verifyLoginRecovery` — trop de tentatives | 403 |
 | `verifyLoginTotp` — decrypt fail + recovery code valide | Authentification OK (chemin dégradé) |
 | `verifyLoginTotp` — decrypt fail + recovery code invalide | 401 |
+| `verifyLoginTotp` après `sendLoginEmailOtp` | TOTP toujours valide, channel ignoré |
+| `verifyLoginRecovery` après `sendLoginEmailOtp` | Recovery toujours valide, channel ignoré |
+| `verifyLoginTotp` sans jamais appeler `sendLoginEmailOtp` | TOTP valide (cas nominal) |
+| `verifyLoginRecovery` sans jamais appeler `sendLoginEmailOtp` | Recovery valide (cas nominal) |
 | `MfaCryptoService` — fail-fast sans `MFA_ENCRYPTION_KEY` en prod | Throw au démarrage |
 | `MfaCryptoService` — multi-clés decrypt (ancienne + courante) | Decrypt OK avec les deux |
 | `deliverEmailOtp` — pas de SMTP en prod | 500 |
@@ -346,7 +406,11 @@ completeMfaRecovery: (
 | Test | Description |
 |------|-------------|
 | Bouton « Utiliser un code de secours » visible sur l'écran TOTP | Rendu conditionnel |
-| Navigation TOTP → Recovery → TOTP | States corrects |
+| Bouton « Utiliser un code de secours » visible sur l'écran EMAIL | Toujours accessible |
+| Depuis l'écran TOTP : boutons email + recovery visibles | Trois portes toujours accessibles |
+| Depuis l'écran EMAIL : boutons TOTP + recovery visibles | Trois portes toujours accessibles |
+| Depuis l'écran RECOVERY : boutons TOTP + email visibles | Trois portes toujours accessibles |
+| Navigation libre TOTP ↔ EMAIL ↔ RECOVERY dans tous les sens | Aucune transition à sens unique |
 | Soumission recovery code → authentification | Flux complet |
 
 ---
