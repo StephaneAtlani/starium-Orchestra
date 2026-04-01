@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
 
 ---
 
@@ -63,6 +63,47 @@ Invalide le refresh token fourni (révocation côté serveur).
 **Réponse 204** (No Content).
 
 **Erreurs :** 400 (validation). Pas d’erreur si le token est déjà invalide.
+
+---
+
+### POST /api/auth/mfa/recovery/verify
+
+Valide un code de secours (recovery code) pour un challenge MFA LOGIN actif. Endpoint dédié, indépendant du déchiffrement TOTP. Voir [RFC-SEC-001](RFC/RFC-SEC-001%20%E2%80%94%20MFA%20Hardening%20et%20Recovery%20Codes.md).
+
+**Body (JSON)**
+
+| Champ | Type | Obligatoire | Description |
+|---|---|---|---|
+| `challengeId` | string | oui | ID du challenge MFA |
+| `recoveryCode` | string | oui | Code de secours (hex, `[0-9A-Fa-f\s-]+`) |
+| `trustDevice` | boolean | non | Confiance appareil 30 j |
+
+**Réponse 200**
+
+```json
+{
+  "status": "AUTHENTICATED",
+  "accessToken": "...",
+  "refreshToken": "...",
+  "trustedDeviceToken": "..."
+}
+```
+
+**Erreurs :** 400 (validation), 401 (code invalide, challenge expiré), 403 (trop de tentatives).
+
+---
+
+### POST /api/platform/users/:userId/reset-mfa
+
+Reset MFA d’un utilisateur (supprime `UserMfa`, `MfaChallenge`, `TrustedDevice`, `RefreshToken`). L’utilisateur devra reconfigurer la 2FA à la prochaine connexion.
+
+**Guards :** `JwtAuthGuard`, `PlatformAdminGuard`.
+
+**Contraintes :** self-reset interdit (`403`), MFA doit être activée sur le compte cible (`400`).
+
+**Réponse 204** (No Content).
+
+**Audit :** `admin.mfa.reset` (`adminUserId`, `targetUserId`, `targetEmail`, IP, UA).
 
 ---
 

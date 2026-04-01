@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 RFC rédigée
+✅ Implémentée (P0 → P1-A → P1-B → P2)
 
 ## Priorité
 
@@ -574,3 +574,48 @@ Visible dans `/admin/audit` avec filtre sur événement `admin.mfa.reset`.
 4. **Recovery codes restants** : un recovery code utilisé est supprimé du tableau JSON. Quand tous sont épuisés, l'utilisateur doit ré-enrôler la MFA pour en obtenir de nouveaux (phase P2 : régénération sans désactivation).
 5. **Nombre d'attempts** : le endpoint recovery partage le même `attemptCount` du challenge (anti-brute-force unifié).
 6. **Ne pas exposer** la raison de l'échec decrypt dans la réponse API (risque d'information leakage). L'audit log interne capture le détail.
+
+---
+
+## 13. Notes d'implémentation
+
+> Ajoutées après implémentation complète (P0 → P2). Résultats : 100 test suites, 649 tests, 0 échec.
+
+### Écarts par rapport à la RFC initiale
+
+| Sujet | RFC initiale | Implémentation réelle | Raison |
+|---|---|---|---|
+| Route admin reset | `POST /api/admin/users/:userId/reset-mfa` | `POST /api/platform/users/:userId/reset-mfa` | Route placée dans `PlatformUsersController` (module `UsersModule`) qui existait déjà avec les bons guards (`JwtAuthGuard` + `PlatformAdminGuard`), pas dans un controller admin dédié |
+| Scope admin reset | `PLATFORM_ADMIN` + `CLIENT_ADMIN` client-scoped | `PLATFORM_ADMIN` uniquement | Scope `CLIENT_ADMIN` reporté ; pas de `ClientAdminGuard` sur ce controller |
+| Réponse admin reset | Body JSON `{ success, message }` | `204 No Content` (pas de body) | Aligné avec les conventions REST existantes du projet |
+| Audit log `auth.mfa.decrypt_fallback` | Event dédié | Intégré dans `reason` de `auth.mfa.recovery_success` (`recovery_decrypt_failed`) | Simplifie le modèle ; pas de champ `metadata` sur `SecurityLog` |
+| Fichiers admin | `admin-users.controller.ts` + `admin-users.service.ts` + `services/admin.ts` | `platform-users.controller.ts` + `mfa.service.ts` + `reset-user-mfa-dialog.tsx` via `authenticatedFetch` | Réutilisation de l'infrastructure existante |
+| Écran recovery : bouton email | Non spécifié explicitement | Présent — navigation libre entre les 3 écrans depuis recovery | Aligné avec le diagramme §4.2 (trois portes parallèles) |
+
+### Fichiers créés
+
+| Fichier | Lot |
+|---|---|
+| `apps/api/src/modules/auth/dto/mfa-recovery-verify.dto.ts` | P1-B |
+| `apps/api/src/modules/mfa/mfa.service.spec.ts` | P0 |
+| `apps/api/prisma/migrations/20260401130000_mfa_key_version/migration.sql` | P1-A |
+| `apps/web/src/features/admin-studio/components/reset-user-mfa-dialog.tsx` | P2 |
+
+### Fichiers modifiés
+
+| Fichier | Lots |
+|---|---|
+| `apps/api/src/modules/mfa/mfa.service.ts` | P0, P1-A, P1-B, P2 |
+| `apps/api/src/modules/mfa/mfa-crypto.service.ts` | P1-A |
+| `apps/api/src/modules/mfa/mfa-crypto.service.spec.ts` | P1-A |
+| `apps/api/prisma/schema.prisma` | P1-A |
+| `apps/api/src/modules/auth/auth.service.ts` | P1-B |
+| `apps/api/src/modules/auth/auth.controller.ts` | P1-B |
+| `apps/api/src/modules/auth/auth.service.spec.ts` | P1-B |
+| `apps/api/src/modules/users/platform-users.controller.ts` | P2 |
+| `apps/api/src/modules/users/platform-users.controller.spec.ts` | P2 |
+| `apps/web/src/services/auth.ts` | P1-B |
+| `apps/web/src/context/auth-context.tsx` | P1-B |
+| `apps/web/src/app/login/page.tsx` | P1-B |
+| `apps/web/src/app/(protected)/admin/users/page.tsx` | P2 |
+| `docker-compose.yml` | P1-A |

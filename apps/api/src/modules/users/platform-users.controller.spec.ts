@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PlatformUsersController } from './platform-users.controller';
 import { UsersService } from './users.service';
+import { MfaService } from '../mfa/mfa.service';
 
 describe('PlatformUsersController', () => {
   let controller: PlatformUsersController;
@@ -15,6 +16,12 @@ describe('PlatformUsersController', () => {
           useValue: {
             listPlatformUsers: jest.fn(),
             createPlatformUser: jest.fn(),
+          },
+        },
+        {
+          provide: MfaService,
+          useValue: {
+            adminResetMfa: jest.fn(),
           },
         },
       ],

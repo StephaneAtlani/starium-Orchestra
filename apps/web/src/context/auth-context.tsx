@@ -13,6 +13,7 @@ import {
   loginApi,
   postMicrosoftDisablePasswordLoginApi,
   verifyMfaEmailApi,
+  verifyMfaRecoveryApi,
   verifyMfaTotpApi,
   sendMfaFallbackEmailApi,
 } from '../services/auth';
@@ -83,6 +84,11 @@ interface AuthContextValue {
   completeMfaEmail: (
     challengeId: string,
     code: string,
+    trustDevice?: boolean,
+  ) => Promise<{ user: AuthUser; accessToken: string }>;
+  completeMfaRecovery: (
+    challengeId: string,
+    recoveryCode: string,
     trustDevice?: boolean,
   ) => Promise<{ user: AuthUser; accessToken: string }>;
   logout: () => Promise<void>;
@@ -273,6 +279,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const completeMfaRecovery = useCallback(
+    async (challengeId: string, recoveryCode: string, trustDevice?: boolean) => {
+      const data = await verifyMfaRecoveryApi(challengeId, recoveryCode, trustDevice);
+      return applySessionTokens(
+        data.accessToken,
+        data.refreshToken,
+        setAccessToken,
+        setUser,
+        data.trustedDeviceToken
+          ? { trustedDeviceToken: data.trustedDeviceToken }
+          : undefined,
+      );
+    },
+    [],
+  );
+
   const refreshProfile = useCallback(async () => {
     const t = accessToken;
     if (!t) return;
@@ -326,6 +348,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     completeMfaTotp,
     sendMfaFallbackEmail,
     completeMfaEmail,
+    completeMfaRecovery,
     logout,
     refreshSession,
     refreshProfile,

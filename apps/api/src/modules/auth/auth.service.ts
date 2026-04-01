@@ -314,6 +314,53 @@ export class AuthService {
     };
   }
 
+  /** Après vérification d'un code de secours (recovery) sur flux login. */
+  async verifyMfaRecoveryAfterLogin(
+    challengeId: string,
+    recoveryCode: string,
+    meta: RequestMeta,
+    trustDevice?: boolean,
+  ): Promise<AuthTokensResponse> {
+    const { userId } = await this.mfa.verifyLoginRecovery(
+      challengeId,
+      recoveryCode,
+      meta,
+    );
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    const tokens = await this.issueTokenPair(userId);
+    let trustedDeviceToken: string | undefined;
+    if (trustDevice) {
+      const created = await this.trustedDevice.create(userId, meta);
+      trustedDeviceToken = created.token;
+      await this.securityLogs.create({
+        event: 'auth.trusted_device.created',
+        userId,
+        email: user?.email,
+        success: true,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+      });
+    }
+    await this.securityLogs.create({
+      event: 'auth.login.success',
+      userId,
+      email: user?.email,
+      success: true,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+    });
+    return {
+      status: 'AUTHENTICATED',
+      ...tokens,
+      ...(trustedDeviceToken ? { trustedDeviceToken } : {}),
+    };
+  }
+
   async sendMfaFallbackEmail(
     challengeId: string,
     meta: RequestMeta,

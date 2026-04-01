@@ -151,7 +151,9 @@ Règles d’architecture :
 
 ### 3.2 Routes `/api/me` — compte, identités e-mail, défaut par client
 
-Plusieurs routes sous **`/api/me/*`** concernent le **compte utilisateur** (JWT) et **ne reposent pas** sur `X-Client-Id` ni `ActiveClientGuard` : profil, mot de passe, 2FA, avatar, **`GET /api/me/clients`**, **`PATCH /api/me/default-client`**, ainsi que :
+Plusieurs routes sous **`/api/me/*`** concernent le **compte utilisateur** (JWT) et **ne reposent pas** sur `X-Client-Id` ni `ActiveClientGuard` : profil, mot de passe, 2FA, avatar, **`GET /api/me/clients`**, **`PATCH /api/me/default-client`**, ainsi que les routes **`/auth/mfa/*`** (TOTP verify, email OTP, **`POST /auth/mfa/recovery/verify`** — endpoint dédié codes de secours ; voir [RFC-SEC-001](RFC/RFC-SEC-001%20%E2%80%94%20MFA%20Hardening%20et%20Recovery%20Codes.md)). Le reset MFA par un admin passe par **`POST /api/platform/users/:userId/reset-mfa`** (`PlatformAdminGuard`, self-reset interdit).
+
+Autres routes `/api/me/*` :
 
 - **`GET|POST|PATCH|DELETE /api/me/email-identities`** — gestion des adresses e-mail déclarées par l’utilisateur (`UserEmailIdentity`, module `apps/api/src/modules/me/`).
 - **`PATCH /api/me/clients/:clientId/default-email-identity`** — définit l’identité e-mail par défaut **pour ce rattachement** (`ClientUser`), avec validation que le `clientId` correspond bien à un `ClientUser` du JWT et que l’identité appartient au même utilisateur et est **active**.

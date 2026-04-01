@@ -75,6 +75,7 @@ describe('AuthService', () => {
           useValue: {
             isMfaTotpEnabled: jest.fn().mockResolvedValue(false),
             verifyLoginTotp: jest.fn(),
+            verifyLoginRecovery: jest.fn(),
             sendLoginEmailOtp: jest.fn(),
             verifyLoginEmailOtp: jest.fn(),
             createLoginChallenge: jest.fn(),
@@ -400,6 +401,34 @@ describe('AuthService', () => {
           email: undefined,
           success: true,
         }),
+      );
+    });
+  });
+
+  describe('verifyMfaRecoveryAfterLogin', () => {
+    it('émet tokens + trusted device après recovery code valide', async () => {
+      (mfa.verifyLoginRecovery as jest.Mock).mockResolvedValue({ userId: 'user-1' });
+      jest.spyOn(prisma.user, 'findUnique' as any).mockResolvedValue({
+        email: 'test@example.com',
+        platformRole: null,
+      });
+      jest.spyOn(prisma.refreshToken, 'create').mockResolvedValue({} as any);
+      (trustedDevice.create as jest.Mock).mockResolvedValue({
+        token: 'td-token-abc',
+      });
+
+      const result = await service.verifyMfaRecoveryAfterLogin(
+        'ch-1',
+        'RECOVERYCODE',
+        meta,
+        true,
+      );
+
+      expect(result.status).toBe('AUTHENTICATED');
+      expect(result.accessToken).toBe('jwt-token');
+      expect(result.trustedDeviceToken).toBe('td-token-abc');
+      expect(securityLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'auth.login.success' }),
       );
     });
   });

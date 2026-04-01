@@ -1,6 +1,6 @@
 # Index des RFC (Starium Orchestra)
 
-> Dernière révision documentaire : **2026-03** (ajout RFC-FE-BUD-030 index Phase 2). Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
+> Dernière révision documentaire : **2026-04** (RFC-SEC-001 implémentée — MFA Hardening & Recovery Codes). Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
 >
 > **Collision de numéro** : deux fichiers distincts portent **RFC-PROJ-012** — [Project Sheet (fiche décisionnelle)](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [Gantt Tâches et Jalons (UI planning)](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md). Ne pas les fusionner dans les tableaux ci-dessous.
 >
@@ -13,7 +13,7 @@
 | RFC | Nom | État | Commentaire |
 | --- | --- | --- | --- |
 | **RFC-002** | Authentification utilisateur | ✅ Implémentée | Login JWT, refresh, logout |
-| **RFC-SEC-001** | MFA Hardening & Recovery Codes | 📝 RFC rédigée | Recovery codes indépendants du decrypt TOTP, bouton UI dédié, fail-fast `MFA_ENCRYPTION_KEY`, key versioning, SMTP fail-fast prod ; voir [RFC](./RFC-SEC-001%20%E2%80%94%20MFA%20Hardening%20et%20Recovery%20Codes.md) |
+| **RFC-SEC-001** | MFA Hardening & Recovery Codes | ✅ Implémentée | Recovery codes indépendants du decrypt TOTP, endpoint dédié `POST /auth/mfa/recovery/verify`, UI 3 écrans MFA (TOTP / email / recovery), fail-fast `MFA_ENCRYPTION_KEY`, key versioning multi-clés, SMTP fail-fast prod, admin reset MFA (`POST /platform/users/:userId/reset-mfa`) ; voir [RFC](./RFC-SEC-001%20%E2%80%94%20MFA%20Hardening%20et%20Recovery%20Codes.md) |
 
 ---
 

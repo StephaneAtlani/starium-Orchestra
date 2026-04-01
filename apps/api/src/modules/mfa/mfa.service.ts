@@ -109,6 +109,12 @@ export class MfaService {
 
   /**
    * Vérifie TOTP ou code de secours pour un challenge LOGIN ; retourne userId si OK.
+   *
+   * Le `channel` du challenge n'est JAMAIS vérifié ici : TOTP et recovery codes
+   * restent utilisables quel que soit l'état du fallback email (RFC-SEC-001 §O3).
+   *
+   * Si le déchiffrement du secret TOTP échoue (clé MFA incohérente), les recovery
+   * codes sont quand même testés (RFC-SEC-001 §O1).
    */
   async verifyLoginTotp(
     challengeId: string,
@@ -125,20 +131,22 @@ export class MfaService {
       throw new BadRequestException('2FA non configurée');
     }
 
-    let secret: string;
-    try {
-      secret = this.crypto.decrypt(mfa.totpSecretEncrypted);
-    } catch {
-      throw new InternalServerErrorException('Erreur lecture secret MFA');
-    }
-
     const normalized = otp.replace(/\s/g, '');
-    let ok = speakeasy.totp.verify({
-      secret,
-      encoding: 'base32',
-      token: normalized,
-      window: MFA_TOTP_WINDOW_STEPS,
-    });
+    let ok = false;
+    let decryptFailed = false;
+    let usedRecovery = false;
+
+    try {
+      const secret = this.crypto.decrypt(mfa.totpSecretEncrypted);
+      ok = speakeasy.totp.verify({
+        secret,
+        encoding: 'base32',
+        token: normalized,
+        window: MFA_TOTP_WINDOW_STEPS,
+      });
+    } catch {
+      decryptFailed = true;
+    }
 
     if (!ok && mfa.backupCodesHashes) {
       const hashes = mfa.backupCodesHashes as string[];
@@ -158,6 +166,7 @@ export class MfaService {
               },
             });
             ok = true;
+            usedRecovery = true;
             break;
           }
         }
@@ -170,7 +179,7 @@ export class MfaService {
         userId: ch.userId,
         email: ch.user.email,
         success: false,
-        reason: 'invalid_totp',
+        reason: decryptFailed ? 'decrypt_failed_and_invalid_code' : 'invalid_totp',
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
         requestId: meta.requestId,
@@ -178,16 +187,26 @@ export class MfaService {
       throw new UnauthorizedException('Code MFA invalide');
     }
 
+    if (usedRecovery && decryptFailed) {
+      this.logger.warn(
+        `[MFA] User ${ch.userId} authenticated via recovery code (TOTP decrypt failed)`,
+      );
+    }
+
     await this.prisma.mfaChallenge.update({
       where: { id: challengeId },
       data: { consumedAt: new Date() },
     });
 
+    const event = usedRecovery ? 'auth.mfa.recovery_success' : 'auth.mfa.success';
     await this.securityLogs.create({
-      event: 'auth.mfa.success',
+      event,
       userId: ch.userId,
       email: ch.user.email,
       success: true,
+      ...(usedRecovery
+        ? { reason: decryptFailed ? 'recovery_decrypt_failed' : 'recovery' }
+        : {}),
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
       requestId: meta.requestId,
@@ -291,9 +310,94 @@ export class MfaService {
     return { userId: ch.userId };
   }
 
+  /**
+   * Vérifie un code de secours (recovery) pour un challenge LOGIN.
+   * Ne vérifie JAMAIS ch.channel : les recovery codes sont toujours utilisables.
+   * Ne tente PAS de déchiffrer le secret TOTP (indépendance totale).
+   */
+  async verifyLoginRecovery(
+    challengeId: string,
+    recoveryCode: string,
+    meta: RequestMeta,
+  ): Promise<{ userId: string }> {
+    const ch = await this.loadActiveLoginChallenge(challengeId);
+    await this.bumpAttempts(challengeId);
+
+    const mfa = await this.prisma.userMfa.findUnique({
+      where: { userId: ch.userId },
+    });
+    if (!mfa?.totpSecretEncrypted || !mfa.totpEnabledAt || mfa.totpPending) {
+      throw new BadRequestException('2FA non configurée');
+    }
+
+    const normalized = recoveryCode.replace(/[\s-]/g, '').toUpperCase();
+    let ok = false;
+
+    if (mfa.backupCodesHashes) {
+      const hashes = mfa.backupCodesHashes as string[];
+      if (Array.isArray(hashes)) {
+        for (let i = 0; i < hashes.length; i++) {
+          const match = await bcrypt.compare(normalized, hashes[i]);
+          if (match) {
+            const next = [...hashes];
+            next.splice(i, 1);
+            await this.prisma.userMfa.update({
+              where: { userId: ch.userId },
+              data: {
+                backupCodesHashes:
+                  next.length > 0
+                    ? (next as unknown as Prisma.InputJsonValue)
+                    : Prisma.JsonNull,
+              },
+            });
+            ok = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!ok) {
+      await this.securityLogs.create({
+        event: 'auth.mfa.recovery_failure',
+        userId: ch.userId,
+        email: ch.user.email,
+        success: false,
+        reason: 'invalid_recovery_code',
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+      });
+      throw new UnauthorizedException('Code de secours invalide');
+    }
+
+    await this.prisma.mfaChallenge.update({
+      where: { id: challengeId },
+      data: { consumedAt: new Date() },
+    });
+
+    await this.securityLogs.create({
+      event: 'auth.mfa.recovery_success',
+      userId: ch.userId,
+      email: ch.user.email,
+      success: true,
+      reason: 'recovery',
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+    });
+
+    return { userId: ch.userId };
+  }
+
   private async deliverEmailOtp(to: string, code: string): Promise<void> {
     const smtpHost = process.env.SMTP_HOST?.trim();
     if (!smtpHost) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new InternalServerErrorException(
+          'SMTP_HOST non configuré — envoi email impossible',
+        );
+      }
       this.logger.warn(
         `[MFA] OTP email pour ${to} (définir SMTP_HOST pour envoi réel) : ${code}`,
       );
@@ -363,16 +467,19 @@ export class MfaService {
     });
     const secret = gen.base32;
     const encrypted = this.crypto.encrypt(secret);
+    const keyVersion = this.crypto.getCurrentKeyVersion();
 
     await this.prisma.userMfa.upsert({
       where: { userId },
       create: {
         userId,
         totpSecretEncrypted: encrypted,
+        keyVersion,
         totpPending: true,
       },
       update: {
         totpSecretEncrypted: encrypted,
+        keyVersion,
         totpPending: true,
         totpEnabledAt: null,
         backupCodesHashes: Prisma.JsonNull,
@@ -541,6 +648,48 @@ export class MfaService {
       userId,
       email: user.email,
       success: true,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+    });
+  }
+
+  /**
+   * Admin reset MFA : supprime toute la config MFA, sessions et devices d'un user.
+   * Self-reset interdit. L'utilisateur cible devra reconfigurer sa 2FA au prochain login.
+   */
+  async adminResetMfa(
+    targetUserId: string,
+    adminUserId: string,
+    meta: RequestMeta,
+  ): Promise<void> {
+    if (targetUserId === adminUserId) {
+      throw new ForbiddenException('Impossible de réinitialiser sa propre MFA');
+    }
+
+    const mfa = await this.prisma.userMfa.findUnique({
+      where: { userId: targetUserId },
+    });
+    if (!mfa?.totpEnabledAt || mfa.totpPending) {
+      throw new BadRequestException('La 2FA n\'est pas activée pour cet utilisateur');
+    }
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { email: true },
+    });
+
+    await this.prisma.trustedDevice.deleteMany({ where: { userId: targetUserId } });
+    await this.prisma.userMfa.delete({ where: { userId: targetUserId } });
+    await this.prisma.mfaChallenge.deleteMany({ where: { userId: targetUserId } });
+    await this.prisma.refreshToken.deleteMany({ where: { userId: targetUserId } });
+
+    await this.securityLogs.create({
+      event: 'admin.mfa.reset',
+      userId: adminUserId,
+      email: targetUser?.email,
+      success: true,
+      reason: `target:${targetUserId}`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
       requestId: meta.requestId,

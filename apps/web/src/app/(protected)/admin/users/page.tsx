@@ -12,6 +12,7 @@ import { usePlatformUsersQuery } from '../../../../features/admin-studio/hooks/u
 import type { AdminPlatformUserSummary } from '../../../../features/admin-studio/types/admin-studio.types';
 import { ManageUserClientsDialog } from '../../../../features/admin-studio/components/manage-user-clients-dialog';
 import { ChangeUserPasswordDialog } from '../../../../features/admin-studio/components/change-user-password-dialog';
+import { ResetUserMfaDialog } from '../../../../features/admin-studio/components/reset-user-mfa-dialog';
 
 const columns: DataTableColumn<AdminPlatformUserSummary>[] = [
   { key: 'email', header: 'Email' },
@@ -37,7 +38,10 @@ const columns: DataTableColumn<AdminPlatformUserSummary>[] = [
     cell: (row) => (
       <div className="flex items-center justify-end gap-1.5">
         {row.platformRole !== 'PLATFORM_ADMIN' && (
-          <ManageUserClientsDialog user={row} />
+          <>
+            <ManageUserClientsDialog user={row} />
+            <ResetUserMfaDialog user={row} />
+          </>
         )}
         <ChangeUserPasswordDialog user={row} />
       </div>

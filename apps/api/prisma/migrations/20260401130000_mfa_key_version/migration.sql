@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "UserMfa" ADD COLUMN "keyVersion" INTEGER NOT NULL DEFAULT 1;

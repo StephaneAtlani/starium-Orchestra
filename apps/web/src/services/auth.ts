@@ -188,7 +188,56 @@ export async function verifyMfaEmailApi(
     !data.accessToken ||
     !data.refreshToken
   ) {
-    throw new Error('Réponse MFA inattendue');
+    throw new Error('Réponse MFA inattendue (email)');
+  }
+  return {
+    status: 'AUTHENTICATED',
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+    ...(data.trustedDeviceToken
+      ? { trustedDeviceToken: data.trustedDeviceToken }
+      : {}),
+  };
+}
+
+export async function verifyMfaRecoveryApi(
+  challengeId: string,
+  recoveryCode: string,
+  trustDevice?: boolean,
+): Promise<{
+  status: 'AUTHENTICATED';
+  accessToken: string;
+  refreshToken: string;
+  trustedDeviceToken?: string;
+}> {
+  const res = await fetch('/api/auth/mfa/recovery/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      challengeId,
+      recoveryCode,
+      trustDevice: trustDevice ?? false,
+    }),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    status?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    trustedDeviceToken?: string;
+    message?: string | string[];
+  };
+  if (!res.ok) {
+    const msg = Array.isArray(data.message)
+      ? data.message.join(', ')
+      : data.message;
+    throw new Error(msg || 'Code de secours invalide');
+  }
+  if (
+    data.status !== 'AUTHENTICATED' ||
+    !data.accessToken ||
+    !data.refreshToken
+  ) {
+    throw new Error('Réponse MFA inattendue (recovery)');
   }
   return {
     status: 'AUTHENTICATED',

@@ -80,6 +80,7 @@ function LoginPageContent() {
     completeMfaTotp,
     sendMfaFallbackEmail,
     completeMfaEmail,
+    completeMfaRecovery,
   } = useAuth();
   const searchParams = useSearchParams();
   const { setActiveClient } = useActiveClient();
@@ -92,10 +93,11 @@ function LoginPageContent() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [mfaStep, setMfaStep] = useState<'none' | 'totp' | 'email'>('none');
+  const [mfaStep, setMfaStep] = useState<'none' | 'totp' | 'email' | 'recovery'>('none');
   const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
   const [mfaOtp, setMfaOtp] = useState('');
   const [mfaEmailCode, setMfaEmailCode] = useState('');
+  const [mfaRecoveryCode, setMfaRecoveryCode] = useState('');
   const [emailSending, setEmailSending] = useState(false);
   /** Enregistrer cet appareil (30 j. sans 2FA sur ce navigateur après mot de passe). */
   const [trustThisDevice, setTrustThisDevice] = useState(true);
@@ -445,11 +447,76 @@ function LoginPageContent() {
     }
   }
 
+  async function handleMfaRecoverySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mfaChallengeId) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const { user: loggedInUser, accessToken } = await completeMfaRecovery(
+        mfaChallengeId,
+        mfaRecoveryCode.replace(/[\s-]/g, ''),
+        trustThisDevice,
+      );
+      const res = await fetch('/api/me/clients', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        throw new Error('Impossible de récupérer la liste des clients');
+      }
+      const clients = (await res.json()) as MeClient[];
+      let storedActiveClientId: string | null = null;
+      if (typeof window !== 'undefined') {
+        const stored = window.localStorage.getItem(ACTIVE_CLIENT_KEY);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as { id?: string };
+            storedActiveClientId = parsed?.id ?? null;
+          } catch {
+            // ignore
+          }
+        }
+      }
+      const resolution = resolveActiveClient(
+        clients,
+        loggedInUser.platformRole,
+        storedActiveClientId,
+      );
+      if (resolution.type === 'redirect') {
+        setMfaStep('none');
+        setMfaChallengeId(null);
+        router.replace(resolution.to);
+        return;
+      }
+      if (resolution.type === 'blocked') {
+        setMfaStep('none');
+        setMfaChallengeId(null);
+        router.replace('/no-client');
+        return;
+      }
+      setActiveClient(resolution.client);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(
+          BOOTSTRAP_FROM_LOGIN_KEY,
+          JSON.stringify({ client: resolution.client }),
+        );
+      }
+      setMfaStep('none');
+      setMfaChallengeId(null);
+      router.replace(resolution.to);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Code de secours invalide');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function cancelMfa() {
     setMfaStep('none');
     setMfaChallengeId(null);
     setMfaOtp('');
     setMfaEmailCode('');
+    setMfaRecoveryCode('');
     setError(null);
   }
 
@@ -494,8 +561,10 @@ function LoginPageContent() {
                 {mfaStep === 'none'
                   ? 'Entrez vos identifiants pour accéder à vos clients et à vos espaces.'
                   : mfaStep === 'totp'
-                    ? 'Double authentification : saisissez le code à 6 chiffres de votre application (ou un code de secours).'
-                    : 'Saisissez le code à 6 chiffres reçu par email.'}
+                    ? 'Double authentification : saisissez le code à 6 chiffres de votre application.'
+                    : mfaStep === 'email'
+                      ? 'Saisissez le code à 6 chiffres reçu par email.'
+                      : 'Saisissez un de vos codes de secours à usage unique.'}
               </CardDescription>
               {mfaStep === 'none' && (
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -613,6 +682,18 @@ function LoginPageContent() {
                     </Button>
                     <Button
                       type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setMfaStep('recovery');
+                        setMfaRecoveryCode('');
+                        setError(null);
+                      }}
+                    >
+                      Utiliser un code de secours
+                    </Button>
+                    <Button
+                      type="button"
                       variant="ghost"
                       className="w-full"
                       onClick={cancelMfa}
@@ -674,6 +755,18 @@ function LoginPageContent() {
                     </Button>
                     <Button
                       type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setMfaStep('recovery');
+                        setMfaRecoveryCode('');
+                        setError(null);
+                      }}
+                    >
+                      Utiliser un code de secours
+                    </Button>
+                    <Button
+                      type="button"
                       variant="ghost"
                       className="w-full"
                       onClick={() => {
@@ -683,6 +776,70 @@ function LoginPageContent() {
                       }}
                     >
                       Retour au code application
+                    </Button>
+                  </div>
+                </form>
+              )}
+              {mfaStep === 'recovery' && (
+                <form onSubmit={handleMfaRecoverySubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mfa-recovery">Code de secours</Label>
+                    <Input
+                      id="mfa-recovery"
+                      type="text"
+                      autoComplete="off"
+                      value={mfaRecoveryCode}
+                      onChange={(e) => setMfaRecoveryCode(e.target.value)}
+                      placeholder="3F0ADD751C"
+                      required
+                    />
+                  </div>
+                  <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="mt-1 rounded border-input"
+                      checked={trustThisDevice}
+                      onChange={(e) => setTrustThisDevice(e.target.checked)}
+                    />
+                    <span>
+                      Faire confiance à cet appareil : ne plus demander la 2FA
+                      pendant 30 jours sur ce navigateur (mot de passe toujours
+                      requis).
+                    </span>
+                  </label>
+                  {error && (
+                    <p className="text-sm text-destructive" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={submitting}
+                    >
+                      {submitting ? 'Vérification…' : 'Valider le code de secours'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setMfaStep('totp');
+                        setMfaRecoveryCode('');
+                        setError(null);
+                      }}
+                    >
+                      Retour au code application
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={emailSending}
+                      onClick={() => void handleSendEmailOtp()}
+                    >
+                      {emailSending ? 'Envoi…' : 'Recevoir un code par email'}
                     </Button>
                   </div>
                 </form>
