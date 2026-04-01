@@ -105,6 +105,19 @@ enum ExternalDirectoryType {
   LDAP
 }
 
+enum SkillStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum SkillReferenceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -182,6 +195,8 @@ model Client {
   directoryGroupScopes          DirectoryGroupScope[]
   directorySyncJobs             DirectorySyncJob[]
   collaborators                 Collaborator[]
+  skillCategories               SkillCategory[]
+  skills                        Skill[]
   complianceFrameworks   ComplianceFramework[]
   complianceStatuses     ComplianceStatus[]
   complianceEvidences    ComplianceEvidence[]
@@ -2928,4 +2943,44 @@ model Collaborator {
   @@index([clientId, username])
   @@index([clientId, source])
   @@index([clientId, externalDirectoryType])
+}
+
+model SkillCategory {
+  id             String   @id @default(cuid())
+  clientId       String
+  name           String
+  normalizedName String
+  description    String?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  skills Skill[]
+
+  @@unique([clientId, normalizedName])
+  @@index([clientId])
+  @@index([clientId, sortOrder])
+}
+
+model Skill {
+  id              String              @id @default(cuid())
+  clientId        String
+  categoryId      String
+  name            String
+  normalizedName  String
+  description     String?
+  referenceLevel  SkillReferenceLevel @default(INTERMEDIATE)
+  status          SkillStatus         @default(DRAFT)
+  archivedAt      DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  client   Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category SkillCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([clientId, normalizedName])
+  @@index([clientId])
+  @@index([clientId, categoryId])
+  @@index([clientId, status])
 }

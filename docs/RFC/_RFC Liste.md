@@ -8,6 +8,15 @@
 
 ---
 
+## Sécurité & authentification
+
+| RFC | Nom | État | Commentaire |
+| --- | --- | --- | --- |
+| **RFC-002** | Authentification utilisateur | ✅ Implémentée | Login JWT, refresh, logout |
+| **RFC-SEC-001** | MFA Hardening & Recovery Codes | 📝 RFC rédigée | Recovery codes indépendants du decrypt TOTP, bouton UI dédié, fail-fast `MFA_ENCRYPTION_KEY`, key versioning, SMTP fail-fast prod ; voir [RFC](./RFC-SEC-001%20%E2%80%94%20MFA%20Hardening%20et%20Recovery%20Codes.md) |
+
+---
+
 ## Plateforme — compte utilisateur (hors numérotation RFC projet)
 
 | Sujet | Référence |
@@ -32,7 +41,7 @@
 | --- | --- | --- | --- |
 | **RFC-TEAM-001** | Synchronisation des collaborateurs depuis AD DS | ✅ Implémentée (MVP) | Implémentation Microsoft Graph/Entra ; provisioning auto vers `Membres` (`User` + `ClientUser`) ; verrouillage des membres synchronisés |
 | **RFC-TEAM-002** | Référentiel Collaborateurs métier | ✅ Implémentée (backend MVP) | CRUD métier des collaborateurs (identité, fonction, manager, statut, source, tags, notes, règles sync) ; voir [RFC](./RFC-TEAM-002%20%E2%80%94%20R%C3%A9f%C3%A9rentiel%20Collaborateurs%20m%C3%A9tier.md) |
-| **RFC-TEAM-003** | Référentiel Compétences | 📝 RFC rédigée | Catalogue client de compétences (catégories, statuts, niveaux, archivage logique) ; voir [RFC](./RFC-TEAM-003%20%E2%80%94%20R%C3%A9f%C3%A9rentiel%20Comp%C3%A9tences.md) |
+| **RFC-TEAM-003** | Référentiel Compétences | ✅ Implémentée (backend MVP) | Catalogue client de compétences (catégories, statuts, niveaux, archivage logique) ; API skills + categories, archivage logique, RBAC `skills.*` ; voir [RFC](./RFC-TEAM-003%20%E2%80%94%20R%C3%A9f%C3%A9rentiel%20Comp%C3%A9tences.md) |
 | **RFC-FE-TEAM-001** | Frontend Foundation — Équipes | ✅ Implémentée | Structure `features/teams`, routes, query keys tenant-aware, API client, conventions d'état, tests unitaires ; voir [RFC](./RFC-FE-TEAM-001%20%E2%80%94%20Frontend%20Foundation%20%E2%80%94%20%C3%89quipes.md) |
 | **RFC-FE-TEAM-002** | UI Collaborateurs | ✅ Implémentée (MVP FE) | Liste + détail + édition sur `/teams/collaborators`; badges `status`/`source`, filtres (`search/status/source/manager/tag`), relation manager lisible sans ID brut ; voir [RFC](./RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md) |
 

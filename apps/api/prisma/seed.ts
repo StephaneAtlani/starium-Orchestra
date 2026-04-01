@@ -1237,6 +1237,32 @@ async function ensureCollaboratorsModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureSkillsModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "skills" },
+    create: {
+      code: "skills",
+      name: "Compétences",
+      description: "Référentiel compétences et catégories",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "skills.read", label: "Compétences — lecture" },
+    { code: "skills.create", label: "Compétences — création" },
+    { code: "skills.update", label: "Compétences — mise à jour" },
+    { code: "skills.delete", label: "Compétences — suppression" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label },
+    });
+  }
+}
+
 type DefaultProfileSeed = {
   name: string;
   description?: string;
@@ -2612,6 +2638,7 @@ async function main() {
 
   await ensureComplianceModuleAndPermissions();
   await ensureCollaboratorsModuleAndPermissions();
+  await ensureSkillsModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
   await ensureDefaultGlobalProfiles();
   await ensureClientAdminRiskTaxonomyRole();

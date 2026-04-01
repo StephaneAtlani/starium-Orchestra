@@ -2,7 +2,7 @@
 
 ## Statut
 
-À faire
+Implémentée (backend MVP)
 
 ## Priorité
 
@@ -114,20 +114,21 @@ enum SkillReferenceLevel {
 
 ```prisma
 model SkillCategory {
-  id          String   @id @default(cuid())
-  clientId    String
-  name        String   @db.VarChar(200)
-  description String?
-  sortOrder   Int      @default(0)
-  color       String?  @db.VarChar(30)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  clientId       String
+  name           String
+  normalizedName String
+  description    String?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
   skills Skill[]
 
-  @@unique([clientId, name])
+  @@unique([clientId, normalizedName])
   @@index([clientId])
+  @@index([clientId, sortOrder])
 }
 ```
 
@@ -138,19 +139,19 @@ model Skill {
   id              String              @id @default(cuid())
   clientId        String
   categoryId      String
-  name            String              @db.VarChar(200)
+  name            String
+  normalizedName  String
   description     String?
   referenceLevel  SkillReferenceLevel @default(INTERMEDIATE)
-  status          SkillStatus         @default(ACTIVE)
+  status          SkillStatus         @default(DRAFT)
   archivedAt      DateTime?
-  metadata        Json?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
   client   Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   category SkillCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
-  @@unique([clientId, name])
+  @@unique([clientId, normalizedName])
   @@index([clientId])
   @@index([clientId, categoryId])
   @@index([clientId, status])
@@ -160,11 +161,10 @@ model Skill {
 **Choix de design** :
 
 - `onDelete: Restrict` sur `categoryId` : impossible de supprimer une catégorie qui contient des compétences (erreur explicite, pas de cascade silencieuse).
-- `@@unique([clientId, name])` : unicité du nom de compétence par client pour éviter les doublons.
+- unicité portée par `normalizedName` (`trim + lower`) pour éviter les doublons métier insensibles à la casse.
 - `archivedAt` : timestamp de l'archivage logique ; `null` = actif. Le `status` passe à `ARCHIVED` en parallèle pour filtrage rapide.
 - `referenceLevel` : niveau de maîtrise attendu pour cette compétence dans le contexte du client (le niveau réel du collaborateur sera sur `CollaboratorSkill` en RFC-TEAM-004).
-- `color` sur `SkillCategory` : couleur optionnelle pour chips/badges UI.
-- `metadata Json?` : extensibilité future sans migration (certifications liées, liens documentation, etc.).
+- `color` / `metadata` sont hors MVP backend de cette implémentation.
 
 ## 4.3 Règles métier
 
@@ -216,7 +216,6 @@ model Skill {
 | `PATCH` | `/api/skills/:id` | `skills.update` | Mise à jour |
 | `PATCH` | `/api/skills/:id/archive` | `skills.update` | Archivage logique |
 | `PATCH` | `/api/skills/:id/restore` | `skills.update` | Restauration |
-| `DELETE` | `/api/skills/:id` | `skills.delete` | Suppression physique (si non liée) |
 | `GET` | `/api/skills/options` | `skills.read` | Options pour select/combobox |
 
 ### Filtres `GET /api/skills`
@@ -230,7 +229,7 @@ model Skill {
 | `includeArchived` | `boolean` | Inclure les archivées (défaut `false`) |
 | `limit` | `number` | Pagination (défaut 20) |
 | `offset` | `number` | Offset pagination |
-| `sortBy` | `string` | Champ de tri (`name`, `createdAt`, `categoryName`) |
+| `sortBy` | `string` | Champ de tri (`name`, `createdAt`, `updatedAt`, `referenceLevel`) |
 | `sortOrder` | `asc \| desc` | Direction du tri |
 
 ### Filtres `GET /api/skill-categories`
@@ -254,7 +253,6 @@ model Skill {
       "description": "Orchestration de conteneurs et gestion de clusters K8s",
       "categoryId": "cat_123",
       "categoryName": "Infrastructure & Cloud",
-      "categoryColor": "#3b82f6",
       "referenceLevel": "ADVANCED",
       "status": "ACTIVE",
       "archivedAt": null,
@@ -277,7 +275,6 @@ model Skill {
       "id": "cat_123",
       "name": "Infrastructure & Cloud",
       "description": "Compétences infrastructure, réseau, cloud, conteneurs",
-      "color": "#3b82f6",
       "sortOrder": 1,
       "skillCount": 12,
       "createdAt": "2026-03-01T09:00:00Z",
@@ -314,8 +311,7 @@ model Skill {
   "items": [
     {
       "id": "cat_123",
-      "name": "Infrastructure & Cloud",
-      "color": "#3b82f6"
+      "name": "Infrastructure & Cloud"
     }
   ],
   "total": 5,
@@ -327,7 +323,7 @@ model Skill {
 Règles de contrat :
 
 - format liste/options unique : `{ items, total, limit, offset }` ;
-- champs d'affichage inclus (`categoryName`, `categoryColor`) pour éviter des jointures frontend ;
+- champs d'affichage inclus (`categoryName`) pour éviter des jointures frontend ;
 - aucun libellé UX localisé dans l'API ;
 - valeurs canoniques uniquement pour `status` et `referenceLevel` (mapping label côté frontend).
 
@@ -358,7 +354,6 @@ Reprend les filtres §4.4. Validation : `@IsOptional`, pagination `@Transform` +
 | `name` | `string` | oui | `@IsString`, `@MaxLength(200)`, `@IsNotEmpty` |
 | `description` | `string` | non | `@IsOptional`, `@IsString` |
 | `sortOrder` | `number` | non | `@IsOptional`, `@IsInt`, `@Min(0)` |
-| `color` | `string` | non | `@IsOptional`, `@IsString`, `@MaxLength(30)` |
 
 ### `UpdateSkillCategoryDto`
 
@@ -369,7 +364,8 @@ Tous les champs de `CreateSkillCategoryDto` en `@IsOptional`.
 ```
 apps/api/src/modules/skills/
 ├── skills.module.ts
-├── skills.controller.ts          # routes /api/skills + /api/skill-categories
+├── skills.controller.ts          # routes /api/skills
+├── skill-categories.controller.ts # routes /api/skill-categories
 ├── skills.service.ts             # logique métier skills + catégories
 ├── dto/
 │   ├── create-skill.dto.ts
@@ -418,7 +414,7 @@ Le `ModuleAccessGuard` utilise le préfixe `skills` pour vérifier l'activation 
 | `skills.read` | `GET` compétences + catégories + options |
 | `skills.create` | `POST` compétences + catégories |
 | `skills.update` | `PATCH` compétences + catégories + archive/restore |
-| `skills.delete` | `DELETE` compétences + catégories |
+| `skills.delete` | `DELETE` catégories |
 
 ### Actions d'audit
 
@@ -428,7 +424,6 @@ Le `ModuleAccessGuard` utilise le préfixe `skills` pour vérifier l'activation 
 | `skill.updated` | Mise à jour d'une compétence |
 | `skill.archived` | Archivage d'une compétence |
 | `skill.restored` | Restauration d'une compétence |
-| `skill.deleted` | Suppression d'une compétence |
 | `skill_category.created` | Création d'une catégorie |
 | `skill_category.updated` | Mise à jour d'une catégorie |
 | `skill_category.deleted` | Suppression d'une catégorie |
@@ -448,13 +443,13 @@ Ajouter dans `schema.prisma` :
 
 ## 5.2 Migration
 
-Fichier de migration dédié : `20260401_add_skill_catalog`.
+Fichier de migration dédié : `20260401120000_add_skill_catalog`.
 
 ## 5.3 Seed
 
 Ajouter dans le seed :
 
-- module `skills` dans `admin_modules`
+- module `skills` dans `Module` (code `skills`)
 - permissions `skills.read`, `skills.create`, `skills.update`, `skills.delete`
 - attribution par défaut au rôle `CLIENT_ADMIN`
 
@@ -501,10 +496,10 @@ Le champ `skills Json?` existant sur `Collaborator` est **conservé** mais **dé
 
 - isolation client stricte (read/write) ;
 - permissions RBAC par endpoint ;
-- scénario complet : créer catégorie → créer compétence → lister → archiver → restaurer → supprimer ;
+- scénario complet : créer catégorie → créer compétence → lister → archiver → restaurer → suppression catégorie ;
 - tentative de lecture compétence d'un autre client → 404 ;
 - suppression catégorie non vide → 409 ;
-- audit log présent sur create/update/archive/restore/delete.
+- audit log présent sur create/update/archive/restore + suppression catégorie.
 
 ## 6.4 Cas critiques
 
@@ -524,7 +519,7 @@ Livrables :
 
 - modèles Prisma `SkillCategory` + `Skill` avec enums `SkillStatus`, `SkillReferenceLevel` ;
 - module NestJS `skills` avec deux contrôleurs (`skills`, `skill-categories`) ;
-- CRUD complet catégories + compétences avec filtres avancés ;
+- CRUD catégories + compétences avec filtres avancés (suppression skill hors MVP) ;
 - archivage / restauration logique des compétences ;
 - endpoints options pour les sélecteurs UI ;
 - isolation client stricte + RBAC `skills.*` + audit ;
@@ -542,10 +537,8 @@ Ce référentiel est le **prérequis direct** de :
 # 8. Points de vigilance
 
 - ne pas confondre `referenceLevel` (niveau attendu, sur `Skill`) avec le futur niveau réel du collaborateur (sur `CollaboratorSkill` en TEAM-004) ;
-- ne pas supprimer physiquement une compétence qui a des associations collaborateurs (garde pour TEAM-004) ;
-- verrouiller l'unicité nom/client en Prisma **et** en service (double sécurité) ;
+- suppression skill non exposée en MVP (archive/restore uniquement) ;
+- verrouiller l'unicité `normalizedName` en Prisma **et** en service (double sécurité) ;
 - les options API doivent toujours retourner `name` + `categoryName`, jamais des IDs seuls comme labels ;
-- anticiper l'extensibilité : le champ `metadata Json?` permet d'ajouter des certifications, des liens documentaires, etc. sans migration ;
 - ne pas migrer le champ JSON `skills` de `Collaborator` maintenant — ce sera le rôle de TEAM-004 ;
-- le `color` sur `SkillCategory` est optionnel ; le frontend doit gérer le cas `null` avec un fallback couleur par défaut ;
 - garder `onDelete: Restrict` sur `category → skills` pour éviter la perte silencieuse de données.
