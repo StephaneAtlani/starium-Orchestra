@@ -7,6 +7,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -48,9 +49,10 @@ import {
 } from 'lucide-react';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
-import { useQuery } from '@tanstack/react-query';
-import { listProjectPortfolioCategories } from '../api/projects.api';
+import { listProjectPortfolioCategories, listProjectTags } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
+import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 
 const textareaClass = cn(
   'min-h-[100px] w-full resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm transition-colors outline-none',
@@ -128,6 +130,9 @@ export function ProjectCreateForm() {
   const [ownerResourceId, setOwnerResourceId] = useState('');
   /** Détails pour libellé / soumission (liste ou ressource tout juste créée). */
   const [ownerResourceDetails, setOwnerResourceDetails] = useState<ResourceListItem | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [tagToAdd, setTagToAdd] = useState('');
   const ownerSummaryLine = useMemo(() => {
     if (!ownerResourceId) {
       return 'Personne du catalogue — choisissez ou créez dans la modale.';
@@ -160,6 +165,24 @@ export function ProjectCreateForm() {
             })),
         ),
     [categoriesQuery.data],
+  );
+
+  const tagsOptionsQuery = useQuery({
+    queryKey: projectQueryKeys.optionsTags(clientId),
+    queryFn: () => listProjectTags(authFetch),
+    enabled: Boolean(clientId),
+  });
+  const tagCatalog = tagsOptionsQuery.data ?? [];
+  const availableTagsForCreate = useMemo(
+    () => tagCatalog.filter((t) => !selectedTagIds.includes(t.id)),
+    [tagCatalog, selectedTagIds],
+  );
+  const selectedTagsResolved = useMemo(
+    () =>
+      selectedTagIds
+        .map((id) => tagCatalog.find((t) => t.id === id))
+        .filter((t): t is (typeof tagCatalog)[number] => t != null),
+    [selectedTagIds, tagCatalog],
   );
 
   const submit = (e: FormEvent) => {
@@ -198,7 +221,10 @@ export function ProjectCreateForm() {
       body.ownerAffiliation = r.affiliation === 'EXTERNAL' ? 'EXTERNAL' : 'INTERNAL';
     }
 
-    create.mutate(body);
+    create.mutate({
+      body,
+      tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+    });
   };
 
   const field = 'flex min-w-0 flex-col gap-1.5';
@@ -511,6 +537,70 @@ export function ProjectCreateForm() {
               <p className="text-xs text-muted-foreground">
                 Optionnel. Sinon calculé plus tard à partir des tâches.
               </p>
+            </div>
+            <div className={field}>
+              <Label className="text-foreground">Étiquettes</Label>
+              <p className="text-xs text-muted-foreground">
+                Optionnel. Même référentiel que sur la fiche projet ; vous pourrez en ajouter ou
+                retirer ensuite.
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                {selectedTagsResolved.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedTagsResolved.map((tag) => (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedTagIds((ids) => ids.filter((id) => id !== tag.id))
+                        }
+                        title="Retirer cette étiquette"
+                        className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <RegistryBadge style={projectTagBadgeStyle(tag.color)}>
+                          {tag.name} ×
+                        </RegistryBadge>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Aucune étiquette sélectionnée.</span>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 shrink-0 p-0"
+                  onClick={() => setTagPickerOpen((prev) => !prev)}
+                  title="Ajouter une étiquette"
+                  disabled={!clientId || availableTagsForCreate.length === 0}
+                >
+                  +
+                </Button>
+                {tagPickerOpen && availableTagsForCreate.length > 0 ? (
+                  <Select
+                    value={tagToAdd}
+                    onValueChange={(value) => {
+                      if (!value) return;
+                      setTagToAdd('');
+                      if (selectedTagIds.includes(value)) return;
+                      setSelectedTagIds((ids) => [...ids, value]);
+                      setTagPickerOpen(false);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[min(100%,220px)] max-w-[220px]">
+                      <SelectValue placeholder="Choisir une étiquette" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTagsForCreate.map((tag) => (
+                        <SelectItem key={tag.id} value={tag.id}>
+                          {tag.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+              </div>
             </div>
           </Section>
             </div>

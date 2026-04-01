@@ -339,7 +339,7 @@ export function ProjectsListTable({
         </TableRow>
         <TableRow className="border-t border-border/50 bg-muted/35 pt-0 hover:bg-muted/35">
           {/* CATEGORIE */}
-          <TableHead className="sticky left-0 z-[45] h-auto min-h-0 bg-muted px-2 pb-2 pt-0 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
+          <TableHead className="sticky left-0 z-[52] h-auto min-h-0 bg-muted px-2 pb-2 pt-0 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
             <Select
               value={categoryKey}
               onValueChange={(v) =>
@@ -376,7 +376,7 @@ export function ProjectsListTable({
             </Select>
           </TableHead>
           {/* PROJET */}
-          <TableHead className="sticky left-[11rem] z-[45] h-auto min-h-0 bg-muted px-2 pb-2 pt-0 shadow-[1px_0_0_0_hsl(var(--border))]">
+          <TableHead className="sticky left-[11rem] z-[52] h-auto min-h-0 bg-muted px-2 pb-2 pt-0 shadow-[1px_0_0_0_hsl(var(--border))]">
             <Input
               value={filters.search ?? ''}
               onChange={(e) => setFilters({ search: e.target.value || undefined })}
