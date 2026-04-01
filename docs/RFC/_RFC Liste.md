@@ -31,7 +31,7 @@
 | RFC | Nom | État | Commentaire |
 | --- | --- | --- | --- |
 | **RFC-TEAM-001** | Synchronisation des collaborateurs depuis AD DS | ✅ Implémentée (MVP) | Implémentation Microsoft Graph/Entra ; provisioning auto vers `Membres` (`User` + `ClientUser`) ; verrouillage des membres synchronisés |
-| **RFC-TEAM-002** | Référentiel Collaborateurs métier | ❌ À faire | CRUD métier des collaborateurs (identité, type, fonction, manager, statut, source, tags, notes, règles sync) ; voir [RFC](./RFC-TEAM-002%20%E2%80%94%20R%C3%A9f%C3%A9rentiel%20Collaborateurs%20m%C3%A9tier.md) |
+| **RFC-TEAM-002** | Référentiel Collaborateurs métier | ✅ Implémentée (backend MVP) | CRUD métier des collaborateurs (identité, fonction, manager, statut, source, tags, notes, règles sync) ; voir [RFC](./RFC-TEAM-002%20%E2%80%94%20R%C3%A9f%C3%A9rentiel%20Collaborateurs%20m%C3%A9tier.md) |
 
 ---
 

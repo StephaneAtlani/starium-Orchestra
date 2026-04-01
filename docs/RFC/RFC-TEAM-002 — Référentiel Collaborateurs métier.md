@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft (backend en cours)
+Implémentée (backend MVP)
 
 ## Priorité
 
@@ -56,8 +56,9 @@ Objectif de cette RFC : définir la première brique métier réelle du module �
 - `apps/api/src/modules/collaborators/dto/update-collaborator.dto.ts`
 - `apps/api/src/modules/collaborators/dto/list-collaborators.query.dto.ts`
 - `apps/api/src/modules/collaborators/dto/update-collaborator-status.dto.ts`
-- `apps/api/src/modules/collaborators/tests/collaborators.service.spec.ts`
-- `apps/api/src/modules/collaborators/tests/collaborators.controller.spec.ts`
+- `apps/api/src/modules/collaborators/collaborators.service.spec.ts`
+- `apps/api/src/modules/collaborators/collaborators.controller.spec.ts`
+- `apps/api/src/modules/collaborators/tests/collaborators.integration.spec.ts`
 
 ## Prisma — lot MVP inclus
 
@@ -98,10 +99,10 @@ CRUD métier de `Collaborator` :
 - **Scope client strict** : toute lecture/écriture filtrée par `clientId` actif autorisé.
 - **Aucune fuite inter-client** : un manager doit appartenir au même client.
 - **Synchronisé vs manuel** :
-  - `source=SYNCED` : champs d’identité verrouillables selon politique ;
+  - `source=DIRECTORY_SYNC` : champs d’identité verrouillables selon politique ;
   - `source=MANUAL` : édition complète autorisée.
 - **Suppression** :
-  - suppression logique recommandée (`archivedAt` ou statut) ;
+  - suppression logique via `status` (`INACTIVE` pour manuel, `DISABLED_SYNC` pour synchronisé) ;
   - pas de suppression physique par défaut si données liées.
 - **Tags** :
   - stocker clé interne, exposer libellé métier ;
@@ -162,9 +163,11 @@ Règles de contrat backend :
 
 - format liste/options unique : `{ items, total, limit, offset }` ;
 - pagination : `limit`/`offset` ;
+- defaults pagination : `GET /api/collaborators` = `limit 20`, `GET /api/collaborators/options/managers` = `limit 20`, `GET /api/collaborators/options/tags` = `limit 50` ;
 - valeurs canoniques uniquement : `status`, `source` ;
 - champs d’affichage utiles inclus (`displayName`, `managerDisplayName`) ;
 - aucun libellé UX localisé dans l’API (`statusLabel`, `sourceLabel` interdits).
+- changement de statut via endpoint dédié uniquement : `PATCH /api/collaborators/:id/status`.
 
 ## 4.5 Permissions et audit
 
