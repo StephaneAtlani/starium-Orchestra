@@ -1,8 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { MouseEvent as ReactMouseEvent } from 'react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -36,57 +34,7 @@ import {
   ChevronRight,
   Plus,
 } from 'lucide-react';
-
-function useTablePan() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const panRef = useRef<{
-    startX: number;
-    startY: number;
-    startScrollLeft: number;
-    startScrollTop: number;
-  } | null>(null);
-  const [isPanning, setIsPanning] = useState(false);
-
-  useEffect(() => {
-    if (!isPanning) return;
-    const onMove = (e: MouseEvent) => {
-      const el = scrollRef.current;
-      const pan = panRef.current;
-      if (!el || !pan) return;
-      el.scrollLeft = pan.startScrollLeft - (e.clientX - pan.startX);
-      el.scrollTop = pan.startScrollTop - (e.clientY - pan.startY);
-      e.preventDefault();
-    };
-    const onUp = () => {
-      panRef.current = null;
-      setIsPanning(false);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, [isPanning]);
-
-  const onMouseDown = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    const target = e.target as HTMLElement;
-    if (target.closest('a[href], input, textarea, select, label, button, [role="button"]')) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    panRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startScrollLeft: el.scrollLeft,
-      startScrollTop: el.scrollTop,
-    };
-    setIsPanning(true);
-    e.preventDefault();
-  }, []);
-
-  return { scrollRef, isPanning, onMouseDown };
-}
+import { useTablePan } from '@/hooks/use-table-pan';
 
 export default function ProjectsPortfolioPage() {
   const { activeClient } = useActiveClient();

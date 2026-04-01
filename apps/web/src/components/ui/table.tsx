@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { useTablePan } from "@/hooks/use-table-pan"
 
 function Table({
   className,
@@ -17,12 +18,22 @@ function Table({
     />
   );
   if (noWrapper) return table;
+  return <TableContainer>{table}</TableContainer>;
+}
+
+function TableContainer({ children }: { children: React.ReactNode }) {
+  const pan = useTablePan();
   return (
     <div
+      ref={pan.scrollRef}
+      onMouseDown={pan.onMouseDown}
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn(
+        "relative w-full overflow-x-auto",
+        pan.isPanning ? "cursor-grabbing select-none" : "cursor-grab",
+      )}
     >
-      {table}
+      {children}
     </div>
   );
 }
@@ -114,6 +125,7 @@ function TableCaption({
 
 export {
   Table,
+  TableContainer,
   TableHeader,
   TableBody,
   TableFooter,
