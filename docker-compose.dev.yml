@@ -12,6 +12,8 @@
 #   - Web (Next dev)  : http://localhost:3000
 #   - API (Nest dev)  : http://localhost:3001/api
 #   - Postgres         : localhost:5432
+#   - MailHog (SMTP capture dev uniquement) :
+#       UI http://localhost:8025 — SMTP localhost:1025 (hôte) / mailhog:1025 (réseau compose)
 #
 # Notes :
 # - Le fichier .env n'est pas packagé dans l'image (voir .dockerignore).
@@ -28,11 +30,21 @@ x-api-base-env: &api-base-env
   DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
   PORT: "3001"
 
-x-depends-postgres-healthy: &depends-postgres-healthy
+x-depends-api-dev: &depends-api-dev
   postgres:
     condition: service_healthy
+  mailhog:
+    condition: service_started
 
 services:
+  # Capture SMTP en dev uniquement (MFA fallback email, tests). Absent de docker-compose.yml (prod).
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -57,6 +69,11 @@ services:
     environment:
       # Écrase le DATABASE_URL/PORT pour le réseau Docker.
       <<: *api-base-env
+      # SMTP → MailHog (service ci-dessus). Remplace toute valeur SMTP dans apps/api/.env pour ce profil.
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_FROM: dev@starium.local
     ports:
       - "3001:3001"
     volumes:
@@ -74,7 +91,7 @@ services:
       - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
       - ./apps/api/src:/app/apps/api/src
       - ./apps/api/prisma:/app/apps/api/prisma
-    depends_on: *depends-postgres-healthy
+    depends_on: *depends-api-dev
     healthcheck:
       test:
         [
