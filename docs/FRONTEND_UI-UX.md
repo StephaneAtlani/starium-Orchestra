@@ -142,6 +142,20 @@ function Button({
 export { Button, buttonVariants };
 ```
 
+### 5.1 Select — `SelectValue` et libellés (Base UI)
+
+Le `**Select**` repose sur **`@base-ui/react/select`**. Si la valeur sélectionnée est une **clé technique** (ex. option « tout » avec la valeur `__all` / `__all__`), un **`<SelectValue placeholder="…" />` sans enfants** peut afficher cette **valeur brute** dans le trigger au lieu du texte de l’item.
+
+**Règle** : pour les filtres avec sentinelle « tout », passer le **libellé affiché** en **enfants** de `SelectValue` (comme sur la liste projets : `kindKey === '__all__' ? 'Toutes' : PROJECT_KIND_LABEL[kindKey]`, ou libellés dérivés du registry / des options).
+
+```tsx
+<SelectTrigger size="sm" className="h-7 w-full text-xs">
+  <SelectValue placeholder="Tous">{statusFilterLabel}</SelectValue>
+</SelectTrigger>
+```
+
+Référence code : `features/projects/components/projects-list-table.tsx`, `features/projects/components/action-plan-tasks-table.tsx`.
+
 ---
 
 ## 6. KPI — `KpiCard`
@@ -254,12 +268,14 @@ PageContainer
   PageHeader
   ProjectsPortfolioKpi
   LoadingState / Alert erreur
-  Card (liste)
+  Card (liste, max-h + overflow-hidden)
     ProjectsToolbar embedded
-    CardContent p-0 → ProjectsListTable   (si données)
+    CardContent (scroll + useTablePan) → ProjectsListTable   (si données)
     CardFooter → PaginationSummary + Précédent / Suivant
     ou CardContent → EmptyState / LoadingState
 ```
+
+Le **`CardContent`** qui porte la liste est le **conteneur de scroll** (`min-h-0 flex-1 overflow-auto`, `ref` + `useTablePan` pour le grab/pan — voir **§8**). Le tableau utilise **`Table noWrapper`** pour que l’en-tête sticky reste cohérent (pas de second `overflow-x-auto` uniquement horizontal entre le scroll et `<thead>`).
 
 Autres écrans (ex. **plan d’action détail**, §11) peuvent utiliser une **variante** : `Card` filtres **séparée** avec sections Recherche / Filtrer par et filets `h-px bg-border/70` — même esprit de tokens (`border-border/60`, `Card size="sm"`), mais **sans** ligne de filtres dans le tableau lorsque la grille de colonnes est plus simple.
 
@@ -268,7 +284,9 @@ Autres écrans (ex. **plan d’action détail**, §11) peuvent utiliser une **va
 ## 8. Liste dans une `Card` + table
 
 - En-tête : `CardHeader` + `CardTitle` / `CardDescription`.
-- **Ne pas doubler** le conteneur scroll : le composant `**Table`** (`@/components/ui/table`) enveloppe déjà la balise `<table>` dans un `div` avec `overflow-x-auto` et `data-slot="table-container"`. Le `**CardContent**` peut donc être en `**p-0**` avec le composant liste **directement** en enfant (ex. `ProjectsListTable`).
+- **Composant `Table`** (`apps/web/src/components/ui/table.tsx`) : par défaut (sans `noWrapper`), la `<table>` est dans un `div` `data-slot="table-container"` avec `overflow-x-auto`, **`cursor-grab`** / **`cursor-grabbing`** pendant le déplacement, et le hook **`useTablePan`** (`apps/web/src/hooks/use-table-pan.ts`) — **clic gauche maintenu + glisser** pour faire défiler (horizontal ; vertical aussi si le conteneur a les deux axes). Les **liens, boutons, champs, selects, labels** ne déclenchent pas le pan (même esprit que le Gantt portefeuille : `docs/modules/portfolio-gantt-ui.md` §5). **`TableContainer`** est exporté si un écran doit réutiliser ce wrapper seul.
+- **En-tête sticky** (`thead` avec `sticky top-0`, colonnes `sticky left-*`) : le **scroll** doit être sur le **parent direct** attendu par le navigateur pour `sticky`. Si la carte a une **hauteur max** et un scroll **vertical** sur `CardContent`, utiliser **`Table noWrapper`** pour éviter un wrapper `overflow-x-auto` **intermédiaire** qui casse le sticky sur `<thead>` — le scroll horizontal + vertical est alors sur le `CardContent` (souvent couplé à `useTablePan` sur ce même nœud). Exemple : page **`/projects`** (`app/(protected)/projects/page.tsx`) + `ProjectsListTable` (`Table noWrapper`).
+- Si le tableau n’a **pas** besoin d’en-tête sticky dans un conteneur à hauteur bornée : pattern simple `CardContent` en `p-0` + composant qui utilise `Table` **sans** `noWrapper` — le grab/pan du wrapper `table-container` s’applique déjà.
 - Pied : `CardFooter` (pagination, actions).
 
 ```tsx
@@ -280,13 +298,24 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { useTablePan } from '@/hooks/use-table-pan';
+import { cn } from '@/lib/utils';
 
-<Card size="sm" className="overflow-hidden shadow-sm">
+const tablePan = useTablePan();
+
+<Card size="sm" className="max-h-[min(75vh,800px)] overflow-hidden shadow-sm">
   <CardHeader className="border-b border-border/60 pb-3">
     <CardTitle className="text-sm font-medium">Liste des projets</CardTitle>
     <CardDescription className="text-xs">Cliquez sur un nom pour ouvrir la fiche détail.</CardDescription>
   </CardHeader>
-  <CardContent className="p-0">
+  <CardContent
+    ref={tablePan.scrollRef}
+    onMouseDown={tablePan.onMouseDown}
+    className={cn(
+      'min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
+      tablePan.isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+    )}
+  >
     <ProjectsListTable items={items} />
   </CardContent>
   <CardFooter>{/* pagination */}</CardFooter>

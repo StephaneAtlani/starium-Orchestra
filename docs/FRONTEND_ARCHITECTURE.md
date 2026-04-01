@@ -155,6 +155,8 @@ Les composants shadcn (base-nova) s’appuient sur :
 
 Ces paquets doivent être déclarés dans `apps/web/package.json`. Ajout de composants via le CLI shadcn : `npx shadcn@latest add <component>`.
 
+Le composant **`Table`** (`apps/web/src/components/ui/table.tsx`) enveloppe par défaut la `<table>` dans un conteneur scroll avec **grab/pan** (`useTablePan`, `apps/web/src/hooks/use-table-pan.ts`). Détail, cas **`noWrapper`** (en-têtes sticky) et **`SelectValue`** (libellés filtres) : [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §5.1 et §8.
+
 ### Pourquoi ces choix
 
 * **Next.js** : structure applicative, layouts, server/client components
