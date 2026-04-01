@@ -74,9 +74,9 @@ describe('CollaboratorsService', () => {
     });
     (prisma.collaborator.update as jest.Mock).mockImplementation(
       ({ where, data }: any) => ({
-        id: where.id,
         ...manualCollaborator,
         ...data,
+        id: where.id,
         manager: null,
       }),
     );
@@ -278,6 +278,56 @@ describe('CollaboratorsService', () => {
         }),
       }),
     );
+  });
+
+  it('update() ne modifie pas le statut même si le payload contenait status', async () => {
+    (prisma.collaborator.findFirst as jest.Mock).mockResolvedValue(manualCollaborator);
+    await service.update(clientId, manualCollaborator.id, { internalNotes: 'test' } as any, 'user-1');
+    const updateCall = (prisma.collaborator.update as jest.Mock).mock.calls[0][0];
+    expect(updateCall.data).not.toHaveProperty('status');
+  });
+
+  it('refuse création manuelle avec statut DISABLED_SYNC', async () => {
+    await expect(
+      service.create(
+        clientId,
+        {
+          displayName: 'Bad Status',
+          source: CollaboratorSource.MANUAL,
+          status: CollaboratorStatus.DISABLED_SYNC,
+        },
+        'user-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('autorise création manuelle avec statut INACTIVE', async () => {
+    (prisma.collaborator.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.collaborator.create as jest.Mock).mockResolvedValue({
+      ...manualCollaborator,
+      status: CollaboratorStatus.INACTIVE,
+      manager: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const out = await service.create(
+      clientId,
+      {
+        displayName: 'Inactive Manual',
+        source: CollaboratorSource.MANUAL,
+        status: CollaboratorStatus.INACTIVE,
+      },
+      'user-1',
+    );
+    expect(out.status).toBe(CollaboratorStatus.INACTIVE);
+  });
+
+  it('options tags retourne limit=50 par défaut', async () => {
+    (prisma.collaborator.findMany as jest.Mock).mockResolvedValue([
+      { internalTags: ['alpha', 'beta'] },
+    ]);
+    const out = await service.listTagsOptions(clientId, {});
+    expect(out.limit).toBe(50);
   });
 
   it('émet un audit status_updated sur updateStatus', async () => {

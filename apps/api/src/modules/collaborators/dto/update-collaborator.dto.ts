@@ -1,5 +1,5 @@
-import { CollaboratorStatus, ExternalDirectoryType } from '@prisma/client';
-import { IsEnum, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateCollaboratorDto {
   @IsOptional()
@@ -18,6 +18,9 @@ export class UpdateCollaboratorDto {
   displayName?: string;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
   @IsString()
   @MaxLength(190)
   email?: string | null;
@@ -43,30 +46,10 @@ export class UpdateCollaboratorDto {
   managerId?: string | null;
 
   @IsOptional()
-  @IsEnum(CollaboratorStatus)
-  status?: CollaboratorStatus;
-
-  @IsOptional()
-  @IsEnum(ExternalDirectoryType)
-  externalDirectoryType?: ExternalDirectoryType | null;
-
-  @IsOptional()
-  @IsObject()
-  skills?: Record<string, unknown> | null;
-
-  @IsOptional()
   @IsString()
   internalNotes?: string | null;
 
   @IsOptional()
   @IsObject()
   internalTags?: Record<string, unknown> | null;
-
-  @IsOptional()
-  @IsObject()
-  assignments?: Record<string, unknown> | null;
-
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, unknown> | null;
 }

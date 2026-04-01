@@ -19,6 +19,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateCollaboratorDto } from './dto/create-collaborator.dto';
 import { ListCollaboratorOptionsQueryDto } from './dto/list-collaborator-options.query.dto';
+import { ListCollaboratorTagsOptionsQueryDto } from './dto/list-collaborator-tags-options.query.dto';
 import { ListCollaboratorsQueryDto } from './dto/list-collaborators.query.dto';
 import { UpdateCollaboratorDto } from './dto/update-collaborator.dto';
 import { UpdateCollaboratorStatusDto } from './dto/update-collaborator-status.dto';
@@ -63,7 +64,7 @@ export class CollaboratorsController {
   @RequirePermissions('collaborators.read')
   listTagsOptions(
     @ActiveClientId() clientId: string | undefined,
-    @Query() query: ListCollaboratorOptionsQueryDto,
+    @Query() query: ListCollaboratorTagsOptionsQueryDto,
   ) {
     return this.collaborators.listTagsOptions(clientId!, query);
   }

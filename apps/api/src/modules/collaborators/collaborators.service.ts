@@ -127,6 +127,13 @@ export class CollaboratorsService {
       throw new BadRequestException('La création métier autorise uniquement source=MANUAL');
     }
 
+    const status = dto.status ?? CollaboratorStatus.ACTIVE;
+    if (status !== CollaboratorStatus.ACTIVE && status !== CollaboratorStatus.INACTIVE) {
+      throw new BadRequestException(
+        'Statut initial autorisé pour un collaborateur manuel : ACTIVE ou INACTIVE',
+      );
+    }
+
     const managerId = dto.managerId?.trim();
     if (managerId) {
       await this.ensureManagerInClient(clientId, managerId);
@@ -160,7 +167,7 @@ export class CollaboratorsService {
         username: dto.username ?? null,
         jobTitle: dto.jobTitle ?? null,
         department: dto.department ?? null,
-        status: dto.status ?? CollaboratorStatus.ACTIVE,
+        status,
         source: CollaboratorSource.MANUAL,
         managerId: managerId || null,
         internalTags:
@@ -257,10 +264,6 @@ export class CollaboratorsService {
     if (dto.username !== undefined) data.username = dto.username;
     if (dto.jobTitle !== undefined) data.jobTitle = dto.jobTitle;
     if (dto.department !== undefined) data.department = dto.department;
-    if (dto.status !== undefined) data.status = dto.status;
-    if (dto.externalDirectoryType !== undefined) {
-      data.externalDirectoryType = dto.externalDirectoryType;
-    }
     if (dto.managerId !== undefined) {
       if (dto.managerId === null || dto.managerId === '') {
         data.manager = { disconnect: true };

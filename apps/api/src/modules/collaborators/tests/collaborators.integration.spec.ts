@@ -54,6 +54,13 @@ describe('Collaborators integration (module-scoped)', () => {
     );
   });
 
+  it('options tags applique limit=50 par défaut', async () => {
+    prisma.collaborator.findMany.mockResolvedValue([]);
+    const out = await service.listTagsOptions('client-A', {});
+    expect(out.limit).toBe(50);
+    expect(out.offset).toBe(0);
+  });
+
   it('soft delete synchronisé -> DISABLED_SYNC', async () => {
     prisma.collaborator.findFirst.mockResolvedValue({
       id: 'col-1',

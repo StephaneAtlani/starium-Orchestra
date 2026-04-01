@@ -8,6 +8,8 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CollaboratorsController } from './collaborators.controller';
 import { CollaboratorsService } from './collaborators.service';
+import { UpdateCollaboratorDto } from './dto/update-collaborator.dto';
+import { ListCollaboratorTagsOptionsQueryDto } from './dto/list-collaborator-tags-options.query.dto';
 
 const passGuard = { canActivate: () => true };
 
@@ -94,5 +96,36 @@ describe('CollaboratorsController', () => {
       CollaboratorsController.prototype.softDelete,
     );
     expect(perms).toEqual(['collaborators.delete']);
+  });
+
+  it('UpdateCollaboratorDto ne contient pas status', () => {
+    const dto = new UpdateCollaboratorDto();
+    expect(dto).not.toHaveProperty('status');
+    expect(Object.getOwnPropertyDescriptor(UpdateCollaboratorDto.prototype, 'status')).toBeUndefined();
+  });
+
+  it('UpdateCollaboratorDto ne contient pas les champs hors scope (skills, assignments, metadata, externalDirectoryType)', () => {
+    const keys = Object.getOwnPropertyNames(new UpdateCollaboratorDto());
+    expect(keys).not.toContain('skills');
+    expect(keys).not.toContain('assignments');
+    expect(keys).not.toContain('metadata');
+    expect(keys).not.toContain('externalDirectoryType');
+  });
+
+  it('ListCollaboratorTagsOptionsQueryDto a limit=50 par défaut', () => {
+    const dto = new ListCollaboratorTagsOptionsQueryDto();
+    expect(dto.limit).toBe(50);
+  });
+
+  it('route options/tags utilise le DTO dédié tags', () => {
+    const paramTypes = Reflect.getMetadata(
+      'design:paramtypes',
+      CollaboratorsController.prototype,
+      'listTagsOptions',
+    );
+    const hasTagsDto = paramTypes?.some(
+      (t: any) => t === ListCollaboratorTagsOptionsQueryDto,
+    );
+    expect(hasTagsDto).toBe(true);
   });
 });
