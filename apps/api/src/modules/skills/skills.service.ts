@@ -229,7 +229,7 @@ export class SkillsService {
     if (dto.referenceLevel !== undefined) data.referenceLevel = dto.referenceLevel;
     if (dto.categoryId !== undefined) {
       await this.ensureCategoryInClient(clientId, dto.categoryId);
-      data.categoryId = dto.categoryId;
+      data.category = { connect: { id: dto.categoryId } };
     }
 
     let updated: SkillWithCategory;
