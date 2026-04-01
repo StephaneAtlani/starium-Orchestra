@@ -57,7 +57,7 @@ export function BudgetCockpitWidgetRenderer({
                   animateAmounts={animateAmounts}
                 />
                 {w.data.capexOpexDistribution ? (
-                  <div className="mt-4 max-w-3xl">
+                  <div className="mt-4 w-full min-w-0">
                     <BudgetCapexOpexCard
                       capexOpexDistribution={w.data.capexOpexDistribution}
                       currency={budget.currency}
