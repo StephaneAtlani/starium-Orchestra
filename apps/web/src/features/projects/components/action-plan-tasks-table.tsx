@@ -192,6 +192,22 @@ export function ActionPlanTasksTable({
   const riskKey = riskId || '__all';
   const ownerKey = ownerUserId || '__all';
 
+  /** Base UI : sans enfants, SelectValue affiche la valeur brute (`__all`) — libellés explicites. */
+  const statusFilterLabel =
+    statusKey === '__all' ? 'Tous' : taskStatusLabel(merged, statusKey);
+  const priorityFilterLabel =
+    priorityKey === '__all' ? 'Toutes' : taskPriorityLabel(merged, priorityKey);
+  const projectFilterLabel =
+    projectKey === '__all'
+      ? 'Tous projets'
+      : projectOptions.find((p) => p.id === projectId)?.label ?? '—';
+  const riskFilterLabel =
+    riskKey === '__all'
+      ? 'Tous risques'
+      : riskOptions.find((r) => r.id === riskId)?.label ?? '—';
+  const ownerFilterLabel =
+    ownerKey === '__all' ? 'Tous' : formatUser(ownerUserId, users);
+
   return (
     <TooltipProvider delay={250}>
       <Table className="min-w-[72rem] text-sm">
@@ -302,7 +318,7 @@ export function ActionPlanTasksTable({
                 onValueChange={(v) => onStatusChange(!v || v === '__all' ? '' : v)}
               >
                 <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue placeholder="Tous" />
+                  <SelectValue placeholder="Tous">{statusFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">Tous</SelectItem>
@@ -320,7 +336,7 @@ export function ActionPlanTasksTable({
                 onValueChange={(v) => onPriorityChange(!v || v === '__all' ? '' : v)}
               >
                 <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue placeholder="Toutes" />
+                  <SelectValue placeholder="Toutes">{priorityFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">Toutes</SelectItem>
@@ -338,7 +354,7 @@ export function ActionPlanTasksTable({
                 onValueChange={(v) => onProjectIdChange(!v || v === '__all' ? '' : v)}
               >
                 <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue placeholder="Tous" />
+                  <SelectValue placeholder="Tous projets">{projectFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">Tous projets</SelectItem>
@@ -356,7 +372,7 @@ export function ActionPlanTasksTable({
                 onValueChange={(v) => onRiskIdChange(!v || v === '__all' ? '' : v)}
               >
                 <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue placeholder="Tous" />
+                  <SelectValue placeholder="Tous risques">{riskFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">Tous risques</SelectItem>
@@ -386,7 +402,7 @@ export function ActionPlanTasksTable({
                 onValueChange={(v) => onOwnerUserIdChange(!v || v === '__all' ? '' : v)}
               >
                 <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue placeholder="Tous" />
+                  <SelectValue placeholder="Tous">{ownerFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">Tous</SelectItem>
