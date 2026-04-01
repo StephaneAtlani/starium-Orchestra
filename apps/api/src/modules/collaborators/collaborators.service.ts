@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -13,8 +14,11 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CreateCollaboratorDto } from './dto/create-collaborator.dto';
+import { ListCollaboratorOptionsQueryDto } from './dto/list-collaborator-options.query.dto';
 import { ListCollaboratorsQueryDto } from './dto/list-collaborators.query.dto';
 import { UpdateCollaboratorDto } from './dto/update-collaborator.dto';
+import { UpdateCollaboratorStatusDto } from './dto/update-collaborator-status.dto';
 
 type AuditMeta = { ipAddress?: string; userAgent?: string; requestId?: string };
 
@@ -39,11 +43,9 @@ export type DirectoryCollaboratorInput = {
 };
 
 const LOCAL_MUTABLE_FIELDS = new Set([
-  'skills',
+  'status',
   'internalNotes',
   'internalTags',
-  'assignments',
-  'metadata',
 ]);
 
 @Injectable()
@@ -54,7 +56,13 @@ export class CollaboratorsService {
   ) {}
 
   async list(clientId: string, query: ListCollaboratorsQueryDto) {
-    const where: Prisma.CollaboratorWhereInput = { clientId };
+    const where: Prisma.CollaboratorWhereInput = {
+      clientId,
+      status:
+        query.status && query.status.length > 0
+          ? { in: query.status }
+          : CollaboratorStatus.ACTIVE,
+    };
     if (query.search?.trim()) {
       const s = query.search.trim();
       where.OR = [
@@ -64,9 +72,36 @@ export class CollaboratorsService {
         { department: { contains: s, mode: 'insensitive' } },
       ];
     }
+    if (query.source?.length) {
+      where.source = { in: query.source };
+    }
+    if (query.managerId) {
+      where.managerId = query.managerId;
+    }
 
     const offset = query.offset ?? 0;
-    const limit = query.limit ?? 50;
+    const limit = query.limit ?? 20;
+
+    // Tag filtering is done in-memory because internalTags is JSON and can have mixed shapes.
+    if (query.tag?.length) {
+      const all = await this.prisma.collaborator.findMany({
+        where,
+        orderBy: [{ displayName: 'asc' }],
+        include: { manager: { select: { displayName: true } } },
+      });
+      const filtered = all.filter((row) =>
+        this.extractTagLabels(row.internalTags).some((label) =>
+          query.tag!.some((tag) => label === tag.toLowerCase()),
+        ),
+      );
+      return {
+        items: filtered.slice(offset, offset + limit).map((item) => this.toListItem(item)),
+        total: filtered.length,
+        offset,
+        limit,
+      };
+    }
+
     const [total, items] = await this.prisma.$transaction([
       this.prisma.collaborator.count({ where }),
       this.prisma.collaborator.findMany({
@@ -74,10 +109,96 @@ export class CollaboratorsService {
         skip: offset,
         take: limit,
         orderBy: [{ displayName: 'asc' }],
+        include: { manager: { select: { displayName: true } } },
       }),
     ]);
 
-    return { items, total, offset, limit };
+    return { items: items.map((item) => this.toListItem(item)), total, offset, limit };
+  }
+
+  async create(
+    clientId: string,
+    dto: CreateCollaboratorDto,
+    actorUserId?: string,
+    meta?: AuditMeta,
+  ) {
+    const source = dto.source ?? CollaboratorSource.MANUAL;
+    if (source !== CollaboratorSource.MANUAL) {
+      throw new BadRequestException('La création métier autorise uniquement source=MANUAL');
+    }
+
+    const managerId = dto.managerId?.trim();
+    if (managerId) {
+      await this.ensureManagerInClient(clientId, managerId);
+    }
+
+    const normalizedEmail = this.normalizeEmail(dto.email);
+    if (normalizedEmail) {
+      const existingByEmail = await this.prisma.collaborator.findFirst({
+        where: {
+          clientId,
+          email: { equals: normalizedEmail, mode: 'insensitive' },
+        },
+      });
+      if (existingByEmail) {
+        if (existingByEmail.source === CollaboratorSource.DIRECTORY_SYNC) {
+          throw new ConflictException(
+            'Un collaborateur synchronisé existe déjà avec cet email. Mettre à jour la fiche existante.',
+          );
+        }
+        throw new ConflictException('Un collaborateur existe déjà avec cet email dans ce client.');
+      }
+    }
+
+    const created = await this.prisma.collaborator.create({
+      data: {
+        clientId,
+        displayName: dto.displayName.trim(),
+        firstName: dto.firstName ?? null,
+        lastName: dto.lastName ?? null,
+        email: normalizedEmail,
+        username: dto.username ?? null,
+        jobTitle: dto.jobTitle ?? null,
+        department: dto.department ?? null,
+        status: dto.status ?? CollaboratorStatus.ACTIVE,
+        source: CollaboratorSource.MANUAL,
+        managerId: managerId || null,
+        internalTags:
+          dto.internalTags === undefined
+            ? Prisma.JsonNull
+            : dto.internalTags === null
+              ? Prisma.JsonNull
+              : (dto.internalTags as Prisma.InputJsonValue),
+        internalNotes: dto.internalNotes ?? null,
+      },
+      include: { manager: { select: { displayName: true } } },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: actorUserId,
+      action: 'collaborator.created',
+      resourceType: 'collaborator',
+      resourceId: created.id,
+      newValue: {
+        displayName: created.displayName,
+        status: created.status,
+        source: created.source,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+    return this.toListItem(created);
+  }
+
+  async getById(clientId: string, id: string) {
+    const collaborator = await this.prisma.collaborator.findFirst({
+      where: { id, clientId },
+      include: { manager: { select: { displayName: true } } },
+    });
+    if (!collaborator) throw new NotFoundException('Collaborator introuvable');
+    return this.toListItem(collaborator);
   }
 
   async update(
@@ -117,7 +238,22 @@ export class CollaboratorsService {
     if (dto.firstName !== undefined) data.firstName = dto.firstName;
     if (dto.lastName !== undefined) data.lastName = dto.lastName;
     if (dto.displayName !== undefined) data.displayName = dto.displayName;
-    if (dto.email !== undefined) data.email = dto.email;
+    if (dto.email !== undefined) {
+      const normalizedEmail = this.normalizeEmail(dto.email);
+      if (normalizedEmail) {
+        const existingByEmail = await this.prisma.collaborator.findFirst({
+          where: {
+            clientId,
+            email: { equals: normalizedEmail, mode: 'insensitive' },
+            NOT: { id: existing.id },
+          },
+        });
+        if (existingByEmail) {
+          throw new ConflictException('Un collaborateur existe déjà avec cet email dans ce client.');
+        }
+      }
+      data.email = normalizedEmail;
+    }
     if (dto.username !== undefined) data.username = dto.username;
     if (dto.jobTitle !== undefined) data.jobTitle = dto.jobTitle;
     if (dto.department !== undefined) data.department = dto.department;
@@ -136,12 +272,22 @@ export class CollaboratorsService {
         if (!manager) {
           throw new BadRequestException('Manager collaborator introuvable');
         }
+        if (dto.managerId !== existing.managerId) {
+          await this.auditLogs.create({
+            clientId,
+            userId: actorUserId,
+            action: 'collaborator.manager_changed',
+            resourceType: 'collaborator',
+            resourceId: existing.id,
+            oldValue: { managerId: existing.managerId ?? null },
+            newValue: { managerId: dto.managerId },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+            requestId: meta?.requestId,
+          });
+        }
         data.manager = { connect: { id: manager.id } };
       }
-    }
-    if (dto.skills !== undefined) {
-      data.skills =
-        dto.skills === null ? Prisma.JsonNull : (dto.skills as Prisma.InputJsonValue);
     }
     if (dto.internalNotes !== undefined) data.internalNotes = dto.internalNotes;
     if (dto.internalTags !== undefined) {
@@ -150,20 +296,10 @@ export class CollaboratorsService {
           ? Prisma.JsonNull
           : (dto.internalTags as Prisma.InputJsonValue);
     }
-    if (dto.assignments !== undefined) {
-      data.assignments =
-        dto.assignments === null
-          ? Prisma.JsonNull
-          : (dto.assignments as Prisma.InputJsonValue);
-    }
-    if (dto.metadata !== undefined) {
-      data.metadata =
-        dto.metadata === null ? Prisma.JsonNull : (dto.metadata as Prisma.InputJsonValue);
-    }
-
     const updated = await this.prisma.collaborator.update({
       where: { id: existing.id },
       data,
+      include: { manager: { select: { displayName: true } } },
     });
 
     await this.auditLogs.create({
@@ -179,7 +315,141 @@ export class CollaboratorsService {
       requestId: meta?.requestId,
     });
 
-    return updated;
+    return this.toListItem(updated);
+  }
+
+  async updateStatus(
+    clientId: string,
+    id: string,
+    dto: UpdateCollaboratorStatusDto,
+    actorUserId?: string,
+    meta?: AuditMeta,
+  ) {
+    const existing = await this.prisma.collaborator.findFirst({
+      where: { id, clientId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Collaborator introuvable');
+    }
+
+    const from = existing.status;
+    const to = dto.status;
+    const allowed =
+      from === to ||
+      (from === CollaboratorStatus.INACTIVE && to === CollaboratorStatus.ACTIVE) ||
+      (from === CollaboratorStatus.DISABLED_SYNC && to === CollaboratorStatus.ACTIVE) ||
+      (from === CollaboratorStatus.ACTIVE && to === CollaboratorStatus.INACTIVE);
+    if (!allowed) {
+      throw new BadRequestException(`Transition de statut non autorisée: ${from} -> ${to}`);
+    }
+
+    const updated = await this.prisma.collaborator.update({
+      where: { id: existing.id },
+      data: { status: to },
+      include: { manager: { select: { displayName: true } } },
+    });
+    await this.auditLogs.create({
+      clientId,
+      userId: actorUserId,
+      action: 'collaborator.status_updated',
+      resourceType: 'collaborator',
+      resourceId: existing.id,
+      oldValue: { status: from },
+      newValue: { status: to },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+    return this.toListItem(updated);
+  }
+
+  async softDelete(
+    clientId: string,
+    id: string,
+    actorUserId?: string,
+    meta?: AuditMeta,
+  ) {
+    const existing = await this.prisma.collaborator.findFirst({
+      where: { id, clientId },
+    });
+    if (!existing) throw new NotFoundException('Collaborator introuvable');
+    const targetStatus =
+      existing.source === CollaboratorSource.DIRECTORY_SYNC
+        ? CollaboratorStatus.DISABLED_SYNC
+        : CollaboratorStatus.INACTIVE;
+    const updated = await this.prisma.collaborator.update({
+      where: { id: existing.id },
+      data: { status: targetStatus },
+      include: { manager: { select: { displayName: true } } },
+    });
+    await this.auditLogs.create({
+      clientId,
+      userId: actorUserId,
+      action: 'collaborator.deleted',
+      resourceType: 'collaborator',
+      resourceId: existing.id,
+      oldValue: { status: existing.status },
+      newValue: { status: targetStatus },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+    return this.toListItem(updated);
+  }
+
+  async listManagersOptions(clientId: string, query: ListCollaboratorOptionsQueryDto) {
+    const where: Prisma.CollaboratorWhereInput = {
+      clientId,
+      status: CollaboratorStatus.ACTIVE,
+    };
+    if (query.search?.trim()) {
+      const search = query.search.trim();
+      where.OR = [
+        { displayName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    const offset = query.offset ?? 0;
+    const limit = query.limit ?? 20;
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.collaborator.count({ where }),
+      this.prisma.collaborator.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: [{ displayName: 'asc' }],
+        select: { id: true, displayName: true },
+      }),
+    ]);
+    return { items: rows, total, offset, limit };
+  }
+
+  async listTagsOptions(clientId: string, query: ListCollaboratorOptionsQueryDto) {
+    const rows = await this.prisma.collaborator.findMany({
+      where: { clientId, status: CollaboratorStatus.ACTIVE },
+      select: { internalTags: true },
+    });
+    const allTags = new Set<string>();
+    for (const row of rows) {
+      for (const tag of this.extractTagLabels(row.internalTags)) {
+        allTags.add(tag);
+      }
+    }
+    let items = Array.from(allTags)
+      .sort((a, b) => a.localeCompare(b))
+      .map((label) => ({ id: label, displayName: label }));
+    if (query.search?.trim()) {
+      const term = query.search.trim().toLowerCase();
+      items = items.filter((item) => item.displayName.toLowerCase().includes(term));
+    }
+    const offset = query.offset ?? 0;
+    const limit = query.limit ?? 50;
+    return {
+      items: items.slice(offset, offset + limit),
+      total: items.length,
+      offset,
+      limit,
+    };
   }
 
   async upsertFromDirectory(
@@ -254,6 +524,9 @@ export class CollaboratorsService {
         externalRef: payload.externalRef,
         lastSyncedAt: payload.lastSyncedAt,
         syncHash: payload.syncHash,
+        // Keep local business enrichments untouched when sync updates identity fields.
+        internalTags: byFallback.internalTags ?? undefined,
+        internalNotes: byFallback.internalNotes ?? undefined,
       },
     });
     return 'updated';
@@ -336,5 +609,61 @@ export class CollaboratorsService {
       select: { role: true },
     });
     return member?.role === ClientUserRole.CLIENT_ADMIN;
+  }
+
+  private async ensureManagerInClient(clientId: string, managerId: string): Promise<void> {
+    const manager = await this.prisma.collaborator.findFirst({
+      where: { id: managerId, clientId },
+      select: { id: true },
+    });
+    if (!manager) {
+      throw new BadRequestException('Manager collaborator introuvable');
+    }
+  }
+
+  private normalizeEmail(email: string | null | undefined): string | null {
+    if (email === undefined || email === null) return null;
+    const normalized = email.trim().toLowerCase();
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private extractTagLabels(value: Prisma.JsonValue | null): string[] {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => (typeof item === 'string' ? item.trim().toLowerCase() : ''))
+        .filter((item) => item.length > 0);
+    }
+    if (typeof value === 'object') {
+      return Object.keys(value as Record<string, unknown>)
+        .map((key) => key.trim().toLowerCase())
+        .filter((key) => key.length > 0);
+    }
+    return [];
+  }
+
+  private toListItem(
+    collaborator: Prisma.CollaboratorGetPayload<{
+      include: { manager: { select: { displayName: true } } };
+    }>,
+  ) {
+    return {
+      id: collaborator.id,
+      displayName: collaborator.displayName,
+      firstName: collaborator.firstName,
+      lastName: collaborator.lastName,
+      email: collaborator.email,
+      username: collaborator.username,
+      jobTitle: collaborator.jobTitle,
+      department: collaborator.department,
+      managerId: collaborator.managerId,
+      managerDisplayName: collaborator.manager?.displayName ?? null,
+      status: collaborator.status,
+      source: collaborator.source,
+      internalTags: collaborator.internalTags,
+      internalNotes: collaborator.internalNotes,
+      createdAt: collaborator.createdAt,
+      updatedAt: collaborator.updatedAt,
+    };
   }
 }

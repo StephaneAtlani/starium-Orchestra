@@ -1211,6 +1211,32 @@ async function ensureComplianceModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureCollaboratorsModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "collaborators" },
+    create: {
+      code: "collaborators",
+      name: "Collaborateurs",
+      description: "Référentiel collaborateurs métier",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "collaborators.read", label: "Collaborateurs — lecture" },
+    { code: "collaborators.create", label: "Collaborateurs — création" },
+    { code: "collaborators.update", label: "Collaborateurs — mise à jour" },
+    { code: "collaborators.delete", label: "Collaborateurs — suppression logique" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label },
+    });
+  }
+}
+
 type DefaultProfileSeed = {
   name: string;
   description?: string;
@@ -2585,6 +2611,7 @@ async function main() {
   await ensurePlatformUiBadgeDefaultsFromFile();
 
   await ensureComplianceModuleAndPermissions();
+  await ensureCollaboratorsModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
   await ensureDefaultGlobalProfiles();
   await ensureClientAdminRiskTaxonomyRole();
