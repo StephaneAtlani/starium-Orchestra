@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Implémentée (MVP FE)
 
 ## Priorité
 
@@ -38,11 +38,11 @@ Objectif de cette RFC: livrer une UI Collaborateurs exploitable en production, a
 # 2. Hypothèses éventuelles
 
 - Les endpoints backend `GET /api/collaborators`, `GET /api/collaborators/:id`, `PATCH /api/collaborators/:id` sont disponibles ou finalisables dans le même sprint.
-- Le payload API inclut les champs d'affichage nécessaires: `displayName`, `email`, `jobTitle`, `managerDisplayName`, `status`, `source`, `syncState`.
+- Le payload API inclut les champs d'affichage nécessaires: `displayName`, `email`, `jobTitle`, `managerDisplayName`, `status`, `source`.
 - Le frontend opère strictement dans le client actif (`X-Client-Id`) et ne mélange jamais les données de plusieurs clients.
 - La relation manager reste intra-client et doit être sélectionnable via options lisibles (nom/email), jamais via UUID brut.
-- Les badges UI (`status`, `source`, `syncState`) mappent des valeurs canoniques backend vers libellés/couleurs frontend.
-- Les champs verrouillés pour collaborateurs synchronisés sont fournis explicitement par l'API (ex: `lockedFields`).
+- Les badges UI (`status`, `source`) mappent des valeurs canoniques backend vers libellés/couleurs frontend.
+- Le MVP n'introduit pas de dépendance frontend à `lockedFields`.
 
 ---
 
@@ -61,7 +61,6 @@ Objectif de cette RFC: livrer une UI Collaborateurs exploitable en production, a
 - `apps/web/src/features/teams/collaborators/components/collaborator-filters-bar.tsx`
 - `apps/web/src/features/teams/collaborators/components/collaborator-status-badge.tsx`
 - `apps/web/src/features/teams/collaborators/components/collaborator-source-badge.tsx`
-- `apps/web/src/features/teams/collaborators/components/collaborator-sync-badge.tsx`
 - `apps/web/src/features/teams/collaborators/components/collaborator-detail-header.tsx`
 - `apps/web/src/features/teams/collaborators/components/collaborator-edit-form.tsx`
 - `apps/web/src/features/teams/collaborators/lib/collaborator-query-keys.ts`
@@ -85,10 +84,10 @@ La RFC couvre:
 - vue liste collaborateurs avec pagination serveur;
 - vue détail collaborateur;
 - édition partielle du collaborateur (champs autorisés);
-- badges métier: statut, source, état de sync;
+- badges métier: statut, source;
 - filtres avancés et recherche;
 - gestion explicite de la relation manager;
-- état sync visible dans liste et détail.
+- provenance visible via `source` dans liste et détail.
 
 ## 4.2 Routes frontend
 
@@ -99,7 +98,7 @@ Option v2 (hors MVP): drawer détail inline depuis la liste.
 
 ## 4.3 Contrats API consommés
 
-- `GET /api/collaborators?search=&status[]=&source[]=&syncState[]=&managerId=&tag[]=&limit=&offset=`
+- `GET /api/collaborators?search=&status[]=&source[]=&managerId=&tag[]=&limit=&offset=`
 - `GET /api/collaborators/:id`
 - `PATCH /api/collaborators/:id`
 - `GET /api/collaborators/options/managers`
@@ -121,7 +120,7 @@ Application stricte sur:
 
 - options manager (`label = displayName + email`, `value = id` interne);
 - colonnes tableau (`managerDisplayName`, pas `managerId`);
-- badges (`Actif`, `Synchronise`, `Erreur sync`, etc.), pas de code brut;
+- badges (`Actif`, `Inactif`, `Sync désactivée`, `Manuel`, `Annuaire`), pas de code brut;
 - placeholders/select/filter chips (toujours des labels lisibles).
 
 Exemples:
@@ -138,7 +137,6 @@ Colonnes minimales:
 - Manager (label lisible)
 - Statut (badge)
 - Source (badge)
-- Etat sync (badge + tooltip)
 - Actions (voir/editer)
 
 Etats UI:
@@ -154,7 +152,6 @@ Filtres MVP:
 - recherche texte (nom/email/code RH)
 - statut (multi-select)
 - source (multi-select)
-- etat sync (multi-select)
 - manager (combobox)
 - tags (multi-select)
 
@@ -172,14 +169,14 @@ Bloc detail:
 - identite
 - fonction
 - manager
-- statut/source/sync
+- statut/source
 - tags
 - notes internes
 
 Edition:
 
 - formulaire RHF + Zod;
-- champs verrouilles disables si collaborateur synchronise;
+- le formulaire n'expose que les champs explicitement éditables par le backend;
 - sauvegarde `PATCH` avec toast succes/erreur;
 - invalidation queries liste + detail.
 
@@ -192,16 +189,14 @@ Regles UI:
 - prevention basique self-manager en frontend;
 - backend reste arbitre final (meme client, droits, coherence).
 
-## 4.9 Etat de synchronisation
+## 4.9 Provenance annuaire (MVP)
 
-Badge `syncState` standard:
+Le MVP s'appuie sur le badge `source` déjà contractuel côté API:
 
-- `SYNCED` -> badge neutre/information
-- `PENDING` -> badge warning
-- `ERROR` -> badge destructif
-- `MANUAL` -> badge secondaire
+- `MANUAL` -> badge "Manuel"
+- `DIRECTORY_SYNC` -> badge "Annuaire"
 
-Ajouter un tooltip pour clarifier la source de vérité et les champs potentiellement verrouillés.
+Le champ `syncState` est hors scope de cette livraison FE.
 
 ## 4.10 Query keys / cache
 
@@ -226,7 +221,7 @@ Jamais de query key sans `clientId`.
 
 Aucune modification Prisma pour cette RFC frontend.
 
-Prerequis: schema/backend exposent deja les champs necessaires au rendu lisible (`displayName`, `managerDisplayName`, `syncState`, etc.).
+Prerequis: schema/backend exposent deja les champs necessaires au rendu lisible (`displayName`, `managerDisplayName`, `status`, `source`, etc.).
 
 Si un champ manque dans l'API, ajuster DTO/reponse backend (pas la base) avant d'introduire des contournements frontend.
 
@@ -236,7 +231,7 @@ Si un champ manque dans l'API, ajuster DTO/reponse backend (pas la base) avant d
 
 ## 6.1 Unit tests frontend
 
-- mapping badge status/source/syncState -> libelle/couleur;
+- mapping badge status/source -> libelle/couleur;
 - serialisation/deserialisation filtres URL;
 - conversion options manager (`id` interne, `label` visible).
 
@@ -252,14 +247,14 @@ Si un champ manque dans l'API, ajuster DTO/reponse backend (pas la base) avant d
 
 - aucun ID brut visible dans UI (table, select, badges, chips, placeholder);
 - changement client actif invalide le cache et recharge les donnees;
-- collaborateur synchronise: champs verrouilles non editables;
-- etat sync `ERROR` visible et non ambigu.
+- collaborateur synchronise: edition uniquement sur les champs explicitement autorises backend;
+- aucun affichage d'ID brut en fallback sur manager/status/source.
 
 ---
 
 # 7. Recapitulatif final
 
-`RFC-FE-TEAM-002` formalise le premier ecran metier du module Equipes: une UI Collaborateurs complete (liste, detail, edition), orientee pilotage manager, avec filtres utiles et signalisation explicite de l'etat de synchronisation.
+`RFC-FE-TEAM-002` formalise le premier ecran metier du module Equipes: une UI Collaborateurs complete (liste, detail, edition), orientee pilotage manager, avec filtres utiles et signalisation de provenance via `source`.
 
 La decision centrale est d'imposer un rendu lisible partout (valeur metier) et d'interdire l'affichage d'IDs techniques en UI, tout en conservant les IDs pour les mutations.
 
@@ -272,5 +267,5 @@ Cette RFC prepare directement les lots FE suivants: competences, affectations et
 - ne pas laisser de fallback UI affichant `managerId` ou des enums bruts;
 - eviter les regressions multi-client (query keys sans `clientId`, cache partage);
 - garder l'edition frontend strictement alignee aux champs autorises backend;
-- traiter proprement les cas sync (`PENDING`/`ERROR`) pour eviter les ambiguitees utilisateur;
+- ne pas supposer un `syncState` frontend tant que le contrat API ne l'expose pas;
 - verifier que les options managers retournent toujours des labels exploitables.

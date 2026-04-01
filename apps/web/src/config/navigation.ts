@@ -157,6 +157,15 @@ export const navigation: NavigationSection[] = [
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
       {
+        label: 'Equipes',
+        href: '/teams/collaborators',
+        icon: Users,
+        scope: 'client',
+        moduleCode: 'collaborators',
+        requiredPermissions: ['collaborators.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+      },
+      {
         label: 'Conformité',
         href: '/compliance/dashboard',
         icon: Scale,
