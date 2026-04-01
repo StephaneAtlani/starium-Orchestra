@@ -327,7 +327,12 @@ export function PortfolioGanttChart({
   const handleTimelineMouseDown = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest('a, button, [role="button"], input, textarea, select, label')) return;
+    /** Liens et champs : pas de pan. Les triggers d’infobulle sont des boutons natifs : on autorise le pan dessus. */
+    if (target.closest('a[href], input, textarea, select, label')) return;
+    const maybeBtn = target.closest('button, [role="button"]');
+    if (maybeBtn instanceof HTMLElement) {
+      if (maybeBtn.getAttribute('data-slot') !== 'tooltip-trigger') return;
+    }
     const el = scrollRef.current;
     if (!el) return;
     panStateRef.current = {
@@ -366,8 +371,9 @@ export function PortfolioGanttChart({
             onMouseDown={handleTimelineMouseDown}
             className={cn(
               'flex min-h-0 flex-1 flex-col',
-              isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+              isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
             )}
+            title="Clic maintenu et glisser pour déplacer la frise (toutes directions)"
           >
             {/* Header fixe — scroll horizontal synchronisé avec le body */}
             <div
@@ -413,7 +419,10 @@ export function PortfolioGanttChart({
             {/* Body scrollable */}
             <div
               ref={scrollRef}
-              className="min-h-0 flex-1 overflow-auto"
+              className={cn(
+                'min-h-0 flex-1 overflow-auto',
+                isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+              )}
             >
               <div style={{ width: totalWidthPx, minWidth: '100%' }}>
                 <div className="relative pb-2 pt-2">

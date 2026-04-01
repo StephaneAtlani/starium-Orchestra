@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -35,9 +37,61 @@ import {
   Plus,
 } from 'lucide-react';
 
+function useTablePan() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const panRef = useRef<{
+    startX: number;
+    startY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
+  } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+
+  useEffect(() => {
+    if (!isPanning) return;
+    const onMove = (e: MouseEvent) => {
+      const el = scrollRef.current;
+      const pan = panRef.current;
+      if (!el || !pan) return;
+      el.scrollLeft = pan.startScrollLeft - (e.clientX - pan.startX);
+      el.scrollTop = pan.startScrollTop - (e.clientY - pan.startY);
+      e.preventDefault();
+    };
+    const onUp = () => {
+      panRef.current = null;
+      setIsPanning(false);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [isPanning]);
+
+  const onMouseDown = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('a[href], input, textarea, select, label, button, [role="button"]')) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    panRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startScrollLeft: el.scrollLeft,
+      startScrollTop: el.scrollTop,
+    };
+    setIsPanning(true);
+    e.preventDefault();
+  }, []);
+
+  return { scrollRef, isPanning, onMouseDown };
+}
+
 export default function ProjectsPortfolioPage() {
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+  const tablePan = useTablePan();
   const { has, isLoading: permsLoading, isSuccess: permsSuccess, isError: permsError } =
     usePermissions();
   const canReadProjects = has('projects.read');
@@ -198,7 +252,14 @@ export default function ProjectsPortfolioPage() {
                 />
                 {data && data.items.length > 0 ? (
                   <>
-                    <CardContent className="min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0">
+                    <CardContent
+                      ref={tablePan.scrollRef}
+                      onMouseDown={tablePan.onMouseDown}
+                      className={cn(
+                        'min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
+                        tablePan.isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+                      )}
+                    >
                       <ProjectsListTable
                         items={data.items}
                         filters={filters}

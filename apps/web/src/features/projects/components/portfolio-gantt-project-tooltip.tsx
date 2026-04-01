@@ -43,7 +43,7 @@ export function PortfolioGanttProjectTooltip({
 }: PortfolioGanttProjectTooltipProps) {
   if (!tooltipsEnabled) {
     return (
-      <div className={cn('cursor-pointer', triggerClassName)} style={triggerStyle}>
+      <div className={cn('cursor-grab', triggerClassName)} style={triggerStyle}>
         {children}
       </div>
     );
@@ -51,7 +51,7 @@ export function PortfolioGanttProjectTooltip({
   return (
     <Tooltip>
       <TooltipTrigger
-        className={cn('cursor-pointer', triggerClassName)}
+        className={cn('cursor-grab active:cursor-grabbing', triggerClassName)}
         style={triggerStyle}
       >
         {children}
