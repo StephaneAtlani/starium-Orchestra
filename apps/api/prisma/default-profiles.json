@@ -1,8 +1,8 @@
 [
   {
     "name": "Directeur",
-    "description": "Visualisation budget, reporting, portefeuille projets et vue transverse Risques (lecture seule)",
-    "permissionCodes": ["budgets.read", "projects.read", "compliance.read"]
+    "description": "Visualisation budget, reporting, portefeuille projets, collaborateurs et vue transverse Risques (lecture seule)",
+    "permissionCodes": ["budgets.read", "projects.read", "compliance.read", "collaborators.read"]
   },
   {
     "name": "Responsable Budgets",
@@ -69,6 +69,21 @@
       "procurement.create",
       "procurement.update",
       "projects.read"
+    ]
+  },
+  {
+    "name": "Lecteur Équipes",
+    "description": "Consultation du référentiel collaborateurs (module Équipes, lecture seule)",
+    "permissionCodes": ["collaborators.read"]
+  },
+  {
+    "name": "Gestionnaire Équipes",
+    "description": "Gestion complète du référentiel collaborateurs (liste, détail, création, édition, désactivation)",
+    "permissionCodes": [
+      "collaborators.read",
+      "collaborators.create",
+      "collaborators.update",
+      "collaborators.delete"
     ]
   }
 ]

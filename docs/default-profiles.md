@@ -23,15 +23,17 @@ Le catalogue est défini dans **`apps/api/prisma/default-profiles.json`**. Chaqu
 
 | Profil | Description | Permissions principales |
 |--------|-------------|--------------------------|
-| **Directeur** | Visualisation budget et reporting (lecture seule) | `budgets.read`, `projects.read` |
+| **Directeur** | Visualisation budget, reporting, collaborateurs et risques (lecture seule) | `budgets.read`, `projects.read`, `compliance.read`, `collaborators.read` |
 | **Responsable Budgets** | Pilotage complet des budgets | `budgets.*`, procurement, `projects.*`, référentiels budgétaires (voir JSON) |
 | **Contributeur Budgets** | Saisie et consultation | `budgets.read/create`, procurement lecture & création, `projects.read/create`, référentiels en lecture |
 | **Chef de projet** | Portefeuille et fiches projets (cockpit) | `projects.read`, `projects.create`, `projects.update`, `projects.delete` |
 | **Gestionnaire Procurement** | Fournisseurs / commandes / factures | `budgets.read`, `procurement.*`, `projects.read` |
+| **Lecteur Équipes** | Référentiel collaborateurs (module Équipes) | `collaborators.read` |
+| **Gestionnaire Équipes** | CRUD collaborateurs | `collaborators.read`, `collaborators.create`, `collaborators.update`, `collaborators.delete` |
 
 Détail des permissions par profil :
 
-- **Directeur** : dashboard budgets, listes exercices/budgets/enveloppes/lignes, reporting, historique versions (tout en GET). Aucune création ni modification.
+- **Directeur** : dashboard budgets, listes exercices/budgets/enveloppes/lignes, reporting, historique versions (tout en GET), lecture du référentiel collaborateurs. Aucune création ni modification.
 - **Responsable Budgets** : tout ce qui précède + création/modification des budgets, lignes, enveloppes, réallocations, versions, imports, et gestion des centres de coûts, plans comptables et comptes analytiques.
 - **Contributeur Budgets** : lecture complète + création de budgets/lignes/enveloppes ; pas de modification des référentiels ni de réallocations/versions.
 - **Chef de projet** : accès complet au module Projets (liste cockpit, création, modification, suppression) ; pas de permission budgets ni procurement par défaut.
@@ -43,10 +45,10 @@ Détail des permissions par profil :
 ### 3.1 Quand sont-ils appliqués ?
 
 1. **Création d’un client**  
-   Après `Client` créé, le backend appelle `DefaultProfilesService.applyForClient(clientId)`. Les rôles sont créés immédiatement pour ce client.
+   Les profils par défaut sont des **rôles globaux** (`scope: GLOBAL`, `clientId: null`) synchronisés par le seed ; `DefaultProfilesService.applyForClient` est un no-op (compatibilité).
 
 2. **Seed**  
-   Après `upsertModulesAndPermissions()`, le script `prisma/seed.js` lit `prisma/default-profiles.json`, récupère tous les clients, et pour chaque client applique le même catalogue (création ou mise à jour des rôles et de leurs permissions).
+   Après `upsertModulesAndPermissions()`, `apps/api/prisma/seed.ts` appelle `ensureDefaultGlobalProfiles()` qui lit `prisma/default-profiles.json` et crée ou met à jour les rôles globaux et leurs `RolePermission`.
 
 ### 3.2 Idempotence
 
