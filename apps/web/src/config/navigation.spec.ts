@@ -25,4 +25,15 @@ describe('platform navigation', () => {
     expect(suppliersItem?.requiredPermissions).toEqual(['procurement.read']);
     expect(suppliersItem?.scope).toBe('client');
   });
+
+  it('expose une entrée Equipes dans Organisation avec collaborators.read', () => {
+    const orgSection = navigation.find((section) => section.section === 'Organisation');
+    expect(orgSection).toBeDefined();
+
+    const teamsItem = orgSection?.items.find((item) => item.href === '/teams/collaborators');
+    expect(teamsItem).toBeDefined();
+    expect(teamsItem?.moduleCode).toBe('collaborators');
+    expect(teamsItem?.requiredPermissions).toEqual(['collaborators.read']);
+    expect(teamsItem?.scope).toBe('client');
+  });
 });

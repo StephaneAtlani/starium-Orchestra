@@ -2,7 +2,7 @@
 
 ## Statut
 
-En cours
+✅ Implémentée
 
 ## Priorité
 
