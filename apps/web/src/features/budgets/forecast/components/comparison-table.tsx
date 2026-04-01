@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import {
   Table,
   TableBody,
@@ -301,8 +302,60 @@ export interface ComparisonTableProps {
   error: Error | null;
 }
 
+function useTablePan() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const panRef = useRef<{
+    startX: number;
+    startY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
+  } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+
+  useEffect(() => {
+    if (!isPanning) return;
+    const onMove = (e: MouseEvent) => {
+      const el = scrollRef.current;
+      const pan = panRef.current;
+      if (!el || !pan) return;
+      el.scrollLeft = pan.startScrollLeft - (e.clientX - pan.startX);
+      el.scrollTop = pan.startScrollTop - (e.clientY - pan.startY);
+      e.preventDefault();
+    };
+    const onUp = () => {
+      panRef.current = null;
+      setIsPanning(false);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [isPanning]);
+
+  const onMouseDown = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('a[href], input, textarea, select, label, button, [role="button"]')) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    panRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startScrollLeft: el.scrollLeft,
+      startScrollTop: el.scrollTop,
+    };
+    setIsPanning(true);
+    e.preventDefault();
+  }, []);
+
+  return { scrollRef, isPanning, onMouseDown };
+}
+
 export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps) {
   const [cols, setCols] = useState<ComparisonColumnGroups>(DEFAULT_COLUMN_GROUPS);
+  const pan = useTablePan();
 
   if (isLoading) {
     return <ComparisonTableSkeleton />;
@@ -379,7 +432,14 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
     <div className="space-y-0">
       <ComparisonContextBanner data={data} />
       <ComparisonColumnToggles value={cols} onChange={setCols} />
-      <div className="max-h-[min(70vh,560px)] overflow-auto rounded-md border border-border">
+      <div
+        ref={pan.scrollRef}
+        onMouseDown={pan.onMouseDown}
+        className={cn(
+          'max-h-[min(70vh,560px)] overflow-auto rounded-md border border-border',
+          pan.isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+        )}
+      >
       <Table noWrapper className={tableMinW}>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
