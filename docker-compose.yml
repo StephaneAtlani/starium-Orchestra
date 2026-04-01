@@ -12,6 +12,8 @@
 #         buildées (prod-like), pas de bind mount. Le port hôte 3002 est volontaire
 #         (évite un conflit avec un autre process sur :3000). Le navigateur appelle
 #         l’API sur :3001 ; NEXT_PUBLIC_API_URL=http://localhost:3001.
+#         Définir SMTP_* (fichier .env à côté du compose ou env hôte) pour le fallback
+#         email MFA en prod — voir .env.example.
 #
 # Hot reload : hors Docker (`pnpm` dans apps/api et apps/web), pas de service dédié.
 # =============================================================================
@@ -28,6 +30,13 @@ x-api-base-env: &api-base-env
   JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
   MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
   MFA_KEY_VERSION: ${MFA_KEY_VERSION:-1}
+  # OTP email (fallback MFA) — injectées depuis l’hôte / .env (ne pas committer les secrets)
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  SMTP_FROM: ${SMTP_FROM:-}
 
 x-depends-postgres-healthy: &depends-postgres-healthy
   postgres:
