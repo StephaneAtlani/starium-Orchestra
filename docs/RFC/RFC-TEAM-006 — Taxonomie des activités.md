@@ -2,7 +2,15 @@
 
 ## Statut
 
-Brouillon — à implémenter (backend + seed + permissions).
+Implémentée (backend MVP) — module NestJS `activity-types`, migration Prisma `20260404120000_add_activity_types_team006`, seed module `activity_types` + permissions `activity_types.read` / `activity_types.manage`, fonction `ensureDefaultActivityTypes` partagée, bootstrap `ClientsService.create`, tests unitaires.
+
+## Implémentation livrée (référence code)
+
+- **Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — `ActivityTaxonomyKind`, `ActivityType` ; migration dédiée.
+- **API** : préfixe `/api` — `ActivityTypesController` (`/activity-types`). Permissions : `activity_types.read`, `activity_types.manage` ; guards JWT + client actif + module + permissions.
+- **Liste paginée** : `{ items, total, limit, offset }` ; tri fixe `sortOrder` puis `name` ; archive/restauration `PATCH …/archive` et `PATCH …/restore` (idempotents si déjà dans l’état cible).
+- **Seed** : `ensureActivityTypesModuleAndPermissions`, extension rôle global « Client admin — équipes métier », `default-profiles.json` (Lecteur / Gestionnaire Équipes), passe `ensureDefaultActivityTypesForAllClients`.
+- **Tests** : `activity-types.controller.spec.ts`, `activity-types.service.spec.ts`, `activity-types-defaults.spec.ts`, `activity-types-seed-permissions.spec.ts`.
 
 ## Priorité
 

@@ -42,6 +42,7 @@ import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
 import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
 import { ensureDemoProjectTagsAndLabels } from "./seed-project-demo-tags";
 import { ensureRiskTaxonomyForClient } from "../src/modules/risk-taxonomy/risk-taxonomy-defaults";
+import { ensureDefaultActivityTypes } from "../src/modules/activity-types/activity-types-defaults";
 import { ensureBudgetSnapshotsAndVersions } from "./seed-budget-snapshots-versions";
 import { ensureBudgetCockpitCompleteDemo } from "./seed-budget-cockpit-complete";
 
@@ -1288,18 +1289,56 @@ async function ensureTeamsModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureActivityTypesModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "activity_types" },
+    create: {
+      code: "activity_types",
+      name: "Types d'activité (taxonomie)",
+      description: "Référentiel taxonomie charge / staffing (RFC-TEAM-006)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "activity_types.read", label: "Types d'activité — lecture" },
+    { code: "activity_types.manage", label: "Types d'activité — gestion" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label },
+    });
+  }
+}
+
+/** Tous les clients : lignes par défaut par kind (idempotent). */
+async function ensureDefaultActivityTypesForAllClients(): Promise<void> {
+  const clients = await prisma.client.findMany({ select: { id: true } });
+  for (const c of clients) {
+    await ensureDefaultActivityTypes(prisma, c.id);
+  }
+}
+
 /**
  * Rôle global : permissions équipes métier pour les CLIENT_ADMIN (UserRole).
  * Idempotent. À exécuter après création des ClientUser démo.
  */
 async function ensureClientAdminTeamsModuleRole(): Promise<void> {
-  const codes = ["teams.read", "teams.update", "teams.manage_scopes"] as const;
+  const codes = [
+    "teams.read",
+    "teams.update",
+    "teams.manage_scopes",
+    "activity_types.read",
+    "activity_types.manage",
+  ] as const;
   const permissions = await prisma.permission.findMany({
     where: { code: { in: [...codes] } },
   });
   if (permissions.length !== codes.length) {
     console.warn(
-      "⚠️  ensureClientAdminTeamsModuleRole : permissions teams.* manquantes — skip.",
+      "⚠️  ensureClientAdminTeamsModuleRole : permissions teams.* / activity_types.* manquantes — skip.",
     );
     return;
   }
@@ -2583,6 +2622,7 @@ async function seedProcurementAndEvents(
 async function seedClient(seed: ClientSeed, passwordHash: string) {
   const client = await upsertClient(seed);
   await ensureEnabledClientModules(client.id);
+  await ensureDefaultActivityTypes(prisma, client.id);
 
   const supplierNames = seed.suppliers.map((s) => s.name);
   for (const exerciseSeed of seed.exercises) {
@@ -2717,6 +2757,7 @@ async function main() {
   await ensureCollaboratorsModuleAndPermissions();
   await ensureSkillsModuleAndPermissions();
   await ensureTeamsModuleAndPermissions();
+  await ensureActivityTypesModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
   await ensureDefaultGlobalProfiles();
   await ensureClientAdminRiskTaxonomyRole();
@@ -2725,6 +2766,8 @@ async function main() {
   for (const clientSeed of CLIENTS) {
     await seedClient(clientSeed, passwordHash);
   }
+
+  await ensureDefaultActivityTypesForAllClients();
 
   await ensureClientAdminTeamsModuleRole();
 

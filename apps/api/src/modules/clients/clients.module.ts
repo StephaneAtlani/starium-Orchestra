@@ -22,6 +22,7 @@ import { PlatformUiBadgeSettingsController } from './platform-ui-badge-settings.
 import { PlatformUiBadgeSettingsService } from './platform-ui-badge-settings.service';
 import { ClientAdminGuard } from '../../common/guards/client-admin.guard';
 import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
+import { ActivityTypesModule } from '../activity-types/activity-types.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
     ProjectsModule,
     ResourcesModule,
     RiskTaxonomyModule,
+    ActivityTypesModule,
   ],
   controllers: [
     ClientsController,

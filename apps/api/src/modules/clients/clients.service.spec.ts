@@ -7,6 +7,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ProjectTeamService } from '../projects/project-team.service';
 import { ResourcesModuleBootstrapService } from '../resources/resources-module-bootstrap.service';
 import { RiskTaxonomyService } from '../risk-taxonomy/risk-taxonomy.service';
+import { ActivityTypesService } from '../activity-types/activity-types.service';
 
 describe('ClientsService', () => {
   let service: ClientsService;
@@ -72,6 +73,12 @@ describe('ClientsService', () => {
             ensureForClient: jest.fn().mockResolvedValue(undefined),
           },
         },
+        {
+          provide: ActivityTypesService,
+          useValue: {
+            ensureDefaultsForClient: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
@@ -110,6 +117,9 @@ describe('ClientsService', () => {
         applyForClient: jest.fn().mockResolvedValue(undefined),
       };
       const riskTaxonomy = { ensureForClient: jest.fn().mockResolvedValue(undefined) };
+      const activityTypes = {
+        ensureDefaultsForClient: jest.fn().mockResolvedValue(undefined),
+      };
       const testModule = await Test.createTestingModule({
         providers: [
           ClientsService,
@@ -125,6 +135,7 @@ describe('ClientsService', () => {
             useValue: { bootstrapForClient: jest.fn().mockResolvedValue(undefined) },
           },
           { provide: RiskTaxonomyService, useValue: riskTaxonomy },
+          { provide: ActivityTypesService, useValue: activityTypes },
         ],
       }).compile();
       const svc = testModule.get<ClientsService>(ClientsService);
@@ -158,6 +169,9 @@ describe('ClientsService', () => {
         mockClient.id,
       );
       expect(riskTaxonomy.ensureForClient).toHaveBeenCalledWith(mockClient.id);
+      expect(activityTypes.ensureDefaultsForClient).toHaveBeenCalledWith(
+        mockClient.id,
+      );
       expect(result).toEqual({
         id: mockClient.id,
         name: mockClient.name,
@@ -200,6 +214,12 @@ describe('ClientsService', () => {
           {
             provide: RiskTaxonomyService,
             useValue: { ensureForClient: jest.fn().mockResolvedValue(undefined) },
+          },
+          {
+            provide: ActivityTypesService,
+            useValue: {
+              ensureDefaultsForClient: jest.fn().mockResolvedValue(undefined),
+            },
           },
         ],
       }).compile();

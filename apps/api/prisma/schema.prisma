@@ -143,6 +143,15 @@ enum ManagerScopeMode {
   HYBRID
 }
 
+/// RFC-TEAM-006 — axe sémantique stable (reporting). Non extensible côté données.
+enum ActivityTaxonomyKind {
+  PROJECT
+  RUN
+  SUPPORT
+  TRANSVERSE
+  OTHER
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -235,6 +244,7 @@ model Client {
   budgetDashboardConfigs BudgetDashboardConfig[]
   budgetDashboardWidgets BudgetDashboardWidget[]
   budgetDashboardWidgetOverrides BudgetDashboardWidgetOverride[]
+  activityTypes                  ActivityType[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -2980,6 +2990,28 @@ model Collaborator {
   @@index([clientId, username])
   @@index([clientId, source])
   @@index([clientId, externalDirectoryType])
+}
+
+/// RFC-TEAM-006 — référentiel types d’activité (taxonomie charge / staffing)
+model ActivityType {
+  id               String               @id @default(cuid())
+  clientId         String
+  kind             ActivityTaxonomyKind
+  name             String
+  code             String?
+  description      String?
+  sortOrder        Int                  @default(0)
+  isDefaultForKind Boolean              @default(false)
+  archivedAt       DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([clientId, kind])
+  @@index([clientId, archivedAt])
 }
 
 model WorkTeam {

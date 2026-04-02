@@ -33,6 +33,7 @@ import { BudgetForecastModule } from './modules/budget-forecast/budget-forecast.
 import { PlatformUsageModule } from './modules/platform-usage/platform-usage.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
+import { ActivityTypesModule } from './modules/activity-types/activity-types.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
     PlatformUsageModule,
     SkillsModule,
     WorkTeamsModule,
+    ActivityTypesModule,
   ],
 })
 export class AppModule {}

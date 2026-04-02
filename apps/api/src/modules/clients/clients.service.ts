@@ -15,6 +15,7 @@ import { UpdateClientDto } from './dto/update-client.dto';
 import { ProjectTeamService } from '../projects/project-team.service';
 import { ResourcesModuleBootstrapService } from '../resources/resources-module-bootstrap.service';
 import { RiskTaxonomyService } from '../risk-taxonomy/risk-taxonomy.service';
+import { ActivityTypesService } from '../activity-types/activity-types.service';
 
 /** Réponse client pour GET /clients (liste). */
 export interface ClientListItem {
@@ -44,6 +45,7 @@ export class ClientsService {
     private readonly projectTeam: ProjectTeamService,
     private readonly resourcesBootstrap: ResourcesModuleBootstrapService,
     private readonly riskTaxonomy: RiskTaxonomyService,
+    private readonly activityTypes: ActivityTypesService,
   ) {}
 
   /**
@@ -91,6 +93,7 @@ export class ClientsService {
       await this.projectTeam.seedDefaultRolesForClient(client.id);
       await this.resourcesBootstrap.bootstrapForClient(client.id);
       await this.riskTaxonomy.ensureForClient(client.id);
+      await this.activityTypes.ensureDefaultsForClient(client.id);
     } catch (error) {
       // Evite un client partiellement initialisé (rôles/permissions incomplets).
       await this.prisma.client.delete({ where: { id: client.id } }).catch(() => undefined);
