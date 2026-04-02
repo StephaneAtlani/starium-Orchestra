@@ -34,6 +34,7 @@ import { PlatformUsageModule } from './modules/platform-usage/platform-usage.mod
 import { SkillsModule } from './modules/skills/skills.module';
 import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
 import { ActivityTypesModule } from './modules/activity-types/activity-types.module';
+import { TeamAssignmentsModule } from './modules/team-assignments/team-assignments.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { ActivityTypesModule } from './modules/activity-types/activity-types.mod
     SkillsModule,
     WorkTeamsModule,
     ActivityTypesModule,
+    TeamAssignmentsModule,
   ],
 })
 export class AppModule {}

@@ -2023,6 +2023,28 @@ Module Nest `activity-types` : référentiel **`ActivityType`** par client (axe 
 
 ---
 
+## Équipes — affectations ressources (RFC-TEAM-007) — `/api/team-resource-assignments`
+
+Module Nest `team-assignments` : entité **`TeamResourceAssignment`** (staffing planifié). Isolation **client actif** (`X-Client-Id`) ; pas de `clientId` dans le body. Réponses liste : `{ items, total, limit, offset }` ; tri par défaut : `startDate` desc, `id` desc. Liste : `limit` (défaut 20, max 100), `offset` (défaut 0), filtres `collaboratorId`, `projectId`, `activityTypeId`, `includeCancelled` (défaut `false` — exclut les affectations avec `cancelledAt` non null), fenêtre **`from` + `to`** (ISO date `YYYY-MM-DD`, les deux obligatoires ensemble) ou **`activeOn`** seul (incompatible avec `from`/`to` → **400**). Détail : [RFC-TEAM-007](RFC/RFC-TEAM-007%20%E2%80%94%20Affectations%20ressources.md).
+
+**Règles métier** : avec `projectId`, `activityType.kind` doit être **`PROJECT`** ; sans `projectId`, le kind doit être hors **`PROJECT`**. `projectTeamRoleId` uniquement si `projectId` est défini. Collaborateur **`ACTIVE`** requis pour création / mise à jour. **`PATCH /:id`** refusé (**409**) si déjà annulé. **`POST …/cancel`** idempotent (**200** sans ré-audit si déjà annulé).
+
+**Permissions** : lecture **`team_assignments.read`** ; création, mise à jour, annulation **`team_assignments.manage`**.
+
+**Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`.
+
+**Réponse assignment (liste, détail, POST, PATCH, cancel)** : champs minimaux `id`, `clientId`, `collaboratorId`, `collaboratorDisplayName`, `projectId`, `projectName`, `projectCode`, `activityTypeId`, `activityTypeName`, `activityTypeKind` (enum canonique), `projectTeamRoleId`, `roleLabel`, `startDate`, `endDate`, `allocationPercent` (nombre, pourcentage), `notes`, `cancelledAt`, `createdAt`, `updatedAt`.
+
+- **GET** `/api/team-resource-assignments` — Liste paginée. **`team_assignments.read`**
+- **POST** `/api/team-resource-assignments` — Création. **`team_assignments.manage`**
+- **POST** `/api/team-resource-assignments/:id/cancel` — Annulation logique (`cancelledAt`) ; idempotent. **`team_assignments.manage`**
+- **GET** `/api/team-resource-assignments/:id` — Détail (y compris si annulée). **`team_assignments.read`**
+- **PATCH** `/api/team-resource-assignments/:id` — Mise à jour partielle. **`team_assignments.manage`**
+
+**Erreurs courantes :** 400 (validation DTO, fenêtre date invalide, kind incohérent, collaborateur inactif), 404 (référence hors scope), 409 (mise à jour d’une affectation annulée).
+
+---
+
 ## Intégration Microsoft 365 — `/api/microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-005)
 
 Toutes les routes ci-dessous sont préfixées par **`/api`**. Les jetons Microsoft (**access** / **refresh**) ne sont **jamais** renvoyés au client : ils sont stockés chiffrés côté serveur et associés au **client Starium** concerné — **`clientId` du contexte client actif** sur les routes JWT, **`clientId` issu du `state` validé** sur le callback OAuth (pas d’`clientId` dans le body des requêtes).

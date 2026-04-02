@@ -1313,6 +1313,30 @@ async function ensureActivityTypesModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureTeamAssignmentsModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "team_assignments" },
+    create: {
+      code: "team_assignments",
+      name: "Affectations ressources (staffing)",
+      description: "Affectations planifiées collaborateur / projet ou activité (RFC-TEAM-007)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "team_assignments.read", label: "Affectations ressources — lecture" },
+    { code: "team_assignments.manage", label: "Affectations ressources — gestion" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label },
+    });
+  }
+}
+
 /** Tous les clients : lignes par défaut par kind (idempotent). */
 async function ensureDefaultActivityTypesForAllClients(): Promise<void> {
   const clients = await prisma.client.findMany({ select: { id: true } });
@@ -1332,13 +1356,15 @@ async function ensureClientAdminTeamsModuleRole(): Promise<void> {
     "teams.manage_scopes",
     "activity_types.read",
     "activity_types.manage",
+    "team_assignments.read",
+    "team_assignments.manage",
   ] as const;
   const permissions = await prisma.permission.findMany({
     where: { code: { in: [...codes] } },
   });
   if (permissions.length !== codes.length) {
     console.warn(
-      "⚠️  ensureClientAdminTeamsModuleRole : permissions teams.* / activity_types.* manquantes — skip.",
+      "⚠️  ensureClientAdminTeamsModuleRole : permissions teams.* / activity_types.* / team_assignments.* manquantes — skip.",
     );
     return;
   }
@@ -2758,6 +2784,7 @@ async function main() {
   await ensureSkillsModuleAndPermissions();
   await ensureTeamsModuleAndPermissions();
   await ensureActivityTypesModuleAndPermissions();
+  await ensureTeamAssignmentsModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
   await ensureDefaultGlobalProfiles();
   await ensureClientAdminRiskTaxonomyRole();
