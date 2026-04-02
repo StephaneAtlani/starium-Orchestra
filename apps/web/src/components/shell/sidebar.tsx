@@ -21,6 +21,7 @@ import {
   useSidebarDropdownPanel,
 } from './sidebar-dropdown';
 import { useSidebarNav } from './sidebar-nav-context';
+import { navigationItemVisible } from './navigation-visibility';
 
 function visible(
   item: NavigationItem,
@@ -30,24 +31,12 @@ function visible(
   /** GET /me/permissions a réussi pour le client actif — sans ça on ne montre pas les entrées à permissions. */
   permsSuccess: boolean,
 ): boolean {
-  if (item.platformOnly && platformRole !== 'PLATFORM_ADMIN') return false;
-  if (item.clientAdminOnly && clientRole !== 'CLIENT_ADMIN') return false;
-  if (item.allowedClientRoles != null) {
-    if (clientRole == null || !item.allowedClientRoles.includes(clientRole)) return false;
-  }
-  if (item.requiredPermissions?.length) {
-    if (!permsSuccess) return false;
-    for (const code of item.requiredPermissions) {
-      if (!has(code)) return false;
-    }
-  }
-  // Fallback de gating module: un item client avec moduleCode
-  // n'est visible que si la permission de lecture du module est présente.
-  if (item.scope === 'client' && item.moduleCode) {
-    if (!permsSuccess) return false;
-    if (!has(`${item.moduleCode}.read`)) return false;
-  }
-  return true;
+  return navigationItemVisible(item, {
+    platformRole,
+    clientRole,
+    has,
+    permsSuccess,
+  });
 }
 
 export function Sidebar() {
@@ -284,6 +273,66 @@ export function Sidebar() {
                       {suppliersChildren.map((child) => {
                         const isActive = isSuppliersChildActive(child.href);
 
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            role="menuitem"
+                            className={cn(
+                              'block px-3 py-2 text-sm starium-dropdown-link',
+                              isActive && 'starium-dropdown-link-active',
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                    </SidebarDropdown>
+                  );
+                }
+
+                const isEquipes = item.label === 'Equipes';
+                if (isEquipes) {
+                  const teamsChildren: { label: string; href: string }[] = [];
+                  if (permsSuccess && has('collaborators.read')) {
+                    teamsChildren.push({
+                      label: 'Collaborateurs',
+                      href: '/teams/collaborators',
+                    });
+                  }
+                  if (permsSuccess && has('skills.read')) {
+                    teamsChildren.push({
+                      label: 'Catalogue compétences',
+                      href: '/teams/skills',
+                    });
+                  }
+
+                  if (teamsChildren.length === 0) {
+                    return null;
+                  }
+
+                  const isTeamsChildActive = (href: string) => {
+                    if (!pathname) return false;
+                    if (href === '/teams/skills') {
+                      return pathname === '/teams/skills' || pathname.startsWith('/teams/skills/');
+                    }
+                    if (href === '/teams/collaborators') {
+                      return (
+                        pathname === '/teams/collaborators' ||
+                        pathname.startsWith('/teams/collaborators/')
+                      );
+                    }
+                    return false;
+                  };
+
+                  return (
+                    <SidebarDropdown
+                      key="dropdown-equipes"
+                      label={item.label}
+                      icon={item.icon}
+                    >
+                      {teamsChildren.map((child) => {
+                        const isActive = isTeamsChildActive(child.href);
                         return (
                           <Link
                             key={child.href}

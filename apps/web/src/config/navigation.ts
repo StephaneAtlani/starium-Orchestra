@@ -25,6 +25,11 @@ export type NavigationItem = {
   scope: 'platform' | 'client';
   moduleCode?: string;
   requiredPermissions?: string[];
+  /**
+   * `all` (défaut) : toutes les permissions de `requiredPermissions` sont requises.
+   * `any` : au moins une permission — réservé au cas parent Équipes (collaborators vs skills).
+   */
+  requiredPermissionsMatch?: 'all' | 'any';
   /** Visible uniquement si user.platformRole === 'PLATFORM_ADMIN'. */
   platformOnly?: boolean;
   /** Visible uniquement si activeClient.role === 'CLIENT_ADMIN'. */
@@ -158,11 +163,10 @@ export const navigation: NavigationSection[] = [
       },
       {
         label: 'Equipes',
-        href: '/teams/collaborators',
         icon: Users,
         scope: 'client',
-        moduleCode: 'collaborators',
-        requiredPermissions: ['collaborators.read'],
+        requiredPermissions: ['collaborators.read', 'skills.read'],
+        requiredPermissionsMatch: 'any',
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
       {

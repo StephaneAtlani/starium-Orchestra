@@ -16,24 +16,26 @@ describe('platform navigation', () => {
   });
 
   it('expose une entrée fournisseurs côté client avec procurement.read', () => {
-    const financeSection = navigation.find((section) => section.section === 'Finance');
-    expect(financeSection).toBeDefined();
+    const pilotagesSection = navigation.find((section) => section.section === 'Pilotages');
+    expect(pilotagesSection).toBeDefined();
 
-    const suppliersItem = financeSection?.items.find((item) => item.href === '/suppliers');
-    expect(suppliersItem).toBeDefined();
-    expect(suppliersItem?.moduleCode).toBe('procurement');
-    expect(suppliersItem?.requiredPermissions).toEqual(['procurement.read']);
-    expect(suppliersItem?.scope).toBe('client');
+    const suppliersParent = pilotagesSection?.items.find((item) => item.label === 'Fournisseurs');
+    expect(suppliersParent).toBeDefined();
+    expect(suppliersParent?.moduleCode).toBe('procurement');
+    expect(suppliersParent?.requiredPermissions).toEqual(['procurement.read']);
+    expect(suppliersParent?.scope).toBe('client');
   });
 
-  it('expose une entrée Equipes dans Organisation avec collaborators.read', () => {
+  it('expose une entrée Equipes (dropdown) avec any(collaborators.read, skills.read)', () => {
     const orgSection = navigation.find((section) => section.section === 'Organisation');
     expect(orgSection).toBeDefined();
 
-    const teamsItem = orgSection?.items.find((item) => item.href === '/teams/collaborators');
+    const teamsItem = orgSection?.items.find((item) => item.label === 'Equipes');
     expect(teamsItem).toBeDefined();
-    expect(teamsItem?.moduleCode).toBe('collaborators');
-    expect(teamsItem?.requiredPermissions).toEqual(['collaborators.read']);
+    expect(teamsItem?.href).toBeUndefined();
+    expect(teamsItem?.moduleCode).toBeUndefined();
+    expect(teamsItem?.requiredPermissions).toEqual(['collaborators.read', 'skills.read']);
+    expect(teamsItem?.requiredPermissionsMatch).toBe('any');
     expect(teamsItem?.scope).toBe('client');
   });
 });

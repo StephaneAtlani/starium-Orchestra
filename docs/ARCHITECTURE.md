@@ -94,6 +94,7 @@ apps/
     ├── components/ (UI partagée)
     ├── features/budgets (dont `forecast/` — UI forecast & comparaison budgétaire, [RFC-FE-BUD-030](./RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md))
     ├── features/procurement
+    ├── features/teams (`collaborators/`, `skills/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md))
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)
 ```
@@ -394,6 +395,13 @@ Aucune suppression physique
 /procurement/purchase-orders
 /procurement/invoices
    → gestion métier procurement
+
+/teams/collaborators
+/teams/collaborators/[collaboratorId]
+   → référentiel collaborateurs (RFC-FE-TEAM-002)
+
+/teams/skills
+   → catalogue compétences client : catégories, skills, dialog porteurs (RFC-FE-TEAM-003)
 ```
 
 ---
