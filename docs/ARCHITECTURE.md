@@ -94,7 +94,7 @@ apps/
     ├── components/ (UI partagée)
     ├── features/budgets (dont `forecast/` — UI forecast & comparaison budgétaire, [RFC-FE-BUD-030](./RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md))
     ├── features/procurement
-    ├── features/teams (`collaborators/`, `skills/`, `work-teams/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md), [RFC-FE-TEAM-004](./RFC/RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md))
+    ├── features/teams (`collaborators/`, `skills/`, `work-teams/`, `team-assignments/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md), [RFC-FE-TEAM-004](./RFC/RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md), [RFC-FE-TEAM-005](./RFC/RFC-FE-TEAM-005%20%E2%80%94%20UI%20Affectations%20%26%20staffing%20projet.md))
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)
 ```
@@ -408,6 +408,12 @@ Aucune suppression physique
 /teams/structure/teams/[teamId]
 /teams/structure/manager-scopes
    → équipes organisationnelles, membres, périmètres managers (RFC-FE-TEAM-004) ; permissions `teams.read` / `teams.update` / `teams.manage_scopes`
+
+/teams/assignments
+   → affectations / charge planifiée (RFC-FE-TEAM-005) ; `team_assignments.read` / `team_assignments.manage` ; filtres types d’activité côté UI si `activity_types.read`
+
+/projects/[projectId]/staffing
+   → staffing projet-scopé (même onglet workspace **Charge** ; RFC-FE-TEAM-005 + RFC-TEAM-008)
 ```
 
 ---

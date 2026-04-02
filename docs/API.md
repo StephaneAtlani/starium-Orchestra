@@ -2059,6 +2059,8 @@ Même module Nest **`team-assignments`** et mêmes permissions que la section pr
 
 Détail : [RFC-TEAM-008](RFC/RFC-TEAM-008%20%E2%80%94%20Staffing%20projet%20par%20manager%20responsable%20projet.md).
 
+**UI Next.js** : [RFC-FE-TEAM-005](RFC/RFC-FE-TEAM-005%20%E2%80%94%20UI%20Affectations%20%26%20staffing%20projet.md) — consommation des routes TEAM-007 et TEAM-008 depuis `apps/web/src/features/teams/team-assignments/` ; pages `/teams/assignments` et `/projects/[projectId]/staffing`.
+
 ---
 
 ## Intégration Microsoft 365 — `/api/microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-005)

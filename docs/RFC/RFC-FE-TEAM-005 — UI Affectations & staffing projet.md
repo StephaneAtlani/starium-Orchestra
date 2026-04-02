@@ -4,10 +4,23 @@
 
 | Volet | État |
 | --- | --- |
-| **Vue module Équipes** — liste / création / édition / annulation (API générique TEAM-007) | ❌ À faire |
-| **Vue fiche projet** — onglet ou route staffing (API projet-scopée TEAM-008) | ❌ À faire |
-| **Composants partagés** — tableau, formulaire, query keys, libellés métier | ❌ À faire |
-| Navigation **Équipes** (entrée « Affectations » / « Charge planifiée ») | ❌ À faire |
+| **Vue module Équipes** — `/teams/assignments` (API TEAM-007) | ✅ Implémentée (MVP FE) |
+| **Vue projet** — `/projects/[projectId]/staffing`, onglet **Charge** (API TEAM-008) | ✅ Implémentée (MVP FE) |
+| **Composants partagés** — `features/teams/team-assignments/` (table, dialog, hooks, API client) | ✅ Implémentée (MVP FE) |
+| Navigation **Équipes** — sous-menu **Affectations** (`team_assignments.read` dans le parent `any`) | ✅ Implémentée |
+| **Encart fiche collaborateur** (aperçu + lien filtré) | ❌ P1 / hors MVP (non livré) |
+| **`projectTeamRoleId`** en UI | ❌ P1 / hors MVP (non livré) |
+
+## Implémentation livrée (référence code)
+
+- **Feature** : [`apps/web/src/features/teams/team-assignments/`](../../apps/web/src/features/teams/team-assignments/) — `api/team-assignments.api.ts`, `api/activity-types.api.ts`, `types/`, `hooks/`, `components/` (`team-assignments-table`, `team-assignment-form-dialog`, `team-assignment-status-badge`, `team-assignments-list-view`), `lib/` (`team-assignment-query-keys`, `team-assignment-label-mappers`, `team-assignment-list-query`).
+- **Pages** : [`apps/web/src/app/(protected)/teams/assignments/page.tsx`](../../apps/web/src/app/(protected)/teams/assignments/page.tsx), [`apps/web/src/app/(protected)/projects/[projectId]/staffing/page.tsx`](../../apps/web/src/app/(protected)/projects/[projectId]/staffing/page.tsx).
+- **Projet** : [`project-staffing-view.tsx`](../../apps/web/src/features/projects/components/project-staffing-view.tsx), [`project-workspace-tabs.tsx`](../../apps/web/src/features/projects/components/project-workspace-tabs.tsx) (onglet Charge), [`project-routes.ts`](../../apps/web/src/features/projects/constants/project-routes.ts) (`projectStaffing`).
+- **Navigation** : [`navigation.ts`](../../apps/web/src/config/navigation.ts), [`sidebar.tsx`](../../apps/web/src/components/shell/sidebar.tsx), [`equipes-nav-helpers.ts`](../../apps/web/src/components/shell/equipes-nav-helpers.ts).
+- **Permissions UI** : lecture `team_assignments.read` ; écriture `team_assignments.manage` ; selects types d’activité et actions de création/édition si `activity_types.read` absent → message métier, pas d’écriture (voir plan MVP).
+- **Tests** : `*.spec.ts` sous `team-assignments/lib/` ; `equipes-nav-helpers.spec.ts`, `navigation.spec.ts`, `navigation-visibility.spec.ts` (non-régression parent Équipes).
+
+Les endpoints **GET** détail par `id` sont exposés dans le client API ; l’UI MVP édite à partir des lignes liste (pas de refetch détail obligatoire).
 
 ## Priorité
 
@@ -21,7 +34,7 @@ Très haute — **Phase 3** du plan Équipes (voir [`_Plan de déploiement - Equ
 - **RFC-TEAM-002** — collaborateurs — combobox / options enrichies (`displayName`, etc.)
 - Module **Projets** — accès fiche projet, `projectCode` / `name` pour affichage
 - **RFC-FE-TEAM-001** — fondations `features/teams`, patterns React Query, client actif
-- **RFC-FE-TEAM-002** — fiche collaborateur — bloc **« Affectations »** (résumé + lien vers liste filtrée)
+- **RFC-FE-TEAM-002** — fiche collaborateur — bloc **« Affectations »** (résumé + lien filtré) **P1**, non livré dans le MVP courant
 - **RFC-FE-TEAM-004** (optionnel mais recommandé) — détail équipe métier : lien ou préfiltre vers affectations des **membres** (voir §4.5)
 - `docs/ARCHITECTURE.md` — `X-Client-Id`, API-first
 - `docs/FRONTEND_UI-UX.md` — états loading / error / empty, fiche projet, onglets workspace
@@ -38,7 +51,7 @@ Très haute — **Phase 3** du plan Équipes (voir [`_Plan de déploiement - Equ
   1. **Globale (client)** : `GET/POST/PATCH … /api/team-resource-assignments` — le body peut fixer ou omettre `projectId` (règles TEAM-007 : projet vs hors projet / taxonomie).
   2. **Contextualisée projet** : `GET/POST/PATCH … /api/projects/:projectId/resource-assignments` — `projectId` **verrouillé** par l’URL ; pas de `projectId` dans le corps.
 
-**Constat frontend** — Aucune UI dédiée dans le dépôt actuel pour ces endpoints ; le workspace projet expose déjà une navigation par onglets (`ProjectWorkspaceTabs`, etc.) sans onglet **Charge / Staffing**.
+**Constat frontend** — Livré : pages `/teams/assignments` et `/projects/[projectId]/staffing`, onglet **Charge** dans `ProjectWorkspaceTabs`, navigation Équipes **Affectations**.
 
 **Objectif produit** — Offrir **deux parcours complémentaires** :
 
@@ -75,18 +88,17 @@ Les deux parcours doivent **réutiliser les mêmes composants** (tableau, ligne,
     - `team-assignment-form-dialog.tsx` (ou `Sheet`) — champs formulaire partagés
     - `team-assignment-status-badge.tsx` — actif / annulé (`cancelledAt`)
     - `lib/team-assignment-label-mappers.ts` — kinds d’activité, formatage %, période
-  - `components/project-resource-assignments-panel.tsx` — variante **projet** (passe `projectId`, masque sélecteur projet, préremplit taxonomie projet si pertinent)
+  - variante projet : `ProjectStaffingView` + réutilisation table/dialog (pas de panneau séparé `project-resource-assignments-panel`)
 - `apps/web/src/app/(protected)/teams/assignments/page.tsx` — **liste globale** (parcours A)
 - `apps/web/src/features/projects/constants/project-routes.ts` — route onglet / sous-chemin staffing (si route dédiée)
 - `apps/web/src/app/(protected)/projects/...` — intégration onglet **Charge / Staffing** dans le layout workspace existant (voir §4.4)
 - `apps/web/src/features/projects/components/project-workspace-tabs.tsx` — ajout lien onglet + icône
-- `apps/web/src/features/teams/collaborators/...` — encart **Affectations** sur fiche collaborateur (aperçu + lien `?collaboratorId=`)
+- `apps/web/src/features/teams/collaborators/...` — encart **Affectations** (P1, non livré MVP)
 - `apps/web/src/components/shell/sidebar.tsx` + `apps/web/src/config/navigation.ts` — entrée **Équipes** → Affectations ; `requiredPermissions` `team_assignments.read` (et règles `isTeamsChildActive` / équivalent)
 
 ## Documentation
 
-- Ce document
-- Mise à jour ciblée de `docs/RFC/_Plan de déploiement - Equipe.md` (lien vers ce fichier si besoin) **lors du merge** de l’implémentation
+- Ce document ; `docs/ARCHITECTURE.md` ; `docs/API.md` (pointeur UI) ; `_Plan de déploiement - Equipe.md` — synchronisés avec l’implémentation MVP.
 
 ---
 
@@ -197,7 +209,7 @@ Les erreurs **400** métier (incohérence projet / taxonomie) doivent afficher l
 
 # 7. Récapitulatif final
 
-**RFC-FE-TEAM-005** spécifie l’UI **complète** des **affectations planifiées** : parcours **module Équipes** via l’API globale TEAM-007, parcours **fiche projet** via l’API contextualisée TEAM-008, avec **composants partagés**, **respect multi-client**, **permissions** `team_assignments.*`, et **affichage systématique de valeurs métier**. Elle complète RFC-FE-TEAM-004 (structure organisationnelle) sans dupliquer la logique métier, déjà portée par le backend.
+**RFC-FE-TEAM-005** couvre l’UI des **affectations planifiées** : parcours **module Équipes** (`/teams/assignments`, API TEAM-007), parcours **projet** (`/projects/[projectId]/staffing`, API TEAM-008), **composants partagés** sous `features/teams/team-assignments/`, **multi-client**, permissions **`team_assignments.*`** + **`activity_types.read`** pour les selects et écritures, **libellés métier** en tableau et listes de choix. **P1** : encart collaborateur, sélecteur `projectTeamRoleId`. La logique métier reste **backend** (TEAM-007 / 008).
 
 ---
 

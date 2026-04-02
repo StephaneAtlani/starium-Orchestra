@@ -17,6 +17,16 @@ describe('isEquipesDropdownChildActive', () => {
     expect(isEquipesDropdownChildActive('/teams/structure/teams', '/teams/skills')).toBe(false);
   });
 
+  it('Affectations: actif sur /teams/assignments', () => {
+    expect(isEquipesDropdownChildActive('/teams/assignments', '/teams/assignments')).toBe(true);
+    expect(
+      isEquipesDropdownChildActive('/teams/assignments', '/teams/collaborators'),
+    ).toBe(false);
+    expect(isEquipesDropdownChildActive('/teams/structure/teams', '/teams/assignments')).toBe(
+      false,
+    );
+  });
+
   it('Structure & équipes: actif sur /teams/structure sans empiéter sur collaborateurs/compétences', () => {
     expect(isEquipesDropdownChildActive('/teams/structure/teams', '/teams/structure/teams')).toBe(
       true,
@@ -28,5 +38,8 @@ describe('isEquipesDropdownChildActive', () => {
       isEquipesDropdownChildActive('/teams/collaborators', '/teams/structure/teams'),
     ).toBe(false);
     expect(isEquipesDropdownChildActive('/teams/skills', '/teams/structure/teams')).toBe(false);
+    expect(isEquipesDropdownChildActive('/teams/assignments', '/teams/structure/teams')).toBe(
+      false,
+    );
   });
 });

@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Layers3,
   ListTodo,
+  Percent,
   Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ import {
   projectProjectOptions,
   projectSheet,
   projectRisks,
+  projectStaffing,
 } from '../constants/project-routes';
 
 function tabLinkClass(active: boolean) {
@@ -31,7 +33,7 @@ function tabLinkClass(active: boolean) {
 }
 
 const tablistClassName =
-  'grid h-11 min-w-[min(100%,22rem)] grid-cols-2 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/40 sm:min-w-0 sm:grid-cols-3 lg:grid-cols-6';
+  'grid h-11 min-w-[min(100%,22rem)] grid-cols-2 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/40 sm:min-w-0 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7';
 
 /**
  * Navigation principale projet : Synthèse · Fiche projet · Planning · Points projet · Options.
@@ -45,8 +47,15 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
   const isRisks = pathname?.includes('/risks');
   const isPlanning = pathname?.includes('/planning');
   const isOptions = pathname?.includes('/options');
+  const isStaffing = pathname?.includes('/staffing');
   const isPoints = tab === 'points';
-  const isSynth = !isSheet && !isRisks && !isPoints && !isPlanning && !isOptions;
+  const isSynth =
+    !isSheet &&
+    !isRisks &&
+    !isPoints &&
+    !isPlanning &&
+    !isOptions &&
+    !isStaffing;
 
   const detailHref = projectDetail(projectId);
   const pointsHref = `${detailHref}?tab=points`;
@@ -94,6 +103,15 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       >
         <CalendarRange className="size-4 shrink-0 opacity-70" />
         Planning
+      </Link>
+      <Link
+        href={projectStaffing(projectId)}
+        role="tab"
+        aria-current={isStaffing ? 'page' : undefined}
+        className={tabLinkClass(isStaffing)}
+      >
+        <Percent className="size-4 shrink-0 opacity-70" />
+        Charge
       </Link>
       <Link
         href={pointsHref}

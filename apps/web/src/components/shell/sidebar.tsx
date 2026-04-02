@@ -313,6 +313,12 @@ export function Sidebar() {
                       href: '/teams/structure/teams',
                     });
                   }
+                  if (permsSuccess && has('team_assignments.read')) {
+                    teamsChildren.push({
+                      label: 'Affectations',
+                      href: '/teams/assignments',
+                    });
+                  }
 
                   if (teamsChildren.length === 0) {
                     return null;

@@ -165,7 +165,12 @@ export const navigation: NavigationSection[] = [
         label: 'Equipes',
         icon: Users,
         scope: 'client',
-        requiredPermissions: ['collaborators.read', 'skills.read', 'teams.read'],
+        requiredPermissions: [
+          'collaborators.read',
+          'skills.read',
+          'teams.read',
+          'team_assignments.read',
+        ],
         requiredPermissionsMatch: 'any',
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
