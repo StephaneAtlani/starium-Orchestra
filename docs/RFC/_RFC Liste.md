@@ -45,6 +45,7 @@
 | **RFC-TEAM-004** | Compétences des collaborateurs | ✅ Implémentée (backend MVP) | `CollaboratorSkill` + API nestée `/api/collaborators/:id/skills` + `GET /api/skills/:skillId/collaborators` ; RBAC `skills.*` ; UI : RFC-FE-TEAM-003 ; voir [RFC](./RFC-TEAM-004%20%E2%80%94%20Comp%C3%A9tences%20des%20collaborateurs.md) |
 | **RFC-FE-TEAM-001** | Frontend Foundation — Équipes | ✅ Implémentée | Structure `features/teams`, routes, query keys tenant-aware, API client, conventions d'état, tests unitaires ; voir [RFC](./RFC-FE-TEAM-001%20%E2%80%94%20Frontend%20Foundation%20%E2%80%94%20%C3%89quipes.md) |
 | **RFC-FE-TEAM-002** | UI Collaborateurs | ✅ Implémentée (MVP FE) | Liste + détail + édition sur `/teams/collaborators`; badges `status`/`source`, filtres (`search/status/source/manager/tag`), relation manager lisible sans ID brut ; voir [RFC](./RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md) |
+| **RFC-FE-TEAM-003** | UI Compétences | Spécifiée | Catalogue (catégories + compétences) + gestion `CollaboratorSkill` sur fiche collaborateur ; RBAC `skills.*` ; voir [RFC](./RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md) |
 
 ---
 
