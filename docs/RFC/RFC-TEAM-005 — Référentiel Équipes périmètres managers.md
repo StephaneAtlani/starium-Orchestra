@@ -2,7 +2,7 @@
 
 ## Statut
 
-Implémentée (backend MVP) — module NestJS `work-teams`, migration Prisma, seed `teams.*`, tests unitaires contrôleurs / services / seed.
+Implémentée (backend MVP) — module NestJS `work-teams`, migration Prisma, seed `teams.*`, tests unitaires (contrôleurs, services équipes / membres, seed permissions, collaborateur `GET …/work-teams`).
 
 ## Priorité
 
@@ -22,7 +22,7 @@ Haute — Phase 3 du plan Équipes ; **bloquant** pour [RFC-FE-TEAM-004](./RFC-F
 - **API** : préfixe `/api` — `WorkTeamsController` (`/work-teams`), `ManagerScopesController` (`/manager-scopes`), `GET /collaborators/:id/work-teams` sur `CollaboratorsController`. Permissions : `teams.read`, `teams.update`, `teams.manage_scopes` ; guards JWT + client actif + module + permissions.
 - **Liste paginée** : `{ items, total, limit, offset }` sauf `GET /work-teams/tree` → `{ nodes }` (exception documentée).
 - **Seed** : [`ensureTeamsModuleAndPermissions` + `ensureClientAdminTeamsModuleRole`](../../apps/api/prisma/seed.ts) ; [`default-profiles.json`](../../apps/api/prisma/default-profiles.json) enrichi (Lecteur / Gestionnaire Équipes).
-- **Tests** : `apps/api/src/modules/work-teams/**/*.spec.ts`, `work-teams-seed-permissions.spec.ts`.
+- **Tests** : `work-teams.controller.spec.ts`, `manager-scopes.controller.spec.ts`, `work-teams.service.spec.ts`, `work-team-memberships.service.spec.ts`, `tests/work-teams-seed-permissions.spec.ts` ; `collaborators.controller.spec.ts` (ordre route `work-teams` vs `:id`).
 
 ## Consommateurs prévus
 
