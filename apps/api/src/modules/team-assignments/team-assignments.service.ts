@@ -12,8 +12,11 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CreateProjectResourceAssignmentDto } from './dto/create-project-resource-assignment.dto';
 import { CreateTeamResourceAssignmentDto } from './dto/create-team-resource-assignment.dto';
+import { ListProjectResourceAssignmentsQueryDto } from './dto/list-project-resource-assignments.query.dto';
 import { ListTeamResourceAssignmentsQueryDto } from './dto/list-team-resource-assignments.query.dto';
+import { UpdateProjectResourceAssignmentDto } from './dto/update-project-resource-assignment.dto';
 import { UpdateTeamResourceAssignmentDto } from './dto/update-team-resource-assignment.dto';
 
 export type TeamResourceAssignmentResponse = {
@@ -600,5 +603,126 @@ export class TeamAssignmentsService {
     });
 
     return this.toResponse(updated);
+  }
+
+  async ensureProjectInClient(
+    clientId: string,
+    projectId: string,
+  ): Promise<void> {
+    const p = await this.prisma.project.findFirst({
+      where: { id: projectId, clientId },
+      select: { id: true },
+    });
+    if (!p) {
+      throw new NotFoundException({
+        error: 'NotFound',
+        message: 'Project not found',
+      });
+    }
+  }
+
+  async listForProject(
+    clientId: string,
+    projectId: string,
+    query: ListProjectResourceAssignmentsQueryDto,
+  ) {
+    await this.ensureProjectInClient(clientId, projectId);
+    if (
+      query.projectId !== undefined &&
+      query.projectId !== '' &&
+      query.projectId !== projectId
+    ) {
+      throw new BadRequestException({
+        error: 'ProjectIdQueryMismatch',
+        message:
+          'projectId query param must match path projectId when provided',
+      });
+    }
+    const { projectId: _queryProjectId, ...rest } = query;
+    const merged: ListTeamResourceAssignmentsQueryDto = {
+      ...rest,
+      projectId,
+    };
+    return this.list(clientId, merged);
+  }
+
+  async getByIdForProject(
+    clientId: string,
+    projectId: string,
+    id: string,
+  ): Promise<TeamResourceAssignmentResponse> {
+    await this.ensureProjectInClient(clientId, projectId);
+    const row = await this.prisma.teamResourceAssignment.findFirst({
+      where: { id, clientId, projectId },
+      include: {
+        collaborator: { select: { displayName: true } },
+        project: { select: { name: true, code: true } },
+        activityType: { select: { name: true, kind: true } },
+      },
+    });
+    if (!row) {
+      throw new NotFoundException({
+        error: 'NotFound',
+        message: 'Team resource assignment not found',
+      });
+    }
+    return this.toResponse(row);
+  }
+
+  async createForProject(
+    clientId: string,
+    projectId: string,
+    dto: CreateProjectResourceAssignmentDto,
+    actorUserId: string | undefined,
+    meta?: AuditMeta,
+  ): Promise<TeamResourceAssignmentResponse> {
+    await this.ensureProjectInClient(clientId, projectId);
+    const full: CreateTeamResourceAssignmentDto = {
+      ...dto,
+      projectId,
+    };
+    return this.create(clientId, full, actorUserId, meta);
+  }
+
+  async updateForProject(
+    clientId: string,
+    projectId: string,
+    id: string,
+    dto: UpdateProjectResourceAssignmentDto,
+    actorUserId: string | undefined,
+    meta?: AuditMeta,
+  ): Promise<TeamResourceAssignmentResponse> {
+    await this.ensureProjectInClient(clientId, projectId);
+    const scoped = await this.prisma.teamResourceAssignment.findFirst({
+      where: { id, clientId, projectId },
+    });
+    if (!scoped) {
+      throw new NotFoundException({
+        error: 'NotFound',
+        message: 'Team resource assignment not found',
+      });
+    }
+    const patch: UpdateTeamResourceAssignmentDto = dto;
+    return this.update(clientId, id, patch, actorUserId, meta);
+  }
+
+  async cancelForProject(
+    clientId: string,
+    projectId: string,
+    id: string,
+    actorUserId: string | undefined,
+    meta?: AuditMeta,
+  ): Promise<TeamResourceAssignmentResponse> {
+    await this.ensureProjectInClient(clientId, projectId);
+    const scoped = await this.prisma.teamResourceAssignment.findFirst({
+      where: { id, clientId, projectId },
+    });
+    if (!scoped) {
+      throw new NotFoundException({
+        error: 'NotFound',
+        message: 'Team resource assignment not found',
+      });
+    }
+    return this.cancel(clientId, id, actorUserId, meta);
   }
 }

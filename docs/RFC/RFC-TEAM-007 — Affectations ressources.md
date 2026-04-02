@@ -221,8 +221,8 @@ Journaliser : création, modification, annulation, avec `clientId`, `assignmentI
 
 ## 4.6 Distinction avec RFC-TEAM-008 (plan Équipes)
 
-- **TEAM-007** : **modèle et API** génériques des affectations (réutilisables depuis l’équipe, le collaborateur, ou le projet).
-- **TEAM-008** : **usage** côté projet (filtres, regroupements, UX responsable projet) — **consomme** les mêmes endpoints ou services, pas un second modèle.
+- **TEAM-007** : **modèle et API** génériques des affectations (`/api/team-resource-assignments`).
+- **TEAM-008** : routes **projet-scopées** `/api/projects/:projectId/resource-assignments` — **même service** `TeamAssignmentsService`, pas de second modèle ; UX fiche projet (RFC-FE-TEAM-005) et intégration front à venir.
 
 ---
 

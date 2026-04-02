@@ -4,7 +4,11 @@ import {
   CollaboratorStatus,
   Prisma,
 } from '@prisma/client';
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { TeamAssignmentsService } from './team-assignments.service';
@@ -293,6 +297,132 @@ describe('TeamAssignmentsService', () => {
       expect(auditCreate.mock.calls[0][0].action).toBe(
         'team_resource_assignment.cancelled',
       );
+    });
+  });
+
+  describe('ensureProjectInClient', () => {
+    it('404 si projet absent', async () => {
+      projectMock.findFirst.mockResolvedValue(null);
+      await expect(
+        service.ensureProjectInClient('c1', 'missing'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('listForProject', () => {
+    it('404 si projet absent', async () => {
+      projectMock.findFirst.mockResolvedValue(null);
+      await expect(
+        service.listForProject('c1', 'p1', { includeCancelled: false }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('400 si projectId query ≠ path', async () => {
+      projectMock.findFirst.mockResolvedValue({ id: 'p1' });
+      await expect(
+        service.listForProject('c1', 'p1', {
+          includeCancelled: false,
+          projectId: 'other-project-id',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('fusionne projectId du path dans la liste', async () => {
+      projectMock.findFirst.mockResolvedValue({ id: 'p1' });
+      tra.count.mockResolvedValue(0);
+      tra.findMany.mockResolvedValue([]);
+      await service.listForProject('c1', 'p1', { includeCancelled: false });
+      expect(tra.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clientId: 'c1',
+            projectId: 'p1',
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('getByIdForProject', () => {
+    it('404 si affectation sur un autre projet', async () => {
+      projectMock.findFirst.mockResolvedValue({ id: 'p1' });
+      tra.findFirst.mockResolvedValue(null);
+      await expect(
+        service.getByIdForProject('c1', 'p1', 'a1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('createForProject', () => {
+    it('injecte projectId depuis le path dans create', async () => {
+      projectMock.findFirst.mockResolvedValue({ id: 'p1' });
+      const createSpy = jest
+        .spyOn(service, 'create')
+        .mockResolvedValue({} as Awaited<
+          ReturnType<TeamAssignmentsService['create']>
+        >);
+      await service.createForProject(
+        'c1',
+        'p1',
+        {
+          collaboratorId: 'col1',
+          activityTypeId: 'at1',
+          roleLabel: 'R',
+          startDate: '2026-01-01T00:00:00.000Z',
+          allocationPercent: 50,
+        },
+        undefined,
+        undefined,
+      );
+      expect(createSpy).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({
+          projectId: 'p1',
+          collaboratorId: 'col1',
+        }),
+        undefined,
+        undefined,
+      );
+      createSpy.mockRestore();
+    });
+  });
+
+  describe('cancelForProject', () => {
+    it('404 si affectation sur un autre projet', async () => {
+      projectMock.findFirst.mockResolvedValue({ id: 'p1' });
+      tra.findFirst.mockResolvedValue(null);
+      await expect(
+        service.cancelForProject('c1', 'p1', 'a1', 'u1', {}),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('idempotent : même sémantique que cancel si déjà annulé', async () => {
+      projectMock.findFirst.mockResolvedValue({ id: 'p1' });
+      const cancelledAt = new Date('2026-01-10T12:00:00.000Z');
+      const row = {
+        id: 'a1',
+        clientId: 'c1',
+        collaboratorId: 'col1',
+        projectId: 'p1',
+        activityTypeId: 'at1',
+        projectTeamRoleId: null,
+        roleLabel: 'X',
+        startDate: new Date(),
+        endDate: null,
+        allocationPercent: new Prisma.Decimal(50),
+        notes: null,
+        cancelledAt,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        collaborator: { displayName: 'A' },
+        project: { name: 'P', code: 'PC' },
+        activityType: { name: 'T', kind: ActivityTaxonomyKind.PROJECT },
+      };
+      tra.findFirst.mockResolvedValue(row);
+      const res = await service.cancelForProject('c1', 'p1', 'a1', 'u1', {});
+      expect(res.cancelledAt).toBe(cancelledAt.toISOString());
+      expect(tra.update).not.toHaveBeenCalled();
+      expect(auditCreate).not.toHaveBeenCalled();
     });
   });
 });

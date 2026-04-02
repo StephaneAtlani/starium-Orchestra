@@ -1,6 +1,6 @@
 # Index des RFC (Starium Orchestra)
 
-> Dernière révision documentaire : **2026-04** (RFC-TEAM-007 backend MVP — affectations ressources / `TeamResourceAssignment`). Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
+> Dernière révision documentaire : **2026-04** (RFC-TEAM-008 backend MVP — routes `/api/projects/:projectId/resource-assignments`). Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
 >
 > **Collision de numéro** : deux fichiers distincts portent **RFC-PROJ-012** — [Project Sheet (fiche décisionnelle)](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [Gantt Tâches et Jalons (UI planning)](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md). Ne pas les fusionner dans les tableaux ci-dessous.
 >
@@ -46,6 +46,7 @@
 | **RFC-TEAM-005** | Référentiel Équipes / périmètres managers | ✅ Implémentée (backend MVP) | `WorkTeam`, `WorkTeamMembership`, `ManagerScopeConfig` ; API `/api/work-teams`, `/api/manager-scopes` ; RBAC `teams.*` ; voir [RFC](./RFC-TEAM-005%20%E2%80%94%20R%C3%A9f%C3%A9rentiel%20%C3%89quipes%20p%C3%A9rim%C3%A8tres%20managers.md) |
 | **RFC-TEAM-006** | Taxonomie des activités | ✅ Implémentée (backend MVP) | `ActivityType` + enum `ActivityTaxonomyKind` ; API `/api/activity-types` ; RBAC `activity_types.read` / `activity_types.manage` ; defaults par client ; voir [RFC](./RFC-TEAM-006%20%E2%80%94%20Taxonomie%20des%20activit%C3%A9s.md) |
 | **RFC-TEAM-007** | Affectations ressources (staffing planifié) | ✅ Implémentée (backend MVP) | `TeamResourceAssignment` ; API `/api/team-resource-assignments` ; RBAC `team_assignments.read` / `team_assignments.manage` ; voir [RFC](./RFC-TEAM-007%20%E2%80%94%20Affectations%20ressources.md) |
+| **RFC-TEAM-008** | Staffing projet (routes projet-scopées) | ✅ Implémentée (backend MVP) | Délégation `TeamAssignmentsService` ; `/api/projects/:projectId/resource-assignments` ; mêmes permissions `team_assignments.*` ; voir [RFC](./RFC-TEAM-008%20%E2%80%94%20Staffing%20projet%20par%20manager%20responsable%20projet.md) |
 | **RFC-FE-TEAM-001** | Frontend Foundation — Équipes | ✅ Implémentée | Structure `features/teams`, routes, query keys tenant-aware, API client, conventions d'état, tests unitaires ; voir [RFC](./RFC-FE-TEAM-001%20%E2%80%94%20Frontend%20Foundation%20%E2%80%94%20%C3%89quipes.md) |
 | **RFC-FE-TEAM-002** | UI Collaborateurs | ✅ Implémentée (MVP FE) | Liste + détail + édition sur `/teams/collaborators`; badges `status`/`source`, filtres (`search/status/source/manager/tag`), relation manager lisible sans ID brut ; voir [RFC](./RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md) |
 | **RFC-FE-TEAM-003** | UI Compétences | Implémentée (MVP catalogue FE) | `/teams/skills`, dialog porteurs, sidebar Équipes ; UI associations fiche collaborateur → lot FE suivant ; voir [RFC](./RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md) |

@@ -2045,6 +2045,22 @@ Module Nest `team-assignments` : entité **`TeamResourceAssignment`** (staffing 
 
 ---
 
+## Équipes — affectations projet-scopées (RFC-TEAM-008) — `/api/projects/:projectId/resource-assignments`
+
+Même module Nest **`team-assignments`** et mêmes permissions que la section précédente (**`team_assignments.read`**, **`team_assignments.manage`**) — **pas** de permission `projects.*` sur ces routes (contrainte `PermissionsGuard`, un seul préfixe de module par handler). Contrôleur : `ProjectResourceAssignmentsController` (`apps/api/src/modules/projects/project-resource-assignments.controller.ts`) ; logique métier : `TeamAssignmentsService` (`ensureProjectInClient`, `listForProject`, etc.). Isolation **client actif** ; `projectId` du path est toujours vérifié (**404** si projet inconnu pour le client). **Anti-énumération** : **404** si l’`assignmentId` n’existe pas ou n’appartient pas au projet du path (détail / patch / cancel).
+
+**Liste** : `{ items, total, limit, offset }` ; mêmes champs d’item que TEAM-007. Query : `collaboratorId`, `activityTypeId`, `includeCancelled`, `from`/`to`, `activeOn`, `limit`, `offset` — mêmes règles temporelles que `/api/team-resource-assignments`. **`projectId` en query** : si fourni et **différent** du `:projectId` du path → **400** (`ProjectIdQueryMismatch`).
+
+- **GET** `/api/projects/:projectId/resource-assignments` — Liste paginée. **`team_assignments.read`**
+- **POST** `/api/projects/:projectId/resource-assignments` — Création (body **sans** `projectId`, injecté depuis l’URL). **`team_assignments.manage`**
+- **POST** `/api/projects/:projectId/resource-assignments/:assignmentId/cancel` — Annulation logique ; idempotent (même sémantique que TEAM-007). **`team_assignments.manage`**
+- **GET** `/api/projects/:projectId/resource-assignments/:assignmentId` — Détail. **`team_assignments.read`**
+- **PATCH** `/api/projects/:projectId/resource-assignments/:assignmentId` — Mise à jour partielle (body **sans** `projectId`). **`team_assignments.manage`**
+
+Détail : [RFC-TEAM-008](RFC/RFC-TEAM-008%20%E2%80%94%20Staffing%20projet%20par%20manager%20responsable%20projet.md).
+
+---
+
 ## Intégration Microsoft 365 — `/api/microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-005)
 
 Toutes les routes ci-dessous sont préfixées par **`/api`**. Les jetons Microsoft (**access** / **refresh**) ne sont **jamais** renvoyés au client : ils sont stockés chiffrés côté serveur et associés au **client Starium** concerné — **`clientId` du contexte client actif** sur les routes JWT, **`clientId` issu du `state` validé** sur le callback OAuth (pas d’`clientId` dans le body des requêtes).

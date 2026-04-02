@@ -2,7 +2,16 @@
 
 ## Statut
 
-À implémenter — spécification **fonctionnelle et d’exposition** (routes, permissions, UX projet). **Aucun nouveau modèle métier** : réutilise les affectations définies dans [RFC-TEAM-007](./RFC-TEAM-007%20%E2%80%94%20Affectations%20ressources.md). Le backend générique des affectations peut être livré avant ou en même temps que cette RFC.
+Implémentée (backend MVP) — routes projet-scopées déléguant à `TeamAssignmentsService` ; **aucun nouveau modèle métier** (réutilise [RFC-TEAM-007](./RFC-TEAM-007%20%E2%80%94%20Affectations%20ressources.md)). **UI** fiche projet : **RFC-FE-TEAM-005** (UI affectations / staffing projet — à faire ; voir [`_Plan de déploiement - Equipe.md`](./_Plan%20de%20d%C3%A9ploiement%20-%20Equipe.md)).
+
+## Implémentation livrée (référence code)
+
+- **Contrôleur** : [`apps/api/src/modules/projects/project-resource-assignments.controller.ts`](../../apps/api/src/modules/projects/project-resource-assignments.controller.ts) — `@Controller('projects/:projectId/resource-assignments')`, enregistré dans [`projects.module.ts`](../../apps/api/src/modules/projects/projects.module.ts) (import `TeamAssignmentsModule`, contrôleur en tête de la liste).
+- **Service** : [`team-assignments.service.ts`](../../apps/api/src/modules/team-assignments/team-assignments.service.ts) — `ensureProjectInClient`, `listForProject`, `getByIdForProject`, `createForProject`, `updateForProject`, `cancelForProject`.
+- **DTOs** : [`create-project-resource-assignment.dto.ts`](../../apps/api/src/modules/team-assignments/dto/create-project-resource-assignment.dto.ts), [`update-project-resource-assignment.dto.ts`](../../apps/api/src/modules/team-assignments/dto/update-project-resource-assignment.dto.ts), [`list-project-resource-assignments.query.dto.ts`](../../apps/api/src/modules/team-assignments/dto/list-project-resource-assignments.query.dto.ts) (liste sans filtre projet dans le body ; `projectId` query optionnelle uniquement pour cohérence avec le path — sinon **400** si contradictoire).
+- **RBAC** : uniquement `team_assignments.read` / `team_assignments.manage` (pas de `projects.*` sur ces handlers — contrainte `PermissionsGuard`, un seul préfixe de module par route). **Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`.
+- **Tests** : [`project-resource-assignments.controller.spec.ts`](../../apps/api/src/modules/projects/project-resource-assignments.controller.spec.ts), extension [`team-assignments.service.spec.ts`](../../apps/api/src/modules/team-assignments/team-assignments.service.spec.ts).
+- **API documentée** : [docs/API.md](../API.md) (section Équipes — affectations projet-scopées).
 
 ## Priorité
 
@@ -74,19 +83,13 @@ Très haute — **Phase 3** du plan Équipes ; réponse directe au besoin **« d
 
 # 3. Liste des fichiers à créer / modifier
 
-## Backend
+## Backend (livré — Option A)
 
-- **Option A (recommandée)** — Étendre le module **projets** ou ajouter un sous-module léger `project-resource-assignments` :
-  - Contrôleur déléguant au `TeamAssignmentsService` (nom exact selon implémentation TEAM-007)
-  - Routes du type `GET/POST/PATCH … /projects/:projectId/resource-assignments` (+ `…/:assignmentId` pour PATCH ciblé)
-- **Option B** — Ne pas ajouter de routes : l’UI appelle uniquement `GET /team-resource-assignments?projectId=` avec `projectId` issu de la route Next.js — **moins** expressif pour les guards « membre projet ».
-
-Fichiers typiques (Option A) :
-
-- `project-resource-assignments.controller.ts` (ou méthodes dans `projects.controller.ts` si cohérent avec le repo)
-- DTOs fins : `CreateProjectResourceAssignmentDto` — **sans** `projectId` dans le body (injecté par la route)
-- Guards / policy : `ProjectStaffingAccess` — vérifie client + droit projet + règle owner/sponsor si activée
-- Tests : contrôleur + cas refus (hors périmètre manager)
+- Contrôleur `ProjectResourceAssignmentsController` dans le module **projets**, déléguant à **`TeamAssignmentsService`**
+- Routes sous `/api/projects/:projectId/resource-assignments` — voir §4.2
+- DTOs : `CreateProjectResourceAssignmentDto` / `UpdateProjectResourceAssignmentDto` / `ListProjectResourceAssignmentsQueryDto` — **sans** `projectId` dans les corps (injection depuis le path côté service)
+- Guards standards Starium (`JwtAuthGuard` → … → `PermissionsGuard`) ; permissions **`team_assignments.*` uniquement**
+- Tests unitaires contrôleur + service — voir §6
 
 ## Frontend (spécification — détail RFC-FE-TEAM-005)
 
@@ -95,8 +98,7 @@ Fichiers typiques (Option A) :
 
 ## Documentation
 
-- Ce document
-- Mise à jour `docs/API.md` lors de l’implémentation (section Projets ou Équipes)
+- Ce document ; [docs/API.md](../API.md) ; [docs/ARCHITECTURE.md](../ARCHITECTURE.md) — alignés sur l’implémentation backend.
 
 ---
 
@@ -104,7 +106,7 @@ Fichiers typiques (Option A) :
 
 ## 4.1 Règles métier (vue projet)
 
-1. **Lecture** — Retourner uniquement les `TeamResourceAssignment` avec `projectId = :projectId`, `clientId` = client actif, et **filtrage périmètre manager** sur le `collaboratorId` si l’utilisateur n’est pas « staffing large ».
+1. **Lecture** — Retourner uniquement les `TeamResourceAssignment` avec `projectId = :projectId`, `clientId` = client actif. **Périmètre manager (TEAM-005)** : non appliqué dans ce lot backend — parité avec `GET /api/team-resource-assignments` (évolution possible ultérieure).
 
 2. **Création** — `projectId` **imposé** par l’URL ; le body contient `collaboratorId`, `activityTypeId`, `roleLabel`, période, `allocationPercent`, champs optionnels TEAM-007 (`projectTeamRoleId`, `notes`). Validation identique à TEAM-007 pour la cohérence `ActivityType` / projet.
 
@@ -112,35 +114,32 @@ Fichiers typiques (Option A) :
 
 4. **Cohérence avec `Project.kind`** — Aucune règle supplémentaire imposée par cette RFC au-delà des règles projet existantes ; un `ProjectKind.ACTIVITY` reste un conteneur projet valide pour le staffing.
 
-## 4.2 API REST proposée (convenience — préfixe `/api`)
+## 4.2 API REST (convenience — préfixe `/api`)
 
-Toutes les routes : JWT, client actif, module `teams` / `team_assignments` **et** module `projects` selon politique d’activation.
+Toutes les routes : JWT, client actif, module **`team_assignments`** activé pour le client (`ModuleAccessGuard` déduit du préfixe `team_assignments` sur les permissions). **Pas** de permission `projects.*` sur ces handlers (le `PermissionsGuard` n’autorise qu’un seul préfixe de module par route).
 
 | Méthode | Chemin | Description |
 | --- | --- | --- |
-| `GET` | `/projects/:projectId/resource-assignments` | Liste paginée des affectations **de ce projet** (même shape enrichi que TEAM-007) |
-| `GET` | `/projects/:projectId/resource-assignments/:assignmentId` | Détail (404 si `projectId` ne correspond pas) |
-| `POST` | `/projects/:projectId/resource-assignments` | Création ; `projectId` **non** accepté dans le body |
-| `PATCH` | `/projects/:projectId/resource-assignments/:assignmentId` | Mise à jour partielle |
-| `POST` | `/projects/:projectId/resource-assignments/:assignmentId/cancel` | Annulation logique (alias TEAM-007) |
+| `GET` | `/projects/:projectId/resource-assignments` | Liste paginée `{ items, total, limit, offset }` — affectations **de ce projet** |
+| `POST` | `/projects/:projectId/resource-assignments` | Création ; `projectId` imposé par l’URL (interdit dans le body) |
+| `POST` | `/projects/:projectId/resource-assignments/:assignmentId/cancel` | Annulation logique (délégation `TeamAssignmentsService.cancel`) |
+| `GET` | `/projects/:projectId/resource-assignments/:assignmentId` | Détail — **404** si inconnu ou affectation d’un autre projet |
+| `PATCH` | `/projects/:projectId/resource-assignments/:assignmentId` | Mise à jour partielle — pas de `projectId` dans le body |
 
-**Query `GET` (liste)** : réutiliser les filtres temporels de TEAM-007 (`from`, `to`, `activeOn`, `includeCancelled`) **en restreignant** implicitement à ce projet.
+**Query `GET` (liste)** : `collaboratorId`, `activityTypeId`, `includeCancelled`, `from`/`to`, `activeOn`, `limit`, `offset` (règles temporelles identiques à TEAM-007) ; filtre projet = path. Si `projectId` en query **≠** path → **400**.
 
-**Réponses** — Identiques à TEAM-007 : pour chaque item, champs **affichables** (`collaboratorDisplayName`, `activityTypeName`, `activityTypeKind`, `roleLabel`, `projectName` / `projectCode` redondants mais utiles pour exports).
+**Réponses** — Identiques à TEAM-007 (`TeamResourceAssignmentResponse`).
 
-## 4.3 RBAC
+## 4.3 RBAC (implémenté)
 
-| Permission / condition | Lecture liste / détail | Création / modification / annulation |
-| --- | --- | --- |
-| `team_assignments.read` + `projects.read` | Oui (sous filtre périmètre) | Non |
-| `team_assignments.manage` + `projects.read` | Oui | Oui si règle « projet » satisfaite (voir §2.2) |
-| Admin client large (profil équipe) | Oui | Oui |
+| Permission | Routes |
+| --- | --- |
+| `team_assignments.read` | `GET` liste, `GET` détail |
+| `team_assignments.manage` | `POST` création, `PATCH` mise à jour, `POST` cancel |
 
-**Règle optionnelle « responsable »** — Si le produit restreint la saisie aux seuls pilotage projet :
+**Hors livraison backend actuelle** : combinaison `projects.read` + `team_assignments.*` sur une même route, et règle « responsable projet uniquement » (§2.2) — évolutions possibles (garde dédié, évolution guards).
 
-- Autoriser `team_assignments.manage` **uniquement** si **au moins une** des conditions : `projects.update`, ou `currentUser.id === project.ownerUserId`, ou `currentUser.id === project.sponsorUserId`.
-
-Documenter le choix dans le seed des profils.
+**Note** : l’accès à l’écran projet côté UI reste conditionné au module Projets ; l’API ci-dessus ne vérifie pas `projects.read` sur chaque appel.
 
 ## 4.4 Audit (RFC-013)
 
@@ -166,10 +165,10 @@ Si l’implémentation ajoute un champ d’audit « dernier éditeur », le fair
 
 # 6. Tests
 
-- **Contrôleur** « sous projet » : 404 si projet hors client ; 403 si utilisateur sans droit staffing / hors règle owner ; body sans `projectId` refuse toute substitution de projet.
-- **Isolation** : impossible de lire ou modifier une affectation d’un **autre** `projectId` en jouant sur `:assignmentId`.
-- **Périmètre manager** : utilisateur à scope restreint ne voit pas les lignes dont le collaborateur est hors périmètre (alignement TEAM-005 / TEAM-007).
-- **Service** : délégation correcte au service TEAM-007 (pas de duplication de validation métier).
+- **Contrôleur** : métadonnées `RequirePermissions` par route ; ordre des handlers documenté en spec.
+- **404** : projet inconnu pour le client (`ensureProjectInClient`) ; affectation qui n’appartient pas au `projectId` du path (get / patch / cancel).
+- **400** : `projectId` en query contradictoire avec le path (liste).
+- **Service** : `createForProject` injecte le `projectId` du path ; `cancelForProject` conserve l’idempotence de `cancel` (TEAM-007).
 
 ---
 
