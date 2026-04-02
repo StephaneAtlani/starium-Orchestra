@@ -16,8 +16,10 @@ import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CollaboratorSkillsService } from './collaborator-skills.service';
 import { CreateSkillDto } from './dto/create-skill.dto';
 import { ListSkillOptionsQueryDto } from './dto/list-skill-options.query.dto';
+import { ListSkillCollaboratorsQueryDto } from './dto/list-skill-collaborators.query.dto';
 import { ListSkillsQueryDto } from './dto/list-skills.query.dto';
 import { UpdateSkillDto } from './dto/update-skill.dto';
 import { SkillsService } from './skills.service';
@@ -25,7 +27,10 @@ import { SkillsService } from './skills.service';
 @Controller('skills')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class SkillsController {
-  constructor(private readonly skillsService: SkillsService) {}
+  constructor(
+    private readonly skillsService: SkillsService,
+    private readonly collaboratorSkills: CollaboratorSkillsService,
+  ) {}
 
   @Get('options')
   @RequirePermissions('skills.read')
@@ -43,6 +48,17 @@ export class SkillsController {
     @Query() query: ListSkillsQueryDto,
   ) {
     return this.skillsService.listSkills(clientId!, query);
+  }
+
+  /** Doit rester avant `GET(':id')` pour ne pas capturer le segment statique `collaborators`. */
+  @Get(':skillId/collaborators')
+  @RequirePermissions('skills.read')
+  listCollaboratorsForSkill(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('skillId') skillId: string,
+    @Query() query: ListSkillCollaboratorsQueryDto,
+  ) {
+    return this.collaboratorSkills.listBySkill(clientId!, skillId, query);
   }
 
   @Post()

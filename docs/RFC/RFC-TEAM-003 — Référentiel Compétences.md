@@ -186,7 +186,7 @@ model Skill {
 - Archivage = `PATCH /api/skills/:id/archive` → `status = ARCHIVED`, `archivedAt = now()`.
 - Restauration = `PATCH /api/skills/:id/restore` → `status = ACTIVE`, `archivedAt = null`.
 - Les compétences archivées ne sont **pas retournées par défaut** dans les listes et options (filtre `status != ARCHIVED`).
-- Suppression physique interdite si des `CollaboratorSkill` sont liées (RFC-TEAM-004). Au MVP (sans TEAM-004), la suppression physique reste possible en fallback, mais l'archivage est le mécanisme recommandé.
+- Suppression physique interdite si des `CollaboratorSkill` sont liées (RFC-TEAM-004 implémentée — `onDelete: Restrict` côté Prisma). L'archivage logique reste le mécanisme recommandé pour retirer une compétence du catalogue.
 
 ### Changement de catégorie
 

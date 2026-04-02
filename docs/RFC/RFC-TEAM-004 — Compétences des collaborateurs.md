@@ -2,7 +2,7 @@
 
 ## Statut
 
-Rédigée — prête à implémenter (backend + contrat API ; UI : RFC-FE-TEAM-003)
+Implémentée (backend MVP) — UI dédiée : RFC-FE-TEAM-003
 
 ## Priorité
 
@@ -22,17 +22,11 @@ Haute (Phase 2 — socle compétences)
 
 Le catalogue de compétences (RFC-TEAM-003) est implémenté : modèles Prisma `Skill` et `SkillCategory`, module NestJS `skills`, CRUD complet avec catégories, archivage logique, permissions `skills.*` et seed.
 
-Le modèle `Collaborator` porte un champ `skills Json?` — placeholder provisoire non exploité par les DTOs ni le service. Aucune relation structurée `Collaborator ↔ Skill` n'existe.
+**Implémentation TEAM-004 (backend)** : table Prisma `CollaboratorSkill`, enum `CollaboratorSkillSource`, services `CollaboratorSkillsService` + `CollaboratorSkillsController` (routes nestées `/api/collaborators/:collaboratorId/skills`, bulk, validate/invalidate) et route inverse `GET /api/skills/:skillId/collaborators` sur `SkillsController` ; permissions `skills.read` / `skills.update` ; audit `collaborator_skill.*` ; migration `20260402140000_add_collaborator_skills`.
 
-Constats :
+Le modèle `Collaborator` conserve un champ `skills Json?` — **déprécié** ; les associations métier passent par `CollaboratorSkill`.
 
-- pas de table `CollaboratorSkill` dans le schéma Prisma ;
-- pas d'API pour associer une compétence à un collaborateur ;
-- aucune notion de niveau réel du collaborateur (distinct du `referenceLevel` attendu sur `Skill`) ;
-- aucune mécanique de revue périodique, de source de déclaration ni de validation manager ;
-- les futurs besoins (RFC-TEAM-015 matrice de compétences, RFC-TEAM-016 alertes compétence manquante, RFC-FE-TEAM-003 UI compétences collaborateur) imposent un modèle relationnel requêtable.
-
-**Objectif** : créer l'association structurée `Collaborator ↔ Skill` avec niveau réel, commentaire, date de revue, source de déclaration et validation manager.
+**Suite produit** : RFC-TEAM-015 (matrice), RFC-TEAM-016 (alertes gap), RFC-FE-TEAM-003 (UI compétences collaborateur) s’appuient sur ce modèle relationnel.
 
 ---
 

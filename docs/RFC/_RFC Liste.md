@@ -1,6 +1,6 @@
 # Index des RFC (Starium Orchestra)
 
-> Dernière révision documentaire : **2026-04** (RFC-SEC-001 implémentée — MFA Hardening & Recovery Codes). Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
+> Dernière révision documentaire : **2026-04** (RFC-TEAM-004 backend MVP — associations collaborateur ↔ compétence). Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
 >
 > **Collision de numéro** : deux fichiers distincts portent **RFC-PROJ-012** — [Project Sheet (fiche décisionnelle)](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [Gantt Tâches et Jalons (UI planning)](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md). Ne pas les fusionner dans les tableaux ci-dessous.
 >
@@ -42,7 +42,7 @@
 | **RFC-TEAM-001** | Synchronisation des collaborateurs depuis AD DS | ✅ Implémentée (MVP) | Implémentation Microsoft Graph/Entra ; provisioning auto vers `Membres` (`User` + `ClientUser`) ; verrouillage des membres synchronisés |
 | **RFC-TEAM-002** | Référentiel Collaborateurs métier | ✅ Implémentée (backend MVP) | CRUD métier des collaborateurs (identité, fonction, manager, statut, source, tags, notes, règles sync) ; voir [RFC](./RFC-TEAM-002%20%E2%80%94%20R%C3%A9f%C3%A9rentiel%20Collaborateurs%20m%C3%A9tier.md) |
 | **RFC-TEAM-003** | Référentiel Compétences | ✅ Implémentée (backend MVP) | Catalogue client de compétences (catégories, statuts, niveaux, archivage logique) ; API skills + categories, archivage logique, RBAC `skills.*` ; voir [RFC](./RFC-TEAM-003%20%E2%80%94%20R%C3%A9f%C3%A9rentiel%20Comp%C3%A9tences.md) |
-| **RFC-TEAM-004** | Compétences des collaborateurs | ❌ À faire | Association `Collaborator ↔ Skill` (niveau, source, commentaire, `reviewedAt`, validation manager) ; API nestée + vue inversée ; isolation client ; voir [RFC](./RFC-TEAM-004%20%E2%80%94%20Comp%C3%A9tences%20des%20collaborateurs.md) |
+| **RFC-TEAM-004** | Compétences des collaborateurs | ✅ Implémentée (backend MVP) | `CollaboratorSkill` + API nestée `/api/collaborators/:id/skills` + `GET /api/skills/:skillId/collaborators` ; RBAC `skills.*` ; UI : RFC-FE-TEAM-003 ; voir [RFC](./RFC-TEAM-004%20%E2%80%94%20Comp%C3%A9tences%20des%20collaborateurs.md) |
 | **RFC-FE-TEAM-001** | Frontend Foundation — Équipes | ✅ Implémentée | Structure `features/teams`, routes, query keys tenant-aware, API client, conventions d'état, tests unitaires ; voir [RFC](./RFC-FE-TEAM-001%20%E2%80%94%20Frontend%20Foundation%20%E2%80%94%20%C3%89quipes.md) |
 | **RFC-FE-TEAM-002** | UI Collaborateurs | ✅ Implémentée (MVP FE) | Liste + détail + édition sur `/teams/collaborators`; badges `status`/`source`, filtres (`search/status/source/manager/tag`), relation manager lisible sans ID brut ; voir [RFC](./RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md) |
 

@@ -6,6 +6,7 @@ import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CollaboratorSkillsService } from './collaborator-skills.service';
 import { SkillCategoriesController } from './skill-categories.controller';
 import { SkillsController } from './skills.controller';
 import { SkillsService } from './skills.service';
@@ -30,10 +31,17 @@ describe('Skills controllers', () => {
     deleteSkillCategory: jest.fn(),
   };
 
+  const collaboratorSkills = {
+    listBySkill: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [SkillsController, SkillCategoriesController],
-      providers: [{ provide: SkillsService, useValue: service }],
+      providers: [
+        { provide: SkillsService, useValue: service },
+        { provide: CollaboratorSkillsService, useValue: collaboratorSkills },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue(passGuard)
@@ -52,6 +60,22 @@ describe('Skills controllers', () => {
   it('route skills/options est déclarée explicitement avant :id', () => {
     const path = Reflect.getMetadata(PATH_METADATA, SkillsController.prototype.listOptions);
     expect(path).toBe('options');
+  });
+
+  it('route skills/:skillId/collaborators est distincte de :id (segment statique collaborators)', () => {
+    const path = Reflect.getMetadata(
+      PATH_METADATA,
+      SkillsController.prototype.listCollaboratorsForSkill,
+    );
+    expect(path).toBe(':skillId/collaborators');
+  });
+
+  it('GET collaborateurs par compétence requiert skills.read', () => {
+    const perms = Reflect.getMetadata(
+      REQUIRE_PERMISSIONS_KEY,
+      SkillsController.prototype.listCollaboratorsForSkill,
+    );
+    expect(perms).toEqual(['skills.read']);
   });
 
   it('route skill-categories/options est déclarée explicitement avant :id', () => {

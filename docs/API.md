@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
 
 ---
 
@@ -1975,6 +1975,30 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 **Erreurs :** 400 (invariant allocation, DTO), 409 (budget/exercice fermé, ligne non ACTIVE, doublon `(projectId, budgetLineId)`, suppression laissant un résidu incohérent), 404 (hors scope client).
 
 **Erreurs courantes (reste du module projets) :** 401, 403 (module inactif ou permission manquante), 404 (projet ou sous-ressource hors périmètre client), 409 (ex. code projet déjà utilisé).
+
+---
+
+## Équipes — associations collaborateur ↔ compétence (RFC-TEAM-004)
+
+Module Nest `skills` : isolation **client actif** (`X-Client-Id`) ; pas de `clientId` dans le body. Réponses listes : `{ items, total, limit, offset }`. Détail : [RFC-TEAM-004](RFC/RFC-TEAM-004%20%E2%80%94%20Comp%C3%A9tences%20des%20collaborateurs.md).
+
+**Permissions** : lecture **`skills.read`** ; écriture (création, mise à jour, suppression, bulk, validate/invalidate) **`skills.update`**.
+
+### Routes nestées collaborateur
+
+- **GET** `/api/collaborators/:collaboratorId/skills` — Liste des compétences du collaborateur (filtres query : `search`, `categoryId`, `level`, `source`, `validated`, `includeArchived`, pagination, `sortBy` / `sortOrder`). **`skills.read`**
+- **POST** `/api/collaborators/:collaboratorId/skills` — Création d’une association (body : `skillId`, champs optionnels niveau, source, commentaire, `reviewedAt`). **`skills.update`**
+- **POST** `/api/collaborators/:collaboratorId/skills/bulk` — Création en lot (`items[]`, max 50). Réponse : `created`, `skipped`, `totalRequested`. **`skills.update`**
+- **PATCH** `/api/collaborators/:collaboratorId/skills/:id` — Mise à jour partielle de l’association. **`skills.update`**
+- **DELETE** `/api/collaborators/:collaboratorId/skills/:id` — Suppression de l’association. **`skills.update`**
+- **PATCH** `/api/collaborators/:collaboratorId/skills/:id/validate` — Validation manager (`validatedByUserId`, `validatedAt`). **`skills.update`**
+- **PATCH** `/api/collaborators/:collaboratorId/skills/:id/invalidate` — Retrait de validation. **`skills.update`**
+
+### Vue inverse par compétence
+
+- **GET** `/api/skills/:skillId/collaborators` — Collaborateurs porteurs de la compétence (filtres : `search`, `level`, `validated`, `includeArchived`, pagination). Skill **`ARCHIVED`** : **404** si `includeArchived` faux ; **200** si `includeArchived` true. **`skills.read`**
+
+**Erreurs courantes :** 400 (collaborateur non actif pour écriture, skill archivée pour création, bulk invalide), 404 (collaborateur/skill/association hors scope), 409 (doublon sur POST unitaire `(collaboratorId, skillId)`).
 
 ---
 

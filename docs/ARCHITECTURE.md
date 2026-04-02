@@ -459,6 +459,8 @@ Core budgétaire / financier
 └── procurement
 
 Autres domaines
+├── collaborators (RFC-TEAM-002 — référentiel métier)
+├── skills (RFC-TEAM-003 catalogue ; RFC-TEAM-004 `CollaboratorSkill` — associations collaborateur ↔ compétence)
 ├── projects
 ├── project-budget (RFC-PROJ-010 — liens Project ↔ BudgetLine)
 ├── microsoft (RFC-PROJ-INT-003 OAuth, RFC-PROJ-INT-004 client HTTP Graph)

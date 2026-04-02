@@ -118,6 +118,14 @@ enum SkillReferenceLevel {
   EXPERT
 }
 
+enum CollaboratorSkillSource {
+  SELF_DECLARED
+  MANAGER_ASSESSED
+  HR_REVIEW
+  IMPORTED
+  OTHER
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -197,6 +205,7 @@ model Client {
   collaborators                 Collaborator[]
   skillCategories               SkillCategory[]
   skills                        Skill[]
+  collaboratorSkills            CollaboratorSkill[]
   complianceFrameworks   ComplianceFramework[]
   complianceStatuses     ComplianceStatus[]
   complianceEvidences    ComplianceEvidence[]
@@ -298,6 +307,7 @@ model User {
   uploadedProjectDocuments           ProjectDocument[]     @relation("ProjectDocumentUploadedBy")
   ownedActionPlans                   ActionPlan[]          @relation("ActionPlanOwner")
   budgetDashboardWidgetOverrides   BudgetDashboardWidgetOverride[]
+  validatedCollaboratorSkills      CollaboratorSkill[] @relation("CollaboratorSkillValidator")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -2939,6 +2949,7 @@ model Collaborator {
   client       Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   manager      Collaborator?  @relation("CollaboratorManager", fields: [managerId], references: [id], onDelete: SetNull)
   reports      Collaborator[] @relation("CollaboratorManager")
+  collaboratorSkills CollaboratorSkill[]
 
   @@unique([clientId, externalDirectoryId])
   @@index([clientId, email])
@@ -2980,9 +2991,37 @@ model Skill {
 
   client   Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   category SkillCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  collaboratorSkills CollaboratorSkill[]
 
   @@unique([clientId, normalizedName])
   @@index([clientId])
   @@index([clientId, categoryId])
   @@index([clientId, status])
+}
+
+model CollaboratorSkill {
+  id                  String                  @id @default(cuid())
+  clientId            String
+  collaboratorId    String
+  skillId             String
+  level               SkillReferenceLevel     @default(BEGINNER)
+  source              CollaboratorSkillSource @default(SELF_DECLARED)
+  comment             String?
+  reviewedAt          DateTime?
+  validatedByUserId   String?
+  validatedAt         DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  collaborator Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  skill        Skill        @relation(fields: [skillId], references: [id], onDelete: Restrict)
+  validatedBy  User?        @relation("CollaboratorSkillValidator", fields: [validatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([collaboratorId, skillId])
+  @@index([clientId])
+  @@index([clientId, collaboratorId])
+  @@index([clientId, skillId])
+  @@index([clientId, level])
+  @@index([validatedByUserId])
 }
