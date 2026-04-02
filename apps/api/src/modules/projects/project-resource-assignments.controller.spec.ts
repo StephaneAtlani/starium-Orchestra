@@ -16,7 +16,13 @@ describe('ProjectResourceAssignmentsController', () => {
     expect(
       Object.getOwnPropertyNames(ProjectResourceAssignmentsController.prototype)
         .filter((k) => k !== 'constructor')
-        .filter((k) => typeof (ProjectResourceAssignmentsController.prototype as Record<string, unknown>)[k] === 'function'),
+        .filter(
+          (k) =>
+            typeof (ProjectResourceAssignmentsController.prototype as unknown as Record<
+              string,
+              unknown
+            >)[k] === 'function',
+        ),
     ).toEqual([...HANDLER_ORDER]);
   });
 
