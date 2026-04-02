@@ -32,6 +32,7 @@ import { RiskTaxonomyModule } from './modules/risk-taxonomy/risk-taxonomy.module
 import { BudgetForecastModule } from './modules/budget-forecast/budget-forecast.module';
 import { PlatformUsageModule } from './modules/platform-usage/platform-usage.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { SkillsModule } from './modules/skills/skills.module';
     BudgetForecastModule,
     PlatformUsageModule,
     SkillsModule,
+    WorkTeamsModule,
   ],
 })
 export class AppModule {}

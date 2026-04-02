@@ -23,12 +23,17 @@ import { ListCollaboratorTagsOptionsQueryDto } from './dto/list-collaborator-tag
 import { ListCollaboratorsQueryDto } from './dto/list-collaborators.query.dto';
 import { UpdateCollaboratorDto } from './dto/update-collaborator.dto';
 import { UpdateCollaboratorStatusDto } from './dto/update-collaborator-status.dto';
+import { ListCollaboratorWorkTeamsQueryDto } from '../work-teams/dto/list-collaborator-work-teams.query.dto';
+import { WorkTeamMembershipsService } from '../work-teams/work-team-memberships.service';
 import { CollaboratorsService } from './collaborators.service';
 
 @Controller('collaborators')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class CollaboratorsController {
-  constructor(private readonly collaborators: CollaboratorsService) {}
+  constructor(
+    private readonly collaborators: CollaboratorsService,
+    private readonly workTeamMemberships: WorkTeamMembershipsService,
+  ) {}
 
   @Get()
   @RequirePermissions('collaborators.read')
@@ -67,6 +72,16 @@ export class CollaboratorsController {
     @Query() query: ListCollaboratorTagsOptionsQueryDto,
   ) {
     return this.collaborators.listTagsOptions(clientId!, query);
+  }
+
+  @Get(':id/work-teams')
+  @RequirePermissions('teams.read')
+  listWorkTeamsForCollaborator(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Query() query: ListCollaboratorWorkTeamsQueryDto,
+  ) {
+    return this.workTeamMemberships.listTeamsForCollaborator(clientId!, id, query);
   }
 
   @Get(':id')

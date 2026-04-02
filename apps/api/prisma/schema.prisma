@@ -126,6 +126,23 @@ enum CollaboratorSkillSource {
   OTHER
 }
 
+enum WorkTeamStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum WorkTeamMemberRole {
+  MEMBER
+  LEAD
+  DEPUTY
+}
+
+enum ManagerScopeMode {
+  DIRECT_REPORTS_ONLY
+  TEAM_SUBTREE
+  HYBRID
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -206,6 +223,10 @@ model Client {
   skillCategories               SkillCategory[]
   skills                        Skill[]
   collaboratorSkills            CollaboratorSkill[]
+  workTeams                     WorkTeam[]
+  workTeamMemberships           WorkTeamMembership[]
+  managerScopeConfigs           ManagerScopeConfig[]
+  managerScopeRootTeams         ManagerScopeRootTeam[]
   complianceFrameworks   ComplianceFramework[]
   complianceStatuses     ComplianceStatus[]
   complianceEvidences    ComplianceEvidence[]
@@ -2950,12 +2971,88 @@ model Collaborator {
   manager      Collaborator?  @relation("CollaboratorManager", fields: [managerId], references: [id], onDelete: SetNull)
   reports      Collaborator[] @relation("CollaboratorManager")
   collaboratorSkills CollaboratorSkill[]
+  workTeamMemberships WorkTeamMembership[]
+  ledWorkTeams        WorkTeam[]             @relation("WorkTeamLead")
+  managerScopeConfig  ManagerScopeConfig?
 
   @@unique([clientId, externalDirectoryId])
   @@index([clientId, email])
   @@index([clientId, username])
   @@index([clientId, source])
   @@index([clientId, externalDirectoryType])
+}
+
+model WorkTeam {
+  id                 String         @id @default(cuid())
+  clientId           String
+  name               String
+  code               String?
+  parentId           String?
+  leadCollaboratorId String?
+  status             WorkTeamStatus @default(ACTIVE)
+  archivedAt         DateTime?
+  sortOrder          Int            @default(0)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  client               Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  parent               WorkTeam?              @relation("WorkTeamHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children             WorkTeam[]             @relation("WorkTeamHierarchy")
+  lead                 Collaborator?          @relation("WorkTeamLead", fields: [leadCollaboratorId], references: [id], onDelete: SetNull)
+  memberships          WorkTeamMembership[]
+  managerScopeRootRefs ManagerScopeRootTeam[]
+
+  @@unique([clientId, code])
+  @@index([clientId, parentId])
+  @@index([clientId, status])
+}
+
+model WorkTeamMembership {
+  id             String             @id @default(cuid())
+  clientId       String
+  workTeamId     String
+  collaboratorId String
+  role           WorkTeamMemberRole @default(MEMBER)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  workTeam     WorkTeam     @relation(fields: [workTeamId], references: [id], onDelete: Cascade)
+  collaborator Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+
+  @@unique([workTeamId, collaboratorId])
+  @@index([clientId, collaboratorId])
+}
+
+model ManagerScopeConfig {
+  id                    String           @id @default(cuid())
+  clientId              String
+  managerCollaboratorId String           @unique
+  mode                  ManagerScopeMode
+  includeDirectReports  Boolean          @default(true)
+  includeTeamSubtree    Boolean          @default(false)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  client    Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  manager   Collaborator           @relation(fields: [managerCollaboratorId], references: [id], onDelete: Cascade)
+  rootTeams ManagerScopeRootTeam[]
+
+  @@index([clientId])
+}
+
+model ManagerScopeRootTeam {
+  id                   String @id @default(cuid())
+  clientId             String
+  managerScopeConfigId String
+  workTeamId           String
+
+  client   Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  config   ManagerScopeConfig @relation(fields: [managerScopeConfigId], references: [id], onDelete: Cascade)
+  workTeam WorkTeam           @relation(fields: [workTeamId], references: [id], onDelete: Cascade)
+
+  @@unique([managerScopeConfigId, workTeamId])
+  @@index([clientId, workTeamId])
 }
 
 model SkillCategory {

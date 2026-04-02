@@ -2,7 +2,7 @@
 
 ## Statut
 
-À faire (backend)
+Implémentée (backend MVP) — module NestJS `work-teams`, migration Prisma, seed `teams.*`, tests unitaires contrôleurs / services / seed.
 
 ## Priorité
 
@@ -16,9 +16,17 @@ Haute — Phase 3 du plan Équipes ; **bloquant** pour [RFC-FE-TEAM-004](./RFC-F
 - RFC-013 — Audit logs (mutations référentiel et scopes)
 - `.cursorrules` — réponses API avec libellés métier pour toute entité liée (`displayName`, `name`, chemins hiérarchiques lisibles)
 
+## Implémentation livrée (référence code)
+
+- **Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — `WorkTeam`, `WorkTeamMembership`, `ManagerScopeConfig`, `ManagerScopeRootTeam` ; migration `20260403120000_add_work_teams_manager_scopes`.
+- **API** : préfixe `/api` — `WorkTeamsController` (`/work-teams`), `ManagerScopesController` (`/manager-scopes`), `GET /collaborators/:id/work-teams` sur `CollaboratorsController`. Permissions : `teams.read`, `teams.update`, `teams.manage_scopes` ; guards JWT + client actif + module + permissions.
+- **Liste paginée** : `{ items, total, limit, offset }` sauf `GET /work-teams/tree` → `{ nodes }` (exception documentée).
+- **Seed** : [`ensureTeamsModuleAndPermissions` + `ensureClientAdminTeamsModuleRole`](../../apps/api/prisma/seed.ts) ; [`default-profiles.json`](../../apps/api/prisma/default-profiles.json) enrichi (Lecteur / Gestionnaire Équipes).
+- **Tests** : `apps/api/src/modules/work-teams/**/*.spec.ts`, `work-teams-seed-permissions.spec.ts`.
+
 ## Consommateurs prévus
 
-- RFC-FE-TEAM-004 (UI structure, rattachements, scopes)
+- [RFC-FE-TEAM-004](./RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md) (UI structure, rattachements, scopes) — **backend prêt** ; implémentation UI toujours à faire.
 - RFC-TEAM-013 / RFC-FE-TEAM-007 — cockpit manager (réutilisation **stricte** des mêmes règles de périmètre, pas de second calcul ad hoc côté UI)
 
 ---

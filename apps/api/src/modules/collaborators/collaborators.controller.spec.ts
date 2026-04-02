@@ -6,6 +6,7 @@ import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { WorkTeamMembershipsService } from '../work-teams/work-team-memberships.service';
 import { CollaboratorsController } from './collaborators.controller';
 import { CollaboratorsService } from './collaborators.service';
 import { UpdateCollaboratorDto } from './dto/update-collaborator.dto';
@@ -25,11 +26,17 @@ describe('CollaboratorsController', () => {
     updateStatus: jest.fn(),
     softDelete: jest.fn(),
   };
+  const workTeamMemberships = {
+    listTeamsForCollaborator: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [CollaboratorsController],
-      providers: [{ provide: CollaboratorsService, useValue: service }],
+      providers: [
+        { provide: CollaboratorsService, useValue: service },
+        { provide: WorkTeamMembershipsService, useValue: workTeamMemberships },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue(passGuard)
@@ -59,6 +66,27 @@ describe('CollaboratorsController', () => {
       CollaboratorsController.prototype.listTagsOptions,
     );
     expect(path).toBe('options/tags');
+  });
+
+  it('route :id/work-teams est déclarée avant :id (collision)', () => {
+    const pathWorkTeams = Reflect.getMetadata(
+      PATH_METADATA,
+      CollaboratorsController.prototype.listWorkTeamsForCollaborator,
+    );
+    const pathById = Reflect.getMetadata(
+      PATH_METADATA,
+      CollaboratorsController.prototype.getById,
+    );
+    expect(pathWorkTeams).toBe(':id/work-teams');
+    expect(pathById).toBe(':id');
+  });
+
+  it('applique teams.read sur listWorkTeamsForCollaborator', () => {
+    const perms = Reflect.getMetadata(
+      REQUIRE_PERMISSIONS_KEY,
+      CollaboratorsController.prototype.listWorkTeamsForCollaborator,
+    );
+    expect(perms).toEqual(['teams.read']);
   });
 
   it('applique permission collaborators.read sur list', () => {

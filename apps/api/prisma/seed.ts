@@ -1263,6 +1263,83 @@ async function ensureSkillsModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureTeamsModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "teams" },
+    create: {
+      code: "teams",
+      name: "Équipes métier",
+      description: "Structure organisationnelle, rattachements et périmètres managers",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "teams.read", label: "Équipes — lecture" },
+    { code: "teams.update", label: "Équipes — modification" },
+    { code: "teams.manage_scopes", label: "Équipes — périmètres managers" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label },
+    });
+  }
+}
+
+/**
+ * Rôle global : permissions équipes métier pour les CLIENT_ADMIN (UserRole).
+ * Idempotent. À exécuter après création des ClientUser démo.
+ */
+async function ensureClientAdminTeamsModuleRole(): Promise<void> {
+  const codes = ["teams.read", "teams.update", "teams.manage_scopes"] as const;
+  const permissions = await prisma.permission.findMany({
+    where: { code: { in: [...codes] } },
+  });
+  if (permissions.length !== codes.length) {
+    console.warn(
+      "⚠️  ensureClientAdminTeamsModuleRole : permissions teams.* manquantes — skip.",
+    );
+    return;
+  }
+  let role = await prisma.role.findFirst({
+    where: { scope: RoleScope.GLOBAL, name: "Client admin — équipes métier" },
+  });
+  if (!role) {
+    role = await prisma.role.create({
+      data: {
+        scope: RoleScope.GLOBAL,
+        name: "Client admin — équipes métier",
+        description: "Structure équipes, rattachements et scopes managers",
+        isSystem: true,
+      },
+    });
+  }
+  for (const perm of permissions) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: { roleId: role.id, permissionId: perm.id },
+      },
+      create: { roleId: role.id, permissionId: perm.id },
+      update: {},
+    });
+  }
+  const admins = await prisma.clientUser.findMany({
+    where: { role: ClientUserRole.CLIENT_ADMIN, status: ClientUserStatus.ACTIVE },
+    select: { userId: true },
+  });
+  for (const a of admins) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: { userId: a.userId, roleId: role.id },
+      },
+      create: { userId: a.userId, roleId: role.id },
+      update: {},
+    });
+  }
+}
+
 type DefaultProfileSeed = {
   name: string;
   description?: string;
@@ -2639,6 +2716,7 @@ async function main() {
   await ensureComplianceModuleAndPermissions();
   await ensureCollaboratorsModuleAndPermissions();
   await ensureSkillsModuleAndPermissions();
+  await ensureTeamsModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
   await ensureDefaultGlobalProfiles();
   await ensureClientAdminRiskTaxonomyRole();
@@ -2647,6 +2725,8 @@ async function main() {
   for (const clientSeed of CLIENTS) {
     await seedClient(clientSeed, passwordHash);
   }
+
+  await ensureClientAdminTeamsModuleRole();
 
   await ensureBudgetCockpitCompleteDemo(prisma);
 
