@@ -22,6 +22,7 @@ import {
 } from './sidebar-dropdown';
 import { useSidebarNav } from './sidebar-nav-context';
 import { navigationItemVisible } from './navigation-visibility';
+import { isEquipesDropdownChildActive } from './equipes-nav-helpers';
 
 function visible(
   item: NavigationItem,
@@ -306,24 +307,19 @@ export function Sidebar() {
                       href: '/teams/skills',
                     });
                   }
+                  if (permsSuccess && has('teams.read')) {
+                    teamsChildren.push({
+                      label: 'Structure & équipes',
+                      href: '/teams/structure/teams',
+                    });
+                  }
 
                   if (teamsChildren.length === 0) {
                     return null;
                   }
 
-                  const isTeamsChildActive = (href: string) => {
-                    if (!pathname) return false;
-                    if (href === '/teams/skills') {
-                      return pathname === '/teams/skills' || pathname.startsWith('/teams/skills/');
-                    }
-                    if (href === '/teams/collaborators') {
-                      return (
-                        pathname === '/teams/collaborators' ||
-                        pathname.startsWith('/teams/collaborators/')
-                      );
-                    }
-                    return false;
-                  };
+                  const isTeamsChildActive = (href: string) =>
+                    isEquipesDropdownChildActive(pathname, href);
 
                   return (
                     <SidebarDropdown

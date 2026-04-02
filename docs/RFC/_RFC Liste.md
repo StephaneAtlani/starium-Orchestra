@@ -1,6 +1,6 @@
 # Index des RFC (Starium Orchestra)
 
-> Dernière révision documentaire : **2026-04** (RFC-TEAM-008 backend MVP — routes `/api/projects/:projectId/resource-assignments`). Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
+> Dernière révision documentaire : **2026-04** (RFC-FE-TEAM-004 MVP — UI Structure & équipes / périmètres managers). Les colonnes *État* reflètent le dépôt au moment de la mise à jour ; vérifier le code pour la vérité opérationnelle.
 >
 > **Collision de numéro** : deux fichiers distincts portent **RFC-PROJ-012** — [Project Sheet (fiche décisionnelle)](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [Gantt Tâches et Jalons (UI planning)](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md). Ne pas les fusionner dans les tableaux ci-dessous.
 >
@@ -50,6 +50,7 @@
 | **RFC-FE-TEAM-001** | Frontend Foundation — Équipes | ✅ Implémentée | Structure `features/teams`, routes, query keys tenant-aware, API client, conventions d'état, tests unitaires ; voir [RFC](./RFC-FE-TEAM-001%20%E2%80%94%20Frontend%20Foundation%20%E2%80%94%20%C3%89quipes.md) |
 | **RFC-FE-TEAM-002** | UI Collaborateurs | ✅ Implémentée (MVP FE) | Liste + détail + édition sur `/teams/collaborators`; badges `status`/`source`, filtres (`search/status/source/manager/tag`), relation manager lisible sans ID brut ; voir [RFC](./RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md) |
 | **RFC-FE-TEAM-003** | UI Compétences | Implémentée (MVP catalogue FE) | `/teams/skills`, dialog porteurs, sidebar Équipes ; UI associations fiche collaborateur → lot FE suivant ; voir [RFC](./RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md) |
+| **RFC-FE-TEAM-004** | UI Équipes / scopes managers | ✅ Implémentée (MVP FE) | `apps/web/src/features/teams/work-teams/` ; `/teams/structure/teams`, `/teams/structure/teams/[teamId]`, `/teams/structure/manager-scopes` ; `teams.read` / `teams.update` / `teams.manage_scopes` ; encart équipes fiche collaborateur → hors MVP ; voir [RFC](./RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md) |
 
 ---
 

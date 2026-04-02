@@ -26,7 +26,7 @@ describe('platform navigation', () => {
     expect(suppliersParent?.scope).toBe('client');
   });
 
-  it('expose une entrée Equipes (dropdown) avec any(collaborators.read, skills.read)', () => {
+  it('expose une entrée Equipes (dropdown) avec any(collaborators.read, skills.read, teams.read)', () => {
     const orgSection = navigation.find((section) => section.section === 'Organisation');
     expect(orgSection).toBeDefined();
 
@@ -34,7 +34,11 @@ describe('platform navigation', () => {
     expect(teamsItem).toBeDefined();
     expect(teamsItem?.href).toBeUndefined();
     expect(teamsItem?.moduleCode).toBeUndefined();
-    expect(teamsItem?.requiredPermissions).toEqual(['collaborators.read', 'skills.read']);
+    expect(teamsItem?.requiredPermissions).toEqual([
+      'collaborators.read',
+      'skills.read',
+      'teams.read',
+    ]);
     expect(teamsItem?.requiredPermissionsMatch).toBe('any');
     expect(teamsItem?.scope).toBe('client');
   });

@@ -94,7 +94,7 @@ apps/
     ├── components/ (UI partagée)
     ├── features/budgets (dont `forecast/` — UI forecast & comparaison budgétaire, [RFC-FE-BUD-030](./RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md))
     ├── features/procurement
-    ├── features/teams (`collaborators/`, `skills/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md))
+    ├── features/teams (`collaborators/`, `skills/`, `work-teams/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md), [RFC-FE-TEAM-004](./RFC/RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md))
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)
 ```
@@ -402,6 +402,12 @@ Aucune suppression physique
 
 /teams/skills
    → catalogue compétences client : catégories, skills, dialog porteurs (RFC-FE-TEAM-003)
+
+/teams/structure → redirect vers /teams/structure/teams
+/teams/structure/teams
+/teams/structure/teams/[teamId]
+/teams/structure/manager-scopes
+   → équipes organisationnelles, membres, périmètres managers (RFC-FE-TEAM-004) ; permissions `teams.read` / `teams.update` / `teams.manage_scopes`
 ```
 
 ---

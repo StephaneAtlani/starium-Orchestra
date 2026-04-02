@@ -4,10 +4,13 @@
 
 | Volet | État |
 | --- | --- |
-| **Référentiel équipes métier** (CRUD, hiérarchie, statut) | ❌ À faire — dépend de **RFC-TEAM-005** (backend) |
-| **Rattachements** collaborateur ↔ équipe | ❌ À faire |
-| **Périmètres managers** (direct / étendu, racines d’équipes) | ❌ À faire |
-| Navigation **Équipes** (entrée « Structure » ou équivalent) | ❌ À faire |
+| **Référentiel équipes métier** (CRUD, hiérarchie, statut) | ✅ MVP FE — `/teams/structure/teams` (liste + vue arbre), détail, archivage/restauration (`teams.update`) |
+| **Rattachements** collaborateur ↔ équipe (côté équipe) | ✅ MVP FE — membres sur la fiche équipe (`GET/POST/PATCH/DELETE` membres) |
+| **Périmètres managers** (direct / étendu, racines d’équipes) | ✅ MVP FE — `/teams/structure/manager-scopes` (lecture + PUT si `teams.manage_scopes`, preview) |
+| Navigation **Équipes** (entrée « Structure & équipes ») | ✅ MVP FE — sidebar si `teams.read`, parent Équipes avec `teams.read` en `any` ([`navigation.ts`](../../apps/web/src/config/navigation.ts)) |
+| Encart **équipes** sur fiche collaborateur (`GET /collaborators/:id/work-teams`) | ❌ Hors MVP — lot suivant (RFC-FE-TEAM-004b ou fiche collaborateur dédiée) |
+
+**Référence code (web)** : `apps/web/src/features/teams/work-teams/` (API client, query keys, hooks, composants) ; routes `apps/web/src/app/(protected)/teams/structure/` ; redirection `/teams/structure` → `/teams/structure/teams`. Backend : **RFC-TEAM-005** (inchangé).
 
 ## Priorité
 
@@ -15,7 +18,7 @@ Haute (Phase 3 — staffing et affectations ; prérequis pour vues manager ulté
 
 ## Dépendances
 
-- **RFC-TEAM-005** — Référentiel Équipes / périmètres managers (API + Prisma + RBAC) — **bloquant** pour toute implémentation autre que maquettes / stubs.
+- **RFC-TEAM-005** — Référentiel Équipes / périmètres managers (API + Prisma + RBAC) — **prérequis backend** (livré) ; consommation FE via `/api/work-teams`, `/api/manager-scopes`, etc.
 - RFC-TEAM-002 — Référentiel Collaborateurs (affichage collaborateurs, options, relation manager hiérarchique)
 - RFC-FE-TEAM-001 — Frontend Foundation — Équipes
 - RFC-FE-TEAM-002 — UI Collaborateurs
@@ -27,13 +30,13 @@ Haute (Phase 3 — staffing et affectations ; prérequis pour vues manager ulté
 
 # 1. Analyse de l’existant
 
-**Constat produit** (`docs/RFC/_Plan de déploiement - Equipe.md`) : le lot **RFC-TEAM-005** couvre la définition des équipes métier, le rattachement des collaborateurs et les scopes managers (équipe directe / étendue). Sans ce socle backend, l’UI ne peut pas s’appuyer sur des endpoints stables.
+**Constat produit** (`docs/RFC/_Plan de déploiement - Equipe.md`) : le lot **RFC-TEAM-005** couvre la définition des équipes métier, le rattachement des collaborateurs et les scopes managers (équipe directe / étendue). Le **MVP FE** consomme ces APIs sous `/api/work-teams`, `/api/manager-scopes`, etc.
 
-**Frontend actuel** :
+**Frontend (état au MVP livré)** :
 
-- Routes livrées sous `/teams/*` : `collaborators`, `skills` (voir RFC-FE-TEAM-002 / 003).
-- Sidebar **Equipes** : menu déroulant **Collaborateurs** / **Catalogue compétences** (`sidebar.tsx`, permissions `collaborators.read` / `skills.read`).
-- Les collaborateurs exposent déjà une relation **manager** (liste / fiche) alignée sur l’annuaire / métier, mais **pas** encore de notion d’**équipe métier** ni de **périmètre de visibilité** configurable pour un rôle manager dans Starium.
+- Routes sous `/teams/*` : `collaborators`, `skills`, **`structure`** (liste / détail équipes, périmètres managers — voir statut ci-dessus).
+- Sidebar **Equipes** : **Collaborateurs**, **Catalogue compétences**, **Structure & équipes** si `teams.read` (`sidebar.tsx` ; parent avec `teams.read` en `any` avec `collaborators.read` / `skills.read`).
+- **Vue inverse** collaborateurs ↔ équipes sur la fiche collaborateur : **hors MVP** (lot suivant).
 
 **Objectif de cette RFC** : spécifier l’UI pour :
 
@@ -169,13 +172,13 @@ Format liste paginé homogène : `{ items, total, offset, limit }` si aligné av
 
 # 7. Récapitulatif final
 
-**RFC-FE-TEAM-004** définit l’UI du **référentiel équipes**, des **rattachements** collaborateurs et des **périmètres managers**, en respect strict du **multi-client**, des **libellés métier** et des patterns **RFC-FE-TEAM-001**. La livraison code est **conditionnée** à **RFC-TEAM-005** ; les chemins d’API ci-dessus sont indicatifs jusqu’à consolidation backend.
+**RFC-FE-TEAM-004** définit l’UI du **référentiel équipes**, des **rattachements** (depuis la fiche équipe) et des **périmètres managers**, en respect strict du **multi-client**, des **libellés métier** et des patterns **RFC-FE-TEAM-001**. Le **MVP FE** est aligné sur **RFC-TEAM-005** (endpoints stabilisés). Reste **hors périmètre MVP** : encart équipes sur la **fiche collaborateur** (consommation éventuelle de `GET /api/collaborators/:id/work-teams`).
 
 ---
 
 # 8. Points de vigilance
 
-- **Dépendance RFC-TEAM-005** : ne pas coder contre une API hypothétique sans validation ; figer les DTO dans la RFC backend avant merge massif FE.
+- **RFC-TEAM-005** : toute évolution de contrat API côté équipes / scopes doit rester documentée dans la RFC backend et reflétée dans le client `work-teams.api.ts`.
 - **Collision sémantique** : ne pas confondre **Microsoft Teams** (intégrations projet / Graph) et **équipes métier** Starium — préfixer clairement les routes API et les libellés UI (« Équipe organisationnelle », « Structure »).
 - **Performance** : arbres profonds ou gros effectifs → pagination / lazy expansion des nœuds, pas chargement récursif infini côté client sans API dédiée.
 - **Sécurité métier** : un utilisateur ne doit voir que les périmètres et collaborateurs **autorisés** par le backend ; l’UI ne sert pas de filtre de sécurité définitif.

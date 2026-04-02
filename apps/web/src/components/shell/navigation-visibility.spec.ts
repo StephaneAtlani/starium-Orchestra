@@ -34,11 +34,11 @@ describe('navigationItemVisible', () => {
     ).toBe(true);
   });
 
-  it('requiredPermissionsMatch any: parent Équipes — visible si une des deux permissions', () => {
+  it('requiredPermissionsMatch any: parent Équipes — visible si une des permissions', () => {
     const equipes: NavigationItem = {
       label: 'Equipes',
       scope: 'client',
-      requiredPermissions: ['collaborators.read', 'skills.read'],
+      requiredPermissions: ['collaborators.read', 'skills.read', 'teams.read'],
       requiredPermissionsMatch: 'any',
       allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
     };
@@ -52,6 +52,12 @@ describe('navigationItemVisible', () => {
       navigationItemVisible(equipes, {
         ...baseCtx,
         has: hasFactory(['collaborators.read']),
+      }),
+    ).toBe(true);
+    expect(
+      navigationItemVisible(equipes, {
+        ...baseCtx,
+        has: hasFactory(['teams.read']),
       }),
     ).toBe(true);
     expect(
