@@ -72,28 +72,35 @@ Définir le **modèle de données**, les **règles métier**, les **API REST**, 
 ## Prisma
 
 - `apps/api/prisma/schema.prisma` — enum `ActivityTaxonomyKind`, modèle `ActivityType`, indexes `clientId`, contraintes d’unicité
-- Migration dédiée
+- Migration dédiée (ex. `20260404120000_add_activity_types_team006`)
 
-## Backend (NestJS) — module proposé `activity-types`
+## Backend (NestJS) — module `activity-types`
 
 - `apps/api/src/modules/activity-types/activity-types.module.ts`
 - `apps/api/src/modules/activity-types/activity-types.controller.ts`
 - `apps/api/src/modules/activity-types/activity-types.service.ts`
+- `apps/api/src/modules/activity-types/activity-types-defaults.ts` — fonction pure `ensureDefaultActivityTypes` (partagée service + seed)
 - `apps/api/src/modules/activity-types/dto/create-activity-type.dto.ts`
 - `apps/api/src/modules/activity-types/dto/update-activity-type.dto.ts`
 - `apps/api/src/modules/activity-types/dto/list-activity-types.query.dto.ts`
 - `apps/api/src/modules/activity-types/activity-types.service.spec.ts`
 - `apps/api/src/modules/activity-types/activity-types.controller.spec.ts`
+- `apps/api/src/modules/activity-types/activity-types-defaults.spec.ts`
+- `apps/api/src/modules/activity-types/tests/activity-types-seed-permissions.spec.ts`
 
 ## Intégration
 
-- `apps/api/src/app.module.ts` — import du module
-- `apps/api/prisma/seed.ts` — module fonctionnel + permissions + fonction `ensureDefaultActivityTypes(clientId)` ou équivalent (idempotent)
+- `apps/api/src/app.module.ts` — import `ActivityTypesModule`
+- `apps/api/src/modules/clients/clients.module.ts` — import `ActivityTypesModule`
+- `apps/api/src/modules/clients/clients.service.ts` — `ensureDefaultsForClient` après activation des modules pour le nouveau client
+- `apps/api/prisma/seed.ts` — module `activity_types`, permissions, rôle démo « Client admin — équipes métier », passe `ensureDefaultActivityTypesForAllClients`
+- `apps/api/prisma/default-profiles.json` — profils Lecteur / Gestionnaire Équipes
 
-## Documentation
+## Documentation transverse
 
-- Ce document
-- Mise à jour ultérieure de `docs/RFC/_Plan de déploiement - Equipe.md` et `docs/RFC/_RFC Liste.md` lors du merge implémentation
+- `docs/ARCHITECTURE.md` — entrée module `activity-types` + paragraphe dédié
+- `docs/API.md` — section **Équipes — taxonomie des activités** (`/api/activity-types`)
+- Ce document ; `docs/RFC/_Plan de déploiement - Equipe.md` ; `docs/RFC/_RFC Liste.md`
 
 ---
 

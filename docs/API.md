@@ -2002,6 +2002,27 @@ Module Nest `skills` : isolation **client actif** (`X-Client-Id`) ; pas de `clie
 
 ---
 
+## Équipes — taxonomie des activités (RFC-TEAM-006) — `/api/activity-types`
+
+Module Nest `activity-types` : référentiel **`ActivityType`** par client (axe sémantique **`ActivityTaxonomyKind`** : `PROJECT`, `RUN`, `SUPPORT`, `TRANSVERSE`, `OTHER`). Isolation **client actif** (`X-Client-Id`) ; pas de `clientId` dans le body. Réponses liste : `{ items, total, limit, offset }` ; tri serveur fixe : `sortOrder` asc puis `name` asc. Liste : query `limit` (défaut 20, max 100), `offset` (défaut 0), filtres optionnels `kind`, `includeArchived` (défaut `false` — exclut les lignes archivées), `search` (nom et code). Détail : [RFC-TEAM-006](RFC/RFC-TEAM-006%20%E2%80%94%20Taxonomie%20des%20activit%C3%A9s.md).
+
+**Permissions** : lecture **`activity_types.read`** ; création, mise à jour, archive, restauration **`activity_types.manage`**.
+
+**Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`.
+
+**Réponses** : champs minimaux `id`, `clientId`, `kind` (valeur canonique enum), `name`, `code` (nullable, stocké en majuscules si renseigné), `description`, `sortOrder`, `isDefaultForKind`, `archivedAt`, `createdAt`, `updatedAt`.
+
+- **GET** `/api/activity-types` — Liste paginée. **`activity_types.read`**
+- **POST** `/api/activity-types` — Création. **`activity_types.manage`**
+- **GET** `/api/activity-types/:id` — Détail. **`activity_types.read`**
+- **PATCH** `/api/activity-types/:id` — Mise à jour partielle. **`activity_types.manage`**
+- **PATCH** `/api/activity-types/:id/archive` — Archivage logique ; **200** sans écriture si déjà archivé (idempotent). **`activity_types.manage`**
+- **PATCH** `/api/activity-types/:id/restore` — Réactivation ; **200** sans écriture si déjà actif (idempotent). **`activity_types.manage`**
+
+**Erreurs courantes :** 400 (validation DTO), 404 (hors scope client), 409 (code métier déjà utilisé pour ce client, nom vide).
+
+---
+
 ## Intégration Microsoft 365 — `/api/microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-005)
 
 Toutes les routes ci-dessous sont préfixées par **`/api`**. Les jetons Microsoft (**access** / **refresh**) ne sont **jamais** renvoyés au client : ils sont stockés chiffrés côté serveur et associés au **client Starium** concerné — **`clientId` du contexte client actif** sur les routes JWT, **`clientId` issu du `state` validé** sur le callback OAuth (pas d’`clientId` dans le body des requêtes).
