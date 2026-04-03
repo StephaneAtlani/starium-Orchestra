@@ -164,8 +164,8 @@ export function BudgetDetailDashboard({
 
           <BudgetKpiCard
             variant="forecast"
-            label="Prévisionnel"
-            description="Somme des planifications (RFC-023)"
+            label="Total planifié"
+            description="Somme des planifications mensuelles (RFC-023)"
             parts={fmt({
               ht: kpi.totalForecastAmount,
               ttcFromApi: kpi.totalForecastAmountTtc,
@@ -225,8 +225,8 @@ export function BudgetDetailDashboard({
 
           <BudgetKpiCard
             variant="variance"
-            label="Écart prévisionnel"
-            description="Prévisionnel − budget révisé"
+            label="Écart planifié / révisé"
+            description="Total planifié − budget révisé"
             parts={gapParts}
             subtext={ecartSub}
             icon={TrendingDown}

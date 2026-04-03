@@ -218,7 +218,7 @@ export function BudgetLineIntelligenceDrawer({
                   <div className="sticky top-0 z-10 -mx-4 border-b border-border/60 bg-background/90 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/80 shadow-sm">
                     <TabsList variant="line" className="w-full justify-start gap-1">
                       <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
-                      <TabsTrigger value="previsionnel">Prévisionnel</TabsTrigger>
+                      <TabsTrigger value="previsionnel">Planning mensuel</TabsTrigger>
                       <TabsTrigger value="commitments">Commandes</TabsTrigger>
                       <TabsTrigger value="invoices">Factures</TabsTrigger>
                       <TabsTrigger value="allocations">Allocations</TabsTrigger>
