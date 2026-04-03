@@ -57,7 +57,7 @@ Très haute — **Phase 3** du plan Équipes (voir [`_Plan de déploiement - Equ
 
 | Parcours | Point d’entrée | API utilisée | Cas d’usage |
 | --- | --- | --- | --- |
-| **A. Depuis le module Équipes** | Menu Équipes → **Affectations** (ou **Charge planifiée**) ; fiche collaborateur ; (optionnel) fiche équipe métier | Principalement **`/api/team-resource-assignments`** | Staffer un collaborateur sur un projet **ou** une charge hors projet ; vue transverse filtrable par personne, projet, période, type d’activité |
+| **A. Depuis le module Équipes** | Menu Équipes → **Affectations** (ou **Charge planifiée**) ; fiche collaborateur ; (optionnel) fiche équipe métier | Principalement **`/api/team-resource-assignments`** | Staffer un collaborateur sur un projet **ou** une charge hors projet ; vue transverse filtrable par collaborateur, projet, période, type d’activité |
 | **B. Depuis le projet** | Fiche / workspace projet → onglet **Charge** ou **Staffing** | **`/api/projects/:projectId/resource-assignments`** | Le responsable ou le rôle staffing travaille **dans le contexte du projet** : liste déjà filtrée, création sans ambiguïté sur le projet cible |
 
 Les deux parcours doivent **réutiliser les mêmes composants** (tableau, ligne, dialogue création/édition, annulation) pour éviter divergence fonctionnelle et réduire la dette UX.

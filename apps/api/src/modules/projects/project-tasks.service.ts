@@ -1059,7 +1059,7 @@ export class ProjectTasksService {
     }
     if (r.type !== ResourceType.HUMAN) {
       throw new BadRequestException(
-        'Le responsable doit être une personne (ressource de type humain)',
+        'Le responsable doit être une ressource Humaine (type HUMAN)',
       );
     }
   }

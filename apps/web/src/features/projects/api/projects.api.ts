@@ -61,7 +61,7 @@ export async function listAssignableUsers(
   return raw as AssignableUsersResponse;
 }
 
-/** Personnes (Resource HUMAN) pour sélecteur tâche / plan — `projects.read` (pas `resources.read`). */
+/** Ressources Humaine (Resource HUMAN) pour sélecteur tâche / plan — `projects.read` (pas `resources.read`). */
 export async function listHumanResourcesForTaskPickers(
   authFetch: AuthFetch,
 ): Promise<Paginated<ResourceListItem>> {

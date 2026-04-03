@@ -8,7 +8,7 @@ export type ProjectAssignableUser = {
   status: string;
 };
 
-/** Personnes nom libre déjà vues en équipe projet (GET /api/projects/assignable-users → freePersons). */
+/** Identités « nom libre » déjà vues en équipe projet (GET /api/projects/assignable-users → freePersons). */
 export type ProjectFreePerson = {
   label: string;
   affiliation: 'INTERNAL' | 'EXTERNAL';
@@ -245,7 +245,7 @@ export type ProjectTaskApi = {
   dependsOnTaskId: string | null;
   dependencyType: string | null;
   ownerUserId: string | null;
-  /** Personne métier (Resource HUMAN) — distinct du compte `ownerUserId`. */
+  /** Ressource Humaine (Resource HUMAN) — distinct du compte `ownerUserId`. */
   responsibleResourceId?: string | null;
   responsibleResource?: {
     id: string;

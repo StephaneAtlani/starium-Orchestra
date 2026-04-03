@@ -60,7 +60,7 @@ Définir le **modèle de données**, les **règles métier**, les **API REST**, 
 - Une **équipe** appartient toujours à **un seul** `clientId` ; toute jointure avec `Collaborator` vérifie l’égalité des `clientId`.
 - La hiérarchie d’équipes est un **arbre** (un parent, N enfants) ; **pas de cycle** ; profondeur maximale configurable côté API (ex. 20) pour éviter abus.
 - Un collaborateur peut être membre de **plusieurs** équipes ; une équipe a **N** membres.
-- Le **responsable d’équipe** (`leadCollaboratorId` optionnel) est un `Collaborator` du même client ; ce n’est **pas** automatiquement un « manager scope » — le scope manager est une **configuration** dédiée (peut référencer les mêmes personnes, mais modèle distinct).
+- Le **responsable d’équipe** (`leadCollaboratorId` optionnel) est un `Collaborator` du même client ; ce n’est **pas** automatiquement un « manager scope » — le scope manager est une **configuration** dédiée (peut référencer les mêmes collaborateurs, mais modèle distinct).
 - La hiérarchie **managerId** reste la **vérité annuaire** pour N+1 ; les **scopes managers** **complètent** ou **restreignent** la vue pilotage pour Starium sans réécrire l’annuaire. En cas de conflit produit, **documenter** le mode par défaut (voir §8).
 - Les permissions sont **granulaires** : lecture structure vs écriture équipes vs configuration des scopes (peut être limitée aux rôles administration client).
 - Les réponses listes / détails incluent systématiquement des **champs affichables** : noms d’équipes, `displayName` des collaborateurs, chemin hiérarchique humain (`pathLabel` ou segments), pas seulement des UUID.
@@ -139,7 +139,7 @@ Définir le **modèle de données**, les **règles métier**, les **API REST**, 
 
 ### 4.1.3 `ManagerScopeConfig` (un enregistrement par manager cible)
 
-Portée : **un collaborateur** du client identifié comme « manager » pour la configuration (pas besoin d’un flag `isManager` au MVP : toute personne avec permission `teams.manage_scopes` peut configurer n’importe quel collaborateur du client, ou seulement soi-même selon politique RBAC — **à trancher** : au minimum, **client admin** ; option **manager** ne configure que son propre scope).
+Portée : **un collaborateur** du client identifié comme « manager » pour la configuration (pas besoin d’un flag `isManager` au MVP : tout utilisateur avec permission `teams.manage_scopes` peut configurer n’importe quel collaborateur du client, ou seulement soi-même selon politique RBAC — **à trancher** : au minimum, **client admin** ; option **manager** ne configure que son propre scope).
 
 | Champ | Description |
 | --- | --- |
@@ -167,7 +167,7 @@ Valeurs minimales pour couvrir **direct / étendu** sans explosion de combinaiso
 **Relation avec `Collaborator.managerId`**
 
 - `DIRECT_REPORTS_ONLY` **réutilise** la chaîne hiérarchique déjà stockée ; pas de duplication des liens N+1.
-- Les modes équipe **n’imitent pas** l’annuaire : ils ajoutent des personnes **via appartenance équipe**, même si leur `managerId` pointe ailleurs.
+- Les modes équipe **n’imitent pas** l’annuaire : ils ajoutent des collaborateurs **via appartenance équipe**, même si leur `managerId` pointe ailleurs.
 
 ## 4.3 Règles de sécurité et multi-tenant
 

@@ -59,7 +59,7 @@ export class CreateProjectDto {
   @MinLength(1)
   portfolioCategoryId?: string | null;
 
-  /** Responsable nom libre (ressource « personne » déjà vue en équipe projet). Exclu si `ownerUserId`. */
+  /** Responsable nom libre (ressource Humaine déjà vue en équipe projet). Exclu si `ownerUserId`. */
   @IsOptional()
   @IsString()
   @MinLength(1)

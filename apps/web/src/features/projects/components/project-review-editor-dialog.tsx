@@ -1245,7 +1245,7 @@ export function ProjectReviewEditorDialog({
                                 ))}
                               </select>
                               <p className="text-[0.7rem] text-muted-foreground">
-                                Rattachez un compte client si la personne existe sur la plateforme ;
+                                Rattachez un compte client si l’utilisateur existe sur la plateforme ;
                                 sinon laissez vide pour un externe ou un invité.
                               </p>
                             </div>
@@ -1970,8 +1970,8 @@ export function ProjectReviewEditorDialog({
         <DialogHeader>
           <DialogTitle>Confirmer le prochain point</DialogTitle>
           <DialogDescription>
-            Un brouillon de point sera créé ou mis à jour à la date ci-dessous. Les personnes suivantes y
-            seront associées (copie depuis ce point).
+            Un brouillon de point sera créé ou mis à jour à la date ci-dessous. Les participants suivants y
+            seront associés (copie depuis ce point).
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 text-sm">

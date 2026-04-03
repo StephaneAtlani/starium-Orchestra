@@ -42,7 +42,7 @@ Très haute — **Phase 3** du plan Équipes ; **cœur du staffing**. Prérequis
 
 | Concept / modèle | Rôle actuel | Limite pour le staffing planifié |
 | --- | --- | --- |
-| **`Collaborator`** | Référentiel personne métier (équipes) | C’est la **bonne** ancre pour « qui » est affecté (pas `User` seul, sauf lien explicite métier). |
+| **`Collaborator`** | Référentiel collaborateur métier (équipes) | C’est la **bonne** ancre pour « qui » est affecté (pas `User` seul, sauf lien explicite métier). |
 | **`Project`** + `ProjectKind` | Projet structuré ou activité de suivi côté SI | Cible naturelle quand la charge est **rattachée à une ligne projet / activité projet**. |
 | **`ProjectTeamMember`** | Effectif projet (rôle dans l’équipe projet, user ou libellé libre) | **Roster** : qui participe au projet ; **pas** de période ni de taux de charge planifié. Complémentaire, non remplaçable par une affectation staffing. |
 | **`ProjectTask.responsibleResource`** | `Resource` (référentiel transverse) | Pilotage tâche, pas la même granularité qu’une **ligne de staffing** collaborateur. |

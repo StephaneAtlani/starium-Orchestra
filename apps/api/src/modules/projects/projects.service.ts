@@ -260,7 +260,7 @@ export class ProjectsService {
     return Array.from(roles);
   }
 
-  /** Responsable : compte client ou personne nom libre (dénormalisé sur Project). */
+  /** Responsable : compte client ou identité nom libre (dénormalisé sur Project). */
   private ownerDisplayResolved(
     project: Project & {
       owner: {
@@ -523,7 +523,7 @@ export class ProjectsService {
   }
 
   /**
-   * Personnes « nom libre » déjà rencontrées sur l’équipe projet du client (dédoublonnées par identityKey).
+   * Identités « nom libre » déjà rencontrées sur l’équipe projet du client (dédoublonnées par identityKey).
    * Sert au choix responsable à la création projet.
    */
   async listAssignableFreePersons(clientId: string) {
@@ -898,7 +898,7 @@ export class ProjectsService {
 
     if (hasOwnerUser && hasFree) {
       throw new BadRequestException(
-        'Indiquez soit un responsable avec compte client, soit une personne nom libre.',
+        'Indiquez soit un responsable avec compte client, soit une identité nom libre.',
       );
     }
     if (hasFree) {
@@ -907,7 +907,7 @@ export class ProjectsService {
         dto.ownerAffiliation !== ProjectTeamMemberAffiliation.EXTERNAL
       ) {
         throw new BadRequestException(
-          'Pour une personne nom libre, choisissez interne ou externe.',
+          'Pour une identité nom libre, choisissez interne ou externe.',
         );
       }
     }

@@ -12,7 +12,7 @@ Modèles (`apps/api/prisma/schema.prisma`) :
 
 | Modèle | Rôle |
 |--------|------|
-| **Project** | Projet client-scopé (`clientId`), code unique par client, type / statut / priorité / criticité, dates, `progressPercent` manuel (0–100), budget cible optionnel, notes pilotage, responsable via `ownerUserId` **ou** personne nom libre (`ownerFreeLabel` + `ownerAffiliation`). |
+| **Project** | Projet client-scopé (`clientId`), code unique par client, type / statut / priorité / criticité, dates, `progressPercent` manuel (0–100), budget cible optionnel, notes pilotage, responsable via `ownerUserId` **ou** identité nom libre (`ownerFreeLabel` + `ownerAffiliation`). |
 | **ProjectTask** | Tâche planifiable (`clientId` + `projectId`) : nom, dates planifiées/réelles, `progress`, hiérarchie parent/enfant, dépendance simple (`dependsOnTaskId`), responsable `ownerUserId`, lien budget optionnel — **RFC-PROJ-011**. |
 | **ProjectRisk** | Risque avec `ProjectRiskProbability` et `ProjectRiskImpact` (criticité **dérivée** du score P×I, pas de champ redondant). Champs et formulaire **EBIOS RM** minimal : **[RFC-PROJ-018](../RFC/RFC-PROJ-018%20%E2%80%94%20ProjectRisk%20EBIOS%20RM%20minimal.md)**. |
 | **ProjectMilestone** | Jalon sans durée (`targetDate`, `achievedDate`, lien tâche optionnel `linkedTaskId`, statut dont `ACHIEVED`, `DELAYED`) — **RFC-PROJ-011**. |
@@ -49,7 +49,7 @@ Permissions métier : `projects.read`, `projects.create`, `projects.update`, `pr
 | GET | `/projects` | `projects.read` — liste paginée **enrichie** (query : `page`, `limit`, `search`, `kind`, `status`, `priority`, `criticality`, `sortBy`, `sortOrder`, `atRiskOnly`) |
 | POST | `/projects` | `projects.create` |
 | GET | `/projects/portfolio-summary` | `projects.read` — KPI portefeuille (tous les projets du client actif) |
-| GET | `/projects/assignable-users` | `projects.read` — répertoire de personnes pour la désignation du responsable : `{ users, freePersons }` (comptes client + personnes nom libre déjà vues dans l’équipe projet du client actif) |
+| GET | `/projects/assignable-users` | `projects.read` — répertoire pour la désignation du responsable : `{ users, freePersons }` (comptes client + identités nom libre déjà vues dans l’équipe projet du client actif) |
 | GET | `/projects/:id` | `projects.read` |
 | PATCH | `/projects/:id` | `projects.update` |
 | DELETE | `/projects/:id` | `projects.delete` |
@@ -96,7 +96,7 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 - **Sécurité UI** : `RequireActiveClient`, `PermissionGate`, données via `authFetch` + TanStack Query — **pas** de calcul cockpit de santé côté client (affichage des champs renvoyés par l’API)
 - **Cockpit liste** : filtres incluant **nature** (`kind` : projet / activité, query alignée backend) ; KPI portefeuille en **bandeaux compacts** (pas les cartes KPI génériques d’autres écrans) — détail visuel : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §6–8.
 - **Signaux / alertes (détail & fiches)** : même jeu `computedHealth` + `signals` + `warnings` qu’en liste ; éviter la surcharge du header — voir [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8.2.
-- **Création** : formulaire **deux colonnes** sur grand écran ; responsable désigné soit via compte client, soit via personne nom libre (**Interne/Externe**) depuis le répertoire **`GET /api/projects/assignable-users`** (`users` + `freePersons`), pas l’endpoint admin global utilisateurs.
+- **Création** : formulaire **deux colonnes** sur grand écran ; responsable désigné soit via compte client, soit via identité nom libre (**Interne/Externe**) depuis le répertoire **`GET /api/projects/assignable-users`** (`users` + `freePersons`), pas l’endpoint admin global utilisateurs.
 
 ---
 

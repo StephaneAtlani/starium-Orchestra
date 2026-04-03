@@ -17,7 +17,7 @@ import { ClientUiBadgesService } from './client-ui-badges.service';
 
 /**
  * Surcouchages badges UI (libellés / tons) pour le client actif.
- * GET : lecture pour toute personne avec accès projets.
+ * GET : lecture pour tout utilisateur avec accès projets.
  * PATCH : administrateur client uniquement.
  */
 @Controller('clients')

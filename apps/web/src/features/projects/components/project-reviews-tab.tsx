@@ -547,7 +547,7 @@ export function ProjectReviewsTab({
               <CreateReviewFormSection
                 sectionId="create-pr-participants"
                 title="Parties prenantes"
-                description="L’équipe projet est préremplie à l’ouverture. Vous pouvez ajuster, retirer ou ajouter des personnes (membre client ou nom libre)."
+                description="L’équipe projet est préremplie à l’ouverture. Vous pouvez ajuster, retirer ou ajouter des membres (compte client ou identité nom libre)."
                 icon={Users}
                 accent="amber"
               >

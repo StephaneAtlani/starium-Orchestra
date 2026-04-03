@@ -59,7 +59,7 @@ export class ProjectsController {
     return this.projectsService.getPortfolioGantt(clientId!, query, userId);
   }
 
-  /** Membres client + répertoire personnes nom libre (équipe projet). Une seule route pour éviter la collision avec `GET :id`. */
+  /** Membres client + répertoire identités nom libre (équipe projet). Une seule route pour éviter la collision avec `GET :id`. */
   @Get('assignable-users')
   @RequirePermissions('projects.read')
   async assignableUsers(@ActiveClientId() clientId: string | undefined) {
@@ -72,7 +72,7 @@ export class ProjectsController {
   }
 
   /**
-   * Catalogue personnes (Resource HUMAN) pour rattachement tâche / plan d’action.
+   * Catalogue Humaine (Resource HUMAN) pour rattachement tâche / plan d’action.
    * Utilise `projects.read` — évite d’exiger le module Resources + `resources.read` pour ce seul sélecteur.
    */
   @Get('options/human-resources')

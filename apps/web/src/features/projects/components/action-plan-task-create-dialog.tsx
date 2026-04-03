@@ -259,7 +259,7 @@ export function ActionPlanTaskCreateDialog({
   }, [risksMini.data]);
 
   const responsibleSelectItems = useMemo(() => {
-    const items: Record<string, string> = { __none: 'Aucune personne' };
+    const items: Record<string, string> = { __none: 'Aucune ressource Humaine' };
     for (const r of humanResources) {
       items[r.id] = formatResourcePerson(r);
     }
@@ -696,7 +696,7 @@ export function ActionPlanTaskCreateDialog({
             <DialogFormSection
               id="ap-task-rattachements"
               title="Rattachements"
-              description="Projet, phase, risque catalogue et référent personne (catalogue RH)."
+              description="Projet, phase, risque catalogue et référent ressource Humaine (catalogue RH)."
               icon={Link2}
             >
               <div className="space-y-1.5">
@@ -778,12 +778,12 @@ export function ActionPlanTaskCreateDialog({
               <div className="space-y-1.5">
                 <Label className="inline-flex items-center gap-1.5">
                   <UserRound className="size-3.5 text-muted-foreground" aria-hidden />
-                  Responsable personne (référent métier)
+                  Responsable ressource Humaine (référent métier)
                 </Label>
                 {resourcesHuman.isError && (
                   <Alert variant="destructive" className="py-2">
                     <AlertCircle />
-                    <AlertTitle>Répertoire personnes</AlertTitle>
+                    <AlertTitle>Répertoire Humaine</AlertTitle>
                     <AlertDescription>
                       Impossible de charger le répertoire (réseau ou droits).
                     </AlertDescription>
@@ -791,7 +791,7 @@ export function ActionPlanTaskCreateDialog({
                 )}
                 {resourcesHuman.isSuccess && humanResources.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Aucune fiche personne — laissez vide ou enrichissez le catalogue.
+                    Aucune fiche ressource Humaine — laissez vide ou enrichissez le catalogue.
                   </p>
                 )}
                 <Select
@@ -802,10 +802,10 @@ export function ActionPlanTaskCreateDialog({
                   items={responsibleSelectItems}
                 >
                   <SelectTrigger className="w-full min-w-0">
-                    <SelectValue placeholder="Aucune personne" />
+                    <SelectValue placeholder="Aucune ressource Humaine" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none">Aucune personne</SelectItem>
+                    <SelectItem value="__none">Aucune ressource Humaine</SelectItem>
                     {humanResources.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         {formatResourcePerson(r)}
@@ -814,7 +814,7 @@ export function ActionPlanTaskCreateDialog({
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Personne du catalogue RH — distincte d’un compte utilisateur Starium.
+                  Ressource Humaine du catalogue RH — distincte d’un compte utilisateur Starium.
                 </p>
               </div>
             </DialogFormSection>

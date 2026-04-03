@@ -687,7 +687,7 @@ export class ProjectTeamService {
         e.code === 'P2002'
       ) {
         throw new ConflictException(
-          'Cette personne est déjà affectée à ce rôle pour ce projet',
+          'Ce membre est déjà affecté à ce rôle pour ce projet',
         );
       }
       throw e;

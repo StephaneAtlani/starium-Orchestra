@@ -109,7 +109,7 @@ const DOMAIN_DEFINITIONS: DomainDef[] = [
     name: 'Ressources humaines',
     types: [
       { code: 'SKILL_SHORTAGE', name: 'Manque de compétences' },
-      { code: 'KEY_PERSON_DEPENDENCY', name: 'Dépendance à une personne clé' },
+      { code: 'KEY_PERSON_DEPENDENCY', name: 'Dépendance à un acteur clé' },
       { code: 'HIGH_TURNOVER', name: 'Turnover élevé' },
       { code: 'ABSENTEEISM', name: 'Absentéisme' },
       { code: 'INTERNAL_CONFLICT', name: 'Conflit interne' },

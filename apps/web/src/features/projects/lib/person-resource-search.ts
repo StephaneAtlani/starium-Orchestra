@@ -1,7 +1,7 @@
 import { formatResourceDisplayName } from '@/lib/resource-labels';
 import type { ResourceListItem } from '@/services/resources';
 
-/** Filtre catalogue personnes : accents ignorés, plusieurs mots (tous requis). */
+/** Filtre catalogue Humaine : accents ignorés, plusieurs mots (tous requis). */
 export function normalizeSearchText(s: string): string {
   return s
     .normalize('NFD')

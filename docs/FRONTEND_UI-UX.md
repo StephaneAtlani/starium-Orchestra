@@ -594,9 +594,9 @@ Implémentation : `**ProjectCreateForm`** — ouverture depuis le résumé + bou
 | Pied                  | `DialogFooter` + **Terminé** (`type="button"`) — ne pas soumettre le formulaire parent.                                                                                                                      |
 
 
-### 12.3 Modale — catalogue Personne (équipe projet & création projet)
+### 12.3 Modale — catalogue Humaine (équipe projet & création projet)
 
-Composant partagé : `**PersonCatalogPickerDialog`** (`features/projects/components/person-catalog-picker-dialog.tsx`) — tableau filtrable, création **Nouvelle personne**, `Alert` catalogue, `LoadingState` / `EmptyState`. Filtre recherche : `personResourceMatchesSearch` dans `features/projects/lib/person-resource-search.ts`.
+Composant partagé : `**PersonCatalogPickerDialog`** (`features/projects/components/person-catalog-picker-dialog.tsx`) — tableau filtrable, création **Nouvelle humaine**, `Alert` catalogue, `LoadingState` / `EmptyState`. Filtre recherche : `personResourceMatchesSearch` dans `features/projects/lib/person-resource-search.ts`.
 
 **Usages** :
 

@@ -266,7 +266,7 @@ export function EditMemberDialog({
                 <span className="text-sm leading-snug">
                   <span className="font-medium">Ajouter ce compte au catalogue de ressources</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Crée une ressource de type Personne (portée interne) avec l’email et le nom
+                    Crée une ressource de type Humaine (portée interne) avec l’email et le nom
                     ci-dessus, pour les affectations projets / planning.
                   </span>
                 </span>

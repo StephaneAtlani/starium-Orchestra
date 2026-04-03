@@ -57,7 +57,7 @@ Ressources projet :
 Aujourd’hui :
 
 * aucune structuration des ressources
-* duplication des données (personnes, outils, licences)
+* duplication des données (ressources humaines, outils, licences)
 * impossibilité de :
 
   * calculer un coût projet fiable

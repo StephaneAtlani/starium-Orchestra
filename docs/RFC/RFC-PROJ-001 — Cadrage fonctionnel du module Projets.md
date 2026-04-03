@@ -142,7 +142,7 @@ Caractéristiques :
 
 * action concrète et finie
 * rattachée à un projet, ou éventuellement à une activité
-* assignable à une personne
+* assignable à un collaborateur ou une ressource Humaine
 * datable
 * suivie en statut simple
 
@@ -489,4 +489,4 @@ La RFC est considérée comme validée si :
 ## 18. Implémentation MVP (2026-03-21)
 
 * **Backend** : modèles Prisma `Project`, `ProjectTask`, `ProjectRisk`, `ProjectMilestone` ; API REST sécurisée multi-client ; `projects-pilotage.service.ts` (santé, signaux, warnings, agrégats) ; `GET /api/projects/portfolio-summary` ; `GET /api/projects/assignable-users` ; filtre liste **`kind`** (projet / activité).
-* **Frontend** : routes `/projects` (KPI portefeuille **compacts** §6.1 [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md), liste + tooltips + `HealthBadge` compact, filtres dont **Nature**), `/projects/new` (formulaire deux colonnes, responsable via `assignable-users` avec comptes client + personnes nom libre déjà vues), `/projects/[projectId]` (fiche + sections tâches / risques / jalons) ; navigation module `projects` + `projects.read` / `projects.create`. Arborescence et conventions : [FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md) §30.6 ; détail MVP code : [modules/projects-mvp.md](../modules/projects-mvp.md).
+* **Frontend** : routes `/projects` (KPI portefeuille **compacts** §6.1 [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md), liste + tooltips + `HealthBadge` compact, filtres dont **Nature**), `/projects/new` (formulaire deux colonnes, responsable via `assignable-users` avec comptes client + identités nom libre déjà vues), `/projects/[projectId]` (fiche + sections tâches / risques / jalons) ; navigation module `projects` + `projects.read` / `projects.create`. Arborescence et conventions : [FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md) §30.6 ; détail MVP code : [modules/projects-mvp.md](../modules/projects-mvp.md).

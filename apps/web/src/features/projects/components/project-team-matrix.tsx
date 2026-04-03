@@ -373,7 +373,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                               size="sm"
                               className="w-full gap-2 sm:w-auto"
                               disabled={busy}
-                              aria-label={`Affecter une personne au rôle ${role.name}`}
+                              aria-label={`Affecter une ressource humaine au rôle ${role.name}`}
                               onClick={() => {
                                 setTeamOwnerResourceId('');
                                 setTeamOwnerResourceDetails(null);

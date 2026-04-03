@@ -353,7 +353,7 @@ export function ActionPlanTaskEditDialog({
   }, [risksMini.data]);
 
   const responsibleSelectItems = useMemo(() => {
-    const items: Record<string, string> = { __none: 'Aucune personne' };
+    const items: Record<string, string> = { __none: 'Aucune ressource Humaine' };
     for (const r of humanResources) {
       items[r.id] = formatResourcePerson(r);
     }
@@ -731,7 +731,7 @@ export function ActionPlanTaskEditDialog({
 
           {editingKey === 'responsible' && canEdit ? (
             <div className="space-y-1">
-              <Label>Responsable (personne métier)</Label>
+              <Label>Responsable (ressource Humaine)</Label>
               <Select
                 value={draft.responsibleResourceId || '__none'}
                 items={responsibleSelectItems}
@@ -748,10 +748,10 @@ export function ActionPlanTaskEditDialog({
                 }}
               >
                 <SelectTrigger className="w-full min-w-0">
-                  <SelectValue placeholder="Aucune personne" />
+                  <SelectValue placeholder="Aucune ressource Humaine" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none">Aucune personne</SelectItem>
+                  <SelectItem value="__none">Aucune ressource Humaine</SelectItem>
                   {humanResources.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
                       {formatResourcePerson(r)}
@@ -762,7 +762,7 @@ export function ActionPlanTaskEditDialog({
             </div>
           ) : (
             <ReadSlot
-              label="Responsable (personne métier)"
+              label="Responsable (ressource Humaine)"
               disabled={!canEdit}
               onActivate={() => setEditingKey('responsible')}
             >

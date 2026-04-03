@@ -53,7 +53,7 @@ Aujourd’hui, même avec un bon référentiel fournisseur :
 * on ne sait pas à qui écrire ou téléphoner
 * les équipes gardent les bons interlocuteurs dans Outlook, Teams, Excel ou notes perso
 * les interlocuteurs comptables, commerciaux et support sont mélangés
-* la donnée disparaît quand la personne quitte l’entreprise
+* la donnée disparaît quand le contact quitte l’entreprise
 * les flux commandes / factures / contrats ne peuvent pas pointer proprement vers un contact
 
 Sans contacts structurés :
