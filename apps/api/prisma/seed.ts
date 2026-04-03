@@ -2344,25 +2344,30 @@ async function syncHumanResourceForClientMemberSeed(
   }
 }
 
-/** Aligné sur `CollaboratorsService.syncFromHumanIdentity` (MANUAL uniquement ; DIRECTORY_SYNC inchangé). */
+/** Aligné sur `CollaboratorsService.syncFromHumanIdentity` (lien `userId` + MANUAL ; DIRECTORY_SYNC inchangé). */
 async function syncCollaboratorFromHumanIdentitySeed(
   clientId: string,
   user: { email: string; firstName: string | null; lastName: string | null },
+  platformUserId: string,
 ): Promise<void> {
-  const emailRaw = user.email.trim();
-  if (!emailRaw) return;
-  const emailNorm = emailRaw.toLowerCase();
+  const emailNorm = user.email.trim().toLowerCase();
+  if (!emailNorm) return;
   const last = user.lastName?.trim() ?? "";
   const first = user.firstName?.trim() ?? "";
   const displayName =
     [first, last].filter(Boolean).join(" ") || last || first || emailNorm;
 
-  const existing = await prisma.collaborator.findFirst({
-    where: {
-      clientId,
-      email: { equals: emailNorm, mode: "insensitive" },
-    },
+  let existing = await prisma.collaborator.findFirst({
+    where: { clientId, userId: platformUserId },
   });
+  if (!existing) {
+    existing = await prisma.collaborator.findFirst({
+      where: {
+        clientId,
+        email: { equals: emailNorm, mode: "insensitive" },
+      },
+    });
+  }
 
   if (!existing) {
     await prisma.collaborator.create({
@@ -2374,6 +2379,7 @@ async function syncCollaboratorFromHumanIdentitySeed(
         firstName: first || null,
         lastName: last || null,
         displayName,
+        userId: platformUserId,
       },
     });
     return;
@@ -2390,6 +2396,7 @@ async function syncCollaboratorFromHumanIdentitySeed(
       firstName: first || null,
       lastName: last || null,
       displayName,
+      userId: platformUserId,
     },
   });
 }
@@ -2407,7 +2414,7 @@ async function ensureMemberHumanResourcesForAllClientUsers(): Promise<void> {
       cu.user,
       cu.excludeFromResourceCatalog,
     );
-    await syncCollaboratorFromHumanIdentitySeed(cu.clientId, cu.user);
+    await syncCollaboratorFromHumanIdentitySeed(cu.clientId, cu.user, cu.userId);
   }
   console.log(
     `✅ Membres clients → ressources Humaines + collaborateurs : ${rows.length} rattachement(s) synchronisé(s)`,

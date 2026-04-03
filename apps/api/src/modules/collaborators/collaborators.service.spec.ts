@@ -54,6 +54,7 @@ describe('CollaboratorsService', () => {
             },
             clientUser: {
               findUnique: jest.fn(),
+              findFirst: jest.fn().mockResolvedValue(null),
             },
           },
         },

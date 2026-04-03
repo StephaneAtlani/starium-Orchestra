@@ -117,19 +117,15 @@ export class CollaboratorsService {
       return;
     }
 
-    const data: Prisma.CollaboratorUpdateInput = {
-      email: emailNorm,
-      firstName: first,
-      lastName: last || null,
-      displayName,
-    };
-    if (uid) {
-      data.userId = uid;
-    }
-
     await this.prisma.collaborator.update({
       where: { id: existing.id },
-      data,
+      data: {
+        email: emailNorm,
+        firstName: first,
+        lastName: last || null,
+        displayName,
+        ...(uid ? { userId: uid } : {}),
+      },
     });
   }
 

@@ -92,6 +92,7 @@ describe('UsersService', () => {
           provide: CollaboratorsService,
           useValue: {
             syncFromHumanIdentity: jest.fn().mockResolvedValue(undefined),
+            clearMemberUserLink: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],

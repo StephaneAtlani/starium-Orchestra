@@ -5,6 +5,8 @@ export type CollaboratorInternalTags = Record<string, unknown> | null;
 
 export type CollaboratorListItem = {
   id: string;
+  /** Compte plateforme lié (membre client) — identité pilotée par User. */
+  linkedUserId: string | null;
   displayName: string;
   firstName: string | null;
   lastName: string | null;

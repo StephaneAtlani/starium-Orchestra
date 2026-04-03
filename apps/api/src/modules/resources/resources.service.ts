@@ -142,6 +142,7 @@ export class ResourcesService {
           email: u.email,
           firstName: u.firstName,
           lastName: u.lastName ?? '',
+          userId: linkedUserId,
         });
       }
       return;
