@@ -36,18 +36,17 @@ export function ResourceHumanTeamsFields({
   teamsLoading,
   teamsError,
   teamItems,
-  description = 'Un manager peut piloter plusieurs équipes (rôles organisationnels). Cochez une ou plusieurs équipes pour les rattachements.',
+  description = 'Sélectionnez le manager, puis une ou plusieurs équipes dont il est responsable d’équipe (défini sur chaque équipe dans Structure équipes).',
 }: ResourceHumanTeamsFieldsProps) {
   const pid = (s: string) => `${formIdPrefix}-${s}`;
   const selected = new Set(selectedWorkTeamIds);
+  const hasManager = Boolean(managerId);
 
   return (
     <div className="space-y-3 border-t border-border/60 pt-4">
       <div>
         <p className="text-sm font-medium text-foreground">Équipes (référentiel)</p>
-        <p className="text-xs text-muted-foreground">
-          {description}
-        </p>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </div>
       <div className="space-y-2">
         <Label htmlFor={pid('mgr-search')}>Recherche manager</Label>
@@ -60,7 +59,7 @@ export function ResourceHumanTeamsFields({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor={pid('manager')}>Manager</Label>
+        <Label htmlFor={pid('manager')}>Manager (responsable hiérarchique)</Label>
         <select
           id={pid('manager')}
           className={cn(
@@ -107,7 +106,7 @@ export function ResourceHumanTeamsFields({
           )}
       </div>
       <div className="space-y-2">
-        <Label htmlFor={pid('workTeams')}>Équipes</Label>
+        <Label htmlFor={pid('workTeams')}>Équipes dont ce manager est responsable</Label>
         <div
           id={pid('workTeams')}
           role="group"
@@ -115,22 +114,37 @@ export function ResourceHumanTeamsFields({
           className={cn(
             'max-h-48 overflow-y-auto rounded-lg border border-input bg-transparent px-2 py-2 text-sm',
             teamsLoading && 'opacity-60',
+            !hasManager && 'bg-muted/20',
           )}
         >
-          {teamsLoading ? (
+          {!hasManager ? (
+            <p className="text-xs text-muted-foreground px-1">
+              Choisissez d’abord un manager : la liste affiche uniquement les équipes dont il est{' '}
+              <strong className="font-medium text-foreground">responsable d’équipe</strong>.
+            </p>
+          ) : teamsLoading ? (
             <p className="text-xs text-muted-foreground px-1">Chargement des équipes…</p>
           ) : teamsError ? (
             <p className="text-xs text-destructive px-1">Impossible de charger les équipes.</p>
           ) : teamItems.length === 0 ? (
-            <p className="text-xs text-muted-foreground px-1">Aucune équipe active.</p>
+            <p className="text-xs text-muted-foreground px-1">
+              Aucune équipe active où ce collaborateur est responsable. Définissez-le comme responsable
+              sur la fiche équipe (Structure équipes).
+            </p>
           ) : (
             <ul className="space-y-2">
               {teamItems.map((t) => (
                 <li key={t.id}>
-                  <label className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-0.5 hover:bg-muted/40">
+                  <label
+                    className={cn(
+                      'flex items-start gap-2 rounded-md px-1 py-0.5',
+                      hasManager ? 'cursor-pointer hover:bg-muted/40' : 'cursor-not-allowed opacity-60',
+                    )}
+                  >
                     <input
                       type="checkbox"
                       className="mt-2.5 size-4 shrink-0 rounded border-input"
+                      disabled={!hasManager}
                       checked={selected.has(t.id)}
                       onChange={(e) => onToggleWorkTeam(t.id, e.target.checked)}
                     />
@@ -147,7 +161,7 @@ export function ResourceHumanTeamsFields({
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Plusieurs équipes possibles (ex. Exploitation, chefs de projet, techniciens…).
+          Vous pouvez cocher plusieurs équipes parmi celles que ce manager pilote comme responsable.
         </p>
       </div>
     </div>

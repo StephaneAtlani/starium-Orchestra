@@ -133,9 +133,22 @@ export function EditResourceForm({
     enabled: showTeamsBlock,
   });
   const teamsQuery = useWorkTeamsList(
-    { limit: 200, offset: 0, status: 'ACTIVE', includeArchived: false },
-    { enabled: showTeamsBlock },
+    {
+      limit: 200,
+      offset: 0,
+      status: 'ACTIVE',
+      includeArchived: false,
+      ...(managerId ? { leadCollaboratorId: managerId } : {}),
+    },
+    { enabled: showTeamsBlock && Boolean(managerId) },
   );
+
+  function handleManagerIdChange(next: string) {
+    setManagerId((prev) => {
+      if (prev !== next) setSelectedWorkTeamIds([]);
+      return next;
+    });
+  }
 
   const { data: rolesData } = useQuery({
     queryKey: ['resource-roles', clientId, 'for-edit'],
@@ -445,7 +458,7 @@ export function EditResourceForm({
               managerSearch={managerSearch}
               onManagerSearchChange={setManagerSearch}
               managerId={managerId}
-              onManagerIdChange={setManagerId}
+              onManagerIdChange={handleManagerIdChange}
               selectedWorkTeamIds={selectedWorkTeamIds}
               onToggleWorkTeam={toggleWorkTeam}
               managersQuery={managersQuery}

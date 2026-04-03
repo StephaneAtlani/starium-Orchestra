@@ -39,6 +39,8 @@ export type WorkTeamsListParams = {
   parentId?: string | null;
   status?: WorkTeamStatus;
   includeArchived?: boolean;
+  /** Équipes dont ce collaborateur est responsable d’équipe (API `leadCollaboratorId`). */
+  leadCollaboratorId?: string;
 };
 
 export type WorkTeamsListResponse = {

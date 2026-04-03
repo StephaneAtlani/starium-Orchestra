@@ -17,6 +17,11 @@ export class ListWorkTeamsQueryDto extends PaginationQueryDto {
   @MaxLength(200)
   q?: string;
 
+  /** Filtre : équipes dont ce collaborateur est responsable (`WorkTeam.leadCollaboratorId`). */
+  @IsOptional()
+  @IsString()
+  leadCollaboratorId?: string;
+
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()

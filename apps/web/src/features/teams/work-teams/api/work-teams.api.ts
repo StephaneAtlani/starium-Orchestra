@@ -60,6 +60,7 @@ export async function listWorkTeams(
     parentId: params.parentId ?? undefined,
     status: params.status,
     includeArchived: params.includeArchived,
+    leadCollaboratorId: params.leadCollaboratorId?.trim() || undefined,
   });
   const res = await authFetch(`/api/work-teams${qs}`);
   return handleResponse<WorkTeamsListResponse>(res);

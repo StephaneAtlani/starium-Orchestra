@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,11 +13,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useCollaboratorManagerOptions } from '@/features/teams/collaborators/hooks/use-collaborator-manager-options';
-import { collaboratorManagerSecondaryLabel } from '@/features/teams/collaborators/lib/collaborator-label-mappers';
 import { useCreateWorkTeam, useUpdateWorkTeam } from '../hooks/use-work-team-mutations';
 import { useWorkTeamsList } from '../hooks/use-work-teams-list';
 import type { WorkTeamDto } from '../types/work-team.types';
+import { WorkTeamLeadCombobox } from './work-team-lead-combobox';
 
 type Props = {
   open: boolean;
@@ -37,7 +36,6 @@ export function WorkTeamFormDialog({
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [parentId, setParentId] = useState<string>('');
-  const [leadSearch, setLeadSearch] = useState('');
   const [leadCollaboratorId, setLeadCollaboratorId] = useState<string>('');
 
   const parentsQuery = useWorkTeamsList(
@@ -52,24 +50,21 @@ export function WorkTeamFormDialog({
     return items;
   }, [parentsQuery.data?.items, mode, team]);
 
-  const managersQuery = useCollaboratorManagerOptions(leadSearch);
   const createMutation = useCreateWorkTeam();
   const updateMutation = useUpdateWorkTeam(team?.id ?? '');
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     if (mode === 'edit' && team) {
       setName(team.name);
       setCode(team.code ?? '');
       setParentId(team.parentId ?? '');
       setLeadCollaboratorId(team.leadCollaboratorId ?? '');
-      setLeadSearch('');
     } else {
       setName('');
       setCode('');
       setParentId(defaultParentId ?? '');
       setLeadCollaboratorId('');
-      setLeadSearch('');
     }
   }, [open, mode, team, defaultParentId]);
 
@@ -165,37 +160,15 @@ export function WorkTeamFormDialog({
                 ))}
               </select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="wt-lead-search">Responsable d’équipe (manager) — obligatoire</Label>
-              <Input
-                id="wt-lead-search"
-                placeholder="Rechercher par nom ou email…"
-                value={leadSearch}
-                onChange={(e) => setLeadSearch(e.target.value)}
-                disabled={busy}
-              />
-              <select
-                className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
-                value={leadCollaboratorId}
-                onChange={(e) => setLeadCollaboratorId(e.target.value)}
-                disabled={busy}
-                required={mode === 'create' || team?.status === 'ACTIVE'}
-              >
-                <option value="">
-                  {mode === 'edit' && team?.status === 'ARCHIVED'
-                    ? 'Aucun'
-                    : '— Choisir un responsable'}
-                </option>
-                {(managersQuery.data?.items ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.displayName}
-                    {collaboratorManagerSecondaryLabel(c)
-                      ? ` — ${collaboratorManagerSecondaryLabel(c)}`
-                      : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <WorkTeamLeadCombobox
+              id="wt-lead"
+              value={leadCollaboratorId}
+              onChange={setLeadCollaboratorId}
+              fallbackLabel={mode === 'edit' ? team?.leadDisplayName ?? null : null}
+              allowEmpty={mode === 'edit' && team?.status === 'ARCHIVED'}
+              disabled={busy}
+              dialogOpen={open}
+            />
           </div>
           <DialogFooter showCloseButton={false}>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>

@@ -407,9 +407,16 @@ export class CollaboratorsService {
     };
     if (query.search?.trim()) {
       const search = query.search.trim();
+      /** Aligné sur les usages « fiche RH / annuaire » : prénom, nom, matricule, pas seulement displayName. */
       where.OR = [
         { displayName: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
+        { username: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { jobTitle: { contains: search, mode: 'insensitive' } },
+        { employeeNumber: { contains: search, mode: 'insensitive' } },
+        { department: { contains: search, mode: 'insensitive' } },
       ];
     }
     const offset = query.offset ?? 0;
@@ -421,7 +428,7 @@ export class CollaboratorsService {
         skip: offset,
         take: limit,
         orderBy: [{ displayName: 'asc' }],
-        select: { id: true, displayName: true },
+        select: { id: true, displayName: true, email: true, jobTitle: true },
       }),
     ]);
     return { items: rows, total, offset, limit };

@@ -62,6 +62,10 @@ export class WorkTeamsService {
       where.status = WorkTeamStatus.ACTIVE;
     }
 
+    if (query.leadCollaboratorId?.trim()) {
+      where.leadCollaboratorId = query.leadCollaboratorId.trim();
+    }
+
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.workTeam.count({ where }),
       this.prisma.workTeam.findMany({
