@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +8,7 @@ import { Label } from '@/components/ui/label';
 import { collaboratorEditSchema, type CollaboratorEditValues } from '../schemas/collaborator-edit.schema';
 import type { CollaboratorListItem } from '../types/collaborator.types';
 import { useUpdateCollaborator } from '../hooks/use-update-collaborator';
-import { useCollaboratorManagerOptions } from '../hooks/use-collaborator-manager-options';
-import { collaboratorManagerSecondaryLabel } from '../lib/collaborator-label-mappers';
+import { CollaboratorManagerCombobox } from './collaborator-manager-combobox';
 
 function tagsToInput(tags: Record<string, unknown> | null): string {
   if (!tags || typeof tags !== 'object' || Array.isArray(tags)) return '';
@@ -37,15 +35,10 @@ export function CollaboratorEditForm({
   canUpdate: boolean;
 }) {
   const mutation = useUpdateCollaborator(collaborator.id);
-  const managerSearch = '';
-  const { data: managerOptionsData } = useCollaboratorManagerOptions(managerSearch);
-
-  const managerOptions = useMemo(() => {
-    return managerOptionsData?.items ?? [];
-  }, [managerOptionsData?.items]);
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<CollaboratorEditValues>({
@@ -100,23 +93,25 @@ export function CollaboratorEditForm({
           <Input id="collab-department" {...register('department')} disabled={!canUpdate} />
         </div>
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="collab-managerId">Manager</Label>
-          <select
-            id="collab-managerId"
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            disabled={!canUpdate}
-            {...register('managerId')}
-          >
-            <option value="">Aucun manager</option>
-            {managerOptions.map((option) => {
-              const secondary = collaboratorManagerSecondaryLabel(option);
-              return (
-                <option key={option.id} value={option.id}>
-                  {secondary ? `${option.displayName} — ${secondary}` : option.displayName}
-                </option>
-              );
-            })}
-          </select>
+          <Controller
+            name="managerId"
+            control={control}
+            render={({ field }) => (
+              <CollaboratorManagerCombobox
+                id="collab-managerId"
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                fallbackLabel={
+                  field.value === (collaborator.managerId ?? '')
+                    ? collaborator.managerDisplayName
+                    : null
+                }
+                excludeCollaboratorId={collaborator.id}
+                disabled={!canUpdate}
+                label="Manager"
+              />
+            )}
+          />
         </div>
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="collab-tags">Tags (CSV)</Label>

@@ -27,6 +27,8 @@ import {
   ProjectTeamRoleSystemKind,
   ResourceType,
   ResourceAffiliation,
+  CollaboratorSource,
+  CollaboratorStatus,
   ProjectBudgetAllocationType,
   PlatformRole,
   RoleScope,
@@ -2285,6 +2287,133 @@ async function seedClientDemoProjects(
   );
 }
 
+/**
+ * Aligné sur `UsersService.syncHumanResourceForClientMember` : fiche catalogue Humaine INTERNAL
+ * par email membre, ou suppression si `excludeFromCatalog`.
+ */
+async function syncHumanResourceForClientMemberSeed(
+  clientId: string,
+  user: { email: string; firstName: string | null; lastName: string | null },
+  excludeFromCatalog: boolean,
+): Promise<void> {
+  const emailRaw = user.email.trim();
+  if (!emailRaw) return;
+
+  const existing = await prisma.resource.findFirst({
+    where: {
+      clientId,
+      type: ResourceType.HUMAN,
+      email: { equals: emailRaw, mode: "insensitive" },
+    },
+  });
+
+  if (excludeFromCatalog) {
+    if (existing) {
+      await prisma.resource.delete({ where: { id: existing.id } });
+    }
+    return;
+  }
+
+  const emailNorm = emailRaw.toLowerCase();
+  const last = user.lastName?.trim() ?? "";
+  const first = user.firstName?.trim() ?? "";
+  const displayName = last || first || emailNorm.split("@")[0] || "Membre";
+
+  if (existing) {
+    await prisma.resource.update({
+      where: { id: existing.id },
+      data: {
+        name: displayName,
+        firstName: first || null,
+        email: emailNorm,
+        affiliation: ResourceAffiliation.INTERNAL,
+        type: ResourceType.HUMAN,
+      },
+    });
+  } else {
+    await prisma.resource.create({
+      data: {
+        clientId,
+        name: displayName,
+        firstName: first || null,
+        email: emailNorm,
+        type: ResourceType.HUMAN,
+        affiliation: ResourceAffiliation.INTERNAL,
+      },
+    });
+  }
+}
+
+/** Aligné sur `CollaboratorsService.syncFromHumanIdentity` (MANUAL uniquement ; DIRECTORY_SYNC inchangé). */
+async function syncCollaboratorFromHumanIdentitySeed(
+  clientId: string,
+  user: { email: string; firstName: string | null; lastName: string | null },
+): Promise<void> {
+  const emailRaw = user.email.trim();
+  if (!emailRaw) return;
+  const emailNorm = emailRaw.toLowerCase();
+  const last = user.lastName?.trim() ?? "";
+  const first = user.firstName?.trim() ?? "";
+  const displayName =
+    [first, last].filter(Boolean).join(" ") || last || first || emailNorm;
+
+  const existing = await prisma.collaborator.findFirst({
+    where: {
+      clientId,
+      email: { equals: emailNorm, mode: "insensitive" },
+    },
+  });
+
+  if (!existing) {
+    await prisma.collaborator.create({
+      data: {
+        clientId,
+        source: CollaboratorSource.MANUAL,
+        status: CollaboratorStatus.ACTIVE,
+        email: emailNorm,
+        firstName: first || null,
+        lastName: last || null,
+        displayName,
+      },
+    });
+    return;
+  }
+
+  if (existing.source === CollaboratorSource.DIRECTORY_SYNC) {
+    return;
+  }
+
+  await prisma.collaborator.update({
+    where: { id: existing.id },
+    data: {
+      email: emailNorm,
+      firstName: first || null,
+      lastName: last || null,
+      displayName,
+    },
+  });
+}
+
+/** Pour chaque rattachement client : ressource Humaine catalogue + collaborateur alignés sur l’identité User. */
+async function ensureMemberHumanResourcesForAllClientUsers(): Promise<void> {
+  const rows = await prisma.clientUser.findMany({
+    include: {
+      user: { select: { email: true, firstName: true, lastName: true } },
+    },
+  });
+  for (const cu of rows) {
+    await syncHumanResourceForClientMemberSeed(
+      cu.clientId,
+      cu.user,
+      cu.excludeFromResourceCatalog,
+    );
+    await syncCollaboratorFromHumanIdentitySeed(cu.clientId, cu.user);
+  }
+  console.log(
+    `✅ Membres clients → ressources Humaines + collaborateurs : ${rows.length} rattachement(s) synchronisé(s)`,
+  );
+}
+
 async function upsertClientUser(userId: string, clientId: string, role: ClientUserRole, isDefault = false) {
   return prisma.clientUser.upsert({
     where: {
@@ -2304,6 +2433,7 @@ async function upsertClientUser(userId: string, clientId: string, role: ClientUs
       role,
       status: ClientUserStatus.ACTIVE,
       isDefault,
+      excludeFromResourceCatalog: false,
     },
   });
 }
@@ -2826,6 +2956,8 @@ async function main() {
   for (const clientSeed of CLIENTS) {
     await seedClient(clientSeed, passwordHash);
   }
+
+  await ensureMemberHumanResourcesForAllClientUsers();
 
   await ensureDefaultActivityTypesForAllClients();
 

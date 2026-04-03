@@ -1,5 +1,6 @@
 import { ClientUserRole } from '@prisma/client';
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsOptional,
@@ -29,4 +30,9 @@ export class CreateUserDto {
   @MinLength(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' })
   @IsOptional()
   password?: string;
+
+  /** Si true : ne crée pas / ne conserve pas de fiche Humaine catalogue pour ce membre. */
+  @IsBoolean()
+  @IsOptional()
+  excludeFromResourceCatalog?: boolean;
 }

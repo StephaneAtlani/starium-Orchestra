@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ActiveClientCacheService } from '../../common/cache/active-client-cache.service';
 import { UsersService } from './users.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CollaboratorsService } from '../collaborators/collaborators.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -31,6 +32,7 @@ describe('UsersService', () => {
     clientId,
     role: ClientUserRole.CLIENT_ADMIN,
     status: ClientUserStatus.ACTIVE,
+    excludeFromResourceCatalog: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -68,6 +70,12 @@ describe('UsersService', () => {
             collaborator: {
               findMany: jest.fn().mockResolvedValue([]),
             },
+            resource: {
+              findFirst: jest.fn().mockResolvedValue(null),
+              create: jest.fn().mockResolvedValue({ id: 'res-1' }),
+              update: jest.fn().mockResolvedValue({}),
+              delete: jest.fn().mockResolvedValue({}),
+            },
           },
         },
         {
@@ -78,6 +86,12 @@ describe('UsersService', () => {
           provide: AuditLogsService,
           useValue: {
             create: jest.fn(),
+          },
+        },
+        {
+          provide: CollaboratorsService,
+          useValue: {
+            syncFromHumanIdentity: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -98,7 +112,12 @@ describe('UsersService', () => {
   describe('findAll', () => {
     it('should return only users of the client', async () => {
       (prisma.clientUser.findMany as jest.Mock).mockResolvedValue([
-        { user: mockUser, role: ClientUserRole.CLIENT_ADMIN, status: ClientUserStatus.ACTIVE },
+        {
+          user: mockUser,
+          role: ClientUserRole.CLIENT_ADMIN,
+          status: ClientUserStatus.ACTIVE,
+          excludeFromResourceCatalog: false,
+        },
       ]);
       const result = await service.findAll(clientId);
       expect(prisma.clientUser.findMany).toHaveBeenCalledWith({
@@ -168,6 +187,7 @@ describe('UsersService', () => {
           clientId,
           role: ClientUserRole.CLIENT_USER,
           status: ClientUserStatus.ACTIVE,
+          excludeFromResourceCatalog: false,
         },
         include: { user: true },
       });
@@ -209,6 +229,7 @@ describe('UsersService', () => {
         userId: newUser.id,
         user: newUser,
       });
+      (prisma.resource.findFirst as jest.Mock).mockResolvedValue(null);
       const result = await service.create(clientId, {
         email: newUser.email,
         firstName: 'New',

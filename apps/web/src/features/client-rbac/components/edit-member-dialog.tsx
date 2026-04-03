@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useId, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -21,10 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
-import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
-import { usePermissions } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
-import { createResource } from '@/services/resources';
 import { useUpdateClientMember } from '../hooks/use-update-client-member';
 import type { ClientMember, UpdateClientMemberPayload } from '../api/user-roles';
 
@@ -51,26 +47,22 @@ export function EditMemberDialog({
   onOpenChange,
 }: EditMemberDialogProps) {
   const formId = useId();
-  const queryClient = useQueryClient();
-  const authFetch = useAuthenticatedFetch();
-  const { has, isLoading: permsLoading } = usePermissions();
   const { user: authUser } = useAuth();
   const userId = member?.id ?? '';
   const updateMember = useUpdateClientMember(userId);
   const isEditingSelf = Boolean(member && authUser?.id === member.id);
   const isDirectoryLocked = Boolean(member?.isDirectoryLocked);
-  const canCreateResource = !permsLoading && has('resources.create');
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [role, setRole] = useState<'CLIENT_ADMIN' | 'CLIENT_USER'>('CLIENT_USER');
   const [status, setStatus] = useState<'ACTIVE' | 'SUSPENDED' | 'INVITED'>('ACTIVE');
-  const [addToResourceCatalog, setAddToResourceCatalog] = useState(false);
+  const [excludeFromResourceCatalog, setExcludeFromResourceCatalog] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !member) return;
-    setAddToResourceCatalog(false);
+    setExcludeFromResourceCatalog(member.excludeFromResourceCatalog === true);
     setFirstName(member.firstName ?? '');
     setLastName(member.lastName ?? '');
     setRole(
@@ -100,6 +92,7 @@ export function EditMemberDialog({
     const payload: UpdateClientMemberPayload = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
+      excludeFromResourceCatalog,
     };
     if (!isEditingSelf && !isDirectoryLocked) {
       payload.role = role;
@@ -111,33 +104,6 @@ export function EditMemberDialog({
     } catch (error) {
       setErr(error instanceof Error ? error.message : 'Erreur');
       return;
-    }
-
-    if (addToResourceCatalog && canCreateResource) {
-      try {
-        const last = (lastName.trim() || member.lastName?.trim() || '—').slice(0, 200);
-        const fn = firstName.trim() || member.firstName?.trim() || '';
-        await createResource(authFetch, {
-          type: 'HUMAN',
-          name: last,
-          ...(fn ? { firstName: fn } : {}),
-          email: member.email.trim(),
-          affiliation: 'INTERNAL',
-        });
-        void queryClient.invalidateQueries({ queryKey: ['resources'] });
-      } catch (subErr) {
-        const m = subErr instanceof Error ? subErr.message : '';
-        const dup =
-          /unique|unicité|contrainte|existe|déjà|conflict|409/i.test(m) ||
-          m.toLowerCase().includes('email');
-        setErr(
-          dup
-            ? 'Membre enregistré. Une ressource avec cet email existe déjà dans le catalogue.'
-            : `Membre enregistré. ${m || 'Impossible d’ajouter au catalogue ressources.'}`,
-        );
-        void queryClient.invalidateQueries({ queryKey: ['resources'] });
-        return;
-      }
     }
 
     handleOpenChange(false);
@@ -255,33 +221,24 @@ export function EditMemberDialog({
                 </Select>
               )}
             </div>
-            {canCreateResource ? (
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border/60 bg-muted/20 p-3">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-4 shrink-0 rounded border-input"
-                  checked={addToResourceCatalog}
-                  onChange={(e) => setAddToResourceCatalog(e.target.checked)}
-                />
-                <span className="text-sm leading-snug">
-                  <span className="font-medium">Ajouter ce compte au catalogue de ressources</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Crée une ressource de type Humaine (portée interne) avec l’email et le nom
-                    ci-dessus, pour les affectations projets / planning.
-                  </span>
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border/60 bg-muted/20 p-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 shrink-0 rounded border-input"
+                checked={excludeFromResourceCatalog}
+                onChange={(e) => setExcludeFromResourceCatalog(e.target.checked)}
+                disabled={isDirectoryLocked}
+              />
+              <span className="text-sm leading-snug">
+                <span className="font-medium">Masquer ce compte au catalogue de ressources</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Par défaut, chaque membre a une fiche Humaine (portée interne) pour affectations et
+                  planning. Cochez pour retirer ce compte du catalogue sur ce client.
                 </span>
-              </label>
-            ) : null}
+              </span>
+            </label>
             {err ? (
-              <p
-                className={cn(
-                  'text-sm',
-                  err.startsWith('Membre enregistré')
-                    ? 'text-amber-800 dark:text-amber-200'
-                    : 'text-destructive',
-                )}
-                role="alert"
-              >
+              <p className="text-sm text-destructive" role="alert">
                 {err}
               </p>
             ) : null}

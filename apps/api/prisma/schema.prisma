@@ -340,6 +340,8 @@ model User {
   ownedActionPlans                   ActionPlan[]          @relation("ActionPlanOwner")
   budgetDashboardWidgetOverrides   BudgetDashboardWidgetOverride[]
   validatedCollaboratorSkills      CollaboratorSkill[] @relation("CollaboratorSkillValidator")
+  /// Fiches collaborateur liées à ce compte plateforme sur un client (référentiel équipes / staffing).
+  linkedCollaborators              Collaborator[]      @relation("CollaboratorLinkedUser")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -369,6 +371,8 @@ model ClientUser {
   clientId  String
   role      ClientUserRole
   status    ClientUserStatus @default(ACTIVE)
+  /// Si true : pas de fiche Humaine dans le catalogue ressources pour ce membre (masquage explicite).
+  excludeFromResourceCatalog Boolean @default(false)
   isDefault Boolean          @default(false)
   defaultEmailIdentityId String?
   defaultEmailIdentity   UserEmailIdentity? @relation("ClientUserDefaultEmail", fields: [defaultEmailIdentityId], references: [id], onDelete: Restrict)
@@ -2953,6 +2957,8 @@ model DirectorySyncJob {
 model Collaborator {
   id                    String                @id @default(cuid())
   clientId              String
+  /// Compte plateforme rattaché à ce client (membre) — identité pilotée par User + synchro membre/ressource.
+  userId                String?
   firstName             String?
   lastName              String?
   displayName           String
@@ -2981,6 +2987,7 @@ model Collaborator {
   updatedAt             DateTime              @updatedAt
 
   client       Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  linkedUser   User?          @relation("CollaboratorLinkedUser", fields: [userId], references: [id], onDelete: SetNull)
   manager      Collaborator?  @relation("CollaboratorManager", fields: [managerId], references: [id], onDelete: SetNull)
   reports      Collaborator[] @relation("CollaboratorManager")
   collaboratorSkills CollaboratorSkill[]
@@ -2990,7 +2997,9 @@ model Collaborator {
   teamResourceAssignments TeamResourceAssignment[]
 
   @@unique([clientId, externalDirectoryId])
+  @@unique([clientId, userId])
   @@index([clientId, email])
+  @@index([userId])
   @@index([clientId, username])
   @@index([clientId, source])
   @@index([clientId, externalDirectoryType])

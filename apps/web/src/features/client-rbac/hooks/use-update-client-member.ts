@@ -22,6 +22,7 @@ export function useUpdateClientMember(userId: string) {
       void queryClient.invalidateQueries({
         queryKey: clientRbacKeys.members(activeClientId),
       });
+      void queryClient.invalidateQueries({ queryKey: ['resources'] });
     },
   });
 }

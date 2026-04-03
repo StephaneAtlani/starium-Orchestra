@@ -17,6 +17,8 @@ export interface ClientMember {
   lastName: string | null;
   role: 'CLIENT_ADMIN' | 'CLIENT_USER' | string;
   status: 'ACTIVE' | 'SUSPENDED' | 'INVITED' | string;
+  /** true = pas de fiche Humaine dans le catalogue pour ce membre. */
+  excludeFromResourceCatalog?: boolean;
   isDirectorySynced?: boolean;
   isDirectoryLocked?: boolean;
   [key: string]: unknown;
@@ -48,6 +50,8 @@ export type CreateClientMemberPayload = {
   role: 'CLIENT_ADMIN' | 'CLIENT_USER';
   /** Obligatoire si l’email n’existe pas encore dans la plateforme. */
   password?: string;
+  /** true = ne pas créer / retirer la fiche Humaine du catalogue. */
+  excludeFromResourceCatalog?: boolean;
 };
 
 /** POST /api/users — crée l’utilisateur ou rattache un compte existant au client. */
@@ -56,6 +60,7 @@ export type UpdateClientMemberPayload = {
   lastName?: string;
   role?: 'CLIENT_ADMIN' | 'CLIENT_USER';
   status?: 'ACTIVE' | 'SUSPENDED' | 'INVITED';
+  excludeFromResourceCatalog?: boolean;
 };
 
 /** PATCH /api/users/:id — prénom, nom, rôle et statut sur ce client. */
@@ -83,6 +88,9 @@ export async function createClientMember(
   if (payload.firstName?.trim()) body.firstName = payload.firstName.trim();
   if (payload.lastName?.trim()) body.lastName = payload.lastName.trim();
   if (payload.password?.length) body.password = payload.password;
+  if (payload.excludeFromResourceCatalog === true) {
+    body.excludeFromResourceCatalog = true;
+  }
 
   const res = await authFetch('/api/users', {
     method: 'POST',

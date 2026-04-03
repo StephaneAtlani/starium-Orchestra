@@ -2,12 +2,16 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ResourceType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CollaboratorsService } from '../collaborators/collaborators.service';
 import { ResourcesService } from './resources.service';
 
 describe('ResourcesService', () => {
   let service: ResourcesService;
   let prisma: any;
   const auditLogs = { create: jest.fn() };
+  const collaborators = {
+    syncFromHumanIdentity: jest.fn().mockResolvedValue(undefined),
+  } as unknown as CollaboratorsService;
 
   beforeEach(() => {
     prisma = {
@@ -25,11 +29,19 @@ describe('ResourcesService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          email: 'j@client.fr',
+          firstName: 'Jean',
+          lastName: 'Dupont',
+        }),
+      },
       $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     };
     service = new ResourcesService(
       prisma as unknown as PrismaService,
       auditLogs as unknown as AuditLogsService,
+      collaborators,
     );
   });
 

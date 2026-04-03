@@ -4,7 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ClientUserRole, ClientUserStatus, CollaboratorSource } from '@prisma/client';
+import {
+  ClientUserRole,
+  ClientUserStatus,
+  CollaboratorSource,
+  ResourceAffiliation,
+  ResourceType,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -21,6 +27,7 @@ import {
   UpdatePlatformUserClientsDto,
 } from './dto/update-platform-user-clients.dto';
 import { UpdatePlatformUserPasswordDto } from './dto/update-platform-user-password.dto';
+import { CollaboratorsService } from '../collaborators/collaborators.service';
 
 /** Réponse utilisateur exposée par l’API (User + ClientUser pour le client actif, sans passwordHash). */
 export interface UserResponse {
@@ -30,6 +37,8 @@ export interface UserResponse {
   lastName: string | null;
   role: ClientUserRole;
   status: ClientUserStatus;
+  /** false par défaut : fiche Humaine catalogue pour ce membre. */
+  excludeFromResourceCatalog: boolean;
   isDirectorySynced?: boolean;
   isDirectoryLocked?: boolean;
 }
@@ -55,11 +64,16 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly activeClientCache: ActiveClientCacheService,
     private readonly auditLogs: AuditLogsService,
+    private readonly collaborators: CollaboratorsService,
   ) {}
 
   private toResponse(
     user: { id: string; email: string; firstName: string | null; lastName: string | null },
-    clientUser: { role: ClientUserRole; status: ClientUserStatus },
+    clientUser: {
+      role: ClientUserRole;
+      status: ClientUserStatus;
+      excludeFromResourceCatalog?: boolean;
+    },
     options?: { isDirectorySynced?: boolean; isDirectoryLocked?: boolean },
   ): UserResponse {
     return {
@@ -69,6 +83,7 @@ export class UsersService {
       lastName: user.lastName,
       role: clientUser.role,
       status: clientUser.status,
+      excludeFromResourceCatalog: clientUser.excludeFromResourceCatalog ?? false,
       isDirectorySynced: options?.isDirectorySynced ?? false,
       isDirectoryLocked: options?.isDirectoryLocked ?? false,
     };
@@ -111,7 +126,11 @@ export class UsersService {
       const isDirectorySynced = syncedEmails.has(cu.user.email.toLowerCase());
       return this.toResponse(
         cu.user,
-        { role: cu.role, status: cu.status },
+        {
+          role: cu.role,
+          status: cu.status,
+          excludeFromResourceCatalog: cu.excludeFromResourceCatalog,
+        },
         {
           isDirectorySynced,
           isDirectoryLocked: isDirectorySynced && lockPolicy,
@@ -131,6 +150,7 @@ export class UsersService {
     dto: CreateUserDto,
     context?: { actorUserId?: string; meta?: RequestMeta },
   ): Promise<UserResponse> {
+    const excludeCatalog = dto.excludeFromResourceCatalog ?? false;
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -160,9 +180,20 @@ export class UsersService {
           clientId,
           role: dto.role,
           status: ClientUserStatus.ACTIVE,
+          excludeFromResourceCatalog: excludeCatalog,
         },
         include: { user: true },
       });
+      await this.syncMemberDerivedIdentities(
+        clientId,
+        {
+          id: existingUser.id,
+          email: clientUser.user.email,
+          firstName: clientUser.user.firstName,
+          lastName: clientUser.user.lastName,
+        },
+        excludeCatalog,
+      );
       await this.activeClientCache.invalidate(existingUser.id, clientId);
       await this.logUserEvent('user.created', {
         clientId,
@@ -176,6 +207,7 @@ export class UsersService {
       return this.toResponse(clientUser.user, {
         role: clientUser.role,
         status: clientUser.status,
+        excludeFromResourceCatalog: excludeCatalog,
       });
     }
 
@@ -200,8 +232,19 @@ export class UsersService {
         clientId,
         role: dto.role,
         status: ClientUserStatus.ACTIVE,
+        excludeFromResourceCatalog: excludeCatalog,
       },
     });
+    await this.syncMemberDerivedIdentities(
+      clientId,
+      {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+      excludeCatalog,
+    );
     await this.activeClientCache.invalidate(user.id, clientId);
     await this.logUserEvent('user.created', {
       clientId,
@@ -215,6 +258,7 @@ export class UsersService {
     return this.toResponse(user, {
       role: clientUser.role,
       status: clientUser.status,
+      excludeFromResourceCatalog: excludeCatalog,
     });
   }
 
@@ -546,10 +590,16 @@ export class UsersService {
       });
     }
 
-    const clientUserData: { role?: ClientUserRole; status?: ClientUserStatus } =
-      {};
+    const clientUserData: {
+      role?: ClientUserRole;
+      status?: ClientUserStatus;
+      excludeFromResourceCatalog?: boolean;
+    } = {};
     if (dto.role !== undefined) clientUserData.role = dto.role;
     if (dto.status !== undefined) clientUserData.status = dto.status;
+    if (dto.excludeFromResourceCatalog !== undefined) {
+      clientUserData.excludeFromResourceCatalog = dto.excludeFromResourceCatalog;
+    }
     if (Object.keys(clientUserData).length > 0) {
       await this.prisma.clientUser.update({
         where: { id: clientUser.id },
@@ -567,6 +617,18 @@ export class UsersService {
     if (!updatedUser || !updatedClientUser) {
       throw new NotFoundException('Utilisateur non trouvé');
     }
+
+    await this.syncMemberDerivedIdentities(
+      clientId,
+      {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+      },
+      updatedClientUser.excludeFromResourceCatalog,
+    );
+
     await this.logUserEvent('user.updated', {
       clientId,
       targetUserId: updatedUser.id,
@@ -580,7 +642,86 @@ export class UsersService {
     return this.toResponse(updatedUser, {
       role: updatedClientUser.role,
       status: updatedClientUser.status,
+      excludeFromResourceCatalog: updatedClientUser.excludeFromResourceCatalog,
     });
+  }
+
+  /** Catalogue ressource Humaine + collaborateur (référentiel équipes) alignés sur l’identité User. */
+  private async syncMemberDerivedIdentities(
+    clientId: string,
+    user: {
+      id: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+    },
+    excludeFromCatalog: boolean,
+  ): Promise<void> {
+    await this.syncHumanResourceForClientMember(clientId, user, excludeFromCatalog);
+    await this.collaborators.syncFromHumanIdentity(clientId, {
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName ?? '',
+      userId: user.id,
+    });
+  }
+
+  /**
+   * Synchronise la fiche ressource Humaine (catalogue) avec le membre client : création / mise à jour
+   * par email, ou suppression si le membre est masqué du catalogue.
+   */
+  private async syncHumanResourceForClientMember(
+    clientId: string,
+    user: { email: string; firstName: string | null; lastName: string | null },
+    excludeFromCatalog: boolean,
+  ): Promise<void> {
+    const emailRaw = user.email.trim();
+    if (!emailRaw) return;
+
+    const existing = await this.prisma.resource.findFirst({
+      where: {
+        clientId,
+        type: ResourceType.HUMAN,
+        email: { equals: emailRaw, mode: 'insensitive' },
+      },
+    });
+
+    if (excludeFromCatalog) {
+      if (existing) {
+        await this.prisma.resource.delete({ where: { id: existing.id } });
+      }
+      return;
+    }
+
+    const emailNorm = emailRaw.toLowerCase();
+    const last = user.lastName?.trim() ?? '';
+    const first = user.firstName?.trim() ?? '';
+    const displayName =
+      last || first || emailNorm.split('@')[0] || 'Membre';
+
+    if (existing) {
+      await this.prisma.resource.update({
+        where: { id: existing.id },
+        data: {
+          name: displayName,
+          firstName: first || null,
+          email: emailNorm,
+          affiliation: ResourceAffiliation.INTERNAL,
+          type: ResourceType.HUMAN,
+        },
+      });
+    } else {
+      await this.prisma.resource.create({
+        data: {
+          clientId,
+          name: displayName,
+          firstName: first || null,
+          email: emailNorm,
+          type: ResourceType.HUMAN,
+          affiliation: ResourceAffiliation.INTERNAL,
+        },
+      });
+    }
   }
 
   private async getDirectoryLockPolicy(clientId: string): Promise<boolean> {
@@ -607,6 +748,11 @@ export class UsersService {
       throw new NotFoundException('Utilisateur non rattaché à ce client');
     }
 
+    const userRow = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, firstName: true, lastName: true },
+    });
+
     // Règle métier : le dernier CLIENT_ADMIN ne peut pas être supprimé via le flux client actif.
     if (clientUser.role === ClientUserRole.CLIENT_ADMIN) {
       const adminCount = await this.prisma.clientUser.count({
@@ -625,6 +771,10 @@ export class UsersService {
     await this.prisma.clientUser.delete({
       where: { id: clientUser.id },
     });
+    if (userRow) {
+      await this.syncMemberDerivedIdentities(clientId, userRow, true);
+      await this.collaborators.clearMemberUserLink(clientId, userId);
+    }
     await this.activeClientCache.invalidate(userId, clientId);
     await this.logUserEvent('user.deleted', {
       clientId,

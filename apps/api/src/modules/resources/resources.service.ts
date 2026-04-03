@@ -16,6 +16,7 @@ import type { AuditContext } from '../budget-management/types/audit-context';
 import { CreateResourceDto } from './dto/create-resource.dto';
 import { ListResourcesQueryDto } from './dto/list-resources.query.dto';
 import { UpdateResourceDto } from './dto/update-resource.dto';
+import { CollaboratorsService } from '../collaborators/collaborators.service';
 
 export type ResourceRoleEmbed = {
   id: string;
@@ -48,6 +49,7 @@ export class ResourcesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly collaborators: CollaboratorsService,
   ) {}
 
   private hasPresentKey(raw: Record<string, unknown>, key: string): boolean {
@@ -118,6 +120,37 @@ export class ResourcesService {
       m.set(cu.user.email.trim().toLowerCase(), cu.userId);
     }
     return m;
+  }
+
+  /**
+   * Après création / mise à jour d’une ressource Humaine : aligne le collaborateur MANUAL
+   * (membre → identité User ; hors membre → nom / prénom de la fiche ressource).
+   */
+  private async syncCollaboratorAfterHumanResource(
+    clientId: string,
+    r: Resource,
+  ): Promise<void> {
+    if (r.type !== ResourceType.HUMAN || !r.email?.trim()) return;
+    const linkedUserId = await this.resolveLinkedUserId(clientId, r);
+    if (linkedUserId) {
+      const u = await this.prisma.user.findUnique({
+        where: { id: linkedUserId },
+        select: { email: true, firstName: true, lastName: true },
+      });
+      if (u) {
+        await this.collaborators.syncFromHumanIdentity(clientId, {
+          email: u.email,
+          firstName: u.firstName,
+          lastName: u.lastName ?? '',
+        });
+      }
+      return;
+    }
+    await this.collaborators.syncFromHumanIdentity(clientId, {
+      email: r.email!,
+      firstName: r.firstName,
+      lastName: r.name,
+    });
   }
 
   private validateTypeRules(
@@ -279,6 +312,7 @@ export class ResourcesService {
         requestId: context.meta?.requestId,
       });
       const linked = await this.resolveLinkedUserId(clientId, created);
+      await this.syncCollaboratorAfterHumanResource(clientId, created);
       return this.toDetail(created, linked);
     } catch (e) {
       this.rethrowUnique(e);
@@ -415,6 +449,7 @@ export class ResourcesService {
         requestId: context.meta?.requestId,
       });
       const linkedAfter = await this.resolveLinkedUserId(clientId, updated);
+      await this.syncCollaboratorAfterHumanResource(clientId, updated);
       return this.toDetail(updated, linkedAfter);
     } catch (e) {
       this.rethrowUnique(e);

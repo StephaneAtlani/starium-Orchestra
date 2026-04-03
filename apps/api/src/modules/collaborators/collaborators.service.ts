@@ -55,6 +55,94 @@ export class CollaboratorsService {
     private readonly auditLogs: AuditLogsService,
   ) {}
 
+  /**
+   * Aligne prénom, nom et displayName d’un collaborateur sur l’identité « Humain » (membre ou ressource).
+   * Si `userId` est fourni : rattache le collaborateur au compte plateforme (membre) — recherche d’abord par `(clientId, userId)`.
+   * Les collaborateurs DIRECTORY_SYNC ne sont pas modifiés (annuaire = source de vérité).
+   */
+  async syncFromHumanIdentity(
+    clientId: string,
+    identity: {
+      email: string;
+      firstName: string | null;
+      /** Nom de famille (User.lastName ou Resource.name pour HUMAN). */
+      lastName: string;
+      /** Compte plateforme rattaché au client (membre) — lien explicite Collaborator.userId. */
+      userId?: string | null;
+    },
+  ): Promise<void> {
+    const emailNorm = this.normalizeEmail(identity.email);
+    if (!emailNorm) return;
+
+    const last = (identity.lastName ?? '').trim();
+    const first = identity.firstName?.trim() || null;
+    const displayName =
+      [first, last].filter(Boolean).join(' ') || last || first || emailNorm;
+
+    const uid = identity.userId?.trim() || null;
+
+    let existing =
+      uid != null
+        ? await this.prisma.collaborator.findFirst({
+            where: { clientId, userId: uid },
+          })
+        : null;
+
+    if (!existing) {
+      existing = await this.prisma.collaborator.findFirst({
+        where: {
+          clientId,
+          email: { equals: emailNorm, mode: 'insensitive' },
+        },
+      });
+    }
+
+    if (!existing) {
+      await this.prisma.collaborator.create({
+        data: {
+          clientId,
+          source: CollaboratorSource.MANUAL,
+          status: CollaboratorStatus.ACTIVE,
+          email: emailNorm,
+          firstName: first,
+          lastName: last || null,
+          displayName,
+          ...(uid ? { userId: uid } : {}),
+        },
+      });
+      return;
+    }
+
+    if (existing.source === CollaboratorSource.DIRECTORY_SYNC) {
+      return;
+    }
+
+    const data: Prisma.CollaboratorUpdateInput = {
+      email: emailNorm,
+      firstName: first,
+      lastName: last || null,
+      displayName,
+    };
+    if (uid) {
+      data.userId = uid;
+    }
+
+    await this.prisma.collaborator.update({
+      where: { id: existing.id },
+      data,
+    });
+  }
+
+  /**
+   * Retire le lien `userId` quand le membre n’est plus rattaché au client (la fiche collaborateur reste).
+   */
+  async clearMemberUserLink(clientId: string, userId: string): Promise<void> {
+    await this.prisma.collaborator.updateMany({
+      where: { clientId, userId },
+      data: { userId: null },
+    });
+  }
+
   async list(clientId: string, query: ListCollaboratorsQueryDto) {
     const where: Prisma.CollaboratorWhereInput = {
       clientId,
@@ -140,7 +228,17 @@ export class CollaboratorsService {
     }
 
     const normalizedEmail = this.normalizeEmail(dto.email);
+    let linkedPlatformUserId: string | null = null;
     if (normalizedEmail) {
+      const memberLink = await this.prisma.clientUser.findFirst({
+        where: {
+          clientId,
+          user: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+        },
+        select: { userId: true },
+      });
+      linkedPlatformUserId = memberLink?.userId ?? null;
+
       const existingByEmail = await this.prisma.collaborator.findFirst({
         where: {
           clientId,
@@ -164,6 +262,7 @@ export class CollaboratorsService {
         firstName: dto.firstName ?? null,
         lastName: dto.lastName ?? null,
         email: normalizedEmail,
+        ...(linkedPlatformUserId ? { userId: linkedPlatformUserId } : {}),
         username: dto.username ?? null,
         jobTitle: dto.jobTitle ?? null,
         department: dto.department ?? null,
@@ -659,6 +758,7 @@ export class CollaboratorsService {
   ) {
     return {
       id: collaborator.id,
+      linkedUserId: collaborator.userId ?? null,
       displayName: collaborator.displayName,
       firstName: collaborator.firstName,
       lastName: collaborator.lastName,

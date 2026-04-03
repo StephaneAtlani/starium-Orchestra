@@ -38,6 +38,8 @@ export function AddMemberDialog() {
     'CLIENT_USER',
   );
   const [password, setPassword] = useState('');
+  const [excludeFromResourceCatalog, setExcludeFromResourceCatalog] =
+    useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const createMember = useCreateClientMember();
@@ -48,6 +50,7 @@ export function AddMemberDialog() {
     setLastName('');
     setRole('CLIENT_USER');
     setPassword('');
+    setExcludeFromResourceCatalog(false);
     setErr(null);
   }
 
@@ -72,6 +75,8 @@ export function AddMemberDialog() {
         lastName: lastName.trim() || undefined,
         role,
         password: password.length > 0 ? password : undefined,
+        excludeFromResourceCatalog:
+          excludeFromResourceCatalog === true ? true : undefined,
       },
       {
         onSuccess: () => {
@@ -172,6 +177,21 @@ export function AddMemberDialog() {
               est rattaché sans changer son mot de passe.
             </p>
           </div>
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border/60 bg-muted/20 p-3">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 shrink-0 rounded border-input"
+              checked={excludeFromResourceCatalog}
+              onChange={(e) => setExcludeFromResourceCatalog(e.target.checked)}
+            />
+            <span className="text-sm leading-snug">
+              <span className="font-medium">Masquer ce compte au catalogue de ressources</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Par défaut, une fiche Humaine est créée pour le planning. Cochez pour ne pas
+                l’exposer dans le catalogue sur ce client.
+              </span>
+            </span>
+          </label>
           {err && (
             <p className="text-sm text-destructive" role="alert">
               {err}

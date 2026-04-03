@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -182,6 +184,22 @@ export function NewResourceForm({
           </Select>
         </div>
       ) : null}
+      {resolvedType === 'HUMAN' && (
+        <Alert className="border-border/70 bg-muted/30">
+          <Info className="size-4 shrink-0" aria-hidden />
+          <AlertTitle className="text-sm">Compte utilisateur et ressource Humaine</AlertTitle>
+          <AlertDescription className="text-xs leading-relaxed">
+            Un <strong>compte utilisateur</strong> rattaché au client a par défaut une fiche{' '}
+            <strong>Humaine</strong> dans le catalogue (création via l’administration des membres).
+            Pour retirer ce compte du catalogue, utilisez la case{' '}
+            <span className="font-medium text-foreground">
+              « Masquer ce compte au catalogue de ressources »
+            </span>{' '}
+            sur la fiche membre. Ce formulaire sert aux fiches Humaines du catalogue sans compte
+            Starium (prestataires, externes, etc.).
+          </AlertDescription>
+        </Alert>
+      )}
       {resolvedType === 'HUMAN' ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
