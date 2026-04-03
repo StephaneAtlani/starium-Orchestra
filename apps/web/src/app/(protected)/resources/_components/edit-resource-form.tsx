@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,8 +15,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { LoadingState } from '@/components/feedback/loading-state';
+import {
+  getCollaboratorById,
+  listCollaboratorWorkTeams,
+} from '@/features/teams/collaborators/api/collaborators.api';
+import { useCollaboratorManagerOptions } from '@/features/teams/collaborators/hooks/use-collaborator-manager-options';
+import { collaboratorQueryKeys } from '@/features/teams/collaborators/lib/collaborator-query-keys';
+import { useWorkTeamsList } from '@/features/teams/work-teams/hooks/use-work-teams-list';
+import { workTeamQueryKeys } from '@/features/teams/work-teams/lib/work-team-query-keys';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { usePermissions } from '@/hooks/use-permissions';
 import {
   RESOURCE_AFFILIATION_LABEL,
   RESOURCE_TYPE_LABEL,
@@ -26,7 +36,11 @@ import {
   listResourceRoles,
   updateResource,
 } from '@/services/resources';
-import type { ResourceAffiliation, ResourceType } from '@/services/resources';
+import type { ResourceAffiliation, ResourceListItem, ResourceType } from '@/services/resources';
+import { findCollaboratorIdForHumanResource } from '../_lib/find-collaborator-for-human-resource';
+import type { TeamMembershipRef } from '../_lib/sync-human-resource-collaborator-teams';
+import { syncCollaboratorManagerAndTeams } from '../_lib/sync-human-resource-collaborator-teams';
+import { ResourceHumanTeamsFields } from './resource-human-teams-fields';
 
 const ROLE_NONE = '__none__';
 
@@ -45,8 +59,10 @@ export function EditResourceForm({
   className,
 }: EditResourceFormProps) {
   const authFetch = useAuthenticatedFetch();
+  const queryClient = useQueryClient();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+  const { has, isSuccess: permsSuccess } = usePermissions();
 
   const pid = (s: string) => `${formIdPrefix}-${s}`;
 
@@ -57,6 +73,69 @@ export function EditResourceForm({
   });
 
   const identityFromMember = Boolean(r?.linkedUserId);
+
+  const showTeamsBlock = useMemo(
+    () =>
+      r?.type === 'HUMAN' &&
+      !identityFromMember &&
+      permsSuccess &&
+      has('collaborators.read') &&
+      has('collaborators.update') &&
+      has('teams.read') &&
+      has('teams.update'),
+    [r?.type, identityFromMember, permsSuccess, has],
+  );
+
+  const collabTeamsQuery = useQuery({
+    queryKey: ['resource', 'edit-collab-teams', clientId, resourceId, r?.email],
+    queryFn: async () => {
+      if (!r) throw new Error('missing resource');
+      const id = await findCollaboratorIdForHumanResource(authFetch, r);
+      if (!id) {
+        return { managerId: '', memberships: [] as TeamMembershipRef[] };
+      }
+      const [collab, teams] = await Promise.all([
+        getCollaboratorById(authFetch, id),
+        listCollaboratorWorkTeams(authFetch, id, {
+          limit: 200,
+          offset: 0,
+          includeArchived: false,
+        }),
+      ]);
+      const memberships: TeamMembershipRef[] = teams.items.map((row) => ({
+        teamId: row.id,
+        membershipId: row.membershipId,
+      }));
+      return {
+        managerId: collab.managerId ?? '',
+        memberships,
+      };
+    },
+    enabled: !!clientId && !!r && showTeamsBlock,
+  });
+
+  const [managerSearch, setManagerSearch] = useState('');
+  const [managerId, setManagerId] = useState('');
+  const [selectedWorkTeamIds, setSelectedWorkTeamIds] = useState<string[]>([]);
+  const [initialMemberships, setInitialMemberships] = useState<TeamMembershipRef[]>([]);
+  const [baselineManagerId, setBaselineManagerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!collabTeamsQuery.isSuccess || !collabTeamsQuery.data) return;
+    const d = collabTeamsQuery.data;
+    setManagerId(d.managerId);
+    setBaselineManagerId(d.managerId || null);
+    setSelectedWorkTeamIds(d.memberships.map((m) => m.teamId));
+    setInitialMemberships(d.memberships);
+  }, [collabTeamsQuery.isSuccess, collabTeamsQuery.dataUpdatedAt, resourceId]);
+
+  const managersQuery = useCollaboratorManagerOptions(managerSearch, {
+    enabled: showTeamsBlock,
+  });
+  const teamsQuery = useWorkTeamsList(
+    { limit: 200, offset: 0, status: 'ACTIVE', includeArchived: false },
+    { enabled: showTeamsBlock },
+  );
 
   const { data: rolesData } = useQuery({
     queryKey: ['resource-roles', clientId, 'for-edit'],
@@ -84,6 +163,23 @@ export function EditResourceForm({
     setDailyRate(r.dailyRate ?? '');
     setRoleId(r.role?.id ?? ROLE_NONE);
   }, [r]);
+
+  function toggleWorkTeam(teamId: string, selected: boolean) {
+    setSelectedWorkTeamIds((prev) => {
+      const s = new Set(prev);
+      if (selected) s.add(teamId);
+      else s.delete(teamId);
+      return Array.from(s);
+    });
+  }
+
+  const shouldSyncTeams =
+    showTeamsBlock &&
+    collabTeamsQuery.isSuccess &&
+    (Boolean(managerId) ||
+      selectedWorkTeamIds.length > 0 ||
+      initialMemberships.length > 0 ||
+      baselineManagerId !== null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,7 +212,35 @@ export function EditResourceForm({
           name: name.trim(),
         });
       }
-      await refetch();
+
+      const refreshed = await refetch();
+      const next = refreshed.data ?? r;
+
+      if (r.type === 'HUMAN' && !identityFromMember && shouldSyncTeams) {
+        const merged: ResourceListItem = {
+          ...next,
+          name: name.trim(),
+          firstName: firstName.trim() || null,
+          email: email.trim() || null,
+        };
+        try {
+          await syncCollaboratorManagerAndTeams(
+            authFetch,
+            merged,
+            managerId || null,
+            selectedWorkTeamIds,
+            initialMemberships,
+          );
+          await queryClient.invalidateQueries({ queryKey: collaboratorQueryKeys.all });
+          await queryClient.invalidateQueries({ queryKey: workTeamQueryKeys.all });
+          await collabTeamsQuery.refetch();
+        } catch (teamsErr) {
+          toast.warning('Ressource enregistrée — module Équipes incomplet', {
+            description: (teamsErr as Error).message,
+          });
+        }
+      }
+
       onSaved?.();
     } catch (err) {
       setFormError((err as Error).message ?? 'Enregistrement impossible');
@@ -139,6 +263,7 @@ export function EditResourceForm({
 
   const typeLabel = RESOURCE_TYPE_LABEL[r.type as ResourceType];
   const roleItems = rolesData?.items ?? [];
+  const teamItems = teamsQuery.data?.items ?? [];
 
   return (
     <form onSubmit={onSubmit} className={cn('max-w-md space-y-4', className)}>
@@ -304,6 +429,30 @@ export function EditResourceForm({
                 autoComplete="organization"
               />
             </div>
+          )}
+        </>
+      )}
+
+      {showTeamsBlock && (
+        <>
+          {collabTeamsQuery.isLoading ? (
+            <div className="border-t border-border/60 pt-4">
+              <LoadingState rows={3} />
+            </div>
+          ) : (
+            <ResourceHumanTeamsFields
+              formIdPrefix={formIdPrefix}
+              managerSearch={managerSearch}
+              onManagerSearchChange={setManagerSearch}
+              managerId={managerId}
+              onManagerIdChange={setManagerId}
+              selectedWorkTeamIds={selectedWorkTeamIds}
+              onToggleWorkTeam={toggleWorkTeam}
+              managersQuery={managersQuery}
+              teamsLoading={teamsQuery.isLoading}
+              teamsError={teamsQuery.isError}
+              teamItems={teamItems}
+            />
           )}
         </>
       )}

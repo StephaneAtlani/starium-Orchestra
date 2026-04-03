@@ -63,6 +63,30 @@ export type CollaboratorCreatePayload = {
   jobTitle?: string | null;
 };
 
+/** GET /api/collaborators/:id/work-teams — équipes dont le collaborateur est membre. */
+export type CollaboratorWorkTeamRow = {
+  id: string;
+  clientId: string;
+  name: string;
+  code: string | null;
+  parentId: string | null;
+  status: string;
+  archivedAt: string | null;
+  sortOrder: number;
+  leadCollaboratorId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  membershipId: string;
+  membershipRole: string;
+};
+
+export type CollaboratorWorkTeamsResponse = {
+  items: CollaboratorWorkTeamRow[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type CollaboratorUpdatePayload = Partial<{
   firstName: string | null;
   lastName: string | null;

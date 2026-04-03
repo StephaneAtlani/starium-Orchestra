@@ -5,6 +5,7 @@ import type {
   CollaboratorsListParams,
   CollaboratorsListResponse,
   CollaboratorUpdatePayload,
+  CollaboratorWorkTeamsResponse,
 } from '../types/collaborator.types';
 
 type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
@@ -75,6 +76,22 @@ export async function updateCollaborator(
     body: JSON.stringify(payload),
   });
   return handleResponse<CollaboratorListItem>(res);
+}
+
+export async function listCollaboratorWorkTeams(
+  authFetch: AuthFetch,
+  collaboratorId: string,
+  params: { limit?: number; offset?: number; includeArchived?: boolean } = {},
+): Promise<CollaboratorWorkTeamsResponse> {
+  const search = new URLSearchParams();
+  if (typeof params.limit === 'number') search.set('limit', String(params.limit));
+  if (typeof params.offset === 'number') search.set('offset', String(params.offset));
+  if (params.includeArchived === true) search.set('includeArchived', 'true');
+  const query = search.toString();
+  const res = await authFetch(
+    `/api/collaborators/${encodeURIComponent(collaboratorId)}/work-teams${query ? `?${query}` : ''}`,
+  );
+  return handleResponse(res);
 }
 
 export async function listCollaboratorManagerOptions(

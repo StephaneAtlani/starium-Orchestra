@@ -13,11 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { createCollaborator } from '@/features/teams/collaborators/api/collaborators.api';
 import { useCollaboratorManagerOptions } from '@/features/teams/collaborators/hooks/use-collaborator-manager-options';
-import { collaboratorManagerSecondaryLabel } from '@/features/teams/collaborators/lib/collaborator-label-mappers';
-import { collaboratorQueryKeys } from '@/features/teams/collaborators/lib/collaborator-query-keys';
-import { addWorkTeamMember } from '@/features/teams/work-teams/api/work-teams.api';
 import { useWorkTeamsList } from '@/features/teams/work-teams/hooks/use-work-teams-list';
 import { workTeamQueryKeys } from '@/features/teams/work-teams/lib/work-team-query-keys';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -32,6 +28,9 @@ import type {
   ResourceListItem,
   ResourceType,
 } from '@/services/resources';
+import { collaboratorQueryKeys } from '@/features/teams/collaborators/lib/collaborator-query-keys';
+import { ensureCollaboratorManagerAndTeams } from '../_lib/sync-human-resource-collaborator-teams';
+import { ResourceHumanTeamsFields } from './resource-human-teams-fields';
 
 export type NewResourceFormProps = {
   /** Préfixe pour éviter les doublons d’id (page vs modale). */
@@ -62,7 +61,7 @@ export function NewResourceForm({
   const [dailyRate, setDailyRate] = useState('');
   const [managerSearch, setManagerSearch] = useState('');
   const [managerId, setManagerId] = useState('');
-  const [workTeamId, setWorkTeamId] = useState('');
+  const [selectedWorkTeamIds, setSelectedWorkTeamIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +78,9 @@ export function NewResourceForm({
     [resolvedType, permsSuccess, has],
   );
 
-  const wantsTeamsSync = showTeamsBlock && (Boolean(managerId) || Boolean(workTeamId));
+  const wantsTeamsSync =
+    showTeamsBlock &&
+    (Boolean(managerId) || selectedWorkTeamIds.length > 0);
 
   const managersQuery = useCollaboratorManagerOptions(managerSearch, {
     enabled: showTeamsBlock,
@@ -88,6 +89,15 @@ export function NewResourceForm({
     { limit: 200, offset: 0, status: 'ACTIVE', includeArchived: false },
     { enabled: showTeamsBlock },
   );
+
+  function toggleWorkTeam(teamId: string, selected: boolean) {
+    setSelectedWorkTeamIds((prev) => {
+      const s = new Set(prev);
+      if (selected) s.add(teamId);
+      else s.delete(teamId);
+      return Array.from(s);
+    });
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -111,22 +121,13 @@ export function NewResourceForm({
       const created = await createResource(authFetch, body);
 
       if (resolvedType === 'HUMAN' && wantsTeamsSync) {
-        const displayName =
-          [firstName.trim(), name.trim()].filter(Boolean).join(' ') || name.trim();
         try {
-          const collab = await createCollaborator(authFetch, {
-            displayName,
-            firstName: firstName.trim() || null,
-            lastName: name.trim(),
-            email: email.trim() ? email.trim() : null,
-            managerId: managerId || null,
-          });
-          if (workTeamId) {
-            await addWorkTeamMember(authFetch, workTeamId, {
-              collaboratorId: collab.id,
-              role: 'MEMBER',
-            });
-          }
+          await ensureCollaboratorManagerAndTeams(
+            authFetch,
+            created,
+            managerId || null,
+            selectedWorkTeamIds,
+          );
           await queryClient.invalidateQueries({ queryKey: collaboratorQueryKeys.all });
           await queryClient.invalidateQueries({ queryKey: workTeamQueryKeys.all });
         } catch (teamsErr) {
@@ -266,91 +267,19 @@ export function NewResourceForm({
       )}
 
       {showTeamsBlock && (
-        <div className="space-y-3 border-t border-border/60 pt-4">
-          <div>
-            <p className="text-sm font-medium text-foreground">Équipes (référentiel)</p>
-            <p className="text-xs text-muted-foreground">
-              Si vous renseignez un manager et/ou une équipe, un collaborateur métier est aussi créé
-              (module Équipes), en plus de la ressource projet.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={pid('mgr-search')}>Recherche manager</Label>
-            <Input
-              id={pid('mgr-search')}
-              value={managerSearch}
-              onChange={(e) => setManagerSearch(e.target.value)}
-              placeholder="Nom ou email…"
-              autoComplete="off"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={pid('manager')}>Manager</Label>
-            <select
-              id={pid('manager')}
-              className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              value={managerId}
-              onChange={(e) => setManagerId(e.target.value)}
-              disabled={managersQuery.isLoading}
-            >
-              <option value="">
-                {managersQuery.isLoading ? 'Chargement…' : '— Aucun'}
-              </option>
-              {(managersQuery.data?.items ?? []).map((c) => {
-                const sec = collaboratorManagerSecondaryLabel(c);
-                return (
-                  <option key={c.id} value={c.id}>
-                    {c.displayName}
-                    {sec ? ` — ${sec}` : ''}
-                  </option>
-                );
-              })}
-            </select>
-            {managersQuery.isError && (
-              <div className="flex flex-wrap items-center gap-2" role="alert">
-                <p className="text-xs text-destructive">
-                  {(managersQuery.error as Error).message}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => void managersQuery.refetch()}
-                >
-                  Réessayer
-                </Button>
-              </div>
-            )}
-            {managersQuery.isSuccess &&
-              (managersQuery.data?.items?.length ?? 0) === 0 &&
-              !managersQuery.isFetching && (
-                <p className="text-xs text-muted-foreground">
-                  Aucun collaborateur actif : créez des fiches collaborateur ou élargissez la recherche.
-                </p>
-              )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={pid('workTeam')}>Équipe</Label>
-            <select
-              id={pid('workTeam')}
-              className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              value={workTeamId}
-              onChange={(e) => setWorkTeamId(e.target.value)}
-              disabled={teamsQuery.isLoading}
-            >
-              <option value="">— Aucune</option>
-              {teamItems.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.pathLabel || t.name}
-                </option>
-              ))}
-            </select>
-            {teamsQuery.isError && (
-              <p className="text-xs text-destructive">Impossible de charger les équipes.</p>
-            )}
-          </div>
-        </div>
+        <ResourceHumanTeamsFields
+          formIdPrefix={formIdPrefix}
+          managerSearch={managerSearch}
+          onManagerSearchChange={setManagerSearch}
+          managerId={managerId}
+          onManagerIdChange={setManagerId}
+          selectedWorkTeamIds={selectedWorkTeamIds}
+          onToggleWorkTeam={toggleWorkTeam}
+          managersQuery={managersQuery}
+          teamsLoading={teamsQuery.isLoading}
+          teamsError={teamsQuery.isError}
+          teamItems={teamItems}
+        />
       )}
 
       <Button type="submit" disabled={submitting}>
