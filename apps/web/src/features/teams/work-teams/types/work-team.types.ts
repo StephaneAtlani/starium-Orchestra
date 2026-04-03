@@ -86,7 +86,8 @@ export type CreateWorkTeamPayload = {
   name: string;
   code?: string | null;
   parentId?: string | null;
-  leadCollaboratorId?: string | null;
+  /** Responsable d’équipe — obligatoire à la création (équipe active). */
+  leadCollaboratorId: string;
   sortOrder?: number;
 };
 

@@ -1313,6 +1313,31 @@ async function ensureActivityTypesModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureResourcesModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "resources" },
+    create: {
+      code: "resources",
+      name: "Ressources",
+      description: "Catalogue ressources projet (Humaine, matériel, licences)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "resources.read", label: "Ressources — lecture" },
+    { code: "resources.create", label: "Ressources — création" },
+    { code: "resources.update", label: "Ressources — mise à jour" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label },
+    });
+  }
+}
+
 async function ensureTeamAssignmentsModuleAndPermissions(): Promise<void> {
   const mod = await prisma.module.upsert({
     where: { code: "team_assignments" },
@@ -1358,13 +1383,17 @@ async function ensureClientAdminTeamsModuleRole(): Promise<void> {
     "activity_types.manage",
     "team_assignments.read",
     "team_assignments.manage",
+    /** Catalogue Humaine (RFC-RES-001) pour constituer les équipes à partir des ressources humaines. */
+    "resources.read",
+    /** Création collaborateur MANUAL quand la ressource n’a pas encore de fiche Équipes. */
+    "collaborators.create",
   ] as const;
   const permissions = await prisma.permission.findMany({
     where: { code: { in: [...codes] } },
   });
   if (permissions.length !== codes.length) {
     console.warn(
-      "⚠️  ensureClientAdminTeamsModuleRole : permissions teams.* / activity_types.* / team_assignments.* manquantes — skip.",
+      "⚠️  ensureClientAdminTeamsModuleRole : permissions teams.* / resources.* / collaborators.* / activity_types.* / team_assignments.* manquantes — skip.",
     );
     return;
   }
@@ -1408,13 +1437,15 @@ async function ensureClientAdminTeamsModuleRole(): Promise<void> {
 type DefaultProfileSeed = {
   name: string;
   description?: string;
+  /** Rôle fourni par la plateforme (non supprimable côté produit). Défaut : true si absent. */
+  isSystem?: boolean;
   permissionCodes: string[];
 };
 
 /**
  * Rôles RBAC **globaux** (`scope: GLOBAL`) définis dans `default-profiles.json`.
- * Idempotent : met à jour description et synchronise les `RolePermission` avec le fichier.
- * À exécuter après que les permissions `projects.*`, `budgets.*`, etc. existent en base (migrations).
+ * Idempotent : met à jour description, `isSystem` et synchronise les `RolePermission` avec le fichier.
+ * À exécuter après que les permissions `projects.*`, `budgets.*`, `resources.*`, etc. existent en base.
  */
 async function ensureDefaultGlobalProfiles(): Promise<void> {
   const profilesPath = path.join(__dirname, "default-profiles.json");
@@ -1424,6 +1455,7 @@ async function ensureDefaultGlobalProfiles(): Promise<void> {
   }
   const profiles = JSON.parse(fs.readFileSync(profilesPath, "utf8")) as DefaultProfileSeed[];
   for (const profile of profiles) {
+    const isSystem = profile.isSystem !== false;
     let role = await prisma.role.findFirst({
       where: { scope: RoleScope.GLOBAL, name: profile.name },
     });
@@ -1434,13 +1466,13 @@ async function ensureDefaultGlobalProfiles(): Promise<void> {
           scope: RoleScope.GLOBAL,
           name: profile.name,
           description: profile.description ?? null,
-          isSystem: false,
+          isSystem,
         },
       });
     } else {
       await prisma.role.update({
         where: { id: role.id },
-        data: { description: profile.description ?? null },
+        data: { description: profile.description ?? null, isSystem },
       });
     }
     const permissions = await prisma.permission.findMany({
@@ -2786,6 +2818,7 @@ async function main() {
   await ensureActivityTypesModuleAndPermissions();
   await ensureTeamAssignmentsModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
+  await ensureResourcesModuleAndPermissions();
   await ensureDefaultGlobalProfiles();
   await ensureClientAdminRiskTaxonomyRole();
   await ensurePlatformAdminUser(passwordHash);

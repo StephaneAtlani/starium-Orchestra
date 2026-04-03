@@ -71,7 +71,7 @@ export type PersonCatalogPickerDialogProps = {
   emptyStateFiltered: { title: string; description: string };
   /** Optionnel : classe DialogContent (largeur). */
   dialogContentClassName?: string;
-  /** Désactive le tableau (et « Nouvelle personne ») pendant une mutation (ex. ajout équipe). */
+  /** Désactive le tableau (et « Nouvelle humaine ») pendant une mutation (ex. ajout équipe). */
   tableInteractionDisabled?: boolean;
 };
 
@@ -250,7 +250,7 @@ export function PersonCatalogPickerDialog({
                     disabled={resourceCatalogDenied || tableInteractionDisabled}
                   >
                     <UserPlus className="h-4 w-4" />
-                    Nouvelle personne
+                    Nouvelle humaine
                   </Button>
                 </div>
               </div>
@@ -268,7 +268,7 @@ export function PersonCatalogPickerDialog({
                 {filterHint}
               </p>
 
-              <div className="min-w-0" role="region" aria-label="Catalogue personnes">
+              <div className="min-w-0" role="region" aria-label="Catalogue Humaine">
                 {resourcesLoading ? (
                   <div className="min-h-[10rem] py-2">
                     <LoadingState rows={5} />
@@ -394,7 +394,7 @@ export function PersonCatalogPickerDialog({
           showCloseButton
         >
           <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-lg font-semibold tracking-tight">Nouvelle personne</DialogTitle>
+            <DialogTitle className="text-lg font-semibold tracking-tight">Nouvelle humaine</DialogTitle>
             <DialogDescription className="text-sm leading-relaxed">
               {newPersonDialogDescription}
             </DialogDescription>

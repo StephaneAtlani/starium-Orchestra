@@ -2,11 +2,13 @@
   {
     "name": "Directeur",
     "description": "Visualisation budget, reporting, portefeuille projets, collaborateurs et vue transverse Risques (lecture seule)",
+    "isSystem": true,
     "permissionCodes": ["budgets.read", "projects.read", "compliance.read", "collaborators.read"]
   },
   {
     "name": "Responsable Budgets",
     "description": "Pilotage complet des budgets (lecture, création, modification)",
+    "isSystem": true,
     "permissionCodes": [
       "budgets.read",
       "budgets.create",
@@ -28,6 +30,7 @@
   {
     "name": "Contributeur Budgets",
     "description": "Saisie et consultation budgets (lecture et création)",
+    "isSystem": true,
     "permissionCodes": [
       "budgets.read",
       "budgets.create",
@@ -41,6 +44,7 @@
   {
     "name": "Chef de projet",
     "description": "Pilotage complet du portefeuille projets (CRUD, tâches, risques, jalons) — inclut le menu Risques (/risks) et les registres par projet",
+    "isSystem": true,
     "permissionCodes": [
       "projects.read",
       "projects.create",
@@ -53,16 +57,19 @@
   {
     "name": "Lecteur pilotage risques",
     "description": "Consultation du menu Risques et du portefeuille projets (vue transverse /risks, sans modification)",
+    "isSystem": true,
     "permissionCodes": ["projects.read"]
   },
   {
     "name": "Pilote risques projets",
     "description": "Pilotage des risques sur tous les projets accessibles : vue /risks, registres projet, création et mise à jour des risques (pas de suppression de projet)",
+    "isSystem": true,
     "permissionCodes": ["projects.read", "projects.update"]
   },
   {
     "name": "Gestionnaire Procurement",
     "description": "Gestion fournisseurs/commandes/factures avec lecture budget",
+    "isSystem": true,
     "permissionCodes": [
       "budgets.read",
       "procurement.read",
@@ -72,13 +79,27 @@
     ]
   },
   {
+    "name": "Lecteur Ressources",
+    "description": "Consultation du catalogue ressources projet (Humaine, matériel, licences)",
+    "isSystem": true,
+    "permissionCodes": ["resources.read"]
+  },
+  {
+    "name": "Gestionnaire Ressources",
+    "description": "Création et mise à jour du catalogue ressources projet",
+    "isSystem": true,
+    "permissionCodes": ["resources.read", "resources.create", "resources.update"]
+  },
+  {
     "name": "Lecteur Équipes",
     "description": "Consultation du référentiel collaborateurs (module Équipes, lecture seule)",
+    "isSystem": true,
     "permissionCodes": ["collaborators.read", "teams.read", "activity_types.read", "team_assignments.read"]
   },
   {
     "name": "Gestionnaire Équipes",
-    "description": "Gestion complète du référentiel collaborateurs (liste, détail, création, édition, désactivation)",
+    "description": "Gestion complète Équipes : collaborateurs, structure, affectations, catalogue Humaine (ressources) pour rattachements",
+    "isSystem": true,
     "permissionCodes": [
       "collaborators.read",
       "collaborators.create",
@@ -90,7 +111,9 @@
       "activity_types.read",
       "activity_types.manage",
       "team_assignments.read",
-      "team_assignments.manage"
+      "team_assignments.manage",
+      "resources.read",
+      "resources.create"
     ]
   }
 ]

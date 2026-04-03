@@ -65,7 +65,7 @@ export function SkillCollaboratorsDialog({
             Collaborateurs — {skill?.name ?? '…'}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Personnes ayant cette compétence dans le référentiel (niveau sur l’association).
+            Collaborateurs ayant cette compétence dans le référentiel (niveau sur l’association).
           </p>
         </DialogHeader>
         {query.isLoading && <LoadingState rows={4} />}

@@ -84,14 +84,22 @@ export function WorkTeamFormDialog({
     }
     try {
       if (mode === 'create') {
+        if (!leadCollaboratorId) {
+          toast.error('Choisissez un responsable d’équipe (manager)');
+          return;
+        }
         await createMutation.mutateAsync({
           name: trimmed,
           code: code.trim() || null,
           parentId: parentId ? parentId : null,
-          leadCollaboratorId: leadCollaboratorId ? leadCollaboratorId : null,
+          leadCollaboratorId,
         });
         toast.success('Équipe créée');
       } else if (team) {
+        if (team.status === 'ACTIVE' && !leadCollaboratorId) {
+          toast.error('Une équipe active doit avoir un responsable (manager)');
+          return;
+        }
         await updateMutation.mutateAsync({
           name: trimmed,
           code: code.trim() || null,
@@ -158,7 +166,7 @@ export function WorkTeamFormDialog({
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="wt-lead-search">Responsable d’équipe (optionnel)</Label>
+              <Label htmlFor="wt-lead-search">Responsable d’équipe (manager) — obligatoire</Label>
               <Input
                 id="wt-lead-search"
                 placeholder="Rechercher par nom ou email…"
@@ -171,8 +179,13 @@ export function WorkTeamFormDialog({
                 value={leadCollaboratorId}
                 onChange={(e) => setLeadCollaboratorId(e.target.value)}
                 disabled={busy}
+                required={mode === 'create' || team?.status === 'ACTIVE'}
               >
-                <option value="">Aucun</option>
+                <option value="">
+                  {mode === 'edit' && team?.status === 'ARCHIVED'
+                    ? 'Aucun'
+                    : '— Choisir un responsable'}
+                </option>
                 {(managersQuery.data?.items ?? []).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.displayName}

@@ -6,6 +6,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 export interface DefaultProfileDefinition {
   name: string;
   description: string;
+  /** Aligné sur le seed `ensureDefaultGlobalProfiles` — rôles catalogue plateforme. */
+  isSystem?: boolean;
   permissionCodes: string[];
 }
 

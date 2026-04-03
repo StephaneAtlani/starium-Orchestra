@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
+import { REQUIRE_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
 import { RequestWithClient } from '../types/request-with-client';
 
@@ -13,8 +14,9 @@ import { RequestWithClient } from '../types/request-with-client';
  * Vérifie que le module associé à la route est actif globalement
  * et activé (ENABLED) pour le client actif.
  *
- * Le code module est déduit du premier code de permission défini
- * via @RequirePermissions('<module>.<action>').
+ * Le code module est déduit des permissions :
+ * @RequirePermissions('module.action') ou, à défaut,
+ * @RequireAnyPermissions('module.a', 'module.b') (un seul module par route).
  */
 @Injectable()
 export class ModuleAccessGuard implements CanActivate {
@@ -31,7 +33,7 @@ export class ModuleAccessGuard implements CanActivate {
       throw new ForbiddenException('Contexte client actif requis');
     }
 
-    const permissions =
+    const requiredPerms =
       this.reflector.get<string[]>(
         REQUIRE_PERMISSIONS_KEY,
         context.getHandler(),
@@ -41,9 +43,33 @@ export class ModuleAccessGuard implements CanActivate {
         context.getClass(),
       );
 
+    const anyPerms =
+      this.reflector.get<string[]>(
+        REQUIRE_ANY_PERMISSIONS_KEY,
+        context.getHandler(),
+      ) ??
+      this.reflector.get<string[]>(
+        REQUIRE_ANY_PERMISSIONS_KEY,
+        context.getClass(),
+      );
+
+    const permissions =
+      requiredPerms?.length ? requiredPerms : anyPerms;
+
     if (!permissions || permissions.length === 0) {
       // Pas de permissions explicites → pas de contrôle module.
       return true;
+    }
+
+    const moduleCodes = new Set(
+      permissions
+        .map((p) => p.split('.')[0])
+        .filter((code): code is string => typeof code === 'string' && code.length > 0),
+    );
+    if (moduleCodes.size > 1) {
+      throw new ForbiddenException(
+        'Permissions invalides: une route ne doit référencer qu’un seul module',
+      );
     }
 
     const first = permissions[0];

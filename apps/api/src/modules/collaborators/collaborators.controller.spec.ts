@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import { PATH_METADATA } from '@nestjs/common/constants';
+import { REQUIRE_ANY_PERMISSIONS_KEY } from '../../common/decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../../common/decorators/require-permissions.decorator';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -87,6 +88,14 @@ describe('CollaboratorsController', () => {
       CollaboratorsController.prototype.listWorkTeamsForCollaborator,
     );
     expect(perms).toEqual(['teams.read']);
+  });
+
+  it('applique collaborators.read OU collaborators.create sur listManagersOptions', () => {
+    const perms = Reflect.getMetadata(
+      REQUIRE_ANY_PERMISSIONS_KEY,
+      CollaboratorsController.prototype.listManagersOptions,
+    );
+    expect(perms).toEqual(['collaborators.read', 'collaborators.create']);
   });
 
   it('applique permission collaborators.read sur list', () => {

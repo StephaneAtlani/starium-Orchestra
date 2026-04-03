@@ -1,4 +1,5 @@
 import type {
+  CollaboratorCreatePayload,
   CollaboratorListItem,
   CollaboratorOptionsResponse,
   CollaboratorsListParams,
@@ -48,6 +49,18 @@ export async function getCollaboratorById(
   collaboratorId: string,
 ): Promise<CollaboratorListItem> {
   const res = await authFetch(`/api/collaborators/${collaboratorId}`);
+  return handleResponse<CollaboratorListItem>(res);
+}
+
+export async function createCollaborator(
+  authFetch: AuthFetch,
+  payload: CollaboratorCreatePayload,
+): Promise<CollaboratorListItem> {
+  const res = await authFetch('/api/collaborators', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
   return handleResponse<CollaboratorListItem>(res);
 }
 

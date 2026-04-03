@@ -1,24 +1,27 @@
 # 📊 Budget — ce qu’il reste à faire
 
+_Dernière mise à jour : avril 2026 (alignée sur le dépôt `starium-Orchestra` : apps web `features/budgets`, API `modules/budget-*`)._
 
 | RFC / Phase                      | Nom                                     | Description                                                                                                                                                       | État                    |
 | -------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| RFC-022 + FE Dashboard           | Cockpit Budget & Dashboard              | Finaliser le cockpit DG/DAF : KPI, drill-down, cohérence navigation enveloppe → ligne, finition widgets et parcours hors grille                                   | ⚠️ Partiel              |
-| RFC-023 / RFC-024 + RFC-FE-029   | Planning budgétaire mensuel             | Compléter la parité fonctionnelle avec tous les scénarios de planning, renforcer l’UX tableur, tests E2E métier et cohérence complète HT/TTC / forecast / landing | ⚠️ Partiel              |
-| RFC-024 + RFC-FE-030/031         | Cellule intelligente & calculs          | Expliquer les montants d’une cellule : forecast, committed, consumed, allocations, événements, traçabilité détaillée via drawer                                   | ❌ À faire               |
-| RFC-029 + RFC-FE-032/033         | Vue enveloppe & atterrissage            | Construire la vraie vue de pilotage enveloppe : KPI, comparatifs revised / forecast / consumed, projection fin d’année                                            | ❌ À faire               |
-| Nouveau RFC Budget Workflow      | Workflow budgétaire                     | Mettre en place le cycle DRAFT → SUBMITTED → VALIDATED, rôles de validation DAF/DG, verrouillage après validation                                                 | ❌ À faire               |
-| RFC-031 + RFC-FE-035             | Déversement & allocation stratégique    | Permettre la répartition réelle des décisions budgétaires vers les bonnes lignes / enveloppes avec UX dédiée                                                      | ❌ À faire               |
-| Extension RFC-016 + UI Alertes   | Alerting avancé & règles personnalisées | Ajouter règles complexes, seuils multi-critères, personnalisation, historique des alertes et UX de paramétrage                                                    | ❌ À faire               |
-| RFC-019 + RFC-015-3 + UI compare | Versioning & snapshots exploitables     | Comparaison forecast / baseline / snapshot / version : **RFC-FE-BUD-030** (MVP sur `/budgets/[budgetId]/reporting`, cockpit, enveloppe). Reste : timeline dédiée, lecture écarts avancée, finitions hors scope MVP | ⚠️ Partiel (comparaison UI MVP) |
-| RFC-021                          | Axes analytiques                        | Ajouter comptes comptables, comptes analytiques, cost centers, splits analytiques, lecture DAF-ready                                                              | ❌ À faire               |
-| RFC-025 + UI procurement         | Intégration procurement                 | Exploiter pleinement les PO / factures / engagements côté UX budget pour relier budget au réel achats                                                             | ⚠️ Partiel              |
-| RFC-018 + UI import              | Import / Export & interop               | Construire le wizard d’import UI : upload, mapping, preview, exécution, lecture des erreurs et réutilisation mapping                                              | ⚠️ Backend OK / Front ❌ |
-| Extension reporting multi-client | Vue multi-client                        | Cockpit transversal DSI à temps partagé pour consolider plusieurs clients                                                                                         | ❌ À faire               |
+| RFC-022 + FE Dashboard           | Cockpit Budget & Dashboard              | Cockpit DG/DAF sur `/budgets/dashboard` (widgets, sélecteurs exercice/budget, drill-down vers lignes/enveloppes via drawers). Reste : finition « CODIR-ready », cohérence navigation globale, widgets avancés hors périmètre actuel | ⚠️ Partiel              |
+| RFC-023 / RFC-024 + RFC-FE-029   | Planning budgétaire mensuel             | Planning 12 mois côté ligne (`BudgetLinePlanningTab`, API planning). Reste : parité scénarios avancés, UX tableur / saisie de masse, tests E2E métier, homogénéisation HT/TTC / forecast | ⚠️ Partiel              |
+| RFC-024 + RFC-FE-030/031         | Cellule intelligente & calculs          | **Drawer ligne** (`BudgetLineIntelligenceDrawer`) : aperçu, prévisionnel, engagements, factures, allocations, timeline, infos DSI, création commande/facture/event. Reste : explicabilité encore perfectible (agrégations, parcours « une cellule = une histoire » documenté RFC) | ⚠️ Partiel              |
+| RFC-029 + RFC-FE-032/033         | Vue enveloppe & atterrissage            | **Page enveloppe** `/budget-envelopes/[envelopeId]` : cartes résumé, KPI forecast, tableau forecast lignes, liste lignes, drawer ligne. Reste : vue « pilotage enveloppe » encore perfectible (comparatifs revised/forecast/consumed, projection fin d’année, finitions reporting) | ⚠️ Partiel              |
+| Nouveau RFC Budget Workflow      | Workflow budgétaire                     | Cycle métier DRAFT → SUBMITTED → VALIDATED, rôles DAF/DG, verrouillage : **non** implémenté comme processus (statuts entités ≠ workflow de validation transverse) | ❌ À faire               |
+| RFC-031 + RFC-FE-035             | Déversement & allocation stratégique    | Répartition décisionnelle vers lignes/enveloppes avec UX dédiée : **non** trouvé dans le code applicatif                                                         | ❌ À faire               |
+| Extension RFC-016 + UI Alertes   | Alerting avancé & règles personnalisées | Alertes cockpit (panneau alertes, lignes critiques, seuils forecast/consommation côté reporting). Reste : règles multi-critères configurables, historique, paramétrage utilisateur avancé | ⚠️ Partiel              |
+| RFC-019 + RFC-015-3 + UI compare | Versioning & snapshots exploitables     | Comparaison forecast/baseline/snapshot/version : UI MVP ([RFC-FE-BUD-030](./RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md)), pages `/budgets/[budgetId]/reporting`, `/budgets/[budgetId]/versions`, `/budgets/[budgetId]/snapshots`. Reste : timeline dédiée, écarts avancés, finitions hors MVP | ⚠️ Partiel (comparaison UI MVP) |
+| RFC-021                          | Axes analytiques                        | **Partiel** : schéma + API + formulaire ligne (compte analytique, répartition cost centers avec libellés). Reste : comptes comptables « général », lecture consolidée DAF-ready, reporting analytique transversal | ⚠️ Partiel              |
+| RFC-025 + UI procurement         | Intégration procurement                 | Dialogues création commande / facture depuis le drawer ligne, onglets engagements/factures. Reste : visibilité achat « bout en bout » dans tout le module budget | ⚠️ Partiel              |
+| RFC-018 + UI import              | Import / Export & interop               | **Wizard** sur `/budgets/[budgetId]/import` : upload, mapping, prévisualisation, exécution (`BudgetImportWizard`). Hub `/budgets/imports` = point d’entrée minimal. Reste : export, réutilisation avancée des mappings, polish erreurs / gros fichiers | ⚠️ Partiel (import UI MVP+) |
+| Extension reporting multi-client | Vue multi-client                        | Cockpit transversal multi-clients pour DSI à temps partagé : **non**                                                                                             | ❌ À faire               |
 
+**Routes utiles (vérification code)** : liste `/budgets`, cockpit `/budgets/dashboard`, détail budget `/budgets/[budgetId]`, reporting & comparaison `/budgets/[budgetId]/reporting`, import `/budgets/[budgetId]/import`, enveloppe `/budget-envelopes/[envelopeId]`, exercices `/budgets/exercises`, configuration `/budgets/configuration`, réglages cockpit `/budgets/cockpit-settings`.
+
+---
 
 # ✅ Ce qui est déjà solide
-
 
 | RFC        | Nom                       | Description                                   | État      |
 | ---------- | ------------------------- | --------------------------------------------- | --------- |
@@ -27,48 +30,49 @@
 | RFC-016    | Budget Reporting API      | KPI et agrégations budgétaires                | ✅ Terminé |
 | RFC-015-3  | Snapshots budgétaires     | Historisation backend                         | ✅ Terminé |
 | RFC-019    | Budget Versioning         | Versioning backend                            | ✅ Terminé |
-| RFC-018    | Budget Data Import        | Backend import/mapping/preview/execute        | ✅ Terminé |
+| RFC-018    | Budget Data Import        | Backend import / mapping / preview / execute  | ✅ Terminé |
 | RFC-017    | Budget Reallocation       | Réallocation budgétaire                       | ✅ Terminé |
-| RFC-021    | Analytical Dimensions     | Prévu mais non livré                          | ❌ À faire |
+| RFC-021    | Analytical Dimensions     | Modèle & API partiels (compte analytique, splits cost centers sur ligne) ; reporting analytique complet **non** | ⚠️ Partiel |
 
+Les RFC backend ci-dessus sont documentées dans les RFC budget ; le frontend a rattrapé une partie importante (cockpit, forecast, comparaison, import wizard, drawer ligne, page enveloppe) depuis les anciennes mentions « front manquant ».
 
-Les RFC backend déjà abouties sont bien documentées dans l’état du module budget, le reporting, les snapshots, le versioning et l’import.    
+---
 
 # 🔴 Les vrais manques produit
 
-
 | Domaine       | Ce qui manque réellement                                                               |
 | ------------- | -------------------------------------------------------------------------------------- |
-| Pilotage      | Le cockpit existe en MVP mais n’est pas encore totalement “DAF / DG ready”             |
-| Explicabilité | Impossible aujourd’hui d’expliquer proprement une cellule ou un écart de façon fluide  |
-| Gouvernance   | Pas encore de workflow budgétaire métier complet                                       |
-| Analytique    | Pas encore de lecture comptable / analytique exploitable                               |
-| Adoption      | Comparaison forecast/baseline/snapshot/version : UI MVP ([RFC-FE-BUD-030](./RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md)) ; import / timeline snapshots / finitions adoption à poursuivre |
-| Réel achats   | L’intégration procurement n’est pas encore assez visible côté budget                   |
+| Pilotage      | Le cockpit est exploitable en MVP mais pas encore totalement « DAF / DG ready » (finition widgets, parcours) |
+| Explicabilité | Le drawer ligne couvre beaucoup de données ; il reste à finaliser le récit métier par cellule / écart (sans friction) |
+| Gouvernance   | Pas de workflow budgétaire métier complet (validation, verrouillage piloté)           |
+| Analytique    | Données analytiques sur ligne en cours ; pas encore une lecture comptable / consolidée « DAF » |
+| Adoption      | Import UI présent ; export, réutilisation des mappings et robustesse gros volumes à renforcer |
+| Réel achats   | L’intégration procurement est amorcée (drawer) mais pas encore le fil conducteur achats dans tout le budget |
 
+---
 
 # 🎯 Priorité réelle recommandée
 
-
 | Priorité | Sujet                      | Pourquoi                                            |
 | -------- | -------------------------- | --------------------------------------------------- |
-| 🔥 1     | Cockpit Budget & Dashboard | C’est la vitrine métier DG/DAF                      |
-| 🔥 2     | Planning mensuel           | C’est le cœur de remplacement d’Excel               |
-| 🔥 3     | Cellule intelligente       | Nécessaire pour rendre les chiffres compréhensibles |
-| 🔥 4     | Vue enveloppe & landing    | Nécessaire pour le pilotage intermédiaire           |
-| 🔥 5     | Workflow budgétaire        | Nécessaire pour la gouvernance                      |
-| 🔥 6     | Axes analytiques           | Nécessaire pour la DAF                              |
-| 🔥 7     | Import UI + versioning UI  | Nécessaire pour l’adoption réelle                   |
-| 🔥 8     | Alerting avancé            | À faire après le socle cockpit/pilotage             |
+| 🔥 1     | Cockpit Budget & Dashboard | Vitrine métier DG/DAF ; affiner après socle déjà en place |
+| 🔥 2     | Planning mensuel           | Cœur du remplacement d’Excel ; compléter scénarios + UX masse |
+| 🔥 3     | Explicabilité / cellule    | Raffiner au-dessus du drawer existant (parcours, récit écarts) |
+| 🔥 4     | Vue enveloppe & landing    | Socle enveloppe déjà là ; monter en gamme comparatifs / projection |
+| 🔥 5     | Workflow budgétaire        | Gouvernance (toujours absent côté processus)         |
+| 🔥 6     | Axes analytiques           | Passer du partiel au reporting DAF-ready              |
+| 🔥 7     | Import polish + export     | Import wizard OK ; export et industrialisation imports |
+| 🔥 8     | Alerting avancé            | Après socle cockpit / règles métier configurables   |
 
+---
 
 # 🧠 Conclusion
 
-Le module budget est **très avancé techniquement côté backend**, mais il reste encore à transformer ce socle en **vrai cockpit métier exploitable**. Le plus gros du travail restant n’est plus dans la donnée, mais dans :
+Le module budget est **très avancé techniquement côté backend**, et le **frontend a désormais** cockpit, forecast, comparaison, import transactionnel, page enveloppe pilotée et drawer ligne riche. Il reste à transformer ce socle en **expérience métier totalement aboutie** :
 
-- la finition cockpit,
-- l’explicabilité des montants,
-- le workflow,
-- l’analytique,
-- et l’UX métier complète.
-
+- finition cockpit et parcours CODIR,
+- explicabilité et scénarios planning poussés,
+- workflow de validation,
+- analytique consolidée,
+- déversement / allocation stratégique,
+- et industrialisation import/export + alerting configurable.

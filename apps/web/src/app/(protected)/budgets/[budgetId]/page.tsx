@@ -344,7 +344,7 @@ export default function BudgetDetailPage() {
             }),
           },
           {
-            label: 'Prévisionnel',
+            label: 'Total planifié',
             value: formatTaxAwareAmount({
               htValue: kpi.totalForecastAmount,
               ttcValue: kpi.totalForecastAmountTtc ?? null,
@@ -512,7 +512,7 @@ export default function BudgetDetailPage() {
                       href={budgetReporting(budgetId!)}
                       className="text-sm font-medium text-primary hover:underline"
                     >
-                      Ouvrir forecast & comparaison
+                      Reporting et comparaison
                     </Link>
                   ) : null}
                 </div>

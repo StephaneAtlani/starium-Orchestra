@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { RoleScope } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { REQUIRE_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
 import { RequestWithClient } from '../types/request-with-client';
 
@@ -31,6 +32,44 @@ export class PermissionsGuard implements CanActivate {
     }
     if (!activeClient?.id) {
       throw new ForbiddenException('Contexte client actif requis');
+    }
+
+    const anyRequired =
+      this.reflector.get<string[]>(
+        REQUIRE_ANY_PERMISSIONS_KEY,
+        context.getHandler(),
+      ) ??
+      this.reflector.get<string[]>(
+        REQUIRE_ANY_PERMISSIONS_KEY,
+        context.getClass(),
+      );
+
+    const permissionCodes =
+      request.resolvedPermissionCodes ??
+      (await this.resolvePermissionCodesForRequest({
+        userId: user.userId,
+        clientId: activeClient.id,
+        request,
+      }));
+
+    if (anyRequired?.length) {
+      const moduleCodes = new Set(
+        anyRequired
+          .map((p) => p.split('.')[0])
+          .filter((code) => typeof code === 'string' && code.length > 0),
+      );
+      if (moduleCodes.size > 1) {
+        throw new ForbiddenException(
+          'Permissions invalides: une route ne doit référencer qu’un seul module',
+        );
+      }
+      const ok = anyRequired.some((code) => permissionCodes.has(code));
+      if (!ok) {
+        throw new ForbiddenException(
+          'Permissions insuffisantes pour accéder à cette ressource',
+        );
+      }
+      return true;
     }
 
     const required =
@@ -59,14 +98,6 @@ export class PermissionsGuard implements CanActivate {
         'Permissions invalides: une route ne doit référencer qu’un seul module',
       );
     }
-
-    const permissionCodes =
-      request.resolvedPermissionCodes ??
-      (await this.resolvePermissionCodesForRequest({
-        userId: user.userId,
-        clientId: activeClient.id,
-        request,
-      }));
 
     const missing = required.filter((code) => !permissionCodes.has(code));
     if (missing.length > 0) {

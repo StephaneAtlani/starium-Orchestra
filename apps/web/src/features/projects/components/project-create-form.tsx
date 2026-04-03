@@ -135,7 +135,7 @@ export function ProjectCreateForm() {
   const [tagToAdd, setTagToAdd] = useState('');
   const ownerSummaryLine = useMemo(() => {
     if (!ownerResourceId) {
-      return 'Personne du catalogue — choisissez ou créez dans la modale.';
+      return 'Humaine du catalogue — choisissez ou créez dans la modale.';
     }
     const r = ownerResourceDetails;
     if (!r || r.id !== ownerResourceId) {
@@ -326,7 +326,7 @@ export function ProjectCreateForm() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Ressource <strong>Personne</strong> du catalogue (sélection ou création) — alignée
+                Ressource <strong>Humaine</strong> du catalogue (sélection ou création) — alignée
                 avec la fiche ressource et l’équipe projet.
               </p>
 
@@ -337,7 +337,7 @@ export function ProjectCreateForm() {
                 title="Responsable de projets"
                 description={
                   <>
-                    Choisis une ressource <strong>Personne</strong> du catalogue ou crée-en une. Le
+                    Choisis une ressource <strong>Humaine</strong> du catalogue ou crée-en une. Le
                     responsable est enregistré comme nom libre aligné sur la ressource (équipe
                     projet).
                   </>
@@ -362,7 +362,7 @@ export function ProjectCreateForm() {
                 }
                 catalogIntro={
                   <>
-                    Liste des ressources de type <strong>Personne</strong> du client actif — même
+                    Liste des ressources de type <strong>Humaine</strong> du client actif — même
                     référentiel que la page Ressources.
                   </>
                 }
@@ -373,13 +373,13 @@ export function ProjectCreateForm() {
                   </>
                 }
                 emptyStateNoFilter={{
-                  title: 'Aucune personne dans le catalogue',
+                  title: 'Aucune ressource Humaine dans le catalogue',
                   description:
-                    'Crée une ressource Personne ou vérifie les droits de lecture du module Ressources.',
+                    'Crée une ressource Humaine ou vérifie les droits de lecture du module Ressources.',
                 }}
                 emptyStateFiltered={{
                   title: 'Aucun résultat',
-                  description: 'Aucune personne ne correspond à ce filtre.',
+                  description: 'Aucune ressource Humaine ne correspond à ce filtre.',
                 }}
                 dialogContentClassName="max-h-[min(85vh,800px)] w-full max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)]"
               />

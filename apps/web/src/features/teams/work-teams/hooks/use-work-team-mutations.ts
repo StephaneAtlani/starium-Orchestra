@@ -13,6 +13,7 @@ import {
   updateWorkTeam,
   updateWorkTeamMember,
 } from '../api/work-teams.api';
+import { collaboratorQueryKeys } from '@/features/teams/collaborators/lib/collaborator-query-keys';
 import { workTeamQueryKeys } from '../lib/work-team-query-keys';
 import type {
   AddWorkTeamMemberPayload,
@@ -93,6 +94,7 @@ export function useAddWorkTeamMember(teamId: string) {
       void queryClient.invalidateQueries({
         queryKey: [...workTeamQueryKeys.all, 'members', clientId, teamId],
       });
+      void queryClient.invalidateQueries({ queryKey: collaboratorQueryKeys.all });
     },
   });
 }

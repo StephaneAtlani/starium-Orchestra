@@ -2,10 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { NewResourceForm } from '@/app/(protected)/resources/_components/new-resource-form';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
+import { PermissionGate } from '@/components/PermissionGate';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -64,6 +73,7 @@ export default function CollaboratorsPage() {
     [searchParams],
   );
   const [filters, setFilters] = useState<CollaboratorsListParams>(initialFilters);
+  const [newPersonModalOpen, setNewPersonModalOpen] = useState(false);
   const { has, isLoading: permsLoading, isSuccess: permsSuccess, isError: permsError } = usePermissions();
 
   const canRead = has('collaborators.read');
@@ -92,7 +102,50 @@ export default function CollaboratorsPage() {
         <PageHeader
           title="Collaborateurs"
           description="Référentiel collaborateurs du client actif."
+          actions={
+            enabled ? (
+              <div className="flex flex-wrap gap-2">
+                <PermissionGate permission="resources.create">
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={() => setNewPersonModalOpen(true)}
+                  >
+                    <Plus className="size-4" />
+                    Nouvelle humaine
+                  </Button>
+                </PermissionGate>
+              </div>
+            ) : null
+          }
         />
+
+        <Dialog open={newPersonModalOpen} onOpenChange={setNewPersonModalOpen}>
+          <DialogContent
+            className="flex max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-4 overflow-y-auto p-6 sm:max-w-lg"
+            showCloseButton
+          >
+            <DialogHeader>
+              <DialogTitle>Nouvelle humaine</DialogTitle>
+              <DialogDescription>
+                Création d’une ressource de type Humaine (catalogue projet). Vous pouvez en parallèle
+                rattacher un collaborateur Équipes (manager, équipe) si vos droits le permettent.
+              </DialogDescription>
+            </DialogHeader>
+            {newPersonModalOpen ? (
+              <NewResourceForm
+                formIdPrefix="collaborators-new-person"
+                forceType="HUMAN"
+                className="w-full max-w-full space-y-4"
+                onSuccess={() => {
+                  void listQuery.refetch();
+                  setNewPersonModalOpen(false);
+                }}
+              />
+            ) : null}
+          </DialogContent>
+        </Dialog>
 
         {permsLoading && <LoadingState rows={2} />}
         {permsError && (

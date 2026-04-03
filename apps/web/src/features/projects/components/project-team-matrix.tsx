@@ -185,7 +185,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
       if (addMemberDialogRole.systemKind === 'SPONSOR') {
         if (!resource.linkedUserId) {
           toast.error(
-            "Pour le rôle Sponsor, sélectionnez une personne liée à un utilisateur du client.",
+            "Pour le rôle Sponsor, sélectionnez une ressource Humaine liée à un utilisateur du client.",
           );
           return;
         }
@@ -263,7 +263,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                 aria-hidden
               >
                 <span>Rôle</span>
-                <span>Personnes</span>
+                <span>Membres</span>
                 {canEdit ? (
                   <>
                     <span className="text-center">Affecter</span>
@@ -324,7 +324,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
 
                       <div className="mb-3 lg:mb-0">
                         <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:hidden">
-                          Personnes
+                          Membres
                         </span>
                         <ul className="flex flex-wrap gap-1.5">
                           {rowMembers.map((m) => (
@@ -355,7 +355,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                           ))}
                           {rowMembers.length === 0 ? (
                             <li className="list-none text-xs italic text-muted-foreground">
-                              Aucune personne
+                              Aucun membre
                             </li>
                           ) : null}
                         </ul>
@@ -381,7 +381,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                               }}
                             >
                               <Plus className="size-4 shrink-0" aria-hidden />
-                              Affecter une personne
+                              Affecter une ressource humaine
                             </Button>
                           </div>
                           <div className="hidden min-w-0 items-start justify-center pt-0 lg:flex">
@@ -391,8 +391,8 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                               variant="outline"
                               className="size-9 shrink-0"
                               disabled={busy}
-                              title={`Affecter une personne — ${role.name}`}
-                              aria-label={`Affecter une personne au rôle ${role.name}`}
+                              title={`Affecter une ressource humaine — ${role.name}`}
+                              aria-label={`Affecter une ressource humaine au rôle ${role.name}`}
                               onClick={() => {
                                 setTeamOwnerResourceId('');
                                 setTeamOwnerResourceDetails(null);
@@ -487,10 +487,10 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
         }}
         queryKey={['resources', 'human', 'project-team-add', clientId]}
         queryEnabled={!!clientId}
-        title="Affecter une personne"
+        title="Affecter une ressource humaine"
         description={
           <>
-            Choisis une personne du catalogue <strong>Personne</strong> du client actif ou crée-en une.
+            Choisis une ressource <strong>Humaine</strong> du catalogue du client actif ou crée-en une.
           </>
         }
         contextSlot={
@@ -526,21 +526,21 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
         }
         catalogIntro={
           <>
-            Ressources <strong>Personne</strong> du catalogue — même référentiel que la page
+            Ressources <strong>Humaine</strong> du catalogue — même référentiel que la page
             Ressources.
           </>
         }
         filterHint={
-          <>Clique une ligne pour l’ajouter au rôle (ou crée une personne).</>
+          <>Clique une ligne pour l’ajouter au rôle (ou crée une ressource Humaine).</>
         }
         emptyStateNoFilter={{
-          title: 'Aucune personne disponible',
+          title: 'Aucune ressource Humaine disponible',
           description:
-            'Aucune ressource Personne n’est disponible pour ce rôle (ou déjà affectée).',
+            'Aucune ressource Humaine n’est disponible pour ce rôle (ou déjà affectée).',
         }}
         emptyStateFiltered={{
           title: 'Aucun résultat',
-          description: 'Aucune personne ne correspond à ce filtre pour ce rôle.',
+          description: 'Aucune ressource Humaine ne correspond à ce filtre pour ce rôle.',
         }}
       />
     </>

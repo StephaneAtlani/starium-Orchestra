@@ -152,9 +152,7 @@ export class WorkTeamsService {
       await this.assertDepth(clientId, dto.parentId, 1);
     }
 
-    if (dto.leadCollaboratorId) {
-      await this.assertLeadActive(clientId, dto.leadCollaboratorId);
-    }
+    await this.assertLeadActive(clientId, dto.leadCollaboratorId);
 
     const created = await this.prisma.workTeam.create({
       data: {
@@ -162,7 +160,7 @@ export class WorkTeamsService {
         name: dto.name,
         code,
         parentId: dto.parentId ?? null,
-        leadCollaboratorId: dto.leadCollaboratorId ?? null,
+        leadCollaboratorId: dto.leadCollaboratorId,
         sortOrder: dto.sortOrder ?? 0,
         status: WorkTeamStatus.ACTIVE,
       },
@@ -240,6 +238,11 @@ export class WorkTeamsService {
 
     if (dto.leadCollaboratorId !== undefined) {
       if (dto.leadCollaboratorId === null) {
+        if (existing.status === WorkTeamStatus.ACTIVE) {
+          throw new BadRequestException(
+            'Une equipe active doit avoir un responsable designe',
+          );
+        }
         data.lead = { disconnect: true };
       } else {
         await this.assertLeadActive(clientId, dto.leadCollaboratorId);

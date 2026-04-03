@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
+import { RequireAnyPermissions } from '../../common/decorators/require-any-permissions.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
@@ -57,7 +58,7 @@ export class CollaboratorsController {
   }
 
   @Get('options/managers')
-  @RequirePermissions('collaborators.read')
+  @RequireAnyPermissions('collaborators.read', 'collaborators.create')
   listManagersOptions(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListCollaboratorOptionsQueryDto,

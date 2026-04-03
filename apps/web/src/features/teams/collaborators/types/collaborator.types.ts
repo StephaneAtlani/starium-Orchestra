@@ -53,6 +53,16 @@ export type CollaboratorOptionsResponse = {
   limit: number;
 };
 
+/** POST /api/collaborators — aligné sur CreateCollaboratorDto backend. */
+export type CollaboratorCreatePayload = {
+  displayName: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  managerId?: string | null;
+  jobTitle?: string | null;
+};
+
 export type CollaboratorUpdatePayload = Partial<{
   firstName: string | null;
   lastName: string | null;

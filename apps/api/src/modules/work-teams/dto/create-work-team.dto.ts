@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreateWorkTeamDto {
   @IsString()
@@ -14,9 +14,10 @@ export class CreateWorkTeamDto {
   @IsString()
   parentId?: string | null;
 
-  @IsOptional()
+  /** Responsable d’équipe (obligatoire pour toute équipe active à la création). */
   @IsString()
-  leadCollaboratorId?: string | null;
+  @IsNotEmpty()
+  leadCollaboratorId!: string;
 
   @IsOptional()
   @IsInt()
