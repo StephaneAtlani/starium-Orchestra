@@ -1,15 +1,17 @@
 # RFC-FE-TEAM-005 — UI Affectations & staffing projet
 
+> **Périmètre retiré (2026-04)** — L’UI staffing planifié (`features/teams/team-assignments/`, `/teams/assignments`, onglet **Charge** `/projects/[projectId]/staffing`, API TEAM-007 / TEAM-008) a été **supprimée** du dépôt. La table `TeamResourceAssignment` n’existe plus (migration `20260404213000_drop_team_resource_assignment`). Ce fichier reste une **archive de spec**. Le **temps réalisé** est couvert par **RFC-TEAM-009** (pas de fichier RFC dédié) — voir [docs/API.md](../API.md) (section temps réalisé), `/teams/time-entries`, module `resource-time-entries`, permissions `resources.read` / `resources.update`.
+
 ## Statut
 
 | Volet | État |
 | --- | --- |
-| **Vue module Équipes** — `/teams/assignments` (API TEAM-007) | ✅ Implémentée (MVP FE) |
-| **Vue projet** — `/projects/[projectId]/staffing`, onglet **Charge** (API TEAM-008) | ✅ Implémentée (MVP FE) |
-| **Composants partagés** — `features/teams/team-assignments/` (table, dialog, hooks, API client) | ✅ Implémentée (MVP FE) |
-| Navigation **Équipes** — sous-menu **Affectations** (`team_assignments.read` dans le parent `any`) | ✅ Implémentée |
-| **Encart fiche collaborateur** (aperçu + lien filtré) | ❌ P1 / hors MVP (non livré) |
-| **`projectTeamRoleId`** en UI | ❌ P1 / hors MVP (non livré) |
+| **Vue module Équipes** — `/teams/assignments` (API TEAM-007) | ⚫ Retiré |
+| **Vue projet** — `/projects/[projectId]/staffing`, onglet **Charge** (API TEAM-008) | ⚫ Retiré |
+| **Composants partagés** — `features/teams/team-assignments/` | ⚫ Retiré |
+| Navigation **Équipes** — sous-menu **Affectations** | ⚫ Retiré |
+| **Encart fiche collaborateur** (aperçu + lien filtré) | — (non applicable, périmètre retiré) |
+| **`projectTeamRoleId`** en UI | — (non applicable, périmètre retiré) |
 
 ## Implémentation livrée (référence code)
 

@@ -1,8 +1,10 @@
 # RFC-TEAM-008 — Staffing projet par manager / responsable projet
 
+> **Retiré du produit (2026-04)** — Même périmètre que [RFC-TEAM-007](./RFC-TEAM-007%20%E2%80%94%20Affectations%20ressources.md) : routes `/api/projects/:projectId/resource-assignments`, service et table **supprimés**. Spec historique ci-dessous.
+
 ## Statut
 
-Implémentée (backend MVP) — routes projet-scopées déléguant à `TeamAssignmentsService` ; **aucun nouveau modèle métier** (réutilise [RFC-TEAM-007](./RFC-TEAM-007%20%E2%80%94%20Affectations%20ressources.md)). **UI** fiche projet : **RFC-FE-TEAM-005** (UI affectations / staffing projet — à faire ; voir [`_Plan de déploiement - Equipe.md`](./_Plan%20de%20d%C3%A9ploiement%20-%20Equipe.md)).
+⚫ **Retiré** — plus d’implémentation active. Ancienne livrée : routes projet-scopées déléguant à `TeamAssignmentsService` ; pas de modèle dédié hors `TeamResourceAssignment` ([RFC-TEAM-007](./RFC-TEAM-007%20%E2%80%94%20Affectations%20ressources.md)). UI associée : [RFC-FE-TEAM-005](./RFC-FE-TEAM-005%20%E2%80%94%20UI%20Affectations%20%26%20staffing%20projet.md) (retirée).
 
 ## Implémentation livrée (référence code)
 

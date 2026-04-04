@@ -409,11 +409,10 @@ Aucune suppression physique
 /teams/structure/manager-scopes
    → équipes organisationnelles, membres, périmètres managers (RFC-FE-TEAM-004) ; permissions `teams.read` / `teams.update` / `teams.manage_scopes`
 
-/teams/assignments
-   → affectations / charge planifiée (RFC-FE-TEAM-005) ; `team_assignments.read` / `team_assignments.manage` ; filtres types d’activité côté UI si `activity_types.read`
+/teams/time-entries
+   → temps réalisé (RFC-TEAM-009) ; `resources.read` / `resources.update` ; types d’activité / projets en selects si permissions Projets / `activity_types.read` selon écran
 
-/projects/[projectId]/staffing
-   → staffing projet-scopé (même onglet workspace **Charge** ; RFC-FE-TEAM-005 + RFC-TEAM-008)
+(Staffing planifié historique : ex. RFC-FE-TEAM-005 / TEAM-007 / TEAM-008 — routes `/teams/assignments`, `/projects/[projectId]/staffing` — **retiré** du produit.)
 ```
 
 ---

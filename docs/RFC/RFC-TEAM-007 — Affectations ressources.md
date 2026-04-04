@@ -1,8 +1,10 @@
 # RFC-TEAM-007 — Affectations ressources (staffing planifié)
 
+> **Retiré du produit (2026-04)** — Le module Nest `team-assignments`, les routes `/api/team-resource-assignments` et le modèle Prisma `TeamResourceAssignment` ont été **supprimés** ; la table est droppée (migration `20260404213000_drop_team_resource_assignment`). Le texte ci-dessous décrit la **spec historique** livrée antérieurement.
+
 ## Statut
 
-Implémentée (backend MVP) — module NestJS `team-assignments`, migration Prisma `20260405120000_add_team_resource_assignments_team007`, permissions `team_assignments.read` / `team_assignments.manage`, seed module + rôle global équipes + `default-profiles.json`, tests unitaires.
+⚫ **Retiré** — plus d’implémentation active dans le dépôt (voir encadré ci-dessus). Ancienne livrée de référence : module NestJS `team-assignments`, migration additive `20260405120000_add_team_resource_assignments_team007`, permissions `team_assignments.*`, seed module équipes.
 
 ## Implémentation livrée (référence code)
 
