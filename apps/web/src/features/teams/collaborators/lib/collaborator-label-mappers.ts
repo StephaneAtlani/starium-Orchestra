@@ -1,4 +1,5 @@
 import type {
+  CollaboratorListItem,
   CollaboratorManagerOption,
   CollaboratorSource,
   CollaboratorStatus,
@@ -28,8 +29,9 @@ export function collaboratorSourceLabel(source: CollaboratorSource): string {
   }
 }
 
+/** Libellé secondaire (email ou poste) — options managers ou ligne liste collaborateur. */
 export function collaboratorManagerSecondaryLabel(
-  option: CollaboratorManagerOption,
+  option: CollaboratorManagerOption | Pick<CollaboratorListItem, 'email' | 'jobTitle'>,
 ): string | null {
   if (option.email?.trim()) return option.email.trim();
   if (option.jobTitle?.trim()) return option.jobTitle.trim();

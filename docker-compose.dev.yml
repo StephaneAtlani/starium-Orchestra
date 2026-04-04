@@ -74,6 +74,8 @@ services:
       - ./package.json:/app/package.json:ro
       - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
       - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml:ro
+      # patchedDependencies (ex. sonner) : le lockfile monté pointe vers patches/* — sans montage, fichier absent dans l’image → ENOENT au pnpm install.
+      - ./patches:/app/patches:ro
       - ./apps/api/package.json:/app/apps/api/package.json:ro
       - ./apps/web/package.json:/app/apps/web/package.json:ro
       - ./packages/types/package.json:/app/packages/types/package.json:ro
@@ -121,6 +123,7 @@ services:
       - ./apps/web:/app/apps/web
       - web_next_cache:/app/apps/web/.next
       - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
+      - ./patches:/app/patches:ro
     depends_on:
       api-dev:
         condition: service_healthy
