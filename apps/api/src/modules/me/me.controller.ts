@@ -49,6 +49,16 @@ export class MeController {
     return { permissionCodes: codes };
   }
 
+  /** GET /me/human-resource — Ressource catalogue Humaine alignée sur l’utilisateur (email), pour saisie des temps. */
+  @Get('human-resource')
+  @UseGuards(ActiveClientGuard)
+  getHumanResource(
+    @RequestUserId() userId: string | undefined,
+    @ActiveClientId() clientId: string | undefined,
+  ) {
+    return this.me.getHumanResourceCatalogId(userId!, clientId!);
+  }
+
   /** GET /me — Profil global. */
   @Get()
   getProfile(@RequestUserId() userId?: string) {

@@ -2004,7 +2004,7 @@ Module Nest `skills` : isolation **client actif** (`X-Client-Id`) ; pas de `clie
 
 ## Équipes — taxonomie des activités (RFC-TEAM-006) — `/api/activity-types`
 
-Module Nest `activity-types` : référentiel **`ActivityType`** par client (axe sémantique **`ActivityTaxonomyKind`** : `PROJECT`, `RUN`, `SUPPORT`, `TRANSVERSE`, `OTHER`). Isolation **client actif** (`X-Client-Id`) ; pas de `clientId` dans le body. Réponses liste : `{ items, total, limit, offset }` ; tri serveur fixe : `sortOrder` asc puis `name` asc. Liste : query `limit` (défaut 20, max 100), `offset` (défaut 0), filtres optionnels `kind`, `includeArchived` (défaut `false` — exclut les lignes archivées), `search` (nom et code). Détail : [RFC-TEAM-006](RFC/RFC-TEAM-006%20%E2%80%94%20Taxonomie%20des%20activit%C3%A9s.md).
+Module Nest `activity-types` : référentiel **`ActivityType`** par client (axe sémantique **`ActivityTaxonomyKind`** : `PROJECT`, `RUN`, `SUPPORT`, `TRANSVERSE`, `OTHER`). Isolation **client actif** (`X-Client-Id`) ; pas de `clientId` dans le body. Réponses liste : `{ items, total, limit, offset }` ; tri serveur fixe : `sortOrder` asc puis `name` asc. Liste : query `limit` (défaut 20, max 100), `offset` (défaut 0), filtres optionnels `kind`, `includeArchived` (défaut `false` — exclut les lignes archivées), **`defaultsOnly`** (booléen, optionnel — si `true`, ne retourne que les lignes avec **`isDefaultForKind: true`**, utile pour listes réduites type UI temps réalisé), `search` (nom et code). Détail : [RFC-TEAM-006](RFC/RFC-TEAM-006%20%E2%80%94%20Taxonomie%20des%20activit%C3%A9s.md).
 
 **Permissions** : lecture **`activity_types.read`** ; création, mise à jour, archive, restauration **`activity_types.manage`**.
 
@@ -2045,7 +2045,25 @@ Module Nest `resource-time-entries` : entité **`ResourceTimeEntry`** (temps **r
 
 **Erreurs courantes :** 400 (validation DTO, fenêtre `from`/`to` invalide, `workDate` invalide), 404 (entrée, projet ou type d’activité hors scope, ressource non HUMAN).
 
-**UI Next.js** : page `/teams/time-entries` — `apps/web/src/app/(protected)/teams/time-entries/page.tsx` ; client API et hooks — `apps/web/src/features/teams/resource-time-entries/`.
+**UI Next.js** : page `/teams/time-entries` — `apps/web/src/app/(protected)/teams/time-entries/page.tsx` ; client API et hooks — `apps/web/src/features/teams/resource-time-entries/`. Comportement côté écran (MVP) : grille **mensuelle** (saisie par **fraction de journée** 0–1, journée type 7,5 h — `durationHours` dérivé à l’enregistrement) ; **projets** chargés via **`GET /api/projects`** avec **`myProjectsOnly=true`** (périmètre équipe / « mes projets ») et **filtre statut projet** côté UI (défaut **En cours** — `IN_PROGRESS`, ou tous les statuts) ; **types d’activité** via **`GET /api/activity-types?defaultsOnly=true`** pour les lignes « défaut » par axe taxonomique (RFC-TEAM-006) ; saisie **décimale** (point ou virgule) avec brouillon jusqu’au blur ; colonnes redimensionnables ; recopie type Excel sur la ligne ; distinction visuelle **week-ends**. Verrouillage du mois après validation : voir **`/api/resource-timesheet-months`** ci-dessous.
+
+---
+
+## Équipes — fiche temps mensuelle (RFC-TEAM-009) — `/api/resource-timesheet-months`
+
+Module Nest : persistance **`ResourceTimesheetMonth`** par ressource et mois calendaire (`yearMonth` = `YYYY-MM`) — statut du mois (ex. soumis / lecture seule), règles de **qui peut soumettre** ou **déverrouiller** (manager / admin) dans le service. Isolation **client actif**.
+
+**Permissions** : lecture **`resources.read`** ; soumission mois **`resources.update`** ; déverrouillage **`collaborators.read`** (aligné contrôleur actuel).
+
+**Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`.
+
+- **GET** `/api/resource-timesheet-months/:resourceId/:yearMonth` — État du mois pour la ressource (ex. `status`, indicateurs `canSubmit` / `canUnlock`). **`resources.read`**
+- **POST** `/api/resource-timesheet-months/:resourceId/:yearMonth/submit` — Valider / soumettre le mois (saisie figée côté métier). **`resources.update`**
+- **POST** `/api/resource-timesheet-months/:resourceId/:yearMonth/unlock` — Déverrouiller le mois (manager). **`collaborators.read`**
+
+**Erreurs courantes :** 400 (`yearMonth` invalide), 403 / métier si droit de soumission ou déverrouillage insuffisant, 404 (ressource hors scope).
+
+Code : `apps/api/src/modules/resource-time-entries/resource-timesheet-months.controller.ts`.
 
 ---
 

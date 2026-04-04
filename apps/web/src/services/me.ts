@@ -238,6 +238,17 @@ export async function getMyPermissions(
   return (await res.json()) as MePermissionsResponse;
 }
 
+/** GET /me/human-resource — fiche Ressource Humaine alignée sur l’e-mail membre (saisie temps). */
+export async function getMyHumanResourceId(
+  authenticatedFetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
+): Promise<{ resourceId: string | null }> {
+  const res = await authenticatedFetch('/api/me/human-resource');
+  if (!res.ok) {
+    throw new Error('Impossible de résoudre la ressource Humaine');
+  }
+  return (await res.json()) as { resourceId: string | null };
+}
+
 export interface SetDefaultClientResult {
   success: true;
   defaultClientId: string;

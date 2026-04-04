@@ -1,8 +1,20 @@
 import type { ApiFormError } from '@/features/teams/collaborators/api/collaborators.api';
 import { addWorkTeamMember, removeWorkTeamMember } from '@/features/teams/work-teams/api/work-teams.api';
 import { resolveCollaboratorIdFromHumanResource } from '@/features/teams/work-teams/lib/resolve-human-resource-to-collaborator';
+import { getResource } from '@/services/resources';
 import type { ResourceListItem } from '@/services/resources';
 import type { AuthFetch } from '@/services/resources';
+
+/** Résout une Resource HUMAN → fiche Collaborateur (création si besoin) pour le champ manager API. */
+async function collaboratorIdForManagerResource(
+  authFetch: AuthFetch,
+  managerResourceId: string | null,
+): Promise<string | null> {
+  if (!managerResourceId?.trim()) return null;
+  const res = await getResource(authFetch, managerResourceId);
+  if (res.type !== 'HUMAN') return null;
+  return resolveCollaboratorIdFromHumanResource(authFetch, res, {});
+}
 
 export type TeamMembershipRef = { teamId: string; membershipId: string };
 
@@ -10,11 +22,12 @@ export type TeamMembershipRef = { teamId: string; membershipId: string };
 export async function ensureCollaboratorManagerAndTeams(
   authFetch: AuthFetch,
   resource: ResourceListItem,
-  managerId: string | null,
+  managerResourceId: string | null,
   workTeamIds: string[],
 ): Promise<void> {
+  const managerCollaboratorId = await collaboratorIdForManagerResource(authFetch, managerResourceId);
   await resolveCollaboratorIdFromHumanResource(authFetch, resource, {
-    managerId,
+    managerId: managerCollaboratorId,
   });
   for (const tid of workTeamIds) {
     try {
@@ -31,12 +44,13 @@ export async function ensureCollaboratorManagerAndTeams(
 export async function syncCollaboratorManagerAndTeams(
   authFetch: AuthFetch,
   resource: ResourceListItem,
-  managerId: string | null,
+  managerResourceId: string | null,
   desiredTeamIds: string[],
   previousMemberships: TeamMembershipRef[],
 ): Promise<void> {
+  const managerCollaboratorId = await collaboratorIdForManagerResource(authFetch, managerResourceId);
   await resolveCollaboratorIdFromHumanResource(authFetch, resource, {
-    managerId,
+    managerId: managerCollaboratorId,
   });
   const desired = new Set(desiredTeamIds);
   const prevByTeam = new Map(previousMemberships.map((p) => [p.teamId, p.membershipId]));

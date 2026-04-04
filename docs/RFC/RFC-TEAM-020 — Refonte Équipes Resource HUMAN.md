@@ -7,7 +7,7 @@
 
 - **ID canonique** : `Resource.id` (`type = HUMAN`) pour membres d’équipe, lead d’équipe, périmètres managers, temps réalisé.
 - **Planifié** : l’ancien modèle **`TeamResourceAssignment`** a été **retiré** du schéma (spec historique : RFC-TEAM-007 / 008).
-- **Réalisé** : entité **`ResourceTimeEntry`** — `resourceId`, date/période, `durationHours`, champs optionnels projet / activité, statut workflow, audit ; RBAC `resources.read` / `resources.update`.
+- **Réalisé** : entité **`ResourceTimeEntry`** — `resourceId`, date/période, `durationHours`, champs optionnels projet / activité, statut workflow, audit ; RBAC `resources.read` / `resources.update`. Fiche **mensuelle** **`ResourceTimesheetMonth`** et routes **`/api/resource-timesheet-months/...`** (soumission / déverrouillage) ; UI **`/teams/time-entries`** (grille mensuelle, alignement [API.md](../API.md) § temps réalisé).
 - **Champs RH** : étendus sur `Resource` (`jobTitle`, `department`, `phone`, `mobile`, `employeeNumber`, …).
 
 ## Phases (alignement plan `.cursor/plans`)

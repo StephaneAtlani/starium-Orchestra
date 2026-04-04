@@ -19,7 +19,7 @@ import {
   getCollaboratorById,
   listCollaboratorWorkTeams,
 } from '@/features/teams/collaborators/api/collaborators.api';
-import { useCollaboratorManagerOptions } from '@/features/teams/collaborators/hooks/use-collaborator-manager-options';
+import { humanResourceCatalogLabel } from '@/features/teams/collaborators/lib/collaborator-label-mappers';
 import { collaboratorQueryKeys } from '@/features/teams/collaborators/lib/collaborator-query-keys';
 import { useWorkTeamsList } from '@/features/teams/work-teams/hooks/use-work-teams-list';
 import { workTeamQueryKeys } from '@/features/teams/work-teams/lib/work-team-query-keys';
@@ -36,6 +36,7 @@ import {
   listResourceRoles,
   updateResource,
 } from '@/services/resources';
+import { findManagerResourceIdForCollaborator } from '../_lib/manager-resource-bridge';
 import type { ResourceAffiliation, ResourceListItem, ResourceType } from '@/services/resources';
 import { findCollaboratorIdForHumanResource } from '../_lib/find-collaborator-for-human-resource';
 import type { TeamMembershipRef } from '../_lib/sync-human-resource-collaborator-teams';
@@ -74,16 +75,17 @@ export function EditResourceForm({
 
   const identityFromMember = Boolean(r?.linkedUserId);
 
+  /** Référentiel Collaborateur / équipes : même pour ressource « pure » ou membre client (identité nominative éditée ailleurs). */
   const showTeamsBlock = useMemo(
     () =>
       r?.type === 'HUMAN' &&
-      !identityFromMember &&
       permsSuccess &&
+      has('resources.read') &&
       has('collaborators.read') &&
       has('collaborators.update') &&
       has('teams.read') &&
       has('teams.update'),
-    [r?.type, identityFromMember, permsSuccess, has],
+    [r?.type, permsSuccess, has],
   );
 
   const collabTeamsQuery = useQuery({
@@ -92,7 +94,11 @@ export function EditResourceForm({
       if (!r) throw new Error('missing resource');
       const id = await findCollaboratorIdForHumanResource(authFetch, r);
       if (!id) {
-        return { managerId: '', memberships: [] as TeamMembershipRef[] };
+        return {
+          managerResourceId: '',
+          managerResourceFallbackLabel: null as string | null,
+          memberships: [] as TeamMembershipRef[],
+        };
       }
       const [collab, teams] = await Promise.all([
         getCollaboratorById(authFetch, id),
@@ -106,46 +112,63 @@ export function EditResourceForm({
         teamId: row.id,
         membershipId: row.membershipId,
       }));
+      const managerResourceId = await findManagerResourceIdForCollaborator(
+        authFetch,
+        collab.managerId,
+      );
+      let managerResourceFallbackLabel: string | null = null;
+      if (managerResourceId) {
+        try {
+          const mr = await getResource(authFetch, managerResourceId);
+          managerResourceFallbackLabel = humanResourceCatalogLabel(mr);
+        } catch {
+          managerResourceFallbackLabel = null;
+        }
+      }
       return {
-        managerId: collab.managerId ?? '',
+        managerResourceId,
+        managerResourceFallbackLabel,
         memberships,
       };
     },
     enabled: !!clientId && !!r && showTeamsBlock,
   });
 
-  const [managerSearch, setManagerSearch] = useState('');
-  const [managerId, setManagerId] = useState('');
+  const [managerResourceId, setManagerResourceId] = useState('');
+  const [managerResourceFallbackLabel, setManagerResourceFallbackLabel] = useState<string | null>(
+    null,
+  );
   const [selectedWorkTeamIds, setSelectedWorkTeamIds] = useState<string[]>([]);
   const [initialMemberships, setInitialMemberships] = useState<TeamMembershipRef[]>([]);
-  const [baselineManagerId, setBaselineManagerId] = useState<string | null>(null);
+  const [baselineManagerResourceId, setBaselineManagerResourceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!collabTeamsQuery.isSuccess || !collabTeamsQuery.data) return;
     const d = collabTeamsQuery.data;
-    setManagerId(d.managerId);
-    setBaselineManagerId(d.managerId || null);
+    setManagerResourceId(d.managerResourceId);
+    setBaselineManagerResourceId(d.managerResourceId || null);
+    setManagerResourceFallbackLabel(d.managerResourceFallbackLabel ?? null);
     setSelectedWorkTeamIds(d.memberships.map((m) => m.teamId));
     setInitialMemberships(d.memberships);
   }, [collabTeamsQuery.isSuccess, collabTeamsQuery.dataUpdatedAt, resourceId]);
 
-  const managersQuery = useCollaboratorManagerOptions(managerSearch, {
-    enabled: showTeamsBlock,
-  });
   const teamsQuery = useWorkTeamsList(
     {
       limit: 200,
       offset: 0,
       status: 'ACTIVE',
       includeArchived: false,
-      ...(managerId ? { leadResourceId: managerId } : {}),
+      ...(managerResourceId ? { leadResourceId: managerResourceId } : {}),
     },
-    { enabled: showTeamsBlock && Boolean(managerId) },
+    { enabled: showTeamsBlock && Boolean(managerResourceId) },
   );
 
-  function handleManagerIdChange(next: string) {
-    setManagerId((prev) => {
-      if (prev !== next) setSelectedWorkTeamIds([]);
+  function handleManagerResourceIdChange(next: string) {
+    setManagerResourceId((prev) => {
+      if (prev !== next) {
+        setSelectedWorkTeamIds([]);
+        setManagerResourceFallbackLabel(null);
+      }
       return next;
     });
   }
@@ -189,10 +212,10 @@ export function EditResourceForm({
   const shouldSyncTeams =
     showTeamsBlock &&
     collabTeamsQuery.isSuccess &&
-    (Boolean(managerId) ||
+    (Boolean(managerResourceId) ||
       selectedWorkTeamIds.length > 0 ||
       initialMemberships.length > 0 ||
-      baselineManagerId !== null);
+      baselineManagerResourceId !== null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -229,7 +252,7 @@ export function EditResourceForm({
       const refreshed = await refetch();
       const next = refreshed.data ?? r;
 
-      if (r.type === 'HUMAN' && !identityFromMember && shouldSyncTeams) {
+      if (r.type === 'HUMAN' && shouldSyncTeams) {
         const merged: ResourceListItem = {
           ...next,
           name: name.trim(),
@@ -240,7 +263,7 @@ export function EditResourceForm({
           await syncCollaboratorManagerAndTeams(
             authFetch,
             merged,
-            managerId || null,
+            managerResourceId || null,
             selectedWorkTeamIds,
             initialMemberships,
           );
@@ -323,6 +346,13 @@ export function EditResourceForm({
           >
             Modifier le membre
           </Link>
+          {showTeamsBlock ? (
+            <p className="text-xs text-muted-foreground">
+              Le <strong className="text-foreground">manager</strong> et les{' '}
+              <strong className="text-foreground">équipes</strong> (référentiel Équipes) sont modifiables
+              sous ce bloc.
+            </p>
+          ) : null}
         </div>
       ) : r.type === 'HUMAN' ? (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -455,13 +485,12 @@ export function EditResourceForm({
           ) : (
             <ResourceHumanTeamsFields
               formIdPrefix={formIdPrefix}
-              managerSearch={managerSearch}
-              onManagerSearchChange={setManagerSearch}
-              managerId={managerId}
-              onManagerIdChange={handleManagerIdChange}
+              managerResourceId={managerResourceId}
+              onManagerResourceIdChange={handleManagerResourceIdChange}
+              managerResourceFallbackLabel={managerResourceFallbackLabel}
+              excludeResourceId={resourceId}
               selectedWorkTeamIds={selectedWorkTeamIds}
               onToggleWorkTeam={toggleWorkTeam}
-              managersQuery={managersQuery}
               teamsLoading={teamsQuery.isLoading}
               teamsError={teamsQuery.isError}
               teamItems={teamItems}

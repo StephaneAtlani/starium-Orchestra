@@ -13,6 +13,7 @@ import {
 import { CreateResourceTimeEntryDto } from './dto/create-resource-time-entry.dto';
 import { ListResourceTimeEntriesQueryDto } from './dto/list-resource-time-entries.query.dto';
 import { UpdateResourceTimeEntryDto } from './dto/update-resource-time-entry.dto';
+import { ResourceTimesheetMonthsService } from './resource-timesheet-months.service';
 
 export type ResourceTimeEntryResponse = {
   id: string;
@@ -51,6 +52,7 @@ export class ResourceTimeEntriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly timesheetMonths: ResourceTimesheetMonthsService,
   ) {}
 
   private toResponse(
@@ -188,6 +190,11 @@ export class ResourceTimeEntriesService {
     actorUserId: string | undefined,
     meta?: AuditMeta,
   ): Promise<ResourceTimeEntryResponse> {
+    await this.timesheetMonths.assertActorMayManageEntriesForResource(
+      clientId,
+      actorUserId,
+      dto.resourceId,
+    );
     await assertResourceHuman(this.prisma, clientId, dto.resourceId);
 
     await this.validateOptionalProject(clientId, dto.projectId ?? null);
@@ -200,6 +207,11 @@ export class ResourceTimeEntriesService {
         message: 'workDate is invalid',
       });
     }
+    await this.timesheetMonths.assertMonthOpenForEntryMutation(
+      clientId,
+      dto.resourceId,
+      workDate,
+    );
 
     const status = dto.status ?? TimeEntryStatus.DRAFT;
 
@@ -253,6 +265,16 @@ export class ResourceTimeEntriesService {
         message: 'Resource time entry not found',
       });
     }
+    await this.timesheetMonths.assertActorMayManageEntriesForResource(
+      clientId,
+      actorUserId,
+      existing.resourceId,
+    );
+    await this.timesheetMonths.assertMonthOpenForEntryMutation(
+      clientId,
+      existing.resourceId,
+      existing.workDate,
+    );
 
     if (dto.projectId !== undefined) {
       await this.validateOptionalProject(clientId, dto.projectId);
@@ -270,6 +292,11 @@ export class ResourceTimeEntriesService {
           message: 'workDate is invalid',
         });
       }
+      await this.timesheetMonths.assertMonthOpenForEntryMutation(
+        clientId,
+        existing.resourceId,
+        workDateNext,
+      );
     }
 
     const data: Prisma.ResourceTimeEntryUpdateInput = {};
@@ -337,6 +364,16 @@ export class ResourceTimeEntriesService {
         message: 'Resource time entry not found',
       });
     }
+    await this.timesheetMonths.assertActorMayManageEntriesForResource(
+      clientId,
+      actorUserId,
+      existing.resourceId,
+    );
+    await this.timesheetMonths.assertMonthOpenForEntryMutation(
+      clientId,
+      existing.resourceId,
+      existing.workDate,
+    );
 
     await this.prisma.resourceTimeEntry.delete({ where: { id: existing.id } });
 

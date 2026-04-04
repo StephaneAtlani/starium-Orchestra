@@ -1,112 +1,77 @@
 'use client';
 
-import type { UseQueryResult } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { collaboratorManagerSecondaryLabel } from '@/features/teams/collaborators/lib/collaborator-label-mappers';
-import type { CollaboratorOptionsResponse } from '@/features/teams/collaborators/types/collaborator.types';
-import type { WorkTeamDto } from '@/features/teams/work-teams/types/work-team.types';
 import { cn } from '@/lib/utils';
+import { WorkTeamLeadCombobox } from '@/features/teams/work-teams/components/work-team-lead-combobox';
+import type { WorkTeamDto } from '@/features/teams/work-teams/types/work-team.types';
 
 export type ResourceHumanTeamsFieldsProps = {
   formIdPrefix: string;
-  managerSearch: string;
-  onManagerSearchChange: (v: string) => void;
-  managerId: string;
-  onManagerIdChange: (v: string) => void;
+  /** Ressource Humaine = manager hiérarchique = même notion que `WorkTeam.leadResourceId`. */
+  managerResourceId: string;
+  onManagerResourceIdChange: (resourceId: string) => void;
+  /** Libellé affiché quand `managerResourceId` est connu (recherche autocomplete). */
+  managerResourceFallbackLabel?: string | null;
+  /** Exclure la ressource en cours de la liste (pas manager de soi-même). */
+  excludeResourceId?: string;
   selectedWorkTeamIds: string[];
   onToggleWorkTeam: (teamId: string, selected: boolean) => void;
-  managersQuery: UseQueryResult<CollaboratorOptionsResponse, Error>;
   teamsLoading: boolean;
   teamsError: boolean;
   teamItems: WorkTeamDto[];
-  description?: string;
 };
 
+/**
+ * Manager et responsable d'équipe : **une seule entité** — fiche **Ressource Humaine**.
+ * Les équipes proposées sont celles dont cette ressource est `leadResourceId` (Structure équipes).
+ */
 export function ResourceHumanTeamsFields({
   formIdPrefix,
-  managerSearch,
-  onManagerSearchChange,
-  managerId,
-  onManagerIdChange,
+  managerResourceId,
+  onManagerResourceIdChange,
+  managerResourceFallbackLabel,
+  excludeResourceId,
   selectedWorkTeamIds,
   onToggleWorkTeam,
-  managersQuery,
   teamsLoading,
   teamsError,
   teamItems,
-  description = 'Sélectionnez le manager, puis une ou plusieurs équipes dont il est responsable d’équipe (défini sur chaque équipe dans Structure équipes).',
 }: ResourceHumanTeamsFieldsProps) {
   const pid = (s: string) => `${formIdPrefix}-${s}`;
   const selected = new Set(selectedWorkTeamIds);
-  const hasManager = Boolean(managerId);
+  const hasManager = Boolean(managerResourceId);
 
   return (
     <div className="space-y-3 border-t border-border/60 pt-4">
       <div>
         <p className="text-sm font-medium text-foreground">Équipes (référentiel)</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="text-xs text-muted-foreground">
+          Choisissez d’abord une <strong className="text-foreground">ressource Humaine</strong> : elle
+          sert de <strong className="text-foreground">manager</strong> et correspond au{' '}
+          <strong className="text-foreground">responsable d’équipe</strong> défini sur les fiches
+          équipes (même identifiant catalogue).
+        </p>
       </div>
+
+      <WorkTeamLeadCombobox
+        id={pid('manager-resource')}
+        value={managerResourceId}
+        onChange={onManagerResourceIdChange}
+        fallbackLabel={managerResourceFallbackLabel ?? null}
+        allowEmpty
+        dialogOpen
+        excludeResourceId={excludeResourceId}
+        fieldLabel="Manager / responsable d’équipe (ressource Humaine)"
+        fieldDescription={
+          <>
+            Une seule fiche catalogue : la même que sur <strong>Structure équipes</strong> pour le
+            lead. Au moins 2 caractères pour lancer la recherche.
+          </>
+        }
+      />
+
       <div className="space-y-2">
-        <Label htmlFor={pid('mgr-search')}>Recherche manager</Label>
-        <Input
-          id={pid('mgr-search')}
-          value={managerSearch}
-          onChange={(e) => onManagerSearchChange(e.target.value)}
-          placeholder="Nom ou email…"
-          autoComplete="off"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={pid('manager')}>Manager (responsable hiérarchique)</Label>
-        <select
-          id={pid('manager')}
-          className={cn(
-            'flex h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm shadow-xs outline-none',
-            'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
-          )}
-          value={managerId}
-          onChange={(e) => onManagerIdChange(e.target.value)}
-          disabled={managersQuery.isLoading}
-        >
-          <option value="">
-            {managersQuery.isLoading ? 'Chargement…' : '— Aucun'}
-          </option>
-          {(managersQuery.data?.items ?? []).map((c) => {
-            const sec = collaboratorManagerSecondaryLabel(c);
-            return (
-              <option key={c.id} value={c.id}>
-                {c.displayName}
-                {sec ? ` — ${sec}` : ''}
-              </option>
-            );
-          })}
-        </select>
-        {managersQuery.isError && (
-          <div className="flex flex-wrap items-center gap-2" role="alert">
-            <p className="text-xs text-destructive">{(managersQuery.error as Error).message}</p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => void managersQuery.refetch()}
-            >
-              Réessayer
-            </Button>
-          </div>
-        )}
-        {managersQuery.isSuccess &&
-          (managersQuery.data?.items?.length ?? 0) === 0 &&
-          !managersQuery.isFetching && (
-            <p className="text-xs text-muted-foreground">
-              Aucun collaborateur actif : créez des fiches collaborateur ou élargissez la recherche.
-            </p>
-          )}
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={pid('workTeams')}>Équipes dont ce manager est responsable</Label>
+        <Label htmlFor={pid('workTeams')}>Équipes dont cette ressource est le responsable</Label>
         <div
           id={pid('workTeams')}
           role="group"
@@ -119,8 +84,8 @@ export function ResourceHumanTeamsFields({
         >
           {!hasManager ? (
             <p className="text-xs text-muted-foreground px-1">
-              Choisissez d’abord un manager : la liste affiche uniquement les équipes dont il est{' '}
-              <strong className="font-medium text-foreground">responsable d’équipe</strong>.
+              Sélectionnez d’abord une ressource Humaine : la liste affiche les équipes dont elle est{' '}
+              <strong className="font-medium text-foreground">responsable</strong> (lead).
             </p>
           ) : teamsLoading ? (
             <p className="text-xs text-muted-foreground px-1">Chargement des équipes…</p>
@@ -128,8 +93,8 @@ export function ResourceHumanTeamsFields({
             <p className="text-xs text-destructive px-1">Impossible de charger les équipes.</p>
           ) : teamItems.length === 0 ? (
             <p className="text-xs text-muted-foreground px-1">
-              Aucune équipe active où ce collaborateur est responsable. Définissez-le comme responsable
-              sur la fiche équipe (Structure équipes).
+              Aucune équipe active où cette ressource est responsable. Définissez le lead sur la fiche
+              équipe (Structure équipes).
             </p>
           ) : (
             <ul className="space-y-2">
@@ -161,7 +126,7 @@ export function ResourceHumanTeamsFields({
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Vous pouvez cocher plusieurs équipes parmi celles que ce manager pilote comme responsable.
+          Cochez les équipes auxquelles rattacher la personne éditée (membre d’équipe).
         </p>
       </div>
     </div>

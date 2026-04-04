@@ -80,6 +80,7 @@ export class ActivityTypesService {
 
     const where: Prisma.ActivityTypeWhereInput = {
       clientId,
+      ...(query.defaultsOnly ? { isDefaultForKind: true } : {}),
       ...(query.kind ? { kind: query.kind } : {}),
       ...(query.includeArchived
         ? {}

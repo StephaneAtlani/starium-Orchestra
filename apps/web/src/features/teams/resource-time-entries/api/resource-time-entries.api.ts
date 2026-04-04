@@ -44,3 +44,60 @@ export async function listResourceTimeEntries(
   );
   return handleResponse<ResourceTimeEntriesListResponse>(res);
 }
+
+export type CreateResourceTimeEntryPayload = {
+  resourceId: string;
+  workDate: string;
+  durationHours: number;
+  projectId?: string | null;
+  activityTypeId?: string | null;
+  notes?: string | null;
+};
+
+export type UpdateResourceTimeEntryPayload = Partial<{
+  workDate: string;
+  durationHours: number;
+  projectId: string | null;
+  activityTypeId: string | null;
+  notes: string | null;
+}>;
+
+export async function createResourceTimeEntry(
+  authFetch: AuthFetch,
+  payload: CreateResourceTimeEntryPayload,
+): Promise<ResourceTimeEntriesListResponse['items'][0]> {
+  const res = await authFetch('/api/resource-time-entries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function updateResourceTimeEntry(
+  authFetch: AuthFetch,
+  id: string,
+  payload: UpdateResourceTimeEntryPayload,
+): Promise<ResourceTimeEntriesListResponse['items'][0]> {
+  const res = await authFetch(`/api/resource-time-entries/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function deleteResourceTimeEntry(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<void> {
+  const res = await authFetch(`/api/resource-time-entries/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const raw = (body as { message?: string | string[] })?.message;
+    const message = Array.isArray(raw) ? raw.join(', ') : (raw ?? 'Suppression impossible');
+    throw new Error(message);
+  }
+}

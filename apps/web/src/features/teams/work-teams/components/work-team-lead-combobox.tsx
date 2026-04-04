@@ -1,7 +1,16 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +36,12 @@ export type WorkTeamLeadComboboxProps = {
   allowEmpty?: boolean;
   disabled?: boolean;
   dialogOpen: boolean;
+  /** Libellé du champ (défaut : responsable d'équipe). */
+  fieldLabel?: string;
+  /** Texte d'aide sous le libellé ; si absent, le texte par défaut catalogue. */
+  fieldDescription?: ReactNode;
+  /** Exclure une ressource des suggestions (ex. la fiche en cours comme manager d'elle-même). */
+  excludeResourceId?: string;
 };
 
 /**
@@ -40,6 +55,9 @@ export function WorkTeamLeadCombobox({
   allowEmpty = false,
   disabled = false,
   dialogOpen,
+  fieldLabel = 'Responsable d’équipe',
+  fieldDescription,
+  excludeResourceId,
 }: WorkTeamLeadComboboxProps) {
   const reactId = useId();
   const inputId = propId ?? `wt-lead-${reactId}`;
@@ -143,8 +161,11 @@ export function WorkTeamLeadCombobox({
     closeList();
   };
 
-  const humanItems =
+  const humanItemsRaw =
     searchReady && canReadResources ? (humanResourcesQuery.data?.items ?? []) : [];
+  const humanItems = excludeResourceId
+    ? humanItemsRaw.filter((row) => row.id !== excludeResourceId)
+    : humanItemsRaw;
 
   const listFetching = searchReady && humanResourcesQuery.isFetching;
   const listError = humanResourcesQuery.isError;
@@ -162,9 +183,11 @@ export function WorkTeamLeadCombobox({
 
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={inputId}>Responsable d’équipe</Label>
+      <Label htmlFor={inputId}>{fieldLabel}</Label>
       <p className="text-xs text-muted-foreground leading-relaxed">
-        {!permsOk ? (
+        {fieldDescription !== undefined ? (
+          fieldDescription
+        ) : !permsOk ? (
           'Vérification des droits…'
         ) : canReadResources ? (
           <>

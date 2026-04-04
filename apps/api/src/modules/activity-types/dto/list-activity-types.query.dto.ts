@@ -34,6 +34,12 @@ export class ListActivityTypesQueryDto {
   @IsBoolean()
   includeArchived?: boolean = false;
 
+  /** Lignes « défaut » par axe taxonomique (RFC-TEAM-006) — utile saisie temps sans charger tout le référentiel. */
+  @IsOptional()
+  @Transform(({ value }) => parseBoolean(value))
+  @IsBoolean()
+  defaultsOnly?: boolean;
+
   @IsOptional()
   @Transform(({ value }) => Number(value))
   @IsInt()

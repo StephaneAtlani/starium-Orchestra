@@ -145,6 +145,12 @@ enum TimeEntryStatus {
   REJECTED
 }
 
+/// Verrouillage mensuel des saisies de temps (validation collaborateur / déverrouillage manager).
+enum TimesheetMonthStatus {
+  OPEN
+  SUBMITTED
+}
+
 enum ManagerScopeMode {
   DIRECT_REPORTS_ONLY
   TEAM_SUBTREE
@@ -254,6 +260,7 @@ model Client {
   budgetDashboardWidgetOverrides BudgetDashboardWidgetOverride[]
   activityTypes                  ActivityType[]
   resourceTimeEntries            ResourceTimeEntry[]
+  resourceTimesheetMonths        ResourceTimesheetMonth[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -550,6 +557,7 @@ model Resource {
   ledWorkTeams               WorkTeam[]             @relation("WorkTeamLeadResource")
   managerScopeConfig         ManagerScopeConfig?
   resourceTimeEntries        ResourceTimeEntry[]
+  resourceTimesheetMonths    ResourceTimesheetMonth[]
 
   @@unique([clientId, email])
   @@unique([clientId, code])
@@ -3064,6 +3072,28 @@ model ResourceTimeEntry {
   @@index([clientId, workDate])
   @@index([clientId, projectId])
   @@index([clientId, status])
+}
+
+/// Verrouillage par mois calendaire UTC (YYYY-MM) : après validation, saisies figées jusqu’au déverrouillage par le manager.
+model ResourceTimesheetMonth {
+  id                  String               @id @default(cuid())
+  clientId            String
+  resourceId          String
+  /// Format `YYYY-MM` (mois UTC cohérent avec les filtres API des entrées).
+  yearMonth           String
+  status              TimesheetMonthStatus @default(OPEN)
+  submittedAt         DateTime?
+  submittedByUserId   String?
+  unlockedAt          DateTime?
+  unlockedByUserId    String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, resourceId, yearMonth])
+  @@index([clientId, resourceId])
 }
 
 model WorkTeam {

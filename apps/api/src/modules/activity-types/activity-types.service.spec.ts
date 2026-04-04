@@ -96,6 +96,23 @@ describe('ActivityTypesService', () => {
       };
       expect(call.where.archivedAt).toBeUndefined();
     });
+
+    it('filtre isDefaultForKind si defaultsOnly=true', async () => {
+      activityTypeMock.count.mockResolvedValue(0);
+      activityTypeMock.findMany.mockResolvedValue([]);
+      await service.list('c1', {
+        defaultsOnly: true,
+      } as Parameters<ActivityTypesService['list']>[1]);
+      expect(activityTypeMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clientId: 'c1',
+            isDefaultForKind: true,
+            archivedAt: null,
+          }),
+        }),
+      );
+    });
   });
 
   describe('archive / restore idempotents', () => {

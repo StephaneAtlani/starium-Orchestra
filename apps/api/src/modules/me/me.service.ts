@@ -20,6 +20,7 @@ import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { CreateUserEmailIdentityDto } from './dto/create-user-email-identity.dto';
 import { UpdateUserEmailIdentityDto } from './dto/update-user-email-identity.dto';
 import { SetDefaultEmailIdentityDto } from './dto/set-default-email-identity.dto';
+import { ResourceTimesheetMonthsService } from '../resource-time-entries/resource-timesheet-months.service';
 import { MeAvatarStorageService } from './me-avatar.storage';
 import { ALLOWED_AVATAR_MIME, MAX_AVATAR_BYTES } from './me.constants';
 import { normalizeEmail } from './email-identity.util';
@@ -105,7 +106,17 @@ export class MeService {
     private readonly securityLogs: SecurityLogsService,
     private readonly mfa: MfaService,
     private readonly avatarStorage: MeAvatarStorageService,
+    private readonly timesheetMonths: ResourceTimesheetMonthsService,
   ) {}
+
+  /** Ressource catalogue Humaine liée au compte (email membre client), pour saisie temps « mes saisies ». */
+  async getHumanResourceCatalogId(
+    userId: string,
+    clientId: string,
+  ): Promise<{ resourceId: string | null }> {
+    const resourceId = await this.timesheetMonths.getHumanResourceIdForUser(clientId, userId);
+    return { resourceId };
+  }
 
   /**
    * Liste des codes de permission de l'utilisateur pour le client donné

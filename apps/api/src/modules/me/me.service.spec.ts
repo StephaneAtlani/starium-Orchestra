@@ -25,6 +25,9 @@ describe('MeService', () => {
     createReadStream: jest.fn(),
     dir: '/tmp',
   };
+  const timesheetMonths = {
+    getHumanResourceIdForUser: jest.fn(),
+  };
 
   beforeEach(() => {
     prisma = {
@@ -60,6 +63,7 @@ describe('MeService', () => {
       securityLogs as any,
       mfa as any,
       avatarStorage as any,
+      timesheetMonths as any,
     );
   });
 

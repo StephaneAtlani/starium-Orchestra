@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useCollaboratorManagerOptions } from '@/features/teams/collaborators/hooks/use-collaborator-manager-options';
 import { useWorkTeamsList } from '@/features/teams/work-teams/hooks/use-work-teams-list';
 import { workTeamQueryKeys } from '@/features/teams/work-teams/lib/work-team-query-keys';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -61,8 +60,7 @@ export function NewResourceForm({
   const [affiliation, setAffiliation] = useState<ResourceAffiliation>('INTERNAL');
   const [companyName, setCompanyName] = useState('');
   const [dailyRate, setDailyRate] = useState('');
-  const [managerSearch, setManagerSearch] = useState('');
-  const [managerId, setManagerId] = useState('');
+  const [managerResourceId, setManagerResourceId] = useState('');
   const [selectedWorkTeamIds, setSelectedWorkTeamIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +72,7 @@ export function NewResourceForm({
     () =>
       resolvedType === 'HUMAN' &&
       permsSuccess &&
+      has('resources.read') &&
       has('collaborators.create') &&
       has('teams.read') &&
       has('teams.update'),
@@ -82,24 +81,21 @@ export function NewResourceForm({
 
   const wantsTeamsSync =
     showTeamsBlock &&
-    (Boolean(managerId) || selectedWorkTeamIds.length > 0);
+    (Boolean(managerResourceId) || selectedWorkTeamIds.length > 0);
 
-  const managersQuery = useCollaboratorManagerOptions(managerSearch, {
-    enabled: showTeamsBlock,
-  });
   const teamsQuery = useWorkTeamsList(
     {
       limit: 200,
       offset: 0,
       status: 'ACTIVE',
       includeArchived: false,
-      ...(managerId ? { leadResourceId: managerId } : {}),
+      ...(managerResourceId ? { leadResourceId: managerResourceId } : {}),
     },
-    { enabled: showTeamsBlock && Boolean(managerId) },
+    { enabled: showTeamsBlock && Boolean(managerResourceId) },
   );
 
-  function handleManagerIdChange(next: string) {
-    setManagerId((prev) => {
+  function handleManagerResourceIdChange(next: string) {
+    setManagerResourceId((prev) => {
       if (prev !== next) setSelectedWorkTeamIds([]);
       return next;
     });
@@ -140,7 +136,7 @@ export function NewResourceForm({
           await ensureCollaboratorManagerAndTeams(
             authFetch,
             created,
-            managerId || null,
+            managerResourceId || null,
             selectedWorkTeamIds,
           );
           await queryClient.invalidateQueries({ queryKey: collaboratorQueryKeys.all });
@@ -300,13 +296,10 @@ export function NewResourceForm({
       {showTeamsBlock && (
         <ResourceHumanTeamsFields
           formIdPrefix={formIdPrefix}
-          managerSearch={managerSearch}
-          onManagerSearchChange={setManagerSearch}
-          managerId={managerId}
-          onManagerIdChange={handleManagerIdChange}
+          managerResourceId={managerResourceId}
+          onManagerResourceIdChange={handleManagerResourceIdChange}
           selectedWorkTeamIds={selectedWorkTeamIds}
           onToggleWorkTeam={toggleWorkTeam}
-          managersQuery={managersQuery}
           teamsLoading={teamsQuery.isLoading}
           teamsError={teamsQuery.isError}
           teamItems={teamItems}
