@@ -74,7 +74,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Info, Maximize2, Minimize2, Minus, Plus, RotateCcw } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 type BarMode = 'move' | 'resize-start' | 'resize-end';
 

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { createInvoiceSchema, type CreateInvoiceValues } from '../../schemas/create-invoice.schema';
 import type { ApiFormError } from '../../api/types';
 import type { BudgetLine } from '../../types/budget-management.types';

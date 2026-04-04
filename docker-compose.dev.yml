@@ -17,8 +17,6 @@
 # Notes :
 # - Le fichier .env n'est pas packagé dans l'image (voir .dockerignore).
 #   Compose injecte `apps/api/.env` via `env_file`.
-# - patchedDependencies (pnpm) : monter le *fichier* patch (pas le dossier `patches/`
-#   entier) — un dossier vide sur l’hôte écrase l’image et provoque ENOENT au pnpm install.
 # =============================================================================
 
 x-postgres-healthcheck: &postgres-healthcheck
@@ -76,8 +74,6 @@ services:
       - ./package.json:/app/package.json:ro
       - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
       - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml:ro
-      # pnpm patchedDependencies : fichier explicite (évite un dossier patches/ vide sur l’hôte qui masque l’image).
-      - ./patches/sonner@2.0.7.patch:/app/patches/sonner@2.0.7.patch:ro
       - ./apps/api/package.json:/app/apps/api/package.json:ro
       - ./apps/web/package.json:/app/apps/web/package.json:ro
       - ./packages/types/package.json:/app/packages/types/package.json:ro
@@ -125,7 +121,6 @@ services:
       - ./apps/web:/app/apps/web
       - web_next_cache:/app/apps/web/.next
       - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
-      - ./patches/sonner@2.0.7.patch:/app/patches/sonner@2.0.7.patch:ro
     depends_on:
       api-dev:
         condition: service_healthy

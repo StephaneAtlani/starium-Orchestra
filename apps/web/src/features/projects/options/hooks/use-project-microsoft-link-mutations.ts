@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { updateProjectMicrosoftLink } from '../api/update-project-microsoft-link';
 import { triggerTasksSync } from '../api/trigger-tasks-sync';
 import { triggerDocumentsSync } from '../api/trigger-documents-sync';

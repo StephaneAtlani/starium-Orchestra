@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Globe2, Plus, RotateCcw, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

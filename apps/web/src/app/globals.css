@@ -233,3 +233,34 @@ body {
   --color-sidebar-accent: #5E3FA3;
   --color-sidebar-primary: #6F4BB8;
 }
+
+/* Notifications (remplace Sonner) — entrée / sortie */
+@keyframes starium-notification-in {
+  from {
+    opacity: 0;
+    transform: translateX(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes starium-notification-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(0.75rem) scale(0.98);
+  }
+}
+
+.starium-notification--enter {
+  animation: starium-notification-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.starium-notification--leave {
+  animation: starium-notification-out 0.28s ease-in both;
+}

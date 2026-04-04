@@ -39,7 +39,7 @@ import type {
 } from '../types/project.types';
 import { cn } from '@/lib/utils';
 import type { ApiFormError } from '@/features/budgets/api/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { CalendarRange, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
 import {

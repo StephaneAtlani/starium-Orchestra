@@ -6,7 +6,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { budgetQueryKeys } from '@/features/budgets/lib/budget-query-keys';
 import { createBudgetSnapshot } from '@/features/budgets/api/budget-snapshots.api';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, usePathname } from 'next/navigation';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';

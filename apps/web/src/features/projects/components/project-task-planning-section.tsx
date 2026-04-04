@@ -68,7 +68,7 @@ import { cn } from '@/lib/utils';
 import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
 import { TaskFormDialogFields } from './task-form-dialog-fields';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import {
   pickReadableTextOnBackground,
   resolveTaskLabelDisplayColor,

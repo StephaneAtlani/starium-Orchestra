@@ -9,6 +9,7 @@ import { resolveActiveClient } from '../../lib/auth/resolve-active-client';
 import type { MeClient } from '../../services/me';
 import { QueryProvider } from '../../providers/query-provider';
 import { AppShell } from '../../components/shell/app-shell';
+import { AppNotifications } from '../../components/notifications';
 
 const ACTIVE_CLIENT_KEY = 'starium.activeClient';
 const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
@@ -173,6 +174,7 @@ export default function ProtectedLayout({
   return (
     <QueryProvider>
       <AppShell>{children}</AppShell>
+      <AppNotifications />
     </QueryProvider>
   );
 }

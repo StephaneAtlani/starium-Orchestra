@@ -16,7 +16,7 @@ import { useTeamAssignmentMutations } from '@/features/teams/team-assignments/ho
 import { TeamAssignmentsTable } from '@/features/teams/team-assignments/components/team-assignments-table';
 import { TeamAssignmentFormDialog } from '@/features/teams/team-assignments/components/team-assignment-form-dialog';
 import type { TeamResourceAssignment } from '@/features/teams/team-assignments/types/team-assignment.types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 20;

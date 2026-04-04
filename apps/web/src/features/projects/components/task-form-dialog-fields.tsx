@@ -31,7 +31,7 @@ import {
   pickReadableTextOnBackground,
   resolveTaskLabelDisplayColor,
 } from '../lib/planner-task-label-colors';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';

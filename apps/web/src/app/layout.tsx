@@ -3,7 +3,6 @@ import './globals.css';
 import { AuthProvider } from '../context/auth-context';
 import { ActiveClientProvider } from '../context/active-client-context';
 import { BrandingProvider } from '../context/branding-context';
-import { Toaster } from '@/components/ui/sonner';
 
 export const metadata: Metadata = {
   title: 'Starium Orchestra',
@@ -20,10 +19,7 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <ActiveClientProvider>
-            <BrandingProvider>
-              {children}
-              <Toaster />
-            </BrandingProvider>
+            <BrandingProvider>{children}</BrandingProvider>
           </ActiveClientProvider>
         </AuthProvider>
       </body>

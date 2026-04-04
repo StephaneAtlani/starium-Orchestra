@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import type { ApiFormError } from '@/features/budgets/api/types';
 import { projectQueryKeys } from '../lib/project-query-keys';

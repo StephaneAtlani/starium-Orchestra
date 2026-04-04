@@ -22,7 +22,7 @@ import {
 } from '../lib/team-assignment-label-mappers';
 import { cn } from '@/lib/utils';
 import type { ActivityTaxonomyKind, TeamResourceAssignment } from '../types/team-assignment.types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 function isoDatePart(iso: string): string {
   try {
