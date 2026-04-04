@@ -120,15 +120,15 @@ Les deux parcours doivent **réutiliser les mêmes composants** (tableau, ligne,
 
 | Route | Rôle |
 | --- | --- |
-| `/teams/assignments` | Page principale : **tableau paginé**, filtres (collaborateur, projet, type d’activité, plage `from`/`to`, `activeOn`, `includeCancelled`), actions créer / éditer / annuler |
+| `/teams/assignments` | Page principale : **tableau paginé**, filtres (ressource humaine, projet, type d’activité, plage `from`/`to`, `activeOn`, `includeCancelled`), actions créer / éditer / annuler |
 
 ### Filtres (query alignée TEAM-007)
 
-Exposer dans l’UI les filtres supportés par `GET /api/team-resource-assignments` : `collaboratorId`, `projectId`, `activityTypeId`, `from`, `to`, `activeOn`, `includeCancelled`, pagination `limit`/`offset`.
+Exposer dans l’UI les filtres supportés par `GET /api/team-resource-assignments` : **`resourceId`** (Resource HUMAN), `projectId`, `activityTypeId`, `from`, `to`, `activeOn`, `includeCancelled`, pagination `limit`/`offset`.
 
 ### Formulaire création / édition (global)
 
-- `collaboratorId` — obligatoire ; Combobox async ou liste paginée collaborateurs.
+- `resourceId` — obligatoire ; Combobox **Resource HUMAN** (libellé nom/prénom, pas d’UUID seul en UI — RFC-TEAM-020).
 - `projectId` — **optionnel** ; si renseigné, afficher sélecteur projet (nom + code). Si vide : affectation **hors projet** ; dans ce cas `activityTypeId` doit respecter les règles TEAM-007 (kind ≠ PROJECT selon validation backend).
 - `activityTypeId` — obligatoire ; liste des `ActivityType` du client avec filtrage contextuel (si projet sélectionné → privilégier kinds PROJECT ou règle seed).
 - `roleLabel`, `startDate`, `endDate?`, `allocationPercent`, `projectTeamRoleId?`, `notes?` — comme DTO backend.
@@ -169,7 +169,7 @@ Les erreurs **400** métier (incohérence projet / taxonomie) doivent afficher l
 
 ## 4.5 Intégrations secondaires (recommandées)
 
-- **Fiche collaborateur** (`/teams/collaborators/[id]`) : bloc **Affectations** — sous-ensemble des lignes (3–5 dernières) + lien « Voir tout » vers `/teams/assignments?collaboratorId=...`.
+- **Fiche collaborateur** (`/teams/collaborators/[id]`) : bloc **Affectations** — sous-ensemble des lignes (3–5 dernières) + lien « Voir tout » vers `/teams/assignments?resourceId=...` (ID de la **Resource HUMAN** liée au collaborateur, pas l’ID collaborateur seul dans la query).
 - **Fiche équipe métier** (RFC-FE-TEAM-004) : lien « Affectations des membres » → soit page globale avec instruction utilisateur (sélectionner un membre), soit **v2** avec filtre backend par équipe.
 
 ## 4.6 Permissions et états

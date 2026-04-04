@@ -3,52 +3,34 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
-import { toast } from '@/lib/toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useCollaboratorManagerOptions } from '@/features/teams/collaborators/hooks/use-collaborator-manager-options';
-import { collaboratorManagerSecondaryLabel } from '@/features/teams/collaborators/lib/collaborator-label-mappers';
-import type { CollaboratorManagerOption } from '@/features/teams/collaborators/types/collaborator.types';
+import { humanResourceCatalogLabel } from '@/features/teams/collaborators/lib/collaborator-label-mappers';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { listResources } from '@/services/resources';
 import type { ResourceListItem } from '@/services/resources';
-import { resolveCollaboratorIdFromHumanResource } from '../lib/resolve-human-resource-to-collaborator';
 
-/** Pas de requête ni de liste « complète » : uniquement des suggestions après saisie. */
 const MIN_AUTOCOMPLETE_CHARS = 2;
 
-function formatCollaboratorOptionLabel(c: CollaboratorManagerOption): string {
-  const sec = collaboratorManagerSecondaryLabel(c);
-  return sec ? `${c.displayName} — ${sec}` : c.displayName;
-}
-
-/** Libellé métier pour une ressource catalogue Humaine (jamais l’UUID). */
-export function humanResourceLeadLabel(r: ResourceListItem): string {
-  const name =
-    [r.firstName?.trim(), r.name.trim()].filter(Boolean).join(' ') || r.name.trim();
-  if (r.email?.trim()) return `${name} — ${r.email.trim()}`;
-  return name;
-}
+/** Libellé métier pour une ressource catalogue Humaine. */
+export const humanResourceLeadLabel = humanResourceCatalogLabel;
 
 export type WorkTeamLeadComboboxProps = {
   id?: string;
+  /** `Resource` HUMAN (`leadResourceId`). */
   value: string;
-  onChange: (collaboratorId: string) => void;
-  /** Libellé si le responsable courant est connu seulement côté équipe (édition). */
+  onChange: (leadResourceId: string) => void;
   fallbackLabel?: string | null;
-  /** Équipe archivée : entrée « Aucun » en tête de liste. */
   allowEmpty?: boolean;
   disabled?: boolean;
-  /** Dialog parent ouvert — active les requêtes. */
   dialogOpen: boolean;
 };
 
 /**
- * Recherche + autocomplétion : par défaut **catalogue Ressources Humaine** → résolution en collaborateur.
- * Sans `resources.read` : repli sur la liste collaborateurs (options/managers).
+ * Responsable d’équipe : sélection dans le catalogue **Ressources Humaine** uniquement (`resources.read`).
  */
 export function WorkTeamLeadCombobox({
   id: propId,
@@ -68,28 +50,14 @@ export function WorkTeamLeadCombobox({
   const clientId = activeClient?.id ?? '';
   const { has, isSuccess: permsOk } = usePermissions();
   const canReadResources = permsOk && has('resources.read');
-  const useHumanCatalog = canReadResources;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [listOpen, setListOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  /** Libellé affiché après choix depuis le catalogue Humaine (value = collaborateur résolu). */
-  const [pickedHumanLabel, setPickedHumanLabel] = useState<string | null>(null);
-  const [resolvingResourceId, setResolvingResourceId] = useState<string | null>(null);
+  const [pickedLabel, setPickedLabel] = useState<string | null>(null);
 
-  const searchReady =
-    debouncedSearch.trim().length >= MIN_AUTOCOMPLETE_CHARS;
-
-  const managersQuery = useCollaboratorManagerOptions(debouncedSearch, {
-    enabled:
-      dialogOpen &&
-      listOpen &&
-      !!clientId &&
-      permsOk &&
-      !useHumanCatalog &&
-      searchReady,
-  });
+  const searchReady = debouncedSearch.trim().length >= MIN_AUTOCOMPLETE_CHARS;
 
   const humanResourcesQuery = useQuery({
     queryKey: ['resources', 'human-team-lead', clientId, debouncedSearch],
@@ -101,12 +69,7 @@ export function WorkTeamLeadCombobox({
         offset: 0,
       }),
     enabled:
-      dialogOpen &&
-      listOpen &&
-      !!clientId &&
-      permsOk &&
-      useHumanCatalog &&
-      searchReady,
+      dialogOpen && listOpen && !!clientId && permsOk && canReadResources && searchReady,
     staleTime: 30_000,
     retry: 1,
   });
@@ -116,8 +79,7 @@ export function WorkTeamLeadCombobox({
       setListOpen(false);
       setSearchQuery('');
       setDebouncedSearch('');
-      setPickedHumanLabel(null);
-      setResolvingResourceId(null);
+      setPickedLabel(null);
     }
   }, [dialogOpen]);
 
@@ -135,13 +97,13 @@ export function WorkTeamLeadCombobox({
   }, [searchQuery, listOpen]);
 
   useEffect(() => {
-    if (!value.trim()) setPickedHumanLabel(null);
+    if (!value.trim()) setPickedLabel(null);
   }, [value]);
 
   const openList = useCallback(() => {
-    if (disabled) return;
+    if (disabled || !canReadResources) return;
     setListOpen(true);
-  }, [disabled]);
+  }, [disabled, canReadResources]);
 
   const closeList = useCallback(() => {
     setListOpen(false);
@@ -166,90 +128,37 @@ export function WorkTeamLeadCombobox({
     }
   }, [listOpen, closeList]);
 
-  const mergedCollaboratorOptions = useMemo(() => {
-    const items = managersQuery.data?.items ?? [];
-    const v = value.trim();
-    if (!v) return items;
-    if (items.some((c) => c.id === v)) return items;
-    const fb = fallbackLabel?.trim();
-    const synthetic: CollaboratorManagerOption = {
-      id: v,
-      displayName: fb || '…',
-      email: null,
-      jobTitle: null,
-    };
-    return [synthetic, ...items];
-  }, [managersQuery.data?.items, value, fallbackLabel]);
-
   const selectedLabel = useMemo(() => {
     if (!value.trim()) return '';
-    if (useHumanCatalog && pickedHumanLabel) return pickedHumanLabel;
-    if (!useHumanCatalog) {
-      const row = mergedCollaboratorOptions.find((c) => c.id === value);
-      if (row) return formatCollaboratorOptionLabel(row);
-    }
+    if (pickedLabel) return pickedLabel;
     return fallbackLabel?.trim() ?? '';
-  }, [
-    value,
-    useHumanCatalog,
-    pickedHumanLabel,
-    mergedCollaboratorOptions,
-    fallbackLabel,
-  ]);
+  }, [value, pickedLabel, fallbackLabel]);
 
-  const showList = listOpen && !disabled;
+  const showList = listOpen && !disabled && canReadResources;
   const inputDisplay = showList ? searchQuery : selectedLabel;
 
-  const pickCollaborator = (id: string) => {
-    if (!useHumanCatalog) setPickedHumanLabel(null);
-    onChange(id);
+  const pickHumanResource = (r: ResourceListItem) => {
+    setPickedLabel(humanResourceLeadLabel(r));
+    onChange(r.id);
     closeList();
   };
 
-  const pickHumanResource = async (r: ResourceListItem) => {
-    if (disabled) return;
-    setResolvingResourceId(r.id);
-    try {
-      const collaboratorId = await resolveCollaboratorIdFromHumanResource(authFetch, r);
-      setPickedHumanLabel(humanResourceLeadLabel(r));
-      onChange(collaboratorId);
-      closeList();
-    } catch (e) {
-      toast.error((e as Error).message ?? 'Rattachement collaborateur impossible');
-    } finally {
-      setResolvingResourceId(null);
-    }
-  };
-
-  /** N’affiche pas les résultats en cache si la saisie est redevenue trop courte. */
   const humanItems =
-    searchReady && useHumanCatalog
-      ? (humanResourcesQuery.data?.items ?? [])
-      : [];
+    searchReady && canReadResources ? (humanResourcesQuery.data?.items ?? []) : [];
 
-  const collaboratorItems =
-    searchReady && !useHumanCatalog ? mergedCollaboratorOptions : [];
-
-  const listFetching = useHumanCatalog
-    ? searchReady && humanResourcesQuery.isFetching
-    : searchReady && managersQuery.isFetching;
-  const listError = useHumanCatalog ? humanResourcesQuery.isError : managersQuery.isError;
+  const listFetching = searchReady && humanResourcesQuery.isFetching;
+  const listError = humanResourcesQuery.isError;
   const listEmpty =
-    useHumanCatalog &&
     searchReady &&
     !humanResourcesQuery.isFetching &&
     !humanResourcesQuery.isError &&
     humanItems.length === 0;
-  const collabEmpty =
-    !useHumanCatalog &&
-    searchReady &&
-    !managersQuery.isFetching &&
-    !managersQuery.isError &&
-    collaboratorItems.length === 0;
 
   const inputPlaceholder = disabled
     ? '…'
-    : `Tape au moins ${MIN_AUTOCOMPLETE_CHARS} caractères pour les suggestions…`;
+    : !canReadResources
+      ? 'Permission catalogue requise (resources.read)…'
+      : `Tape au moins ${MIN_AUTOCOMPLETE_CHARS} caractères pour les suggestions…`;
 
   return (
     <div className="space-y-1.5">
@@ -257,17 +166,15 @@ export function WorkTeamLeadCombobox({
       <p className="text-xs text-muted-foreground leading-relaxed">
         {!permsOk ? (
           'Vérification des droits…'
-        ) : useHumanCatalog ? (
+        ) : canReadResources ? (
           <>
-            <strong>Autocomplétion</strong> : saisis au moins {MIN_AUTOCOMPLETE_CHARS} caractères —
-            seules les fiches <strong>Humaine</strong> correspondantes sont proposées (pas de liste
-            complète à l’ouverture). Rattachement Collaborateur au choix.
+            <strong>Catalogue Humaine</strong> : saisis au moins {MIN_AUTOCOMPLETE_CHARS} caractères
+            pour proposer des fiches <strong>Resource</strong> du client actif.
           </>
         ) : (
           <>
-            Sans lecture du catalogue Ressources : sélection parmi les{' '}
-            <strong>collaborateurs</strong> seulement (permission <code>resources.read</code>{' '}
-            pour le mode Humaine).
+            La désignation du responsable passe par le catalogue <strong>Ressources Humaine</strong>{' '}
+            (permission <code className="text-xs">resources.read</code>).
           </>
         )}
       </p>
@@ -279,7 +186,7 @@ export function WorkTeamLeadCombobox({
           aria-controls={listId}
           aria-autocomplete="list"
           autoComplete="off"
-          disabled={disabled}
+          disabled={disabled || !canReadResources}
           placeholder={inputPlaceholder}
           value={inputDisplay}
           className="h-9 w-full min-w-0 pr-9"
@@ -288,18 +195,18 @@ export function WorkTeamLeadCombobox({
             if (!listOpen) setListOpen(true);
           }}
           onFocus={() => {
-            if (!disabled) setListOpen(true);
+            if (!disabled && canReadResources) setListOpen(true);
           }}
         />
         <button
           type="button"
           tabIndex={-1}
-          disabled={disabled}
+          disabled={disabled || !canReadResources}
           className="absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted disabled:opacity-40"
           aria-label={listOpen ? 'Fermer la liste' : 'Ouvrir la liste'}
           onMouseDown={(e) => {
             e.preventDefault();
-            if (disabled) return;
+            if (disabled || !canReadResources) return;
             if (listOpen) closeList();
             else openList();
           }}
@@ -326,109 +233,53 @@ export function WorkTeamLeadCombobox({
                     value === '' && 'bg-accent/40',
                   )}
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => pickCollaborator('')}
+                  onClick={() => {
+                    setPickedLabel(null);
+                    onChange('');
+                    closeList();
+                  }}
                 >
                   Aucun responsable
                 </button>
               </li>
             )}
 
-            {useHumanCatalog && !searchReady && (
+            {!searchReady && (
               <li className="px-2 py-2 text-xs text-muted-foreground">
-                Saisis au moins {MIN_AUTOCOMPLETE_CHARS} caractères pour lancer la recherche (aucune
-                liste complète).
+                Saisis au moins {MIN_AUTOCOMPLETE_CHARS} caractères pour lancer la recherche.
               </li>
             )}
 
-            {!useHumanCatalog && !searchReady && (
-              <li className="px-2 py-2 text-xs text-muted-foreground">
-                Saisis au moins {MIN_AUTOCOMPLETE_CHARS} caractères pour l’autocomplétion.
+            {searchReady && listFetching && humanItems.length === 0 && !allowEmpty && (
+              <li className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 shrink-0 animate-spin" />
+                Recherche…
               </li>
             )}
-
-            {useHumanCatalog &&
-              searchReady &&
-              listFetching &&
-              humanItems.length === 0 &&
-              !allowEmpty && (
-                <li className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
-                  <Loader2 className="size-3.5 shrink-0 animate-spin" />
-                  Recherche…
-                </li>
-              )}
-
-            {!useHumanCatalog &&
-              searchReady &&
-              listFetching &&
-              collaboratorItems.length === 0 &&
-              !allowEmpty && (
-                <li className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
-                  <Loader2 className="size-3.5 shrink-0 animate-spin" />
-                  Recherche…
-                </li>
-              )}
 
             {searchReady && listError && (
               <li className="px-2 py-2 text-xs text-destructive">
-                {useHumanCatalog
-                  ? 'Impossible de charger les ressources Humaines.'
-                  : 'Impossible de charger la liste.'}
+                Impossible de charger les ressources Humaines.
               </li>
             )}
 
-            {useHumanCatalog && listEmpty && !allowEmpty && (
+            {searchReady && listEmpty && !allowEmpty && (
               <li className="px-2 py-2 text-xs text-muted-foreground">
                 Aucune ressource Humaine ne correspond à ta recherche.
               </li>
             )}
 
-            {!useHumanCatalog && collabEmpty && !allowEmpty && (
-              <li className="px-2 py-2 text-xs text-muted-foreground">Aucun collaborateur trouvé.</li>
-            )}
-
-            {useHumanCatalog &&
-              searchReady &&
+            {searchReady &&
               humanItems.map((r) => (
                 <li key={r.id} role="presentation">
                   <button
                     type="button"
                     role="option"
-                    disabled={!!resolvingResourceId}
-                    className={cn(
-                      'w-full rounded-md px-2 py-1.5 text-left hover:bg-accent/60 disabled:opacity-50',
-                      resolvingResourceId === r.id && 'opacity-70',
-                    )}
+                    className="w-full rounded-md px-2 py-1.5 text-left hover:bg-accent/60"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => void pickHumanResource(r)}
+                    onClick={() => pickHumanResource(r)}
                   >
-                    {resolvingResourceId === r.id ? (
-                      <span className="inline-flex items-center gap-2">
-                        <Loader2 className="size-3.5 animate-spin" />
-                        Rattachement…
-                      </span>
-                    ) : (
-                      humanResourceLeadLabel(r)
-                    )}
-                  </button>
-                </li>
-              ))}
-
-            {!useHumanCatalog &&
-              searchReady &&
-              collaboratorItems.map((c) => (
-                <li key={c.id} role="presentation">
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={value === c.id}
-                    className={cn(
-                      'w-full rounded-md px-2 py-1.5 text-left hover:bg-accent/60',
-                      value === c.id && 'bg-accent/40',
-                    )}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => pickCollaborator(c.id)}
-                  >
-                    {formatCollaboratorOptionLabel(c)}
+                    {humanResourceLeadLabel(r)}
                   </button>
                 </li>
               ))}

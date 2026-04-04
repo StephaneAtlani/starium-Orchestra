@@ -38,12 +38,7 @@ describe('navigationItemVisible', () => {
     const equipes: NavigationItem = {
       label: 'Equipes',
       scope: 'client',
-      requiredPermissions: [
-        'collaborators.read',
-        'skills.read',
-        'teams.read',
-        'team_assignments.read',
-      ],
+      requiredPermissions: ['skills.read', 'teams.read', 'resources.read'],
       requiredPermissionsMatch: 'any',
       allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
     };
@@ -58,7 +53,7 @@ describe('navigationItemVisible', () => {
         ...baseCtx,
         has: hasFactory(['collaborators.read']),
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       navigationItemVisible(equipes, {
         ...baseCtx,
@@ -68,7 +63,7 @@ describe('navigationItemVisible', () => {
     expect(
       navigationItemVisible(equipes, {
         ...baseCtx,
-        has: hasFactory(['team_assignments.read']),
+        has: hasFactory(['resources.read']),
       }),
     ).toBe(true);
     expect(

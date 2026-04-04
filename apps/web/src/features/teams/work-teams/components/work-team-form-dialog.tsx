@@ -36,7 +36,7 @@ export function WorkTeamFormDialog({
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [parentId, setParentId] = useState<string>('');
-  const [leadCollaboratorId, setLeadCollaboratorId] = useState<string>('');
+  const [leadResourceId, setLeadResourceId] = useState<string>('');
 
   const parentsQuery = useWorkTeamsList(
     { limit: 500, offset: 0, includeArchived: true },
@@ -59,12 +59,12 @@ export function WorkTeamFormDialog({
       setName(team.name);
       setCode(team.code ?? '');
       setParentId(team.parentId ?? '');
-      setLeadCollaboratorId(team.leadCollaboratorId ?? '');
+      setLeadResourceId(team.leadResourceId ?? '');
     } else {
       setName('');
       setCode('');
       setParentId(defaultParentId ?? '');
-      setLeadCollaboratorId('');
+      setLeadResourceId('');
     }
   }, [open, mode, team, defaultParentId]);
 
@@ -79,27 +79,27 @@ export function WorkTeamFormDialog({
     }
     try {
       if (mode === 'create') {
-        if (!leadCollaboratorId) {
-          toast.error('Choisissez un responsable d’équipe (manager)');
+        if (!leadResourceId) {
+          toast.error('Choisissez un responsable d’équipe (catalogue Humaine)');
           return;
         }
         await createMutation.mutateAsync({
           name: trimmed,
           code: code.trim() || null,
           parentId: parentId ? parentId : null,
-          leadCollaboratorId,
+          leadResourceId,
         });
         toast.success('Équipe créée');
       } else if (team) {
-        if (team.status === 'ACTIVE' && !leadCollaboratorId) {
-          toast.error('Une équipe active doit avoir un responsable (manager)');
+        if (team.status === 'ACTIVE' && !leadResourceId) {
+          toast.error('Une équipe active doit avoir un responsable (catalogue Humaine)');
           return;
         }
         await updateMutation.mutateAsync({
           name: trimmed,
           code: code.trim() || null,
           parentId: parentId ? parentId : null,
-          leadCollaboratorId: leadCollaboratorId ? leadCollaboratorId : null,
+          leadResourceId: leadResourceId ? leadResourceId : null,
         });
         toast.success('Équipe mise à jour');
       }
@@ -119,7 +119,7 @@ export function WorkTeamFormDialog({
             </DialogTitle>
             <DialogDescription>
               Équipe métier Starium (distincte de Microsoft Teams). Hiérarchie et rattachements
-              collaborateurs.
+              ressources Humaines.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
@@ -162,8 +162,8 @@ export function WorkTeamFormDialog({
             </div>
             <WorkTeamLeadCombobox
               id="wt-lead"
-              value={leadCollaboratorId}
-              onChange={setLeadCollaboratorId}
+              value={leadResourceId}
+              onChange={setLeadResourceId}
               fallbackLabel={mode === 'edit' ? team?.leadDisplayName ?? null : null}
               allowEmpty={mode === 'edit' && team?.status === 'ARCHIVED'}
               disabled={busy}

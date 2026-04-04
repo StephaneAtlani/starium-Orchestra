@@ -8,7 +8,7 @@ import { workTeamQueryKeys } from '../lib/work-team-query-keys';
 import type { ManagerScopePreviewParams } from '../types/work-team.types';
 
 export function useManagerScopePreview(
-  managerCollaboratorId: string,
+  managerResourceId: string,
   params: ManagerScopePreviewParams,
 ) {
   const authFetch = useAuthenticatedFetch();
@@ -16,8 +16,8 @@ export function useManagerScopePreview(
   const clientId = activeClient?.id ?? '';
 
   return useQuery({
-    queryKey: workTeamQueryKeys.managerScopePreview(clientId, managerCollaboratorId, params),
-    queryFn: () => previewManagerScope(authFetch, managerCollaboratorId, params),
-    enabled: !!clientId && !!managerCollaboratorId.trim(),
+    queryKey: workTeamQueryKeys.managerScopePreview(clientId, managerResourceId, params),
+    queryFn: () => previewManagerScope(authFetch, managerResourceId, params),
+    enabled: !!clientId && !!managerResourceId.trim(),
   });
 }

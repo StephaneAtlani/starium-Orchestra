@@ -34,7 +34,7 @@ import { PlatformUsageModule } from './modules/platform-usage/platform-usage.mod
 import { SkillsModule } from './modules/skills/skills.module';
 import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
 import { ActivityTypesModule } from './modules/activity-types/activity-types.module';
-import { TeamAssignmentsModule } from './modules/team-assignments/team-assignments.module';
+import { ResourceTimeEntriesModule } from './modules/resource-time-entries/resource-time-entries.module';
 
 @Module({
   imports: [
@@ -77,7 +77,7 @@ import { TeamAssignmentsModule } from './modules/team-assignments/team-assignmen
     SkillsModule,
     WorkTeamsModule,
     ActivityTypesModule,
-    TeamAssignmentsModule,
+    ResourceTimeEntriesModule,
   ],
 })
 export class AppModule {}

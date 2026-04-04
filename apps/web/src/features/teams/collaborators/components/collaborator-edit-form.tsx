@@ -99,6 +99,7 @@ export function CollaboratorEditForm({
             render={({ field }) => (
               <CollaboratorManagerCombobox
                 id="collab-managerId"
+                name={field.name}
                 value={field.value ?? ''}
                 onChange={field.onChange}
                 fallbackLabel={
@@ -107,6 +108,7 @@ export function CollaboratorEditForm({
                     : null
                 }
                 excludeCollaboratorId={collaborator.id}
+                excludeSelfEmail={collaborator.email}
                 disabled={!canUpdate}
                 label="Manager"
               />

@@ -3,7 +3,8 @@ import { WorkTeamMemberRole } from '@prisma/client';
 
 export class AddWorkTeamMemberDto {
   @IsString()
-  collaboratorId!: string;
+  /** Resource catalogue `type = HUMAN`. */
+  resourceId!: string;
 
   @IsEnum(WorkTeamMemberRole)
   role!: WorkTeamMemberRole;

@@ -17,7 +17,7 @@ export class UpdateWorkTeamDto {
 
   @IsOptional()
   @IsString()
-  leadCollaboratorId?: string | null;
+  leadResourceId?: string | null;
 
   @IsOptional()
   @IsInt()

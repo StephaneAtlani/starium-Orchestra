@@ -13,7 +13,6 @@ import {
   updateWorkTeam,
   updateWorkTeamMember,
 } from '../api/work-teams.api';
-import { collaboratorQueryKeys } from '@/features/teams/collaborators/lib/collaborator-query-keys';
 import { workTeamQueryKeys } from '../lib/work-team-query-keys';
 import type {
   AddWorkTeamMemberPayload,
@@ -94,7 +93,6 @@ export function useAddWorkTeamMember(teamId: string) {
       void queryClient.invalidateQueries({
         queryKey: [...workTeamQueryKeys.all, 'members', clientId, teamId],
       });
-      void queryClient.invalidateQueries({ queryKey: collaboratorQueryKeys.all });
     },
   });
 }
@@ -137,20 +135,20 @@ export function useRemoveWorkTeamMember(teamId: string) {
   });
 }
 
-export function usePutManagerScope(managerCollaboratorId: string) {
+export function usePutManagerScope(managerResourceId: string) {
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
   const clientId = useClientId();
 
   return useMutation({
     mutationFn: (payload: PutManagerScopePayload) =>
-      putManagerScope(authFetch, managerCollaboratorId, payload),
+      putManagerScope(authFetch, managerResourceId, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: workTeamQueryKeys.managerScope(clientId, managerCollaboratorId),
+        queryKey: workTeamQueryKeys.managerScope(clientId, managerResourceId),
       });
       void queryClient.invalidateQueries({
-        queryKey: [...workTeamQueryKeys.all, 'manager-scope-preview', clientId, managerCollaboratorId],
+        queryKey: [...workTeamQueryKeys.all, 'manager-scope-preview', clientId, managerResourceId],
       });
     },
   });

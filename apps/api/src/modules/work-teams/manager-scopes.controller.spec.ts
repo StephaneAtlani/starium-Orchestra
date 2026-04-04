@@ -4,14 +4,14 @@ import { REQUIRE_PERMISSIONS_KEY } from '../../common/decorators/require-permiss
 import { ManagerScopesController } from './manager-scopes.controller';
 
 describe('ManagerScopesController', () => {
-  it('route preview avant :managerCollaboratorId seul', () => {
+  it('route preview avant :managerResourceId seul', () => {
     const previewPath = Reflect.getMetadata(
       PATH_METADATA,
       ManagerScopesController.prototype.preview,
     );
     const getPath = Reflect.getMetadata(PATH_METADATA, ManagerScopesController.prototype.get);
-    expect(previewPath).toBe(':managerCollaboratorId/preview');
-    expect(getPath).toBe(':managerCollaboratorId');
+    expect(previewPath).toBe(':managerResourceId/preview');
+    expect(getPath).toBe(':managerResourceId');
   });
 
   it('GET preview et GET config = teams.read ; PUT = teams.manage_scopes', () => {

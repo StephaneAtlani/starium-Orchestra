@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
 import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -19,8 +20,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useCollaboratorManagerOptions } from '@/features/teams/collaborators/hooks/use-collaborator-manager-options';
-import { collaboratorManagerSecondaryLabel } from '@/features/teams/collaborators/lib/collaborator-label-mappers';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { humanResourceCatalogLabel } from '@/features/teams/collaborators/lib/collaborator-label-mappers';
+import { listResources } from '@/services/resources';
 import { usePutManagerScope } from '@/features/teams/work-teams/hooks/use-work-team-mutations';
 import { useManagerScope } from '@/features/teams/work-teams/hooks/use-manager-scope';
 import { useManagerScopePreview } from '@/features/teams/work-teams/hooks/use-manager-scope-preview';
@@ -36,16 +39,28 @@ export default function ManagerScopesPage() {
   const canManageScopes = has('teams.manage_scopes');
 
   const [managerSearch, setManagerSearch] = useState('');
-  const [managerId, setManagerId] = useState('');
-  const managersQuery = useCollaboratorManagerOptions(managerSearch);
+  const [managerResourceId, setManagerResourceId] = useState('');
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const managersQuery = useQuery({
+    queryKey: ['resources', 'human-managers-scope', activeClient?.id, managerSearch],
+    queryFn: () =>
+      listResources(authFetch, {
+        type: 'HUMAN',
+        search: managerSearch.trim() || undefined,
+        limit: 80,
+        offset: 0,
+      }),
+    enabled: permsSuccess && canRead && !!activeClient?.id,
+  });
 
   const teamsForRoots = useWorkTeamsList(
     { limit: 500, offset: 0, includeArchived: false },
     { enabled: permsSuccess && canRead },
   );
 
-  const scopeQuery = useManagerScope(managerId);
-  const putMutation = usePutManagerScope(managerId);
+  const scopeQuery = useManagerScope(managerResourceId);
+  const putMutation = usePutManagerScope(managerResourceId);
 
   const [mode, setMode] = useState<ManagerScopeMode>('DIRECT_REPORTS_ONLY');
   const [includeDirectReports, setIncludeDirectReports] = useState(true);
@@ -65,16 +80,16 @@ export default function ManagerScopesPage() {
     [previewOffset, previewQ],
   );
 
-  const previewQuery = useManagerScopePreview(managerId, previewParams);
+  const previewQuery = useManagerScopePreview(managerResourceId, previewParams);
 
   useEffect(() => {
     const d = scopeQuery.data;
-    if (!d || !managerId) return;
+    if (!d || !managerResourceId) return;
     setMode(d.mode);
     setIncludeDirectReports(d.includeDirectReports);
     setIncludeTeamSubtree(d.includeTeamSubtree);
     setRootTeamIds(d.rootTeams.map((r) => r.workTeamId));
-  }, [scopeQuery.data, managerId]);
+  }, [scopeQuery.data, managerResourceId]);
 
   function toggleRootTeam(id: string) {
     setRootTeamIds((prev) =>
@@ -84,7 +99,7 @@ export default function ManagerScopesPage() {
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!managerId || !canManageScopes) return;
+    if (!managerResourceId || !canManageScopes) return;
     try {
       await putMutation.mutateAsync({
         mode,
@@ -130,7 +145,7 @@ export default function ManagerScopesPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="ms-search">Recherche collaborateur</Label>
+                <Label htmlFor="ms-search">Recherche ressource Humaine</Label>
                 <Input
                   id="ms-search"
                   value={managerSearch}
@@ -139,23 +154,21 @@ export default function ManagerScopesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ms-manager">Collaborateur manager</Label>
+                <Label htmlFor="ms-manager">Manager (Resource HUMAN)</Label>
                 <select
                   id="ms-manager"
                   className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
-                  value={managerId}
+                  value={managerResourceId}
                   onChange={(e) => {
-                    setManagerId(e.target.value);
+                    setManagerResourceId(e.target.value);
                     setPreviewOffset(0);
                   }}
                 >
-                  <option value="">— Choisir un collaborateur —</option>
-                  {(managersQuery.data?.items ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.displayName}
-                      {collaboratorManagerSecondaryLabel(c)
-                        ? ` — ${collaboratorManagerSecondaryLabel(c)}`
-                        : ''}
+                  <option value="">— Choisir une ressource —</option>
+                  {(managersQuery.data?.items ?? []).map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {humanResourceCatalogLabel(r)}
+                      {r.email ? ` — ${r.email}` : ''}
                     </option>
                   ))}
                 </select>
@@ -163,21 +176,21 @@ export default function ManagerScopesPage() {
             </CardContent>
           </Card>
 
-          {!managerId && (
+          {!managerResourceId && (
             <p className="text-sm text-muted-foreground">
-              Sélectionnez un collaborateur pour charger ou configurer son périmètre.
+              Sélectionnez une ressource Humaine (manager) pour charger ou configurer son périmètre.
             </p>
           )}
 
-          {managerId && scopeQuery.isLoading && <LoadingState rows={3} />}
-          {managerId && scopeQuery.error && (
+          {managerResourceId && scopeQuery.isLoading && <LoadingState rows={3} />}
+          {managerResourceId && scopeQuery.error && (
             <Alert variant="destructive">
               <AlertCircle className="size-4" />
               <AlertTitle>{(scopeQuery.error as Error).message}</AlertTitle>
             </Alert>
           )}
 
-          {managerId && scopeQuery.data && (
+          {managerResourceId && scopeQuery.data && (
             <form onSubmit={onSave}>
               <Card size="sm">
                 <CardHeader>
@@ -256,7 +269,7 @@ export default function ManagerScopesPage() {
             </form>
           )}
 
-          {managerId && canRead && (
+          {managerResourceId && canRead && (
             <Card size="sm">
               <CardHeader>
                 <CardTitle className="text-base">Aperçu du périmètre</CardTitle>
@@ -285,7 +298,7 @@ export default function ManagerScopesPage() {
                   </Alert>
                 )}
                 {previewQuery.data && previewItems.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Aucun collaborateur dans l’aperçu.</p>
+                  <p className="text-sm text-muted-foreground">Aucune ressource dans l’aperçu.</p>
                 )}
                 {previewQuery.data && previewItems.length > 0 && (
                   <div className="overflow-auto rounded-md border border-border/60">
@@ -294,15 +307,13 @@ export default function ManagerScopesPage() {
                         <TableRow>
                           <TableHead>Nom</TableHead>
                           <TableHead>Email</TableHead>
-                          <TableHead>Statut</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {previewItems.map((row) => (
-                          <TableRow key={row.collaboratorId}>
+                          <TableRow key={row.resourceId}>
                             <TableCell className="font-medium">{row.displayName}</TableCell>
                             <TableCell className="text-muted-foreground">{row.email ?? '—'}</TableCell>
-                            <TableCell>{row.status}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

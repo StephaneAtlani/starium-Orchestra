@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
-import { TeamAssignmentsModule } from '../team-assignments/team-assignments.module';
 import { ProjectActivitiesController } from './project-activities.controller';
 import { ProjectActivitiesService } from './project-activities.service';
 import { ProjectGanttController } from './project-gantt.controller';
@@ -42,19 +41,14 @@ import { ResourcesModule } from '../resources/resources.module';
 import { ActionPlanTasksController } from './action-plan-tasks.controller';
 import { ActionPlansController } from './action-plans.controller';
 import { ActionPlansService } from './action-plans.service';
-import { ProjectResourceAssignmentsController } from './project-resource-assignments.controller';
-
 @Module({
   imports: [
     PrismaModule,
     AuditLogsModule,
     RiskTaxonomyModule,
     ResourcesModule,
-    TeamAssignmentsModule,
   ],
   controllers: [
-    /** RFC-TEAM-008 — `projects/:projectId/resource-assignments/...` avant routes `projects/:id` génériques. */
-    ProjectResourceAssignmentsController,
     /** Routes `action-plans/:id/tasks/...` avant `action-plans/:id`. */
     ActionPlanTasksController,
     ActionPlansController,

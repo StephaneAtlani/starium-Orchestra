@@ -2023,43 +2023,29 @@ Module Nest `activity-types` : référentiel **`ActivityType`** par client (axe 
 
 ---
 
-## Équipes — affectations ressources (RFC-TEAM-007) — `/api/team-resource-assignments`
+## Équipes — temps réalisé (RFC-TEAM-009) — `/api/resource-time-entries`
 
-Module Nest `team-assignments` : entité **`TeamResourceAssignment`** (staffing planifié). Isolation **client actif** (`X-Client-Id`) ; pas de `clientId` dans le body. Réponses liste : `{ items, total, limit, offset }` ; tri par défaut : `startDate` desc, `id` desc. Liste : `limit` (défaut 20, max 100), `offset` (défaut 0), filtres `collaboratorId`, `projectId`, `activityTypeId`, `includeCancelled` (défaut `false` — exclut les affectations avec `cancelledAt` non null), fenêtre **`from` + `to`** (ISO date `YYYY-MM-DD`, les deux obligatoires ensemble) ou **`activeOn`** seul (incompatible avec `from`/`to` → **400**). Détail : [RFC-TEAM-007](RFC/RFC-TEAM-007%20%E2%80%94%20Affectations%20ressources.md).
+> **Historique** : le staffing planifié (ex. RFC-TEAM-007 / TEAM-008, modèle `TeamResourceAssignment`, routes `/api/team-resource-assignments` et `/api/projects/:projectId/resource-assignments`) a été **retiré** du produit ; la table Prisma correspondante est supprimée par migration `20260404213000_drop_team_resource_assignment`. Référence conservée : [RFC-TEAM-007](RFC/RFC-TEAM-007%20%E2%80%94%20Affectations%20ressources.md), [RFC-TEAM-008](RFC/RFC-TEAM-008%20%E2%80%94%20Staffing%20projet%20par%20manager%20responsable%20projet.md) (specs historiques).
 
-**Règles métier** : avec `projectId`, `activityType.kind` doit être **`PROJECT`** ; sans `projectId`, le kind doit être hors **`PROJECT`**. `projectTeamRoleId` uniquement si `projectId` est défini. Collaborateur **`ACTIVE`** requis pour création / mise à jour. **`PATCH /:id`** refusé (**409**) si déjà annulé. **`POST …/cancel`** idempotent (**200** sans ré-audit si déjà annulé).
+Module Nest `resource-time-entries` : entité **`ResourceTimeEntry`** (temps **réalisé**). Isolation **client actif** ; pas de `clientId` dans le body. Réponses liste : `{ items, total, limit, offset }` ; tri par défaut : `workDate` desc, `id` desc. Liste : `limit` (défaut 20, max 100), `offset` (défaut 0), filtres **`resourceId`**, `projectId`, **`status`** (`TimeEntryStatus`), fenêtre **`from` + `to`** (ISO `YYYY-MM-DD`, les deux obligatoires ensemble ou omis ensemble — sinon **400**).
 
-**Permissions** : lecture **`team_assignments.read`** ; création, mise à jour, annulation **`team_assignments.manage`**.
+**Règles métier** : **`resourceId`** doit désigner une **Resource HUMAN** du client (**404** sinon). `projectId` / `activityTypeId` optionnels mais validés en scope client si renseignés. Création : `workDate` (ISO date-time), `durationHours` (décimal 0,01–999999,99), `status` optionnel (défaut **`DRAFT`**).
+
+**Permissions** : **`resources.read`** (liste, détail) ; **`resources.update`** (create, patch, delete) — module **Ressources** (`ModuleAccessGuard` + `PermissionsGuard`).
 
 **Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`.
 
-**Réponse assignment (liste, détail, POST, PATCH, cancel)** : champs minimaux `id`, `clientId`, `collaboratorId`, `collaboratorDisplayName`, `projectId`, `projectName`, `projectCode`, `activityTypeId`, `activityTypeName`, `activityTypeKind` (enum canonique), `projectTeamRoleId`, `roleLabel`, `startDate`, `endDate`, `allocationPercent` (nombre, pourcentage), `notes`, `cancelledAt`, `createdAt`, `updatedAt`.
+**Réponse entrée** : `id`, `clientId`, `resourceId`, `resourceDisplayName`, `workDate` (ISO), `durationHours`, `projectId`, `projectName`, `projectCode`, `activityTypeId`, `activityTypeName`, `status`, `notes`, `createdAt`, `updatedAt`.
 
-- **GET** `/api/team-resource-assignments` — Liste paginée. **`team_assignments.read`**
-- **POST** `/api/team-resource-assignments` — Création. **`team_assignments.manage`**
-- **POST** `/api/team-resource-assignments/:id/cancel` — Annulation logique (`cancelledAt`) ; idempotent. **`team_assignments.manage`**
-- **GET** `/api/team-resource-assignments/:id` — Détail (y compris si annulée). **`team_assignments.read`**
-- **PATCH** `/api/team-resource-assignments/:id` — Mise à jour partielle. **`team_assignments.manage`**
+- **GET** `/api/resource-time-entries` — Liste paginée. **`resources.read`**
+- **POST** `/api/resource-time-entries` — Création. **`resources.update`**
+- **GET** `/api/resource-time-entries/:id` — Détail. **`resources.read`**
+- **PATCH** `/api/resource-time-entries/:id` — Mise à jour partielle. **`resources.update`**
+- **DELETE** `/api/resource-time-entries/:id` — **Suppression physique** ; audit `resource_time_entry.deleted`. **`resources.update`**
 
-**Erreurs courantes :** 400 (validation DTO, fenêtre date invalide, kind incohérent, collaborateur inactif), 404 (référence hors scope), 409 (mise à jour d’une affectation annulée).
+**Erreurs courantes :** 400 (validation DTO, fenêtre `from`/`to` invalide, `workDate` invalide), 404 (entrée, projet ou type d’activité hors scope, ressource non HUMAN).
 
----
-
-## Équipes — affectations projet-scopées (RFC-TEAM-008) — `/api/projects/:projectId/resource-assignments`
-
-Même module Nest **`team-assignments`** et mêmes permissions que la section précédente (**`team_assignments.read`**, **`team_assignments.manage`**) — **pas** de permission `projects.*` sur ces routes (contrainte `PermissionsGuard`, un seul préfixe de module par handler). Contrôleur : `ProjectResourceAssignmentsController` (`apps/api/src/modules/projects/project-resource-assignments.controller.ts`) ; logique métier : `TeamAssignmentsService` (`ensureProjectInClient`, `listForProject`, etc.). Isolation **client actif** ; `projectId` du path est toujours vérifié (**404** si projet inconnu pour le client). **Anti-énumération** : **404** si l’`assignmentId` n’existe pas ou n’appartient pas au projet du path (détail / patch / cancel).
-
-**Liste** : `{ items, total, limit, offset }` ; mêmes champs d’item que TEAM-007. Query : `collaboratorId`, `activityTypeId`, `includeCancelled`, `from`/`to`, `activeOn`, `limit`, `offset` — mêmes règles temporelles que `/api/team-resource-assignments`. **`projectId` en query** : si fourni et **différent** du `:projectId` du path → **400** (`ProjectIdQueryMismatch`).
-
-- **GET** `/api/projects/:projectId/resource-assignments` — Liste paginée. **`team_assignments.read`**
-- **POST** `/api/projects/:projectId/resource-assignments` — Création (body **sans** `projectId`, injecté depuis l’URL). **`team_assignments.manage`**
-- **POST** `/api/projects/:projectId/resource-assignments/:assignmentId/cancel` — Annulation logique ; idempotent (même sémantique que TEAM-007). **`team_assignments.manage`**
-- **GET** `/api/projects/:projectId/resource-assignments/:assignmentId` — Détail. **`team_assignments.read`**
-- **PATCH** `/api/projects/:projectId/resource-assignments/:assignmentId` — Mise à jour partielle (body **sans** `projectId`). **`team_assignments.manage`**
-
-Détail : [RFC-TEAM-008](RFC/RFC-TEAM-008%20%E2%80%94%20Staffing%20projet%20par%20manager%20responsable%20projet.md).
-
-**UI Next.js** : [RFC-FE-TEAM-005](RFC/RFC-FE-TEAM-005%20%E2%80%94%20UI%20Affectations%20%26%20staffing%20projet.md) — consommation des routes TEAM-007 et TEAM-008 depuis `apps/web/src/features/teams/team-assignments/` ; pages `/teams/assignments` et `/projects/[projectId]/staffing`.
+**UI Next.js** : page `/teams/time-entries` — `apps/web/src/app/(protected)/teams/time-entries/page.tsx` ; client API et hooks — `apps/web/src/features/teams/resource-time-entries/`.
 
 ---
 

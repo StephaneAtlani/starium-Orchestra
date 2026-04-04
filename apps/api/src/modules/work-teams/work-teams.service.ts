@@ -4,14 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  CollaboratorStatus,
-  Prisma,
-  WorkTeam,
-  WorkTeamStatus,
-} from '@prisma/client';
+import { Prisma, WorkTeam, WorkTeamStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import {
+  assertResourceHuman,
+  resourceHumanDisplayName,
+} from '../resources/resource-human.util';
 import { CreateWorkTeamDto } from './dto/create-work-team.dto';
 import { ListWorkTeamsTreeQueryDto } from './dto/list-tree.query.dto';
 import { ListWorkTeamsQueryDto } from './dto/list-work-teams.query.dto';
@@ -62,8 +61,8 @@ export class WorkTeamsService {
       where.status = WorkTeamStatus.ACTIVE;
     }
 
-    if (query.leadCollaboratorId?.trim()) {
-      where.leadCollaboratorId = query.leadCollaboratorId.trim();
+    if (query.leadResourceId?.trim()) {
+      where.leadResourceId = query.leadResourceId.trim();
     }
 
     const [total, rows] = await this.prisma.$transaction([
@@ -74,7 +73,7 @@ export class WorkTeamsService {
         skip: offset,
         take: limit,
         include: {
-          lead: { select: { displayName: true } },
+          lead: { select: { name: true, firstName: true } },
           parent: { select: { name: true } },
         },
       }),
@@ -99,8 +98,8 @@ export class WorkTeamsService {
     const rows = await this.prisma.workTeam.findMany({
       where,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: {
-        lead: { select: { displayName: true } },
+        include: {
+        lead: { select: { name: true, firstName: true } },
         _count: { select: { children: true } },
       },
     });
@@ -113,7 +112,7 @@ export class WorkTeamsService {
       status: w.status,
       sortOrder: w.sortOrder,
       hasChildren: w._count.children > 0,
-      leadDisplayName: w.lead?.displayName ?? null,
+      leadDisplayName: w.lead ? resourceHumanDisplayName(w.lead) : null,
     }));
 
     return { nodes };
@@ -123,7 +122,7 @@ export class WorkTeamsService {
     const w = await this.prisma.workTeam.findFirst({
       where: { id, clientId },
       include: {
-        lead: { select: { displayName: true } },
+        lead: { select: { name: true, firstName: true } },
         parent: { select: { name: true } },
       },
     });
@@ -156,7 +155,7 @@ export class WorkTeamsService {
       await this.assertDepth(clientId, dto.parentId, 1);
     }
 
-    await this.assertLeadActive(clientId, dto.leadCollaboratorId);
+    await this.assertLeadResourceHuman(clientId, dto.leadResourceId);
 
     const created = await this.prisma.workTeam.create({
       data: {
@@ -164,12 +163,12 @@ export class WorkTeamsService {
         name: dto.name,
         code,
         parentId: dto.parentId ?? null,
-        leadCollaboratorId: dto.leadCollaboratorId,
+        leadResourceId: dto.leadResourceId,
         sortOrder: dto.sortOrder ?? 0,
         status: WorkTeamStatus.ACTIVE,
       },
       include: {
-        lead: { select: { displayName: true } },
+        lead: { select: { name: true, firstName: true } },
         parent: { select: { name: true } },
       },
     });
@@ -240,8 +239,8 @@ export class WorkTeamsService {
       }
     }
 
-    if (dto.leadCollaboratorId !== undefined) {
-      if (dto.leadCollaboratorId === null) {
+    if (dto.leadResourceId !== undefined) {
+      if (dto.leadResourceId === null) {
         if (existing.status === WorkTeamStatus.ACTIVE) {
           throw new BadRequestException(
             'Une equipe active doit avoir un responsable designe',
@@ -249,8 +248,8 @@ export class WorkTeamsService {
         }
         data.lead = { disconnect: true };
       } else {
-        await this.assertLeadActive(clientId, dto.leadCollaboratorId);
-        data.lead = { connect: { id: dto.leadCollaboratorId } };
+        await this.assertLeadResourceHuman(clientId, dto.leadResourceId);
+        data.lead = { connect: { id: dto.leadResourceId } };
       }
     }
 
@@ -258,7 +257,7 @@ export class WorkTeamsService {
       where: { id: existing.id },
       data,
       include: {
-        lead: { select: { displayName: true } },
+        lead: { select: { name: true, firstName: true } },
         parent: { select: { name: true } },
       },
     });
@@ -297,7 +296,7 @@ export class WorkTeamsService {
         await this.prisma.workTeam.findFirstOrThrow({
           where: { id },
           include: {
-            lead: { select: { displayName: true } },
+            lead: { select: { name: true, firstName: true } },
             parent: { select: { name: true } },
           },
         }),
@@ -311,7 +310,7 @@ export class WorkTeamsService {
         archivedAt: new Date(),
       },
       include: {
-        lead: { select: { displayName: true } },
+        lead: { select: { name: true, firstName: true } },
         parent: { select: { name: true } },
       },
     });
@@ -350,7 +349,7 @@ export class WorkTeamsService {
         await this.prisma.workTeam.findFirstOrThrow({
           where: { id },
           include: {
-            lead: { select: { displayName: true } },
+            lead: { select: { name: true, firstName: true } },
             parent: { select: { name: true } },
           },
         }),
@@ -364,7 +363,7 @@ export class WorkTeamsService {
         archivedAt: null,
       },
       include: {
-        lead: { select: { displayName: true } },
+        lead: { select: { name: true, firstName: true } },
         parent: { select: { name: true } },
       },
     });
@@ -455,23 +454,14 @@ export class WorkTeamsService {
     }
   }
 
-  async assertLeadActive(clientId: string, collaboratorId: string) {
-    const c = await this.prisma.collaborator.findFirst({
-      where: { id: collaboratorId, clientId },
-      select: { status: true },
-    });
-    if (!c) {
-      throw new BadRequestException('Lead collaborateur introuvable');
-    }
-    if (c.status !== CollaboratorStatus.ACTIVE) {
-      throw new BadRequestException('LEAD_NOT_ACTIVE');
-    }
+  async assertLeadResourceHuman(clientId: string, resourceId: string) {
+    await assertResourceHuman(this.prisma, clientId, resourceId);
   }
 
   private async toWorkTeamResponse(
     clientId: string,
     w: WorkTeam & {
-      lead?: { displayName: string } | null;
+      lead?: { name: string; firstName: string | null } | null;
       parent?: { name: string } | null;
     },
   ) {
@@ -485,11 +475,11 @@ export class WorkTeamsService {
       status: w.status,
       archivedAt: w.archivedAt,
       sortOrder: w.sortOrder,
-      leadCollaboratorId: w.leadCollaboratorId,
+      leadResourceId: w.leadResourceId,
       createdAt: w.createdAt,
       updatedAt: w.updatedAt,
       parentTeamName: w.parent?.name ?? null,
-      leadDisplayName: w.lead?.displayName ?? null,
+      leadDisplayName: w.lead ? resourceHumanDisplayName(w.lead) : null,
       pathLabel,
     };
   }

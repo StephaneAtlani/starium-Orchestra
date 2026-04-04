@@ -180,6 +180,8 @@ Permissions minimales (module `collaborators`) :
 
 Ces permissions doivent rester cohérentes avec `ModuleAccessGuard` (préfixe module = `collaborators`).
 
+**Lecture des options manager** (`GET /api/collaborators/options/managers`) : l’endpoint est utilisable avec **l’une** des permissions suivantes (évite d’exiger `collaborators.read` pour remplir le champ manager sur une fiche ou dans les équipes) : `collaborators.read`, `collaborators.create`, `collaborators.update`, `teams.update`. Réponses toujours limitées au client actif.
+
 Audit actions minimales :
 
 - `collaborator.created`

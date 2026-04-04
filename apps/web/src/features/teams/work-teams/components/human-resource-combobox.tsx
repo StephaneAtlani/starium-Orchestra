@@ -5,8 +5,6 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getCollaboratorById } from '@/features/teams/collaborators/api/collaborators.api';
-import type { CollaboratorListItem } from '@/features/teams/collaborators/types/collaborator.types';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { cn } from '@/lib/utils';
@@ -16,38 +14,20 @@ import { humanResourceLeadLabel } from './work-team-lead-combobox';
 
 const MIN_SEARCH_CHARS = 2;
 
-/** Ressource catalogue = même personne que le collaborateur (responsable d’équipe) : ne pas proposer. */
-function resourceMatchesCollaborator(
-  r: ResourceListItem,
-  collaborator: CollaboratorListItem,
-): boolean {
-  const uid = collaborator.linkedUserId?.trim();
-  const ruid = r.linkedUserId?.trim();
-  if (uid && ruid && uid === ruid) return true;
-  const ce = collaborator.email?.trim().toLowerCase();
-  const re = r.email?.trim().toLowerCase();
-  if (ce && re && ce === re) return true;
-  return false;
-}
-
 export type HumanResourceComboboxProps = {
   id?: string;
-  /** id de la ressource HUMAN ou chaîne vide */
   value: string;
   onChange: (resourceId: string) => void;
-  /** Libellé si la valeur vient du parent sans passage par la liste. */
   fallbackLabel?: string | null;
   disabled?: boolean;
-  /** Dialog parent ouvert — active les requêtes. */
   dialogOpen: boolean;
-  /** Collaborateur à exclure (ex. responsable d’équipe — ne doit pas être ajouté comme membre). */
-  excludeCollaboratorId?: string | null;
+  /** Resource HUMAN à exclure (ex. responsable d’équipe déjà désigné). */
+  excludeResourceId?: string | null;
   label?: string;
 };
 
 /**
- * Sélection d’une ressource catalogue Humaine : même pattern UI que le responsable d’équipe
- * (`WorkTeamLeadCombobox`) — Input + chevron, autocomplétion après 2 caractères.
+ * Sélection d’une ressource catalogue Humaine (Resource HUMAN).
  */
 export function HumanResourceCombobox({
   id: propId,
@@ -56,7 +36,7 @@ export function HumanResourceCombobox({
   fallbackLabel,
   disabled = false,
   dialogOpen,
-  excludeCollaboratorId = null,
+  excludeResourceId = null,
   label = 'Ressource Humaine (catalogue)',
 }: HumanResourceComboboxProps) {
   const reactId = useId();
@@ -89,37 +69,20 @@ export function HumanResourceCombobox({
     retry: 1,
   });
 
-  const excludeLeadQuery = useQuery({
-    queryKey: ['collaborators', 'exclude-from-hr-combo', excludeCollaboratorId],
-    queryFn: () => getCollaboratorById(authFetch, excludeCollaboratorId!),
-    enabled: dialogOpen && !!excludeCollaboratorId,
-    staleTime: 60_000,
-    retry: 1,
-  });
-
-  const excludedCollaborator = excludeLeadQuery.data ?? null;
-
   const humanItemsRaw = searchReady ? (humanResourcesQuery.data?.items ?? []) : [];
 
   const humanItems = useMemo(() => {
-    if (excludeCollaboratorId && excludeLeadQuery.isLoading) return [];
-    if (!excludedCollaborator) return humanItemsRaw;
-    return humanItemsRaw.filter((r) => !resourceMatchesCollaborator(r, excludedCollaborator));
-  }, [
-    humanItemsRaw,
-    excludedCollaborator,
-    excludeCollaboratorId,
-    excludeLeadQuery.isLoading,
-  ]);
+    if (!excludeResourceId) return humanItemsRaw;
+    return humanItemsRaw.filter((r) => r.id !== excludeResourceId);
+  }, [humanItemsRaw, excludeResourceId]);
 
-  const allResultsWereLead =
+  const allResultsWereExcluded =
     searchReady &&
     !humanResourcesQuery.isFetching &&
-    !excludeLeadQuery.isLoading &&
     !humanResourcesQuery.isError &&
     humanItemsRaw.length > 0 &&
     humanItems.length === 0 &&
-    !!excludedCollaborator;
+    !!excludeResourceId;
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -186,23 +149,18 @@ export function HumanResourceCombobox({
 
   const pickResource = (r: ResourceListItem) => {
     if (disabled) return;
-    if (excludedCollaborator && resourceMatchesCollaborator(r, excludedCollaborator)) return;
+    if (excludeResourceId && r.id === excludeResourceId) return;
     setPickedLabel(humanResourceLeadLabel(r));
     onChange(r.id);
     closeList();
   };
 
-  const listFetching =
-    searchReady &&
-    (humanResourcesQuery.isFetching ||
-      (!!excludeCollaboratorId && excludeLeadQuery.isLoading));
+  const listFetching = searchReady && humanResourcesQuery.isFetching;
   const listError = humanResourcesQuery.isError;
   const listEmpty =
     searchReady &&
     !humanResourcesQuery.isFetching &&
-    !(excludeCollaboratorId && excludeLeadQuery.isLoading) &&
     !humanResourcesQuery.isError &&
-    !excludeLeadQuery.isError &&
     humanItems.length === 0;
 
   const inputPlaceholder = disabled
@@ -214,8 +172,7 @@ export function HumanResourceCombobox({
       <Label htmlFor={inputId}>{label}</Label>
       <p className="text-xs text-muted-foreground leading-relaxed">
         <strong>Autocomplétion</strong> : saisis au moins {MIN_SEARCH_CHARS} caractères — les fiches{' '}
-        <strong>Humaine</strong> correspondantes du catalogue sont proposées (pas de liste complète à
-        l’ouverture).
+        <strong>Humaine</strong> correspondantes du catalogue sont proposées.
       </p>
       <div ref={containerRef} className="relative">
         <Input
@@ -264,8 +221,7 @@ export function HumanResourceCombobox({
           >
             {!searchReady && (
               <li className="px-2 py-2 text-xs text-muted-foreground">
-                Saisis au moins {MIN_SEARCH_CHARS} caractères pour lancer la recherche (aucune liste
-                complète).
+                Saisis au moins {MIN_SEARCH_CHARS} caractères pour lancer la recherche.
               </li>
             )}
 
@@ -276,26 +232,20 @@ export function HumanResourceCombobox({
               </li>
             )}
 
-            {searchReady && excludeCollaboratorId && excludeLeadQuery.isError && (
-              <li className="px-2 py-2 text-xs text-destructive">
-                Impossible de charger le profil du responsable d’équipe (exclusion).
-              </li>
-            )}
-
             {searchReady && listError && (
               <li className="px-2 py-2 text-xs text-destructive">
                 Impossible de charger les ressources Humaines.
               </li>
             )}
 
-            {searchReady && allResultsWereLead && (
+            {searchReady && allResultsWereExcluded && (
               <li className="px-2 py-2 text-xs text-muted-foreground">
                 Seul le responsable d’équipe correspond à cette recherche — il ne peut pas être ajouté
                 comme membre.
               </li>
             )}
 
-            {searchReady && listEmpty && !allResultsWereLead && (
+            {searchReady && listEmpty && !allResultsWereExcluded && (
               <li className="px-2 py-2 text-xs text-muted-foreground">
                 Aucune ressource Humaine ne correspond à ta recherche.
               </li>

@@ -13,18 +13,18 @@ export const workTeamQueryKeys = {
     [...workTeamQueryKeys.all, 'detail', clientId, teamId] as const,
   members: (clientId: string, teamId: string, params: WorkTeamMembersParams) =>
     [...workTeamQueryKeys.all, 'members', clientId, teamId, params] as const,
-  managerScope: (clientId: string, managerCollaboratorId: string) =>
-    [...workTeamQueryKeys.all, 'manager-scope', clientId, managerCollaboratorId] as const,
+  managerScope: (clientId: string, managerResourceId: string) =>
+    [...workTeamQueryKeys.all, 'manager-scope', clientId, managerResourceId] as const,
   managerScopePreview: (
     clientId: string,
-    managerCollaboratorId: string,
+    managerResourceId: string,
     params: ManagerScopePreviewParams,
   ) =>
     [
       ...workTeamQueryKeys.all,
       'manager-scope-preview',
       clientId,
-      managerCollaboratorId,
+      managerResourceId,
       params,
     ] as const,
 };

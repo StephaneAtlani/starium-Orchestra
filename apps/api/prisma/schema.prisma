@@ -137,6 +137,14 @@ enum WorkTeamMemberRole {
   DEPUTY
 }
 
+/// RFC-TEAM-020 / TEAM-009 — saisie temps réalisé (workflow).
+enum TimeEntryStatus {
+  DRAFT
+  SUBMITTED
+  VALIDATED
+  REJECTED
+}
+
 enum ManagerScopeMode {
   DIRECT_REPORTS_ONLY
   TEAM_SUBTREE
@@ -245,7 +253,7 @@ model Client {
   budgetDashboardWidgets BudgetDashboardWidget[]
   budgetDashboardWidgetOverrides BudgetDashboardWidgetOverride[]
   activityTypes                  ActivityType[]
-  teamResourceAssignments        TeamResourceAssignment[]
+  resourceTimeEntries            ResourceTimeEntry[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -525,6 +533,12 @@ model Resource {
   companyName    String?
   dailyRate    Decimal?     @db.Decimal(12, 2)
   metadata     Json?
+  /// Champs RH (RFC-TEAM-020 — alignement catalogue Humain / module Équipes).
+  jobTitle       String?
+  department     String?
+  phone          String?
+  mobile         String?
+  employeeNumber String?
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
@@ -532,6 +546,10 @@ model Resource {
   resourceRole ResourceRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
   /// Tâches projet / plan dont cette ressource humaine est responsable (MVP pilotage).
   responsibleForProjectTasks ProjectTask[] @relation("ProjectTaskResponsibleResource")
+  workTeamMemberships        WorkTeamMembership[]
+  ledWorkTeams               WorkTeam[]             @relation("WorkTeamLeadResource")
+  managerScopeConfig         ManagerScopeConfig?
+  resourceTimeEntries        ResourceTimeEntry[]
 
   @@unique([clientId, email])
   @@unique([clientId, code])
@@ -883,7 +901,7 @@ model Project {
   projectReviews         ProjectReview[]
   projectReviewActionItems ProjectReviewActionItem[]
   documents ProjectDocument[]
-  teamResourceAssignments TeamResourceAssignment[]
+  resourceTimeEntries     ResourceTimeEntry[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -1120,7 +1138,6 @@ model ProjectTeamRole {
 
   client  Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
   members ProjectTeamMember[]
-  teamResourceAssignments TeamResourceAssignment[]
 
   @@unique([clientId, name])
   @@index([clientId])
@@ -2991,10 +3008,6 @@ model Collaborator {
   manager      Collaborator?  @relation("CollaboratorManager", fields: [managerId], references: [id], onDelete: SetNull)
   reports      Collaborator[] @relation("CollaboratorManager")
   collaboratorSkills CollaboratorSkill[]
-  workTeamMemberships WorkTeamMembership[]
-  ledWorkTeams        WorkTeam[]             @relation("WorkTeamLead")
-  managerScopeConfig  ManagerScopeConfig?
-  teamResourceAssignments TeamResourceAssignment[]
 
   @@unique([clientId, externalDirectoryId])
   @@unique([clientId, userId])
@@ -3020,7 +3033,7 @@ model ActivityType {
   updatedAt        DateTime             @updatedAt
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  teamResourceAssignments TeamResourceAssignment[]
+  resourceTimeEntries     ResourceTimeEntry[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -3028,52 +3041,48 @@ model ActivityType {
   @@index([clientId, archivedAt])
 }
 
-/// RFC-TEAM-007 — affectation planifiée (staffing) collaborateur vers projet optionnel + type d’activité
-model TeamResourceAssignment {
-  id                  String    @id @default(cuid())
-  clientId            String
-  collaboratorId      String
-  projectId           String?
-  activityTypeId      String
-  projectTeamRoleId   String?
-  roleLabel           String    @db.VarChar(120)
-  startDate           DateTime
-  endDate             DateTime?
-  allocationPercent   Decimal   @db.Decimal(5, 2)
-  notes               String?   @db.VarChar(4000)
-  cancelledAt         DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+/// RFC-TEAM-020 / TEAM-009 — temps réalisé (saisie par Resource HUMAN).
+model ResourceTimeEntry {
+  id               String          @id @default(cuid())
+  clientId         String
+  resourceId       String
+  workDate         DateTime
+  durationHours    Decimal         @db.Decimal(8, 2)
+  projectId        String?
+  activityTypeId   String?
+  status           TimeEntryStatus @default(DRAFT)
+  notes            String?         @db.VarChar(4000)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  collaborator    Collaborator     @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
-  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  activityType    ActivityType     @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
-  projectTeamRole ProjectTeamRole? @relation(fields: [projectTeamRoleId], references: [id], onDelete: SetNull)
+  client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  resource     Resource      @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  activityType ActivityType? @relation(fields: [activityTypeId], references: [id], onDelete: SetNull)
 
-  @@index([clientId, collaboratorId])
+  @@index([clientId, resourceId])
+  @@index([clientId, workDate])
   @@index([clientId, projectId])
-  @@index([clientId, startDate, endDate])
-  @@index([clientId, activityTypeId])
+  @@index([clientId, status])
 }
 
 model WorkTeam {
-  id                 String         @id @default(cuid())
-  clientId           String
-  name               String
-  code               String?
-  parentId           String?
-  leadCollaboratorId String?
-  status             WorkTeamStatus @default(ACTIVE)
-  archivedAt         DateTime?
-  sortOrder          Int            @default(0)
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  id             String         @id @default(cuid())
+  clientId       String
+  name           String
+  code           String?
+  parentId       String?
+  leadResourceId String?
+  status         WorkTeamStatus @default(ACTIVE)
+  archivedAt     DateTime?
+  sortOrder      Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   client               Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
   parent               WorkTeam?              @relation("WorkTeamHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
   children             WorkTeam[]             @relation("WorkTeamHierarchy")
-  lead                 Collaborator?          @relation("WorkTeamLead", fields: [leadCollaboratorId], references: [id], onDelete: SetNull)
+  lead                 Resource?              @relation("WorkTeamLeadResource", fields: [leadResourceId], references: [id], onDelete: SetNull)
   memberships          WorkTeamMembership[]
   managerScopeRootRefs ManagerScopeRootTeam[]
 
@@ -3083,34 +3092,34 @@ model WorkTeam {
 }
 
 model WorkTeamMembership {
-  id             String             @id @default(cuid())
-  clientId       String
-  workTeamId     String
-  collaboratorId String
-  role           WorkTeamMemberRole @default(MEMBER)
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  id         String             @id @default(cuid())
+  clientId   String
+  workTeamId String
+  resourceId String
+  role       WorkTeamMemberRole @default(MEMBER)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
 
-  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  workTeam     WorkTeam     @relation(fields: [workTeamId], references: [id], onDelete: Cascade)
-  collaborator Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  workTeam WorkTeam @relation(fields: [workTeamId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
 
-  @@unique([workTeamId, collaboratorId])
-  @@index([clientId, collaboratorId])
+  @@unique([workTeamId, resourceId])
+  @@index([clientId, resourceId])
 }
 
 model ManagerScopeConfig {
-  id                    String           @id @default(cuid())
-  clientId              String
-  managerCollaboratorId String           @unique
-  mode                  ManagerScopeMode
-  includeDirectReports  Boolean          @default(true)
-  includeTeamSubtree    Boolean          @default(false)
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
+  id                String           @id @default(cuid())
+  clientId          String
+  managerResourceId String           @unique
+  mode              ManagerScopeMode
+  includeDirectReports Boolean       @default(true)
+  includeTeamSubtree   Boolean       @default(false)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   client    Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  manager   Collaborator           @relation(fields: [managerCollaboratorId], references: [id], onDelete: Cascade)
+  manager   Resource               @relation(fields: [managerResourceId], references: [id], onDelete: Cascade)
   rootTeams ManagerScopeRootTeam[]
 
   @@index([clientId])

@@ -27,7 +27,7 @@ export type NavigationItem = {
   requiredPermissions?: string[];
   /**
    * `all` (défaut) : toutes les permissions de `requiredPermissions` sont requises.
-   * `any` : au moins une permission — réservé au cas parent Équipes (collaborators vs skills).
+   * `any` : au moins une permission — réservé au cas parent Équipes (compétences / structure / temps).
    */
   requiredPermissionsMatch?: 'all' | 'any';
   /** Visible uniquement si user.platformRole === 'PLATFORM_ADMIN'. */
@@ -165,12 +165,7 @@ export const navigation: NavigationSection[] = [
         label: 'Equipes',
         icon: Users,
         scope: 'client',
-        requiredPermissions: [
-          'collaborators.read',
-          'skills.read',
-          'teams.read',
-          'team_assignments.read',
-        ],
+        requiredPermissions: ['skills.read', 'teams.read', 'resources.read'],
         requiredPermissionsMatch: 'any',
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },

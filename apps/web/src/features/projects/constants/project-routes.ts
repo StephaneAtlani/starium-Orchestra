@@ -24,11 +24,6 @@ export function projectSheet(projectId: string): string {
   return `/projects/${projectId}/sheet`;
 }
 
-/** Charge planifiée / staffing (RFC-FE-TEAM-005). */
-export function projectStaffing(projectId: string): string {
-  return `/projects/${projectId}/staffing`;
-}
-
 /** Cockpit Planning : tâches, jalons, Gantt (RFC-PROJ-012). */
 export function projectPlanning(
   projectId: string,

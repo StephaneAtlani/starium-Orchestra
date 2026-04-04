@@ -13,7 +13,7 @@ export type WorkTeamDto = {
   status: WorkTeamStatus;
   archivedAt: string | null;
   sortOrder: number;
-  leadCollaboratorId: string | null;
+  leadResourceId: string | null;
   createdAt: string;
   updatedAt: string;
   parentTeamName: string | null;
@@ -39,8 +39,8 @@ export type WorkTeamsListParams = {
   parentId?: string | null;
   status?: WorkTeamStatus;
   includeArchived?: boolean;
-  /** Équipes dont ce collaborateur est responsable d’équipe (API `leadCollaboratorId`). */
-  leadCollaboratorId?: string;
+  /** Équipes dont cette ressource Humaine est responsable (`WorkTeam.leadResourceId`). */
+  leadResourceId?: string;
 };
 
 export type WorkTeamsListResponse = {
@@ -62,13 +62,13 @@ export type WorkTeamsTreeResponse = {
 export type WorkTeamMemberRow = {
   id: string;
   workTeamId: string;
-  collaboratorId: string;
+  resourceId: string;
   role: WorkTeamMemberRole;
   clientId: string;
   createdAt: string;
   updatedAt: string;
-  collaboratorDisplayName: string;
-  collaboratorEmail: string | null;
+  resourceDisplayName: string;
+  resourceEmail: string | null;
 };
 
 export type WorkTeamMembersParams = {
@@ -88,8 +88,8 @@ export type CreateWorkTeamPayload = {
   name: string;
   code?: string | null;
   parentId?: string | null;
-  /** Responsable d’équipe — obligatoire à la création (équipe active). */
-  leadCollaboratorId: string;
+  /** Responsable d’équipe — Resource HUMAN, obligatoire à la création (équipe active). */
+  leadResourceId: string;
   sortOrder?: number;
 };
 
@@ -97,19 +97,19 @@ export type UpdateWorkTeamPayload = {
   name?: string;
   code?: string | null;
   parentId?: string | null;
-  leadCollaboratorId?: string | null;
+  leadResourceId?: string | null;
   sortOrder?: number;
 };
 
 export type AddWorkTeamMemberPayload = {
-  collaboratorId: string;
+  resourceId: string;
   role: WorkTeamMemberRole;
 };
 
 export type ManagerScopeDto = {
   id: string | null;
   clientId: string;
-  managerCollaboratorId: string;
+  managerResourceId: string;
   mode: ManagerScopeMode;
   includeDirectReports: boolean;
   includeTeamSubtree: boolean;
@@ -136,10 +136,9 @@ export type ManagerScopePreviewParams = {
 };
 
 export type ManagerScopePreviewItem = {
-  collaboratorId: string;
+  resourceId: string;
   displayName: string;
   email: string | null;
-  status: string;
 };
 
 export type ManagerScopePreviewResponse = {

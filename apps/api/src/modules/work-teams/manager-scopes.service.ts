@@ -8,10 +8,15 @@ import {
   CollaboratorStatus,
   ManagerScopeMode,
   Prisma,
+  ResourceType,
   WorkTeamStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import {
+  assertResourceHuman,
+  resourceHumanDisplayName,
+} from '../resources/resource-human.util';
 import { PreviewManagerScopeQueryDto } from './dto/preview-manager-scope.query.dto';
 import { PutManagerScopeDto } from './dto/put-manager-scope.dto';
 import { AuditMeta } from './work-teams.service';
@@ -23,17 +28,11 @@ export class ManagerScopesService {
     private readonly auditLogs: AuditLogsService,
   ) {}
 
-  async get(clientId: string, managerCollaboratorId: string) {
-    const manager = await this.prisma.collaborator.findFirst({
-      where: { id: managerCollaboratorId, clientId },
-      select: { id: true, status: true },
-    });
-    if (!manager) {
-      throw new NotFoundException('Collaborateur introuvable');
-    }
+  async get(clientId: string, managerResourceId: string) {
+    await assertResourceHuman(this.prisma, clientId, managerResourceId);
 
     const row = await this.prisma.managerScopeConfig.findFirst({
-      where: { managerCollaboratorId, clientId },
+      where: { managerResourceId, clientId },
       include: {
         rootTeams: {
           include: { workTeam: { select: { id: true, name: true, code: true } } },
@@ -42,7 +41,7 @@ export class ManagerScopesService {
     });
 
     if (!row) {
-      return this.defaultConfigResponse(clientId, managerCollaboratorId);
+      return this.defaultConfigResponse(clientId, managerResourceId);
     }
 
     return this.toConfigResponse(clientId, row);
@@ -50,23 +49,12 @@ export class ManagerScopesService {
 
   async put(
     clientId: string,
-    managerCollaboratorId: string,
+    managerResourceId: string,
     dto: PutManagerScopeDto,
     actorUserId: string | undefined,
     meta?: AuditMeta,
   ) {
-    const manager = await this.prisma.collaborator.findFirst({
-      where: { id: managerCollaboratorId, clientId },
-      select: { id: true, status: true },
-    });
-    if (!manager) {
-      throw new NotFoundException('Collaborateur introuvable');
-    }
-    if (manager.status !== CollaboratorStatus.ACTIVE) {
-      throw new BadRequestException(
-        'Le collaborateur cible du scope doit etre actif',
-      );
-    }
+    await assertResourceHuman(this.prisma, clientId, managerResourceId);
 
     for (const tid of dto.rootTeamIds) {
       const t = await this.prisma.workTeam.findFirst({
@@ -82,7 +70,7 @@ export class ManagerScopesService {
     }
 
     const existing = await this.prisma.managerScopeConfig.findFirst({
-      where: { managerCollaboratorId, clientId },
+      where: { managerResourceId, clientId },
       include: { rootTeams: true },
     });
 
@@ -99,7 +87,7 @@ export class ManagerScopesService {
         : await tx.managerScopeConfig.create({
             data: {
               clientId,
-              managerCollaboratorId,
+              managerResourceId,
               mode: dto.mode,
               includeDirectReports: dto.includeDirectReports,
               includeTeamSubtree: dto.includeTeamSubtree,
@@ -158,19 +146,13 @@ export class ManagerScopesService {
 
   async preview(
     clientId: string,
-    managerCollaboratorId: string,
+    managerResourceId: string,
     query: PreviewManagerScopeQueryDto,
   ) {
-    const manager = await this.prisma.collaborator.findFirst({
-      where: { id: managerCollaboratorId, clientId },
-      select: { id: true, status: true },
-    });
-    if (!manager) {
-      throw new NotFoundException('Collaborateur introuvable');
-    }
+    await assertResourceHuman(this.prisma, clientId, managerResourceId);
 
     const row = await this.prisma.managerScopeConfig.findFirst({
-      where: { managerCollaboratorId, clientId },
+      where: { managerResourceId, clientId },
       include: { rootTeams: true },
     });
 
@@ -179,8 +161,8 @@ export class ManagerScopesService {
     const includeTeamSubtree = row?.includeTeamSubtree ?? false;
     const rootIds = row?.rootTeams.map((r) => r.workTeamId) ?? [];
 
-    const ids = await this.resolveScopedCollaboratorIds(clientId, {
-      managerCollaboratorId,
+    const ids = await this.resolveScopedIds(clientId, {
+      managerResourceId,
       mode,
       includeDirectReports,
       includeTeamSubtree,
@@ -190,41 +172,42 @@ export class ManagerScopesService {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
 
-    const where: Prisma.CollaboratorWhereInput = {
+    const where: Prisma.ResourceWhereInput = {
       clientId,
+      type: ResourceType.HUMAN,
       id: { in: [...ids] },
     };
 
     if (query.q?.trim()) {
       const q = query.q.trim();
       where.OR = [
-        { displayName: { contains: q, mode: 'insensitive' } },
+        { name: { contains: q, mode: 'insensitive' } },
+        { firstName: { contains: q, mode: 'insensitive' } },
         { email: { contains: q, mode: 'insensitive' } },
       ];
     }
 
-    const [total, items] = await this.prisma.$transaction([
-      this.prisma.collaborator.count({ where }),
-      this.prisma.collaborator.findMany({
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.resource.count({ where }),
+      this.prisma.resource.findMany({
         where,
-        orderBy: { displayName: 'asc' },
+        orderBy: { name: 'asc' },
         skip: offset,
         take: limit,
         select: {
           id: true,
-          displayName: true,
+          name: true,
+          firstName: true,
           email: true,
-          status: true,
         },
       }),
     ]);
 
     return {
-      items: items.map((c) => ({
-        collaboratorId: c.id,
-        displayName: c.displayName,
-        email: c.email,
-        status: c.status,
+      items: rows.map((r) => ({
+        resourceId: r.id,
+        displayName: resourceHumanDisplayName(r),
+        email: r.email,
       })),
       total,
       limit,
@@ -232,11 +215,11 @@ export class ManagerScopesService {
     };
   }
 
-  private defaultConfigResponse(clientId: string, managerCollaboratorId: string) {
+  private defaultConfigResponse(clientId: string, managerResourceId: string) {
     return {
       id: null as string | null,
       clientId,
-      managerCollaboratorId,
+      managerResourceId,
       mode: ManagerScopeMode.DIRECT_REPORTS_ONLY,
       includeDirectReports: true,
       includeTeamSubtree: false,
@@ -254,7 +237,7 @@ export class ManagerScopesService {
     clientId: string,
     row: {
       id: string;
-      managerCollaboratorId: string;
+      managerResourceId: string;
       mode: ManagerScopeMode;
       includeDirectReports: boolean;
       includeTeamSubtree: boolean;
@@ -268,7 +251,7 @@ export class ManagerScopesService {
     return {
       id: row.id,
       clientId,
-      managerCollaboratorId: row.managerCollaboratorId,
+      managerResourceId: row.managerResourceId,
       mode: row.mode,
       includeDirectReports: row.includeDirectReports,
       includeTeamSubtree: row.includeTeamSubtree,
@@ -304,10 +287,11 @@ export class ManagerScopesService {
     return [...all];
   }
 
-  private async resolveScopedCollaboratorIds(
+  /** Identifiants personne dans le périmètre : même espace d’id que Collaborator après migration (Resource HUMAN alignée). */
+  private async resolveScopedIds(
     clientId: string,
     params: {
-      managerCollaboratorId: string;
+      managerResourceId: string;
       mode: ManagerScopeMode;
       includeDirectReports: boolean;
       includeTeamSubtree: boolean;
@@ -320,7 +304,7 @@ export class ManagerScopesService {
       const directs = await this.prisma.collaborator.findMany({
         where: {
           clientId,
-          managerId: params.managerCollaboratorId,
+          managerId: params.managerResourceId,
           status: CollaboratorStatus.ACTIVE,
         },
         select: { id: true },
@@ -333,7 +317,7 @@ export class ManagerScopesService {
       const directs = await this.prisma.collaborator.findMany({
         where: {
           clientId,
-          managerId: params.managerCollaboratorId,
+          managerId: params.managerResourceId,
           status: CollaboratorStatus.ACTIVE,
         },
         select: { id: true },
@@ -348,9 +332,9 @@ export class ManagerScopesService {
       );
       const members = await this.prisma.workTeamMembership.findMany({
         where: { clientId, workTeamId: { in: teamIds } },
-        select: { collaboratorId: true },
+        select: { resourceId: true },
       });
-      members.forEach((m) => out.add(m.collaboratorId));
+      members.forEach((m) => out.add(m.resourceId));
     }
 
     return out;

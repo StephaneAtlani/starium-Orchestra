@@ -121,9 +121,9 @@ export function WorkTeamMembersCard({
                   {items.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell>
-                        <div className="font-medium">{m.collaboratorDisplayName}</div>
-                        {m.collaboratorEmail ? (
-                          <div className="text-xs text-muted-foreground">{m.collaboratorEmail}</div>
+                        <div className="font-medium">{m.resourceDisplayName}</div>
+                        {m.resourceEmail ? (
+                          <div className="text-xs text-muted-foreground">{m.resourceEmail}</div>
                         ) : null}
                       </TableCell>
                       <TableCell>

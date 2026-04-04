@@ -58,8 +58,13 @@ export class CollaboratorsController {
   }
 
   @Get('options/managers')
-  /** Même liste que pour responsable d’équipe : autorisé aussi avec teams.update (sans collaborators.read). */
-  @RequireAnyPermissions('collaborators.read', 'collaborators.create', 'teams.update')
+  /** Même liste que pour responsable d’équipe ; aussi pour édition fiche (manager) sans lecture liste complète. */
+  @RequireAnyPermissions(
+    'collaborators.read',
+    'collaborators.create',
+    'collaborators.update',
+    'teams.update',
+  )
   listManagersOptions(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListCollaboratorOptionsQueryDto,

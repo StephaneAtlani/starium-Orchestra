@@ -24,30 +24,30 @@ import { ManagerScopesService } from './manager-scopes.service';
 export class ManagerScopesController {
   constructor(private readonly managerScopes: ManagerScopesService) {}
 
-  @Get(':managerCollaboratorId/preview')
+  @Get(':managerResourceId/preview')
   @RequirePermissions('teams.read')
   preview(
     @ActiveClientId() clientId: string | undefined,
-    @Param('managerCollaboratorId') managerCollaboratorId: string,
+    @Param('managerResourceId') managerResourceId: string,
     @Query() query: PreviewManagerScopeQueryDto,
   ) {
-    return this.managerScopes.preview(clientId!, managerCollaboratorId, query);
+    return this.managerScopes.preview(clientId!, managerResourceId, query);
   }
 
-  @Get(':managerCollaboratorId')
+  @Get(':managerResourceId')
   @RequirePermissions('teams.read')
   get(
     @ActiveClientId() clientId: string | undefined,
-    @Param('managerCollaboratorId') managerCollaboratorId: string,
+    @Param('managerResourceId') managerResourceId: string,
   ) {
-    return this.managerScopes.get(clientId!, managerCollaboratorId);
+    return this.managerScopes.get(clientId!, managerResourceId);
   }
 
-  @Put(':managerCollaboratorId')
+  @Put(':managerResourceId')
   @RequirePermissions('teams.manage_scopes')
   put(
     @ActiveClientId() clientId: string | undefined,
-    @Param('managerCollaboratorId') managerCollaboratorId: string,
+    @Param('managerResourceId') managerResourceId: string,
     @Body() dto: PutManagerScopeDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta()
@@ -55,7 +55,7 @@ export class ManagerScopesController {
   ) {
     return this.managerScopes.put(
       clientId!,
-      managerCollaboratorId,
+      managerResourceId,
       dto,
       actorUserId,
       meta,

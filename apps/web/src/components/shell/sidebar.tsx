@@ -295,12 +295,6 @@ export function Sidebar() {
                 const isEquipes = item.label === 'Equipes';
                 if (isEquipes) {
                   const teamsChildren: { label: string; href: string }[] = [];
-                  if (permsSuccess && has('collaborators.read')) {
-                    teamsChildren.push({
-                      label: 'Collaborateurs',
-                      href: '/teams/collaborators',
-                    });
-                  }
                   if (permsSuccess && has('skills.read')) {
                     teamsChildren.push({
                       label: 'Catalogue compétences',
@@ -313,10 +307,10 @@ export function Sidebar() {
                       href: '/teams/structure/teams',
                     });
                   }
-                  if (permsSuccess && has('team_assignments.read')) {
+                  if (permsSuccess && has('resources.read')) {
                     teamsChildren.push({
-                      label: 'Affectations',
-                      href: '/teams/assignments',
+                      label: 'Temps réalisé',
+                      href: '/teams/time-entries',
                     });
                   }
 

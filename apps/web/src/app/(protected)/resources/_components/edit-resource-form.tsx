@@ -138,7 +138,7 @@ export function EditResourceForm({
       offset: 0,
       status: 'ACTIVE',
       includeArchived: false,
-      ...(managerId ? { leadCollaboratorId: managerId } : {}),
+      ...(managerId ? { leadResourceId: managerId } : {}),
     },
     { enabled: showTeamsBlock && Boolean(managerId) },
   );

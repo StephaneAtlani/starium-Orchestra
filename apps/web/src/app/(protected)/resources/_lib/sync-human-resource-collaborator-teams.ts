@@ -13,12 +13,12 @@ export async function ensureCollaboratorManagerAndTeams(
   managerId: string | null,
   workTeamIds: string[],
 ): Promise<void> {
-  const collabId = await resolveCollaboratorIdFromHumanResource(authFetch, resource, {
+  await resolveCollaboratorIdFromHumanResource(authFetch, resource, {
     managerId,
   });
   for (const tid of workTeamIds) {
     try {
-      await addWorkTeamMember(authFetch, tid, { collaboratorId: collabId, role: 'MEMBER' });
+      await addWorkTeamMember(authFetch, tid, { resourceId: resource.id, role: 'MEMBER' });
     } catch (e) {
       const err = e as ApiFormError;
       if (err.status === 409) continue;
@@ -35,7 +35,7 @@ export async function syncCollaboratorManagerAndTeams(
   desiredTeamIds: string[],
   previousMemberships: TeamMembershipRef[],
 ): Promise<void> {
-  const collabId = await resolveCollaboratorIdFromHumanResource(authFetch, resource, {
+  await resolveCollaboratorIdFromHumanResource(authFetch, resource, {
     managerId,
   });
   const desired = new Set(desiredTeamIds);
@@ -43,7 +43,7 @@ export async function syncCollaboratorManagerAndTeams(
   for (const tid of desiredTeamIds) {
     if (!prevByTeam.has(tid)) {
       try {
-        await addWorkTeamMember(authFetch, tid, { collaboratorId: collabId, role: 'MEMBER' });
+        await addWorkTeamMember(authFetch, tid, { resourceId: resource.id, role: 'MEMBER' });
       } catch (e) {
         const err = e as ApiFormError;
         if (err.status === 409) continue;

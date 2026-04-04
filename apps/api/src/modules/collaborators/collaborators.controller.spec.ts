@@ -90,12 +90,17 @@ describe('CollaboratorsController', () => {
     expect(perms).toEqual(['teams.read']);
   });
 
-  it('applique collaborators.read OU collaborators.create OU teams.update sur listManagersOptions', () => {
+  it('applique collaborators.read OU create OU update OU teams.update sur listManagersOptions', () => {
     const perms = Reflect.getMetadata(
       REQUIRE_ANY_PERMISSIONS_KEY,
       CollaboratorsController.prototype.listManagersOptions,
     );
-    expect(perms).toEqual(['collaborators.read', 'collaborators.create', 'teams.update']);
+    expect(perms).toEqual([
+      'collaborators.read',
+      'collaborators.create',
+      'collaborators.update',
+      'teams.update',
+    ]);
   });
 
   it('applique permission collaborators.read sur list', () => {

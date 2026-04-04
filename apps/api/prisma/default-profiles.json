@@ -94,7 +94,7 @@
     "name": "Lecteur Équipes",
     "description": "Consultation du référentiel collaborateurs (module Équipes, lecture seule)",
     "isSystem": true,
-    "permissionCodes": ["collaborators.read", "teams.read", "activity_types.read", "team_assignments.read"]
+    "permissionCodes": ["collaborators.read", "teams.read", "activity_types.read", "resources.read"]
   },
   {
     "name": "Gestionnaire Équipes",
@@ -110,10 +110,9 @@
       "teams.manage_scopes",
       "activity_types.read",
       "activity_types.manage",
-      "team_assignments.read",
-      "team_assignments.manage",
       "resources.read",
-      "resources.create"
+      "resources.create",
+      "resources.update"
     ]
   }
 ]

@@ -1,5 +1,7 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { REQUIRE_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
+import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestWithClient } from '../types/request-with-client';
 import { PermissionsGuard } from './permissions.guard';
@@ -154,15 +156,17 @@ describe('PermissionsGuard', () => {
       },
     };
 
-    (reflector.get as jest.Mock).mockReturnValueOnce([
-      'budgets.read',
-      'contracts.read',
-    ]);
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read', 'contracts.read'];
+      return undefined;
+    });
+    prisma.userRole.findMany.mockResolvedValue([] as any);
 
     await expect(
       guard.canActivate(createExecutionContext(req)),
     ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(prisma.userRole.findMany).not.toHaveBeenCalled();
+    expect(prisma.userRole.findMany).toHaveBeenCalled();
   });
 });
 

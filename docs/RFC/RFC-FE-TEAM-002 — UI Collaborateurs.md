@@ -184,10 +184,15 @@ Edition:
 
 Regles UI:
 
-- source options via endpoint managers;
-- affichage option: `displayName` + `email`/`jobTitle` secondaire;
-- prevention basique self-manager en frontend;
+- **Repli collaborateurs** : suggestions via `GET /api/collaborators/options/managers` (recherche débouncée, min. 2 caractères), aligné sur les collaborateurs **actifs** du client.
+- **Catalogue Ressources Humaine** (si l’utilisateur a `resources.read`) : sur la fiche collaborateur, le composant `CollaboratorManagerCombobox` peut s’appuyer sur `GET /api/resources?type=HUMAN&search=…`, puis **rattachement collaborateur** (même mécanisme que le responsable d’équipe : réutilisation par email ou création `MANUAL`) ; la valeur enregistrée reste un **`managerId` collaborateur**, jamais un ID de ressource brut en payload métier.
+- Sans `resources.read` : uniquement le repli `options/managers` ci-dessus.
+- affichage option: libellé métier (`displayName` + secondaire email / poste, ou libellé ressource Humaine selon le mode);
+- exclusion de soi-même : le collaborateur en cours d’édition est exclu des options (`id`) ; les fiches ressource avec le **même email** que la fiche sont filtrées côté UI ;
+- prévention basique self-manager en frontend ;
 - backend reste arbitre final (meme client, droits, coherence).
+
+Implémentation de référence : `apps/web/src/features/teams/collaborators/components/collaborator-manager-combobox.tsx`.
 
 ## 4.9 Provenance annuaire (MVP)
 

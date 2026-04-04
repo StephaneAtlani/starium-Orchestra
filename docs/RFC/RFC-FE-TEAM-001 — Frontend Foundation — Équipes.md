@@ -92,7 +92,7 @@ Le client API Teams expose:
 - `listCollaborators`
 - `getCollaboratorById`
 - `updateCollaborator`
-- `listCollaboratorManagerOptions`
+- `listCollaboratorManagerOptions` (repli **collaborateurs** pour le champ manager ; avec `resources.read`, la fiche peut aussi s’appuyer sur le catalogue ressources **Humaine** — voir RFC-FE-TEAM-002 §4.8)
 
 Le format listé reste homogène: `{ items, total, offset, limit }`.
 

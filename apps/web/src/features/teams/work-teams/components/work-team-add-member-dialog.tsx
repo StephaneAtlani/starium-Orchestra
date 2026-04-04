@@ -13,13 +13,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
-import type { ApiFormError } from '@/features/teams/collaborators/api/collaborators.api';
-import { getResource } from '@/services/resources';
 import { useAddWorkTeamMember } from '../hooks/use-work-team-mutations';
 import { useWorkTeamDetail } from '../hooks/use-work-team-detail';
-import { resolveCollaboratorIdFromHumanResource } from '../lib/resolve-human-resource-to-collaborator';
 import { workTeamMemberRoleLabel } from '../lib/work-team-label-mappers';
 import type { WorkTeamMemberRole } from '../types/work-team.types';
 import { HumanResourceCombobox } from './human-resource-combobox';
@@ -35,7 +31,6 @@ export function WorkTeamAddMemberDialog({
   onOpenChange: (open: boolean) => void;
   teamId: string;
 }) {
-  const authFetch = useAuthenticatedFetch();
   const { has, isSuccess: permsOk } = usePermissions();
 
   const [resourceId, setResourceId] = useState('');
@@ -44,7 +39,7 @@ export function WorkTeamAddMemberDialog({
   const canReadResources = permsOk && has('resources.read');
 
   const teamDetailQuery = useWorkTeamDetail(teamId);
-  const leadCollaboratorId = teamDetailQuery.data?.leadCollaboratorId ?? null;
+  const leadResourceId = teamDetailQuery.data?.leadResourceId ?? null;
 
   const addMutation = useAddWorkTeamMember(teamId);
 
@@ -66,33 +61,13 @@ export function WorkTeamAddMemberDialog({
         toast.error('Choisissez une ressource Humaine');
         return;
       }
-      let res;
-      try {
-        res = await getResource(authFetch, resourceId);
-      } catch {
-        toast.error('Ressource introuvable');
-        return;
-      }
-      let resolvedCollaboratorId: string;
-      try {
-        resolvedCollaboratorId = await resolveCollaboratorIdFromHumanResource(authFetch, res);
-      } catch (e) {
-        const err = e as ApiFormError;
-        if (err.status === 403) {
-          toast.error(
-            'Création collaborateur refusée : il faut collaborators.create si aucune fiche ne correspond à l’email de cette ressource.',
-          );
-          return;
-        }
-        throw e;
-      }
 
-      if (leadCollaboratorId && resolvedCollaboratorId === leadCollaboratorId) {
+      if (leadResourceId && resourceId === leadResourceId) {
         toast.error('Le responsable d’équipe ne peut pas être ajouté comme membre.');
         return;
       }
 
-      await addMutation.mutateAsync({ collaboratorId: resolvedCollaboratorId, role });
+      await addMutation.mutateAsync({ resourceId, role });
       toast.success('Membre ajouté');
       onOpenChange(false);
     } catch (err) {
@@ -109,9 +84,8 @@ export function WorkTeamAddMemberDialog({
           <DialogHeader>
             <DialogTitle>Ajouter un membre</DialogTitle>
             <DialogDescription>
-              Choisissez une ressource du catalogue <strong>Humaine</strong> du client actif. Le
-              rattachement équipe réutilise ou crée la fiche Collaborateur correspondante (référentiel
-              Équipes).
+              Choisissez une ressource du catalogue <strong>Humaine</strong> du client actif. Le membre
+              d’équipe est identifié par <code className="text-xs">resourceId</code> (Resource HUMAN).
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
@@ -128,17 +102,6 @@ export function WorkTeamAddMemberDialog({
               </Alert>
             )}
 
-            {canReadResources && !has('collaborators.create') && (
-              <Alert className="border-muted">
-                <AlertTitle className="text-sm">Sans collaborators.create</AlertTitle>
-                <AlertDescription className="text-xs text-muted-foreground">
-                  Si une fiche collaborateur existe déjà pour l’email de la ressource, le rattachement
-                  fonctionne. Sinon, demandez la permission{' '}
-                  <code className="text-xs">collaborators.create</code>.
-                </AlertDescription>
-              </Alert>
-            )}
-
             {canReadResources ? (
               <HumanResourceCombobox
                 id="m-res"
@@ -146,7 +109,7 @@ export function WorkTeamAddMemberDialog({
                 value={resourceId}
                 onChange={setResourceId}
                 disabled={addMutation.isPending}
-                excludeCollaboratorId={leadCollaboratorId}
+                excludeResourceId={leadResourceId}
               />
             ) : null}
 

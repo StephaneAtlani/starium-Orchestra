@@ -75,7 +75,7 @@ export type CollaboratorWorkTeamRow = {
   status: string;
   archivedAt: string | null;
   sortOrder: number;
-  leadCollaboratorId: string | null;
+  leadResourceId: string | null;
   createdAt: string;
   updatedAt: string;
   membershipId: string;

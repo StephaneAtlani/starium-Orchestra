@@ -6,6 +6,10 @@ import {
 import { Prisma, WorkTeamStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import {
+  assertResourceHuman,
+  resourceHumanDisplayName,
+} from '../resources/resource-human.util';
 import { AuditMeta } from './work-teams.service';
 import { AddWorkTeamMemberDto } from './dto/add-work-team-member.dto';
 import { ListCollaboratorWorkTeamsQueryDto } from './dto/list-collaborator-work-teams.query.dto';
@@ -38,9 +42,10 @@ export class WorkTeamMembershipsService {
 
     if (query.q?.trim()) {
       const q = query.q.trim();
-      where.collaborator = {
+      where.resource = {
         OR: [
-          { displayName: { contains: q, mode: 'insensitive' } },
+          { name: { contains: q, mode: 'insensitive' } },
+          { firstName: { contains: q, mode: 'insensitive' } },
           { email: { contains: q, mode: 'insensitive' } },
         ],
       };
@@ -50,12 +55,12 @@ export class WorkTeamMembershipsService {
       this.prisma.workTeamMembership.count({ where }),
       this.prisma.workTeamMembership.findMany({
         where,
-        orderBy: { collaborator: { displayName: 'asc' } },
+        orderBy: { resource: { name: 'asc' } },
         skip: offset,
         take: limit,
         include: {
-          collaborator: {
-            select: { displayName: true, email: true },
+          resource: {
+            select: { name: true, firstName: true, email: true },
           },
         },
       }),
@@ -64,13 +69,13 @@ export class WorkTeamMembershipsService {
     const items = rows.map((m) => ({
       id: m.id,
       workTeamId: m.workTeamId,
-      collaboratorId: m.collaboratorId,
+      resourceId: m.resourceId,
       role: m.role,
       clientId: m.clientId,
       createdAt: m.createdAt,
       updatedAt: m.updatedAt,
-      collaboratorDisplayName: m.collaborator.displayName,
-      collaboratorEmail: m.collaborator.email,
+      resourceDisplayName: resourceHumanDisplayName(m.resource),
+      resourceEmail: m.resource.email,
     }));
 
     return { items, total, limit, offset };
@@ -93,25 +98,19 @@ export class WorkTeamMembershipsService {
       throw new ConflictException('Equipe archivee');
     }
 
-    const collab = await this.prisma.collaborator.findFirst({
-      where: { id: dto.collaboratorId, clientId },
-      select: { id: true },
-    });
-    if (!collab) {
-      throw new NotFoundException('Collaborateur introuvable');
-    }
+    await assertResourceHuman(this.prisma, clientId, dto.resourceId);
 
     try {
       const created = await this.prisma.workTeamMembership.create({
         data: {
           clientId,
           workTeamId,
-          collaboratorId: dto.collaboratorId,
+          resourceId: dto.resourceId,
           role: dto.role,
         },
         include: {
-          collaborator: {
-            select: { displayName: true, email: true },
+          resource: {
+            select: { name: true, firstName: true, email: true },
           },
         },
       });
@@ -124,7 +123,7 @@ export class WorkTeamMembershipsService {
         resourceId: created.id,
         newValue: {
           workTeamId,
-          collaboratorId: dto.collaboratorId,
+          resourceId: dto.resourceId,
           role: dto.role,
         },
         ipAddress: meta?.ipAddress,
@@ -135,13 +134,13 @@ export class WorkTeamMembershipsService {
       return {
         id: created.id,
         workTeamId: created.workTeamId,
-        collaboratorId: created.collaboratorId,
+        resourceId: created.resourceId,
         role: created.role,
         clientId: created.clientId,
         createdAt: created.createdAt,
         updatedAt: created.updatedAt,
-        collaboratorDisplayName: created.collaborator.displayName,
-        collaboratorEmail: created.collaborator.email,
+        resourceDisplayName: resourceHumanDisplayName(created.resource),
+        resourceEmail: created.resource.email,
       };
     } catch (e: unknown) {
       if (
@@ -175,7 +174,7 @@ export class WorkTeamMembershipsService {
       where: { id: m.id },
       data: { role: dto.role },
       include: {
-        collaborator: { select: { displayName: true, email: true } },
+        resource: { select: { name: true, firstName: true, email: true } },
       },
     });
 
@@ -195,13 +194,13 @@ export class WorkTeamMembershipsService {
     return {
       id: updated.id,
       workTeamId: updated.workTeamId,
-      collaboratorId: updated.collaboratorId,
+      resourceId: updated.resourceId,
       role: updated.role,
       clientId: updated.clientId,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
-      collaboratorDisplayName: updated.collaborator.displayName,
-      collaboratorEmail: updated.collaborator.email,
+      resourceDisplayName: resourceHumanDisplayName(updated.resource),
+      resourceEmail: updated.resource.email,
     };
   }
 
@@ -229,7 +228,7 @@ export class WorkTeamMembershipsService {
       resourceId: m.id,
       oldValue: {
         workTeamId: m.workTeamId,
-        collaboratorId: m.collaboratorId,
+        resourceId: m.resourceId,
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -237,25 +236,20 @@ export class WorkTeamMembershipsService {
     });
   }
 
+  /** Liste les équipes pour une Resource HUMAN (`id` = `resourceId`). */
   async listTeamsForCollaborator(
     clientId: string,
-    collaboratorId: string,
+    resourceId: string,
     query: ListCollaboratorWorkTeamsQueryDto,
   ) {
-    const collab = await this.prisma.collaborator.findFirst({
-      where: { id: collaboratorId, clientId },
-      select: { id: true },
-    });
-    if (!collab) {
-      throw new NotFoundException('Collaborateur introuvable');
-    }
+    await assertResourceHuman(this.prisma, clientId, resourceId);
 
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
 
     const where: Prisma.WorkTeamMembershipWhereInput = {
       clientId,
-      collaboratorId,
+      resourceId,
     };
 
     if (!query.includeArchived) {
@@ -282,7 +276,7 @@ export class WorkTeamMembershipsService {
       status: m.workTeam.status,
       archivedAt: m.workTeam.archivedAt,
       sortOrder: m.workTeam.sortOrder,
-      leadCollaboratorId: m.workTeam.leadCollaboratorId,
+      leadResourceId: m.workTeam.leadResourceId,
       createdAt: m.workTeam.createdAt,
       updatedAt: m.workTeam.updatedAt,
       membershipId: m.id,

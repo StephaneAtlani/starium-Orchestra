@@ -60,7 +60,7 @@ export async function listWorkTeams(
     parentId: params.parentId ?? undefined,
     status: params.status,
     includeArchived: params.includeArchived,
-    leadCollaboratorId: params.leadCollaboratorId?.trim() || undefined,
+    leadResourceId: params.leadResourceId?.trim() || undefined,
   });
   const res = await authFetch(`/api/work-teams${qs}`);
   return handleResponse<WorkTeamsListResponse>(res);
@@ -176,18 +176,18 @@ export async function removeWorkTeamMember(
 
 export async function getManagerScope(
   authFetch: AuthFetch,
-  managerCollaboratorId: string,
+  managerResourceId: string,
 ): Promise<ManagerScopeDto> {
-  const res = await authFetch(`/api/manager-scopes/${managerCollaboratorId}`);
+  const res = await authFetch(`/api/manager-scopes/${managerResourceId}`);
   return handleResponse<ManagerScopeDto>(res);
 }
 
 export async function putManagerScope(
   authFetch: AuthFetch,
-  managerCollaboratorId: string,
+  managerResourceId: string,
   payload: PutManagerScopePayload,
 ): Promise<ManagerScopeDto> {
-  const res = await authFetch(`/api/manager-scopes/${managerCollaboratorId}`, {
+  const res = await authFetch(`/api/manager-scopes/${managerResourceId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -197,7 +197,7 @@ export async function putManagerScope(
 
 export async function previewManagerScope(
   authFetch: AuthFetch,
-  managerCollaboratorId: string,
+  managerResourceId: string,
   params: ManagerScopePreviewParams = {},
 ): Promise<ManagerScopePreviewResponse> {
   const qs = toQueryString({
@@ -205,6 +205,6 @@ export async function previewManagerScope(
     offset: params.offset,
     q: params.q?.trim() || undefined,
   });
-  const res = await authFetch(`/api/manager-scopes/${managerCollaboratorId}/preview${qs}`);
+  const res = await authFetch(`/api/manager-scopes/${managerResourceId}/preview${qs}`);
   return handleResponse<ManagerScopePreviewResponse>(res);
 }

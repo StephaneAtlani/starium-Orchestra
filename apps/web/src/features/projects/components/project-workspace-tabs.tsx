@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Layers3,
   ListTodo,
-  Percent,
   Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -18,7 +17,6 @@ import {
   projectProjectOptions,
   projectSheet,
   projectRisks,
-  projectStaffing,
 } from '../constants/project-routes';
 
 function tabLinkClass(active: boolean) {
@@ -47,15 +45,9 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
   const isRisks = pathname?.includes('/risks');
   const isPlanning = pathname?.includes('/planning');
   const isOptions = pathname?.includes('/options');
-  const isStaffing = pathname?.includes('/staffing');
   const isPoints = tab === 'points';
   const isSynth =
-    !isSheet &&
-    !isRisks &&
-    !isPoints &&
-    !isPlanning &&
-    !isOptions &&
-    !isStaffing;
+    !isSheet && !isRisks && !isPoints && !isPlanning && !isOptions;
 
   const detailHref = projectDetail(projectId);
   const pointsHref = `${detailHref}?tab=points`;
@@ -103,15 +95,6 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       >
         <CalendarRange className="size-4 shrink-0 opacity-70" />
         Planning
-      </Link>
-      <Link
-        href={projectStaffing(projectId)}
-        role="tab"
-        aria-current={isStaffing ? 'page' : undefined}
-        className={tabLinkClass(isStaffing)}
-      >
-        <Percent className="size-4 shrink-0 opacity-70" />
-        Charge
       </Link>
       <Link
         href={pointsHref}

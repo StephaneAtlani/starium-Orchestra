@@ -14,10 +14,10 @@ export class CreateWorkTeamDto {
   @IsString()
   parentId?: string | null;
 
-  /** Responsable d’équipe (obligatoire pour toute équipe active à la création). */
+  /** Responsable d’équipe — Resource `type = HUMAN` (obligatoire pour toute équipe active à la création). */
   @IsString()
   @IsNotEmpty()
-  leadCollaboratorId!: string;
+  leadResourceId!: string;
 
   @IsOptional()
   @IsInt()

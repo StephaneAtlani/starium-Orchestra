@@ -1,3 +1,4 @@
+import type { ResourceListItem } from '@/services/resources';
 import type {
   CollaboratorListItem,
   CollaboratorManagerOption,
@@ -36,5 +37,13 @@ export function collaboratorManagerSecondaryLabel(
   if (option.email?.trim()) return option.email.trim();
   if (option.jobTitle?.trim()) return option.jobTitle.trim();
   return null;
+}
+
+/** Libellé affiché pour une fiche Ressource catalogue Humaine (jamais l’UUID). */
+export function humanResourceCatalogLabel(r: ResourceListItem): string {
+  const name =
+    [r.firstName?.trim(), r.name.trim()].filter(Boolean).join(' ') || r.name.trim();
+  if (r.email?.trim()) return `${name} — ${r.email.trim()}`;
+  return name;
 }
 

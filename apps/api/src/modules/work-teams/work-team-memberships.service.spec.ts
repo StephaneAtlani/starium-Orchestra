@@ -37,7 +37,7 @@ describe('WorkTeamMembershipsService', () => {
       svc.addMember(
         'c1',
         't1',
-        { collaboratorId: 'col1', role: WorkTeamMemberRole.MEMBER },
+        { resourceId: 'res1', role: WorkTeamMemberRole.MEMBER },
         'u1',
       ),
     ).rejects.toBeInstanceOf(ConflictException);
