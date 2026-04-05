@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import {
+  Prisma,
   PrismaClient,
   ClientUserRole,
   ClientUserStatus,
@@ -10,6 +11,7 @@ import {
   BudgetEnvelopeStatus,
   BudgetEnvelopeType,
   BudgetLineStatus,
+  BudgetLinePlanningMode,
   ExpenseType,
   SupplierStatus,
   PurchaseOrderStatus,
@@ -2554,6 +2556,76 @@ async function upsertEnvelope(clientId: string, budgetId: string, seed: Envelope
   });
 }
 
+/**
+ * Découpe `total` en `parts` parts dont la somme = total (arrondi 2 déc.).
+ */
+function splitAmountAcrossParts(total: number, parts: number): number[] {
+  const n = Math.max(1, Math.floor(parts));
+  if (n === 1) {
+    return [round2(total)];
+  }
+  const base = round2(total / n);
+  const out: number[] = [];
+  let sum = 0;
+  for (let i = 0; i < n - 1; i++) {
+    out.push(base);
+    sum += base;
+  }
+  out.push(round2(total - sum));
+  return out;
+}
+
+/**
+ * Au moins un mois ; 1 à 6 mois consécutifs (indices 1..12), montants dont la somme = totalAmount.
+ */
+function buildPlanningMonthRows(
+  totalAmount: number,
+  salt: string,
+): { monthIndex: number; amount: number }[] {
+  const total = round2(totalAmount);
+  if (total <= 0) {
+    return [{ monthIndex: 1, amount: 0 }];
+  }
+  let h = 0;
+  for (let i = 0; i < salt.length; i++) {
+    h = (h * 31 + salt.charCodeAt(i)) >>> 0;
+  }
+  const k = 1 + (h % 6);
+  const start = 1 + (h % 12);
+  const months: number[] = [];
+  for (let i = 0; i < k; i++) {
+    months.push(((start - 1 + i) % 12) + 1);
+  }
+  const amounts = splitAmountAcrossParts(total, k);
+  return months.map((monthIndex, i) => ({ monthIndex, amount: amounts[i] ?? 0 }));
+}
+
+/** Répartition prévisionnelle (RFC planning) : idempotent sur re-seed. */
+async function seedBudgetLinePlanningMonths(
+  clientId: string,
+  budgetLineId: string,
+  lineCode: string,
+  totalAmount: number,
+): Promise<void> {
+  await prisma.budgetLinePlanningMonth.deleteMany({ where: { clientId, budgetLineId } });
+  const rows = buildPlanningMonthRows(totalAmount, lineCode);
+  await prisma.budgetLine.update({
+    where: { id: budgetLineId },
+    data: {
+      planningMode: BudgetLinePlanningMode.MANUAL,
+      planningTotalAmount: new Prisma.Decimal(round2(totalAmount)),
+    },
+  });
+  await prisma.budgetLinePlanningMonth.createMany({
+    data: rows.map((r) => ({
+      clientId,
+      budgetLineId,
+      monthIndex: r.monthIndex,
+      amount: new Prisma.Decimal(r.amount),
+    })),
+  });
+}
+
 async function upsertLine(clientId: string, budgetId: string, envelopeId: string, seed: LineSeed) {
   return prisma.budgetLine.upsert({
     where: {
@@ -2827,6 +2899,7 @@ async function seedClient(seed: ClientSeed, passwordHash: string) {
 
         for (const lineSeed of envelopeSeed.lines) {
           const line = await upsertLine(client.id, budget.id, envelope.id, lineSeed);
+          await seedBudgetLinePlanningMonths(client.id, line.id, lineSeed.code, lineSeed.amount);
           const supplierId = supplierByName.get(lineSeed.supplierName);
 
           if (!supplierId) {

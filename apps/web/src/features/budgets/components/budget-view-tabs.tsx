@@ -13,7 +13,7 @@ export interface BudgetViewTabsProps {
 const ITEMS: { id: BudgetPilotageMode; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'synthese', label: 'Synthèse' },
-  { id: 'previsionnel', label: 'Planning mensuel' },
+  { id: 'previsionnel', label: 'Prévisionnel' },
   { id: 'atterrissage', label: 'Atterrissage' },
   { id: 'forecast', label: 'Synthèse prévision' },
 ];
@@ -23,7 +23,7 @@ export function BudgetViewTabs({ mode, onModeChange, className }: BudgetViewTabs
     <div
       role="tablist"
       className={cn('flex flex-wrap gap-1', className)}
-      aria-label="Mode d’affichage du budget : synthèse, planning par mois, atterrissage ou synthèse prévision"
+      aria-label="Mode d’affichage du budget : synthèse, prévisionnel, atterrissage ou synthèse prévision"
     >
       {ITEMS.map((item) => {
         const selected = mode === item.id;

@@ -25,7 +25,7 @@ export interface BudgetLinePlanningTabProps {
 }
 
 /**
- * Planning mensuel 12 mois + indicateurs RFC-023 (lecture depuis GET planning).
+ * Prévisionnel 12 mois + indicateurs RFC-023 (lecture depuis GET planning).
  */
 export function BudgetLinePlanningTab({
   budgetLineId,
@@ -64,10 +64,10 @@ export function BudgetLinePlanningTab({
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Planning mensuel (12 mois)</CardTitle>
+          <CardTitle className="text-base">Prévisionnel (12 mois)</CardTitle>
           <CardDescription>
             Montants issus du planning RFC-023 — édition détaillée depuis le tableau budget
-            (onglet « Planning mensuel »).
+            (onglet « Prévisionnel »).
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
