@@ -12,6 +12,18 @@ describe('isEquipesDropdownChildActive', () => {
     expect(isEquipesDropdownChildActive('/teams/skills', '/teams/time-entries')).toBe(false);
   });
 
+  it('Options temps: actif sur /teams/time-entries/options ; pas sur la grille seule', () => {
+    expect(
+      isEquipesDropdownChildActive('/teams/time-entries/options', '/teams/time-entries/options'),
+    ).toBe(true);
+    expect(isEquipesDropdownChildActive('/teams/time-entries', '/teams/time-entries/options')).toBe(
+      false,
+    );
+    expect(isEquipesDropdownChildActive('/teams/time-entries/options', '/teams/time-entries')).toBe(
+      false,
+    );
+  });
+
   it('Structure & équipes: actif sur /teams/structure sans empiéter sur compétences', () => {
     expect(isEquipesDropdownChildActive('/teams/structure/teams', '/teams/structure/teams')).toBe(
       true,

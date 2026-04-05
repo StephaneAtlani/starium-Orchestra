@@ -41,12 +41,13 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { getMyHumanResourceId } from '@/services/me';
 import { listProjects } from '@/features/projects/api/projects.api';
+import { getClientResourceTimesheetSettings } from '@/features/teams/resource-time-entries/api/client-resource-timesheet-settings.api';
 import { toast } from '@/lib/toast';
 import type { ResourceTimeEntryDto } from '@/features/teams/resource-time-entries/types/resource-time-entry.types';
 import { cn } from '@/lib/utils';
 
-/** Une journée type pour convertir fraction → heures (saisie 0–1 = part de journée). */
-const DAY_REFERENCE_HOURS = 7.5;
+/** Fallback si les paramètres client ne sont pas encore chargés. */
+const DEFAULT_DAY_REFERENCE_HOURS = 7.5;
 
 /** Filtre liste des projets (lignes « Projet ») : défaut en cours ; « Tous » pour les autres statuts. */
 const TIMESHEET_PROJECT_STATUS_FILTER_OPTIONS: { value: string; label: string }[] = (() => {
@@ -114,9 +115,9 @@ export type GridRow = {
   kind: 'project' | 'activity' | 'pair';
 };
 
-function clamp01(n: number): number {
+function clampFraction(n: number, max: number): number {
   if (Number.isNaN(n) || n <= 0) return 0;
-  return Math.min(1, Math.round(n * 1000) / 1000);
+  return Math.min(max, Math.round(n * 1000) / 1000);
 }
 
 /** Clé brouillon : jour + séparateur + rowKey (le rowKey peut contenir `|`). */
@@ -128,14 +129,6 @@ function cellDraftKey(rowKey: string, dayIdx: number): string {
 function isPartialDecimalInput(s: string): boolean {
   if (s === '') return true;
   return /^[0-9]*[.,]?[0-9]*$/.test(s);
-}
-
-function parseDraftToFrac(raw: string): number {
-  const t = raw.trim().replace(',', '.');
-  if (t === '' || t === '.') return 0;
-  const n = Number(t);
-  if (Number.isNaN(n)) return 0;
-  return clamp01(n);
 }
 
 /** Jours du mois (calendrier local) : week-end = sam. / dim. */
@@ -225,11 +218,41 @@ export default function ResourceTimeEntriesPage() {
   const canRead = has('resources.read');
   const canWrite = has('resources.update');
 
+  const settingsQuery = useQuery({
+    queryKey: ['client-resource-timesheet-settings', clientId],
+    queryFn: () => getClientResourceTimesheetSettings(authFetch),
+    enabled: permsOk && canRead && !!clientId,
+  });
+  const dayRefHours = settingsQuery.data?.dayReferenceHours ?? DEFAULT_DAY_REFERENCE_HOURS;
+  const allowFractionAboveOne = settingsQuery.data?.allowFractionAboveOne ?? false;
+  const maxFrac = allowFractionAboveOne ? 99 : 1;
+  const parseDraftToFrac = useMemo(
+    () => (raw: string) => {
+      const t = raw.trim().replace(',', '.');
+      if (t === '' || t === '.') return 0;
+      const n = Number(t);
+      if (Number.isNaN(n)) return 0;
+      return clampFraction(n, maxFrac);
+    },
+    [maxFrac],
+  );
+  const ignoreWeekendsDefault = settingsQuery.data?.ignoreWeekendsDefault ?? true;
+
   const [yearMonth, setYearMonth] = useState(currentYearMonth);
   /** Filtre API `listProjects` : par défaut projets en cours uniquement. */
   const [projectStatusFilter, setProjectStatusFilter] = useState('IN_PROGRESS');
+  const projectStatusFilterLabel = useMemo(
+    () =>
+      TIMESHEET_PROJECT_STATUS_FILTER_OPTIONS.find((o) => o.value === projectStatusFilter)?.label ??
+      projectStatusFilter,
+    [projectStatusFilter],
+  );
   /** Si vrai : pas de saisie ni de recopie sur sam./dim. ; chargement grille sans temps week-end. */
-  const [ignoreWeekends, setIgnoreWeekends] = useState(false);
+  const [ignoreWeekends, setIgnoreWeekends] = useState(true);
+  useEffect(() => {
+    setIgnoreWeekends(ignoreWeekendsDefault);
+  }, [activeClient?.id, ignoreWeekendsDefault]);
+
   const { from, to } = useMemo(() => monthDateRange(yearMonth), [yearMonth]);
   const dim = daysInMonth(yearMonth);
   const dayMetas = useMemo(() => monthDayMetas(yearMonth, dim), [yearMonth, dim]);
@@ -440,7 +463,7 @@ export default function ResourceTimeEntriesPage() {
       if (!next[rk]) {
         next[rk] = Array.from({ length: dim }, () => 0);
       }
-      const frac = clamp01(Number(e.durationHours) / DAY_REFERENCE_HOURS);
+      const frac = clampFraction(Number(e.durationHours) / dayRefHours, maxFrac);
       next[rk][d - 1] = frac;
     }
     if (ignoreWeekends) {
@@ -452,7 +475,7 @@ export default function ResourceTimeEntriesPage() {
       }
     }
     setGrid(next);
-  }, [listQuery.data?.items, gridRows, dim, yearMonth, ignoreWeekends, dayMetas]);
+  }, [listQuery.data?.items, gridRows, dim, yearMonth, ignoreWeekends, dayMetas, dayRefHours, maxFrac]);
 
   useEffect(() => {
     setCellDrafts({});
@@ -493,7 +516,7 @@ export default function ResourceTimeEntriesPage() {
       const value =
         cellDrafts[dk] !== undefined
           ? parseDraftToFrac(cellDrafts[dk]!)
-          : clamp01(rowCells[dayIdx] ?? 0);
+          : clampFraction(rowCells[dayIdx] ?? 0, maxFrac);
       fillDragRef.current = { rowKey, startDay: dayIdx, endDay: dayIdx, value };
       setFillPreview({ rowKey, from: dayIdx, to: dayIdx });
       document.body.style.cursor = 'ew-resize';
@@ -555,7 +578,7 @@ export default function ResourceTimeEntriesPage() {
       fillHandleEl.addEventListener('pointermove', onMove);
       fillHandleEl.addEventListener('pointerup', onUp);
     },
-    [canEditEntries, dim, grid, cellDrafts, ignoreWeekends, dayMetas],
+    [canEditEntries, dim, grid, cellDrafts, ignoreWeekends, dayMetas, maxFrac, parseDraftToFrac],
   );
 
   const invalidateAll = useCallback(() => {
@@ -593,7 +616,7 @@ export default function ResourceTimeEntriesPage() {
         let frac =
           cellDrafts[dk] !== undefined
             ? parseDraftToFrac(cellDrafts[dk]!)
-            : clamp01(rowCells[day - 1] ?? 0);
+            : clampFraction(rowCells[day - 1] ?? 0, maxFrac);
         if (ignoreWeekends && dayMetas[day - 1]?.isWeekend) frac = 0;
         const cellKey = `${row.key}|${day}`;
         handled.add(cellKey);
@@ -605,7 +628,7 @@ export default function ResourceTimeEntriesPage() {
           continue;
         }
 
-        const durationHours = Math.round(frac * DAY_REFERENCE_HOURS * 100) / 100;
+        const durationHours = Math.round(frac * dayRefHours * 100) / 100;
         if (prev) {
           ops.push(
             updateResourceTimeEntry(authFetch, prev.id, {
@@ -653,6 +676,9 @@ export default function ResourceTimeEntriesPage() {
     cellDrafts,
     ignoreWeekends,
     dayMetas,
+    dayRefHours,
+    maxFrac,
+    parseDraftToFrac,
   ]);
 
   const saveGridMut = useMutation({
@@ -781,7 +807,7 @@ export default function ResourceTimeEntriesPage() {
                     className="h-9 w-[min(100vw-2rem,16rem)]"
                     aria-labelledby="timesheet-project-status-label"
                   >
-                    <SelectValue placeholder="Statut" />
+                    <SelectValue placeholder="Statut">{projectStatusFilterLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {TIMESHEET_PROJECT_STATUS_FILTER_OPTIONS.map((opt) => (
@@ -868,13 +894,18 @@ export default function ResourceTimeEntriesPage() {
 
           <p className="text-xs text-muted-foreground">
             Valeur <strong className="text-foreground">1</strong> = une journée complète (
-            {DAY_REFERENCE_HOURS} h), <strong className="text-foreground">0,5</strong> = demi-journée. La
-            somme par jour peut dépasser 1 si vous cumulez plusieurs lignes — vérifiez le total en bas. Les
+            {dayRefHours} h), <strong className="text-foreground">0,5</strong> = demi-journée.
+            {allowFractionAboveOne
+              ? ' Saisie sur une cellule : fraction pouvant dépasser 1 si le paramétrage client l’autorise.'
+              : ` Par cellule, la fraction est plafonnée à 1 (soit ${dayRefHours} h).`}{' '}
+            La somme par jour peut dépasser 1 si vous cumulez plusieurs lignes — vérifiez le total en bas. Les
             lignes « Projet » suivent le filtre de statut (par défaut : en cours) ; choisissez un autre statut
             ou « Tous les statuts » pour ajouter du temps sur d’autres projets. Les lignes déjà saisies sur la
             période restent affichées. Poignée en bas à droite d’une cellule : glisser pour recopier la valeur
-            sur les jours suivants ou précédents (même ligne). Option **Sans week-ends** : les colonnes week-end
-            sont désactivées ; enregistrer supprime aussi le temps saisi précédemment sur ces jours.
+            sur les jours suivants ou précédents (même ligne). Option{' '}
+            <strong className="text-foreground">Sans week-ends</strong> : les colonnes week-end sont
+            désactivées ; enregistrer supprime aussi le temps saisi précédemment sur ces jours. Paramètres par
+            défaut : menu Équipes → Options temps (administrateur client).
           </p>
 
           {(monthQ.isLoading || listQuery.isLoading) && <LoadingState rows={4} />}

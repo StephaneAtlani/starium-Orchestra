@@ -312,6 +312,10 @@ export function Sidebar() {
                       label: 'Temps réalisé',
                       href: '/teams/time-entries',
                     });
+                    teamsChildren.push({
+                      label: 'Options temps',
+                      href: '/teams/time-entries/options',
+                    });
                   }
 
                   if (teamsChildren.length === 0) {

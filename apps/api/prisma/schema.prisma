@@ -270,6 +270,13 @@ model Client {
 
   /// Surcharges libellés / tons des badges UI (tâches, priorités, entrées custom) — fusion côté app avec `badge-registry`.
   uiBadgeConfig Json?
+
+  /// Temps réalisé : case « Sans week-ends » cochée par défaut sur la grille.
+  timesheetIgnoreWeekendsDefault Boolean @default(true)
+  /// Temps réalisé : autoriser une fraction > 1 (plus d’une journée type) par cellule.
+  timesheetAllowFractionAboveOne Boolean @default(false)
+  /// Durée d’une journée type (h) pour conversion fraction → heures ; null = défaut applicatif 7,5 h.
+  timesheetDayReferenceHours Decimal? @db.Decimal(5, 2)
 }
 
 /// Défauts globaux badges UI (id = `default`) — fusionnés avant `Client.uiBadgeConfig`.

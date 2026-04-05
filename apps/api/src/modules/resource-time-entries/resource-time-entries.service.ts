@@ -89,6 +89,42 @@ export class ResourceTimeEntriesService {
     } as const;
   }
 
+  /**
+   * Aligné sur `ClientResourceTimesheetSettingsService` : une cellule = au plus une journée type
+   * sauf si `timesheetAllowFractionAboveOne` est activé pour le client.
+   */
+  private async assertDurationWithinClientPolicy(
+    clientId: string,
+    durationHours: number,
+  ): Promise<void> {
+    const c = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: {
+        timesheetDayReferenceHours: true,
+        timesheetAllowFractionAboveOne: true,
+      },
+    });
+    if (!c) {
+      throw new NotFoundException({
+        error: 'NotFound',
+        message: 'Client not found',
+      });
+    }
+    const dayH =
+      c.timesheetDayReferenceHours != null
+        ? Number(c.timesheetDayReferenceHours)
+        : 7.5;
+    const maxH = c.timesheetAllowFractionAboveOne ? 999999.99 : dayH;
+    if (durationHours > maxH + 1e-6) {
+      throw new BadRequestException({
+        error: 'DurationExceedsClientPolicy',
+        message: c.timesheetAllowFractionAboveOne
+          ? 'Durée invalide.'
+          : `La durée ne peut pas dépasser ${dayH} h (une journée type) pour ce client.`,
+      });
+    }
+  }
+
   async list(clientId: string, query: ListResourceTimeEntriesQueryDto) {
     const offset = query.offset ?? 0;
     const limit = query.limit ?? 20;
@@ -213,6 +249,8 @@ export class ResourceTimeEntriesService {
       workDate,
     );
 
+    await this.assertDurationWithinClientPolicy(clientId, dto.durationHours);
+
     const status = dto.status ?? TimeEntryStatus.DRAFT;
 
     const created = await this.prisma.resourceTimeEntry.create({
@@ -275,6 +313,12 @@ export class ResourceTimeEntriesService {
       existing.resourceId,
       existing.workDate,
     );
+
+    const durationNext =
+      dto.durationHours !== undefined
+        ? dto.durationHours
+        : Number(existing.durationHours);
+    await this.assertDurationWithinClientPolicy(clientId, durationNext);
 
     if (dto.projectId !== undefined) {
       await this.validateOptionalProject(clientId, dto.projectId);

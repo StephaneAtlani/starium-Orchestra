@@ -7,8 +7,17 @@ export function isEquipesDropdownChildActive(pathname: string | null, href: stri
   if (href === '/teams/skills') {
     return pathname === '/teams/skills' || pathname.startsWith('/teams/skills/');
   }
+  if (href === '/teams/time-entries/options') {
+    return (
+      pathname === '/teams/time-entries/options' ||
+      pathname.startsWith('/teams/time-entries/options/')
+    );
+  }
   if (href === '/teams/time-entries') {
-    return pathname === '/teams/time-entries' || pathname.startsWith('/teams/time-entries/');
+    const onTimeEntries =
+      pathname === '/teams/time-entries' || pathname.startsWith('/teams/time-entries/');
+    if (!onTimeEntries) return false;
+    return !pathname.startsWith('/teams/time-entries/options');
   }
   if (href === '/teams/structure/teams') {
     return (

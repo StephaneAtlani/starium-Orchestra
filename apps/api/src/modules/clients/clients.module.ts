@@ -16,6 +16,8 @@ import { ClientModulesController } from './client-modules.controller';
 import { ClientModulesService } from './client-modules.service';
 import { ClientTaxSettingsController } from './client-tax-settings.controller';
 import { ClientTaxSettingsService } from './client-tax-settings.service';
+import { ClientResourceTimesheetSettingsController } from './client-resource-timesheet-settings.controller';
+import { ClientResourceTimesheetSettingsService } from './client-resource-timesheet-settings.service';
 import { ClientUiBadgesController } from './client-ui-badges.controller';
 import { ClientUiBadgesService } from './client-ui-badges.service';
 import { PlatformUiBadgeSettingsController } from './platform-ui-badge-settings.controller';
@@ -39,6 +41,7 @@ import { ActivityTypesModule } from '../activity-types/activity-types.module';
     ClientsController,
     ClientModulesController,
     ClientTaxSettingsController,
+    ClientResourceTimesheetSettingsController,
     ClientUiBadgesController,
     PlatformUiBadgeSettingsController,
   ],
@@ -48,6 +51,7 @@ import { ActivityTypesModule } from '../activity-types/activity-types.module';
     ClientModulesService,
     PlatformAdminGuard,
     ClientTaxSettingsService,
+    ClientResourceTimesheetSettingsService,
     ClientUiBadgesService,
     PlatformUiBadgeSettingsService,
     ClientAdminGuard,
