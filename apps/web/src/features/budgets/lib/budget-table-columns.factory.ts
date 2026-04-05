@@ -50,6 +50,7 @@ const PREVISIONNEL_LEADING_COLS: BudgetPilotageColumnHeader[] = [
   { id: 'budgetInitial', label: 'Budget initial', align: 'right' },
   { id: 'budgetRevised', label: 'Budget révisé', align: 'right' },
   { id: 'planningVsRevised', label: 'Écart prév. / rév.', align: 'right' },
+  { id: 'planningVsRevisedPct', label: '% écart prév.', align: 'right' },
   { id: 'lineComment', label: 'Commentaire', align: 'left' },
 ];
 
@@ -96,7 +97,7 @@ export function countBudgetPilotageDataColumns(
     throw new Error('countBudgetPilotageDataColumns: mode synthèse — tableau classique');
   }
   if (mode === 'previsionnel') {
-    return density === 'mensuel' ? 5 + 13 : 5 + 5;
+    return density === 'mensuel' ? 6 + 13 : 6 + 5;
   }
   if (mode === 'atterrissage') {
     return 6;

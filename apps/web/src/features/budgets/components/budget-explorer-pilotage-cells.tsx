@@ -6,7 +6,7 @@ import { TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
-import { formatAmount } from '../lib/budget-formatters';
+import { formatAmount, formatSignedDeltaPercent } from '../lib/budget-formatters';
 import {
   aggregateMonthsToQuarters,
   sumAmounts12,
@@ -41,6 +41,15 @@ function planningDeltaVsRevised(
   if (planning) return planning.planningDelta;
   if (amounts12) return sumAmounts12(amounts12) - revisedAnnual;
   return null;
+}
+
+/** (prévision totale − révisé) / révisé — aligné sur l’écart absolu. */
+function planningDeltaPercentLabel(
+  delta: number | null,
+  revisedAnnual: number,
+): string | null {
+  if (delta == null) return null;
+  return formatSignedDeltaPercent(revisedAnnual + delta, revisedAnnual);
 }
 
 export function PilotageEnvelopeDataCells({ colCount }: { colCount: number }) {
@@ -113,7 +122,7 @@ export function PilotageLineDataCells({
     if (showSkeleton) {
       return (
         <>
-          {[0, 1, 2, 3, 4].map((i) => (
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <TableCell key={`lead-${i}`} className="text-muted-foreground">
               …
             </TableCell>
@@ -130,7 +139,7 @@ export function PilotageLineDataCells({
     if (!amounts12) {
       return (
         <>
-          {[0, 1, 2, 3, 4].map((i) => (
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <TableCell key={`lead-${i}`} className="text-muted-foreground">
               —
             </TableCell>
@@ -180,6 +189,14 @@ export function PilotageLineDataCells({
           )}
         >
           {delta != null ? formatAmount(delta, c) : '—'}
+        </TableCell>
+        <TableCell
+          className={cn(
+            'min-w-[5rem] whitespace-nowrap text-right tabular-nums align-middle',
+            overDelta && 'text-destructive font-medium',
+          )}
+        >
+          {planningDeltaPercentLabel(delta, revisedAnnual) ?? '—'}
         </TableCell>
         <TableCell className="min-w-[12rem] max-w-[16rem] p-1 align-middle">
           <textarea
@@ -232,7 +249,7 @@ export function PilotageLineDataCells({
     if (showSkeleton || !amounts12) {
       return (
         <>
-          {[0, 1, 2, 3, 4].map((i) => (
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <TableCell key={`lead-${i}`} className="text-muted-foreground">
               {showSkeleton ? '…' : '—'}
             </TableCell>
@@ -282,6 +299,14 @@ export function PilotageLineDataCells({
           )}
         >
           {delta != null ? formatAmount(delta, c) : '—'}
+        </TableCell>
+        <TableCell
+          className={cn(
+            'min-w-[5rem] whitespace-nowrap text-right tabular-nums align-middle',
+            overDelta && 'text-destructive font-medium',
+          )}
+        >
+          {planningDeltaPercentLabel(delta, revisedAnnual) ?? '—'}
         </TableCell>
         <TableCell className="min-w-[12rem] max-w-[16rem] p-1 align-middle">
           <textarea

@@ -226,9 +226,9 @@ export function BudgetExplorerTable({
   const tableMinW = isSynthese
     ? 'min-w-[1280px]'
     : pilotage.mode === 'previsionnel' && pilotage.density === 'mensuel'
-      ? 'min-w-[3000px]'
+      ? 'min-w-[3100px]'
       : pilotage.mode === 'previsionnel' && pilotage.density === 'condense'
-        ? 'min-w-[1600px]'
+        ? 'min-w-[1700px]'
         : 'min-w-[1280px]';
 
   if (isSynthese) {
