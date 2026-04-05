@@ -36,14 +36,14 @@ function generateSnapshotCode(snapshotDate: Date): string {
   return `SNAP-${formatSnapshotDate(snapshotDate)}-${suffix}`;
 }
 
-type LineWithSplits = Prisma.BudgetLineGetPayload<{
-  include: { costCenterSplits: true };
+type LineWithSplitsAndPlanning = Prisma.BudgetLineGetPayload<{
+  include: { costCenterSplits: true; planningMonths: true };
 }>;
 
 async function cloneBudgetLineWithAnalytics(
   tx: Prisma.TransactionClient,
   clientId: string,
-  sourceLine: LineWithSplits,
+  sourceLine: LineWithSplitsAndPlanning,
   newBudgetId: string,
   newEnvelopeId: string,
 ): Promise<void> {
@@ -83,6 +83,16 @@ async function cloneBudgetLineWithAnalytics(
         },
       });
     }
+  }
+  if (sourceLine.planningMonths.length > 0) {
+    await tx.budgetLinePlanningMonth.createMany({
+      data: sourceLine.planningMonths.map((pm) => ({
+        clientId,
+        budgetLineId: newLine.id,
+        monthIndex: pm.monthIndex,
+        amount: pm.amount,
+      })),
+    });
   }
 }
 
@@ -140,7 +150,7 @@ export async function ensureDraftRevision(
     include: {
       versionSet: true,
       envelopes: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
-      budgetLines: { include: { costCenterSplits: true } },
+      budgetLines: { include: { costCenterSplits: true, planningMonths: true } },
     },
   });
   if (!source?.versionSetId || !source.versionSet) return false;

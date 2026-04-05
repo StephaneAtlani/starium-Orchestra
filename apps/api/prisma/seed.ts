@@ -2614,6 +2614,32 @@ async function seedBudgetLinePlanningMonths(
   });
 }
 
+/**
+ * Lignes sans aucun mois (clones incomplets, bases anciennes, etc.) : répartition sur le révisé.
+ * Idempotent pour les lignes déjà peuplées (non sélectionnées).
+ */
+async function backfillBudgetLinesMissingPlanningMonths(): Promise<void> {
+  const lines = await prisma.budgetLine.findMany({
+    where: { planningMonths: { none: {} } },
+    select: { id: true, clientId: true, code: true, revisedAmount: true },
+  });
+  let n = 0;
+  for (const line of lines) {
+    await seedBudgetLinePlanningMonths(
+      line.clientId,
+      line.id,
+      line.code,
+      line.revisedAmount.toNumber(),
+    );
+    n += 1;
+  }
+  if (n > 0) {
+    console.log(
+      `✅ Backfill prévisionnel (12 mois) : ${n} ligne(s) sans BudgetLinePlanningMonth — répartition sur montant révisé.`,
+    );
+  }
+}
+
 async function upsertLine(clientId: string, budgetId: string, envelopeId: string, seed: LineSeed) {
   return prisma.budgetLine.upsert({
     where: {
@@ -3008,6 +3034,8 @@ async function main() {
   await ensureBudgetCockpitCompleteDemo(prisma);
 
   await ensureBudgetSnapshotsAndVersions(prisma);
+
+  await backfillBudgetLinesMissingPlanningMonths();
 
   await ensureDemoProjectsForAllClients();
 

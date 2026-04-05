@@ -63,7 +63,7 @@ import {
   hasActiveBudgetExplorerFilters,
 } from '@/features/budgets/lib/filter-budget-tree';
 import { flattenExplorerBudgetLineIds } from '@/features/budgets/lib/budget-explorer-flat-lines';
-import { getBudgetMonthColumnLabelsFromExerciseStartIso } from '@/features/budgets/lib/budget-month-labels';
+import { getBudgetMonthColumnLabelsSafe } from '@/features/budgets/lib/budget-month-labels';
 import {
   amounts12FromPlanningMonths,
   buildManualPlanningPutPayload,
@@ -150,14 +150,10 @@ export default function BudgetDetailPage() {
   );
   const { has, isLoading: permLoading } = usePermissions();
 
-  const monthColumnLabels = useMemo(() => {
-    if (!exercise?.startDate) return [] as string[];
-    try {
-      return getBudgetMonthColumnLabelsFromExerciseStartIso(exercise.startDate);
-    } catch {
-      return [] as string[];
-    }
-  }, [exercise?.startDate]);
+  const monthColumnLabels = useMemo(
+    () => getBudgetMonthColumnLabelsSafe(exercise?.startDate),
+    [exercise?.startDate],
+  );
 
   const exercisePeriodHint = useMemo((): string | null => {
     if (!exercise?.startDate || !exercise?.endDate) return null;
@@ -644,10 +640,7 @@ export default function BudgetDetailPage() {
                     mode: pilotageMode,
                     density:
                       pilotageMode === 'previsionnel' ? pilotageDensity : 'condense',
-                    monthColumnLabels:
-                      monthColumnLabels.length === 12
-                        ? monthColumnLabels
-                        : Array.from({ length: 12 }, () => ''),
+                    monthColumnLabels,
                     planningByLineId,
                     planningQueriesLoading: planningQueriesLoading,
                     planningFetchedLineIds,
