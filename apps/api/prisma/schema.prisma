@@ -56,6 +56,15 @@ enum BudgetTaxMode {
   TTC
 }
 
+/// Onglet par défaut du pilotage budget (cockpit / fiche budget RFC-024).
+enum BudgetCockpitDefaultPilotageMode {
+  DASHBOARD
+  SYNTHESE
+  PREVISIONNEL
+  ATTERRISSAGE
+  FORECAST
+}
+
 enum MicrosoftConnectionStatus {
   ACTIVE
   EXPIRED
@@ -277,6 +286,9 @@ model Client {
   timesheetAllowFractionAboveOne Boolean @default(false)
   /// Durée d’une journée type (h) pour conversion fraction → heures ; null = défaut applicatif 7,5 h.
   timesheetDayReferenceHours Decimal? @db.Decimal(5, 2)
+
+  /// Onglet pilotage budget affiché par défaut (mode global cockpit / préférence client).
+  budgetCockpitDefaultPilotageMode BudgetCockpitDefaultPilotageMode @default(SYNTHESE)
 }
 
 /// Défauts globaux badges UI (id = `default`) — fusionnés avant `Client.uiBadgeConfig`.
