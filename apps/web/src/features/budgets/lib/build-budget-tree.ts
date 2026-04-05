@@ -61,6 +61,7 @@ function lineToNode(line: BudgetLine, depth: number, sortOrder: number): Explore
     remainingAmount: line.remainingAmount ?? 0,
     remainingAmountTtc: line.remainingAmountTtc ?? null,
     currency: line.currency,
+    description: line.description ?? null,
     children: [],
   };
 }

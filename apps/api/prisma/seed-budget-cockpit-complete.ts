@@ -301,18 +301,19 @@ async function upsertPlanningTimeline(
     },
   });
   for (let m = 0; m < 12; m++) {
+    const monthIndex = m + 1;
     await prisma.budgetLinePlanningMonth.upsert({
       where: {
         budgetLineId_monthIndex: {
           budgetLineId,
-          monthIndex: m,
+          monthIndex,
         },
       },
       update: { amount: new Prisma.Decimal(months[m]) },
       create: {
         clientId,
         budgetLineId,
-        monthIndex: m,
+        monthIndex,
         amount: new Prisma.Decimal(months[m]),
       },
     });

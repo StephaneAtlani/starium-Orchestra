@@ -20,6 +20,9 @@ import { useBudgetSummary } from '@/features/budgets/hooks/use-budget-summary';
 import { useBudgetExerciseSummary } from '@/features/budgets/hooks/use-budget-exercises';
 import { useBudgetLinesPlanningQueries } from '@/features/budgets/hooks/use-budget-lines-planning-queries';
 import { useUpdateBudgetLinePlanningManualForBudgetMutation } from '@/features/budgets/hooks/use-budget-line-planning';
+import { useBudgetPlanningQuickCalculator } from '@/features/budgets/hooks/use-budget-planning-quick-calculator';
+import { BudgetPlanningQuickCalculatorDialog } from '@/features/budgets/components/budget-planning-quick-calculator-dialog';
+import { useInlineUpdateBudgetLineForBudgetMutation } from '@/features/budgets/hooks/use-inline-update-budget-line';
 import { usePermissions } from '@/hooks/use-permissions';
 import {
   budgetLines,
@@ -89,6 +92,8 @@ export default function BudgetDetailPage() {
   const [activeTab, setActiveTab] = useState<BudgetLineDrawerTab>('overview');
   const [newLineDialogOpen, setNewLineDialogOpen] = useState(false);
   const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
+  /** Ligne dont la calculette planning est ouverte (prévisionnel). */
+  const [planningCalculatorLineId, setPlanningCalculatorLineId] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<BudgetExplorerFilters>({});
   const [sortPreset, setSortPreset] = useState<ExplorerSortPreset>('default');
@@ -154,6 +159,21 @@ export default function BudgetDetailPage() {
     }
   }, [exercise?.startDate]);
 
+  const exercisePeriodHint = useMemo((): string | null => {
+    if (!exercise?.startDate || !exercise?.endDate) return null;
+    const fmt = new Intl.DateTimeFormat('fr-FR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+    const start = new Date(exercise.startDate);
+    const end = new Date(exercise.endDate);
+    return `Exercice ${fmt.format(start)} → ${fmt.format(end)} · 12 mois (mois 1 = premier mois d’exercice)`;
+  }, [exercise?.startDate, exercise?.endDate]);
+
+  const planningQuickCalc = useBudgetPlanningQuickCalculator({ monthColumnLabels });
+
   const flatLineIds = useMemo(
     () => flattenExplorerBudgetLineIds(filteredTree),
     [filteredTree],
@@ -180,6 +200,14 @@ export default function BudgetDetailPage() {
       ? planningMutation.variables.lineId
       : null;
 
+  const inlineCommentMutation = useInlineUpdateBudgetLineForBudgetMutation(budgetId, {
+    silentSuccess: true,
+  });
+  const savingCommentLineId =
+    inlineCommentMutation.isPending && inlineCommentMutation.variables
+      ? inlineCommentMutation.variables.lineId
+      : null;
+
   const amounts12ByLineId = useMemo(() => {
     const m = new Map<string, Amounts12 | null>();
     for (const id of planningFetchedLineIds) {
@@ -194,11 +222,30 @@ export default function BudgetDetailPage() {
     return m;
   }, [planningFetchedLineIds, draftAmounts12ByLineId, planningByLineId]);
 
-  const canEditPlanning =
-    !permLoading &&
-    has('budgets.update') &&
-    pilotageMode === 'previsionnel' &&
-    pilotageDensity === 'mensuel';
+  useEffect(() => {
+    if (!planningCalculatorLineId) return;
+    const amounts = amounts12ByLineId.get(planningCalculatorLineId);
+    planningQuickCalc.reset(amounts ?? null);
+  }, [planningCalculatorLineId]);
+
+  const canEditPrevisionnel =
+    !permLoading && has('budgets.update') && pilotageMode === 'previsionnel';
+  const canEditPlanning = canEditPrevisionnel && pilotageDensity === 'mensuel';
+
+  const onOpenPlanningCalculator = useCallback((lineId: string) => {
+    setPlanningCalculatorLineId(lineId);
+  }, []);
+
+  const onPlanningCalculatorOpenChange = useCallback((open: boolean) => {
+    if (!open) setPlanningCalculatorLineId(null);
+  }, []);
+
+  const onLineCommentCommit = useCallback(
+    (lineId: string, description: string) => {
+      inlineCommentMutation.mutate({ lineId, payload: { description } });
+    },
+    [inlineCommentMutation],
+  );
 
   const onMonthCommit = useCallback(
     (lineId: string, monthIndex0: number, amount: number) => {
@@ -608,7 +655,11 @@ export default function BudgetDetailPage() {
                     draftAmounts12ByLineId,
                     mutatingLineId,
                     canEditPlanning,
+                    canEditPrevisionnelMeta: canEditPrevisionnel,
                     onMonthCommit,
+                    onOpenPlanningCalculator,
+                    onLineCommentCommit,
+                    savingCommentLineId,
                     sortPreset,
                     onSortPresetChange: setSortPreset,
                     currency: budget.currency,
@@ -663,6 +714,42 @@ export default function BudgetDetailPage() {
             </Link>
           </CardContent>
         </Card>
+
+        <BudgetPlanningQuickCalculatorDialog
+          open={!!planningCalculatorLineId}
+          onOpenChange={onPlanningCalculatorOpenChange}
+          exercisePeriodHint={exercisePeriodHint}
+          calc={planningQuickCalc}
+          footer={{
+            mode: 'planning',
+            applyPending:
+              !!planningCalculatorLineId &&
+              planningMutation.isPending &&
+              planningMutation.variables?.lineId === planningCalculatorLineId,
+            onApplyToPlanning: () => {
+              if (!planningCalculatorLineId) return;
+              if (!planningQuickCalc.hasMonthAttribution) return;
+              const padded = Array.from(
+                { length: 12 },
+                (_, i) => planningQuickCalc.monthValues[i] ?? 0,
+              ) as unknown as Amounts12;
+              const lineId = planningCalculatorLineId;
+              planningMutation.mutate(
+                { lineId, payload: buildManualPlanningPutPayload(padded) },
+                {
+                  onSuccess: () => {
+                    onPlanningCalculatorOpenChange(false);
+                    setDraftAmounts12ByLineId((prev) => {
+                      const n = { ...prev };
+                      delete n[lineId];
+                      return n;
+                    });
+                  },
+                },
+              );
+            },
+          }}
+        />
 
         <NewBudgetLineDialog
           open={newLineDialogOpen}

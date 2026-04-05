@@ -38,7 +38,13 @@ export interface BudgetExplorerPilotageBindings {
   draftAmounts12ByLineId: Record<string, Amounts12 | undefined>;
   mutatingLineId: string | null;
   canEditPlanning: boolean;
+  /** Prévisionnel : édition méta (répartition, commentaire) même si la grille mois est en lecture seule (condensé). */
+  canEditPrevisionnelMeta?: boolean;
   onMonthCommit: (lineId: string, monthIndex0: number, amount: number) => void;
+  /** Prévisionnel : ouvre la calculette (même UI que formulaire ligne) pour remplir le planning. */
+  onOpenPlanningCalculator?: (lineId: string) => void;
+  onLineCommentCommit?: (lineId: string, description: string) => void;
+  savingCommentLineId?: string | null;
   /** Mode synthèse : tri + affichage TTC/HT */
   sortPreset?: ExplorerSortPreset;
   onSortPresetChange?: (preset: ExplorerSortPreset) => void;
@@ -220,8 +226,10 @@ export function BudgetExplorerTable({
   const tableMinW = isSynthese
     ? 'min-w-[1280px]'
     : pilotage.mode === 'previsionnel' && pilotage.density === 'mensuel'
-      ? 'min-w-[2200px]'
-      : 'min-w-[1280px]';
+      ? 'min-w-[3000px]'
+      : pilotage.mode === 'previsionnel' && pilotage.density === 'condense'
+        ? 'min-w-[1600px]'
+        : 'min-w-[1280px]';
 
   if (isSynthese) {
     return (

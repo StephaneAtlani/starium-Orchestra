@@ -2576,28 +2576,16 @@ function splitAmountAcrossParts(total: number, parts: number): number[] {
 }
 
 /**
- * Au moins un mois ; 1 à 6 mois consécutifs (indices 1..12), montants dont la somme = totalAmount.
+ * 12 mois (indices 1..12, alignés RFC planning), somme des montants = totalAmount.
+ * Répartition uniforme (équivalent répartition annuelle) pour que le prévisionnel grille ne soit pas vide.
  */
-function buildPlanningMonthRows(
-  totalAmount: number,
-  salt: string,
-): { monthIndex: number; amount: number }[] {
+function buildPlanningMonthRows(totalAmount: number): { monthIndex: number; amount: number }[] {
   const total = round2(totalAmount);
   if (total <= 0) {
-    return [{ monthIndex: 1, amount: 0 }];
+    return Array.from({ length: 12 }, (_, i) => ({ monthIndex: i + 1, amount: 0 }));
   }
-  let h = 0;
-  for (let i = 0; i < salt.length; i++) {
-    h = (h * 31 + salt.charCodeAt(i)) >>> 0;
-  }
-  const k = 1 + (h % 6);
-  const start = 1 + (h % 12);
-  const months: number[] = [];
-  for (let i = 0; i < k; i++) {
-    months.push(((start - 1 + i) % 12) + 1);
-  }
-  const amounts = splitAmountAcrossParts(total, k);
-  return months.map((monthIndex, i) => ({ monthIndex, amount: amounts[i] ?? 0 }));
+  const amounts = splitAmountAcrossParts(total, 12);
+  return amounts.map((amount, i) => ({ monthIndex: i + 1, amount }));
 }
 
 /** Répartition prévisionnelle (RFC planning) : idempotent sur re-seed. */
@@ -2608,7 +2596,7 @@ async function seedBudgetLinePlanningMonths(
   totalAmount: number,
 ): Promise<void> {
   await prisma.budgetLinePlanningMonth.deleteMany({ where: { clientId, budgetLineId } });
-  const rows = buildPlanningMonthRows(totalAmount, lineCode);
+  const rows = buildPlanningMonthRows(totalAmount);
   await prisma.budgetLine.update({
     where: { id: budgetLineId },
     data: {

@@ -412,9 +412,13 @@ function BudgetExplorerLineRow({
           planningRowLoading={planningRowLoading}
           amounts12={amounts12}
           canEditPlanning={pilotage.canEditPlanning}
+          canEditPrevisionnelMeta={pilotage.canEditPrevisionnelMeta}
           isMutating={pilotage.mutatingLineId === line.id}
           onMonthCommit={pilotage.onMonthCommit}
           taxDisplayMode={pilotage.taxDisplayMode}
+          onOpenPlanningCalculator={pilotage.onOpenPlanningCalculator}
+          onLineCommentCommit={pilotage.onLineCommentCommit}
+          savingCommentLineId={pilotage.savingCommentLineId}
         />
       </TableRow>
     </>

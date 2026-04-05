@@ -54,6 +54,8 @@ export interface ExplorerLineNode extends ExplorerNodeBase {
   consumedAmountTtc: number | null;
   remainingAmountTtc: number | null;
   currency: string;
+  /** Commentaire métier (champ description ligne). */
+  description: string | null;
   children: [];
 }
 

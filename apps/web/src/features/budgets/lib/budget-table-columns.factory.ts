@@ -33,7 +33,7 @@ function previsionnelMensuelHeaders(monthLabels: string[]): BudgetPilotageColumn
     label,
     align: 'right' as const,
   }));
-  return [...months, { id: 'total', label: 'Total', align: 'right' as const }];
+  return [...PREVISIONNEL_LEADING_COLS, ...months, { id: 'total', label: 'Total', align: 'right' as const }];
 }
 
 const CONDENSE_HEADERS: BudgetPilotageColumnHeader[] = [
@@ -42,6 +42,15 @@ const CONDENSE_HEADERS: BudgetPilotageColumnHeader[] = [
   { id: 't3', label: 'T3', align: 'right' },
   { id: 't4', label: 'T4', align: 'right' },
   { id: 'total', label: 'Total', align: 'right' },
+];
+
+/** Colonnes avant les mois / trimestres — prévisionnel (action, montants, commentaire). */
+const PREVISIONNEL_LEADING_COLS: BudgetPilotageColumnHeader[] = [
+  { id: 'calculatorAction', label: 'Calc.', align: 'left' },
+  { id: 'budgetInitial', label: 'Budget initial', align: 'right' },
+  { id: 'budgetRevised', label: 'Budget révisé', align: 'right' },
+  { id: 'planningVsRevised', label: 'Écart prév. / rév.', align: 'right' },
+  { id: 'lineComment', label: 'Commentaire', align: 'left' },
 ];
 
 /**
@@ -66,7 +75,9 @@ export function getBudgetPilotageColumnHeaders(
     throw new RangeError('getBudgetPilotageColumnHeaders: monthLabels must have length 12');
   }
   if (mode === 'previsionnel') {
-    return density === 'mensuel' ? previsionnelMensuelHeaders(monthLabels) : CONDENSE_HEADERS;
+    return density === 'mensuel'
+      ? previsionnelMensuelHeaders(monthLabels)
+      : [...PREVISIONNEL_LEADING_COLS, ...CONDENSE_HEADERS];
   }
   if (mode === 'atterrissage') {
     return ATTER_COLS;
@@ -85,7 +96,7 @@ export function countBudgetPilotageDataColumns(
     throw new Error('countBudgetPilotageDataColumns: mode synthèse — tableau classique');
   }
   if (mode === 'previsionnel') {
-    return density === 'mensuel' ? 13 : 5;
+    return density === 'mensuel' ? 5 + 13 : 5 + 5;
   }
   if (mode === 'atterrissage') {
     return 6;
