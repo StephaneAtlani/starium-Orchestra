@@ -5,7 +5,6 @@ export interface BudgetEnvelopeDetail {
   code: string | null;
   name: string;
   description: string | null;
-  status: 'DRAFT' | 'ACTIVE' | 'LOCKED' | 'ARCHIVED';
   currency: string;
   initialAmount: number;
   revisedAmount: number;
@@ -19,7 +18,6 @@ export interface BudgetEnvelopeLineItem {
   id: string;
   code: string | null;
   name: string;
-  status?: string;
   initialAmount: number;
   revisedAmount: number;
   forecastAmount: number;

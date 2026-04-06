@@ -13,7 +13,6 @@ export const baseBudgetLineFormSchema = z.object({
     .union([z.number().min(0, 'Le montant révisé doit être ≥ 0'), z.literal('')])
     .optional(),
   currency: z.string().min(1, 'Devise requise').max(8),
-  status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED', 'CLOSED']).optional(),
 });
 
 export function buildBudgetLineFormSchema(isBudgetAccountingEnabled: boolean) {

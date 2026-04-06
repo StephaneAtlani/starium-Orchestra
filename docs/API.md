@@ -1167,9 +1167,9 @@ Toutes les listes retournent : `{ "items": [...], "total": number, "limit": numb
 ### Enums (structure budgétaire)
 
 - **BudgetExerciseStatus** : `DRAFT`, `ACTIVE`, `CLOSED`, `ARCHIVED`
-- **BudgetStatus** : `DRAFT`, `ACTIVE`, `LOCKED`, `ARCHIVED`
-- **BudgetEnvelopeType** : `RUN`, `BUILD`, `TRANSVERSE`
-- **BudgetLineStatus** : `DRAFT`, `ACTIVE`, `CLOSED`, `ARCHIVED`
+- **BudgetStatus** : `DRAFT`, `SUBMITTED`, `REVISED`, `VALIDATED`, `LOCKED`, `ARCHIVED` (cycle de vie : brouillon → soumis → révisé → validé → verrouillé → archivé ; l’ancien `ACTIVE` est migré en `VALIDATED`)
+- **BudgetEnvelopeType** : `RUN`, `BUILD`, `TRANSVERSE` (les enveloppes n’ont pas de statut propre ; le cycle de vie est porté par le budget parent)
+- **Lignes budgétaires** : pas d’enum ni de champ `status` sur `BudgetLine` — le verrouillage / archivage et le cycle de vie métier sont portés par le **budget** (`BudgetStatus`), comme pour les enveloppes.
 - **ExpenseType** : `OPEX`, `CAPEX`
 - **BudgetLineAllocationScope** (RFC-021) : `ENTERPRISE`, `ANALYTICAL`
 
@@ -1239,19 +1239,19 @@ Détail et mise à jour. PATCH refusé si le **budget parent** est LOCKED ou ARC
 
 ### GET /api/budget-lines
 
-Liste les lignes budgétaires. **Query** : `budgetId`, `envelopeId`, `status`, `expenseType`, `costCenterId` (lignes ayant un split vers ce centre), `generalLedgerAccountId`, `allocationScope` (ENTERPRISE | ANALYTICAL), `search`, `offset`, `limit`. **Tri** : `createdAt desc`. Les montants et champs analytiques (generalLedgerAccount, analyticalLedgerAccount, costCenterSplits) sont inclus. Les montants retournés sont des **number**.
+Liste les lignes budgétaires. **Query** : `budgetId`, `envelopeId`, `expenseType`, `costCenterId` (lignes ayant un split vers ce centre), `generalLedgerAccountId`, `allocationScope` (ENTERPRISE | ANALYTICAL), `search`, `offset`, `limit`. **Tri** : `createdAt desc`. Les montants et champs analytiques (generalLedgerAccount, analyticalLedgerAccount, costCenterSplits) sont inclus. Les montants retournés sont des **number**.
 
 ---
 
 ### POST /api/budget-lines
 
-Crée une ligne. **Body** : `budgetId`, `envelopeId`, `name`, `code?`, `description?`, `expenseType`, **`generalLedgerAccountId`** (obligatoire), `analyticalLedgerAccountId?`, `allocationScope?` (défaut ENTERPRISE), `costCenterSplits?` (tableau `[{ costCenterId, percentage }]` si ANALYTICAL ; somme = 100), `initialAmount`, `revisedAmount?`, `currency`, `status?`. L’enveloppe et le compte comptable doivent appartenir au client. **Règles** : ENTERPRISE ⇒ 0 split ; ANALYTICAL ⇒ au moins 1 split, somme 100 %, unicité costCenter par ligne. Si `code` absent, généré (`BL-suffix`).
+Crée une ligne. **Body** : `budgetId`, `envelopeId`, `name`, `code?`, `description?`, `expenseType`, **`generalLedgerAccountId`** (obligatoire), `analyticalLedgerAccountId?`, `allocationScope?` (défaut ENTERPRISE), `costCenterSplits?` (tableau `[{ costCenterId, percentage }]` si ANALYTICAL ; somme = 100), `initialAmount`, `revisedAmount?`, `currency`. L’enveloppe et le compte comptable doivent appartenir au client. **Règles** : ENTERPRISE ⇒ 0 split ; ANALYTICAL ⇒ au moins 1 split, somme 100 %, unicité costCenter par ligne. Si `code` absent, généré (`BL-suffix`).
 
 ---
 
 ### GET /api/budget-lines/:id — PATCH /api/budget-lines/:id
 
-Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`. PATCH : champs optionnels dont `generalLedgerAccountId`, `analyticalLedgerAccountId`, `allocationScope`, `costCenterSplits`. Si `allocationScope` = ENTERPRISE, les splits existants sont supprimés ; si ANALYTICAL et `costCenterSplits` non fourni, les splits existants sont conservés. Si `revisedAmount` change, `remainingAmount` est recalculé. PATCH refusé si budget parent LOCKED/ARCHIVED ou si ligne ARCHIVED/CLOSED.
+Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`. PATCH : champs optionnels dont `generalLedgerAccountId`, `analyticalLedgerAccountId`, `allocationScope`, `costCenterSplits`. Si `allocationScope` = ENTERPRISE, les splits existants sont supprimés ; si ANALYTICAL et `costCenterSplits` non fourni, les splits existants sont conservés. Si `revisedAmount` change, `remainingAmount` est recalculé. PATCH refusé si le **budget** parent est LOCKED ou ARCHIVED (pas de statut au niveau ligne).
 
 **Note** : les routes `GET /api/budget-lines/:id/allocations` et `GET /api/budget-lines/:id/events` sont documentées en §16 (noyau financier).
 
@@ -1441,7 +1441,7 @@ Référence : **RFC-017** (Budget Reallocation). Transfert traçable entre deux 
 
 ### POST /api/budget-reallocations
 
-Crée une réallocation : transfert d’un montant de la ligne source vers la ligne cible (même budget, même client, lignes ACTIVE, budget non LOCKED/ARCHIVED, montant ≤ `remainingAmount` de la source).
+Crée une réallocation : transfert d’un montant de la ligne source vers la ligne cible (même budget, même client, budget non LOCKED/ARCHIVED, montant ≤ `remainingAmount` de la source).
 
 **Body (JSON)**
 
@@ -1454,7 +1454,7 @@ Crée une réallocation : transfert d’un montant de la ligne source vers la li
 
 **Réponse 200** : objet mappé `{ id, budgetId, sourceLineId, targetLineId, amount, currency, reason, createdAt }` (amount en number).
 
-**Erreurs :** 400 (validation, même ligne, budgets différents, devise différente, ligne non ACTIVE, budget LOCKED/ARCHIVED, montant > remaining), 401, 403, 404 (ligne introuvable ou hors client).
+**Erreurs :** 400 (validation, même ligne, budgets différents, devise différente, budget LOCKED/ARCHIVED, montant > remaining), 401, 403, 404 (ligne introuvable ou hors client).
 
 ### GET /api/budget-reallocations
 
@@ -1554,7 +1554,7 @@ KPI consolidés de l’enveloppe. **Query** : `includeChildren` (bool) pour incl
 
 Liste paginée des lignes de l’enveloppe avec montants, ratios et indicateurs d’alerte par ligne.
 
-**Query (optionnels)** : `offset`, `limit` (max 100), `search` (name/code), `status` (BudgetLineStatus).
+**Query (optionnels)** : `offset`, `limit` (max 100), `search` (name/code).
 
 **Réponse 200** : `{ items, total, limit, offset }`. Chaque item : ligne + `consumptionRate`, `commitmentRate`, `forecastRate`, `overConsumed`, `overCommitted`, `negativeRemaining`.
 
@@ -1591,7 +1591,7 @@ Retourne la vue globale du cockpit budgétaire pour un budget résolu (ou l’ex
 **Résolution du budget**
 
 - Si `budgetId` fourni : charger ce budget (scope client) ; 404 si absent. Exercice = budget.exerciseId.
-- Si `exerciseId` fourni : charger l’exercice ; budget = budget versionné actif (BudgetVersionSet.activeBudgetId) si présent, sinon budget avec status ACTIVE, sinon budget le plus récent de l’exercice ; 404 si aucun budget.
+- Si `exerciseId` fourni : charger l’exercice ; budget = budget versionné actif (`BudgetVersionSet.activeBudgetId`) si présent, sinon premier budget de l’exercice **non** LOCKED/ARCHIVED (tri `updatedAt` desc), sinon budget le plus récent de l’exercice ; 404 si aucun budget.
 - Si aucun paramètre : exercice courant = ACTIVE et endDate ≥ now (sinon exercice le plus récent par endDate) ; puis même logique de résolution du budget ; 404 si aucun exercice ou aucun budget.
 
 **Réponse 200**

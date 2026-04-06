@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AllocationType, FinancialEventType } from '@prisma/client';
+import { AllocationType, BudgetStatus, FinancialEventType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
@@ -102,7 +102,11 @@ export class BudgetDashboardService {
 
     if (shouldAggregateBudgetsForExercise) {
       const budgets = await this.prisma.budget.findMany({
-        where: { clientId, exerciseId: exercise.id, status: 'ACTIVE' },
+        where: {
+          clientId,
+          exerciseId: exercise.id,
+          status: { notIn: [BudgetStatus.LOCKED, BudgetStatus.ARCHIVED] },
+        },
         orderBy: { updatedAt: 'desc' },
         select: {
           id: true,
@@ -788,7 +792,11 @@ export class BudgetDashboardService {
       };
     }
     let budget = await this.prisma.budget.findFirst({
-      where: { clientId, exerciseId, status: 'ACTIVE' },
+      where: {
+        clientId,
+        exerciseId,
+        status: { notIn: [BudgetStatus.LOCKED, BudgetStatus.ARCHIVED] },
+      },
       orderBy: { updatedAt: 'desc' },
     });
     if (budget) {

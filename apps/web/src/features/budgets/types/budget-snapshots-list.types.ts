@@ -43,7 +43,6 @@ export interface BudgetSnapshotLineDto {
   lineName: string;
   expenseType: string;
   currency: string;
-  lineStatus: string;
   initialAmount: number;
   revisedAmount: number;
   forecastAmount: number;

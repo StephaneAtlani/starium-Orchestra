@@ -86,22 +86,39 @@ Il est alimenté différemment selon :
 
 ## Mode Mensuel
 
+Schéma simplifié (la colonne **Sous-budget** / arbre est à gauche, hors tableau de données) :
+
 ```text
-| Ligne | Jan | Fév | Mar | ... | Déc | Total |
+| … | Calc. | Budget initial | Budget révisé | Écart prév. / rév. | % écart prév. | Commentaire | M1…M12 (exercice) | Total |
 ```
+
+### Colonnes de tête (implémenté dans le code)
+
+| Id (factory) | Libellé | Rôle |
+| --- | --- | --- |
+| `calculatorAction` | Calc. | Ouverture calculette rapide (remplissage prévisionnel) |
+| `budgetInitial` | Budget initial | Montant initial (HT ou TTC selon sélecteur page) |
+| `budgetRevised` | Budget révisé | Montant révisé |
+| `planningVsRevised` | Écart prév. / rév. | **Montant** : somme prévision 12 mois − révisé (aligné `planningDelta` côté API GET planning, ou calcul local depuis la grille) |
+| `planningVsRevisedPct` | % écart prév. | **Uniquement UI** : écart **relatif** par rapport au révisé, \((\text{prévision totale} - \text{révisé}) / \text{révisé}\), format pourcentage signé (fr-FR) ; tiret si écart indisponible ou dénominateur nul |
+| `lineComment` | Commentaire | Note libre (blur → sauvegarde ligne) |
+
+Code : `apps/web/src/features/budgets/lib/budget-table-columns.factory.ts` (en-têtes), `apps/web/src/features/budgets/components/budget-explorer-pilotage-cells.tsx` (rendu). Les libellés **M1…M12** suivent le **premier mois d’exercice** (package partagé `budget-exercise-calendar`, cohérent RFC-023).
 
 ### Règles
 
-* édition inline
-* recalcul backend immédiat
-* navigation clavier
+* édition inline sur les mois
+* recalcul backend immédiat (PUT planning)
+* navigation clavier (objectif produit ; niveau de finition variable)
 
 ---
 
 ## Mode Condensé
 
+Mêmes colonnes de tête que le mode mensuel, puis agrégation **T1–T4** et **Total** (pas de colonnes mois individuelles).
+
 ```text
-| Ligne | T1 | T2 | T3 | T4 | Total |
+| … | Calc. | … | % écart prév. | Commentaire | T1 | T2 | T3 | T4 | Total |
 ```
 
 ---

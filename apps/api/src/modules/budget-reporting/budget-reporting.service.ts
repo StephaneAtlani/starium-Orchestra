@@ -647,7 +647,6 @@ export class BudgetReportingService {
     const where: import('@prisma/client').Prisma.BudgetLineWhereInput = {
       clientId,
       envelopeId,
-      ...(query.status && { status: query.status }),
     };
     if (query.search?.trim()) {
       const term = query.search.trim();
@@ -672,7 +671,6 @@ export class BudgetReportingService {
         name: line.name,
         description: line.description,
         expenseType: line.expenseType,
-        status: line.status,
         currency: line.currency,
         initialAmount: fromDecimal(line.initialAmount),
         revisedAmount: fromDecimal(line.revisedAmount),

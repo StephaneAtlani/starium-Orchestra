@@ -92,43 +92,15 @@ Logique de drill-down :
 
 # 5. Modèle métier attendu
 
-L’enveloppe devient un objet métier de gouvernance avec son propre statut.
+L’enveloppe est une **maille de structuration** (hiérarchie, type RUN/BUILD/TRANSVERSE, agrégation des lignes). **Il n’y a pas de statut de cycle de vie au niveau enveloppe** : le verrouillage et l’archivage sont portés par le **budget** (`BudgetStatus` sur `Budget`).
 
-## 5.1 Statut d’enveloppe
+## 5.1 (Historique) Statut d’enveloppe — retiré
 
-Le backend doit exposer un champ :
+Une ancienne itération prévoyait un champ `status` sur `BudgetEnvelope` ; il a été **supprimé** du schéma et de l’API. L’UI ne doit pas afficher de badge / statut d’enveloppe ; pour l’état « figé », se référer au budget parent.
 
-```ts
-status
-```
+## 5.2 Règle UX
 
-Valeurs attendues :
-
-```ts
-DRAFT
-ACTIVE
-LOCKED
-ARCHIVED
-```
-
-## 5.2 Sémantique métier
-
-| Statut   | Description                                    |
-| -------- | ---------------------------------------------- |
-| DRAFT    | Enveloppe en préparation                       |
-| ACTIVE   | Enveloppe ouverte et exploitable               |
-| LOCKED   | Enveloppe figée, aucune modification autorisée |
-| ARCHIVED | Enveloppe historisée                           |
-
-## 5.3 Règle UX importante
-
-Le frontend **affiche** le statut et adapte l’interface, mais ne porte **aucune logique métier source de vérité**.
-
-Exemples :
-
-* badge visuel du statut
-* message d’information si enveloppe verrouillée
-* désactivation de boutons d’action quand ils existeront plus tard
+Le frontend ne déduit pas de cycle de vie au niveau enveloppe. Les messages de blocage (édition impossible) viennent des **réponses API** lorsque le **budget** parent est LOCKED / ARCHIVED (ou version supersédée/archivée selon RFC-019).
 
 ---
 
@@ -148,7 +120,6 @@ Retour attendu :
 * name
 * description
 * currency
-* **status**
 * montants consolidés
 
 ## 6.2 Lignes de l’enveloppe
@@ -178,7 +149,6 @@ Le header affiche :
 
 * nom de l’enveloppe
 * code si disponible
-* **badge de statut**
 * breadcrumb
 
 Exemple :
@@ -201,14 +171,10 @@ Afficher :
 * `name`
 * `code`
 * `description`
-* `status`
 * `currency`
 * `budgetId`
 
-Le statut doit être visible à deux endroits :
-
-* dans le header sous forme de badge
-* dans le bloc identité sous forme de champ lisible
+**Pas de statut sur l’enveloppe** : pour l’état de cycle de vie (brouillon, validé, verrouillé…), s’appuyer sur le **budget** parent (nom + `BudgetStatus`), affiché dans le header / fil d’Ariane ou via un lien vers le budget.
 
 ---
 
@@ -250,7 +216,7 @@ Afficher les lignes rattachées à l’enveloppe.
 
 * clic sur une ligne → `/budget-lines/[id]`
 
-Le fait d’afficher aussi le statut des lignes est important pour garder une cohérence de lecture entre enveloppe et lignes.
+Cohérence UX : le cycle de vie affiché est celui du **budget** (pas de colonne / badge de statut par ligne).
 
 ---
 
@@ -370,7 +336,6 @@ features/budgets/
     budget-envelope-summary-cards.tsx
     budget-envelope-identity-card.tsx
     budget-envelope-lines-table.tsx
-    budget-envelope-status-badge.tsx
 ```
 
 ---
@@ -397,7 +362,6 @@ type BudgetEnvelopeDetail = {
   code: string | null;
   name: string;
   description?: string | null;
-  status: "DRAFT" | "ACTIVE" | "LOCKED" | "ARCHIVED";
   currency: string;
   initialAmount: number;
   revisedAmount: number;
@@ -450,11 +414,9 @@ Règles :
 
 ## 15.1 Ce que le frontend peut faire
 
-* afficher le statut
-* adapter visuellement l’interface
-* afficher un message selon le statut
-* désactiver de futures actions si nécessaire
+* afficher le contexte budget / devise
 * formater les montants et dates
+* désactiver des actions si le **budget** parent est LOCKED / ARCHIVED (règles API)
 
 ## 15.2 Ce que le frontend ne doit pas faire
 
@@ -471,19 +433,19 @@ La RFC est considérée comme terminée lorsque :
 
 1. la route `/budget-envelopes/[id]` existe
 2. le détail de l’enveloppe est chargé depuis l’API
-3. le **statut de l’enveloppe** est visible dans le header et dans le détail
+3. l’identité de l’enveloppe (nom, code, devise) est visible dans le header et le détail
 4. les KPI financiers sont affichés
 5. la liste paginée des lignes de l’enveloppe est affichée
 6. chaque ligne permet de naviguer vers `/budget-lines/[id]`
 7. les états loading / error / empty sont gérés
 8. l’interface reste strictement read-only
-9. l’UI s’adapte correctement à `LOCKED` et `ARCHIVED`
+9. l’UI reflète correctement les contraintes quand le **budget** parent est verrouillé ou archivé (pas de statut d’enveloppe)
 
 ---
 
 # 17. Résumé
 
-Cette RFC crée la **page de détail d’une enveloppe budgétaire** et introduit explicitement le **statut d’enveloppe** dans l’expérience utilisateur.
+Cette RFC crée la **page de détail d’une enveloppe budgétaire** (agrégation des montants et des lignes). Le cycle de vie reste sur le **budget**, pas sur l’enveloppe.
 
 Elle permet :
 

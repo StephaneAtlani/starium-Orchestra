@@ -18,7 +18,9 @@ export const BUDGET_EXERCISE_STATUS_OPTIONS = [
 export const BUDGET_STATUS_OPTIONS = [
   { value: 'ALL', label: 'Tous' },
   { value: 'DRAFT', label: 'Brouillon' },
-  { value: 'ACTIVE', label: 'Actif' },
+  { value: 'SUBMITTED', label: 'Soumis' },
+  { value: 'REVISED', label: 'Révisé' },
+  { value: 'VALIDATED', label: 'Validé' },
   { value: 'LOCKED', label: 'Verrouillé' },
   { value: 'ARCHIVED', label: 'Archivé' },
 ] as const;

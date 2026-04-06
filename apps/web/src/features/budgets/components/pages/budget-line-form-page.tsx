@@ -143,7 +143,7 @@ export function BudgetLineFormPage({
 
   const defaultValues: Partial<BudgetLineFormValues> = isEdit && line
     ? lineApiToForm(line, budget?.taxMode ?? 'HT')
-    : { budgetId: resolvedBudgetId, envelopeId, currency: 'EUR', status: 'DRAFT' };
+    : { budgetId: resolvedBudgetId, envelopeId, currency: 'EUR' };
 
   const handleSubmit = (values: BudgetLineFormValues, meta?: BudgetLineFormSubmitMeta) => {
     if (isEdit) {

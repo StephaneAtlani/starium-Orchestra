@@ -65,35 +65,13 @@ export class BudgetEnvelopesService {
     clientId: string,
     id: string,
   ): Promise<BudgetEnvelopeDetailResponseDto> {
-    // #region agent log
-    // Diagnostic temporaire pour comprendre les 404 sur GET /api/budget-envelopes/:id
-    console.log('[BudgetEnvelopesService.getById] called', {
-      clientId,
-      id,
-    });
-    // #endregion agent log
-
     const envelope = await this.prisma.budgetEnvelope.findFirst({
       where: { id, clientId },
       include: { budget: true },
     });
     if (!envelope) {
-      // #region agent log
-      console.log('[BudgetEnvelopesService.getById] envelope not found', {
-        clientId,
-        id,
-      });
-      // #endregion agent log
       throw new NotFoundException('Budget envelope not found');
     }
-
-    // #region agent log
-    console.log('[BudgetEnvelopesService.getById] envelope found', {
-      clientId,
-      id,
-      budgetId: envelope.budgetId,
-    });
-    // #endregion agent log
 
     const sums = await this.prisma.budgetLine.aggregate({
       where: {
@@ -126,7 +104,6 @@ export class BudgetEnvelopesService {
       code: envelope.code,
       name: envelope.name,
       description: envelope.description ?? null,
-      status: envelope.status,
       currency: envelope.budget.currency,
       initialAmount: fromDecimal(sum.initialAmount),
       revisedAmount: fromDecimal(sum.revisedAmount),
@@ -213,7 +190,6 @@ export class BudgetEnvelopesService {
         description: dto.description ?? null,
         parentId: dto.parentId ?? null,
         sortOrder: dto.sortOrder ?? 0,
-        status: dto.status ?? BudgetStatus.DRAFT,
       },
     });
 
@@ -315,7 +291,6 @@ export class BudgetEnvelopesService {
         ...(dto.code != null && { code: dto.code }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.type != null && { type: dto.type }),
-        ...(dto.status != null && { status: dto.status }),
         ...(dto.parentId !== undefined && {
           parentId: dto.parentId || null,
         }),

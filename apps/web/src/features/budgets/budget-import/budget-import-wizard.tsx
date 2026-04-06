@@ -479,7 +479,6 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
       code?: string;
       description?: string;
       type: string;
-      status: string;
     }) => {
       const created = await createEnvelope(authFetch, {
         budgetId,
@@ -487,7 +486,6 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
         code: input.code,
         description: input.description,
         type: input.type,
-        status: input.status,
       });
       await queryClient.invalidateQueries({
         queryKey: budgetQueryKeys.budgetEnvelopes(clientId, budgetId, { full: true }),

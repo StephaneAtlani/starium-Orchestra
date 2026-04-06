@@ -74,7 +74,9 @@ Nom recommandé :
 
 ### BudgetStatus
 - DRAFT
-- ACTIVE
+- SUBMITTED
+- REVISED
+- VALIDATED
 - LOCKED
 - ARCHIVED
 
@@ -83,11 +85,9 @@ Nom recommandé :
 - BUILD
 - TRANSVERSE
 
-### BudgetLineStatus
-- DRAFT
-- ACTIVE
-- CLOSED
-- ARCHIVED
+### ~~BudgetLineStatus~~ (retiré)
+
+L’enum et le champ `status` sur `BudgetLine` ont été **supprimés** (migration `20260414120000_drop_budget_line_status`). Le cycle de vie métier est porté par **`BudgetStatus`** sur `Budget`.
 
 ### ExpenseType
 - OPEX
@@ -221,7 +221,6 @@ Champs :
 - name
 - description nullable
 - expenseType
-- status
 - currency
 - initialAmount
 - revisedAmount
@@ -244,7 +243,6 @@ Contraintes :
 - `@@index([clientId])`
 - `@@index([budgetId])`
 - `@@index([envelopeId])`
-- `@@index([status])`
 
 Règle :
 - tous les montants en `Decimal @db.Decimal(18,2)`

@@ -79,7 +79,9 @@ const PROJECT_PORTFOLIO_SIGNAL_KEYS = new Set([
 
 const BUDGET_STATUS_KEYS = new Set([
   'DRAFT',
-  'ACTIVE',
+  'SUBMITTED',
+  'REVISED',
+  'VALIDATED',
   'LOCKED',
   'ARCHIVED',
 ]);

@@ -166,7 +166,6 @@ export async function listEnvelopeLines(
     offset?: number;
     limit?: number;
     search?: string;
-    status?: string;
   },
 ): Promise<PaginatedResponse<BudgetEnvelopeLineItem>> {
   const qs = buildQueryString({
@@ -174,7 +173,6 @@ export async function listEnvelopeLines(
     offset: params?.offset,
     limit: params?.limit,
     search: params?.search?.trim() || undefined,
-    status: params?.status?.trim() || undefined,
   });
   const res = await authFetch(`${BASE_LINES}${qs}`);
   return handleResponse<PaginatedResponse<BudgetEnvelopeLineItem>>(res);
@@ -286,7 +284,6 @@ export interface CreateEnvelopePayload {
   code?: string;
   description?: string;
   type: string;
-  status?: string;
   parentId?: string;
   sortOrder?: number;
 }
@@ -296,7 +293,6 @@ export interface UpdateEnvelopePayload {
   code?: string;
   description?: string;
   type?: string;
-  status?: string;
   parentId?: string;
   sortOrder?: number;
 }
@@ -341,14 +337,12 @@ export interface CreateLinePayload {
   revisedAmount?: number;
   taxRate?: number;
   currency: string;
-  status?: string;
 }
 
 export interface UpdateLinePayload {
   name?: string;
   code?: string;
   description?: string;
-  status?: string;
   generalLedgerAccountId?: string | null;
   analyticalLedgerAccountId?: string | null;
   allocationScope?: 'ENTERPRISE' | 'ANALYTICAL';

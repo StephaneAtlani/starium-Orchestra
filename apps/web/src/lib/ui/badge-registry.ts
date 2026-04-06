@@ -287,7 +287,9 @@ export type ProjectPortfolioSignalKey = (typeof PROJECT_PORTFOLIO_SIGNAL_KEYS)[n
 /** Statuts budget / exercice (`BudgetStatus` Prisma). */
 export const BUDGET_STATUS_KEYS = [
   'DRAFT',
-  'ACTIVE',
+  'SUBMITTED',
+  'REVISED',
+  'VALIDATED',
   'LOCKED',
   'ARCHIVED',
 ] as const;
@@ -380,14 +382,18 @@ const DEFAULT_PROJECT_PORTFOLIO_LABELS: Record<ProjectPortfolioSignalKey, string
 
 const DEFAULT_BUDGET_STATUS: Record<BudgetStatusBadgeKey, BadgeStyle> = {
   DRAFT: { palette: 'stone', surface: 'pastel', textColor: 'auto' },
-  ACTIVE: { palette: 'emerald', surface: 'pastel', textColor: 'auto' },
+  SUBMITTED: { palette: 'sky', surface: 'pastel', textColor: 'auto' },
+  REVISED: { palette: 'amber', surface: 'pastel', textColor: 'auto' },
+  VALIDATED: { palette: 'emerald', surface: 'pastel', textColor: 'auto' },
   LOCKED: { palette: 'zinc', surface: 'pastel', textColor: 'auto' },
   ARCHIVED: { palette: 'gray', surface: 'pastel', textColor: 'auto' },
 };
 
 const DEFAULT_BUDGET_STATUS_LABELS: Record<BudgetStatusBadgeKey, string> = {
   DRAFT: 'Brouillon',
-  ACTIVE: 'Actif',
+  SUBMITTED: 'Soumis',
+  REVISED: 'Révisé',
+  VALIDATED: 'Validé',
   LOCKED: 'Verrouillé',
   ARCHIVED: 'Archivé',
 };

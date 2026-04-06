@@ -82,7 +82,7 @@ function buildCreateLinkPayload(
   amount: string,
 ): BuildLinkResult {
   if (!budgetLineId || budgetLineId === SELECT_NONE) {
-    return { ok: false, message: 'Choisissez une ligne budgétaire ACTIVE.' };
+    return { ok: false, message: 'Choisissez une ligne budgétaire.' };
   }
   const payload: CreateProjectBudgetLinkPayload = {
     budgetLineId,
@@ -189,13 +189,10 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
     ];
   }, [budgetId, envelopesQuery.data]);
 
-  const activeLinesInEnvelope = useMemo(() => {
+  const linesInEnvelope = useMemo(() => {
     const lines = linesQuery.data ?? [];
     return lines.filter(
-      (l) =>
-        l.status === 'ACTIVE' &&
-        envelopeId !== SELECT_NONE &&
-        l.envelopeId === envelopeId,
+      (l) => envelopeId !== SELECT_NONE && l.envelopeId === envelopeId,
     );
   }, [linesQuery.data, envelopeId]);
 
@@ -204,12 +201,12 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
     if (envelopeId === SELECT_NONE) return [none];
     return [
       none,
-      ...activeLinesInEnvelope.map((l) => ({
+      ...linesInEnvelope.map((l) => ({
         id: l.id,
         label: formatLineOptionLabel(l),
       })),
     ];
-  }, [envelopeId, activeLinesInEnvelope]);
+  }, [envelopeId, linesInEnvelope]);
 
   const envelopeLoading =
     budgetId !== SELECT_NONE &&
@@ -259,7 +256,6 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
         expenseType: newLineExpenseType,
         initialAmount,
         currency: selectedBudget?.currency ?? 'EUR',
-        status: 'ACTIVE',
       };
       if (budgetAccountingEnabled && newLineGeneralLedgerId !== SELECT_NONE) {
         linePayload.generalLedgerAccountId = newLineGeneralLedgerId;
@@ -655,10 +651,10 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       budgetId !== SELECT_NONE &&
                       envelopeId !== SELECT_NONE &&
                       linesQuery.isSuccess &&
-                      activeLinesInEnvelope.length === 0
+                      linesInEnvelope.length === 0
                         ? canCreateBudgetLine
-                          ? 'Aucune ligne active. Utilisez le bouton « Créer une nouvelle ligne » sous la sélection, ou le module Budget.'
-                          : 'Aucune ligne active dans cette enveloppe. Créez-en une depuis le module Budget.'
+                          ? 'Aucune ligne. Utilisez le bouton « Créer une nouvelle ligne » sous la sélection, ou le module Budget.'
+                          : 'Aucune ligne dans cette enveloppe. Créez-en une depuis le module Budget.'
                         : null
                     }
                     onValueChange={(id) => {

@@ -6,13 +6,13 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 
 ## 1. Ce qui est en place
 
-### Schéma Prisma (RFC-015-1A, RFC-019, RFC-021, RFC-021-CORR, extension « status » enveloppes)
+### Schéma Prisma (RFC-015-1A, RFC-019, RFC-021, RFC-021-CORR)
 
 - **BudgetExercise** : exercice budgétaire (clientId, name, code, startDate, endDate, status).
 - **Budget** : budget (clientId, exerciseId, name, code, currency, status, ownerUserId optionnel). Extension RFC-019 : versionSetId?, versionNumber?, versionLabel?, versionKind? (BASELINE/REVISION), versionStatus? (DRAFT/ACTIVE/SUPERSEDED/ARCHIVED), parentBudgetId?, activatedAt?, archivedAt?, isVersioned.
 - **BudgetVersionSet** (RFC-019) : ensemble de versions (clientId, exerciseId, code, name, description?, baselineBudgetId?, activeBudgetId?). Relations nommées : versions, baselineBudget, activeBudget.
-- **BudgetEnvelope** : enveloppe (clientId, budgetId, parentId optionnel, name, code, type RUN/BUILD/TRANSVERSE, **status: BudgetStatus** avec défaut `DRAFT` — mêmes états que les budgets).
-- **BudgetLine** : ligne budgétaire (clientId, budgetId, envelopeId, code, name, expenseType, currency, montants : initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount).  
+- **BudgetEnvelope** : enveloppe (clientId, budgetId, parentId optionnel, name, code, type RUN/BUILD/TRANSVERSE, description?, sortOrder). **Pas de statut de cycle de vie** sur l’enveloppe : le verrouillage / archivage est porté par le **budget** (`BudgetStatus`).
+- **BudgetLine** : ligne budgétaire (clientId, budgetId, envelopeId, code, name, expenseType, currency, montants : initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount). **Pas de champ `status`** sur la ligne : le cycle de vie est porté par le **budget** (`BudgetStatus`).  
   Extension RFC-021 : `generalLedgerAccountId` (compte comptable), `analyticalLedgerAccountId?`, `allocationScope` (ENTERPRISE \| ANALYTICAL), relations `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`.  
   Extension **RFC-021-CORR** : `generalLedgerAccountId` est **nullable dans le modèle** et son caractère obligatoire est piloté par une configuration par client (`Client.budgetAccountingEnabled`).
 - **GeneralLedgerAccount**, **AnalyticalLedgerAccount**, **CostCenter** (RFC-021) : catalogues client (clientId, code, name, description?, isActive, sortOrder) ; unicité code par client.
@@ -21,8 +21,8 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 - **FinancialEvent** : événement financier (budgetLineId, sourceType, sourceId?, eventType, amount, eventDate, label, etc.).
 - **BudgetReallocation** (RFC-017) : réallocation entre deux lignes (clientId, budgetId, sourceLineId, targetLineId, amount, currency, reason?, createdById?, createdAt). Chaque réallocation génère deux FinancialEvent de type REALLOCATION_DONE (source : montant négatif ; cible : montant positif).
 
-Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType` (dont REALLOCATION_DONE), `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `BudgetLineStatus`, `ExpenseType`, `BudgetVersionKind` (BASELINE, REVISION), `BudgetVersionStatus` (DRAFT, ACTIVE, SUPERSEDED, ARCHIVED), `BudgetLineAllocationScope` (ENTERPRISE, ANALYTICAL).  
-**BudgetEnvelope.status** réutilise `BudgetStatus` pour garder la même sémantique d’état que les budgets (DRAFT/ACTIVE/LOCKED/ARCHIVED).
+Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType` (dont REALLOCATION_DONE), `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `ExpenseType`, `BudgetVersionKind` (BASELINE, REVISION), `BudgetVersionStatus` (DRAFT, ACTIVE, SUPERSEDED, ARCHIVED), `BudgetLineAllocationScope` (ENTERPRISE, ANALYTICAL). L’ancien enum **`BudgetLineStatus`** a été retiré (migration `20260414120000_drop_budget_line_status`).  
+Le cycle de vie budgétaire est porté par **`BudgetStatus`** uniquement (pas de statut sur les enveloppes ni sur les lignes).
 
 ### Backend Budget Management (RFC-015-2, RFC-021, RFC-021-CORR)
 
@@ -68,7 +68,7 @@ Détail : [docs/API.md](../API.md) §16 (Noyau financier).
   - `GET /api/budget-reporting/budgets/:id/totals-by-cost-center` (RFC-021) — totaux par centre de coûts (lignes ANALYTICAL uniquement ; revisedAmount / remainingAmount)
   - `GET /api/budget-reporting/budgets/:id/totals-by-general-ledger-account` (RFC-021) — totaux par compte comptable (toutes lignes)
   - `GET /api/budget-reporting/envelopes/:id/summary` — KPI enveloppe (option includeChildren)
-  - `GET /api/budget-reporting/envelopes/:id/lines` — lignes avec ratios et alertes (pagination, search, status)
+  - `GET /api/budget-reporting/envelopes/:id/lines` — lignes avec ratios et alertes (pagination, search)
 - **Règles** : une seule devise par périmètre (400 si plusieurs) ; ratios = 0 si revisedAmount = 0 ; `currency` présent dans toutes les réponses KPI ; search uniquement sur name/code.
 - **Pas de modification** des modules budget-management ni financial-core ; consommation des données en lecture.
 
@@ -79,7 +79,7 @@ Détail : [docs/API.md](../API.md) §18 (Budget Reporting API).
 - **Module** `budget-dashboard` : cockpit de pilotage budgétaire en **lecture seule** (une seule route).
 - **API** (GET, permission `budgets.read`) :
   - `GET /api/budget-dashboard` — vue globale du cockpit : exercice et budget résolus, KPI (totalBudget, committed, consumed, forecast, remaining, consumptionRate), répartition CAPEX/OPEX, tendance mensuelle (FinancialEvent), top enveloppes, enveloppes à risque, top lignes. Query : `exerciseId?`, `budgetId?`, `includeEnvelopes?`, `includeLines?` (booléens en query, défaut true).
-- **Résolution** : si `budgetId` → ce budget (404 si absent) ; si `exerciseId` → budget versionné actif, sinon ACTIVE, sinon plus récent ; si aucun paramètre → exercice courant (ACTIVE + endDate ≥ now) ou plus récent, puis même logique budget. Tout scopé par client actif.
+- **Résolution** : si `budgetId` → ce budget (404 si absent) ; si `exerciseId` → budget versionné actif (`BudgetVersionSet.activeBudgetId`), sinon premier budget **non** LOCKED/ARCHIVED (`updatedAt` desc), sinon budget le plus récent de l’exercice ; si aucun paramètre → exercice courant (`BudgetExerciseStatus` ACTIVE + endDate ≥ now) ou plus récent, puis même logique budget. Tout scopé par client actif.
 - **Sources** : KPI committed/consumed/forecast depuis FinancialAllocation ; totalBudget, remaining, CAPEX/OPEX, top enveloppes, risk, top lignes depuis BudgetLine ; tendance mensuelle depuis FinancialEvent (eventDate, COMMITMENT_REGISTERED / CONSUMPTION_REGISTERED). Limite 10 pour top enveloppes et top lignes.
 - **Frontend** : page `/budgets/dashboard` (section Finance), appel GET /api/budget-dashboard, affichage contexte exercice/budget, KPI, CAPEX/OPEX, trend, tableaux conditionnels (top enveloppes, enveloppes à risque, top lignes).
 

@@ -14,7 +14,7 @@ function mockBudget(overrides: Record<string, unknown> = {}) {
     name: 'Budget 2026',
     code: 'BUD-2026',
     currency: 'EUR',
-    status: BudgetStatus.ACTIVE,
+    status: BudgetStatus.VALIDATED,
     exercise: { clientId, id: exerciseId },
     ...overrides,
   };
@@ -34,7 +34,7 @@ function mockSnapshot(overrides: Record<string, unknown> = {}) {
     budgetName: 'Budget 2026',
     budgetCode: 'BUD-2026',
     budgetCurrency: 'EUR',
-    budgetStatus: BudgetStatus.ACTIVE,
+    budgetStatus: BudgetStatus.VALIDATED,
     totalRevisedAmount: 100000,
     totalForecastAmount: 98000,
     totalCommittedAmount: 60000,

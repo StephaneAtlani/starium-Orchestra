@@ -87,7 +87,6 @@ export function lineToReportItem(
     name: string;
     description: string | null;
     expenseType: string;
-    status: string;
     currency: string;
     initialAmount: number;
     revisedAmount: number;

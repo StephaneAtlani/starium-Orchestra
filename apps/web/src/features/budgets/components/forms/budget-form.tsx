@@ -10,14 +10,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createBudgetSchema, type CreateBudgetInput } from '../../schemas/create-budget.schema';
 import { BudgetFormActions } from './budget-form-actions';
 import type { ApiFormError } from '../../api/types';
+import {
+  BUDGET_WORKFLOW_STATUSES,
+  BUDGET_WORKFLOW_STATUS_LABELS,
+} from '../../constants/budget-workflow-status';
 
 const CURRENCY_OPTIONS = [{ value: 'EUR', label: 'EUR' }];
-const STATUS_OPTIONS = [
-  { value: 'DRAFT', label: 'Brouillon' },
-  { value: 'ACTIVE', label: 'Actif' },
-  { value: 'LOCKED', label: 'Verrouillé' },
-  { value: 'ARCHIVED', label: 'Archivé' },
-] as const;
+const STATUS_OPTIONS = BUDGET_WORKFLOW_STATUSES.map((value) => ({
+  value,
+  label: BUDGET_WORKFLOW_STATUS_LABELS[value],
+}));
 
 interface BudgetFormProps {
   defaultValues: Partial<CreateBudgetInput>;

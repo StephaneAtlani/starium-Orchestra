@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   BudgetLinePlanningMode,
-  BudgetLineStatus,
   BudgetStatus,
   Prisma,
 } from '@prisma/client';
@@ -653,12 +652,6 @@ export class BudgetLinePlanningService {
       ['SUPERSEDED', 'ARCHIVED'].includes(line.budget.versionStatus)
     ) {
       throw new BadRequestException('Parent budget version is not editable');
-    }
-    if (
-      line.status === BudgetLineStatus.ARCHIVED ||
-      line.status === BudgetLineStatus.CLOSED
-    ) {
-      throw new BadRequestException('Budget line is not editable');
     }
     return line;
   }

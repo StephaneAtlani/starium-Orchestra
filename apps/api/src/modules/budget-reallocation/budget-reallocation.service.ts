@@ -4,7 +4,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  BudgetLineStatus,
   BudgetStatus,
   FinancialEventType,
   FinancialSourceType,
@@ -97,12 +96,6 @@ export class BudgetReallocationService {
       throw new BadRequestException(
         'Source and target must have the same currency',
       );
-    }
-    if (sourceLine.status !== BudgetLineStatus.ACTIVE) {
-      throw new BadRequestException('Source line must be ACTIVE');
-    }
-    if (targetLine.status !== BudgetLineStatus.ACTIVE) {
-      throw new BadRequestException('Target line must be ACTIVE');
     }
     if (
       sourceLine.budget.status === BudgetStatus.LOCKED ||

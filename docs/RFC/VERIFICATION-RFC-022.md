@@ -21,7 +21,7 @@ Références : plan `.cursor/plans/budget_dashboard_api_rfc-022_a67dc6b8.plan.md
 | Cas | Exigence | Statut |
 |-----|----------|--------|
 | budgetId fourni | Charger budget (clientId + id), 404 si absent ; déduire exercice | Conforme |
-| exerciseId fourni | Charger exercice ; budget versionné actif → ACTIVE → plus récent ; 404 si aucun budget | Conforme |
+| exerciseId fourni | Charger exercice ; budget versionné actif → sinon premier budget hors LOCKED/ARCHIVED (`updatedAt` desc) → sinon plus récent (tous statuts) ; 404 si aucun budget | Conforme |
 | Aucun paramètre | Exercice courant (ACTIVE + endDate >= now) ou plus récent par endDate desc ; même logique budget | Conforme |
 | Filtrage | Tout filtré par clientId | Conforme |
 

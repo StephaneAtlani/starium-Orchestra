@@ -12,7 +12,9 @@ import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-
 /** Valeurs hors enum courant (ex. anciennes données) — repli visuel. */
 const STATUS_CLASS_FALLBACK: Record<string, string> = {
   DRAFT: 'border border-border text-foreground',
-  ACTIVE: 'bg-primary text-primary-foreground',
+  SUBMITTED: 'bg-primary/15 text-primary',
+  REVISED: 'bg-amber-500/15 text-amber-900 dark:text-amber-100',
+  VALIDATED: 'bg-primary text-primary-foreground',
   LOCKED: 'bg-secondary text-secondary-foreground',
   ARCHIVED: 'bg-secondary text-secondary-foreground',
   CLOSED: 'bg-secondary text-secondary-foreground',
@@ -21,7 +23,9 @@ const STATUS_CLASS_FALLBACK: Record<string, string> = {
 
 const STATUS_LABEL_FR: Record<string, string> = {
   DRAFT: 'Brouillon',
-  ACTIVE: 'Actif',
+  SUBMITTED: 'Soumis',
+  REVISED: 'Révisé',
+  VALIDATED: 'Validé',
   LOCKED: 'Verrouillé',
   ARCHIVED: 'Archivé',
   CLOSED: 'Clos',

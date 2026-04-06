@@ -16,7 +16,6 @@ import {
   PilotageLineDataCells,
 } from './budget-explorer-pilotage-cells';
 import { BudgetLinesProgress } from './budget-lines-progress';
-import { BudgetStatusBadge } from './budget-status-badge';
 
 interface BudgetExplorerRowProps {
   node: ExplorerNode;
@@ -288,10 +287,6 @@ function BudgetExplorerLineRow({
             style={{ paddingLeft: `${12 + depth * 20}px` }}
           >
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <BudgetStatusBadge
-                status={line.status}
-                className="h-5 px-2 text-[10px] uppercase"
-              />
               <button
                 type="button"
                 onClick={() => onBudgetLineClick?.(line.id)}
@@ -385,10 +380,6 @@ function BudgetExplorerLineRow({
           style={{ paddingLeft: `${12 + depth * 20}px` }}
         >
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <BudgetStatusBadge
-              status={line.status}
-              className="h-5 px-2 text-[10px] uppercase"
-            />
             <button
               type="button"
               onClick={() => onBudgetLineClick?.(line.id)}

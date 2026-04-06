@@ -14,7 +14,6 @@ import { BudgetEnvelopeContextCard } from '../budget-envelope-context-card';
 import { BudgetEnvelopeSummaryCards } from '../budget-envelope-summary-cards';
 import { BudgetEnvelopeLinesTable } from '../budget-envelope-lines-table';
 import { CockpitSurfaceCard } from '../../dashboard/components/budget-cockpit-primitives';
-import { BudgetEnvelopeStatusBadge } from '../budget-envelope-status-badge';
 import { budgetEnvelopeDetail } from '../../constants/budget-routes';
 
 const DEFAULT_LIMIT = 20;
@@ -36,7 +35,6 @@ export function BudgetEnvelopeIntelligenceDrawer({
   const [offset, setOffset] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
   const [panelExpanded, setPanelExpanded] = useState(false);
 
   useEffect(() => {
@@ -48,7 +46,6 @@ export function BudgetEnvelopeIntelligenceDrawer({
     setOffset(0);
     setSearchInput('');
     setDebouncedSearch('');
-    setStatusFilter('ALL');
   }, [effectiveId]);
 
   useEffect(() => {
@@ -60,24 +57,22 @@ export function BudgetEnvelopeIntelligenceDrawer({
 
   useEffect(() => {
     setOffset(0);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch]);
 
   const linesQueryParams = useMemo(
     () => ({
       offset,
       limit: DEFAULT_LIMIT,
       search: debouncedSearch || undefined,
-      status: statusFilter === 'ALL' ? undefined : statusFilter,
     }),
-    [offset, debouncedSearch, statusFilter],
+    [offset, debouncedSearch],
   );
 
   const envelopeQuery = useBudgetEnvelope(effectiveId);
   const linesQuery = useBudgetEnvelopeLines(effectiveId, linesQueryParams);
 
   const envelope = envelopeQuery.data ?? null;
-  const hasActiveFilters =
-    searchInput.trim().length > 0 || statusFilter !== 'ALL';
+  const hasActiveFilters = searchInput.trim().length > 0;
 
   const showLoadingShell =
     open && effectiveId && envelopeQuery.isLoading && !envelope;
@@ -169,7 +164,6 @@ export function BudgetEnvelopeIntelligenceDrawer({
                     <h2 className="truncate text-sm font-semibold leading-tight text-foreground">
                       {envelope.name}
                     </h2>
-                    <BudgetEnvelopeStatusBadge status={envelope.status} />
                   </div>
                   {envelope.code ? (
                     <p className="mt-0.5 text-xs text-muted-foreground">{envelope.code}</p>
@@ -205,7 +199,7 @@ export function BudgetEnvelopeIntelligenceDrawer({
                 <div className="pb-2 pt-2">
                   <CockpitSurfaceCard
                     title="Lignes budgétaires de l’enveloppe"
-                    description="Recherche par code ou libellé, filtre par statut, pagination."
+                    description="Recherche par code ou libellé, pagination."
                     icon={ListTree}
                     accent="primary"
                     contentPad={false}
@@ -222,8 +216,6 @@ export function BudgetEnvelopeIntelligenceDrawer({
                       onPageChange={setOffset}
                       searchInput={searchInput}
                       onSearchChange={setSearchInput}
-                      statusFilter={statusFilter}
-                      onStatusFilterChange={setStatusFilter}
                       hasActiveFilters={hasActiveFilters}
                       onBudgetLineClick={onBudgetLineClick}
                     />

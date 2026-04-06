@@ -128,7 +128,7 @@ describe('Budget reporting integration', () => {
           code: 'B1',
           description: null,
           currency: 'EUR',
-          status: 'ACTIVE',
+          status: 'VALIDATED',
           createdAt: new Date(),
           updatedAt: new Date(),
         },

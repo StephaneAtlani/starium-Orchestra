@@ -640,7 +640,6 @@ export class BudgetVersioningService {
       name: string;
       description: string | null;
       expenseType: string;
-      status: string;
       currency: string;
       generalLedgerAccountId: string | null;
       analyticalLedgerAccountId: string | null;
@@ -665,7 +664,6 @@ export class BudgetVersioningService {
         name: sourceLine.name,
         description: sourceLine.description,
         expenseType: sourceLine.expenseType as 'OPEX' | 'CAPEX',
-        status: sourceLine.status as any,
         currency: sourceLine.currency,
         generalLedgerAccountId: sourceLine.generalLedgerAccountId,
         analyticalLedgerAccountId: sourceLine.analyticalLedgerAccountId,

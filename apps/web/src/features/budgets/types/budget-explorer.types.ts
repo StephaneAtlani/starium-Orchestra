@@ -17,7 +17,6 @@ export interface ExplorerEnvelopeNode extends ExplorerNodeBase {
   name: string;
   code: string | null;
   envelopeType: string;
-  status: string;
   lineCount: number;
   totalRevised: number;
   totalCommitted: number;
@@ -41,7 +40,6 @@ export interface ExplorerLineNode extends ExplorerNodeBase {
   code: string | null;
   name: string;
   expenseType: string;
-  status: string;
   initialAmount: number;
   /** Présent si le budget est en mode TTC côté API. */
   initialAmountTtc: number | null;

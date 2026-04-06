@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ExpenseType, Prisma } from '@prisma/client';
-import { BudgetLineStatus, BudgetStatus } from '@prisma/client';
+import { BudgetStatus } from '@prisma/client';
 import { BudgetLinesService } from '../budget-lines/budget-lines.service';
 
 describe('BudgetLinesService', () => {
@@ -22,7 +22,6 @@ describe('BudgetLinesService', () => {
     code: 'BL-1',
     description: null,
     expenseType: ExpenseType.OPEX,
-    status: BudgetLineStatus.DRAFT,
     currency: 'EUR',
     generalLedgerAccountId,
     analyticalLedgerAccountId: null,
@@ -395,20 +394,6 @@ describe('BudgetLinesService', () => {
 
       const updateCall = capturedTx.budgetLine.update.mock.calls[0][0];
       expect(updateCall.data.generalLedgerAccountId).toBeNull();
-    });
-
-    it('rejet si ligne ARCHIVED', async () => {
-      prisma.budgetLine.findFirst.mockResolvedValue({
-        ...lineWithInclude(),
-        status: BudgetLineStatus.ARCHIVED,
-        budget: { status: BudgetStatus.DRAFT },
-        costCenterSplits: [],
-      });
-
-      await expect(
-        service.update(clientId, 'line-1', { name: 'New' }),
-      ).rejects.toThrow(BadRequestException);
-      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('retourne 404 si ligne hors client', async () => {

@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { BudgetLineStatus, BudgetStatus } from '@prisma/client';
+import { BudgetStatus } from '@prisma/client';
 import { BudgetReallocationService } from '../budget-reallocation.service';
 
 describe('BudgetReallocationService', () => {
@@ -18,9 +18,8 @@ describe('BudgetReallocationService', () => {
     clientId,
     budgetId,
     currency: 'EUR',
-    status: BudgetLineStatus.ACTIVE,
     remainingAmount: 5000,
-    budget: { id: budgetId, status: BudgetStatus.ACTIVE },
+    budget: { id: budgetId, status: BudgetStatus.VALIDATED },
   };
 
   const targetLine = {
@@ -28,9 +27,8 @@ describe('BudgetReallocationService', () => {
     clientId,
     budgetId,
     currency: 'EUR',
-    status: BudgetLineStatus.ACTIVE,
     remainingAmount: 1000,
-    budget: { id: budgetId, status: BudgetStatus.ACTIVE },
+    budget: { id: budgetId, status: BudgetStatus.VALIDATED },
   };
 
   const createdReallocation = {
@@ -154,8 +152,8 @@ describe('BudgetReallocationService', () => {
     it('budgets différents => BadRequestException', async () => {
       prisma.budgetLine.findFirst
         .mockReset()
-        .mockResolvedValueOnce({ ...sourceLine, budgetId: 'b1', budget: { id: 'b1', status: BudgetStatus.ACTIVE } })
-        .mockResolvedValueOnce({ ...targetLine, budgetId: 'b2', budget: { id: 'b2', status: BudgetStatus.ACTIVE } });
+        .mockResolvedValueOnce({ ...sourceLine, budgetId: 'b1', budget: { id: 'b1', status: BudgetStatus.VALIDATED } })
+        .mockResolvedValueOnce({ ...targetLine, budgetId: 'b2', budget: { id: 'b2', status: BudgetStatus.VALIDATED } });
 
       await expect(
         service.create(clientId, { sourceLineId, targetLineId, amount: 100 }),
@@ -205,17 +203,6 @@ describe('BudgetReallocationService', () => {
         .mockReset()
         .mockResolvedValueOnce({ ...sourceLine, budget: { id: budgetId, status: BudgetStatus.ARCHIVED } })
         .mockResolvedValueOnce({ ...targetLine, budget: { id: budgetId, status: BudgetStatus.ARCHIVED } });
-
-      await expect(
-        service.create(clientId, { sourceLineId, targetLineId, amount: 100 }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('source line non ACTIVE => BadRequestException', async () => {
-      prisma.budgetLine.findFirst
-        .mockReset()
-        .mockResolvedValueOnce({ ...sourceLine, status: BudgetLineStatus.CLOSED, budget: sourceLine.budget })
-        .mockResolvedValueOnce({ ...targetLine, budget: targetLine.budget });
 
       await expect(
         service.create(clientId, { sourceLineId, targetLineId, amount: 100 }),

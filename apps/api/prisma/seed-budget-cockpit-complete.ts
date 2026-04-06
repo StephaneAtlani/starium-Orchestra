@@ -11,9 +11,7 @@ import {
   PrismaClient,
   BudgetStatus,
   BudgetExerciseStatus,
-  BudgetEnvelopeStatus,
   BudgetEnvelopeType,
-  BudgetLineStatus,
   BudgetTaxMode,
   BudgetLinePlanningMode,
   ExpenseType,
@@ -438,7 +436,7 @@ export async function ensureBudgetCockpitCompleteDemo(
       exerciseId: exercise.id,
       name: "Budget cockpit démo (forecast, snapshots, versions, achats)",
       currency: "EUR",
-      status: BudgetStatus.ACTIVE,
+      status: BudgetStatus.VALIDATED,
       taxMode: BudgetTaxMode.HT,
     },
     create: {
@@ -447,7 +445,7 @@ export async function ensureBudgetCockpitCompleteDemo(
       name: "Budget cockpit démo (forecast, snapshots, versions, achats)",
       code: BUDGET_CODE,
       currency: "EUR",
-      status: BudgetStatus.ACTIVE,
+      status: BudgetStatus.VALIDATED,
       taxMode: BudgetTaxMode.HT,
     },
   });
@@ -463,7 +461,6 @@ export async function ensureBudgetCockpitCompleteDemo(
     update: {
       name: "Run — cockpit",
       type: BudgetEnvelopeType.RUN,
-      status: BudgetEnvelopeStatus.ACTIVE,
     },
     create: {
       clientId: client.id,
@@ -471,7 +468,6 @@ export async function ensureBudgetCockpitCompleteDemo(
       code: "COCKPIT-RUN",
       name: "Run — cockpit",
       type: BudgetEnvelopeType.RUN,
-      status: BudgetEnvelopeStatus.ACTIVE,
     },
   });
 
@@ -486,7 +482,6 @@ export async function ensureBudgetCockpitCompleteDemo(
     update: {
       name: "Build — cockpit",
       type: BudgetEnvelopeType.BUILD,
-      status: BudgetEnvelopeStatus.ACTIVE,
     },
     create: {
       clientId: client.id,
@@ -494,7 +489,6 @@ export async function ensureBudgetCockpitCompleteDemo(
       code: "COCKPIT-BUILD",
       name: "Build — cockpit",
       type: BudgetEnvelopeType.BUILD,
-      status: BudgetEnvelopeStatus.ACTIVE,
     },
   });
 
@@ -517,7 +511,6 @@ export async function ensureBudgetCockpitCompleteDemo(
         name: story.name,
         description: story.description,
         expenseType: ExpenseType.OPEX,
-        status: BudgetLineStatus.ACTIVE,
         currency: "EUR",
         taxRate: VAT_RATE,
         initialAmount: new Prisma.Decimal(story.revised),
@@ -535,7 +528,6 @@ export async function ensureBudgetCockpitCompleteDemo(
         name: story.name,
         description: story.description,
         expenseType: ExpenseType.OPEX,
-        status: BudgetLineStatus.ACTIVE,
         currency: "EUR",
         taxRate: VAT_RATE,
         initialAmount: new Prisma.Decimal(story.revised),

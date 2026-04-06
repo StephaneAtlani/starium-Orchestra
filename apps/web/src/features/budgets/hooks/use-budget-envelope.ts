@@ -27,7 +27,6 @@ export function useBudgetEnvelopeLines(
     offset: number;
     limit: number;
     search?: string;
-    status?: string;
   },
 ) {
   const authFetch = useAuthenticatedFetch();

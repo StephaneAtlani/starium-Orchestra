@@ -214,7 +214,7 @@ Les hooks **forecast** (RFC-FE-BUD-030) vivent sous `forecast/hooks/`. Les autre
 | `BudgetPilotageSection` / `BudgetTable` | Onglet **Pilotage** sur `/budgets/[budgetId]` : planning mensuel / atterrissage / forecast ([RFC-024](../RFC/RFC-024%20%E2%80%94%20Budget%20UI.md), [RFC-023](../RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md)) |
 | `BudgetLineIntelligenceDrawer` | Drawer bas (onglets ligne) — [RFC-FE-ADD-006](../RFC/RFC-FE-ADD-006%20%E2%80%94%20Budget%20Line%20Intelligence%20Drawer%20UI.md) |
 | `PaginationSummary` | "1–20 sur N résultats" (RFC-FE-003) |
-| `BudgetStatusBadge` | Badge de statut (DRAFT, ACTIVE, LOCKED, ARCHIVED, etc.) |
+| `BudgetStatusBadge` | Badge de statut budget (`BudgetStatus` : DRAFT, SUBMITTED, REVISED, VALIDATED, LOCKED, ARCHIVED) — distinct des statuts exercice (`BudgetExerciseStatus`) |
 | `BudgetEmptyState` | État vide avec messages par défaut budget |
 | `BudgetErrorState` | Erreur + retry avec messages par défaut budget |
 | **Forecast / comparaison (RFC-FE-BUD-030)** | | |

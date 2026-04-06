@@ -200,8 +200,20 @@
       "surface": "pastel",
       "textColor": "auto"
     },
-    "ACTIVE": {
-      "label": "Actif",
+    "SUBMITTED": {
+      "label": "Soumis",
+      "palette": "sky",
+      "surface": "pastel",
+      "textColor": "auto"
+    },
+    "REVISED": {
+      "label": "Révisé",
+      "palette": "amber",
+      "surface": "pastel",
+      "textColor": "auto"
+    },
+    "VALIDATED": {
+      "label": "Validé",
       "palette": "emerald",
       "surface": "pastel",
       "textColor": "auto"

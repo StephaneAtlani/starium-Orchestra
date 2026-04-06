@@ -6,7 +6,16 @@ export const createBudgetSchema = z.object({
   code: z.string().max(64).optional(),
   description: z.string().optional(),
   currency: z.string().min(1, 'Devise requise').max(8),
-  status: z.enum(['DRAFT', 'ACTIVE', 'LOCKED', 'ARCHIVED']).optional(),
+  status: z
+    .enum([
+      'DRAFT',
+      'SUBMITTED',
+      'REVISED',
+      'VALIDATED',
+      'LOCKED',
+      'ARCHIVED',
+    ])
+    .optional(),
   ownerUserId: z.string().optional(),
   taxMode: z.enum(['HT', 'TTC']).optional(),
   defaultTaxRate: z

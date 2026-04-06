@@ -36,8 +36,6 @@ export default function BudgetEnvelopeDetailPage() {
   const [forecastOffset, setForecastOffset] = React.useState(0);
   const [searchInput, setSearchInput] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState('ALL');
-
   React.useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedSearch(searchInput.trim());
@@ -47,16 +45,15 @@ export default function BudgetEnvelopeDetailPage() {
 
   React.useEffect(() => {
     setOffset(0);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch]);
 
   const linesQueryParams = React.useMemo(
     () => ({
       offset,
       limit: DEFAULT_LIMIT,
       search: debouncedSearch || undefined,
-      status: statusFilter === 'ALL' ? undefined : statusFilter,
     }),
-    [offset, debouncedSearch, statusFilter],
+    [offset, debouncedSearch],
   );
 
   const envelopeQuery = useBudgetEnvelope(envelopeId);
@@ -74,8 +71,7 @@ export default function BudgetEnvelopeDetailPage() {
 
   const envelope = envelopeQuery.data ?? null;
 
-  const hasActiveFilters =
-    searchInput.trim().length > 0 || statusFilter !== 'ALL';
+  const hasActiveFilters = searchInput.trim().length > 0;
 
   const [isLineDrawerOpen, setIsLineDrawerOpen] = useState(false);
   const [selectedBudgetLineId, setSelectedBudgetLineId] = useState<string | null>(
@@ -180,7 +176,7 @@ export default function BudgetEnvelopeDetailPage() {
 
             <CockpitSurfaceCard
               title="Lignes budgétaires de l’enveloppe"
-              description="Recherche par code ou libellé, filtre par statut, pagination."
+              description="Recherche par code ou libellé, pagination."
               icon={ListTree}
               accent="primary"
               contentPad={false}
@@ -197,8 +193,6 @@ export default function BudgetEnvelopeDetailPage() {
                 onPageChange={setOffset}
                 searchInput={searchInput}
                 onSearchChange={setSearchInput}
-                statusFilter={statusFilter}
-                onStatusFilterChange={setStatusFilter}
                 hasActiveFilters={hasActiveFilters}
                 onBudgetLineClick={openBudgetLineDrawer}
               />

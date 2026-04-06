@@ -1774,14 +1774,9 @@ enum BudgetExerciseStatus {
 
 enum BudgetStatus {
   DRAFT
-  ACTIVE
-  LOCKED
-  ARCHIVED
-}
-
-enum BudgetEnvelopeStatus {
-  DRAFT
-  ACTIVE
+  SUBMITTED
+  REVISED
+  VALIDATED
   LOCKED
   ARCHIVED
 }
@@ -1790,13 +1785,6 @@ enum BudgetEnvelopeType {
   RUN
   BUILD
   TRANSVERSE
-}
-
-enum BudgetLineStatus {
-  DRAFT
-  ACTIVE
-  CLOSED
-  ARCHIVED
 }
 
 // --- Budget Versioning (RFC-019) ---
@@ -2066,7 +2054,6 @@ model BudgetEnvelope {
   sortOrder   Int                @default(0)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
-  status      BudgetEnvelopeStatus @default(ACTIVE)
   client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
   budget      Budget             @relation(fields: [budgetId], references: [id], onDelete: Cascade)
   parent      BudgetEnvelope?    @relation("EnvelopeHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
@@ -2077,7 +2064,6 @@ model BudgetEnvelope {
   @@index([clientId])
   @@index([budgetId])
   @@index([parentId])
-  @@index([status])
 }
 
 enum BudgetLineAllocationScope {
@@ -2157,7 +2143,6 @@ model BudgetLine {
   name                     String
   description              String?
   expenseType              ExpenseType
-  status                   BudgetLineStatus           @default(DRAFT)
   currency                 String
   taxRate                  Decimal?                   @db.Decimal(5, 2)
   initialAmount            Decimal                    @db.Decimal(18, 2) @default(0)
@@ -2195,7 +2180,6 @@ model BudgetLine {
   @@index([clientId])
   @@index([budgetId])
   @@index([envelopeId])
-  @@index([status])
 }
 
 model BudgetLinePlanningMonth {
@@ -2309,7 +2293,6 @@ model BudgetSnapshotLine {
   lineName         String
   expenseType      ExpenseType
   currency         String
-  lineStatus       BudgetLineStatus
 
   initialAmount    Decimal  @db.Decimal(18, 2)
   revisedAmount    Decimal  @db.Decimal(18, 2)

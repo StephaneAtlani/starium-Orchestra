@@ -34,10 +34,6 @@ export function BudgetEnvelopeIdentityCard({
           </div>
         )}
         <div>
-          <span className="text-muted-foreground">Statut</span>
-          <div>{envelope.status}</div>
-        </div>
-        <div>
           <span className="text-muted-foreground">Devise</span>
           <div>{envelope.currency}</div>
         </div>

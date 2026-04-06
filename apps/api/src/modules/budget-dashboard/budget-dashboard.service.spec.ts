@@ -16,7 +16,7 @@ const mockBudget = {
   code: 'B1',
   exerciseId,
   currency: 'EUR',
-  status: 'ACTIVE',
+  status: 'VALIDATED',
 };
 const mockExercise = {
   id: exerciseId,

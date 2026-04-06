@@ -284,7 +284,13 @@ export type BudgetExerciseSummary = {
 ## 5.3 BudgetSummary
 
 ```ts
-export type BudgetStatus = "DRAFT" | "ACTIVE" | "LOCKED" | "ARCHIVED";
+export type BudgetStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "REVISED"
+  | "VALIDATED"
+  | "LOCKED"
+  | "ARCHIVED";
 
 export type BudgetSummary = {
   id: string;
@@ -408,7 +414,7 @@ Exemple :
 Exemple :
 
 ```text
-/budgets?exerciseId=clx123&status=ACTIVE&search=it&page=1&limit=20
+/budgets?exerciseId=clx123&status=VALIDATED&search=it&page=1&limit=20
 ```
 
 ## 8.3 Règles

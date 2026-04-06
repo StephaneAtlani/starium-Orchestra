@@ -391,7 +391,6 @@ async function main() {
           name,
           description: rowDescription(r, supplierInfo),
           expenseType: expenseTypeForAccount(accountCode),
-          status: 'ACTIVE',
           currency: 'EUR',
           initialAmount: initial,
           revisedAmount: initial,

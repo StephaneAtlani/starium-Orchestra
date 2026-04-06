@@ -48,7 +48,6 @@ describe('BudgetEnvelopesService', () => {
         name: 'Envelope',
         code: 'ENV-1',
         type: BudgetEnvelopeType.RUN,
-        status: BudgetStatus.DRAFT,
         sortOrder: 0,
         createdAt: new Date(),
         updatedAt: new Date(),

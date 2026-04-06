@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { BudgetLineAllocationScope, BudgetLineStatus, BudgetStatus, BudgetTaxMode } from '@prisma/client';
+import { BudgetLineAllocationScope, BudgetStatus, BudgetTaxMode } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
@@ -31,7 +31,6 @@ export interface BudgetLineResponse {
   name: string;
   description: string | null;
   expenseType: string;
-  status: string;
   currency: string;
   /**
    * TVA en %.
@@ -110,7 +109,6 @@ export class BudgetLinesService {
       clientId,
       ...(query.budgetId && { budgetId: query.budgetId }),
       ...(query.envelopeId && { envelopeId: query.envelopeId }),
-      ...(query.status && { status: query.status }),
       ...(query.expenseType && { expenseType: query.expenseType }),
       ...(query.generalLedgerAccountId && {
         generalLedgerAccountId: query.generalLedgerAccountId,
@@ -329,7 +327,6 @@ export class BudgetLinesService {
           code,
           description: dto.description ?? null,
           expenseType: dto.expenseType,
-          status: dto.status ?? BudgetLineStatus.DRAFT,
           currency: dto.currency,
           generalLedgerAccountId: dto.generalLedgerAccountId,
           analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
@@ -379,7 +376,6 @@ export class BudgetLinesService {
         initialAmount: fromDecimal(initialAmountStored),
         revisedAmount: fromDecimal(revisedAmountStored),
         currency: created!.currency,
-        status: created!.status,
         costCenterSplitsSummary: costCenterSplits.map((s) => ({
           costCenterId: s.costCenterId,
           percentage: s.percentage,
@@ -424,15 +420,6 @@ export class BudgetLinesService {
         'Cannot update line when parent budget is a superseded or archived version',
       );
     }
-    if (
-      existing.status === BudgetLineStatus.ARCHIVED ||
-      existing.status === BudgetLineStatus.CLOSED
-    ) {
-      throw new BadRequestException(
-        'Cannot update an archived or closed budget line',
-      );
-    }
-
     const allocationScope = dto.allocationScope ?? existing.allocationScope;
     const costCenterSplits = dto.costCenterSplits;
 
@@ -516,7 +503,6 @@ export class BudgetLinesService {
         ...(dto.name != null && { name: dto.name }),
         ...(dto.code != null && { code: dto.code }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.status != null && { status: dto.status }),
         ...(dto.currency != null && { currency: dto.currency }),
         ...(dto.expenseType != null && { expenseType: dto.expenseType }),
         ...(dto.generalLedgerAccountId !== undefined && {
@@ -613,7 +599,6 @@ export class BudgetLinesService {
       oldValue: {
         name: existing.name,
         code: existing.code,
-        status: existing.status,
         generalLedgerAccountId: existing.generalLedgerAccountId,
         analyticalLedgerAccountId: existing.analyticalLedgerAccountId,
         allocationScope: existing.allocationScope,
@@ -627,7 +612,6 @@ export class BudgetLinesService {
       newValue: {
         name: updated.name,
         code: updated.code,
-        status: updated.status,
         generalLedgerAccountId: updated.generalLedgerAccountId,
         analyticalLedgerAccountId: updated.analyticalLedgerAccountId,
         allocationScope: updated.allocationScope,
@@ -783,7 +767,6 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
     name: row.name,
     description: row.description,
     expenseType: row.expenseType,
-    status: row.status,
     currency: row.currency,
     taxRate,
     initialAmount: fromDecimal(row.initialAmount),

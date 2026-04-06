@@ -112,13 +112,10 @@ export function ProjectBudgetLinkEditDialog({
     ];
   }, [budgetId, envelopesQuery.data]);
 
-  const activeLinesInEnvelope = useMemo(() => {
+  const linesInEnvelope = useMemo(() => {
     const lines = linesQuery.data ?? [];
     return lines.filter(
-      (l) =>
-        l.status === 'ACTIVE' &&
-        envelopeId !== SELECT_NONE &&
-        l.envelopeId === envelopeId,
+      (l) => envelopeId !== SELECT_NONE && l.envelopeId === envelopeId,
     );
   }, [linesQuery.data, envelopeId]);
 
@@ -127,12 +124,12 @@ export function ProjectBudgetLinkEditDialog({
     if (envelopeId === SELECT_NONE) return [none];
     return [
       none,
-      ...activeLinesInEnvelope.map((l) => ({
+      ...linesInEnvelope.map((l) => ({
         id: l.id,
         label: formatLineOptionLabel(l),
       })),
     ];
-  }, [envelopeId, activeLinesInEnvelope]);
+  }, [envelopeId, linesInEnvelope]);
 
   const envelopeLoading =
     budgetId !== SELECT_NONE &&
@@ -149,7 +146,7 @@ export function ProjectBudgetLinkEditDialog({
     e.preventDefault();
     if (!link) return;
     if (!budgetLineId || budgetLineId === SELECT_NONE) {
-      toast.error('Choisissez une ligne budgétaire ACTIVE.');
+      toast.error('Choisissez une ligne budgétaire.');
       return;
     }
 
@@ -258,8 +255,8 @@ export function ProjectBudgetLinkEditDialog({
                   budgetId !== SELECT_NONE &&
                   envelopeId !== SELECT_NONE &&
                   linesQuery.isSuccess &&
-                  activeLinesInEnvelope.length === 0
-                    ? 'Aucune ligne active dans cette enveloppe.'
+                  linesInEnvelope.length === 0
+                    ? 'Aucune ligne dans cette enveloppe.'
                     : null
                 }
                 onValueChange={setBudgetLineId}

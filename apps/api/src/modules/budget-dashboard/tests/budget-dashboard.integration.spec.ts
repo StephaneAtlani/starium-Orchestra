@@ -43,7 +43,7 @@ describe('Budget dashboard integration', () => {
     code: 'BA',
     exerciseId,
     currency: 'EUR',
-    status: 'ACTIVE',
+    status: 'VALIDATED',
   };
   const mockBudget2 = {
     id: budgetId2,
@@ -51,7 +51,7 @@ describe('Budget dashboard integration', () => {
     code: 'BB',
     exerciseId,
     currency: 'EUR',
-    status: 'ACTIVE',
+    status: 'VALIDATED',
   };
   const mockExercise = { id: exerciseId, name: 'Ex A', code: '2025' };
 

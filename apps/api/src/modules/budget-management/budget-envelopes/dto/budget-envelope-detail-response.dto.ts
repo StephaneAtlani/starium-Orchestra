@@ -5,7 +5,6 @@ export interface BudgetEnvelopeDetailResponseDto {
   code: string | null;
   name: string;
   description: string | null;
-  status: 'DRAFT' | 'ACTIVE' | 'LOCKED' | 'ARCHIVED';
   currency: string;
   initialAmount: number;
   revisedAmount: number;

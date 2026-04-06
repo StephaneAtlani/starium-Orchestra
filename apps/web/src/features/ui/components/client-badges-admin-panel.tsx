@@ -770,7 +770,7 @@ export function BadgesAdminPanel({ scope }: BadgesAdminPanelProps) {
       />
 
       <BadgeKeyTable
-        title="Budgets / exercices — statut (DRAFT, ACTIVE, LOCKED, ARCHIVED)"
+        title="Budgets — statut (DRAFT, SUBMITTED, REVISED, VALIDATED, LOCKED, ARCHIVED) ; exercices — DRAFT, ACTIVE, CLOSED, ARCHIVED"
         keys={BUDGET_STATUS_KEYS}
         rows={budgetStatus}
         setRows={setBudgetStatus}

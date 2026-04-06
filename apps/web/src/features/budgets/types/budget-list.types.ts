@@ -23,7 +23,13 @@ export type BudgetExerciseSummary = {
   updatedAt?: string;
 };
 
-export type BudgetStatus = 'DRAFT' | 'ACTIVE' | 'LOCKED' | 'ARCHIVED';
+export type BudgetStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'REVISED'
+  | 'VALIDATED'
+  | 'LOCKED'
+  | 'ARCHIVED';
 
 export type BudgetSummary = {
   id: string;
