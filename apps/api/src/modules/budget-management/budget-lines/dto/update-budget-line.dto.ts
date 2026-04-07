@@ -9,7 +9,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { BudgetLineAllocationScope, ExpenseType } from '@prisma/client';
+import { BudgetLineAllocationScope, BudgetLineStatus, ExpenseType } from '@prisma/client';
 import { CostCenterSplitItemDto } from './cost-center-split-item.dto';
 
 export class UpdateBudgetLineDto {
@@ -26,6 +26,10 @@ export class UpdateBudgetLineDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsEnum(BudgetLineStatus)
+  status?: BudgetLineStatus;
 
   @IsOptional()
   @IsString()

@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { BudgetLinePlanningMode, BudgetStatus, Prisma } from '@prisma/client';
+import { BudgetLinePlanningMode, BudgetLineStatus, BudgetStatus, Prisma } from '@prisma/client';
 import { BudgetLinePlanningService } from '../budget-lines/budget-line-planning.service';
 
 describe('BudgetLinePlanningService (audit & core behavior)', () => {
@@ -14,6 +14,7 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
     id: lineId,
     clientId,
     budgetId: 'budget-1',
+    status: BudgetLineStatus.DRAFT,
     revisedAmount: new Prisma.Decimal(1200),
     consumedAmount: new Prisma.Decimal(0),
     committedAmount: new Prisma.Decimal(0),

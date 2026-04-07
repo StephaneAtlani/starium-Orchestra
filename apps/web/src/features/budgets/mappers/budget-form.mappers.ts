@@ -193,6 +193,7 @@ export function lineFormToCreatePayload(values: BudgetLineFormValues): CreateLin
         ? undefined
         : Number(values.revisedAmount),
     currency: values.currency,
+    status: values.status,
   };
 
   if (values.generalLedgerAccountId && values.generalLedgerAccountId.trim().length > 0) {
@@ -212,6 +213,7 @@ export function lineFormToUpdatePayload(values: BudgetLineFormValues): UpdateLin
         ? undefined
         : Number(values.revisedAmount),
     currency: values.currency,
+    status: values.status,
   };
 
   // Permet explicitement de "vider" le compte comptable (si autorisé côté backend).

@@ -9,6 +9,7 @@ import {
   X,
 } from 'lucide-react';
 import type { BudgetLine } from '../../types/budget-management.types';
+import { BudgetStatusBadge } from '../budget-status-badge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -20,7 +21,6 @@ import {
 export function BudgetLineDrawerHeader({
   line,
   budgetName,
-  budgetStatus,
   envelopeName,
   envelopeCode,
   envelopeType,
@@ -33,8 +33,6 @@ export function BudgetLineDrawerHeader({
 }: {
   line: BudgetLine;
   budgetName?: string | null;
-  /** Cycle de vie porté par le budget, pas par la ligne. */
-  budgetStatus?: string | null;
   envelopeName?: string | null;
   envelopeCode?: string | null;
   envelopeType?: string | null;
@@ -85,8 +83,10 @@ export function BudgetLineDrawerHeader({
           )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+          <BudgetStatusBadge status={line.status} className="h-4 px-1.5 text-[10px] uppercase" />
           {envelopeName && (
             <>
+              <span>·</span>
               <span className="truncate max-w-[240px]" title={envelopeName}>
                 {envelopeName}
               </span>

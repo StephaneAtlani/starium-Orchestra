@@ -3,7 +3,7 @@
  *
  * Taxonomie des erreurs :
  * - BadRequestException : validation / invariant (mélange de types, somme % > 100, etc.)
- * - ConflictException : budget ou exercice fermé, suppression refusée
+ * - ConflictException : budget ou exercice fermé, ligne non ACTIVE, suppression refusée
  *   (résidu incohérent), doublon (unicité projectId + budgetLineId)
  * - NotFoundException : ressource hors scope client
  *
@@ -23,6 +23,7 @@ import {
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
 import {
   BudgetExerciseStatus,
+  BudgetLineStatus,
   BudgetStatus,
   Prisma,
   ProjectBudgetAllocationType,
@@ -311,6 +312,11 @@ export class ProjectBudgetLinksService {
     if (!line) {
       throw new NotFoundException('Budget line not found');
     }
+    if (line.status !== BudgetLineStatus.ACTIVE) {
+      throw new ConflictException(
+        'La ligne budgétaire doit être ACTIVE pour créer un lien',
+      );
+    }
     if (
       line.budget.status === BudgetStatus.LOCKED ||
       line.budget.status === BudgetStatus.ARCHIVED
@@ -346,6 +352,7 @@ export class ProjectBudgetLinksService {
       name: string;
       budgetId: string;
       envelopeId: string;
+      status: BudgetLineStatus;
       committedAmount: Prisma.Decimal | null;
       consumedAmount: Prisma.Decimal | null;
       expenseType: string;
@@ -371,6 +378,7 @@ export class ProjectBudgetLinksService {
         name: budgetLine.name,
         budgetId: budgetLine.budgetId,
         envelopeId: budgetLine.envelopeId,
+        status: budgetLine.status,
         committedAmount: fromDecimal(budgetLine.committedAmount),
         consumedAmount: fromDecimal(budgetLine.consumedAmount),
         expenseType: budgetLine.expenseType,
@@ -423,6 +431,7 @@ export class ProjectBudgetLinksService {
               name: true,
               budgetId: true,
               envelopeId: true,
+              status: true,
               committedAmount: true,
               consumedAmount: true,
               expenseType: true,
@@ -481,6 +490,7 @@ export class ProjectBudgetLinksService {
                 name: true,
                 budgetId: true,
                 envelopeId: true,
+                status: true,
                 committedAmount: true,
                 consumedAmount: true,
                 expenseType: true,
@@ -597,6 +607,7 @@ export class ProjectBudgetLinksService {
         name: string;
         budgetId: string;
         envelopeId: string;
+        status: BudgetLineStatus;
       };
     },
     dto: UpdateProjectBudgetLinkDto,
@@ -631,6 +642,7 @@ export class ProjectBudgetLinksService {
             name: true,
             budgetId: true,
             envelopeId: true,
+            status: true,
             committedAmount: true,
             consumedAmount: true,
             expenseType: true,
@@ -726,6 +738,7 @@ export class ProjectBudgetLinksService {
                 name: true,
                 budgetId: true,
                 envelopeId: true,
+                status: true,
                 committedAmount: true,
                 consumedAmount: true,
                 expenseType: true,
@@ -788,6 +801,7 @@ export class ProjectBudgetLinksService {
             name: true,
             budgetId: true,
             envelopeId: true,
+            status: true,
             committedAmount: true,
             consumedAmount: true,
             expenseType: true,
@@ -870,6 +884,7 @@ export class ProjectBudgetLinksService {
                 name: true,
                 budgetId: true,
                 envelopeId: true,
+                status: true,
                 committedAmount: true,
                 consumedAmount: true,
                 expenseType: true,

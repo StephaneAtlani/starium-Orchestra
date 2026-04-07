@@ -12,6 +12,11 @@ import {
 } from '../../audit-logs/audit-logs.service';
 import { generateBudgetCode } from '../helpers/code-generator.helper';
 import { AuditContext, ListResult } from '../types/audit-context';
+import {
+  BulkStatusApplyResult,
+  BulkUpdateBudgetStatusDto,
+} from '../dto/bulk-update-status.dto';
+import { bulkStatusFailureMessage } from '../helpers/bulk-status-error.helper';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { ListBudgetsQueryDto } from './dto/list-budgets.query.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
@@ -275,6 +280,31 @@ export class BudgetsService {
     await this.auditLogs.create(auditInput);
 
     return toResponse(updated);
+  }
+
+  async bulkUpdateStatus(
+    clientId: string,
+    dto: BulkUpdateBudgetStatusDto,
+    context?: AuditContext,
+  ): Promise<BulkStatusApplyResult> {
+    const uniqueIds = [...new Set(dto.ids)];
+    const updatedIds: string[] = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of uniqueIds) {
+      try {
+        await this.update(clientId, id, { status: dto.status }, context);
+        updatedIds.push(id);
+      } catch (e) {
+        failed.push({ id, error: bulkStatusFailureMessage(e) });
+      }
+    }
+
+    return {
+      status: dto.status,
+      updatedIds,
+      failed,
+    };
   }
 
   private async resolveUniqueBudgetCode(clientId: string): Promise<string> {

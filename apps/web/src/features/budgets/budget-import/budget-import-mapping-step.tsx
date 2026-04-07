@@ -77,6 +77,7 @@ export interface BudgetImportMappingStepProps {
     code?: string;
     description?: string;
     type: string;
+    status: string;
   }) => Promise<BudgetEnvelope>;
   ordersSectionEnabled: boolean;
   onOrdersSectionEnabledChange: (v: boolean) => void;

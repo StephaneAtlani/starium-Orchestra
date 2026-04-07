@@ -1168,8 +1168,8 @@ Toutes les listes retournent : `{ "items": [...], "total": number, "limit": numb
 
 - **BudgetExerciseStatus** : `DRAFT`, `ACTIVE`, `CLOSED`, `ARCHIVED`
 - **BudgetStatus** : `DRAFT`, `SUBMITTED`, `REVISED`, `VALIDATED`, `LOCKED`, `ARCHIVED` (cycle de vie : brouillon → soumis → révisé → validé → verrouillé → archivé ; l’ancien `ACTIVE` est migré en `VALIDATED`)
-- **BudgetEnvelopeType** : `RUN`, `BUILD`, `TRANSVERSE` (les enveloppes n’ont pas de statut propre ; le cycle de vie est porté par le budget parent)
-- **Lignes budgétaires** : pas d’enum ni de champ `status` sur `BudgetLine` — le verrouillage / archivage et le cycle de vie métier sont portés par le **budget** (`BudgetStatus`), comme pour les enveloppes.
+- **BudgetEnvelopeType** : `RUN`, `BUILD`, `TRANSVERSE`
+- **BudgetLineStatus** : `DRAFT`, `ACTIVE`, `CLOSED`, `ARCHIVED`
 - **ExpenseType** : `OPEX`, `CAPEX`
 - **BudgetLineAllocationScope** (RFC-021) : `ENTERPRISE`, `ANALYTICAL`
 
@@ -1201,6 +1201,12 @@ Met à jour un exercice (champs partiels). **Refusé** si status = ARCHIVED.
 
 ---
 
+### PATCH /api/budget-exercises/bulk-status
+
+Mise à jour du **statut** sur plusieurs exercices en une requête. **Body** : `ids` (tableau **1 à 100** d’identifiants, doublons ignorés), `status` (`BudgetExerciseStatus`). **Permission** : `budgets.update`. Pour chaque id, réutilise les mêmes règles que `PATCH /api/budget-exercises/:id` (échecs isolés, les autres id sont tout de même traités). **Réponse 200** : `{ status, updatedIds, failed: [{ id, error }] }`.
+
+---
+
 ### GET /api/budgets
 
 Liste les budgets. **Query** : `exerciseId`, `status`, `ownerUserId`, `search`, `offset`, `limit`. **Tri** : `createdAt desc`.
@@ -1219,6 +1225,12 @@ Détail et mise à jour. PATCH refusé si status = LOCKED ou ARCHIVED.
 
 ---
 
+### PATCH /api/budgets/bulk-status
+
+Mise à jour du **statut** sur plusieurs budgets. **Body** : `ids` (1 à 100), `status` (`BudgetStatus`). **Permission** : `budgets.update`. Même logique métier que `PATCH /api/budgets/:id` par id. **Réponse 200** : `{ status, updatedIds, failed: [{ id, error }] }`.
+
+---
+
 ### GET /api/budget-envelopes
 
 Liste les enveloppes. **Query** : `budgetId`, `search`, `offset`, `limit`. **Tri** : `createdAt desc`.
@@ -1233,29 +1245,41 @@ Crée une enveloppe. **Body** : `budgetId`, `name`, `code?`, `description?`, `ty
 
 ### GET /api/budget-envelopes/:id — PATCH /api/budget-envelopes/:id
 
-Détail et mise à jour. PATCH refusé si le **budget parent** est LOCKED ou ARCHIVED (BudgetEnvelope n’a pas de champ status).
+Détail et mise à jour (dont `status` : `BudgetEnvelopeStatus`). PATCH refusé si le **budget parent** est LOCKED ou ARCHIVED (ou version superseded/archived).
+
+---
+
+### PATCH /api/budget-envelopes/bulk-status
+
+Mise à jour du **statut** sur plusieurs enveloppes. **Body** : `ids` (1 à 100), `status` (`BudgetEnvelopeStatus`). **Permission** : `budgets.update`. Même logique que `PATCH /api/budget-envelopes/:id` par id. **Réponse 200** : `{ status, updatedIds, failed: [{ id, error }] }`.
 
 ---
 
 ### GET /api/budget-lines
 
-Liste les lignes budgétaires. **Query** : `budgetId`, `envelopeId`, `expenseType`, `costCenterId` (lignes ayant un split vers ce centre), `generalLedgerAccountId`, `allocationScope` (ENTERPRISE | ANALYTICAL), `search`, `offset`, `limit`. **Tri** : `createdAt desc`. Les montants et champs analytiques (generalLedgerAccount, analyticalLedgerAccount, costCenterSplits) sont inclus. Les montants retournés sont des **number**.
+Liste les lignes budgétaires. **Query** : `budgetId`, `envelopeId`, `status`, `expenseType`, `costCenterId` (lignes ayant un split vers ce centre), `generalLedgerAccountId`, `allocationScope` (ENTERPRISE | ANALYTICAL), `search`, `offset`, `limit`. **Tri** : `createdAt desc`. Les montants et champs analytiques (generalLedgerAccount, analyticalLedgerAccount, costCenterSplits) sont inclus. Les montants retournés sont des **number**.
 
 ---
 
 ### POST /api/budget-lines
 
-Crée une ligne. **Body** : `budgetId`, `envelopeId`, `name`, `code?`, `description?`, `expenseType`, **`generalLedgerAccountId`** (obligatoire), `analyticalLedgerAccountId?`, `allocationScope?` (défaut ENTERPRISE), `costCenterSplits?` (tableau `[{ costCenterId, percentage }]` si ANALYTICAL ; somme = 100), `initialAmount`, `revisedAmount?`, `currency`. L’enveloppe et le compte comptable doivent appartenir au client. **Règles** : ENTERPRISE ⇒ 0 split ; ANALYTICAL ⇒ au moins 1 split, somme 100 %, unicité costCenter par ligne. Si `code` absent, généré (`BL-suffix`).
+Crée une ligne. **Body** : `budgetId`, `envelopeId`, `name`, `code?`, `description?`, `expenseType`, **`generalLedgerAccountId`** (obligatoire), `analyticalLedgerAccountId?`, `allocationScope?` (défaut ENTERPRISE), `costCenterSplits?` (tableau `[{ costCenterId, percentage }]` si ANALYTICAL ; somme = 100), `initialAmount`, `revisedAmount?`, `currency`, `status?`. L’enveloppe et le compte comptable doivent appartenir au client. **Règles** : ENTERPRISE ⇒ 0 split ; ANALYTICAL ⇒ au moins 1 split, somme 100 %, unicité costCenter par ligne. Si `code` absent, généré (`BL-suffix`).
 
 ---
 
 ### GET /api/budget-lines/:id — PATCH /api/budget-lines/:id
 
-Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`. PATCH : champs optionnels dont `generalLedgerAccountId`, `analyticalLedgerAccountId`, `allocationScope`, `costCenterSplits`. Si `allocationScope` = ENTERPRISE, les splits existants sont supprimés ; si ANALYTICAL et `costCenterSplits` non fourni, les splits existants sont conservés. Si `revisedAmount` change, `remainingAmount` est recalculé. PATCH refusé si le **budget** parent est LOCKED ou ARCHIVED (pas de statut au niveau ligne).
+Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`. PATCH : champs optionnels dont `generalLedgerAccountId`, `analyticalLedgerAccountId`, `allocationScope`, `costCenterSplits`. Si `allocationScope` = ENTERPRISE, les splits existants sont supprimés ; si ANALYTICAL et `costCenterSplits` non fourni, les splits existants sont conservés. Si `revisedAmount` change, `remainingAmount` est recalculé. PATCH refusé si budget parent LOCKED/ARCHIVED ou si ligne ARCHIVED/CLOSED.
 
 **Note** : les routes `GET /api/budget-lines/:id/allocations` et `GET /api/budget-lines/:id/events` sont documentées en §16 (noyau financier).
 
 **Planning prévisionnel ([RFC-023 — Budget Prévisionnel](RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md))** — sous `/api/budget-lines/:id/planning` : `GET` (query optionnelle `referenceDate`), `PUT` (saisie manuelle des 12 mois), `POST .../planning/apply-mode` (corps discriminant par `mode`), routes `POST .../planning/apply-*` (**legacy**, mêmes comportements), `POST .../planning/calculate`, `POST .../planning/apply-calculation`. **Permissions** : `budgets.read` / `budgets.update`. Réponse : montants d’atterrissage et écarts calculés côté serveur ; champs canoniques `planningDelta`, `landingVariance` (alias de transition documentés dans [CHANGELOG.md](../CHANGELOG.md)).
+
+---
+
+### PATCH /api/budget-lines/bulk-status
+
+Mise à jour du **statut** sur plusieurs lignes. **Body** : `ids` (1 à 100), `status` (`BudgetLineStatus`). **Permission** : `budgets.update`. Même logique que `PATCH /api/budget-lines/:id` par id. **Réponse 200** : `{ status, updatedIds, failed: [{ id, error }] }`.
 
 ---
 
@@ -1441,7 +1465,7 @@ Référence : **RFC-017** (Budget Reallocation). Transfert traçable entre deux 
 
 ### POST /api/budget-reallocations
 
-Crée une réallocation : transfert d’un montant de la ligne source vers la ligne cible (même budget, même client, budget non LOCKED/ARCHIVED, montant ≤ `remainingAmount` de la source).
+Crée une réallocation : transfert d’un montant de la ligne source vers la ligne cible (même budget, même client, lignes ACTIVE, budget non LOCKED/ARCHIVED, montant ≤ `remainingAmount` de la source).
 
 **Body (JSON)**
 
@@ -1454,7 +1478,7 @@ Crée une réallocation : transfert d’un montant de la ligne source vers la li
 
 **Réponse 200** : objet mappé `{ id, budgetId, sourceLineId, targetLineId, amount, currency, reason, createdAt }` (amount en number).
 
-**Erreurs :** 400 (validation, même ligne, budgets différents, devise différente, budget LOCKED/ARCHIVED, montant > remaining), 401, 403, 404 (ligne introuvable ou hors client).
+**Erreurs :** 400 (validation, même ligne, budgets différents, devise différente, ligne non ACTIVE, budget LOCKED/ARCHIVED, montant > remaining), 401, 403, 404 (ligne introuvable ou hors client).
 
 ### GET /api/budget-reallocations
 
@@ -1554,7 +1578,7 @@ KPI consolidés de l’enveloppe. **Query** : `includeChildren` (bool) pour incl
 
 Liste paginée des lignes de l’enveloppe avec montants, ratios et indicateurs d’alerte par ligne.
 
-**Query (optionnels)** : `offset`, `limit` (max 100), `search` (name/code).
+**Query (optionnels)** : `offset`, `limit` (max 100), `search` (name/code), `status` (BudgetLineStatus).
 
 **Réponse 200** : `{ items, total, limit, offset }`. Chaque item : ligne + `consumptionRate`, `commitmentRate`, `forecastRate`, `overConsumed`, `overCommitted`, `negativeRemaining`.
 

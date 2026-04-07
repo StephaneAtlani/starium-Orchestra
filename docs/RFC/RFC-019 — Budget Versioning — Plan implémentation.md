@@ -181,7 +181,7 @@ Enregistrer le controller des actions de versioning de façon à ce que Nest mat
      - Si on crée d’abord toutes sans parent : après création, faire une passe de mise à jour des `parentId` via le map (oldParentId -> newParentId).
   3. **Reconstruction correcte des parentId** : chaque nouvelle enveloppe doit avoir `parentId = map(oldParentId)` lorsque l’enveloppe source avait un parent.
 - **Duplication des BudgetLine** :
-  - Pour chaque ligne : créer une nouvelle ligne avec **même code** (et name, description, expenseType, currency) ; **envelopeId = map(source.envelopeId)** ; cloner les montants (initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount). Ne pas cloner les allocations ni les événements financiers.
+  - Pour chaque ligne : créer une nouvelle ligne avec **même code** (et name, description, expenseType, status, currency) ; **envelopeId = map(source.envelopeId)** ; cloner les montants (initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount). Ne pas cloner les allocations ni les événements financiers.
 - **Transaction unique** : toute la duplication (version set + budget + enveloppes + lignes + mises à jour baseline/active) s’exécute dans **une seule transaction** Prisma pour éviter tout état incohérent.
 
 ### 5.6 getVersionHistory(budgetId)

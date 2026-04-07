@@ -6,7 +6,6 @@ import type { FinancialEventForLine } from '../../api/budget-line-financial.api'
 import { formatAmount } from '../../lib/budget-formatters';
 import { formatFinancialEventType } from '../../lib/financial-event-labels';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BudgetStatusBadge } from '../budget-status-badge';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -98,7 +97,6 @@ function formatAnalyticalLine(line: BudgetLine): string {
 export function BudgetLineOverviewTab({
   line,
   budgetName,
-  budgetStatus,
   budgetOwnerName,
   budgetOwnerUserId,
   envelopeName,
@@ -108,7 +106,6 @@ export function BudgetLineOverviewTab({
 }: {
   line: BudgetLine;
   budgetName?: string | null;
-  budgetStatus?: string | null;
   budgetOwnerName?: string | null;
   /** Responsable du budget (PATCH budget), pas un champ ligne. */
   budgetOwnerUserId?: string | null;
@@ -558,14 +555,10 @@ export function BudgetLineOverviewTab({
         </CardHeader>
         <CardContent className="space-y-2.5 text-sm">
           <div className="grid gap-2 sm:grid-cols-2">
-            {budgetStatus && (
-              <div>
-                <div className="text-xs text-muted-foreground">Statut du budget</div>
-                <div className="mt-0.5">
-                  <BudgetStatusBadge status={budgetStatus} className="h-5 px-2 text-[10px] uppercase" />
-                </div>
-              </div>
-            )}
+            <div>
+              <div className="text-xs text-muted-foreground">Statut</div>
+              <div className="mt-0.5 font-medium">{line.status}</div>
+            </div>
             <div>
               <div className="text-xs text-muted-foreground">Type dépense</div>
               <div className="mt-0.5 font-medium">{line.expenseType}</div>

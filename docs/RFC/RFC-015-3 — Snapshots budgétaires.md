@@ -251,6 +251,7 @@ model BudgetSnapshotLine {
   lineName          String
   expenseType       ExpenseType
   currency          String
+  lineStatus        BudgetLineStatus
 
   initialAmount     Decimal @db.Decimal(18, 2)
   revisedAmount     Decimal @db.Decimal(18, 2)
@@ -294,9 +295,8 @@ Chaque `BudgetSnapshotLine` stocke :
 * rattachement enveloppe
 * type de dépense
 * devise
+* statut de ligne
 * montants agrégés
-
-_(Pas de statut de ligne figé : le cycle de vie est porté par le budget ; la colonne `lineStatus` a été supprimée — migration `20260414120000_drop_budget_line_status`.)_
 
 ## 5.3 Pourquoi ne pas référencer uniquement les tables vivantes
 
@@ -306,6 +306,7 @@ Parce qu’un snapshot doit rester fidèle même si, plus tard :
 * une enveloppe change de code
 * une ligne est renommée
 * les montants évoluent
+* une ligne change de statut
 
 Le snapshot est donc une **copie figée**, pas une simple vue.
 
@@ -451,6 +452,7 @@ Réponse 200 :
       "lineName": "Licences Microsoft",
       "expenseType": "OPEX",
       "currency": "EUR",
+      "lineStatus": "ACTIVE",
       "initialAmount": 20000,
       "revisedAmount": 22000,
       "forecastAmount": 21000,

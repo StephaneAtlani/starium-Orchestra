@@ -51,6 +51,7 @@ export interface BudgetImportConfigEnvelopeBlockProps {
     code?: string;
     description?: string;
     type: string;
+    status: string;
   }) => Promise<BudgetEnvelope>;
 }
 
@@ -73,6 +74,7 @@ export function BudgetImportConfigEnvelopeBlock({
   const [createCode, setCreateCode] = useState('');
   const [createDescription, setCreateDescription] = useState('');
   const [createType, setCreateType] = useState('RUN');
+  const [createStatus, setCreateStatus] = useState('ACTIVE');
 
   const setField = (key: string, column: string) => {
     const next = { ...fields, [key]: column };
@@ -233,18 +235,34 @@ export function BudgetImportConfigEnvelopeBlock({
                 onChange={(e) => setCreateDescription(e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Type</Label>
-              <Select value={createType} onValueChange={(v) => v && setCreateType(v)}>
-                <SelectTrigger>
-                  <SelectValue>{createType}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="RUN">RUN</SelectItem>
-                  <SelectItem value="BUILD">BUILD</SelectItem>
-                  <SelectItem value="TRANSVERSE">TRANSVERSE</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Type</Label>
+                <Select value={createType} onValueChange={(v) => v && setCreateType(v)}>
+                  <SelectTrigger>
+                    <SelectValue>{createType}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RUN">RUN</SelectItem>
+                    <SelectItem value="BUILD">BUILD</SelectItem>
+                    <SelectItem value="TRANSVERSE">TRANSVERSE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>État</Label>
+                <Select value={createStatus} onValueChange={(v) => v && setCreateStatus(v)}>
+                  <SelectTrigger>
+                    <SelectValue>{createStatus}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DRAFT">Brouillon</SelectItem>
+                    <SelectItem value="ACTIVE">Actif</SelectItem>
+                    <SelectItem value="CLOSED">Clôturé</SelectItem>
+                    <SelectItem value="ARCHIVED">Archivé</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             {createError ? <p className="text-sm text-destructive">{createError}</p> : null}
           </div>
@@ -265,12 +283,14 @@ export function BudgetImportConfigEnvelopeBlock({
                     code: createCode.trim() || undefined,
                     description: createDescription.trim() || undefined,
                     type: createType,
+                    status: createStatus,
                   });
                   onOptionsChange({ ...options, defaultEnvelopeId: created.id });
                   setCreateName('');
                   setCreateCode('');
                   setCreateDescription('');
                   setCreateType('RUN');
+                  setCreateStatus('ACTIVE');
                   setModalOpen(false);
                 } catch (e) {
                   setCreateError(e instanceof Error ? e.message : 'Impossible de créer l’enveloppe.');

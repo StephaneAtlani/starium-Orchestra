@@ -232,7 +232,6 @@ export function BudgetLineIntelligenceDrawer({
                       <BudgetLineOverviewTab
                         line={line}
                         budgetName={budgetName}
-                        budgetStatus={budget?.status ?? null}
                         budgetOwnerName={budget?.ownerUserName ?? null}
                         budgetOwnerUserId={budget?.ownerUserId ?? null}
                         envelopeName={envelopeName}

@@ -50,6 +50,7 @@ export interface BudgetEnvelope {
   code: string | null;
   description: string | null;
   type: string;
+  status: string;
   parentId: string | null;
   sortOrder: number | null;
   createdAt: string;
@@ -102,6 +103,7 @@ export interface BudgetLine {
   consumedAmountTtc?: number | null;
   remainingTaxAmount?: number | null;
   remainingAmountTtc?: number | null;
+  status: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -132,6 +134,7 @@ export interface ListBudgetEnvelopesQuery {
 export interface ListBudgetLinesQuery {
   budgetId?: string;
   envelopeId?: string;
+  status?: string;
   expenseType?: string;
   search?: string;
   offset?: number;

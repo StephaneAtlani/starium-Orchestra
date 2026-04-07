@@ -6,6 +6,7 @@ export const createEnvelopeSchema = z.object({
   code: z.string().max(64).optional(),
   description: z.string().optional(),
   type: z.enum(['RUN', 'BUILD', 'TRANSVERSE']),
+  status: z.enum(['DRAFT', 'ACTIVE', 'CLOSED', 'ARCHIVED']).default('DRAFT'),
   parentId: z.string().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });

@@ -12,6 +12,11 @@ import {
 } from '../../audit-logs/audit-logs.service';
 import { generateBudgetExerciseCode } from '../helpers/code-generator.helper';
 import { AuditContext, ListResult } from '../types/audit-context';
+import {
+  BulkStatusApplyResult,
+  BulkUpdateBudgetExerciseStatusDto,
+} from '../dto/bulk-update-status.dto';
+import { bulkStatusFailureMessage } from '../helpers/bulk-status-error.helper';
 import { CreateBudgetExerciseDto } from './dto/create-budget-exercise.dto';
 import { ListBudgetExercisesQueryDto } from './dto/list-budget-exercises.query.dto';
 import { UpdateBudgetExerciseDto } from './dto/update-budget-exercise.dto';
@@ -198,6 +203,31 @@ export class BudgetExercisesService {
     await this.auditLogs.create(auditInput);
 
     return toResponse(updated);
+  }
+
+  async bulkUpdateStatus(
+    clientId: string,
+    dto: BulkUpdateBudgetExerciseStatusDto,
+    context?: AuditContext,
+  ): Promise<BulkStatusApplyResult> {
+    const uniqueIds = [...new Set(dto.ids)];
+    const updatedIds: string[] = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of uniqueIds) {
+      try {
+        await this.update(clientId, id, { status: dto.status }, context);
+        updatedIds.push(id);
+      } catch (e) {
+        failed.push({ id, error: bulkStatusFailureMessage(e) });
+      }
+    }
+
+    return {
+      status: dto.status,
+      updatedIds,
+      failed,
+    };
   }
 
   private async resolveUniqueExerciseCode(

@@ -20,6 +20,7 @@ import { BudgetExercisesService } from './budget-exercises.service';
 import type { AuditContext } from '../types/audit-context';
 import { CreateBudgetExerciseDto } from './dto/create-budget-exercise.dto';
 import { ListBudgetExercisesQueryDto } from './dto/list-budget-exercises.query.dto';
+import { BulkUpdateBudgetExerciseStatusDto } from '../dto/bulk-update-status.dto';
 import { UpdateBudgetExerciseDto } from './dto/update-budget-exercise.dto';
 
 @Controller('budget-exercises')
@@ -43,6 +44,18 @@ export class BudgetExercisesController {
     @Param('id') id: string,
   ) {
     return this.service.getById(clientId!, id);
+  }
+
+  @Patch('bulk-status')
+  @RequirePermissions('budgets.update')
+  bulkUpdateStatus(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: BulkUpdateBudgetExerciseStatusDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.service.bulkUpdateStatus(clientId!, dto, context);
   }
 
   @Post()

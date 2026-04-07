@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetStatus, Prisma } from '@prisma/client';
+import { BudgetEnvelopeStatus, BudgetStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -13,6 +13,11 @@ import {
 import { generateEnvelopeCode } from '../helpers/code-generator.helper';
 import { fromDecimal } from '../helpers/decimal.helper';
 import { AuditContext, ListResult } from '../types/audit-context';
+import {
+  BulkStatusApplyResult,
+  BulkUpdateBudgetEnvelopeStatusDto,
+} from '../dto/bulk-update-status.dto';
+import { bulkStatusFailureMessage } from '../helpers/bulk-status-error.helper';
 import { CreateBudgetEnvelopeDto } from './dto/create-budget-envelope.dto';
 import { ListBudgetEnvelopesQueryDto } from './dto/list-budget-envelopes.query.dto';
 import { UpdateBudgetEnvelopeDto } from './dto/update-budget-envelope.dto';
@@ -65,13 +70,35 @@ export class BudgetEnvelopesService {
     clientId: string,
     id: string,
   ): Promise<BudgetEnvelopeDetailResponseDto> {
+    // #region agent log
+    // Diagnostic temporaire pour comprendre les 404 sur GET /api/budget-envelopes/:id
+    console.log('[BudgetEnvelopesService.getById] called', {
+      clientId,
+      id,
+    });
+    // #endregion agent log
+
     const envelope = await this.prisma.budgetEnvelope.findFirst({
       where: { id, clientId },
       include: { budget: true },
     });
     if (!envelope) {
+      // #region agent log
+      console.log('[BudgetEnvelopesService.getById] envelope not found', {
+        clientId,
+        id,
+      });
+      // #endregion agent log
       throw new NotFoundException('Budget envelope not found');
     }
+
+    // #region agent log
+    console.log('[BudgetEnvelopesService.getById] envelope found', {
+      clientId,
+      id,
+      budgetId: envelope.budgetId,
+    });
+    // #endregion agent log
 
     const sums = await this.prisma.budgetLine.aggregate({
       where: {
@@ -104,6 +131,7 @@ export class BudgetEnvelopesService {
       code: envelope.code,
       name: envelope.name,
       description: envelope.description ?? null,
+      status: envelope.status,
       currency: envelope.budget.currency,
       initialAmount: fromDecimal(sum.initialAmount),
       revisedAmount: fromDecimal(sum.revisedAmount),
@@ -190,6 +218,7 @@ export class BudgetEnvelopesService {
         description: dto.description ?? null,
         parentId: dto.parentId ?? null,
         sortOrder: dto.sortOrder ?? 0,
+        status: dto.status ?? BudgetEnvelopeStatus.ACTIVE,
       },
     });
 
@@ -291,6 +320,7 @@ export class BudgetEnvelopesService {
         ...(dto.code != null && { code: dto.code }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.type != null && { type: dto.type }),
+        ...(dto.status != null && { status: dto.status }),
         ...(dto.parentId !== undefined && {
           parentId: dto.parentId || null,
         }),
@@ -321,6 +351,31 @@ export class BudgetEnvelopesService {
     await this.auditLogs.create(auditInput);
 
     return toResponse(updated);
+  }
+
+  async bulkUpdateStatus(
+    clientId: string,
+    dto: BulkUpdateBudgetEnvelopeStatusDto,
+    context?: AuditContext,
+  ): Promise<BulkStatusApplyResult> {
+    const uniqueIds = [...new Set(dto.ids)];
+    const updatedIds: string[] = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of uniqueIds) {
+      try {
+        await this.update(clientId, id, { status: dto.status }, context);
+        updatedIds.push(id);
+      } catch (e) {
+        failed.push({ id, error: bulkStatusFailureMessage(e) });
+      }
+    }
+
+    return {
+      status: dto.status,
+      updatedIds,
+      failed,
+    };
   }
 
   private async resolveUniqueEnvelopeCode(

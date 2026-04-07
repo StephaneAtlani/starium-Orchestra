@@ -25,6 +25,13 @@ const EXPENSE_TYPE_OPTIONS = [
   { value: 'OPEX', label: 'OPEX' },
 ] as const;
 
+const STATUS_OPTIONS = [
+  { value: 'DRAFT', label: 'Brouillon' },
+  { value: 'ACTIVE', label: 'Actif' },
+  { value: 'ARCHIVED', label: 'Archivé' },
+  { value: 'CLOSED', label: 'Clôturé' },
+] as const;
+
 export type BudgetLineFormSubmitMeta = {
   /** 12 montants (mois 1..12 exercice) pour alimenter le prévisionnel après création. */
   planningAmounts12?: number[];
@@ -127,6 +134,7 @@ export function BudgetLineForm({
     resolver: zodResolver(buildBudgetLineFormSchema(isBudgetAccountingEnabled)),
     defaultValues: {
       currency: 'EUR',
+      status: 'DRAFT',
       budgetId,
       ...defaultValues,
     },
@@ -369,6 +377,22 @@ export function BudgetLineForm({
                 <Label htmlFor="currency">Devise *</Label>
                 <Input id="currency" {...register('currency')} aria-invalid={!!errors.currency} />
                 {errors.currency && <p className="text-sm text-destructive">{errors.currency.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Statut</Label>
+                <select
+                  id="status"
+                  className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  {...register('status')}
+                  aria-invalid={!!errors.status}
+                >
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
               </div>
             </div>
           </CardContent>

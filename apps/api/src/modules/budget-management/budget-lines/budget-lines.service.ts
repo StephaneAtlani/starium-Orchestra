@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { BudgetLineAllocationScope, BudgetStatus, BudgetTaxMode } from '@prisma/client';
+import { BudgetLineAllocationScope, BudgetLineStatus, BudgetStatus, BudgetTaxMode } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
@@ -8,6 +8,11 @@ import {
 } from '../../audit-logs/audit-logs.service';
 import { generateBudgetLineCode } from '../helpers/code-generator.helper';
 import { toDecimal, fromDecimal } from '../helpers/decimal.helper';
+import {
+  BulkStatusApplyResult,
+  BulkUpdateBudgetLineStatusDto,
+} from '../dto/bulk-update-status.dto';
+import { bulkStatusFailureMessage } from '../helpers/bulk-status-error.helper';
 import { AuditContext, ListResult } from '../types/audit-context';
 import { CreateBudgetLineDto } from './dto/create-budget-line.dto';
 import { ListBudgetLinesQueryDto } from './dto/list-budget-lines.query.dto';
@@ -31,6 +36,7 @@ export interface BudgetLineResponse {
   name: string;
   description: string | null;
   expenseType: string;
+  status: string;
   currency: string;
   /**
    * TVA en %.
@@ -109,6 +115,7 @@ export class BudgetLinesService {
       clientId,
       ...(query.budgetId && { budgetId: query.budgetId }),
       ...(query.envelopeId && { envelopeId: query.envelopeId }),
+      ...(query.status && { status: query.status }),
       ...(query.expenseType && { expenseType: query.expenseType }),
       ...(query.generalLedgerAccountId && {
         generalLedgerAccountId: query.generalLedgerAccountId,
@@ -327,6 +334,7 @@ export class BudgetLinesService {
           code,
           description: dto.description ?? null,
           expenseType: dto.expenseType,
+          status: dto.status ?? BudgetLineStatus.DRAFT,
           currency: dto.currency,
           generalLedgerAccountId: dto.generalLedgerAccountId,
           analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
@@ -376,6 +384,7 @@ export class BudgetLinesService {
         initialAmount: fromDecimal(initialAmountStored),
         revisedAmount: fromDecimal(revisedAmountStored),
         currency: created!.currency,
+        status: created!.status,
         costCenterSplitsSummary: costCenterSplits.map((s) => ({
           costCenterId: s.costCenterId,
           percentage: s.percentage,
@@ -420,6 +429,15 @@ export class BudgetLinesService {
         'Cannot update line when parent budget is a superseded or archived version',
       );
     }
+    if (
+      existing.status === BudgetLineStatus.ARCHIVED ||
+      existing.status === BudgetLineStatus.CLOSED
+    ) {
+      throw new BadRequestException(
+        'Cannot update an archived or closed budget line',
+      );
+    }
+
     const allocationScope = dto.allocationScope ?? existing.allocationScope;
     const costCenterSplits = dto.costCenterSplits;
 
@@ -503,6 +521,7 @@ export class BudgetLinesService {
         ...(dto.name != null && { name: dto.name }),
         ...(dto.code != null && { code: dto.code }),
         ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.status != null && { status: dto.status }),
         ...(dto.currency != null && { currency: dto.currency }),
         ...(dto.expenseType != null && { expenseType: dto.expenseType }),
         ...(dto.generalLedgerAccountId !== undefined && {
@@ -599,6 +618,7 @@ export class BudgetLinesService {
       oldValue: {
         name: existing.name,
         code: existing.code,
+        status: existing.status,
         generalLedgerAccountId: existing.generalLedgerAccountId,
         analyticalLedgerAccountId: existing.analyticalLedgerAccountId,
         allocationScope: existing.allocationScope,
@@ -612,6 +632,7 @@ export class BudgetLinesService {
       newValue: {
         name: updated.name,
         code: updated.code,
+        status: updated.status,
         generalLedgerAccountId: updated.generalLedgerAccountId,
         analyticalLedgerAccountId: updated.analyticalLedgerAccountId,
         allocationScope: updated.allocationScope,
@@ -629,6 +650,31 @@ export class BudgetLinesService {
     await this.auditLogs.create(auditInput);
 
     return toResponse(updated);
+  }
+
+  async bulkUpdateStatus(
+    clientId: string,
+    dto: BulkUpdateBudgetLineStatusDto,
+    context?: AuditContext,
+  ): Promise<BulkStatusApplyResult> {
+    const uniqueIds = [...new Set(dto.ids)];
+    const updatedIds: string[] = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of uniqueIds) {
+      try {
+        await this.update(clientId, id, { status: dto.status }, context);
+        updatedIds.push(id);
+      } catch (e) {
+        failed.push({ id, error: bulkStatusFailureMessage(e) });
+      }
+    }
+
+    return {
+      status: dto.status,
+      updatedIds,
+      failed,
+    };
   }
 
   private async validateGeneralLedgerAccount(
@@ -767,6 +813,7 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
     name: row.name,
     description: row.description,
     expenseType: row.expenseType,
+    status: row.status,
     currency: row.currency,
     taxRate,
     initialAmount: fromDecimal(row.initialAmount),

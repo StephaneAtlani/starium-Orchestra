@@ -8,7 +8,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { BudgetEnvelopeType } from '@prisma/client';
+import { BudgetEnvelopeType, BudgetEnvelopeStatus } from '@prisma/client';
 
 export class CreateBudgetEnvelopeDto {
   @IsString()
@@ -31,6 +31,10 @@ export class CreateBudgetEnvelopeDto {
 
   @IsEnum(BudgetEnvelopeType)
   type!: BudgetEnvelopeType;
+
+  @IsOptional()
+  @IsEnum(BudgetEnvelopeStatus)
+  status?: BudgetEnvelopeStatus;
 
   @IsOptional()
   @IsString()

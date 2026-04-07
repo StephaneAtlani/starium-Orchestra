@@ -112,4 +112,26 @@ describe('BudgetsService', () => {
       expect(prisma.budget.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('bulkUpdateStatus', () => {
+    it('applique le statut id par id et regroupe les échecs', async () => {
+      jest.spyOn(service, 'update').mockImplementation(async (_cid, id) => {
+        if (id === 'ok') {
+          return { id: 'ok' } as any;
+        }
+        throw new BadRequestException('locked');
+      });
+
+      const out = await service.bulkUpdateStatus(clientId, {
+        ids: ['ok', 'ok', 'bad'],
+        status: BudgetStatus.DRAFT,
+      });
+
+      expect(out.status).toBe(BudgetStatus.DRAFT);
+      expect(out.updatedIds).toEqual(['ok']);
+      expect(out.failed).toEqual([{ id: 'bad', error: 'locked' }]);
+
+      jest.restoreAllMocks();
+    });
+  });
 });

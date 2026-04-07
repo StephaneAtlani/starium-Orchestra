@@ -83,6 +83,7 @@ export interface BudgetSnapshotLineResponse {
   lineName: string;
   expenseType: string;
   currency: string;
+  lineStatus: string;
   initialAmount: number;
   revisedAmount: number;
   forecastAmount: number;
@@ -265,6 +266,7 @@ export class BudgetSnapshotsService {
               lineName: line.name,
               expenseType: line.expenseType,
               currency: line.currency,
+              lineStatus: line.status,
               initialAmount: line.initialAmount,
               revisedAmount: line.revisedAmount,
               forecastAmount: line.forecastAmount,
@@ -534,6 +536,7 @@ function toDetail(
       lineName: l.lineName,
       expenseType: l.expenseType,
       currency: l.currency,
+      lineStatus: l.lineStatus,
       initialAmount: toNum(l.initialAmount),
       revisedAmount: toNum(l.revisedAmount),
       forecastAmount: toNum(l.forecastAmount),

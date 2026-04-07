@@ -12,25 +12,50 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { TableToolbar } from '@/components/layout/table-toolbar';
 import { formatAmount } from '../lib/budget-formatters';
 import { budgetLineEdit } from '../constants/budget-routes';
+import {
+  BUDGET_LINE_STATUS_SELECT_OPTIONS,
+  budgetLineStatusFilterLabel,
+  budgetLineStatusLabel,
+} from '../constants/budget-line-status-options';
 import { cn } from '@/lib/utils';
 import {
   cockpitTableHeadRow,
   cockpitTdFirst,
   cockpitTdNum,
   cockpitTdNumLast,
+  cockpitTdText,
   cockpitTdEndRight,
+  cockpitThEndLeft,
   cockpitThEndRight,
   cockpitThFirst,
   cockpitThNum,
+  cockpitThText,
 } from '../dashboard/components/budget-cockpit-table-classes';
 
 function lineLabel(code: string | null | undefined, name: string) {
   return code ? `${code} — ${name}` : name;
+}
+
+function lineStatusBadgeVariant(
+  status: string | null | undefined,
+): 'default' | 'secondary' | 'outline' {
+  if (!status) return 'outline';
+  if (status === 'ACTIVE') return 'default';
+  if (status === 'DRAFT') return 'secondary';
+  return 'outline';
 }
 
 interface BudgetEnvelopeLinesTableProps {
@@ -43,6 +68,8 @@ interface BudgetEnvelopeLinesTableProps {
   onPageChange: (newOffset: number) => void;
   searchInput: string;
   onSearchChange: (value: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (value: string) => void;
   /** Pour le libellé vide : résultats filtrés vs enveloppe sans lignes */
   hasActiveFilters: boolean;
   /** Clic sur la ligne → panneau intelligence ligne (drawer) */
@@ -59,6 +86,8 @@ export function BudgetEnvelopeLinesTable({
   onPageChange,
   searchInput,
   onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
   hasActiveFilters,
   onBudgetLineClick,
 }: BudgetEnvelopeLinesTableProps) {
@@ -87,6 +116,27 @@ export function BudgetEnvelopeLinesTable({
               data-testid="envelope-lines-search"
               aria-label="Filtrer les lignes par texte"
             />
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => onStatusFilterChange(v ?? 'ALL')}
+            >
+              <SelectTrigger
+                size="sm"
+                className="min-w-[11rem] max-w-[min(100%,14rem)]"
+                data-testid="envelope-lines-status"
+              >
+                <SelectValue placeholder="Statut">
+                  {budgetLineStatusFilterLabel(statusFilter)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {BUDGET_LINE_STATUS_SELECT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </TableToolbar>
       </div>
@@ -99,19 +149,20 @@ export function BudgetEnvelopeLinesTable({
         <div className="px-5 py-12 text-center text-sm text-muted-foreground">
           {total === 0 && !hasActiveFilters
             ? 'Aucune ligne budgétaire dans cette enveloppe.'
-            : 'Aucun résultat pour ces critères. Modifiez la recherche.'}
+            : 'Aucun résultat pour ces critères. Modifiez la recherche ou le statut.'}
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <Table className="min-w-[1000px] table-fixed">
+          <Table className="min-w-[1120px] table-fixed">
             <colgroup>
-              <col className="w-[32%]" />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
+              <col className="w-[28%]" />
+              <col className="w-[8rem]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
               <col className="w-[5.5rem]" />
             </colgroup>
             <TableHeader className="bg-transparent">
@@ -119,6 +170,7 @@ export function BudgetEnvelopeLinesTable({
                 <TableHead className={cn('min-w-0', cockpitThFirst)}>
                   Ligne
                 </TableHead>
+                <TableHead className={cockpitThEndLeft}>Statut</TableHead>
                 <TableHead className={cockpitThNum}>Initial</TableHead>
                 <TableHead className={cockpitThNum}>Révisé</TableHead>
                 <TableHead className={cockpitThNum}>Forecast</TableHead>
@@ -156,6 +208,18 @@ export function BudgetEnvelopeLinesTable({
                       >
                         {label}
                       </span>
+                    </TableCell>
+                    <TableCell className={cn(cockpitTdText, 'whitespace-nowrap')}>
+                      {line.status ? (
+                        <Badge
+                          variant={lineStatusBadgeVariant(line.status)}
+                          className="font-normal"
+                        >
+                          {budgetLineStatusLabel(line.status)}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className={cn(cockpitTdNum, 'whitespace-nowrap')}>
                       {formatAmount(line.initialAmount, line.currency)}
@@ -246,3 +310,4 @@ export function BudgetEnvelopeLinesTable({
     </div>
   );
 }
+

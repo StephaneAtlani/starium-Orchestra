@@ -8,7 +8,9 @@ import {
   ClientModuleStatus,
   BudgetExerciseStatus,
   BudgetStatus,
+  BudgetEnvelopeStatus,
   BudgetEnvelopeType,
+  BudgetLineStatus,
   BudgetLinePlanningMode,
   ExpenseType,
   SupplierStatus,
@@ -1869,6 +1871,7 @@ async function ensureDemoProjectBudgetLinks(clientId: string, prefix: string): P
   const lines = await prisma.budgetLine.findMany({
     where: {
       clientId,
+      status: BudgetLineStatus.ACTIVE,
       budget: {
         status: { notIn: [BudgetStatus.LOCKED, BudgetStatus.ARCHIVED] },
         exercise: {
@@ -1881,7 +1884,7 @@ async function ensureDemoProjectBudgetLinks(clientId: string, prefix: string): P
     take: 48,
   });
   if (lines.length === 0) {
-    console.warn(`Seed liens budget [${prefix}]: aucune ligne sur budget/exercice ouverts, skip.`);
+    console.warn(`Seed liens budget [${prefix}]: aucune ligne ACTIVE sur budget/exercice ouverts, skip.`);
     return;
   }
 
@@ -2540,6 +2543,7 @@ async function upsertEnvelope(clientId: string, budgetId: string, seed: Envelope
     update: {
       name: seed.name,
       type: seed.type,
+      status: BudgetEnvelopeStatus.ACTIVE,
     },
     create: {
       clientId,
@@ -2547,6 +2551,7 @@ async function upsertEnvelope(clientId: string, budgetId: string, seed: Envelope
       name: seed.name,
       code: seed.code,
       type: seed.type,
+      status: BudgetEnvelopeStatus.ACTIVE,
     },
   });
 }
@@ -2649,6 +2654,7 @@ async function upsertLine(clientId: string, budgetId: string, envelopeId: string
       name: seed.name,
       description: seed.description ?? null,
       expenseType: seed.expenseType,
+      status: BudgetLineStatus.ACTIVE,
       currency: "EUR",
       taxRate: VAT_RATE,
       initialAmount: seed.amount,
@@ -2666,6 +2672,7 @@ async function upsertLine(clientId: string, budgetId: string, envelopeId: string
       name: seed.name,
       description: seed.description ?? null,
       expenseType: seed.expenseType,
+      status: BudgetLineStatus.ACTIVE,
       currency: "EUR",
       taxRate: VAT_RATE,
       initialAmount: seed.amount,

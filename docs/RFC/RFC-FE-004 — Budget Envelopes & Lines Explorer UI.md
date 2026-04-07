@@ -173,7 +173,7 @@ Le tableau contient les colonnes suivantes.
 
 | Colonne | Description                                      |
 | ------- | ------------------------------------------------ |
-| État    | statut du **budget** (badge) sur la racine / enveloppes ; pas de statut propre sur les lignes (cycle de vie = budget parent) |
+| État    | statut de l’enveloppe ou de la ligne (badge UI) |
 | Sous-budget | nom enveloppe / nom ligne                   |
 | Responsable | owner                                        |
 | Type    | RUN / BUILD (enveloppe) ou OPEX/CAPEX (ligne)   |

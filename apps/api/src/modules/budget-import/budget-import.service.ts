@@ -328,6 +328,7 @@ export class BudgetImportService {
                 code,
                 description: null,
                 expenseType: ExpenseType.OPEX,
+                status: BudgetLineStatus.DRAFT,
                 currency,
                 generalLedgerAccountId: defaultGlaId,
                 analyticalLedgerAccountId: null,

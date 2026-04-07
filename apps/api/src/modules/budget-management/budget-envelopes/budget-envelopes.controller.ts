@@ -20,6 +20,7 @@ import type { AuditContext } from '../types/audit-context';
 import { BudgetEnvelopesService } from './budget-envelopes.service';
 import { CreateBudgetEnvelopeDto } from './dto/create-budget-envelope.dto';
 import { ListBudgetEnvelopesQueryDto } from './dto/list-budget-envelopes.query.dto';
+import { BulkUpdateBudgetEnvelopeStatusDto } from '../dto/bulk-update-status.dto';
 import { UpdateBudgetEnvelopeDto } from './dto/update-budget-envelope.dto';
 import type { BudgetEnvelopeDetailResponseDto } from './dto/budget-envelope-detail-response.dto';
 
@@ -44,6 +45,18 @@ export class BudgetEnvelopesController {
     @Param('id') id: string,
   ): Promise<BudgetEnvelopeDetailResponseDto> {
     return this.service.getById(clientId!, id);
+  }
+
+  @Patch('bulk-status')
+  @RequirePermissions('budgets.update')
+  bulkUpdateStatus(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: BulkUpdateBudgetEnvelopeStatusDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.service.bulkUpdateStatus(clientId!, dto, context);
   }
 
   @Post()

@@ -6,13 +6,13 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 
 ## 1. Ce qui est en place
 
-### Schéma Prisma (RFC-015-1A, RFC-019, RFC-021, RFC-021-CORR)
+### Schéma Prisma (RFC-015-1A, RFC-019, RFC-021, RFC-021-CORR, extension « status » enveloppes)
 
 - **BudgetExercise** : exercice budgétaire (clientId, name, code, startDate, endDate, status).
 - **Budget** : budget (clientId, exerciseId, name, code, currency, status, ownerUserId optionnel). Extension RFC-019 : versionSetId?, versionNumber?, versionLabel?, versionKind? (BASELINE/REVISION), versionStatus? (DRAFT/ACTIVE/SUPERSEDED/ARCHIVED), parentBudgetId?, activatedAt?, archivedAt?, isVersioned.
 - **BudgetVersionSet** (RFC-019) : ensemble de versions (clientId, exerciseId, code, name, description?, baselineBudgetId?, activeBudgetId?). Relations nommées : versions, baselineBudget, activeBudget.
-- **BudgetEnvelope** : enveloppe (clientId, budgetId, parentId optionnel, name, code, type RUN/BUILD/TRANSVERSE, description?, sortOrder). **Pas de statut de cycle de vie** sur l’enveloppe : le verrouillage / archivage est porté par le **budget** (`BudgetStatus`).
-- **BudgetLine** : ligne budgétaire (clientId, budgetId, envelopeId, code, name, expenseType, currency, montants : initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount). **Pas de champ `status`** sur la ligne : le cycle de vie est porté par le **budget** (`BudgetStatus`).  
+- **BudgetEnvelope** : enveloppe (clientId, budgetId, parentId optionnel, name, code, type RUN/BUILD/TRANSVERSE, **status: BudgetEnvelopeStatus** — DRAFT / ACTIVE / LOCKED / ARCHIVED, défaut Prisma `ACTIVE`).
+- **BudgetLine** : ligne budgétaire (clientId, budgetId, envelopeId, code, name, expenseType, currency, montants : initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount).  
   Extension RFC-021 : `generalLedgerAccountId` (compte comptable), `analyticalLedgerAccountId?`, `allocationScope` (ENTERPRISE \| ANALYTICAL), relations `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`.  
   Extension **RFC-021-CORR** : `generalLedgerAccountId` est **nullable dans le modèle** et son caractère obligatoire est piloté par une configuration par client (`Client.budgetAccountingEnabled`).
 - **GeneralLedgerAccount**, **AnalyticalLedgerAccount**, **CostCenter** (RFC-021) : catalogues client (clientId, code, name, description?, isActive, sortOrder) ; unicité code par client.
@@ -21,8 +21,8 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 - **FinancialEvent** : événement financier (budgetLineId, sourceType, sourceId?, eventType, amount, eventDate, label, etc.).
 - **BudgetReallocation** (RFC-017) : réallocation entre deux lignes (clientId, budgetId, sourceLineId, targetLineId, amount, currency, reason?, createdById?, createdAt). Chaque réallocation génère deux FinancialEvent de type REALLOCATION_DONE (source : montant négatif ; cible : montant positif).
 
-Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType` (dont REALLOCATION_DONE), `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `ExpenseType`, `BudgetVersionKind` (BASELINE, REVISION), `BudgetVersionStatus` (DRAFT, ACTIVE, SUPERSEDED, ARCHIVED), `BudgetLineAllocationScope` (ENTERPRISE, ANALYTICAL). L’ancien enum **`BudgetLineStatus`** a été retiré (migration `20260414120000_drop_budget_line_status`).  
-Le cycle de vie budgétaire est porté par **`BudgetStatus`** uniquement (pas de statut sur les enveloppes ni sur les lignes).
+Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType` (dont REALLOCATION_DONE), `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `BudgetLineStatus`, `ExpenseType`, `BudgetVersionKind` (BASELINE, REVISION), `BudgetVersionStatus` (DRAFT, ACTIVE, SUPERSEDED, ARCHIVED), `BudgetLineAllocationScope` (ENTERPRISE, ANALYTICAL).  
+**BudgetEnvelope.status** utilise l’enum **`BudgetEnvelopeStatus`** (DRAFT / ACTIVE / LOCKED / ARCHIVED), distinct du **`BudgetStatus`** (cycle de vie budget : DRAFT → SUBMITTED → REVISED → VALIDATED → LOCKED → ARCHIVED).
 
 ### Backend Budget Management (RFC-015-2, RFC-021, RFC-021-CORR)
 
@@ -68,7 +68,7 @@ Détail : [docs/API.md](../API.md) §16 (Noyau financier).
   - `GET /api/budget-reporting/budgets/:id/totals-by-cost-center` (RFC-021) — totaux par centre de coûts (lignes ANALYTICAL uniquement ; revisedAmount / remainingAmount)
   - `GET /api/budget-reporting/budgets/:id/totals-by-general-ledger-account` (RFC-021) — totaux par compte comptable (toutes lignes)
   - `GET /api/budget-reporting/envelopes/:id/summary` — KPI enveloppe (option includeChildren)
-  - `GET /api/budget-reporting/envelopes/:id/lines` — lignes avec ratios et alertes (pagination, search)
+  - `GET /api/budget-reporting/envelopes/:id/lines` — lignes avec ratios et alertes (pagination, search, status)
 - **Règles** : une seule devise par périmètre (400 si plusieurs) ; ratios = 0 si revisedAmount = 0 ; `currency` présent dans toutes les réponses KPI ; search uniquement sur name/code.
 - **Pas de modification** des modules budget-management ni financial-core ; consommation des données en lecture.
 
