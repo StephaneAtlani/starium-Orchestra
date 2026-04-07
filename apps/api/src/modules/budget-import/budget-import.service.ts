@@ -9,6 +9,7 @@ import {
   BudgetImportMode,
   BudgetImportSourceType,
   BudgetImportTargetEntityType,
+  BudgetLineStatus,
   BudgetStatus,
   ExpenseType,
   Prisma,

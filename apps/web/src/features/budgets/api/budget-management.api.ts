@@ -166,6 +166,7 @@ export async function listEnvelopeLines(
     offset?: number;
     limit?: number;
     search?: string;
+    status?: string;
   },
 ): Promise<PaginatedResponse<BudgetEnvelopeLineItem>> {
   const qs = buildQueryString({
@@ -173,6 +174,7 @@ export async function listEnvelopeLines(
     offset: params?.offset,
     limit: params?.limit,
     search: params?.search?.trim() || undefined,
+    status: params?.status,
   });
   const res = await authFetch(`${BASE_LINES}${qs}`);
   return handleResponse<PaginatedResponse<BudgetEnvelopeLineItem>>(res);
@@ -295,6 +297,9 @@ export interface UpdateEnvelopePayload {
   type?: string;
   parentId?: string;
   sortOrder?: number;
+  status?: string;
+  /** Obligatoire si status === DEFERRED ; sinon null ou omis. */
+  deferredToExerciseId?: string | null;
 }
 
 export async function createEnvelope(
@@ -337,6 +342,7 @@ export interface CreateLinePayload {
   revisedAmount?: number;
   taxRate?: number;
   currency: string;
+  status?: string;
 }
 
 export interface UpdateLinePayload {
@@ -349,6 +355,40 @@ export interface UpdateLinePayload {
   revisedAmount?: number;
   currency?: string;
   expenseType?: string;
+  status?: string;
+  deferredToExerciseId?: string | null;
+}
+
+export interface BulkStatusApplyResult {
+  status: string;
+  updatedIds: string[];
+  failed: { id: string; error: string }[];
+}
+
+export async function bulkUpdateBudgetLineStatus(
+  authFetch: AuthFetch,
+  payload: { ids: string[]; status: string; deferredToExerciseId?: string | null },
+): Promise<BulkStatusApplyResult> {
+  const res = await authFetch(`${BASE_LINES}/bulk-status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<BulkStatusApplyResult>;
+}
+
+export async function bulkUpdateBudgetEnvelopeStatus(
+  authFetch: AuthFetch,
+  payload: { ids: string[]; status: string; deferredToExerciseId?: string | null },
+): Promise<BulkStatusApplyResult> {
+  const res = await authFetch(`${BASE_ENVELOPES}/bulk-status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<BulkStatusApplyResult>;
 }
 
 export async function createLine(

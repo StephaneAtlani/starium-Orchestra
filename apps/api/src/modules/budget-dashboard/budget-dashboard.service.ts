@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { AllocationType, BudgetStatus, FinancialEventType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PILOTAGE_INCLUDED_LINE_STATUSES } from '../budget-management/constants/budget-aggregate-statuses';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
 import { TaxCalculator } from '../financial-core/helpers/tax-calculator';
 import type { DashboardQueryDto } from './dto/dashboard.query.dto';
@@ -162,6 +163,7 @@ export class BudgetDashboardService {
         where: {
           clientId,
           budgetId: { in: budgetIdsForData },
+          status: { in: [...PILOTAGE_INCLUDED_LINE_STATUSES] },
         },
         select: {
           id: true,
@@ -831,7 +833,11 @@ export class BudgetDashboardService {
   ): Promise<{ committed: number; consumed: number; forecast: number }> {
     const lineIds = await this.prisma.budgetLine
       .findMany({
-        where: { clientId, budgetId },
+        where: {
+          clientId,
+          budgetId,
+          status: { in: [...PILOTAGE_INCLUDED_LINE_STATUSES] },
+        },
         select: { id: true },
       })
       .then((rows) => rows.map((r) => r.id));

@@ -3,6 +3,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsEnum,
+  IsOptional,
   IsString,
 } from 'class-validator';
 import {
@@ -46,6 +47,11 @@ export class BulkUpdateBudgetEnvelopeStatusDto {
 
   @IsEnum(BudgetEnvelopeStatus)
   status!: BudgetEnvelopeStatus;
+
+  /** Obligatoire si `status === DEFERRED`, interdit sinon (validé aussi côté service). */
+  @IsOptional()
+  @IsString()
+  deferredToExerciseId?: string | null;
 }
 
 export class BulkUpdateBudgetLineStatusDto {
@@ -57,6 +63,11 @@ export class BulkUpdateBudgetLineStatusDto {
 
   @IsEnum(BudgetLineStatus)
   status!: BudgetLineStatus;
+
+  /** Obligatoire si `status === DEFERRED`, interdit sinon (validé aussi côté service). */
+  @IsOptional()
+  @IsString()
+  deferredToExerciseId?: string | null;
 }
 
 /** Réponse commune aux endpoints PATCH …/bulk-status. */

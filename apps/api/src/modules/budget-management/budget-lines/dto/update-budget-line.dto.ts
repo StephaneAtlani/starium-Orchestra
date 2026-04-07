@@ -31,6 +31,11 @@ export class UpdateBudgetLineDto {
   @IsEnum(BudgetLineStatus)
   status?: BudgetLineStatus;
 
+  /** Obligatoire si statut DEFERRED (sinon valeur existante si déjà DEFERRED). Interdit si statut ≠ DEFERRED. */
+  @IsOptional()
+  @IsString()
+  deferredToExerciseId?: string | null;
+
   @IsOptional()
   @IsString()
   generalLedgerAccountId?: string | null;

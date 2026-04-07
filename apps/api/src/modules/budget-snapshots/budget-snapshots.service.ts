@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { BudgetSnapshotStatus, Prisma, type BudgetSnapshot } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PILOTAGE_INCLUDED_LINE_STATUSES } from '../budget-management/constants/budget-aggregate-statuses';
 import {
   AuditLogsService,
   CreateAuditLogInput,
@@ -200,7 +201,11 @@ export class BudgetSnapshotsService {
     }
 
     const lines = await this.prisma.budgetLine.findMany({
-      where: { budgetId: budget.id, clientId },
+      where: {
+        budgetId: budget.id,
+        clientId,
+        status: { in: [...PILOTAGE_INCLUDED_LINE_STATUSES] },
+      },
       include: { envelope: true },
     });
 

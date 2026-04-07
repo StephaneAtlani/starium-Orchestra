@@ -22,6 +22,8 @@ import { CreateBudgetEnvelopeDto } from './dto/create-budget-envelope.dto';
 import { ListBudgetEnvelopesQueryDto } from './dto/list-budget-envelopes.query.dto';
 import { UpdateBudgetEnvelopeDto } from './dto/update-budget-envelope.dto';
 import type { BudgetEnvelopeDetailResponseDto } from './dto/budget-envelope-detail-response.dto';
+import { assertBudgetEnvelopeStatusTransition } from '../policies/budget-envelope-status-transitions';
+import { resolveDeferredExerciseIdForEnvelope } from '../helpers/deferred-exercise.helper';
 
 @Injectable()
 export class BudgetEnvelopesService {
@@ -54,6 +56,9 @@ export class BudgetEnvelopesService {
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
+        include: {
+          deferredToExercise: { select: { id: true, name: true, code: true } },
+        },
       }),
       this.prisma.budgetEnvelope.count({ where }),
     ]);
@@ -70,35 +75,16 @@ export class BudgetEnvelopesService {
     clientId: string,
     id: string,
   ): Promise<BudgetEnvelopeDetailResponseDto> {
-    // #region agent log
-    // Diagnostic temporaire pour comprendre les 404 sur GET /api/budget-envelopes/:id
-    console.log('[BudgetEnvelopesService.getById] called', {
-      clientId,
-      id,
-    });
-    // #endregion agent log
-
     const envelope = await this.prisma.budgetEnvelope.findFirst({
       where: { id, clientId },
-      include: { budget: true },
+      include: {
+        budget: true,
+        deferredToExercise: { select: { id: true, name: true, code: true } },
+      },
     });
     if (!envelope) {
-      // #region agent log
-      console.log('[BudgetEnvelopesService.getById] envelope not found', {
-        clientId,
-        id,
-      });
-      // #endregion agent log
       throw new NotFoundException('Budget envelope not found');
     }
-
-    // #region agent log
-    console.log('[BudgetEnvelopesService.getById] envelope found', {
-      clientId,
-      id,
-      budgetId: envelope.budgetId,
-    });
-    // #endregion agent log
 
     const sums = await this.prisma.budgetLine.aggregate({
       where: {
@@ -139,6 +125,9 @@ export class BudgetEnvelopesService {
       committedAmount: fromDecimal(sum.committedAmount),
       consumedAmount: fromDecimal(sum.consumedAmount),
       remainingAmount: fromDecimal(sum.remainingAmount),
+      deferredToExerciseId: envelope.deferredToExerciseId ?? null,
+      deferredToExerciseName: envelope.deferredToExercise?.name ?? null,
+      deferredToExerciseCode: envelope.deferredToExercise?.code ?? null,
     };
   }
 
@@ -252,10 +241,30 @@ export class BudgetEnvelopesService {
   ): Promise<EnvelopeWithNumbers> {
     const existing = await this.prisma.budgetEnvelope.findFirst({
       where: { id, clientId },
-      include: { budget: true },
+      include: {
+        budget: true,
+        deferredToExercise: { select: { id: true, name: true, code: true } },
+      },
     });
     if (!existing) {
       throw new NotFoundException('Budget envelope not found');
+    }
+    if (existing.status === BudgetEnvelopeStatus.ARCHIVED) {
+      throw new BadRequestException('Cannot update an archived budget envelope');
+    }
+    if (existing.status === BudgetEnvelopeStatus.LOCKED) {
+      const dtoKeys = Object.keys(dto).filter(
+        (k) => (dto as Record<string, unknown>)[k] !== undefined,
+      );
+      const onlyArchiving =
+        dtoKeys.length === 1 &&
+        dtoKeys[0] === 'status' &&
+        dto.status === BudgetEnvelopeStatus.ARCHIVED;
+      if (!onlyArchiving) {
+        throw new BadRequestException(
+          'Locked envelope can only transition to ARCHIVED',
+        );
+      }
     }
     if (
       existing.budget.status === BudgetStatus.LOCKED ||
@@ -274,6 +283,20 @@ export class BudgetEnvelopesService {
         'Cannot update envelope when parent budget is a superseded or archived version',
       );
     }
+
+    if (dto.status != null && dto.status !== existing.status) {
+      assertBudgetEnvelopeStatusTransition(existing.status, dto.status);
+    }
+
+    const resolvedDeferredToExerciseId = await resolveDeferredExerciseIdForEnvelope(
+      this.prisma,
+      clientId,
+      dto,
+      {
+        status: existing.status,
+        deferredToExerciseId: existing.deferredToExerciseId ?? null,
+      },
+    );
 
     if (dto.parentId !== undefined && dto.parentId !== null) {
       if (dto.parentId === id) {
@@ -321,6 +344,7 @@ export class BudgetEnvelopesService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.type != null && { type: dto.type }),
         ...(dto.status != null && { status: dto.status }),
+        deferredToExerciseId: resolvedDeferredToExerciseId,
         ...(dto.parentId !== undefined && {
           parentId: dto.parentId || null,
         }),
@@ -338,11 +362,15 @@ export class BudgetEnvelopesService {
         name: existing.name,
         code: existing.code,
         type: existing.type,
+        status: existing.status,
+        deferredToExerciseId: existing.deferredToExerciseId ?? null,
       },
       newValue: {
         name: updated.name,
         code: updated.code,
         type: updated.type,
+        status: updated.status,
+        deferredToExerciseId: updated.deferredToExerciseId ?? null,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -358,13 +386,37 @@ export class BudgetEnvelopesService {
     dto: BulkUpdateBudgetEnvelopeStatusDto,
     context?: AuditContext,
   ): Promise<BulkStatusApplyResult> {
+    if (
+      dto.status === BudgetEnvelopeStatus.DEFERRED &&
+      (dto.deferredToExerciseId == null ||
+        String(dto.deferredToExerciseId).trim() === '')
+    ) {
+      throw new BadRequestException(
+        'deferredToExerciseId is required when status is DEFERRED',
+      );
+    }
+    if (
+      dto.status !== BudgetEnvelopeStatus.DEFERRED &&
+      dto.deferredToExerciseId != null &&
+      dto.deferredToExerciseId !== ''
+    ) {
+      throw new BadRequestException(
+        'deferredToExerciseId must be absent or null when status is not DEFERRED',
+      );
+    }
+
     const uniqueIds = [...new Set(dto.ids)];
     const updatedIds: string[] = [];
     const failed: { id: string; error: string }[] = [];
 
     for (const id of uniqueIds) {
       try {
-        await this.update(clientId, id, { status: dto.status }, context);
+        await this.update(clientId, id, {
+          status: dto.status,
+          ...(dto.status === BudgetEnvelopeStatus.DEFERRED
+            ? { deferredToExerciseId: dto.deferredToExerciseId! }
+            : {}),
+        }, context);
         updatedIds.push(id);
       } catch (e) {
         failed.push({ id, error: bulkStatusFailureMessage(e) });
@@ -401,8 +453,20 @@ export class BudgetEnvelopesService {
 type EnvelopeRow = Awaited<
   ReturnType<PrismaService['budgetEnvelope']['findFirst']>
 >;
-type EnvelopeWithNumbers = NonNullable<EnvelopeRow>;
+type EnvelopeWithNumbers = NonNullable<EnvelopeRow> & {
+  deferredToExerciseName?: string | null;
+  deferredToExerciseCode?: string | null;
+};
 
-function toResponse(row: NonNullable<EnvelopeRow>): EnvelopeWithNumbers {
-  return { ...row };
+function toResponse(
+  row: NonNullable<EnvelopeRow> & {
+    deferredToExercise?: { name: string; code: string } | null;
+  },
+): EnvelopeWithNumbers {
+  const { deferredToExercise, ...rest } = row;
+  return {
+    ...rest,
+    deferredToExerciseName: deferredToExercise?.name ?? null,
+    deferredToExerciseCode: deferredToExercise?.code ?? null,
+  };
 }

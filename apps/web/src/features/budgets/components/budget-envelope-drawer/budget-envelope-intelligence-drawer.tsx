@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronUp, ExternalLink, ListTree, X } from 'lucide-react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
@@ -12,9 +12,13 @@ import { useBudgetEnvelope, useBudgetEnvelopeLines } from '../../hooks/use-budge
 import { BudgetEnvelopeIdentityCard } from '../budget-envelope-identity-card';
 import { BudgetEnvelopeContextCard } from '../budget-envelope-context-card';
 import { BudgetEnvelopeSummaryCards } from '../budget-envelope-summary-cards';
+import { BudgetEnvelopeStatusBadge } from '../budget-envelope-status-badge';
 import { BudgetEnvelopeLinesTable } from '../budget-envelope-lines-table';
+import { BudgetEnvelopeWorkflowCard } from '../budget-envelope-workflow-card';
+import { BudgetBulkLineStatusDialog } from '../budget-bulk-line-status-dialog';
 import { CockpitSurfaceCard } from '../../dashboard/components/budget-cockpit-primitives';
 import { budgetEnvelopeDetail } from '../../constants/budget-routes';
+import { usePermissions } from '@/hooks/use-permissions';
 
 const DEFAULT_LIMIT = 20;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -37,6 +41,11 @@ export function BudgetEnvelopeIntelligenceDrawer({
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [panelExpanded, setPanelExpanded] = useState(false);
+  const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(() => new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  const { has, isLoading: permLoading } = usePermissions();
+  const canBulk = !permLoading && has('budgets.update');
 
   useEffect(() => {
     if (!open) setPanelExpanded(false);
@@ -48,6 +57,7 @@ export function BudgetEnvelopeIntelligenceDrawer({
     setSearchInput('');
     setDebouncedSearch('');
     setStatusFilter('ALL');
+    setSelectedLineIds(new Set());
   }, [effectiveId]);
 
   useEffect(() => {
@@ -77,6 +87,32 @@ export function BudgetEnvelopeIntelligenceDrawer({
   const envelope = envelopeQuery.data ?? null;
   const hasActiveFilters =
     searchInput.trim().length > 0 || statusFilter !== 'ALL';
+
+  const linesOnPage = linesQuery.data?.items ?? [];
+
+  const toggleLineSelected = useCallback((lineId: string, selected: boolean) => {
+    setSelectedLineIds((prev) => {
+      const n = new Set(prev);
+      if (selected) n.add(lineId);
+      else n.delete(lineId);
+      return n;
+    });
+  }, []);
+
+  const togglePageSelected = useCallback(
+    (selected: boolean) => {
+      const ids = linesOnPage.map((l) => l.id);
+      setSelectedLineIds((prev) => {
+        const n = new Set(prev);
+        for (const id of ids) {
+          if (selected) n.add(id);
+          else n.delete(id);
+        }
+        return n;
+      });
+    },
+    [linesOnPage],
+  );
 
   const showLoadingShell =
     open && effectiveId && envelopeQuery.isLoading && !envelope;
@@ -202,6 +238,10 @@ export function BudgetEnvelopeIntelligenceDrawer({
                 <BudgetEnvelopeSummaryCards envelope={envelope} />
 
                 <div className="pb-2 pt-2">
+                  <BudgetEnvelopeWorkflowCard envelope={envelope} />
+                </div>
+
+                <div className="pb-2 pt-2">
                   <CockpitSurfaceCard
                     title="Lignes budgétaires de l’enveloppe"
                     description="Recherche par code ou libellé, filtre par statut, pagination."
@@ -225,9 +265,22 @@ export function BudgetEnvelopeIntelligenceDrawer({
                       onStatusFilterChange={setStatusFilter}
                       hasActiveFilters={hasActiveFilters}
                       onBudgetLineClick={onBudgetLineClick}
+                      bulkEnabled={canBulk}
+                      selectedLineIds={selectedLineIds}
+                      onToggleLineSelected={toggleLineSelected}
+                      onTogglePageSelected={togglePageSelected}
+                      onBulkStatusClick={() => setBulkOpen(true)}
                     />
                   </CockpitSurfaceCard>
                 </div>
+                {envelope && canBulk ? (
+                  <BudgetBulkLineStatusDialog
+                    open={bulkOpen}
+                    onOpenChange={setBulkOpen}
+                    lineIds={Array.from(selectedLineIds)}
+                    budgetId={envelope.budgetId}
+                  />
+                ) : null}
               </div>
             </div>
           )}

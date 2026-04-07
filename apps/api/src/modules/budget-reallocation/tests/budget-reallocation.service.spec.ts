@@ -211,10 +211,14 @@ describe('BudgetReallocationService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('source line non ACTIVE => BadRequestException', async () => {
+    it('source line hors pilotage (DRAFT) => BadRequestException', async () => {
       prisma.budgetLine.findFirst
         .mockReset()
-        .mockResolvedValueOnce({ ...sourceLine, status: BudgetLineStatus.CLOSED, budget: sourceLine.budget })
+        .mockResolvedValueOnce({
+          ...sourceLine,
+          status: BudgetLineStatus.DRAFT,
+          budget: sourceLine.budget,
+        })
         .mockResolvedValueOnce({ ...targetLine, budget: targetLine.budget });
 
       await expect(

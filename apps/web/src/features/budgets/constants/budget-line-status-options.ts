@@ -3,7 +3,21 @@
 export const BUDGET_LINE_STATUS_SELECT_OPTIONS = [
   { value: 'ALL', label: 'Tous les statuts' },
   { value: 'DRAFT', label: 'Brouillon' },
+  { value: 'PENDING_VALIDATION', label: 'À valider' },
   { value: 'ACTIVE', label: 'Actif' },
+  { value: 'REJECTED', label: 'Rejeté' },
+  { value: 'DEFERRED', label: 'Reporté' },
+  { value: 'CLOSED', label: 'Clôturé' },
+  { value: 'ARCHIVED', label: 'Archivé' },
+] as const;
+
+/** Édition / workflow (sans « Tous »). */
+export const BUDGET_LINE_STATUS_EDIT_OPTIONS = [
+  { value: 'DRAFT', label: 'Brouillon' },
+  { value: 'PENDING_VALIDATION', label: 'À valider' },
+  { value: 'ACTIVE', label: 'Actif' },
+  { value: 'REJECTED', label: 'Rejeté' },
+  { value: 'DEFERRED', label: 'Reporté' },
   { value: 'CLOSED', label: 'Clôturé' },
   { value: 'ARCHIVED', label: 'Archivé' },
 ] as const;

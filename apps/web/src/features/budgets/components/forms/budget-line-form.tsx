@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
@@ -19,17 +19,13 @@ import type { ApiFormError } from '../../api/types';
 import type { GeneralLedgerAccountOption } from '../../api/general-ledger-accounts.api';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { cn } from '@/lib/utils';
+import { BUDGET_LINE_STATUS_EDIT_OPTIONS } from '../../constants/budget-line-status-options';
+import { useBudgetExercisesQuery } from '../../hooks/use-budget-exercises-query';
+import { formatBudgetExerciseOptionLabel } from '../../lib/budget-exercise-option-label';
 
 const EXPENSE_TYPE_OPTIONS = [
   { value: 'CAPEX', label: 'CAPEX' },
   { value: 'OPEX', label: 'OPEX' },
-] as const;
-
-const STATUS_OPTIONS = [
-  { value: 'DRAFT', label: 'Brouillon' },
-  { value: 'ACTIVE', label: 'Actif' },
-  { value: 'ARCHIVED', label: 'Archivé' },
-  { value: 'CLOSED', label: 'Clôturé' },
 ] as const;
 
 export type BudgetLineFormSubmitMeta = {
@@ -126,6 +122,7 @@ export function BudgetLineForm({
 
   const {
     register,
+    control,
     handleSubmit,
     setError,
     setValue,
@@ -135,10 +132,19 @@ export function BudgetLineForm({
     defaultValues: {
       currency: 'EUR',
       status: 'DRAFT',
+      deferredToExerciseId: '',
       budgetId,
       ...defaultValues,
     },
   });
+
+  const statusWatch = useWatch({ control, name: 'status' });
+  const exercisesQuery = useBudgetExercisesQuery({
+    limit: 200,
+    page: 1,
+    status: 'ALL',
+  });
+  const exerciseOptions = exercisesQuery.data?.items ?? [];
 
   useEffect(() => {
     setValue('budgetId', budgetId);
@@ -386,7 +392,7 @@ export function BudgetLineForm({
                   {...register('status')}
                   aria-invalid={!!errors.status}
                 >
-                  {STATUS_OPTIONS.map((opt) => (
+                  {BUDGET_LINE_STATUS_EDIT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -394,6 +400,27 @@ export function BudgetLineForm({
                 </select>
                 {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
               </div>
+              {isEdit && statusWatch === 'DEFERRED' && (
+                <div className="space-y-2">
+                  <Label htmlFor="deferredToExerciseId">Report vers l’exercice</Label>
+                  <select
+                    id="deferredToExerciseId"
+                    className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    {...register('deferredToExerciseId')}
+                    aria-invalid={!!errors.deferredToExerciseId}
+                  >
+                    <option value="">— Choisir —</option>
+                    {exerciseOptions.map((ex) => (
+                      <option key={ex.id} value={ex.id}>
+                        {formatBudgetExerciseOptionLabel(ex)}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.deferredToExerciseId && (
+                    <p className="text-sm text-destructive">{errors.deferredToExerciseId.message}</p>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

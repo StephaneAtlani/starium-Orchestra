@@ -18,6 +18,8 @@ import { CreateBudgetLineDto } from './dto/create-budget-line.dto';
 import { ListBudgetLinesQueryDto } from './dto/list-budget-lines.query.dto';
 import { UpdateBudgetLineDto } from './dto/update-budget-line.dto';
 import { TaxCalculator } from '../../financial-core/helpers/tax-calculator';
+import { assertBudgetLineStatusTransition } from '../policies/budget-line-status-transitions';
+import { resolveDeferredExerciseIdForLine } from '../helpers/deferred-exercise.helper';
 
 export interface CostCenterSplitResponse {
   id: string;
@@ -69,6 +71,9 @@ export interface BudgetLineResponse {
   analyticalLedgerAccountName: string | null;
   allocationScope: string;
   costCenterSplits: CostCenterSplitResponse[];
+  deferredToExerciseId: string | null;
+  deferredToExerciseName: string | null;
+  deferredToExerciseCode: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +81,7 @@ export interface BudgetLineResponse {
 const BUDGET_LINE_INCLUDE = {
   generalLedgerAccount: { select: { id: true, code: true, name: true } },
   analyticalLedgerAccount: { select: { id: true, code: true, name: true } },
+  deferredToExercise: { select: { id: true, name: true, code: true } },
   costCenterSplits: {
     include: { costCenter: { select: { id: true, code: true, name: true } } },
   },
@@ -429,14 +435,37 @@ export class BudgetLinesService {
         'Cannot update line when parent budget is a superseded or archived version',
       );
     }
-    if (
-      existing.status === BudgetLineStatus.ARCHIVED ||
-      existing.status === BudgetLineStatus.CLOSED
-    ) {
-      throw new BadRequestException(
-        'Cannot update an archived or closed budget line',
-      );
+    if (existing.status === BudgetLineStatus.ARCHIVED) {
+      throw new BadRequestException('Cannot update an archived budget line');
     }
+    if (existing.status === BudgetLineStatus.CLOSED) {
+      const dtoKeys = Object.keys(dto).filter(
+        (k) => (dto as Record<string, unknown>)[k] !== undefined,
+      );
+      const onlyArchiving =
+        dtoKeys.length === 1 &&
+        dtoKeys[0] === 'status' &&
+        dto.status === BudgetLineStatus.ARCHIVED;
+      if (!onlyArchiving) {
+        throw new BadRequestException(
+          'Closed budget line can only transition to ARCHIVED',
+        );
+      }
+    }
+
+    if (dto.status != null && dto.status !== existing.status) {
+      assertBudgetLineStatusTransition(existing.status, dto.status);
+    }
+
+    const resolvedDeferredToExerciseId = await resolveDeferredExerciseIdForLine(
+      this.prisma,
+      clientId,
+      dto,
+      {
+        status: existing.status,
+        deferredToExerciseId: existing.deferredToExerciseId ?? null,
+      },
+    );
 
     const allocationScope = dto.allocationScope ?? existing.allocationScope;
     const costCenterSplits = dto.costCenterSplits;
@@ -517,11 +546,12 @@ export class BudgetLinesService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const baseData: Prisma.BudgetLineUpdateInput = {
+      const baseData: Prisma.BudgetLineUncheckedUpdateInput = {
         ...(dto.name != null && { name: dto.name }),
         ...(dto.code != null && { code: dto.code }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.status != null && { status: dto.status }),
+        deferredToExerciseId: resolvedDeferredToExerciseId,
         ...(dto.currency != null && { currency: dto.currency }),
         ...(dto.expenseType != null && { expenseType: dto.expenseType }),
         ...(dto.generalLedgerAccountId !== undefined && {
@@ -619,6 +649,7 @@ export class BudgetLinesService {
         name: existing.name,
         code: existing.code,
         status: existing.status,
+        deferredToExerciseId: existing.deferredToExerciseId ?? null,
         generalLedgerAccountId: existing.generalLedgerAccountId,
         analyticalLedgerAccountId: existing.analyticalLedgerAccountId,
         allocationScope: existing.allocationScope,
@@ -633,6 +664,7 @@ export class BudgetLinesService {
         name: updated.name,
         code: updated.code,
         status: updated.status,
+        deferredToExerciseId: updated.deferredToExerciseId ?? null,
         generalLedgerAccountId: updated.generalLedgerAccountId,
         analyticalLedgerAccountId: updated.analyticalLedgerAccountId,
         allocationScope: updated.allocationScope,
@@ -657,13 +689,36 @@ export class BudgetLinesService {
     dto: BulkUpdateBudgetLineStatusDto,
     context?: AuditContext,
   ): Promise<BulkStatusApplyResult> {
+    if (
+      dto.status === BudgetLineStatus.DEFERRED &&
+      (dto.deferredToExerciseId == null || String(dto.deferredToExerciseId).trim() === '')
+    ) {
+      throw new BadRequestException(
+        'deferredToExerciseId is required when status is DEFERRED',
+      );
+    }
+    if (
+      dto.status !== BudgetLineStatus.DEFERRED &&
+      dto.deferredToExerciseId != null &&
+      dto.deferredToExerciseId !== ''
+    ) {
+      throw new BadRequestException(
+        'deferredToExerciseId must be absent or null when status is not DEFERRED',
+      );
+    }
+
     const uniqueIds = [...new Set(dto.ids)];
     const updatedIds: string[] = [];
     const failed: { id: string; error: string }[] = [];
 
     for (const id of uniqueIds) {
       try {
-        await this.update(clientId, id, { status: dto.status }, context);
+        await this.update(clientId, id, {
+          status: dto.status,
+          ...(dto.status === BudgetLineStatus.DEFERRED
+            ? { deferredToExerciseId: dto.deferredToExerciseId! }
+            : {}),
+        }, context);
         updatedIds.push(id);
       } catch (e) {
         failed.push({ id, error: bulkStatusFailureMessage(e) });
@@ -848,6 +903,9 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
       costCenterName: s.costCenter?.name ?? '',
       percentage: fromDecimal(s.percentage),
     })),
+    deferredToExerciseId: row.deferredToExerciseId ?? null,
+    deferredToExerciseName: row.deferredToExercise?.name ?? null,
+    deferredToExerciseCode: row.deferredToExercise?.code ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

@@ -4,13 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  BudgetLineStatus,
   BudgetStatus,
   FinancialEventType,
   FinancialSourceType,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { isBudgetLineIncludedInPilotageTotals } from '../budget-management/constants/budget-aggregate-statuses';
 import {
   AuditLogsService,
   CreateAuditLogInput,
@@ -98,11 +98,15 @@ export class BudgetReallocationService {
         'Source and target must have the same currency',
       );
     }
-    if (sourceLine.status !== BudgetLineStatus.ACTIVE) {
-      throw new BadRequestException('Source line must be ACTIVE');
+    if (!isBudgetLineIncludedInPilotageTotals(sourceLine.status)) {
+      throw new BadRequestException(
+        'Source line must be ACTIVE, PENDING_VALIDATION, or CLOSED (pilotage totals)',
+      );
     }
-    if (targetLine.status !== BudgetLineStatus.ACTIVE) {
-      throw new BadRequestException('Target line must be ACTIVE');
+    if (!isBudgetLineIncludedInPilotageTotals(targetLine.status)) {
+      throw new BadRequestException(
+        'Target line must be ACTIVE, PENDING_VALIDATION, or CLOSED (pilotage totals)',
+      );
     }
     if (
       sourceLine.budget.status === BudgetStatus.LOCKED ||

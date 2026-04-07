@@ -14,6 +14,8 @@ import { usePatchBudgetOwner } from '../../hooks/use-patch-budget-owner';
 import type { UpdateLinePayload } from '../../api/budget-management.api';
 import { useClientMembers } from '@/features/client-rbac/hooks/use-client-members';
 import type { ClientMember } from '@/features/client-rbac/api/user-roles';
+import { BudgetLineWorkflowBlock } from '../budget-line-workflow-block';
+import { BudgetLineStatusBadge } from '../budget-line-status-badge';
 
 const AUTOSAVE_MS = 650;
 
@@ -555,10 +557,26 @@ export function BudgetLineOverviewTab({
         </CardHeader>
         <CardContent className="space-y-2.5 text-sm">
           <div className="grid gap-2 sm:grid-cols-2">
-            <div>
-              <div className="text-xs text-muted-foreground">Statut</div>
-              <div className="mt-0.5 font-medium">{line.status}</div>
-            </div>
+            {canEdit ? (
+              <div className="sm:col-span-2">
+                <div className="text-xs font-medium text-muted-foreground">Statut</div>
+                <BudgetLineWorkflowBlock line={line} canEdit />
+              </div>
+            ) : (
+              <div>
+                <div className="text-xs text-muted-foreground">Statut</div>
+                <div className="mt-0.5 space-y-1">
+                  <BudgetLineStatusBadge status={line.status} />
+                  {line.status === 'DEFERRED' &&
+                    (line.deferredToExerciseName || line.deferredToExerciseCode) && (
+                      <p className="text-xs text-muted-foreground">
+                        Report : {line.deferredToExerciseName ?? '—'}
+                        {line.deferredToExerciseCode ? ` (${line.deferredToExerciseCode})` : ''}
+                      </p>
+                    )}
+                </div>
+              </div>
+            )}
             <div>
               <div className="text-xs text-muted-foreground">Type dépense</div>
               <div className="mt-0.5 font-medium">{line.expenseType}</div>

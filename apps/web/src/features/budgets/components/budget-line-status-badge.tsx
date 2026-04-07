@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { budgetEnvelopeStatusLabel } from '../constants/budget-envelope-status-options';
+import { budgetLineStatusLabel } from '../constants/budget-line-status-options';
 
 function variantForStatus(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
@@ -13,16 +13,17 @@ function variantForStatus(status: string): 'default' | 'secondary' | 'destructiv
       return 'secondary';
     case 'REJECTED':
     case 'ARCHIVED':
+      return 'outline';
     case 'DEFERRED':
       return 'outline';
-    case 'LOCKED':
+    case 'CLOSED':
       return 'secondary';
     default:
       return 'outline';
   }
 }
 
-export function BudgetEnvelopeStatusBadge({
+export function BudgetLineStatusBadge({
   status,
   className,
 }: {
@@ -31,8 +32,7 @@ export function BudgetEnvelopeStatusBadge({
 }) {
   return (
     <Badge variant={variantForStatus(status)} className={cn('font-normal', className)}>
-      {budgetEnvelopeStatusLabel(status)}
+      {budgetLineStatusLabel(status)}
     </Badge>
   );
 }
-

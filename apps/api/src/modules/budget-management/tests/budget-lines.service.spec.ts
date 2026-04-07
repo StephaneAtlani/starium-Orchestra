@@ -51,6 +51,7 @@ describe('BudgetLinesService', () => {
       generalLedgerAccount: { findFirst: jest.fn() },
       analyticalLedgerAccount: { findFirst: jest.fn() },
       costCenter: { findFirst: jest.fn() },
+      budgetExercise: { findFirst: jest.fn() },
       budgetLine: {
         findMany: jest.fn(),
         findFirst: jest.fn(),
@@ -417,6 +418,87 @@ describe('BudgetLinesService', () => {
       await expect(
         service.getById(clientId, 'line-unknown'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejette DEFERRED avec exercice cible invalide', async () => {
+      prisma.budgetLine.findFirst.mockResolvedValue({
+        ...lineWithInclude(),
+        status: BudgetLineStatus.ACTIVE,
+        deferredToExerciseId: null,
+        budget: { status: BudgetStatus.DRAFT },
+        costCenterSplits: [],
+      });
+      prisma.budgetExercise.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(
+          clientId,
+          'line-1',
+          { status: BudgetLineStatus.DEFERRED, deferredToExerciseId: 'ex-other' },
+          { actorUserId: 'user-1', meta: {} },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('sortie de DEFERRED => reset deferredToExerciseId à null', async () => {
+      prisma.budgetLine.findFirst.mockResolvedValue({
+        ...lineWithInclude(),
+        status: BudgetLineStatus.DEFERRED,
+        deferredToExerciseId: 'ex-1',
+        budget: { status: BudgetStatus.DRAFT, taxMode: 'HT' },
+        costCenterSplits: [],
+      });
+
+      let capturedTx: any;
+      prisma.$transaction.mockImplementation(async (cb: (tx: any) => Promise<any>) => {
+        capturedTx = {
+          budgetLine: {
+            update: jest.fn().mockResolvedValue({}),
+            findUniqueOrThrow: jest.fn().mockResolvedValue(
+              lineWithInclude({
+                status: BudgetLineStatus.ACTIVE,
+                deferredToExerciseId: null,
+              }),
+            ),
+          },
+          budgetLineCostCenterSplit: {
+            deleteMany: jest.fn().mockResolvedValue({}),
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+        return cb(capturedTx);
+      });
+
+      await service.update(
+        clientId,
+        'line-1',
+        { status: BudgetLineStatus.ACTIVE },
+        { actorUserId: 'user-1', meta: {} },
+      );
+
+      const updateCall = capturedTx.budgetLine.update.mock.calls[0][0];
+      expect(updateCall.data.deferredToExerciseId).toBeNull();
+    });
+  });
+
+  describe('bulkUpdateStatus', () => {
+    it('retour partiel (succès + échec) sans rollback global', async () => {
+      const spy = jest.spyOn(service, 'update');
+      spy.mockImplementation(async (_client, id) => {
+        if (id === 'line-ko') {
+          throw new BadRequestException('invalid transition');
+        }
+        return lineWithInclude({ id }) as any;
+      });
+
+      const result = await service.bulkUpdateStatus(clientId, {
+        ids: ['line-ok', 'line-ko'],
+        status: BudgetLineStatus.ACTIVE,
+      });
+
+      expect(result.updatedIds).toEqual(['line-ok']);
+      expect(result.failed).toHaveLength(1);
+      expect(result.failed[0]?.id).toBe('line-ko');
     });
   });
 });

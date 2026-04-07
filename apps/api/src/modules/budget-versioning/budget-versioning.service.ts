@@ -170,6 +170,8 @@ export class BudgetVersioningService {
             type: env.type,
             description: env.description,
             sortOrder: env.sortOrder,
+            status: env.status,
+            deferredToExerciseId: env.deferredToExerciseId,
           },
         });
         envelopeIdMap.set(env.id, created.id);
@@ -315,6 +317,8 @@ export class BudgetVersioningService {
             type: env.type,
             description: env.description,
             sortOrder: env.sortOrder,
+            status: env.status,
+            deferredToExerciseId: env.deferredToExerciseId,
           },
         });
         envelopeIdMap.set(env.id, created.id);
@@ -641,6 +645,7 @@ export class BudgetVersioningService {
       description: string | null;
       expenseType: string;
       status: string;
+      deferredToExerciseId: string | null;
       currency: string;
       generalLedgerAccountId: string | null;
       analyticalLedgerAccountId: string | null;
@@ -666,6 +671,7 @@ export class BudgetVersioningService {
         description: sourceLine.description,
         expenseType: sourceLine.expenseType as 'OPEX' | 'CAPEX',
         status: sourceLine.status as any,
+        deferredToExerciseId: sourceLine.deferredToExerciseId,
         currency: sourceLine.currency,
         generalLedgerAccountId: sourceLine.generalLedgerAccountId,
         analyticalLedgerAccountId: sourceLine.analyticalLedgerAccountId,

@@ -5,7 +5,7 @@ export interface BudgetEnvelopeDetailResponseDto {
   code: string | null;
   name: string;
   description: string | null;
-  status: 'DRAFT' | 'ACTIVE' | 'LOCKED' | 'ARCHIVED';
+  status: string;
   currency: string;
   initialAmount: number;
   revisedAmount: number;
@@ -13,5 +13,8 @@ export interface BudgetEnvelopeDetailResponseDto {
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;
+  deferredToExerciseId: string | null;
+  deferredToExerciseName: string | null;
+  deferredToExerciseCode: string | null;
 }
 

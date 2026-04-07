@@ -74,6 +74,11 @@ interface BudgetEnvelopeLinesTableProps {
   hasActiveFilters: boolean;
   /** Clic sur la ligne → panneau intelligence ligne (drawer) */
   onBudgetLineClick?: (lineId: string) => void;
+  bulkEnabled?: boolean;
+  selectedLineIds?: ReadonlySet<string>;
+  onToggleLineSelected?: (lineId: string, selected: boolean) => void;
+  onTogglePageSelected?: (selected: boolean) => void;
+  onBulkStatusClick?: () => void;
 }
 
 export function BudgetEnvelopeLinesTable({
@@ -90,6 +95,11 @@ export function BudgetEnvelopeLinesTable({
   onStatusFilterChange,
   hasActiveFilters,
   onBudgetLineClick,
+  bulkEnabled = false,
+  selectedLineIds,
+  onToggleLineSelected,
+  onTogglePageSelected,
+  onBulkStatusClick,
 }: BudgetEnvelopeLinesTableProps) {
   if (error) {
     return (
@@ -102,6 +112,13 @@ export function BudgetEnvelopeLinesTable({
   const currentPage = Math.floor(offset / limit) + 1;
   const pageCount = Math.max(1, Math.ceil(total / limit));
   const showEmpty = !lines.length;
+
+  const pageIds = lines.map((l) => l.id);
+  const allPageSelected =
+    bulkEnabled &&
+    pageIds.length > 0 &&
+    selectedLineIds &&
+    pageIds.every((id) => selectedLineIds.has(id));
 
   return (
     <div className="space-y-0">
@@ -116,6 +133,17 @@ export function BudgetEnvelopeLinesTable({
               data-testid="envelope-lines-search"
               aria-label="Filtrer les lignes par texte"
             />
+            {bulkEnabled && onBulkStatusClick && selectedLineIds && selectedLineIds.size > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={onBulkStatusClick}
+                data-testid="envelope-lines-bulk-status"
+              >
+                Statut ({selectedLineIds.size})
+              </Button>
+            )}
             <Select
               value={statusFilter}
               onValueChange={(v) => onStatusFilterChange(v ?? 'ALL')}
@@ -155,6 +183,7 @@ export function BudgetEnvelopeLinesTable({
         <div className="overflow-x-auto">
           <Table className="min-w-[1120px] table-fixed">
             <colgroup>
+              {bulkEnabled ? <col className="w-[2.25rem]" /> : null}
               <col className="w-[28%]" />
               <col className="w-[8rem]" />
               <col className="w-[10%]" />
@@ -167,6 +196,19 @@ export function BudgetEnvelopeLinesTable({
             </colgroup>
             <TableHeader className="bg-transparent">
               <TableRow className={cockpitTableHeadRow}>
+                {bulkEnabled && onTogglePageSelected ? (
+                  <TableHead className="w-9 p-0">
+                    <input
+                      type="checkbox"
+                      className="size-4 rounded border border-input accent-primary"
+                      aria-label="Sélectionner cette page"
+                      checked={allPageSelected}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        onTogglePageSelected(e.target.checked)
+                      }
+                    />
+                  </TableHead>
+                ) : null}
                 <TableHead className={cn('min-w-0', cockpitThFirst)}>
                   Ligne
                 </TableHead>
@@ -197,6 +239,22 @@ export function BudgetEnvelopeLinesTable({
                         : undefined
                     }
                   >
+                    {bulkEnabled && onToggleLineSelected && selectedLineIds ? (
+                      <TableCell
+                        className="w-9 p-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          className="size-4 rounded border border-input accent-primary"
+                          aria-label={`Sélectionner ${label}`}
+                          checked={selectedLineIds.has(line.id)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            onToggleLineSelected(line.id, e.target.checked)
+                          }
+                        />
+                      </TableCell>
+                    ) : null}
                     <TableCell className={cn(cockpitTdFirst, 'max-w-0')}>
                       <span
                         className={cn(

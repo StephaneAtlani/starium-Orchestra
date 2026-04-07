@@ -1245,13 +1245,15 @@ Crée une enveloppe. **Body** : `budgetId`, `name`, `code?`, `description?`, `ty
 
 ### GET /api/budget-envelopes/:id — PATCH /api/budget-envelopes/:id
 
-Détail et mise à jour (dont `status` : `BudgetEnvelopeStatus`). PATCH refusé si le **budget parent** est LOCKED ou ARCHIVED (ou version superseded/archived).
+Détail et mise à jour (dont `status` : `BudgetEnvelopeStatus`, `deferredToExerciseId?` : cible de report si `status` = `DEFERRED`, sinon `null`). Les transitions de statut sont validées côté serveur (matrice figée ; erreur `400` avec code `invalid_status_transition` si interdit). PATCH refusé si le **budget parent** est LOCKED ou ARCHIVED (ou version superseded/archived).
 
 ---
 
 ### PATCH /api/budget-envelopes/bulk-status
 
-Mise à jour du **statut** sur plusieurs enveloppes. **Body** : `ids` (1 à 100), `status` (`BudgetEnvelopeStatus`). **Permission** : `budgets.update`. Même logique que `PATCH /api/budget-envelopes/:id` par id. **Réponse 200** : `{ status, updatedIds, failed: [{ id, error }] }`.
+Mise à jour du **statut** sur plusieurs enveloppes. **Body** : `ids` (1 à 100), `status` (`BudgetEnvelopeStatus`), `deferredToExerciseId?` (obligatoire et non vide si `status` = `DEFERRED` ; absent ou `null` si autre statut). **Permission** : `budgets.update`. Même logique que `PATCH /api/budget-envelopes/:id` par id (pas de rollback global : les ids déjà traités restent appliqués). **Réponse 200** : `{ status, updatedIds, failed: [{ id, error }] }`.
+
+**Transitions autorisées (enveloppe) — résumé** : `DRAFT → PENDING_VALIDATION|ARCHIVED`, `PENDING_VALIDATION → ACTIVE|REJECTED|DEFERRED`, `REJECTED → DRAFT`, `DEFERRED → DRAFT|ACTIVE`, `ACTIVE → PENDING_VALIDATION|LOCKED|DEFERRED`, `LOCKED → ARCHIVED` ; sinon `400 invalid_status_transition`.
 
 ---
 
@@ -1269,7 +1271,7 @@ Crée une ligne. **Body** : `budgetId`, `envelopeId`, `name`, `code?`, `descript
 
 ### GET /api/budget-lines/:id — PATCH /api/budget-lines/:id
 
-Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`. PATCH : champs optionnels dont `generalLedgerAccountId`, `analyticalLedgerAccountId`, `allocationScope`, `costCenterSplits`. Si `allocationScope` = ENTERPRISE, les splits existants sont supprimés ; si ANALYTICAL et `costCenterSplits` non fourni, les splits existants sont conservés. Si `revisedAmount` change, `remainingAmount` est recalculé. PATCH refusé si budget parent LOCKED/ARCHIVED ou si ligne ARCHIVED/CLOSED.
+Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`, `deferredToExerciseId` / libellés cible (`deferredToExerciseName`, `deferredToExerciseCode`) lorsque présents. PATCH : champs optionnels dont `status`, `deferredToExerciseId` (mêmes règles que l’enveloppe pour `DEFERRED`), `generalLedgerAccountId`, `analyticalLedgerAccountId`, `allocationScope`, `costCenterSplits`. Si `allocationScope` = ENTERPRISE, les splits existants sont supprimés ; si ANALYTICAL et `costCenterSplits` non fourni, les splits existants sont conservés. Si `revisedAmount` change, `remainingAmount` est recalculé. PATCH refusé si budget parent LOCKED/ARCHIVED ou si ligne ARCHIVED/CLOSED (sauf transition autorisée vers ARCHIVED).
 
 **Note** : les routes `GET /api/budget-lines/:id/allocations` et `GET /api/budget-lines/:id/events` sont documentées en §16 (noyau financier).
 
@@ -1279,7 +1281,9 @@ Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `
 
 ### PATCH /api/budget-lines/bulk-status
 
-Mise à jour du **statut** sur plusieurs lignes. **Body** : `ids` (1 à 100), `status` (`BudgetLineStatus`). **Permission** : `budgets.update`. Même logique que `PATCH /api/budget-lines/:id` par id. **Réponse 200** : `{ status, updatedIds, failed: [{ id, error }] }`.
+Mise à jour du **statut** sur plusieurs lignes. **Body** : `ids` (1 à 100), `status` (`BudgetLineStatus`), `deferredToExerciseId?` (obligatoire si `status` = `DEFERRED`, interdit sinon). **Permission** : `budgets.update`. Même logique que `PATCH /api/budget-lines/:id` par id. **Réponse 200** : `{ status, updatedIds, failed: [{ id, error }] }`.
+
+**Transitions autorisées (ligne) — résumé** : `DRAFT → PENDING_VALIDATION|ARCHIVED`, `PENDING_VALIDATION → ACTIVE|REJECTED|DEFERRED`, `REJECTED → DRAFT`, `DEFERRED → DRAFT|ACTIVE`, `ACTIVE → PENDING_VALIDATION|CLOSED|DEFERRED`, `CLOSED → ARCHIVED` ; sinon `400 invalid_status_transition`.
 
 ---
 

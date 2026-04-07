@@ -176,6 +176,8 @@ export function lineApiToForm(
     initialAmount,
     revisedAmount,
     currency: line.currency,
+    status: line.status,
+    deferredToExerciseId: line.deferredToExerciseId ?? '',
   };
 }
 
@@ -213,11 +215,21 @@ export function lineFormToUpdatePayload(values: BudgetLineFormValues): UpdateLin
         ? undefined
         : Number(values.revisedAmount),
     currency: values.currency,
-    status: values.status,
   };
 
   // Permet explicitement de "vider" le compte comptable (si autorisé côté backend).
   // Note: le backend normalise "" → null.
   payload.generalLedgerAccountId = values.generalLedgerAccountId === '' ? null : values.generalLedgerAccountId;
+
+  if (values.status !== undefined) {
+    payload.status = values.status;
+    if (values.status === 'DEFERRED') {
+      payload.deferredToExerciseId = values.deferredToExerciseId?.trim()
+        ? values.deferredToExerciseId.trim()
+        : null;
+    } else {
+      payload.deferredToExerciseId = null;
+    }
+  }
   return payload;
 }

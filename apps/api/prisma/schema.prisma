@@ -1783,7 +1783,10 @@ enum BudgetStatus {
 
 enum BudgetEnvelopeStatus {
   DRAFT
+  PENDING_VALIDATION
   ACTIVE
+  REJECTED
+  DEFERRED
   LOCKED
   ARCHIVED
 }
@@ -1796,7 +1799,10 @@ enum BudgetEnvelopeType {
 
 enum BudgetLineStatus {
   DRAFT
+  PENDING_VALIDATION
   ACTIVE
+  REJECTED
+  DEFERRED
   CLOSED
   ARCHIVED
 }
@@ -1895,6 +1901,8 @@ model BudgetExercise {
   budgetSnapshots BudgetSnapshot[]
   budgetVersionSets BudgetVersionSet[]
   dashboardConfigsAsDefault BudgetDashboardConfig[]
+  deferredFromLines     BudgetLine[]    @relation("DeferredExerciseBudgetLines")
+  deferredFromEnvelopes BudgetEnvelope[] @relation("DeferredExerciseBudgetEnvelopes")
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -2068,7 +2076,9 @@ model BudgetEnvelope {
   sortOrder   Int                @default(0)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
-  status      BudgetEnvelopeStatus @default(ACTIVE)
+  status                 BudgetEnvelopeStatus @default(ACTIVE)
+  deferredToExerciseId   String?
+  deferredToExercise   BudgetExercise?      @relation("DeferredExerciseBudgetEnvelopes", fields: [deferredToExerciseId], references: [id], onDelete: SetNull)
   client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
   budget      Budget             @relation(fields: [budgetId], references: [id], onDelete: Cascade)
   parent      BudgetEnvelope?    @relation("EnvelopeHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
@@ -2080,6 +2090,7 @@ model BudgetEnvelope {
   @@index([budgetId])
   @@index([parentId])
   @@index([status])
+  @@index([deferredToExerciseId])
 }
 
 enum BudgetLineAllocationScope {
@@ -2178,6 +2189,8 @@ model BudgetLine {
   client                   Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   budget                   Budget                    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
   envelope                 BudgetEnvelope            @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
+  deferredToExerciseId     String?
+  deferredToExercise       BudgetExercise?           @relation("DeferredExerciseBudgetLines", fields: [deferredToExerciseId], references: [id], onDelete: SetNull)
   generalLedgerAccount     GeneralLedgerAccount?     @relation(fields: [generalLedgerAccountId], references: [id], onDelete: Restrict)
   analyticalLedgerAccount  AnalyticalLedgerAccount?  @relation(fields: [analyticalLedgerAccountId], references: [id], onDelete: SetNull)
   costCenterSplits         BudgetLineCostCenterSplit[]
@@ -2198,6 +2211,7 @@ model BudgetLine {
   @@index([budgetId])
   @@index([envelopeId])
   @@index([status])
+  @@index([deferredToExerciseId])
 }
 
 model BudgetLinePlanningMonth {

@@ -17,6 +17,7 @@ import {
   BulkUpdateBudgetStatusDto,
 } from '../dto/bulk-update-status.dto';
 import { bulkStatusFailureMessage } from '../helpers/bulk-status-error.helper';
+import { assertBudgetStatusTransition } from '../policies/budget-status-transitions';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { ListBudgetsQueryDto } from './dto/list-budgets.query.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
@@ -229,6 +230,10 @@ export class BudgetsService {
           `Budget with code "${dto.code}" already exists for this client`,
         );
       }
+    }
+
+    if (dto.status != null && dto.status !== existing.status) {
+      assertBudgetStatusTransition(existing.status, dto.status);
     }
 
     const updated = await this.prisma.budget.update({

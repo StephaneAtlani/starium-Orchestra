@@ -51,6 +51,9 @@ export interface BudgetEnvelope {
   description: string | null;
   type: string;
   status: string;
+  deferredToExerciseId?: string | null;
+  deferredToExerciseName?: string | null;
+  deferredToExerciseCode?: string | null;
   parentId: string | null;
   sortOrder: number | null;
   createdAt: string;
@@ -104,6 +107,9 @@ export interface BudgetLine {
   remainingTaxAmount?: number | null;
   remainingAmountTtc?: number | null;
   status: string;
+  deferredToExerciseId?: string | null;
+  deferredToExerciseName?: string | null;
+  deferredToExerciseCode?: string | null;
   createdAt: string;
   updatedAt: string;
 }

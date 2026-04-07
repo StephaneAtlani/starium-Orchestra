@@ -9,7 +9,7 @@ import {
   X,
 } from 'lucide-react';
 import type { BudgetLine } from '../../types/budget-management.types';
-import { BudgetStatusBadge } from '../budget-status-badge';
+import { BudgetLineStatusBadge } from '../budget-line-status-badge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -83,7 +83,7 @@ export function BudgetLineDrawerHeader({
           )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-          <BudgetStatusBadge status={line.status} className="h-4 px-1.5 text-[10px] uppercase" />
+          <BudgetLineStatusBadge status={line.status} className="h-4 px-1.5 text-[10px] uppercase" />
           {envelopeName && (
             <>
               <span>·</span>
