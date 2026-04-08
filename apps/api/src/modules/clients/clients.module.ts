@@ -43,6 +43,7 @@ import { ActivityTypesModule } from '../activity-types/activity-types.module';
     ClientsController,
     ClientModulesController,
     ClientTaxSettingsController,
+    ClientBudgetWorkflowSettingsController,
     ClientResourceTimesheetSettingsController,
     ClientUiBadgesController,
     PlatformUiBadgeSettingsController,

@@ -3,12 +3,15 @@
 import React from 'react';
 import {
   ArrowDownCircle,
+  ChevronLeft,
+  ChevronRight,
   CircleDollarSign,
   Receipt,
   ShoppingCart,
   X,
 } from 'lucide-react';
 import type { BudgetLine } from '../../types/budget-management.types';
+import type { BudgetLineDrilldownNavigation } from '../../lib/budget-envelope-navigation';
 import { BudgetLineStatusBadge } from '../budget-line-status-badge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +33,7 @@ export function BudgetLineDrawerHeader({
   onCreateInvoice,
   onCreateEngagement,
   onCreateConsumption,
+  lineDrilldownNavigation,
 }: {
   line: BudgetLine;
   budgetName?: string | null;
@@ -42,6 +46,8 @@ export function BudgetLineDrawerHeader({
   onCreateInvoice: () => void;
   onCreateEngagement: () => void;
   onCreateConsumption: () => void;
+  /** Ligne précédente / suivante dans l’ordre explorateur (drilldown inchangé). */
+  lineDrilldownNavigation?: BudgetLineDrilldownNavigation | null;
 }) {
   const isOverrun = line.consumedAmount > line.revisedAmount;
   const isNegativeRemaining = line.remainingAmount < 0;
@@ -116,6 +122,40 @@ export function BudgetLineDrawerHeader({
 
       <TooltipProvider delay={300}>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+          {lineDrilldownNavigation && (
+            <>
+              <Tooltip>
+                <TooltipTrigger render={<span className="inline-flex" />}>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="outline"
+                    disabled={!lineDrilldownNavigation.hasPrev}
+                    onClick={lineDrilldownNavigation.onPrevLine}
+                    aria-label="Ligne précédente"
+                  >
+                    <ChevronLeft className="size-4" aria-hidden />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Ligne précédente</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger render={<span className="inline-flex" />}>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="outline"
+                    disabled={!lineDrilldownNavigation.hasNext}
+                    onClick={lineDrilldownNavigation.onNextLine}
+                    aria-label="Ligne suivante"
+                  >
+                    <ChevronRight className="size-4" aria-hidden />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Ligne suivante</TooltipContent>
+              </Tooltip>
+            </>
+          )}
           <Tooltip>
             <TooltipTrigger render={<span className="inline-flex" />}>
               <Button

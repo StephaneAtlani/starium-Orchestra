@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Layers } from 'lucide-react';
 import { getCurrencySymbol } from '@/lib/currency-format';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
@@ -21,6 +21,10 @@ import { BudgetCockpitWidgetRenderer } from './components/budget-cockpit-widget-
 import { CockpitSurfaceCard } from './components/budget-cockpit-primitives';
 import { BudgetCockpitUserSettingsDialog } from '@/features/budgets/cockpit-settings/budget-cockpit-user-settings-dialog';
 import { budgetReporting } from '@/features/budgets/constants/budget-routes';
+import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer';
+import { useBudgetExplorerTree } from '@/features/budgets/hooks/use-budget-explorer-tree';
+import { explorerSortPresetToState } from '@/features/budgets/types/budget-explorer.types';
+import { flattenExplorerBudgetLineIds } from '@/features/budgets/lib/budget-explorer-flat-lines';
 
 export function BudgetDashboardPage() {
   const criticalRef = useRef<HTMLDivElement>(null);
@@ -84,6 +88,43 @@ export function BudgetDashboardPage() {
       setLineDrawerTab('overview');
     }
   }, []);
+
+  const cockpitNavBudgetId =
+    !isAggregatedBudgetMode && data ? data.budget.id : null;
+
+  const {
+    budget: cockpitNavBudget,
+    envelopes: cockpitNavEnvelopes,
+    lines: cockpitNavLines,
+  } = useBudgetExplorer(cockpitNavBudgetId);
+
+  const explorerSortDefault = useMemo(() => explorerSortPresetToState('default'), []);
+
+  const { tree: cockpitNavTree } = useBudgetExplorerTree(
+    cockpitNavBudget,
+    cockpitNavEnvelopes,
+    cockpitNavLines,
+    {},
+    explorerSortDefault,
+  );
+
+  const cockpitLineIdsOrder = useMemo(
+    () => flattenExplorerBudgetLineIds(cockpitNavTree),
+    [cockpitNavTree],
+  );
+
+  const cockpitLineDrilldownNavigation = useMemo(() => {
+    const lineId = selectedBudgetLineId;
+    if (!lineId || cockpitLineIdsOrder.length === 0) return null;
+    const idx = cockpitLineIdsOrder.indexOf(lineId);
+    if (idx < 0) return null;
+    return {
+      hasPrev: idx > 0,
+      hasNext: idx < cockpitLineIdsOrder.length - 1,
+      onPrevLine: () => setSelectedBudgetLineId(cockpitLineIdsOrder[idx - 1]!),
+      onNextLine: () => setSelectedBudgetLineId(cockpitLineIdsOrder[idx + 1]!),
+    };
+  }, [selectedBudgetLineId, cockpitLineIdsOrder]);
 
   const openEnvelopeDrawer = useCallback((envelopeId: string) => {
     setSelectedEnvelopeId(envelopeId);
@@ -241,6 +282,7 @@ export function BudgetDashboardPage() {
               budgetLineId={selectedBudgetLineId}
               activeTab={lineDrawerTab}
               onActiveTabChange={setLineDrawerTab}
+              lineDrilldownNavigation={cockpitLineDrilldownNavigation}
             />
           </BudgetDashboardShell>
         )}

@@ -106,6 +106,23 @@ export default function BudgetDetailPage() {
     explorerSort,
   );
 
+  const selectedLine = useMemo(
+    () => (lines ?? []).find((l: BudgetLine) => l.id === selectedBudgetLineId) ?? null,
+    [lines, selectedBudgetLineId],
+  );
+
+  const selectedEnvelope = useMemo(
+    () =>
+      selectedLine && envelopes
+        ? (envelopes as BudgetEnvelope[]).find((e) => e.id === selectedLine.envelopeId) ?? null
+        : null,
+    [selectedLine, envelopes],
+  );
+
+  const envelopeName = selectedEnvelope?.name ?? null;
+  const envelopeCode = selectedEnvelope?.code ?? null;
+  const envelopeType = selectedEnvelope?.type ?? null;
+
   const [pilotageMode, setPilotageMode] = useState<BudgetPilotageMode>('synthese');
   const [pilotageDensity, setPilotageDensity] = useState<BudgetPilotageDensity>('mensuel');
   const [draftAmounts12ByLineId, setDraftAmounts12ByLineId] = useState<
@@ -174,6 +191,19 @@ export default function BudgetDetailPage() {
     () => flattenExplorerBudgetLineIds(filteredTree),
     [filteredTree],
   );
+
+  const lineDrilldownNavigation = useMemo(() => {
+    const lineId = selectedBudgetLineId;
+    if (!lineId || flatLineIds.length === 0) return null;
+    const idx = flatLineIds.indexOf(lineId);
+    if (idx < 0) return null;
+    return {
+      hasPrev: idx > 0,
+      hasNext: idx < flatLineIds.length - 1,
+      onPrevLine: () => setSelectedBudgetLineId(flatLineIds[idx - 1]!),
+      onNextLine: () => setSelectedBudgetLineId(flatLineIds[idx + 1]!),
+    };
+  }, [selectedBudgetLineId, flatLineIds]);
 
   /** Toutes les lignes visibles : pas de pagination côté planning (requêtes parallèles par ligne). */
   const planningFetchedLineIds = flatLineIds;
@@ -433,15 +463,6 @@ export default function BudgetDetailPage() {
 
   const isEmptyGlobal = tree.length === 0;
   const isEmptyFiltered = filteredTree.length === 0 && tree.length > 0;
-
-  const selectedLine = (lines ?? []).find((l: BudgetLine) => l.id === selectedBudgetLineId) ?? null;
-  const selectedEnvelope =
-    selectedLine && envelopes
-      ? (envelopes as BudgetEnvelope[]).find((e) => e.id === selectedLine.envelopeId) ?? null
-      : null;
-  const envelopeName = selectedEnvelope?.name ?? null;
-  const envelopeCode = selectedEnvelope?.code ?? null;
-  const envelopeType = selectedEnvelope?.type ?? null;
 
   const pilotageReady =
     pilotageMode === 'dashboard' ||
@@ -767,6 +788,7 @@ export default function BudgetDetailPage() {
           budgetLineId={selectedBudgetLineId}
           activeTab={activeTab}
           onActiveTabChange={setActiveTab}
+          lineDrilldownNavigation={lineDrilldownNavigation}
         />
       </PageContainer>
     </RequireActiveClient>

@@ -23,6 +23,7 @@ import { CreateFinancialEventDialog } from './create-financial-event-dialog';
 import { useBudgetLineDetail } from '../../hooks/use-budget-line-detail';
 import { useBudgetLineEvents } from '../../hooks/use-budget-line-events';
 import { useBudgetDetail } from '../../hooks/use-budgets';
+import type { BudgetLineDrilldownNavigation } from '../../lib/budget-envelope-navigation';
 
 export type BudgetLineDrawerTab =
   | 'overview'
@@ -50,6 +51,7 @@ export function BudgetLineIntelligenceDrawer({
   budgetLineId,
   activeTab,
   onActiveTabChange,
+  lineDrilldownNavigation,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -61,6 +63,7 @@ export function BudgetLineIntelligenceDrawer({
   budgetLineId: string | null;
   activeTab: BudgetLineDrawerTab;
   onActiveTabChange: (tab: BudgetLineDrawerTab) => void;
+  lineDrilldownNavigation?: BudgetLineDrilldownNavigation | null;
 }) {
   const detail = useBudgetLineDetail(open ? budgetLineId : null);
   const { data: budget } = useBudgetDetail(open && budgetId ? budgetId : null);
@@ -203,6 +206,7 @@ export function BudgetLineIntelligenceDrawer({
                 onCreateInvoice={() => setInvoiceOpen(true)}
                 onCreateEngagement={() => setEngagementOpen(true)}
                 onCreateConsumption={() => setConsumptionOpen(true)}
+                lineDrilldownNavigation={lineDrilldownNavigation ?? null}
               />
 
               <div className="px-2 pt-3 sm:px-4">

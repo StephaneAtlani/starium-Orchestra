@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { BarChart3, ListTree } from 'lucide-react';
@@ -23,6 +23,10 @@ import { useEnvelopeForecastLines } from '@/features/budgets/forecast/hooks/use-
 import { ForecastKpiCards } from '@/features/budgets/forecast/components/forecast-kpi-cards';
 import { ForecastTable } from '@/features/budgets/forecast/components/forecast-table';
 import { budgetReporting } from '@/features/budgets/constants/budget-routes';
+import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer';
+import { useBudgetExplorerTree } from '@/features/budgets/hooks/use-budget-explorer-tree';
+import { explorerSortPresetToState } from '@/features/budgets/types/budget-explorer.types';
+import { flattenExplorerBudgetLineIds } from '@/features/budgets/lib/budget-explorer-flat-lines';
 
 const DEFAULT_LIMIT = 20;
 const FORECAST_LINES_LIMIT = 20;
@@ -98,6 +102,40 @@ export default function BudgetEnvelopeDetailPage() {
       setLineDrawerTab('overview');
     }
   }, []);
+
+  const {
+    budget: navBudget,
+    envelopes: navEnvelopes,
+    lines: navLines,
+  } = useBudgetExplorer(envelope?.budgetId ?? null);
+
+  const explorerSortDefault = useMemo(() => explorerSortPresetToState('default'), []);
+
+  const { tree: navTree } = useBudgetExplorerTree(
+    navBudget,
+    navEnvelopes,
+    navLines,
+    {},
+    explorerSortDefault,
+  );
+
+  const budgetLineIdsOrder = useMemo(
+    () => flattenExplorerBudgetLineIds(navTree),
+    [navTree],
+  );
+
+  const lineDrilldownNavigation = useMemo(() => {
+    const lineId = selectedBudgetLineId;
+    if (!lineId || budgetLineIdsOrder.length === 0) return null;
+    const idx = budgetLineIdsOrder.indexOf(lineId);
+    if (idx < 0) return null;
+    return {
+      hasPrev: idx > 0,
+      hasNext: idx < budgetLineIdsOrder.length - 1,
+      onPrevLine: () => setSelectedBudgetLineId(budgetLineIdsOrder[idx - 1]!),
+      onNextLine: () => setSelectedBudgetLineId(budgetLineIdsOrder[idx + 1]!),
+    };
+  }, [selectedBudgetLineId, budgetLineIdsOrder]);
 
   return (
     <RequireActiveClient>
@@ -209,12 +247,13 @@ export default function BudgetEnvelopeDetailPage() {
               onOpenChange={onLineDrawerOpenChange}
               budgetId={envelope.budgetId}
               budgetName={envelope.budgetName}
-              envelopeName={null}
-              envelopeCode={null}
+              envelopeName={envelope.name}
+              envelopeCode={envelope.code}
               envelopeType={null}
               budgetLineId={selectedBudgetLineId}
               activeTab={lineDrawerTab}
               onActiveTabChange={setLineDrawerTab}
+              lineDrilldownNavigation={lineDrilldownNavigation}
             />
           </>
         )}
