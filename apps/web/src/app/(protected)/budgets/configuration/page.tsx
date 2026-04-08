@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calendar, FileSpreadsheet, LayoutDashboard } from 'lucide-react';
+import { Calendar, FileSpreadsheet, GitBranch, LayoutDashboard } from 'lucide-react';
 
 export default async function BudgetsConfigurationPage() {
   return (
@@ -52,6 +52,21 @@ export default async function BudgetsConfigurationPage() {
                 <h3 className="font-semibold">Cockpit budget</h3>
                 <p className="text-sm text-muted-foreground">
                   Ordre et visibilité des blocs du tableau de bord
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/budgets/workflow-settings">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <GitBranch className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Workflow budget</h3>
+                <p className="text-sm text-muted-foreground">
+                  Règle avant validation finale (enveloppes / baseline)
                 </p>
               </div>
             </CardContent>

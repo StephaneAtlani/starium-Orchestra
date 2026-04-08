@@ -18,6 +18,7 @@ import {
 } from '../dto/bulk-update-status.dto';
 import { bulkStatusFailureMessage } from '../helpers/bulk-status-error.helper';
 import { assertBudgetStatusTransition } from '../policies/budget-status-transitions';
+import { ClientBudgetWorkflowSettingsService } from '../../clients/client-budget-workflow-settings.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { ListBudgetsQueryDto } from './dto/list-budgets.query.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
@@ -27,6 +28,7 @@ export class BudgetsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly clientBudgetWorkflowSettings: ClientBudgetWorkflowSettingsService,
   ) {}
 
   async list(
@@ -240,17 +242,21 @@ export class BudgetsService {
       dto.status === BudgetStatus.VALIDATED &&
       dto.status !== existing.status
     ) {
-      const draftEnvelopeCount = await this.prisma.budgetEnvelope.count({
-        where: {
-          budgetId: id,
-          clientId,
-          status: BudgetEnvelopeStatus.DRAFT,
-        },
-      });
-      if (draftEnvelopeCount > 0) {
-        throw new BadRequestException(
-          'Cannot validate budget: every envelope must leave DRAFT status first',
-        );
+      const resolved =
+        await this.clientBudgetWorkflowSettings.getResolvedForClient(clientId);
+      if (resolved.requireEnvelopesNonDraftForBudgetValidated) {
+        const draftEnvelopeCount = await this.prisma.budgetEnvelope.count({
+          where: {
+            budgetId: id,
+            clientId,
+            status: BudgetEnvelopeStatus.DRAFT,
+          },
+        });
+        if (draftEnvelopeCount > 0) {
+          throw new BadRequestException(
+            'Cannot validate budget: every envelope must leave DRAFT status first',
+          );
+        }
       }
     }
 

@@ -145,7 +145,7 @@ Le modèle d’accès distingue deux niveaux de rôle :
 Règles d’architecture :
 
 - Les routes **plateforme** pour gérer les organisations (`GET|POST /api/clients`, `PATCH|DELETE /api/clients/:id`, `/api/clients/:clientId/users`, …), ainsi que `/api/platform/*` et `/api/modules`, reposent sur `platformRole` + `PlatformAdminGuard` — **sans** `X-Client-Id` / `ActiveClientGuard`.
-- Les routes sous **`/api/clients/active/*`** (identifiants Microsoft OAuth du client actif, paramètres fiscaux « client actif », etc.) reposent sur **`X-Client-Id`** + `ActiveClientGuard` comme le reste du métier client-scopé.
+- Les routes sous **`/api/clients/active/*`** (identifiants Microsoft OAuth du client actif, paramètres fiscaux « client actif », **`GET|PATCH /api/clients/active/budget-workflow-settings`** — overrides JSON sparse `Client.budgetWorkflowConfig` + merge défauts applicatifs, RBAC `budgets.read` / `budgets.update`, etc.) reposent sur **`X-Client-Id`** + `ActiveClientGuard` comme le reste du métier client-scopé.
 - Les autres routes métier client-scopées reposent sur `X-Client-Id` + `ActiveClientGuard` (puis `ClientAdminGuard` ou `PermissionsGuard` selon la ressource).
 - `PLATFORM_ADMIN` ne confère pas automatiquement un rôle `CLIENT_ADMIN` sur un client.
 - `CLIENT_ADMIN` ne confère pas automatiquement toutes les permissions métier (`budgets.*`, `projects.*`, etc.).

@@ -6,6 +6,7 @@ describe('BudgetsService', () => {
   let service: BudgetsService;
   let prisma: any;
   let auditLogs: any;
+  let clientBudgetWorkflowSettings: { getResolvedForClient: jest.Mock };
 
   const clientId = 'client-1';
   const exerciseId = 'ex-1';
@@ -25,7 +26,16 @@ describe('BudgetsService', () => {
       clientUser: { findFirst: jest.fn() },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
-    service = new BudgetsService(prisma, auditLogs);
+    clientBudgetWorkflowSettings = {
+      getResolvedForClient: jest.fn().mockResolvedValue({
+        requireEnvelopesNonDraftForBudgetValidated: true,
+      }),
+    };
+    service = new BudgetsService(
+      prisma,
+      auditLogs,
+      clientBudgetWorkflowSettings as any,
+    );
   });
 
   describe('create', () => {
@@ -137,6 +147,9 @@ describe('BudgetsService', () => {
       await expect(
         service.update(clientId, 'b1', { status: BudgetStatus.VALIDATED }),
       ).rejects.toThrow(BadRequestException);
+      expect(clientBudgetWorkflowSettings.getResolvedForClient).toHaveBeenCalledWith(
+        clientId,
+      );
       expect(prisma.budgetEnvelope.count).toHaveBeenCalledWith({
         where: {
           budgetId: 'b1',
@@ -162,6 +175,27 @@ describe('BudgetsService', () => {
 
       await service.update(clientId, 'b1', { status: BudgetStatus.VALIDATED });
 
+      expect(prisma.budget.update).toHaveBeenCalled();
+    });
+
+    it('autorise passage à VALIDATED avec enveloppes DRAFT si config client désactive la garde', async () => {
+      clientBudgetWorkflowSettings.getResolvedForClient.mockResolvedValue({
+        requireEnvelopesNonDraftForBudgetValidated: false,
+      });
+      prisma.budget.findFirst.mockResolvedValue({
+        ...editableBudget,
+        status: BudgetStatus.REVISED,
+      });
+      prisma.budget.update.mockResolvedValue({
+        ...editableBudget,
+        status: BudgetStatus.VALIDATED,
+        exercise: { name: 'Ex', code: 'EX' },
+        owner: null,
+      });
+
+      await service.update(clientId, 'b1', { status: BudgetStatus.VALIDATED });
+
+      expect(prisma.budgetEnvelope.count).not.toHaveBeenCalled();
       expect(prisma.budget.update).toHaveBeenCalled();
     });
   });

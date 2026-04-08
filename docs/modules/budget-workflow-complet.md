@@ -235,7 +235,7 @@ Multi-client : toutes les requêtes sont **scopées `clientId`** du client actif
 | Mise à jour | **Interdite** si budget **LOCKED** ou **ARCHIVED** |
 | Versioning | **Interdite** si `versionStatus` ∈ **SUPERSEDED**, **ARCHIVED** |
 | Statut | Transition soumise à `assertBudgetStatusTransition` |
-| Validation (**→ `VALIDATED`**) | Aucune enveloppe du budget ne doit être en **`DRAFT`** ; sinon `400` (toutes les enveloppes doivent avoir quitté le brouillon). |
+| Validation (**→ `VALIDATED`**) | Par défaut : aucune enveloppe du budget ne doit être en **`DRAFT`** ; sinon `400` (toutes les enveloppes doivent avoir quitté le brouillon). **Configurable par client** via `GET|PATCH /api/clients/active/budget-workflow-settings` : si `resolved.requireEnvelopesNonDraftForBudgetValidated` est `false`, cette garde ne s’applique pas. |
 
 ### 9.3 Enveloppe (`BudgetEnvelopesService`)
 
@@ -307,7 +307,8 @@ Ligne ou enveloppe :
 | Agrégats pilotage | `apps/api/src/modules/budget-management/constants/budget-aggregate-statuses.ts` |
 | Report DEFERRED | `apps/api/src/modules/budget-management/helpers/deferred-exercise.helper.ts` |
 | Services | `budget-exercises.service.ts`, `budgets.service.ts`, `budget-envelopes.service.ts`, `budget-lines.service.ts`, `budget-line-planning.service.ts` |
+| Config workflow budget (client, garde VALIDATED / enveloppes DRAFT) | `apps/api/src/modules/clients/budget-workflow-config.merge.ts`, `client-budget-workflow-settings.service.ts`, `client-budget-workflow-settings.controller.ts` ; consommé dans `budgets.service.ts` sur transition vers `VALIDATED` |
 | Réallocation | `apps/api/src/modules/budget-reallocation/budget-reallocation.service.ts` |
 | Import | `apps/api/src/modules/budget-import/budget-import.service.ts` |
-| API | `docs/API.md` §15 Structure budgétaire |
+| API | `docs/API.md` §4 (client actif — workflow budget) et §15 Structure budgétaire |
 | Plan déploiement | `docs/RFC/_Plan de déploiment - Budget.md` |

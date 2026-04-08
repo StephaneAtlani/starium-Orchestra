@@ -133,5 +133,10 @@ describe('getXClientIdHeaderValue', () => {
         activeClientId: clientId,
       }),
     ).toBe(clientId);
+    expect(
+      getXClientIdHeaderValue('/api/clients/active/budget-workflow-settings', {
+        activeClientId: clientId,
+      }),
+    ).toBe(clientId);
   });
 });

@@ -480,6 +480,43 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 
 ---
 
+### Client actif — réglages workflow budget — `GET|PATCH /api/clients/active/budget-workflow-settings`
+
+Paramètres **scopés au client actif** (`X-Client-Id`). Pas d’admin plateforme requis.
+
+**Guards :** `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+
+| Méthode | Permission |
+|---------|------------|
+| **GET** | `budgets.read` |
+| **PATCH** | `budgets.update` |
+
+**GET — réponse 200**
+
+```json
+{
+  "stored": null,
+  "resolved": {
+    "requireEnvelopesNonDraftForBudgetValidated": true
+  }
+}
+```
+
+- **`stored`** : overrides persistés en base pour ce client (`null` si aucune personnalisation ; JSON sparse, clés métier uniquement).
+- **`resolved`** : valeur effective après fusion avec les **défauts applicatifs** — le frontend doit s’appuyer sur **`resolved`** pour l’affichage.
+
+**PATCH — body (JSON)** — champs optionnels (mise à jour partielle)
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `requireEnvelopesNonDraftForBudgetValidated` | boolean | Si `true` (défaut), le passage du budget à **`VALIDATED`** est refusé tant qu’une enveloppe du budget est en **`DRAFT`**. Si `false`, cette garde est désactivée pour ce client. |
+
+Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
+
+**PATCH — réponse 200** : même forme que le **GET** (`stored` + `resolved`) après écriture.
+
+---
+
 ## 5. Résumé des guards et headers
 
 | Contexte          | Headers requis                                    | Guards (ordre)                                              |
@@ -493,6 +530,7 @@ Suppression **physique** du client. Les **ClientUser** liés sont supprimés (ca
 | /api/modules      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
 | /api/audit-logs   | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 | /api/test-rbac    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
+| /api/clients/active/budget-workflow-settings | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-exercises, /api/budgets, /api/budget-envelopes, /api/budget-lines (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update`) |
 | /api/general-ledger-accounts (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.general-ledger-accounts.read` / `.create` / `.update`) |
 | /api/analytical-ledger-accounts (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.analytical-ledger-accounts.read` / `.create` / `.update`) |

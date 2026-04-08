@@ -289,6 +289,9 @@ model Client {
 
   /// Onglet pilotage budget affiché par défaut (mode global cockpit / préférence client).
   budgetCockpitDefaultPilotageMode BudgetCockpitDefaultPilotageMode @default(SYNTHESE)
+
+  /// Overrides workflow budget (JSON sparse, contrat métier côté code — merge avec défauts applicatifs).
+  budgetWorkflowConfig Json?
 }
 
 /// Défauts globaux badges UI (id = `default`) — fusionnés avant `Client.uiBadgeConfig`.

@@ -16,6 +16,8 @@ import { ClientModulesController } from './client-modules.controller';
 import { ClientModulesService } from './client-modules.service';
 import { ClientTaxSettingsController } from './client-tax-settings.controller';
 import { ClientTaxSettingsService } from './client-tax-settings.service';
+import { ClientBudgetWorkflowSettingsController } from './client-budget-workflow-settings.controller';
+import { ClientBudgetWorkflowSettingsService } from './client-budget-workflow-settings.service';
 import { ClientResourceTimesheetSettingsController } from './client-resource-timesheet-settings.controller';
 import { ClientResourceTimesheetSettingsService } from './client-resource-timesheet-settings.service';
 import { ClientUiBadgesController } from './client-ui-badges.controller';
@@ -51,6 +53,7 @@ import { ActivityTypesModule } from '../activity-types/activity-types.module';
     ClientModulesService,
     PlatformAdminGuard,
     ClientTaxSettingsService,
+    ClientBudgetWorkflowSettingsService,
     ClientResourceTimesheetSettingsService,
     ClientUiBadgesService,
     PlatformUiBadgeSettingsService,
@@ -59,7 +62,12 @@ import { ActivityTypesModule } from '../activity-types/activity-types.module';
     ModuleAccessGuard,
     PermissionsGuard,
   ],
-  exports: [ClientsService, ClientMembershipService, ClientModulesService],
+  exports: [
+    ClientsService,
+    ClientMembershipService,
+    ClientModulesService,
+    ClientBudgetWorkflowSettingsService,
+  ],
 })
 export class ClientsModule {}
 
