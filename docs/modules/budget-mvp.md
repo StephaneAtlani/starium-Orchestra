@@ -11,7 +11,7 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 - **BudgetExercise** : exercice budgétaire (clientId, name, code, startDate, endDate, status).
 - **Budget** : budget (clientId, exerciseId, name, code, currency, status, ownerUserId optionnel). Extension RFC-019 : versionSetId?, versionNumber?, versionLabel?, versionKind? (BASELINE/REVISION), versionStatus? (DRAFT/ACTIVE/SUPERSEDED/ARCHIVED), parentBudgetId?, activatedAt?, archivedAt?, isVersioned.
 - **BudgetVersionSet** (RFC-019) : ensemble de versions (clientId, exerciseId, code, name, description?, baselineBudgetId?, activeBudgetId?). Relations nommées : versions, baselineBudget, activeBudget.
-- **BudgetEnvelope** : enveloppe (clientId, budgetId, parentId optionnel, name, code, type RUN/BUILD/TRANSVERSE, **status: BudgetEnvelopeStatus** — DRAFT / ACTIVE / LOCKED / ARCHIVED, défaut Prisma `ACTIVE`).
+- **BudgetEnvelope** : enveloppe (clientId, budgetId, parentId optionnel, name, code, type RUN/BUILD/TRANSVERSE, **status: BudgetEnvelopeStatus** — workflow complet : `DRAFT`, `PENDING_VALIDATION`, `ACTIVE`, `REJECTED`, `DEFERRED`, `LOCKED`, `ARCHIVED` ; défaut Prisma `@default(ACTIVE)`).
 - **BudgetLine** : ligne budgétaire (clientId, budgetId, envelopeId, code, name, expenseType, currency, montants : initialAmount, revisedAmount, forecastAmount, committedAmount, consumedAmount, remainingAmount).  
   Extension RFC-021 : `generalLedgerAccountId` (compte comptable), `analyticalLedgerAccountId?`, `allocationScope` (ENTERPRISE \| ANALYTICAL), relations `generalLedgerAccount`, `analyticalLedgerAccount`, `costCenterSplits`.  
   Extension **RFC-021-CORR** : `generalLedgerAccountId` est **nullable dans le modèle** et son caractère obligatoire est piloté par une configuration par client (`Client.budgetAccountingEnabled`).
@@ -22,7 +22,7 @@ Ce document décrit l’état actuel du module Budget (MVP) et comment créer de
 - **BudgetReallocation** (RFC-017) : réallocation entre deux lignes (clientId, budgetId, sourceLineId, targetLineId, amount, currency, reason?, createdById?, createdAt). Chaque réallocation génère deux FinancialEvent de type REALLOCATION_DONE (source : montant négatif ; cible : montant positif).
 
 Les enums sont définis dans le schéma : `AllocationType`, `FinancialEventType` (dont REALLOCATION_DONE), `FinancialSourceType`, `BudgetExerciseStatus`, `BudgetStatus`, `BudgetEnvelopeType`, `BudgetLineStatus`, `ExpenseType`, `BudgetVersionKind` (BASELINE, REVISION), `BudgetVersionStatus` (DRAFT, ACTIVE, SUPERSEDED, ARCHIVED), `BudgetLineAllocationScope` (ENTERPRISE, ANALYTICAL).  
-**BudgetEnvelope.status** utilise l’enum **`BudgetEnvelopeStatus`** (DRAFT / ACTIVE / LOCKED / ARCHIVED), distinct du **`BudgetStatus`** (cycle de vie budget : DRAFT → SUBMITTED → REVISED → VALIDATED → LOCKED → ARCHIVED).
+**BudgetEnvelope.status** utilise l’enum **`BudgetEnvelopeStatus`** (voir schéma Prisma : notamment `PENDING_VALIDATION`, `REJECTED`, `DEFERRED`, etc.), distinct du **`BudgetStatus`** (cycle de vie budget : DRAFT → SUBMITTED → REVISED → VALIDATED → LOCKED → ARCHIVED). **BudgetLine.status** : `BudgetLineStatus` (même famille de statuts étendus que les enveloppes côté workflow).
 
 ### Backend Budget Management (RFC-015-2, RFC-021, RFC-021-CORR)
 

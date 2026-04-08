@@ -110,7 +110,9 @@ features/budgets/
 │   └── filter-budget-tree.ts           # Filtrage côté client (RFC-FE-004)
 └── constants/
     ├── budget-routes.ts       # + formulaires : budgetExerciseNew/Edit, budgetNew/Edit, budgetEnvelopeNew/Edit, budgetLineNew/Edit (RFC-FE-015)
-    └── budget-filters.ts      # DEFAULT_PAGE, DEFAULT_LIMIT, options statut (RFC-FE-003)
+    ├── budget-filters.ts      # DEFAULT_PAGE, DEFAULT_LIMIT, options statut (RFC-FE-003)
+    ├── budget-workflow-status.ts       # libellés `BudgetStatus` (liste)
+    └── budget-status-transitions.ts    # transitions autorisées (aligné API) + options select en édition budget
 ```
 
 ---
@@ -221,7 +223,7 @@ Les hooks **forecast** (RFC-FE-BUD-030) vivent sous `forecast/hooks/`. Les autre
 | `ForecastKpiCards`, `ForecastTable`, `ComparisonTable`, `ForecastStatusBadge`, `BudgetComparisonSelector` | `forecast/components/` | Montants via `formatCurrency` ; états loading / empty / error / no-result |
 
 | **Formulaires (RFC-FE-015)** | | |
-| `BudgetExerciseForm` / `BudgetForm` / `BudgetEnvelopeForm` / `BudgetLineForm` | Formulaires RHF + Zod (create/edit), `submitError` ApiFormError, `cancelHref`, `disableSubmit` (ligne si options manquantes) |
+| `BudgetExerciseForm` / `BudgetForm` / `BudgetEnvelopeForm` / `BudgetLineForm` | Formulaires RHF + Zod (create/edit), `submitError` ApiFormError, `cancelHref`, `disableSubmit` (ligne si options manquantes) ; `BudgetForm` en **édition** restreint le select `status` aux transitions autorisées (`budget-status-transitions.ts`, aligné API) |
 | `BudgetFormActions` | Annuler (Link `cancelHref`) + Enregistrer ; pas de `router.back()` |
 | `BudgetExerciseFormPage` / `BudgetFormPage` / `BudgetEnvelopeFormPage` / `BudgetLineFormPage` | Pages conteneurs : chargement, mutation, defaultValues, redirection après succès |
 

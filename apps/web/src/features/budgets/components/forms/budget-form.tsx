@@ -14,9 +14,11 @@ import {
   BUDGET_WORKFLOW_STATUSES,
   BUDGET_WORKFLOW_STATUS_LABELS,
 } from '../../constants/budget-workflow-status';
+import { budgetStatusSelectOptionsForEdit } from '../../constants/budget-status-transitions';
+import type { BudgetWorkflowStatus } from '../../constants/budget-workflow-status';
 
 const CURRENCY_OPTIONS = [{ value: 'EUR', label: 'EUR' }];
-const STATUS_OPTIONS = BUDGET_WORKFLOW_STATUSES.map((value) => ({
+const STATUS_OPTIONS_CREATE = BUDGET_WORKFLOW_STATUSES.map((value) => ({
   value,
   label: BUDGET_WORKFLOW_STATUS_LABELS[value],
 }));
@@ -29,6 +31,8 @@ interface BudgetFormProps {
   cancelHref: string;
   submitError?: ApiFormError | null;
   exerciseOptions: { id: string; name: string; code: string | null }[];
+  /** En édition : restreindre le select aux transitions autorisées par l’API (évite 400 invalid_status_transition). */
+  editStatusFrom?: BudgetWorkflowStatus;
 }
 
 export function BudgetForm({
@@ -39,11 +43,13 @@ export function BudgetForm({
   cancelHref,
   submitError,
   exerciseOptions,
+  editStatusFrom,
 }: BudgetFormProps) {
   const {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors },
   } = useForm<CreateBudgetInput>({
     resolver: zodResolver(createBudgetSchema),
@@ -67,6 +73,12 @@ export function BudgetForm({
     const first = Object.keys(errs)[0] as keyof CreateBudgetInput | undefined;
     if (first) document.getElementById(String(first))?.focus();
   };
+
+  const watchedStatus = watch('status');
+  const statusOptions =
+    editStatusFrom != null
+      ? budgetStatusSelectOptionsForEdit((watchedStatus ?? editStatusFrom) as BudgetWorkflowStatus)
+      : STATUS_OPTIONS_CREATE;
 
   return (
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
@@ -154,7 +166,7 @@ export function BudgetForm({
               {...register('status')}
               aria-invalid={!!errors.status}
             >
-              {STATUS_OPTIONS.map((opt) => (
+              {statusOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>

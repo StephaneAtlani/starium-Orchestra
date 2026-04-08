@@ -12,6 +12,7 @@ const ALLOWED: ReadonlyArray<readonly [BudgetStatus, BudgetStatus]> = [
   [BudgetStatus.REVISED, BudgetStatus.DRAFT],
   [BudgetStatus.VALIDATED, BudgetStatus.LOCKED],
   [BudgetStatus.VALIDATED, BudgetStatus.REVISED],
+  [BudgetStatus.VALIDATED, BudgetStatus.SUBMITTED],
   [BudgetStatus.VALIDATED, BudgetStatus.ARCHIVED],
   [BudgetStatus.LOCKED, BudgetStatus.ARCHIVED],
 ];

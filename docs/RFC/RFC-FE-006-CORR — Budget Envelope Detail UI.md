@@ -397,7 +397,14 @@ type BudgetEnvelopeDetail = {
   code: string | null;
   name: string;
   description?: string | null;
-  status: "DRAFT" | "ACTIVE" | "LOCKED" | "ARCHIVED";
+  status:
+    | "DRAFT"
+    | "PENDING_VALIDATION"
+    | "ACTIVE"
+    | "REJECTED"
+    | "DEFERRED"
+    | "LOCKED"
+    | "ARCHIVED";
   currency: string;
   initialAmount: number;
   revisedAmount: number;

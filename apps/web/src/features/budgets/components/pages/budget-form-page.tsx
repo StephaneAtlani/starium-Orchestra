@@ -12,6 +12,7 @@ import { budgetApiToForm } from '../../mappers/budget-form.mappers';
 import { budgetList, budgetDetail } from '../../constants/budget-routes';
 import type { CreateBudgetInput } from '../../schemas/create-budget.schema';
 import type { ApiFormError } from '../../api/types';
+import type { BudgetWorkflowStatus } from '../../constants/budget-workflow-status';
 
 interface BudgetFormPageProps {
   mode: 'create' | 'edit';
@@ -75,6 +76,7 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
         cancelHref={cancelHref}
         submitError={submitError}
         exerciseOptions={exerciseOptions}
+        editStatusFrom={isEdit && budget ? (budget.status as BudgetWorkflowStatus) : undefined}
       />
     </>
   );

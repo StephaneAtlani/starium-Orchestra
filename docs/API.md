@@ -1169,7 +1169,8 @@ Toutes les listes retournent : `{ "items": [...], "total": number, "limit": numb
 - **BudgetExerciseStatus** : `DRAFT`, `ACTIVE`, `CLOSED`, `ARCHIVED`
 - **BudgetStatus** : `DRAFT`, `SUBMITTED`, `REVISED`, `VALIDATED`, `LOCKED`, `ARCHIVED` (cycle de vie : brouillon → soumis → révisé → validé → verrouillé → archivé ; l’ancien `ACTIVE` est migré en `VALIDATED`)
 - **BudgetEnvelopeType** : `RUN`, `BUILD`, `TRANSVERSE`
-- **BudgetLineStatus** : `DRAFT`, `ACTIVE`, `CLOSED`, `ARCHIVED`
+- **BudgetEnvelopeStatus** : `DRAFT`, `PENDING_VALIDATION`, `ACTIVE`, `REJECTED`, `DEFERRED`, `LOCKED`, `ARCHIVED`
+- **BudgetLineStatus** : `DRAFT`, `PENDING_VALIDATION`, `ACTIVE`, `REJECTED`, `DEFERRED`, `CLOSED`, `ARCHIVED`
 - **ExpenseType** : `OPEX`, `CAPEX`
 - **BudgetLineAllocationScope** (RFC-021) : `ENTERPRISE`, `ANALYTICAL`
 
@@ -1221,13 +1222,15 @@ Crée un budget. **Body** : `exerciseId`, `name`, `code?`, `description?`, `curr
 
 ### GET /api/budgets/:id — PATCH /api/budgets/:id
 
-Détail et mise à jour. PATCH refusé si status = LOCKED ou ARCHIVED.
+Détail et mise à jour. PATCH refusé si status = LOCKED ou ARCHIVED. **Changement de `status`** : matrice **Transitions autorisées (budget)** (identique à `PATCH /api/budgets/bulk-status`, `400` avec `invalid_status_transition` si interdit).
 
 ---
 
 ### PATCH /api/budgets/bulk-status
 
 Mise à jour du **statut** sur plusieurs budgets. **Body** : `ids` (1 à 100), `status` (`BudgetStatus`). **Permission** : `budgets.update`. Même logique métier que `PATCH /api/budgets/:id` par id. **Réponse 200** : `{ status, updatedIds, failed: [{ id, error }] }`.
+
+**Transitions autorisées (budget)** — matrice serveur (`invalid_status_transition` sinon) : `DRAFT → SUBMITTED|ARCHIVED`, `SUBMITTED → REVISED|VALIDATED|DRAFT`, `REVISED → VALIDATED|SUBMITTED|DRAFT`, `VALIDATED → LOCKED|REVISED|SUBMITTED|ARCHIVED`, `LOCKED → ARCHIVED` ; même statut = accepté (no-op).
 
 ---
 
