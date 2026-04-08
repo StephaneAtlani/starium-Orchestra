@@ -639,47 +639,176 @@ export class BudgetLinesService {
       });
     });
 
-    const auditInput: CreateAuditLogInput = {
-      clientId,
-      userId: context?.actorUserId,
-      action: 'budget_line.updated',
-      resourceType: 'budget_line',
-      resourceId: updated.id,
-      oldValue: {
-        name: existing.name,
-        code: existing.code,
-        status: existing.status,
-        deferredToExerciseId: existing.deferredToExerciseId ?? null,
-        generalLedgerAccountId: existing.generalLedgerAccountId,
-        analyticalLedgerAccountId: existing.analyticalLedgerAccountId,
-        allocationScope: existing.allocationScope,
-        revisedAmount: fromDecimal(existing.revisedAmount),
-        remainingAmount: fromDecimal(existing.remainingAmount),
-        costCenterSplitsSummary: existing.costCenterSplits.map((s) => ({
-          costCenterId: s.costCenterId,
-          percentage: fromDecimal(s.percentage),
-        })),
-      },
-      newValue: {
-        name: updated.name,
-        code: updated.code,
-        status: updated.status,
-        deferredToExerciseId: updated.deferredToExerciseId ?? null,
-        generalLedgerAccountId: updated.generalLedgerAccountId,
-        analyticalLedgerAccountId: updated.analyticalLedgerAccountId,
-        allocationScope: updated.allocationScope,
-        revisedAmount: fromDecimal(updated.revisedAmount),
-        remainingAmount: fromDecimal(updated.remainingAmount),
-        costCenterSplitsSummary: updated.costCenterSplits.map((s) => ({
-          costCenterId: s.costCenterId,
-          percentage: fromDecimal(s.percentage),
-        })),
-      },
+    // RFC-032 §4.1.5 — audits sémantiques + `budget_line.updated` sans duplication des deltas.
+    const keysInDto = Object.keys(dto).filter(
+      (k) => (dto as Record<string, unknown>)[k] !== undefined,
+    );
+    const statusChanged =
+      dto.status !== undefined && existing.status !== updated.status;
+    const onlyStatusInDto =
+      keysInDto.length === 1 && keysInDto[0] === 'status';
+
+    const deferredExerciseChanged =
+      (existing.deferredToExerciseId ?? null) !==
+      (updated.deferredToExerciseId ?? null);
+
+    const onlyDeferredInDto =
+      keysInDto.length === 1 && keysInDto[0] === 'deferredToExerciseId';
+
+    const revisedAmountIntent =
+      dto.revisedAmount !== undefined &&
+      fromDecimal(existing.revisedAmount) !== fromDecimal(updated.revisedAmount);
+
+    const meta = {
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     };
-    await this.auditLogs.create(auditInput);
+
+    if (onlyStatusInDto && !statusChanged) {
+      return toResponse(updated);
+    }
+
+    if (onlyDeferredInDto && !deferredExerciseChanged) {
+      return toResponse(updated);
+    }
+
+    if (onlyStatusInDto && statusChanged) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: 'budget_line.status.changed',
+        resourceType: 'budget_line',
+        resourceId: updated.id,
+        oldValue: { from: existing.status },
+        newValue: { to: updated.status },
+        ...meta,
+      });
+      return toResponse(updated);
+    }
+
+    if (onlyDeferredInDto && deferredExerciseChanged) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: 'budget_line.deferred',
+        resourceType: 'budget_line',
+        resourceId: updated.id,
+        oldValue: {
+          deferredToExerciseId: existing.deferredToExerciseId ?? null,
+        },
+        newValue: {
+          deferredToExerciseId: updated.deferredToExerciseId ?? null,
+        },
+        ...meta,
+      });
+      return toResponse(updated);
+    }
+
+    if (statusChanged) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: 'budget_line.status.changed',
+        resourceType: 'budget_line',
+        resourceId: updated.id,
+        oldValue: { from: existing.status },
+        newValue: { to: updated.status },
+        ...meta,
+      });
+    }
+
+    if (deferredExerciseChanged) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: 'budget_line.deferred',
+        resourceType: 'budget_line',
+        resourceId: updated.id,
+        oldValue: {
+          deferredToExerciseId: existing.deferredToExerciseId ?? null,
+        },
+        newValue: {
+          deferredToExerciseId: updated.deferredToExerciseId ?? null,
+        },
+        ...meta,
+      });
+    }
+
+    if (revisedAmountIntent) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: 'budget_line.amounts.updated',
+        resourceType: 'budget_line',
+        resourceId: updated.id,
+        oldValue: { revisedAmount: fromDecimal(existing.revisedAmount) },
+        newValue: { revisedAmount: fromDecimal(updated.revisedAmount) },
+        ...meta,
+      });
+    }
+
+    const baseOld: Record<string, unknown> = {
+      name: existing.name,
+      code: existing.code,
+      status: existing.status,
+      deferredToExerciseId: existing.deferredToExerciseId ?? null,
+      generalLedgerAccountId: existing.generalLedgerAccountId,
+      analyticalLedgerAccountId: existing.analyticalLedgerAccountId,
+      allocationScope: existing.allocationScope,
+      revisedAmount: fromDecimal(existing.revisedAmount),
+      remainingAmount: fromDecimal(existing.remainingAmount),
+      costCenterSplitsSummary: existing.costCenterSplits.map((s) => ({
+        costCenterId: s.costCenterId,
+        percentage: fromDecimal(s.percentage),
+      })),
+    };
+    const baseNew: Record<string, unknown> = {
+      name: updated.name,
+      code: updated.code,
+      status: updated.status,
+      deferredToExerciseId: updated.deferredToExerciseId ?? null,
+      generalLedgerAccountId: updated.generalLedgerAccountId,
+      analyticalLedgerAccountId: updated.analyticalLedgerAccountId,
+      allocationScope: updated.allocationScope,
+      revisedAmount: fromDecimal(updated.revisedAmount),
+      remainingAmount: fromDecimal(updated.remainingAmount),
+      costCenterSplitsSummary: updated.costCenterSplits.map((s) => ({
+        costCenterId: s.costCenterId,
+        percentage: fromDecimal(s.percentage),
+      })),
+    };
+
+    if (statusChanged) {
+      delete baseOld.status;
+      delete baseNew.status;
+    }
+    if (deferredExerciseChanged) {
+      delete baseOld.deferredToExerciseId;
+      delete baseNew.deferredToExerciseId;
+    }
+    if (revisedAmountIntent) {
+      delete baseOld.revisedAmount;
+      delete baseNew.revisedAmount;
+      delete baseOld.remainingAmount;
+      delete baseNew.remainingAmount;
+    }
+
+    const hasUpdatedPayload = Object.keys(baseOld).length > 0;
+
+    if (hasUpdatedPayload) {
+      const auditInput: CreateAuditLogInput = {
+        clientId,
+        userId: context?.actorUserId,
+        action: 'budget_line.updated',
+        resourceType: 'budget_line',
+        resourceId: updated.id,
+        oldValue: baseOld,
+        newValue: baseNew,
+        ...meta,
+      };
+      await this.auditLogs.create(auditInput);
+    }
 
     return toResponse(updated);
   }

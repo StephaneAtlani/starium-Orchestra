@@ -8,6 +8,8 @@ import type {
   BudgetEnvelope,
   BudgetExercise,
   BudgetLine,
+  ListBudgetDecisionHistoryQuery,
+  ListBudgetDecisionHistoryResponse,
   ListBudgetEnvelopesQuery,
   ListBudgetLinesQuery,
   ListBudgetExercisesQuery,
@@ -119,6 +121,29 @@ export async function listBudgets(
 export async function getBudget(authFetch: AuthFetch, id: string): Promise<Budget> {
   const res = await authFetch(`${BASE_BUDGETS}/${id}`);
   return handleResponse<Budget>(res);
+}
+
+/** RFC-032 — Historique décisionnel */
+export async function getBudgetDecisionHistory(
+  authFetch: AuthFetch,
+  budgetId: string,
+  query?: ListBudgetDecisionHistoryQuery,
+): Promise<ListBudgetDecisionHistoryResponse> {
+  const qs = new URLSearchParams();
+  if (query?.envelopeId) qs.set('envelopeId', query.envelopeId);
+  if (query?.budgetLineId) qs.set('budgetLineId', query.budgetLineId);
+  if (query?.from) qs.set('from', query.from);
+  if (query?.to) qs.set('to', query.to);
+  if (query?.limit != null) qs.set('limit', String(query.limit));
+  if (query?.offset != null) qs.set('offset', String(query.offset));
+  if (query?.actions?.length) {
+    for (const a of query.actions) {
+      qs.append('actions', a);
+    }
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await authFetch(`${BASE_BUDGETS}/${budgetId}/decision-history${suffix}`);
+  return handleResponse<ListBudgetDecisionHistoryResponse>(res);
 }
 
 // ——— Enveloppes ———

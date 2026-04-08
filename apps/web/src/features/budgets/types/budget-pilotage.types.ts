@@ -8,7 +8,8 @@ export type BudgetPilotageMode =
   | 'synthese'
   | 'previsionnel'
   | 'atterrissage'
-  | 'forecast';
+  | 'forecast'
+  | 'decisions';
 
 /** Densité : mode planning mensuel uniquement (atterrissage / forecast : condensé implicite). */
 export type BudgetPilotageDensity = 'mensuel' | 'condense';

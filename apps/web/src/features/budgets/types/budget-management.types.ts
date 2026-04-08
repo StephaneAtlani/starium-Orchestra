@@ -146,3 +146,44 @@ export interface ListBudgetLinesQuery {
   offset?: number;
   limit?: number;
 }
+
+/** RFC-032 — GET /budgets/:id/decision-history */
+export interface BudgetDecisionHistoryActor {
+  id: string;
+  displayName: string;
+}
+
+export interface BudgetDecisionHistoryContext {
+  budget: { id: string; name: string; code: string | null };
+  envelope?: { id: string; name: string; code: string } | null;
+  line?: { id: string; name: string; code: string } | null;
+}
+
+export interface BudgetDecisionHistoryItem {
+  id: string;
+  createdAt: string;
+  action: string;
+  summary: string;
+  actor: BudgetDecisionHistoryActor | null;
+  resourceType: string;
+  resourceId: string | null;
+  context: BudgetDecisionHistoryContext;
+  details: Record<string, unknown> | null;
+}
+
+export interface ListBudgetDecisionHistoryQuery {
+  envelopeId?: string;
+  budgetLineId?: string;
+  actions?: string[];
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ListBudgetDecisionHistoryResponse {
+  items: BudgetDecisionHistoryItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}

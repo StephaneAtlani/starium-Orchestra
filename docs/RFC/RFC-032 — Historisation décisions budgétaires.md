@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Proposition** (à valider produit / archi)
+**Implémenté (MVP)** — lecture enrichie via `BudgetDecisionHistoryService` (Prisma `AuditLog`), route `GET /api/budgets/:budgetId/decision-history` sur `BudgetsController`, audits sémantiques §4.1.5 dans `budgets.service` / `budget-lines.service`, UI onglet « Décisions » sur `/budgets/[budgetId]`.
 
 ## Priorité
 
@@ -85,33 +85,41 @@ Les mises à jour « larges » (`*.updated`) portent souvent un **diff** ou un s
 
 | Fichier | Action |
 | --- | --- |
-| `apps/api/src/modules/budget-management/budget-audit.constants.ts` | **Créer** — constantes `action`, `resourceType`, types pour `oldValue`/`newValue` |
-| `apps/api/src/modules/budget-management/budget-decision-history.service.ts` | **Créer** — requête paginée `AuditLog` filtrée budget / enveloppe / ligne + enrichissement DTO |
-| `apps/api/src/modules/budget-management/budget-decision-history.controller.ts` | **Créer** — routes scopées client |
-| `apps/api/src/modules/budget-management/budget-decision-history.dto.ts` | **Créer** — query + response (items enrichis) ; query : `envelopeId`, **`budgetLineId`** (pas `lineId` — **§4.1.6**) |
-| `apps/api/src/modules/budget-management/budget-management.module.ts` | **Modifier** — enregistrer controller + service |
-| `apps/api/src/modules/budget-management/budgets/budgets.service.ts` | **Modifier** — **uniquement** si nécessaire pour émettre `budget.status.changed` (transition de statut) ; **ne pas** ouvrir une reprise générale de tous les champs déjà couverts par `budget.updated` |
-| `apps/api/src/modules/budget-management/budget-envelopes/budget-envelopes.service.ts` | **Modifier** — **uniquement** si introduction de `budget_envelope.deferred` (optionnel) ou ajustement minimal cohérent avec §4.1.2 ; **pas** de chantier sur l’audit enveloppe hors périmètre ci-dessus |
-| `apps/api/src/modules/budget-management/budget-lines/budget-lines.service.ts` | **Modifier** — émissions sémantiques `budget_line.status.changed`, `budget_line.deferred`, `budget_line.amounts.updated` (voir §4.1.3) là où les mutations le justifient |
-| `apps/api/src/modules/budget-management/budget-lines/budget-line-planning.service.ts` | **Modifier** — seulement si normalisation **ponctuelle** des payloads déjà audités (prévisionnel) |
-| `apps/api/src/modules/audit-logs/audit-logs.service.ts` | **Ne pas modifier** au MVP (pas de refonte générique ; la lecture filtrée se fait dans `BudgetDecisionHistoryService` via `PrismaService` / requêtes ciblées). |
-| `apps/api/prisma/schema.prisma` | **Hors MVP** — index sur `AuditLog` réservé à une phase d’optimisation **post-MVP** si besoin |
+| `apps/api/src/modules/budget-management/budget-audit.constants.ts` | **Créé** — liste blanche MVP `BUDGET_DECISION_HISTORY_ACTIONS` + filtres `actions[]` |
+| `apps/api/src/modules/budget-management/budget-decision-history.service.ts` | **Créé** — requête paginée `AuditLog` (OR budget / enveloppes / lignes du budget) + enrichissement acteur / contexte |
+| `apps/api/src/modules/budget-management/budget-decision-history-summary.ts` | **Créé** — `buildDecisionHistorySummary` (libellés FR fixes) |
+| `apps/api/src/modules/budget-management/budget-decision-history.dto.ts` | **Créé** — query (`envelopeId`, `budgetLineId`, `actions`, `from`/`to`, `limit`/`offset`) + réponse typée |
+| `apps/api/src/modules/budget-management/budgets/budgets.controller.ts` | **Modifié** — `GET(':id/decision-history')` **avant** `GET(':id')` (pas de second `@Controller('budgets')`) |
+| `apps/api/src/modules/budget-management/budget-management.module.ts` | **Modifié** — provider `BudgetDecisionHistoryService` |
+| `apps/api/src/modules/budget-management/budgets/budgets.service.ts` | **Modifié** — `budget.status.changed` vs `budget.updated` (§4.1.5) |
+| `apps/api/src/modules/budget-management/budget-envelopes/budget-envelopes.service.ts` | **Non modifié** au MVP (conforme §2.4 plan / §4.1.2) |
+| `apps/api/src/modules/budget-management/budget-lines/budget-lines.service.ts` | **Modifié** — `budget_line.status.changed`, `budget_line.deferred`, `budget_line.amounts.updated`, `budget_line.updated` réduit (§4.1.3 / §4.1.5) |
+| `apps/api/src/modules/budget-management/budget-lines/budget-line-planning.service.ts` | **Non modifié** — audits `budget_line.planning.*` déjà présents ; inclus dans la whitelist |
+| `apps/api/src/modules/budget-management/tests/budget-decision-history.service.spec.ts` | **Créé** — tests unitaires service + summary |
+| `apps/api/src/modules/budget-management/tests/budget-decision-history-routes.integration.spec.ts` | **Créé** — dispatch controller → service |
+| `apps/api/src/modules/audit-logs/audit-logs.service.ts` | **Non modifié** — lecture `AuditLog` via `PrismaService` dans `BudgetDecisionHistoryService` uniquement |
+| `apps/api/prisma/schema.prisma` | **Hors MVP** — index `AuditLog` post-MVP si besoin |
 
 ## 3.2 Frontend
 
 | Fichier | Action |
 | --- | --- |
-| `apps/web/src/features/budgets/.../budget-decision-timeline.tsx` (nom à aligner sur arborescence) | **Créer** — timeline (cartes chronologiques, filtres) |
-| Page fiche budget / drawer enveloppe / drawer ligne | **Modifier** — onglet ou section **« Décisions »** / **« Historique »** |
-| `apps/web/src/services/...` | **Créer** — client API `GET .../decision-history` |
-| Tests composants | **Créer** — états empty / error |
+| `apps/web/src/features/budgets/components/budget-decision-timeline.tsx` | **Créé** — liste verticale, loading / error / empty |
+| `apps/web/src/features/budgets/hooks/use-budget-decision-history.ts` | **Créé** — TanStack Query, clés avec `clientId` |
+| `apps/web/src/features/budgets/lib/budget-query-keys.ts` | **Modifié** — clé `budgetDecisionHistory` |
+| `apps/web/src/features/budgets/api/budget-management.api.ts` | **Modifié** — `getBudgetDecisionHistory` (seul fichier API pour cet endpoint) |
+| `apps/web/src/features/budgets/types/budget-management.types.ts` | **Modifié** — types réponse / query |
+| `apps/web/src/features/budgets/types/budget-pilotage.types.ts` | **Modifié** — mode `'decisions'` |
+| `apps/web/src/features/budgets/components/budget-view-tabs.tsx` | **Modifié** — onglet « Décisions » |
+| `apps/web/src/app/(protected)/budgets/[budgetId]/page.tsx` | **Modifié** — rendu timeline si `pilotageMode === 'decisions'` (pas d’entrée drawer enveloppe/ligne dans ce lot) |
 
 ## 3.3 Documentation
 
 | Fichier | Action |
 | --- | --- |
-| `docs/RFC/_RFC Liste.md` | **Modifier** — entrée RFC-032 |
-| `docs/API.md` | **Modifier** — section endpoints historique budget (si présent dans le repo) |
+| `docs/RFC/_RFC Liste.md` | **Mis à jour** — statut RFC-032 ✅ Implémenté (MVP) |
+| `docs/API.md` | **Mis à jour** — ligne tableau guards §5 + référence RFC-032 en tête |
+| `docs/ARCHITECTURE.md` | **Mis à jour** — §4.1 noyau budgétaire, lien RFC-032 |
 
 ---
 
@@ -119,10 +127,10 @@ Les mises à jour « larges » (`*.updated`) portent souvent un **diff** ou un s
 
 ## 4.0 Implémentation backend (cible MVP)
 
-* **Constantes** : fichier `budget-audit.constants.ts` (actions et, si utile, liste blanche pour filtres `actions[]`).
-* **Lecture** : `BudgetDecisionHistoryService` — requêtes sur `AuditLog` + enrichissement (acteur, budget, enveloppe, ligne) ; **aucune** dépendance fonctionnelle à `GET /audit-logs` pour l’usage métier.
-* **HTTP** : controller + DTO dédiés sous le module **budget-management** ; route unique MVP §4.3.
-* **Écriture** : ajuster **uniquement** les services budget listés au §3.1 pour les **actions sémantiques minimales** du §4.1 — **pas** de relecture / refactor de tous les audits historiques du dépôt.
+* **Constantes** : `budget-audit.constants.ts` — liste blanche MVP pour filtres `actions[]` et cohérence avec les `summary` (versioning / import / `budget_line.planning.previewed` exclus du MVP).
+* **Lecture** : `BudgetDecisionHistoryService` — requêtes Prisma sur `AuditLog` + enrichissement (acteur, budget, enveloppe, ligne) ; **aucune** dépendance à `AuditLogsService` / `GET /audit-logs` pour l’usage métier.
+* **HTTP** : handler **`GET(':id/decision-history')`** sur `BudgetsController` (même module, mêmes guards que les autres routes budgets) ; DTO query `ListBudgetDecisionHistoryQueryDto`.
+* **Écriture** : ajustements dans `budgets.service` et `budget-lines.service` pour les actions sémantiques §4.1 — **pas** de refactor global des audits historiques.
 
 ## 4.1 Catalogue d’événements « décision » (MVP)
 
@@ -130,7 +138,7 @@ Les mises à jour « larges » (`*.updated`) portent souvent un **diff** ou un s
 
 | Action | Statut MVP | Détail |
 | --- | --- | --- |
-| `budget.status.changed` | **À ajouter** (sémantique) | Émis lors d’une transition de statut validée (`assertBudgetStatusTransition`). Voir **§4.1.5** (pas de double audit avec `budget.updated`). |
+| `budget.status.changed` | **Implémenté** | Émis lors d’une transition de statut validée (`assertBudgetStatusTransition`). Voir **§4.1.5** (pas de double audit avec `budget.updated`). |
 | `budget.updated` | **Existant** | Conserver. Comportement vis-à-vis du statut : **§4.1.5**. |
 | `budget.owner.changed` | **Non retenu** | Le `PATCH` budget accepte `ownerUserId`, mais l’audit `budget.updated` **ne** journalise **pas** aujourd’hui le pilote dans `oldValue`/`newValue`. **MVP** : pas d’action dédiée ; **hors liste** tant que le payload de `budget.updated` n’est pas étendu (évolution mineure possible hors nomenclature d’actions). |
 
@@ -148,9 +156,9 @@ Les mises à jour « larges » (`*.updated`) portent souvent un **diff** ou un s
 
 | Action | Statut MVP | Détail |
 | --- | --- | --- |
-| `budget_line.status.changed` | **À ajouter** | Transition de statut ligne (hors seul recalcul technique). |
-| `budget_line.deferred` | **À ajouter** (si distinct de `updated`) | À émettre lors d’un changement de report d’exercice (`deferredToExerciseId` / statut lié au report) ; aujourd’hui porté par `budget_line.updated` — **réduction du bruit** : soit remplacer partiellement, soit compléter **une** ligne sémantique. |
-| `budget_line.amounts.updated` | **À ajouter (ciblé)** | **Uniquement** lorsque l’utilisateur **ou** une règle métier explicite modifie des montants décisionnels (`initialAmount`, `revisedAmount`, `forecastAmount`, etc.) — **pas** pour recalculs automatiques internes (consommation, reste, agrégats dérivés). |
+| `budget_line.status.changed` | **Implémenté** | Transition de statut ligne ; **§4.1.5** avec `budget_line.updated`. |
+| `budget_line.deferred` | **Implémenté** | Report d’exercice (`deferredToExerciseId` / statut) — pas de duplication du delta dans `budget_line.updated` dans la même requête. |
+| `budget_line.amounts.updated` | **Implémenté (ciblé)** | **Uniquement** si `dto.revisedAmount` est présent **et** changement effectif sur `revisedAmount` — **pas** pour recalculs serveur (`remainingAmount`, `consumedAmount`, etc.). |
 | `budget_line.planning.updated` | **Existant** | Conserver. |
 | `budget_line.planning.applied_mode` | **Existant** | Conserver. |
 | `budget_line.updated` | **Existant** | Conserver pour les champs non couverts par les actions ci-dessus. Comportement vis-à-vis du statut : **§4.1.5**. |
@@ -165,12 +173,12 @@ Les mises à jour « larges » (`*.updated`) portent souvent un **diff** ou un s
 
 ### 4.1.5 Règle anti-double-audit (`*.status.changed` vs `*.updated`)
 
-**À figer en implémentation** (avant merge des mutations concernées). S’applique à **budget** et **ligne budgétaire** uniquement (pas aux enveloppes au MVP, faute d’action `*.status.changed` enveloppe).
+**Implémenté** dans `budgets.service` / `budget-lines.service` (commentaires au-dessus des blocs d’audit). S’applique à **budget** et **ligne budgétaire** uniquement (pas aux enveloppes au MVP, faute d’action `*.status.changed` enveloppe).
 
 | Cas | Audits émis |
 | --- | --- |
 | **A** — La mutation ne modifie **que** le statut | **Une seule** ligne d’audit : `budget.status.changed` ou `budget_line.status.changed`. **Ne pas** émettre `budget.updated` / `budget_line.updated` pour cette même requête. |
-| **B** — La mutation modifie le statut **et** d’autres champs | **Une option unique** à choisir, documenter dans le code (commentaire ou ADR court) : **(1)** une ligne `*.status.changed` **+** une ligne `*.updated` dont `oldValue`/`newValue` **excluent** le delta de statut déjà couvert par `status.changed`, **ou** **(2)** une **seule** ligne `*.updated` portant le diff complet (y compris statut). |
+| **B** — La mutation modifie le statut **et** d’autres champs | **Option (1)** retenue : une ligne `*.status.changed` **+** une ligne `*.updated` dont `oldValue`/`newValue` **excluent** le delta de statut déjà couvert par `status.changed`. |
 
 **Interdit** : deux lignes d’audit qui **dupliquent** le même changement de statut (ex. `status.changed` **et** `updated` avec les mêmes `from` / `to` sur le statut).
 
@@ -213,7 +221,7 @@ Règles :
 * `budgetLineId` — identifiant `BudgetLine.id` **dans le périmètre** du `:budgetId` (voir **§4.1.6** ; ne pas utiliser `lineId`)
 * `actions[]` — sous-ensemble des actions connues (constantes §4.0)
 * `from`, `to` — plage temporelle sur `createdAt`
-* `limit`, `offset` **ou** `cursor` (pagination)
+* `limit`, `offset` — pagination **MVP** (pas de curseur ; `nextCursor` non utilisé côté API actuelle)
 
 **Réponse** : liste enrichie ; chaque item inclut au minimum `summary` **calculé côté serveur** (libellés FR **en dur** au MVP — **pas** de couche i18n du `summary`, voir « Hors scope MVP »).
 
@@ -248,16 +256,20 @@ Exemple de forme de réponse :
     }
   ],
   "total": 42,
-  "nextCursor": null
+  "limit": 20,
+  "offset": 0
 }
 ```
+
+*(Réponse réelle : `items`, `total`, `limit`, `offset` — pas de `nextCursor` au MVP.)*
 
 Les champs `context` servent au **filtrage** et à l’affichage : **libellés métier** ; les IDs peuvent être présents pour la navigation / clics internes mais **ne** remplacent **pas** les libellés dans `summary`.
 
 ## 4.4 Frontend
 
-* **Emplacement** : onglet **Historique / Décisions** sur la fiche budget ; lien « Voir l’historique de cette enveloppe / ligne » filtré (`envelopeId` / `budgetLineId` — **§4.1.6**).
-* **Composants** : liste verticale type timeline (tokens `border-border`, états vides explicites — voir FRONTEND_UI-UX).
+* **Emplacement (MVP livré)** : onglet **Décisions** sur la fiche `/budgets/[budgetId]` : `BudgetDecisionTimeline` + hook TanStack Query (`clientId` dans la clé).
+* **API** : `getBudgetDecisionHistory` dans `budget-management.api.ts` ; filtres query `envelopeId` / `budgetLineId` **prêts côté API** — pas de liens « Voir l’historique enveloppe / ligne » ni filtres UI dédiés dans ce lot.
+* **Composants** : liste verticale type timeline (états loading / error / empty — voir FRONTEND_UI-UX).
 * **Libellés** : `summary` serveur + libellés contexte ; pas d’UUID dans le texte.
 
 ---
@@ -305,8 +317,8 @@ Les champs `context` servent au **filtrage** et à l’affichage : **libellés m
 | Lecture | **Service dédié** d’enrichissement + **DTO** ; requêtes strictement **scopées** `budgetId` + `clientId` actif |
 | Écriture | **Ajustements minimaux** des services budget pour actions sémantiques listées §4.1 — **pas** de refonte globale des audits existants |
 | API | **Un seul** endpoint `GET /api/budgets/:budgetId/decision-history` ; **guards** §4.3 ; permission **`budgets.read`** **uniquement** |
-| UI | Timeline contextuelle budget / enveloppe / ligne (filtres `envelopeId` / `budgetLineId` — **§4.1.6**) |
-| Audit écriture | Règle **§4.1.5** obligatoire dès l’ajout de `*.status.changed` |
+| UI | Onglet **Décisions** fiche budget ; filtres query `envelopeId` / `budgetLineId` côté API (**§4.1.6**) — pas d’UI filtrée enveloppe/ligne dans le lot MVP |
+| Audit écriture | Règle **§4.1.5** appliquée (`budget.status.changed`, `budget_line.*` sémantiques) |
 | Snapshots / versioning | Complémentaires (photo / lignée), **non** redondants avec ce journal |
 
 ---
@@ -323,9 +335,11 @@ Les champs `context` servent au **filtrage** et à l’affichage : **libellés m
 
 ---
 
-## Références code (état au moment de la rédaction)
+## Références code (état implémenté)
 
 * `AuditLog` : `apps/api/prisma/schema.prisma`
-* Services budget : `apps/api/src/modules/budget-management/`
-* Audit planning : `budget-line-planning.service.ts` (`logPlanningAuditCanonical`)
-* API audit générique : `apps/api/src/modules/audit-logs/audit-logs.controller.ts` (`GET /audit-logs`)
+* Décisionnel : `budget-decision-history.service.ts`, `budget-decision-history-summary.ts`, `budget-audit.constants.ts`, `budgets.controller.ts` (`GET :id/decision-history`)
+* Audits sémantiques : `budgets.service.ts`, `budget-lines.service.ts`
+* Audit planning (inchangé) : `budget-line-planning.service.ts` (`logPlanningAuditCanonical`)
+* API audit générique (hors périmètre lecture métier) : `apps/api/src/modules/audit-logs/audit-logs.controller.ts` (`GET /audit-logs`)
+* UI : `apps/web/src/features/budgets/components/budget-decision-timeline.tsx`, `apps/web/src/app/(protected)/budgets/[budgetId]/page.tsx`

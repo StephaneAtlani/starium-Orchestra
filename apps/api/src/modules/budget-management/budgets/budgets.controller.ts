@@ -22,11 +22,16 @@ import { CreateBudgetDto } from './dto/create-budget.dto';
 import { ListBudgetsQueryDto } from './dto/list-budgets.query.dto';
 import { BulkUpdateBudgetStatusDto } from '../dto/bulk-update-status.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
+import { BudgetDecisionHistoryService } from '../budget-decision-history.service';
+import { ListBudgetDecisionHistoryQueryDto } from '../budget-decision-history.dto';
 
 @Controller('budgets')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class BudgetsController {
-  constructor(private readonly service: BudgetsService) {}
+  constructor(
+    private readonly service: BudgetsService,
+    private readonly decisionHistoryService: BudgetDecisionHistoryService,
+  ) {}
 
   @Get()
   @RequirePermissions('budgets.read')
@@ -35,6 +40,17 @@ export class BudgetsController {
     @Query() query: ListBudgetsQueryDto,
   ) {
     return this.service.list(clientId!, query);
+  }
+
+  /** RFC-032 — doit rester avant `GET :id` pour ne pas capturer `decision-history` comme id. */
+  @Get(':id/decision-history')
+  @RequirePermissions('budgets.read')
+  decisionHistory(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') budgetId: string,
+    @Query() query: ListBudgetDecisionHistoryQueryDto,
+  ) {
+    return this.decisionHistoryService.list(clientId!, budgetId, query);
   }
 
   @Get(':id')

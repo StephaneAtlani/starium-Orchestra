@@ -3,6 +3,8 @@
  * Interdiction : clés sans clientId (ex. ["budgets"], ["budget-detail", budgetId]).
  */
 
+import type { ListBudgetDecisionHistoryQuery } from '../types/budget-management.types';
+
 export const budgetQueryKeys = {
   all: (clientId: string) => ['budgets', clientId] as const,
 
@@ -171,4 +173,11 @@ export const budgetQueryKeys = {
   /** Historique de versions pour sélecteur */
   budgetVersionHistory: (clientId: string, budgetId: string) =>
     ['budgets', clientId, 'budget-version-history', budgetId] as const,
+
+  /** RFC-032 — historique décisionnel (timeline audit) */
+  budgetDecisionHistory: (
+    clientId: string,
+    budgetId: string,
+    filters?: ListBudgetDecisionHistoryQuery,
+  ) => ['budgets', clientId, 'decision-history', budgetId, filters] as const,
 };

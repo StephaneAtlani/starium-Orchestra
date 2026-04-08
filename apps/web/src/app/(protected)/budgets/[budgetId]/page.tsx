@@ -73,6 +73,7 @@ import {
 import type { BudgetPilotageDensity, BudgetPilotageMode } from '@/features/budgets/types/budget-pilotage.types';
 import { useBudgetForecast } from '@/features/budgets/forecast/hooks/use-budget-forecast';
 import { ForecastKpiCards } from '@/features/budgets/forecast/components/forecast-kpi-cards';
+import { BudgetDecisionTimeline } from '@/features/budgets/components/budget-decision-timeline';
 
 export default function BudgetDetailPage() {
   const p = useParams();
@@ -211,6 +212,7 @@ export default function BudgetDetailPage() {
   const planningQueriesEnabled =
     pilotageMode !== 'synthese' &&
     pilotageMode !== 'dashboard' &&
+    pilotageMode !== 'decisions' &&
     monthColumnLabels.length === 12 &&
     planningFetchedLineIds.length > 0;
 
@@ -468,6 +470,7 @@ export default function BudgetDetailPage() {
     pilotageMode === 'dashboard' ||
     pilotageMode === 'synthese' ||
     pilotageMode === 'forecast' ||
+    pilotageMode === 'decisions' ||
     (monthColumnLabels.length === 12 && !exerciseLoading);
 
   return (
@@ -598,13 +601,15 @@ export default function BudgetDetailPage() {
                     </AlertDescription>
                   </Alert>
                 )}
-                <BudgetExplorerToolbar
-                  filters={filters}
-                  setFilters={setFilters}
-                  taxDisplayMode={taxDisplayMode}
-                  setTaxDisplayMode={setTaxDisplayMode}
-                  isTaxLoading={isTaxLoading}
-                />
+                {pilotageMode !== 'decisions' ? (
+                  <BudgetExplorerToolbar
+                    filters={filters}
+                    setFilters={setFilters}
+                    taxDisplayMode={taxDisplayMode}
+                    setTaxDisplayMode={setTaxDisplayMode}
+                    isTaxLoading={isTaxLoading}
+                  />
+                ) : null}
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -628,6 +633,8 @@ export default function BudgetDetailPage() {
                     </Link>
                   </p>
                 </div>
+              ) : pilotageMode === 'decisions' ? (
+                <BudgetDecisionTimeline budgetId={budgetId!} />
               ) : pilotageMode === 'dashboard' ? (
                 summaryError ? (
                   <div className="p-6">

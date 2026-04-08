@@ -282,31 +282,101 @@ export class BudgetsService {
       },
     });
 
-    const auditInput: CreateAuditLogInput = {
-      clientId,
-      userId: context?.actorUserId,
-      action: 'budget.updated',
-      resourceType: 'budget',
-      resourceId: updated.id,
-      oldValue: {
-        name: existing.name,
-        code: existing.code,
-        status: existing.status,
-        taxMode: existing.taxMode,
-        defaultTaxRate: existing.defaultTaxRate ? Number(existing.defaultTaxRate) : null,
-      },
-      newValue: {
-        name: updated.name,
-        code: updated.code,
-        status: updated.status,
-        taxMode: updated.taxMode,
-        defaultTaxRate: updated.defaultTaxRate ? Number(updated.defaultTaxRate) : null,
-      },
+    // RFC-032 §4.1.5 : statut seul → `budget.status.changed` uniquement ; statut + autres champs →
+    // `budget.status.changed` puis `budget.updated` sans propriété `status` ; sinon `budget.updated` complet.
+    const keysInDto = Object.keys(dto).filter(
+      (k) => (dto as Record<string, unknown>)[k] !== undefined,
+    );
+    const statusChanged =
+      dto.status !== undefined && dto.status !== existing.status;
+    const onlyStatusInDto =
+      keysInDto.length === 1 && keysInDto[0] === 'status';
+
+    const meta = {
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     };
-    await this.auditLogs.create(auditInput);
+
+    if (onlyStatusInDto && !statusChanged) {
+      return toResponse(updated);
+    }
+
+    if (onlyStatusInDto && statusChanged) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: 'budget.status.changed',
+        resourceType: 'budget',
+        resourceId: updated.id,
+        oldValue: { from: existing.status },
+        newValue: { to: updated.status },
+        ...meta,
+      });
+    } else if (statusChanged && !onlyStatusInDto) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: 'budget.status.changed',
+        resourceType: 'budget',
+        resourceId: updated.id,
+        oldValue: { from: existing.status },
+        newValue: { to: updated.status },
+        ...meta,
+      });
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: 'budget.updated',
+        resourceType: 'budget',
+        resourceId: updated.id,
+        oldValue: {
+          name: existing.name,
+          code: existing.code,
+          taxMode: existing.taxMode,
+          defaultTaxRate: existing.defaultTaxRate
+            ? Number(existing.defaultTaxRate)
+            : null,
+        },
+        newValue: {
+          name: updated.name,
+          code: updated.code,
+          taxMode: updated.taxMode,
+          defaultTaxRate: updated.defaultTaxRate
+            ? Number(updated.defaultTaxRate)
+            : null,
+        },
+        ...meta,
+      });
+    } else {
+      const auditInput: CreateAuditLogInput = {
+        clientId,
+        userId: context?.actorUserId,
+        action: 'budget.updated',
+        resourceType: 'budget',
+        resourceId: updated.id,
+        oldValue: {
+          name: existing.name,
+          code: existing.code,
+          status: existing.status,
+          taxMode: existing.taxMode,
+          defaultTaxRate: existing.defaultTaxRate
+            ? Number(existing.defaultTaxRate)
+            : null,
+        },
+        newValue: {
+          name: updated.name,
+          code: updated.code,
+          status: updated.status,
+          taxMode: updated.taxMode,
+          defaultTaxRate: updated.defaultTaxRate
+            ? Number(updated.defaultTaxRate)
+            : null,
+        },
+        ...meta,
+      };
+      await this.auditLogs.create(auditInput);
+    }
 
     return toResponse(updated);
   }
