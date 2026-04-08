@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -233,6 +234,29 @@ export function BudgetForm({
             </select>
             {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
           </div>
+
+          {editStatusFrom != null && (
+            <div className="space-y-2">
+              <Label htmlFor="statusChangeComment">
+                Commentaire (optionnel, si vous modifiez le statut)
+              </Label>
+              <textarea
+                id="statusChangeComment"
+                rows={3}
+                className={cn(
+                  'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm text-foreground',
+                  'ring-offset-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                  'disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive',
+                )}
+                placeholder="Visible dans l’onglet Historique de la fiche budget."
+                {...register('statusChangeComment')}
+                aria-invalid={!!errors.statusChangeComment}
+              />
+              {errors.statusChangeComment && (
+                <p className="text-sm text-destructive">{errors.statusChangeComment.message}</p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="taxMode">Mode fiscal du budget</Label>

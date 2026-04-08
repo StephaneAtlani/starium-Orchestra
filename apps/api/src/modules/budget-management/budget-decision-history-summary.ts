@@ -29,10 +29,31 @@ function lineStatusLabel(s: string | undefined): string {
   return BUDGET_LINE_STATUS_LABELS[s as BudgetLineStatus] ?? s;
 }
 
+function formatMoneyAmount(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: currency.length === 3 ? currency : 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${amount} ${currency}`;
+  }
+}
+
 type SummaryContext = {
   budgetName: string;
   envelopeName?: string | null;
   lineName?: string | null;
+  /** Réallocation (arbitrage) entre deux lignes — noms déjà résolus. */
+  reallocation?: {
+    sourceLineName: string;
+    targetLineName: string;
+    amount: number;
+    currency: string;
+    reason: string | null;
+  };
 };
 
 /**
@@ -61,7 +82,18 @@ export function buildDecisionHistorySummary(
         (nv?.status as string | undefined);
       const from = budgetStatusLabel(fromRaw);
       const to = budgetStatusLabel(toRaw);
-      return `Budget « ${ctx.budgetName} » : statut ${from} → ${to}`;
+      return `Budget « ${ctx.budgetName} » : changement de statut ${from} → ${to}`;
+    }
+    case 'budget.reallocated': {
+      const r = ctx.reallocation;
+      if (r) {
+        const amt = formatMoneyAmount(r.amount, r.currency);
+        const reason = r.reason?.trim();
+        return reason
+          ? `Arbitrage (réallocation) : « ${r.sourceLineName} » → « ${r.targetLineName} » — ${amt} — ${reason}`
+          : `Arbitrage (réallocation) : « ${r.sourceLineName} » → « ${r.targetLineName} » — ${amt}`;
+      }
+      return `Arbitrage (réallocation) sur le budget « ${ctx.budgetName} »`;
     }
     case 'budget_envelope.created':
       return ctx.envelopeName
@@ -85,8 +117,8 @@ export function buildDecisionHistorySummary(
       const from = lineStatusLabel(fromRaw);
       const to = lineStatusLabel(toRaw);
       return ctx.lineName
-        ? `Ligne « ${ctx.lineName} » : statut ${from} → ${to}`
-        : `Statut ligne : ${from} → ${to}`;
+        ? `Ligne « ${ctx.lineName} » : changement de statut ${from} → ${to}`
+        : `Changement de statut ligne : ${from} → ${to}`;
     }
     case 'budget_line.deferred':
       return ctx.lineName

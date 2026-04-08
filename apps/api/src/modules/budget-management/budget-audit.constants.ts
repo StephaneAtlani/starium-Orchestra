@@ -1,15 +1,18 @@
 /**
  * RFC-032 — Whitelist MVP des actions affichées dans l’historique décisionnel.
  * Toute action hors liste est ignorée à la lecture (données historiques bruitées).
+ *
+ * Exclus volontairement : `budget.updated`, `budget_line.updated` — libellés trop vagues
+ * (« modifié ») ; les changements utiles passent par les actions sémantiques ou des entrées
+ * plus précises (`*.status.changed`, `*.amounts.updated`, `*.planning.*`, etc.).
  */
 export const BUDGET_DECISION_HISTORY_ACTIONS = [
   'budget.created',
-  'budget.updated',
   'budget.status.changed',
+  'budget.reallocated',
   'budget_envelope.created',
   'budget_envelope.updated',
   'budget_line.created',
-  'budget_line.updated',
   'budget_line.status.changed',
   'budget_line.deferred',
   'budget_line.amounts.updated',

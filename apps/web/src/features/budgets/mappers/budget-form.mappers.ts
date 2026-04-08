@@ -89,6 +89,7 @@ export function budgetApiToForm(budget: Budget): CreateBudgetInput {
       budget.defaultTaxRate === null || budget.defaultTaxRate === undefined
         ? undefined
         : budget.defaultTaxRate.toFixed(2),
+    statusChangeComment: '',
   };
 }
 
@@ -107,6 +108,7 @@ export function budgetFormToCreatePayload(values: CreateBudgetInput): CreateBudg
 }
 
 export function budgetFormToUpdatePayload(values: CreateBudgetInput): UpdateBudgetPayload {
+  const c = values.statusChangeComment?.trim();
   return {
     name: values.name,
     code: values.code || undefined,
@@ -116,6 +118,7 @@ export function budgetFormToUpdatePayload(values: CreateBudgetInput): UpdateBudg
     ownerUserId: values.ownerUserId,
     taxMode: values.taxMode,
     defaultTaxRate: values.defaultTaxRate,
+    ...(c ? { statusChangeComment: c } : {}),
   };
 }
 

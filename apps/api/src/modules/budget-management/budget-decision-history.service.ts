@@ -53,6 +53,11 @@ export class BudgetDecisionHistoryService {
           }
         : undefined;
 
+    const wantsRealloc = actionSet.has('budget.reallocated');
+    const reallocResourceIds = wantsRealloc
+      ? await this.reallocationAuditResourceIds(clientId, budgetId, query)
+      : [];
+
     let where: Prisma.AuditLogWhereInput;
 
     if (query.budgetLineId) {
@@ -63,11 +68,24 @@ export class BudgetDecisionHistoryService {
       if (!line) {
         throw new NotFoundException('Budget line not found for this budget');
       }
+      const or: Prisma.AuditLogWhereInput[] = [
+        {
+          resourceType: 'budget_line',
+          resourceId: query.budgetLineId,
+          action: { in: [...actionSet] },
+        },
+      ];
+      if (reallocResourceIds.length > 0) {
+        or.push({
+          resourceType: 'budget_reallocation',
+          resourceId: { in: reallocResourceIds },
+          action: { in: [...actionSet] },
+        });
+      }
       where = {
         clientId,
         action: { in: [...actionSet] },
-        resourceType: 'budget_line',
-        resourceId: query.budgetLineId,
+        OR: or,
         ...(createdAt ? { createdAt } : {}),
       };
     } else if (query.envelopeId) {
@@ -94,6 +112,13 @@ export class BudgetDecisionHistoryService {
         or.push({
           resourceType: 'budget_line',
           resourceId: { in: lineIds },
+          action: { in: [...actionSet] },
+        });
+      }
+      if (reallocResourceIds.length > 0) {
+        or.push({
+          resourceType: 'budget_reallocation',
+          resourceId: { in: reallocResourceIds },
           action: { in: [...actionSet] },
         });
       }
@@ -138,6 +163,13 @@ export class BudgetDecisionHistoryService {
           action: { in: [...actionSet] },
         });
       }
+      if (reallocResourceIds.length > 0) {
+        or.push({
+          resourceType: 'budget_reallocation',
+          resourceId: { in: reallocResourceIds },
+          action: { in: [...actionSet] },
+        });
+      }
       where = {
         clientId,
         action: { in: [...actionSet] },
@@ -177,15 +209,25 @@ export class BudgetDecisionHistoryService {
     const lineResourceIds = logs
       .filter((l) => l.resourceType === 'budget_line' && l.resourceId)
       .map((l) => l.resourceId as string);
+    const reallocLineIdsFromLogs: string[] = [];
+    for (const log of logs) {
+      if (log.resourceType === 'budget_reallocation' && log.newValue) {
+        const nv = log.newValue as Record<string, unknown>;
+        if (typeof nv.sourceLineId === 'string') reallocLineIdsFromLogs.push(nv.sourceLineId);
+        if (typeof nv.targetLineId === 'string') reallocLineIdsFromLogs.push(nv.targetLineId);
+      }
+    }
+    const allLineIdsForFetch = [...new Set([...lineResourceIds, ...reallocLineIdsFromLogs])];
+
     const envelopeResourceIds = logs
       .filter((l) => l.resourceType === 'budget_envelope' && l.resourceId)
       .map((l) => l.resourceId as string);
 
     const [lines, envelopes] = await Promise.all([
-      lineResourceIds.length
+      allLineIdsForFetch.length
         ? this.prisma.budgetLine.findMany({
             where: {
-              id: { in: [...new Set(lineResourceIds)] },
+              id: { in: allLineIdsForFetch },
               clientId,
               budgetId,
             },
@@ -258,6 +300,48 @@ export class BudgetDecisionHistoryService {
         if (env) {
           envelopeCtx = { id: env.id, name: env.name, code: env.code };
         }
+      } else if (log.resourceType === 'budget_reallocation' && log.newValue) {
+        const nv = log.newValue as Record<string, unknown>;
+        const tgtId = typeof nv.targetLineId === 'string' ? nv.targetLineId : null;
+        if (tgtId) {
+          const line = lineById.get(tgtId);
+          if (line) {
+            lineCtx = { id: line.id, name: line.name, code: line.code };
+            const env = envelopeById.get(line.envelopeId);
+            if (env) {
+              envelopeCtx = { id: env.id, name: env.name, code: env.code };
+            }
+          }
+        }
+      }
+
+      const nvForSummary = log.newValue as Record<string, unknown> | null;
+      let reallocationCtx: {
+        sourceLineName: string;
+        targetLineName: string;
+        amount: number;
+        currency: string;
+        reason: string | null;
+      } | undefined;
+      if (log.resourceType === 'budget_reallocation' && nvForSummary) {
+        const srcId = nvForSummary.sourceLineId as string | undefined;
+        const tgtId = nvForSummary.targetLineId as string | undefined;
+        const src = srcId ? lineById.get(srcId) : undefined;
+        const tgt = tgtId ? lineById.get(tgtId) : undefined;
+        const amountRaw = nvForSummary.amount;
+        const amount =
+          typeof amountRaw === 'number'
+            ? amountRaw
+            : typeof amountRaw === 'string'
+              ? Number(amountRaw)
+              : NaN;
+        reallocationCtx = {
+          sourceLineName: src?.name ?? 'Ligne source',
+          targetLineName: tgt?.name ?? 'Ligne cible',
+          amount: Number.isFinite(amount) ? amount : 0,
+          currency: typeof nvForSummary.currency === 'string' ? nvForSummary.currency : 'EUR',
+          reason: typeof nvForSummary.reason === 'string' ? nvForSummary.reason : null,
+        };
       }
 
       const summary = buildDecisionHistorySummary(
@@ -268,8 +352,18 @@ export class BudgetDecisionHistoryService {
           budgetName,
           envelopeName: envelopeCtx?.name ?? null,
           lineName: lineCtx?.name ?? null,
+          ...(reallocationCtx ? { reallocation: reallocationCtx } : {}),
         },
       );
+
+      const nv = log.newValue as Record<string, unknown> | null;
+      const statusChangeComment =
+        (log.action === 'budget.status.changed' ||
+          log.action === 'budget_line.status.changed') &&
+        typeof nv?.comment === 'string' &&
+        nv.comment.trim()
+          ? nv.comment.trim()
+          : null;
 
       const details =
         log.oldValue !== null || log.newValue !== null
@@ -284,6 +378,7 @@ export class BudgetDecisionHistoryService {
         createdAt: log.createdAt.toISOString(),
         action: log.action,
         summary,
+        statusChangeComment,
         actor,
         resourceType: log.resourceType,
         resourceId: log.resourceId,
@@ -302,6 +397,45 @@ export class BudgetDecisionHistoryService {
       limit,
       offset,
     };
+  }
+
+  /** IDs d’audit `budget_reallocation` pertinents pour le périmètre (ligne, enveloppe ou budget entier). */
+  private async reallocationAuditResourceIds(
+    clientId: string,
+    budgetId: string,
+    query: ListBudgetDecisionHistoryQueryDto,
+  ): Promise<string[]> {
+    const base = { budgetId, clientId };
+    if (query.budgetLineId) {
+      const rows = await this.prisma.budgetReallocation.findMany({
+        where: {
+          ...base,
+          OR: [{ sourceLineId: query.budgetLineId }, { targetLineId: query.budgetLineId }],
+        },
+        select: { id: true },
+      });
+      return rows.map((r) => r.id);
+    }
+    if (query.envelopeId) {
+      const linesInEnv = await this.prisma.budgetLine.findMany({
+        where: { budgetId, clientId, envelopeId: query.envelopeId },
+        select: { id: true },
+      });
+      const inEnv = new Set(linesInEnv.map((l) => l.id));
+      if (inEnv.size === 0) return [];
+      const all = await this.prisma.budgetReallocation.findMany({
+        where: base,
+        select: { id: true, sourceLineId: true, targetLineId: true },
+      });
+      return all
+        .filter((r) => inEnv.has(r.sourceLineId) && inEnv.has(r.targetLineId))
+        .map((r) => r.id);
+    }
+    const rows = await this.prisma.budgetReallocation.findMany({
+      where: base,
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
   }
 
   private resolveActionFilter(requested?: string[]): Set<string> {

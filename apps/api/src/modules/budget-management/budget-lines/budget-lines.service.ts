@@ -20,6 +20,11 @@ import { UpdateBudgetLineDto } from './dto/update-budget-line.dto';
 import { TaxCalculator } from '../../financial-core/helpers/tax-calculator';
 import { assertBudgetLineStatusTransition } from '../policies/budget-line-status-transitions';
 import { resolveDeferredExerciseIdForLine } from '../helpers/deferred-exercise.helper';
+import {
+  entityKeysFromDto,
+  newValueWithStatusComment,
+  normalizeStatusChangeComment,
+} from '../helpers/status-change-comment.helper';
 
 export interface CostCenterSplitResponse {
   id: string;
@@ -640,9 +645,8 @@ export class BudgetLinesService {
     });
 
     // RFC-032 §4.1.5 — audits sémantiques + `budget_line.updated` sans duplication des deltas.
-    const keysInDto = Object.keys(dto).filter(
-      (k) => (dto as Record<string, unknown>)[k] !== undefined,
-    );
+    const keysInDto = entityKeysFromDto(dto as Record<string, unknown>);
+    const statusComment = normalizeStatusChangeComment(dto.statusChangeComment);
     const statusChanged =
       dto.status !== undefined && existing.status !== updated.status;
     const onlyStatusInDto =
@@ -681,7 +685,7 @@ export class BudgetLinesService {
         resourceType: 'budget_line',
         resourceId: updated.id,
         oldValue: { from: existing.status },
-        newValue: { to: updated.status },
+        newValue: newValueWithStatusComment(updated.status, statusComment),
         ...meta,
       });
       return toResponse(updated);
@@ -713,7 +717,7 @@ export class BudgetLinesService {
         resourceType: 'budget_line',
         resourceId: updated.id,
         oldValue: { from: existing.status },
-        newValue: { to: updated.status },
+        newValue: newValueWithStatusComment(updated.status, statusComment),
         ...meta,
       });
     }
@@ -846,6 +850,9 @@ export class BudgetLinesService {
           status: dto.status,
           ...(dto.status === BudgetLineStatus.DEFERRED
             ? { deferredToExerciseId: dto.deferredToExerciseId! }
+            : {}),
+          ...(dto.statusChangeComment !== undefined
+            ? { statusChangeComment: dto.statusChangeComment }
             : {}),
         }, context);
         updatedIds.push(id);

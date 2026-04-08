@@ -27,10 +27,12 @@ export function BudgetLineWorkflowBlock({
   const [deferredToExerciseId, setDeferredToExerciseId] = useState(
     line.deferredToExerciseId ?? '',
   );
+  const [statusChangeComment, setStatusChangeComment] = useState('');
 
   useEffect(() => {
     setStatus(line.status);
     setDeferredToExerciseId(line.deferredToExerciseId ?? '');
+    setStatusChangeComment('');
   }, [line.id, line.status, line.deferredToExerciseId]);
 
   const exercisesQuery = useBudgetExercisesQuery({
@@ -43,17 +45,20 @@ export function BudgetLineWorkflowBlock({
   const update = useInlineUpdateBudgetLine(line.id, line.budgetId, { silentSuccess: true });
 
   const apply = () => {
+    const comment = statusChangeComment.trim() || undefined;
     if (status === 'DEFERRED') {
       if (!deferredToExerciseId.trim()) return;
       update.mutate({
         status,
         deferredToExerciseId: deferredToExerciseId.trim(),
+        ...(comment ? { statusChangeComment: comment } : {}),
       });
       return;
     }
     update.mutate({
       status,
       deferredToExerciseId: null,
+      ...(comment ? { statusChangeComment: comment } : {}),
     });
   };
 
@@ -112,6 +117,25 @@ export function BudgetLineWorkflowBlock({
           )}
         </div>
       )}
+      <div className="space-y-1.5">
+        <Label htmlFor={`line-status-comment-${line.id}`}>
+          Commentaire (optionnel, historique)
+        </Label>
+        <textarea
+          id={`line-status-comment-${line.id}`}
+          rows={2}
+          value={statusChangeComment}
+          onChange={(e) => setStatusChangeComment(e.target.value)}
+          maxLength={2000}
+          disabled={!dirty}
+          placeholder={
+            dirty
+              ? 'Sera joint au changement de statut dans l’onglet Historique du budget.'
+              : 'Modifiez le statut ci-dessus pour ajouter un commentaire.'
+          }
+          className="flex min-h-[56px] w-full max-w-md rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+        />
+      </div>
       <Button
         type="button"
         size="sm"

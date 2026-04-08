@@ -47,11 +47,13 @@ export function BudgetBulkLineStatusDialog({
 
   const [status, setStatus] = useState('ACTIVE');
   const [deferredToExerciseId, setDeferredToExerciseId] = useState('');
+  const [statusChangeComment, setStatusChangeComment] = useState('');
 
   useEffect(() => {
     if (open) {
       setStatus('ACTIVE');
       setDeferredToExerciseId('');
+      setStatusChangeComment('');
     }
   }, [open]);
 
@@ -64,7 +66,12 @@ export function BudgetBulkLineStatusDialog({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const body: { ids: string[]; status: string; deferredToExerciseId?: string | null } = {
+      const body: {
+        ids: string[];
+        status: string;
+        deferredToExerciseId?: string | null;
+        statusChangeComment?: string;
+      } = {
         ids: lineIds,
         status,
       };
@@ -73,6 +80,8 @@ export function BudgetBulkLineStatusDialog({
       } else {
         body.deferredToExerciseId = null;
       }
+      const c = statusChangeComment.trim();
+      if (c) body.statusChangeComment = c;
       return bulkUpdateBudgetLineStatus(authFetch, body);
     },
     onSuccess: async (result) => {
@@ -98,6 +107,9 @@ export function BudgetBulkLineStatusDialog({
           }),
           queryClient.invalidateQueries({
             queryKey: budgetQueryKeys.dashboardAll(clientId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ['budgets', clientId, 'decision-history', budgetId],
           }),
         ]);
       }
@@ -157,6 +169,18 @@ export function BudgetBulkLineStatusDialog({
               </Select>
             </div>
           )}
+          <div className="space-y-1.5">
+            <Label htmlFor="bulk-line-status-comment">Commentaire (optionnel, historique)</Label>
+            <textarea
+              id="bulk-line-status-comment"
+              rows={2}
+              value={statusChangeComment}
+              onChange={(e) => setStatusChangeComment(e.target.value)}
+              maxLength={2000}
+              placeholder="Même texte pour chaque ligne réussie — visible dans l’onglet Historique du budget."
+              className="flex min-h-[56px] w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

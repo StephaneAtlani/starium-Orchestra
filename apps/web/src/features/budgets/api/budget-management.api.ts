@@ -276,6 +276,8 @@ export interface UpdateBudgetPayload {
   ownerUserId?: string;
   taxMode?: 'HT' | 'TTC';
   defaultTaxRate?: string;
+  /** Commentaire saisi avec le changement de statut — audit `budget.status.changed`. */
+  statusChangeComment?: string;
 }
 
 export async function createBudget(
@@ -382,6 +384,8 @@ export interface UpdateLinePayload {
   expenseType?: string;
   status?: string;
   deferredToExerciseId?: string | null;
+  /** Commentaire saisi avec le changement de statut — audit `budget_line.status.changed`. */
+  statusChangeComment?: string;
 }
 
 export interface BulkStatusApplyResult {
@@ -392,7 +396,12 @@ export interface BulkStatusApplyResult {
 
 export async function bulkUpdateBudgetLineStatus(
   authFetch: AuthFetch,
-  payload: { ids: string[]; status: string; deferredToExerciseId?: string | null },
+  payload: {
+    ids: string[];
+    status: string;
+    deferredToExerciseId?: string | null;
+    statusChangeComment?: string;
+  },
 ): Promise<BulkStatusApplyResult> {
   const res = await authFetch(`${BASE_LINES}/bulk-status`, {
     method: 'PATCH',

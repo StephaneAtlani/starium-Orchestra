@@ -18,6 +18,9 @@ describe('BudgetDecisionHistoryService', () => {
       findMany: jest.fn(),
       findFirst: jest.fn(),
     },
+    budgetReallocation: {
+      findMany: jest.fn(),
+    },
     auditLog: {
       count: jest.fn(),
       findMany: jest.fn(),
@@ -31,6 +34,7 @@ describe('BudgetDecisionHistoryService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prismaMock.budgetReallocation.findMany.mockResolvedValue([]);
     service = new BudgetDecisionHistoryService(prismaMock as any);
   });
 
@@ -55,11 +59,11 @@ describe('BudgetDecisionHistoryService', () => {
         id: 'log1',
         clientId,
         userId: null,
-        action: 'budget.updated',
+        action: 'budget.status.changed',
         resourceType: 'budget',
         resourceId: budgetId,
-        oldValue: {},
-        newValue: {},
+        oldValue: { from: 'DRAFT' },
+        newValue: { to: 'SUBMITTED' },
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     ]);
@@ -68,8 +72,9 @@ describe('BudgetDecisionHistoryService', () => {
 
     expect(result.total).toBe(1);
     expect(result.items).toHaveLength(1);
-    expect(result.items[0].action).toBe('budget.updated');
+    expect(result.items[0].action).toBe('budget.status.changed');
     expect(result.items[0].summary).toContain('Budget X');
+    expect(result.items[0].statusChangeComment).toBeNull();
   });
 });
 
@@ -83,6 +88,34 @@ describe('buildDecisionHistorySummary', () => {
     );
     expect(s).toContain('Brouillon');
     expect(s).toContain('Soumis');
+  });
+
+  it('budget.reallocated affiche arbitrage avec montant et lignes', () => {
+    const s = buildDecisionHistorySummary(
+      'budget.reallocated',
+      null,
+      {
+        sourceLineId: 'a',
+        targetLineId: 'b',
+        amount: 500,
+        currency: 'EUR',
+        reason: 'Priorité CODIR',
+      },
+      {
+        budgetName: 'B',
+        reallocation: {
+          sourceLineName: 'Licences',
+          targetLineName: 'Run',
+          amount: 500,
+          currency: 'EUR',
+          reason: 'Priorité CODIR',
+        },
+      },
+    );
+    expect(s).toContain('Arbitrage');
+    expect(s).toContain('Licences');
+    expect(s).toContain('Run');
+    expect(s).toContain('Priorité CODIR');
   });
 
   it('budget_line.planning.updated', () => {

@@ -72,4 +72,10 @@ export class UpdateBudgetLineDto {
   @IsOptional()
   @IsEnum(ExpenseType)
   expenseType?: ExpenseType;
+
+  /** Commentaire optionnel lors d’un changement de statut — stocké dans l’audit `budget_line.status.changed` (non persisté sur la ligne). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  statusChangeComment?: string;
 }

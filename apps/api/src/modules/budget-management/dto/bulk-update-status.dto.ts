@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  MaxLength,
 } from 'class-validator';
 import {
   BudgetEnvelopeStatus,
@@ -36,6 +37,12 @@ export class BulkUpdateBudgetStatusDto {
 
   @IsEnum(BudgetStatus)
   status!: BudgetStatus;
+
+  /** Commentaire optionnel — répété sur chaque audit `budget.status.changed` du bulk. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  statusChangeComment?: string;
 }
 
 export class BulkUpdateBudgetEnvelopeStatusDto {
@@ -68,6 +75,12 @@ export class BulkUpdateBudgetLineStatusDto {
   @IsOptional()
   @IsString()
   deferredToExerciseId?: string | null;
+
+  /** Commentaire optionnel — répété sur chaque audit `budget_line.status.changed` du bulk. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  statusChangeComment?: string;
 }
 
 /** Réponse commune aux endpoints PATCH …/bulk-status. */

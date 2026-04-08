@@ -23,6 +23,8 @@ export const createBudgetSchema = z.object({
     .string()
     .regex(/^(0|[0-9]{1,3})(\.[0-9]{1,2})?$/, 'TVA invalide')
     .optional(),
+  /** En édition : commentaire optionnel lors d’un changement de statut (historique). */
+  statusChangeComment: z.string().max(2000).optional(),
 });
 
 export type CreateBudgetInput = z.infer<typeof createBudgetSchema>;

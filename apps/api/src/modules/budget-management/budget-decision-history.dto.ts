@@ -60,6 +60,8 @@ export type DecisionHistoryItemDto = {
   createdAt: string;
   action: string;
   summary: string;
+  /** Commentaire saisi lors du changement de statut (audits `*.status.changed`). */
+  statusChangeComment: string | null;
   actor: DecisionHistoryActorDto | null;
   resourceType: string;
   resourceId: string | null;

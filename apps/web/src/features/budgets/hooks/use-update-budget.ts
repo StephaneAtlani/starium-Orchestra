@@ -26,7 +26,12 @@ export function useUpdateBudget(budgetId: string | null) {
       return updateBudget(authFetch, budgetId, payload);
     },
     onSuccess: (_data, _variables, context) => {
-      if (budgetId) queryClient.invalidateQueries({ queryKey: budgetQueryKeys.budgetDetail(clientId, budgetId) });
+      if (budgetId) {
+        queryClient.invalidateQueries({ queryKey: budgetQueryKeys.budgetDetail(clientId, budgetId) });
+        queryClient.invalidateQueries({
+          queryKey: ['budgets', clientId, 'decision-history', budgetId],
+        });
+      }
       queryClient.invalidateQueries({ queryKey: budgetQueryKeys.budgetList(clientId) });
       toast.success('Budget mis à jour.');
       router.push(budgetDetail(budgetId!));

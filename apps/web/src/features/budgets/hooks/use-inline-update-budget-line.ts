@@ -49,6 +49,11 @@ export function useInlineUpdateBudgetLineForBudgetMutation(
                 queryKey: budgetQueryKeys.timeline(clientId, variables.lineId),
               })
             : Promise.resolve(),
+          budgetId
+            ? queryClient.invalidateQueries({
+                queryKey: ['budgets', clientId, 'decision-history', budgetId],
+              })
+            : Promise.resolve(),
         ]);
       }
       if (!options?.silentSuccess) {
@@ -104,6 +109,9 @@ export function useInlineUpdateBudgetLine(
                 queryKey: budgetQueryKeys.timeline(clientId, lineId),
               })
             : Promise.resolve(),
+          queryClient.invalidateQueries({
+            queryKey: ['budgets', clientId, 'decision-history', budgetId],
+          }),
         ]);
       }
       if (!options?.silentSuccess) {

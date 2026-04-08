@@ -18,6 +18,11 @@ import {
 } from '../dto/bulk-update-status.dto';
 import { bulkStatusFailureMessage } from '../helpers/bulk-status-error.helper';
 import { assertBudgetStatusTransition } from '../policies/budget-status-transitions';
+import {
+  entityKeysFromDto,
+  newValueWithStatusComment,
+  normalizeStatusChangeComment,
+} from '../helpers/status-change-comment.helper';
 import { ClientBudgetWorkflowSettingsService } from '../../clients/client-budget-workflow-settings.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { ListBudgetsQueryDto } from './dto/list-budgets.query.dto';
@@ -284,9 +289,9 @@ export class BudgetsService {
 
     // RFC-032 §4.1.5 : statut seul → `budget.status.changed` uniquement ; statut + autres champs →
     // `budget.status.changed` puis `budget.updated` sans propriété `status` ; sinon `budget.updated` complet.
-    const keysInDto = Object.keys(dto).filter(
-      (k) => (dto as Record<string, unknown>)[k] !== undefined,
-    );
+    const dtoRecord = dto as Record<string, unknown>;
+    const keysInDto = entityKeysFromDto(dtoRecord);
+    const statusComment = normalizeStatusChangeComment(dto.statusChangeComment);
     const statusChanged =
       dto.status !== undefined && dto.status !== existing.status;
     const onlyStatusInDto =
@@ -310,7 +315,7 @@ export class BudgetsService {
         resourceType: 'budget',
         resourceId: updated.id,
         oldValue: { from: existing.status },
-        newValue: { to: updated.status },
+        newValue: newValueWithStatusComment(updated.status, statusComment),
         ...meta,
       });
     } else if (statusChanged && !onlyStatusInDto) {
@@ -321,7 +326,7 @@ export class BudgetsService {
         resourceType: 'budget',
         resourceId: updated.id,
         oldValue: { from: existing.status },
-        newValue: { to: updated.status },
+        newValue: newValueWithStatusComment(updated.status, statusComment),
         ...meta,
       });
       await this.auditLogs.create({
@@ -392,7 +397,12 @@ export class BudgetsService {
 
     for (const id of uniqueIds) {
       try {
-        await this.update(clientId, id, { status: dto.status }, context);
+        await this.update(clientId, id, {
+          status: dto.status,
+          ...(dto.statusChangeComment !== undefined
+            ? { statusChangeComment: dto.statusChangeComment }
+            : {}),
+        }, context);
         updatedIds.push(id);
       } catch (e) {
         failed.push({ id, error: bulkStatusFailureMessage(e) });

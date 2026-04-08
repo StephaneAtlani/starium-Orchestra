@@ -32,18 +32,23 @@ function formatWhen(iso: string): string {
 function DecisionRow({ item }: { item: BudgetDecisionHistoryItem }) {
   return (
     <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-foreground">{item.summary}</p>
-        <time
-          className="shrink-0 text-xs text-muted-foreground"
-          dateTime={item.createdAt}
-        >
-          {formatWhen(item.createdAt)}
-        </time>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="min-w-0 flex-1 text-sm font-medium text-foreground">{item.summary}</p>
+        <p className="shrink-0 text-xs text-muted-foreground">
+          <time dateTime={item.createdAt} className="tabular-nums">
+            {formatWhen(item.createdAt)}
+          </time>
+          {item.actor ? (
+            <>
+              {' '}
+              <span aria-hidden>·</span> Par {item.actor.displayName}
+            </>
+          ) : null}
+        </p>
       </div>
-      {item.actor ? (
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          Par {item.actor.displayName}
+      {item.statusChangeComment ? (
+        <p className="mt-2 whitespace-pre-wrap rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm text-foreground">
+          {item.statusChangeComment}
         </p>
       ) : null}
     </div>
@@ -82,7 +87,7 @@ export function BudgetDecisionTimeline({ budgetId }: BudgetDecisionTimelineProps
   if (items.length === 0) {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground">
-        Aucune décision enregistrée pour ce budget (périmètre courant).
+        Aucun événement dans l’historique pour ce budget (périmètre courant).
       </div>
     );
   }
@@ -97,7 +102,7 @@ export function BudgetDecisionTimeline({ budgetId }: BudgetDecisionTimelineProps
           </>
         ) : null}
       </p>
-      <ul className="space-y-3" aria-label="Historique des décisions budgétaires">
+      <ul className="space-y-3" aria-label="Historique budgétaire">
         {items.map((item) => (
           <li key={item.id}>
             <DecisionRow item={item} />

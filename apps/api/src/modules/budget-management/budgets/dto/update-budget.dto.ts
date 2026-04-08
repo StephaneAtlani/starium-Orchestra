@@ -42,4 +42,10 @@ export class UpdateBudgetDto {
   @IsOptional()
   @IsNumberString()
   defaultTaxRate?: string;
+
+  /** Commentaire optionnel lors d’un changement de statut — stocké dans l’audit `budget.status.changed` (non persisté sur le budget). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  statusChangeComment?: string;
 }

@@ -164,6 +164,8 @@ export interface BudgetDecisionHistoryItem {
   createdAt: string;
   action: string;
   summary: string;
+  /** Présent pour les audits de changement de statut si un commentaire a été saisi. */
+  statusChangeComment: string | null;
   actor: BudgetDecisionHistoryActor | null;
   resourceType: string;
   resourceId: string | null;
