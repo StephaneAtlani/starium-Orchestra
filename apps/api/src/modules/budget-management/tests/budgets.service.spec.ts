@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { BudgetStatus } from '@prisma/client';
+import { BudgetEnvelopeStatus, BudgetStatus } from '@prisma/client';
 import { BudgetsService } from '../budgets/budgets.service';
 
 describe('BudgetsService', () => {
@@ -21,6 +21,7 @@ describe('BudgetsService', () => {
         update: jest.fn(),
         count: jest.fn(),
       },
+      budgetEnvelope: { count: jest.fn() },
       clientUser: { findFirst: jest.fn() },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
@@ -93,6 +94,20 @@ describe('BudgetsService', () => {
   });
 
   describe('update', () => {
+    const editableBudget = {
+      id: 'b1',
+      clientId,
+      exerciseId,
+      name: 'B',
+      code: 'B',
+      currency: 'EUR',
+      status: BudgetStatus.SUBMITTED,
+      isVersioned: false,
+      versionStatus: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
     it('refuse update si budget LOCKED', async () => {
       prisma.budget.findFirst.mockResolvedValue({
         id: 'b1',
@@ -110,6 +125,44 @@ describe('BudgetsService', () => {
         service.update(clientId, 'b1', { name: 'New' }),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.budget.update).not.toHaveBeenCalled();
+    });
+
+    it('refuse passage à VALIDATED tant qu’une enveloppe est en DRAFT', async () => {
+      prisma.budget.findFirst.mockResolvedValue({
+        ...editableBudget,
+        status: BudgetStatus.REVISED,
+      });
+      prisma.budgetEnvelope.count.mockResolvedValue(1);
+
+      await expect(
+        service.update(clientId, 'b1', { status: BudgetStatus.VALIDATED }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.budgetEnvelope.count).toHaveBeenCalledWith({
+        where: {
+          budgetId: 'b1',
+          clientId,
+          status: BudgetEnvelopeStatus.DRAFT,
+        },
+      });
+      expect(prisma.budget.update).not.toHaveBeenCalled();
+    });
+
+    it('autorise passage à VALIDATED si aucune enveloppe en DRAFT', async () => {
+      prisma.budget.findFirst.mockResolvedValue({
+        ...editableBudget,
+        status: BudgetStatus.REVISED,
+      });
+      prisma.budgetEnvelope.count.mockResolvedValue(0);
+      prisma.budget.update.mockResolvedValue({
+        ...editableBudget,
+        status: BudgetStatus.VALIDATED,
+        exercise: { name: 'Ex', code: 'EX' },
+        owner: null,
+      });
+
+      await service.update(clientId, 'b1', { status: BudgetStatus.VALIDATED });
+
+      expect(prisma.budget.update).toHaveBeenCalled();
     });
   });
 

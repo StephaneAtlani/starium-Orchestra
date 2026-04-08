@@ -35,6 +35,16 @@ flowchart TB
 Chemin nominal documenté : **DRAFT → SUBMITTED → REVISED → VALIDATED → LOCKED → ARCHIVED**  
 (l’ancien `ACTIVE` côté données a été migré vers **VALIDATED**.)
 
+**Nomenclature métier (alignement vocabulaire / statut UI)** :
+
+| Terme métier | Statut `BudgetStatus` | Libellé UI |
+|--------------|------------------------|------------|
+| **Budget initial** (première version soumise à l’arbitrage) | `SUBMITTED` | Soumis |
+| **Budget révisé** (itérations après retours) | `REVISED` | Révisé |
+| **Baseline** (référence de pilotage retenue) | `VALIDATED` | Validé |
+
+Le **brouillon** (`DRAFT`) reste la phase de construction avant toute soumission.
+
 ### 2.1 Graphe des transitions autorisées
 
 ```mermaid
@@ -225,6 +235,7 @@ Multi-client : toutes les requêtes sont **scopées `clientId`** du client actif
 | Mise à jour | **Interdite** si budget **LOCKED** ou **ARCHIVED** |
 | Versioning | **Interdite** si `versionStatus` ∈ **SUPERSEDED**, **ARCHIVED** |
 | Statut | Transition soumise à `assertBudgetStatusTransition` |
+| Validation (**→ `VALIDATED`**) | Aucune enveloppe du budget ne doit être en **`DRAFT`** ; sinon `400` (toutes les enveloppes doivent avoir quitté le brouillon). |
 
 ### 9.3 Enveloppe (`BudgetEnvelopesService`)
 

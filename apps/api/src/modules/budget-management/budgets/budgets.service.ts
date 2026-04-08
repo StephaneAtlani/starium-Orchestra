@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetStatus, Prisma } from '@prisma/client';
+import { BudgetEnvelopeStatus, BudgetStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -234,6 +234,24 @@ export class BudgetsService {
 
     if (dto.status != null && dto.status !== existing.status) {
       assertBudgetStatusTransition(existing.status, dto.status);
+    }
+
+    if (
+      dto.status === BudgetStatus.VALIDATED &&
+      dto.status !== existing.status
+    ) {
+      const draftEnvelopeCount = await this.prisma.budgetEnvelope.count({
+        where: {
+          budgetId: id,
+          clientId,
+          status: BudgetEnvelopeStatus.DRAFT,
+        },
+      });
+      if (draftEnvelopeCount > 0) {
+        throw new BadRequestException(
+          'Cannot validate budget: every envelope must leave DRAFT status first',
+        );
+      }
     }
 
     const updated = await this.prisma.budget.update({

@@ -1222,7 +1222,7 @@ Crée un budget. **Body** : `exerciseId`, `name`, `code?`, `description?`, `curr
 
 ### GET /api/budgets/:id — PATCH /api/budgets/:id
 
-Détail et mise à jour. PATCH refusé si status = LOCKED ou ARCHIVED. **Changement de `status`** : matrice **Transitions autorisées (budget)** (identique à `PATCH /api/budgets/bulk-status`, `400` avec `invalid_status_transition` si interdit).
+Détail et mise à jour. PATCH refusé si status = LOCKED ou ARCHIVED. **Changement de `status`** : matrice **Transitions autorisées (budget)** (identique à `PATCH /api/budgets/bulk-status`, `400` avec `invalid_status_transition` si interdit). **Passage à `VALIDATED`** : refusé tant qu’**au moins une enveloppe** du budget est encore en **`DRAFT`** (`400` avec message métier dédié).
 
 ---
 

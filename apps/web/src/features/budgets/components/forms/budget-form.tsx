@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createBudgetSchema, type CreateBudgetInput } from '../../schemas/create-budget.schema';
 import { BudgetFormActions } from './budget-form-actions';
+import { BudgetValidationWorkflowStrip } from './budget-validation-workflow-strip';
 import type { ApiFormError } from '../../api/types';
 import {
   BUDGET_WORKFLOW_STATUSES,
@@ -203,6 +204,15 @@ export function BudgetForm({
               <p className="text-sm text-destructive">{errors.defaultTaxRate.message}</p>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Workflow de validation du budget</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <BudgetValidationWorkflowStrip currentStatus={watchedStatus as BudgetWorkflowStatus | undefined} />
         </CardContent>
       </Card>
 
