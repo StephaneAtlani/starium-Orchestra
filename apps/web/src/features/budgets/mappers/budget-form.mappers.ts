@@ -83,6 +83,7 @@ export function budgetApiToForm(budget: Budget): CreateBudgetInput {
     description: budget.description ?? '',
     currency: budget.currency,
     status: budget.status as CreateBudgetInput['status'],
+    ownerUserId: budget.ownerUserId ?? '',
     taxMode: budget.taxMode ?? 'HT',
     defaultTaxRate:
       budget.defaultTaxRate === null || budget.defaultTaxRate === undefined
@@ -99,6 +100,7 @@ export function budgetFormToCreatePayload(values: CreateBudgetInput): CreateBudg
     description: values.description || undefined,
     currency: values.currency,
     status: values.status,
+    ownerUserId: values.ownerUserId,
     taxMode: values.taxMode,
     defaultTaxRate: values.defaultTaxRate,
   };
@@ -111,6 +113,7 @@ export function budgetFormToUpdatePayload(values: CreateBudgetInput): UpdateBudg
     description: values.description || undefined,
     currency: values.currency,
     status: values.status,
+    ownerUserId: values.ownerUserId,
     taxMode: values.taxMode,
     defaultTaxRate: values.defaultTaxRate,
   };

@@ -489,6 +489,16 @@ export default function BudgetDetailPage() {
                   </span>
                 ) : null}
                 <span className="text-muted-foreground">{budget.currency}</span>
+                {budget.ownerUserName ? (
+                  <>
+                    <span className="text-muted-foreground" aria-hidden>
+                      ·
+                    </span>
+                    <span className="text-muted-foreground" title="Responsable du budget">
+                      Resp. {budget.ownerUserName}
+                    </span>
+                  </>
+                ) : null}
                 <span className="text-muted-foreground" aria-hidden>
                   ·
                 </span>

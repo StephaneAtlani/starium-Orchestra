@@ -2,7 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createBudgetSchema, type CreateBudgetInput } from '../../schemas/create-budget.schema';
 import { BudgetFormActions } from './budget-form-actions';
 import { BudgetValidationWorkflowStrip } from './budget-validation-workflow-strip';
+import { useClientMembers } from '@/features/client-rbac/hooks/use-client-members';
+import type { ClientMember } from '@/features/client-rbac/api/user-roles';
 import type { ApiFormError } from '../../api/types';
 import {
   BUDGET_WORKFLOW_STATUSES,
@@ -24,6 +26,12 @@ const STATUS_OPTIONS_CREATE = BUDGET_WORKFLOW_STATUSES.map((value) => ({
   label: BUDGET_WORKFLOW_STATUS_LABELS[value],
 }));
 
+function clientMemberDisplayLabel(m: ClientMember): string {
+  const name = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
+  if (name) return `${name} (${m.email})`;
+  return m.email;
+}
+
 interface BudgetFormProps {
   defaultValues: Partial<CreateBudgetInput>;
   onSubmit: (values: CreateBudgetInput) => void;
@@ -34,6 +42,8 @@ interface BudgetFormProps {
   exerciseOptions: { id: string; name: string; code: string | null }[];
   /** En édition : restreindre le select aux transitions autorisées par l’API (évite 400 invalid_status_transition). */
   editStatusFrom?: BudgetWorkflowStatus;
+  /** Responsable actuel absent de la liste membres (ex. compte suspendu) — garde une option affichable. */
+  ownerUserFallback?: { id: string; label: string } | null;
 }
 
 export function BudgetForm({
@@ -45,7 +55,20 @@ export function BudgetForm({
   submitError,
   exerciseOptions,
   editStatusFrom,
+  ownerUserFallback,
 }: BudgetFormProps) {
+  const { data: members = [], isLoading: membersLoading } = useClientMembers();
+
+  const activeMembers = useMemo(
+    () =>
+      [...members]
+        .filter((m) => m.status === 'ACTIVE')
+        .sort((a, b) =>
+          clientMemberDisplayLabel(a).localeCompare(clientMemberDisplayLabel(b), 'fr'),
+        ),
+    [members],
+  );
+
   const {
     register,
     handleSubmit,
@@ -58,6 +81,7 @@ export function BudgetForm({
       currency: 'EUR',
       status: 'DRAFT',
       taxMode: 'HT',
+      ownerUserId: '',
       ...defaultValues,
     },
   });
@@ -134,6 +158,40 @@ export function BudgetForm({
             <Label htmlFor="description">Description</Label>
             <Input id="description" {...register('description')} placeholder="Description optionnelle" aria-invalid={!!errors.description} />
             {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ownerUserId">Responsable du budget *</Label>
+            <select
+              id="ownerUserId"
+              className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              {...register('ownerUserId')}
+              aria-invalid={!!errors.ownerUserId}
+              disabled={membersLoading}
+            >
+              <option value="">Sélectionner un membre…</option>
+              {ownerUserFallback &&
+              !activeMembers.some((m) => m.id === ownerUserFallback.id) ? (
+                <option value={ownerUserFallback.id}>{ownerUserFallback.label}</option>
+              ) : null}
+              {activeMembers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {clientMemberDisplayLabel(m)}
+                </option>
+              ))}
+            </select>
+            {membersLoading ? (
+              <p className="text-xs text-muted-foreground">Chargement des membres du client…</p>
+            ) : activeMembers.length === 0 ? (
+              <p className="text-xs text-destructive">
+                Aucun membre actif sur ce client — ajoutez un membre pour désigner un responsable.
+              </p>
+            ) : null}
+            {errors.ownerUserId && (
+              <p className="text-sm text-destructive">{errors.ownerUserId.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Le responsable doit être un utilisateur rattaché au client actif (liste des membres).
+            </p>
           </div>
         </CardContent>
       </Card>

@@ -51,7 +51,7 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
 
   const defaultValues: Partial<CreateBudgetInput> = isEdit && budget
     ? budgetApiToForm(budget)
-    : { currency: 'EUR', status: 'DRAFT' };
+    : { currency: 'EUR', status: 'DRAFT', ownerUserId: '' };
 
   const handleSubmit = (values: CreateBudgetInput) => {
     if (isEdit) {
@@ -77,6 +77,11 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
         submitError={submitError}
         exerciseOptions={exerciseOptions}
         editStatusFrom={isEdit && budget ? (budget.status as BudgetWorkflowStatus) : undefined}
+        ownerUserFallback={
+          isEdit && budget?.ownerUserId && budget.ownerUserName
+            ? { id: budget.ownerUserId, label: budget.ownerUserName }
+            : null
+        }
       />
     </>
   );

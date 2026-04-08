@@ -16,7 +16,8 @@ export const createBudgetSchema = z.object({
       'ARCHIVED',
     ])
     .optional(),
-  ownerUserId: z.string().optional(),
+  /** Utilisateur membre du client actif (API valide le rattachement). */
+  ownerUserId: z.string().min(1, 'Sélectionnez un membre comme responsable du budget'),
   taxMode: z.enum(['HT', 'TTC']).optional(),
   defaultTaxRate: z
     .string()
