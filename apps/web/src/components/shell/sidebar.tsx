@@ -131,16 +131,10 @@ export function Sidebar() {
                     { label: 'Dashboard', href: '/budgets/dashboard' },
                     { label: 'Budget', href: '/budgets' },
                     { label: 'Configuration', href: '/budgets/configuration' },
-                    ...(permsSuccess && has('procurement.read')
-                      ? ([{ label: 'Fournisseurs', href: '/suppliers' }] as const)
-                      : []),
                   ];
 
                   const isBudgetChildActive = (href: string) => {
                     if (!pathname) return false;
-                    if (href === '/suppliers') {
-                      return pathname.startsWith('/suppliers');
-                    }
                     if (href === '/budgets/dashboard') {
                       return pathname === '/budgets/dashboard' || pathname.startsWith('/budgets/dashboard/');
                     }
