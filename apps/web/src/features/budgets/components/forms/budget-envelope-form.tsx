@@ -9,6 +9,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createEnvelopeSchema, type CreateEnvelopeInput } from '../../schemas/create-envelope.schema';
 import { BudgetFormActions } from './budget-form-actions';
+import { BudgetValidationWorkflowStrip } from './budget-validation-workflow-strip';
+import { useBudgetDetail } from '../../hooks/use-budgets';
+import type { BudgetWorkflowStatus } from '../../constants/budget-workflow-status';
 import type { ApiFormError } from '../../api/types';
 
 const TYPE_OPTIONS = [
@@ -37,6 +40,10 @@ export function BudgetEnvelopeForm({
   submitError,
   budgetId,
 }: BudgetEnvelopeFormProps) {
+  const { data: budgetContext, isLoading: budgetContextLoading } = useBudgetDetail(
+    budgetId ?? null,
+  );
+
   const {
     register,
     handleSubmit,
@@ -140,6 +147,23 @@ export function BudgetEnvelopeForm({
           </div>
         </CardContent>
       </Card>
+
+      {!!budgetId && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Workflow de validation du budget</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {budgetContextLoading ? (
+              <p className="text-sm text-muted-foreground">Chargement du contexte…</p>
+            ) : (
+              <BudgetValidationWorkflowStrip
+                currentStatus={budgetContext?.status as BudgetWorkflowStatus | undefined}
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <BudgetFormActions cancelHref={cancelHref} submitLabel={submitLabel} isSubmitting={isSubmitting} />
     </form>
