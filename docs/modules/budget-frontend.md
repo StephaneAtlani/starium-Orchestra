@@ -37,7 +37,7 @@ features/budgets/
 │   ├── budget-snapshots.api.ts   # listBudgetSnapshots (RFC-FE-BUD-030)
 │   ├── budget-reallocations.api.ts
 │   ├── budget-imports.api.ts
-│   └── budget-versioning.api.ts  # getVersionHistory (RFC-FE-BUD-030)
+│   └── budget-versioning.api.ts  # versioning + cycles (RFC-033, RFC-FE-BUD-030)
 ├── hooks/
 │   ├── use-budget-exercises.ts
 │   ├── use-budget-exercises-query.ts   # Liste paginée + filtres URL (RFC-FE-003)
@@ -78,11 +78,18 @@ features/budgets/
 │   │   ├── budget-envelope-form.tsx
 │   │   ├── budget-line-form.tsx
 │   │   └── budget-form-actions.tsx
+│   ├── budget-versions/               # RFC-033 — page `/budgets/[id]/versions`
+│   │   ├── budget-versions-page-content.tsx
+│   │   ├── create-revision-dialog.tsx
+│   │   └── budget-versioning-labels.ts
 │   └── pages/                         # Pages conteneurs formulaires (RFC-FE-015)
 │       ├── budget-exercise-form-page.tsx
 │       ├── budget-form-page.tsx
 │       ├── budget-envelope-form-page.tsx
 │       └── budget-line-form-page.tsx
+├── workflow-settings/                 # RFC-033 — `/budgets/workflow-settings`
+│   ├── budget-workflow-settings-page.tsx
+│   └── budget-cycle-version-block.tsx
 ├── schemas/
 │   ├── budget-exercise-form.schema.ts  # Zod exercice (RFC-FE-015)
 │   ├── budget-line-form.schema.ts      # Zod ligne (RFC-FE-015)
@@ -101,6 +108,7 @@ features/budgets/
 │   ├── budget-forecast.types.ts
 │   ├── budget-snapshots-list.types.ts
 │   ├── budget-version-history.types.ts
+│   ├── budget-versioning-ui.types.ts   # RFC-033 — réponses create baseline/revision, cycle
 │   └── placeholders (reallocations, imports — autres stubs éventuels)
 ├── lib/
 │   ├── budget-query-keys.ts   # + budgetExercisesList, budgetsList, budgetEnvelopes(..., { full }), budgetLinesByBudget (RFC-FE-003, RFC-FE-004)
@@ -139,7 +147,7 @@ Exemples :
 - `budgetQueryKeys.budgetForecast(clientId, budgetId)` — RFC-FE-BUD-030
 - `budgetQueryKeys.envelopeForecast(clientId, envelopeId)` / `envelopeForecastLines(clientId, envelopeId, { limit, offset })`
 - `budgetQueryKeys.budgetComparison(clientId, budgetId, compareTo, targetId?)`
-- `budgetQueryKeys.budgetSnapshotsList(clientId, budgetId, params?)` / `budgetVersionHistory(clientId, budgetId)`
+- `budgetQueryKeys.budgetSnapshotsList(clientId, budgetId, params?)` / `budgetVersionHistory(clientId, budgetId)` / `budgetVersionSetDetail(clientId, versionSetId)` / `budgetVersionSetsList(clientId, filters?)` (RFC-033)
 - Clés pour sous-domaines : `snapshots`, `versions`, `reallocations`, `imports` (autres écrans)
 
 Les hooks utilisent `useActiveClient()` pour obtenir `clientId` et passent `enabled: !!clientId` à `useQuery`.
@@ -158,8 +166,14 @@ Tous les modules API reçoivent une fonction **authFetch** (retour de `useAuthen
 | budget-dashboard | Vue cockpit | GET `/api/budget-dashboard` |
 | budget-forecast / budget-comparison | Forecast & comparaison budgétaire | GET `/api/budget-forecast/*`, `/api/budget-comparisons/*` ([RFC-FE-BUD-030](../RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md)) |
 | budget-snapshots | Liste snapshots (sélecteur comparaison) | GET `/api/budget-snapshots?budgetId=` — RFC-FE-BUD-030 |
-| budget-versioning | Historique de versions | GET `/api/budgets/:id/version-history` — RFC-FE-BUD-030 |
+| budget-versioning | Versions, baseline, révisions, cycles T1/T2/clôture | GET `/api/budgets/:id/version-history`, POST `create-baseline`, `create-revision`, `activate-version`, `archive-version`, POST `versioning/cycle-revision`, `versioning/close-cycle` (RFC-033, RFC-FE-BUD-030) |
 | budget-reallocations, -imports | Stubs / partiels | RFC dédiées |
+
+### Versions budgétaires ([RFC-033](../RFC/RFC-033%20%E2%80%94%20Mise%20en%20place%20des%20versions%20budg%C3%A9taires%20(produit).md))
+
+- **Route** `/budgets/[budgetId]/versions` : liste des versions du même ensemble, création de baseline (budget non versionné), révision libre (source = budget actif), activation / archivage (RBAC `budgets.create` / `budgets.update`).
+- **Route** `/budgets/workflow-settings` : bloc « Versions de cycle » (T1, T2, clôture) — permission **`budgets.versioning_cycle.manage`** ; appelle les endpoints cycle côté API.
+- **Badge** sur la fiche budget : `V{n}` lorsque `isVersioned` (champs version exposés par le détail budget).
 
 ---
 
@@ -251,7 +265,7 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budgets/[budgetId]/lines` | Liste lignes (détail) |
 | `/budgets/[budgetId]/reporting` | **Forecast & comparaison** (RFC-FE-BUD-030) : KPI budget, sélecteur baseline/snapshot/version, table comparaison |
 | `/budgets/[budgetId]/snapshots` | Squelette |
-| `/budgets/[budgetId]/versions` | Squelette |
+| `/budgets/[budgetId]/versions` | **Versions budgétaires** (RFC-033) : liste + baseline / révision / activer / archiver ; permission cycle sur `/budgets/workflow-settings` |
 | `/budgets/[budgetId]/reallocations` | Squelette |
 | `/budgets/imports` | Squelette |
 | `/budgets/configuration` | Page de configuration budget : cartes vers **Exercices** (`/budgets/exercises`) et **Imports** (`/budgets/imports`) |

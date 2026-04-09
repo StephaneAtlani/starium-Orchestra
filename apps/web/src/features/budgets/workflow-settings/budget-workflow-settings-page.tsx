@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { BudgetCycleVersionBlock } from '@/features/budgets/workflow-settings/budget-cycle-version-block';
 
 type BudgetWorkflowSettingsResponse = {
   stored: { requireEnvelopesNonDraftForBudgetValidated?: boolean } | null;
@@ -69,8 +70,9 @@ export function BudgetWorkflowSettingsPage() {
       <PageContainer>
         <PageHeader
           title="Workflow budget"
-          description="Règle appliquée lors du passage du budget à « Validé » (baseline)."
+          description="Règles de validation et versions de cycle (T1, T2, clôture)."
         />
+        <div className="max-w-3xl space-y-8">
         <div className="max-w-xl space-y-6 rounded-lg border bg-card p-6">
           {isLoading && (
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -103,6 +105,8 @@ export function BudgetWorkflowSettingsPage() {
               />
             </div>
           )}
+        </div>
+        <BudgetCycleVersionBlock />
         </div>
       </PageContainer>
     </RequireActiveClient>

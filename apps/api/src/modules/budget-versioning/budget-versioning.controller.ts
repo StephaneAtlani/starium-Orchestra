@@ -18,11 +18,43 @@ import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { BudgetVersioningService } from './budget-versioning.service';
 import { CreateRevisionDto } from './dto/create-revision.dto';
 import { CompareVersionsQueryDto } from './dto/compare-versions.query.dto';
+import { CreateCycleRevisionDto } from './dto/create-cycle-revision.dto';
+import { CloseBudgetCycleDto } from './dto/close-budget-cycle.dto';
 
 @Controller('budgets')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class BudgetVersioningController {
   constructor(private readonly service: BudgetVersioningService) {}
+
+  @Post(':id/versioning/cycle-revision')
+  @RequirePermissions('budgets.versioning_cycle.manage')
+  createCycleRevision(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() body: CreateCycleRevisionDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string } | undefined,
+  ) {
+    return this.service.createCycleRevision(clientId!, id, body.phase, {
+      actorUserId,
+      meta,
+    });
+  }
+
+  @Post(':id/versioning/close-cycle')
+  @RequirePermissions('budgets.versioning_cycle.manage')
+  closeBudgetCycle(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() body: CloseBudgetCycleDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string } | undefined,
+  ) {
+    return this.service.closeBudgetCycle(clientId!, id, body, {
+      actorUserId,
+      meta,
+    });
+  }
 
   @Post(':id/create-baseline')
   @RequirePermissions('budgets.create')

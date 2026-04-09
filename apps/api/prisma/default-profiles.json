@@ -24,7 +24,8 @@
       "budgets.general-ledger-accounts.update",
       "budgets.analytical-ledger-accounts.read",
       "budgets.analytical-ledger-accounts.create",
-      "budgets.analytical-ledger-accounts.update"
+      "budgets.analytical-ledger-accounts.update",
+      "budgets.versioning_cycle.manage"
     ]
   },
   {

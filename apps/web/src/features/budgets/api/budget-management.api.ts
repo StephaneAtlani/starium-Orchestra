@@ -78,7 +78,7 @@ export async function parseApiFormError(res: Response): Promise<ApiFormError> {
   }
 
   if (Array.isArray(body.message)) {
-    message = body.message[0] ?? message;
+    message = body.message.map((m) => (typeof m === 'string' ? m : JSON.stringify(m))).join(' ') || message;
     if (body.errors?.length) {
       fieldErrors = {};
       for (const e of body.errors) {
@@ -87,6 +87,8 @@ export async function parseApiFormError(res: Response): Promise<ApiFormError> {
     }
   } else if (typeof body.message === 'string') {
     message = body.message;
+  } else if (body.message != null && typeof body.message === 'object') {
+    message = JSON.stringify(body.message);
   }
   if (res.status === 403) message = 'Vous n\'avez pas les droits nécessaires.';
   if (res.status === 404) message = 'L\'objet demandé est introuvable.';

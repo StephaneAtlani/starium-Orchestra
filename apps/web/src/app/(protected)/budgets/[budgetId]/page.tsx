@@ -38,6 +38,7 @@ import { NewBudgetLineDialog } from '@/features/budgets/components/new-budget-li
 import { CreateBudgetSnapshotDialog } from '@/features/budgets/components/create-budget-snapshot-dialog';
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -75,6 +76,15 @@ import { useBudgetForecast } from '@/features/budgets/forecast/hooks/use-budget-
 import { ForecastKpiCards } from '@/features/budgets/forecast/components/forecast-kpi-cards';
 import { BudgetDecisionTimeline } from '@/features/budgets/components/budget-decision-timeline';
 import { BudgetReportingForecastPage } from '@/features/budgets/forecast/budget-reporting-forecast-page';
+import {
+  budgetStructureBlockedReason,
+  canMutateBudgetStructure,
+} from '@/features/budgets/lib/budget-structure-mutations';
+import {
+  formatVersionStatus,
+  formatVersionTitle,
+  versionStatusBadgeVariant,
+} from '@/features/budgets/components/budget-versions/budget-versioning-labels';
 
 export default function BudgetDetailPage() {
   const p = useParams();
@@ -359,6 +369,15 @@ export default function BudgetDetailPage() {
     setExpandedIds(new Set());
   }, []);
 
+  const canMutateStructure = useMemo(
+    () => (budget ? canMutateBudgetStructure(budget) : true),
+    [budget?.status, budget?.isVersioned, budget?.versionStatus],
+  );
+  const structureBlockedTitle = useMemo(() => {
+    if (!budget || canMutateStructure) return '';
+    return budgetStructureBlockedReason(budget);
+  }, [budget, canMutateStructure]);
+
   if (isLoading) {
     return (
       <RequireActiveClient>
@@ -510,6 +529,41 @@ export default function BudgetDetailPage() {
                   ·
                 </span>
                 <BudgetStatusBadge status={budget.status} className="shrink-0" />
+                {budget.isVersioned ? (
+                  <>
+                    <span className="text-muted-foreground" aria-hidden>
+                      ·
+                    </span>
+                    <Badge
+                      variant={versionStatusBadgeVariant(budget.versionStatus)}
+                      className="inline-flex h-auto min-h-5 max-w-[22rem] shrink-0 flex-wrap items-center gap-x-1 gap-y-0.5 overflow-visible whitespace-normal py-0.5 text-left font-normal leading-snug"
+                      title={[
+                        formatVersionTitle({
+                          versionLabel: budget.versionLabel ?? null,
+                          versionNumber: budget.versionNumber ?? null,
+                        }),
+                        budget.versionStatus
+                          ? formatVersionStatus(budget.versionStatus)
+                          : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' — ')}
+                    >
+                      {formatVersionTitle({
+                        versionLabel: budget.versionLabel ?? null,
+                        versionNumber: budget.versionNumber ?? null,
+                      })}
+                      {budget.versionStatus ? (
+                        <>
+                          <span className="opacity-80" aria-hidden>
+                            ·
+                          </span>
+                          {formatVersionStatus(budget.versionStatus)}
+                        </>
+                      ) : null}
+                    </Badge>
+                  </>
+                ) : null}
               </div>
             </div>
             <PermissionGate permission="budgets.update">
@@ -526,16 +580,8 @@ export default function BudgetDetailPage() {
             </PermissionGate>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
-            <PermissionGate permission="budgets.read">
-              <Link
-                href={budgetImport(budget.id)}
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
-              >
-                Importer
-              </Link>
-            </PermissionGate>
-            <PermissionGate permission="budgets.create">
+          {!permLoading && has('budgets.create') ? (
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
               <Button
                 type="button"
                 size="sm"
@@ -549,19 +595,87 @@ export default function BudgetDetailPage() {
                 type="button"
                 size="sm"
                 className="shrink-0"
+                disabled={!canMutateStructure}
+                title={!canMutateStructure ? structureBlockedTitle : undefined}
                 onClick={() => setNewLineDialogOpen(true)}
               >
                 Nouvelle ligne
               </Button>
-              <Link
-                href={budgetEnvelopeNew(budget.id)}
-                className={cn(buttonVariants({ size: 'sm' }), 'shrink-0')}
-              >
-                Nouvelle enveloppe
-              </Link>
-            </PermissionGate>
-          </div>
+              {canMutateStructure ? (
+                <Link
+                  href={budgetEnvelopeNew(budget.id)}
+                  className={cn(buttonVariants({ size: 'sm' }), 'shrink-0')}
+                >
+                  Nouvelle enveloppe
+                </Link>
+              ) : (
+                <span
+                  className={cn(
+                    buttonVariants({ size: 'sm' }),
+                    'shrink-0 cursor-not-allowed opacity-50',
+                  )}
+                  title={structureBlockedTitle}
+                >
+                  Nouvelle enveloppe
+                </span>
+              )}
+            </div>
+          ) : null}
         </header>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-base">Accès rapides</CardTitle>
+            <CardDescription>Sous-domaines du budget.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-2">
+            <PermissionGate permission="budgets.read">
+              <>
+                <Link
+                  href={budgetImport(budget.id)}
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Importer
+                </Link>
+                <span className="text-muted-foreground">·</span>
+              </>
+            </PermissionGate>
+            <Link
+              href={budgetLines(budgetId!)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Lignes
+            </Link>
+            <span className="text-muted-foreground">·</span>
+            <Link
+              href={budgetReporting(budgetId!)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Reporting
+            </Link>
+            <span className="text-muted-foreground">·</span>
+            <Link
+              href={budgetSnapshots(budgetId!)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Snapshots
+            </Link>
+            <span className="text-muted-foreground">·</span>
+            <Link
+              href={budgetVersions(budgetId!)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Versions
+            </Link>
+            <span className="text-muted-foreground">·</span>
+            <Link
+              href={budgetReallocations(budgetId!)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Réallocations
+            </Link>
+          </CardContent>
+        </Card>
 
         {/* KPI compacts : uniquement si pas encore de structure (pas de doublon avec l’onglet Dashboard + tableau). */}
         {kpiItems.length > 0 && isEmptyGlobal && (
@@ -698,49 +812,6 @@ export default function BudgetDetailPage() {
             </CardContent>
           </Card>
         )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Accès rapides</CardTitle>
-            <CardDescription>Sous-domaines du budget.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Link
-              href={budgetLines(budgetId!)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Lignes
-            </Link>
-            <span className="text-muted-foreground">·</span>
-            <Link
-              href={budgetReporting(budgetId!)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Reporting
-            </Link>
-            <span className="text-muted-foreground">·</span>
-            <Link
-              href={budgetSnapshots(budgetId!)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Snapshots
-            </Link>
-            <span className="text-muted-foreground">·</span>
-            <Link
-              href={budgetVersions(budgetId!)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Versions
-            </Link>
-            <span className="text-muted-foreground">·</span>
-            <Link
-              href={budgetReallocations(budgetId!)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Réallocations
-            </Link>
-          </CardContent>
-        </Card>
 
         <BudgetPlanningQuickCalculatorDialog
           open={!!planningCalculatorLineId}

@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  BudgetStatus,
   BudgetVersionKind,
   BudgetVersionStatus,
   Prisma,
@@ -24,6 +25,7 @@ import {
   BudgetVersionSummary,
   CompareLineDelta,
 } from './types/budget-versioning.types';
+import { BudgetSnapshotsService } from '../budget-snapshots/budget-snapshots.service';
 import {
   compareBudgetLinesByCode,
   type BudgetLineComparableInput,
@@ -39,6 +41,7 @@ export class BudgetVersioningService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly budgetSnapshotsService: BudgetSnapshotsService,
   ) {}
 
   async listVersionSets(
@@ -628,6 +631,156 @@ export class BudgetVersioningService {
       sourceBudgetId,
       targetBudgetId,
       lines,
+    };
+  }
+
+  private cycleTag(phase: 'T1' | 'T2' | 'YEAR_END'): string {
+    return `[CYCLE:${phase}]`;
+  }
+
+  private async assertCycleDuplicateFree(
+    versionSetId: string,
+    phase: 'T1' | 'T2' | 'YEAR_END',
+  ): Promise<void> {
+    const prefix = this.cycleTag(phase);
+    const existing = await this.prisma.budget.findFirst({
+      where: {
+        versionSetId,
+        versionLabel: { startsWith: prefix },
+      },
+    });
+    if (existing) {
+      throw new BadRequestException(
+        `Une révision de cycle pour ${phase} existe déjà dans cette lignée.`,
+      );
+    }
+  }
+
+  private async resolveActiveVersionBudgetForCycle(
+    clientId: string,
+    budgetId: string,
+  ): Promise<{
+    budget: Prisma.BudgetGetPayload<{
+      include: { versionSet: true; exercise: true };
+    }>;
+  }> {
+    const budget = await this.prisma.budget.findFirst({
+      where: { id: budgetId, clientId },
+      include: { versionSet: true, exercise: true },
+    });
+    if (!budget) {
+      throw new NotFoundException('Budget not found');
+    }
+    if (!budget.versionSetId || !budget.versionSet) {
+      throw new BadRequestException('Budget is not versioned');
+    }
+    if (budget.versionStatus === BudgetVersionStatus.ARCHIVED) {
+      throw new BadRequestException(
+        'Cannot run cycle action on an archived version',
+      );
+    }
+    if (budget.versionSet.activeBudgetId !== budget.id) {
+      throw new BadRequestException(
+        'Cycle actions must be run from the active budget of the version set',
+      );
+    }
+    return { budget };
+  }
+
+  /**
+   * RFC-033 — révision T1/T2 avec libellé normalisé et anti-doublon.
+   */
+  async createCycleRevision(
+    clientId: string,
+    budgetId: string,
+    phase: 'T1' | 'T2',
+    context?: BudgetVersioningAuditContext,
+  ): Promise<CreateRevisionResponse> {
+    const { budget } = await this.resolveActiveVersionBudgetForCycle(
+      clientId,
+      budgetId,
+    );
+    await this.assertCycleDuplicateFree(budget.versionSetId!, phase);
+    const exLabel =
+      budget.exercise?.name?.trim() ||
+      budget.exercise?.code?.trim() ||
+      'exercice';
+    const tag = this.cycleTag(phase);
+    const label = `${tag} Révision cycle ${phase} — ${exLabel}`;
+    const description = `Révision de cycle ${phase} (gouvernance)`;
+    return this.createRevision(
+      clientId,
+      budget.id,
+      { label, description },
+      context,
+    );
+  }
+
+  /**
+   * RFC-033 — clôture : snapshot optionnel, révision YEAR_END, statut LOCKED, activation.
+   */
+  async closeBudgetCycle(
+    clientId: string,
+    budgetId: string,
+    dto: { createSnapshot?: boolean; snapshotName?: string },
+    context?: BudgetVersioningAuditContext,
+  ): Promise<{
+    versionSetId: string;
+    budgetId: string;
+    snapshotId?: string;
+    versionNumber: number;
+    versionLabel: string;
+  }> {
+    const { budget } = await this.resolveActiveVersionBudgetForCycle(
+      clientId,
+      budgetId,
+    );
+    await this.assertCycleDuplicateFree(budget.versionSetId!, 'YEAR_END');
+
+    let snapshotId: string | undefined;
+    if (dto.createSnapshot) {
+      const snap = await this.budgetSnapshotsService.create(
+        clientId,
+        {
+          budgetId: budget.id,
+          name:
+            dto.snapshotName?.trim() ||
+            `Avant clôture — ${budget.name}`.slice(0, 150),
+        },
+        { actorUserId: context?.actorUserId, meta: context?.meta },
+      );
+      snapshotId = snap.id;
+    }
+
+    const exLabel =
+      budget.exercise?.name?.trim() ||
+      budget.exercise?.code?.trim() ||
+      'exercice';
+    const tag = this.cycleTag('YEAR_END');
+    const label = `${tag} Clôture — ${exLabel}`;
+    const rev = await this.createRevision(
+      clientId,
+      budget.id,
+      {
+        label,
+        description: 'Clôture budgétaire de fin d’exercice',
+      },
+      context,
+    );
+
+    await this.prisma.budget.update({
+      where: { id: rev.budgetId },
+      data: { status: BudgetStatus.LOCKED },
+    });
+
+    await this.activateVersion(clientId, rev.budgetId, context);
+
+    return {
+      versionSetId: rev.versionSetId,
+      budgetId: rev.budgetId,
+      snapshotId,
+      versionNumber: rev.versionNumber,
+      versionLabel: rev.versionLabel,
     };
   }
 

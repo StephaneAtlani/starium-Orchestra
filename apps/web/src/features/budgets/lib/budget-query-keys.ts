@@ -174,6 +174,14 @@ export const budgetQueryKeys = {
   budgetVersionHistory: (clientId: string, budgetId: string) =>
     ['budgets', clientId, 'budget-version-history', budgetId] as const,
 
+  /** Détail d’un ensemble de versions (GET /budget-version-sets/:id) */
+  budgetVersionSetDetail: (clientId: string, versionSetId: string) =>
+    ['budgets', clientId, 'budget-version-set', versionSetId] as const,
+
+  /** Liste des version sets (filtre exerciseId optionnel) */
+  budgetVersionSetsList: (clientId: string, filters?: { exerciseId?: string }) =>
+    ['budgets', clientId, 'budget-version-sets', filters] as const,
+
   /** RFC-032 — historique décisionnel (timeline audit) */
   budgetDecisionHistory: (
     clientId: string,

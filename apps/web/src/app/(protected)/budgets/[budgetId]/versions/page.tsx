@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { BudgetPageHeader } from '@/features/budgets/components/budget-page-header';
-import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
+import { BudgetVersionsPageContent } from '@/features/budgets/components/budget-versions/budget-versions-page-content';
 
 export default function BudgetVersionsPage() {
   const params = useParams();
@@ -16,12 +16,9 @@ export default function BudgetVersionsPage() {
       <PageContainer>
         <BudgetPageHeader
           title="Versions"
-          description={`Budget ${budgetId} — versioning (squelette).`}
+          description="Lignée de versions, baseline et révisions — comparaison alignée sur le même ensemble."
         />
-        <BudgetEmptyState
-          title="Contenu à venir"
-          description="Le versioning budget sera implémenté dans une RFC dédiée."
-        />
+        {budgetId ? <BudgetVersionsPageContent budgetId={budgetId} /> : null}
       </PageContainer>
     </RequireActiveClient>
   );
