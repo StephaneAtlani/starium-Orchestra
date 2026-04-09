@@ -74,6 +74,7 @@ import type { BudgetPilotageDensity, BudgetPilotageMode } from '@/features/budge
 import { useBudgetForecast } from '@/features/budgets/forecast/hooks/use-budget-forecast';
 import { ForecastKpiCards } from '@/features/budgets/forecast/components/forecast-kpi-cards';
 import { BudgetDecisionTimeline } from '@/features/budgets/components/budget-decision-timeline';
+import { BudgetReportingForecastPage } from '@/features/budgets/forecast/budget-reporting-forecast-page';
 
 export default function BudgetDetailPage() {
   const p = useParams();
@@ -213,6 +214,8 @@ export default function BudgetDetailPage() {
     pilotageMode !== 'synthese' &&
     pilotageMode !== 'dashboard' &&
     pilotageMode !== 'decisions' &&
+    pilotageMode !== 'forecast' &&
+    pilotageMode !== 'comparaison' &&
     monthColumnLabels.length === 12 &&
     planningFetchedLineIds.length > 0;
 
@@ -470,6 +473,7 @@ export default function BudgetDetailPage() {
     pilotageMode === 'dashboard' ||
     pilotageMode === 'synthese' ||
     pilotageMode === 'forecast' ||
+    pilotageMode === 'comparaison' ||
     pilotageMode === 'decisions' ||
     (monthColumnLabels.length === 12 && !exerciseLoading);
 
@@ -584,14 +588,6 @@ export default function BudgetDetailPage() {
                       onDensityChange={setPilotageDensity}
                     />
                   )}
-                  {pilotageMode === 'forecast' ? (
-                    <Link
-                      href={budgetReporting(budgetId!)}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Reporting et comparaison
-                    </Link>
-                  ) : null}
                 </div>
                 {pilotageMode === 'previsionnel' && pilotageDensity === 'condense' && (
                   <Alert>
@@ -601,7 +597,7 @@ export default function BudgetDetailPage() {
                     </AlertDescription>
                   </Alert>
                 )}
-                {pilotageMode !== 'decisions' ? (
+                {pilotageMode !== 'decisions' && pilotageMode !== 'comparaison' ? (
                   <BudgetExplorerToolbar
                     filters={filters}
                     setFilters={setFilters}
@@ -625,13 +621,13 @@ export default function BudgetDetailPage() {
                     error={forecastQuery.error as Error | null}
                   />
                   <p className="text-sm text-muted-foreground">
-                    <Link
-                      href={budgetReporting(budgetId!)}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      Comparaison détaillée (baseline, snapshot, versions)
-                    </Link>
+                    Comparaison détaillée (baseline, snapshots, versions) : onglet{' '}
+                    <strong>Comparaison</strong> ci-dessus.
                   </p>
+                </div>
+              ) : pilotageMode === 'comparaison' ? (
+                <div className="p-4 sm:p-6">
+                  <BudgetReportingForecastPage budgetId={budgetId!} variant="embedded" />
                 </div>
               ) : pilotageMode === 'decisions' ? (
                 <BudgetDecisionTimeline budgetId={budgetId!} />

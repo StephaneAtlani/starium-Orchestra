@@ -16,6 +16,7 @@ const ITEMS: { id: BudgetPilotageMode; label: string }[] = [
   { id: 'previsionnel', label: 'Prévisionnel' },
   { id: 'atterrissage', label: 'Atterrissage' },
   { id: 'forecast', label: 'Synthèse prévision' },
+  { id: 'comparaison', label: 'Comparaison' },
   { id: 'decisions', label: 'Historique' },
 ];
 
@@ -24,7 +25,7 @@ export function BudgetViewTabs({ mode, onModeChange, className }: BudgetViewTabs
     <div
       role="tablist"
       className={cn('flex flex-wrap gap-1', className)}
-      aria-label="Mode d’affichage du budget : synthèse, prévisionnel, atterrissage, synthèse prévision ou historique"
+      aria-label="Mode d’affichage du budget : synthèse, prévisionnel, atterrissage, synthèse prévision, comparaison ou historique"
     >
       {ITEMS.map((item) => {
         const selected = mode === item.id;
