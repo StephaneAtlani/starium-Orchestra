@@ -38,6 +38,11 @@ Permettre de :
 * Snapshot ≠ version
 * Snapshot ≠ modifiable
 
+## Relation avec RFC-033 (vocabulaire produit)
+
+* [RFC-033 — Mise en place des versions budgétaires (produit)](./RFC-033%20%E2%80%94%20Mise%20en%20place%20des%20versions%20budg%C3%A9taires%20(produit).md) officialise le terme métier **« version figée »** : il désigne techniquement un **`BudgetSnapshot`** (copie immuable à une occasion donnée).
+* La phrase « Snapshot ≠ version » ci-dessus vise à **éviter la confusion avec les révisions** du [RFC-019](./RFC-019%20%E2%80%94%20Budget%20Versioning.md) (lignée de `Budget` éditables). En **interface utilisateur**, utiliser **« version figée »** ou **« photographie »** pour le snapshot, et **« révision »** / **« version de travail »** pour RFC-019 lorsque les deux concepts coexistent.
+
 ---
 
 ## Modèle Prisma
