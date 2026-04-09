@@ -40,16 +40,6 @@ export interface Budget {
   /** Présent quand l’API joint l’exercice (liste / détail budgets). */
   exerciseName?: string;
   exerciseCode?: string | null;
-  /** RFC-019 / RFC-033 — versioning (champs Prisma exposés par le détail budget). */
-  isVersioned?: boolean;
-  versionSetId?: string | null;
-  versionNumber?: number | null;
-  versionLabel?: string | null;
-  versionKind?: string | null;
-  versionStatus?: string | null;
-  parentBudgetId?: string | null;
-  activatedAt?: string | null;
-  archivedAt?: string | null;
 }
 
 export interface BudgetEnvelope {

@@ -63,7 +63,7 @@ apps/web/src/features/budgets/
     budget-forecast.api.ts          # getBudgetForecast, getEnvelopeForecast, listEnvelopeForecastLines + réexport compare*
     budget-comparison.api.ts        # compareBudget, compareSnapshots, compareVersions
     budget-snapshots.api.ts         # listBudgetSnapshots (sélecteur snapshot)
-    budget-versioning.api.ts        # getVersionHistory + mutations versioning + cycles (RFC-033) — sélecteur version / page Versions
+    budget-versioning.api.ts        # getVersionHistory (sélecteur version)
   types/
     budget-forecast.types.ts
     budget-snapshots-list.types.ts

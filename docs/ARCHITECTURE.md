@@ -197,8 +197,6 @@ C’est le noyau de `budget-management`.
 
 L’**historique décisionnel** par budget (journal `AuditLog` enrichi, filtres enveloppe / ligne, permission `budgets.read` uniquement) est exposé par **`GET /api/budgets/:budgetId/decision-history`** — voir [RFC-032 — Historisation décisions budgétaires](./RFC/RFC-032%20%E2%80%94%20Historisation%20d%C3%A9cisions%20budg%C3%A9taires.md).
 
-Les **versions budgétaires** (lignée baseline / révisions, activation, archivage) et le parcours **cycles** T1 / T2 / clôture (`POST /api/budgets/:id/versioning/…`, permission `budgets.versioning_cycle.manage`) sont décrits dans [RFC-033 — Mise en place des versions budgétaires (produit)](./RFC/RFC-033%20%E2%80%94%20Mise%20en%20place%20des%20versions%20budg%C3%A9taires%20(produit).md) ; isolation **client actif** inchangée (`X-Client-Id`).
-
 Le **prévisionnel mensuel** par ligne (`BudgetLinePlanningMonth` indexé 1–12, champs `planningMode` / `planningTotalAmount` / `forecastAmount` sur `BudgetLine`) et le calcul d’**atterrissage** (consommé + engagé + prévision restante) sont décrits dans [RFC-023 — Budget Prévisionnel (Planning & Atterrissage)](./RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md). La logique d’alignement des mois sur `BudgetExercise.startDate` est partagée via le package **`@starium-orchestra/budget-exercise-calendar`** (`packages/budget-exercise-calendar/`).
 
 ---
@@ -385,12 +383,6 @@ Aucune suppression physique
 
 /budgets/[budgetId]
    → explorer budgets / enveloppes / lignes
-
-/budgets/[budgetId]/versions
-   → lignée des versions (baseline, révisions, activer / archiver) — RBAC `budgets.read` / `budgets.create` / `budgets.update` selon l’action
-
-/budgets/workflow-settings
-   → garde « enveloppes non brouillon » avant `VALIDATED` + bloc **Versions de cycle** (T1 / T2 / clôture) si `budgets.versioning_cycle.manage` — [RFC-033](./RFC/RFC-033%20%E2%80%94%20Mise%20en%20place%20des%20versions%20budg%C3%A9taires%20(produit).md)
 
 /budget-envelopes/[id]
    → détail enveloppe

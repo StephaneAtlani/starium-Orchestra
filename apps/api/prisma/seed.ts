@@ -1124,33 +1124,6 @@ async function ensurePlatformAdminUser(passwordHash: string): Promise<void> {
   console.log(`✅ Platform admin: ${email} (mot de passe = ${PASSWORD}, comme les comptes *.demo)`);
 }
 
-/** RFC-033 — permission cycle T1/T2/clôture (module budgets requis). */
-async function ensureBudgetVersioningCyclePermission(): Promise<void> {
-  const mod = await prisma.module.findFirst({ where: { code: "budgets" } });
-  if (!mod) {
-    console.warn(
-      "⚠️ Module budgets introuvable — permission budgets.versioning_cycle.manage ignorée.",
-    );
-    return;
-  }
-  await prisma.permission.upsert({
-    where: { code: "budgets.versioning_cycle.manage" },
-    create: {
-      code: "budgets.versioning_cycle.manage",
-      label: "Budget — gérer les versions de cycle (T1/T2/clôture)",
-      description:
-        "Créer des révisions de cycle et clôturer depuis les options budget (RFC-033).",
-      moduleId: mod.id,
-    },
-    update: {
-      label: "Budget — gérer les versions de cycle (T1/T2/clôture)",
-      description:
-        "Créer des révisions de cycle et clôturer depuis les options budget (RFC-033).",
-    },
-  });
-  console.log("✅ Permission budgets.versioning_cycle.manage");
-}
-
 async function ensureRisksModuleAndPermissions(): Promise<void> {
   const mod = await prisma.module.upsert({
     where: { code: "risks" },
@@ -3044,7 +3017,6 @@ async function main() {
   await ensureActivityTypesModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
   await ensureResourcesModuleAndPermissions();
-  await ensureBudgetVersioningCyclePermission();
   await ensureDefaultGlobalProfiles();
   await ensureClientAdminRiskTaxonomyRole();
   await ensurePlatformAdminUser(passwordHash);

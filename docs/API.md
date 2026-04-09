@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-033 (versions budgétaires produit — UI + cycles `…/versioning/*`), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
 
 ---
 
@@ -544,7 +544,6 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/budget-import-mappings | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-version-sets | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budgets/:id/create-baseline, create-revision, activate-version, archive-version, version-history, compare | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update` selon l’action) |
-| /api/budgets/:id/versioning/cycle-revision, /api/budgets/:id/versioning/close-cycle | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (**`budgets.versioning_cycle.manage`**) — RFC-033 |
 
 ---
 
@@ -1895,15 +1894,15 @@ Mappings sauvegardés (configuration colonnes → champs logiques, stratégie de
 
 ---
 
-## 20. Budget Versioning (RFC-019, RFC-033 cycles) — `/api/budget-version-sets`, `/api/budgets/:id/*`
+## 20. Budget Versioning (RFC-019) — `/api/budget-version-sets`, `/api/budgets/:id/*`
 
-Référence : **RFC-019** (Budget Versioning), **RFC-033** (parcours produit et **cycles** T1 / T2 / clôture). Gestion des versions de budgets : ensembles de versions (BudgetVersionSet), baseline, révisions, version active, comparaison entre versions. Duplication transactionnelle de la structure Budget / BudgetEnvelope / BudgetLine (sans clonage des allocations ni événements financiers).
+Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets : ensembles de versions (BudgetVersionSet), baseline, révisions, version active, comparaison entre versions. Duplication transactionnelle de la structure Budget / BudgetEnvelope / BudgetLine (sans clonage des allocations ni événements financiers).
 
 ### Guards et headers
 
 - **Headers** : `Authorization: Bearer <accessToken>`, `X-Client-Id`
 - **Guards** : JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard
-- **Permissions** : `budgets.read` (GET), `budgets.create` (create-baseline, create-revision), `budgets.update` (activate-version, archive-version), **`budgets.versioning_cycle.manage`** (`POST …/versioning/cycle-revision`, `POST …/versioning/close-cycle` — RFC-033)
+- **Permissions** : `budgets.read` (GET), `budgets.create` (create-baseline, create-revision), `budgets.update` (activate-version, archive-version)
 
 ### Budget Version Sets — `/api/budget-version-sets`
 
@@ -1918,8 +1917,6 @@ Référence : **RFC-019** (Budget Versioning), **RFC-033** (parcours produit et 
 - **POST /api/budgets/:id/archive-version** — Archive une version non active. Interdit d’archiver la baseline si elle est la seule version du set. Permission `budgets.update`.
 - **GET /api/budgets/:id/version-history** — Historique des versions du set (liste triée par `versionNumber`). Permission `budgets.read`.
 - **GET /api/budgets/:id/compare?targetBudgetId=...** — Comparaison entre deux versions du même set. Query requise : `targetBudgetId`. Réponse : `sourceBudgetId`, `targetBudgetId`, `lines` (diff par code de ligne : source, target, delta des montants). Permission `budgets.read`.
-- **POST /api/budgets/:id/versioning/cycle-revision** — Révision de cycle **T1** ou **T2** (`CreateCycleRevisionDto` : `phase`). Libellé / anti-doublon côté service. Permission **`budgets.versioning_cycle.manage`** (RFC-033).
-- **POST /api/budgets/:id/versioning/close-cycle** — Clôture : snapshot optionnel (`createSnapshot`, `snapshotName`), puis révision **YEAR_END**, passage du budget révisé en **LOCKED**, activation. Permission **`budgets.versioning_cycle.manage`** (RFC-033).
 
 **Erreurs :** 400 (budget déjà versionné, pas le même set pour compare, archivage baseline unique, etc.), 401, 403, 404.
 

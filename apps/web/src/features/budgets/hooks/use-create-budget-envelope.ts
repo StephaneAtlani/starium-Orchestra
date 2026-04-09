@@ -33,15 +33,8 @@ export function useCreateBudgetEnvelope(budgetId: string | null) {
       toast.success('Enveloppe créée.');
       if (bid) router.push(budgetDetail(bid));
     },
-    onError: (err: unknown) => {
-      const msg =
-        err &&
-        typeof err === 'object' &&
-        'message' in err &&
-        typeof (err as ApiFormError).message === 'string'
-          ? (err as ApiFormError).message
-          : "Impossible de créer l'enveloppe.";
-      toast.error(msg);
+    onError: (err: ApiFormError) => {
+      throw err;
     },
   });
 }

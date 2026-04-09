@@ -6,7 +6,6 @@ describe('BudgetVersioningService', () => {
   let service: BudgetVersioningService;
   let prisma: any;
   let auditLogs: any;
-  let budgetSnapshotsService: { create: jest.Mock };
 
   const clientId = 'client-1';
   const budgetId = 'budget-1';
@@ -85,14 +84,7 @@ describe('BudgetVersioningService', () => {
       $transaction: jest.fn(),
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
-    budgetSnapshotsService = {
-      create: jest.fn().mockResolvedValue({ id: 'snap-1' }),
-    };
-    service = new BudgetVersioningService(
-      prisma,
-      auditLogs,
-      budgetSnapshotsService as any,
-    );
+    service = new BudgetVersioningService(prisma, auditLogs);
   });
 
   describe('createBaseline', () => {
@@ -141,22 +133,6 @@ describe('BudgetVersioningService', () => {
       expect(auditLogs.create).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'budget_version.baseline_created' }),
       );
-    });
-  });
-
-  describe('createCycleRevision', () => {
-    it('throws when budget is not the active version of the set', async () => {
-      prisma.budget.findFirst.mockResolvedValue({
-        id: budgetId,
-        clientId,
-        versionSetId: 'vs-1',
-        versionStatus: BudgetVersionStatus.DRAFT,
-        versionSet: { activeBudgetId: 'other-budget', baselineBudgetId: null },
-        exercise: { name: 'Ex 2026', code: '2026' },
-      });
-      await expect(
-        service.createCycleRevision(clientId, budgetId, 'T1'),
-      ).rejects.toThrow(BadRequestException);
     });
   });
 

@@ -78,11 +78,7 @@ export function BudgetEnvelopeForm({
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
       {submitError && (
         <Alert variant="destructive">
-          <AlertDescription>
-            {typeof submitError.message === 'string'
-              ? submitError.message
-              : JSON.stringify(submitError.message)}
-          </AlertDescription>
+          <AlertDescription>{submitError.message}</AlertDescription>
         </Alert>
       )}
 
