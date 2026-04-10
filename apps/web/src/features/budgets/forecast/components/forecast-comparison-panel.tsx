@@ -12,9 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBudgetComparison } from '@/features/budgets/forecast/hooks/use-budget-comparison';
 import { useBudgetSnapshotsForSelect } from '@/features/budgets/forecast/hooks/use-budget-snapshots-for-select';
-import { useBudgetVersionHistory } from '@/features/budgets/forecast/hooks/use-budget-version-history';
 import { useSnapshotPairComparison } from '@/features/budgets/forecast/hooks/use-snapshot-pair-comparison';
-import { useVersionPairComparison } from '@/features/budgets/forecast/hooks/use-version-pair-comparison';
 import {
   MAX_MULTI_SNAPSHOTS,
   MIN_MULTI_SNAPSHOTS,
@@ -25,17 +23,12 @@ import { MultiLiveVsSnapshotsTable } from '@/features/budgets/forecast/component
 import {
   BudgetComparisonSelector,
   snapshotDisplayLabel,
-  versionDisplayLabel,
 } from '@/features/budgets/forecast/components/budget-comparison-selector';
 import type { BudgetComparisonMode } from '@/features/budgets/types/budget-forecast.types';
 import { cn } from '@/lib/utils';
 
-/** Onglets : référence unique, paires, ou N snapshots vs budget actuel. */
-export type ForecastComparisonTab =
-  | 'reference'
-  | 'snapshotPair'
-  | 'versionPair'
-  | 'multiSnapshot';
+/** Onglets : référence unique, paire de versions figées, ou N versions figées vs budget actuel. */
+export type ForecastComparisonTab = 'reference' | 'snapshotPair' | 'multiSnapshot';
 
 export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
   const [tab, setTab] = useState<ForecastComparisonTab>('reference');
@@ -45,9 +38,6 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
 
   const [snapLeft, setSnapLeft] = useState<string | undefined>();
   const [snapRight, setSnapRight] = useState<string | undefined>();
-
-  const [verLeft, setVerLeft] = useState<string | undefined>();
-  const [verRight, setVerRight] = useState<string | undefined>();
 
   const [multiIds, setMultiIds] = useState<string[]>([]);
 
@@ -62,30 +52,20 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
       tab === 'snapshotPair' ||
       tab === 'multiSnapshot',
   });
-  const versionsQuery = useBudgetVersionHistory(budgetId, {
-    enabled: tab === 'reference' || tab === 'versionPair',
-  });
-
   const comparisonRef = useBudgetComparison(budgetId, compareTo, targetId, {
     enabled: tab === 'reference',
   });
   const snapPairQuery = useSnapshotPairComparison(snapLeft, snapRight, {
     enabled: tab === 'snapshotPair',
   });
-  const verPairQuery = useVersionPairComparison(verLeft, verRight, {
-    enabled: tab === 'versionPair',
-  });
   const multiQuery = useMultiSnapshotVsLiveComparison(budgetId, multiIds, {
     enabled: tab === 'multiSnapshot',
   });
 
   const snapshots = snapshotsQuery.data?.items ?? [];
-  const versions = versionsQuery.data ?? [];
 
   const snapLeftRow = snapLeft ? snapshots.find((s) => s.id === snapLeft) : undefined;
   const snapRightRow = snapRight ? snapshots.find((s) => s.id === snapRight) : undefined;
-  const verLeftRow = verLeft ? versions.find((v) => v.id === verLeft) : undefined;
-  const verRightRow = verRight ? versions.find((v) => v.id === verRight) : undefined;
 
   const toggleMulti = useCallback((id: string, checked: boolean) => {
     setMultiIds((prev) => {
@@ -112,13 +92,10 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
             Actuel vs référence
           </TabsTrigger>
           <TabsTrigger value="snapshotPair" className="shrink-0">
-            Deux snapshots
-          </TabsTrigger>
-          <TabsTrigger value="versionPair" className="shrink-0">
-            Deux versions
+            Deux versions figées
           </TabsTrigger>
           <TabsTrigger value="multiSnapshot" className="shrink-0">
-            Plusieurs snapshots (vs actuel)
+            Plusieurs versions figées (vs actuel)
           </TabsTrigger>
         </TabsList>
 
@@ -128,32 +105,19 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
             onCompareToChange={handleCompareToChange}
             targetId={targetId}
             onTargetIdChange={setTargetId}
-            currentBudgetId={budgetId}
             snapshots={snapshots}
             snapshotsLoading={snapshotsQuery.isLoading}
-            versions={versions}
-            versionsLoading={versionsQuery.isLoading}
-            versionsError={versionsQuery.isError}
           />
 
           {compareTo === 'snapshot' && snapshotsQuery.isError && (
             <p className="text-sm text-destructive">
-              Impossible de charger la liste des snapshots.
+              Impossible de charger la liste des versions figées.
             </p>
           )}
 
-          {compareTo === 'version' && versionsQuery.isError && (
-            <p className="text-sm text-destructive">
-              {(versionsQuery.error as Error)?.message ??
-                'Historique de versions indisponible (budget non versionné ?).'}
-            </p>
-          )}
-
-          {(compareTo === 'snapshot' || compareTo === 'version') && !targetId ? (
+          {compareTo === 'snapshot' && !targetId ? (
             <p className="text-sm text-muted-foreground" data-testid="comparison-idle">
-              Sélectionnez{' '}
-              {compareTo === 'snapshot' ? 'un snapshot' : 'une version cible'} pour lancer la
-              comparaison.
+              Sélectionnez une version figée pour lancer la comparaison.
             </p>
           ) : (
             <ComparisonTable
@@ -166,11 +130,11 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
 
         <TabsContent value="snapshotPair" className="mt-4 space-y-6">
           <p className="text-sm text-muted-foreground">
-            Compare deux instantanés du même budget (lignes alignées par code).
+            Compare deux versions figées du même budget (lignes alignées par code).
           </p>
           <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="space-y-2 min-w-[260px] flex-1">
-              <Label htmlFor="snap-pair-left">Snapshot gauche</Label>
+              <Label htmlFor="snap-pair-left">Version figée (gauche)</Label>
               <Select
                 value={snapLeft ?? ''}
                 onValueChange={(v) => setSnapLeft(v || undefined)}
@@ -182,7 +146,7 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
                       snapshotsQuery.isLoading
                         ? 'Chargement…'
                         : snapshots.length === 0
-                          ? 'Aucun snapshot'
+                          ? 'Aucune version figée'
                           : 'Choisir…'
                     }
                   >
@@ -199,7 +163,7 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
               </Select>
             </div>
             <div className="space-y-2 min-w-[260px] flex-1">
-              <Label htmlFor="snap-pair-right">Snapshot droite</Label>
+              <Label htmlFor="snap-pair-right">Version figée (droite)</Label>
               <Select
                 value={snapRight ?? ''}
                 onValueChange={(v) => setSnapRight(v || undefined)}
@@ -211,7 +175,7 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
                       snapshotsQuery.isLoading
                         ? 'Chargement…'
                         : snapshots.length === 0
-                          ? 'Aucun snapshot'
+                          ? 'Aucune version figée'
                           : 'Choisir…'
                     }
                   >
@@ -229,11 +193,11 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
             </div>
           </div>
           {snapLeft && snapRight && snapLeft === snapRight && (
-            <p className="text-sm text-amber-600">Choisissez deux snapshots distincts.</p>
+            <p className="text-sm text-amber-600">Choisissez deux versions figées distinctes.</p>
           )}
           {!snapLeft || !snapRight || snapLeft === snapRight ? (
             <p className="text-sm text-muted-foreground">
-              Sélectionnez deux snapshots pour afficher le tableau.
+              Sélectionnez deux versions figées pour afficher le tableau.
             </p>
           ) : (
             <ComparisonTable
@@ -244,95 +208,15 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
           )}
         </TabsContent>
 
-        <TabsContent value="versionPair" className="mt-4 space-y-6">
-          <p className="text-sm text-muted-foreground">
-            Compare deux budgets du même jeu de versions (révisions alignées).
-          </p>
-          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="space-y-2 min-w-[260px] flex-1">
-              <Label htmlFor="ver-pair-left">Version gauche</Label>
-              <Select
-                value={verLeft ?? ''}
-                onValueChange={(v) => setVerLeft(v || undefined)}
-                disabled={versionsQuery.isLoading || versions.length === 0}
-              >
-                <SelectTrigger id="ver-pair-left" className="w-full max-w-md">
-                  <SelectValue
-                    placeholder={
-                      versionsQuery.isLoading
-                        ? 'Chargement…'
-                        : versions.length === 0
-                          ? 'Aucune version'
-                          : 'Choisir…'
-                    }
-                  >
-                    {verLeftRow ? versionDisplayLabel(verLeftRow) : undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {versions.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {versionDisplayLabel(v)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 min-w-[260px] flex-1">
-              <Label htmlFor="ver-pair-right">Version droite</Label>
-              <Select
-                value={verRight ?? ''}
-                onValueChange={(v) => setVerRight(v || undefined)}
-                disabled={versionsQuery.isLoading || versions.length === 0}
-              >
-                <SelectTrigger id="ver-pair-right" className="w-full max-w-md">
-                  <SelectValue
-                    placeholder={
-                      versionsQuery.isLoading
-                        ? 'Chargement…'
-                        : versions.length === 0
-                          ? 'Aucune version'
-                          : 'Choisir…'
-                    }
-                  >
-                    {verRightRow ? versionDisplayLabel(verRightRow) : undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {versions.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {versionDisplayLabel(v)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {verLeft && verRight && verLeft === verRight && (
-            <p className="text-sm text-amber-600">Choisissez deux versions distinctes.</p>
-          )}
-          {!verLeft || !verRight || verLeft === verRight ? (
-            <p className="text-sm text-muted-foreground">
-              Sélectionnez deux versions pour afficher le tableau.
-            </p>
-          ) : (
-            <ComparisonTable
-              data={verPairQuery.data}
-              isLoading={verPairQuery.isLoading}
-              error={verPairQuery.error as Error | null}
-            />
-          )}
-        </TabsContent>
-
         <TabsContent value="multiSnapshot" className="mt-4 space-y-6">
           <p className="text-sm text-muted-foreground">
-            Compare le budget actuel à plusieurs snapshots en parallèle (2 à{' '}
+            Compare le budget actuel à plusieurs versions figées en parallèle (2 à{' '}
             {MAX_MULTI_SNAPSHOTS} colonnes). L’ordre de <strong>cochage</strong> définit la 1ʳᵉ
             cible (colonne variance / statut).
           </p>
           <div className="space-y-2">
             <Label>
-              Snapshots ({multiIds.length}/{MAX_MULTI_SNAPSHOTS} — minimum{' '}
+              Versions figées ({multiIds.length}/{MAX_MULTI_SNAPSHOTS} — minimum{' '}
               {MIN_MULTI_SNAPSHOTS})
             </Label>
             <div
@@ -344,7 +228,7 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
               {snapshotsQuery.isLoading ? (
                 <p className="text-sm text-muted-foreground">Chargement…</p>
               ) : snapshots.length === 0 ? (
-                <p>Aucun snapshot pour ce budget.</p>
+                <p>Aucune version figée pour ce budget.</p>
               ) : (
                 snapshots.map((s) => {
                   const checked = multiIds.includes(s.id);
@@ -373,7 +257,7 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
           </div>
           {multiIds.length > 0 && multiIds.length < MIN_MULTI_SNAPSHOTS && (
             <p className="text-sm text-muted-foreground">
-              Cochez au moins {MIN_MULTI_SNAPSHOTS} snapshots.
+              Cochez au moins {MIN_MULTI_SNAPSHOTS} versions figées.
             </p>
           )}
           {multiIds.length >= MIN_MULTI_SNAPSHOTS ? (
@@ -394,7 +278,7 @@ export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
             )
           ) : (
             <p className="text-sm text-muted-foreground" data-testid="multi-comparison-idle">
-              Cochez au moins {MIN_MULTI_SNAPSHOTS} snapshots pour lancer les requêtes.
+              Cochez au moins {MIN_MULTI_SNAPSHOTS} versions figées pour lancer les requêtes.
             </p>
           )}
         </TabsContent>

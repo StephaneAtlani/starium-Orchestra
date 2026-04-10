@@ -13,6 +13,7 @@ import {
 } from '../audit-logs/audit-logs.service';
 import { CreateBudgetSnapshotDto } from './dto/create-budget-snapshot.dto';
 import { QueryBudgetSnapshotsDto } from './dto/query-budget-snapshots.dto';
+import { BudgetSnapshotOccasionTypesService } from '../budget-snapshot-occasion-types/budget-snapshot-occasion-types.service';
 import { randomBytes } from 'crypto';
 
 const SNAP_CODE_SUFFIX_BYTES = 3; // 6 hex chars
@@ -62,6 +63,10 @@ export interface BudgetSnapshotSummary {
   createdByUserId: string | null;
   createdByLabel: string | null;
   createdAt: string;
+  occasionTypeId: string | null;
+  occasionTypeCode: string | null;
+  occasionTypeLabel: string | null;
+  occasionTypeScope: 'global' | 'client' | null;
 }
 
 export interface BudgetSnapshotDetail extends BudgetSnapshotSummary {
@@ -171,6 +176,7 @@ export class BudgetSnapshotsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly occasionTypes: BudgetSnapshotOccasionTypesService,
   ) {}
 
   async create(
@@ -197,6 +203,14 @@ export class BudgetSnapshotsService {
     if (budget.exercise.clientId !== clientId) {
       throw new BadRequestException(
         'Budget exercise does not belong to this client',
+      );
+    }
+
+    const occasionTypeId = dto.occasionTypeId?.trim() || null;
+    if (occasionTypeId) {
+      await this.occasionTypes.assertOccasionTypeAssignable(
+        clientId,
+        occasionTypeId,
       );
     }
 
@@ -254,6 +268,7 @@ export class BudgetSnapshotsService {
               totalCommittedAmount: new Prisma.Decimal(totalCommitted),
               totalConsumedAmount: new Prisma.Decimal(totalConsumed),
               totalRemainingAmount: new Prisma.Decimal(totalRemaining),
+              occasionTypeId,
               createdByUserId: context?.actorUserId ?? null,
             },
           });
@@ -308,7 +323,18 @@ export class BudgetSnapshotsService {
         };
         await this.auditLogs.create(auditInput);
 
-        return toSummary(snapshot);
+        const full = await this.prisma.budgetSnapshot.findFirst({
+          where: { id: snapshot.id },
+          include: {
+            createdByUser: {
+              select: { firstName: true, lastName: true, email: true },
+            },
+            occasionType: {
+              select: { id: true, code: true, label: true, clientId: true },
+            },
+          },
+        });
+        return toSummary(full!);
       } catch (err: unknown) {
         lastError = err;
         const isP2002 =
@@ -345,6 +371,9 @@ export class BudgetSnapshotsService {
           createdByUser: {
             select: { firstName: true, lastName: true, email: true },
           },
+          occasionType: {
+            select: { id: true, code: true, label: true, clientId: true },
+          },
         },
       }),
       this.prisma.budgetSnapshot.count({ where }),
@@ -368,6 +397,9 @@ export class BudgetSnapshotsService {
         lines: true,
         createdByUser: {
           select: { firstName: true, lastName: true, email: true },
+        },
+        occasionType: {
+          select: { id: true, code: true, label: true, clientId: true },
         },
       },
     });
@@ -486,9 +518,16 @@ type BudgetSnapshotRowForSummary = BudgetSnapshot & {
     lastName: string | null;
     email: string;
   } | null;
+  occasionType?: {
+    id: string;
+    code: string;
+    label: string;
+    clientId: string | null;
+  } | null;
 };
 
 function toSummary(row: BudgetSnapshotRowForSummary): BudgetSnapshotSummary {
+  const ot = row.occasionType;
   return {
     id: row.id,
     budgetId: row.budgetId,
@@ -511,6 +550,14 @@ function toSummary(row: BudgetSnapshotRowForSummary): BudgetSnapshotSummary {
     createdByUserId: row.createdByUserId,
     createdByLabel: resolveCreatedByLabel(row.createdByUser),
     createdAt: row.createdAt.toISOString(),
+    occasionTypeId: row.occasionTypeId ?? null,
+    occasionTypeCode: ot?.code ?? null,
+    occasionTypeLabel: ot?.label ?? null,
+    occasionTypeScope: ot
+      ? ot.clientId
+        ? 'client'
+        : 'global'
+      : null,
   };
 }
 
@@ -519,6 +566,9 @@ function toDetail(
     include: {
       lines: true;
       createdByUser: { select: { firstName: true; lastName: true; email: true } };
+      occasionType: {
+        select: { id: true; code: true; label: true; clientId: true };
+      };
     };
   }>,
 ): BudgetSnapshotDetail {

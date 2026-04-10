@@ -77,6 +77,12 @@ export default function AdminPlatformDashboardPage() {
               Utilisateurs
             </Link>
             <Link
+              href="/admin/snapshot-occasion-types"
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+            >
+              Types versions figées
+            </Link>
+            <Link
               href="/admin/audit"
               className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
             >

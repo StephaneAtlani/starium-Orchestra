@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
 
 ---
 
@@ -1919,6 +1919,31 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 - **GET /api/budgets/:id/compare?targetBudgetId=...** — Comparaison entre deux versions du même set. Query requise : `targetBudgetId`. Réponse : `sourceBudgetId`, `targetBudgetId`, `lines` (diff par code de ligne : source, target, delta des montants). Permission `budgets.read`.
 
 **Erreurs :** 400 (budget déjà versionné, pas le même set pour compare, archivage baseline unique, etc.), 401, 403, 404.
+
+---
+
+## 20 bis. Versions figées (snapshots, RFC-033) — `/api/budget-snapshots`, `/api/budget-snapshot-occasion-types`, `/api/platform/budget-snapshot-occasion-types`
+
+**Sémantique produit** : une **version figée** est une copie **lecture seule** du budget à une date donnée (audit, CODIR, comparaison). Ne pas confondre avec les **révisions** RFC-019 (`/api/budgets/:id/create-revision`).
+
+**Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard` (sauf routes `/api/platform/...` : `PlatformAdminGuard`).
+
+### `/api/budget-snapshots`
+
+- **POST** — Body : `budgetId`, `name` ou `label`, `description?`, `snapshotDate?` (ISO 8601), `occasionTypeId?`. Copie les lignes incluses au pilotage uniquement. Permission **`budgets.create`**.
+- **GET** — Query : `budgetId?`, `limit`, `offset`. Permission **`budgets.read`**.
+- **GET /:id** — Détail + lignes figées. Permission **`budgets.read`**.
+- **GET /compare** — Query : `leftSnapshotId`, `rightSnapshotId`. Permission **`budgets.read`**.
+
+### `/api/budget-snapshot-occasion-types` (client actif)
+
+- **GET** — Liste fusionnée types globaux + types du client (`scope`, `code`, `label`). Permission **`budgets.read`**.
+- **POST | PATCH /:id** — Types **client** uniquement. Permission **`budgets.snapshot_occasion_types.manage`**.
+- **DELETE /:id** — Désactivation logique (`isActive: false`). Même permission.
+
+### `/api/platform/budget-snapshot-occasion-types`
+
+- **GET | POST | PATCH /:id | DELETE /:id** — CRUD types **globaux** (`clientId` null). **`PLATFORM_ADMIN`** uniquement.
 
 ---
 

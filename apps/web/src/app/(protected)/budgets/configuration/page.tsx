@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calendar, FileSpreadsheet, GitBranch, LayoutDashboard } from 'lucide-react';
+import { Calendar, FileSpreadsheet, GitBranch, LayoutDashboard, Tags } from 'lucide-react';
 
 export default async function BudgetsConfigurationPage() {
   return (
@@ -67,6 +67,21 @@ export default async function BudgetsConfigurationPage() {
                 <h3 className="font-semibold">Workflow budget</h3>
                 <p className="text-sm text-muted-foreground">
                   Règle avant validation finale (enveloppes / baseline)
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/budgets/snapshot-occasion-types">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <Tags className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Types d’occasion (versions figées)</h3>
+                <p className="text-sm text-muted-foreground">
+                  Catalogue pour qualifier une version figée (RFC-033)
                 </p>
               </div>
             </CardContent>

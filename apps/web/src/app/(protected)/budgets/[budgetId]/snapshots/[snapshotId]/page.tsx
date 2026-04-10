@@ -50,11 +50,11 @@ export default function BudgetSnapshotDetailPage() {
     <RequireActiveClient>
       <PageContainer>
         <BudgetPageHeader
-          title="Détail snapshot"
-          description="Vue figée d’un snapshot budgétaire."
+          title="Détail version figée"
+          description="Lecture seule — état du budget à la date de capture."
           actions={
             <Button asChild variant="outline">
-              <Link href={`/budgets/${budgetId}/snapshots`}>Retour aux snapshots</Link>
+              <Link href={`/budgets/${budgetId}/snapshots`}>Retour aux versions figées</Link>
             </Button>
           }
         />
@@ -72,13 +72,13 @@ export default function BudgetSnapshotDetailPage() {
             <AlertTitle>Chargement impossible</AlertTitle>
             <AlertDescription>
               {(snapshotQuery.error as Error)?.message ??
-                'Erreur API lors du chargement du snapshot.'}
+                'Erreur API lors du chargement de la version figée.'}
             </AlertDescription>
           </Alert>
         ) : null}
 
         {!snapshotQuery.isLoading && !snapshotQuery.isError && !snapshotQuery.data ? (
-          <p className="text-sm text-muted-foreground">Snapshot introuvable</p>
+          <p className="text-sm text-muted-foreground">Version figée introuvable</p>
         ) : null}
 
         {snapshotQuery.data ? (
@@ -87,6 +87,22 @@ export default function BudgetSnapshotDetailPage() {
               <p>
                 <span className="font-medium text-foreground">Nom :</span> {snapshotQuery.data.name}
               </p>
+              {snapshotQuery.data.occasionTypeLabel ? (
+                <p>
+                  <span className="font-medium text-foreground">Type d’occasion :</span>{' '}
+                  {snapshotQuery.data.occasionTypeLabel}
+                  {snapshotQuery.data.occasionTypeCode ? (
+                    <span className="text-muted-foreground">
+                      {' '}
+                      ({snapshotQuery.data.occasionTypeCode}
+                      {snapshotQuery.data.occasionTypeScope === 'global'
+                        ? ' — plateforme'
+                        : ''}
+                      )
+                    </span>
+                  ) : null}
+                </p>
+              ) : null}
               <p>
                 <span className="font-medium text-foreground">Date :</span>{' '}
                 {toDisplayDate(snapshotQuery.data.snapshotDate)}

@@ -1,4 +1,5 @@
-export type BudgetComparisonMode = 'baseline' | 'snapshot' | 'version';
+/** Modes pour GET /budget-comparisons/budgets/:id (référence unique). */
+export type BudgetComparisonMode = 'baseline' | 'snapshot';
 export type ForecastLineStatus = 'OK' | 'WARNING' | 'CRITICAL';
 
 export interface BudgetForecastResponse {
@@ -77,7 +78,8 @@ export interface BudgetComparisonLineItem {
 }
 
 export interface BudgetComparisonResponse {
-  compareTo?: BudgetComparisonMode;
+  /** Inclut `version` pour réponses issues d’autres endpoints (ex. paire de versions). */
+  compareTo?: BudgetComparisonMode | 'version';
   /** Colonne source statut / variance (API). Défaut UI : live vs ref. → gauche ; paires sans live → droite. */
   pilotageColumn?: 'left' | 'right';
   /** Libellés pour les colonnes de montants (réponse API). */

@@ -20,7 +20,7 @@ export function BudgetReportingForecastPage({
     <div className={variant === 'embedded' ? 'space-y-6' : 'space-y-10'}>
       <CockpitSurfaceCard
         title="Comparaison budgétaire"
-        description="Quatre modes : actuel vs baseline/snapshot/version ; deux snapshots entre eux ; deux versions ; ou 2 à 4 snapshots vs le budget actuel (colonnes côte à côte)."
+        description="Trois modes : actuel vs baseline ou version figée ; deux versions figées entre elles ; ou 2 à 4 versions figées vs le budget actuel (colonnes côte à côte)."
         icon={GitCompare}
         accent="primary"
       >
@@ -45,7 +45,7 @@ export function BudgetReportingForecastPage({
     <PageContainer>
       <BudgetPageHeader
         title="Comparaison budgétaire"
-        description="Écarts vs baseline, snapshot ou autre version — pilotage DAF."
+        description="Écarts vs baseline ou versions figées — pilotage DAF."
       />
       {inner}
     </PageContainer>

@@ -30,6 +30,10 @@ function toDisplayDate(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString('fr-FR');
 }
 
+function formatCurrency(value: number, currency: string): string {
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(value);
+}
+
 export default function BudgetSnapshotsPage() {
   const params = useParams();
   const budgetId = typeof params.budgetId === 'string' ? params.budgetId : '';
@@ -49,12 +53,12 @@ export default function BudgetSnapshotsPage() {
     <RequireActiveClient>
       <PageContainer>
         <BudgetPageHeader
-          title="Snapshots"
-          description="Snapshots figés du budget pour suivi temporel et audit."
+          title="Versions figées"
+          description="Copies lecture seule du budget à un instant donné (audit, comparaison, CODIR)."
           actions={
             <PermissionGate permission="budgets.create">
               <Button onClick={() => setCreateOpen(true)} disabled={!budgetId}>
-                Créer un snapshot
+                Enregistrer une version
               </Button>
             </PermissionGate>
           }
@@ -79,7 +83,7 @@ export default function BudgetSnapshotsPage() {
             <AlertTitle>Chargement impossible</AlertTitle>
             <AlertDescription>
               {(snapshotsQuery.error as Error)?.message ??
-                'Erreur API lors du chargement des snapshots.'}
+                'Erreur API lors du chargement des versions figées.'}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -87,7 +91,7 @@ export default function BudgetSnapshotsPage() {
         {!snapshotsQuery.isLoading &&
         !snapshotsQuery.isError &&
         (snapshotsQuery.data?.items?.length ?? 0) === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun snapshot</p>
+          <p className="text-sm text-muted-foreground">Aucune version figée pour ce budget</p>
         ) : null}
 
         {!snapshotsQuery.isLoading &&
@@ -97,7 +101,10 @@ export default function BudgetSnapshotsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
+                <TableHead>Code</TableHead>
                 <TableHead>Nom</TableHead>
+                <TableHead>Type d’occasion</TableHead>
+                <TableHead className="text-right">Total révisé</TableHead>
                 <TableHead>Créé par</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
@@ -106,7 +113,14 @@ export default function BudgetSnapshotsPage() {
               {snapshotsQuery.data!.items.map((snapshot) => (
                 <TableRow key={snapshot.id}>
                   <TableCell>{toDisplayDate(snapshot.snapshotDate || snapshot.createdAt)}</TableCell>
+                  <TableCell className="font-mono text-xs">{snapshot.code}</TableCell>
                   <TableCell>{snapshot.name}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {snapshot.occasionTypeLabel ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(snapshot.totalRevisedAmount, snapshot.budgetCurrency)}
+                  </TableCell>
                   <TableCell>{snapshot.createdByLabel ?? 'Utilisateur inconnu'}</TableCell>
                   <TableCell className="text-right">
                     <Button asChild variant="outline" size="sm">

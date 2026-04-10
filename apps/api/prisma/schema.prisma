@@ -206,6 +206,7 @@ model Client {
   purchaseOrders             PurchaseOrder[]
   invoices                   Invoice[]
   budgetSnapshots            BudgetSnapshot[]
+  budgetSnapshotOccasionTypes BudgetSnapshotOccasionType[]
   budgetReallocations        BudgetReallocation[]
   budgetImportMappings       BudgetImportMapping[]
   budgetImportJobs           BudgetImportJob[]
@@ -2271,6 +2272,24 @@ enum BudgetSnapshotStatus {
   ARCHIVED
 }
 
+/// Types d’occasion pour une version figée (RFC-033) : `clientId` null = catalogue plateforme.
+model BudgetSnapshotOccasionType {
+  id          String   @id @default(cuid())
+  clientId    String?
+  code        String
+  label       String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client    Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  snapshots BudgetSnapshot[]
+
+  @@index([clientId, isActive, sortOrder])
+}
+
 model BudgetSnapshot {
   id                   String                @id @default(cuid())
   clientId             String
@@ -2294,12 +2313,14 @@ model BudgetSnapshot {
   totalConsumedAmount  Decimal               @db.Decimal(18, 2)
   totalRemainingAmount Decimal               @db.Decimal(18, 2)
 
+  occasionTypeId       String?
   createdByUserId      String?
   createdAt            DateTime              @default(now())
 
   client               Client                @relation(fields: [clientId], references: [id], onDelete: Restrict)
   budget                Budget                @relation(fields: [budgetId], references: [id], onDelete: Restrict)
   exercise              BudgetExercise        @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  occasionType          BudgetSnapshotOccasionType? @relation(fields: [occasionTypeId], references: [id], onDelete: SetNull)
   createdByUser         User?                 @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
   lines                 BudgetSnapshotLine[]
 

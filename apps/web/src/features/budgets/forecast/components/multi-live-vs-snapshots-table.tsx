@@ -14,6 +14,7 @@ import { ForecastStatusBadge } from '@/features/budgets/forecast/components/fore
 import { cn } from '@/lib/utils';
 import { comparisonDiffClass } from '@/features/budgets/forecast/lib/comparison-diff';
 import type { MergedLiveVsManySnapshots } from '@/features/budgets/forecast/lib/merge-live-vs-snapshot-responses';
+import { BudgetComparisonMultiKpiCharts } from '@/features/budgets/forecast/components/budget-comparison-multi-kpi-charts';
 
 export interface MultiLiveVsSnapshotsTableProps {
   merged: MergedLiveVsManySnapshots;
@@ -26,6 +27,7 @@ export function MultiLiveVsSnapshotsTable({ merged }: MultiLiveVsSnapshotsTableP
   const colCount = 5 + n;
 
   return (
+    <div className="space-y-0">
     <div className="overflow-x-auto rounded-md border border-border">
       <Table>
         <TableHeader>
@@ -120,7 +122,7 @@ export function MultiLiveVsSnapshotsTable({ merged }: MultiLiveVsSnapshotsTableP
           <TableRow className="text-xs text-muted-foreground hover:bg-muted/20">
             <TableCell colSpan={colCount}>
               <p className="max-w-3xl">
-                Plusieurs snapshots : les colonnes <strong>écarts</strong> et{' '}
+                Plusieurs versions figées : les colonnes <strong>écarts</strong> et{' '}
                 <strong>Statut</strong> concernent la <strong>première cible</strong> sélectionnée
                 (ordre de la liste). Comparez les montants révisés colonne par colonne pour les
                 autres.
@@ -136,6 +138,8 @@ export function MultiLiveVsSnapshotsTable({ merged }: MultiLiveVsSnapshotsTableP
           </TableRow>
         </TableFooter>
       </Table>
+    </div>
+    <BudgetComparisonMultiKpiCharts merged={merged} />
     </div>
   );
 }

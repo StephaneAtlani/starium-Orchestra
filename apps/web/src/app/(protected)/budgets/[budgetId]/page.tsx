@@ -526,6 +526,49 @@ export default function BudgetDetailPage() {
             </PermissionGate>
           </div>
 
+          <Card className="shadow-none">
+            <CardHeader className="space-y-1 py-4">
+              <CardTitle className="text-base">Accès rapides</CardTitle>
+              <CardDescription>Sous-domaines du budget.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2 pb-4 pt-0">
+              <Link
+                href={budgetLines(budgetId!)}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Lignes
+              </Link>
+              <span className="text-muted-foreground">·</span>
+              <Link
+                href={budgetReporting(budgetId!)}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Reporting
+              </Link>
+              <span className="text-muted-foreground">·</span>
+              <Link
+                href={budgetSnapshots(budgetId!)}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Snapshots
+              </Link>
+              <span className="text-muted-foreground">·</span>
+              <Link
+                href={budgetVersions(budgetId!)}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Versions
+              </Link>
+              <span className="text-muted-foreground">·</span>
+              <Link
+                href={budgetReallocations(budgetId!)}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Réallocations
+              </Link>
+            </CardContent>
+          </Card>
+
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
             <PermissionGate permission="budgets.read">
               <Link
@@ -535,6 +578,14 @@ export default function BudgetDetailPage() {
                 Importer
               </Link>
             </PermissionGate>
+            <PermissionGate permission="budgets.read">
+              <Link
+                href={budgetSnapshots(budget.id)}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
+              >
+                Versions figées
+              </Link>
+            </PermissionGate>
             <PermissionGate permission="budgets.create">
               <Button
                 type="button"
@@ -542,8 +593,8 @@ export default function BudgetDetailPage() {
                 className="shrink-0"
                 onClick={() => setSnapshotDialogOpen(true)}
               >
-                <span className="inline sm:hidden">Snapshot</span>
-                <span className="hidden sm:inline">Créer un snapshot</span>
+                <span className="inline sm:hidden">Version</span>
+                <span className="hidden sm:inline">Enregistrer une version</span>
               </Button>
               <Button
                 type="button"
@@ -621,7 +672,7 @@ export default function BudgetDetailPage() {
                     error={forecastQuery.error as Error | null}
                   />
                   <p className="text-sm text-muted-foreground">
-                    Comparaison détaillée (baseline, snapshots, versions) : onglet{' '}
+                    Comparaison détaillée (baseline, versions figées) : onglet{' '}
                     <strong>Comparaison</strong> ci-dessus.
                   </p>
                 </div>
@@ -698,49 +749,6 @@ export default function BudgetDetailPage() {
             </CardContent>
           </Card>
         )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Accès rapides</CardTitle>
-            <CardDescription>Sous-domaines du budget.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Link
-              href={budgetLines(budgetId!)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Lignes
-            </Link>
-            <span className="text-muted-foreground">·</span>
-            <Link
-              href={budgetReporting(budgetId!)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Reporting
-            </Link>
-            <span className="text-muted-foreground">·</span>
-            <Link
-              href={budgetSnapshots(budgetId!)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Snapshots
-            </Link>
-            <span className="text-muted-foreground">·</span>
-            <Link
-              href={budgetVersions(budgetId!)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Versions
-            </Link>
-            <span className="text-muted-foreground">·</span>
-            <Link
-              href={budgetReallocations(budgetId!)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Réallocations
-            </Link>
-          </CardContent>
-        </Card>
 
         <BudgetPlanningQuickCalculatorDialog
           open={!!planningCalculatorLineId}

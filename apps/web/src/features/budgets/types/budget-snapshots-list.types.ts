@@ -26,6 +26,10 @@ export interface BudgetSnapshotSummaryDto {
   createdByUserId: string | null;
   createdByLabel: string | null;
   createdAt: string;
+  occasionTypeId?: string | null;
+  occasionTypeCode?: string | null;
+  occasionTypeLabel?: string | null;
+  occasionTypeScope?: 'global' | 'client' | null;
 }
 
 export interface ListBudgetSnapshotsResult {
@@ -68,4 +72,8 @@ export interface CreateBudgetSnapshotInput {
   label?: string;
   name?: string;
   description?: string;
+  /** ISO 8601 date (jour ou date-heure) — optionnel, défaut côté serveur = maintenant */
+  snapshotDate?: string;
+  /** Type d’occasion (référentiel RFC-033) — optionnel */
+  occasionTypeId?: string | null;
 }

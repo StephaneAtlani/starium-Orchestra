@@ -20,6 +20,7 @@ import type {
   ForecastLineStatus,
 } from '@/features/budgets/types/budget-forecast.types';
 import { ForecastStatusBadge } from './forecast-status-badge';
+import { BudgetComparisonKpiCharts } from './budget-comparison-kpi-charts';
 import { cn } from '@/lib/utils';
 import { useTablePan } from '@/hooks/use-table-pan';
 import { comparisonDiffClass } from '@/features/budgets/forecast/lib/comparison-diff';
@@ -27,7 +28,7 @@ import { comparisonDiffClass } from '@/features/budgets/forecast/lib/comparison-
 function comparisonModeDescription(data: BudgetComparisonResponse): string {
   const { compareTo } = data;
   if (data.leftSnapshotId && data.rightSnapshotId && compareTo == null) {
-    return 'Comparaison de deux snapshots : montants révisés alignés par ligne budgétaire.';
+    return 'Comparaison de deux versions figées : montants révisés alignés par ligne budgétaire.';
   }
   if (
     data.left?.kind === 'version' &&
@@ -40,7 +41,7 @@ function comparisonModeDescription(data: BudgetComparisonResponse): string {
     case 'baseline':
       return 'Budget actuel comparé à la baseline du jeu de versions.';
     case 'snapshot':
-      return 'Budget actuel comparé à un instantané figé (snapshot).';
+      return 'Budget actuel comparé à une version figée.';
     case 'version':
       return 'Budget actuel comparé à une autre révision du même jeu de versions.';
     default:
@@ -60,7 +61,7 @@ function fallbackSideLabel(
     return 'Référence (gauche)';
   }
   if (kind === 'baseline') return 'Baseline (référence versionnement)';
-  if (kind === 'snapshot') return 'Snapshot (cible)';
+  if (kind === 'snapshot') return 'Version figée (cible)';
   if (kind === 'version') return 'Autre version (cible)';
   return 'Comparé (droite)';
 }
@@ -379,7 +380,7 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
           : 'min-w-[20rem]';
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-6">
       <ComparisonContextBanner data={data} />
       <ComparisonColumnToggles value={cols} onChange={setCols} />
       <div
@@ -655,6 +656,11 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
         </TableFooter>
       </Table>
       </div>
+      <BudgetComparisonKpiCharts
+        data={data}
+        leftTitle={leftColTitle}
+        rightTitle={rightColTitle}
+      />
     </div>
   );
 }

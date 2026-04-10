@@ -1342,6 +1342,71 @@ async function ensureResourcesModuleAndPermissions(): Promise<void> {
   }
 }
 
+/** RFC-033 — types d’occasion des versions figées ; rattachement au module Budget via `budgets.read`. */
+async function ensureBudgetSnapshotOccasionTypePermission(): Promise<void> {
+  const ref = await prisma.permission.findUnique({
+    where: { code: "budgets.read" },
+    select: { moduleId: true },
+  });
+  if (!ref) {
+    console.warn(
+      "⚠️  budgets.read absent — skip permission budgets.snapshot_occasion_types.manage",
+    );
+    return;
+  }
+  await prisma.permission.upsert({
+    where: { code: "budgets.snapshot_occasion_types.manage" },
+    create: {
+      code: "budgets.snapshot_occasion_types.manage",
+      label: "Budgets — types d’occasion (versions figées)",
+      moduleId: ref.moduleId,
+    },
+    update: {
+      label: "Budgets — types d’occasion (versions figées)",
+      moduleId: ref.moduleId,
+    },
+  });
+}
+
+/** Catalogue plateforme (clientId null) — idempotent par code. */
+async function ensureGlobalBudgetSnapshotOccasionTypes(): Promise<void> {
+  const defs: Array<{
+    code: string;
+    label: string;
+    sortOrder: number;
+    description?: string;
+  }> = [
+    { code: "CODIR", label: "Comité CODIR", sortOrder: 10 },
+    { code: "MONTH_CLOSE", label: "Clôture mensuelle", sortOrder: 20 },
+    {
+      code: "ARBITRATION",
+      label: "Arbitrage / validation direction",
+      sortOrder: 30,
+    },
+    { code: "AUDIT", label: "Audit / contrôle", sortOrder: 40 },
+    { code: "OTHER", label: "Autre", sortOrder: 99 },
+  ];
+  for (const d of defs) {
+    const existing = await prisma.budgetSnapshotOccasionType.findFirst({
+      where: { clientId: null, code: d.code },
+    });
+    if (existing) continue;
+    await prisma.budgetSnapshotOccasionType.create({
+      data: {
+        clientId: null,
+        code: d.code,
+        label: d.label,
+        description: d.description ?? null,
+        sortOrder: d.sortOrder,
+        isActive: true,
+      },
+    });
+  }
+  console.log(
+    `✅ Types d’occasion versions figées (globaux) : ${defs.length} entrée(s) vérifiée(s)`,
+  );
+}
+
 /** Tous les clients : lignes par défaut par kind (idempotent). */
 async function ensureDefaultActivityTypesForAllClients(): Promise<void> {
   const clients = await prisma.client.findMany({ select: { id: true } });
@@ -3017,7 +3082,9 @@ async function main() {
   await ensureActivityTypesModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
   await ensureResourcesModuleAndPermissions();
+  await ensureBudgetSnapshotOccasionTypePermission();
   await ensureDefaultGlobalProfiles();
+  await ensureGlobalBudgetSnapshotOccasionTypes();
   await ensureClientAdminRiskTaxonomyRole();
   await ensurePlatformAdminUser(passwordHash);
 

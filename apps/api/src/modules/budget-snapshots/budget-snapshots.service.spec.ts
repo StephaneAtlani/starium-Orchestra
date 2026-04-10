@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { BudgetStatus } from '@prisma/client';
+import { BudgetLineStatus, BudgetStatus } from '@prisma/client';
 import { BudgetSnapshotsService } from './budget-snapshots.service';
+import type { BudgetSnapshotOccasionTypesService } from '../budget-snapshot-occasion-types/budget-snapshot-occasion-types.service';
 
 const clientId = 'client-1';
 const budgetId = 'budget-1';
@@ -41,6 +42,8 @@ function mockSnapshot(overrides: Record<string, unknown> = {}) {
     totalConsumedAmount: 22000,
     totalRemainingAmount: 23000,
     totalInitialAmount: 100000,
+    occasionTypeId: null,
+    occasionType: null,
     createdByUserId: null,
     createdByUser: null,
     createdAt: new Date('2026-03-14T12:00:00Z'),
@@ -68,8 +71,12 @@ describe('BudgetSnapshotsService', () => {
   let service: BudgetSnapshotsService;
   let prisma: any;
   let auditLogs: any;
+  let occasionTypes: { assertOccasionTypeAssignable: jest.Mock };
 
   beforeEach(() => {
+    occasionTypes = {
+      assertOccasionTypeAssignable: jest.fn().mockResolvedValue(undefined),
+    };
     prisma = {
       budget: { findFirst: jest.fn() },
       budgetLine: { findMany: jest.fn() },
@@ -89,7 +96,11 @@ describe('BudgetSnapshotsService', () => {
       }),
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
-    service = new BudgetSnapshotsService(prisma, auditLogs);
+    service = new BudgetSnapshotsService(
+      prisma,
+      auditLogs,
+      occasionTypes as unknown as BudgetSnapshotOccasionTypesService,
+    );
   });
 
   describe('create', () => {
@@ -132,6 +143,15 @@ describe('BudgetSnapshotsService', () => {
         };
         return fn(tx);
       });
+      prisma.budgetSnapshot.findFirst.mockResolvedValue(
+        mockSnapshot({
+          id: 'snap-new',
+          name: 'Snapshot Mars',
+          code: 'SNAP-20260314-abcdef',
+          lines: undefined,
+          createdAt: new Date('2026-03-14T12:00:00Z'),
+        }),
+      );
 
       const result = await service.create(
         clientId,
@@ -144,7 +164,17 @@ describe('BudgetSnapshotsService', () => {
         include: { exercise: true },
       });
       expect(prisma.budgetLine.findMany).toHaveBeenCalledWith({
-        where: { budgetId, clientId },
+        where: {
+          budgetId,
+          clientId,
+          status: {
+            in: [
+              BudgetLineStatus.ACTIVE,
+              BudgetLineStatus.PENDING_VALIDATION,
+              BudgetLineStatus.CLOSED,
+            ],
+          },
+        },
         include: { envelope: true },
       });
       expect(prisma.$transaction).toHaveBeenCalled();
@@ -188,6 +218,14 @@ describe('BudgetSnapshotsService', () => {
         };
         return fn(tx);
       });
+      prisma.budgetSnapshot.findFirst.mockResolvedValue(
+        mockSnapshot({
+          id: 'snap-label',
+          name: 'Avant arbitrage DG',
+          code: 'SNAP-20260314-112233',
+          lines: undefined,
+        }),
+      );
 
       const result = await service.create(
         clientId,
@@ -255,6 +293,9 @@ describe('BudgetSnapshotsService', () => {
             createdByUser: {
               select: { firstName: true, lastName: true, email: true },
             },
+            occasionType: {
+              select: { id: true, code: true, label: true, clientId: true },
+            },
           },
         }),
       );
@@ -288,6 +329,9 @@ describe('BudgetSnapshotsService', () => {
           lines: true,
           createdByUser: {
             select: { firstName: true, lastName: true, email: true },
+          },
+          occasionType: {
+            select: { id: true, code: true, label: true, clientId: true },
           },
         },
       });

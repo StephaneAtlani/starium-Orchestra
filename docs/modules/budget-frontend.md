@@ -250,7 +250,7 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budgets/dashboard` | **Budget Cockpit** (RFC-FE-002) : KPI, alertes, analytics, tableaux — lien **Forecast & comparaison** vers reporting si budget réel (RFC-FE-BUD-030) — voir [budget-cockpit.md](budget-cockpit.md) |
 | `/budgets/[budgetId]/lines` | Liste lignes (détail) |
 | `/budgets/[budgetId]/reporting` | **Forecast & comparaison** (RFC-FE-BUD-030) : KPI budget, sélecteur baseline/snapshot/version, table comparaison |
-| `/budgets/[budgetId]/snapshots` | Squelette |
+| `/budgets/[budgetId]/snapshots` | **Versions figées** (RFC-033) : liste, création, lien depuis fiche budget ; détail `/snapshots/[snapshotId]` |
 | `/budgets/[budgetId]/versions` | Squelette |
 | `/budgets/[budgetId]/reallocations` | Squelette |
 | `/budgets/imports` | Squelette |

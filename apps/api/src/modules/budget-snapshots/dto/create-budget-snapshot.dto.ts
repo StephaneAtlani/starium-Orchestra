@@ -29,4 +29,9 @@ export class CreateBudgetSnapshotDto {
   @IsOptional()
   @IsISO8601()
   snapshotDate?: string;
+
+  /** Référentiel RFC-033 — optionnel */
+  @IsOptional()
+  @IsString()
+  occasionTypeId?: string;
 }

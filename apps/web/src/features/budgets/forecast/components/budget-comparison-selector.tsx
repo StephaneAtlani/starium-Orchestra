@@ -19,12 +19,8 @@ export interface BudgetComparisonSelectorProps {
   onCompareToChange: (mode: BudgetComparisonMode) => void;
   targetId: string | undefined;
   onTargetIdChange: (id: string | undefined) => void;
-  currentBudgetId: string;
   snapshots: BudgetSnapshotSummaryDto[];
   snapshotsLoading: boolean;
-  versions: BudgetVersionSummaryDto[];
-  versionsLoading: boolean;
-  versionsError?: boolean;
 }
 
 /** Repli si pas de nom : code + date (lisible, distinct de l’id). */
@@ -50,31 +46,15 @@ export function BudgetComparisonSelector({
   onCompareToChange,
   targetId,
   onTargetIdChange,
-  currentBudgetId,
   snapshots,
   snapshotsLoading,
-  versions,
-  versionsLoading,
-  versionsError,
 }: BudgetComparisonSelectorProps) {
-  const showTarget = compareTo === 'snapshot' || compareTo === 'version';
-
-  const versionOptions = versions.filter((v) => v.id !== currentBudgetId);
-
   const selectedSnapshot =
     targetId && compareTo === 'snapshot'
       ? snapshots.find((s) => s.id === targetId)
       : undefined;
   const snapshotTriggerLabel = selectedSnapshot
     ? snapshotDisplayLabel(selectedSnapshot)
-    : undefined;
-
-  const selectedVersionForLabel =
-    targetId && compareTo === 'version'
-      ? versions.find((v) => v.id === targetId)
-      : undefined;
-  const versionTriggerLabel = selectedVersionForLabel
-    ? versionDisplayLabel(selectedVersionForLabel)
     : undefined;
 
   return (
@@ -89,76 +69,41 @@ export function BudgetComparisonSelector({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="baseline">Baseline</SelectItem>
-            <SelectItem value="snapshot">Snapshot</SelectItem>
-            <SelectItem value="version">Version</SelectItem>
+            <SelectItem value="baseline">Référence baseline</SelectItem>
+            <SelectItem value="snapshot">Version figée</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {showTarget && (
+      {compareTo === 'snapshot' && (
         <div className="space-y-2 min-w-[280px] flex-1">
-          <Label htmlFor="compare-target">
-            {compareTo === 'snapshot' ? 'Snapshot' : 'Version cible'}
-          </Label>
-          {compareTo === 'snapshot' && (
-            <Select
-              value={targetId ?? ''}
-              onValueChange={(v) => onTargetIdChange(v || undefined)}
-              disabled={snapshotsLoading || snapshots.length === 0}
-            >
-              <SelectTrigger id="compare-target" className="w-full max-w-md">
-                <SelectValue
-                  placeholder={
-                    snapshotsLoading
-                      ? 'Chargement…'
-                      : snapshots.length === 0
-                        ? 'Aucun snapshot'
-                        : 'Choisir un snapshot'
-                  }
-                >
-                  {snapshotTriggerLabel}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {snapshots.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {snapshotDisplayLabel(s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {compareTo === 'version' && (
-            <Select
-              value={targetId ?? ''}
-              onValueChange={(v) => onTargetIdChange(v || undefined)}
-              disabled={versionsLoading || versionsError || versionOptions.length === 0}
-            >
-              <SelectTrigger id="compare-target" className="w-full max-w-md">
-                <SelectValue
-                  placeholder={
-                    versionsLoading
-                      ? 'Chargement…'
-                      : versionsError
-                        ? 'Versions indisponibles'
-                        : versionOptions.length === 0
-                          ? 'Aucune autre version'
-                          : 'Choisir une version'
-                  }
-                >
-                  {versionTriggerLabel}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {versionOptions.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {versionDisplayLabel(v)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <Label htmlFor="compare-target">Version figée</Label>
+          <Select
+            value={targetId ?? ''}
+            onValueChange={(v) => onTargetIdChange(v || undefined)}
+            disabled={snapshotsLoading || snapshots.length === 0}
+          >
+            <SelectTrigger id="compare-target" className="w-full max-w-md">
+              <SelectValue
+                placeholder={
+                  snapshotsLoading
+                    ? 'Chargement…'
+                    : snapshots.length === 0
+                      ? 'Aucune version figée'
+                      : 'Choisir une version figée'
+                }
+              >
+                {snapshotTriggerLabel}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {snapshots.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {snapshotDisplayLabel(s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
     </div>
