@@ -33,6 +33,12 @@ x-depends-postgres-healthy: &depends-postgres-healthy
   postgres:
     condition: service_healthy
 
+x-depends-postgres-minio-started: &depends-postgres-minio-started
+  postgres:
+    condition: service_healthy
+  minio:
+    condition: service_started
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -47,6 +53,20 @@ services:
       - postgres_data:/var/lib/postgresql/data
     healthcheck: *postgres-healthcheck
 
+  # RFC-034 — MinIO S3-compatible, réseau Docker uniquement (pas de ports hôte).
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-starium_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-starium_minio_dev_only}
+    volumes:
+      - minio_data:/data
+    expose:
+      - "9000"
+      - "9001"
+
   api:
     build:
       context: .
@@ -54,9 +74,17 @@ services:
     restart: unless-stopped
     environment:
       <<: *api-base-env
+      # Fallback S3/MinIO (RFC-034) — la config DB plateforme prime si `enabled`.
+      PROCUREMENT_S3_ENDPOINT: http://minio:9000
+      PROCUREMENT_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-starium_minio}
+      PROCUREMENT_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-starium_minio_dev_only}
+      PROCUREMENT_S3_BUCKET: ${PROCUREMENT_S3_BUCKET:-starium-procurement}
+      PROCUREMENT_S3_REGION: ${PROCUREMENT_S3_REGION:-us-east-1}
+      PROCUREMENT_S3_USE_SSL: "false"
+      PROCUREMENT_S3_FORCE_PATH_STYLE: "true"
     ports:
       - "3001:3001"
-    depends_on: *depends-postgres-healthy
+    depends_on: *depends-postgres-minio-started
     healthcheck:
       test:
         [
@@ -86,3 +114,4 @@ services:
 
 volumes:
   postgres_data: {}
+  minio_data: {}

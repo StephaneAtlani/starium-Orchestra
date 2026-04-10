@@ -14,6 +14,10 @@ import type {
   UpdatePurchaseOrderPayload,
 } from '../types/purchase-order.types';
 import type { CreateInvoicePayload, Invoice, UpdateInvoicePayload } from '../types/invoice.types';
+import type {
+  ProcurementAttachment,
+  ProcurementAttachmentCategory,
+} from '../types/procurement-attachment.types';
 
 const BASE_SUPPLIERS = '/api/suppliers';
 const BASE_SUPPLIER_CATEGORIES = '/api/supplier-categories';
@@ -47,6 +51,23 @@ export interface UpdateSupplierContactPayload {
   isPrimary?: boolean;
   isActive?: boolean;
   notes?: string | null;
+}
+
+function filenameFromContentDisposition(cd: string | null): string | undefined {
+  if (!cd) return undefined;
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+  if (utf8?.[1]) {
+    try {
+      return decodeURIComponent(utf8[1].replace(/"/g, '').trim());
+    } catch {
+      return utf8[1];
+    }
+  }
+  const quoted = /filename="([^"]+)"/i.exec(cd);
+  if (quoted?.[1]) return quoted[1];
+  const plain = /filename=([^;\s]+)/i.exec(cd);
+  if (plain?.[1]) return plain[1].replace(/"/g, '');
+  return undefined;
 }
 
 function buildQueryString(
@@ -418,5 +439,117 @@ export async function listInvoicesByBudgetLine(
   );
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<PaginatedResponse<Invoice>>;
+}
+
+export async function listPurchaseOrderAttachments(
+  authFetch: AuthFetch,
+  purchaseOrderId: string,
+): Promise<ProcurementAttachment[]> {
+  const res = await authFetch(`${BASE_ORDERS}/${purchaseOrderId}/attachments`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProcurementAttachment[]>;
+}
+
+export async function uploadPurchaseOrderAttachment(
+  authFetch: AuthFetch,
+  purchaseOrderId: string,
+  file: File,
+  fields: { name?: string; category?: ProcurementAttachmentCategory },
+): Promise<ProcurementAttachment> {
+  const body = new FormData();
+  body.append('file', file);
+  if (fields.name?.trim()) body.append('name', fields.name.trim());
+  if (fields.category) body.append('category', fields.category);
+  const res = await authFetch(`${BASE_ORDERS}/${purchaseOrderId}/attachments`, {
+    method: 'POST',
+    body,
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProcurementAttachment>;
+}
+
+export async function downloadPurchaseOrderAttachment(
+  authFetch: AuthFetch,
+  purchaseOrderId: string,
+  attachmentId: string,
+): Promise<{ blob: Blob; filename: string }> {
+  const res = await authFetch(
+    `${BASE_ORDERS}/${purchaseOrderId}/attachments/${attachmentId}/download`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  const blob = await res.blob();
+  const filename =
+    filenameFromContentDisposition(res.headers.get('Content-Disposition')) ??
+    'document';
+  return { blob, filename };
+}
+
+export async function archivePurchaseOrderAttachment(
+  authFetch: AuthFetch,
+  purchaseOrderId: string,
+  attachmentId: string,
+): Promise<ProcurementAttachment> {
+  const res = await authFetch(
+    `${BASE_ORDERS}/${purchaseOrderId}/attachments/${attachmentId}/archive`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProcurementAttachment>;
+}
+
+export async function listInvoiceAttachments(
+  authFetch: AuthFetch,
+  invoiceId: string,
+): Promise<ProcurementAttachment[]> {
+  const res = await authFetch(`${BASE_INVOICES}/${invoiceId}/attachments`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProcurementAttachment[]>;
+}
+
+export async function uploadInvoiceAttachment(
+  authFetch: AuthFetch,
+  invoiceId: string,
+  file: File,
+  fields: { name?: string; category?: ProcurementAttachmentCategory },
+): Promise<ProcurementAttachment> {
+  const body = new FormData();
+  body.append('file', file);
+  if (fields.name?.trim()) body.append('name', fields.name.trim());
+  if (fields.category) body.append('category', fields.category);
+  const res = await authFetch(`${BASE_INVOICES}/${invoiceId}/attachments`, {
+    method: 'POST',
+    body,
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProcurementAttachment>;
+}
+
+export async function downloadInvoiceAttachment(
+  authFetch: AuthFetch,
+  invoiceId: string,
+  attachmentId: string,
+): Promise<{ blob: Blob; filename: string }> {
+  const res = await authFetch(
+    `${BASE_INVOICES}/${invoiceId}/attachments/${attachmentId}/download`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  const blob = await res.blob();
+  const filename =
+    filenameFromContentDisposition(res.headers.get('Content-Disposition')) ??
+    'document';
+  return { blob, filename };
+}
+
+export async function archiveInvoiceAttachment(
+  authFetch: AuthFetch,
+  invoiceId: string,
+  attachmentId: string,
+): Promise<ProcurementAttachment> {
+  const res = await authFetch(
+    `${BASE_INVOICES}/${invoiceId}/attachments/${attachmentId}/archive`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProcurementAttachment>;
 }
 

@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture, settings S3 plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
 
 ---
 
@@ -2256,6 +2256,50 @@ Paramètres **globaux** Starium : URI de redirection OAuth (callback `/api/micro
 **Guards** : `JwtAuthGuard`, `PlatformAdminGuard` — **pas** de `X-Client-Id` (le frontend ne l’envoie pas sur `/api/platform/*`).
 
 **PATCH** : corps JSON partiel (`redirectUri`, `graphScopes`, `oauthSuccessUrl`, `oauthErrorUrl`, entiers optionnels pour TTL / timeouts). Réponse : même forme que **GET** (objets `stored` + `resolved`).
+
+---
+
+### Stockage S3/MinIO procurement (plateforme) — `GET|PATCH /api/platform/procurement-s3-settings`
+
+RFC-034 Phase 1 : configuration **globale** du stockage des pièces jointes **commandes** et **factures** (bucket **privé** ; accès binaire **uniquement** via l’API métier, pas d’URL signée exposée au navigateur métier).
+
+**Guards** : `JwtAuthGuard`, `PlatformAdminGuard` — **pas** de `X-Client-Id`.
+
+**GET (200)** : ligne `PlatformProcurementS3Settings` (créée à la volée si absente) + `effectiveSource` (`db` \| `env` \| `none`) indiquant l’origine effective pour les opérations S3 après résolution (DB si `enabled` et champs complets, sinon variables d’environnement `PROCUREMENT_S3_*` côté API, sinon indisponible).
+
+**Corps (aperçu)** : `id`, `enabled`, `endpoint`, `region`, `accessKey`, **`hasSecret`** (booléen), `bucket`, `useSsl`, `forcePathStyle`, `updatedAt`. Le **secret** (`secretKey`) n’est **jamais** renvoyé, ni en clair ni chiffré.
+
+**PATCH** : JSON partiel — `enabled`, `endpoint`, `region`, `accessKey`, `secretKey` (écriture seule ; chaîne vide ou omission pour ne pas changer), `bucket`, `useSsl`, `forcePathStyle`. Si `enabled` est vrai après enregistrement, contrôle de connectivité S3 (`HeadBucket` ; création du bucket si réponse 404). En cas d’échec : **400** avec message métier. Réponse : même forme que **GET**.
+
+---
+
+### Pièces jointes procurement — commandes et factures (RFC-034)
+
+Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module procurement + permissions ci-dessous. Réponses **sans** champs techniques (`objectKey`, `storageBucket`, `checksumSha256`).
+
+**Permissions (verrou)** :
+
+| Méthode | Ressource | Permission |
+|---------|-----------|------------|
+| `GET` | `.../attachments` | `procurement.read` |
+| `GET` | `.../attachments/:attachmentId/download` | `procurement.read` |
+| `POST` | `.../attachments` | `procurement.update` |
+| `POST` | `.../attachments/:attachmentId/archive` | `procurement.update` |
+
+**Commandes**
+
+- `GET /api/purchase-orders/:id/attachments` — liste des pièces **actives**.
+- `POST /api/purchase-orders/:id/attachments` — `multipart/form-data` : champ fichier **`file`** ; champs optionnels **`name`**, **`category`** (enum Prisma `ProcurementAttachmentCategory`). Types MIME autorisés : PDF, PNG, JPEG ; taille max **15 Mo** (côté API).
+- `GET /api/purchase-orders/:id/attachments/:attachmentId/download` — flux binaire, `Content-Disposition: attachment`.
+- `POST /api/purchase-orders/:id/attachments/:attachmentId/archive` — archive logique (`ARCHIVED`, exclue des listes actives).
+
+**Factures** — mêmes conventions sur :
+
+- `GET|POST /api/invoices/:id/attachments`
+- `GET /api/invoices/:id/attachments/:attachmentId/download`
+- `POST /api/invoices/:id/attachments/:attachmentId/archive`
+
+**Audit** (exemples d’actions) : `procurement_attachment.uploaded`, `procurement_attachment.downloaded`, `procurement_attachment.archived`, `procurement_attachment.access_denied`, `procurement_attachment.archive_denied`.
 
 ---
 

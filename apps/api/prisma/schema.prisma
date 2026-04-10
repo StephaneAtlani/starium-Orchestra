@@ -271,6 +271,7 @@ model Client {
   activityTypes                  ActivityType[]
   resourceTimeEntries            ResourceTimeEntry[]
   resourceTimesheetMonths        ResourceTimesheetMonth[]
+  procurementAttachments         ProcurementAttachment[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId                String?
@@ -319,6 +320,22 @@ model PlatformMicrosoftSettings {
   /// Segment d’autorité OAuth SSO (`common`, GUID tenant, …). Défaut `common` si vide.
   ssoOAuthAuthorityTenant       String?
   updatedAt             DateTime @updatedAt
+}
+
+/// Connexion S3-compatible (MinIO) pour la GED procurement — singleton id = `default` (RFC-034).
+model PlatformProcurementS3Settings {
+  id                 String   @id @default("default")
+  /// Si false : fallback env uniquement ou stockage indisponible selon implémentation.
+  enabled            Boolean  @default(false)
+  endpoint           String?
+  region             String?
+  accessKey          String?
+  secretKeyEncrypted String?
+  bucket             String?
+  useSsl             Boolean  @default(true)
+  /// MinIO et certains endpoints nécessitent path-style.
+  forcePathStyle     Boolean  @default(true)
+  updatedAt          DateTime @updatedAt
 }
 
 model User {
@@ -380,6 +397,7 @@ model User {
   validatedCollaboratorSkills      CollaboratorSkill[] @relation("CollaboratorSkillValidator")
   /// Fiches collaborateur liées à ce compte plateforme sur un client (référentiel équipes / staffing).
   linkedCollaborators              Collaborator[]      @relation("CollaboratorLinkedUser")
+  uploadedProcurementAttachments   ProcurementAttachment[] @relation("ProcurementAttachmentUploadedBy")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -1867,6 +1885,28 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+/// RFC-034 — pièce jointe procurement (commande / facture).
+enum ProcurementAttachmentCategory {
+  QUOTE_PDF
+  ORDER_CONFIRMATION
+  INVOICE
+  AMENDMENT
+  CORRESPONDENCE
+  OTHER
+}
+
+enum ProcurementAttachmentStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// V1 : STARIUM uniquement (binaire S3/MinIO). EXTERNAL / MICROSOFT réservés Phase 2+.
+enum ProcurementStorageType {
+  STARIUM
+  EXTERNAL
+  MICROSOFT
+}
+
 enum AllocationType {
   PLANNED
   RESERVED
@@ -2548,6 +2588,7 @@ model PurchaseOrder {
   supplier     Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   budgetLine   BudgetLine?         @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
   invoices     Invoice[]
+  procurementAttachments ProcurementAttachment[]
 
   @@unique([clientId, reference])
   @@index([clientId])
@@ -2576,12 +2617,51 @@ model Invoice {
   supplier        Supplier      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   budgetLine      BudgetLine?   @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  procurementAttachments ProcurementAttachment[]
 
   @@unique([clientId, invoiceNumber, supplierId])
   @@index([clientId])
   @@index([supplierId])
   @@index([budgetLineId])
   @@index([clientId, supplierId])
+}
+
+/// RFC-034 Phase 1 — GED pièces jointes ; exactement un parent PO **ou** facture (contrainte CHECK migration).
+model ProcurementAttachment {
+  id               String   @id @default(cuid())
+  clientId         String
+  purchaseOrderId  String?
+  invoiceId        String?
+
+  name             String
+  originalFilename String?
+  mimeType         String?
+  extension        String?
+  sizeBytes        Int?
+
+  category   ProcurementAttachmentCategory @default(OTHER)
+  status     ProcurementAttachmentStatus   @default(ACTIVE)
+  storageType ProcurementStorageType       @default(STARIUM)
+
+  storageBucket  String
+  objectKey      String
+  checksumSha256 String?
+
+  uploadedByUserId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  archivedAt       DateTime?
+
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  purchaseOrder  PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  invoice        Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  uploadedByUser User?          @relation("ProcurementAttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([purchaseOrderId])
+  @@index([invoiceId])
+  @@index([clientId, purchaseOrderId])
+  @@index([clientId, invoiceId])
 }
 
 // --- Budget Import (RFC-018) ---

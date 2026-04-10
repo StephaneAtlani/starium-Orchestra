@@ -32,7 +32,7 @@
 | **RFC-FOU-025-A** | Supplier Core (Hardening & Alignment) | ✅ Implémentée | Socle fournisseur en place |
 | **RFC-FOU-026** | Supplier Categories | 🟡 Partielle | MVP en place, finitions ciblées restantes |
 | **RFC-FOU-027** | Supplier Contacts | 🟡 Partielle | Backend + UI MVP livrés ; tests d’intégration backend à finaliser |
-| **RFC-034** | Documents et GED — Devis, Commande, Facture | 📝 Draft | Registre `ProcurementAttachment` (XOR devis / commande / facture), entité `SupplierQuotation`, API et UI « Documents » ; phasage §9 — voir [RFC](./RFC-034%20%E2%80%94%20Documents%20et%20GED%20%E2%80%94%20Devis%20Commande%20Facture.md) |
+| **RFC-034** | Documents et GED — Devis, Commande, Facture | 📝 Draft | **Phase 1 livrée (code)** : pièces jointes PO/facture, S3/MinIO, settings plateforme `GET|PATCH /api/platform/procurement-s3-settings`, UI « Documents » dans le dialogue budget ; devis / `SupplierQuotation` — Phase 2 — voir [RFC](./RFC-034%20%E2%80%94%20Documents%20et%20GED%20%E2%80%94%20Devis%20Commande%20Facture.md) |
 
 ---
 

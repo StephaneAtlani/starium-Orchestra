@@ -20,6 +20,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { listInvoicesByBudgetLine, listPurchaseOrdersByBudgetLine } from '@/features/procurement/api/procurement.api';
+import { ProcurementAttachmentsPanel } from '@/features/procurement/components/procurement-attachments-panel';
 import { useUpdateInvoice } from '@/features/procurement/hooks/use-update-invoice';
 import { useUpdatePurchaseOrder } from '@/features/procurement/hooks/use-update-purchase-order';
 import { toast } from '@/lib/toast';
@@ -44,6 +45,8 @@ export function EditProcurementEventDialog({
   const clientId = activeClient?.id ?? '';
   const { has } = usePermissions();
   const canUpdate = has('procurement.update');
+  const canReadProcurement = has('procurement.read');
+  const canProcurementLookup = canUpdate || canReadProcurement;
 
   const sourceType = event?.sourceType;
   const sourceId = event?.sourceId ?? null;
@@ -51,12 +54,12 @@ export function EditProcurementEventDialog({
   const invoiceQuery = useQuery({
     queryKey: ['budgets', clientId, 'budget-line-invoices-lookup', budgetLineId, sourceId],
     queryFn: () => listInvoicesByBudgetLine(authFetch, budgetLineId, { limit: 500 }),
-    enabled: open && sourceType === 'INVOICE' && !!sourceId && canUpdate,
+    enabled: open && sourceType === 'INVOICE' && !!sourceId && canProcurementLookup,
   });
   const poQuery = useQuery({
     queryKey: ['budgets', clientId, 'budget-line-po-lookup', budgetLineId, sourceId],
     queryFn: () => listPurchaseOrdersByBudgetLine(authFetch, budgetLineId, { limit: 500 }),
-    enabled: open && sourceType === 'PURCHASE_ORDER' && !!sourceId && canUpdate,
+    enabled: open && sourceType === 'PURCHASE_ORDER' && !!sourceId && canProcurementLookup,
   });
 
   const invoice = useMemo(
@@ -91,12 +94,14 @@ export function EditProcurementEventDialog({
   const updatePo = useUpdatePurchaseOrder(budgetId, budgetLineId);
 
   const loading =
-    (sourceType === 'INVOICE' && (invoiceQuery.isPending || invoiceQuery.isLoading)) ||
-    (sourceType === 'PURCHASE_ORDER' && (poQuery.isPending || poQuery.isLoading));
+    canProcurementLookup &&
+    ((sourceType === 'INVOICE' && (invoiceQuery.isPending || invoiceQuery.isLoading)) ||
+      (sourceType === 'PURCHASE_ORDER' && (poQuery.isPending || poQuery.isLoading)));
 
   const loadError =
-    (sourceType === 'INVOICE' && invoiceQuery.isError) ||
-    (sourceType === 'PURCHASE_ORDER' && poQuery.isError);
+    canProcurementLookup &&
+    ((sourceType === 'INVOICE' && invoiceQuery.isError) ||
+      (sourceType === 'PURCHASE_ORDER' && poQuery.isError));
 
   const invoiceNotFound =
     open &&
@@ -166,8 +171,8 @@ export function EditProcurementEventDialog({
       <DialogContent
         showCloseButton
         className={cn(
-          'flex max-h-[min(90vh,560px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-lg',
-          'sm:max-w-md',
+          'flex max-h-[min(90vh,640px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-lg',
+          'sm:max-w-lg',
         )}
       >
         <div className="shrink-0 border-b border-border/60 bg-card/50 px-5 pb-4 pt-5 pr-14">
@@ -192,9 +197,21 @@ export function EditProcurementEventDialog({
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
-          {!canUpdate && (
+          {!canProcurementLookup && (
             <Alert>
-              <AlertDescription>Droits insuffisants pour modifier (procurement.update).</AlertDescription>
+              <AlertDescription>
+                Droits insuffisants : lecture procurement (procurement.read) ou modification (procurement.update)
+                requise.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {canReadProcurement && !canUpdate && (invoice || po) && !loading && !loadError && (
+            <Alert>
+              <AlertDescription>
+                Lecture seule : documents consultables ; la modification du libellé ou des métadonnées nécessite{' '}
+                <strong>procurement.update</strong>.
+              </AlertDescription>
             </Alert>
           )}
 
@@ -218,7 +235,7 @@ export function EditProcurementEventDialog({
             </Alert>
           )}
 
-          {loadError && canUpdate && (sourceType === 'INVOICE' || sourceType === 'PURCHASE_ORDER') && (
+          {loadError && canProcurementLookup && (sourceType === 'INVOICE' || sourceType === 'PURCHASE_ORDER') && (
             <Alert variant="destructive">
               <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span>Impossible de charger l’enregistrement à modifier.</span>
@@ -229,7 +246,10 @@ export function EditProcurementEventDialog({
             </Alert>
           )}
 
-          {loading && canUpdate && (sourceType === 'INVOICE' || sourceType === 'PURCHASE_ORDER') && !loadError && (
+          {loading &&
+            canProcurementLookup &&
+            (sourceType === 'INVOICE' || sourceType === 'PURCHASE_ORDER') &&
+            !loadError && (
             <div
               className="space-y-4 rounded-xl border border-border/70 bg-card p-4 shadow-sm"
               aria-busy="true"
@@ -291,6 +311,18 @@ export function EditProcurementEventDialog({
             </form>
           )}
 
+          {(canReadProcurement || canUpdate) &&
+            sourceType === 'INVOICE' &&
+            invoice &&
+            !loading &&
+            !loadError && (
+              <ProcurementAttachmentsPanel
+                parent={{ kind: 'invoice', id: invoice.id }}
+                canList={canReadProcurement}
+                canUpload={canUpdate}
+              />
+            )}
+
           {canUpdate && sourceType === 'PURCHASE_ORDER' && po && !loading && !loadError && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
@@ -336,6 +368,18 @@ export function EditProcurementEventDialog({
               </div>
             </form>
           )}
+
+          {(canReadProcurement || canUpdate) &&
+            sourceType === 'PURCHASE_ORDER' &&
+            po &&
+            !loading &&
+            !loadError && (
+              <ProcurementAttachmentsPanel
+                parent={{ kind: 'purchase-order', id: po.id }}
+                canList={canReadProcurement}
+                canUpload={canUpdate}
+              />
+            )}
         </div>
       </DialogContent>
     </Dialog>
