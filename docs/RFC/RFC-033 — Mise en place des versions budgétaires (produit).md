@@ -50,7 +50,7 @@ Le dépôt implémente déjà ce concept sous le nom technique **snapshot** :
 
 Sur `BudgetSnapshot` : `name`, `code` (unique client, généré serveur type `SNAP-YYYYMMDD-…`), `description`, `snapshotDate`, statut `ACTIVE` / `ARCHIVED`, méta budget figées (`budgetName`, `budgetCode`, `budgetCurrency`, `budgetStatus`), totaux agrégés, `createdByUserId`, `createdAt`.
 
-Sur `BudgetSnapshotLine` : rattachement `budgetLineId`, libellés enveloppe / ligne, montants figés (`initial`, `revised`, `forecast`, `committed`, `consumed`, `remaining`), `lineStatus` au moment de la capture.
+Sur `BudgetSnapshotLine` : rattachement `budgetLineId`, libellés enveloppe / ligne, montants figés (`initialAmount`, `forecast`, engagements / consommation / restant), `lineStatus` au moment de la capture.
 
 ## 1.3 API actuelle (vérité code)
 
@@ -61,14 +61,16 @@ Sur `BudgetSnapshotLine` : rattachement `budgetLineId`, libellés enveloppe / li
 | `GET` | `/api/budget-snapshots/:id` | `budgets.read` | Détail + lignes ; audit `budget_snapshot.viewed` |
 | `GET` | `/api/budget-snapshots/compare?leftSnapshotId=&rightSnapshotId=` | `budgets.read` | Comparaison deux snapshots |
 
+**Versions figées automatiques (workflow budget)** — hors route HTTP : lorsque le statut du budget passe à **`SUBMITTED`** ou **`VALIDATED`** (`PATCH /api/budgets/:id` ou bulk équivalent), le service budget appelle `BudgetSnapshotsService.createWorkflowMilestoneSnapshot`, qui réutilise le flux **`create`** (lignes pilotables, totaux, audit `budget_snapshot.created`). Libellés : `Soumission — {code}` / `Validation — {code}` ; types d’occasion globaux **`WORKFLOW_SUBMITTED`** / **`WORKFLOW_VALIDATED`** (seed + migration `20260408140000_workflow_snapshot_occasion_types`). Échec de capture : le statut reste appliqué ; audit **`budget.workflow_snapshot.failed`** (RFC-032, whitelist décisionnel).
+
 **Extension RFC-033 (types d’occasion)** — voir aussi `docs/API.md` §20 bis : `GET|POST|PATCH|DELETE /api/budget-snapshot-occasion-types` (client actif, fusion en lecture avec `budgets.read` ; écriture client avec `budgets.snapshot_occasion_types.manage`) et `GET|POST|PATCH|DELETE /api/platform/budget-snapshot-occasion-types` (`PLATFORM_ADMIN`).
 
 Guards : JWT, client actif, module, `PermissionsGuard` — aligné avec le reste du module budget.
 
 ## 1.4 Frontend
 
-* **Liste / détail / création** : `/budgets/[budgetId]/snapshots`, `/budgets/[budgetId]/snapshots/[snapshotId]` ; dialogue « Enregistrer une version » depuis la fiche budget (`CreateBudgetSnapshotDialog`) avec `snapshotDate`, aide sur le périmètre des lignes figées, select **type d’occasion** libellé (`GET` fusionné types d’occasion).
-* **Fiche budget** : lien « Versions figées », carte **Accès rapides** (header) vers sous-domaines ; colonnes liste : code, total révisé, type d’occasion, etc.
+* **Liste / détail / création** : `/budgets/[budgetId]/snapshots`, `/budgets/[budgetId]/snapshots/[snapshotId]` ; dialogue « Enregistrer une version » depuis la fiche budget (`CreateBudgetSnapshotDialog`) avec `snapshotDate`, aide sur le périmètre des lignes figées, select **type d’occasion** libellé (`GET` fusionné types d’occasion). Les passages **Soumis** / **Validé** du workflow ajoutent aussi des lignes dans cette liste (versions figées automatiques, même écran).
+* **Fiche budget** : lien « Versions figées », carte **Accès rapides** (header) vers sous-domaines ; colonnes liste : code, totaux budgétaires agrégés, type d’occasion, etc.
 * **Référentiel client** : `/budgets/snapshot-occasion-types` (permission `budgets.snapshot_occasion_types.manage`) ; entrée depuis `/budgets/configuration`.
 * **Référentiel plateforme** : `/admin/snapshot-occasion-types` (`PLATFORM_ADMIN`).
 * Comparaison budgétaire : vocabulaire **version figée** côté UI (RFC-FE-BUD-030) ; graphiques de synthèse sous le tableau de comparaison (**SVG natif**, pas de lib charting).

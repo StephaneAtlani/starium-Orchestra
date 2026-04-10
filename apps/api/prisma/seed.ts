@@ -1376,6 +1376,20 @@ async function ensureGlobalBudgetSnapshotOccasionTypes(): Promise<void> {
     sortOrder: number;
     description?: string;
   }> = [
+    {
+      code: "WORKFLOW_SUBMITTED",
+      label: "Soumission (workflow)",
+      sortOrder: 5,
+      description:
+        "Capture automatique lors du passage du budget à « Soumis » — traçabilité.",
+    },
+    {
+      code: "WORKFLOW_VALIDATED",
+      label: "Validation (workflow)",
+      sortOrder: 6,
+      description:
+        "Capture automatique lors du passage du budget à « Validé » — traçabilité.",
+    },
     { code: "CODIR", label: "Comité CODIR", sortOrder: 10 },
     { code: "MONTH_CLOSE", label: "Clôture mensuelle", sortOrder: 20 },
     {

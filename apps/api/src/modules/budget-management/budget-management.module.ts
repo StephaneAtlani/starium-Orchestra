@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { ClientsModule } from '../clients/clients.module';
+import { BudgetSnapshotsModule } from '../budget-snapshots/budget-snapshots.module';
 import { BudgetExercisesController } from './budget-exercises/budget-exercises.controller';
 import { BudgetExercisesService } from './budget-exercises/budget-exercises.service';
 import { BudgetsController } from './budgets/budgets.controller';
@@ -21,7 +22,7 @@ import { CostCentersService } from './cost-centers/cost-centers.service';
 import { BudgetDecisionHistoryService } from './budget-decision-history.service';
 
 @Module({
-  imports: [PrismaModule, AuditLogsModule, ClientsModule],
+  imports: [PrismaModule, AuditLogsModule, ClientsModule, BudgetSnapshotsModule],
   controllers: [
     BudgetExercisesController,
     BudgetsController,

@@ -9,6 +9,7 @@
 export const BUDGET_DECISION_HISTORY_ACTIONS = [
   'budget.created',
   'budget.status.changed',
+  'budget.workflow_snapshot.failed',
   'budget.reallocated',
   'budget_envelope.created',
   'budget_envelope.updated',

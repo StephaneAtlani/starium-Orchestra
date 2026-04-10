@@ -7,6 +7,7 @@ describe('BudgetsService', () => {
   let prisma: any;
   let auditLogs: any;
   let clientBudgetWorkflowSettings: { getResolvedForClient: jest.Mock };
+  let budgetSnapshots: { createWorkflowMilestoneSnapshot: jest.Mock };
 
   const clientId = 'client-1';
   const exerciseId = 'ex-1';
@@ -31,10 +32,14 @@ describe('BudgetsService', () => {
         requireEnvelopesNonDraftForBudgetValidated: true,
       }),
     };
+    budgetSnapshots = {
+      createWorkflowMilestoneSnapshot: jest.fn().mockResolvedValue({ id: 'snap-1' }),
+    };
     service = new BudgetsService(
       prisma,
       auditLogs,
       clientBudgetWorkflowSettings as any,
+      budgetSnapshots as any,
     );
   });
 
@@ -176,6 +181,12 @@ describe('BudgetsService', () => {
       await service.update(clientId, 'b1', { status: BudgetStatus.VALIDATED });
 
       expect(prisma.budget.update).toHaveBeenCalled();
+      expect(budgetSnapshots.createWorkflowMilestoneSnapshot).toHaveBeenCalledWith(
+        clientId,
+        'b1',
+        'VALIDATED',
+        expect.any(Object),
+      );
     });
 
     it('autorise passage à VALIDATED avec enveloppes DRAFT si config client désactive la garde', async () => {

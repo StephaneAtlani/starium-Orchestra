@@ -139,6 +139,7 @@ Les mises à jour « larges » (`*.updated`) portent souvent un **diff** ou un s
 | Action | Statut MVP | Détail |
 | --- | --- | --- |
 | `budget.status.changed` | **Implémenté** | Émis lors d’une transition de statut validée (`assertBudgetStatusTransition`). Voir **§4.1.5** (pas de double audit avec `budget.updated`). |
+| `budget.workflow_snapshot.failed` | **Implémenté** | Émis si la création automatique d’une version figée au passage **Soumis** / **Validé** échoue (le statut budget reste appliqué). Voir RFC-033 §1.3 API. |
 | `budget.updated` | **Existant** | Conserver. Comportement vis-à-vis du statut : **§4.1.5**. |
 | `budget.owner.changed` | **Non retenu** | Le `PATCH` budget accepte `ownerUserId`, mais l’audit `budget.updated` **ne** journalise **pas** aujourd’hui le pilote dans `oldValue`/`newValue`. **MVP** : pas d’action dédiée ; **hors liste** tant que le payload de `budget.updated` n’est pas étendu (évolution mineure possible hors nomenclature d’actions). |
 

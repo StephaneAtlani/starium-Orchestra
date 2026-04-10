@@ -15,6 +15,7 @@ import { CreateBudgetSnapshotDto } from './dto/create-budget-snapshot.dto';
 import { QueryBudgetSnapshotsDto } from './dto/query-budget-snapshots.dto';
 import { BudgetSnapshotOccasionTypesService } from '../budget-snapshot-occasion-types/budget-snapshot-occasion-types.service';
 import { randomBytes } from 'crypto';
+import { WORKFLOW_SNAPSHOT_OCCASION_CODES } from './budget-workflow-snapshot.constants';
 
 const SNAP_CODE_SUFFIX_BYTES = 3; // 6 hex chars
 const MAX_CODE_RETRIES = 5;
@@ -336,6 +337,59 @@ export class BudgetSnapshotsService {
     throw new ConflictException(
       'Could not generate unique snapshot code after retries',
       { cause: lastError },
+    );
+  }
+
+  /**
+   * Version figée automatique lors d’un jalon workflow budget (Soumis / Validé).
+   * Réutilise `create` : mêmes lignes / totaux / audit `budget_snapshot.created`.
+   * Le type d’occasion global est résolu par code si présent en base (seed).
+   */
+  async createWorkflowMilestoneSnapshot(
+    clientId: string,
+    budgetId: string,
+    milestone: 'SUBMITTED' | 'VALIDATED',
+    context?: SnapshotAuditContext,
+  ): Promise<BudgetSnapshotSummary> {
+    const meta =
+      milestone === 'SUBMITTED'
+        ? {
+            occasionCode: WORKFLOW_SNAPSHOT_OCCASION_CODES.SUBMITTED,
+            namePrefix: 'Soumission',
+            description:
+              'Capture automatique à la transition « Soumis » du workflow budget.',
+          }
+        : {
+            occasionCode: WORKFLOW_SNAPSHOT_OCCASION_CODES.VALIDATED,
+            namePrefix: 'Validation',
+            description:
+              'Capture automatique à la transition « Validé » du workflow budget.',
+          };
+
+    const budget = await this.prisma.budget.findFirst({
+      where: { id: budgetId, clientId },
+      select: { code: true, name: true },
+    });
+    if (!budget) {
+      throw new NotFoundException('Budget not found');
+    }
+
+    const occasion = await this.prisma.budgetSnapshotOccasionType.findFirst({
+      where: { clientId: null, code: meta.occasionCode, isActive: true },
+    });
+
+    const name = `${meta.namePrefix} — ${budget.code}`;
+
+    return this.create(
+      clientId,
+      {
+        budgetId,
+        name,
+        description: meta.description,
+        snapshotDate: new Date().toISOString(),
+        ...(occasion ? { occasionTypeId: occasion.id } : {}),
+      },
+      context,
     );
   }
 

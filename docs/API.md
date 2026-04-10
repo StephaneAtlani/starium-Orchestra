@@ -1261,7 +1261,9 @@ Crée un budget. **Body** : `exerciseId`, `name`, `code?`, `description?`, `curr
 
 ### GET /api/budgets/:id — PATCH /api/budgets/:id
 
-Détail et mise à jour. PATCH refusé si status = LOCKED ou ARCHIVED. **Changement de `status`** : matrice **Transitions autorisées (budget)** (identique à `PATCH /api/budgets/bulk-status`, `400` avec `invalid_status_transition` si interdit). **Passage à `VALIDATED`** : refusé tant qu’**au moins une enveloppe** du budget est encore en **`DRAFT`** (`400` avec message métier dédié).
+Détail et mise à jour. PATCH refusé si status = LOCKED ou ARCHIVED. **Changement de `status`** : matrice **Transitions autorisées (budget)** (identique à `PATCH /api/budgets/bulk-status`, `400` avec `invalid_status_transition` si interdit). **Passage à `VALIDATED`** : refusé tant qu’**au moins une enveloppe** du budget est encore en **`DRAFT`** (`400` avec message métier dédié), sauf si le client a désactivé la garde via `GET|PATCH /api/clients/active/budget-workflow-settings`.
+
+**Versions figées automatiques (workflow)** : après une mise à jour réussie qui fait passer le budget à **`SUBMITTED`** ou **`VALIDATED`**, le serveur tente de créer une **version figée** (`BudgetSnapshot`) via le même pipeline que `POST /api/budget-snapshots` (nom du type `Soumission — {code}` / `Validation — {code}`, type d’occasion global `WORKFLOW_SUBMITTED` / `WORKFLOW_VALIDATED` si présent en base — seed / migration `20260408140000_workflow_snapshot_occasion_types`). En cas d’échec, le **statut budget reste appliqué** ; une entrée d’audit **`budget.workflow_snapshot.failed`** est enregistrée (voir RFC-032, onglet Décisions si l’action est affichée).
 
 ---
 
@@ -1930,10 +1932,12 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ### `/api/budget-snapshots`
 
-- **POST** — Body : `budgetId`, `name` ou `label`, `description?`, `snapshotDate?` (ISO 8601), `occasionTypeId?`. Copie les lignes incluses au pilotage uniquement. Permission **`budgets.create`**.
+- **POST** — Body : `budgetId`, `name` ou `label`, `description?`, `snapshotDate?` (ISO 8601), `occasionTypeId?`. Copie les lignes incluses au pilotage uniquement. Permission **`budgets.create`**. Réponse et audit `budget_snapshot.created` — même mécanisme que les captures **automatiques** déclenchées par passage du budget à **Soumis** / **Validé** (voir **PATCH /api/budgets/:id** ci-dessus) ; celles-ci n’exposent pas de route HTTP dédiée.
 - **GET** — Query : `budgetId?`, `limit`, `offset`. Permission **`budgets.read`**.
 - **GET /:id** — Détail + lignes figées. Permission **`budgets.read`**.
 - **GET /compare** — Query : `leftSnapshotId`, `rightSnapshotId`. Permission **`budgets.read`**.
+
+**Types d’occasion globaux (exemples)** : en plus du catalogue métier (CODIR, clôture, etc.), le dépôt prévoit **`WORKFLOW_SUBMITTED`** et **`WORKFLOW_VALIDATED`** pour étiqueter les versions figées créées au passage des statuts **SUBMITTED** et **VALIDATED** (idempotent à l’insertion par seed / migration).
 
 ### `/api/budget-snapshot-occasion-types` (client actif)
 

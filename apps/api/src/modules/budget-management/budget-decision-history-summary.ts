@@ -84,6 +84,14 @@ export function buildDecisionHistorySummary(
       const to = budgetStatusLabel(toRaw);
       return `Budget « ${ctx.budgetName} » : changement de statut ${from} → ${to}`;
     }
+    case 'budget.workflow_snapshot.failed': {
+      const milestone = (nv?.milestone as string | undefined) ?? '—';
+      const err = (nv?.error as string | undefined) ?? '';
+      const m = budgetStatusLabel(milestone);
+      return err
+        ? `Échec de la version figée automatique (${m}) — ${err}`
+        : `Échec de la version figée automatique (${m})`;
+    }
     case 'budget.reallocated': {
       const r = ctx.reallocation;
       if (r) {

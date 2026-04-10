@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { BudgetEnvelopeStatus, BudgetStatus, Prisma } from '@prisma/client';
@@ -27,13 +28,17 @@ import { ClientBudgetWorkflowSettingsService } from '../../clients/client-budget
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { ListBudgetsQueryDto } from './dto/list-budgets.query.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
+import { BudgetSnapshotsService } from '../../budget-snapshots/budget-snapshots.service';
 
 @Injectable()
 export class BudgetsService {
+  private readonly logger = new Logger(BudgetsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly clientBudgetWorkflowSettings: ClientBudgetWorkflowSettingsService,
+    private readonly budgetSnapshots: BudgetSnapshotsService,
   ) {}
 
   async list(
@@ -381,6 +386,42 @@ export class BudgetsService {
         ...meta,
       };
       await this.auditLogs.create(auditInput);
+    }
+
+    if (
+      statusChanged &&
+      (updated.status === BudgetStatus.SUBMITTED ||
+        updated.status === BudgetStatus.VALIDATED)
+    ) {
+      try {
+        await this.budgetSnapshots.createWorkflowMilestoneSnapshot(
+          clientId,
+          id,
+          updated.status === BudgetStatus.SUBMITTED ? 'SUBMITTED' : 'VALIDATED',
+          {
+            actorUserId: context?.actorUserId,
+            meta: context?.meta,
+          },
+        );
+      } catch (err) {
+        this.logger.error(
+          `Échec de la version figée workflow pour le budget ${id} (${updated.status})`,
+          err instanceof Error ? err.stack : err,
+        );
+        await this.auditLogs.create({
+          clientId,
+          userId: context?.actorUserId,
+          action: 'budget.workflow_snapshot.failed',
+          resourceType: 'budget',
+          resourceId: id,
+          newValue: {
+            milestone: updated.status,
+            error:
+              err instanceof Error ? err.message : String(err),
+          },
+          ...meta,
+        });
+      }
     }
 
     return toResponse(updated);
