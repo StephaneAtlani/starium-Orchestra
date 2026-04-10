@@ -161,7 +161,7 @@ export function CreateBudgetSnapshotDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={typeFieldId}>Type d’occasion (optionnel)</Label>
+            <Label htmlFor={typeFieldId}>Type de version figée (optionnel)</Label>
             <Select
               value={occasionTypeId}
               onValueChange={(v) => setOccasionTypeId(v ?? NO_OCCASION_TYPE)}

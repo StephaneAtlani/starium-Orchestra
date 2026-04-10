@@ -91,8 +91,8 @@ export default function AdminSnapshotOccasionTypesPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Types d’occasion — versions figées (plateforme)"
-        description="Catalogue global proposé à tous les clients pour qualifier une version figée (RFC-033)."
+        title="Types de version figée (plateforme)"
+        description="Catalogue global proposé à tous les clients pour qualifier une capture budgétaire figée."
         actions={
           <Link href="/admin/dashboard" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
             Retour admin

@@ -83,8 +83,8 @@ export default function BudgetSnapshotOccasionTypesClientPage() {
     <RequireActiveClient>
       <PageContainer>
         <PageHeader
-          title="Types d’occasion — versions figées"
-          description="Types proposés lors de l’enregistrement d’une version figée : catalogue plateforme + types spécifiques à votre organisation."
+          title="Types de version figée"
+          description="Libellés proposés à l’enregistrement d’une version figée : catalogue plateforme et types propres à votre organisation."
           actions={
             <Link
               href="/budgets/configuration"
@@ -107,7 +107,7 @@ export default function BudgetSnapshotOccasionTypesClientPage() {
 
         {canManage ? (
           <div className="mb-8 max-w-xl space-y-4 rounded-xl border border-border bg-card p-4">
-            <h2 className="text-sm font-semibold">Ajouter un type pour ce client</h2>
+            <h2 className="text-sm font-semibold">Ajouter un type de version figée (client)</h2>
             <p className="text-xs text-muted-foreground">
               Le code ne doit pas entrer en conflit avec un type plateforme actif.
             </p>

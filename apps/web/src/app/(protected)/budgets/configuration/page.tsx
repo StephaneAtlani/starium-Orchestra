@@ -79,9 +79,9 @@ export default async function BudgetsConfigurationPage() {
                 <Tags className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold">Types d’occasion (versions figées)</h3>
+                <h3 className="font-semibold">Types de version figée</h3>
                 <p className="text-sm text-muted-foreground">
-                  Catalogue pour qualifier une version figée (RFC-033)
+                  Libellés pour qualifier une capture (CODIR, clôture, etc.)
                 </p>
               </div>
             </CardContent>

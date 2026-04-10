@@ -125,7 +125,7 @@ export default function BudgetSnapshotDetailPage() {
                 {data.occasionTypeLabel ? (
                   <div>
                     <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Type d’occasion
+                      Type de version figée
                     </dt>
                     <dd className="mt-0.5 text-sm text-foreground">
                       {data.occasionTypeLabel}

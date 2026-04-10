@@ -225,7 +225,7 @@ Les hooks **forecast** (RFC-FE-BUD-030) vivent sous `forecast/hooks/`. Les autre
 | **Forecast / comparaison (RFC-FE-BUD-030)** | | |
 | `ForecastKpiCards`, `ForecastTable`, `ComparisonTable`, `ForecastStatusBadge`, `BudgetComparisonSelector`, `ForecastComparisonPanel`, `MultiLiveVsSnapshotsTable` | `forecast/components/` | Montants via `formatCurrency` ; onglets : actuel vs référence (baseline / **version figée**), deux versions figées, multi ; **sans** onglet « deux révisions » (RFC-019) dans ce panneau |
 | `BudgetComparisonKpiCharts`, `BudgetComparisonMultiKpiCharts`, `comparison-charts-svg.tsx` | `forecast/components/` | Synthèse **graphique SVG** (barres, anneaux, courbes) sous les tableaux de comparaison — pas de dépendance `recharts` |
-| `CreateBudgetSnapshotDialog` | `features/budgets/components/` | Création version figée (date, type d’occasion, aide périmètre lignes) |
+| `CreateBudgetSnapshotDialog` | `features/budgets/components/` | Création version figée (date, type de version figée optionnel, aide périmètre lignes) |
 
 | **Formulaires (RFC-FE-015)** | | |
 | `BudgetExerciseForm` / `BudgetForm` / `BudgetEnvelopeForm` / `BudgetLineForm` | Formulaires RHF + Zod (create/edit), `submitError` ApiFormError, `cancelHref`, `disableSubmit` (ligne si options manquantes) ; `BudgetForm` en **édition** restreint le select `status` aux transitions autorisées (`budget-status-transitions.ts`, aligné API) |
@@ -259,8 +259,8 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budgets/[budgetId]/versions` | Squelette |
 | `/budgets/[budgetId]/reallocations` | Squelette |
 | `/budgets/imports` | Squelette |
-| `/budgets/configuration` | Configuration budget : **Exercices**, **Imports**, workflow, **Types d’occasion (versions figées)** → `/budgets/snapshot-occasion-types` (RFC-033) |
-| `/admin/snapshot-occasion-types` | CRUD types d’occasion **globaux** (`PLATFORM_ADMIN`, RFC-033) |
+| `/budgets/configuration` | Configuration budget : **Exercices**, **Imports**, workflow, **Types de version figée** → `/budgets/snapshot-occasion-types` (RFC-033) |
+| `/admin/snapshot-occasion-types` | CRUD types de version figée **globaux** (`PLATFORM_ADMIN`, RFC-033) |
 
 Chaque page de données gère **loading**, **error**, **empty**, **success**. Les listes `/budgets` et `/budgets/exercises` reflètent filtres et pagination dans l'URL. La page **reporting** forecast gère en outre un état **no-result** (`lines.length === 0` après succès) distinct du vide générique.
 

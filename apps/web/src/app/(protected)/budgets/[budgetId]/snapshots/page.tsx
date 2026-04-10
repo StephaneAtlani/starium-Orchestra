@@ -103,7 +103,7 @@ export default function BudgetSnapshotsPage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Nom</TableHead>
-                <TableHead>Type d’occasion</TableHead>
+                <TableHead>Type de version figée</TableHead>
                 <TableHead className="text-right">Total budget</TableHead>
                 <TableHead>Créé par</TableHead>
                 <TableHead className="text-right">Action</TableHead>
