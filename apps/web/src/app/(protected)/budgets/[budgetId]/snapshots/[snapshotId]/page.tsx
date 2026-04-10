@@ -4,14 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  ChartLine,
-  HandCoins,
-  Landmark,
-  Receipt,
-  Wallet,
-} from 'lucide-react';
+import { AlertCircle, Receipt } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { BudgetPageHeader } from '@/features/budgets/components/budget-page-header';
@@ -30,7 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { KpiCard } from '@/components/ui/kpi-card';
+import { BudgetSnapshotKpiStrip } from '@/features/budgets/components/budget-snapshot-kpi-strip';
 import {
   Table,
   TableBody,
@@ -108,6 +101,14 @@ export default function BudgetSnapshotDetailPage() {
 
         {data ? (
           <div className="space-y-6">
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Totaux figés à la date de capture (écritures / affectations connues jusqu’à ce jour — pas les soldes
+                courants du cockpit). Même lecture que la bande KPI du détail de ligne.
+              </p>
+              <BudgetSnapshotKpiStrip totals={data.totals} currency={currency} />
+            </div>
+
             <section
               aria-labelledby="snapshot-meta-heading"
               className="rounded-lg border border-border/70 bg-muted/30 p-4"
@@ -158,51 +159,21 @@ export default function BudgetSnapshotDetailPage() {
               </dl>
             </section>
 
-            <section aria-labelledby="snapshot-totals-heading" className="space-y-3">
-              <div>
-                <h2
-                  id="snapshot-totals-heading"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Totaux figés (budget)
-                </h2>
-                <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
-                  Montants recalculés à la date de capture à partir des écritures et affectations connues jusqu’à ce
-                  jour (date d’événement / date d’affectation), pas les soldes courants du cockpit.
-                </p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                <KpiCard
-                  variant="dense"
-                  title="Budget (initial)"
-                  value={formatCurrency(data.totals.budgetAmount, currency)}
-                  icon={<Landmark aria-hidden className="size-3.5" />}
-                />
-                <KpiCard
-                  variant="dense"
-                  title="Forecast"
-                  value={formatCurrency(data.totals.forecastAmount, currency)}
-                  icon={<ChartLine aria-hidden className="size-3.5" />}
-                />
-                <KpiCard
-                  variant="dense"
-                  title="Engagé"
-                  value={formatCurrency(data.totals.committedAmount, currency)}
-                  icon={<HandCoins aria-hidden className="size-3.5" />}
-                />
-                <KpiCard
-                  variant="dense"
-                  title="Consommé"
-                  value={formatCurrency(data.totals.consumedAmount, currency)}
-                  icon={<Receipt aria-hidden className="size-3.5" />}
-                />
-                <KpiCard
-                  variant="dense"
-                  title="Restant"
-                  value={formatCurrency(data.totals.remainingAmount, currency)}
-                  icon={<Wallet aria-hidden className="size-3.5" />}
-                />
-              </div>
+            <section aria-labelledby="snapshot-eng-conso-heading" className="space-y-3">
+              <h2 id="snapshot-eng-conso-heading" className="sr-only">
+                Rappel engagé et consommé
+              </h2>
+              <Alert className="border-border/80 bg-muted/40">
+                <Receipt className="size-4" aria-hidden />
+                <AlertTitle className="text-sm">Engagé vs consommé (factures)</AlertTitle>
+                <AlertDescription className="text-xs text-muted-foreground">
+                  Dans Orchestra, une <strong className="text-foreground">facture</strong> liée à une ligne budgétaire
+                  génère un mouvement de <strong className="text-foreground">consommation</strong>, pas d’engagement :
+                  le montant apparaît dans <strong className="text-foreground">Consommé</strong>, pas dans Engagé.
+                  L’engagé reflète notamment les commandes (BDC) et engagements enregistrés comme tels dans le moteur
+                  financier.
+                </AlertDescription>
+              </Alert>
             </section>
 
             {data.lines.length === 0 ? (
@@ -221,42 +192,49 @@ export default function BudgetSnapshotDetailPage() {
                 <CardHeader className="border-b border-border/60 pb-3">
                   <CardTitle className="text-sm font-medium">Lignes figées</CardTitle>
                   <CardDescription className="text-xs">
-                    Une ligne par poste budget non archivé — montants tels qu’au moment de la capture.
+                    Une ligne par poste budget non archivé — montants tels qu’au moment de la capture. Les factures
+                    alimentent la colonne Consommé ; Engagé = engagements (ex. commandes), pas les factures.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <Table className="min-w-[42rem]">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Ligne</TableHead>
-                        <TableHead className="text-right">Budget</TableHead>
-                        <TableHead className="text-right">Consommé</TableHead>
-                        <TableHead className="text-right">Forecast</TableHead>
-                        <TableHead className="text-right">Restant</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.lines.map((line) => (
-                        <TableRow key={line.id}>
-                          <TableCell>{line.lineCode}</TableCell>
-                          <TableCell>{line.lineName}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatCurrency(line.budgetAmount, line.currency)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatCurrency(line.consumedAmount, line.currency)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatCurrency(line.forecastAmount, line.currency)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatCurrency(line.remainingAmount, line.currency)}
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[52rem]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Code</TableHead>
+                          <TableHead>Ligne</TableHead>
+                          <TableHead className="text-right">Budget</TableHead>
+                          <TableHead className="text-right">Engagé</TableHead>
+                          <TableHead className="text-right">Consommé</TableHead>
+                          <TableHead className="text-right">Forecast</TableHead>
+                          <TableHead className="text-right">Restant</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {data.lines.map((line) => (
+                          <TableRow key={line.id}>
+                            <TableCell>{line.lineCode}</TableCell>
+                            <TableCell>{line.lineName}</TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatCurrency(line.budgetAmount, line.currency)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatCurrency(line.committedAmount, line.currency)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatCurrency(line.consumedAmount, line.currency)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatCurrency(line.forecastAmount, line.currency)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatCurrency(line.remainingAmount, line.currency)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             )}

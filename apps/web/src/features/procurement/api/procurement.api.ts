@@ -8,8 +8,12 @@ import type {
   SupplierOption,
   SuppliersDashboardStats,
 } from '../types/supplier.types';
-import type { CreatePurchaseOrderPayload, PurchaseOrder } from '../types/purchase-order.types';
-import type { CreateInvoicePayload, Invoice } from '../types/invoice.types';
+import type {
+  CreatePurchaseOrderPayload,
+  PurchaseOrder,
+  UpdatePurchaseOrderPayload,
+} from '../types/purchase-order.types';
+import type { CreateInvoicePayload, Invoice, UpdateInvoicePayload } from '../types/invoice.types';
 
 const BASE_SUPPLIERS = '/api/suppliers';
 const BASE_SUPPLIER_CATEGORIES = '/api/supplier-categories';
@@ -352,6 +356,34 @@ export async function createInvoice(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<Invoice>;
+}
+
+export async function updateInvoice(
+  authFetch: AuthFetch,
+  invoiceId: string,
+  payload: UpdateInvoicePayload,
+): Promise<Invoice> {
+  const res = await authFetch(`${BASE_INVOICES}/${invoiceId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<Invoice>;
+}
+
+export async function updatePurchaseOrder(
+  authFetch: AuthFetch,
+  purchaseOrderId: string,
+  payload: UpdatePurchaseOrderPayload,
+): Promise<PurchaseOrder> {
+  const res = await authFetch(`${BASE_ORDERS}/${purchaseOrderId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PurchaseOrder>;
 }
 
 export async function listPurchaseOrdersByBudgetLine(

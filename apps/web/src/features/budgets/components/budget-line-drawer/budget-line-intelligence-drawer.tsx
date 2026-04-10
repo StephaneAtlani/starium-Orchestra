@@ -253,12 +253,14 @@ export function BudgetLineIntelligenceDrawer({
                     </TabsContent>
                     <TabsContent value="commitments">
                       <BudgetLineCommitmentsTab
+                        budgetId={budgetId}
                         budgetLineId={line.id}
                         enabled={activeTab === 'commitments'}
                       />
                     </TabsContent>
                     <TabsContent value="invoices">
                       <BudgetLineInvoicesTab
+                        budgetId={budgetId}
                         budgetLineId={line.id}
                         enabled={activeTab === 'invoices'}
                       />

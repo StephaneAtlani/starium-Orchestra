@@ -30,3 +30,9 @@ export interface CreatePurchaseOrderPayload {
   orderDate: string;
 }
 
+/** Aligné sur PATCH API — métadonnées uniquement. */
+export interface UpdatePurchaseOrderPayload {
+  label?: string;
+  reference?: string;
+}
+

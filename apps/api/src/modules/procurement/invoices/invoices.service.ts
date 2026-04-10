@@ -168,6 +168,7 @@ export class InvoicesService {
       });
 
       if (budgetLine) {
+        // Facture : consommation budgétaire (pas COMMITMENT_REGISTERED) — aligné agrégats / versions figées.
         await this.events.create(
           clientId,
           {

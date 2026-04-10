@@ -4,20 +4,25 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { BudgetLineEventsTable } from './budget-line-events-table';
+import { EditProcurementEventDialog } from './edit-procurement-event-dialog';
 import { useBudgetLineEvents } from '../../hooks/use-budget-line-events';
 import { rangeLabel } from './pagination-label';
+import type { FinancialEventForLine } from '../../api/budget-line-financial.api';
 
 const DEFAULT_LIMIT = 20;
 const EVENT_TYPE_COMMITMENT = 'COMMITMENT_REGISTERED';
 
 export function BudgetLineCommitmentsTab({
+  budgetId,
   budgetLineId,
   enabled,
 }: {
+  budgetId: string;
   budgetLineId: string;
   enabled: boolean;
 }) {
   const [offset, setOffset] = useState(0);
+  const [editEvent, setEditEvent] = useState<FinancialEventForLine | null>(null);
 
   useEffect(() => {
     setOffset(0);
@@ -66,7 +71,20 @@ export function BudgetLineCommitmentsTab({
 
   return (
     <div className="space-y-3">
-      <BudgetLineEventsTable events={events} />
+      <BudgetLineEventsTable
+        events={events}
+        showEditActions
+        onEditEvent={(e) => setEditEvent(e)}
+      />
+      <EditProcurementEventDialog
+        open={editEvent !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditEvent(null);
+        }}
+        event={editEvent}
+        budgetId={budgetId}
+        budgetLineId={budgetLineId}
+      />
       <div className="flex items-center justify-between">
         <div className="text-xs text-muted-foreground">{rangeLabel(offset, DEFAULT_LIMIT, total)}</div>
         <div className="flex items-center gap-2">

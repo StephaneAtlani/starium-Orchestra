@@ -31,3 +31,9 @@ export interface CreateInvoicePayload {
   invoiceDate: string;
 }
 
+/** Aligné sur PATCH API — métadonnées uniquement (montants non modifiables via ce flux). */
+export interface UpdateInvoicePayload {
+  label?: string;
+  invoiceNumber?: string;
+}
+
