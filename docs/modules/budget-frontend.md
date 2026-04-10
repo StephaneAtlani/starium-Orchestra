@@ -34,7 +34,9 @@ features/budgets/
 │   ├── budget-dashboard.api.ts
 │   ├── budget-forecast.api.ts
 │   ├── budget-comparison.api.ts
-│   ├── budget-snapshots.api.ts   # listBudgetSnapshots (RFC-FE-BUD-030)
+│   ├── budget-snapshots.api.ts   # listBudgetSnapshots, détail (RFC-033 / RFC-FE-BUD-030)
+│   ├── budget-snapshot-occasion-types.api.ts
+│   ├── platform-budget-snapshot-occasion-types.api.ts
 │   ├── budget-reallocations.api.ts
 │   ├── budget-imports.api.ts
 │   └── budget-versioning.api.ts  # getVersionHistory (RFC-FE-BUD-030)
@@ -54,7 +56,7 @@ features/budgets/
 │   # Hooks formulaires (RFC-FE-015) : use-exercise-detail, use-create/update-*-exercise, use-create/update-budget, use-create/update-budget-envelope, use-create/update-budget-line, use-general-ledger-account-options, use-budget-options
 ├── forecast/                         # RFC-FE-BUD-030 — KPI, tables, comparaison, sélecteurs
 │   ├── components/                   # ForecastKpiCards, ForecastTable, ComparisonTable, ForecastStatusBadge, BudgetComparisonSelector
-│   ├── hooks/                        # useBudgetForecast, useEnvelopeForecast, useEnvelopeForecastLines, useBudgetComparison, useBudgetSnapshotsForSelect, useBudgetVersionHistory
+│   ├── hooks/                        # useBudgetForecast, useEnvelopeForecast, useEnvelopeForecastLines, useBudgetComparison, useBudgetSnapshotsForSelect, useSnapshotPairComparison, useMultiSnapshotVsLiveComparison ; `use-budget-version-history.ts` existe (API version-history) mais l’onglet « deux révisions » a été retiré du panneau comparaison embarqué |
 │   └── budget-reporting-forecast-page.tsx
 ├── components/
 │   ├── budget-page-header.tsx
@@ -139,7 +141,7 @@ Exemples :
 - `budgetQueryKeys.budgetForecast(clientId, budgetId)` — RFC-FE-BUD-030
 - `budgetQueryKeys.envelopeForecast(clientId, envelopeId)` / `envelopeForecastLines(clientId, envelopeId, { limit, offset })`
 - `budgetQueryKeys.budgetComparison(clientId, budgetId, compareTo, targetId?)`
-- `budgetQueryKeys.budgetSnapshotsList(clientId, budgetId, params?)` / `budgetVersionHistory(clientId, budgetId)`
+- `budgetQueryKeys.budgetSnapshotsList(clientId, budgetId, params?)`, `budgetSnapshotOccasionTypesMerged(clientId)`, `budgetVersionHistory(clientId, budgetId)` (version-history API, hors panneau comparaison simplifié)
 - Clés pour sous-domaines : `snapshots`, `versions`, `reallocations`, `imports` (autres écrans)
 
 Les hooks utilisent `useActiveClient()` pour obtenir `clientId` et passent `enabled: !!clientId` à `useQuery`.
@@ -183,8 +185,9 @@ Tous les modules API reçoivent une fonction **authFetch** (retour de `useAuthen
 | `useBudgetExplorerTree(budget, envelopes, lines, filters)` | use-budget-explorer-tree | tree + filteredTree mémoïsés (RFC-FE-004) |
 | **RFC-FE-BUD-030 (forecast)** | | |
 | `useBudgetForecast` / `useEnvelopeForecast` / `useEnvelopeForecastLines` | forecast/hooks | Données KPI + lignes forecast (pagination avec `keepPreviousData`) |
-| `useBudgetComparison` | forecast/hooks | Comparaison `compareBudget` (enabled selon `compareTo` / `targetId`) |
-| `useBudgetSnapshotsForSelect` / `useBudgetVersionHistory` | forecast/hooks | Options libellées pour sélecteur snapshot / version |
+| `useBudgetComparison` | forecast/hooks | Comparaison `compareBudget` — `compareTo` UI : `baseline` \| `snapshot` ; `enabled` si `snapshot` sans `targetId` → false |
+| `useBudgetSnapshotsForSelect` | forecast/hooks | Liste versions figées libellées pour sélecteurs et mode multi-colonnes |
+| `useSnapshotPairComparison` / `useMultiSnapshotVsLiveComparison` | forecast/hooks | Onglets « deux versions figées » et « plusieurs versions figées » |
 | **RFC-FE-015 (formulaires)** | | |
 | `useExerciseDetail(id)` | use-exercise-detail | Détail exercice pour formulaire edit |
 | `useCreateBudgetExercise` / `useUpdateBudgetExercise(id)` | use-create/update-budget-exercise | Mutations exercice |
@@ -220,7 +223,9 @@ Les hooks **forecast** (RFC-FE-BUD-030) vivent sous `forecast/hooks/`. Les autre
 | `BudgetEmptyState` | État vide avec messages par défaut budget |
 | `BudgetErrorState` | Erreur + retry avec messages par défaut budget |
 | **Forecast / comparaison (RFC-FE-BUD-030)** | | |
-| `ForecastKpiCards`, `ForecastTable`, `ComparisonTable`, `ForecastStatusBadge`, `BudgetComparisonSelector` | `forecast/components/` | Montants via `formatCurrency` ; états loading / empty / error / no-result |
+| `ForecastKpiCards`, `ForecastTable`, `ComparisonTable`, `ForecastStatusBadge`, `BudgetComparisonSelector`, `ForecastComparisonPanel`, `MultiLiveVsSnapshotsTable` | `forecast/components/` | Montants via `formatCurrency` ; onglets : actuel vs référence (baseline / **version figée**), deux versions figées, multi ; **sans** onglet « deux révisions » (RFC-019) dans ce panneau |
+| `BudgetComparisonKpiCharts`, `BudgetComparisonMultiKpiCharts`, `comparison-charts-svg.tsx` | `forecast/components/` | Synthèse **graphique SVG** (barres, anneaux, courbes) sous les tableaux de comparaison — pas de dépendance `recharts` |
+| `CreateBudgetSnapshotDialog` | `features/budgets/components/` | Création version figée (date, type d’occasion, aide périmètre lignes) |
 
 | **Formulaires (RFC-FE-015)** | | |
 | `BudgetExerciseForm` / `BudgetForm` / `BudgetEnvelopeForm` / `BudgetLineForm` | Formulaires RHF + Zod (create/edit), `submitError` ApiFormError, `cancelHref`, `disableSubmit` (ligne si options manquantes) ; `BudgetForm` en **édition** restreint le select `status` aux transitions autorisées (`budget-status-transitions.ts`, aligné API) |
@@ -246,15 +251,16 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budget-envelopes/[envelopeId]/edit` | **Édition enveloppe** (RFC-FE-015) |
 | `/budgets/[budgetId]/lines/new` | **Création ligne budgétaire** (RFC-FE-015) |
 | `/budget-lines/[lineId]/edit` | **Édition ligne budgétaire** (RFC-FE-015) |
-| `/budgets/[budgetId]` | **Cockpit budget (RFC-FE-004)** : KPI, tableau hiérarchique enveloppes/lignes (expand/collapse), filtres recherche/type/OPEX-CAPEX, états loading/error/empty global/empty filtré, onglet **Forecast** (RFC-FE-BUD-030) + liens lines/reporting/snapshots/versions/reallocations |
+| `/budgets/[budgetId]` | **Cockpit budget (RFC-FE-004)** : KPI, tableau hiérarchique, vues pilotage (synthèse, prévisionnel, forecast, **comparaison**, décisions, dashboard). **Comparaison** : `BudgetReportingForecastPage` embarqué (`variant="embedded"`) → `ForecastComparisonPanel` + graphiques SVG. En-tête : **Versions figées**, **Accès rapides** |
 | `/budgets/dashboard` | **Budget Cockpit** (RFC-FE-002) : KPI, alertes, analytics, tableaux — lien **Forecast & comparaison** vers reporting si budget réel (RFC-FE-BUD-030) — voir [budget-cockpit.md](budget-cockpit.md) |
 | `/budgets/[budgetId]/lines` | Liste lignes (détail) |
-| `/budgets/[budgetId]/reporting` | **Forecast & comparaison** (RFC-FE-BUD-030) : KPI budget, sélecteur baseline/snapshot/version, table comparaison |
+| `/budgets/[budgetId]/reporting` | **Forecast & comparaison** (RFC-FE-BUD-030) : KPI budget, panneau comparaison (baseline / **version figée**, paires et multi versions figées), table + **vue graphique SVG** |
 | `/budgets/[budgetId]/snapshots` | **Versions figées** (RFC-033) : liste, création, lien depuis fiche budget ; détail `/snapshots/[snapshotId]` |
 | `/budgets/[budgetId]/versions` | Squelette |
 | `/budgets/[budgetId]/reallocations` | Squelette |
 | `/budgets/imports` | Squelette |
-| `/budgets/configuration` | Page de configuration budget : cartes vers **Exercices** (`/budgets/exercises`) et **Imports** (`/budgets/imports`) |
+| `/budgets/configuration` | Configuration budget : **Exercices**, **Imports**, workflow, **Types d’occasion (versions figées)** → `/budgets/snapshot-occasion-types` (RFC-033) |
+| `/admin/snapshot-occasion-types` | CRUD types d’occasion **globaux** (`PLATFORM_ADMIN`, RFC-033) |
 
 Chaque page de données gère **loading**, **error**, **empty**, **success**. Les listes `/budgets` et `/budgets/exercises` reflètent filtres et pagination dans l'URL. La page **reporting** forecast gère en outre un état **no-result** (`lines.length === 0` après succès) distinct du vide générique.
 

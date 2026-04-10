@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Draft** — cadrage produit et alignement sur l’implémentation `BudgetSnapshot` existante. L’UI liste dédiée `/budgets/[budgetId]/snapshots` reste à finaliser (voir §6).
+**Implémenté (MVP)** — cœur `BudgetSnapshot`, référentiel §4.4 (types d’occasion), UI liste / création / détail, admin plateforme + client, et alignement vocabulaire « version figée » (voir §6). Évolutions possibles : archivage exposé partout, e2e dédiés, raffinages RBAC métier.
 
 ## Priorité
 
@@ -61,12 +61,18 @@ Sur `BudgetSnapshotLine` : rattachement `budgetLineId`, libellés enveloppe / li
 | `GET` | `/api/budget-snapshots/:id` | `budgets.read` | Détail + lignes ; audit `budget_snapshot.viewed` |
 | `GET` | `/api/budget-snapshots/compare?leftSnapshotId=&rightSnapshotId=` | `budgets.read` | Comparaison deux snapshots |
 
+**Extension RFC-033 (types d’occasion)** — voir aussi `docs/API.md` §20 bis : `GET|POST|PATCH|DELETE /api/budget-snapshot-occasion-types` (client actif, fusion en lecture avec `budgets.read` ; écriture client avec `budgets.snapshot_occasion_types.manage`) et `GET|POST|PATCH|DELETE /api/platform/budget-snapshot-occasion-types` (`PLATFORM_ADMIN`).
+
 Guards : JWT, client actif, module, `PermissionsGuard` — aligné avec le reste du module budget.
 
 ## 1.4 Frontend
 
-* Comparaison / sélection : hooks et API client autour des snapshots (voir [docs/modules/budget-frontend.md](../modules/budget-frontend.md), RFC-FE-BUD-030).
-* Route `/budgets/[budgetId]/snapshots` : **squelette** — la RFC-033 cible la **finition** : liste, CTA « Enregistrer une version » (libellé métier), détail lecture seule.
+* **Liste / détail / création** : `/budgets/[budgetId]/snapshots`, `/budgets/[budgetId]/snapshots/[snapshotId]` ; dialogue « Enregistrer une version » depuis la fiche budget (`CreateBudgetSnapshotDialog`) avec `snapshotDate`, aide sur le périmètre des lignes figées, select **type d’occasion** libellé (`GET` fusionné types d’occasion).
+* **Fiche budget** : lien « Versions figées », carte **Accès rapides** (header) vers sous-domaines ; colonnes liste : code, total révisé, type d’occasion, etc.
+* **Référentiel client** : `/budgets/snapshot-occasion-types` (permission `budgets.snapshot_occasion_types.manage`) ; entrée depuis `/budgets/configuration`.
+* **Référentiel plateforme** : `/admin/snapshot-occasion-types` (`PLATFORM_ADMIN`).
+* Comparaison budgétaire : vocabulaire **version figée** côté UI (RFC-FE-BUD-030) ; graphiques de synthèse sous le tableau de comparaison (**SVG natif**, pas de lib charting).
+* Détail : [docs/modules/budget-frontend.md](../modules/budget-frontend.md).
 
 ## 1.5 Ce que RFC-019 couvre (et ne couvre pas)
 
@@ -185,29 +191,25 @@ Les réponses incluent déjà **`createdByLabel`** (construction à partir de `f
 
 ---
 
-# 6. Frontend (périmètre à livrer pour « mise en place » produit)
+# 6. Frontend (livré — MVP « mise en place » produit)
 
 | Livrable | Détail |
 | --- | --- |
-| Page `/budgets/[budgetId]/snapshots` | Liste des versions figées pour ce budget (colonnes : nom, code, date, auteur, totaux clés) ; états loading / error / empty |
-| Action principale | « Enregistrer une version » → dialogue : nom (obligatoire), description optionnelle, date (défaut aujourd’hui), **type d’occasion** (select **libellé**, valeur technique `occasionTypeId`) → `POST /api/budget-snapshots` |
-| Détail | Vue lecture seule des lignes et totaux (`GET :id`) ; liens vers comparaison si pertinent |
-| Cohérence | Réutiliser patterns `features/budgets`, query keys tenant-aware, même style que RFC-FE-BUD-030 |
-| **Admin référentiel** | **Plateforme** : écran(s) sous navigation `PLATFORM_ADMIN` pour CRUD types **globaux**. **Client** : écran paramètres budget (ou studio admin client) pour CRUD types **client**, visible seulement si l’utilisateur a la **permission** de pilotage (§4.4.1) |
+| Page `/budgets/[budgetId]/snapshots` | Liste des versions figées (nom, code, date, type d’occasion, total révisé, auteur, etc.) ; états loading / error / empty |
+| Action principale | « Enregistrer une version » (fiche budget + liste) → dialogue : nom, description, date, **type d’occasion** optionnel (libellés) → `POST /api/budget-snapshots` |
+| Détail | `/budgets/[budgetId]/snapshots/[snapshotId]` — lecture seule lignes + totaux (`GET :id`) |
+| Cohérence | `features/budgets`, `budget-query-keys` tenant-aware, aligné RFC-FE-BUD-030 |
+| **Admin référentiel** | **Plateforme** : `/admin/snapshot-occasion-types`. **Client** : `/budgets/snapshot-occasion-types` + carte sur `/budgets/configuration` — permission §4.4.1 |
 
 ---
 
 # 7. Prisma / migrations
 
-**Aucune migration obligatoire** pour le MVP **sans** type structuré : `name` / `description` / `snapshotDate` suffisent.
+**Référentiel §4.4 (livré)** : modèle **`BudgetSnapshotOccasionType`**, FK nullable **`BudgetSnapshot.occasionTypeId`**, migration PostgreSQL avec **index uniques partiels** (global `code` où `clientId` IS NULL ; `(clientId, code)` sinon), index liste `(clientId, isActive, sortOrder)`.
 
-**Migration pour §4.4 (type d’occasion)** :
+**Seed** : permission `budgets.snapshot_occasion_types.manage` (rattachée au module Budget), types globaux par défaut, profils dans `default-profiles.json` selon politique produit.
 
-1. Créer **`BudgetSnapshotOccasionType`** avec `clientId` nullable, champs `code`, `label`, `description`, `sortOrder`, `isActive`, timestamps ; indexes / unicité selon §4.4.2.
-2. Ajouter **`occasionTypeId`** (nullable FK) sur **`BudgetSnapshot`**.
-3. Seed optionnel : quelques types **globaux** (`clientId` null) pour démo et nouveaux clients.
-
-**Extensions ultérieures** : index sur `(clientId, isActive, sortOrder)` pour listes rapides ; pas de `JSON` obligatoire pour le MVP référentiel.
+**Sans type structuré** (ancien MVP) : `name` / `description` / `snapshotDate` restent suffisants côté métier ; `occasionTypeId` reste optionnel.
 
 ---
 
@@ -220,16 +222,18 @@ Les réponses incluent déjà **`createdByLabel`** (construction à partir de `f
 
 ---
 
-# 9. Liste des fichiers (implémentation UI / doc — lors du développement)
+# 9. Liste des fichiers (référence dépôt)
 
-| Fichier / zone | Action typique |
+| Fichier / zone | Rôle |
 | --- | --- |
-| `apps/web/src/app/(protected)/budgets/[budgetId]/snapshots/` | Remplacer squelette par liste + création |
-| `apps/web/src/features/budgets/` (api, hooks, types) | Module `budget-snapshots` client si besoin d’extension |
-| `docs/modules/budget-frontend.md` | Mettre à jour statut route snapshots |
-| `docs/API.md` | Section `budget-snapshots` avec sémantique « version figée » |
-| `apps/api/src/modules/...` (nouveau module ou extension) | `budget-snapshot-occasion-types` + contrôleur plateforme ; permissions seed |
-| `apps/web` | Pages plateforme + paramètres client pour CRUD types ; select création snapshot |
+| `apps/web/src/app/(protected)/budgets/[budgetId]/snapshots/` | Liste + détail `snapshots/[snapshotId]` |
+| `apps/web/src/features/budgets/api/budget-snapshots.api.ts` (+ types) | Client HTTP snapshots |
+| `apps/web/.../budget-snapshot-occasion-types.api.ts`, `platform-budget-snapshot-occasion-types.api.ts` | Types d’occasion client / plateforme |
+| `apps/web/.../create-budget-snapshot-dialog.tsx` | Création avec date, aide pilotage, select occasion |
+| `apps/web/.../admin/snapshot-occasion-types/`, `budgets/snapshot-occasion-types/` | CRUD référentiel |
+| `apps/api/src/modules/budget-snapshot-occasion-types/` | Service + contrôleurs client et plateforme |
+| `apps/api/prisma/` | Schéma + migration `BudgetSnapshotOccasionType` |
+| `docs/modules/budget-frontend.md`, `docs/API.md` | Routes UI et §20 bis API |
 
 ---
 
@@ -238,7 +242,7 @@ Les réponses incluent déjà **`createdByLabel`** (construction à partir de `f
 * **Version (produit)** = **`BudgetSnapshot`** : copie figée, lecture seule, pour une occasion donnée.
 * **Révision (RFC-019)** = autre concept (lignée éditable).
 * **Type d’occasion** : référentiel **global** piloté par **`PLATFORM_ADMIN`** ; référentiel **client** piloté par un **rôle / permission** dédié dans le client actif ; fusion en lecture pour les formulaires (§4.4, §13).
-* Backend déjà opérationnel pour le **cœur** snapshot ; types d’occasion + UI paramètres = **extension** documentée ici.
+* Backend **cœur** snapshot + **extension** types d’occasion + UI associée sont **en place** ; itérations possibles (archivage UI, filtres liste, OpenAPI).
 
 ---
 
@@ -257,11 +261,11 @@ Les réponses incluent déjà **`createdByLabel`** (construction à partir de `f
 
 *(Pour l’agent / développeur qui implémente après validation RFC.)*
 
-1. UI liste + création + détail snapshots sur `/budgets/[budgetId]/snapshots`.
-2. Entrée menu / onglet depuis la fiche budget (cohérent avec [budget-frontend.md](../modules/budget-frontend.md)).
-3. Vérifier permissions et messages d’erreur API.
-4. Mettre à jour `budget-frontend.md` et extraits `API.md` si nécessaire.
-5. Tests e2e ou tests composants sur le flux « enregistrer une version » (selon stratégie du repo).
+1. ~~UI liste + création + détail snapshots~~ — fait.
+2. ~~Entrée depuis la fiche budget~~ — fait (lien, bouton, accès rapides).
+3. ~~Permissions / erreurs API~~ — à maintenir lors des évolutions.
+4. ~~`budget-frontend.md` / `API.md`~~ — tenus à jour avec le code.
+5. Tests e2e ou tests composants sur le flux « enregistrer une version » (optionnel selon stratégie du repo).
 
 ---
 

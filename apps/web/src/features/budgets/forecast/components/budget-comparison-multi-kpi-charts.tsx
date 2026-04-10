@@ -64,6 +64,20 @@ export function BudgetComparisonMultiKpiCharts({ merged }: { merged: MergedLiveV
     };
   }, [merged, shortLeft]);
 
+  const chartAnimKey = useMemo(
+    () =>
+      [
+        merged.totalsLeft,
+        merged.totalsRight.join(','),
+        String(merged.lines.length),
+        merged.lines
+          .slice(0, 6)
+          .map((l) => `${l.lineKey}:${l.leftRevised}`)
+          .join('|'),
+      ].join('§'),
+    [merged],
+  );
+
   const fmtY = (n: number) => formatAxisAmount(n, cur);
 
   return (
@@ -74,8 +88,8 @@ export function BudgetComparisonMultiKpiCharts({ merged }: { merged: MergedLiveV
       <div>
         <h3 className="text-base font-semibold tracking-tight text-foreground">Vue graphique</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Totaux par colonne puis courbes sur les lignes les plus volumineuses — survol des points pour
-          le détail.
+          Totaux et courbes se mettent à jour en douceur quand vous modifiez la sélection des versions
+          figées — survol des points pour le détail.
         </p>
       </div>
 
@@ -86,6 +100,7 @@ export function BudgetComparisonMultiKpiCharts({ merged }: { merged: MergedLiveV
         </CardHeader>
         <CardContent className="h-[280px] pt-0">
           <SvgTotalsBarChart
+            key={chartAnimKey}
             className="h-full w-full"
             labels={barLabels}
             values={barValues}
@@ -103,7 +118,12 @@ export function BudgetComparisonMultiKpiCharts({ merged }: { merged: MergedLiveV
           </CardDescription>
         </CardHeader>
         <CardContent className="min-h-[300px] pt-0">
-          <SvgMultiLineChart className="h-auto w-full" series={lineSeries} formatY={fmtY} />
+          <SvgMultiLineChart
+            key={chartAnimKey}
+            className="h-auto w-full"
+            series={lineSeries}
+            formatY={fmtY}
+          />
         </CardContent>
       </Card>
     </section>

@@ -1945,6 +1945,8 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 - **GET | POST | PATCH /:id | DELETE /:id** — CRUD types **globaux** (`clientId` null). **`PLATFORM_ADMIN`** uniquement.
 
+**Comparaison budgétaire (lien RFC-030 / RFC-FE-BUD-030)** : `GET /api/budget-comparisons/budgets/:budgetId?compareTo=baseline|snapshot|version&targetId=…` ; `GET /api/budget-comparisons/snapshots`, `GET /api/budget-comparisons/versions`. L’UI Next.js (onglet Comparaison) utilise **baseline** et **version figée** (`snapshot`) pour « Actuel vs référence », plus des onglets **deux / plusieurs versions figées** ; le mode **`compareTo=version`** (révisions RFC-019) reste exposé par l’API pour d’autres clients.
+
 ---
 
 ## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`

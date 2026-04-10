@@ -1,9 +1,42 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { formatCurrency } from '@/features/budgets/lib/budget-formatters';
 
 const GRID = 'var(--border)';
+
+/** Animation de tracé (stroke-dashoffset) pour les courbes — relancée quand `animateKey` ou les paths changent. */
+function useLinePathsDraw(svgRef: React.RefObject<SVGSVGElement | null>, pathSignature: string, animateKey: string) {
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const paths = [...svg.querySelectorAll<SVGPathElement>('.chart-svg-path-draw')];
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    paths.forEach((el) => {
+      el.style.transition = 'none';
+      const len = el.getTotalLength();
+      if (!Number.isFinite(len) || len < 0.5) return;
+      el.style.strokeDasharray = String(len);
+      el.style.strokeDashoffset = String(len);
+    });
+    const raf = requestAnimationFrame(() => {
+      paths.forEach((el, idx) => {
+        const len = el.getTotalLength();
+        if (!Number.isFinite(len) || len < 0.5) return;
+        timeouts.push(
+          setTimeout(() => {
+            el.style.transition = 'stroke-dashoffset 0.88s cubic-bezier(0.22, 1, 0.36, 1)';
+            el.style.strokeDashoffset = '0';
+          }, 45 + idx * 95),
+        );
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      timeouts.forEach(clearTimeout);
+    };
+  }, [animateKey, pathSignature]);
+}
 
 /** Point sur le cercle : angle 0° = midi, sens horaire. */
 function polar(cx: number, cy: number, r: number, angleDeg: number) {
@@ -35,6 +68,7 @@ export function SvgDonutChart({
   formatSliceTitle,
   innerRatio = 0.58,
   className,
+  animateKey = '',
 }: {
   slices: DonutSlice[];
   /** Si défini, remplace le libellé `<title>` des segments (ex. effectifs au lieu de montants). */
@@ -42,6 +76,8 @@ export function SvgDonutChart({
   currency?: string | null;
   innerRatio?: number;
   className?: string;
+  /** Change quand les données comparaison changent — ré-anime l’entrée des segments. */
+  animateKey?: string;
 }) {
   const total = slices.reduce((s, x) => s + x.value, 0);
   if (total <= 0) return null;
@@ -73,7 +109,11 @@ export function SvgDonutChart({
         const lx = cx + (rInner + (rOuter - rInner) / 2) * Math.cos(((mid - 90) * Math.PI) / 180);
         const ly = cy + (rInner + (rOuter - rInner) / 2) * Math.sin(((mid - 90) * Math.PI) / 180);
         return (
-          <g key={i}>
+          <g
+            key={`${animateKey}-${i}-${sl.name}`}
+            className="chart-donut-slice"
+            style={{ animationDelay: `${i * 55}ms` }}
+          >
             <path
               d={donutSlicePath(cx, cy, rInner, rOuter, a0, a1)}
               fill={sl.fill}
@@ -110,6 +150,7 @@ export function SvgGroupedBarChart({
   rightColor,
   formatY,
   className,
+  animateKey: _animateKey = '',
 }: {
   rows: GroupedBarRow[];
   leftName: string;
@@ -118,6 +159,7 @@ export function SvgGroupedBarChart({
   rightColor: string;
   formatY: (n: number) => string;
   className?: string;
+  animateKey?: string;
 }) {
   const w = 400;
   const h = 220;
@@ -173,6 +215,7 @@ export function SvgGroupedBarChart({
         return (
           <g key={row.label}>
             <rect
+              className="chart-svg-bar"
               x={xL}
               y={y0 - hL}
               width={barW}
@@ -185,6 +228,7 @@ export function SvgGroupedBarChart({
               </title>
             </rect>
             <rect
+              className="chart-svg-bar"
               x={xR}
               y={y0 - hR}
               width={barW}
@@ -221,6 +265,7 @@ export function SvgDualLineChart({
   nameB,
   formatY,
   className,
+  animateKey = '',
 }: {
   points: LinePoint[];
   colorA: string;
@@ -229,6 +274,7 @@ export function SvgDualLineChart({
   nameB: string;
   formatY: (n: number) => string;
   className?: string;
+  animateKey?: string;
 }) {
   const w = 400;
   const h = 220;
@@ -247,9 +293,19 @@ export function SvgDualLineChart({
 
   const pathA = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xa(i)} ${ya(p.a)}`).join(' ');
   const pathB = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xa(i)} ${ya(p.b)}`).join(' ');
+  const pathSig = `${pathA}|${pathB}`;
+
+  const svgRef = useRef<SVGSVGElement>(null);
+  useLinePathsDraw(svgRef, pathSig, animateKey);
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={className} role="img" aria-label="Courbes comparées">
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${w} ${h}`}
+      className={className}
+      role="img"
+      aria-label="Courbes comparées"
+    >
       <text x={padL} y={14} className="fill-muted-foreground text-[10px]">
         — {nameA}
       </text>
@@ -267,16 +323,30 @@ export function SvgDualLineChart({
           </g>
         );
       })}
-      <path d={pathA} fill="none" stroke={colorA} strokeWidth={2.2} strokeLinejoin="round" />
-      <path d={pathB} fill="none" stroke={colorB} strokeWidth={2.2} strokeLinejoin="round" />
+      <path
+        className="chart-svg-path-draw"
+        d={pathA}
+        fill="none"
+        stroke={colorA}
+        strokeWidth={2.2}
+        strokeLinejoin="round"
+      />
+      <path
+        className="chart-svg-path-draw"
+        d={pathB}
+        fill="none"
+        stroke={colorB}
+        strokeWidth={2.2}
+        strokeLinejoin="round"
+      />
       {points.map((p, i) => (
         <g key={i}>
-          <circle cx={xa(i)} cy={ya(p.a)} r={3} fill={colorA}>
+          <circle className="chart-svg-dot" cx={xa(i)} cy={ya(p.a)} r={3} fill={colorA}>
             <title>
               #{p.x} {p.label} — {nameA}: {formatY(p.a)}
             </title>
           </circle>
-          <circle cx={xa(i)} cy={ya(p.b)} r={3} fill={colorB}>
+          <circle className="chart-svg-dot" cx={xa(i)} cy={ya(p.b)} r={3} fill={colorB}>
             <title>
               #{p.x} {p.label} — {nameB}: {formatY(p.b)}
             </title>
@@ -303,12 +373,14 @@ export function SvgHorizontalDiffBars({
   posColor,
   negColor,
   className,
+  animateKey: _animateKey = '',
 }: {
   rows: HBarRow[];
   formatX: (n: number) => string;
   posColor: string;
   negColor: string;
   className?: string;
+  animateKey?: string;
 }) {
   const w = 400;
   const rowH = 26;
@@ -351,6 +423,7 @@ export function SvgHorizontalDiffBars({
               {row.name}
             </text>
             <rect
+              className="chart-svg-bar"
               x={x}
               y={y}
               width={Math.max(bw, 1)}
@@ -415,6 +488,7 @@ export function SvgTotalsBarChart({
         return (
           <g key={lbl}>
             <rect
+              className="chart-svg-bar"
               x={x}
               y={y0 - vh}
               width={bw}
@@ -448,10 +522,12 @@ export function SvgMultiLineChart({
   series,
   formatY,
   className,
+  animateKey = '',
 }: {
   series: MultiLineSeries[];
   formatY: (n: number) => string;
   className?: string;
+  animateKey?: string;
 }) {
   const w = 400;
   const h = 260;
@@ -472,8 +548,21 @@ export function SvgMultiLineChart({
   const xa = (i: number) => padL + i * step;
   const ya = (v: number) => padT + ih - (v / maxY) * ih;
 
+  const pathSig = series
+    .map((s) => s.values.map((v, i) => `${xa(i)},${ya(v)}`).join(';'))
+    .join('|');
+
+  const svgRef = useRef<SVGSVGElement>(null);
+  useLinePathsDraw(svgRef, pathSig, animateKey);
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={className} role="img" aria-label="Courbes multiples">
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${w} ${h}`}
+      className={className}
+      role="img"
+      aria-label="Courbes multiples"
+    >
       <g transform={`translate(${padL}, 12)`}>
         {series.map((s, i) => (
           <text key={s.key} x={i * 92} y={0} fill={s.color} className="text-[9px]">
@@ -499,6 +588,7 @@ export function SvgMultiLineChart({
         return (
           <path
             key={s.key}
+            className="chart-svg-path-draw"
             d={path}
             fill="none"
             stroke={s.color}
@@ -509,7 +599,14 @@ export function SvgMultiLineChart({
       })}
       {series.map((s) =>
         s.values.map((v, i) => (
-          <circle key={`${s.key}-${i}`} cx={xa(i)} cy={ya(v)} r={2.5} fill={s.color}>
+          <circle
+            key={`${s.key}-${i}`}
+            className="chart-svg-dot"
+            cx={xa(i)}
+            cy={ya(v)}
+            r={2.5}
+            fill={s.color}
+          >
             <title>
               {s.name} — rang {i + 1}: {formatY(v)}
             </title>

@@ -2,7 +2,7 @@
 
 ## Statut
 
-Implémenté (MVP) — aligné dépôt **2026-03** (voir §14).
+Implémenté (MVP) — aligné dépôt **2026-04** (voir §14) : vocabulaire **version figée** (RFC-033), retrait de l’onglet « deux révisions » dans le panneau comparaison, synthèses **graphiques SVG** sous les tableaux.
 
 ## Priorité
 
@@ -25,9 +25,9 @@ Permettre à la **DAF / DG** de :
 * identifier les dérives (forecast vs budget)
 * comparer un budget avec :
 
-  * baseline
-  * snapshot
-  * version
+  * **baseline** (référence versionnement)
+  * **version figée** (technique : snapshot, RFC-033)
+  * ~~sélecteur « autre révision » (RFC-019)~~ : **retiré** du panneau comparaison embarqué ; l’API `compareTo=version` reste disponible pour d’autres usages
 * naviguer facilement du cockpit → enveloppe → ligne → détail
 
 ---
@@ -37,7 +37,7 @@ Permettre à la **DAF / DG** de :
 ## Inclus
 
 * affichage forecast (budget / enveloppe / ligne)
-* vue comparaison (baseline / snapshot / version)
+* vue comparaison (baseline / version figée ; paires et multi versions figées ; graphiques SVG)
 * statuts visuels (OK / WARNING / CRITICAL)
 * drill-down depuis cockpit
 * UI cohérente avec le reste du module budget
@@ -78,6 +78,11 @@ apps/web/src/features/budgets/
       comparison-table.tsx
       forecast-status-badge.tsx
       budget-comparison-selector.tsx
+      forecast-comparison-panel.tsx
+      budget-comparison-kpi-charts.tsx
+      budget-comparison-multi-kpi-charts.tsx
+      comparison-charts-svg.tsx
+      multi-live-vs-snapshots-table.tsx
     hooks/
       use-budget-forecast.ts
       use-envelope-forecast.ts
@@ -109,7 +114,7 @@ apps/web/src/features/budgets/
 ### Listes pour sélecteurs (hors comparaison directe)
 
 * `GET /api/budget-snapshots?budgetId=…` — libellés options snapshot
-* `GET /api/budgets/:id/version-history` — libellés options version (même jeu de versions que la comparaison)
+* `GET /api/budgets/:id/version-history` — historique révisions RFC-019 (hook `use-budget-version-history` encore présent ; plus consommé par le panneau `ForecastComparisonPanel` après simplification UI)
 
 ---
 
@@ -161,7 +166,8 @@ type ForecastLine = {
 
 ```ts
 type BudgetComparison = {
-  compareTo: 'baseline' | 'snapshot' | 'version'
+  /** Requête principale UI : `baseline` \| `snapshot`. La réponse peut encore porter `compareTo` incluant `version` selon endpoint. */
+  compareTo: 'baseline' | 'snapshot'
   totals: {
     budget: number
     forecast: number
@@ -242,16 +248,12 @@ Cockpit
 
 # 7. UX — Comparaison
 
-## 7.1 Sélecteur
+## 7.1 Sélecteur (« Actuel vs référence »)
 
-UI obligatoire :
+* **Référence baseline** ou **Version figée** (liste libellée, `targetId` = id snapshot si version figée).
+* Pas de troisième mode « autre révision » dans ce sélecteur (réduction ambiguïté avec RFC-019 ; voir §14).
 
-* type :
-
-  * baseline
-  * snapshot
-  * version
-* targetId si requis
+**Onglets du panneau** (`ForecastComparisonPanel`) : *Actuel vs référence* ; *Deux versions figées* ; *Plusieurs versions figées (vs actuel)*.
 
 ---
 
@@ -265,6 +267,8 @@ Colonnes :
 * diff
 * variance forecast
 * statut
+
+Sous le tableau (données identiques) : **vue graphique** — barres groupées (totaux), anneaux (répartition / statuts), courbes (révisé par rang), barres d’écarts — implémentée en **SVG** (`comparison-charts-svg.tsx`, sans `recharts`).
 
 ---
 
@@ -283,7 +287,7 @@ Clés TanStack Query : `budgetQueryKeys.budgetForecast(clientId, budgetId)` (voi
 
 ## useBudgetComparison
 
-`budgetQueryKeys.budgetComparison(clientId, budgetId, compareTo, targetId | undefined)` ; `enabled` false si `snapshot`/`version` sans `targetId`. Une seule query `compareBudget` — pas de fetch parallèle via `useEffect`.
+`budgetQueryKeys.budgetComparison(clientId, budgetId, compareTo, targetId | undefined)` ; `enabled` false si `snapshot` sans `targetId`. Une seule query `compareBudget` — pas de fetch parallèle via `useEffect`.
 
 ## useEnvelopeForecast / useEnvelopeForecastLines
 
@@ -359,7 +363,7 @@ Le frontend :
 | **Route reporting** | `apps/web/src/app/(protected)/budgets/[budgetId]/reporting/page.tsx` → `BudgetReportingForecastPage` |
 | **Cockpit** | Lien « Forecast & comparaison » dans `features/budgets/dashboard/components/budget-dashboard-header.tsx` si un budget réel est sélectionné (`budgetReporting(budgetId)`), hors mode agrégé `__ALL__` |
 | **Enveloppe** | `app/(protected)/budget-envelopes/[envelopeId]/page.tsx` — bloc CockpitSurfaceCard forecast + `ForecastTable` paginée |
-| **Budget détail** | Onglet **Forecast** sur `/budgets/[budgetId]` : `ForecastKpiCards` + liens vers reporting |
+| **Budget détail** | Vue pilotage **Comparaison** sur `/budgets/[budgetId]` : `BudgetReportingForecastPage` embarqué → `ForecastComparisonPanel` (baseline / versions figées, graphiques SVG) ; onglet **Forecast** séparé avec `ForecastKpiCards` + lien reporting |
 | **Tests Vitest** | `forecast-status-badge.spec.ts`, `comparison-diff.spec.ts`, `formatCurrency` dans `budget-formatters.spec.ts` |
 
 Hors scope documenté ici : **drawer détail ligne** au clic (placeholder / futur).

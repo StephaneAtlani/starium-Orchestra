@@ -66,7 +66,9 @@ export function BudgetComparisonSelector({
           onValueChange={(v) => onCompareToChange(v as BudgetComparisonMode)}
         >
           <SelectTrigger id="compare-to" className="w-[220px]">
-            <SelectValue />
+            <SelectValue placeholder="Référence baseline">
+              {compareTo === 'baseline' ? 'Référence baseline' : 'Version figée'}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="baseline">Référence baseline</SelectItem>

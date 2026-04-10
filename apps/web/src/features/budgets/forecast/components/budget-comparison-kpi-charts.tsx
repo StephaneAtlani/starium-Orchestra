@@ -154,6 +154,23 @@ export function BudgetComparisonKpiCharts({
     };
   }, [data]);
 
+  /** Clé stable pour ré-animer courbes / anneaux quand la comparaison chargée change (baseline ↔ version figée, autre cible, autre budget). */
+  const chartAnimKey = useMemo(() => {
+    const head = data.lines
+      .slice(0, 8)
+      .map((l) => `${l.lineKey}:${l.left.revisedAmount}:${l.right.revisedAmount}`)
+      .join('|');
+    return [
+      data.budgetId ?? '',
+      data.compareTo ?? '',
+      String(data.diff.revisedAmount),
+      String(data.lines.length),
+      data.leftSnapshotId ?? '',
+      data.rightSnapshotId ?? '',
+      head,
+    ].join('§');
+  }, [data]);
+
   const hasPie = pieLeftSlices.some((d) => d.value > 0);
   const hasStatus = statusSlices.length > 0;
   const hasDiff = diffRows.some((d) => d.value !== 0);
@@ -170,8 +187,9 @@ export function BudgetComparisonKpiCharts({
           Vue graphique
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Même périmètre que le tableau : survolez les zones pour le détail (montants). Répartition
-          en anneaux, histogrammes et courbes lisibles sans zoom.
+          Même périmètre que le tableau : les graphiques <strong>réagissent</strong> quand vous changez
+          baseline / version figée ou la cible — barres et points en transition, courbes tracées en
+          animation. Survolez pour les montants.
         </p>
       </div>
 
@@ -192,6 +210,7 @@ export function BudgetComparisonKpiCharts({
               leftColor={C.left}
               rightColor={C.right}
               formatY={fmtY}
+              animateKey={chartAnimKey}
             />
           </CardContent>
         </Card>
@@ -206,7 +225,12 @@ export function BudgetComparisonKpiCharts({
           <CardContent className="flex min-h-[280px] flex-col items-center justify-center gap-3 pt-0">
             {hasPie ? (
               <>
-                <SvgDonutChart slices={pieLeftSlices} currency={cur} className="h-44 w-44 shrink-0" />
+                <SvgDonutChart
+                  slices={pieLeftSlices}
+                  currency={cur}
+                  className="h-44 w-44 shrink-0"
+                  animateKey={chartAnimKey}
+                />
                 <ul className="flex max-w-full flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                   {pieLeftSlices.map((s, i) => (
                     <li key={i} className="flex items-center gap-1.5">
@@ -243,6 +267,7 @@ export function BudgetComparisonKpiCharts({
                     `${sl.name}: ${sl.value} ligne(s) (${pct.toFixed(1)} %)`
                   }
                   className="h-40 w-40 shrink-0"
+                  animateKey={chartAnimKey}
                 />
                 <p className="text-center text-xs text-muted-foreground">
                   Survolez les segments pour les effectifs.
@@ -270,6 +295,7 @@ export function BudgetComparisonKpiCharts({
               nameA={shortLeft}
               nameB={shortRight}
               formatY={fmtY}
+              animateKey={chartAnimKey}
             />
           </CardContent>
         </Card>
@@ -291,6 +317,7 @@ export function BudgetComparisonKpiCharts({
               formatX={fmtX}
               posColor="rgb(220 38 38 / 0.88)"
               negColor="rgb(34 197 94 / 0.88)"
+              animateKey={chartAnimKey}
             />
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">
