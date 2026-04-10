@@ -24,6 +24,7 @@ import { useBudgetLineDetail } from '../../hooks/use-budget-line-detail';
 import { useBudgetLineEvents } from '../../hooks/use-budget-line-events';
 import { useBudgetDetail } from '../../hooks/use-budgets';
 import type { BudgetLineDrilldownNavigation } from '../../lib/budget-envelope-navigation';
+import { usePermissions } from '@/hooks/use-permissions';
 
 export type BudgetLineDrawerTab =
   | 'overview'
@@ -67,6 +68,8 @@ export function BudgetLineIntelligenceDrawer({
 }) {
   const detail = useBudgetLineDetail(open ? budgetLineId : null);
   const { data: budget } = useBudgetDetail(open && budgetId ? budgetId : null);
+  const { has } = usePermissions();
+  const canCreateProcurementInvoice = has('procurement.create');
 
   // Dernier event (pour l’onglet overview) — on ne force pas le chargement si drawer fermé.
   const lastEventQuery = useBudgetLineEvents({
@@ -84,6 +87,7 @@ export function BudgetLineIntelligenceDrawer({
 
   const [orderOpen, setOrderOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoiceInitialPurchaseOrderId, setInvoiceInitialPurchaseOrderId] = useState<string | null>(null);
   const [engagementOpen, setEngagementOpen] = useState(false);
   const [consumptionOpen, setConsumptionOpen] = useState(false);
   /** Panneau agrandi vers le haut (sm+) — mobile déjà plein écran */
@@ -203,7 +207,10 @@ export function BudgetLineIntelligenceDrawer({
                 hasRecentInvoice30d={hasRecentInvoice30d}
                 onClose={() => onOpenChange(false)}
                 onCreateOrder={() => setOrderOpen(true)}
-                onCreateInvoice={() => setInvoiceOpen(true)}
+                onCreateInvoice={() => {
+                  setInvoiceInitialPurchaseOrderId(null);
+                  setInvoiceOpen(true);
+                }}
                 onCreateEngagement={() => setEngagementOpen(true)}
                 onCreateConsumption={() => setConsumptionOpen(true)}
                 lineDrilldownNavigation={lineDrilldownNavigation ?? null}
@@ -256,6 +263,15 @@ export function BudgetLineIntelligenceDrawer({
                         budgetId={budgetId}
                         budgetLineId={line.id}
                         enabled={activeTab === 'commitments'}
+                        onInvoiceFromPurchaseOrder={
+                          canCreateProcurementInvoice
+                            ? (purchaseOrderId) => {
+                                setInvoiceInitialPurchaseOrderId(purchaseOrderId);
+                                setInvoiceOpen(true);
+                                onActiveTabChange('invoices');
+                              }
+                            : undefined
+                        }
                       />
                     </TabsContent>
                     <TabsContent value="invoices">
@@ -293,9 +309,13 @@ export function BudgetLineIntelligenceDrawer({
               />
               <CreateInvoiceDialog
                 open={invoiceOpen}
-                onOpenChange={setInvoiceOpen}
+                onOpenChange={(next) => {
+                  setInvoiceOpen(next);
+                  if (!next) setInvoiceInitialPurchaseOrderId(null);
+                }}
                 budgetId={budgetId}
                 line={line}
+                initialPurchaseOrderId={invoiceInitialPurchaseOrderId}
               />
               <CreateFinancialEventDialog
                 open={engagementOpen}

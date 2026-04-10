@@ -1,6 +1,6 @@
 'use client';
 
-import { Pencil } from 'lucide-react';
+import { FileText, Pencil } from 'lucide-react';
 import type { FinancialEventForLine } from '../../api/budget-line-financial.api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,12 @@ function canEditProcurementEvent(e: FinancialEventForLine): boolean {
     (e.sourceType === 'INVOICE' || e.sourceType === 'PURCHASE_ORDER') &&
     !!e.sourceId?.trim()
   );
+}
+
+function canInvoiceFromPurchaseOrder(
+  e: FinancialEventForLine,
+): e is FinancialEventForLine & { sourceId: string } {
+  return e.sourceType === 'PURCHASE_ORDER' && !!e.sourceId?.trim();
 }
 
 function formatEventAmountCell(e: FinancialEventForLine): { text: string; className: string } {
@@ -49,11 +55,14 @@ export function BudgetLineEventsTable({
   events,
   onEditEvent,
   showEditActions,
+  onInvoiceFromPurchaseOrder,
 }: {
   events: FinancialEventForLine[];
   /** Si défini + showEditActions : bouton modifier pour facture / commande. */
   onEditEvent?: (e: FinancialEventForLine) => void;
   showEditActions?: boolean;
+  /** Ouvre la création de facture avec la commande présélectionnée (lignes source commande). */
+  onInvoiceFromPurchaseOrder?: (purchaseOrderId: string) => void;
 }) {
   if (events.length === 0) {
     return (
@@ -84,7 +93,12 @@ export function BudgetLineEventsTable({
               Montant
             </TableHead>
             {showEditActions && onEditEvent ? (
-              <TableHead className="w-14 bg-muted/40 p-2 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <TableHead
+                className={cn(
+                  'bg-muted/40 p-2 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground',
+                  onInvoiceFromPurchaseOrder ? 'min-w-[5.5rem] w-[5.5rem]' : 'w-14',
+                )}
+              >
                 <span className="sr-only">Actions</span>
               </TableHead>
             ) : null}
@@ -143,18 +157,33 @@ export function BudgetLineEventsTable({
                 </TableCell>
                 {showEditActions && onEditEvent ? (
                   <TableCell className="align-top p-0 text-right">
-                    {canEditProcurementEvent(e) ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
-                        aria-label={`Modifier ${formatFinancialSourceType(e.sourceType)}`}
-                        onClick={() => onEditEvent(e)}
-                      >
-                        <Pencil className="size-4" aria-hidden />
-                      </Button>
-                    ) : null}
+                    <div className="flex items-center justify-end gap-0.5 pr-1">
+                      {onInvoiceFromPurchaseOrder && canInvoiceFromPurchaseOrder(e) ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                          aria-label="Créer une facture à partir de cette commande"
+                          title="Facturer"
+                          onClick={() => onInvoiceFromPurchaseOrder(e.sourceId)}
+                        >
+                          <FileText className="size-4" aria-hidden />
+                        </Button>
+                      ) : null}
+                      {canEditProcurementEvent(e) ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                          aria-label={`Modifier ${formatFinancialSourceType(e.sourceType)}`}
+                          onClick={() => onEditEvent(e)}
+                        >
+                          <Pencil className="size-4" aria-hidden />
+                        </Button>
+                      ) : null}
+                    </div>
                   </TableCell>
                 ) : null}
               </TableRow>

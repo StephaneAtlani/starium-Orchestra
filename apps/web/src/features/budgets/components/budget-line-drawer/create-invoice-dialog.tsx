@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -35,11 +35,14 @@ export function CreateInvoiceDialog({
   onOpenChange,
   budgetId,
   line,
+  initialPurchaseOrderId = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   budgetId: string;
   line: BudgetLine;
+  /** Si défini à l’ouverture : présélectionne la commande et préremplit le formulaire (ex. depuis l’onglet Commandes). */
+  initialPurchaseOrderId?: string | null;
 }) {
   const [submitError, setSubmitError] = useState<ApiFormError | null>(null);
   const [lastEditedField, setLastEditedField] = useState<'ht' | 'ttc' | 'tax'>('ht');
@@ -93,7 +96,8 @@ export function CreateInvoiceDialog({
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
 
-  const applyPurchaseOrderToForm = (po: PurchaseOrder) => {
+  const applyPurchaseOrderToForm = useCallback((po: PurchaseOrder) => {
+    setValue('purchaseOrderId', po.id, { shouldValidate: true });
     setResolvedSupplier({ id: po.supplierId, name: po.supplier.name });
     setValue('supplierName', po.supplier.name, { shouldValidate: true });
     clearErrors('supplierName');
@@ -103,13 +107,29 @@ export function CreateInvoiceDialog({
     setValue('amountHtInput', ht, { shouldValidate: true });
     setLastEditedField('ht');
     setValue('amountTtcInput', round2(ht * (1 + tax / 100)), { shouldValidate: true });
-    const hint = po.label?.trim();
+    const lineLabel = po.label?.trim();
     setValue(
       'label',
-      hint ? `Facture — ${po.reference} (${hint})` : `Facture — ${po.reference}`,
+      lineLabel || po.reference?.trim() || 'Facture',
       { shouldValidate: true },
     );
-  };
+  }, [baseTaxRate, clearErrors, setValue]);
+
+  const appliedInitialPoRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) {
+      appliedInitialPoRef.current = null;
+      return;
+    }
+    if (!initialPurchaseOrderId) return;
+    if (appliedInitialPoRef.current === initialPurchaseOrderId) return;
+    const items = poQuery.data?.items;
+    if (!items?.length) return;
+    const po = items.find((p) => p.id === initialPurchaseOrderId);
+    if (!po) return;
+    appliedInitialPoRef.current = initialPurchaseOrderId;
+    applyPurchaseOrderToForm(po);
+  }, [open, initialPurchaseOrderId, poQuery.data?.items, applyPurchaseOrderToForm]);
 
   useEffect(() => {
     if (!open) return;

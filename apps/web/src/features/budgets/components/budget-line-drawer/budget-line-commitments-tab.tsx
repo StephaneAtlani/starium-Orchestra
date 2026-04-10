@@ -16,10 +16,13 @@ export function BudgetLineCommitmentsTab({
   budgetId,
   budgetLineId,
   enabled,
+  onInvoiceFromPurchaseOrder,
 }: {
   budgetId: string;
   budgetLineId: string;
   enabled: boolean;
+  /** Ouvre la création de facture avec la commande présélectionnée (permission gérée par le parent). */
+  onInvoiceFromPurchaseOrder?: (purchaseOrderId: string) => void;
 }) {
   const [offset, setOffset] = useState(0);
   const [editEvent, setEditEvent] = useState<FinancialEventForLine | null>(null);
@@ -75,6 +78,7 @@ export function BudgetLineCommitmentsTab({
         events={events}
         showEditActions
         onEditEvent={(e) => setEditEvent(e)}
+        onInvoiceFromPurchaseOrder={onInvoiceFromPurchaseOrder}
       />
       <EditProcurementEventDialog
         open={editEvent !== null}
