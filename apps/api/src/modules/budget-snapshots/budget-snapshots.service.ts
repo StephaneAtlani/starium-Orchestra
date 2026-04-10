@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { BudgetSnapshotStatus, Prisma, type BudgetSnapshot } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { PILOTAGE_INCLUDED_LINE_STATUSES } from '../budget-management/constants/budget-aggregate-statuses';
+import { ClientBudgetWorkflowSettingsService } from '../clients/client-budget-workflow-settings.service';
 import {
   AuditLogsService,
   CreateAuditLogInput,
@@ -16,6 +16,10 @@ import { QueryBudgetSnapshotsDto } from './dto/query-budget-snapshots.dto';
 import { BudgetSnapshotOccasionTypesService } from '../budget-snapshot-occasion-types/budget-snapshot-occasion-types.service';
 import { randomBytes } from 'crypto';
 import { WORKFLOW_SNAPSHOT_OCCASION_CODES } from './budget-workflow-snapshot.constants';
+import {
+  aggregateBudgetLineAmounts,
+  snapshotAsOfInclusiveEndUtc,
+} from '../financial-core/budget-line-amounts.aggregate';
 
 const SNAP_CODE_SUFFIX_BYTES = 3; // 6 hex chars
 const MAX_CODE_RETRIES = 5;
@@ -164,12 +168,25 @@ function diffAmounts(
   };
 }
 
+function groupFinancialRowsByLineId<T extends { budgetLineId: string }>(
+  rows: T[],
+): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const row of rows) {
+    const arr = m.get(row.budgetLineId) ?? [];
+    arr.push(row);
+    m.set(row.budgetLineId, arr);
+  }
+  return m;
+}
+
 @Injectable()
 export class BudgetSnapshotsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly occasionTypes: BudgetSnapshotOccasionTypesService,
+    private readonly clientBudgetWorkflowSettings: ClientBudgetWorkflowSettingsService,
   ) {}
 
   async create(
@@ -207,11 +224,20 @@ export class BudgetSnapshotsService {
       );
     }
 
+    const workflowResolved =
+      await this.clientBudgetWorkflowSettings.getResolvedForClient(clientId);
+    const includedStatuses = workflowResolved.snapshotIncludedBudgetLineStatuses;
+    if (includedStatuses.length === 0) {
+      throw new BadRequestException(
+        'Client budget workflow settings must include at least one budget line status for snapshots',
+      );
+    }
+
     const lines = await this.prisma.budgetLine.findMany({
       where: {
         budgetId: budget.id,
         clientId,
-        status: { in: [...PILOTAGE_INCLUDED_LINE_STATUSES] },
+        status: { in: includedStatuses },
       },
       include: { envelope: true },
     });
@@ -220,18 +246,76 @@ export class BudgetSnapshotsService {
       ? new Date(dto.snapshotDate)
       : new Date();
 
+    const asOfEnd = snapshotAsOfInclusiveEndUtc(snapshotDate);
+    const lineIds = lines.map((l) => l.id);
+
+    const [movementEvents, movementAllocations] =
+      lineIds.length === 0
+        ? [[], []]
+        : await Promise.all([
+            this.prisma.financialEvent.findMany({
+              where: {
+                clientId,
+                budgetLineId: { in: lineIds },
+                eventDate: { lte: asOfEnd },
+              },
+              select: { budgetLineId: true, eventType: true, amountHt: true },
+            }),
+            this.prisma.financialAllocation.findMany({
+              where: {
+                clientId,
+                budgetLineId: { in: lineIds },
+                OR: [
+                  { effectiveDate: { lte: asOfEnd } },
+                  {
+                    AND: [
+                      { effectiveDate: null },
+                      { createdAt: { lte: asOfEnd } },
+                    ],
+                  },
+                ],
+              },
+              select: {
+                budgetLineId: true,
+                allocationType: true,
+                allocatedAmount: true,
+              },
+            }),
+          ]);
+
+    const eventsByLine = groupFinancialRowsByLineId(movementEvents);
+    const allocsByLine = groupFinancialRowsByLineId(movementAllocations);
+
+    const lineSnapshots = lines.map((line) => {
+      const evs =
+        eventsByLine.get(line.id)?.map((e) => ({
+          eventType: e.eventType,
+          amountHt: e.amountHt,
+        })) ?? [];
+      const allocs =
+        allocsByLine.get(line.id)?.map((a) => ({
+          allocationType: a.allocationType,
+          allocatedAmount: a.allocatedAmount,
+        })) ?? [];
+      const agg = aggregateBudgetLineAmounts(line.initialAmount, evs, allocs);
+      return { line, agg };
+    });
+
     const totalInitial = lines.reduce((s, l) => s + toNum(l.initialAmount), 0);
-    const totalForecast = lines.reduce((s, l) => s + toNum(l.forecastAmount), 0);
-    const totalCommitted = lines.reduce(
-      (s, l) => s + toNum(l.committedAmount),
+    const totalForecast = lineSnapshots.reduce(
+      (s, { agg }) => s + toNum(agg.forecastAmount),
       0,
     );
-    const totalConsumed = lines.reduce(
-      (s, l) => s + toNum(l.consumedAmount),
+    const totalCommitted = lineSnapshots.reduce(
+      (s, { agg }) => s + toNum(agg.committedAmount),
       0,
     );
-    const totalRemaining = lines.reduce(
-      (s, l) => s + toNum(l.remainingAmount),
+    const totalConsumed = lineSnapshots.reduce(
+      (s, { agg }) => s + toNum(agg.consumedAmount),
+      0,
+    );
+    const totalRemaining = lineSnapshots.reduce(
+      (s, { agg }) => s + toNum(agg.remainingAmount),
       0,
     );
 
@@ -264,7 +348,7 @@ export class BudgetSnapshotsService {
             },
           });
           await tx.budgetSnapshotLine.createMany({
-            data: lines.map((line) => ({
+            data: lineSnapshots.map(({ line, agg }) => ({
               snapshotId: snap.id,
               clientId,
               budgetLineId: line.id,
@@ -279,10 +363,10 @@ export class BudgetSnapshotsService {
               currency: line.currency,
               lineStatus: line.status,
               initialAmount: line.initialAmount,
-              forecastAmount: line.forecastAmount,
-              committedAmount: line.committedAmount,
-              consumedAmount: line.consumedAmount,
-              remainingAmount: line.remainingAmount,
+              forecastAmount: agg.forecastAmount,
+              committedAmount: agg.committedAmount,
+              consumedAmount: agg.consumedAmount,
+              remainingAmount: agg.remainingAmount,
             })),
           });
           return snap;

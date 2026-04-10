@@ -141,8 +141,9 @@ export function CreateBudgetSnapshotDialog({
         <DialogHeader>
           <DialogTitle>Enregistrer une version figée</DialogTitle>
           <DialogDescription>
-            Copie immuable du budget à la date choisie — lignes en brouillon ou reportées ne sont pas incluses
-            (seules les lignes prises en compte dans le pilotage : actives, en validation, clôturées).
+            Photo à la date choisie : lignes non archivées ; consommations et engagements recalculés à partir des
+            écritures dont la date d’événement (ex. date facture) est au plus tard ce jour-là — même si une pièce est
+            saisie plus tard.
           </DialogDescription>
         </DialogHeader>
 

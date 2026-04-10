@@ -1,21 +1,56 @@
-import { Prisma } from '@prisma/client';
+import { BudgetLineStatus, Prisma } from '@prisma/client';
 
 /** Overrides stockables (PATCH / colonne JSON). */
 export type BudgetWorkflowConfig = {
   requireEnvelopesNonDraftForBudgetValidated?: boolean;
+  /** Statuts de ligne budgétaire inclus dans une version figée (whitelist). */
+  snapshotIncludedBudgetLineStatuses?: BudgetLineStatus[];
 };
 
 /** Valeur effective après merge avec les défauts applicatifs. */
 export type ResolvedBudgetWorkflowConfig = {
   requireEnvelopesNonDraftForBudgetValidated: boolean;
+  snapshotIncludedBudgetLineStatuses: BudgetLineStatus[];
 };
 
 const DEFAULT_RESOLVED: ResolvedBudgetWorkflowConfig = {
   requireEnvelopesNonDraftForBudgetValidated: true,
+  snapshotIncludedBudgetLineStatuses: defaultSnapshotIncludedLineStatuses(),
 };
+
+/** Défaut produit : tous les statuts **sauf** brouillon (le client peut ajouter DRAFT s’il le souhaite). */
+export function defaultSnapshotIncludedLineStatuses(): BudgetLineStatus[] {
+  return (Object.values(BudgetLineStatus) as BudgetLineStatus[]).filter(
+    (s) => s !== BudgetLineStatus.DRAFT,
+  );
+}
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+function statusesEqual(
+  a: BudgetLineStatus[],
+  b: BudgetLineStatus[],
+): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort();
+  const sb = [...b].sort();
+  return sa.every((v, i) => v === sb[i]);
+}
+
+function parseSnapshotStatuses(
+  raw: unknown,
+): BudgetLineStatus[] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+  const allowed = new Set(Object.values(BudgetLineStatus));
+  const out = raw.filter(
+    (x): x is BudgetLineStatus =>
+      typeof x === 'string' && allowed.has(x as BudgetLineStatus),
+  );
+  return out.length > 0 ? out : undefined;
 }
 
 /**
@@ -36,6 +71,10 @@ export function parseStoredBudgetWorkflowConfig(
   if (typeof raw === 'boolean') {
     out.requireEnvelopesNonDraftForBudgetValidated = raw;
   }
+  const snap = parseSnapshotStatuses(stored.snapshotIncludedBudgetLineStatuses);
+  if (snap) {
+    out.snapshotIncludedBudgetLineStatuses = snap;
+  }
   return Object.keys(out).length ? out : null;
 }
 
@@ -48,6 +87,9 @@ export function mergeBudgetWorkflowConfig(
     requireEnvelopesNonDraftForBudgetValidated:
       partial?.requireEnvelopesNonDraftForBudgetValidated ??
       DEFAULT_RESOLVED.requireEnvelopesNonDraftForBudgetValidated,
+    snapshotIncludedBudgetLineStatuses:
+      partial?.snapshotIncludedBudgetLineStatuses ??
+      DEFAULT_RESOLVED.snapshotIncludedBudgetLineStatuses,
   };
 }
 
@@ -57,7 +99,7 @@ export function mergeBudgetWorkflowConfig(
 export function toSparseBudgetWorkflowConfigJson(
   mergedOverrides: BudgetWorkflowConfig,
 ): Prisma.InputJsonValue | null {
-  const sparse: Record<string, boolean> = {};
+  const sparse: Record<string, unknown> = {};
   if (
     mergedOverrides.requireEnvelopesNonDraftForBudgetValidated !== undefined &&
     mergedOverrides.requireEnvelopesNonDraftForBudgetValidated !==
@@ -65,6 +107,17 @@ export function toSparseBudgetWorkflowConfigJson(
   ) {
     sparse.requireEnvelopesNonDraftForBudgetValidated =
       mergedOverrides.requireEnvelopesNonDraftForBudgetValidated;
+  }
+  if (mergedOverrides.snapshotIncludedBudgetLineStatuses !== undefined) {
+    if (
+      !statusesEqual(
+        mergedOverrides.snapshotIncludedBudgetLineStatuses,
+        DEFAULT_RESOLVED.snapshotIncludedBudgetLineStatuses,
+      )
+    ) {
+      sparse.snapshotIncludedBudgetLineStatuses =
+        mergedOverrides.snapshotIncludedBudgetLineStatuses;
+    }
   }
   if (Object.keys(sparse).length === 0) {
     return null;
@@ -84,6 +137,10 @@ export function mergeBudgetWorkflowPatch(
   if (patch.requireEnvelopesNonDraftForBudgetValidated !== undefined) {
     next.requireEnvelopesNonDraftForBudgetValidated =
       patch.requireEnvelopesNonDraftForBudgetValidated;
+  }
+  if (patch.snapshotIncludedBudgetLineStatuses !== undefined) {
+    next.snapshotIncludedBudgetLineStatuses =
+      patch.snapshotIncludedBudgetLineStatuses;
   }
   return toSparseBudgetWorkflowConfigJson(next);
 }

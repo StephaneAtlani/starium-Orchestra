@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -75,6 +79,15 @@ export class ClientBudgetWorkflowSettingsService {
     if (dto.requireEnvelopesNonDraftForBudgetValidated !== undefined) {
       patch.requireEnvelopesNonDraftForBudgetValidated =
         dto.requireEnvelopesNonDraftForBudgetValidated;
+    }
+    if (dto.snapshotIncludedBudgetLineStatuses !== undefined) {
+      const uniq = [...new Set(dto.snapshotIncludedBudgetLineStatuses)];
+      if (uniq.length === 0) {
+        throw new BadRequestException(
+          'snapshotIncludedBudgetLineStatuses must contain at least one status',
+        );
+      }
+      patch.snapshotIncludedBudgetLineStatuses = uniq;
     }
 
     const nextJson = mergeBudgetWorkflowPatch(

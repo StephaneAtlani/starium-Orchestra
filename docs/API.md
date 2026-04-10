@@ -497,19 +497,22 @@ Paramètres **scopés au client actif** (`X-Client-Id`). Pas d’admin plateform
 {
   "stored": null,
   "resolved": {
-    "requireEnvelopesNonDraftForBudgetValidated": true
+    "requireEnvelopesNonDraftForBudgetValidated": true,
+    "snapshotIncludedBudgetLineStatuses": ["PENDING_VALIDATION", "ACTIVE", "REJECTED", "DEFERRED", "CLOSED", "ARCHIVED"]
   }
 }
 ```
 
 - **`stored`** : overrides persistés en base pour ce client (`null` si aucune personnalisation ; JSON sparse, clés métier uniquement).
 - **`resolved`** : valeur effective après fusion avec les **défauts applicatifs** — le frontend doit s’appuyer sur **`resolved`** pour l’affichage.
+- **`snapshotIncludedBudgetLineStatuses`** : liste blanche des valeurs `BudgetLineStatus` dont les **lignes** sont incluses dans une **version figée** (`POST /api/budget-snapshots`, captures auto workflow). **Défaut** : tous les statuts **sauf** `DRAFT` (le client peut ajouter `DRAFT` via PATCH). Au moins un statut si le champ est envoyé en PATCH.
 
 **PATCH — body (JSON)** — champs optionnels (mise à jour partielle)
 
 | Champ | Type | Description |
 |-------|------|-------------|
 | `requireEnvelopesNonDraftForBudgetValidated` | boolean | Si `true` (défaut), le passage du budget à **`VALIDATED`** est refusé tant qu’une enveloppe du budget est en **`DRAFT`**. Si `false`, cette garde est désactivée pour ce client. |
+| `snapshotIncludedBudgetLineStatuses` | `BudgetLineStatus[]` | Statuts de ligne budgétaire à inclure dans les versions figées. **Min. 1** élément si le champ est présent. Défaut résolu : tous sauf **`DRAFT`**. |
 
 Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 
@@ -1932,7 +1935,7 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ### `/api/budget-snapshots`
 
-- **POST** — Body : `budgetId`, `name` ou `label`, `description?`, `snapshotDate?` (ISO 8601), `occasionTypeId?`. Copie les lignes incluses au pilotage uniquement. Permission **`budgets.create`**. Réponse et audit `budget_snapshot.created` — même mécanisme que les captures **automatiques** déclenchées par passage du budget à **Soumis** / **Validé** (voir **PATCH /api/budgets/:id** ci-dessus) ; celles-ci n’exposent pas de route HTTP dédiée.
+- **POST** — Body : `budgetId`, `name` ou `label`, `description?`, `snapshotDate?` (ISO 8601), `occasionTypeId?`. Copie **toutes les lignes de budget non archivées** ; pour chaque ligne, les montants **prévision / engagé / consommé / restant** sont **recalculés** à partir des **mouvements connus jusqu’à la fin du jour calendaire UTC** de `snapshotDate` : `FinancialEvent` avec `eventDate <=` ce point (ex. facture : `eventDate` = date facture, même si saisie ultérieure), `FinancialAllocation` avec `effectiveDate <=` ce point ou, si `effectiveDate` est nul, `createdAt <=` ce point. Le **montant initial** de ligne copié est celui **actuel** sur `BudgetLine` (pas d’historique de révision de ligne dans ce flux). Permission **`budgets.create`**. Réponse et audit `budget_snapshot.created` — même mécanisme que les captures **automatiques** déclenchées par passage du budget à **Soumis** / **Validé** (voir **PATCH /api/budgets/:id** ci-dessus) ; celles-ci n’exposent pas de route HTTP dédiée.
 - **GET** — Query : `budgetId?`, `limit`, `offset`. Permission **`budgets.read`**.
 - **GET /:id** — Détail + lignes figées. Permission **`budgets.read`**.
 - **GET /compare** — Query : `leftSnapshotId`, `rightSnapshotId`. Permission **`budgets.read`**.

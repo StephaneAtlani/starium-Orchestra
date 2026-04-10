@@ -61,7 +61,7 @@ Sur `BudgetSnapshotLine` : rattachement `budgetLineId`, libellés enveloppe / li
 | `GET` | `/api/budget-snapshots/:id` | `budgets.read` | Détail + lignes ; audit `budget_snapshot.viewed` |
 | `GET` | `/api/budget-snapshots/compare?leftSnapshotId=&rightSnapshotId=` | `budgets.read` | Comparaison deux snapshots |
 
-**Versions figées automatiques (workflow budget)** — hors route HTTP : lorsque le statut du budget passe à **`SUBMITTED`** ou **`VALIDATED`** (`PATCH /api/budgets/:id` ou bulk équivalent), le service budget appelle `BudgetSnapshotsService.createWorkflowMilestoneSnapshot`, qui réutilise le flux **`create`** (lignes pilotables, totaux, audit `budget_snapshot.created`). Libellés : `Soumission — {code}` / `Validation — {code}` ; types d’occasion globaux **`WORKFLOW_SUBMITTED`** / **`WORKFLOW_VALIDATED`** (seed + migration `20260408140000_workflow_snapshot_occasion_types`). Échec de capture : le statut reste appliqué ; audit **`budget.workflow_snapshot.failed`** (RFC-032, whitelist décisionnel).
+**Versions figées automatiques (workflow budget)** — hors route HTTP : lorsque le statut du budget passe à **`SUBMITTED`** ou **`VALIDATED`** (`PATCH /api/budgets/:id` ou bulk équivalent), le service budget appelle `BudgetSnapshotsService.createWorkflowMilestoneSnapshot`, qui réutilise le flux **`create`** (même périmètre lignes : toutes sauf archivées, totaux, audit `budget_snapshot.created`). Libellés : `Soumission — {code}` / `Validation — {code}` ; types d’occasion globaux **`WORKFLOW_SUBMITTED`** / **`WORKFLOW_VALIDATED`** (seed + migration `20260408140000_workflow_snapshot_occasion_types`). Échec de capture : le statut reste appliqué ; audit **`budget.workflow_snapshot.failed`** (RFC-032, whitelist décisionnel).
 
 **Extension RFC-033 (types d’occasion)** — voir aussi `docs/API.md` §20 bis : `GET|POST|PATCH|DELETE /api/budget-snapshot-occasion-types` (client actif, fusion en lecture avec `budgets.read` ; écriture client avec `budgets.snapshot_occasion_types.manage`) et `GET|POST|PATCH|DELETE /api/platform/budget-snapshot-occasion-types` (`PLATFORM_ADMIN`).
 
@@ -116,7 +116,7 @@ RFC-031 affirmait « Snapshot ≠ version » au sens **produit historique** (év
 ## 4.1 Création
 
 * **Entrée** : budget appartenant au **client actif** ; `name` ou `label` (affichage métier) obligatoire après trim côté serveur ; **`occasionTypeId` optionnel** une fois le référentiel §4.4 disponible (type global ou du même client, actif).
-* **Effet** : insertion `BudgetSnapshot` + `BudgetSnapshotLine` pour chaque ligne incluse au pilotage ; code unique par client ; totaux cohérents avec la somme des lignes copiées.
+* **Effet** : insertion `BudgetSnapshot` + `BudgetSnapshotLine` pour **chaque ligne du budget non archivée** ; **montants dynamiques** (prévision, engagé, consommé, restant) **recalculés** à partir des `FinancialEvent` / `FinancialAllocation` **jusqu’à la fin du jour UTC** de `snapshotDate` (`eventDate` des écritures, ex. facture avec date facture antérieure à la date de version même si saisie après) ; montant **initial** de ligne = valeur courante sur `BudgetLine`. Totaux cohérents avec la somme des lignes ; code unique par client.
 * **Audit** : `budget_snapshot.created` (déjà émis).
 
 ## 4.2 Lecture seule
@@ -218,7 +218,7 @@ Les réponses incluent déjà **`createdByLabel`** (construction à partir de `f
 # 8. Tests (déjà en place / à maintenir)
 
 * **Controller** : [`budget-snapshots.controller.spec.ts`](../../apps/api/src/modules/budget-snapshots/budget-snapshots.controller.spec.ts) — garder la couverture création / liste / détail / compare.
-* **Service** : vérifier isolation `clientId`, refus si budget hors client, conflit code unique (retry), lignes exclues du pilotage non présentes dans le snapshot.
+* **Service** : vérifier isolation `clientId`, refus si budget hors client, conflit code unique (retry), lignes **archivées** exclues de la capture (seules lignes absentes du snapshot).
 * **Non-régression** : `BudgetComparisonService` / forecast si les snapshots sont utilisés dans les flux de comparaison (RFC-030).
 * **Référentiel §4.4** : service types — liste fusionnée ne contient pas d’entrée d’un autre client ; routes plateforme refusent `platformRole` non admin ; création snapshot avec `occasionTypeId` invalide / hors scope → erreur explicite.
 
@@ -231,7 +231,7 @@ Les réponses incluent déjà **`createdByLabel`** (construction à partir de `f
 | `apps/web/src/app/(protected)/budgets/[budgetId]/snapshots/` | Liste + détail `snapshots/[snapshotId]` |
 | `apps/web/src/features/budgets/api/budget-snapshots.api.ts` (+ types) | Client HTTP snapshots |
 | `apps/web/.../budget-snapshot-occasion-types.api.ts`, `platform-budget-snapshot-occasion-types.api.ts` | Types d’occasion client / plateforme |
-| `apps/web/.../create-budget-snapshot-dialog.tsx` | Création avec date, aide pilotage, select occasion |
+| `apps/web/.../create-budget-snapshot-dialog.tsx` | Création avec date, aide périmètre (photo toutes lignes non archivées), select occasion |
 | `apps/web/.../admin/snapshot-occasion-types/`, `budgets/snapshot-occasion-types/` | CRUD référentiel |
 | `apps/api/src/modules/budget-snapshot-occasion-types/` | Service + contrôleurs client et plateforme |
 | `apps/api/prisma/` | Schéma + migration `BudgetSnapshotOccasionType` |

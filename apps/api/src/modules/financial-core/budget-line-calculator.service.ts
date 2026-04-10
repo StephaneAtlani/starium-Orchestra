@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AllocationType, FinancialEventType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { assertBudgetLineExistsForClient } from './helpers/budget-line.helper';
+import { aggregateBudgetLineAmounts } from './budget-line-amounts.aggregate';
 
 type TxClient = Omit<
   Prisma.TransactionClient,
@@ -40,49 +41,19 @@ export class BudgetLineCalculatorService {
       }),
     ]);
 
-    const zero = new Prisma.Decimal(0);
-
-    const budgetAmount = line.initialAmount;
-    const reallocationDelta = events
-      .filter((e) => e.eventType === FinancialEventType.REALLOCATION_DONE)
-      .reduce((sum, e) => sum.plus(e.amountHt), zero);
-    const effectiveBudgetBase = budgetAmount.plus(reallocationDelta);
-
-    const forecastAmount = allocations
-      .filter((a) => a.allocationType === AllocationType.FORECAST)
-      .reduce((sum, a) => sum.plus(a.allocatedAmount), zero);
-
-    const committedAlloc = allocations
-      .filter((a) => a.allocationType === AllocationType.COMMITTED)
-      .reduce((sum, a) => sum.plus(a.allocatedAmount), zero);
-    const committedEvents = events
-      .filter(
-        (e) => e.eventType === FinancialEventType.COMMITMENT_REGISTERED,
-      )
-      .reduce((sum, e) => sum.plus(e.amountHt), zero);
-    const committedAmount = committedAlloc.plus(committedEvents);
-
-    const consumedAlloc = allocations
-      .filter((a) => a.allocationType === AllocationType.CONSUMED)
-      .reduce((sum, a) => sum.plus(a.allocatedAmount), zero);
-    const consumedEvents = events
-      .filter(
-        (e) => e.eventType === FinancialEventType.CONSUMPTION_REGISTERED,
-      )
-      .reduce((sum, e) => sum.plus(e.amountHt), zero);
-    const consumedAmount = consumedAlloc.plus(consumedEvents);
-
-    const remainingAmount = effectiveBudgetBase
-      .minus(committedAmount)
-      .minus(consumedAmount);
+    const aggregated = aggregateBudgetLineAmounts(
+      line.initialAmount,
+      events,
+      allocations,
+    );
 
     await client.budgetLine.update({
       where: { id: budgetLineId },
       data: {
-        forecastAmount: forecastAmount.toDecimalPlaces(2),
-        committedAmount: committedAmount.toDecimalPlaces(2),
-        consumedAmount: consumedAmount.toDecimalPlaces(2),
-        remainingAmount: remainingAmount.toDecimalPlaces(2),
+        forecastAmount: aggregated.forecastAmount.toDecimalPlaces(2),
+        committedAmount: aggregated.committedAmount.toDecimalPlaces(2),
+        consumedAmount: aggregated.consumedAmount.toDecimalPlaces(2),
+        remainingAmount: aggregated.remainingAmount.toDecimalPlaces(2),
       },
     });
   }

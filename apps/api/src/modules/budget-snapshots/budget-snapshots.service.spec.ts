@@ -1,7 +1,14 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { BudgetLineStatus, BudgetStatus } from '@prisma/client';
+import {
+  BudgetLineStatus,
+  BudgetStatus,
+  FinancialEventType,
+  Prisma,
+} from '@prisma/client';
 import { BudgetSnapshotsService } from './budget-snapshots.service';
 import type { BudgetSnapshotOccasionTypesService } from '../budget-snapshot-occasion-types/budget-snapshot-occasion-types.service';
+import { mergeBudgetWorkflowConfig } from '../clients/budget-workflow-config.merge';
+import type { ClientBudgetWorkflowSettingsService } from '../clients/client-budget-workflow-settings.service';
 
 const clientId = 'client-1';
 const budgetId = 'budget-1';
@@ -72,14 +79,20 @@ describe('BudgetSnapshotsService', () => {
   let prisma: any;
   let auditLogs: any;
   let occasionTypes: { assertOccasionTypeAssignable: jest.Mock };
+  let workflowSettings: { getResolvedForClient: jest.Mock };
 
   beforeEach(() => {
     occasionTypes = {
       assertOccasionTypeAssignable: jest.fn().mockResolvedValue(undefined),
     };
+    workflowSettings = {
+      getResolvedForClient: jest.fn().mockResolvedValue(mergeBudgetWorkflowConfig(null)),
+    };
     prisma = {
       budget: { findFirst: jest.fn() },
       budgetLine: { findMany: jest.fn() },
+      financialEvent: { findMany: jest.fn().mockResolvedValue([]) },
+      financialAllocation: { findMany: jest.fn().mockResolvedValue([]) },
       budgetSnapshot: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
@@ -100,6 +113,7 @@ describe('BudgetSnapshotsService', () => {
       prisma,
       auditLogs,
       occasionTypes as unknown as BudgetSnapshotOccasionTypesService,
+      workflowSettings as unknown as ClientBudgetWorkflowSettingsService,
     );
   });
 
@@ -168,11 +182,7 @@ describe('BudgetSnapshotsService', () => {
           budgetId,
           clientId,
           status: {
-            in: [
-              BudgetLineStatus.ACTIVE,
-              BudgetLineStatus.PENDING_VALIDATION,
-              BudgetLineStatus.CLOSED,
-            ],
+            in: mergeBudgetWorkflowConfig(null).snapshotIncludedBudgetLineStatuses,
           },
         },
         include: { envelope: true },
@@ -189,13 +199,92 @@ describe('BudgetSnapshotsService', () => {
             code: 'SNAP-20260314-abcdef',
             linesCount: 1,
             totalInitialAmount: 10000,
-            totalRevisedAmount: 10000,
           }),
         }),
       );
       expect(result.id).toBe('snap-new');
       expect(result.createdByLabel).toBeNull();
       expect((result as unknown as Record<string, unknown>).lines).toBeUndefined();
+    });
+
+    it('inclut les consommations dont la date d’écriture est au plus tard la date de version (eventDate)', async () => {
+      prisma.budget.findFirst.mockResolvedValue(mockBudget());
+      prisma.budgetLine.findMany.mockResolvedValue([
+        {
+          id: 'line-1',
+          budgetId,
+          envelopeId: 'env-1',
+          envelope: { name: 'Env', code: 'E1', type: 'RUN' },
+          code: 'BL-1',
+          name: 'Line 1',
+          expenseType: 'OPEX',
+          currency: 'EUR',
+          status: 'ACTIVE',
+          initialAmount: 10000,
+          forecastAmount: 0,
+          committedAmount: 0,
+          consumedAmount: 9999,
+          remainingAmount: 1,
+        },
+      ]);
+      prisma.financialEvent.findMany.mockResolvedValue([
+        {
+          budgetLineId: 'line-1',
+          eventType: FinancialEventType.CONSUMPTION_REGISTERED,
+          amountHt: new Prisma.Decimal(2500),
+        },
+      ]);
+      prisma.financialAllocation.findMany.mockResolvedValue([]);
+      const createdSnap = mockSnapshot({
+        id: 'snap-cons',
+        name: 'Avec conso',
+        code: 'SNAP-20260314-fedcba',
+        lines: undefined,
+      });
+      let txCreateMany: jest.Mock;
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) => {
+        txCreateMany = jest.fn().mockResolvedValue({ count: 1 });
+        const tx = {
+          budgetSnapshot: {
+            create: jest.fn().mockResolvedValue(createdSnap),
+          },
+          budgetSnapshotLine: {
+            createMany: txCreateMany,
+          },
+        };
+        return fn(tx);
+      });
+      prisma.budgetSnapshot.findFirst.mockResolvedValue(
+        mockSnapshot({
+          id: 'snap-cons',
+          name: 'Avec conso',
+          code: 'SNAP-20260314-fedcba',
+          lines: undefined,
+        }),
+      );
+
+      await service.create(
+        clientId,
+        {
+          budgetId,
+          name: 'Avec conso',
+          snapshotDate: '2026-04-01T12:00:00.000Z',
+        },
+        { actorUserId: 'user-1', meta: {} },
+      );
+
+      expect(prisma.financialEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            eventDate: { lte: expect.any(Date) },
+          }),
+        }),
+      );
+      expect(txCreateMany!).toHaveBeenCalled();
+      const createManyArg = txCreateMany!.mock.calls[0][0];
+      const row = createManyArg.data[0];
+      expect(Number(row.consumedAmount)).toBe(2500);
+      expect(Number(row.remainingAmount)).toBe(7500);
     });
 
     it('accepte label sans name et persiste name résolu', async () => {
