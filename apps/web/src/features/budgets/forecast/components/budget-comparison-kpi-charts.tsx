@@ -51,10 +51,10 @@ function aggregateSides(data: BudgetComparisonResponse) {
   let rf = 0;
   let rc = 0;
   for (const row of data.lines) {
-    lr += row.left.revisedAmount;
+    lr += row.left.budgetAmount;
     lf += row.left.forecastAmount;
     lc += row.left.consumedAmount;
-    rr += row.right.revisedAmount;
+    rr += row.right.budgetAmount;
     rf += row.right.forecastAmount;
     rc += row.right.consumedAmount;
   }
@@ -83,21 +83,21 @@ export function BudgetComparisonKpiCharts({
     const agg = aggregateSides(data);
 
     const barRowsLocal: GroupedBarRow[] = [
-      { label: 'Révisé', left: agg.lr, right: agg.rr },
+      { label: 'Budget', left: agg.lr, right: agg.rr },
       { label: 'Prévi.', left: agg.lf, right: agg.rf },
       { label: 'Conso.', left: agg.lc, right: agg.rc },
     ];
 
     const sortedByLeft = [...data.lines].sort(
-      (a, b) => b.left.revisedAmount - a.left.revisedAmount,
+      (a, b) => b.left.budgetAmount - a.left.budgetAmount,
     );
     const top = sortedByLeft.slice(0, TOP_LINES_PIE);
     const restSum = sortedByLeft
       .slice(TOP_LINES_PIE)
-      .reduce((s, r) => s + r.left.revisedAmount, 0);
+      .reduce((s, r) => s + r.left.budgetAmount, 0);
     const pieLeftSlicesLocal: DonutSlice[] = top.map((r, i) => ({
       name: truncate(r.name, 26),
-      value: r.left.revisedAmount,
+      value: r.left.budgetAmount,
       fill: C.pie[i % C.pie.length],
     }));
     if (restSum > 0) {
@@ -125,22 +125,22 @@ export function BudgetComparisonKpiCharts({
     const sortedForLine = [...data.lines]
       .sort(
         (a, b) =>
-          Math.max(b.left.revisedAmount, b.right.revisedAmount) -
-          Math.max(a.left.revisedAmount, a.right.revisedAmount),
+          Math.max(b.left.budgetAmount, b.right.budgetAmount) -
+          Math.max(a.left.budgetAmount, a.right.budgetAmount),
       )
       .slice(0, TOP_LINES_LINE);
 
     const linePointsLocal: LinePoint[] = sortedForLine.map((r, i) => ({
       x: i + 1,
       label: truncate(r.name, 18),
-      a: r.left.revisedAmount,
-      b: r.right.revisedAmount,
+      a: r.left.budgetAmount,
+      b: r.right.budgetAmount,
     }));
 
     const diffRowsLocal = [...data.lines]
       .map((r) => ({
         name: truncate(r.name, 36),
-        value: r.right.revisedAmount - r.left.revisedAmount,
+        value: r.right.budgetAmount - r.left.budgetAmount,
       }))
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
       .slice(0, TOP_LINES_DIFF);
@@ -158,12 +158,12 @@ export function BudgetComparisonKpiCharts({
   const chartAnimKey = useMemo(() => {
     const head = data.lines
       .slice(0, 8)
-      .map((l) => `${l.lineKey}:${l.left.revisedAmount}:${l.right.revisedAmount}`)
+      .map((l) => `${l.lineKey}:${l.left.budgetAmount}:${l.right.budgetAmount}`)
       .join('|');
     return [
       data.budgetId ?? '',
       data.compareTo ?? '',
-      String(data.diff.revisedAmount),
+      String(data.diff.budgetAmount),
       String(data.lines.length),
       data.leftSnapshotId ?? '',
       data.rightSnapshotId ?? '',
@@ -217,7 +217,7 @@ export function BudgetComparisonKpiCharts({
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Répartition du révisé (gauche)</CardTitle>
+            <CardTitle className="text-base">Répartition du budget (gauche)</CardTitle>
             <CardDescription>
               Anneau — parts des principales lignes (« {shortLeft} »)
             </CardDescription>
@@ -246,7 +246,7 @@ export function BudgetComparisonKpiCharts({
                 </ul>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">Pas de montant révisé à afficher</p>
+              <p className="text-sm text-muted-foreground">Pas de montant budgétaire à afficher</p>
             )}
           </CardContent>
         </Card>
@@ -281,7 +281,7 @@ export function BudgetComparisonKpiCharts({
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Courbes — révisé par ligne (top {TOP_LINES_LINE})</CardTitle>
+            <CardTitle className="text-base">Courbes — budget par ligne (top {TOP_LINES_LINE})</CardTitle>
             <CardDescription>
               Lignes triées par volume max — points survolables pour le libellé et les montants
             </CardDescription>
@@ -303,7 +303,7 @@ export function BudgetComparisonKpiCharts({
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Plus gros écarts sur le révisé (droite − gauche)</CardTitle>
+          <CardTitle className="text-base">Plus gros écarts sur le budget (droite − gauche)</CardTitle>
           <CardDescription>
             Les {TOP_LINES_DIFF} lignes au plus fort écart en valeur absolue — rouge : hausse côté
             droit, vert : baisse (barres depuis le centre)
@@ -321,7 +321,7 @@ export function BudgetComparisonKpiCharts({
             />
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              Aucun écart sur le révisé
+              Aucun écart sur le budget
             </p>
           )}
         </CardContent>

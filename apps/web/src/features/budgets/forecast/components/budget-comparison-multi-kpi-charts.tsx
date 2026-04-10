@@ -95,7 +95,7 @@ export function BudgetComparisonMultiKpiCharts({ merged }: { merged: MergedLiveV
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Totaux révisés par colonne</CardTitle>
+          <CardTitle className="text-base">Totaux budget par colonne</CardTitle>
           <CardDescription>Budget actuel vs chaque version figée sélectionnée</CardDescription>
         </CardHeader>
         <CardContent className="h-[280px] pt-0">
@@ -112,7 +112,7 @@ export function BudgetComparisonMultiKpiCharts({ merged }: { merged: MergedLiveV
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Courbes — révisé (top 12 lignes)</CardTitle>
+          <CardTitle className="text-base">Courbes — budget (top 12 lignes)</CardTitle>
           <CardDescription>
             Une courbe par colonne ; rang 1 = ligne au volume max
           </CardDescription>

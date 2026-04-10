@@ -392,30 +392,16 @@ export default function BudgetDetailPage() {
   const kpiItems = kpi
     ? (() => {
         const forecastN = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'forecast');
-        const initialN = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'initial');
-        const revisedN = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'revised');
-        const pVsI = formatSignedDeltaPercent(forecastN, initialN);
-        const pVsR = formatSignedDeltaPercent(forecastN, revisedN);
-        const previSub = [pVsI != null ? `vs initial ${pVsI}` : null, pVsR != null ? `vs révisé ${pVsR}` : null]
-          .filter((s): s is string => Boolean(s))
-          .join(' · ');
+        const budgetN = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'initial');
+        const pVsBudget = formatSignedDeltaPercent(forecastN, budgetN);
+        const previSub = pVsBudget != null ? `vs budget ${pVsBudget}` : '';
 
         return [
           {
-            label: 'Initial',
+            label: 'Budget',
             value: formatTaxAwareAmount({
               htValue: kpi.totalInitialAmount,
               ttcValue: kpi.totalInitialAmountTtc ?? null,
-              currency,
-              mode: taxDisplayMode,
-              isApproximation: isBudgetTtcProjection,
-            }),
-          },
-          {
-            label: 'Révisé',
-            value: formatTaxAwareAmount({
-              htValue: kpi.totalRevisedAmount,
-              ttcValue: kpi.totalRevisedAmountTtc ?? null,
               currency,
               mode: taxDisplayMode,
               isApproximation: isBudgetTtcProjection,

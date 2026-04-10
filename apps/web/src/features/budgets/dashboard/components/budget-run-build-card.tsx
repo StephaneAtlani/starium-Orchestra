@@ -64,7 +64,7 @@ export function BudgetRunBuildCard({
   return (
     <CockpitSurfaceCard
       title="RUN / BUILD / TRANSVERSE"
-      description="Répartition du budget révisé par type d’enveloppe (hors CAPEX/OPEX)"
+      description="Répartition du budget par type d’enveloppe (hors CAPEX/OPEX)"
       icon={Boxes}
       accent="emerald"
       data-testid="budget-dashboard-run-build"

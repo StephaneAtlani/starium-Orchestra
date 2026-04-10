@@ -8,7 +8,6 @@ export interface BudgetEnvelopeDetailResponseDto {
   status: string;
   currency: string;
   initialAmount: number;
-  revisedAmount: number;
   forecastAmount: number;
   committedAmount: number;
   consumedAmount: number;

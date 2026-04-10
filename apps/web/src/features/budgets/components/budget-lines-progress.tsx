@@ -4,7 +4,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 interface BudgetLinesProgressProps {
-  revisedAmount: number;
+  budgetAmount: number;
   consumedAmount: number;
   remainingAmount: number;
   currency?: string;
@@ -12,16 +12,16 @@ interface BudgetLinesProgressProps {
 }
 
 /**
- * Barre Consommé X% / Solde Y% — pourcentages dérivés des props (revisedAmount comme base).
+ * Barre Consommé X% / Solde Y% — pourcentages dérivés des props (montant budgétaire comme base).
  */
 export function BudgetLinesProgress({
-  revisedAmount,
+  budgetAmount,
   consumedAmount,
   remainingAmount,
   currency,
   className,
 }: BudgetLinesProgressProps) {
-  const base = revisedAmount > 0 ? revisedAmount : 1;
+  const base = budgetAmount > 0 ? budgetAmount : 1;
   const consumedPercent = Math.min(100, (consumedAmount / base) * 100);
   const remainingPercent = Math.min(100, (remainingAmount / base) * 100);
 

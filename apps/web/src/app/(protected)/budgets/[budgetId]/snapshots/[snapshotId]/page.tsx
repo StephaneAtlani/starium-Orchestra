@@ -118,7 +118,7 @@ export default function BudgetSnapshotDetailPage() {
                 <TableRow>
                   <TableHead>Code</TableHead>
                   <TableHead>Ligne</TableHead>
-                  <TableHead className="text-right">Révisé</TableHead>
+                  <TableHead className="text-right">Budget</TableHead>
                   <TableHead className="text-right">Consommé</TableHead>
                   <TableHead className="text-right">Forecast</TableHead>
                   <TableHead className="text-right">Restant</TableHead>
@@ -130,7 +130,7 @@ export default function BudgetSnapshotDetailPage() {
                     <TableCell>{line.lineCode}</TableCell>
                     <TableCell>{line.lineName}</TableCell>
                     <TableCell className="text-right">
-                      {formatCurrency(line.revisedAmount, line.currency)}
+                      {formatCurrency(line.budgetAmount, line.currency)}
                     </TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(line.consumedAmount, line.currency)}

@@ -35,7 +35,6 @@ function whereLinesForPilotageTotals(
 
 function toLineAmounts(row: {
   initialAmount: unknown;
-  revisedAmount: unknown;
   forecastAmount: unknown;
   committedAmount: unknown;
   consumedAmount: unknown;
@@ -43,7 +42,6 @@ function toLineAmounts(row: {
 }): LineAmountsInput {
   return {
     initialAmount: fromDecimal(row.initialAmount as Parameters<typeof fromDecimal>[0]),
-    revisedAmount: fromDecimal(row.revisedAmount as Parameters<typeof fromDecimal>[0]),
     forecastAmount: fromDecimal(row.forecastAmount as Parameters<typeof fromDecimal>[0]),
     committedAmount: fromDecimal(row.committedAmount as Parameters<typeof fromDecimal>[0]),
     consumedAmount: fromDecimal(row.consumedAmount as Parameters<typeof fromDecimal>[0]),
@@ -55,7 +53,6 @@ type BudgetLineForTtc = {
   budgetId: string;
   taxRate: Prisma.Decimal | null;
   initialAmount: Prisma.Decimal;
-  revisedAmount: Prisma.Decimal;
   forecastAmount: Prisma.Decimal;
   committedAmount: Prisma.Decimal;
   consumedAmount: Prisma.Decimal;
@@ -68,7 +65,6 @@ function computeTtcTotalsOrNull(params: {
   budgetDefaultTaxRateByBudgetId: Map<string, Prisma.Decimal | null>;
 }): {
   totalInitialAmountTtc: number | null;
-  totalRevisedAmountTtc: number | null;
   totalForecastAmountTtc: number | null;
   totalCommittedAmountTtc: number | null;
   totalConsumedAmountTtc: number | null;
@@ -81,7 +77,6 @@ function computeTtcTotalsOrNull(params: {
   } = params;
 
   let totalInitialAmountTtc = 0;
-  let totalRevisedAmountTtc = 0;
   let totalForecastAmountTtc = 0;
   let totalCommittedAmountTtc = 0;
   let totalConsumedAmountTtc = 0;
@@ -97,7 +92,6 @@ function computeTtcTotalsOrNull(params: {
     if (effectiveTaxRate == null) {
       return {
         totalInitialAmountTtc: null,
-        totalRevisedAmountTtc: null,
         totalForecastAmountTtc: null,
         totalCommittedAmountTtc: null,
         totalConsumedAmountTtc: null,
@@ -108,12 +102,6 @@ function computeTtcTotalsOrNull(params: {
     totalInitialAmountTtc += fromDecimal(
       TaxCalculator.fromHtAndTaxRate({
         amountHt: line.initialAmount,
-        taxRate: effectiveTaxRate,
-      }).amountTtc,
-    );
-    totalRevisedAmountTtc += fromDecimal(
-      TaxCalculator.fromHtAndTaxRate({
-        amountHt: line.revisedAmount,
         taxRate: effectiveTaxRate,
       }).amountTtc,
     );
@@ -145,7 +133,6 @@ function computeTtcTotalsOrNull(params: {
 
   return {
     totalInitialAmountTtc,
-    totalRevisedAmountTtc,
     totalForecastAmountTtc,
     totalCommittedAmountTtc,
     totalConsumedAmountTtc,
@@ -268,7 +255,6 @@ export class BudgetReportingService {
       budgetId: l.budgetId,
       taxRate: l.taxRate,
       initialAmount: l.initialAmount,
-      revisedAmount: l.revisedAmount,
       forecastAmount: l.forecastAmount,
       committedAmount: l.committedAmount,
       consumedAmount: l.consumedAmount,
@@ -326,7 +312,6 @@ export class BudgetReportingService {
       budgetId: l.budgetId,
       taxRate: l.taxRate,
       initialAmount: l.initialAmount,
-      revisedAmount: l.revisedAmount,
       forecastAmount: l.forecastAmount,
       committedAmount: l.committedAmount,
       consumedAmount: l.consumedAmount,
@@ -391,7 +376,6 @@ export class BudgetReportingService {
       budgetId: l.budgetId,
       taxRate: l.taxRate,
       initialAmount: l.initialAmount,
-      revisedAmount: l.revisedAmount,
       forecastAmount: l.forecastAmount,
       committedAmount: l.committedAmount,
       consumedAmount: l.consumedAmount,
@@ -501,7 +485,6 @@ export class BudgetReportingService {
         lines.length === 0
           ? {
               totalInitialAmountTtc: null,
-              totalRevisedAmountTtc: null,
               totalForecastAmountTtc: null,
               totalCommittedAmountTtc: null,
               totalConsumedAmountTtc: null,
@@ -512,7 +495,6 @@ export class BudgetReportingService {
                 budgetId: l.budgetId,
                 taxRate: l.taxRate,
                 initialAmount: l.initialAmount,
-                revisedAmount: l.revisedAmount,
                 forecastAmount: l.forecastAmount,
                 committedAmount: l.committedAmount,
                 consumedAmount: l.consumedAmount,
@@ -614,7 +596,6 @@ export class BudgetReportingService {
         envelopeLines.length === 0
           ? {
               totalInitialAmountTtc: null,
-              totalRevisedAmountTtc: null,
               totalForecastAmountTtc: null,
               totalCommittedAmountTtc: null,
               totalConsumedAmountTtc: null,
@@ -625,7 +606,6 @@ export class BudgetReportingService {
                 budgetId: l.budgetId,
                 taxRate: l.taxRate,
                 initialAmount: l.initialAmount,
-                revisedAmount: l.revisedAmount,
                 forecastAmount: l.forecastAmount,
                 committedAmount: l.committedAmount,
                 consumedAmount: l.consumedAmount,
@@ -695,7 +675,6 @@ export class BudgetReportingService {
         status: line.status,
         currency: line.currency,
         initialAmount: fromDecimal(line.initialAmount),
-        revisedAmount: fromDecimal(line.revisedAmount),
         forecastAmount: fromDecimal(line.forecastAmount),
         committedAmount: fromDecimal(line.committedAmount),
         consumedAmount: fromDecimal(line.consumedAmount),
@@ -736,7 +715,7 @@ export class BudgetReportingService {
   /**
    * RFC-021: Totals by cost center. Only lines with allocationScope = ANALYTICAL.
    * Contribution per split = lineAmount * percentage / 100.
-   * lineAmount source: revisedAmount for totalRevisedAmount, remainingAmount for totalRemainingAmount (no new recalculation).
+   * lineAmount source: initialAmount (montant budgétaire), remainingAmount pour le restant.
    */
   async getTotalsByCostCenter(
     clientId: string,
@@ -747,7 +726,7 @@ export class BudgetReportingService {
       costCenterId: string;
       costCenterCode: string;
       costCenterName: string;
-      totalRevisedAmount: number;
+      totalBudgetAmount: number;
       totalRemainingAmount: number;
     }[];
   }> {
@@ -768,10 +747,10 @@ export class BudgetReportingService {
     const currency = budget.currency;
     const byCostCenter = new Map<
       string,
-      { code: string; name: string; revised: number; remaining: number }
+      { code: string; name: string; budget: number; remaining: number }
     >();
     for (const line of lines) {
-      const lineRev = fromDecimal(line.revisedAmount);
+      const lineBudget = fromDecimal(line.initialAmount);
       const lineRem = fromDecimal(line.remainingAmount);
       for (const split of line.costCenterSplits) {
         const pct = fromDecimal(split.percentage) / 100;
@@ -779,10 +758,10 @@ export class BudgetReportingService {
         const current = byCostCenter.get(key) ?? {
           code: split.costCenter?.code ?? '',
           name: split.costCenter?.name ?? '',
-          revised: 0,
+          budget: 0,
           remaining: 0,
         };
-        current.revised += lineRev * pct;
+        current.budget += lineBudget * pct;
         current.remaining += lineRem * pct;
         byCostCenter.set(key, current);
       }
@@ -792,7 +771,7 @@ export class BudgetReportingService {
         costCenterId,
         costCenterCode: v.code,
         costCenterName: v.name,
-        totalRevisedAmount: Math.round(v.revised * 100) / 100,
+        totalBudgetAmount: Math.round(v.budget * 100) / 100,
         totalRemainingAmount: Math.round(v.remaining * 100) / 100,
       }),
     );
@@ -801,7 +780,7 @@ export class BudgetReportingService {
 
   /**
    * RFC-021: Totals by general ledger account. All lines (ENTERPRISE + ANALYTICAL).
-   * Aggregate by generalLedgerAccountId; sum revisedAmount and remainingAmount (no new recalculation).
+   * Aggregate by generalLedgerAccountId; somme initialAmount et remainingAmount.
    */
   async getTotalsByGeneralLedgerAccount(
     clientId: string,
@@ -812,7 +791,7 @@ export class BudgetReportingService {
       generalLedgerAccountId: string;
       generalLedgerAccountCode: string;
       generalLedgerAccountName: string;
-      totalRevisedAmount: number;
+      totalBudgetAmount: number;
       totalRemainingAmount: number;
     }[];
   }> {
@@ -829,7 +808,7 @@ export class BudgetReportingService {
     const currency = budget.currency;
     const byGla = new Map<
       string,
-      { code: string; name: string; revised: number; remaining: number }
+      { code: string; name: string; budget: number; remaining: number }
     >();
     for (const line of lines) {
       const key = line.generalLedgerAccountId ?? 'UNASSIGNED';
@@ -837,10 +816,10 @@ export class BudgetReportingService {
       const current = byGla.get(key) ?? {
         code: gla?.code ?? '',
         name: gla?.name ?? '',
-        revised: 0,
+        budget: 0,
         remaining: 0,
       };
-      current.revised += fromDecimal(line.revisedAmount);
+      current.budget += fromDecimal(line.initialAmount);
       current.remaining += fromDecimal(line.remainingAmount);
       byGla.set(key, current);
     }
@@ -849,7 +828,7 @@ export class BudgetReportingService {
         generalLedgerAccountId,
         generalLedgerAccountCode: v.code,
         generalLedgerAccountName: v.name,
-        totalRevisedAmount: Math.round(v.revised * 100) / 100,
+        totalBudgetAmount: Math.round(v.budget * 100) / 100,
         totalRemainingAmount: Math.round(v.remaining * 100) / 100,
       }),
     );

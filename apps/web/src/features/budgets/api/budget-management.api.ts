@@ -366,7 +366,6 @@ export interface CreateLinePayload {
   generalLedgerAccountId?: string;
   analyticalLedgerAccountId?: string | null;
   initialAmount: number;
-  revisedAmount?: number;
   taxRate?: number;
   currency: string;
   status?: string;
@@ -379,7 +378,7 @@ export interface UpdateLinePayload {
   generalLedgerAccountId?: string | null;
   analyticalLedgerAccountId?: string | null;
   allocationScope?: 'ENTERPRISE' | 'ANALYTICAL';
-  revisedAmount?: number;
+  initialAmount?: number;
   currency?: string;
   expenseType?: string;
   status?: string;

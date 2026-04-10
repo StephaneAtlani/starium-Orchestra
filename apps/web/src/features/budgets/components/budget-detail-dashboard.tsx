@@ -4,7 +4,6 @@ import React from 'react';
 import {
   AlertTriangle,
   ArrowDownRight,
-  Banknote,
   PiggyBank,
   Scale,
   TrendingDown,
@@ -38,7 +37,7 @@ export function BudgetDetailDashboard({
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
 }) {
-  const rev = kpi.totalRevisedAmount;
+  const rev = kpi.totalInitialAmount;
   const consumptionRate =
     kpi.consumptionRate ?? safeRate(kpi.totalConsumedAmount, rev);
   const commitmentRate =
@@ -47,12 +46,12 @@ export function BudgetDetailDashboard({
     kpi.forecastRate ?? safeRate(kpi.totalForecastAmount, rev);
 
   const gapKpis = {
-    totalBudget: kpi.totalRevisedAmount,
+    totalBudget: kpi.totalInitialAmount,
     forecast: kpi.totalForecastAmount,
-    totalBudgetTtc: kpi.totalRevisedAmountTtc,
+    totalBudgetTtc: kpi.totalInitialAmountTtc,
     forecastTtc: kpi.totalForecastAmountTtc,
   };
-  const ecartForecast = kpi.totalForecastAmount - kpi.totalRevisedAmount;
+  const ecartForecast = kpi.totalForecastAmount - kpi.totalInitialAmount;
   const gapParts = formatForecastGapParts(
     gapKpis,
     currency,
@@ -61,8 +60,8 @@ export function BudgetDetailDashboard({
   );
   const ecartSub =
     ecartForecast >= 0
-      ? 'Le prévisionnel agrégé dépasse le budget révisé sur cette base.'
-      : 'Le prévisionnel reste sous le plafond budgétaire révisé.';
+      ? 'Le prévisionnel agrégé dépasse le budget sur cette base.'
+      : 'Le prévisionnel reste sous le plafond budgétaire.';
 
   const remainingTone: BudgetKpiAmountTone =
     kpi.totalRemainingAmount < 0
@@ -124,7 +123,7 @@ export function BudgetDetailDashboard({
               {formatPercent(commitmentRate)}
             </span>
             {' · '}
-            prévisionnel / révisé{' '}
+            prévisionnel / budget{' '}
             <span className="font-medium tabular-nums text-foreground">
               {formatPercent(forecastRate)}
             </span>
@@ -134,23 +133,8 @@ export function BudgetDetailDashboard({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
           <BudgetKpiCard
             variant="primary"
-            label="Budget révisé"
+            label="Budget"
             description="Plafond de référence"
-            parts={fmt({
-              ht: kpi.totalRevisedAmount,
-              ttcFromApi: kpi.totalRevisedAmountTtc,
-              currency,
-              mode: taxDisplayMode,
-              defaultTaxRate,
-            })}
-            icon={Wallet}
-            dataTestId="detail-kpi-revised"
-          />
-
-          <BudgetKpiCard
-            variant="forecast"
-            label="Montant initial"
-            description="Référence de départ"
             parts={fmt({
               ht: kpi.totalInitialAmount,
               ttcFromApi: kpi.totalInitialAmountTtc,
@@ -158,8 +142,8 @@ export function BudgetDetailDashboard({
               mode: taxDisplayMode,
               defaultTaxRate,
             })}
-            icon={Banknote}
-            dataTestId="detail-kpi-initial"
+            icon={Wallet}
+            dataTestId="detail-kpi-budget"
           />
 
           <BudgetKpiCard
@@ -225,8 +209,8 @@ export function BudgetDetailDashboard({
 
           <BudgetKpiCard
             variant="variance"
-            label="Écart planifié / révisé"
-            description="Total planifié − budget révisé"
+            label="Écart planifié / budget"
+            description="Total planifié − budget"
             parts={gapParts}
             subtext={ecartSub}
             icon={TrendingDown}

@@ -12,7 +12,7 @@ export interface BudgetPilotageColumnHeader {
 }
 
 const ATTER_COLS: BudgetPilotageColumnHeader[] = [
-  { id: 'revised', label: 'Budget révisé', align: 'right' },
+  { id: 'budget', label: 'Budget', align: 'right' },
   { id: 'consumed', label: 'Consommé', align: 'right' },
   { id: 'committed', label: 'Engagé', align: 'right' },
   { id: 'remainingPlanning', label: 'Prévision restante', align: 'right' },
@@ -21,7 +21,7 @@ const ATTER_COLS: BudgetPilotageColumnHeader[] = [
 ];
 
 const FORECAST_BASELINE_COLS: BudgetPilotageColumnHeader[] = [
-  { id: 'revised', label: 'Budget révisé', align: 'right' },
+  { id: 'budget', label: 'Budget', align: 'right' },
   { id: 'forecastBaseline', label: 'Forecast (baseline)', align: 'right' },
   { id: 'landing', label: 'Atterrissage', align: 'right' },
   { id: 'landingVariance', label: 'Écart', align: 'right' },
@@ -47,10 +47,9 @@ const CONDENSE_HEADERS: BudgetPilotageColumnHeader[] = [
 /** Colonnes avant les mois / trimestres — prévisionnel (action, montants, commentaire). */
 const PREVISIONNEL_LEADING_COLS: BudgetPilotageColumnHeader[] = [
   { id: 'calculatorAction', label: 'Calc.', align: 'left' },
-  { id: 'budgetInitial', label: 'Budget initial', align: 'right' },
-  { id: 'budgetRevised', label: 'Budget révisé', align: 'right' },
-  { id: 'planningVsRevised', label: 'Écart prév. / rév.', align: 'right' },
-  { id: 'planningVsRevisedPct', label: '% écart prév.', align: 'right' },
+  { id: 'budget', label: 'Budget', align: 'right' },
+  { id: 'planningVsBudget', label: 'Écart prév. / budget', align: 'right' },
+  { id: 'planningVsBudgetPct', label: '% écart prév.', align: 'right' },
   { id: 'lineComment', label: 'Commentaire', align: 'left' },
 ];
 
@@ -97,7 +96,7 @@ export function countBudgetPilotageDataColumns(
     throw new Error('countBudgetPilotageDataColumns: mode synthèse — tableau classique');
   }
   if (mode === 'previsionnel') {
-    return density === 'mensuel' ? 6 + 13 : 6 + 5;
+    return density === 'mensuel' ? 5 + 13 : 5 + 5;
   }
   if (mode === 'atterrissage') {
     return 6;

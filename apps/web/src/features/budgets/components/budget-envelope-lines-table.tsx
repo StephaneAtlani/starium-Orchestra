@@ -191,7 +191,6 @@ export function BudgetEnvelopeLinesTable({
               <col className="w-[10%]" />
               <col className="w-[10%]" />
               <col className="w-[10%]" />
-              <col className="w-[10%]" />
               <col className="w-[5.5rem]" />
             </colgroup>
             <TableHeader className="bg-transparent">
@@ -213,8 +212,7 @@ export function BudgetEnvelopeLinesTable({
                   Ligne
                 </TableHead>
                 <TableHead className={cockpitThEndLeft}>Statut</TableHead>
-                <TableHead className={cockpitThNum}>Initial</TableHead>
-                <TableHead className={cockpitThNum}>Révisé</TableHead>
+                <TableHead className={cockpitThNum}>Budget</TableHead>
                 <TableHead className={cockpitThNum}>Forecast</TableHead>
                 <TableHead className={cockpitThNum}>Engagé</TableHead>
                 <TableHead className={cockpitThNum}>Consommé</TableHead>
@@ -281,9 +279,6 @@ export function BudgetEnvelopeLinesTable({
                     </TableCell>
                     <TableCell className={cn(cockpitTdNum, 'whitespace-nowrap')}>
                       {formatAmount(line.initialAmount, line.currency)}
-                    </TableCell>
-                    <TableCell className={cn(cockpitTdNum, 'whitespace-nowrap')}>
-                      {formatAmount(line.revisedAmount, line.currency)}
                     </TableCell>
                     <TableCell className={cn(cockpitTdNum, 'whitespace-nowrap')}>
                       {formatAmount(line.forecastAmount, line.currency)}

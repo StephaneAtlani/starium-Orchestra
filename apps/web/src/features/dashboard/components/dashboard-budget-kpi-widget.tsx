@@ -148,8 +148,8 @@ function BudgetKpiCardsByKeys({
   );
   const ecartSub =
     ecartForecast >= 0
-      ? 'Le forecast dépasse le budget révisé sur cette base.'
-      : 'Le forecast reste sous le plafond budgétaire révisé.';
+      ? 'Le forecast dépasse le budget sur cette base.'
+      : 'Le forecast reste sous le plafond budgétaire.';
 
   const remainingTone: BudgetKpiAmountTone =
     kpis.remaining < 0 ? 'danger' : kpis.remaining > 0 ? 'success' : 'default';
@@ -161,7 +161,7 @@ function BudgetKpiCardsByKeys({
     revised: (
       <BudgetKpiCard
         variant="primary"
-        label="Budget révisé"
+        label="Budget"
         description="Plafond de référence"
         parts={fmt({
           ht: kpis.totalBudget,
@@ -253,7 +253,7 @@ function BudgetKpiCardsByKeys({
       <BudgetKpiCard
         variant="variance"
         label="Écart forecast"
-        description="Forecast − budget révisé"
+        description="Forecast − budget"
         parts={gapParts}
         subtext={ecartSub}
         amountDisplayValue={num(ecartForecast, ecartTtcFromApi)}

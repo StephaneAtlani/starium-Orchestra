@@ -1,6 +1,6 @@
 /**
  * Mappers formulaire ↔ API pour les entités budget (RFC-FE-015).
- * Montants : jamais envoyer "" ; revisedAmount vide → undefined.
+ * Montants : jamais envoyer "" ; champs optionnels vides → undefined.
  * Dates : string (input) ↔ ISO (API).
  */
 
@@ -168,8 +168,6 @@ export function lineApiToForm(
 ): BudgetLineFormValues {
   const initialAmount =
     budgetTaxMode === 'TTC' ? line.initialAmountTtc ?? line.initialAmount : line.initialAmount;
-  const revisedAmount =
-    budgetTaxMode === 'TTC' ? line.revisedAmountTtc ?? line.revisedAmount : line.revisedAmount;
 
   return {
     budgetId: line.budgetId,
@@ -180,7 +178,6 @@ export function lineApiToForm(
     expenseType: line.expenseType as BudgetLineFormValues['expenseType'],
     generalLedgerAccountId: line.generalLedgerAccountId ?? '',
     initialAmount,
-    revisedAmount,
     currency: line.currency,
     status: line.status,
     deferredToExerciseId: line.deferredToExerciseId ?? '',
@@ -196,10 +193,6 @@ export function lineFormToCreatePayload(values: BudgetLineFormValues): CreateLin
     description: values.description || undefined,
     expenseType: values.expenseType,
     initialAmount: values.initialAmount,
-    revisedAmount:
-      values.revisedAmount === '' || values.revisedAmount === undefined
-        ? undefined
-        : Number(values.revisedAmount),
     currency: values.currency,
     status: values.status,
   };
@@ -216,10 +209,7 @@ export function lineFormToUpdatePayload(values: BudgetLineFormValues): UpdateLin
     name: values.name,
     code: values.code || undefined,
     description: values.description || undefined,
-    revisedAmount:
-      values.revisedAmount === '' || values.revisedAmount === undefined
-        ? undefined
-        : Number(values.revisedAmount),
+    initialAmount: values.initialAmount,
     currency: values.currency,
   };
 

@@ -29,13 +29,13 @@ export interface BudgetLinePlanningResponse {
   monthColumnLabels: string[];
   planningMode: BudgetLinePlanningMode | null;
   planningTotalAmount: number;
-  revisedAmount: number;
-  /** Écart somme prévision 12 mois vs révisé. */
+  budgetAmount: number;
+  /** Écart somme prévision 12 mois vs budget. */
   planningDelta: number;
-  /** Écart atterrissage projeté vs révisé (pilotage DAF). */
+  /** Écart atterrissage projeté vs budget (pilotage DAF). */
   landingVariance: number;
   /** @deprecated Utiliser `planningDelta`. */
-  deltaVsRevised: number;
+  deltaVsBudget: number;
   /** @deprecated Utiliser `landingVariance`. */
   variance: number;
   consumedAmount: number;

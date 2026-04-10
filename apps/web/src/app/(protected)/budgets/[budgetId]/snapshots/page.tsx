@@ -104,7 +104,7 @@ export default function BudgetSnapshotsPage() {
                 <TableHead>Code</TableHead>
                 <TableHead>Nom</TableHead>
                 <TableHead>Type d’occasion</TableHead>
-                <TableHead className="text-right">Total révisé</TableHead>
+                <TableHead className="text-right">Total budget</TableHead>
                 <TableHead>Créé par</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
@@ -119,7 +119,7 @@ export default function BudgetSnapshotsPage() {
                     {snapshot.occasionTypeLabel ?? '—'}
                   </TableCell>
                   <TableCell className="text-right">
-                    {formatCurrency(snapshot.totalRevisedAmount, snapshot.budgetCurrency)}
+                    {formatCurrency(snapshot.totalInitialAmount, snapshot.budgetCurrency)}
                   </TableCell>
                   <TableCell>{snapshot.createdByLabel ?? 'Utilisateur inconnu'}</TableCell>
                   <TableCell className="text-right">

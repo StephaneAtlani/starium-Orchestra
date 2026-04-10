@@ -59,8 +59,8 @@ export function BudgetValidationWorkflowStrip({ currentStatus }: Props) {
           <dd className="sm:min-w-0">correspond au statut « Soumis » (première version transmise à l’arbitrage).</dd>
         </div>
         <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
-          <dt className="font-medium text-foreground">Budget révisé</dt>
-          <dd className="sm:min-w-0">correspond au statut « Révisé » (itérations après retours).</dd>
+          <dt className="font-medium text-foreground">Statut « Révisé »</dt>
+          <dd className="sm:min-w-0">étape du workflow (itérations après retours), distinct du montant budgétaire.</dd>
         </div>
         <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
           <dt className="font-medium text-foreground">Baseline</dt>

@@ -57,18 +57,15 @@ export interface CreateRevisionResponse {
 export interface CompareLineDelta {
   code: string;
   source: {
-    revisedAmount: number;
-    initialAmount?: number;
+    budgetAmount: number;
     forecastAmount?: number;
   };
   target: {
-    revisedAmount: number;
-    initialAmount?: number;
+    budgetAmount: number;
     forecastAmount?: number;
   };
   delta: {
-    revisedAmount: number;
-    initialAmount?: number;
+    budgetAmount: number;
     forecastAmount?: number;
   };
 }

@@ -49,7 +49,7 @@ export function BudgetLineDrawerHeader({
   /** Ligne précédente / suivante dans l’ordre explorateur (drilldown inchangé). */
   lineDrilldownNavigation?: BudgetLineDrilldownNavigation | null;
 }) {
-  const isOverrun = line.consumedAmount > line.revisedAmount;
+  const isOverrun = line.consumedAmount > line.initialAmount;
   const isNegativeRemaining = line.remainingAmount < 0;
   const isUncoveredOrder = line.committedAmount > 0 && line.consumedAmount === 0;
   const envelopeCodeLabel = envelopeCode ?? '—';

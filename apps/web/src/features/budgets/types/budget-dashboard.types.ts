@@ -9,7 +9,7 @@ export interface BudgetDashboardLineRow {
   code: string | null;
   name: string;
   envelopeName: string | null;
-  revisedAmount: number;
+  initialAmount: number;
   committed: number;
   consumed: number;
   forecast: number;

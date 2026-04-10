@@ -334,8 +334,7 @@ export class BudgetImportService {
                 generalLedgerAccountId: defaultGlaId,
                 analyticalLedgerAccountId: null,
                 allocationScope: 'ENTERPRISE',
-                initialAmount: new Prisma.Decimal(am.initial),
-                revisedAmount: new Prisma.Decimal(am.revised),
+                initialAmount: new Prisma.Decimal(am.revised),
                 forecastAmount: new Prisma.Decimal(0),
                 committedAmount: new Prisma.Decimal(am.committed),
                 consumedAmount: new Prisma.Decimal(am.consumed),
@@ -363,8 +362,7 @@ export class BudgetImportService {
             await tx.budgetLine.updateMany({
               where: { id: r.existingTargetEntityId, clientId },
               data: {
-                initialAmount: new Prisma.Decimal(am.initial),
-                revisedAmount: new Prisma.Decimal(am.revised),
+                initialAmount: new Prisma.Decimal(am.revised),
                 committedAmount: new Prisma.Decimal(am.committed),
                 consumedAmount: new Prisma.Decimal(am.consumed),
                 remainingAmount: new Prisma.Decimal(am.remaining),

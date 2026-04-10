@@ -9,10 +9,7 @@ export const baseBudgetLineFormSchema = z
     description: z.string().optional().or(z.literal('')),
     expenseType: z.enum(['CAPEX', 'OPEX']),
     generalLedgerAccountId: z.string().optional().or(z.literal('')),
-    initialAmount: z.number().min(0, 'Le montant initial doit être ≥ 0'),
-    revisedAmount: z
-      .union([z.number().min(0, 'Le montant révisé doit être ≥ 0'), z.literal('')])
-      .optional(),
+    initialAmount: z.number().min(0, 'Le montant budgétaire doit être ≥ 0'),
     currency: z.string().min(1, 'Devise requise').max(8),
     status: z.string().optional(),
     deferredToExerciseId: z.string().optional().or(z.literal('')),

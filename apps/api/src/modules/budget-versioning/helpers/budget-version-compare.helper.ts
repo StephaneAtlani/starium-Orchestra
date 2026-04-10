@@ -2,8 +2,7 @@ export type BudgetLineComparableInput = {
   id: string;
   code: string;
   name: string;
-  revisedAmount: number;
-  initialAmount?: number;
+  budgetAmount: number;
   forecastAmount?: number;
   consumedAmount?: number;
 };

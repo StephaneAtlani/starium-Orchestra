@@ -15,7 +15,7 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
     clientId,
     budgetId: 'budget-1',
     status: BudgetLineStatus.DRAFT,
-    revisedAmount: new Prisma.Decimal(1200),
+    initialAmount: new Prisma.Decimal(1200),
     consumedAmount: new Prisma.Decimal(0),
     committedAmount: new Prisma.Decimal(0),
     budget: {
@@ -32,7 +32,7 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
     clientId,
     consumedAmount: new Prisma.Decimal(0),
     committedAmount: new Prisma.Decimal(0),
-    revisedAmount: new Prisma.Decimal(1200),
+    initialAmount: new Prisma.Decimal(1200),
     planningMode: BudgetLinePlanningMode.MANUAL,
     budget: {
       id: 'budget-1',
@@ -135,7 +135,7 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
 
       expect(result.months).toHaveLength(12);
       expect(result.planningMode).toBe(BudgetLinePlanningMode.MANUAL);
-      expect(result.planningDelta).toBe(result.deltaVsRevised);
+      expect(result.planningDelta).toBe(result.deltaVsBudget);
       expect(result.landingVariance).toBe(result.variance);
     });
 

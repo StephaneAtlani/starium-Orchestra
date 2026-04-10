@@ -54,10 +54,11 @@ export class UpdateBudgetLineDto {
   @Type(() => CostCenterSplitItemDto)
   costCenterSplits?: CostCenterSplitItemDto[];
 
+  /** Montant budgétaire HT (ou TTC si budget en mode TTC), stocké en HT. */
   @IsOptional()
   @IsNumber()
   @Min(0)
-  revisedAmount?: number;
+  initialAmount?: number;
 
   @IsOptional()
   @IsNumber()

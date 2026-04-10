@@ -596,10 +596,10 @@ export class BudgetLinePlanningService {
     );
     const consumed = (line.consumedAmount as Prisma.Decimal).toNumber();
     const committed = (line.committedAmount as Prisma.Decimal).toNumber();
-    const revised = (line.revisedAmount as Prisma.Decimal).toNumber();
+    const budget = (line.initialAmount as Prisma.Decimal).toNumber();
     const landing = consumed + committed + remainingPlanning;
-    const planningDelta = planningTotalAmount - revised;
-    const landingVariance = landing - revised;
+    const planningDelta = planningTotalAmount - budget;
+    const landingVariance = landing - budget;
 
     const lastScenario = line.planningScenarios[0]
       ? {
@@ -618,10 +618,10 @@ export class BudgetLinePlanningService {
       monthColumnLabels,
       planningMode: line.planningMode ?? null,
       planningTotalAmount,
-      revisedAmount: revised,
+      budgetAmount: budget,
       planningDelta,
       landingVariance,
-      deltaVsRevised: planningDelta,
+      deltaVsBudget: planningDelta,
       variance: landingVariance,
       consumedAmount: consumed,
       committedAmount: committed,

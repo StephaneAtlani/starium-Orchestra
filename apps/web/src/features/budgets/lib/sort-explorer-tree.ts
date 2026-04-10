@@ -15,7 +15,7 @@ function numericValue(node: ExplorerNode, column: Exclude<ExplorerSortColumn, 'd
   if (node.type === 'envelope') {
     switch (column) {
       case 'budget':
-        return node.totalRevised;
+        return node.totalBudget;
       case 'percent':
         return node.percentOfBudget;
       case 'lines':
@@ -36,15 +36,15 @@ function numericValue(node: ExplorerNode, column: Exclude<ExplorerSortColumn, 'd
   }
   switch (column) {
     case 'budget':
-      return node.revisedAmount;
+      return node.budgetAmount;
     case 'percent':
       return 0;
     case 'lines':
       return 1;
     case 'opex':
-      return node.expenseType === 'OPEX' ? node.revisedAmount : 0;
+      return node.expenseType === 'OPEX' ? node.budgetAmount : 0;
     case 'capex':
-      return node.expenseType === 'CAPEX' ? node.revisedAmount : 0;
+      return node.expenseType === 'CAPEX' ? node.budgetAmount : 0;
     case 'committed':
       return node.committedAmount;
     case 'consumed':

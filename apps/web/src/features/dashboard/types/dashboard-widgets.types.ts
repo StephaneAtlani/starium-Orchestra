@@ -25,7 +25,7 @@ export const DASHBOARD_BUDGET_KPI_OPTIONS: {
   id: DashboardBudgetKpiKey;
   label: string;
 }[] = [
-  { id: 'revised', label: 'Budget révisé' },
+  { id: 'revised', label: 'Budget' },
   { id: 'committed', label: 'Engagé' },
   { id: 'consumed', label: 'Consommé' },
   { id: 'remaining', label: 'Disponible' },

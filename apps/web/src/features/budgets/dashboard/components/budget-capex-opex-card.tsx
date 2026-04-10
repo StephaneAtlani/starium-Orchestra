@@ -20,7 +20,7 @@ export function BudgetCapexOpexCard({
   return (
     <CockpitSurfaceCard
       title="CAPEX / OPEX"
-      description="Montants budgétés (révisés) par type de dépense"
+      description="Montants budgétés par type de dépense"
       icon={PieChart}
       accent="violet"
     >

@@ -65,11 +65,6 @@ export class CreateBudgetLineDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  revisedAmount?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
   taxRate?: number;
 
   @IsString()

@@ -19,7 +19,7 @@ import { BudgetLineStatusBadge } from '../budget-line-status-badge';
 
 const AUTOSAVE_MS = 650;
 
-type EditKey = 'name' | 'description' | 'code' | 'revised' | 'scope' | 'owner' | null;
+type EditKey = 'name' | 'description' | 'code' | 'budget' | 'scope' | 'owner' | null;
 
 function memberLabel(m: ClientMember): string {
   const n = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
@@ -156,7 +156,7 @@ export function BudgetLineOverviewTab({
   const [nameDraft, setNameDraft] = useState(line.name);
   const [descDraft, setDescDraft] = useState(line.description ?? '');
   const [codeDraft, setCodeDraft] = useState(line.code ?? '');
-  const [revDraft, setRevDraft] = useState(String(line.revisedAmount ?? 0));
+  const [revDraft, setRevDraft] = useState(String(line.initialAmount ?? 0));
   const [scopeDraft, setScopeDraft] = useState(line.allocationScope ?? 'ENTERPRISE');
 
   const lineKey = line.id;
@@ -165,14 +165,14 @@ export function BudgetLineOverviewTab({
     setNameDraft(line.name);
     setDescDraft(line.description ?? '');
     setCodeDraft(line.code ?? '');
-    setRevDraft(String(line.revisedAmount ?? 0));
+    setRevDraft(String(line.initialAmount ?? 0));
     setScopeDraft(line.allocationScope ?? 'ENTERPRISE');
   }, [
     lineKey,
     line.name,
     line.description,
     line.code,
-    line.revisedAmount,
+    line.initialAmount,
     line.allocationScope,
   ]);
 
@@ -214,16 +214,16 @@ export function BudgetLineOverviewTab({
   }, [canEdit, activeEdit, codeDraft, line.code, patch]);
 
   useEffect(() => {
-    if (!canEdit || activeEdit !== 'revised') return;
+    if (!canEdit || activeEdit !== 'budget') return;
     const raw = revDraft.replace(',', '.').trim();
     const num = parseFloat(raw);
     if (!Number.isFinite(num) || num < 0) return;
-    if (num === line.revisedAmount) return;
+    if (num === line.initialAmount) return;
     const id = window.setTimeout(() => {
-      patch({ revisedAmount: num });
+      patch({ initialAmount: num });
     }, AUTOSAVE_MS);
     return () => window.clearTimeout(id);
-  }, [canEdit, activeEdit, revDraft, line.revisedAmount, patch]);
+  }, [canEdit, activeEdit, revDraft, line.initialAmount, patch]);
 
   const onScopeChange = (v: string) => {
     if (!canEdit) return;
@@ -322,9 +322,9 @@ export function BudgetLineOverviewTab({
             </div>
             <div className="rounded-lg border border-border/60 bg-card px-3 py-2.5">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Révisé
+                Budget
               </div>
-              {canEdit && activeEdit === 'revised' ? (
+              {canEdit && activeEdit === 'budget' ? (
                 <Input
                   type="text"
                   inputMode="decimal"
@@ -333,7 +333,7 @@ export function BudgetLineOverviewTab({
                   onBlur={scheduleCloseEdit}
                   autoFocus
                   className="mt-1 h-9 tabular-nums font-semibold"
-                  aria-label="Montant révisé"
+                  aria-label="Montant budgétaire"
                 />
               ) : (
                 <div className="mt-1">
@@ -342,13 +342,13 @@ export function BudgetLineOverviewTab({
                       type="button"
                       className="w-full rounded-md border border-dashed border-transparent px-1 py-0.5 text-left tabular-nums text-base font-semibold transition-colors hover:border-border/60 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onMouseDown={cancelCloseEdit}
-                      onClick={() => openEdit('revised')}
+                      onClick={() => openEdit('budget')}
                     >
-                      {formatAmount(line.revisedAmount, currency)}
+                      {formatAmount(line.initialAmount, currency)}
                     </button>
                   ) : (
                     <div className="text-base font-semibold tabular-nums text-foreground">
-                      {formatAmount(line.revisedAmount, currency)}
+                      {formatAmount(line.initialAmount, currency)}
                     </div>
                   )}
                 </div>

@@ -35,21 +35,19 @@ describe('formatSignedDeltaPercent', () => {
 
 describe('budgetKpiAmountForTaxMode', () => {
   const base: BudgetSummaryKpi = {
-    totalInitialAmount: 100,
-    totalRevisedAmount: 200,
+    totalInitialAmount: 200,
     totalForecastAmount: 150,
     totalCommittedAmount: 0,
     totalConsumedAmount: 0,
     totalRemainingAmount: 200,
-    totalInitialAmountTtc: 120,
-    totalRevisedAmountTtc: 240,
+    totalInitialAmountTtc: 240,
     totalForecastAmountTtc: 180,
     currency: 'EUR',
   };
 
   it('utilise le TTC quand le mode est TTC et les TTC sont présents', () => {
     expect(budgetKpiAmountForTaxMode(base, 'TTC', 'forecast')).toBe(180);
-    expect(budgetKpiAmountForTaxMode(base, 'TTC', 'initial')).toBe(120);
+    expect(budgetKpiAmountForTaxMode(base, 'TTC', 'initial')).toBe(240);
   });
 
   it('retombe sur le HT si TTC absent', () => {

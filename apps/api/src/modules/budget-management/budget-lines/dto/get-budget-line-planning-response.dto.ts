@@ -20,13 +20,13 @@ export class GetBudgetLinePlanningResponseDto {
   monthColumnLabels!: string[];
   planningMode!: BudgetLinePlanningMode | null;
   planningTotalAmount!: number;
-  revisedAmount!: number;
-  /** Écart prévision totale vs révisé (canonique). */
+  budgetAmount!: number;
+  /** Écart prévision totale vs budget. */
   planningDelta!: number;
-  /** Écart atterrissage projeté vs révisé (canonique). */
+  /** Écart atterrissage projeté vs budget. */
   landingVariance!: number;
-  /** @deprecated Utiliser `planningDelta` (suppression prévue après fenêtre de transition). */
-  deltaVsRevised!: number;
+  /** @deprecated Utiliser `planningDelta`. */
+  deltaVsBudget!: number;
   /** @deprecated Utiliser `landingVariance` (suppression prévue après fenêtre de transition). */
   variance!: number;
   consumedAmount!: number;

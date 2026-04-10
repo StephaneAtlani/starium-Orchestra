@@ -87,7 +87,6 @@ export interface BudgetLine {
   allocationScope: string;
   costCenterSplits?: BudgetLineCostCenterSplit[];
   initialAmount: number;
-  revisedAmount: number;
   forecastAmount: number;
   committedAmount: number;
   consumedAmount: number;
@@ -96,8 +95,6 @@ export interface BudgetLine {
   taxRate?: number | null;
   initialTaxAmount?: number | null;
   initialAmountTtc?: number | null;
-  revisedTaxAmount?: number | null;
-  revisedAmountTtc?: number | null;
   forecastTaxAmount?: number | null;
   forecastAmountTtc?: number | null;
   committedTaxAmount?: number | null;

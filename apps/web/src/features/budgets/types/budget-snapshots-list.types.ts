@@ -18,7 +18,6 @@ export interface BudgetSnapshotSummaryDto {
   budgetCurrency: string;
   budgetStatus: string;
   totalInitialAmount: number;
-  totalRevisedAmount: number;
   totalForecastAmount: number;
   totalCommittedAmount: number;
   totalConsumedAmount: number;
@@ -47,8 +46,7 @@ export interface BudgetSnapshotLineDto {
   lineName: string;
   expenseType: string;
   currency: string;
-  initialAmount: number;
-  revisedAmount: number;
+  budgetAmount: number;
   forecastAmount: number;
   committedAmount: number;
   consumedAmount: number;
@@ -57,8 +55,7 @@ export interface BudgetSnapshotLineDto {
 
 export interface BudgetSnapshotDetailDto extends BudgetSnapshotSummaryDto {
   totals: {
-    initialAmount: number;
-    revisedAmount: number;
+    budgetAmount: number;
     forecastAmount: number;
     committedAmount: number;
     consumedAmount: number;

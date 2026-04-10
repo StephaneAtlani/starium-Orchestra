@@ -59,7 +59,7 @@ export interface EnvelopeForecastLinesResponse {
 }
 
 export interface ComparisonLineAmounts {
-  revisedAmount: number;
+  budgetAmount: number;
   forecastAmount: number;
   consumedAmount: number;
 }
@@ -77,7 +77,7 @@ export interface BudgetComparisonLineResponse {
 
 export interface BudgetComparisonResponse {
   compareTo?: 'baseline' | 'snapshot' | 'version';
-  /** Colonne dont proviennent statut / variance forecast (révisé, consommé, prévisionnel). */
+  /** Colonne dont proviennent statut / variance forecast (budget, consommé, prévisionnel). */
   pilotageColumn?: 'left' | 'right';
   /** Libellés pour en-têtes de colonnes (montants gauche / droite). */
   leftLabel?: string;
@@ -98,7 +98,7 @@ export interface BudgetComparisonResponse {
     consumed: number;
   };
   diff: {
-    revisedAmount: number;
+    budgetAmount: number;
     forecastAmount: number;
     consumedAmount: number;
   };

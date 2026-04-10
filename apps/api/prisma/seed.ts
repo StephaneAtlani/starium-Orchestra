@@ -2680,13 +2680,13 @@ async function seedBudgetLinePlanningMonths(
 }
 
 /**
- * Lignes sans aucun mois (clones incomplets, bases anciennes, etc.) : répartition sur le révisé.
+ * Lignes sans aucun mois (clones incomplets, bases anciennes, etc.) : répartition sur le budget.
  * Idempotent pour les lignes déjà peuplées (non sélectionnées).
  */
 async function backfillBudgetLinesMissingPlanningMonths(): Promise<void> {
   const lines = await prisma.budgetLine.findMany({
     where: { planningMonths: { none: {} } },
-    select: { id: true, clientId: true, code: true, revisedAmount: true },
+    select: { id: true, clientId: true, code: true, initialAmount: true },
   });
   let n = 0;
   for (const line of lines) {
@@ -2694,13 +2694,13 @@ async function backfillBudgetLinesMissingPlanningMonths(): Promise<void> {
       line.clientId,
       line.id,
       line.code,
-      line.revisedAmount.toNumber(),
+      line.initialAmount.toNumber(),
     );
     n += 1;
   }
   if (n > 0) {
     console.log(
-      `✅ Backfill prévisionnel (12 mois) : ${n} ligne(s) sans BudgetLinePlanningMonth — répartition sur montant révisé.`,
+      `✅ Backfill prévisionnel (12 mois) : ${n} ligne(s) sans BudgetLinePlanningMonth — répartition sur montant budgétaire.`,
     );
   }
 }
@@ -2723,7 +2723,6 @@ async function upsertLine(clientId: string, budgetId: string, envelopeId: string
       currency: "EUR",
       taxRate: VAT_RATE,
       initialAmount: seed.amount,
-      revisedAmount: seed.amount,
       forecastAmount: seed.amount,
       committedAmount: 0,
       consumedAmount: 0,
@@ -2741,7 +2740,6 @@ async function upsertLine(clientId: string, budgetId: string, envelopeId: string
       currency: "EUR",
       taxRate: VAT_RATE,
       initialAmount: seed.amount,
-      revisedAmount: seed.amount,
       forecastAmount: seed.amount,
       committedAmount: 0,
       consumedAmount: 0,
@@ -2774,9 +2772,9 @@ async function seedProcurementAndEvents(
   lineCode: string,
   supplierId: string,
   flow: FlowType,
-  revisedAmount: number,
+  budgetAmount: number,
 ) {
-  const { poAmounts, invoiceAmounts } = flowAmounts(revisedAmount, flow);
+  const { poAmounts, invoiceAmounts } = flowAmounts(budgetAmount, flow);
 
   const createdOrders: Array<{ id: string; amountHt: number; reference: string }> = [];
 
@@ -2926,8 +2924,8 @@ async function seedProcurementAndEvents(
 
   const committedAmount = round2(poAmounts.reduce((sum, v) => sum + v, 0));
   const consumedAmount = round2(invoiceAmounts.reduce((sum, v) => sum + v, 0));
-  const forecastAmount = Math.max(revisedAmount, committedAmount, consumedAmount);
-  const remainingAmount = round2(revisedAmount - committedAmount - consumedAmount);
+  const forecastAmount = Math.max(budgetAmount, committedAmount, consumedAmount);
+  const remainingAmount = round2(budgetAmount - committedAmount - consumedAmount);
 
   await prisma.budgetLine.update({
     where: { id: budgetLineId },

@@ -50,11 +50,11 @@ export function BudgetEnvelopesTable({
     <CockpitSection
       id="budget-risk-envelopes-heading"
       title="Pression sur les enveloppes"
-      description="Enveloppes où la prévision dépasse ou approche le budget révisé agrégé."
+      description="Enveloppes où la prévision dépasse ou approche le budget agrégé."
     >
       <CockpitSurfaceCard
         title="Enveloppes à risque"
-        description="Prévision vs budget révisé (agrégé enveloppe)"
+        description="Prévision vs budget (agrégé enveloppe)"
         icon={Flame}
         accent="amber"
         contentPad={false}

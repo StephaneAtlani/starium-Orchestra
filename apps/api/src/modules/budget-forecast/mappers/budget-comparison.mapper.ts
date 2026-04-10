@@ -22,7 +22,7 @@ type ComparedPair = {
 };
 
 function zeroAmounts(): ComparisonLineAmounts {
-  return { revisedAmount: 0, forecastAmount: 0, consumedAmount: 0 };
+  return { budgetAmount: 0, forecastAmount: 0, consumedAmount: 0 };
 }
 
 function getLineComputedValues(params: {
@@ -43,15 +43,15 @@ function getLineComputedValues(params: {
 
   return {
     varianceForecast: computeVarianceForecast(
-      source.revisedAmount,
+      source.budgetAmount,
       source.forecastAmount,
     ),
     varianceConsumed: computeVarianceConsumed(
-      source.revisedAmount,
+      source.budgetAmount,
       source.consumedAmount,
     ),
     status: computeLineStatus({
-      budget: source.revisedAmount,
+      budget: source.budgetAmount,
       consumed: source.consumedAmount,
       forecast: source.forecastAmount,
     }),
@@ -108,7 +108,7 @@ export function buildBudgetComparisonResponse(params: {
   });
 
   const totalRightBudget = params.pairs.reduce(
-    (sum, p) => sum + p.right.revisedAmount,
+    (sum, p) => sum + p.right.budgetAmount,
     0,
   );
   const totalRightForecast = params.pairs.reduce(
@@ -121,7 +121,7 @@ export function buildBudgetComparisonResponse(params: {
   );
 
   const totalLeftBudget = params.pairs.reduce(
-    (sum, p) => sum + p.left.revisedAmount,
+    (sum, p) => sum + p.left.budgetAmount,
     0,
   );
   const totalLeftForecast = params.pairs.reduce(
@@ -163,7 +163,7 @@ export function buildBudgetComparisonResponse(params: {
       consumed: varianceConsumed,
     },
     diff: {
-      revisedAmount: totalRightBudget - totalLeftBudget,
+      budgetAmount: totalRightBudget - totalLeftBudget,
       forecastAmount: totalRightForecast - totalLeftForecast,
       consumedAmount: totalRightConsumed - totalLeftConsumed,
     },
@@ -192,7 +192,7 @@ export function lineRates(amounts: ComparisonLineAmounts): {
   forecastRate: number;
 } {
   return {
-    consumptionRate: safeRate(amounts.consumedAmount, amounts.revisedAmount),
-    forecastRate: safeRate(amounts.forecastAmount, amounts.revisedAmount),
+    consumptionRate: safeRate(amounts.consumedAmount, amounts.budgetAmount),
+    forecastRate: safeRate(amounts.forecastAmount, amounts.budgetAmount),
   };
 }

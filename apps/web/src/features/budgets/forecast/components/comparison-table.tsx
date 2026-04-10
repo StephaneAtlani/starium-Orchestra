@@ -28,14 +28,14 @@ import { comparisonDiffClass } from '@/features/budgets/forecast/lib/comparison-
 function comparisonModeDescription(data: BudgetComparisonResponse): string {
   const { compareTo } = data;
   if (data.leftSnapshotId && data.rightSnapshotId && compareTo == null) {
-    return 'Comparaison de deux versions figées : montants révisés alignés par ligne budgétaire.';
+    return 'Comparaison de deux versions figées : montants budgétaires alignés par ligne.';
   }
   if (
     data.left?.kind === 'version' &&
     data.right?.kind === 'version' &&
     compareTo == null
   ) {
-    return 'Comparaison de deux versions : montants révisés alignés par ligne budgétaire.';
+    return 'Comparaison de deux versions : montants budgétaires alignés par ligne.';
   }
   switch (compareTo) {
     case 'baseline':
@@ -43,9 +43,9 @@ function comparisonModeDescription(data: BudgetComparisonResponse): string {
     case 'snapshot':
       return 'Budget actuel comparé à une version figée.';
     case 'version':
-      return 'Budget actuel comparé à une autre révision du même jeu de versions.';
+      return 'Budget actuel comparé à une autre version du même jeu de versions.';
     default:
-      return 'Comparaison des montants révisés ligne à ligne.';
+      return 'Comparaison des montants budgétaires ligne à ligne.';
   }
 }
 
@@ -76,12 +76,12 @@ function statusExplanation(
   pilotLabel: string,
 ): string {
   if (status === 'CRITICAL') {
-    return `CRITICAL : consommé > budgétaire révisé sur la colonne pilotage « ${pilotLabel} ».`;
+    return `CRITICAL : consommé > budget sur la colonne pilotage « ${pilotLabel} ».`;
   }
   if (status === 'WARNING') {
-    return `WARNING : prévisionnel > budgétaire révisé (consommé ≤ budgétaire) — colonne « ${pilotLabel} ».`;
+    return `WARNING : prévisionnel > budget (consommé ≤ budget) — colonne « ${pilotLabel} ».`;
   }
-  return `OK : consommé et prévisionnel cohérents avec le budgétaire révisé — « ${pilotLabel} ».`;
+  return `OK : consommé et prévisionnel cohérents avec le budget — « ${pilotLabel} ».`;
 }
 
 function ComparisonContextBanner({ data }: { data: BudgetComparisonResponse }) {
@@ -106,7 +106,7 @@ function ComparisonContextBanner({ data }: { data: BudgetComparisonResponse }) {
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
         <span className="text-foreground">Statut ligne (OK / WARNING / CRITICAL) :</span> calculé sur la
-        colonne <strong>{pilotCol === 'left' ? 'gauche' : 'droite'}</strong> (« {pilotName} ») — révisé,
+        colonne <strong>{pilotCol === 'left' ? 'gauche' : 'droite'}</strong> (« {pilotName} ») — budget,
         consommé et prévisionnel de ce côté. Les montants consommé / prévisionnel sont affichés{' '}
         <strong>gauche et droite</strong> pour comparer les deux budgets ligne à ligne.
       </p>
@@ -116,7 +116,7 @@ function ComparisonContextBanner({ data }: { data: BudgetComparisonResponse }) {
 
 function AmountColumnHeader({
   title,
-  subtitle = 'Montant révisé',
+  subtitle = 'Montant budgétaire',
 }: {
   title: string;
   subtitle?: string;
@@ -207,14 +207,14 @@ const STICKY_LINE_COL_FOOT = 'sticky left-0 z-10 border-r border-border bg-muted
 /** Groupes de colonnes affichables (la comparaison API est inchangée). */
 export type ComparisonColumnGroups = {
   /** Bloc : gauche / droite / écart (D−G) / Δ % — par ligne. */
-  revised: boolean;
+  budget: boolean;
   /** Deux blocs : consommé puis prévisionnel (même structure). */
   pilotage: boolean;
   statut: boolean;
 };
 
 const DEFAULT_COLUMN_GROUPS: ComparisonColumnGroups = {
-  revised: true,
+  budget: true,
   pilotage: true,
   statut: true,
 };
@@ -228,7 +228,7 @@ function ComparisonColumnToggles({
 }) {
   const toggle = (key: keyof ComparisonColumnGroups) => {
     const next = { ...value, [key]: !value[key] };
-    const anyVisible = next.revised || next.pilotage || next.statut;
+    const anyVisible = next.budget || next.pilotage || next.statut;
     if (!anyVisible) return;
     onChange(next);
   };
@@ -239,8 +239,8 @@ function ComparisonColumnToggles({
     hint: string;
   }[] = [
     {
-      key: 'revised',
-      label: 'Révisé',
+      key: 'budget',
+      label: 'Budget',
       hint: 'Gauche, droite, écart et Δ % regroupés',
     },
     {
@@ -341,7 +341,7 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
   }
 
   const cur = data.currency;
-  const sumLeftBudget = data.lines.reduce((s, r) => s + r.left.revisedAmount, 0);
+  const sumLeftBudget = data.lines.reduce((s, r) => s + r.left.budgetAmount, 0);
   const leftColTitle = data.leftLabel?.trim() || fallbackSideLabel('left', data);
   const rightColTitle = data.rightLabel?.trim() || fallbackSideLabel('right', data);
   const pilotCol = resolvePilotageColumn(data);
@@ -366,7 +366,7 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
 
   const visibleColCount =
     1 +
-    (cols.revised ? 4 : 0) +
+    (cols.budget ? 4 : 0) +
     (cols.pilotage ? 8 : 0) +
     (cols.statut ? 1 : 0);
 
@@ -402,7 +402,7 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
             >
               Ligne budgétaire
             </TableHead>
-            {cols.revised ? (
+            {cols.budget ? (
               <>
                 <TableHead className={cn(STICKY_HEAD, 'max-w-[12rem] text-right align-bottom')}>
                   <AmountColumnHeader title={leftColTitle} />
@@ -414,7 +414,7 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
                   <span className="flex flex-col items-end gap-0.5">
                     <span className="font-medium">Écart</span>
                     <span className="text-[0.65rem] font-normal text-muted-foreground">
-                      révisé (D − G)
+                      budget (D − G)
                     </span>
                   </span>
                 </TableHead>
@@ -422,7 +422,7 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
                   <span className="flex flex-col items-end gap-0.5">
                     <span className="font-medium">Δ %</span>
                     <span className="text-[0.65rem] font-normal text-muted-foreground">
-                      révisé
+                      budget
                     </span>
                   </span>
                 </TableHead>
@@ -505,22 +505,22 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
                 >
                   {row.name}
                 </TableCell>
-                {cols.revised ? (
+                {cols.budget ? (
                   <>
                     <TableCell className="text-right tabular-nums">
-                      {formatCurrency(row.left.revisedAmount, cur)}
+                      {formatCurrency(row.left.budgetAmount, cur)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatCurrency(row.right.revisedAmount, cur)}
+                      {formatCurrency(row.right.budgetAmount, cur)}
                     </TableCell>
                     <ComparisonDiffCell
-                      leftAmount={row.left.revisedAmount}
-                      rightAmount={row.right.revisedAmount}
+                      leftAmount={row.left.budgetAmount}
+                      rightAmount={row.right.budgetAmount}
                       currency={cur}
                     />
                     <ComparisonPctCell
-                      leftAmount={row.left.revisedAmount}
-                      rightAmount={row.right.revisedAmount}
+                      leftAmount={row.left.budgetAmount}
+                      rightAmount={row.right.budgetAmount}
                     />
                   </>
                 ) : null}
@@ -587,7 +587,7 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
             <TableCell className={cn(STICKY_LINE_COL_FOOT, 'font-medium')}>
               Totaux
             </TableCell>
-            {cols.revised ? (
+            {cols.budget ? (
               <>
                 <TableCell className="text-right tabular-nums">
                   {formatCurrency(sumLeftBudget, cur)}

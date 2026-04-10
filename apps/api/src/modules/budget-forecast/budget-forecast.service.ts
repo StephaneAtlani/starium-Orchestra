@@ -42,7 +42,7 @@ export class BudgetForecastService {
       this.prisma.budgetLine.findMany({
         where: { clientId, budgetId },
         select: {
-          revisedAmount: true,
+          initialAmount: true,
           consumedAmount: true,
           forecastAmount: true,
         },
@@ -52,32 +52,32 @@ export class BudgetForecastService {
     const response: BudgetForecastResponse = {
       budgetId,
       currency: summary.currency,
-      totalBudget: summary.totalRevisedAmount,
+      totalBudget: summary.totalInitialAmount,
       totalConsumed: summary.totalConsumedAmount,
       totalForecast: summary.totalForecastAmount,
       totalRemaining: summary.totalRemainingAmount,
       varianceConsumed: computeVarianceConsumed(
-        summary.totalRevisedAmount,
+        summary.totalInitialAmount,
         summary.totalConsumedAmount,
       ),
       varianceForecast: computeVarianceForecast(
-        summary.totalRevisedAmount,
+        summary.totalInitialAmount,
         summary.totalForecastAmount,
       ),
       consumptionRate: safeRate(
         summary.totalConsumedAmount,
-        summary.totalRevisedAmount,
+        summary.totalInitialAmount,
       ),
       forecastRate: safeRate(
         summary.totalForecastAmount,
-        summary.totalRevisedAmount,
+        summary.totalInitialAmount,
       ),
       alerts: {
         overForecast: lines.filter(
-          (l) => fromDecimal(l.forecastAmount) > fromDecimal(l.revisedAmount),
+          (l) => fromDecimal(l.forecastAmount) > fromDecimal(l.initialAmount),
         ).length,
         overConsumed: lines.filter(
-          (l) => fromDecimal(l.consumedAmount) > fromDecimal(l.revisedAmount),
+          (l) => fromDecimal(l.consumedAmount) > fromDecimal(l.initialAmount),
         ).length,
       },
     };
@@ -111,7 +111,7 @@ export class BudgetForecastService {
       this.prisma.budgetLine.findMany({
         where: { clientId, envelopeId },
         select: {
-          revisedAmount: true,
+          initialAmount: true,
           consumedAmount: true,
           forecastAmount: true,
         },
@@ -121,32 +121,32 @@ export class BudgetForecastService {
     const response: EnvelopeForecastResponse = {
       envelopeId,
       currency: summary.currency,
-      totalBudget: summary.totalRevisedAmount,
+      totalBudget: summary.totalInitialAmount,
       totalConsumed: summary.totalConsumedAmount,
       totalForecast: summary.totalForecastAmount,
       totalRemaining: summary.totalRemainingAmount,
       varianceConsumed: computeVarianceConsumed(
-        summary.totalRevisedAmount,
+        summary.totalInitialAmount,
         summary.totalConsumedAmount,
       ),
       varianceForecast: computeVarianceForecast(
-        summary.totalRevisedAmount,
+        summary.totalInitialAmount,
         summary.totalForecastAmount,
       ),
       consumptionRate: safeRate(
         summary.totalConsumedAmount,
-        summary.totalRevisedAmount,
+        summary.totalInitialAmount,
       ),
       forecastRate: safeRate(
         summary.totalForecastAmount,
-        summary.totalRevisedAmount,
+        summary.totalInitialAmount,
       ),
       alerts: {
         overForecast: lines.filter(
-          (l) => fromDecimal(l.forecastAmount) > fromDecimal(l.revisedAmount),
+          (l) => fromDecimal(l.forecastAmount) > fromDecimal(l.initialAmount),
         ).length,
         overConsumed: lines.filter(
-          (l) => fromDecimal(l.consumedAmount) > fromDecimal(l.revisedAmount),
+          (l) => fromDecimal(l.consumedAmount) > fromDecimal(l.initialAmount),
         ).length,
       },
     };
@@ -193,22 +193,22 @@ export class BudgetForecastService {
       lineId: item.id,
       code: item.code,
       name: item.name,
-      budget: item.revisedAmount,
+      budget: item.initialAmount,
       consumed: item.consumedAmount,
       forecast: item.forecastAmount,
       remaining: item.remainingAmount,
       varianceConsumed: computeVarianceConsumed(
-        item.revisedAmount,
+        item.initialAmount,
         item.consumedAmount,
       ),
       varianceForecast: computeVarianceForecast(
-        item.revisedAmount,
+        item.initialAmount,
         item.forecastAmount,
       ),
-      consumptionRate: safeRate(item.consumedAmount, item.revisedAmount),
-      forecastRate: safeRate(item.forecastAmount, item.revisedAmount),
+      consumptionRate: safeRate(item.consumedAmount, item.initialAmount),
+      forecastRate: safeRate(item.forecastAmount, item.initialAmount),
       status: computeLineStatus({
-        budget: item.revisedAmount,
+        budget: item.initialAmount,
         consumed: item.consumedAmount,
         forecast: item.forecastAmount,
       }),

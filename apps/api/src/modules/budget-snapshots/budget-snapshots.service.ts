@@ -55,7 +55,6 @@ export interface BudgetSnapshotSummary {
   budgetCurrency: string;
   budgetStatus: string;
   totalInitialAmount: number;
-  totalRevisedAmount: number;
   totalForecastAmount: number;
   totalCommittedAmount: number;
   totalConsumedAmount: number;
@@ -71,8 +70,7 @@ export interface BudgetSnapshotSummary {
 
 export interface BudgetSnapshotDetail extends BudgetSnapshotSummary {
   totals: {
-    initialAmount: number;
-    revisedAmount: number;
+    budgetAmount: number;
     forecastAmount: number;
     committedAmount: number;
     consumedAmount: number;
@@ -90,8 +88,7 @@ export interface BudgetSnapshotLineResponse {
   expenseType: string;
   currency: string;
   lineStatus: string;
-  initialAmount: number;
-  revisedAmount: number;
+  budgetAmount: number;
   forecastAmount: number;
   committedAmount: number;
   consumedAmount: number;
@@ -106,8 +103,7 @@ export interface ListSnapshotsResult {
 }
 
 export interface SnapshotCompareLineAmounts {
-  initialAmount: number;
-  revisedAmount: number;
+  budgetAmount: number;
   forecastAmount: number;
   committedAmount: number;
   consumedAmount: number;
@@ -131,8 +127,7 @@ export interface SnapshotCompareResult {
 }
 
 const zeroAmounts: SnapshotCompareLineAmounts = {
-  initialAmount: 0,
-  revisedAmount: 0,
+  budgetAmount: 0,
   forecastAmount: 0,
   committedAmount: 0,
   consumedAmount: 0,
@@ -140,16 +135,14 @@ const zeroAmounts: SnapshotCompareLineAmounts = {
 };
 
 function lineToAmounts(line: {
-  initialAmount?: Prisma.Decimal;
-  revisedAmount: Prisma.Decimal;
+  initialAmount: Prisma.Decimal;
   forecastAmount: Prisma.Decimal;
   committedAmount: Prisma.Decimal;
   consumedAmount: Prisma.Decimal;
   remainingAmount: Prisma.Decimal;
 }): SnapshotCompareLineAmounts {
   return {
-    initialAmount: toNum(line.initialAmount),
-    revisedAmount: toNum(line.revisedAmount),
+    budgetAmount: toNum(line.initialAmount),
     forecastAmount: toNum(line.forecastAmount),
     committedAmount: toNum(line.committedAmount),
     consumedAmount: toNum(line.consumedAmount),
@@ -162,8 +155,7 @@ function diffAmounts(
   right: SnapshotCompareLineAmounts,
 ): SnapshotCompareLineAmounts {
   return {
-    initialAmount: right.initialAmount - left.initialAmount,
-    revisedAmount: right.revisedAmount - left.revisedAmount,
+    budgetAmount: right.budgetAmount - left.budgetAmount,
     forecastAmount: right.forecastAmount - left.forecastAmount,
     committedAmount: right.committedAmount - left.committedAmount,
     consumedAmount: right.consumedAmount - left.consumedAmount,
@@ -228,7 +220,6 @@ export class BudgetSnapshotsService {
       : new Date();
 
     const totalInitial = lines.reduce((s, l) => s + toNum(l.initialAmount), 0);
-    const totalRevised = lines.reduce((s, l) => s + toNum(l.revisedAmount), 0);
     const totalForecast = lines.reduce((s, l) => s + toNum(l.forecastAmount), 0);
     const totalCommitted = lines.reduce(
       (s, l) => s + toNum(l.committedAmount),
@@ -263,7 +254,6 @@ export class BudgetSnapshotsService {
               budgetCurrency: budget.currency,
               budgetStatus: budget.status,
               totalInitialAmount: new Prisma.Decimal(totalInitial),
-              totalRevisedAmount: new Prisma.Decimal(totalRevised),
               totalForecastAmount: new Prisma.Decimal(totalForecast),
               totalCommittedAmount: new Prisma.Decimal(totalCommitted),
               totalConsumedAmount: new Prisma.Decimal(totalConsumed),
@@ -288,7 +278,6 @@ export class BudgetSnapshotsService {
               currency: line.currency,
               lineStatus: line.status,
               initialAmount: line.initialAmount,
-              revisedAmount: line.revisedAmount,
               forecastAmount: line.forecastAmount,
               committedAmount: line.committedAmount,
               consumedAmount: line.consumedAmount,
@@ -311,7 +300,6 @@ export class BudgetSnapshotsService {
             code: snapshot.code,
             linesCount: lines.length,
             totalInitialAmount: totalInitial,
-            totalRevisedAmount: totalRevised,
             totalForecastAmount: totalForecast,
             totalCommittedAmount: totalCommitted,
             totalConsumedAmount: totalConsumed,
@@ -479,7 +467,6 @@ export class BudgetSnapshotsService {
 
     const leftTotals = lineToAmounts({
       initialAmount: leftSnapshot.totalInitialAmount,
-      revisedAmount: leftSnapshot.totalRevisedAmount,
       forecastAmount: leftSnapshot.totalForecastAmount,
       committedAmount: leftSnapshot.totalCommittedAmount,
       consumedAmount: leftSnapshot.totalConsumedAmount,
@@ -487,7 +474,6 @@ export class BudgetSnapshotsService {
     });
     const rightTotals = lineToAmounts({
       initialAmount: rightSnapshot.totalInitialAmount,
-      revisedAmount: rightSnapshot.totalRevisedAmount,
       forecastAmount: rightSnapshot.totalForecastAmount,
       committedAmount: rightSnapshot.totalCommittedAmount,
       consumedAmount: rightSnapshot.totalConsumedAmount,
@@ -542,7 +528,6 @@ function toSummary(row: BudgetSnapshotRowForSummary): BudgetSnapshotSummary {
     budgetCurrency: row.budgetCurrency,
     budgetStatus: row.budgetStatus,
     totalInitialAmount: toNum(row.totalInitialAmount),
-    totalRevisedAmount: toNum(row.totalRevisedAmount),
     totalForecastAmount: toNum(row.totalForecastAmount),
     totalCommittedAmount: toNum(row.totalCommittedAmount),
     totalConsumedAmount: toNum(row.totalConsumedAmount),
@@ -576,8 +561,7 @@ function toDetail(
   return {
     ...summary,
     totals: {
-      initialAmount: toNum(row.totalInitialAmount),
-      revisedAmount: toNum(row.totalRevisedAmount),
+      budgetAmount: toNum(row.totalInitialAmount),
       forecastAmount: toNum(row.totalForecastAmount),
       committedAmount: toNum(row.totalCommittedAmount),
       consumedAmount: toNum(row.totalConsumedAmount),
@@ -592,8 +576,7 @@ function toDetail(
       expenseType: l.expenseType,
       currency: l.currency,
       lineStatus: l.lineStatus,
-      initialAmount: toNum(l.initialAmount),
-      revisedAmount: toNum(l.revisedAmount),
+      budgetAmount: toNum(l.initialAmount),
       forecastAmount: toNum(l.forecastAmount),
       committedAmount: toNum(l.committedAmount),
       consumedAmount: toNum(l.consumedAmount),

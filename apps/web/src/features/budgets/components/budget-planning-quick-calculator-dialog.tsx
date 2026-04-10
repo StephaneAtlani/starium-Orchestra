@@ -24,9 +24,8 @@ export type BudgetPlanningQuickCalculatorDialogFooter =
     }
   | {
       mode: 'line-amounts';
-      applyTarget: 'initial' | 'revised' | null;
-      onApplyToInitial: () => void;
-      onApplyToRevised: () => void;
+      /** Applique le total calculette au montant budgétaire de la ligne (initialAmount). */
+      onApplyToBudget: () => void;
     };
 
 export interface BudgetPlanningQuickCalculatorDialogProps {
@@ -264,47 +263,6 @@ export function BudgetPlanningQuickCalculatorDialog({
             >
               {footer.applyLabel ?? 'Appliquer au prévisionnel'}
             </Button>
-          ) : footer.applyTarget === null ? (
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                title={
-                  !hasMonthAttribution
-                    ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
-                    : undefined
-                }
-                onClick={footer.onApplyToInitial}
-                disabled={!hasMonthAttribution}
-              >
-                Appliquer au montant initial
-              </Button>
-              <Button
-                type="button"
-                title={
-                  !hasMonthAttribution
-                    ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
-                    : undefined
-                }
-                onClick={footer.onApplyToRevised}
-                disabled={!hasMonthAttribution}
-              >
-                Appliquer au montant révisé
-              </Button>
-            </>
-          ) : footer.applyTarget === 'initial' ? (
-            <Button
-              type="button"
-              title={
-                !hasMonthAttribution
-                  ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
-                  : undefined
-              }
-              onClick={footer.onApplyToInitial}
-              disabled={!hasMonthAttribution}
-            >
-              Appliquer au montant initial
-            </Button>
           ) : (
             <Button
               type="button"
@@ -313,10 +271,10 @@ export function BudgetPlanningQuickCalculatorDialog({
                   ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
                   : undefined
               }
-              onClick={footer.onApplyToRevised}
+              onClick={footer.onApplyToBudget}
               disabled={!hasMonthAttribution}
             >
-              Appliquer au montant révisé
+              Appliquer au montant budgétaire
             </Button>
           )}
         </DialogFooter>

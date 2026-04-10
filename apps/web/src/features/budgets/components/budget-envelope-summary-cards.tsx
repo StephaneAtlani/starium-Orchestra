@@ -36,10 +36,10 @@ export function BudgetEnvelopeSummaryCards({
   const fmt = (p: Parameters<typeof formatKpiAmountParts>[0]) =>
     formatKpiAmountParts(p);
 
-  const ecartForecast = envelope.forecastAmount - envelope.revisedAmount;
+  const ecartForecast = envelope.forecastAmount - envelope.initialAmount;
   const gapParts = formatForecastGapParts(
     {
-      totalBudget: envelope.revisedAmount,
+      totalBudget: envelope.initialAmount,
       forecast: envelope.forecastAmount,
     },
     c,
@@ -48,8 +48,8 @@ export function BudgetEnvelopeSummaryCards({
   );
   const ecartSub =
     ecartForecast >= 0
-      ? 'Le forecast dépasse le budget révisé de l’enveloppe sur cette base.'
-      : 'Le forecast reste sous le plafond budgétaire révisé.';
+      ? 'Le forecast dépasse le budget de l’enveloppe sur cette base.'
+      : 'Le forecast reste sous le plafond budgétaire.';
 
   const remainingTone: BudgetKpiAmountTone =
     envelope.remainingAmount < 0
@@ -91,10 +91,10 @@ export function BudgetEnvelopeSummaryCards({
 
         <BudgetKpiCard
           variant="primary"
-          label="Budget révisé"
+          label="Budget"
           description="Plafond de référence"
           parts={fmt({
-            ht: envelope.revisedAmount,
+            ht: envelope.initialAmount,
             currency: c,
             mode: taxDisplayMode,
             defaultTaxRate,
@@ -163,7 +163,7 @@ export function BudgetEnvelopeSummaryCards({
         <BudgetKpiCard
           variant="variance"
           label="Écart forecast"
-          description="Forecast − budget révisé"
+          description="Forecast − budget"
           parts={gapParts}
           subtext={ecartSub}
           icon={TrendingDown}

@@ -39,12 +39,12 @@ export function normalizeLineCode(code: string): string {
 }
 
 export function toLineAmounts(input: {
-  revisedAmount: number;
+  budgetAmount: number;
   forecastAmount: number;
   consumedAmount: number;
 }): ComparisonLineAmounts {
   return {
-    revisedAmount: input.revisedAmount,
+    budgetAmount: input.budgetAmount,
     forecastAmount: input.forecastAmount,
     consumedAmount: input.consumedAmount,
   };

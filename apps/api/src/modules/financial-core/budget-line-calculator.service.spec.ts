@@ -28,7 +28,7 @@ describe('BudgetLineCalculatorService', () => {
   describe('recalculateForBudgetLine', () => {
     it('calcule forecastAmount comme somme des allocations FORECAST', async () => {
       prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        revisedAmount: new Prisma.Decimal(1000),
+        initialAmount: new Prisma.Decimal(1000),
       });
       prisma.financialAllocation.findMany.mockResolvedValue([
         {
@@ -57,7 +57,7 @@ describe('BudgetLineCalculatorService', () => {
 
     it('calcule committedAmount (COMMITTED + COMMITMENT_REGISTERED)', async () => {
       prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        revisedAmount: new Prisma.Decimal(5000),
+        initialAmount: new Prisma.Decimal(5000),
       });
       prisma.financialAllocation.findMany.mockResolvedValue([
         {
@@ -85,7 +85,7 @@ describe('BudgetLineCalculatorService', () => {
 
     it('calcule consumedAmount (CONSUMED + CONSUMPTION_REGISTERED)', async () => {
       prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        revisedAmount: new Prisma.Decimal(1000),
+        initialAmount: new Prisma.Decimal(1000),
       });
       prisma.financialAllocation.findMany.mockResolvedValue([
         {
@@ -113,7 +113,7 @@ describe('BudgetLineCalculatorService', () => {
 
     it('calcule remainingAmount = budgetBase - committed - consumed (décimaux)', async () => {
       prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        revisedAmount: new Prisma.Decimal(1000.5),
+        initialAmount: new Prisma.Decimal(1000.5),
       });
       prisma.financialAllocation.findMany.mockResolvedValue([
         {
@@ -139,7 +139,7 @@ describe('BudgetLineCalculatorService', () => {
     it('utilise tx quand fourni', async () => {
       const tx = {
         budgetLine: {
-          findUniqueOrThrow: jest.fn().mockResolvedValue({ revisedAmount: new Prisma.Decimal(100) }),
+          findUniqueOrThrow: jest.fn().mockResolvedValue({ initialAmount: new Prisma.Decimal(100) }),
           update: jest.fn().mockResolvedValue({}),
         },
         financialAllocation: { findMany: jest.fn().mockResolvedValue([]) },
@@ -150,15 +150,15 @@ describe('BudgetLineCalculatorService', () => {
 
       expect(tx.budgetLine.findUniqueOrThrow).toHaveBeenCalledWith({
         where: { id: budgetLineId, clientId },
-        select: { revisedAmount: true },
+        select: { initialAmount: true },
       });
       expect(tx.budgetLine.update).toHaveBeenCalled();
       expect(prisma.budgetLine.update).not.toHaveBeenCalled();
     });
 
-    it('revisedAmount 1000 + REALLOCATION_DONE +200 => effective base 1200', async () => {
+    it('initialAmount 1000 + REALLOCATION_DONE +200 => effective base 1200', async () => {
       prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        revisedAmount: new Prisma.Decimal(1000),
+        initialAmount: new Prisma.Decimal(1000),
       });
       prisma.financialAllocation.findMany.mockResolvedValue([]);
       prisma.financialEvent.findMany.mockResolvedValue([
@@ -175,9 +175,9 @@ describe('BudgetLineCalculatorService', () => {
       expect(Number(updateData.remainingAmount)).toBe(1200);
     });
 
-    it('revisedAmount 1000 + REALLOCATION_DONE -200 => effective base 800', async () => {
+    it('initialAmount 1000 + REALLOCATION_DONE -200 => effective base 800', async () => {
       prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        revisedAmount: new Prisma.Decimal(1000),
+        initialAmount: new Prisma.Decimal(1000),
       });
       prisma.financialAllocation.findMany.mockResolvedValue([]);
       prisma.financialEvent.findMany.mockResolvedValue([
@@ -194,9 +194,9 @@ describe('BudgetLineCalculatorService', () => {
       expect(Number(updateData.remainingAmount)).toBe(800);
     });
 
-    it('revisedAmount 1000, REALLOCATION_DONE +200, committed 300, consumed 100 => remaining 800', async () => {
+    it('initialAmount 1000, REALLOCATION_DONE +200, committed 300, consumed 100 => remaining 800', async () => {
       prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        revisedAmount: new Prisma.Decimal(1000),
+        initialAmount: new Prisma.Decimal(1000),
       });
       prisma.financialAllocation.findMany.mockResolvedValue([
         {

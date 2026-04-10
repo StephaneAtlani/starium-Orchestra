@@ -66,10 +66,10 @@ export function BudgetExplorerRow({
           mode: taxDisplayMode,
           isApproximation,
         });
-      const progressRevised =
-        taxDisplayMode === 'TTC' && env.totalRevisedTtc != null
-          ? env.totalRevisedTtc
-          : env.totalRevised;
+      const progressBudget =
+        taxDisplayMode === 'TTC' && env.totalBudgetTtc != null
+          ? env.totalBudgetTtc
+          : env.totalBudget;
       const progressConsumed =
         taxDisplayMode === 'TTC' && env.totalConsumedTtc != null
           ? env.totalConsumedTtc
@@ -121,7 +121,7 @@ export function BudgetExplorerRow({
             </TableCell>
             <TableCell className="min-w-[5.5rem] whitespace-nowrap">{env.envelopeType}</TableCell>
             <TableCell className="min-w-[6.75rem] whitespace-nowrap text-right tabular-nums">
-              {formatTax(env.totalRevised, env.totalRevisedTtc)}
+              {formatTax(env.totalBudget, env.totalBudgetTtc)}
             </TableCell>
             <TableCell className="min-w-[6.75rem] whitespace-nowrap text-right tabular-nums">
               {formatPercent(env.percentOfBudget / 100)}
@@ -144,7 +144,7 @@ export function BudgetExplorerRow({
             </TableCell>
             <TableCell className="min-w-[150px] w-[160px]">
               <BudgetLinesProgress
-                revisedAmount={progressRevised}
+                budgetAmount={progressBudget}
                 consumedAmount={progressConsumed}
                 remainingAmount={progressRemaining}
                 currency={currency}
@@ -264,10 +264,10 @@ function BudgetExplorerLineRow({
     const formatTaxLine = (htValue: number, ttcValue: number | null, c: string) =>
       formatTaxAwareAmount({ htValue, ttcValue, currency: c, mode: taxDisplayMode, isApproximation });
 
-    const progressRevised =
-      taxDisplayMode === 'TTC' && line.revisedAmountTtc != null
-        ? line.revisedAmountTtc
-        : line.revisedAmount;
+    const progressBudget =
+      taxDisplayMode === 'TTC' && line.budgetAmountTtc != null
+        ? line.budgetAmountTtc
+        : line.budgetAmount;
     const progressConsumed =
       taxDisplayMode === 'TTC' && line.consumedAmountTtc != null
         ? line.consumedAmountTtc
@@ -309,15 +309,15 @@ function BudgetExplorerLineRow({
           <TableCell className="min-w-[7rem] whitespace-nowrap text-muted-foreground">—</TableCell>
           <TableCell className="min-w-[5.5rem] whitespace-nowrap">{line.expenseType}</TableCell>
           <TableCell className="min-w-[6.75rem] whitespace-nowrap text-right tabular-nums">
-            {formatTaxLine(line.revisedAmount, line.revisedAmountTtc, line.currency)}
+            {formatTaxLine(line.budgetAmount, line.budgetAmountTtc, line.currency)}
           </TableCell>
           <TableCell className="min-w-[6.75rem]" />
           <TableCell className="min-w-[6.75rem]" />
           <TableCell className="min-w-[6.75rem] whitespace-nowrap text-right tabular-nums">
             {line.expenseType === 'OPEX'
               ? formatTaxLine(
-                  line.revisedAmount,
-                  line.revisedAmountTtc,
+                  line.budgetAmount,
+                  line.budgetAmountTtc,
                   line.currency,
                 )
               : '—'}
@@ -325,8 +325,8 @@ function BudgetExplorerLineRow({
           <TableCell className="min-w-[6.75rem] whitespace-nowrap text-right tabular-nums">
             {line.expenseType === 'CAPEX'
               ? formatTaxLine(
-                  line.revisedAmount,
-                  line.revisedAmountTtc,
+                  line.budgetAmount,
+                  line.budgetAmountTtc,
                   line.currency,
                 )
               : '—'}
@@ -354,7 +354,7 @@ function BudgetExplorerLineRow({
           </TableCell>
           <TableCell className="min-w-[150px] w-[160px]">
             <BudgetLinesProgress
-              revisedAmount={progressRevised}
+              budgetAmount={progressBudget}
               consumedAmount={progressConsumed}
               remainingAmount={progressRemaining}
               currency={line.currency}

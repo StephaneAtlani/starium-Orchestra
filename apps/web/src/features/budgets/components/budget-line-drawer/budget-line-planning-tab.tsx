@@ -86,13 +86,13 @@ export function BudgetLinePlanningTab({
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="font-medium">Budget révisé</TableCell>
+                <TableCell className="font-medium">Budget</TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatAmount(data.revisedAmount, currency)}
+                  {formatAmount(data.budgetAmount, currency)}
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="font-medium">Écart prévision / révisé</TableCell>
+                <TableCell className="font-medium">Écart prévision / budget</TableCell>
                 <TableCell className="text-right tabular-nums">
                   {formatAmount(data.planningDelta, currency)}
                 </TableCell>

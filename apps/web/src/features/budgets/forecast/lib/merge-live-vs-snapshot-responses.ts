@@ -61,13 +61,13 @@ export function mergeLiveVsManySnapshotResponses(
     if (!first) {
       return [];
     }
-    const rightRevised = perResp.map((row) => row?.right.revisedAmount ?? 0);
+    const rightRevised = perResp.map((row) => row?.right.budgetAmount ?? 0);
     const primary = perResp[0]!;
     return [
       {
         lineKey,
         name: first.name,
-        leftRevised: first.left.revisedAmount,
+        leftRevised: first.left.budgetAmount,
         rightRevised,
         forecastDiffFirst:
           primary.right.forecastAmount - primary.left.forecastAmount,

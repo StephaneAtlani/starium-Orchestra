@@ -44,8 +44,8 @@ export function BudgetKpiGrid({
   const gapParts = formatForecastGapParts(kpis, c, taxDisplayMode, defaultTaxRate);
   const ecartSub =
     ecartForecast >= 0
-      ? 'Le forecast dépasse le budget révisé sur cette base.'
-      : 'Le forecast reste sous le plafond budgétaire révisé.';
+      ? 'Le forecast dépasse le budget sur cette base.'
+      : 'Le forecast reste sous le plafond budgétaire.';
 
   const remainingTone: BudgetKpiAmountTone =
     kpis.remaining < 0 ? 'danger' : kpis.remaining > 0 ? 'success' : 'default';
@@ -83,7 +83,7 @@ export function BudgetKpiGrid({
       >
         <BudgetKpiCard
           variant="primary"
-          label="Budget révisé"
+          label="Budget"
           description="Plafond de référence"
           parts={fmt({
             ht: kpis.totalBudget,
@@ -170,7 +170,7 @@ export function BudgetKpiGrid({
         <BudgetKpiCard
           variant="variance"
           label="Écart forecast"
-          description="Forecast − budget révisé"
+          description="Forecast − budget"
           parts={gapParts}
           subtext={ecartSub}
           amountDisplayValue={num(ecartForecast, ecartTtcFromApi)}

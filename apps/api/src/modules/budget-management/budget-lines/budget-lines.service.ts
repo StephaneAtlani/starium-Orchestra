@@ -53,9 +53,6 @@ export interface BudgetLineResponse {
   initialAmount: number;
   initialTaxAmount: number | null;
   initialAmountTtc: number | null;
-  revisedAmount: number;
-  revisedTaxAmount: number | null;
-  revisedAmountTtc: number | null;
   forecastAmount: number;
   forecastTaxAmount: number | null;
   forecastAmountTtc: number | null;
@@ -272,11 +269,6 @@ export class BudgetLinesService {
       );
     }
 
-    const revisedAmountInput =
-      dto.revisedAmount !== undefined && dto.revisedAmount !== null
-        ? dto.revisedAmount
-        : dto.initialAmount;
-
     const forecastAmount = 0;
     const committedAmount = 0;
     const consumedAmount = 0;
@@ -295,7 +287,6 @@ export class BudgetLinesService {
 
     // Normalisation interne : stocker en HT.
     let initialAmountStored = toDecimal(dto.initialAmount);
-    let revisedAmountStored = toDecimal(revisedAmountInput);
 
     if (budget.taxMode === BudgetTaxMode.TTC) {
       if (taxRateToPersist == null) {
@@ -307,13 +298,9 @@ export class BudgetLinesService {
         amountTtc: initialAmountStored,
         taxRate: taxRateToPersist,
       }).amountHt;
-      revisedAmountStored = TaxCalculator.fromTtcAndTaxRate({
-        amountTtc: revisedAmountStored,
-        taxRate: taxRateToPersist,
-      }).amountHt;
     }
 
-    const remainingAmountStored = revisedAmountStored;
+    const remainingAmountStored = initialAmountStored;
 
     let code = dto.code?.trim();
     if (!code) {
@@ -351,7 +338,6 @@ export class BudgetLinesService {
           analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
           allocationScope,
           initialAmount: initialAmountStored,
-          revisedAmount: revisedAmountStored,
           forecastAmount: toDecimal(forecastAmount),
           committedAmount: toDecimal(committedAmount),
           consumedAmount: toDecimal(consumedAmount),
@@ -393,7 +379,6 @@ export class BudgetLinesService {
         analyticalLedgerAccountId: created!.analyticalLedgerAccountId,
         allocationScope: created!.allocationScope,
         initialAmount: fromDecimal(initialAmountStored),
-        revisedAmount: fromDecimal(revisedAmountStored),
         currency: created!.currency,
         status: created!.status,
         costCenterSplitsSummary: costCenterSplits.map((s) => ({
@@ -569,11 +554,11 @@ export class BudgetLinesService {
         ...(dto.taxRate !== undefined && { taxRate: toDecimal(dto.taxRate) }),
       };
 
-      if (dto.revisedAmount !== undefined && dto.revisedAmount !== null) {
+      if (dto.initialAmount !== undefined && dto.initialAmount !== null) {
         const committed = Number(existing.committedAmount);
         const consumed = Number(existing.consumedAmount);
 
-        let revisedAmountStoredHt: Prisma.Decimal;
+        let budgetAmountStoredHt: Prisma.Decimal;
         if (existing.budget.taxMode === BudgetTaxMode.TTC) {
           const effectiveTaxRate =
             dto.taxRate !== undefined
@@ -599,16 +584,16 @@ export class BudgetLinesService {
             baseData.taxRate = effectiveTaxRate;
           }
 
-          revisedAmountStoredHt = TaxCalculator.fromTtcAndTaxRate({
-            amountTtc: toDecimal(dto.revisedAmount),
+          budgetAmountStoredHt = TaxCalculator.fromTtcAndTaxRate({
+            amountTtc: toDecimal(dto.initialAmount),
             taxRate: effectiveTaxRate,
           }).amountHt;
         } else {
-          revisedAmountStoredHt = toDecimal(dto.revisedAmount);
+          budgetAmountStoredHt = toDecimal(dto.initialAmount);
         }
 
-        const remaining = Number(revisedAmountStoredHt) - committed - consumed;
-        baseData.revisedAmount = revisedAmountStoredHt;
+        const remaining = Number(budgetAmountStoredHt) - committed - consumed;
+        baseData.initialAmount = budgetAmountStoredHt;
         baseData.remainingAmount = toDecimal(Math.max(0, remaining));
       }
 
@@ -659,9 +644,9 @@ export class BudgetLinesService {
     const onlyDeferredInDto =
       keysInDto.length === 1 && keysInDto[0] === 'deferredToExerciseId';
 
-    const revisedAmountIntent =
-      dto.revisedAmount !== undefined &&
-      fromDecimal(existing.revisedAmount) !== fromDecimal(updated.revisedAmount);
+    const budgetAmountIntent =
+      dto.initialAmount !== undefined &&
+      fromDecimal(existing.initialAmount) !== fromDecimal(updated.initialAmount);
 
     const meta = {
       ipAddress: context?.meta?.ipAddress,
@@ -739,15 +724,15 @@ export class BudgetLinesService {
       });
     }
 
-    if (revisedAmountIntent) {
+    if (budgetAmountIntent) {
       await this.auditLogs.create({
         clientId,
         userId: context?.actorUserId,
         action: 'budget_line.amounts.updated',
         resourceType: 'budget_line',
         resourceId: updated.id,
-        oldValue: { revisedAmount: fromDecimal(existing.revisedAmount) },
-        newValue: { revisedAmount: fromDecimal(updated.revisedAmount) },
+        oldValue: { initialAmount: fromDecimal(existing.initialAmount) },
+        newValue: { initialAmount: fromDecimal(updated.initialAmount) },
         ...meta,
       });
     }
@@ -760,7 +745,7 @@ export class BudgetLinesService {
       generalLedgerAccountId: existing.generalLedgerAccountId,
       analyticalLedgerAccountId: existing.analyticalLedgerAccountId,
       allocationScope: existing.allocationScope,
-      revisedAmount: fromDecimal(existing.revisedAmount),
+      initialAmount: fromDecimal(existing.initialAmount),
       remainingAmount: fromDecimal(existing.remainingAmount),
       costCenterSplitsSummary: existing.costCenterSplits.map((s) => ({
         costCenterId: s.costCenterId,
@@ -775,7 +760,7 @@ export class BudgetLinesService {
       generalLedgerAccountId: updated.generalLedgerAccountId,
       analyticalLedgerAccountId: updated.analyticalLedgerAccountId,
       allocationScope: updated.allocationScope,
-      revisedAmount: fromDecimal(updated.revisedAmount),
+      initialAmount: fromDecimal(updated.initialAmount),
       remainingAmount: fromDecimal(updated.remainingAmount),
       costCenterSplitsSummary: updated.costCenterSplits.map((s) => ({
         costCenterId: s.costCenterId,
@@ -791,9 +776,9 @@ export class BudgetLinesService {
       delete baseOld.deferredToExerciseId;
       delete baseNew.deferredToExerciseId;
     }
-    if (revisedAmountIntent) {
-      delete baseOld.revisedAmount;
-      delete baseNew.revisedAmount;
+    if (budgetAmountIntent) {
+      delete baseOld.initialAmount;
+      delete baseNew.initialAmount;
       delete baseOld.remainingAmount;
       delete baseNew.remainingAmount;
     }
@@ -940,8 +925,6 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
 
   let initialTaxAmount: number | null = null;
   let initialAmountTtc: number | null = null;
-  let revisedTaxAmount: number | null = null;
-  let revisedAmountTtc: number | null = null;
   let forecastTaxAmount: number | null = null;
   let forecastAmountTtc: number | null = null;
   let committedTaxAmount: number | null = null;
@@ -958,13 +941,6 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
     });
     initialTaxAmount = fromDecimal(calcInitial.taxAmount);
     initialAmountTtc = fromDecimal(calcInitial.amountTtc);
-
-    const calcRevised = TaxCalculator.fromHtAndTaxRate({
-      amountHt: row.revisedAmount,
-      taxRate: taxRateDec,
-    });
-    revisedTaxAmount = fromDecimal(calcRevised.taxAmount);
-    revisedAmountTtc = fromDecimal(calcRevised.amountTtc);
 
     const calcForecast = TaxCalculator.fromHtAndTaxRate({
       amountHt: row.forecastAmount,
@@ -1010,9 +986,6 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
     initialAmount: fromDecimal(row.initialAmount),
     initialTaxAmount,
     initialAmountTtc,
-    revisedAmount: fromDecimal(row.revisedAmount),
-    revisedTaxAmount,
-    revisedAmountTtc,
     forecastAmount: fromDecimal(row.forecastAmount),
     forecastTaxAmount,
     forecastAmountTtc,

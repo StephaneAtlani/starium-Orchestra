@@ -104,7 +104,7 @@ export function BudgetLinesCritiqueTable({
                   Ligne
                 </TableHead>
                 <TableHead className={cockpitThText}>Enveloppe</TableHead>
-                <TableHead className={cockpitThNum}>Révisé</TableHead>
+                <TableHead className={cockpitThNum}>Budget</TableHead>
                 <TableHead className={cockpitThNum}>Engagé</TableHead>
                 <TableHead className={cockpitThNum}>Consommé</TableHead>
                 <TableHead className={cockpitThNum}>Forecast</TableHead>
@@ -152,7 +152,7 @@ export function BudgetLinesCritiqueTable({
                 <TableCell className={cockpitTdText}>{l.envelopeName ?? '—'}</TableCell>
                 <TableCell className={cockpitTdNum}>
                   {formatDashboardAmount({
-                    ht: l.revisedAmount,
+                    ht: l.initialAmount,
                     currency,
                     mode: taxDisplayMode,
                     defaultTaxRate,

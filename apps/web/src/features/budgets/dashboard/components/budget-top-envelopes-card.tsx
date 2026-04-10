@@ -145,7 +145,7 @@ export function BudgetTopEnvelopesCard({
                   </TableCell>
                   <TableCell className={cockpitTdProgress}>
                     <BudgetLinesProgress
-                      revisedAmount={revisedForProgress}
+                      budgetAmount={revisedForProgress}
                       consumedAmount={consumedForProgress}
                       remainingAmount={remainingForProgress}
                       currency={currency}

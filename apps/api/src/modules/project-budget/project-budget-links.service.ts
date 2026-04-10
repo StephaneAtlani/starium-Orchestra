@@ -646,7 +646,7 @@ export class ProjectBudgetLinksService {
             committedAmount: true,
             consumedAmount: true,
             expenseType: true,
-            revisedAmount: true,
+            initialAmount: true,
           },
         },
       },
@@ -679,7 +679,7 @@ export class ProjectBudgetLinksService {
     ) {
       for (const row of links) {
         const pct = row.percentage!;
-        const rev = row.budgetLine.revisedAmount;
+        const rev = row.budgetLine.initialAmount;
         let amt = pct.div(100).times(rev);
         if (amt.lte(0)) {
           amt = new Prisma.Decimal('0.01');

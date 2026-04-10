@@ -28,7 +28,6 @@ describe('BudgetLinesService', () => {
     analyticalLedgerAccountId: null,
     allocationScope: 'ENTERPRISE',
     initialAmount: 1000,
-    revisedAmount: 1000,
     forecastAmount: 0,
     committedAmount: 0,
     consumedAmount: 0,
@@ -121,7 +120,7 @@ describe('BudgetLinesService', () => {
 
       const createCall = capturedTx.budgetLine.create.mock.calls[0][0];
       expect(createCall.data.initialAmount).toBeDefined();
-      expect(Number(createCall.data.revisedAmount)).toBe(1000);
+      expect(Number(createCall.data.initialAmount)).toBe(1000);
       expect(createCall.data.generalLedgerAccountId).toBe(generalLedgerAccountId);
       expect(createCall.data.allocationScope).toBe('ENTERPRISE');
       expect(auditLogs.create).toHaveBeenCalledWith(
@@ -238,7 +237,6 @@ describe('BudgetLinesService', () => {
       const lineWithTax = lineWithInclude({
         taxRate,
         initialAmount: new Prisma.Decimal(1000),
-        revisedAmount: new Prisma.Decimal(1100),
         forecastAmount: new Prisma.Decimal(1200),
         committedAmount: new Prisma.Decimal(100),
         consumedAmount: new Prisma.Decimal(50),
@@ -252,18 +250,16 @@ describe('BudgetLinesService', () => {
       expect(result.taxRate).toBe(20);
       expect(result.initialTaxAmount).toBe(200);
       expect(result.initialAmountTtc).toBe(1200);
-      expect(result.revisedTaxAmount).toBe(220);
-      expect(result.revisedAmountTtc).toBe(1320);
       expect(result.forecastTaxAmount).toBe(240);
       expect(result.forecastAmountTtc).toBe(1440);
     });
   });
 
   describe('update', () => {
-    it('recalcule remainingAmount si revisedAmount change', async () => {
+    it('recalcule remainingAmount si initialAmount (budget) change', async () => {
       const existingWithBudget = {
         ...lineWithInclude({
-          revisedAmount: 1000,
+          initialAmount: 1000,
           committedAmount: 200,
           consumedAmount: 100,
           remainingAmount: 700,
@@ -279,7 +275,7 @@ describe('BudgetLinesService', () => {
             update: jest.fn().mockResolvedValue({}),
             findUniqueOrThrow: jest.fn().mockResolvedValue(
               lineWithInclude({
-                revisedAmount: 1500,
+                initialAmount: 1500,
                 remainingAmount: 1200,
                 committedAmount: 200,
                 consumedAmount: 100,
@@ -297,12 +293,12 @@ describe('BudgetLinesService', () => {
       await service.update(
         clientId,
         'line-1',
-        { revisedAmount: 1500 },
+        { initialAmount: 1500 },
         { actorUserId: 'user-1', meta: {} },
       );
 
       const updateCall = capturedTx.budgetLine.update.mock.calls[0][0];
-      expect(updateCall.data.revisedAmount).toBeDefined();
+      expect(updateCall.data.initialAmount).toBeDefined();
       expect(updateCall.data.remainingAmount).toBeDefined();
       expect(Number(updateCall.data.remainingAmount)).toBe(1200); // 1500 - 200 - 100
     });

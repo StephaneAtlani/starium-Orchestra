@@ -52,8 +52,8 @@ function lineToNode(line: BudgetLine, depth: number, sortOrder: number): Explore
     status: line.status,
     initialAmount: line.initialAmount ?? 0,
     initialAmountTtc: line.initialAmountTtc ?? null,
-    revisedAmount: line.revisedAmount ?? 0,
-    revisedAmountTtc: line.revisedAmountTtc ?? null,
+    budgetAmount: line.initialAmount ?? 0,
+    budgetAmountTtc: line.initialAmountTtc ?? null,
     committedAmount: line.committedAmount ?? 0,
     committedAmountTtc: line.committedAmountTtc ?? null,
     consumedAmount: line.consumedAmount ?? 0,
@@ -74,7 +74,7 @@ export function buildBudgetTree(
   const currency = budget.currency;
   const envelopeById = new Map<string, BudgetEnvelope>(envelopes.map((e) => [e.id, e]));
 
-  const totalBudgetRevised = lines.reduce((s, l) => s + (l.revisedAmount ?? 0), 0);
+  const totalBudgetScope = lines.reduce((s, l) => s + (l.initialAmount ?? 0), 0);
 
   const linesByEnvelopeId = new Map<string, BudgetLine[]>();
   const orphanLines: BudgetLine[] = [];
@@ -120,18 +120,18 @@ export function buildBudgetTree(
       ...directLines.map((l, i) => lineToNode(l, depth + 1, i)),
     ];
 
-    const totalRevised = directLines.reduce((s, l) => s + (l.revisedAmount ?? 0), 0);
+    const envelopeBudgetHt = directLines.reduce((s, l) => s + (l.initialAmount ?? 0), 0);
     const totalCommitted = directLines.reduce((s, l) => s + (l.committedAmount ?? 0), 0);
     const totalConsumed = directLines.reduce((s, l) => s + (l.consumedAmount ?? 0), 0);
     const totalRemaining = directLines.reduce((s, l) => s + (l.remainingAmount ?? 0), 0);
     const opexAmount = directLines
       .filter((l) => l.expenseType === 'OPEX')
-      .reduce((s, l) => s + (l.revisedAmount ?? 0), 0);
+      .reduce((s, l) => s + (l.initialAmount ?? 0), 0);
     const capexAmount = directLines
       .filter((l) => l.expenseType === 'CAPEX')
-      .reduce((s, l) => s + (l.revisedAmount ?? 0), 0);
-    const totalRevisedTtc = sumAllKnownOrNull(
-      directLines.map((l) => l.revisedAmountTtc ?? null),
+      .reduce((s, l) => s + (l.initialAmount ?? 0), 0);
+    const envelopeBudgetTtc = sumAllKnownOrNull(
+      directLines.map((l) => l.initialAmountTtc ?? null),
     );
     const totalCommittedTtc = sumAllKnownOrNull(
       directLines.map((l) => l.committedAmountTtc ?? null),
@@ -145,15 +145,15 @@ export function buildBudgetTree(
     const opexAmountTtc = sumAllKnownOrNull(
       directLines
         .filter((l) => l.expenseType === 'OPEX')
-        .map((l) => l.revisedAmountTtc ?? null),
+        .map((l) => l.initialAmountTtc ?? null),
     );
     const capexAmountTtc = sumAllKnownOrNull(
       directLines
         .filter((l) => l.expenseType === 'CAPEX')
-        .map((l) => l.revisedAmountTtc ?? null),
+        .map((l) => l.initialAmountTtc ?? null),
     );
     const percentOfBudget =
-      totalBudgetRevised === 0 ? 0 : (totalRevised / totalBudgetRevised) * 100;
+      totalBudgetScope === 0 ? 0 : (envelopeBudgetHt / totalBudgetScope) * 100;
 
     return {
       id: env.id,
@@ -166,11 +166,11 @@ export function buildBudgetTree(
       envelopeType: env.type,
       status: env.status,
       lineCount: directLines.length,
-      totalRevised,
+      totalBudget: envelopeBudgetHt,
       totalCommitted,
       totalConsumed,
       totalRemaining,
-      totalRevisedTtc,
+      totalBudgetTtc: envelopeBudgetTtc,
       totalCommittedTtc,
       totalConsumedTtc,
       totalRemainingTtc,
@@ -190,18 +190,18 @@ export function buildBudgetTree(
     const orphanLineNodes: ExplorerLineNode[] = orphanLines.map((l, i) =>
       lineToNode(l, 1, i),
     );
-    const totalRevised = orphanLines.reduce((s, l) => s + (l.revisedAmount ?? 0), 0);
+    const orphanBudgetHt = orphanLines.reduce((s, l) => s + (l.initialAmount ?? 0), 0);
     const totalCommitted = orphanLines.reduce((s, l) => s + (l.committedAmount ?? 0), 0);
     const totalConsumed = orphanLines.reduce((s, l) => s + (l.consumedAmount ?? 0), 0);
     const totalRemaining = orphanLines.reduce((s, l) => s + (l.remainingAmount ?? 0), 0);
     const opexAmount = orphanLines
       .filter((l) => l.expenseType === 'OPEX')
-      .reduce((s, l) => s + (l.revisedAmount ?? 0), 0);
+      .reduce((s, l) => s + (l.initialAmount ?? 0), 0);
     const capexAmount = orphanLines
       .filter((l) => l.expenseType === 'CAPEX')
-      .reduce((s, l) => s + (l.revisedAmount ?? 0), 0);
-    const totalRevisedTtc = sumAllKnownOrNull(
-      orphanLines.map((l) => l.revisedAmountTtc ?? null),
+      .reduce((s, l) => s + (l.initialAmount ?? 0), 0);
+    const orphanBudgetTtc = sumAllKnownOrNull(
+      orphanLines.map((l) => l.initialAmountTtc ?? null),
     );
     const totalCommittedTtc = sumAllKnownOrNull(
       orphanLines.map((l) => l.committedAmountTtc ?? null),
@@ -215,15 +215,15 @@ export function buildBudgetTree(
     const opexAmountTtc = sumAllKnownOrNull(
       orphanLines
         .filter((l) => l.expenseType === 'OPEX')
-        .map((l) => l.revisedAmountTtc ?? null),
+        .map((l) => l.initialAmountTtc ?? null),
     );
     const capexAmountTtc = sumAllKnownOrNull(
       orphanLines
         .filter((l) => l.expenseType === 'CAPEX')
-        .map((l) => l.revisedAmountTtc ?? null),
+        .map((l) => l.initialAmountTtc ?? null),
     );
     const percentOfBudget =
-      totalBudgetRevised === 0 ? 0 : (totalRevised / totalBudgetRevised) * 100;
+      totalBudgetScope === 0 ? 0 : (orphanBudgetHt / totalBudgetScope) * 100;
 
     rootNodes.push({
       id: ORPHAN_LINES_NODE_ID,
@@ -236,11 +236,11 @@ export function buildBudgetTree(
       envelopeType: 'TRANSVERSE',
       status: 'DRAFT',
       lineCount: orphanLineNodes.length,
-      totalRevised,
+      totalBudget: orphanBudgetHt,
       totalCommitted,
       totalConsumed,
       totalRemaining,
-      totalRevisedTtc,
+      totalBudgetTtc: orphanBudgetTtc,
       totalCommittedTtc,
       totalConsumedTtc,
       totalRemainingTtc,

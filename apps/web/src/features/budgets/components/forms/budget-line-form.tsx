@@ -90,17 +90,12 @@ export function BudgetLineForm({
   const canSubmit = !noEnvelopes && (isBudgetAccountingEnabled ? !noGeneralLedger : true);
 
   const [showQuickCalculator, setShowQuickCalculator] = useState(false);
-  /** Champ montant depuis lequel la calculette a été ouverte (bouton Appliquer unique). */
-  const [calculetteApplyTarget, setCalculetteApplyTarget] = useState<'initial' | 'revised' | null>(
-    null,
-  );
   /** Évite de rouvrir la calculette tout de suite quand le focus revient au champ après fermeture de la modale. */
   const suppressCalcOpenFromFocusRef = useRef(false);
 
   const onQuickCalculatorOpenChange = useCallback((open: boolean) => {
     setShowQuickCalculator(open);
     if (!open) {
-      setCalculetteApplyTarget(null);
       suppressCalcOpenFromFocusRef.current = true;
       window.setTimeout(() => {
         suppressCalcOpenFromFocusRef.current = false;
@@ -108,14 +103,10 @@ export function BudgetLineForm({
     }
   }, []);
 
-  const openCalculetteForField = useCallback(
-    (target: 'initial' | 'revised') => {
-      if (!hasPlanning || suppressCalcOpenFromFocusRef.current) return;
-      setCalculetteApplyTarget(target);
-      setShowQuickCalculator(true);
-    },
-    [hasPlanning],
-  );
+  const openCalculetteForBudgetField = useCallback(() => {
+    if (!hasPlanning || suppressCalcOpenFromFocusRef.current) return;
+    setShowQuickCalculator(true);
+  }, [hasPlanning]);
 
   const calc = useBudgetPlanningQuickCalculator({ monthColumnLabels });
   const { monthValues } = calc;
@@ -165,11 +156,7 @@ export function BudgetLineForm({
 
   const submitWithPlanning = (values: BudgetLineFormValues) => {
     if (!isEdit && hasPlanning) {
-      const amounts = derivePlanningAmounts12ForNewLine(
-        monthValues,
-        values.initialAmount,
-        values.revisedAmount,
-      );
+      const amounts = derivePlanningAmounts12ForNewLine(monthValues, values.initialAmount);
       if (amounts) {
         onSubmit(values, { planningAmounts12: [...amounts] });
         return;
@@ -322,7 +309,7 @@ export function BudgetLineForm({
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="initialAmount">
-                  {budgetTaxMode === 'TTC' ? 'Montant initial TTC *' : 'Montant initial HT *'}
+                  {budgetTaxMode === 'TTC' ? 'Montant budgétaire TTC *' : 'Montant budgétaire HT *'}
                 </Label>
                 <Input
                   id="initialAmount"
@@ -331,38 +318,6 @@ export function BudgetLineForm({
                   min={0}
                   {...register('initialAmount', { valueAsNumber: true })}
                   aria-invalid={!!errors.initialAmount}
-                  disabled={isEdit}
-                  readOnly={hasPlanning && !isEdit}
-                  title={
-                    hasPlanning && !isEdit
-                      ? 'Saisie via la calculette — cliquez sur le champ pour ouvrir'
-                      : undefined
-                  }
-                  className={cn(hasPlanning && !isEdit && 'cursor-pointer bg-muted/30')}
-                  onFocus={
-                    hasPlanning && !isEdit ? () => openCalculetteForField('initial') : undefined
-                  }
-                  onWheel={
-                    hasPlanning && !isEdit ? (e) => e.preventDefault() : undefined
-                  }
-                  inputMode={hasPlanning && !isEdit ? 'none' : undefined}
-                />
-                {errors.initialAmount && <p className="text-sm text-destructive">{errors.initialAmount.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="revisedAmount">
-                  {budgetTaxMode === 'TTC' ? 'Montant révisé TTC' : 'Montant révisé HT'}
-                </Label>
-                <Input
-                  id="revisedAmount"
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  {...register('revisedAmount', {
-                    setValueAs: (v) =>
-                      v === '' || v === undefined ? undefined : (Number(v) as number),
-                  })}
-                  aria-invalid={!!errors.revisedAmount}
                   readOnly={hasPlanning}
                   title={
                     hasPlanning
@@ -370,11 +325,11 @@ export function BudgetLineForm({
                       : undefined
                   }
                   className={cn(hasPlanning && 'cursor-pointer bg-muted/30')}
-                  onFocus={hasPlanning ? () => openCalculetteForField('revised') : undefined}
+                  onFocus={hasPlanning ? () => openCalculetteForBudgetField() : undefined}
                   onWheel={hasPlanning ? (e) => e.preventDefault() : undefined}
                   inputMode={hasPlanning ? 'none' : undefined}
                 />
-                {errors.revisedAmount && <p className="text-sm text-destructive">{errors.revisedAmount.message}</p>}
+                {errors.initialAmount && <p className="text-sm text-destructive">{errors.initialAmount.message}</p>}
               </div>
             </div>
 
@@ -440,44 +395,14 @@ export function BudgetLineForm({
           onOpenChange={onQuickCalculatorOpenChange}
           exercisePeriodHint={exercisePeriodHint}
           calc={calc}
-          footer={
-            calculetteApplyTarget === null
-              ? {
-                  mode: 'line-amounts',
-                  applyTarget: null,
-                  onApplyToInitial: () => {
-                    if (!calc.hasMonthAttribution) return;
-                    setValue('initialAmount', calc.effectiveTotal);
-                    onQuickCalculatorOpenChange(false);
-                  },
-                  onApplyToRevised: () => {
-                    if (!calc.hasMonthAttribution) return;
-                    setValue('revisedAmount', calc.effectiveTotal);
-                    onQuickCalculatorOpenChange(false);
-                  },
-                }
-              : calculetteApplyTarget === 'initial'
-                ? {
-                    mode: 'line-amounts',
-                    applyTarget: 'initial',
-                    onApplyToInitial: () => {
-                      if (!calc.hasMonthAttribution) return;
-                      setValue('initialAmount', calc.effectiveTotal);
-                      onQuickCalculatorOpenChange(false);
-                    },
-                    onApplyToRevised: () => {},
-                  }
-                : {
-                    mode: 'line-amounts',
-                    applyTarget: 'revised',
-                    onApplyToInitial: () => {},
-                    onApplyToRevised: () => {
-                      if (!calc.hasMonthAttribution) return;
-                      setValue('revisedAmount', calc.effectiveTotal);
-                      onQuickCalculatorOpenChange(false);
-                    },
-                  }
-          }
+          footer={{
+            mode: 'line-amounts',
+            onApplyToBudget: () => {
+              if (!calc.hasMonthAttribution) return;
+              setValue('initialAmount', calc.effectiveTotal);
+              onQuickCalculatorOpenChange(false);
+            },
+          }}
         />
       )}
     </>

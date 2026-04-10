@@ -17,39 +17,30 @@ import type { BudgetPilotageDensity, BudgetPilotageMode } from '../types/budget-
 import type { BudgetLinePlanningResponse } from '../types/budget-line-planning.types';
 import { BudgetPlanningMonthCell } from './budget-planning-month-cell';
 
-function annualInitialRevisedForTaxDisplay(
-  line: ExplorerLineNode,
-  taxDisplayMode: TaxDisplayMode,
-): { initialAnnual: number; revisedAnnual: number } {
-  const initialAnnual =
-    taxDisplayMode === 'TTC' && line.initialAmountTtc != null
-      ? line.initialAmountTtc
-      : line.initialAmount;
-  const revisedAnnual =
-    taxDisplayMode === 'TTC' && line.revisedAmountTtc != null
-      ? line.revisedAmountTtc
-      : line.revisedAmount;
-  return { initialAnnual, revisedAnnual };
+function annualBudgetForTaxDisplay(line: ExplorerLineNode, taxDisplayMode: TaxDisplayMode): number {
+  return taxDisplayMode === 'TTC' && line.budgetAmountTtc != null
+    ? line.budgetAmountTtc
+    : line.budgetAmount;
 }
 
-/** Écart somme prévision 12 mois vs budget révisé (aligné GET planning `planningDelta`). */
-function planningDeltaVsRevised(
+/** Écart somme prévision 12 mois vs budget (aligné GET planning `planningDelta`). */
+function planningDeltaVsBudget(
   planning: BudgetLinePlanningResponse | undefined,
   amounts12: Amounts12 | null,
-  revisedAnnual: number,
+  budgetAnnual: number,
 ): number | null {
   if (planning) return planning.planningDelta;
-  if (amounts12) return sumAmounts12(amounts12) - revisedAnnual;
+  if (amounts12) return sumAmounts12(amounts12) - budgetAnnual;
   return null;
 }
 
-/** (prévision totale − révisé) / révisé — aligné sur l’écart absolu. */
+/** (prévision totale − budget) / budget — aligné sur l’écart absolu. */
 function planningDeltaPercentLabel(
   delta: number | null,
-  revisedAnnual: number,
+  budgetAnnual: number,
 ): string | null {
   if (delta == null) return null;
-  return formatSignedDeltaPercent(revisedAnnual + delta, revisedAnnual);
+  return formatSignedDeltaPercent(budgetAnnual + delta, budgetAnnual);
 }
 
 export function PilotageEnvelopeDataCells({ colCount }: { colCount: number }) {
@@ -104,7 +95,7 @@ export function PilotageLineDataCells({
   onLineCommentCommit,
   savingCommentLineId,
 }: PilotageLineDataCellsProps) {
-  const { initialAnnual, revisedAnnual } = annualInitialRevisedForTaxDisplay(line, taxDisplayMode);
+  const budgetAnnual = annualBudgetForTaxDisplay(line, taxDisplayMode);
   const canMeta =
     canEditPrevisionnelMeta !== undefined ? canEditPrevisionnelMeta : canEditPlanning;
 
@@ -116,13 +107,13 @@ export function PilotageLineDataCells({
 
   if (mode === 'previsionnel' && density === 'mensuel') {
     const commentBusy = savingCommentLineId === line.id;
-    const delta = planningDeltaVsRevised(planning, amounts12, revisedAnnual);
+    const delta = planningDeltaVsBudget(planning, amounts12, budgetAnnual);
     const overDelta = delta != null && delta > 0;
 
     if (showSkeleton) {
       return (
         <>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <TableCell key={`lead-${i}`} className="text-muted-foreground">
               …
             </TableCell>
@@ -139,7 +130,7 @@ export function PilotageLineDataCells({
     if (!amounts12) {
       return (
         <>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <TableCell key={`lead-${i}`} className="text-muted-foreground">
               —
             </TableCell>
@@ -177,10 +168,7 @@ export function PilotageLineDataCells({
           </Button>
         </TableCell>
         <TableCell className="min-w-[6.5rem] whitespace-nowrap text-right tabular-nums align-middle">
-          {formatAmount(initialAnnual, c)}
-        </TableCell>
-        <TableCell className="min-w-[6.5rem] whitespace-nowrap text-right tabular-nums align-middle">
-          {formatAmount(revisedAnnual, c)}
+          {formatAmount(budgetAnnual, c)}
         </TableCell>
         <TableCell
           className={cn(
@@ -196,7 +184,7 @@ export function PilotageLineDataCells({
             overDelta && 'text-destructive font-medium',
           )}
         >
-          {planningDeltaPercentLabel(delta, revisedAnnual) ?? '—'}
+          {planningDeltaPercentLabel(delta, budgetAnnual) ?? '—'}
         </TableCell>
         <TableCell className="min-w-[12rem] max-w-[16rem] p-1 align-middle">
           <textarea
@@ -243,13 +231,13 @@ export function PilotageLineDataCells({
 
   if (mode === 'previsionnel' && density === 'condense') {
     const commentBusy = savingCommentLineId === line.id;
-    const delta = planningDeltaVsRevised(planning, amounts12, revisedAnnual);
+    const delta = planningDeltaVsBudget(planning, amounts12, budgetAnnual);
     const overDelta = delta != null && delta > 0;
 
     if (showSkeleton || !amounts12) {
       return (
         <>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <TableCell key={`lead-${i}`} className="text-muted-foreground">
               {showSkeleton ? '…' : '—'}
             </TableCell>
@@ -287,10 +275,7 @@ export function PilotageLineDataCells({
           </Button>
         </TableCell>
         <TableCell className="min-w-[6.5rem] whitespace-nowrap text-right tabular-nums align-middle">
-          {formatAmount(initialAnnual, c)}
-        </TableCell>
-        <TableCell className="min-w-[6.5rem] whitespace-nowrap text-right tabular-nums align-middle">
-          {formatAmount(revisedAnnual, c)}
+          {formatAmount(budgetAnnual, c)}
         </TableCell>
         <TableCell
           className={cn(
@@ -306,7 +291,7 @@ export function PilotageLineDataCells({
             overDelta && 'text-destructive font-medium',
           )}
         >
-          {planningDeltaPercentLabel(delta, revisedAnnual) ?? '—'}
+          {planningDeltaPercentLabel(delta, budgetAnnual) ?? '—'}
         </TableCell>
         <TableCell className="min-w-[12rem] max-w-[16rem] p-1 align-middle">
           <textarea
@@ -358,7 +343,7 @@ export function PilotageLineDataCells({
     return (
       <>
         <TableCell className="min-w-[6.75rem] whitespace-nowrap text-right tabular-nums">
-          {formatAmount(planning.revisedAmount, c)}
+          {formatAmount(planning.budgetAmount, c)}
         </TableCell>
         <TableCell className="min-w-[6.75rem] whitespace-nowrap text-right tabular-nums">
           {formatAmount(planning.consumedAmount, c)}
@@ -400,7 +385,7 @@ export function PilotageLineDataCells({
   return (
     <>
       <TableCell className="min-w-[6.75rem] whitespace-nowrap text-right tabular-nums">
-        {formatAmount(planning.revisedAmount, c)}
+        {formatAmount(planning.budgetAmount, c)}
       </TableCell>
       <TableCell className="min-w-[6.75rem] whitespace-nowrap text-right tabular-nums">
         {formatAmount(planning.planningTotalAmount, c)}

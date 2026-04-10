@@ -19,11 +19,12 @@ export interface ExplorerEnvelopeNode extends ExplorerNodeBase {
   envelopeType: string;
   status: string;
   lineCount: number;
-  totalRevised: number;
+  /** Somme des montants budgétaires des lignes directes (HT). */
+  totalBudget: number;
   totalCommitted: number;
   totalConsumed: number;
   totalRemaining: number;
-  totalRevisedTtc: number | null;
+  totalBudgetTtc: number | null;
   totalCommittedTtc: number | null;
   totalConsumedTtc: number | null;
   totalRemainingTtc: number | null;
@@ -31,7 +32,7 @@ export interface ExplorerEnvelopeNode extends ExplorerNodeBase {
   capexAmount: number;
   opexAmountTtc: number | null;
   capexAmountTtc: number | null;
-  /** 0 si total révisé du budget = 0 */
+  /** 0 si le total budget du périmètre = 0 */
   percentOfBudget: number;
   children: ExplorerNode[];
 }
@@ -45,11 +46,12 @@ export interface ExplorerLineNode extends ExplorerNodeBase {
   initialAmount: number;
   /** Présent si le budget est en mode TTC côté API. */
   initialAmountTtc: number | null;
-  revisedAmount: number;
+  /** Montant budgétaire opérationnel (aligné sur `initialAmount` API). */
+  budgetAmount: number;
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;
-  revisedAmountTtc: number | null;
+  budgetAmountTtc: number | null;
   committedAmountTtc: number | null;
   consumedAmountTtc: number | null;
   remainingAmountTtc: number | null;

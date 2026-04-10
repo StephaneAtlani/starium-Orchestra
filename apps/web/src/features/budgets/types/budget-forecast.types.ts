@@ -61,7 +61,7 @@ export interface EnvelopeForecastLinesResponse {
 }
 
 export interface BudgetComparisonLineAmounts {
-  revisedAmount: number;
+  budgetAmount: number;
   forecastAmount: number;
   consumedAmount: number;
 }
@@ -101,7 +101,7 @@ export interface BudgetComparisonResponse {
     consumed: number;
   };
   diff: {
-    revisedAmount: number;
+    budgetAmount: number;
     forecastAmount: number;
     consumedAmount: number;
   };

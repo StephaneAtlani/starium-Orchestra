@@ -18,7 +18,6 @@ export const createLineSchema = z
     allocationScope: z.enum(['ENTERPRISE', 'ANALYTICAL']).optional(),
     costCenterSplits: z.array(costCenterSplitSchema).optional(),
     initialAmount: z.number().min(0),
-    revisedAmount: z.number().min(0).optional(),
     currency: z.string().min(1, 'Devise requise').max(8),
     status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED', 'CLOSED']).optional(),
   })

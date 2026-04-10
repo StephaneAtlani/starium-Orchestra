@@ -65,22 +65,16 @@ export function formatSignedDeltaPercent(a: number, b: number): string | null {
 export function budgetKpiAmountForTaxMode(
   kpi: BudgetSummaryKpi,
   mode: TaxDisplayMode,
-  field: 'initial' | 'revised' | 'forecast',
+  field: 'initial' | 'forecast',
 ): number {
   if (mode === 'TTC') {
     const ttc =
       field === 'initial'
         ? kpi.totalInitialAmountTtc
-        : field === 'revised'
-          ? kpi.totalRevisedAmountTtc
-          : kpi.totalForecastAmountTtc;
+        : kpi.totalForecastAmountTtc;
     if (ttc != null && Number.isFinite(ttc)) return ttc;
   }
-  return field === 'initial'
-    ? kpi.totalInitialAmount
-    : field === 'revised'
-      ? kpi.totalRevisedAmount
-      : kpi.totalForecastAmount;
+  return field === 'initial' ? kpi.totalInitialAmount : kpi.totalForecastAmount;
 }
 
 export function formatDate(value: string | Date): string {

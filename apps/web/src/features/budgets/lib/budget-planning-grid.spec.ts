@@ -53,15 +53,15 @@ describe('budget-planning-grid', () => {
 
   it('derivePlanningAmounts12ForNewLine reprend la grille si un mois > 0', () => {
     const months = [10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    const d = derivePlanningAmounts12ForNewLine(months, 999, '');
+    const d = derivePlanningAmounts12ForNewLine(months, 999);
     expect(d?.[0]).toBe(10);
     expect(sumAmounts12(d!)).toBe(10);
   });
 
-  it('derivePlanningAmounts12ForNewLine sans grille utilise le montant révisé puis initial', () => {
+  it('derivePlanningAmounts12ForNewLine sans grille répartit le montant budgétaire sur 12 mois', () => {
     const zeros = Array(12).fill(0);
-    expect(derivePlanningAmounts12ForNewLine(zeros, 0, 1200)?.every((x) => x === 100)).toBe(true);
-    expect(derivePlanningAmounts12ForNewLine(zeros, 600, '')?.every((x) => x === 50)).toBe(true);
-    expect(derivePlanningAmounts12ForNewLine(zeros, 0, 0)).toBeNull();
+    expect(derivePlanningAmounts12ForNewLine(zeros, 1200)?.every((x) => x === 100)).toBe(true);
+    expect(derivePlanningAmounts12ForNewLine(zeros, 600)?.every((x) => x === 50)).toBe(true);
+    expect(derivePlanningAmounts12ForNewLine(zeros, 0)).toBeNull();
   });
 });

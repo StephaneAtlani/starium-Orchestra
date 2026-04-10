@@ -62,7 +62,7 @@ export function buildManualPlanningPutPayload(amounts12: Amounts12): {
 
 /**
  * Répartit `total` sur 12 mois (centimes entiers ; le reste est réparti sur les premiers mois).
- * Utilisé quand la calculette n’a pas de grille mensuelle mais un montant ligne (révisé ou initial).
+ * Utilisé quand la calculette n’a pas de grille mensuelle mais un montant ligne budgétaire.
  */
 export function spreadTotalEvenlyAcross12(total: number): Amounts12 {
   if (!Number.isFinite(total) || total < 0) {
@@ -88,13 +88,12 @@ export function spreadTotalEvenlyAcross12(total: number): Amounts12 {
 /**
  * Création de ligne + calculette : alimente le prévisionnel (PUT manuel 12 mois).
  * — Si au moins un mois > 0 dans la grille : on reprend ces montants (12 cases).
- * — Sinon : répartition uniforme du montant révisé si > 0, sinon du montant initial.
+ * — Sinon : répartition uniforme du montant budgétaire saisi.
  * Retourne `null` si aucun montant exploitable (pas d’appel PUT).
  */
 export function derivePlanningAmounts12ForNewLine(
   monthValues: readonly number[],
-  initialAmount: number,
-  revisedAmount: number | undefined | '',
+  budgetAmount: number,
 ): Amounts12 | null {
   const hasMonth =
     monthValues.length > 0 && monthValues.some((v) => Number.isFinite(v) && v > 0);
@@ -108,15 +107,7 @@ export function derivePlanningAmounts12ForNewLine(
     return padded;
   }
 
-  let total = 0;
-  if (revisedAmount !== undefined && revisedAmount !== '') {
-    const r = Number(revisedAmount);
-    if (Number.isFinite(r) && r > 0) total = r;
-  }
-  if (total <= 0) {
-    const i = Number(initialAmount ?? 0);
-    if (Number.isFinite(i) && i > 0) total = i;
-  }
+  const total = Number(budgetAmount ?? 0);
   if (!Number.isFinite(total) || total <= 0) return null;
   return spreadTotalEvenlyAcross12(total);
 }

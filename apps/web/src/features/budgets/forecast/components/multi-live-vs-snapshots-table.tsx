@@ -43,7 +43,7 @@ export function MultiLiveVsSnapshotsTable({ merged }: MultiLiveVsSnapshotsTableP
                 <span className="line-clamp-2 whitespace-normal break-words">{label}</span>
               </TableHead>
             ))}
-            <TableHead className="text-right">Diff. révisé (1ʳᵉ cible)</TableHead>
+            <TableHead className="text-right">Diff. budget (1ʳᵉ cible)</TableHead>
             <TableHead className="text-right">Écart prévi. (1ʳᵉ)</TableHead>
             <TableHead>Statut (1ʳᵉ)</TableHead>
           </TableRow>
@@ -124,7 +124,7 @@ export function MultiLiveVsSnapshotsTable({ merged }: MultiLiveVsSnapshotsTableP
               <p className="max-w-3xl">
                 Plusieurs versions figées : les colonnes <strong>écarts</strong> et{' '}
                 <strong>Statut</strong> concernent la <strong>première cible</strong> sélectionnée
-                (ordre de la liste). Comparez les montants révisés colonne par colonne pour les
+                (ordre de la liste). Comparez les montants budgétaires colonne par colonne pour les
                 autres.
               </p>
               <p className="mt-1">

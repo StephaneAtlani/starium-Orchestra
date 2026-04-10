@@ -568,8 +568,7 @@ export class BudgetVersioningService {
         id: l.id,
         code: l.code,
         name: l.name,
-        revisedAmount: Number(l.revisedAmount),
-        initialAmount: Number(l.initialAmount),
+        budgetAmount: Number(l.initialAmount),
         forecastAmount: Number(l.forecastAmount),
       }),
     );
@@ -578,8 +577,7 @@ export class BudgetVersioningService {
         id: l.id,
         code: l.code,
         name: l.name,
-        revisedAmount: Number(l.revisedAmount),
-        initialAmount: Number(l.initialAmount),
+        budgetAmount: Number(l.initialAmount),
         forecastAmount: Number(l.forecastAmount),
       }),
     );
@@ -599,27 +597,22 @@ export class BudgetVersioningService {
     for (const pair of comparedPairs) {
       const s = pair.left!;
       const t = pair.right!;
-      const srcRev = s.revisedAmount;
-      const tgtRev = t.revisedAmount;
-      const srcInit = s.initialAmount ?? 0;
-      const tgtInit = t.initialAmount ?? 0;
+      const srcB = s.budgetAmount;
+      const tgtB = t.budgetAmount;
       const srcFc = s.forecastAmount ?? 0;
       const tgtFc = t.forecastAmount ?? 0;
       lines.push({
         code: pair.lineKey,
         source: {
-          revisedAmount: srcRev,
-          initialAmount: srcInit,
+          budgetAmount: srcB,
           forecastAmount: srcFc,
         },
         target: {
-          revisedAmount: tgtRev,
-          initialAmount: tgtInit,
+          budgetAmount: tgtB,
           forecastAmount: tgtFc,
         },
         delta: {
-          revisedAmount: tgtRev - srcRev,
-          initialAmount: tgtInit - srcInit,
+          budgetAmount: tgtB - srcB,
           forecastAmount: tgtFc - srcFc,
         },
       });
@@ -651,7 +644,6 @@ export class BudgetVersioningService {
       analyticalLedgerAccountId: string | null;
       allocationScope: string;
       initialAmount: Prisma.Decimal;
-      revisedAmount: Prisma.Decimal;
       forecastAmount: Prisma.Decimal;
       committedAmount: Prisma.Decimal;
       consumedAmount: Prisma.Decimal;
@@ -677,7 +669,6 @@ export class BudgetVersioningService {
         analyticalLedgerAccountId: sourceLine.analyticalLedgerAccountId,
         allocationScope: sourceLine.allocationScope as any,
         initialAmount: sourceLine.initialAmount,
-        revisedAmount: sourceLine.revisedAmount,
         forecastAmount: sourceLine.forecastAmount,
         committedAmount: sourceLine.committedAmount,
         consumedAmount: sourceLine.consumedAmount,

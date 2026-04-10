@@ -65,7 +65,6 @@ async function cloneBudgetLineWithAnalytics(
       planningMode: sourceLine.planningMode,
       planningTotalAmount: sourceLine.planningTotalAmount,
       initialAmount: sourceLine.initialAmount,
-      revisedAmount: sourceLine.revisedAmount,
       forecastAmount: sourceLine.forecastAmount,
       committedAmount: sourceLine.committedAmount,
       consumedAmount: sourceLine.consumedAmount,
@@ -247,7 +246,6 @@ async function createOneSnapshot(
   });
 
   const totalInitial = lines.reduce((s, l) => s + toNum(l.initialAmount), 0);
-  const totalRevised = lines.reduce((s, l) => s + toNum(l.revisedAmount), 0);
   const totalForecast = lines.reduce((s, l) => s + toNum(l.forecastAmount), 0);
   const totalCommitted = lines.reduce((s, l) => s + toNum(l.committedAmount), 0);
   const totalConsumed = lines.reduce((s, l) => s + toNum(l.consumedAmount), 0);
@@ -273,7 +271,6 @@ async function createOneSnapshot(
             budgetCurrency: budget.currency,
             budgetStatus: budget.status,
             totalInitialAmount: new Prisma.Decimal(totalInitial),
-            totalRevisedAmount: new Prisma.Decimal(totalRevised),
             totalForecastAmount: new Prisma.Decimal(totalForecast),
             totalCommittedAmount: new Prisma.Decimal(totalCommitted),
             totalConsumedAmount: new Prisma.Decimal(totalConsumed),
@@ -298,7 +295,6 @@ async function createOneSnapshot(
               currency: line.currency,
               lineStatus: line.status,
               initialAmount: line.initialAmount,
-              revisedAmount: line.revisedAmount,
               forecastAmount: line.forecastAmount,
               committedAmount: line.committedAmount,
               consumedAmount: line.consumedAmount,

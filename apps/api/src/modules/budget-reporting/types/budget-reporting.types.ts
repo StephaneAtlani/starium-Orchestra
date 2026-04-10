@@ -1,10 +1,10 @@
 /**
  * KPI budgétaire agrégé (summary exercice, budget ou enveloppe).
+ * `totalInitialAmount` = somme des montants budgétaires des lignes (HT stocké).
  * currency: string | null (null si périmètre sans ligne pour exercice/enveloppe selon règles).
  */
 export interface BudgetSummaryKpi {
   totalInitialAmount: number;
-  totalRevisedAmount: number;
   totalForecastAmount: number;
   totalCommittedAmount: number;
   totalConsumedAmount: number;
@@ -12,7 +12,6 @@ export interface BudgetSummaryKpi {
   // Projections TTC (montants budgétés) pour affichage uniquement.
   // Si au moins une ligne ne permet pas d'établir un taux effectif, alors ces valeurs sont à `null`.
   totalInitialAmountTtc?: number | null;
-  totalRevisedAmountTtc?: number | null;
   totalForecastAmountTtc?: number | null;
   totalCommittedAmountTtc?: number | null;
   totalConsumedAmountTtc?: number | null;
@@ -36,7 +35,6 @@ export interface BudgetSummaryKpi {
  */
 export interface BudgetLineAmounts {
   initialAmount: number;
-  revisedAmount: number;
   forecastAmount: number;
   committedAmount: number;
   consumedAmount: number;
@@ -48,7 +46,6 @@ export interface BudgetLineAmounts {
  */
 export interface LineAmountsInput {
   initialAmount: number;
-  revisedAmount: number;
   forecastAmount: number;
   committedAmount: number;
   consumedAmount: number;
@@ -67,7 +64,6 @@ export interface EnvelopeLineReportItem {
   status: string;
   currency: string;
   initialAmount: number;
-  revisedAmount: number;
   forecastAmount: number;
   committedAmount: number;
   consumedAmount: number;
@@ -86,7 +82,6 @@ export interface EnvelopeLineReportItem {
 export interface BreakdownByTypeItem {
   type: string;
   totalInitialAmount: number;
-  totalRevisedAmount: number;
   totalForecastAmount: number;
   totalCommittedAmount: number;
   totalConsumedAmount: number;

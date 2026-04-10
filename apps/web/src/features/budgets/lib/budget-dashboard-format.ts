@@ -86,7 +86,7 @@ export function formatKpiAmountParts(params: {
   return { amount: formatFrInt(ht), currency: sym, taxTag: 'HT', approx: false };
 }
 
-/** Écart forecast − budget révisé : différence des TTC API si les deux agrégats sont connus. */
+/** Écart forecast − budget : différence des TTC API si les deux agrégats sont connus. */
 export function formatForecastGapAmount(
   kpis: {
     totalBudget: number;

@@ -14,7 +14,7 @@ function safeRate(numerator: number, denominator: number): number {
 
 /**
  * Calcule les KPI agrégés à partir d'une liste de lignes (montants en number).
- * Ratios = 0 si totalRevisedAmount = 0. Ne retourne jamais null pour les ratios.
+ * Ratios = 0 si total budgétaire = 0. Ne retourne jamais null pour les ratios.
  */
 export function aggregateLinesToKpi(
   lines: LineAmountsInput[],
@@ -22,7 +22,6 @@ export function aggregateLinesToKpi(
   options?: { budgetCount?: number; envelopeCount?: number },
 ): BudgetSummaryKpi {
   const totalInitialAmount = lines.reduce((s, l) => s + l.initialAmount, ZERO);
-  const totalRevisedAmount = lines.reduce((s, l) => s + l.revisedAmount, ZERO);
   const totalForecastAmount = lines.reduce((s, l) => s + l.forecastAmount, ZERO);
   const totalCommittedAmount = lines.reduce(
     (s, l) => s + l.committedAmount,
@@ -34,25 +33,24 @@ export function aggregateLinesToKpi(
     ZERO,
   );
 
-  const consumptionRate = safeRate(totalConsumedAmount, totalRevisedAmount);
-  const commitmentRate = safeRate(totalCommittedAmount, totalRevisedAmount);
-  const forecastRate = safeRate(totalForecastAmount, totalRevisedAmount);
+  const consumptionRate = safeRate(totalConsumedAmount, totalInitialAmount);
+  const commitmentRate = safeRate(totalCommittedAmount, totalInitialAmount);
+  const forecastRate = safeRate(totalForecastAmount, totalInitialAmount);
 
-  const varianceAmount = totalRevisedAmount - totalConsumedAmount;
-  const forecastGapAmount = totalForecastAmount - totalRevisedAmount;
+  const varianceAmount = totalInitialAmount - totalConsumedAmount;
+  const forecastGapAmount = totalForecastAmount - totalInitialAmount;
 
   let overConsumedLineCount = 0;
   let overCommittedLineCount = 0;
   let negativeRemainingLineCount = 0;
   for (const l of lines) {
-    if (l.consumedAmount > l.revisedAmount) overConsumedLineCount++;
-    if (l.committedAmount > l.revisedAmount) overCommittedLineCount++;
+    if (l.consumedAmount > l.initialAmount) overConsumedLineCount++;
+    if (l.committedAmount > l.initialAmount) overCommittedLineCount++;
     if (l.remainingAmount < 0) negativeRemainingLineCount++;
   }
 
   return {
     totalInitialAmount,
-    totalRevisedAmount,
     totalForecastAmount,
     totalCommittedAmount,
     totalConsumedAmount,
@@ -78,36 +76,33 @@ export function aggregateLinesToKpi(
 
 /**
  * Calcule les ratios et indicateurs d'alerte pour une ligne.
- * revisedAmount = 0 => tous les ratios = 0.
+ * initialAmount = 0 => tous les ratios = 0.
  */
-export function lineToReportItem(
-  line: {
-    id: string;
-    code: string;
-    name: string;
-    description: string | null;
-    expenseType: string;
-    status: string;
-    currency: string;
-    initialAmount: number;
-    revisedAmount: number;
-    forecastAmount: number;
-    committedAmount: number;
-    consumedAmount: number;
-    remainingAmount: number;
-  },
-): EnvelopeLineReportItem {
-  const rev = line.revisedAmount;
-  const consumptionRate = rev === 0 ? 0 : line.consumedAmount / rev;
-  const commitmentRate = rev === 0 ? 0 : line.committedAmount / rev;
-  const forecastRate = rev === 0 ? 0 : line.forecastAmount / rev;
+export function lineToReportItem(line: {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  expenseType: string;
+  status: string;
+  currency: string;
+  initialAmount: number;
+  forecastAmount: number;
+  committedAmount: number;
+  consumedAmount: number;
+  remainingAmount: number;
+}): EnvelopeLineReportItem {
+  const budget = line.initialAmount;
+  const consumptionRate = budget === 0 ? 0 : line.consumedAmount / budget;
+  const commitmentRate = budget === 0 ? 0 : line.committedAmount / budget;
+  const forecastRate = budget === 0 ? 0 : line.forecastAmount / budget;
   return {
     ...line,
     consumptionRate,
     commitmentRate,
     forecastRate,
-    overConsumed: line.consumedAmount > line.revisedAmount,
-    overCommitted: line.committedAmount > line.revisedAmount,
+    overConsumed: line.consumedAmount > line.initialAmount,
+    overCommitted: line.committedAmount > line.initialAmount,
     negativeRemaining: line.remainingAmount < 0,
   };
 }
@@ -129,7 +124,6 @@ export function groupLinesByEnvelopeType(
     return {
       type,
       totalInitialAmount: kpi.totalInitialAmount,
-      totalRevisedAmount: kpi.totalRevisedAmount,
       totalForecastAmount: kpi.totalForecastAmount,
       totalCommittedAmount: kpi.totalCommittedAmount,
       totalConsumedAmount: kpi.totalConsumedAmount,

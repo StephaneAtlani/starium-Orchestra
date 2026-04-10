@@ -169,7 +169,7 @@ export class BudgetDashboardService {
           id: true,
           envelopeId: true,
           taxRate: true,
-          revisedAmount: true,
+          initialAmount: true,
           committedAmount: true,
           remainingAmount: true,
           consumedAmount: true,
@@ -203,7 +203,7 @@ export class BudgetDashboardService {
     ]);
 
     const totalBudget = linesForAggregation.reduce(
-      (s, l) => s + fromDecimal(l.revisedAmount),
+      (s, l) => s + fromDecimal(l.initialAmount),
       0,
     );
     const remaining = linesForAggregation.reduce(
@@ -265,7 +265,7 @@ export class BudgetDashboardService {
 
               totalBudgetTtc += fromDecimal(
                 TaxCalculator.fromHtAndTaxRate({
-                  amountHt: l.revisedAmount,
+                  amountHt: l.initialAmount,
                   taxRate: effectiveTaxRate,
                 }).amountTtc,
               );
@@ -308,10 +308,10 @@ export class BudgetDashboardService {
 
     const capex = linesForAggregation
       .filter((l) => l.expenseType === 'CAPEX')
-      .reduce((s, l) => s + fromDecimal(l.revisedAmount), 0);
+      .reduce((s, l) => s + fromDecimal(l.initialAmount), 0);
     const opex = linesForAggregation
       .filter((l) => l.expenseType === 'OPEX')
-      .reduce((s, l) => s + fromDecimal(l.revisedAmount), 0);
+      .reduce((s, l) => s + fromDecimal(l.initialAmount), 0);
 
     const runBuildDistribution =
       this.buildRunBuildDistribution(linesForAggregation);
@@ -905,7 +905,7 @@ export class BudgetDashboardService {
 
   private buildRunBuildDistribution(
     lines: {
-      revisedAmount: DecimalLike;
+      initialAmount: DecimalLike;
       envelope: { type: string };
     }[],
   ): { run: number; build: number; transverse: number } {
@@ -913,7 +913,7 @@ export class BudgetDashboardService {
     let build = 0;
     let transverse = 0;
     for (const l of lines) {
-      const amt = fromDecimal(l.revisedAmount);
+      const amt = fromDecimal(l.initialAmount);
       switch (l.envelope.type) {
         case 'RUN':
           run += amt;
@@ -933,7 +933,7 @@ export class BudgetDashboardService {
 
   private buildAlertsSummary(
     lines: {
-      revisedAmount: DecimalLike;
+      initialAmount: DecimalLike;
       committedAmount: DecimalLike;
       consumedAmount: DecimalLike;
       forecastAmount: DecimalLike;
@@ -950,7 +950,7 @@ export class BudgetDashboardService {
     let overConsumed = 0;
     let forecastOverBudget = 0;
     for (const l of lines) {
-      const revised = fromDecimal(l.revisedAmount);
+      const revised = fromDecimal(l.initialAmount);
       const committed = fromDecimal(l.committedAmount);
       const consumed = fromDecimal(l.consumedAmount);
       const forecast = fromDecimal(l.forecastAmount);
@@ -974,7 +974,7 @@ export class BudgetDashboardService {
       code: string;
       name: string;
       envelope: { name: string };
-      revisedAmount: DecimalLike;
+      initialAmount: DecimalLike;
       committedAmount: DecimalLike;
       consumedAmount: DecimalLike;
       forecastAmount: DecimalLike;
@@ -982,7 +982,7 @@ export class BudgetDashboardService {
     },
     thresholds: BudgetDashboardThresholdsConfig | null | undefined,
   ): BudgetDashboardLineRow {
-    const revised = fromDecimal(l.revisedAmount);
+    const revised = fromDecimal(l.initialAmount);
     const committed = fromDecimal(l.committedAmount);
     const consumed = fromDecimal(l.consumedAmount);
     const forecast = fromDecimal(l.forecastAmount);
@@ -992,7 +992,7 @@ export class BudgetDashboardService {
       code: l.code ?? null,
       name: l.name,
       envelopeName: l.envelope?.name ?? null,
-      revisedAmount: revised,
+      initialAmount: revised,
       committed,
       consumed,
       forecast,
@@ -1012,7 +1012,7 @@ export class BudgetDashboardService {
     lines: {
       envelopeId: string;
       envelope: { id: string; code: string; name: string };
-      revisedAmount: DecimalLike;
+      initialAmount: DecimalLike;
       consumedAmount: DecimalLike;
       remainingAmount: DecimalLike;
     }[],
@@ -1043,7 +1043,7 @@ export class BudgetDashboardService {
         };
         byEnvelope.set(id, row);
       }
-      row.totalBudget += fromDecimal(l.revisedAmount);
+      row.totalBudget += fromDecimal(l.initialAmount);
       row.consumed += fromDecimal(l.consumedAmount);
       row.remaining += fromDecimal(l.remainingAmount);
     }
@@ -1057,7 +1057,7 @@ export class BudgetDashboardService {
       envelopeId: string;
       envelope: { id: string; code: string; name: string };
       forecastAmount: DecimalLike;
-      revisedAmount: DecimalLike;
+      initialAmount: DecimalLike;
     }[],
     thresholds: BudgetDashboardThresholdsConfig | null | undefined,
   ): BudgetCockpitRiskEnvelopeRow[] {
@@ -1085,7 +1085,7 @@ export class BudgetDashboardService {
         byEnvelope.set(id, row);
       }
       row.forecast += fromDecimal(l.forecastAmount);
-      row.budgetAmount += fromDecimal(l.revisedAmount);
+      row.budgetAmount += fromDecimal(l.initialAmount);
     }
     return [...byEnvelope.values()].map((row) => {
       const riskRatio =
@@ -1104,7 +1104,7 @@ export class BudgetDashboardService {
       code: string;
       name: string;
       envelope: { name: string };
-      revisedAmount: DecimalLike;
+      initialAmount: DecimalLike;
       committedAmount: DecimalLike;
       consumedAmount: DecimalLike;
       forecastAmount: DecimalLike;
@@ -1128,7 +1128,7 @@ export class BudgetDashboardService {
       code: string;
       name: string;
       envelope: { name: string };
-      revisedAmount: DecimalLike;
+      initialAmount: DecimalLike;
       committedAmount: DecimalLike;
       consumedAmount: DecimalLike;
       forecastAmount: DecimalLike;

@@ -4,13 +4,11 @@
 
 export interface BudgetSummaryKpi {
   totalInitialAmount: number;
-  totalRevisedAmount: number;
   totalForecastAmount: number;
   totalCommittedAmount: number;
   totalConsumedAmount: number;
   totalRemainingAmount: number;
   totalInitialAmountTtc?: number | null;
-  totalRevisedAmountTtc?: number | null;
   totalForecastAmountTtc?: number | null;
   totalCommittedAmountTtc?: number | null;
   totalConsumedAmountTtc?: number | null;

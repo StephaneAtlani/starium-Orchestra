@@ -2178,7 +2178,6 @@ model BudgetLine {
   currency                 String
   taxRate                  Decimal?                   @db.Decimal(5, 2)
   initialAmount            Decimal                    @db.Decimal(18, 2) @default(0)
-  revisedAmount            Decimal                    @db.Decimal(18, 2) @default(0)
   forecastAmount           Decimal                    @db.Decimal(18, 2) @default(0)
   committedAmount          Decimal                    @db.Decimal(18, 2) @default(0)
   consumedAmount           Decimal                    @db.Decimal(18, 2) @default(0)
@@ -2307,7 +2306,6 @@ model BudgetSnapshot {
   budgetStatus         BudgetStatus
 
   totalInitialAmount   Decimal               @db.Decimal(18, 2)
-  totalRevisedAmount   Decimal               @db.Decimal(18, 2)
   totalForecastAmount  Decimal               @db.Decimal(18, 2)
   totalCommittedAmount Decimal               @db.Decimal(18, 2)
   totalConsumedAmount  Decimal               @db.Decimal(18, 2)
@@ -2352,7 +2350,6 @@ model BudgetSnapshotLine {
   lineStatus       BudgetLineStatus
 
   initialAmount    Decimal  @db.Decimal(18, 2)
-  revisedAmount    Decimal  @db.Decimal(18, 2)
   forecastAmount   Decimal  @db.Decimal(18, 2)
   committedAmount  Decimal  @db.Decimal(18, 2)
   consumedAmount   Decimal  @db.Decimal(18, 2)

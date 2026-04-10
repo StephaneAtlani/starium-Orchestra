@@ -93,7 +93,6 @@ export class BudgetEnvelopesService {
       },
       _sum: {
         initialAmount: true,
-        revisedAmount: true,
         forecastAmount: true,
         committedAmount: true,
         consumedAmount: true,
@@ -103,7 +102,6 @@ export class BudgetEnvelopesService {
 
     const sum = sums._sum as {
       initialAmount: Prisma.Decimal | null;
-      revisedAmount: Prisma.Decimal | null;
       forecastAmount: Prisma.Decimal | null;
       committedAmount: Prisma.Decimal | null;
       consumedAmount: Prisma.Decimal | null;
@@ -120,7 +118,6 @@ export class BudgetEnvelopesService {
       status: envelope.status,
       currency: envelope.budget.currency,
       initialAmount: fromDecimal(sum.initialAmount),
-      revisedAmount: fromDecimal(sum.revisedAmount),
       forecastAmount: fromDecimal(sum.forecastAmount),
       committedAmount: fromDecimal(sum.committedAmount),
       consumedAmount: fromDecimal(sum.consumedAmount),

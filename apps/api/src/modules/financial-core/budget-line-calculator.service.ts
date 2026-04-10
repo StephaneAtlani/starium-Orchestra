@@ -15,7 +15,7 @@ export class BudgetLineCalculatorService {
   /**
    * Recalcule forecastAmount, committedAmount, consumedAmount, remainingAmount
    * pour une ligne budgétaire. Utilise tx si fourni (dans une transaction).
-   * Base effective = revisedAmount + delta des REALLOCATION_DONE (non comptés dans forecast/committed/consumed).
+   * Base effective = initialAmount (montant budgétaire) + delta des REALLOCATION_DONE (non comptés dans forecast/committed/consumed).
    */
   async recalculateForBudgetLine(
     budgetLineId: string,
@@ -28,7 +28,7 @@ export class BudgetLineCalculatorService {
     const [line, allocations, events] = await Promise.all([
       client.budgetLine.findUniqueOrThrow({
         where: { id: budgetLineId, clientId },
-        select: { revisedAmount: true },
+        select: { initialAmount: true },
       }),
       client.financialAllocation.findMany({
         where: { budgetLineId, clientId },
@@ -42,11 +42,11 @@ export class BudgetLineCalculatorService {
 
     const zero = new Prisma.Decimal(0);
 
-    const revisedAmount = line.revisedAmount;
+    const budgetAmount = line.initialAmount;
     const reallocationDelta = events
       .filter((e) => e.eventType === FinancialEventType.REALLOCATION_DONE)
       .reduce((sum, e) => sum.plus(e.amountHt), zero);
-    const effectiveBudgetBase = revisedAmount.plus(reallocationDelta);
+    const effectiveBudgetBase = budgetAmount.plus(reallocationDelta);
 
     const forecastAmount = allocations
       .filter((a) => a.allocationType === AllocationType.FORECAST)

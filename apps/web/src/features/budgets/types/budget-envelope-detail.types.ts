@@ -8,7 +8,6 @@ export interface BudgetEnvelopeDetail {
   status: string;
   currency: string;
   initialAmount: number;
-  revisedAmount: number;
   forecastAmount: number;
   committedAmount: number;
   consumedAmount: number;
@@ -24,7 +23,6 @@ export interface BudgetEnvelopeLineItem {
   name: string;
   status: string;
   initialAmount: number;
-  revisedAmount: number;
   forecastAmount: number;
   committedAmount: number;
   consumedAmount: number;

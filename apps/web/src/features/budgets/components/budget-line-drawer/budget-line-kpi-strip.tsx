@@ -11,7 +11,6 @@ import {
   ChartLine,
   CircleDollarSign,
   HandCoins,
-  PiggyBank,
   Receipt,
 } from 'lucide-react';
 
@@ -58,9 +57,9 @@ export function BudgetLineKpiStrip({
   className?: string;
 }) {
   const currency = line.currency;
-  const revised = line.revisedAmount || 0;
+  const budgetBase = line.initialAmount || 0;
   const toPct = (num: number) =>
-    revised > 0 ? `${Math.round((num / revised) * 100)}%` : '—';
+    budgetBase > 0 ? `${Math.round((num / budgetBase) * 100)}%` : '—';
 
   return (
     <div
@@ -71,13 +70,8 @@ export function BudgetLineKpiStrip({
     >
       <div className="flex w-max min-w-full items-stretch justify-center gap-2">
         <KpiItem
-          label="Initial"
+          label="Budget"
           value={formatAmount(line.initialAmount, currency)}
-          icon={<PiggyBank className="size-4" />}
-        />
-        <KpiItem
-          label="Révisé"
-          value={formatAmount(line.revisedAmount, currency)}
           icon={<Banknote className="size-4" />}
         />
         <KpiItem

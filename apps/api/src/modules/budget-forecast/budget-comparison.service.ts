@@ -115,7 +115,7 @@ export class BudgetComparisonService {
           id: line.budgetLineId,
           code: line.lineCode,
           name: line.lineName,
-          revisedAmount: fromDecimal(line.revisedAmount),
+          budgetAmount: fromDecimal(line.initialAmount),
           forecastAmount: fromDecimal(line.forecastAmount),
           consumedAmount: fromDecimal(line.consumedAmount),
         })),
@@ -197,7 +197,7 @@ export class BudgetComparisonService {
         id: line.budgetLineId,
         code: line.lineCode,
         name: line.lineName,
-        revisedAmount: fromDecimal(line.revisedAmount),
+        budgetAmount: fromDecimal(line.initialAmount),
         forecastAmount: fromDecimal(line.forecastAmount),
         consumedAmount: fromDecimal(line.consumedAmount),
       })),
@@ -205,7 +205,7 @@ export class BudgetComparisonService {
         id: line.budgetLineId,
         code: line.lineCode,
         name: line.lineName,
-        revisedAmount: fromDecimal(line.revisedAmount),
+        budgetAmount: fromDecimal(line.initialAmount),
         forecastAmount: fromDecimal(line.forecastAmount),
         consumedAmount: fromDecimal(line.consumedAmount),
       })),
@@ -396,7 +396,7 @@ export class BudgetComparisonService {
   ): ComparisonLineAmounts | null {
     if (!line) return null;
     return {
-      revisedAmount: line.revisedAmount,
+      budgetAmount: line.budgetAmount,
       forecastAmount: line.forecastAmount ?? 0,
       consumedAmount: line.consumedAmount ?? 0,
     };
@@ -407,7 +407,7 @@ export class BudgetComparisonService {
       id: string;
       code: string;
       name: string;
-      revisedAmount: unknown;
+      initialAmount: unknown;
       forecastAmount: unknown;
       consumedAmount: unknown;
     }>,
@@ -416,8 +416,8 @@ export class BudgetComparisonService {
       id: line.id,
       code: line.code,
       name: line.name,
-      revisedAmount: fromDecimal(
-        line.revisedAmount as Parameters<typeof fromDecimal>[0],
+      budgetAmount: fromDecimal(
+        line.initialAmount as Parameters<typeof fromDecimal>[0],
       ),
       forecastAmount: fromDecimal(
         line.forecastAmount as Parameters<typeof fromDecimal>[0],
