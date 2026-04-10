@@ -46,19 +46,23 @@ function formatAxisAmount(v: number, currency: string | null): string {
 function aggregateSides(data: BudgetComparisonResponse) {
   let lr = 0;
   let lf = 0;
+  let lcm = 0;
   let lc = 0;
   let rr = 0;
   let rf = 0;
+  let rcm = 0;
   let rc = 0;
   for (const row of data.lines) {
     lr += row.left.budgetAmount;
     lf += row.left.forecastAmount;
+    lcm += row.left.committedAmount;
     lc += row.left.consumedAmount;
     rr += row.right.budgetAmount;
     rf += row.right.forecastAmount;
+    rcm += row.right.committedAmount;
     rc += row.right.consumedAmount;
   }
-  return { lr, lf, lc, rr, rf, rc };
+  return { lr, lf, lcm, lc, rr, rf, rcm, rc };
 }
 
 export interface BudgetComparisonKpiChartsProps {
@@ -84,6 +88,7 @@ export function BudgetComparisonKpiCharts({
 
     const barRowsLocal: GroupedBarRow[] = [
       { label: 'Budget', left: agg.lr, right: agg.rr },
+      { label: 'Engagé', left: agg.lcm, right: agg.rcm },
       { label: 'Prévi.', left: agg.lf, right: agg.rf },
       { label: 'Conso.', left: agg.lc, right: agg.rc },
     ];

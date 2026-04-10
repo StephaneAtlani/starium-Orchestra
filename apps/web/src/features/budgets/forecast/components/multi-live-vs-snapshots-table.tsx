@@ -128,10 +128,12 @@ export function MultiLiveVsSnapshotsTable({ merged }: MultiLiveVsSnapshotsTableP
                 autres.
               </p>
               <p className="mt-1">
-                Forecast agrégé (1ʳᵉ cible) : {formatCurrency(pr.totals.forecast, cur)} ·
-                Consommé : {formatCurrency(pr.totals.consumed, cur)} · Variance consommation :{' '}
+                Forecast (1ʳᵉ cible) : {formatCurrency(pr.totals.forecast, cur)} · Engagé :{' '}
+                {formatCurrency(pr.totals.committed, cur)} · Consommé :{' '}
+                {formatCurrency(pr.totals.consumed, cur)} · Variance consommation :{' '}
                 {formatCurrency(pr.variance.consumed, cur)} · Diff. forecast :{' '}
-                {formatCurrency(pr.diff.forecastAmount, cur)} · Diff. consommé :{' '}
+                {formatCurrency(pr.diff.forecastAmount, cur)} · Diff. engagé :{' '}
+                {formatCurrency(pr.diff.committedAmount, cur)} · Diff. consommé :{' '}
                 {formatCurrency(pr.diff.consumedAmount, cur)}
               </p>
             </TableCell>

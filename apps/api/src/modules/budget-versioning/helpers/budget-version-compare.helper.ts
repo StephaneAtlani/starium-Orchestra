@@ -4,6 +4,7 @@ export type BudgetLineComparableInput = {
   name: string;
   budgetAmount: number;
   forecastAmount?: number;
+  committedAmount?: number;
   consumedAmount?: number;
 };
 

@@ -22,7 +22,12 @@ type ComparedPair = {
 };
 
 function zeroAmounts(): ComparisonLineAmounts {
-  return { budgetAmount: 0, forecastAmount: 0, consumedAmount: 0 };
+  return {
+    budgetAmount: 0,
+    forecastAmount: 0,
+    committedAmount: 0,
+    consumedAmount: 0,
+  };
 }
 
 function getLineComputedValues(params: {
@@ -120,6 +125,11 @@ export function buildBudgetComparisonResponse(params: {
     0,
   );
 
+  const totalRightCommitted = params.pairs.reduce(
+    (sum, p) => sum + p.right.committedAmount,
+    0,
+  );
+
   const totalLeftBudget = params.pairs.reduce(
     (sum, p) => sum + p.left.budgetAmount,
     0,
@@ -130,6 +140,11 @@ export function buildBudgetComparisonResponse(params: {
   );
   const totalLeftConsumed = params.pairs.reduce(
     (sum, p) => sum + p.left.consumedAmount,
+    0,
+  );
+
+  const totalLeftCommitted = params.pairs.reduce(
+    (sum, p) => sum + p.left.committedAmount,
     0,
   );
 
@@ -156,6 +171,7 @@ export function buildBudgetComparisonResponse(params: {
     totals: {
       budget: totalRightBudget,
       forecast: totalRightForecast,
+      committed: totalRightCommitted,
       consumed: totalRightConsumed,
     },
     variance: {
@@ -165,6 +181,7 @@ export function buildBudgetComparisonResponse(params: {
     diff: {
       budgetAmount: totalRightBudget - totalLeftBudget,
       forecastAmount: totalRightForecast - totalLeftForecast,
+      committedAmount: totalRightCommitted - totalLeftCommitted,
       consumedAmount: totalRightConsumed - totalLeftConsumed,
     },
     lines,

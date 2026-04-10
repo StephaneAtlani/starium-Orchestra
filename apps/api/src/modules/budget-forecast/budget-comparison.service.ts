@@ -117,6 +117,7 @@ export class BudgetComparisonService {
           name: line.lineName,
           budgetAmount: fromDecimal(line.initialAmount),
           forecastAmount: fromDecimal(line.forecastAmount),
+          committedAmount: fromDecimal(line.committedAmount),
           consumedAmount: fromDecimal(line.consumedAmount),
         })),
         leftCurrency: leftBudget.currency,
@@ -199,6 +200,7 @@ export class BudgetComparisonService {
         name: line.lineName,
         budgetAmount: fromDecimal(line.initialAmount),
         forecastAmount: fromDecimal(line.forecastAmount),
+        committedAmount: fromDecimal(line.committedAmount),
         consumedAmount: fromDecimal(line.consumedAmount),
       })),
       right: rightSnapshot.lines.map((line) => ({
@@ -207,6 +209,7 @@ export class BudgetComparisonService {
         name: line.lineName,
         budgetAmount: fromDecimal(line.initialAmount),
         forecastAmount: fromDecimal(line.forecastAmount),
+        committedAmount: fromDecimal(line.committedAmount),
         consumedAmount: fromDecimal(line.consumedAmount),
       })),
       liveSide: null,
@@ -398,6 +401,7 @@ export class BudgetComparisonService {
     return {
       budgetAmount: line.budgetAmount,
       forecastAmount: line.forecastAmount ?? 0,
+      committedAmount: line.committedAmount ?? 0,
       consumedAmount: line.consumedAmount ?? 0,
     };
   }
@@ -409,6 +413,7 @@ export class BudgetComparisonService {
       name: string;
       initialAmount: unknown;
       forecastAmount: unknown;
+      committedAmount?: unknown;
       consumedAmount: unknown;
     }>,
   ): BudgetLineComparableInput[] {
@@ -421,6 +426,9 @@ export class BudgetComparisonService {
       ),
       forecastAmount: fromDecimal(
         line.forecastAmount as Parameters<typeof fromDecimal>[0],
+      ),
+      committedAmount: fromDecimal(
+        line.committedAmount as Parameters<typeof fromDecimal>[0],
       ),
       consumedAmount: fromDecimal(
         line.consumedAmount as Parameters<typeof fromDecimal>[0],

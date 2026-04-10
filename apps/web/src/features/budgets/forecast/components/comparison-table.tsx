@@ -107,7 +107,7 @@ function ComparisonContextBanner({ data }: { data: BudgetComparisonResponse }) {
       <p className="mt-1 text-xs text-muted-foreground">
         <span className="text-foreground">Statut ligne (OK / WARNING / CRITICAL) :</span> calculé sur la
         colonne <strong>{pilotCol === 'left' ? 'gauche' : 'droite'}</strong> (« {pilotName} ») — budget,
-        consommé et prévisionnel de ce côté. Les montants consommé / prévisionnel sont affichés{' '}
+        consommé et prévisionnel de ce côté.         Les montants engagé, consommé et prévisionnel sont affichés{' '}
         <strong>gauche et droite</strong> pour comparer les deux budgets ligne à ligne.
       </p>
     </div>
@@ -208,7 +208,7 @@ const STICKY_LINE_COL_FOOT = 'sticky left-0 z-10 border-r border-border bg-muted
 export type ComparisonColumnGroups = {
   /** Bloc : gauche / droite / écart (D−G) / Δ % — par ligne. */
   budget: boolean;
-  /** Deux blocs : consommé puis prévisionnel (même structure). */
+  /** Trois blocs : engagé, consommé, prévisionnel (même structure chacun). */
   pilotage: boolean;
   statut: boolean;
 };
@@ -246,7 +246,7 @@ function ComparisonColumnToggles({
     {
       key: 'pilotage',
       label: 'Pilotage',
-      hint: 'Consommé et prévisionnel — chacun : gauche, droite, écart, Δ %',
+      hint: 'Engagé, consommé et prévisionnel — chacun : gauche, droite, écart, Δ %',
     },
     {
       key: 'statut',
@@ -342,11 +342,20 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
 
   const cur = data.currency;
   const sumLeftBudget = data.lines.reduce((s, r) => s + r.left.budgetAmount, 0);
+  const sumRightBudget = data.lines.reduce((s, r) => s + r.right.budgetAmount, 0);
   const leftColTitle = data.leftLabel?.trim() || fallbackSideLabel('left', data);
   const rightColTitle = data.rightLabel?.trim() || fallbackSideLabel('right', data);
   const pilotCol = resolvePilotageColumn(data);
   const pilotLabelForHeader =
     pilotCol === 'left' ? leftColTitle : rightColTitle;
+  const sumLeftCommitted = data.lines.reduce(
+    (s, r) => s + r.left.committedAmount,
+    0,
+  );
+  const sumRightCommitted = data.lines.reduce(
+    (s, r) => s + r.right.committedAmount,
+    0,
+  );
   const sumLeftConsumed = data.lines.reduce(
     (s, r) => s + r.left.consumedAmount,
     0,
@@ -367,17 +376,19 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
   const visibleColCount =
     1 +
     (cols.budget ? 4 : 0) +
-    (cols.pilotage ? 8 : 0) +
+    (cols.pilotage ? 12 : 0) +
     (cols.statut ? 1 : 0);
 
   const tableMinW =
-    visibleColCount >= 14
-      ? 'min-w-[80rem]'
-      : visibleColCount >= 10
-        ? 'min-w-[64rem]'
-        : visibleColCount >= 6
-          ? 'min-w-[40rem]'
-          : 'min-w-[20rem]';
+    visibleColCount >= 18
+      ? 'min-w-[96rem]'
+      : visibleColCount >= 14
+        ? 'min-w-[80rem]'
+        : visibleColCount >= 10
+          ? 'min-w-[64rem]'
+          : visibleColCount >= 6
+            ? 'min-w-[40rem]'
+            : 'min-w-[20rem]';
 
   return (
     <div className="space-y-6">
@@ -430,6 +441,34 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
             ) : null}
             {cols.pilotage ? (
               <>
+                <TableHead
+                  className={cn(
+                    STICKY_HEAD,
+                    GROUP_SEP_HEAD,
+                    'max-w-[11rem] text-right align-bottom',
+                  )}
+                >
+                  <AmountColumnHeader title={leftColTitle} subtitle="Engagé" />
+                </TableHead>
+                <TableHead className={cn(STICKY_HEAD, 'max-w-[11rem] text-right align-bottom')}>
+                  <AmountColumnHeader title={rightColTitle} subtitle="Engagé" />
+                </TableHead>
+                <TableHead className={cn(STICKY_HEAD, 'min-w-[6.5rem] text-right align-bottom')}>
+                  <span className="flex flex-col items-end gap-0.5">
+                    <span className="font-medium">Écart</span>
+                    <span className="text-[0.65rem] font-normal text-muted-foreground">
+                      engagé (D − G)
+                    </span>
+                  </span>
+                </TableHead>
+                <TableHead className={cn(STICKY_HEAD, 'w-[5.25rem] text-right align-bottom')}>
+                  <span className="flex flex-col items-end gap-0.5">
+                    <span className="font-medium">Δ %</span>
+                    <span className="text-[0.65rem] font-normal text-muted-foreground">
+                      engagé
+                    </span>
+                  </span>
+                </TableHead>
                 <TableHead
                   className={cn(
                     STICKY_HEAD,
@@ -533,6 +572,27 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
                         'group-hover:bg-muted',
                       )}
                     >
+                      {formatCurrency(row.left.committedAmount, cur)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatCurrency(row.right.committedAmount, cur)}
+                    </TableCell>
+                    <ComparisonDiffCell
+                      leftAmount={row.left.committedAmount}
+                      rightAmount={row.right.committedAmount}
+                      currency={cur}
+                    />
+                    <ComparisonPctCell
+                      leftAmount={row.left.committedAmount}
+                      rightAmount={row.right.committedAmount}
+                    />
+                    <TableCell
+                      className={cn(
+                        'text-right tabular-nums',
+                        GROUP_SEP_CELL,
+                        'group-hover:bg-muted',
+                      )}
+                    >
                       {formatCurrency(row.left.consumedAmount, cur)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
@@ -593,21 +653,36 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
                   {formatCurrency(sumLeftBudget, cur)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatCurrency(data.totals.budget, cur)}
+                  {formatCurrency(sumRightBudget, cur)}
                 </TableCell>
                 <ComparisonDiffCell
                   leftAmount={sumLeftBudget}
-                  rightAmount={data.totals.budget}
+                  rightAmount={sumRightBudget}
                   currency={cur}
                 />
                 <ComparisonPctCell
                   leftAmount={sumLeftBudget}
-                  rightAmount={data.totals.budget}
+                  rightAmount={sumRightBudget}
                 />
               </>
             ) : null}
             {cols.pilotage ? (
               <>
+                <TableCell className={cn('text-right tabular-nums', GROUP_SEP_CELL)}>
+                  {formatCurrency(sumLeftCommitted, cur)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {formatCurrency(sumRightCommitted, cur)}
+                </TableCell>
+                <ComparisonDiffCell
+                  leftAmount={sumLeftCommitted}
+                  rightAmount={sumRightCommitted}
+                  currency={cur}
+                />
+                <ComparisonPctCell
+                  leftAmount={sumLeftCommitted}
+                  rightAmount={sumRightCommitted}
+                />
                 <TableCell className={cn('text-right tabular-nums', GROUP_SEP_CELL)}>
                   {formatCurrency(sumLeftConsumed, cur)}
                 </TableCell>
@@ -646,10 +721,12 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
             <TableCell colSpan={visibleColCount}>
               <span className="font-medium text-foreground">Totaux et écarts (colonne droite = « {rightColTitle} »)</span>
               {' — '}
-              Forecast agrégé : {formatCurrency(data.totals.forecast, cur)} · Consommé :{' '}
+              Forecast (droite) : {formatCurrency(data.totals.forecast, cur)} · Engagé (droite) :{' '}
+              {formatCurrency(data.totals.committed, cur)} · Consommé (droite) :{' '}
               {formatCurrency(data.totals.consumed, cur)} · Variance consommation :{' '}
               {formatCurrency(data.variance.consumed, cur)} · Diff. forecast :{' '}
-              {formatCurrency(data.diff.forecastAmount, cur)} · Diff. consommé :{' '}
+              {formatCurrency(data.diff.forecastAmount, cur)} · Diff. engagé :{' '}
+              {formatCurrency(data.diff.committedAmount, cur)} · Diff. consommé :{' '}
               {formatCurrency(data.diff.consumedAmount, cur)}
             </TableCell>
           </TableRow>

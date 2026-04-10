@@ -22,12 +22,16 @@ import {
   InvoiceStatus,
   FinancialEventType,
   FinancialSourceType,
+  AllocationType,
 } from "@prisma/client";
 import {
   attachVersionSetInPlace,
   ensureDraftRevision,
-  ensureSnapshotsForBudget,
 } from "./seed-budget-snapshots-versions";
+import {
+  createBudgetSnapshotFromEvents,
+  syncBudgetLineAggregatedAmounts,
+} from "./seed-snapshot-from-events";
 
 const DEMO_CLIENT_SLUG = "neotech-ai";
 const DEMO_YEAR = 2026;
@@ -100,6 +104,35 @@ async function upsertDemoSupplier(prisma: PrismaClient, clientId: string) {
   });
 }
 
+async function upsertForecastAllocation(
+  prisma: PrismaClient,
+  clientId: string,
+  budgetLineId: string,
+  forecastTotal: number,
+): Promise<void> {
+  await prisma.financialAllocation.deleteMany({
+    where: {
+      budgetLineId,
+      clientId,
+      allocationType: AllocationType.FORECAST,
+    },
+  });
+  if (forecastTotal <= 0) return;
+  await prisma.financialAllocation.create({
+    data: {
+      clientId,
+      budgetLineId,
+      sourceType: FinancialSourceType.MANUAL,
+      sourceId: budgetLineId,
+      allocationType: AllocationType.FORECAST,
+      allocatedAmount: new Prisma.Decimal(forecastTotal),
+      currency: "EUR",
+      effectiveDate: y(DEMO_YEAR, 1, 1),
+      notes: "Seed cockpit — prévisionnel agrégé (aligné snapshot / calculateur)",
+    },
+  });
+}
+
 async function upsertProcurementForLine(
   prisma: PrismaClient,
   input: {
@@ -110,10 +143,23 @@ async function upsertProcurementForLine(
     supplierId: string;
     committed: number;
     consumed: number;
+    /** Date commande / engagement — requis si committed > 0 */
+    orderDate: Date | null;
+    /** Date facture / consommation — requis si consumed > 0 */
+    invoiceDate: Date | null;
   },
 ): Promise<void> {
-  const { clientId, year, budgetLineId, lineCode, supplierId, committed, consumed } =
-    input;
+  const {
+    clientId,
+    year,
+    budgetLineId,
+    lineCode,
+    supplierId,
+    committed,
+    consumed,
+    orderDate,
+    invoiceDate,
+  } = input;
 
   const poRef = `PO-COCKPIT-${lineCode}-${year}`;
   const invRef = `INV-COCKPIT-${lineCode}-${year}`;
@@ -139,6 +185,7 @@ async function upsertProcurementForLine(
   let poId: string | null = null;
 
   if (committed > 0) {
+    const od = orderDate ?? y(year, 3, 10);
     const tax = vat(committed);
     const invoiceTotal = consumed;
     const status =
@@ -163,7 +210,7 @@ async function upsertProcurementForLine(
         taxRate: tax.taxRate,
         taxAmount: tax.taxAmount,
         amountTtc: tax.amountTtc,
-        orderDate: y(year, 3, 10),
+        orderDate: od,
         status,
       },
       create: {
@@ -176,7 +223,7 @@ async function upsertProcurementForLine(
         taxRate: tax.taxRate,
         taxAmount: tax.taxAmount,
         amountTtc: tax.amountTtc,
-        orderDate: y(year, 3, 10),
+        orderDate: od,
         status,
       },
     });
@@ -203,7 +250,7 @@ async function upsertProcurementForLine(
         taxAmount: tax.taxAmount,
         amountTtc: tax.amountTtc,
         currency: "EUR",
-        eventDate: y(year, 3, 10),
+        eventDate: od,
         label: `Engagement ${poRef}`,
       },
     });
@@ -214,6 +261,7 @@ async function upsertProcurementForLine(
   }
 
   if (consumed > 0) {
+    const idate = invoiceDate ?? y(year, 4, 20);
     const tax = vat(consumed);
     const invoice = await prisma.invoice.upsert({
       where: {
@@ -231,7 +279,7 @@ async function upsertProcurementForLine(
         taxRate: tax.taxRate,
         taxAmount: tax.taxAmount,
         amountTtc: tax.amountTtc,
-        invoiceDate: y(year, 4, 20),
+        invoiceDate: idate,
         status: InvoiceStatus.PAID,
       },
       create: {
@@ -245,7 +293,7 @@ async function upsertProcurementForLine(
         taxRate: tax.taxRate,
         taxAmount: tax.taxAmount,
         amountTtc: tax.amountTtc,
-        invoiceDate: y(year, 4, 20),
+        invoiceDate: idate,
         status: InvoiceStatus.PAID,
       },
     });
@@ -271,7 +319,7 @@ async function upsertProcurementForLine(
         taxAmount: tax.taxAmount,
         amountTtc: tax.amountTtc,
         currency: "EUR",
-        eventDate: y(year, 4, 20),
+        eventDate: idate,
         label: `Consommation ${invRef}`,
       },
     });
@@ -389,6 +437,27 @@ const LINE_STORIES: LineStory[] = [
   },
 ];
 
+/** Dates BC / factures (UTC) — commande avant facture ; factures en avril pour qu’une figée au 31/03 exclue le consommé. */
+function procurementDatesForLine(code: string): {
+  orderDate: Date | null;
+  invoiceDate: Date | null;
+} {
+  switch (code) {
+    case "COCKPIT-OK":
+      return { orderDate: y(2026, 2, 5), invoiceDate: y(2026, 4, 12) };
+    case "COCKPIT-WARN":
+      return { orderDate: y(2026, 3, 8), invoiceDate: y(2026, 4, 22) };
+    case "COCKPIT-CRIT":
+      return { orderDate: y(2026, 2, 18), invoiceDate: y(2026, 4, 28) };
+    case "COCKPIT-ENG":
+      return { orderDate: y(2026, 3, 12), invoiceDate: null };
+    case "COCKPIT-PLAN":
+      return { orderDate: null, invoiceDate: null };
+    default:
+      return { orderDate: y(DEMO_YEAR, 3, 10), invoiceDate: y(DEMO_YEAR, 4, 20) };
+  }
+}
+
 export async function ensureBudgetCockpitCompleteDemo(
   prisma: PrismaClient,
 ): Promise<void> {
@@ -502,8 +571,6 @@ export async function ensureBudgetCockpitCompleteDemo(
     const envelopeId =
       story.envelopeCode === "COCKPIT-BUILD" ? envBuild.id : envRun.id;
 
-    const remaining = round2(story.revised - story.committed - story.consumed);
-
     const line = await prisma.budgetLine.upsert({
       where: {
         clientId_budgetId_code: {
@@ -521,10 +588,10 @@ export async function ensureBudgetCockpitCompleteDemo(
         currency: "EUR",
         taxRate: VAT_RATE,
         initialAmount: new Prisma.Decimal(story.revised),
-        forecastAmount: new Prisma.Decimal(story.forecast),
-        committedAmount: new Prisma.Decimal(story.committed),
-        consumedAmount: new Prisma.Decimal(story.consumed),
-        remainingAmount: new Prisma.Decimal(remaining),
+        forecastAmount: new Prisma.Decimal(0),
+        committedAmount: new Prisma.Decimal(0),
+        consumedAmount: new Prisma.Decimal(0),
+        remainingAmount: new Prisma.Decimal(0),
       },
       create: {
         clientId: client.id,
@@ -538,13 +605,17 @@ export async function ensureBudgetCockpitCompleteDemo(
         currency: "EUR",
         taxRate: VAT_RATE,
         initialAmount: new Prisma.Decimal(story.revised),
-        forecastAmount: new Prisma.Decimal(story.forecast),
-        committedAmount: new Prisma.Decimal(story.committed),
-        consumedAmount: new Prisma.Decimal(story.consumed),
-        remainingAmount: new Prisma.Decimal(remaining),
+        forecastAmount: new Prisma.Decimal(0),
+        committedAmount: new Prisma.Decimal(0),
+        consumedAmount: new Prisma.Decimal(0),
+        remainingAmount: new Prisma.Decimal(0),
       },
     });
 
+    await upsertPlanningTimeline(prisma, client.id, line.id, story.forecast);
+    await upsertForecastAllocation(prisma, client.id, line.id, story.forecast);
+
+    const { orderDate, invoiceDate } = procurementDatesForLine(story.code);
     await upsertProcurementForLine(prisma, {
       clientId: client.id,
       year: DEMO_YEAR,
@@ -553,26 +624,40 @@ export async function ensureBudgetCockpitCompleteDemo(
       supplierId: supplier.id,
       committed: story.committed,
       consumed: story.consumed,
+      orderDate,
+      invoiceDate,
     });
 
-    await prisma.budgetLine.update({
-      where: { id: line.id },
-      data: {
-        committedAmount: new Prisma.Decimal(story.committed),
-        consumedAmount: new Prisma.Decimal(story.consumed),
-        forecastAmount: new Prisma.Decimal(story.forecast),
-        remainingAmount: new Prisma.Decimal(remaining),
-      },
-    });
-
-    await upsertPlanningTimeline(prisma, client.id, line.id, story.forecast);
+    await syncBudgetLineAggregatedAmounts(prisma, line.id, client.id);
   }
 
   await attachVersionSetInPlace(prisma, budget.id);
   await ensureDraftRevision(prisma, budget.id);
-  await ensureSnapshotsForBudget(prisma, budget.id, budget.code);
+
+  await prisma.budgetSnapshot.deleteMany({
+    where: {
+      budgetId: budget.id,
+      OR: [
+        { name: { startsWith: "Seed " } },
+        { name: { startsWith: "Démo — cockpit" } },
+      ],
+    },
+  });
+
+  await createBudgetSnapshotFromEvents(
+    prisma,
+    budget.id,
+    "Démo — cockpit — figée au 31/03/2026 (engagements inclus, factures avril exclues)",
+    y(2026, 3, 31),
+  );
+  await createBudgetSnapshotFromEvents(
+    prisma,
+    budget.id,
+    "Démo — cockpit — figée au 31/05/2026 (mouvements jusqu’à fin mai)",
+    y(2026, 5, 31),
+  );
 
   console.log(
-    `✅ Budget cockpit démo : « ${budget.name} » (${BUDGET_CODE}) — ${LINE_STORIES.length} lignes (OK / WARNING / CRITICAL / engagements / phasing), commandes & factures, timeline 12 mois, jeu de versions + snapshots si manquants.`,
+    `✅ Budget cockpit démo : « ${budget.name} » (${BUDGET_CODE}) — ${LINE_STORIES.length} lignes, BC/factures datés, allocations prévi., montants = agrégation moteur ; 2 versions figées (31/03 et 31/05) cohérentes avec les événements.`,
   );
 }

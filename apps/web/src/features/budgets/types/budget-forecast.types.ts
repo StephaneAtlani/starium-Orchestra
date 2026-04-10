@@ -63,6 +63,7 @@ export interface EnvelopeForecastLinesResponse {
 export interface BudgetComparisonLineAmounts {
   budgetAmount: number;
   forecastAmount: number;
+  committedAmount: number;
   consumedAmount: number;
 }
 
@@ -94,6 +95,7 @@ export interface BudgetComparisonResponse {
   totals: {
     budget: number;
     forecast: number;
+    committed: number;
     consumed: number;
   };
   variance: {
@@ -103,6 +105,7 @@ export interface BudgetComparisonResponse {
   diff: {
     budgetAmount: number;
     forecastAmount: number;
+    committedAmount: number;
     consumedAmount: number;
   };
   lines: BudgetComparisonLineItem[];
