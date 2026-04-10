@@ -2,7 +2,11 @@
 
 ## Statut
 
-**Draft** — spécification produit et technique ; implémentation par phases (voir §9). **V1 = méthode A** : stockage binaire **MinIO privé** (Docker, non exposé publiquement), **NestJS seul point d’entrée** upload/download ; **V2** : liens externes et/ou dépôt Microsoft (hors périmètre V1).
+**Draft** — spécification produit et technique globale (devis → facture) ; les phases §9 détaillent le découpage livrable.
+
+**Implémentation au dépôt — Phase 1 (code)** : registre **`ProcurementAttachment`** rattaché à **`PurchaseOrder`** ou **`Invoice`** uniquement (contrainte SQL **XOR** sur ces deux FK — **pas** de `SupplierQuotation` / troisième parent en base). Stockage binaire **S3-compatible** (MinIO en Docker, **sans** exposition publique des ports) ; **NestJS** seul point d’entrée upload / download stream. **Configuration plateforme** persistée **`PlatformProcurementS3Settings`** + routes **`GET|PATCH /api/platform/procurement-s3-settings`** (`JwtAuthGuard` + `PlatformAdminGuard`, pas de `X-Client-Id`) ; secret chiffré au repos, indicateur **`hasSecret`** en lecture ; repli variables d’environnement **`PROCUREMENT_S3_*`** si config DB inactive ou incomplète. **Audit** : actions `procurement_attachment.uploaded`, `downloaded`, `archived`, `access_denied`, `archive_denied`. **UI** : panneau **Documents** dans le dialogue d’édition facture / commande depuis le **contexte budget** (`apps/web/.../edit-procurement-event-dialog.tsx`) ; permissions `procurement.read` (liste, téléchargement) et `procurement.update` (upload, archivage). Contrat HTTP détaillé : [docs/API.md](../API.md).
+
+**Hors Phase 1 au code** : entité **`SupplierQuotation`**, routes devis et pièces sur devis, **`EXTERNAL` / `MICROSOFT`**, versioning avancé — toujours couverts par cette RFC en cible produit, non encore implémentés.
 
 ## Priorité
 
@@ -24,18 +28,19 @@ Haute pour la **traçabilité** des engagements et de la consommation (preuves C
 
 * Le schéma Prisma expose déjà **`PurchaseOrder`** et **`Invoice`** (`clientId`, `supplierId`, montants HT/TVA/TTC, liens optionnels `budgetLineId`, `purchaseOrderId` pour la facture) — aligné RFC-025.
 * Les API existantes (`/api/invoices`, commandes selon implémentation module procurement) appliquent **`procurement.read` / `procurement.create`** (et dérivés) + **client actif**.
-* **Aucune entité « Devis » / quotation fournisseur** n’est modélisée aujourd’hui : le flux documentaire commence côté produit au niveau **commande** ou **facture**.
+* **Pièces jointes (RFC-034 Phase 1)** : routes **`/api/purchase-orders/:id/attachments`** et **`/api/invoices/:id/attachments`** (+ download, archive) ; pas d’accès direct navigateur au stockage objet.
+* **Aucune entité « Devis » / quotation fournisseur** n’est modélisée aujourd’hui : le flux documentaire structuré « devis » reste **Phase 2** ; côté produit, les pièces Phase 1 couvrent **commande** et **facture**.
 
 ## 1.2 Documents ailleurs dans la plateforme
 
-* **`ProjectDocument`** (RFC-PROJ-DOC-001) : registre **rattaché à un projet** ; historiquement lecture disque local pour `STARIUM` côté API — **ne constitue pas** le modèle cible procurement **V1**, qui repose sur **MinIO privé** (voir §2).
-* **Procurement V1** : aucun stockage binaire « disque serveur applicatif » comme référence d’architecture ; **MinIO** sur réseau **interne Docker**, joignable **uniquement** par le backend.
+* **`ProjectDocument`** (RFC-PROJ-DOC-001) : registre **rattaché à un projet** ; historiquement lecture disque local pour `STARIUM` côté API — **ne constitue pas** le même pipeline que la **GED procurement** (objets S3/MinIO dédiés, clés opaques, contrôleurs `attachments`).
+* **Procurement — pièces commande/facture (Phase 1)** : stockage binaire **S3-compatible** (**MinIO** sur réseau **interne Docker**), joignable **uniquement** par le backend — **pas** de fichier servi depuis le disque local applicatif pour ce périmètre.
 
 ## 1.3 Lacunes fonctionnelles
 
-1. **Pas de coffre-fort documentaire** pour les pièces **devis**, **bon de commande**, **facture PDF**, confirmations, avenants — indispensable pour audit et opérations.
-2. **Pas de devis structuré** : impossible de versionner un accord prix **avant** transformation en engagement (`PurchaseOrder`).
-3. **Risque de silos** si chaque module invente son upload : il faut un **modèle unique** « pièce rattachée à un objet procurement », extensible (futurs bons de livraison, avoirs).
+1. **Coffre-fort documentaire** : **Phase 1 (code)** — pièces sur **commande** et **facture** (upload, liste, téléchargement, archivage) via RFC-034 ; **reste à couvrir** : pièces **devis**, confirmations et avenants rattachés à un **devis structuré**, et extension UX hors seul dialogue budget.
+2. **Pas de devis structuré** : impossible de versionner un accord prix **avant** transformation en engagement (`PurchaseOrder`) — **Phase 2**.
+3. **Risque de silos** : le modèle **`ProcurementAttachment`** + API unique limite le risque pour PO/facture ; reste à **étendre** aux autres parents (devis, futurs BL/avoirs).
 
 ---
 
@@ -69,32 +74,35 @@ Haute pour la **traçabilité** des engagements et de la consommation (preuves C
 
 | Fichier / zone | Action |
 | --- | --- |
-| `apps/api/prisma/schema.prisma` | **Modifié** — modèles `SupplierQuotation`, `ProcurementAttachment` (+ enums) ; relations vers `Supplier`, `PurchaseOrder`, `Invoice`, `Client`, `User` |
-| `apps/api/prisma/migrations/*` | **Créé** — migration SQL + contraintes CHECK (exactement un parent) |
-| `apps/api/src/modules/procurement/` | **Étendu** — sous-module `quotations/` et `attachments/` (ou services dédiés dans module existant) |
-| `quotations/*.controller.ts` | **Créé** — CRUD devis + transition vers commande |
-| `attachments/*.controller.ts` | **Créé** — `multipart` upload, liste, stream download, archive ; **guards** : `JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard` |
-| Client **MinIO** (SDK) | **Créé** — put/get/delete objets ; configuration endpoint **interne** uniquement |
-| `docker-compose` / infra | **Mis à jour** — service MinIO **non publié** vers l’hôte (ou bind localhost / réseau interne uniquement) |
-| DTOs `create/update/list` | **Créés** — validation `class-validator` ; réponses **sans** `objectKey`, `bucket`, checksum vers le frontend |
-| Services | **Créés** — scope client, règles métier (statuts, rattachement), validation **MIME / extensions** et **taille max fichier** (§4.3) — **sans** plafond agrégé de stockage par client en V1 |
-| Guards / permissions | **Alignés** — `procurement.*` ; **chaîne obligatoire** V1 : Jwt + client actif + module + permissions |
-| Tests `*.spec.ts` | **Créés** — isolation inter-clients, XOR parent, streaming, mock MinIO |
+| `apps/api/prisma/schema.prisma` | **Phase 1 — fait** — enums `ProcurementAttachmentCategory`, `ProcurementAttachmentStatus`, `ProcurementStorageType` ; modèle **`ProcurementAttachment`** (FK `purchaseOrderId` \| `invoiceId`, XOR) ; **`PlatformProcurementS3Settings`** (singleton) ; relations `Client`, `User`, `PurchaseOrder`, `Invoice`. **Phase 2** — prévu : `SupplierQuotation`, `supplierQuotationId` sur `ProcurementAttachment` + évolution contrainte CHECK |
+| `apps/api/prisma/migrations/*` | **Phase 1 — fait** — migration avec **CHECK** (exactement un parent parmi les deux FK Phase 1) + index `(clientId)`, `(purchaseOrderId)`, `(invoiceId)` |
+| `apps/api/src/modules/procurement/s3/` | **Phase 1 — fait** — `ProcurementObjectStorageService` (`@aws-sdk/client-s3`), `ProcurementS3ConfigResolverService` (DB puis env), `PlatformProcurementS3SettingsService`, `platform-procurement-s3-settings.controller.ts` |
+| `apps/api/src/modules/procurement/attachments/` | **Phase 1 — fait** — `ProcurementAttachmentsService`, `purchase-order-attachments.controller.ts`, `invoice-attachments.controller.ts`, DTO upload, constantes MIME / taille max |
+| `quotations/*.controller.ts` | **Phase 2** — CRUD devis + transition vers commande (non livré Phase 1) |
+| `docker-compose` / `docker-compose.dev` | **Phase 1 — fait** — service **MinIO** (volume, **pas** de `ports` hôte ; `expose` réseau compose), variables **`PROCUREMENT_S3_*`** sur le service **api** en repli |
+| DTOs / réponses | **Phase 1 — fait** — JSON métier **sans** `objectKey`, `storageBucket`, `checksumSha256` |
+| Guards / permissions | **Phase 1 — fait** — métier : Jwt + **ActiveClient** + module + **`procurement.read` / `procurement.update`** selon route ; plateforme S3 : **`PlatformAdminGuard`** |
+| Tests `*.spec.ts` | **Phase 1 — fait (partiel)** — specs service attachments (mock stockage), settings plateforme (pas de fuite secret) ; renforcer si besoin intégration contrôleurs métier |
 
 ## 3.2 Frontend (Next.js)
 
 | Fichier / zone | Action |
 | --- | --- |
-| `apps/web/src/features/procurement/` (ou équivalent) | **Étendu** — onglets / sections **Documents** sur fiches devis, commande, facture |
-| API client + query keys | **Créés / modifiés** — clés tenant-aware avec `clientId` |
-| Composants liste pièces | **Créés** — nom fichier, type, taille, date, utilisateur (**libellé**, pas ID) ; **aucune** exposition de `storageKey` / `objectKey` / URL MinIO / URL signée |
+| `apps/web/src/features/procurement/api/procurement.api.ts` | **Phase 1 — fait** — liste / upload `FormData` / download blob / archive (PO et factures) |
+| `apps/web/src/features/procurement/types/procurement-attachment.types.ts` | **Phase 1 — fait** — types alignés réponses API (sans champs techniques) |
+| `apps/web/src/features/procurement/lib/procurement-query-keys.ts` | **Phase 1 — fait** — `['procurement', clientId, 'attachments', …]` |
+| `apps/web/src/features/procurement/hooks/use-procurement-attachments.ts` | **Phase 1 — fait** |
+| `apps/web/src/features/procurement/components/procurement-attachments-panel.tsx` | **Phase 1 — fait** — liste, catégories en libellés, télécharger, archiver, upload |
+| Fiches `/procurement/...` (devis, PO, facture) | **Phase 1** — panneau **Documents** d’abord intégré au **dialog budget** (`edit-procurement-event-dialog.tsx`) ; extension aux fiches dédiées = évolution UX ultérieure |
+| Composants liste pièces | **Règle** — libellés métier (utilisateur, catégorie) ; **jamais** `objectKey` / URL MinIO / URL signée côté UI |
 
 ## 3.3 Documentation
 
 | Fichier | Action |
 | --- | --- |
-| `docs/API.md` | **Mis à jour** — endpoints quotations + attachments |
-| `docs/RFC/_RFC Liste.md` | **Mis à jour** — entrée RFC-034 |
+| `docs/API.md` | **Phase 1 — fait** — `/api/platform/procurement-s3-settings`, pièces jointes PO / factures, permissions, audit |
+| `docs/RFC/_RFC Liste.md` | **Mis à jour** — Phase 1 code / Phase 2 devis |
+| `docs/ARCHITECTURE.md` | **Mis à jour** — `ProcurementAttachment` + rappel UI drawer budget (RFC-034 Phase 1) |
 
 ---
 
@@ -164,6 +172,8 @@ Attributs (alignés sur l’esprit RFC-PROJ-DOC-001) :
 # 5. Modèle de données (Prisma — proposition)
 
 > Les noms exacts peuvent être ajustés à l’implémentation ; l’important est la **sémantique** et les **contraintes**.
+
+> **Phase 1 au code** : le schéma réel n’inclut **pas** encore `SupplierQuotation` ni `supplierQuotationId` sur `ProcurementAttachment` ; la contrainte CHECK porte sur **deux** parents (`purchaseOrderId` XOR `invoiceId`). Le bloc ci-dessous reste la **cible** après Phase 2 (trois parents). **`externalUrl`** n’est pas en schéma Phase 1 (réservé V2). **`PlatformProcurementS3Settings`** (singleton) est ajouté côté implémentation pour la config S3 plateforme — voir §6.0.
 
 ```prisma
 enum SupplierQuotationStatus {
@@ -284,7 +294,14 @@ model ProcurementAttachment {
 
 # 6. API REST (proposition)
 
-> Préfixe `/api`. **V1** : toutes les routes pièces jointes passent par **JwtAuthGuard + ActiveClientGuard + ModuleAccessGuard + PermissionsGuard**. **Aucune** signed URL MinIO, **aucune** route Microsoft pour les attachments en V1.
+> Préfixe `/api`. **Pièces jointes métier (Phase 1)** : **JwtAuthGuard + ActiveClientGuard + ModuleAccessGuard + PermissionsGuard** + header **`X-Client-Id`**. **Aucune** signed URL MinIO, **aucune** route Microsoft pour les attachments en V1.
+
+## 6.0 Administration plateforme — stockage S3 procurement (Phase 1)
+
+* **`GET /api/platform/procurement-s3-settings`** — lecture configuration **sans secret** (`hasSecret`, champs connexion non sensibles) ; **`effectiveSource`** : `db` \| `env` \| `none`.
+* **`PATCH /api/platform/procurement-s3-settings`** — mise à jour partielle ; `secretKey` en **écriture uniquement** ; si `enabled` et paramètres complets, validation connectivité (**HeadBucket**, création bucket si absent). **Guards** : `JwtAuthGuard`, **`PlatformAdminGuard`** — **pas** de client actif.
+
+Repli **env** (`PROCUREMENT_S3_*`) documenté dans [API.md](../API.md) et compose pour l’API dans le réseau Docker.
 
 ## 6.1 Devis
 
@@ -298,15 +315,16 @@ model ProcurementAttachment {
 
 ## 6.2 Pièces jointes — V1 (PurchaseOrder & Invoice, Phase 1)
 
-| Méthode | Route | Comportement |
-| --- | --- | --- |
-| `GET` | `/api/purchase-orders/:id/attachments` | Liste métadonnées (pas de `objectKey`, pas de bucket, pas d’URL MinIO) |
-| `POST` | `/api/purchase-orders/:id/attachments` | **multipart** → upload via backend → MinIO ; audit upload |
-| `GET` | `/api/purchase-orders/:id/attachments/:attachmentId/download` | **Stream** binaire via backend depuis MinIO ; audit download |
-| `GET` | `/api/invoices/:id/attachments` | Idem commande |
-| `POST` | `/api/invoices/:id/attachments` | Idem commande |
-| `GET` | `/api/invoices/:id/attachments/:attachmentId/download` | Idem commande |
-| `POST` | `…/attachments/:attachmentId/archive` (ou `DELETE` métier soft-delete) | Archivage logique ; audit ; **pas** de suppression physique MinIO par défaut |
+| Méthode | Route | Permission | Comportement |
+| --- | --- | --- | --- |
+| `GET` | `/api/purchase-orders/:id/attachments` | `procurement.read` | Liste métadonnées actives (pas de `objectKey`, pas de bucket) |
+| `POST` | `/api/purchase-orders/:id/attachments` | `procurement.update` | **multipart** (`file`, optionnel `name`, `category`) → backend → S3/MinIO ; audit |
+| `GET` | `/api/purchase-orders/:id/attachments/:attachmentId/download` | `procurement.read` | Stream binaire ; audit `downloaded` |
+| `POST` | `/api/purchase-orders/:id/attachments/:attachmentId/archive` | `procurement.update` | Archivage logique ; audit |
+| `GET` | `/api/invoices/:id/attachments` | `procurement.read` | Idem commande |
+| `POST` | `/api/invoices/:id/attachments` | `procurement.update` | Idem commande |
+| `GET` | `/api/invoices/:id/attachments/:attachmentId/download` | `procurement.read` | Idem commande |
+| `POST` | `/api/invoices/:id/attachments/:attachmentId/archive` | `procurement.update` | Idem commande |
 
 **Réponses** : inclure pour `uploadedByUser` au minimum `firstName`, `lastName` ou `email` pour l’UI (règle *valeur, pas ID*) ; **ne jamais** renvoyer `objectKey`, `storageBucket`, `checksumSha256` ni URL interne MinIO au frontend.
 
@@ -322,7 +340,8 @@ model ProcurementAttachment {
 
 # 8. UI/UX (principes)
 
-* Section **« Documents »** sur chaque fiche (devis, commande, facture) : tableau avec tri par date, badge catégorie, actions télécharger / ajouter (selon droits).
+* **Phase 1 (livré)** : section **« Documents »** dans le dialogue **Modifier facture / commande** depuis le **contexte budget** (timeline / événements de ligne) — composant `ProcurementAttachmentsPanel`, droits `procurement.read` / `procurement.update`.
+* **Cible produit** : étendre une section **« Documents »** sur chaque fiche (devis, commande, facture) : tableau avec tri par date, badge catégorie, actions télécharger / ajouter (selon droits).
 * **V1** : le frontend **ne reçoit jamais** `objectKey`, `storageBucket`, `checksumSha256`, URL MinIO, URL signée, ni `storageKey` technique ; téléchargement **uniquement** via `GET …/attachments/:attachmentId/download` (flux streamé par l’API).
 * **Jamais** afficher UUID comme libellé principal (règles habituelles *valeur métier*).
 * États **loading / error / empty** explicites (FRONTEND_UI-UX).
@@ -334,7 +353,7 @@ model ProcurementAttachment {
 
 | Phase | Contenu |
 | --- | --- |
-| **Phase 1** | `ProcurementAttachment` sur **`PurchaseOrder`** et **`Invoice`** + **MinIO privé** (Docker, non exposé) + **upload multipart** et **download stream** backend uniquement + **audit** + **sécurité fichier** (§4.3) — **V1** ; volumétrie **surveillée en exploitation** uniquement (pas de refus lié à un plafond agrégé par client) |
+| **Phase 1** | `ProcurementAttachment` sur **`PurchaseOrder`** et **`Invoice`** + **MinIO privé** (Docker, non exposé) + config plateforme **`GET|PATCH /api/platform/procurement-s3-settings`** + **upload multipart** et **download stream** backend uniquement + **audit** + **sécurité fichier** (§4.3) — **V1** ; volumétrie **surveillée en exploitation** uniquement (pas de refus lié à un plafond agrégé par client) |
 | **Phase 2** | `SupplierQuotation` + attachments + conversion en **`PurchaseOrder`** (même stack MinIO / API pour les pièces devis) |
 | **Phase 3** | Versionnement remplace/supersede pièce, workflow validation avancé ; **`EXTERNAL` / `MICROSOFT`** (V2), éventuelle **sync documentaire** Microsoft — **hors V1** |
 
@@ -355,6 +374,8 @@ model ProcurementAttachment {
 # 11. Récapitulatif final
 
 Cette RFC introduit une **GED métier procurement** centrée sur **devis**, **commande** et **facture**. **V1** impose **MinIO privé**, **API NestJS comme seul point d’entrée** (upload/download), **sans** URL signée ni exposer MinIO au navigateur. Elle complète RFC-025 en ajoutant la **couche preuve documentaire** et, en Phase 2, la **formalisation du devis fournisseur**.
+
+**Phase 1 au code** couvre **commande + facture** (pas le devis), la **config S3 plateforme** et une **première UI** dans le flux budget ; le reste de la RFC décrit la cible complète sans contradiction avec ce périmètre réduit.
 
 ---
 
@@ -378,3 +399,4 @@ Cette RFC introduit une **GED métier procurement** centrée sur **devis**, **co
 | 2026-04 | — | Création RFC-034 |
 | 2026-04 | — | Alignement V1 : MinIO privé Docker, API seule entrée, pas de signed URL ; V2 EXTERNAL/MICROSOFT ; sécurité fichier §4.3 ; phasage §9 |
 | 2026-04 | — | Retrait plafond agrégé stockage V1 : garde-fous taille/MIME uniquement ; volumétrie = monitoring exploitation |
+| 2026-04 | — | Doc : alignement RFC / ARCHITECTURE / API sur **Phase 1 livrée** (PO & facture, settings plateforme S3, UI dialog budget) |

@@ -232,12 +232,17 @@ Supplier
 PurchaseOrder
    ├── supplierId
    ├── budgetLineId?
-   └── invoices[]
+   ├── invoices[]
+   └── procurementAttachments[]   (RFC-034 Phase 1 — GED pièces, stockage S3/MinIO via API)
 
 Invoice
    ├── supplierId
    ├── purchaseOrderId?
-   └── budgetLineId?
+   ├── budgetLineId?
+   └── procurementAttachments[]   (idem)
+
+Plateforme (hors client actif)
+   └── PlatformProcurementS3Settings   (singleton — endpoint S3 procurement, secret chiffré ; voir API.md)
 ```
 
 ---
@@ -452,6 +457,7 @@ Implémenté dans `apps/web` — ouverture au clic sur une **ligne budgétaire**
   * `GET /api/budget-lines/:id/purchase-orders`
   * `GET /api/budget-lines/:id/invoices`  
   Clés React Query tenant-aware (`clientId`), normalisation dans `timeline-utils`, hook `useBudgetLineTimeline`.
+* **RFC-034 Phase 1 (GED procurement)** — pièces jointes **commande** et **facture** : API `/api/purchase-orders/:id/attachments` et `/api/invoices/:id/attachments` (liste, upload multipart, download stream, archive) ; stockage S3-compatible (MinIO interne) ; configuration **`GET|PATCH /api/platform/procurement-s3-settings`** réservée **`PLATFORM_ADMIN`**. UI : panneau **Documents** dans le dialogue d’édition d’un événement procurement (`edit-procurement-event-dialog.tsx`), permissions `procurement.read` / `procurement.update`. Détail : [RFC-034](RFC/RFC-034%20%E2%80%94%20Documents%20et%20GED%20%E2%80%94%20Devis%20Commande%20Facture.md), [API.md](API.md).
 * **UX panneau** : poignée en tête de panneau — clic pour **agrandir** le drawer jusqu’à `100dvh` (sm+) ou revenir à la hauteur réduite ; réinitialisation à la fermeture.
 * **Tableaux d’événements** (onglets Commandes / Factures) : `BudgetLineEventsTable` — dates `fr-FR`, badges type/source, montants signés pour engagements / consommations.
 
