@@ -24,6 +24,7 @@ describe('BudgetsService', () => {
         count: jest.fn(),
       },
       budgetEnvelope: { count: jest.fn() },
+      budgetLine: { count: jest.fn() },
       clientUser: { findFirst: jest.fn() },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
@@ -35,11 +36,19 @@ describe('BudgetsService', () => {
     budgetSnapshots = {
       createWorkflowMilestoneSnapshot: jest.fn().mockResolvedValue({ id: 'snap-1' }),
     };
+    const budgetEnvelopes = {
+      applyWorkflowCascadeStatusTransition: jest.fn(),
+    };
+    const budgetLines = {
+      applyWorkflowCascadeStatusTransition: jest.fn(),
+    };
     service = new BudgetsService(
       prisma,
       auditLogs,
       clientBudgetWorkflowSettings as any,
       budgetSnapshots as any,
+      budgetEnvelopes as any,
+      budgetLines as any,
     );
   });
 
@@ -142,26 +151,24 @@ describe('BudgetsService', () => {
       expect(prisma.budget.update).not.toHaveBeenCalled();
     });
 
-    it('refuse passage à VALIDATED tant qu’une enveloppe est en DRAFT', async () => {
+    it('refuse passage à VALIDATED sans confirmation cascade quand enfants DRAFT / à valider', async () => {
       prisma.budget.findFirst.mockResolvedValue({
         ...editableBudget,
         status: BudgetStatus.REVISED,
       });
-      prisma.budgetEnvelope.count.mockResolvedValue(1);
+      prisma.budgetEnvelope.count
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0);
+      prisma.budgetLine.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
 
       await expect(
         service.update(clientId, 'b1', { status: BudgetStatus.VALIDATED }),
-      ).rejects.toThrow(BadRequestException);
-      expect(clientBudgetWorkflowSettings.getResolvedForClient).toHaveBeenCalledWith(
-        clientId,
-      );
-      expect(prisma.budgetEnvelope.count).toHaveBeenCalledWith({
-        where: {
-          budgetId: 'b1',
-          clientId,
-          status: BudgetEnvelopeStatus.DRAFT,
-        },
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'cascade_confirmation_required',
+        }),
       });
+      expect(clientBudgetWorkflowSettings.getResolvedForClient).not.toHaveBeenCalled();
       expect(prisma.budget.update).not.toHaveBeenCalled();
     });
 
@@ -171,6 +178,7 @@ describe('BudgetsService', () => {
         status: BudgetStatus.REVISED,
       });
       prisma.budgetEnvelope.count.mockResolvedValue(0);
+      prisma.budgetLine.count.mockResolvedValue(0);
       prisma.budget.update.mockResolvedValue({
         ...editableBudget,
         status: BudgetStatus.VALIDATED,
@@ -189,7 +197,7 @@ describe('BudgetsService', () => {
       );
     });
 
-    it('autorise passage à VALIDATED avec enveloppes DRAFT si config client désactive la garde', async () => {
+    it('autorise passage à VALIDATED si config client désactive la garde et aucun enfant en brouillon/à valider', async () => {
       clientBudgetWorkflowSettings.getResolvedForClient.mockResolvedValue({
         requireEnvelopesNonDraftForBudgetValidated: false,
       });
@@ -197,6 +205,8 @@ describe('BudgetsService', () => {
         ...editableBudget,
         status: BudgetStatus.REVISED,
       });
+      prisma.budgetEnvelope.count.mockResolvedValue(0);
+      prisma.budgetLine.count.mockResolvedValue(0);
       prisma.budget.update.mockResolvedValue({
         ...editableBudget,
         status: BudgetStatus.VALIDATED,
@@ -206,7 +216,7 @@ describe('BudgetsService', () => {
 
       await service.update(clientId, 'b1', { status: BudgetStatus.VALIDATED });
 
-      expect(prisma.budgetEnvelope.count).not.toHaveBeenCalled();
+      expect(prisma.budgetEnvelope.count).toHaveBeenCalled();
       expect(prisma.budget.update).toHaveBeenCalled();
     });
   });

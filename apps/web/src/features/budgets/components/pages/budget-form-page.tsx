@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { BudgetPageHeader } from '../budget-page-header';
 import { BudgetEmptyState } from '../budget-empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { BudgetForm } from '../forms/budget-form';
+import { BudgetStatusChangeDialog } from '../forms/budget-status-change-dialog';
 import { useBudgetDetail } from '../../hooks/use-budgets';
 import { useBudgetExerciseOptionsQuery } from '../../hooks/use-budget-exercise-options-query';
 import { useCreateBudget } from '../../hooks/use-create-budget';
@@ -13,6 +15,15 @@ import { budgetList, budgetDetail } from '../../constants/budget-routes';
 import type { CreateBudgetInput } from '../../schemas/create-budget.schema';
 import type { ApiFormError } from '../../api/types';
 import type { BudgetWorkflowStatus } from '../../constants/budget-workflow-status';
+import type { ChildWorkflowCascadeCounts } from '../../types/budget-management.types';
+import { budgetStatusChangeNeedsCascadeConfirmation } from '../../lib/budget-cascade-confirmation';
+
+const ZERO_CASCADE_COUNTS: ChildWorkflowCascadeCounts = {
+  draftEnvelopeCount: 0,
+  pendingValidationEnvelopeCount: 0,
+  draftLineCount: 0,
+  pendingValidationLineCount: 0,
+};
 
 interface BudgetFormPageProps {
   mode: 'create' | 'edit';
@@ -20,10 +31,12 @@ interface BudgetFormPageProps {
 }
 
 export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
-  const { data: budget, isLoading, error, refetch } = useBudgetDetail(budgetId ?? null);
+  const { data: budget, isLoading, error } = useBudgetDetail(budgetId ?? null);
   const { data: exerciseOptionsData } = useBudgetExerciseOptionsQuery();
   const createMutation = useCreateBudget();
   const updateMutation = useUpdateBudget(budgetId ?? null);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState<CreateBudgetInput | null>(null);
 
   const isEdit = mode === 'edit';
   const submitError: ApiFormError | null =
@@ -54,11 +67,31 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
     : { currency: 'EUR', status: 'DRAFT', ownerUserId: '' };
 
   const handleSubmit = (values: CreateBudgetInput) => {
-    if (isEdit) {
-      updateMutation.mutate(values);
-    } else {
+    if (!isEdit) {
       createMutation.mutate(values);
+      return;
     }
+    if (!budget) return;
+    if (values.status !== budget.status) {
+      setPendingSubmit(values);
+      setStatusDialogOpen(true);
+      return;
+    }
+    updateMutation.mutate({ values });
+  };
+
+  const confirmStatusChange = () => {
+    if (!pendingSubmit || !budget) return;
+    const counts = budget.childWorkflowCascadeCounts ?? ZERO_CASCADE_COUNTS;
+    const needsCascade = budgetStatusChangeNeedsCascadeConfirmation(
+      budget.status as BudgetWorkflowStatus,
+      pendingSubmit.status as BudgetWorkflowStatus,
+      counts,
+    );
+    updateMutation.mutate({
+      values: pendingSubmit,
+      cascadeChildWorkflowStatuses: needsCascade ? true : undefined,
+    });
   };
 
   const cancelHref = isEdit && budgetId ? budgetDetail(budgetId) : budgetList();
@@ -83,6 +116,20 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
             : null
         }
       />
+      {isEdit && budget && pendingSubmit && (
+        <BudgetStatusChangeDialog
+          open={statusDialogOpen}
+          onOpenChange={(open) => {
+            setStatusDialogOpen(open);
+            if (!open) setPendingSubmit(null);
+          }}
+          from={budget.status as BudgetWorkflowStatus}
+          to={pendingSubmit.status as BudgetWorkflowStatus}
+          counts={budget.childWorkflowCascadeCounts ?? ZERO_CASCADE_COUNTS}
+          isSubmitting={updateMutation.isPending}
+          onConfirm={confirmStatusChange}
+        />
+      )}
     </>
   );
 }

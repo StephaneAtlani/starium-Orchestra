@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -48,4 +49,12 @@ export class UpdateBudgetDto {
   @IsString()
   @MaxLength(2000)
   statusChangeComment?: string;
+
+  /**
+   * Obligatoire quand le passage de statut du budget impose une cascade sur les enveloppes/lignes
+   * (Brouillon→Soumis ou Soumis|Révisé→Validé) et qu’il existe encore des enveloppes/lignes à faire évoluer.
+   */
+  @IsOptional()
+  @IsBoolean()
+  cascadeChildWorkflowStatuses?: boolean;
 }

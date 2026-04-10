@@ -21,6 +21,14 @@ export interface PaginatedResponse<T> {
   offset: number;
 }
 
+/** Compteurs pour modale cascade workflow (détail budget). */
+export interface ChildWorkflowCascadeCounts {
+  draftEnvelopeCount: number;
+  pendingValidationEnvelopeCount: number;
+  draftLineCount: number;
+  pendingValidationLineCount: number;
+}
+
 export interface Budget {
   id: string;
   clientId: string;
@@ -40,6 +48,8 @@ export interface Budget {
   /** Présent quand l’API joint l’exercice (liste / détail budgets). */
   exerciseName?: string;
   exerciseCode?: string | null;
+  /** Présent sur le détail budget (GET) — compteurs enveloppes/lignes pour confirmation cascade. */
+  childWorkflowCascadeCounts?: ChildWorkflowCascadeCounts;
 }
 
 export interface BudgetEnvelope {

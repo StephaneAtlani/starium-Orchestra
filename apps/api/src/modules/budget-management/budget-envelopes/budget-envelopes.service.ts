@@ -378,6 +378,97 @@ export class BudgetEnvelopesService {
     return toResponse(updated);
   }
 
+  /**
+   * Transition de statut au sein d’une transaction Prisma (cascade workflow budget).
+   * Retourne une entrée d’audit à persister après commit, ou null si aucun changement.
+   */
+  async applyWorkflowCascadeStatusTransition(
+    clientId: string,
+    envelopeId: string,
+    toStatus: BudgetEnvelopeStatus,
+    tx: Prisma.TransactionClient,
+  ): Promise<CreateAuditLogInput | null> {
+    const existing = await tx.budgetEnvelope.findFirst({
+      where: { id: envelopeId, clientId },
+      include: {
+        budget: true,
+        deferredToExercise: { select: { id: true, name: true, code: true } },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('Budget envelope not found');
+    }
+    if (existing.status === BudgetEnvelopeStatus.ARCHIVED) {
+      throw new BadRequestException('Cannot update an archived budget envelope');
+    }
+    if (existing.status === BudgetEnvelopeStatus.LOCKED) {
+      throw new BadRequestException('Cannot transition a locked envelope in workflow cascade');
+    }
+    if (
+      existing.budget.status === BudgetStatus.LOCKED ||
+      existing.budget.status === BudgetStatus.ARCHIVED
+    ) {
+      throw new BadRequestException(
+        'Cannot update envelope when parent budget is locked or archived',
+      );
+    }
+    if (
+      existing.budget.isVersioned &&
+      existing.budget.versionStatus &&
+      ['SUPERSEDED', 'ARCHIVED'].includes(existing.budget.versionStatus)
+    ) {
+      throw new BadRequestException(
+        'Cannot update envelope when parent budget is a superseded or archived version',
+      );
+    }
+
+    if (existing.status === toStatus) {
+      return null;
+    }
+
+    assertBudgetEnvelopeStatusTransition(existing.status, toStatus);
+
+    const resolvedDeferredToExerciseId = await resolveDeferredExerciseIdForEnvelope(
+      this.prisma,
+      clientId,
+      { status: toStatus },
+      {
+        status: existing.status,
+        deferredToExerciseId: existing.deferredToExerciseId ?? null,
+      },
+    );
+
+    const updated = await tx.budgetEnvelope.update({
+      where: { id: envelopeId },
+      data: {
+        status: toStatus,
+        deferredToExerciseId: resolvedDeferredToExerciseId,
+      },
+    });
+
+    return {
+      clientId,
+      userId: undefined,
+      action: 'budget_envelope.updated',
+      resourceType: 'budget_envelope',
+      resourceId: updated.id,
+      oldValue: {
+        name: existing.name,
+        code: existing.code,
+        type: existing.type,
+        status: existing.status,
+        deferredToExerciseId: existing.deferredToExerciseId ?? null,
+      },
+      newValue: {
+        name: updated.name,
+        code: updated.code,
+        type: updated.type,
+        status: updated.status,
+        deferredToExerciseId: updated.deferredToExerciseId ?? null,
+      },
+    };
+  }
+
   async bulkUpdateStatus(
     clientId: string,
     dto: BulkUpdateBudgetEnvelopeStatusDto,

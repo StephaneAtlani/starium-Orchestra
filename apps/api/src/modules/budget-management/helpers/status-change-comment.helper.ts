@@ -1,9 +1,15 @@
 /** Clés présentes dans le DTO mais non persistées sur l’entité (méta-audit). */
 export const STATUS_CHANGE_COMMENT_KEY = 'statusChangeComment';
 
+/** Flag API cascade enveloppes/lignes — ne compte pas comme « autre champ » pour l’audit statut seul. */
+export const CASCADE_CHILD_WORKFLOW_KEY = 'cascadeChildWorkflowStatuses';
+
 export function entityKeysFromDto(dto: Record<string, unknown>): string[] {
   return Object.keys(dto).filter(
-    (k) => dto[k] !== undefined && k !== STATUS_CHANGE_COMMENT_KEY,
+    (k) =>
+      dto[k] !== undefined &&
+      k !== STATUS_CHANGE_COMMENT_KEY &&
+      k !== CASCADE_CHILD_WORKFLOW_KEY,
   );
 }
 

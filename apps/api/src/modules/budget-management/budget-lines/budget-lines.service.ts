@@ -802,6 +802,85 @@ export class BudgetLinesService {
     return toResponse(updated);
   }
 
+  /**
+   * Transition de statut au sein d’une transaction Prisma (cascade workflow budget).
+   * Retourne une entrée d’audit à persister après commit, ou null si aucun changement.
+   */
+  async applyWorkflowCascadeStatusTransition(
+    clientId: string,
+    lineId: string,
+    toStatus: BudgetLineStatus,
+    tx: Prisma.TransactionClient,
+  ): Promise<CreateAuditLogInput | null> {
+    const existing = await tx.budgetLine.findFirst({
+      where: { id: lineId, clientId },
+      include: { budget: true, costCenterSplits: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Budget line not found');
+    }
+    if (
+      existing.budget.status === BudgetStatus.LOCKED ||
+      existing.budget.status === BudgetStatus.ARCHIVED
+    ) {
+      throw new BadRequestException(
+        'Cannot update line when parent budget is locked or archived',
+      );
+    }
+    if (
+      existing.budget.isVersioned &&
+      existing.budget.versionStatus &&
+      ['SUPERSEDED', 'ARCHIVED'].includes(existing.budget.versionStatus)
+    ) {
+      throw new BadRequestException(
+        'Cannot update line when parent budget is a superseded or archived version',
+      );
+    }
+    if (existing.status === BudgetLineStatus.ARCHIVED) {
+      throw new BadRequestException('Cannot update an archived budget line');
+    }
+    if (existing.status === BudgetLineStatus.CLOSED) {
+      throw new BadRequestException('Cannot transition a closed line in workflow cascade');
+    }
+
+    if (existing.status === toStatus) {
+      return null;
+    }
+
+    assertBudgetLineStatusTransition(existing.status, toStatus);
+
+    const resolvedDeferredToExerciseId = await resolveDeferredExerciseIdForLine(
+      this.prisma,
+      clientId,
+      { status: toStatus },
+      {
+        status: existing.status,
+        deferredToExerciseId: existing.deferredToExerciseId ?? null,
+      },
+    );
+
+    const updated = await tx.budgetLine.update({
+      where: { id: lineId },
+      data: {
+        status: toStatus,
+        deferredToExerciseId: resolvedDeferredToExerciseId,
+      },
+    });
+
+    return {
+      clientId,
+      userId: undefined,
+      action: 'budget_line.status.changed',
+      resourceType: 'budget_line',
+      resourceId: updated.id,
+      oldValue: { from: existing.status },
+      newValue: newValueWithStatusComment(
+        updated.status,
+        normalizeStatusChangeComment(undefined),
+      ),
+    };
+  }
+
   async bulkUpdateStatus(
     clientId: string,
     dto: BulkUpdateBudgetLineStatusDto,

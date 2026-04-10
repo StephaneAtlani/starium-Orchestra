@@ -107,7 +107,10 @@ export function budgetFormToCreatePayload(values: CreateBudgetInput): CreateBudg
   };
 }
 
-export function budgetFormToUpdatePayload(values: CreateBudgetInput): UpdateBudgetPayload {
+export function budgetFormToUpdatePayload(
+  values: CreateBudgetInput,
+  cascadeChildWorkflowStatuses?: boolean,
+): UpdateBudgetPayload {
   const c = values.statusChangeComment?.trim();
   return {
     name: values.name,
@@ -119,6 +122,9 @@ export function budgetFormToUpdatePayload(values: CreateBudgetInput): UpdateBudg
     taxMode: values.taxMode,
     defaultTaxRate: values.defaultTaxRate,
     ...(c ? { statusChangeComment: c } : {}),
+    ...(cascadeChildWorkflowStatuses === true
+      ? { cascadeChildWorkflowStatuses: true }
+      : {}),
   };
 }
 

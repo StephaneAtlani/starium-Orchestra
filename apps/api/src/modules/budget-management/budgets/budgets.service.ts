@@ -5,7 +5,12 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetEnvelopeStatus, BudgetStatus, Prisma } from '@prisma/client';
+import {
+  BudgetEnvelopeStatus,
+  BudgetLineStatus,
+  BudgetStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -29,6 +34,8 @@ import { CreateBudgetDto } from './dto/create-budget.dto';
 import { ListBudgetsQueryDto } from './dto/list-budgets.query.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 import { BudgetSnapshotsService } from '../../budget-snapshots/budget-snapshots.service';
+import { BudgetEnvelopesService } from '../budget-envelopes/budget-envelopes.service';
+import { BudgetLinesService } from '../budget-lines/budget-lines.service';
 
 @Injectable()
 export class BudgetsService {
@@ -39,6 +46,8 @@ export class BudgetsService {
     private readonly auditLogs: AuditLogsService,
     private readonly clientBudgetWorkflowSettings: ClientBudgetWorkflowSettingsService,
     private readonly budgetSnapshots: BudgetSnapshotsService,
+    private readonly budgetEnvelopes: BudgetEnvelopesService,
+    private readonly budgetLines: BudgetLinesService,
   ) {}
 
   async list(
@@ -94,7 +103,42 @@ export class BudgetsService {
     if (!budget) {
       throw new NotFoundException('Budget not found');
     }
-    return toResponse(budget);
+    const [
+      draftEnvelopeCount,
+      pendingValidationEnvelopeCount,
+      draftLineCount,
+      pendingValidationLineCount,
+    ] = await Promise.all([
+      this.prisma.budgetEnvelope.count({
+        where: { budgetId: id, clientId, status: BudgetEnvelopeStatus.DRAFT },
+      }),
+      this.prisma.budgetEnvelope.count({
+        where: {
+          budgetId: id,
+          clientId,
+          status: BudgetEnvelopeStatus.PENDING_VALIDATION,
+        },
+      }),
+      this.prisma.budgetLine.count({
+        where: { budgetId: id, clientId, status: BudgetLineStatus.DRAFT },
+      }),
+      this.prisma.budgetLine.count({
+        where: {
+          budgetId: id,
+          clientId,
+          status: BudgetLineStatus.PENDING_VALIDATION,
+        },
+      }),
+    ]);
+    return {
+      ...toResponse(budget),
+      childWorkflowCascadeCounts: {
+        draftEnvelopeCount,
+        pendingValidationEnvelopeCount,
+        draftLineCount,
+        pendingValidationLineCount,
+      },
+    };
   }
 
   async create(
@@ -248,49 +292,192 @@ export class BudgetsService {
       assertBudgetStatusTransition(existing.status, dto.status);
     }
 
-    if (
-      dto.status === BudgetStatus.VALIDATED &&
-      dto.status !== existing.status
-    ) {
-      const resolved =
-        await this.clientBudgetWorkflowSettings.getResolvedForClient(clientId);
-      if (resolved.requireEnvelopesNonDraftForBudgetValidated) {
-        const draftEnvelopeCount = await this.prisma.budgetEnvelope.count({
+    const statusChanging =
+      dto.status !== undefined && dto.status !== existing.status;
+
+    let draftEnvelopeCount = 0;
+    let pendingEnvelopeCount = 0;
+    let draftLineCount = 0;
+    let pendingLineCount = 0;
+    if (statusChanging) {
+      [
+        draftEnvelopeCount,
+        pendingEnvelopeCount,
+        draftLineCount,
+        pendingLineCount,
+      ] = await Promise.all([
+        this.prisma.budgetEnvelope.count({
+          where: { budgetId: id, clientId, status: BudgetEnvelopeStatus.DRAFT },
+        }),
+        this.prisma.budgetEnvelope.count({
           where: {
             budgetId: id,
             clientId,
-            status: BudgetEnvelopeStatus.DRAFT,
+            status: BudgetEnvelopeStatus.PENDING_VALIDATION,
           },
-        });
-        if (draftEnvelopeCount > 0) {
-          throw new BadRequestException(
-            'Cannot validate budget: every envelope must leave DRAFT status first',
-          );
-        }
-      }
+        }),
+        this.prisma.budgetLine.count({
+          where: { budgetId: id, clientId, status: BudgetLineStatus.DRAFT },
+        }),
+        this.prisma.budgetLine.count({
+          where: {
+            budgetId: id,
+            clientId,
+            status: BudgetLineStatus.PENDING_VALIDATION,
+          },
+        }),
+      ]);
     }
 
-    const updated = await this.prisma.budget.update({
-      where: { id },
-      data: {
-        ...(dto.name != null && { name: dto.name }),
-        ...(dto.code != null && { code: dto.code }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.currency != null && { currency: dto.currency }),
-        ...(dto.status != null && { status: dto.status }),
-        ...(dto.ownerUserId !== undefined && {
-          ownerUserId: dto.ownerUserId || null,
-        }),
-        ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
-        ...(dto.defaultTaxRate !== undefined
-          ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
-          : {}),
-      },
-      include: {
-        exercise: { select: { name: true, code: true } },
-        owner: { select: { firstName: true, lastName: true, email: true } },
-      },
-    });
+    const cascadeRequired =
+      statusChanging &&
+      dto.status != null &&
+      this.requiresCascadeChildWorkflowConfirmation(
+        existing.status,
+        dto.status,
+        draftEnvelopeCount,
+        pendingEnvelopeCount,
+        draftLineCount,
+        pendingLineCount,
+      );
+
+    if (cascadeRequired && dto.cascadeChildWorkflowStatuses !== true) {
+      throw new BadRequestException({
+        message:
+          'Confirmation requise pour mettre à jour les statuts des enveloppes et lignes du budget.',
+        code: 'cascade_confirmation_required',
+      });
+    }
+
+    const useCascadeTransaction =
+      dto.cascadeChildWorkflowStatuses === true && cascadeRequired;
+
+    let childAudits: CreateAuditLogInput[] = [];
+
+    type BudgetUpdateRow = NonNullable<
+      Awaited<ReturnType<PrismaService['budget']['update']>>
+    > & {
+      exercise?: { name: string; code: string } | null;
+      owner?: {
+        firstName: string | null;
+        lastName: string | null;
+        email: string;
+      } | null;
+    };
+
+    let updated: BudgetUpdateRow;
+
+    if (useCascadeTransaction && dto.status != null) {
+      const result = await this.prisma.$transaction(async (tx) => {
+        let audits: CreateAuditLogInput[] = [];
+        if (
+          existing.status === BudgetStatus.DRAFT &&
+          dto.status === BudgetStatus.SUBMITTED
+        ) {
+          audits = await this.cascadeDraftToPendingForBudget(tx, clientId, id);
+        } else if (
+          (existing.status === BudgetStatus.SUBMITTED ||
+            existing.status === BudgetStatus.REVISED) &&
+          dto.status === BudgetStatus.VALIDATED
+        ) {
+          audits = await this.cascadeToValidatedForBudget(tx, clientId, id);
+        }
+
+        if (dto.status === BudgetStatus.VALIDATED) {
+          const resolved =
+            await this.clientBudgetWorkflowSettings.getResolvedForClient(
+              clientId,
+            );
+          if (resolved.requireEnvelopesNonDraftForBudgetValidated) {
+            const stillDraft = await tx.budgetEnvelope.count({
+              where: {
+                budgetId: id,
+                clientId,
+                status: BudgetEnvelopeStatus.DRAFT,
+              },
+            });
+            if (stillDraft > 0) {
+              throw new BadRequestException(
+                'Cannot validate budget: every envelope must leave DRAFT status first',
+              );
+            }
+          }
+        }
+
+        const row = await tx.budget.update({
+          where: { id },
+          data: {
+            ...(dto.name != null && { name: dto.name }),
+            ...(dto.code != null && { code: dto.code }),
+            ...(dto.description !== undefined && {
+              description: dto.description,
+            }),
+            ...(dto.currency != null && { currency: dto.currency }),
+            ...(dto.status != null && { status: dto.status }),
+            ...(dto.ownerUserId !== undefined && {
+              ownerUserId: dto.ownerUserId || null,
+            }),
+            ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
+            ...(dto.defaultTaxRate !== undefined
+              ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
+              : {}),
+          },
+          include: {
+            exercise: { select: { name: true, code: true } },
+            owner: { select: { firstName: true, lastName: true, email: true } },
+          },
+        });
+        return { row, audits };
+      });
+      childAudits = result.audits;
+      updated = result.row;
+    } else {
+      if (
+        dto.status === BudgetStatus.VALIDATED &&
+        dto.status !== existing.status
+      ) {
+        const resolved =
+          await this.clientBudgetWorkflowSettings.getResolvedForClient(
+            clientId,
+          );
+        if (resolved.requireEnvelopesNonDraftForBudgetValidated) {
+          const draftEnv = await this.prisma.budgetEnvelope.count({
+            where: {
+              budgetId: id,
+              clientId,
+              status: BudgetEnvelopeStatus.DRAFT,
+            },
+          });
+          if (draftEnv > 0) {
+            throw new BadRequestException(
+              'Cannot validate budget: every envelope must leave DRAFT status first',
+            );
+          }
+        }
+      }
+
+      updated = await this.prisma.budget.update({
+        where: { id },
+        data: {
+          ...(dto.name != null && { name: dto.name }),
+          ...(dto.code != null && { code: dto.code }),
+          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.currency != null && { currency: dto.currency }),
+          ...(dto.status != null && { status: dto.status }),
+          ...(dto.ownerUserId !== undefined && {
+            ownerUserId: dto.ownerUserId || null,
+          }),
+          ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
+          ...(dto.defaultTaxRate !== undefined
+            ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
+            : {}),
+        },
+        include: {
+          exercise: { select: { name: true, code: true } },
+          owner: { select: { firstName: true, lastName: true, email: true } },
+        },
+      });
+    }
 
     // RFC-032 §4.1.5 : statut seul → `budget.status.changed` uniquement ; statut + autres champs →
     // `budget.status.changed` puis `budget.updated` sans propriété `status` ; sinon `budget.updated` complet.
@@ -307,6 +494,14 @@ export class BudgetsService {
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     };
+
+    for (const a of childAudits) {
+      await this.auditLogs.create({
+        ...a,
+        userId: context?.actorUserId,
+        ...meta,
+      });
+    }
 
     if (onlyStatusInDto && !statusChanged) {
       return toResponse(updated);
@@ -457,6 +652,136 @@ export class BudgetsService {
     };
   }
 
+  private requiresCascadeChildWorkflowConfirmation(
+    from: BudgetStatus,
+    to: BudgetStatus,
+    draftEnv: number,
+    pendingEnv: number,
+    draftLine: number,
+    pendingLine: number,
+  ): boolean {
+    if (to === BudgetStatus.SUBMITTED && from === BudgetStatus.DRAFT) {
+      return draftEnv > 0 || draftLine > 0;
+    }
+    if (
+      to === BudgetStatus.VALIDATED &&
+      (from === BudgetStatus.SUBMITTED || from === BudgetStatus.REVISED)
+    ) {
+      return (
+        draftEnv > 0 ||
+        pendingEnv > 0 ||
+        draftLine > 0 ||
+        pendingLine > 0
+      );
+    }
+    return false;
+  }
+
+  private async cascadeDraftToPendingForBudget(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+    budgetId: string,
+  ): Promise<CreateAuditLogInput[]> {
+    const audits: CreateAuditLogInput[] = [];
+    const envelopes = await tx.budgetEnvelope.findMany({
+      where: { budgetId, clientId, status: BudgetEnvelopeStatus.DRAFT },
+      select: { id: true },
+    });
+    for (const { id: eid } of envelopes) {
+      const a = await this.budgetEnvelopes.applyWorkflowCascadeStatusTransition(
+        clientId,
+        eid,
+        BudgetEnvelopeStatus.PENDING_VALIDATION,
+        tx,
+      );
+      if (a) audits.push(a);
+    }
+    const lines = await tx.budgetLine.findMany({
+      where: { budgetId, clientId, status: BudgetLineStatus.DRAFT },
+      select: { id: true },
+    });
+    for (const { id: lid } of lines) {
+      const a = await this.budgetLines.applyWorkflowCascadeStatusTransition(
+        clientId,
+        lid,
+        BudgetLineStatus.PENDING_VALIDATION,
+        tx,
+      );
+      if (a) audits.push(a);
+    }
+    return audits;
+  }
+
+  private async cascadeToValidatedForBudget(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+    budgetId: string,
+  ): Promise<CreateAuditLogInput[]> {
+    const audits: CreateAuditLogInput[] = [];
+    const envDraft = await tx.budgetEnvelope.findMany({
+      where: { budgetId, clientId, status: BudgetEnvelopeStatus.DRAFT },
+      select: { id: true },
+    });
+    for (const { id: eid } of envDraft) {
+      const a = await this.budgetEnvelopes.applyWorkflowCascadeStatusTransition(
+        clientId,
+        eid,
+        BudgetEnvelopeStatus.PENDING_VALIDATION,
+        tx,
+      );
+      if (a) audits.push(a);
+    }
+    const lineDraft = await tx.budgetLine.findMany({
+      where: { budgetId, clientId, status: BudgetLineStatus.DRAFT },
+      select: { id: true },
+    });
+    for (const { id: lid } of lineDraft) {
+      const a = await this.budgetLines.applyWorkflowCascadeStatusTransition(
+        clientId,
+        lid,
+        BudgetLineStatus.PENDING_VALIDATION,
+        tx,
+      );
+      if (a) audits.push(a);
+    }
+
+    const envPending = await tx.budgetEnvelope.findMany({
+      where: {
+        budgetId,
+        clientId,
+        status: BudgetEnvelopeStatus.PENDING_VALIDATION,
+      },
+      select: { id: true },
+    });
+    for (const { id: eid } of envPending) {
+      const a = await this.budgetEnvelopes.applyWorkflowCascadeStatusTransition(
+        clientId,
+        eid,
+        BudgetEnvelopeStatus.ACTIVE,
+        tx,
+      );
+      if (a) audits.push(a);
+    }
+    const linePending = await tx.budgetLine.findMany({
+      where: {
+        budgetId,
+        clientId,
+        status: BudgetLineStatus.PENDING_VALIDATION,
+      },
+      select: { id: true },
+    });
+    for (const { id: lid } of linePending) {
+      const a = await this.budgetLines.applyWorkflowCascadeStatusTransition(
+        clientId,
+        lid,
+        BudgetLineStatus.ACTIVE,
+        tx,
+      );
+      if (a) audits.push(a);
+    }
+    return audits;
+  }
+
   private async resolveUniqueBudgetCode(clientId: string): Promise<string> {
     const maxAttempts = 10;
     for (let i = 0; i < maxAttempts; i++) {
@@ -477,6 +802,13 @@ type BudgetWithNumbers = Omit<NonNullable<BudgetRow>, 'defaultTaxRate' | 'exerci
   exerciseCode?: string | null;
   /** Libellé affichable (prénom + nom ou email) — dérivé de `owner` en base. */
   ownerUserName: string | null;
+  /** Présent sur le détail budget (compteurs pour modale cascade workflow). */
+  childWorkflowCascadeCounts?: {
+    draftEnvelopeCount: number;
+    pendingValidationEnvelopeCount: number;
+    draftLineCount: number;
+    pendingValidationLineCount: number;
+  };
 };
 
 function formatOwnerDisplayName(

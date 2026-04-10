@@ -278,6 +278,8 @@ export interface UpdateBudgetPayload {
   defaultTaxRate?: string;
   /** Commentaire saisi avec le changement de statut — audit `budget.status.changed`. */
   statusChangeComment?: string;
+  /** Confirmation explicite pour propager les statuts enveloppes/lignes (workflow budget). */
+  cascadeChildWorkflowStatuses?: boolean;
 }
 
 export async function createBudget(
