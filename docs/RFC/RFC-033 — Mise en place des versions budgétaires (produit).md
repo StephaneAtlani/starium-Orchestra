@@ -70,11 +70,22 @@ Guards : JWT, client actif, module, `PermissionsGuard` — aligné avec le reste
 ## 1.4 Frontend
 
 * **Liste / détail / création** : `/budgets/[budgetId]/snapshots`, `/budgets/[budgetId]/snapshots/[snapshotId]` ; dialogue « Enregistrer une version » depuis la fiche budget (`CreateBudgetSnapshotDialog`) avec `snapshotDate`, aide sur le périmètre des lignes figées, select **type d’occasion** libellé (`GET` fusionné types d’occasion). Les passages **Soumis** / **Validé** du workflow ajoutent aussi des lignes dans cette liste (versions figées automatiques, même écran).
-* **Fiche budget** : lien « Versions figées », carte **Accès rapides** (header) vers sous-domaines ; colonnes liste : code, totaux budgétaires agrégés, type d’occasion, etc.
+* **Liste des versions figées** (`page.tsx` sous `snapshots/`) : colonnes **« Figée au… »** (référence temporelle = `snapshotDate`), **« Date »** (date et heure d’**exécution** = `createdAt` du snapshot), code, nom, type d’occasion, total budget, créé par, action ; **tri** et **filtres** textuels sur une deuxième ligne d’en-têtes (recherche partielle sur les libellés affichés).
+* **Détail** (`snapshots/[snapshotId]/page.tsx`) : bande KPI en tête (`BudgetSnapshotKpiStrip` — Budget, Forecast, Engagé, Consommé, Restant avec % sur la base initiale), puis métadonnées, rappel facture/consommation, tableau des lignes figées.
+* **Fiche budget** : lien « Versions figées », carte **Accès rapides** (header) vers sous-domaines ; la liste expose les totaux agrégés, type d’occasion, etc.
 * **Référentiel client** : `/budgets/snapshot-occasion-types` (permission `budgets.snapshot_occasion_types.manage`) ; entrée depuis `/budgets/configuration`.
 * **Référentiel plateforme** : `/admin/snapshot-occasion-types` (`PLATFORM_ADMIN`).
 * Comparaison budgétaire : vocabulaire **version figée** côté UI (RFC-FE-BUD-030) ; graphiques de synthèse sous le tableau de comparaison (**SVG natif**, pas de lib charting).
 * Détail : [docs/modules/budget-frontend.md](../modules/budget-frontend.md).
+
+### Seed démo (cohérence mouvements ↔ figées)
+
+Pour un jeu de données **aligné sur le moteur d’agrégation** (`FinancialEvent` / `FinancialAllocation`, même logique que `BudgetSnapshotsService.create`) :
+
+* [`apps/api/prisma/seed-budget-cockpit-complete.ts`](../../apps/api/prisma/seed-budget-cockpit-complete.ts) — budget **`COCKPIT-DEMO-2026`** (client démo `neotech-ai`), lignes scénarisées (OK / WARNING / CRITICAL / engagement seul / phasing), **commandes et factures** avec dates ordonnées (BC avant facture ; factures en avril pour qu’une figée au **31/03** exclue le consommé de ces factures), **allocation FORECAST** par ligne, puis **recalcul** des montants ligne via le même agrégat que le calculateur.
+* [`apps/api/prisma/seed-snapshot-from-events.ts`](../../apps/api/prisma/seed-snapshot-from-events.ts) — utilitaires **`syncBudgetLineAggregatedAmounts`** et **`createBudgetSnapshotFromEvents`** ; la seed cockpit supprime les anciennes entrées « Seed … » / « Démo — cockpit … » puis crée **deux** versions figées nommées (ex. au **31/03** et **31/05**), montants par ligne = agrégation des mouvements jusqu’à la date de capture (fin de jour UTC).
+
+Invoqué depuis [`apps/api/prisma/seed.ts`](../../apps/api/prisma/seed.ts) (`ensureBudgetCockpitCompleteDemo`) avant le passage global snapshots/versions sur tous les budgets.
 
 ## 1.5 Ce que RFC-019 couvre (et ne couvre pas)
 

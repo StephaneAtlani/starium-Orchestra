@@ -25,6 +25,7 @@ import { listSuppliers } from '@/features/procurement/api/procurement.api';
 import { SupplierSearchCombobox } from '@/features/procurement/components/supplier-search-combobox';
 import { prepareQuickCreateRequest } from '@/features/procurement/utils/prepare-quick-create-request';
 import { usePurchaseOrdersByBudgetLine } from '@/features/procurement/hooks/use-purchase-orders-by-budget-line';
+import type { PurchaseOrder } from '@/features/procurement/types/purchase-order.types';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -91,6 +92,24 @@ export function CreateInvoiceDialog({
   const poQuery = usePurchaseOrdersByBudgetLine(line.id, open);
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
+
+  const applyPurchaseOrderToForm = (po: PurchaseOrder) => {
+    setResolvedSupplier({ id: po.supplierId, name: po.supplier.name });
+    setValue('supplierName', po.supplier.name, { shouldValidate: true });
+    clearErrors('supplierName');
+    const tax = po.taxRate ?? baseTaxRate ?? 0;
+    setValue('taxRateInput', tax, { shouldValidate: true });
+    const ht = Number(po.amountHt) || 0;
+    setValue('amountHtInput', ht, { shouldValidate: true });
+    setLastEditedField('ht');
+    setValue('amountTtcInput', round2(ht * (1 + tax / 100)), { shouldValidate: true });
+    const hint = po.label?.trim();
+    setValue(
+      'label',
+      hint ? `Facture — ${po.reference} (${hint})` : `Facture — ${po.reference}`,
+      { shouldValidate: true },
+    );
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -209,7 +228,7 @@ export function CreateInvoiceDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto shadow-lg bg-white" showCloseButton>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto shadow-lg bg-background" showCloseButton>
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <DialogHeader>
@@ -224,6 +243,41 @@ export function CreateInvoiceDialog({
               </Alert>
             </div>
           )}
+
+          <div className="col-span-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <Label
+                htmlFor="invoice-purchaseOrderId"
+                className="shrink-0 text-sm font-medium sm:min-w-[11rem] sm:pt-0.5"
+              >
+                Commande (optionnel)
+              </Label>
+              <select
+                id="invoice-purchaseOrderId"
+                name="purchaseOrderId"
+                className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                value={watch('purchaseOrderId') ?? ''}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setValue('purchaseOrderId', id, { shouldValidate: true });
+                  if (!id) return;
+                  const po = (poQuery.data?.items ?? []).find((p) => p.id === id);
+                  if (po) applyPurchaseOrderToForm(po);
+                }}
+              >
+                <option value="">Aucune</option>
+                {(poQuery.data?.items ?? []).map((po) => (
+                  <option key={po.id} value={po.id}>
+                    {po.reference} - {po.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground sm:pl-[calc(11rem+0.75rem)]">
+              En choisissant une commande, fournisseur, libellé, montants et TVA sont préremplis (tu peux les
+              ajuster).
+            </p>
+          </div>
 
           <div className="grid gap-2">
             <Label htmlFor="invoice-supplierName">Fournisseur</Label>
@@ -272,22 +326,6 @@ export function CreateInvoiceDialog({
             {errors.invoiceNumber && (
               <p className="text-sm text-destructive">{errors.invoiceNumber.message}</p>
             )}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-purchaseOrderId">Commande (optionnel)</Label>
-            <select
-              id="invoice-purchaseOrderId"
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              {...register('purchaseOrderId')}
-            >
-              <option value="">Aucune</option>
-              {(poQuery.data?.items ?? []).map((po) => (
-                <option key={po.id} value={po.id}>
-                  {po.reference} - {po.label}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div className="grid gap-2">

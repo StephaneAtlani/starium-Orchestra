@@ -172,15 +172,17 @@ type BudgetComparison = {
     budget: number
     forecast: number
     consumed: number
+    committed: number
   }
   variance: {
     forecast: number
     consumed: number
   }
   diff: {
-    revisedAmount: number
+    budgetAmount: number
     forecastAmount: number
     consumedAmount: number
+    committedAmount: number
   }
   lines: ComparisonLine[]
 }
@@ -259,16 +261,9 @@ Cockpit
 
 ## 7.2 Table comparaison
 
-Colonnes :
+Pour chaque ligne (et totaux en pied de tableau) : **blocs** par axe (Budget / **Engagé** / Consommé / Prévisionnel) — côtés **gauche** et **droite**, avec **différences** alignées sur le moteur (API `BudgetComparisonResponse` : chaque ligne a `left` / `right` de type `ComparisonLineAmounts` avec `budgetAmount`, `forecastAmount`, `committedAmount`, `consumedAmount` ; `totals.committed`, `diff.committedAmount`). Les montants « Engagé » suivent la **même règle** que l’agrégat financier côté snapshot / lignes comparables.
 
-* ligne
-* budget gauche
-* budget droite
-* diff
-* variance forecast
-* statut
-
-Sous le tableau (données identiques) : **vue graphique** — barres groupées (totaux), anneaux (répartition / statuts), courbes (révisé par rang), barres d’écarts — implémentée en **SVG** (`comparison-charts-svg.tsx`, sans `recharts`).
+Sous le tableau (données identiques) : **vue graphique** — barres groupées (totaux), anneaux (répartition / statuts), courbes (révisé par rang), barres d’écarts — implémentée en **SVG** (`comparison-charts-svg.tsx`, `budget-comparison-kpi-charts.tsx`, sans `recharts`).
 
 ---
 
@@ -365,5 +360,6 @@ Le frontend :
 | **Enveloppe** | `app/(protected)/budget-envelopes/[envelopeId]/page.tsx` — bloc CockpitSurfaceCard forecast + `ForecastTable` paginée |
 | **Budget détail** | Vue pilotage **Comparaison** sur `/budgets/[budgetId]` : `BudgetReportingForecastPage` embarqué → `ForecastComparisonPanel` (baseline / versions figées, graphiques SVG) ; onglet **Forecast** séparé avec `ForecastKpiCards` + lien reporting |
 | **Tests Vitest** | `forecast-status-badge.spec.ts`, `comparison-diff.spec.ts`, `formatCurrency` dans `budget-formatters.spec.ts` |
+| **Engagé en comparaison** | API `apps/api/src/modules/budget-forecast/` (`budget-comparison.service.ts`, `mappers/budget-comparison.mapper.ts`, `types/budget-forecast.types.ts` — `ComparisonLineAmounts.committedAmount`, `totals.committed`, `diff.committedAmount`) ; UI `comparison-table.tsx`, `budget-comparison-kpi-charts.tsx`, types partagés `features/budgets/types/budget-forecast.types.ts` |
 
 Hors scope documenté ici : **drawer détail ligne** au clic (placeholder / futur).

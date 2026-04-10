@@ -6,10 +6,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -204,159 +206,265 @@ export function CreateOrderDialog({
     }
   };
 
+  const fieldLabel = 'text-sm font-medium text-foreground';
+  const fieldHint = 'text-xs text-muted-foreground';
+
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto shadow-lg bg-white" showCloseButton>
-        <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <DialogHeader>
-              <DialogTitle>Ajouter une commande</DialogTitle>
-            </DialogHeader>
-          </div>
-
-          {submitError && (
-            <div className="col-span-2">
-              <Alert variant="destructive">
-                <AlertDescription>{submitError.message}</AlertDescription>
-              </Alert>
-            </div>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          showCloseButton
+          className={cn(
+            'flex max-h-[min(90vh,820px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-lg',
+            'sm:max-w-2xl',
           )}
-
-          <div className="grid gap-2">
-            <Label htmlFor="order-supplierName">Fournisseur</Label>
-            <div className="min-w-0 flex-1">
-              <Controller
-                name="supplierName"
-                control={control}
-                render={({ field }) => (
-                  <SupplierSearchCombobox
-                    id="order-supplierName"
-                    name={field.name}
-                    ref={field.ref}
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    parentOpen={open}
-                    disabled={createOrder.isPending || quickCreateSupplier.isPending}
-                    aria-invalid={!!errors.supplierName}
-                    onManualInput={() => {
-                      setResolvedSupplier(null);
-                      clearErrors('supplierName');
-                    }}
-                    onSupplierPicked={(s) => {
-                      setResolvedSupplier(s);
-                      clearErrors('supplierName');
-                    }}
-                    hasSupplierSelection={resolvedSupplier != null}
-                    onValidateOnBlur={validateSupplierOnBlur}
-                    onRequestQuickCreate={(draftName) => requestQuickCreate(draftName)}
-                  />
-                )}
-              />
+        >
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <div className="shrink-0 border-b border-border/60 bg-card/50 px-5 pb-4 pt-5 pr-14 sm:px-6">
+              <DialogHeader className="space-y-2 text-left">
+                <DialogTitle className="flex items-start gap-3 text-xl font-semibold tracking-tight">
+                  <span
+                    className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/50 shadow-sm"
+                    aria-hidden
+                  >
+                    <ShoppingCart className="size-5 text-foreground/85" />
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span>Nouvelle commande</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      Ligne « {line.name} » · {line.currency}
+                    </span>
+                  </span>
+                </DialogTitle>
+                <DialogDescription className="text-left text-sm leading-relaxed text-muted-foreground">
+                  Choisis un fournisseur, libellé et montants. La référence est générée automatiquement si tu
+                  la laisses vide.
+                </DialogDescription>
+              </DialogHeader>
             </div>
-            {errors.supplierName && (
-              <p className="text-sm text-destructive">{errors.supplierName.message}</p>
-            )}
-          </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="order-reference">Référence (optionnel)</Label>
-            <Input
-              id="order-reference"
-              placeholder="Laisser vide pour génération auto"
-              {...register('reference')}
-              aria-invalid={!!errors.reference}
-            />
-            {errors.reference && (
-              <p className="text-sm text-destructive">{errors.reference.message}</p>
-            )}
-          </div>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
+              {submitError && (
+                <Alert variant="destructive" className="border-destructive/40">
+                  <AlertDescription>{submitError.message}</AlertDescription>
+                </Alert>
+              )}
 
-          <div className="grid gap-2">
-            <Label htmlFor="order-eventDate">Date</Label>
-            <Input id="order-eventDate" type="date" {...register('eventDate')} aria-invalid={!!errors.eventDate} />
-            {errors.eventDate && <p className="text-sm text-destructive">{errors.eventDate.message}</p>}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="order-label">Libellé</Label>
-            <Input id="order-label" {...register('label')} aria-invalid={!!errors.label} />
-            {errors.label && <p className="text-sm text-destructive">{errors.label.message}</p>}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="order-amountHtInput">Montant HT ({line.currency})</Label>
-            <Input
-              id="order-amountHtInput"
-              type="number"
-              step="0.01"
-              min={0}
-              {...register('amountHtInput', {
-                valueAsNumber: true,
-                onChange: () => setLastEditedField('ht'),
-              })}
-              aria-invalid={!!errors.amountHtInput}
-            />
-            {errors.amountHtInput && <p className="text-sm text-destructive">{errors.amountHtInput.message}</p>}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="order-taxRateInput">TVA % (taxRate)</Label>
-            <Input
-              id="order-taxRateInput"
-              type="number"
-              step="0.01"
-              min={0}
-              {...register('taxRateInput', {
-                valueAsNumber: true,
-                onChange: () => setLastEditedField('tax'),
-              })}
-              aria-invalid={!!errors.taxRateInput}
-            />
-            {errors.taxRateInput && (
-              <p className="text-sm text-destructive">{errors.taxRateInput.message}</p>
-            )}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="order-amountTtcInput">Montant TTC ({line.currency})</Label>
-            <Input
-              id="order-amountTtcInput"
-              type="number"
-              step="0.01"
-              min={0}
-              {...register('amountTtcInput', {
-                valueAsNumber: true,
-                onChange: () => setLastEditedField('ttc'),
-              })}
-              aria-invalid={!!errors.amountTtcInput}
-            />
-            {errors.amountTtcInput && <p className="text-sm text-destructive">{errors.amountTtcInput.message}</p>}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="order-description">Description (optionnel)</Label>
-            <Input id="order-description" {...register('description')} aria-invalid={!!errors.description} />
-          </div>
-
-          <div className="col-span-2">
-            <DialogFooter showCloseButton={false}>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                disabled={createOrder.isPending || quickCreateSupplier.isPending}
+              <section
+                className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
+                aria-labelledby="order-section-supplier"
               >
-                {createOrder.isPending || quickCreateSupplier.isPending ? 'Création…' : 'Créer'}
-              </Button>
-            </DialogFooter>
-          </div>
-        </form>
-      </DialogContent>
+                <h3
+                  id="order-section-supplier"
+                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Fournisseur
+                </h3>
+                <div className="grid gap-2">
+                  <Label htmlFor="order-supplierName" className={fieldLabel}>
+                    Recherche ou création
+                  </Label>
+                  <div className="min-w-0 flex-1">
+                    <Controller
+                      name="supplierName"
+                      control={control}
+                      render={({ field }) => (
+                        <SupplierSearchCombobox
+                          id="order-supplierName"
+                          name={field.name}
+                          ref={field.ref}
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          parentOpen={open}
+                          disabled={createOrder.isPending || quickCreateSupplier.isPending}
+                          aria-invalid={!!errors.supplierName}
+                          onManualInput={() => {
+                            setResolvedSupplier(null);
+                            clearErrors('supplierName');
+                          }}
+                          onSupplierPicked={(s) => {
+                            setResolvedSupplier(s);
+                            clearErrors('supplierName');
+                          }}
+                          hasSupplierSelection={resolvedSupplier != null}
+                          onValidateOnBlur={validateSupplierOnBlur}
+                          onRequestQuickCreate={(draftName) => requestQuickCreate(draftName)}
+                        />
+                      )}
+                    />
+                  </div>
+                  {errors.supplierName && (
+                    <p className="text-sm text-destructive">{errors.supplierName.message}</p>
+                  )}
+                </div>
+              </section>
 
-    </Dialog>
+              <section
+                className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
+                aria-labelledby="order-section-detail"
+              >
+                <h3
+                  id="order-section-detail"
+                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Détail de la commande
+                </h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="order-reference" className={fieldLabel}>
+                      Référence
+                    </Label>
+                    <p className={fieldHint}>Optionnel — sinon référence auto.</p>
+                    <Input
+                      id="order-reference"
+                      placeholder="Ex. BC-2026-00042"
+                      className="font-mono text-sm"
+                      {...register('reference')}
+                      aria-invalid={!!errors.reference}
+                    />
+                    {errors.reference && (
+                      <p className="text-sm text-destructive">{errors.reference.message}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="order-eventDate" className={fieldLabel}>
+                      Date de commande
+                    </Label>
+                    <Input
+                      id="order-eventDate"
+                      type="date"
+                      {...register('eventDate')}
+                      aria-invalid={!!errors.eventDate}
+                    />
+                    {errors.eventDate && (
+                      <p className="text-sm text-destructive">{errors.eventDate.message}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-2">
+                  <Label htmlFor="order-label" className={fieldLabel}>
+                    Libellé
+                  </Label>
+                  <Input
+                    id="order-label"
+                    placeholder="Objet court visible en liste"
+                    {...register('label')}
+                    aria-invalid={!!errors.label}
+                  />
+                  {errors.label && <p className="text-sm text-destructive">{errors.label.message}</p>}
+                </div>
+                <div className="mt-4 grid gap-2">
+                  <Label htmlFor="order-description" className={fieldLabel}>
+                    Description <span className="font-normal text-muted-foreground">(optionnel)</span>
+                  </Label>
+                  <Input
+                    id="order-description"
+                    placeholder="Précision interne, commentaire…"
+                    {...register('description')}
+                    aria-invalid={!!errors.description}
+                  />
+                </div>
+              </section>
+
+              <section
+                className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
+                aria-labelledby="order-section-amounts"
+              >
+                <h3
+                  id="order-section-amounts"
+                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Montants
+                </h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="grid gap-2">
+                    <Label htmlFor="order-amountHtInput" className={fieldLabel}>
+                      HT ({line.currency})
+                    </Label>
+                    <Input
+                      id="order-amountHtInput"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      className="tabular-nums"
+                      {...register('amountHtInput', {
+                        valueAsNumber: true,
+                        onChange: () => setLastEditedField('ht'),
+                      })}
+                      aria-invalid={!!errors.amountHtInput}
+                    />
+                    {errors.amountHtInput && (
+                      <p className="text-sm text-destructive">{errors.amountHtInput.message}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="order-taxRateInput" className={fieldLabel}>
+                      TVA %
+                    </Label>
+                    <Input
+                      id="order-taxRateInput"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      className="tabular-nums"
+                      {...register('taxRateInput', {
+                        valueAsNumber: true,
+                        onChange: () => setLastEditedField('tax'),
+                      })}
+                      aria-invalid={!!errors.taxRateInput}
+                    />
+                    {errors.taxRateInput && (
+                      <p className="text-sm text-destructive">{errors.taxRateInput.message}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="order-amountTtcInput" className={fieldLabel}>
+                      TTC ({line.currency})
+                    </Label>
+                    <Input
+                      id="order-amountTtcInput"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      className="tabular-nums"
+                      {...register('amountTtcInput', {
+                        valueAsNumber: true,
+                        onChange: () => setLastEditedField('ttc'),
+                      })}
+                      aria-invalid={!!errors.amountTtcInput}
+                    />
+                    {errors.amountTtcInput && (
+                      <p className="text-sm text-destructive">{errors.amountTtcInput.message}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Modifie HT, TTC ou TVA : les deux autres se recalculent selon le dernier champ saisi.
+                </p>
+              </section>
+            </div>
+
+            <div className="shrink-0 border-t border-border/60 bg-muted/25 px-5 py-4 sm:px-6">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Annuler
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createOrder.isPending || quickCreateSupplier.isPending}
+                  className="min-w-[7rem] sm:min-w-[8rem]"
+                >
+                  {createOrder.isPending || quickCreateSupplier.isPending ? 'Création…' : 'Créer la commande'}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -25,13 +25,29 @@ export function useBudgetPlanningQuickCalculator({
     [monthValues],
   );
 
+  /**
+   * Total utilisé pour l’affichage et les raccourcis « Appliquer ».
+   * Si Quantité et Prix unitaire sont tous deux renseignés, ils priment sur la somme des mois :
+   * sinon, dès qu’il existe une répartition mensuelle, l’ancien code ignorait Q×PU et le « Montant total »
+   * ne bougeait plus quand on modifiait la saisie rapide (grille déjà remplie ou mois résiduels).
+   */
   const effectiveTotal = useMemo(() => {
+    const qtyRaw = calcQuantity === '' ? NaN : Number(calcQuantity);
+    const unitRaw = calcUnitPrice === '' ? NaN : Number(calcUnitPrice);
+    const bothQuickFilled =
+      calcQuantity !== '' &&
+      calcUnitPrice !== '' &&
+      Number.isFinite(qtyRaw) &&
+      Number.isFinite(unitRaw);
+    const qp = bothQuickFilled ? qtyRaw * unitRaw : NaN;
+
+    if (bothQuickFilled && Number.isFinite(qp)) {
+      return qp;
+    }
+
     const hasMonths = monthValues.some((v) => v > 0);
-    const qty = calcQuantity === '' ? 0 : Number(calcQuantity);
-    const unit = calcUnitPrice === '' ? 0 : Number(calcUnitPrice);
-    const qp = !Number.isNaN(qty) && !Number.isNaN(unit) ? qty * unit : 0;
     if (hasMonths) return monthTotal;
-    return qp;
+    return Number.isFinite(qp) ? qp : 0;
   }, [calcQuantity, calcUnitPrice, monthTotal, monthValues]);
 
   const canApplyCalculetteTotal = useMemo(() => {
