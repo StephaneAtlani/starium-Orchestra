@@ -81,8 +81,6 @@ function ExplorerSortableHead({
   align = 'left',
   headClassName,
   prefix,
-  /** Libellé au-dessus de la ligne triable (ex. « Statut » pour colonner avec le corps du tableau). */
-  stackedLead,
 }: {
   label: string;
   column: SortableColumn;
@@ -90,9 +88,8 @@ function ExplorerSortableHead({
   onSortPresetChange: (preset: ExplorerSortPreset) => void;
   align?: 'left' | 'right';
   headClassName?: string;
-  /** Ex. boutons tout développer / réduire les enveloppes (colonne Sous-budget). */
+  /** Ex. boutons tout développer / réduire les enveloppes (colonne Libellé). */
   prefix?: React.ReactNode;
-  stackedLead?: string;
 }) {
   const state = explorerSortPresetToState(sortPreset);
   const active = state.column === column;
@@ -107,40 +104,33 @@ function ExplorerSortableHead({
         headClassName,
       )}
     >
-      <div className={cn('flex max-w-full flex-col gap-1', align === 'right' && 'items-end')}>
-        {stackedLead ? (
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {stackedLead}
-          </span>
-        ) : null}
-        <div
+      <div
+        className={cn(
+          'flex max-w-full items-center gap-1.5',
+          align === 'right' && 'justify-end',
+        )}
+      >
+        {prefix}
+        <button
+          type="button"
           className={cn(
-            'flex max-w-full items-center gap-1.5',
-            align === 'right' && 'justify-end',
+            '-mx-1 inline-flex min-w-0 max-w-full flex-1 items-center gap-1 rounded-md px-1 py-0.5 text-left font-medium hover:bg-muted/80 hover:text-foreground',
+            align === 'right' && 'w-full justify-end text-right',
           )}
+          onClick={() => onSortPresetChange(toggleExplorerSortColumn(sortPreset, column))}
+          aria-sort={
+            active ? (state.direction === 'asc' ? 'ascending' : 'descending') : 'none'
+          }
         >
-          {prefix}
-          <button
-            type="button"
+          <span className="whitespace-nowrap">{label}</span>
+          <Icon
             className={cn(
-              '-mx-1 inline-flex min-w-0 max-w-full flex-1 items-center gap-1 rounded-md px-1 py-0.5 text-left font-medium hover:bg-muted/80 hover:text-foreground',
-              align === 'right' && 'w-full justify-end text-right',
+              'size-3.5 shrink-0',
+              active ? 'text-primary' : 'text-muted-foreground opacity-60',
             )}
-            onClick={() => onSortPresetChange(toggleExplorerSortColumn(sortPreset, column))}
-            aria-sort={
-              active ? (state.direction === 'asc' ? 'ascending' : 'descending') : 'none'
-            }
-          >
-            <span className="whitespace-nowrap">{label}</span>
-            <Icon
-              className={cn(
-                'size-3.5 shrink-0',
-                active ? 'text-primary' : 'text-muted-foreground opacity-60',
-              )}
-              aria-hidden
-            />
-          </button>
-        </div>
+            aria-hidden
+          />
+        </button>
       </div>
     </TableHead>
   );
@@ -246,13 +236,15 @@ export function BudgetExplorerTable({
       <Table className={cn(tableMinW)} data-testid="budget-explorer-table">
         <TableHeader>
           <TableRow>
+            <TableHead className="min-w-[7rem] w-[7rem] whitespace-nowrap font-medium">
+              Statut
+            </TableHead>
             <ExplorerSortableHead
-              stackedLead="Statut"
               label="Libellé"
               column="name"
               sortPreset={sortPreset}
               onSortPresetChange={onSortPresetChange}
-              headClassName="min-w-[260px] max-w-[28rem]"
+              headClassName="min-w-[200px] max-w-[24rem]"
               prefix={bulkControls}
             />
             <TableHead className="min-w-[7rem] whitespace-nowrap">Responsable</TableHead>
@@ -338,13 +330,11 @@ export function BudgetExplorerTable({
     <Table className={cn(tableMinW)} data-testid="budget-explorer-table">
       <TableHeader>
         <TableRow>
-          <TableHead className="min-w-[260px] max-w-[28rem]">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-1.5">{bulkControls}</div>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Statut
-              </span>
-              <span className="text-sm font-medium leading-none">Libellé</span>
+          <TableHead className="min-w-[7rem] w-[7rem] whitespace-nowrap font-medium">Statut</TableHead>
+          <TableHead className="min-w-[200px] max-w-[28rem]">
+            <div className="flex items-center gap-1.5">
+              {bulkControls}
+              <span className="font-medium">Libellé</span>
             </div>
           </TableHead>
           {headers.map((h) => (

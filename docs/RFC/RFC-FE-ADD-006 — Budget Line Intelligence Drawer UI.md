@@ -167,7 +167,7 @@ Le composant est un **volet horizontal large**, fixé en bas du viewport ou de l
 Caractéristiques recommandées :
 
 * largeur : 100% de la zone contenu
-* hauteur : 55 à 75 vh selon viewport
+* hauteur : 55 à 75 vh selon viewport ; **à l’ouverture (sm+)**, le panneau est **déplié / agrandi** (quasi plein viewport) par défaut ; la poignée permet de réduire ou réagrandir ; état réinitialisé à la fermeture
 * header fixe
 * body scrollable
 * footer optionnel fixe pour actions principales

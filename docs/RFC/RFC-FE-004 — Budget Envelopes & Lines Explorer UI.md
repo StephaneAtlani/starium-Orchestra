@@ -173,8 +173,8 @@ Le tableau contient les colonnes suivantes.
 
 | Colonne | Description                                      |
 | ------- | ------------------------------------------------ |
-| État    | statut de l’enveloppe ou de la ligne (badge UI) |
-| Sous-budget | nom enveloppe / nom ligne                   |
+| Statut  | ligne budgétaire : badge de statut ; enveloppe : tiret (—), pas de badge statut ligne |
+| Libellé | indentation + chevron ; nom enveloppe ou nom ligne ; en mode synthèse, tri sur le nom |
 | Responsable | owner                                        |
 | Type    | RUN / BUILD (enveloppe) ou OPEX/CAPEX (ligne)   |
 | Budget  | montant total                                   |

@@ -68,7 +68,7 @@ features/budgets/
 │   ├── budgets-table.tsx               # Table liste budgets (RFC-FE-003)
 │   ├── budget-list-table.tsx
 │   ├── budget-lines-progress.tsx       # Barre Consommé % / Solde % (RFC-FE-004)
-│   ├── budget-explorer-table.tsx      # Tableau hiérarchique enveloppes/lignes (RFC-FE-004)
+│   ├── budget-explorer-table.tsx      # Tableau hiérarchique enveloppes/lignes — Statut + Libellé à gauche (RFC-FE-004)
 │   ├── budget-explorer-row.tsx         # Ligne expandable enveloppe ou ligne budgétaire (RFC-FE-004)
 │   ├── budget-status-badge.tsx
 │   ├── budget-empty-state.tsx
@@ -215,7 +215,7 @@ Les hooks **forecast** (RFC-FE-BUD-030) vivent sous `forecast/hooks/`. Les autre
 | `BudgetsTable` | Table liste budgets (RFC-FE-003) |
 | `BudgetLinesProgress` | Barre Consommé % / Solde % pour une ligne budgétaire (RFC-FE-004) |
 | `BudgetExplorerTable` | Tableau hiérarchique enveloppes/lignes, expand/collapse (RFC-FE-004) |
-| `BudgetExplorerRow` | Ligne enveloppe ou ligne budgétaire (indentation, chevron, aria) ; **lecture seule** sur les montants — clic sur le **nom** → drawer intelligence ([RFC-FE-ADD-006](../RFC/RFC-FE-ADD-006%20%E2%80%94%20Budget%20Line%20Intelligence%20Drawer%20UI.md)) ; pas d’édition inline ni d’UI planning dans la ligne |
+| `BudgetExplorerRow` | Ligne enveloppe ou ligne budgétaire ; **Statut** (étroit : badge ligne ou « — » enveloppe) puis **Libellé** (indentation, chevron, aria) ; **lecture seule** sur les montants — clic sur le **libellé** (nom) → drawer intelligence ([RFC-FE-ADD-006](../RFC/RFC-FE-ADD-006%20%E2%80%94%20Budget%20Line%20Intelligence%20Drawer%20UI.md)) ; pas d’édition inline ni d’UI planning dans la ligne |
 | `BudgetPilotageSection` / `BudgetTable` | Onglet **Pilotage** sur `/budgets/[budgetId]` : planning mensuel / atterrissage / forecast ([RFC-024](../RFC/RFC-024%20%E2%80%94%20Budget%20UI.md), [RFC-023](../RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md)) |
 | `BudgetLineIntelligenceDrawer` | Drawer bas (onglets ligne) — [RFC-FE-ADD-006](../RFC/RFC-FE-ADD-006%20%E2%80%94%20Budget%20Line%20Intelligence%20Drawer%20UI.md) |
 | `PaginationSummary` | "1–20 sur N résultats" (RFC-FE-003) |

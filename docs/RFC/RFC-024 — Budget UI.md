@@ -86,7 +86,7 @@ Il est alimenté différemment selon :
 
 ## Mode Mensuel
 
-Schéma simplifié (la colonne **Sous-budget** / arbre est à gauche, hors tableau de données) :
+Schéma simplifié (deux colonnes à gauche **Statut** puis **Libellé** — arbre d’indentation sur le libellé ; puis le tableau de données) :
 
 ```text
 | … | Calc. | Budget initial | Budget révisé | Écart prév. / rév. | % écart prév. | Commentaire | M1…M12 (exercice) | Total |
@@ -115,7 +115,7 @@ Code : `apps/web/src/features/budgets/lib/budget-table-columns.factory.ts` (en-t
 
 ## Mode Condensé
 
-Mêmes colonnes de tête que le mode mensuel, puis agrégation **T1–T4** et **Total** (pas de colonnes mois individuelles).
+Mêmes colonnes de tête que le mode mensuel (y compris à gauche **Statut** puis **Libellé**), puis agrégation **T1–T4** et **Total** (pas de colonnes mois individuelles).
 
 ```text
 | … | Calc. | … | % écart prév. | Commentaire | T1 | T2 | T3 | T4 | Total |

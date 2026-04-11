@@ -340,7 +340,7 @@ Repli **env** (`PROCUREMENT_S3_*`) documenté dans [API.md](../API.md) et compos
 
 # 8. UI/UX (principes)
 
-* **Phase 1 (livré)** : section **« Documents »** dans le dialogue **Modifier facture / commande** depuis le **contexte budget** (timeline / événements de ligne) — composant `ProcurementAttachmentsPanel`, droits `procurement.read` / `procurement.update`.
+* **Phase 1 (livré)** : section **« Documents »** dans les dialogues **création / modification** facture ou commande depuis le **contexte budget** (timeline / événements de ligne) — composant `ProcurementAttachmentsPanel`, droits `procurement.read` / `procurement.update` ; après **création** sans PJ dans le formulaire, **étape documents** ou redirection fiche avec zone **documents en attente** jusqu’à upload. Sur **fiche commande** dédiée, catégories d’attachement **sans** type réservé à la facture ; libellés de catégorie **métier** (pas de code technique brut dans les `Select`). Listes / fiches **commandes** et **factures** sous `/procurement/...` avec le même panneau documents.
 * **Cible produit** : étendre une section **« Documents »** sur chaque fiche (devis, commande, facture) : tableau avec tri par date, badge catégorie, actions télécharger / ajouter (selon droits).
 * **V1** : le frontend **ne reçoit jamais** `objectKey`, `storageBucket`, `checksumSha256`, URL MinIO, URL signée, ni `storageKey` technique ; téléchargement **uniquement** via `GET …/attachments/:attachmentId/download` (flux streamé par l’API).
 * **Jamais** afficher UUID comme libellé principal (règles habituelles *valeur métier*).
@@ -400,3 +400,4 @@ Cette RFC introduit une **GED métier procurement** centrée sur **devis**, **co
 | 2026-04 | — | Alignement V1 : MinIO privé Docker, API seule entrée, pas de signed URL ; V2 EXTERNAL/MICROSOFT ; sécurité fichier §4.3 ; phasage §9 |
 | 2026-04 | — | Retrait plafond agrégé stockage V1 : garde-fous taille/MIME uniquement ; volumétrie = monitoring exploitation |
 | 2026-04 | — | Doc : alignement RFC / ARCHITECTURE / API sur **Phase 1 livrée** (PO & facture, settings plateforme S3, UI dialog budget) |
+| 2026-04 | — | Doc : UI création + fiches `/procurement`, documents en attente, catégories PO ; alignement avec le code web |

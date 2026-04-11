@@ -54,7 +54,7 @@ const PREVISIONNEL_LEADING_COLS: BudgetPilotageColumnHeader[] = [
 ];
 
 /**
- * En-têtes des colonnes de données (hors colonne arbre « Sous-budget »).
+ * En-têtes des colonnes de données (hors colonnes Statut + Libellé).
  */
 export function getBudgetPilotageColumnHeaders(
   mode: BudgetPilotageMode,

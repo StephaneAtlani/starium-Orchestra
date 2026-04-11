@@ -505,8 +505,9 @@ Implémentation : `**apps/web/src/components/ui/dialog.tsx`** (Base UI `Backdrop
 
 | Élément      | Pattern                                                                                                                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Backdrop** | Voile d’atténuation : `bg-black/30` en clair, `dark:bg-black/50` en sombre ; léger flou `supports-backdrop-filter:backdrop-blur-[2px]` ; `duration-200` ; animations fade `data-open` / `data-closed`. |
-| **Panneau**  | `rounded-xl border border-border/60 bg-background shadow-sm` (§2 — bordure token explicite, ombre légère ; éviter un `ring` seul trop contrasté sur fond clair).                                       |
+| **Backdrop** | Voile : `fixed inset-0 z-[80]`, `bg-black/40`, `dark:bg-black/55`, léger flou `backdrop-blur-[2px]` ; `duration-200` ; animations fade `data-open` / `data-closed`. Attribut **`forceRender`** sur le `Backdrop` pour que le voile reste correctement empilé en **dialogues imbriqués** (Base UI). |
+| **Panneau**  | `Popup` : `z-[81]`, `rounded-xl border border-border/60`, `bg-background/95`, `backdrop-blur-2xl`, `shadow-lg`, `ring-1 ring-black/[0.04]` (`dark:ring-white/[0.06]`) — panneau type « vitré » au-dessus du voile (§2). |
+| **Fermeture** | Clic sur le **voile** (bouton gauche, cible = le scrim) appelle `onOpenChange(false)` lorsque le `Dialog` racine reçoit **`onOpenChange`** ; un contexte interne relie le backdrop à cette fermeture. |
 | **Titre**    | `DialogTitle` : `text-lg font-semibold tracking-tight text-foreground` (cohérent avec les modales métier §12.2).                                                                                       |
 | **Pied**     | `DialogFooter` : `border-t border-border/60` sur le séparateur (§2).                                                                                                                                   |
 
@@ -643,4 +644,4 @@ Implémentation : `app/(protected)/resources/page.tsx`.
 
 ---
 
-*Dernière mise à jour : §11.3.1 norme modale formulaire dense (bandeau header, alignement `pl-7 sm:pl-8` — réf. `ProjectRiskEbiosDialog`) ; §11.3 modales globales (`dialog.tsx`) ; §12.4 page `Ressources` ; §12.3 `PersonCatalogPickerDialog` ; §12.2 modale responsable projet ; §12.1 2FA ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*
+*Dernière mise à jour : §11.3.1 norme modale formulaire dense (bandeau header, alignement `pl-7 sm:pl-8` — réf. `ProjectRiskEbiosDialog`) ; §11.3 modales globales (`dialog.tsx` : voile `bg-black/40` · `backdrop-blur-[2px]`, panneau vitré `z-[81]`, `forceRender`, fermeture au clic scrim) ; §12.4 page `Ressources` ; §12.3 `PersonCatalogPickerDialog` ; §12.2 modale responsable projet ; §12.1 2FA ; sidebar §3.1 ; fiche projet §11.2 ; cockpit Projets §6.1 / §7 / §8.1 / §11.1.*

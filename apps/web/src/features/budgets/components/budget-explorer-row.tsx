@@ -82,41 +82,41 @@ export function BudgetExplorerRow({
       return (
         <>
           <TableRow data-testid={`explorer-row-envelope-${env.id}`}>
+            <TableCell className="align-middle min-w-[7rem] w-[7rem] max-w-[7rem] whitespace-nowrap text-muted-foreground">
+              —
+            </TableCell>
             <TableCell
-              className="align-middle min-w-[260px] max-w-[28rem]"
+              className="align-middle min-w-[200px] max-w-[24rem]"
               style={{ paddingLeft: `${12 + depth * 20}px` }}
             >
-              <div className="flex min-w-0 flex-col gap-1">
-                <span className="h-5 shrink-0" aria-hidden />
-                <div className="flex flex-wrap items-center gap-1">
-                  {hasChildren ? (
-                    <button
-                      type="button"
-                      onClick={() => onToggleExpand(env.id)}
-                      onKeyDown={(e) => handleKeyDown(e, env.id)}
-                      aria-expanded={isExpanded}
-                      aria-label={isExpanded ? `Réduire ${env.name}` : `Développer ${env.name}`}
-                      className="rounded p-0.5 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="size-4" />
-                      ) : (
-                        <ChevronRight className="size-4" />
-                      )}
-                    </button>
-                  ) : (
-                    <span className="w-5" aria-hidden />
-                  )}
-                  <Link
-                    href={`/budget-envelopes/${env.id}`}
-                    className="break-words font-medium text-primary hover:underline"
+              <div className="flex flex-wrap items-center gap-1">
+                {hasChildren ? (
+                  <button
+                    type="button"
+                    onClick={() => onToggleExpand(env.id)}
+                    onKeyDown={(e) => handleKeyDown(e, env.id)}
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? `Réduire ${env.name}` : `Développer ${env.name}`}
+                    className="rounded p-0.5 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
                   >
-                    {env.name}
-                  </Link>
-                  {env.code && (
-                    <span className="shrink-0 text-muted-foreground text-xs">({env.code})</span>
-                  )}
-                </div>
+                    {isExpanded ? (
+                      <ChevronDown className="size-4" />
+                    ) : (
+                      <ChevronRight className="size-4" />
+                    )}
+                  </button>
+                ) : (
+                  <span className="w-5" aria-hidden />
+                )}
+                <Link
+                  href={`/budget-envelopes/${env.id}`}
+                  className="break-words font-medium text-primary hover:underline"
+                >
+                  {env.name}
+                </Link>
+                {env.code && (
+                  <span className="shrink-0 text-muted-foreground text-xs">({env.code})</span>
+                )}
               </div>
             </TableCell>
             <TableCell className="min-w-[7rem] whitespace-nowrap text-muted-foreground">
@@ -176,41 +176,41 @@ export function BudgetExplorerRow({
     return (
       <>
         <TableRow data-testid={`explorer-row-envelope-${env.id}`}>
+          <TableCell className="align-middle min-w-[7rem] w-[7rem] max-w-[7rem] whitespace-nowrap text-muted-foreground">
+            —
+          </TableCell>
           <TableCell
-            className="align-middle min-w-[260px] max-w-[28rem]"
+            className="align-middle min-w-[200px] max-w-[28rem]"
             style={{ paddingLeft: `${12 + depth * 20}px` }}
           >
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="h-5 shrink-0" aria-hidden />
-              <div className="flex flex-wrap items-center gap-1">
-                {hasChildren ? (
-                  <button
-                    type="button"
-                    onClick={() => onToggleExpand(env.id)}
-                    onKeyDown={(e) => handleKeyDown(e, env.id)}
-                    aria-expanded={isExpanded}
-                    aria-label={isExpanded ? `Réduire ${env.name}` : `Développer ${env.name}`}
-                    className="rounded p-0.5 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="size-4" />
-                    ) : (
-                      <ChevronRight className="size-4" />
-                    )}
-                  </button>
-                ) : (
-                  <span className="w-5" aria-hidden />
-                )}
-                <Link
-                  href={`/budget-envelopes/${env.id}`}
-                  className="break-words font-medium text-primary hover:underline"
+            <div className="flex flex-wrap items-center gap-1">
+              {hasChildren ? (
+                <button
+                  type="button"
+                  onClick={() => onToggleExpand(env.id)}
+                  onKeyDown={(e) => handleKeyDown(e, env.id)}
+                  aria-expanded={isExpanded}
+                  aria-label={isExpanded ? `Réduire ${env.name}` : `Développer ${env.name}`}
+                  className="rounded p-0.5 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  {env.name}
-                </Link>
-                {env.code && (
-                  <span className="shrink-0 text-muted-foreground text-xs">({env.code})</span>
-                )}
-              </div>
+                  {isExpanded ? (
+                    <ChevronDown className="size-4" />
+                  ) : (
+                    <ChevronRight className="size-4" />
+                  )}
+                </button>
+              ) : (
+                <span className="w-5" aria-hidden />
+              )}
+              <Link
+                href={`/budget-envelopes/${env.id}`}
+                className="break-words font-medium text-primary hover:underline"
+              >
+                {env.name}
+              </Link>
+              {env.code && (
+                <span className="shrink-0 text-muted-foreground text-xs">({env.code})</span>
+              )}
             </div>
           </TableCell>
           <PilotageEnvelopeDataCells colCount={pilotageDataColCount} />
@@ -289,28 +289,28 @@ function BudgetExplorerLineRow({
           data-testid={`explorer-row-line-${line.id}`}
           className="hover:bg-muted/40"
         >
+          <TableCell className="align-middle min-w-[7rem] w-[7rem] max-w-[7rem] whitespace-nowrap">
+            <BudgetStatusBadge
+              status={line.status}
+              className="h-5 px-2 text-[10px] uppercase"
+            />
+          </TableCell>
           <TableCell
-            className="align-middle min-w-[260px] max-w-[28rem] text-foreground pl-0"
+            className="align-middle min-w-[200px] max-w-[24rem] text-foreground pl-0"
             style={{ paddingLeft: `${12 + depth * 20}px` }}
           >
-            <div className="flex min-w-0 flex-col items-stretch gap-1">
-              <BudgetStatusBadge
-                status={line.status}
-                className="h-5 w-fit px-2 text-[10px] uppercase"
-              />
-              <button
-                type="button"
-                onClick={() => onBudgetLineClick?.(line.id)}
-                className={cn(
-                  'min-w-0 max-w-full text-left text-sm leading-snug break-words hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded',
-                  !onBudgetLineClick && 'cursor-default hover:no-underline',
-                )}
-                aria-label={`Ouvrir la ligne budgétaire ${line.name}`}
-                disabled={!onBudgetLineClick}
-              >
-                {line.name}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => onBudgetLineClick?.(line.id)}
+              className={cn(
+                'min-w-0 max-w-full text-left text-sm leading-snug break-words hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded',
+                !onBudgetLineClick && 'cursor-default hover:no-underline',
+              )}
+              aria-label={`Ouvrir la ligne budgétaire ${line.name}`}
+              disabled={!onBudgetLineClick}
+            >
+              {line.name}
+            </button>
           </TableCell>
           <TableCell className="min-w-[7rem] whitespace-nowrap text-muted-foreground">—</TableCell>
           <TableCell className="min-w-[5.5rem] whitespace-nowrap">{line.expenseType}</TableCell>
@@ -386,28 +386,28 @@ function BudgetExplorerLineRow({
         data-testid={`explorer-row-line-${line.id}`}
         className="hover:bg-muted/40"
       >
+        <TableCell className="align-middle min-w-[7rem] w-[7rem] max-w-[7rem] whitespace-nowrap">
+          <BudgetStatusBadge
+            status={line.status}
+            className="h-5 px-2 text-[10px] uppercase"
+          />
+        </TableCell>
         <TableCell
-          className="align-middle min-w-[260px] max-w-[28rem] text-foreground pl-0"
+          className="align-middle min-w-[200px] max-w-[28rem] text-foreground pl-0"
           style={{ paddingLeft: `${12 + depth * 20}px` }}
         >
-          <div className="flex min-w-0 flex-col items-stretch gap-1">
-            <BudgetStatusBadge
-              status={line.status}
-              className="h-5 w-fit px-2 text-[10px] uppercase"
-            />
-            <button
-              type="button"
-              onClick={() => onBudgetLineClick?.(line.id)}
-              className={cn(
-                'min-w-0 max-w-full text-left text-sm leading-snug break-words hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded',
-                !onBudgetLineClick && 'cursor-default hover:no-underline',
-              )}
-              aria-label={`Ouvrir la ligne budgétaire ${line.name}`}
-              disabled={!onBudgetLineClick}
-            >
-              {line.code ? `${line.code} · ${line.name}` : line.name}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => onBudgetLineClick?.(line.id)}
+            className={cn(
+              'min-w-0 max-w-full text-left text-sm leading-snug break-words hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded',
+              !onBudgetLineClick && 'cursor-default hover:no-underline',
+            )}
+            aria-label={`Ouvrir la ligne budgétaire ${line.name}`}
+            disabled={!onBudgetLineClick}
+          >
+            {line.code ? `${line.code} · ${line.name}` : line.name}
+          </button>
         </TableCell>
         <PilotageLineDataCells
           line={line}
