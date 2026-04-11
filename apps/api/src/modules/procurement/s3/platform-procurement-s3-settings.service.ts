@@ -8,16 +8,21 @@ import {
   HeadBucketCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { ProcurementStorageDriver } from '@prisma/client';
+import { constants as fsConstants } from 'node:fs';
+import { access, mkdir } from 'node:fs/promises';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MicrosoftTokenCryptoService } from '../../microsoft/microsoft-token-crypto.service';
-import { ProcurementS3ConfigResolverService } from './procurement-s3-config.resolver.service';
 import { UpdatePlatformProcurementS3SettingsDto } from './dto/update-platform-procurement-s3-settings.dto';
+import { ProcurementStorageResolutionService } from './procurement-storage-resolution.service';
 
 const SETTINGS_ID = 'default';
 
 export interface PlatformProcurementS3SettingsPublic {
   id: string;
   enabled: boolean;
+  storageDriver: ProcurementStorageDriver;
+  localRoot: string | null;
   endpoint: string | null;
   region: string | null;
   accessKey: string | null;
@@ -26,8 +31,12 @@ export interface PlatformProcurementS3SettingsPublic {
   useSsl: boolean;
   forcePathStyle: boolean;
   updatedAt: Date;
-  /** Source effective pour les opérations S3 après merge (db / env / indisponible). */
+  /** Source effective pour les opérations S3 (db / env / indisponible). */
   effectiveSource: 'db' | 'env' | 'none';
+  /** Driver effectif après override env `PROCUREMENT_STORAGE_DRIVER` (RFC-035). */
+  effectiveDriver: 'local' | 's3';
+  /** Origine de la racine locale lorsque `effectiveDriver === local`. */
+  effectiveLocalRootSource: 'env' | 'db' | 'none';
 }
 
 @Injectable()
@@ -37,12 +46,14 @@ export class PlatformProcurementS3SettingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: MicrosoftTokenCryptoService,
-    private readonly resolver: ProcurementS3ConfigResolverService,
+    private readonly storageResolution: ProcurementStorageResolutionService,
   ) {}
 
   private toPublic(row: {
     id: string;
     enabled: boolean;
+    storageDriver: ProcurementStorageDriver;
+    localRoot: string | null;
     endpoint: string | null;
     region: string | null;
     accessKey: string | null;
@@ -51,10 +62,15 @@ export class PlatformProcurementS3SettingsService {
     useSsl: boolean;
     forcePathStyle: boolean;
     updatedAt: Date;
-  }): Omit<PlatformProcurementS3SettingsPublic, 'effectiveSource'> {
+  }): Omit<
+    PlatformProcurementS3SettingsPublic,
+    'effectiveSource' | 'effectiveDriver' | 'effectiveLocalRootSource'
+  > {
     return {
       id: row.id,
       enabled: row.enabled,
+      storageDriver: row.storageDriver,
+      localRoot: row.localRoot,
       endpoint: row.endpoint,
       region: row.region,
       accessKey: row.accessKey,
@@ -75,11 +91,8 @@ export class PlatformProcurementS3SettingsService {
         data: { id: SETTINGS_ID },
       });
     }
-    const resolved = await this.resolver.resolve();
-    const effectiveSource: 'db' | 'env' | 'none' = resolved
-      ? resolved.source
-      : 'none';
-    return { ...this.toPublic(row), effectiveSource };
+    const meta = await this.storageResolution.getEffectiveMetadataForRow(row);
+    return { ...this.toPublic(row), ...meta };
   }
 
   async patch(
@@ -87,6 +100,10 @@ export class PlatformProcurementS3SettingsService {
   ): Promise<PlatformProcurementS3SettingsPublic> {
     const data: Record<string, unknown> = {};
     if (dto.enabled !== undefined) data.enabled = dto.enabled;
+    if (dto.storageDriver !== undefined) data.storageDriver = dto.storageDriver;
+    if (dto.localRoot !== undefined) {
+      data.localRoot = dto.localRoot?.trim() || null;
+    }
     if (dto.endpoint !== undefined) data.endpoint = dto.endpoint?.trim() || null;
     if (dto.region !== undefined) data.region = dto.region?.trim() || null;
     if (dto.accessKey !== undefined) data.accessKey = dto.accessKey?.trim() || null;
@@ -110,10 +127,55 @@ export class PlatformProcurementS3SettingsService {
     });
 
     if (updated.enabled) {
-      await this.assertConnectivity(updated);
+      await this.assertStorageConnectivity(updated);
     }
 
     return this.get();
+  }
+
+  private async assertStorageConnectivity(
+    row: {
+      storageDriver: ProcurementStorageDriver;
+      enabled: boolean;
+      localRoot: string | null;
+      endpoint: string | null;
+      region: string | null;
+      accessKey: string | null;
+      secretKeyEncrypted: string | null;
+      bucket: string | null;
+      useSsl: boolean;
+      forcePathStyle: boolean;
+    },
+  ): Promise<void> {
+    const driver = this.storageResolution.effectiveDriverFromRow(row);
+    if (driver === ProcurementStorageDriver.LOCAL) {
+      await this.assertLocalConnectivity(row);
+      return;
+    }
+    await this.assertS3Connectivity(row);
+  }
+
+  private async assertLocalConnectivity(
+    row: {
+      enabled: boolean;
+      localRoot: string | null;
+    },
+  ): Promise<void> {
+    const lr = this.storageResolution.resolveLocalRootFromRow(row);
+    if (!lr) {
+      throw new BadRequestException(
+        'Stockage local : définir PROCUREMENT_LOCAL_ROOT ou localRoot plateforme avec « activé ».',
+      );
+    }
+    try {
+      await mkdir(lr.path, { recursive: true });
+      await access(lr.path, fsConstants.W_OK);
+    } catch (e) {
+      this.logger.warn(`Local storage check failed: ${(e as Error).message}`);
+      throw new BadRequestException(
+        'Répertoire de stockage local inaccessible ou non inscriptible.',
+      );
+    }
   }
 
   private buildClientFromRow(row: {
@@ -149,13 +211,13 @@ export class PlatformProcurementS3SettingsService {
     });
   }
 
-  private async assertConnectivity(
+  private async assertS3Connectivity(
     row: Parameters<PlatformProcurementS3SettingsService['buildClientFromRow']>[0] & {
       bucket: string | null;
     },
   ): Promise<void> {
     if (!row.bucket?.trim()) {
-      throw new BadRequestException('Bucket requis lorsque le stockage est activé.');
+      throw new BadRequestException('Bucket requis lorsque le stockage objet (S3) est activé.');
     }
     const client = this.buildClientFromRow(row);
     const bucket = row.bucket.trim();
@@ -179,7 +241,7 @@ export class PlatformProcurementS3SettingsService {
         `S3 connectivity check failed: ${(e as Error).message}`,
       );
       throw new BadRequestException(
-        'Connexion S3/MinIO impossible (vérifier endpoint, identifiants et nom du bucket).',
+        'Connexion S3 impossible (vérifier endpoint, identifiants et nom du bucket).',
       );
     }
   }

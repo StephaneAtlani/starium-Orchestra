@@ -4,7 +4,7 @@
 
 **Draft** — spécification produit et technique globale (devis → facture) ; les phases §9 détaillent le découpage livrable.
 
-**Implémentation au dépôt — Phase 1 (code)** : registre **`ProcurementAttachment`** rattaché à **`PurchaseOrder`** ou **`Invoice`** uniquement (contrainte SQL **XOR** sur ces deux FK — **pas** de `SupplierQuotation` / troisième parent en base). Stockage binaire **S3-compatible** (MinIO en Docker, **sans** exposition publique des ports) ; **NestJS** seul point d’entrée upload / download stream. **Configuration plateforme** persistée **`PlatformProcurementS3Settings`** + routes **`GET|PATCH /api/platform/procurement-s3-settings`** (`JwtAuthGuard` + `PlatformAdminGuard`, pas de `X-Client-Id`) ; secret chiffré au repos, indicateur **`hasSecret`** en lecture ; repli variables d’environnement **`PROCUREMENT_S3_*`** si config DB inactive ou incomplète. **Audit** : actions `procurement_attachment.uploaded`, `downloaded`, `archived`, `access_denied`, `archive_denied`. **UI** : panneau **Documents** dans le dialogue d’édition facture / commande depuis le **contexte budget** (`apps/web/.../edit-procurement-event-dialog.tsx`) ; permissions `procurement.read` (liste, téléchargement) et `procurement.update` (upload, archivage). Contrat HTTP détaillé : [docs/API.md](../API.md).
+**Implémentation au dépôt — Phase 1 (code)** : registre **`ProcurementAttachment`** rattaché à **`PurchaseOrder`** ou **`Invoice`** uniquement (contrainte SQL **XOR** sur ces deux FK — **pas** de `SupplierQuotation` / troisième parent en base). Stockage binaire **disque local (défaut compose) ou S3-compatible** (MinIO / AWS, etc.) — voir [RFC-035](./RFC-035%20%E2%80%94%20Procurement%20stockage%20local%20et%20dual%20backend.md) ; **NestJS** seul point d’entrée upload / download stream. **Configuration plateforme** persistée **`PlatformProcurementS3Settings`** + routes **`GET|PATCH /api/platform/procurement-s3-settings`** (`JwtAuthGuard` + `PlatformAdminGuard`, pas de `X-Client-Id`) ; secret chiffré au repos, indicateur **`hasSecret`** en lecture ; variables d’environnement **`PROCUREMENT_STORAGE_DRIVER`**, **`PROCUREMENT_LOCAL_ROOT`**, **`PROCUREMENT_S3_*`** (priorités documentées RFC-035 / API.md). **Audit** : actions `procurement_attachment.uploaded`, `downloaded`, `archived`, `access_denied`, `archive_denied`. **UI** : panneau **Documents** dans le dialogue d’édition facture / commande depuis le **contexte budget** (`apps/web/.../edit-procurement-event-dialog.tsx`) ; permissions `procurement.read` (liste, téléchargement) et `procurement.update` (upload, archivage). Contrat HTTP détaillé : [docs/API.md](../API.md).
 
 **Hors Phase 1 au code** : entité **`SupplierQuotation`**, routes devis et pièces sur devis, **`EXTERNAL` / `MICROSOFT`**, versioning avancé — toujours couverts par cette RFC en cible produit, non encore implémentés.
 
@@ -34,7 +34,7 @@ Haute pour la **traçabilité** des engagements et de la consommation (preuves C
 ## 1.2 Documents ailleurs dans la plateforme
 
 * **`ProjectDocument`** (RFC-PROJ-DOC-001) : registre **rattaché à un projet** ; historiquement lecture disque local pour `STARIUM` côté API — **ne constitue pas** le même pipeline que la **GED procurement** (objets S3/MinIO dédiés, clés opaques, contrôleurs `attachments`).
-* **Procurement — pièces commande/facture (Phase 1)** : stockage binaire **S3-compatible** (**MinIO** sur réseau **interne Docker**), joignable **uniquement** par le backend — **pas** de fichier servi depuis le disque local applicatif pour ce périmètre.
+* **Procurement — pièces commande/facture (Phase 1)** : stockage binaire **local (volume API) ou S3-compatible** (MinIO optionnel en Docker — profil `procurement-s3`), joignable **uniquement** par le backend — **aucun** accès navigateur direct au stockage ; détail [RFC-035](./RFC-035%20%E2%80%94%20Procurement%20stockage%20local%20et%20dual%20backend.md).
 
 ## 1.3 Lacunes fonctionnelles
 
@@ -50,9 +50,9 @@ Haute pour la **traçabilité** des engagements et de la consommation (preuves C
 
 | | **V1 (MVP — méthode A)** | **V2 (hors V1)** |
 | --- | --- | --- |
-| **Stockage binaire** | **MinIO** privé, conteneurisé (ex. Docker), **non exposé** sur Internet ; **aucun bucket public** | Extensions possibles selon besoin |
-| **Accès MinIO** | **Uniquement** depuis l’API NestJS sur le **réseau interne** (ex. réseau Docker) | — |
-| **Navigateur** | **Aucun** accès direct navigateur → MinIO ; **aucune** signed URL en V1 | Lien **EXTERNAL** et/ou **MICROSOFT** : métadonnées + stratégie d’accès dédiée (hors V1) |
+| **Stockage binaire** | **Disque local** (API) **ou** **S3-compatible** (MinIO privé, AWS, etc.) ; **aucun bucket public** côté S3 — [RFC-035](./RFC-035%20%E2%80%94%20Procurement%20stockage%20local%20et%20dual%20backend.md) | Extensions possibles selon besoin |
+| **Accès stockage** | **Uniquement** depuis l’API NestJS | — |
+| **Navigateur** | **Aucun** accès direct au stockage ; **aucune** signed URL en V1 | Lien **EXTERNAL** et/ou **MICROSOFT** : métadonnées + stratégie d’accès dédiée (hors V1) |
 | **Point d’entrée** | Upload et download **exclusivement** via routes backend (multipart / stream) | — |
 
 ## 2.2 Table des hypothèses
@@ -62,7 +62,7 @@ Haute pour la **traçabilité** des engagements et de la consommation (preuves C
 | **H1** | La **GED procurement** est **client-scoped** : toute pièce porte `clientId` et est liée à un parent métier du **même** client (contrainte DB + validation service). |
 | **H2** | **Une pièce** est rattachée à **exactement un** parent parmi : **devis** (fournisseur), **commande**, **facture** ( XOR logique ; pas de double lien). |
 | **H3** | Le **devis** (`SupplierQuotation`) est une entité **métier** distincte de la commande : montants / devise / statut propres ; transformation en `PurchaseOrder` = action métier explicite (pas seulement un renommage). |
-| **H4** | **V1 — Stockage binaire** : objets dans **MinIO** (bucket non public), clés d’objet **non prédictibles**, contrôle d’accès **uniquement** via l’API ; pas de fichier servi depuis le disque local applicatif pour ce périmètre. |
+| **H4** | **V1 — Stockage binaire** : fichiers sur **disque local** et/ou objets **S3** (bucket non public) ; clés d’objet **non prédictibles** ; contrôle d’accès **uniquement** via l’API ([RFC-035](./RFC-035%20%E2%80%94%20Procurement%20stockage%20local%20et%20dual%20backend.md)). |
 | **H5** | **OCR / recherche plein texte / signature électronique qualifiée** : **hors périmètre** de cette RFC (arbitrage ultérieur). |
 | **H6** | **V2 —** `storageType` **EXTERNAL** (URL métier) et **MICROSOFT** (dépôt / projection M365) : **hors MVP V1** ; pas de route Microsoft dédiée aux pièces procurement en V1. |
 
@@ -79,7 +79,7 @@ Haute pour la **traçabilité** des engagements et de la consommation (preuves C
 | `apps/api/src/modules/procurement/s3/` | **Phase 1 — fait** — `ProcurementObjectStorageService` (`@aws-sdk/client-s3`), `ProcurementS3ConfigResolverService` (DB puis env), `PlatformProcurementS3SettingsService`, `platform-procurement-s3-settings.controller.ts` |
 | `apps/api/src/modules/procurement/attachments/` | **Phase 1 — fait** — `ProcurementAttachmentsService`, `purchase-order-attachments.controller.ts`, `invoice-attachments.controller.ts`, DTO upload, constantes MIME / taille max |
 | `quotations/*.controller.ts` | **Phase 2** — CRUD devis + transition vers commande (non livré Phase 1) |
-| `docker-compose` / `docker-compose.dev` | **Phase 1 — fait** — service **MinIO** (volume, **pas** de `ports` hôte ; `expose` réseau compose), variables **`PROCUREMENT_S3_*`** sur le service **api** en repli |
+| `docker-compose` / `docker-compose.dev` | **Phase 1 — fait** — **RFC-035** : stockage **local** par défaut (`PROCUREMENT_STORAGE_DRIVER`, volume `procurement_blobs`) ; **MinIO** en profil optionnel **`procurement-s3`** ; variables **`PROCUREMENT_S3_*`** si driver S3 |
 | DTOs / réponses | **Phase 1 — fait** — JSON métier **sans** `objectKey`, `storageBucket`, `checksumSha256` |
 | Guards / permissions | **Phase 1 — fait** — métier : Jwt + **ActiveClient** + module + **`procurement.read` / `procurement.update`** selon route ; plateforme S3 : **`PlatformAdminGuard`** |
 | Tests `*.spec.ts` | **Phase 1 — fait (partiel)** — specs service attachments (mock stockage), settings plateforme (pas de fuite secret) ; renforcer si besoin intégration contrôleurs métier |

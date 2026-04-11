@@ -1,6 +1,8 @@
+import { ProcurementStorageDriver } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
+  IsEnum,
   IsOptional,
   IsString,
   MaxLength,
@@ -16,6 +18,16 @@ export class UpdatePlatformProcurementS3SettingsDto {
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
+
+  @IsOptional()
+  @IsEnum(ProcurementStorageDriver)
+  storageDriver?: ProcurementStorageDriver;
+
+  @IsOptional()
+  @Transform(({ value }) => emptyToUndefined(value))
+  @IsString()
+  @MaxLength(2048)
+  localRoot?: string;
 
   @IsOptional()
   @Transform(({ value }) => emptyToUndefined(value))

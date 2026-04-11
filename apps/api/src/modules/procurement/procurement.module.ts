@@ -19,8 +19,11 @@ import { SupplierContactsController } from './supplier-contacts/supplier-contact
 import { SupplierContactsListController } from './supplier-contacts/supplier-contacts-list.controller';
 import { SupplierContactsPhotoStorageService } from './supplier-contacts/supplier-contacts-photo.storage';
 import { SupplierContactsService } from './supplier-contacts/supplier-contacts.service';
+import { LocalProcurementBlobStorageService } from './s3/local-procurement-blob-storage.service';
 import { ProcurementS3ConfigResolverService } from './s3/procurement-s3-config.resolver.service';
 import { ProcurementObjectStorageService } from './s3/procurement-object-storage.service';
+import { ProcurementStorageResolutionService } from './s3/procurement-storage-resolution.service';
+import { S3ProcurementBlobStorageService } from './s3/s3-procurement-blob-storage.service';
 import { PlatformProcurementS3SettingsService } from './s3/platform-procurement-s3-settings.service';
 import { PlatformProcurementS3SettingsController } from './s3/platform-procurement-s3-settings.controller';
 import { ProcurementAttachmentsService } from './attachments/procurement-attachments.service';
@@ -45,6 +48,9 @@ import { InvoiceAttachmentsController } from './attachments/invoice-attachments.
   providers: [
     PlatformAdminGuard,
     ProcurementS3ConfigResolverService,
+    ProcurementStorageResolutionService,
+    LocalProcurementBlobStorageService,
+    S3ProcurementBlobStorageService,
     ProcurementObjectStorageService,
     PlatformProcurementS3SettingsService,
     ProcurementAttachmentsService,

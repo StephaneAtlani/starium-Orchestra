@@ -322,11 +322,20 @@ model PlatformMicrosoftSettings {
   updatedAt             DateTime @updatedAt
 }
 
-/// Connexion S3-compatible (MinIO) pour la GED procurement — singleton id = `default` (RFC-034).
+enum ProcurementStorageDriver {
+  LOCAL
+  S3
+}
+
+/// Connexion stockage procurement — singleton id = `default` (RFC-034, RFC-035 : local + S3 optionnel).
 model PlatformProcurementS3Settings {
   id                 String   @id @default("default")
   /// Si false : fallback env uniquement ou stockage indisponible selon implémentation.
   enabled            Boolean  @default(false)
+  /// Préférence persistée ; `PROCUREMENT_STORAGE_DRIVER` (env) prime au runtime (RFC-035).
+  storageDriver      ProcurementStorageDriver @default(S3)
+  /// Racine disque (DB) si `enabled` ; `PROCUREMENT_LOCAL_ROOT` (env) prime (RFC-035).
+  localRoot          String?
   endpoint           String?
   region             String?
   accessKey          String?

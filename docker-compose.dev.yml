@@ -50,8 +50,9 @@ services:
       - "1025:1025"
       - "8025:8025"
 
-  # RFC-034 — MinIO interne Docker (pas de publication hôte).
+  # RFC-035 — MinIO optionnel : `docker compose -f docker-compose.dev.yml --profile procurement-s3 up -d`
   minio:
+    profiles: ["procurement-s3"]
     image: minio/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -60,6 +61,9 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-starium_minio_dev_only}
     volumes:
       - minio_data:/data
+    ports:
+      - "9000:9000" # S3 API — depuis l’hôte : http://127.0.0.1:9000
+      - "9001:9001" # Console web — http://127.0.0.1:9001
     expose:
       - "9000"
       - "9001"
@@ -80,13 +84,15 @@ services:
       SMTP_PORT: "1025"
       SMTP_SECURE: "false"
       SMTP_FROM: noreply@starium.local
-      PROCUREMENT_S3_ENDPOINT: http://minio:9000
-      PROCUREMENT_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-starium_minio}
-      PROCUREMENT_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-starium_minio_dev_only}
+      PROCUREMENT_STORAGE_DRIVER: local
+      PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
+      PROCUREMENT_S3_ENDPOINT: ${PROCUREMENT_S3_ENDPOINT:-}
+      PROCUREMENT_S3_ACCESS_KEY: ${PROCUREMENT_S3_ACCESS_KEY:-}
+      PROCUREMENT_S3_SECRET_KEY: ${PROCUREMENT_S3_SECRET_KEY:-}
       PROCUREMENT_S3_BUCKET: ${PROCUREMENT_S3_BUCKET:-starium-procurement}
       PROCUREMENT_S3_REGION: ${PROCUREMENT_S3_REGION:-us-east-1}
-      PROCUREMENT_S3_USE_SSL: "false"
-      PROCUREMENT_S3_FORCE_PATH_STYLE: "true"
+      PROCUREMENT_S3_USE_SSL: ${PROCUREMENT_S3_USE_SSL:-false}
+      PROCUREMENT_S3_FORCE_PATH_STYLE: ${PROCUREMENT_S3_FORCE_PATH_STYLE:-true}
     ports:
       - "3001:3001"
     volumes:
@@ -104,12 +110,11 @@ services:
       - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
       - ./apps/api/src:/app/apps/api/src
       - ./apps/api/prisma:/app/apps/api/prisma
+      - procurement_blobs:/data/procurement-blobs
     depends_on:
       postgres:
         condition: service_healthy
       mailhog:
-        condition: service_started
-      minio:
         condition: service_started
     healthcheck:
       test:
@@ -151,5 +156,6 @@ services:
 volumes:
   postgres_data: {}
   minio_data: {}
+  procurement_blobs: {}
   web_next_cache: {}
 

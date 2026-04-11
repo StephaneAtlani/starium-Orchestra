@@ -233,7 +233,7 @@ PurchaseOrder
    ├── supplierId
    ├── budgetLineId?
    ├── invoices[]
-   └── procurementAttachments[]   (RFC-034 Phase 1 — GED pièces, stockage S3/MinIO via API)
+   └── procurementAttachments[]   (RFC-034 / RFC-035 — GED pièces, stockage disque local ou S3 via API)
 
 Invoice
    ├── supplierId
@@ -242,7 +242,7 @@ Invoice
    └── procurementAttachments[]   (idem)
 
 Plateforme (hors client actif)
-   └── PlatformProcurementS3Settings   (singleton — endpoint S3 procurement, secret chiffré ; voir API.md)
+   └── PlatformProcurementS3Settings   (singleton — driver local/S3, racine locale optionnelle, endpoint S3, secret chiffré ; voir API.md, RFC-035)
 ```
 
 ---

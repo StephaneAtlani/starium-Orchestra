@@ -5,7 +5,7 @@ import { PlatformProcurementS3SettingsService } from './platform-procurement-s3-
 import { UpdatePlatformProcurementS3SettingsDto } from './dto/update-platform-procurement-s3-settings.dto';
 
 /**
- * Configuration S3/MinIO pour la GED procurement (RFC-034). Scope plateforme — pas de client actif.
+ * Configuration stockage procurement — disque local et/ou S3 (RFC-034, RFC-035). Scope plateforme — pas de client actif.
  */
 @Controller('platform/procurement-s3-settings')
 @UseGuards(JwtAuthGuard, PlatformAdminGuard)

@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture, settings S3 plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
 
 ---
 
@@ -2259,17 +2259,23 @@ Paramètres **globaux** Starium : URI de redirection OAuth (callback `/api/micro
 
 ---
 
-### Stockage S3/MinIO procurement (plateforme) — `GET|PATCH /api/platform/procurement-s3-settings`
+### Stockage procurement (plateforme) — `GET|PATCH /api/platform/procurement-s3-settings`
 
-RFC-034 Phase 1 : configuration **globale** du stockage des pièces jointes **commandes** et **factures** (bucket **privé** ; accès binaire **uniquement** via l’API métier, pas d’URL signée exposée au navigateur métier).
+RFC-034 + **RFC-035** : configuration **globale** du stockage des pièces jointes **commandes** et **factures**. Deux backends : **disque local** sur le serveur API (défaut dans Docker Compose du dépôt) ou **S3-compatible** (AWS, MinIO, etc.). Accès binaire **uniquement** via l’API métier ; pas d’URL signée exposée au navigateur métier.
+
+**Variables d’environnement (priorité runtime)** :
+
+- **`PROCUREMENT_STORAGE_DRIVER`** : `local` \| `s3` (insensible à la casse) — **prime** sur le champ DB `storageDriver`.
+- **`PROCUREMENT_LOCAL_ROOT`** : répertoire racine des fichiers (local) — **prime** sur le champ DB `localRoot` lorsqu’il est défini.
+- **`PROCUREMENT_S3_*`** : repli / config S3 lorsque le driver effectif est **s3** (voir détail historique RFC-034) ; résolution DB si `enabled` et champs complets, sinon env.
 
 **Guards** : `JwtAuthGuard`, `PlatformAdminGuard` — **pas** de `X-Client-Id`.
 
-**GET (200)** : ligne `PlatformProcurementS3Settings` (créée à la volée si absente) + `effectiveSource` (`db` \| `env` \| `none`) indiquant l’origine effective pour les opérations S3 après résolution (DB si `enabled` et champs complets, sinon variables d’environnement `PROCUREMENT_S3_*` côté API, sinon indisponible).
+**GET (200)** : ligne `PlatformProcurementS3Settings` (créée à la volée si absente) + **`effectiveDriver`** (`local` \| `s3`) + **`effectiveLocalRootSource`** (`env` \| `db` \| `none`) + **`effectiveSource`** (`db` \| `env` \| `none`, origine de la config **S3** lorsque applicable).
 
-**Corps (aperçu)** : `id`, `enabled`, `endpoint`, `region`, `accessKey`, **`hasSecret`** (booléen), `bucket`, `useSsl`, `forcePathStyle`, `updatedAt`. Le **secret** (`secretKey`) n’est **jamais** renvoyé, ni en clair ni chiffré.
+**Corps (aperçu)** : `id`, `enabled`, `storageDriver`, `localRoot`, `endpoint`, `region`, `accessKey`, **`hasSecret`** (booléen), `bucket`, `useSsl`, `forcePathStyle`, `updatedAt`. Le **secret** (`secretKey`) n’est **jamais** renvoyé, ni en clair ni chiffré.
 
-**PATCH** : JSON partiel — `enabled`, `endpoint`, `region`, `accessKey`, `secretKey` (écriture seule ; chaîne vide ou omission pour ne pas changer), `bucket`, `useSsl`, `forcePathStyle`. Si `enabled` est vrai après enregistrement, contrôle de connectivité S3 (`HeadBucket` ; création du bucket si réponse 404). En cas d’échec : **400** avec message métier. Réponse : même forme que **GET**.
+**PATCH** : JSON partiel — `enabled`, `storageDriver` (`LOCAL` \| `S3`), `localRoot`, `endpoint`, `region`, `accessKey`, `secretKey` (écriture seule ; chaîne vide ou omission pour ne pas changer), `bucket`, `useSsl`, `forcePathStyle`. Si `enabled` est vrai après enregistrement : contrôle **répertoire local inscriptible** si le driver effectif est local, sinon contrôle S3 (`HeadBucket` ; création du bucket si réponse 404). En cas d’échec : **400** avec message métier. Réponse : même forme que **GET**.
 
 ---
 

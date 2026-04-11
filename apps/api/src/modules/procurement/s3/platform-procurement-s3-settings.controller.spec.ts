@@ -1,3 +1,4 @@
+import { ProcurementStorageDriver } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../../../common/guards/platform-admin.guard';
@@ -37,6 +38,8 @@ describe('PlatformProcurementS3SettingsController', () => {
     const payload = {
       id: 'default',
       enabled: false,
+      storageDriver: ProcurementStorageDriver.S3,
+      localRoot: null,
       endpoint: 'http://minio:9000',
       region: 'us-east-1',
       accessKey: 'ak',
@@ -46,6 +49,8 @@ describe('PlatformProcurementS3SettingsController', () => {
       forcePathStyle: true,
       updatedAt: new Date(),
       effectiveSource: 'env' as const,
+      effectiveDriver: 's3' as const,
+      effectiveLocalRootSource: 'none' as const,
     };
     service.get.mockResolvedValue(payload);
 
@@ -62,6 +67,8 @@ describe('PlatformProcurementS3SettingsController', () => {
     const payload = {
       id: 'default',
       enabled: true,
+      storageDriver: ProcurementStorageDriver.S3,
+      localRoot: null,
       endpoint: null,
       region: null,
       accessKey: null,
@@ -71,6 +78,8 @@ describe('PlatformProcurementS3SettingsController', () => {
       forcePathStyle: true,
       updatedAt: new Date(),
       effectiveSource: 'none' as const,
+      effectiveDriver: 'local' as const,
+      effectiveLocalRootSource: 'none' as const,
     };
     service.patch.mockResolvedValue(payload);
 
