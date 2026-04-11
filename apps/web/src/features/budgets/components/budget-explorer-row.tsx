@@ -287,7 +287,7 @@ function BudgetExplorerLineRow({
             className="align-middle min-w-[260px] max-w-[28rem] text-foreground pl-0"
             style={{ paddingLeft: `${12 + depth * 20}px` }}
           >
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-col items-start gap-1">
               <BudgetStatusBadge
                 status={line.status}
                 className="h-5 px-2 text-[10px] uppercase"
@@ -384,7 +384,7 @@ function BudgetExplorerLineRow({
           className="align-middle min-w-[260px] max-w-[28rem] text-foreground pl-0"
           style={{ paddingLeft: `${12 + depth * 20}px` }}
         >
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-col items-start gap-1">
             <BudgetStatusBadge
               status={line.status}
               className="h-5 px-2 text-[10px] uppercase"

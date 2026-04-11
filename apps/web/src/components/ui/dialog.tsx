@@ -7,8 +7,25 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+type DialogOnOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>
+
+const DialogDismissFromOverlayContext = React.createContext<(() => void) | null>(null)
+
+function Dialog({ onOpenChange, children, ...props }: DialogPrimitive.Root.Props) {
+  const dismissFromOverlay = React.useMemo(() => {
+    if (!onOpenChange) return null
+    return () => {
+      onOpenChange(false, { reason: "outside-press" } as Parameters<DialogOnOpenChange>[1])
+    }
+  }, [onOpenChange])
+
+  return (
+    <DialogPrimitive.Root data-slot="dialog" onOpenChange={onOpenChange} {...props}>
+      <DialogDismissFromOverlayContext.Provider value={dismissFromOverlay}>
+        {children as React.ReactNode}
+      </DialogDismissFromOverlayContext.Provider>
+    </DialogPrimitive.Root>
+  )
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
@@ -25,16 +42,33 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
 
 function DialogOverlay({
   className,
+  onPointerDown,
   ...props
 }: DialogPrimitive.Backdrop.Props) {
+  const dismissFromOverlay = React.useContext(DialogDismissFromOverlayContext)
+
+  const handlePointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      // Base UI enrichit l’event ; on ne forward que si un handler custom est fourni
+      ;(onPointerDown as ((e: React.PointerEvent<HTMLDivElement>) => void) | undefined)?.(event)
+      if (event.defaultPrevented) return
+      if (event.button !== 0) return
+      if (event.target !== event.currentTarget) return
+      dismissFromOverlay?.()
+    },
+    [dismissFromOverlay, onPointerDown],
+  )
+
   return (
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
+      forceRender
       className={cn(
-        // Voile : flou du contenu derrière (backdrop-filter) + scrim — z sous le panneau
+        // Voile : scrim + léger flou ; forceRender = backdrop même en dialogue imbriqué (refs Base UI)
         "fixed inset-0 z-[80] bg-black/40 duration-200 dark:bg-black/55 backdrop-blur-[2px] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
-        className
+        className,
       )}
+      onPointerDown={handlePointerDown}
       {...props}
     />
   )
