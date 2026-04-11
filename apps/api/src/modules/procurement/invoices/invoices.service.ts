@@ -94,6 +94,17 @@ export class InvoicesService {
     return { items: items.map(toInvoiceResponse), total, limit, offset };
   }
 
+  async getById(clientId: string, id: string): Promise<InvoiceResponse> {
+    const row = await this.prisma.invoice.findFirst({
+      where: { id, clientId },
+      include: { supplier: { select: { id: true, name: true } } },
+    });
+    if (!row) {
+      throw new NotFoundException('Facture introuvable');
+    }
+    return toInvoiceResponse(row);
+  }
+
   async listBySupplier(
     clientId: string,
     supplierId: string,

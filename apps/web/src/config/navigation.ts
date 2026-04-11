@@ -139,6 +139,18 @@ export const navigation: NavigationSection[] = [
             scope: 'client',
             requiredPermissions: ['procurement.read'],
           },
+          {
+            label: 'Commandes',
+            href: '/suppliers/purchase-orders',
+            scope: 'client',
+            requiredPermissions: ['procurement.read'],
+          },
+          {
+            label: 'Factures',
+            href: '/suppliers/invoices',
+            scope: 'client',
+            requiredPermissions: ['procurement.read'],
+          },
         ],
       },
     ],

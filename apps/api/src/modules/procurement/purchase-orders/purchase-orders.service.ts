@@ -96,6 +96,18 @@ export class PurchaseOrdersService {
     return { items: items.map(toPurchaseOrderResponse), total, limit, offset };
   }
 
+  async getById(clientId: string, id: string): Promise<PurchaseOrderResponse> {
+    const prisma = this.prisma as any;
+    const row = await prisma.purchaseOrder.findFirst({
+      where: { id, clientId },
+      include: { supplier: { select: { id: true, name: true } } },
+    });
+    if (!row) {
+      throw new NotFoundException('Commande introuvable');
+    }
+    return toPurchaseOrderResponse(row);
+  }
+
   async listBySupplier(
     clientId: string,
     supplierId: string,

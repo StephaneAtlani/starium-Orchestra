@@ -115,5 +115,17 @@
       "resources.create",
       "resources.update"
     ]
+  },
+  {
+    "name": "Lecteur documents procurement",
+    "description": "Consultation et téléchargement des pièces jointes GED sur commandes et factures (RFC-034) — sans création fournisseur / commande / facture ni dépôt de fichiers",
+    "isSystem": true,
+    "permissionCodes": ["procurement.read"]
+  },
+  {
+    "name": "Gestionnaire documents procurement",
+    "description": "Dépôt, consultation, téléchargement et archivage des pièces jointes GED sur commandes et factures — sans obligation d’avoir budgets.create ni la gestion complète procurement",
+    "isSystem": true,
+    "permissionCodes": ["procurement.read", "procurement.update"]
   }
 ]

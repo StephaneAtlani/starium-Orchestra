@@ -20,15 +20,10 @@ import {
   usePurchaseOrderAttachments,
 } from '../hooks/use-procurement-attachments';
 import type { ProcurementAttachmentCategory } from '../types/procurement-attachment.types';
-
-const CATEGORY_OPTIONS: { value: ProcurementAttachmentCategory; label: string }[] = [
-  { value: 'QUOTE_PDF', label: 'Devis (PDF)' },
-  { value: 'ORDER_CONFIRMATION', label: 'Confirmation de commande' },
-  { value: 'INVOICE', label: 'Facture' },
-  { value: 'AMENDMENT', label: 'Avenant' },
-  { value: 'CORRESPONDENCE', label: 'Correspondance' },
-  { value: 'OTHER', label: 'Autre' },
-];
+import {
+  procurementAttachmentCategoryLabel,
+  procurementAttachmentCategorySelectOptions,
+} from '../lib/procurement-attachment-category-labels';
 
 function formatBytes(n: number | null): string {
   if (n == null || n < 0) return '—';
@@ -69,6 +64,10 @@ export function ProcurementAttachmentsPanel(props: {
 
   const query = parent.kind === 'purchase-order' ? poQuery : invQuery;
   const mut = parent.kind === 'purchase-order' ? poMut : invMut;
+
+  const categoryOptions = procurementAttachmentCategorySelectOptions(
+    parent.kind === 'purchase-order' ? 'purchase-order' : 'invoice',
+  );
 
   const [docName, setDocName] = useState('');
   const [category, setCategory] = useState<ProcurementAttachmentCategory>('OTHER');
@@ -123,7 +122,12 @@ export function ProcurementAttachmentsPanel(props: {
               className="flex flex-col gap-2 rounded-lg border border-border/60 bg-background/80 p-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0 flex-1 space-y-0.5">
-                <p className="truncate text-sm font-medium text-foreground">{a.name}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-medium text-foreground">{a.name}</p>
+                  <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {procurementAttachmentCategoryLabel(a.category, parent.kind)}
+                  </span>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {[a.originalFilename, formatBytes(a.sizeBytes)].filter(Boolean).join(' · ')}
                   {a.uploadedBy ? ` · ${uploaderLabel(a.uploadedBy)}` : ''}
@@ -209,7 +213,7 @@ export function ProcurementAttachmentsPanel(props: {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORY_OPTIONS.map((o) => (
+                {categoryOptions.map((o) => (
                   <SelectItem key={o.value} value={o.value}>
                     {o.label}
                   </SelectItem>

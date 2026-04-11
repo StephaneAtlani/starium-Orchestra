@@ -24,6 +24,10 @@ describe('platform navigation', () => {
     expect(suppliersParent?.moduleCode).toBe('procurement');
     expect(suppliersParent?.requiredPermissions).toEqual(['procurement.read']);
     expect(suppliersParent?.scope).toBe('client');
+
+    const childHrefs = (suppliersParent?.children ?? []).map((c) => c.href);
+    expect(childHrefs).toContain('/suppliers/purchase-orders');
+    expect(childHrefs).toContain('/suppliers/invoices');
   });
 
   it('expose une entrée Equipes (dropdown) avec any(skills.read, teams.read, resources.read)', () => {

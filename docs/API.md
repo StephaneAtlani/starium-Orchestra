@@ -2273,6 +2273,19 @@ RFC-034 Phase 1 : configuration **globale** du stockage des pièces jointes **co
 
 ---
 
+### Commandes et factures — lecture fiche (client actif)
+
+Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module procurement.
+
+| Méthode | Route | Permission | Description |
+|---------|--------|------------|-------------|
+| `GET` | `/api/purchase-orders/:id` | `procurement.read` | Détail d’une commande (fournisseur, montants, statut, lien ligne budget si présent). |
+| `GET` | `/api/invoices/:id` | `procurement.read` | Détail d’une facture (fournisseur, montants, TVA, lien commande / ligne budget si présents). |
+
+Les listes paginées restent sur `GET /api/purchase-orders` et `GET /api/invoices` (query params selon DTO backend).
+
+---
+
 ### Pièces jointes procurement — commandes et factures (RFC-034)
 
 Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module procurement + permissions ci-dessous. Réponses **sans** champs techniques (`objectKey`, `storageBucket`, `checksumSha256`).

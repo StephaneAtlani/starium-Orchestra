@@ -407,6 +407,75 @@ export async function updatePurchaseOrder(
   return res.json() as Promise<PurchaseOrder>;
 }
 
+export async function getPurchaseOrder(
+  authFetch: AuthFetch,
+  purchaseOrderId: string,
+): Promise<PurchaseOrder> {
+  const res = await authFetch(`${BASE_ORDERS}/${purchaseOrderId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PurchaseOrder>;
+}
+
+export async function listPurchaseOrders(
+  authFetch: AuthFetch,
+  params?: {
+    offset?: number;
+    limit?: number;
+    search?: string;
+    supplierId?: string;
+    budgetLineId?: string;
+    status?: string;
+    includeCancelled?: boolean;
+  },
+): Promise<PaginatedResponse<PurchaseOrder>> {
+  const qs = buildQueryString(params);
+  const res = await authFetch(`${BASE_ORDERS}${qs}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PaginatedResponse<PurchaseOrder>>;
+}
+
+export async function cancelPurchaseOrder(
+  authFetch: AuthFetch,
+  purchaseOrderId: string,
+): Promise<void> {
+  const res = await authFetch(`${BASE_ORDERS}/${purchaseOrderId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+}
+
+export async function getInvoice(authFetch: AuthFetch, invoiceId: string): Promise<Invoice> {
+  const res = await authFetch(`${BASE_INVOICES}/${invoiceId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<Invoice>;
+}
+
+export async function listInvoices(
+  authFetch: AuthFetch,
+  params?: {
+    offset?: number;
+    limit?: number;
+    search?: string;
+    supplierId?: string;
+    budgetLineId?: string;
+    purchaseOrderId?: string;
+    status?: string;
+    includeCancelled?: boolean;
+  },
+): Promise<PaginatedResponse<Invoice>> {
+  const qs = buildQueryString(params);
+  const res = await authFetch(`${BASE_INVOICES}${qs}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PaginatedResponse<Invoice>>;
+}
+
+export async function cancelInvoice(authFetch: AuthFetch, invoiceId: string): Promise<void> {
+  const res = await authFetch(`${BASE_INVOICES}/${invoiceId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+}
+
 export async function listPurchaseOrdersByBudgetLine(
   authFetch: AuthFetch,
   budgetLineId: string,

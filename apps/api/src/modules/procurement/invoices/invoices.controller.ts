@@ -36,6 +36,15 @@ export class InvoicesController {
     return this.invoices.list(clientId!, query);
   }
 
+  @Get(':id')
+  @RequirePermissions('procurement.read')
+  getOne(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.invoices.getById(clientId!, id);
+  }
+
   @Post()
   @RequirePermissions('procurement.create')
   create(

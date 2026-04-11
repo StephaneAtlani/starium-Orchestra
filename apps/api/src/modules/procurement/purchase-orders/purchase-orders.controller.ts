@@ -36,6 +36,15 @@ export class PurchaseOrdersController {
     return this.orders.list(clientId!, query);
   }
 
+  @Get(':id')
+  @RequirePermissions('procurement.read')
+  getOne(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.orders.getById(clientId!, id);
+  }
+
   @Post()
   @RequirePermissions('procurement.create')
   create(
