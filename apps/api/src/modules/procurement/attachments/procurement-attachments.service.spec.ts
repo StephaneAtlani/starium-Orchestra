@@ -7,9 +7,21 @@ import { ProcurementObjectStorageService } from '../s3/procurement-object-storag
 import { ProcurementAttachmentsService } from './procurement-attachments.service';
 import { MAX_PROCUREMENT_ATTACHMENT_BYTES } from './procurement-attachments.constants';
 
+/** Mock partiel Prisma pour ce service — typage explicite (évite Record<string, jest.Mock> sur les délégués). */
+type MockPrismaForAttachments = {
+  purchaseOrder: { findFirst: jest.Mock };
+  invoice: { findFirst: jest.Mock };
+  procurementAttachment: {
+    findMany: jest.Mock;
+    create: jest.Mock;
+    findFirst: jest.Mock;
+    update: jest.Mock;
+  };
+};
+
 describe('ProcurementAttachmentsService', () => {
   let service: ProcurementAttachmentsService;
-  let prisma: Record<string, jest.Mock>;
+  let prisma: MockPrismaForAttachments;
   let storage: { putObject: jest.Mock; getObjectStream: jest.Mock };
   let audit: { create: jest.Mock };
 
@@ -37,7 +49,7 @@ describe('ProcurementAttachmentsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProcurementAttachmentsService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: PrismaService, useValue: prisma as unknown as PrismaService },
         { provide: ProcurementObjectStorageService, useValue: storage },
         { provide: AuditLogsService, useValue: audit },
       ],
