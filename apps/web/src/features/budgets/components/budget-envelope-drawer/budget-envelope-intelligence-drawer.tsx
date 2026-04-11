@@ -40,7 +40,7 @@ export function BudgetEnvelopeIntelligenceDrawer({
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [panelExpanded, setPanelExpanded] = useState(false);
+  const [panelExpanded, setPanelExpanded] = useState(true);
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(() => new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
 
@@ -48,7 +48,8 @@ export function BudgetEnvelopeIntelligenceDrawer({
   const canBulk = !permLoading && has('budgets.update');
 
   useEffect(() => {
-    if (!open) setPanelExpanded(false);
+    if (open) setPanelExpanded(true);
+    else setPanelExpanded(false);
   }, [open]);
 
   useEffect(() => {

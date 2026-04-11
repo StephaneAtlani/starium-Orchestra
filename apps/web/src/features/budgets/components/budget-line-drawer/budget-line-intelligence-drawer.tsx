@@ -90,11 +90,12 @@ export function BudgetLineIntelligenceDrawer({
   const [invoiceInitialPurchaseOrderId, setInvoiceInitialPurchaseOrderId] = useState<string | null>(null);
   const [engagementOpen, setEngagementOpen] = useState(false);
   const [consumptionOpen, setConsumptionOpen] = useState(false);
-  /** Panneau agrandi vers le haut (sm+) — mobile déjà plein écran */
-  const [panelExpanded, setPanelExpanded] = useState(false);
+  /** Panneau agrandi vers le haut (sm+) — mobile déjà plein écran ; ouverture = déplié par défaut */
+  const [panelExpanded, setPanelExpanded] = useState(true);
 
   useEffect(() => {
-    if (!open) setPanelExpanded(false);
+    if (open) setPanelExpanded(true);
+    else setPanelExpanded(false);
   }, [open]);
 
   const invoiceRecentQuery = useBudgetLineEvents({
