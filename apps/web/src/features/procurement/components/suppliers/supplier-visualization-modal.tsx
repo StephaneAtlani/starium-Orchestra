@@ -1,22 +1,37 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Building2, FileText, Mail, Pencil, Phone, Receipt, Users2 } from 'lucide-react';
+import { Building2, FileText, Pencil, Phone, Receipt, Users2 } from 'lucide-react';
 
 import { EmptyState } from '@/components/feedback/empty-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getSupplierById, listSupplierContacts } from '@/features/procurement/api/procurement.api';
 import { SupplierContactVisualizationModal } from '@/features/procurement/components/suppliers/supplier-contact-visualization-modal';
+import { usePurchaseOrdersListQuery } from '@/features/procurement/hooks/use-procurement-purchase-orders';
+import { useInvoicesListQuery } from '@/features/procurement/hooks/use-procurement-invoices';
 import type { SupplierContact } from '@/features/procurement/types/supplier.types';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { formatNumberFr } from '@/lib/currency-format';
 import { usePermissions } from '@/hooks/use-permissions';
+
+const PROCUREMENT_PREVIEW_LIMIT = 8;
+
+function formatShortDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('fr-FR');
+  } catch {
+    return iso;
+  }
+}
 
 export function SupplierVisualizationContent({
   supplierId,
@@ -52,6 +67,25 @@ export function SupplierVisualizationContent({
         offset: 0,
       }),
     enabled: !!supplierId && !!clientId && permsSuccess && canRead && !permsLoading,
+  });
+
+  const procurementListsEnabled =
+    Boolean(supplierId && clientId && permsSuccess && canRead && !permsLoading);
+
+  const purchaseOrdersPreview = usePurchaseOrdersListQuery({
+    offset: 0,
+    limit: PROCUREMENT_PREVIEW_LIMIT,
+    supplierId,
+    includeCancelled: false,
+    enabled: procurementListsEnabled,
+  });
+
+  const invoicesPreview = useInvoicesListQuery({
+    offset: 0,
+    limit: PROCUREMENT_PREVIEW_LIMIT,
+    supplierId,
+    includeCancelled: false,
+    enabled: procurementListsEnabled,
   });
 
   const contacts = contactsQuery.data?.items ?? [];
@@ -290,12 +324,82 @@ export function SupplierVisualizationContent({
               <FileText className="size-4" />
               Commandes
             </CardTitle>
+            <CardDescription>
+              Bons de commande associés à ce fournisseur (hors annulées dans cet aperçu).
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <EmptyState
-              title="Bloc Commandes pret"
-              description="Espace pret pour la liste des commandes du fournisseur."
-            />
+          <CardContent className="space-y-3">
+            {(permsLoading || (procurementListsEnabled && purchaseOrdersPreview.isLoading)) && (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            )}
+            {procurementListsEnabled && purchaseOrdersPreview.isError && (
+              <p className="text-sm text-destructive">Impossible de charger les commandes.</p>
+            )}
+            {procurementListsEnabled &&
+              purchaseOrdersPreview.isSuccess &&
+              (purchaseOrdersPreview.data?.items.length ?? 0) === 0 && (
+                <p className="text-sm text-muted-foreground">Aucune commande pour ce fournisseur.</p>
+              )}
+            {procurementListsEnabled &&
+              purchaseOrdersPreview.isSuccess &&
+              (purchaseOrdersPreview.data?.items.length ?? 0) > 0 && (
+                <div className="overflow-hidden rounded-md border border-border/60">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Référence</TableHead>
+                        <TableHead>Libellé</TableHead>
+                        <TableHead className="text-right">HT</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Statut</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(purchaseOrdersPreview.data?.items ?? []).map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell className="font-mono text-xs">
+                            <Link
+                              href={`/suppliers/purchase-orders/${row.id}`}
+                              className="text-primary underline-offset-2 hover:underline"
+                            >
+                              {row.reference}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="max-w-[140px] truncate text-sm">{row.label}</TableCell>
+                          <TableCell className="text-right tabular-nums text-sm">
+                            {formatNumberFr(row.amountHt, { minFraction: 2, maxFraction: 2 })} €
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {formatShortDate(row.orderDate)}
+                          </TableCell>
+                          <TableCell>
+                            <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{row.status}</span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            {procurementListsEnabled &&
+              purchaseOrdersPreview.isSuccess &&
+              (purchaseOrdersPreview.data?.total ?? 0) > 0 && (
+              <p className="text-center text-xs text-muted-foreground">
+                <Link
+                  href={`/suppliers/purchase-orders?supplierId=${encodeURIComponent(supplierId)}`}
+                  className="text-primary font-medium underline-offset-2 hover:underline"
+                >
+                  Voir toutes les commandes
+                  {(purchaseOrdersPreview.data?.total ?? 0) > PROCUREMENT_PREVIEW_LIMIT
+                    ? ` (${purchaseOrdersPreview.data?.total})`
+                    : ''}
+                </Link>
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -305,12 +409,82 @@ export function SupplierVisualizationContent({
               <Receipt className="size-4" />
               Factures
             </CardTitle>
+            <CardDescription>
+              Factures enregistrées pour ce fournisseur (hors annulées dans cet aperçu).
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <EmptyState
-              title="Bloc Factures pret"
-              description="Espace pret pour la liste des factures du fournisseur."
-            />
+          <CardContent className="space-y-3">
+            {(permsLoading || (procurementListsEnabled && invoicesPreview.isLoading)) && (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            )}
+            {procurementListsEnabled && invoicesPreview.isError && (
+              <p className="text-sm text-destructive">Impossible de charger les factures.</p>
+            )}
+            {procurementListsEnabled &&
+              invoicesPreview.isSuccess &&
+              (invoicesPreview.data?.items.length ?? 0) === 0 && (
+              <p className="text-sm text-muted-foreground">Aucune facture pour ce fournisseur.</p>
+            )}
+            {procurementListsEnabled &&
+              invoicesPreview.isSuccess &&
+              (invoicesPreview.data?.items.length ?? 0) > 0 && (
+              <div className="overflow-hidden rounded-md border border-border/60">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Numéro</TableHead>
+                      <TableHead>Libellé</TableHead>
+                      <TableHead className="text-right">HT</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Statut</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(invoicesPreview.data?.items ?? []).map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell className="font-mono text-xs">
+                          <Link
+                            href={`/suppliers/invoices/${row.id}`}
+                            className="text-primary underline-offset-2 hover:underline"
+                          >
+                            {row.invoiceNumber}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="max-w-[140px] truncate text-sm">{row.label}</TableCell>
+                        <TableCell className="text-right tabular-nums text-sm">
+                          {formatNumberFr(row.amountHt, { minFraction: 2, maxFraction: 2 })} €
+                        </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {formatShortDate(row.invoiceDate)}
+                        </TableCell>
+                        <TableCell>
+                          <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{row.status}</span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            {procurementListsEnabled &&
+              invoicesPreview.isSuccess &&
+              (invoicesPreview.data?.total ?? 0) > 0 && (
+              <p className="text-center text-xs text-muted-foreground">
+                <Link
+                  href={`/suppliers/invoices?supplierId=${encodeURIComponent(supplierId)}`}
+                  className="text-primary font-medium underline-offset-2 hover:underline"
+                >
+                  Voir toutes les factures
+                  {(invoicesPreview.data?.total ?? 0) > PROCUREMENT_PREVIEW_LIMIT
+                    ? ` (${invoicesPreview.data?.total})`
+                    : ''}
+                </Link>
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

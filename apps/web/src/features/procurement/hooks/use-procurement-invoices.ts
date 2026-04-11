@@ -17,6 +17,8 @@ export function useInvoicesListQuery(params: {
   supplierId?: string;
   purchaseOrderId?: string;
   includeCancelled?: boolean;
+  /** Par défaut true ; passer false pour désactiver la requête. */
+  enabled?: boolean;
 }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -30,6 +32,8 @@ export function useInvoicesListQuery(params: {
     c: params.includeCancelled ?? false,
   });
 
+  const enabled = params.enabled !== false;
+
   return useQuery({
     queryKey: procurementEntityKeys.invoicesList(clientId, key),
     queryFn: () =>
@@ -41,7 +45,7 @@ export function useInvoicesListQuery(params: {
         purchaseOrderId: params.purchaseOrderId,
         includeCancelled: params.includeCancelled,
       }),
-    enabled: Boolean(clientId),
+    enabled: Boolean(clientId) && enabled,
   });
 }
 

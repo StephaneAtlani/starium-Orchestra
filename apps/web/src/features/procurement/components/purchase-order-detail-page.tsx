@@ -177,6 +177,17 @@ export function PurchaseOrderDetailPage({ purchaseOrderId }: { purchaseOrderId: 
         <p className="text-muted-foreground mt-1">{po.label}</p>
       </div>
 
+      <div ref={docsRef}>
+        <ProcurementAttachmentsPanel
+          parent={{ kind: 'purchase-order', id: po.id }}
+          canList={canRead}
+          canUpload={canUpdate && !isCancelled}
+          uploadBlockedMessage={
+            isCancelled ? 'Cette commande est annulée : tu ne peux plus y ajouter de documents.' : null
+          }
+        />
+      </div>
+
       <div className="rounded-xl border border-border/70 bg-card p-5 shadow-sm space-y-3 text-sm">
         <div className="grid gap-1 sm:grid-cols-2">
           <span className="text-muted-foreground">Fournisseur</span>
@@ -209,14 +220,6 @@ export function PurchaseOrderDetailPage({ purchaseOrderId }: { purchaseOrderId: 
           <span className="text-muted-foreground">Statut</span>
           <span className="rounded-md bg-muted px-2 py-0.5 text-xs w-fit">{po.status}</span>
         </div>
-      </div>
-
-      <div ref={docsRef}>
-        <ProcurementAttachmentsPanel
-          parent={{ kind: 'purchase-order', id: po.id }}
-          canList={canRead}
-          canUpload={canUpdate}
-        />
       </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,16 +25,13 @@ import { useCreatePurchaseOrderStandalone } from '../hooks/use-procurement-entit
 import { useQuickCreateSupplier } from '../hooks/use-quick-create-supplier';
 import { listSuppliers, uploadPurchaseOrderAttachment } from '../api/procurement.api';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { purchaseOrderCreationDocumentTypeOptions } from '../lib/procurement-attachment-category-labels';
-import type { ProcurementAttachmentCategory } from '../types/procurement-attachment.types';
+  ProcurementPoPendingDocumentsSection,
+  defaultPoAttachmentDisplayName,
+  type PendingPoDocRow,
+} from './procurement-po-pending-documents-section';
 import { SupplierSearchCombobox } from './supplier-search-combobox';
 import { prepareQuickCreateRequest } from '../utils/prepare-quick-create-request';
+import { buildDefaultPurchaseOrderLabel } from '../utils/build-default-purchase-order-label';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -61,13 +58,6 @@ export function CreateStandalonePurchaseOrderDialog({
   const baseTaxRate = defaultTaxRate ?? 0;
 
   const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
-
-  type PendingPoDocRow = {
-    key: string;
-    file: File | null;
-    title: string;
-    category: ProcurementAttachmentCategory;
-  };
 
   const [pendingDocs, setPendingDocs] = useState<PendingPoDocRow[]>([]);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
@@ -168,20 +158,21 @@ export function CreateStandalonePurchaseOrderDialog({
         return;
       }
 
+      const labelEffective =
+        values.label.trim() || buildDefaultPurchaseOrderLabel(values.eventDate);
+
       const created = await createOrder.mutateAsync({
         supplierId,
         ...(referenceValue ? { reference: referenceValue } : {}),
-        label: values.label,
+        label: labelEffective,
         amountHt: values.amountHtInput.toFixed(2),
         taxRate: values.taxRateInput.toFixed(2),
         orderDate: new Date(values.eventDate).toISOString(),
       });
 
-      const toUpload = canUploadAttachments
-        ? pendingDocs.filter((r) => r.file && r.file.size > 0)
-        : [];
-      const oversized = toUpload.filter((r) => (r.file?.size ?? 0) > MAX_ATTACHMENT_BYTES);
-      const okToUpload = toUpload.filter((r) => (r.file?.size ?? 0) <= MAX_ATTACHMENT_BYTES);
+      const toUpload = canUploadAttachments ? pendingDocs.filter((r) => r.file.size > 0) : [];
+      const oversized = toUpload.filter((r) => r.file.size > MAX_ATTACHMENT_BYTES);
+      const okToUpload = toUpload.filter((r) => r.file.size <= MAX_ATTACHMENT_BYTES);
 
       if (oversized.length > 0) {
         toast.error('Un ou plusieurs fichiers dépassent 15 Mo — ils n’ont pas été envoyés.');
@@ -192,8 +183,8 @@ export function CreateStandalonePurchaseOrderDialog({
         let failed = 0;
         for (const row of okToUpload) {
           try {
-            await uploadPurchaseOrderAttachment(authFetch, created.id, row.file!, {
-              name: row.title.trim() || undefined,
+            await uploadPurchaseOrderAttachment(authFetch, created.id, row.file, {
+              name: row.title.trim() || defaultPoAttachmentDisplayName(row.file),
               category: row.category,
             });
           } catch {
@@ -212,7 +203,7 @@ export function CreateStandalonePurchaseOrderDialog({
               : 'Commande créée — document ajouté.',
           );
         }
-      } else if (!canUploadAttachments && pendingDocs.some((r) => r.file)) {
+      } else if (!canUploadAttachments && pendingDocs.length > 0) {
         toast.message(
           'Commande créée. Les brouillons de fichiers n’ont pas été envoyés : permission procurement.update requise.',
         );
@@ -307,8 +298,8 @@ export function CreateStandalonePurchaseOrderDialog({
                 </span>
               </DialogTitle>
               <DialogDescription className="text-left text-sm leading-relaxed text-muted-foreground">
-                Tu peux joindre des documents (devis, bon de commande) dès maintenant si tu as{' '}
-                <code className="text-xs">procurement.update</code>, ou après sur la fiche commande.
+                Sous <strong className="text-foreground">Fournisseur</strong> : joindre devis et bon de commande si les
+                droits le permettent ; sinon, dépôt possible sur la fiche après création.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -362,6 +353,25 @@ export function CreateStandalonePurchaseOrderDialog({
               </div>
             </section>
 
+            {canUploadAttachments && (
+              <ProcurementPoPendingDocumentsSection
+                pendingDocs={pendingDocs}
+                setPendingDocs={setPendingDocs}
+                idPrefix="standalone-po"
+                description={<>Taille maximale : 15&nbsp;Mo par fichier.</>}
+              />
+            )}
+
+            {!canUploadAttachments && (
+              <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-50/90 to-amber-50/40 px-4 py-3 text-sm text-amber-950 dark:from-amber-950/50 dark:to-amber-950/30 dark:text-amber-50">
+                <p className="font-medium text-amber-950 dark:text-amber-50">Documents non disponibles ici</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/85">
+                  La permission <code className="rounded bg-amber-100/80 px-1 py-0.5 text-[11px] dark:bg-amber-900/60">procurement.update</code> est requise pour préparer les fichiers ici. Sinon, après création, utiliser la{' '}
+                  <strong>fiche commande</strong> pour les déposer.
+                </p>
+              </div>
+            )}
+
             <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Détail
@@ -387,9 +397,14 @@ export function CreateStandalonePurchaseOrderDialog({
               </div>
               <div className="mt-4 grid gap-2">
                 <Label htmlFor="standalone-po-label" className={fieldLabel}>
-                  Libellé
+                  Libellé <span className="font-normal text-muted-foreground">(optionnel)</span>
                 </Label>
-                <Input id="standalone-po-label" {...register('label')} />
+                <p className={fieldHint}>
+                  Si vide :{' '}
+                  <code className="rounded bg-muted px-1 py-0.5 text-[11px]">BC_YYYY-MM-DD_····</code> à partir de la
+                  date de commande.
+                </p>
+                <Input id="standalone-po-label" placeholder="Objet court visible en liste" {...register('label')} />
                 {errors.label && <p className="text-sm text-destructive">{errors.label.message}</p>}
               </div>
             </section>
@@ -449,132 +464,6 @@ export function CreateStandalonePurchaseOrderDialog({
                 </div>
               </div>
             </section>
-
-            {canUploadAttachments && (
-              <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Documents (optionnel)
-                </h3>
-                <p className={fieldHint + ' mb-3'}>
-                  PDF, JPEG ou PNG — 15&nbsp;Mo max par fichier. Type : devis ou bon de commande (GED).
-                </p>
-                {pendingDocs.length === 0 ? (
-                  <p className="text-sm text-muted-foreground mb-3">Aucun fichier sélectionné.</p>
-                ) : (
-                  <ul className="mb-3 space-y-3">
-                    {pendingDocs.map((row) => (
-                      <li
-                        key={row.key}
-                        className="rounded-lg border border-border/60 bg-background/80 p-3 space-y-3"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-medium text-muted-foreground">Pièce</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                            aria-label="Retirer ce document"
-                            onClick={() =>
-                              setPendingDocs((prev) => prev.filter((r) => r.key !== row.key))
-                            }
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </div>
-                        <Input
-                          id={`standalone-po-doc-file-${row.key}`}
-                          type="file"
-                          accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
-                          className="cursor-pointer text-sm"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0] ?? null;
-                            setPendingDocs((prev) =>
-                              prev.map((r) => (r.key === row.key ? { ...r, file: f } : r)),
-                            );
-                          }}
-                        />
-                        {row.file && (
-                          <p className="text-xs text-muted-foreground truncate">{row.file.name}</p>
-                        )}
-                        <div className="grid gap-2">
-                          <Label className={fieldLabel}>Type de document</Label>
-                          <Select
-                            value={row.category}
-                            onValueChange={(v) =>
-                              setPendingDocs((prev) =>
-                                prev.map((r) =>
-                                  r.key === row.key
-                                    ? { ...r, category: v as ProcurementAttachmentCategory }
-                                    : r,
-                                ),
-                              )
-                            }
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {purchaseOrderCreationDocumentTypeOptions.map((o) => (
-                                <SelectItem key={o.value} value={o.value}>
-                                  {o.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor={`standalone-po-doc-title-${row.key}`} className={fieldLabel}>
-                            Titre affiché (optionnel)
-                          </Label>
-                          <Input
-                            id={`standalone-po-doc-title-${row.key}`}
-                            value={row.title}
-                            onChange={(e) =>
-                              setPendingDocs((prev) =>
-                                prev.map((r) =>
-                                  r.key === row.key ? { ...r, title: e.target.value } : r,
-                                ),
-                              )
-                            }
-                            placeholder="Ex. Devis mars 2026"
-                            autoComplete="off"
-                          />
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() =>
-                    setPendingDocs((prev) => [
-                      ...prev,
-                      {
-                        key: crypto.randomUUID(),
-                        file: null,
-                        title: '',
-                        category: 'QUOTE_PDF',
-                      },
-                    ])
-                  }
-                >
-                  <Plus className="size-4" aria-hidden />
-                  Ajouter un document
-                </Button>
-              </section>
-            )}
-
-            {!canUploadAttachments && (
-              <p className="text-xs text-muted-foreground rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-2">
-                Pour envoyer des pièces jointes depuis ce formulaire, la permission{' '}
-                <code className="text-[11px]">procurement.update</code> est requise (sinon ajout sur la fiche
-                après création).
-              </p>
-            )}
           </div>
 
           <div className="shrink-0 border-t border-border/60 bg-muted/25 px-5 py-4 sm:px-6">

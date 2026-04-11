@@ -20,12 +20,20 @@ const INV: Record<ProcurementAttachmentCategory, string> = {
   OTHER: 'Autre',
 };
 
-const SELECT_ORDER: ProcurementAttachmentCategory[] = [
+/** Pièces jointes sur une commande (devis, BC, etc.) — pas « Facture » (réservé à la fiche facture). */
+const SELECT_ORDER_PO: ProcurementAttachmentCategory[] = [
   'QUOTE_PDF',
   'ORDER_CONFIRMATION',
-  'INVOICE',
   'AMENDMENT',
   'CORRESPONDENCE',
+  'OTHER',
+];
+
+/** Pièces jointes sur une facture : pas de devis / bon de commande (réservés aux commandes). */
+const SELECT_ORDER_INVOICE: ProcurementAttachmentCategory[] = [
+  'INVOICE',
+  'CORRESPONDENCE',
+  'AMENDMENT',
   'OTHER',
 ];
 
@@ -40,7 +48,8 @@ export function procurementAttachmentCategoryLabel(
 export function procurementAttachmentCategorySelectOptions(
   parent: ProcurementAttachmentParentKind,
 ): { value: ProcurementAttachmentCategory; label: string }[] {
-  return SELECT_ORDER.map((value) => ({
+  const order = parent === 'purchase-order' ? SELECT_ORDER_PO : SELECT_ORDER_INVOICE;
+  return order.map((value) => ({
     value,
     label: procurementAttachmentCategoryLabel(value, parent),
   }));
@@ -55,3 +64,12 @@ export const purchaseOrderCreationDocumentTypeOptions: {
   { value: 'ORDER_CONFIRMATION', label: 'Bon de commande' },
   { value: 'OTHER', label: 'Autre' },
 ];
+
+/** Types utiles à la création d’une facture (hors fiche). */
+export const invoiceCreationDocumentTypeOptions: {
+  value: ProcurementAttachmentCategory;
+  label: string;
+}[] = SELECT_ORDER_INVOICE.map((value) => ({
+  value,
+  label: procurementAttachmentCategoryLabel(value, 'invoice'),
+}));

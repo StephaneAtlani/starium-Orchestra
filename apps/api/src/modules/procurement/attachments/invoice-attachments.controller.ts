@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RequireAnyPermissions } from '../../../common/decorators/require-any-permissions.decorator';
 import { RequirePermissions } from '../../../common/decorators/require-permissions.decorator';
 import { ActiveClientId } from '../../../common/decorators/active-client.decorator';
 import { RequestUserId } from '../../../common/decorators/request-user.decorator';
@@ -28,7 +29,7 @@ export class InvoiceAttachmentsController {
   constructor(private readonly attachments: ProcurementAttachmentsService) {}
 
   @Get(':id/attachments')
-  @RequirePermissions('procurement.read')
+  @RequireAnyPermissions('procurement.read', 'procurement.update')
   list(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') invoiceId: string,
@@ -61,7 +62,7 @@ export class InvoiceAttachmentsController {
   }
 
   @Get(':id/attachments/:attachmentId/download')
-  @RequirePermissions('procurement.read')
+  @RequireAnyPermissions('procurement.read', 'procurement.update')
   async download(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') invoiceId: string,

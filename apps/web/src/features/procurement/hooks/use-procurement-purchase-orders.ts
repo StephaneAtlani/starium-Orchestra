@@ -16,6 +16,8 @@ export function usePurchaseOrdersListQuery(params: {
   search?: string;
   supplierId?: string;
   includeCancelled?: boolean;
+  /** Par défaut true ; passer false pour désactiver la requête (ex. permissions pas encore résolues). */
+  enabled?: boolean;
 }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -28,6 +30,8 @@ export function usePurchaseOrdersListQuery(params: {
     c: params.includeCancelled ?? false,
   });
 
+  const enabled = params.enabled !== false;
+
   return useQuery({
     queryKey: procurementEntityKeys.purchaseOrdersList(clientId, key),
     queryFn: () =>
@@ -38,7 +42,7 @@ export function usePurchaseOrdersListQuery(params: {
         supplierId: params.supplierId,
         includeCancelled: params.includeCancelled,
       }),
-    enabled: Boolean(clientId),
+    enabled: Boolean(clientId) && enabled,
   });
 }
 

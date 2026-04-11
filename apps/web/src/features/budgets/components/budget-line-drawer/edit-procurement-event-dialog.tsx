@@ -27,6 +27,17 @@ import { toast } from '@/lib/toast';
 import type { FinancialEventForLine } from '../../api/budget-line-financial.api';
 import type { ApiFormError } from '../../api/types';
 
+/** Erreurs API = souvent un plain object `ApiFormError`, pas une `Error`. */
+function messageFromUnknownQueryError(err: unknown): string | null {
+  if (err == null) return null;
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const m = (err as { message?: unknown }).message;
+    if (typeof m === 'string' && m.trim()) return m.trim();
+  }
+  if (err instanceof Error && err.message.trim()) return err.message.trim();
+  return null;
+}
+
 export function EditProcurementEventDialog({
   open,
   onOpenChange,
@@ -53,12 +64,12 @@ export function EditProcurementEventDialog({
 
   const invoiceQuery = useQuery({
     queryKey: ['budgets', clientId, 'budget-line-invoices-lookup', budgetLineId, sourceId],
-    queryFn: () => listInvoicesByBudgetLine(authFetch, budgetLineId, { limit: 500 }),
+    queryFn: () => listInvoicesByBudgetLine(authFetch, budgetLineId, { limit: 200 }),
     enabled: open && sourceType === 'INVOICE' && !!sourceId && canProcurementLookup,
   });
   const poQuery = useQuery({
     queryKey: ['budgets', clientId, 'budget-line-po-lookup', budgetLineId, sourceId],
-    queryFn: () => listPurchaseOrdersByBudgetLine(authFetch, budgetLineId, { limit: 500 }),
+    queryFn: () => listPurchaseOrdersByBudgetLine(authFetch, budgetLineId, { limit: 200 }),
     enabled: open && sourceType === 'PURCHASE_ORDER' && !!sourceId && canProcurementLookup,
   });
 
@@ -102,6 +113,13 @@ export function EditProcurementEventDialog({
     canProcurementLookup &&
     ((sourceType === 'INVOICE' && invoiceQuery.isError) ||
       (sourceType === 'PURCHASE_ORDER' && poQuery.isError));
+
+  const loadErrorDetail =
+    sourceType === 'INVOICE'
+      ? messageFromUnknownQueryError(invoiceQuery.error)
+      : sourceType === 'PURCHASE_ORDER'
+        ? messageFromUnknownQueryError(poQuery.error)
+        : null;
 
   const invoiceNotFound =
     open &&
@@ -171,8 +189,8 @@ export function EditProcurementEventDialog({
       <DialogContent
         showCloseButton
         className={cn(
-          'flex max-h-[min(90vh,640px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-lg',
-          'sm:max-w-lg',
+          'flex max-h-[min(90vh,720px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-lg',
+          'sm:max-w-2xl',
         )}
       >
         <div className="shrink-0 border-b border-border/60 bg-card/50 px-5 pb-4 pt-5 pr-14">
@@ -188,9 +206,9 @@ export function EditProcurementEventDialog({
             </DialogTitle>
             <DialogDescription className="text-left text-sm text-muted-foreground">
               {sourceType === 'INVOICE'
-                ? 'Mise à jour du libellé et du numéro de facture (métadonnées uniquement).'
+                ? 'En haut : déposer la facture ou un justificatif (PDF / image). En dessous : libellé et numéro si les droits le permettent.'
                 : sourceType === 'PURCHASE_ORDER'
-                  ? 'Mise à jour du libellé et de la référence (métadonnées uniquement).'
+                  ? 'En haut : déposer le devis ou le bon de commande (PDF / image). En dessous : libellé et référence si les droits le permettent.'
                   : 'Modification depuis l’événement financier lié.'}
             </DialogDescription>
           </DialogHeader>
@@ -237,9 +255,14 @@ export function EditProcurementEventDialog({
 
           {loadError && canProcurementLookup && (sourceType === 'INVOICE' || sourceType === 'PURCHASE_ORDER') && (
             <Alert variant="destructive">
-              <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <span>Impossible de charger l’enregistrement à modifier.</span>
-                <Button type="button" variant="outline" size="sm" onClick={() => refetchLookup()}>
+              <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <span className="min-w-0">
+                  Impossible de charger l’enregistrement à modifier.
+                  {loadErrorDetail ? (
+                    <span className="mt-1 block text-xs font-normal opacity-90">{loadErrorDetail}</span>
+                  ) : null}
+                </span>
+                <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => refetchLookup()}>
                   Réessayer
                 </Button>
               </AlertDescription>
@@ -267,6 +290,9 @@ export function EditProcurementEventDialog({
 
           {canUpdate && sourceType === 'INVOICE' && invoice && !loading && !loadError && (
             <form onSubmit={handleSubmit} className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Métadonnées
+              </p>
               <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
                 <div className="space-y-2">
                   <Label htmlFor="edit-inv-label" className="text-sm font-medium">
@@ -325,6 +351,9 @@ export function EditProcurementEventDialog({
 
           {canUpdate && sourceType === 'PURCHASE_ORDER' && po && !loading && !loadError && (
             <form onSubmit={handleSubmit} className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Métadonnées
+              </p>
               <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
                 <div className="space-y-2">
                   <Label htmlFor="edit-po-label" className="text-sm font-medium">

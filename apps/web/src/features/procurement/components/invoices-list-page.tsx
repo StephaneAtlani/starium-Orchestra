@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,9 @@ function formatDate(iso: string): string {
 }
 
 export function InvoicesListPage() {
+  const searchParams = useSearchParams();
+  const supplierIdFromUrl = searchParams.get('supplierId')?.trim() || undefined;
+
   const { has } = usePermissions();
   const canRead = has('procurement.read');
   const canCreate = has('procurement.create');
@@ -41,10 +45,15 @@ export function InvoicesListPage() {
   const [includeCancelled, setIncludeCancelled] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
+  useEffect(() => {
+    setOffset(0);
+  }, [supplierIdFromUrl]);
+
   const q = useInvoicesListQuery({
     offset,
     limit: PAGE_SIZE,
     search,
+    supplierId: supplierIdFromUrl,
     includeCancelled,
   });
 
@@ -77,6 +86,14 @@ export function InvoicesListPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Factures</h1>
           <p className="text-sm text-muted-foreground">
             Factures fournisseurs — suivi et pièces jointes.
+            {supplierIdFromUrl ? (
+              <span className="mt-1 block text-xs">
+                Filtre actif : ce fournisseur uniquement —{' '}
+                <Link href="/suppliers/invoices" className="text-primary underline-offset-2 hover:underline">
+                  tout afficher
+                </Link>
+              </span>
+            ) : null}
           </p>
         </div>
         {canCreate && (

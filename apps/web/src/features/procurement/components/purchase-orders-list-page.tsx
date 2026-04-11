@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,9 @@ function formatDate(iso: string): string {
 }
 
 export function PurchaseOrdersListPage() {
+  const searchParams = useSearchParams();
+  const supplierIdFromUrl = searchParams.get('supplierId')?.trim() || undefined;
+
   const { has } = usePermissions();
   const canRead = has('procurement.read');
   const canCreate = has('procurement.create');
@@ -41,10 +45,15 @@ export function PurchaseOrdersListPage() {
   const [includeCancelled, setIncludeCancelled] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
+  useEffect(() => {
+    setOffset(0);
+  }, [supplierIdFromUrl]);
+
   const q = usePurchaseOrdersListQuery({
     offset,
     limit: PAGE_SIZE,
     search,
+    supplierId: supplierIdFromUrl,
     includeCancelled,
   });
 
@@ -77,6 +86,14 @@ export function PurchaseOrdersListPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Commandes</h1>
           <p className="text-sm text-muted-foreground">
             Bons de commande fournisseurs — montants et références métier.
+            {supplierIdFromUrl ? (
+              <span className="mt-1 block text-xs">
+                Filtre actif : ce fournisseur uniquement —{' '}
+                <Link href="/suppliers/purchase-orders" className="text-primary underline-offset-2 hover:underline">
+                  tout afficher
+                </Link>
+              </span>
+            ) : null}
           </p>
         </div>
         {canCreate && (

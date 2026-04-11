@@ -181,6 +181,17 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
         <p className="text-muted-foreground mt-1">{inv.label}</p>
       </div>
 
+      <div ref={docsRef}>
+        <ProcurementAttachmentsPanel
+          parent={{ kind: 'invoice', id: inv.id }}
+          canList={canRead}
+          canUpload={canUpdate && !isCancelled}
+          uploadBlockedMessage={
+            isCancelled ? 'Cette facture est annulée : tu ne peux plus y ajouter de documents.' : null
+          }
+        />
+      </div>
+
       <div className="rounded-xl border border-border/70 bg-card p-5 shadow-sm space-y-3 text-sm">
         <div className="grid gap-1 sm:grid-cols-2">
           <span className="text-muted-foreground">Fournisseur</span>
@@ -241,14 +252,6 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: string }) {
           <span className="text-muted-foreground">Statut</span>
           <span className="rounded-md bg-muted px-2 py-0.5 text-xs w-fit">{inv.status}</span>
         </div>
-      </div>
-
-      <div ref={docsRef}>
-        <ProcurementAttachmentsPanel
-          parent={{ kind: 'invoice', id: inv.id }}
-          canList={canRead}
-          canUpload={canUpdate}
-        />
       </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

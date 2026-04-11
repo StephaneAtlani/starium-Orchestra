@@ -24,7 +24,12 @@ import type { ApiFormError } from '@/features/budgets/api/types';
 import { useTaxDisplayMode } from '@/hooks/use-tax-display-mode';
 import { useCreateInvoiceStandalone } from '../hooks/use-procurement-entity-mutations';
 import { useQuickCreateSupplier } from '../hooks/use-quick-create-supplier';
-import { listPurchaseOrders, listSuppliers } from '../api/procurement.api';
+import { listPurchaseOrders, listSuppliers, uploadInvoiceAttachment } from '../api/procurement.api';
+import {
+  ProcurementPoPendingDocumentsSection,
+  defaultPoAttachmentDisplayName,
+  type PendingPoDocRow,
+} from './procurement-po-pending-documents-section';
 import { SupplierSearchCombobox } from './supplier-search-combobox';
 import { prepareQuickCreateRequest } from '../utils/prepare-quick-create-request';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -50,6 +55,10 @@ export function CreateStandaloneInvoiceDialog({
   const clientId = activeClient?.id ?? '';
   const { has } = usePermissions();
   const canCreateProcurement = has('procurement.create');
+  const canUploadAttachments = has('procurement.update');
+  const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+  const [pendingDocs, setPendingDocs] = useState<PendingPoDocRow[]>([]);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const { defaultTaxRate } = useTaxDisplayMode();
   const baseTaxRate = defaultTaxRate ?? 0;
 
@@ -94,6 +103,8 @@ export function CreateStandaloneInvoiceDialog({
     if (!open) {
       setSubmitError(null);
       setResolvedSupplier(null);
+      setPendingDocs([]);
+      setIsUploadingAttachments(false);
       reset({
         supplierName: '',
         invoiceNumber: '',
@@ -187,8 +198,53 @@ export function CreateStandaloneInvoiceDialog({
         taxRate: values.taxRateInput.toFixed(2),
         invoiceDate: new Date(values.eventDate).toISOString(),
       });
+
+      const toUpload = canUploadAttachments ? pendingDocs.filter((r) => r.file.size > 0) : [];
+      const oversized = toUpload.filter((r) => r.file.size > MAX_ATTACHMENT_BYTES);
+      const okToUpload = toUpload.filter((r) => r.file.size <= MAX_ATTACHMENT_BYTES);
+
+      if (oversized.length > 0) {
+        toast.error('Un ou plusieurs fichiers dépassent 15 Mo — ils n’ont pas été envoyés.');
+      }
+
+      if (okToUpload.length > 0) {
+        setIsUploadingAttachments(true);
+        let failed = 0;
+        for (const row of okToUpload) {
+          try {
+            await uploadInvoiceAttachment(authFetch, created.id, row.file, {
+              name: row.title.trim() || defaultPoAttachmentDisplayName(row.file),
+              category: row.category,
+            });
+          } catch {
+            failed += 1;
+          }
+        }
+        setIsUploadingAttachments(false);
+        if (failed > 0) {
+          toast.error(
+            `Facture créée. ${failed} pièce(s) jointe(s) n’ont pas pu être envoyées — ouvre la fiche facture pour réessayer.`,
+          );
+        } else {
+          toast.success(
+            okToUpload.length > 1
+              ? `Facture créée — ${okToUpload.length} documents ajoutés.`
+              : 'Facture créée — document ajouté.',
+          );
+        }
+      } else if (!canUploadAttachments && pendingDocs.length > 0) {
+        toast.message(
+          'Facture créée. Les fichiers n’ont pas été envoyés : permission procurement.update requise. Ajoute-les depuis la fiche facture.',
+        );
+      } else {
+        toast.success(
+          oversized.length > 0
+            ? 'Facture créée (certains fichiers trop volumineux n’ont pas été envoyés).'
+            : 'Facture créée.',
+        );
+      }
+
       onOpenChange(false);
-      toast.success('Facture créée. Tu peux ajouter des pièces jointes sur la fiche.');
       router.push(`/suppliers/invoices/${created.id}?documents=1`);
     } catch (e) {
       setSubmitError(e as ApiFormError);
@@ -278,7 +334,9 @@ export function CreateStandaloneInvoiceDialog({
                 </span>
               </DialogTitle>
               <DialogDescription className="text-left text-sm leading-relaxed text-muted-foreground">
-                Après création, redirection vers la fiche pour ajouter des documents (GED).
+                Tu peux joindre des PDF ou images ici (si tu as{' '}
+                <code className="rounded bg-muted px-1 py-0.5 text-[11px]">procurement.update</code>
+                ), sinon après création la fiche s’ouvre sur la zone documents.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -310,7 +368,11 @@ export function CreateStandaloneInvoiceDialog({
                       onChange={field.onChange}
                       onBlur={field.onBlur}
                       parentOpen={open}
-                      disabled={createInvoice.isPending || quickCreateSupplier.isPending}
+                      disabled={
+                        createInvoice.isPending ||
+                        quickCreateSupplier.isPending ||
+                        isUploadingAttachments
+                      }
                       aria-invalid={!!errors.supplierName}
                       onManualInput={() => {
                         setResolvedSupplier(null);
@@ -458,6 +520,30 @@ export function CreateStandaloneInvoiceDialog({
                 </div>
               </div>
             </section>
+
+            {canUploadAttachments && (
+              <ProcurementPoPendingDocumentsSection
+                parentEntity="invoice"
+                pendingDocs={pendingDocs}
+                setPendingDocs={setPendingDocs}
+                idPrefix="standalone-inv"
+                description={<>Taille maximale : 15&nbsp;Mo par fichier.</>}
+              />
+            )}
+
+            {!canUploadAttachments && (
+              <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-50/90 to-amber-50/40 px-4 py-3 text-sm text-amber-950 dark:from-amber-950/50 dark:to-amber-950/30 dark:text-amber-50">
+                <p className="font-medium text-amber-950 dark:text-amber-50">Documents non disponibles ici</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/85">
+                  La permission{' '}
+                  <code className="rounded bg-amber-100/80 px-1 py-0.5 text-[11px] dark:bg-amber-900/60">
+                    procurement.update
+                  </code>{' '}
+                  est requise pour préparer les fichiers ici. Sinon, après création, utiliser la{' '}
+                  <strong>fiche facture</strong> pour les déposer.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="shrink-0 border-t border-border/60 bg-muted/25 px-5 py-4 sm:px-6">
@@ -467,10 +553,16 @@ export function CreateStandaloneInvoiceDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={createInvoice.isPending || quickCreateSupplier.isPending}
+                disabled={
+                  createInvoice.isPending || quickCreateSupplier.isPending || isUploadingAttachments
+                }
                 className="min-w-[7rem]"
               >
-                {createInvoice.isPending ? 'Création…' : 'Créer'}
+                {isUploadingAttachments
+                  ? 'Envoi des pièces…'
+                  : createInvoice.isPending
+                    ? 'Création…'
+                    : 'Créer'}
               </Button>
             </div>
           </div>
