@@ -137,7 +137,7 @@ export function SupplierContactModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        overlayClassName="!z-[130] bg-black/20 supports-backdrop-filter:backdrop-blur-sm"
+        overlayClassName="!z-[130] bg-black/40 dark:bg-black/55 backdrop-blur-[2px]"
         className="!z-[140] flex max-h-[90vh] w-full sm:w-[80vw] sm:max-w-[80vw] flex-col gap-4 p-6"
       >
         <DialogHeader>

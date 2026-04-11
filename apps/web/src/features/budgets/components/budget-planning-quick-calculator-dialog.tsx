@@ -81,7 +81,7 @@ export function BudgetPlanningQuickCalculatorDialog({
     <Dialog open={open} onOpenChange={handleMainOpenChange}>
       <DialogContent
         showCloseButton
-        overlayClassName="z-[100] bg-black/40 backdrop-blur-md dark:bg-black/55"
+        overlayClassName="z-[100] bg-black/40 duration-200 dark:bg-black/55 backdrop-blur-[2px]"
         className="z-[110] max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-2xl lg:max-w-3xl"
       >
         <DialogHeader className="-mx-4 -mt-4 space-y-2 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
@@ -284,7 +284,7 @@ export function BudgetPlanningQuickCalculatorDialog({
     <Dialog open={pctModalOpen} onOpenChange={setPctModalOpen}>
       <DialogContent
         showCloseButton
-        overlayClassName="z-[115] bg-black/45 backdrop-blur-sm dark:bg-black/55"
+        overlayClassName="z-[115] bg-black/45 duration-200 dark:bg-black/55 backdrop-blur-[2px]"
         className="z-[120] w-full gap-4 sm:max-w-md"
       >
         <DialogHeader>

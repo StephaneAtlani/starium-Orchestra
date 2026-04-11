@@ -36,6 +36,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import type { PurchaseOrder } from '../types/purchase-order.types';
+import { formatPurchaseOrderOptionLabel } from '../utils/purchase-order-option-label';
 
 export function CreateStandaloneInvoiceDialog({
   open,
@@ -424,7 +425,7 @@ export function CreateStandaloneInvoiceDialog({
                     <option value="">Aucune</option>
                     {poItems.map((po) => (
                       <option key={po.id} value={po.id}>
-                        {po.reference} — {po.label}
+                        {formatPurchaseOrderOptionLabel(po)}
                       </option>
                     ))}
                   </select>

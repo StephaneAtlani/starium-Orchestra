@@ -101,7 +101,7 @@ export function SupplierContactVisualizationModal({
       {open ? (
         <div
           aria-hidden="true"
-          className="fixed inset-0 isolate z-[110] bg-black/20 duration-200 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+          className="fixed inset-0 z-[110] bg-black/40 duration-200 dark:bg-black/55 backdrop-blur-[2px] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         />
       ) : null}
       <DialogContent

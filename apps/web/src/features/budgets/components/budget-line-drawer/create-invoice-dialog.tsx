@@ -6,10 +6,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +33,7 @@ import { SupplierSearchCombobox } from '@/features/procurement/components/suppli
 import { prepareQuickCreateRequest } from '@/features/procurement/utils/prepare-quick-create-request';
 import { usePurchaseOrdersByBudgetLine } from '@/features/procurement/hooks/use-purchase-orders-by-budget-line';
 import type { PurchaseOrder } from '@/features/procurement/types/purchase-order.types';
+import { formatPurchaseOrderOptionLabel } from '@/features/procurement/utils/purchase-order-option-label';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -302,231 +305,348 @@ export function CreateInvoiceDialog({
     }
   };
 
+  const fieldLabel = 'text-sm font-medium text-foreground';
+  const fieldHint = 'text-xs text-muted-foreground';
+
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto shadow-lg bg-background" showCloseButton>
-        <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <DialogHeader>
-              <DialogTitle>Ajouter une facture</DialogTitle>
-            </DialogHeader>
-          </div>
-
-          {submitError && (
-            <div className="col-span-2">
-              <Alert variant="destructive">
-                <AlertDescription>{submitError.message}</AlertDescription>
-              </Alert>
-            </div>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          showCloseButton
+          className={cn(
+            'flex max-h-[min(90vh,820px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background/88 p-0 shadow-lg backdrop-blur-2xl dark:bg-background/88',
+            'sm:max-w-2xl',
           )}
-
-          <div className="col-span-2">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <Label
-                htmlFor="invoice-purchaseOrderId"
-                className="shrink-0 text-sm font-medium sm:min-w-[11rem] sm:pt-0.5"
-              >
-                Commande (optionnel)
-              </Label>
-              <select
-                id="invoice-purchaseOrderId"
-                name="purchaseOrderId"
-                className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                value={watch('purchaseOrderId') ?? ''}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setValue('purchaseOrderId', id, { shouldValidate: true });
-                  if (!id) return;
-                  const po = (poQuery.data?.items ?? []).find((p) => p.id === id);
-                  if (po) applyPurchaseOrderToForm(po);
-                }}
-              >
-                <option value="">Aucune</option>
-                {(poQuery.data?.items ?? []).map((po) => (
-                  <option key={po.id} value={po.id}>
-                    {po.reference} - {po.label}
-                  </option>
-                ))}
-              </select>
+        >
+          <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 border-b border-border/60 bg-card/35 px-5 pb-4 pt-5 pr-14 backdrop-blur-md sm:px-6">
+              <DialogHeader className="space-y-2 text-left">
+                <DialogTitle className="flex items-start gap-3 text-xl font-semibold tracking-tight">
+                  <span
+                    className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/40 shadow-sm backdrop-blur-sm"
+                    aria-hidden
+                  >
+                    <FileText className="size-5 text-foreground/85" />
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span>Ajouter une facture</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      Ligne « {line.name} » · {line.currency}
+                    </span>
+                  </span>
+                </DialogTitle>
+                <DialogDescription className="text-left text-sm leading-relaxed text-muted-foreground">
+                  Lie éventuellement une <strong className="text-foreground">commande</strong> pour préremplir
+                  fournisseur et montants, puis saisis la facture. Tu peux joindre des PDF ou images en bas si tu as
+                  les droits.
+                </DialogDescription>
+              </DialogHeader>
             </div>
-            <p className="mt-1.5 text-xs text-muted-foreground sm:pl-[calc(11rem+0.75rem)]">
-              En choisissant une commande, fournisseur, libellé, montants et TVA sont préremplis (tu peux les
-              ajuster).
-            </p>
-          </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-supplierName">Fournisseur</Label>
-            <div className="min-w-0 flex-1">
-              <Controller
-                name="supplierName"
-                control={control}
-                render={({ field }) => (
-                  <SupplierSearchCombobox
-                    id="invoice-supplierName"
-                    name={field.name}
-                    ref={field.ref}
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    parentOpen={open}
-                    disabled={
-                      createInvoice.isPending ||
-                      quickCreateSupplier.isPending ||
-                      isUploadingAttachments
-                    }
-                    aria-invalid={!!errors.supplierName}
-                    onManualInput={() => {
-                      setResolvedSupplier(null);
-                      clearErrors('supplierName');
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
+              {submitError && (
+                <Alert variant="destructive" className="border-destructive/40">
+                  <AlertDescription>{submitError.message}</AlertDescription>
+                </Alert>
+              )}
+
+              <section
+                className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm sm:p-5"
+                aria-labelledby="invoice-section-po"
+              >
+                <h3
+                  id="invoice-section-po"
+                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Commande (optionnel)
+                </h3>
+                <div className="grid gap-2">
+                  <Label htmlFor="invoice-purchaseOrderId" className={fieldLabel}>
+                    Lier à une commande de la ligne
+                  </Label>
+                  <select
+                    id="invoice-purchaseOrderId"
+                    name="purchaseOrderId"
+                    className="h-9 w-full rounded-md border border-input bg-background/80 px-3 text-sm backdrop-blur-sm"
+                    value={watch('purchaseOrderId') ?? ''}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setValue('purchaseOrderId', id, { shouldValidate: true });
+                      if (!id) return;
+                      const po = (poQuery.data?.items ?? []).find((p) => p.id === id);
+                      if (po) applyPurchaseOrderToForm(po);
                     }}
-                    onSupplierPicked={(s) => {
-                      setResolvedSupplier(s);
-                      clearErrors('supplierName');
-                    }}
-                    hasSupplierSelection={resolvedSupplier != null}
-                    onValidateOnBlur={validateSupplierOnBlur}
-                    onRequestQuickCreate={(draftName) => requestQuickCreate(draftName)}
+                  >
+                    <option value="">Aucune</option>
+                    {(poQuery.data?.items ?? []).map((po) => (
+                      <option key={po.id} value={po.id}>
+                        {formatPurchaseOrderOptionLabel(po)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className={fieldHint}>
+                    Fournisseur, libellé, montants et TVA sont préremplis ; tu peux les ajuster ensuite.
+                  </p>
+                </div>
+              </section>
+
+              <section
+                className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm sm:p-5"
+                aria-labelledby="invoice-section-supplier"
+              >
+                <h3
+                  id="invoice-section-supplier"
+                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Fournisseur
+                </h3>
+                <div className="grid gap-2">
+                  <Label htmlFor="invoice-supplierName" className={fieldLabel}>
+                    Recherche ou création
+                  </Label>
+                  <div className="min-w-0 flex-1">
+                    <Controller
+                      name="supplierName"
+                      control={control}
+                      render={({ field }) => (
+                        <SupplierSearchCombobox
+                          id="invoice-supplierName"
+                          name={field.name}
+                          ref={field.ref}
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          parentOpen={open}
+                          disabled={
+                            createInvoice.isPending ||
+                            quickCreateSupplier.isPending ||
+                            isUploadingAttachments
+                          }
+                          aria-invalid={!!errors.supplierName}
+                          onManualInput={() => {
+                            setResolvedSupplier(null);
+                            clearErrors('supplierName');
+                          }}
+                          onSupplierPicked={(s) => {
+                            setResolvedSupplier(s);
+                            clearErrors('supplierName');
+                          }}
+                          hasSupplierSelection={resolvedSupplier != null}
+                          onValidateOnBlur={validateSupplierOnBlur}
+                          onRequestQuickCreate={(draftName) => requestQuickCreate(draftName)}
+                        />
+                      )}
+                    />
+                  </div>
+                  {errors.supplierName && (
+                    <p className="text-sm text-destructive">{errors.supplierName.message}</p>
+                  )}
+                </div>
+              </section>
+
+              <section
+                className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm sm:p-5"
+                aria-labelledby="invoice-section-detail"
+              >
+                <h3
+                  id="invoice-section-detail"
+                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Détail facture
+                </h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="invoice-invoiceNumber" className={fieldLabel}>
+                      Numéro de facture
+                    </Label>
+                    <Input
+                      id="invoice-invoiceNumber"
+                      className="bg-background/80 backdrop-blur-sm"
+                      {...register('invoiceNumber')}
+                      aria-invalid={!!errors.invoiceNumber}
+                    />
+                    {errors.invoiceNumber && (
+                      <p className="text-sm text-destructive">{errors.invoiceNumber.message}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="invoice-eventDate" className={fieldLabel}>
+                      Date
+                    </Label>
+                    <Input
+                      id="invoice-eventDate"
+                      type="date"
+                      className="bg-background/80 backdrop-blur-sm"
+                      {...register('eventDate')}
+                      aria-invalid={!!errors.eventDate}
+                    />
+                    {errors.eventDate && <p className="text-sm text-destructive">{errors.eventDate.message}</p>}
+                  </div>
+                  <div className="grid gap-2 sm:col-span-2">
+                    <Label htmlFor="invoice-label" className={fieldLabel}>
+                      Libellé
+                    </Label>
+                    <Input
+                      id="invoice-label"
+                      className="bg-background/80 backdrop-blur-sm"
+                      {...register('label')}
+                      aria-invalid={!!errors.label}
+                    />
+                    {errors.label && <p className="text-sm text-destructive">{errors.label.message}</p>}
+                  </div>
+                </div>
+              </section>
+
+              <section
+                className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm sm:p-5"
+                aria-labelledby="invoice-section-amounts"
+              >
+                <h3
+                  id="invoice-section-amounts"
+                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Montants
+                </h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="grid gap-2">
+                    <Label htmlFor="invoice-amountHtInput" className={fieldLabel}>
+                      HT ({line.currency})
+                    </Label>
+                    <Input
+                      id="invoice-amountHtInput"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      className="bg-background/80 tabular-nums backdrop-blur-sm"
+                      {...register('amountHtInput', {
+                        valueAsNumber: true,
+                        onChange: () => setLastEditedField('ht'),
+                      })}
+                      aria-invalid={!!errors.amountHtInput}
+                    />
+                    {errors.amountHtInput && (
+                      <p className="text-sm text-destructive">{errors.amountHtInput.message}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="invoice-taxRateInput" className={fieldLabel}>
+                      TVA %
+                    </Label>
+                    <Input
+                      id="invoice-taxRateInput"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      className="bg-background/80 tabular-nums backdrop-blur-sm"
+                      {...register('taxRateInput', {
+                        valueAsNumber: true,
+                        onChange: () => setLastEditedField('tax'),
+                      })}
+                      aria-invalid={!!errors.taxRateInput}
+                    />
+                    {errors.taxRateInput && (
+                      <p className="text-sm text-destructive">{errors.taxRateInput.message}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="invoice-amountTtcInput" className={fieldLabel}>
+                      TTC ({line.currency})
+                    </Label>
+                    <Input
+                      id="invoice-amountTtcInput"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      className="bg-background/80 tabular-nums backdrop-blur-sm"
+                      {...register('amountTtcInput', {
+                        valueAsNumber: true,
+                        onChange: () => setLastEditedField('ttc'),
+                      })}
+                      aria-invalid={!!errors.amountTtcInput}
+                    />
+                    {errors.amountTtcInput && (
+                      <p className="text-sm text-destructive">{errors.amountTtcInput.message}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Modifie HT, TTC ou TVA : les deux autres se recalculent selon le dernier champ saisi.
+                </p>
+              </section>
+
+              <section
+                className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm sm:p-5"
+                aria-labelledby="invoice-section-desc"
+              >
+                <h3
+                  id="invoice-section-desc"
+                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Description
+                </h3>
+                <div className="grid gap-2">
+                  <Label htmlFor="invoice-description" className={fieldLabel}>
+                    Complément (optionnel)
+                  </Label>
+                  <Input
+                    id="invoice-description"
+                    className="bg-background/80 backdrop-blur-sm"
+                    {...register('description')}
+                    aria-invalid={!!errors.description}
                   />
-                )}
-              />
+                </div>
+              </section>
+
+              {canUploadAttachments && (
+                <ProcurementPoPendingDocumentsSection
+                  parentEntity="invoice"
+                  pendingDocs={pendingDocs}
+                  setPendingDocs={setPendingDocs}
+                  idPrefix="budget-inv"
+                  description={<>Taille maximale : 15&nbsp;Mo par fichier.</>}
+                />
+              )}
+
+              {!canUploadAttachments && (
+                <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-50/90 to-amber-50/40 px-4 py-3 text-sm text-amber-950 backdrop-blur-sm dark:from-amber-950/50 dark:to-amber-950/30 dark:text-amber-50">
+                  <p className="font-medium text-amber-950 dark:text-amber-50">Documents non disponibles ici</p>
+                  <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/85">
+                    La permission{' '}
+                    <code className="rounded bg-amber-100/80 px-1 py-0.5 text-[11px] dark:bg-amber-900/60">
+                      procurement.update
+                    </code>{' '}
+                    est requise pour préparer les fichiers ici. Sinon, après création, utiliser la{' '}
+                    <strong>fiche facture</strong> pour les déposer.
+                  </p>
+                </div>
+              )}
             </div>
-            {errors.supplierName && (
-              <p className="text-sm text-destructive">{errors.supplierName.message}</p>
-            )}
-          </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-invoiceNumber">Numero facture</Label>
-            <Input
-              id="invoice-invoiceNumber"
-              {...register('invoiceNumber')}
-              aria-invalid={!!errors.invoiceNumber}
-            />
-            {errors.invoiceNumber && (
-              <p className="text-sm text-destructive">{errors.invoiceNumber.message}</p>
-            )}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-eventDate">Date</Label>
-            <Input id="invoice-eventDate" type="date" {...register('eventDate')} aria-invalid={!!errors.eventDate} />
-            {errors.eventDate && <p className="text-sm text-destructive">{errors.eventDate.message}</p>}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-label">Libellé</Label>
-            <Input id="invoice-label" {...register('label')} aria-invalid={!!errors.label} />
-            {errors.label && <p className="text-sm text-destructive">{errors.label.message}</p>}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-amountHtInput">Montant HT ({line.currency})</Label>
-            <Input
-              id="invoice-amountHtInput"
-              type="number"
-              step="0.01"
-              min={0}
-              {...register('amountHtInput', {
-                valueAsNumber: true,
-                onChange: () => setLastEditedField('ht'),
-              })}
-              aria-invalid={!!errors.amountHtInput}
-            />
-            {errors.amountHtInput && <p className="text-sm text-destructive">{errors.amountHtInput.message}</p>}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-taxRateInput">TVA % (taxRate)</Label>
-            <Input
-              id="invoice-taxRateInput"
-              type="number"
-              step="0.01"
-              min={0}
-              {...register('taxRateInput', {
-                valueAsNumber: true,
-                onChange: () => setLastEditedField('tax'),
-              })}
-              aria-invalid={!!errors.taxRateInput}
-            />
-            {errors.taxRateInput && (
-              <p className="text-sm text-destructive">{errors.taxRateInput.message}</p>
-            )}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-amountTtcInput">Montant TTC ({line.currency})</Label>
-            <Input
-              id="invoice-amountTtcInput"
-              type="number"
-              step="0.01"
-              min={0}
-              {...register('amountTtcInput', {
-                valueAsNumber: true,
-                onChange: () => setLastEditedField('ttc'),
-              })}
-              aria-invalid={!!errors.amountTtcInput}
-            />
-            {errors.amountTtcInput && <p className="text-sm text-destructive">{errors.amountTtcInput.message}</p>}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="invoice-description">Description (optionnel)</Label>
-            <Input id="invoice-description" {...register('description')} aria-invalid={!!errors.description} />
-          </div>
-
-          {canUploadAttachments && (
-            <div className="col-span-2">
-              <ProcurementPoPendingDocumentsSection
-                parentEntity="invoice"
-                pendingDocs={pendingDocs}
-                setPendingDocs={setPendingDocs}
-                idPrefix="budget-inv"
-                description={<>Taille maximale : 15&nbsp;Mo par fichier.</>}
-              />
+            <div className="shrink-0 border-t border-border/60 bg-muted/20 px-5 py-4 backdrop-blur-md sm:px-6">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Annuler
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    createInvoice.isPending ||
+                    quickCreateSupplier.isPending ||
+                    isUploadingAttachments
+                  }
+                  className="min-w-[7rem]"
+                >
+                  {isUploadingAttachments
+                    ? 'Envoi des pièces…'
+                    : createInvoice.isPending || quickCreateSupplier.isPending
+                      ? 'Création…'
+                      : 'Créer la facture'}
+                </Button>
+              </div>
             </div>
-          )}
-
-          {!canUploadAttachments && (
-            <div className="col-span-2 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-50/90 to-amber-50/40 px-4 py-3 text-sm text-amber-950 dark:from-amber-950/50 dark:to-amber-950/30 dark:text-amber-50">
-              <p className="font-medium text-amber-950 dark:text-amber-50">Documents non disponibles ici</p>
-              <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/85">
-                La permission{' '}
-                <code className="rounded bg-amber-100/80 px-1 py-0.5 text-[11px] dark:bg-amber-900/60">
-                  procurement.update
-                </code>{' '}
-                est requise pour préparer les fichiers ici. Sinon, après création, utiliser la{' '}
-                <strong>fiche facture</strong> pour les déposer.
-              </p>
-            </div>
-          )}
-
-          <div className="col-span-2">
-            <DialogFooter showCloseButton={false}>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  createInvoice.isPending ||
-                  quickCreateSupplier.isPending ||
-                  isUploadingAttachments
-                }
-              >
-                {isUploadingAttachments
-                  ? 'Envoi des pièces…'
-                  : createInvoice.isPending || quickCreateSupplier.isPending
-                    ? 'Création…'
-                    : 'Créer'}
-              </Button>
-            </DialogFooter>
-          </div>
-        </form>
-      </DialogContent>
-
-    </Dialog>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

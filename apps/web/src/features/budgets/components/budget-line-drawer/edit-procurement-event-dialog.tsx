@@ -189,7 +189,7 @@ export function EditProcurementEventDialog({
       <DialogContent
         showCloseButton
         className={cn(
-          'flex max-h-[min(90vh,720px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-lg',
+          'flex max-h-[min(90vh,720px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background/92 p-0 shadow-lg backdrop-blur-2xl dark:bg-background/92',
           'sm:max-w-2xl',
         )}
       >
