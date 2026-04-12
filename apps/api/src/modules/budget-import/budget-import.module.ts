@@ -8,9 +8,10 @@ import { BudgetImportParserService } from './budget-import-parser.service';
 import { BudgetImportMatchingService } from './budget-import-matching.service';
 import { BudgetImportMappingsController } from './budget-import-mappings.controller';
 import { BudgetImportMappingsService } from './budget-import-mappings.service';
+import { PlatformUploadModule } from '../platform-upload/platform-upload.module';
 
 @Module({
-  imports: [PrismaModule, AuditLogsModule],
+  imports: [PrismaModule, AuditLogsModule, PlatformUploadModule],
   controllers: [BudgetImportController, BudgetImportMappingsController],
   providers: [
     BudgetImportService,

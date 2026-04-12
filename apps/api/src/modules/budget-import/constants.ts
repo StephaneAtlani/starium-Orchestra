@@ -1,4 +1,4 @@
-/** Max file size for import (10 MB). */
+/** Référence historique — la limite effective est le réglage plateforme (`PlatformUploadSettings`). */
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 /** Max rows to analyze/import (MVP). */

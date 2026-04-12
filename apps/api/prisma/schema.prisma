@@ -328,6 +328,14 @@ enum ProcurementStorageDriver {
 }
 
 /// Connexion stockage procurement — singleton id = `default` (RFC-034, RFC-035 : local + S3 optionnel).
+/// Plafond taille des fichiers « métier » (imports budget, pièces jointes procurement) — singleton id = `default`.
+model PlatformUploadSettings {
+  id              String   @id @default("default")
+  /// Taille max en octets (bornée par min plateforme et plafond absolu configurable).
+  maxUploadBytes  Int
+  updatedAt       DateTime @updatedAt
+}
+
 model PlatformProcurementS3Settings {
   id                 String   @id @default("default")
   /// Si false : fallback env uniquement ou stockage indisponible selon implémentation.

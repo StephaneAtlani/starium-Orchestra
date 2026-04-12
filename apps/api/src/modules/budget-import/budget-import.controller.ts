@@ -6,7 +6,6 @@ import {
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -19,7 +18,7 @@ import { BudgetImportService } from './budget-import.service';
 import { PreviewImportDto } from './dto/preview-import.dto';
 import { ExecuteImportDto } from './dto/execute-import.dto';
 import { AnalyzeSheetDto } from './dto/analyze-sheet.dto';
-import { MAX_FILE_SIZE_BYTES } from './constants';
+import { PlatformMaxFileInterceptor } from '../platform-upload/platform-max-file.interceptor';
 import type { UploadedFileType } from './types';
 
 @Controller('budget-imports')
@@ -29,11 +28,7 @@ export class BudgetImportController {
 
   @Post('analyze')
   @RequirePermissions('budgets.read')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: MAX_FILE_SIZE_BYTES },
-    }),
-  )
+  @UseInterceptors(PlatformMaxFileInterceptor)
   analyze(
     @ActiveClientId() clientId: string | undefined,
     @RequestUserId() userId: string | undefined,

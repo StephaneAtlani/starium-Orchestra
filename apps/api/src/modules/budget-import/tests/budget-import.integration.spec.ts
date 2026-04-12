@@ -13,6 +13,8 @@ import { BudgetImportMappingsService } from '../budget-import-mappings.service';
 import { BudgetImportFileStoreService } from '../budget-import-file-store.service';
 import { BudgetImportParserService } from '../budget-import-parser.service';
 import { BudgetImportMatchingService } from '../budget-import-matching.service';
+import { PlatformMaxFileInterceptor } from '../../platform-upload/platform-max-file.interceptor';
+import { PlatformUploadSettingsService } from '../../platform-upload/platform-upload-settings.service';
 
 describe('Budget import integration', () => {
   let app: INestApplication;
@@ -30,6 +32,13 @@ describe('Budget import integration', () => {
         BudgetImportFileStoreService,
         BudgetImportParserService,
         BudgetImportMatchingService,
+        PlatformMaxFileInterceptor,
+        {
+          provide: PlatformUploadSettingsService,
+          useValue: {
+            getEffectiveMaxBytes: () => 10 * 1024 * 1024,
+          },
+        },
       ],
     })
       .overrideGuard(JwtAuthGuard)

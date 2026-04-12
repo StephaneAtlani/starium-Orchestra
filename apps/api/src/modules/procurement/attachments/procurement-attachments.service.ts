@@ -10,11 +10,11 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
+import { PlatformUploadSettingsService } from '../../platform-upload/platform-upload-settings.service';
 import { ProcurementObjectStorageService } from '../s3/procurement-object-storage.service';
 import type { ProcurementAuditContext } from '../suppliers/suppliers.service';
 import {
   ALLOWED_PROCUREMENT_ATTACHMENT_MIME,
-  MAX_PROCUREMENT_ATTACHMENT_BYTES,
   MIME_TO_EXT,
 } from './procurement-attachments.constants';
 import type { UploadProcurementAttachmentFieldsDto } from './dto/upload-procurement-attachment-fields.dto';
@@ -89,15 +89,18 @@ export class ProcurementAttachmentsService {
     private readonly prisma: PrismaService,
     private readonly storage: ProcurementObjectStorageService,
     private readonly auditLogs: AuditLogsService,
+    private readonly platformUpload: PlatformUploadSettingsService,
   ) {}
 
   private assertFile(file: Express.Multer.File | undefined): void {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Fichier requis');
     }
-    if (file.size > MAX_PROCUREMENT_ATTACHMENT_BYTES) {
+    const maxBytes = this.platformUpload.getEffectiveMaxBytes();
+    if (file.size > maxBytes) {
+      const mb = (maxBytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, '');
       throw new BadRequestException(
-        `Fichier trop volumineux (max ${MAX_PROCUREMENT_ATTACHMENT_BYTES} octets)`,
+        `Fichier trop volumineux (maximum ${mb} Mo, réglage plateforme).`,
       );
     }
     const mime = file.mimetype?.toLowerCase() ?? '';

@@ -9,7 +9,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
@@ -20,7 +19,7 @@ import { ActiveClientId } from '../../../common/decorators/active-client.decorat
 import { RequestUserId } from '../../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
 import { ProcurementAttachmentsService } from './procurement-attachments.service';
-import { MAX_PROCUREMENT_ATTACHMENT_BYTES } from './procurement-attachments.constants';
+import { PlatformMaxFileInterceptor } from '../../platform-upload/platform-max-file.interceptor';
 import { UploadProcurementAttachmentFieldsDto } from './dto/upload-procurement-attachment-fields.dto';
 
 @Controller('invoices')
@@ -39,11 +38,7 @@ export class InvoiceAttachmentsController {
 
   @Post(':id/attachments')
   @RequirePermissions('procurement.update')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: MAX_PROCUREMENT_ATTACHMENT_BYTES },
-    }),
-  )
+  @UseInterceptors(PlatformMaxFileInterceptor)
   upload(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') invoiceId: string,

@@ -29,9 +29,16 @@ import { PlatformProcurementS3SettingsController } from './s3/platform-procureme
 import { ProcurementAttachmentsService } from './attachments/procurement-attachments.service';
 import { PurchaseOrderAttachmentsController } from './attachments/purchase-order-attachments.controller';
 import { InvoiceAttachmentsController } from './attachments/invoice-attachments.controller';
+import { PlatformUploadModule } from '../platform-upload/platform-upload.module';
 
 @Module({
-  imports: [PrismaModule, AuditLogsModule, FinancialCoreModule, MicrosoftModule],
+  imports: [
+    PrismaModule,
+    AuditLogsModule,
+    FinancialCoreModule,
+    MicrosoftModule,
+    PlatformUploadModule,
+  ],
   controllers: [
     PlatformProcurementS3SettingsController,
     PurchaseOrderAttachmentsController,

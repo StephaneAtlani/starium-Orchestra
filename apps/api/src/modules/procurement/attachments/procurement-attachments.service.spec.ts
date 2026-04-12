@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import { ProcurementObjectStorageService } from '../s3/procurement-object-storage.service';
+import { PlatformUploadSettingsService } from '../../platform-upload/platform-upload-settings.service';
 import { ProcurementAttachmentsService } from './procurement-attachments.service';
 import { MAX_PROCUREMENT_ATTACHMENT_BYTES } from './procurement-attachments.constants';
 
@@ -52,6 +53,12 @@ describe('ProcurementAttachmentsService', () => {
         { provide: PrismaService, useValue: prisma as unknown as PrismaService },
         { provide: ProcurementObjectStorageService, useValue: storage },
         { provide: AuditLogsService, useValue: audit },
+        {
+          provide: PlatformUploadSettingsService,
+          useValue: {
+            getEffectiveMaxBytes: () => MAX_PROCUREMENT_ATTACHMENT_BYTES,
+          },
+        },
       ],
     }).compile();
 

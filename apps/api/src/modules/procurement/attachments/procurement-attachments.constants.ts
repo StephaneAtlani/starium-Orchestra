@@ -1,4 +1,7 @@
-/** RFC-034 — taille max d’une pièce jointe procurement. */
+/**
+ * Référence historique / tests — la limite effective est `PlatformUploadSettings.maxUploadBytes`
+ * (réglage plateforme, défaut 15 MiB).
+ */
 export const MAX_PROCUREMENT_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 
 export const ALLOWED_PROCUREMENT_ATTACHMENT_MIME = new Set([

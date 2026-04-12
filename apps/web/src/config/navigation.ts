@@ -15,6 +15,7 @@ import {
   FileText,
   Scale,
   Tags,
+  Upload,
   Wallet,
 } from 'lucide-react';
 
@@ -243,6 +244,13 @@ export const navigation: NavigationSection[] = [
         label: 'Stockage pièces (procurement)',
         href: '/admin/procurement-storage',
         icon: HardDrive,
+        scope: 'platform',
+        platformOnly: true,
+      },
+      {
+        label: 'Taille max. fichiers',
+        href: '/admin/upload-settings',
+        icon: Upload,
         scope: 'platform',
         platformOnly: true,
       },

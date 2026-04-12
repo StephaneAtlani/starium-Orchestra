@@ -2259,6 +2259,20 @@ Paramètres **globaux** Starium : URI de redirection OAuth (callback `/api/micro
 
 ---
 
+### Taille max. fichiers métier (plateforme) — `GET|PATCH /api/platform/upload-settings`
+
+Plafond **unique** (octets) pour : **analyse d’import budget** (`POST /api/budget-imports/analyze`) et **pièces jointes procurement** (commandes / factures). Les autres uploads (avatar, logo fournisseur, etc.) gardent des limites fixes plus basses dans le code.
+
+**Guards** : `JwtAuthGuard`, `PlatformAdminGuard` — **pas** de `X-Client-Id`.
+
+**Variable d’environnement** : **`PLATFORM_UPLOAD_MAX_BYTES_CEILING`** (octets, optionnel) — plafond absolu au-delà duquel l’admin plateforme ne peut pas monter la limite (défaut applicatif **100 MiB** si absent). Nécessite un **redémarrage API** pour être prise en compte.
+
+**GET (200)** : `id`, `maxUploadBytes`, `minUploadBytes` (borne basse, ex. 1 MiB), `maxUploadBytesCeiling` (borne haute effective), `updatedAt`.
+
+**PATCH** : JSON `{ "maxUploadBytes": <entier> }` — doit être entre `minUploadBytes` et `maxUploadBytesCeiling`. Met à jour le cache runtime (Multer + validations métier) **sans redémarrage**.
+
+---
+
 ### Stockage procurement (plateforme) — `GET|PATCH /api/platform/procurement-s3-settings`
 
 RFC-034 + **RFC-035** : configuration **globale** du stockage des pièces jointes **commandes** et **factures**. Deux backends : **disque local** sur le serveur API (défaut dans Docker Compose du dépôt) ou **S3-compatible** (AWS, MinIO, etc.). Accès binaire **uniquement** via l’API métier ; pas d’URL signée exposée au navigateur métier.

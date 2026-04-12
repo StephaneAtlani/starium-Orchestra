@@ -19,10 +19,8 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { BudgetImportFileStoreService } from './budget-import-file-store.service';
 import { BudgetImportParserService, ParsedSheetRow } from './budget-import-parser.service';
 import { BudgetImportMatchingService, RowLinkMaps } from './budget-import-matching.service';
-import {
-  MAX_FILE_SIZE_BYTES,
-  SAMPLE_ROWS_LIMIT,
-} from './constants';
+import { PlatformUploadSettingsService } from '../platform-upload/platform-upload-settings.service';
+import { SAMPLE_ROWS_LIMIT } from './constants';
 import type { UploadedFileType } from './types';
 import type {
   BudgetImportOptionsConfig,
@@ -95,6 +93,7 @@ export class BudgetImportService {
     private readonly fileStore: BudgetImportFileStoreService,
     private readonly parser: BudgetImportParserService,
     private readonly matching: BudgetImportMatchingService,
+    private readonly platformUpload: PlatformUploadSettingsService,
   ) {}
 
   async analyze(
@@ -107,8 +106,12 @@ export class BudgetImportService {
       throw new BadRequestException('File is required');
     }
     const buffer = Buffer.isBuffer((file as any).buffer) ? (file as any).buffer : Buffer.from((file as any).buffer ?? []);
-    if (buffer.length > MAX_FILE_SIZE_BYTES) {
-      throw new BadRequestException(`File size must not exceed ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB`);
+    const maxBytes = this.platformUpload.getEffectiveMaxBytes();
+    if (buffer.length > maxBytes) {
+      const mb = (maxBytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, '');
+      throw new BadRequestException(
+        `La taille du fichier ne doit pas dépasser ${mb} Mo (réglage plateforme).`,
+      );
     }
     const origName = file.originalname ?? 'upload';
     if (!ALLOWED_EXTENSIONS.test(origName)) {

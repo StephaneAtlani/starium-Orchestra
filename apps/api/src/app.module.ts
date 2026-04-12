@@ -35,7 +35,6 @@ import { SkillsModule } from './modules/skills/skills.module';
 import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
 import { ActivityTypesModule } from './modules/activity-types/activity-types.module';
 import { ResourceTimeEntriesModule } from './modules/resource-time-entries/resource-time-entries.module';
-
 @Module({
   imports: [
     ConfigModule.forRoot({
