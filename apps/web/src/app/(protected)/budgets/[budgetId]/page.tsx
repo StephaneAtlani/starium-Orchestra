@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   BarChart3,
   Bookmark,
@@ -83,6 +83,7 @@ import { BudgetReportingForecastPage } from '@/features/budgets/forecast/budget-
 
 export default function BudgetDetailPage() {
   const p = useParams();
+  const router = useRouter();
   const budgetId = typeof p.budgetId === 'string' ? p.budgetId : null;
 
   const { budget, envelopes, lines, isLoading, error } = useBudgetExplorer(budgetId);
@@ -518,63 +519,66 @@ export default function BudgetDetailPage() {
             </PermissionGate>
           </div>
 
-          <div className="rounded-xl border border-border/70 bg-muted/20 p-3 shadow-sm sm:p-3.5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <div className="rounded-xl border border-border/70 bg-card p-3 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06] sm:p-3.5">
+            <div
+              data-slot="button-group"
+              className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2"
+            >
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <PermissionGate permission="budgets.read">
-                  <Link
-                    href={budgetImport(budget.id)}
-                    className={cn(
-                      buttonVariants({ variant: 'outline', size: 'sm' }),
-                      'shrink-0 gap-1.5',
-                    )}
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="xs"
+                    className="shrink-0"
+                    onClick={() => router.push(budgetImport(budget.id))}
                   >
-                    <Upload className="size-3.5 opacity-80" aria-hidden />
+                    <Upload className="size-3 opacity-90" aria-hidden />
                     Importer
-                  </Link>
+                  </Button>
                 </PermissionGate>
                 <PermissionGate permission="budgets.read">
-                  <Link
-                    href={budgetReporting(budget.id)}
-                    className={cn(
-                      buttonVariants({ variant: 'outline', size: 'sm' }),
-                      'shrink-0 gap-1.5',
-                    )}
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="xs"
+                    className="shrink-0"
+                    onClick={() => router.push(budgetReporting(budget.id))}
                   >
-                    <BarChart3 className="size-3.5 opacity-80" aria-hidden />
+                    <BarChart3 className="size-3 opacity-90" aria-hidden />
                     Reporting
-                  </Link>
+                  </Button>
                 </PermissionGate>
                 <PermissionGate permission="budgets.read">
-                  <Link
-                    href={budgetSnapshots(budget.id)}
-                    className={cn(
-                      buttonVariants({ variant: 'outline', size: 'sm' }),
-                      'shrink-0 gap-1.5',
-                    )}
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="xs"
+                    className="shrink-0"
+                    onClick={() => router.push(budgetSnapshots(budget.id))}
                   >
-                    <Layers className="size-3.5 opacity-80" aria-hidden />
+                    <Layers className="size-3 opacity-90" aria-hidden />
                     Versions figées
-                  </Link>
+                  </Button>
                 </PermissionGate>
               </div>
 
               {canCreateBudgetResources ? (
                 <>
                   <div
-                    className="h-px w-full shrink-0 bg-border/60 sm:h-7 sm:w-px"
+                    className="h-px w-full shrink-0 bg-border/60 sm:h-6 sm:w-px"
                     aria-hidden
                   />
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     <PermissionGate permission="budgets.create">
                       <Button
                         type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="shrink-0 gap-1.5"
+                        variant="default"
+                        size="xs"
+                        className="shrink-0"
                         onClick={() => setSnapshotDialogOpen(true)}
                       >
-                        <Bookmark className="size-3.5 opacity-80" aria-hidden />
+                        <Bookmark className="size-3 opacity-90" aria-hidden />
                         <span className="inline sm:hidden">Version</span>
                         <span className="hidden sm:inline">
                           Enregistrer une version
@@ -582,23 +586,26 @@ export default function BudgetDetailPage() {
                       </Button>
                       <Button
                         type="button"
-                        size="sm"
-                        className="shrink-0 gap-1.5"
+                        variant="default"
+                        size="xs"
+                        className="shrink-0"
                         onClick={() => setNewLineDialogOpen(true)}
                       >
-                        <Plus className="size-3.5 opacity-90" aria-hidden />
+                        <Plus className="size-3 opacity-90" aria-hidden />
                         Nouvelle ligne
                       </Button>
-                      <Link
-                        href={budgetEnvelopeNew(budget.id)}
-                        className={cn(
-                          buttonVariants({ variant: 'default', size: 'sm' }),
-                          'shrink-0 gap-1.5',
-                        )}
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="xs"
+                        className="shrink-0"
+                        onClick={() =>
+                          router.push(budgetEnvelopeNew(budget.id))
+                        }
                       >
-                        <FolderPlus className="size-3.5 opacity-90" aria-hidden />
+                        <FolderPlus className="size-3 opacity-90" aria-hidden />
                         Nouvelle enveloppe
-                      </Link>
+                      </Button>
                     </PermissionGate>
                   </div>
                 </>
