@@ -229,11 +229,16 @@ export function Sidebar() {
 
                 const isSuppliers = item.label === 'Fournisseurs';
                 if (isSuppliers) {
-                  const suppliersChildren = [
+                  const suppliersChildren: { label: string; href: string }[] = [
                     { label: 'Dashboard', href: '/suppliers/dashboard' },
                     { label: 'Fournisseurs', href: '/suppliers' },
-                    { label: 'Contacts', href: '/suppliers/contacts' },
                   ];
+                  if (permsSuccess && has('contracts.read')) {
+                    suppliersChildren.push({ label: 'Contrats', href: '/contracts' });
+                  }
+                  suppliersChildren.push(
+                    { label: 'Contacts', href: '/suppliers/contacts' },
+                  );
 
                   const isSuppliersChildActive = (href: string) => {
                     if (!pathname) return false;
@@ -255,6 +260,9 @@ export function Sidebar() {
                       const sub = pathname.slice('/suppliers/'.length);
                       const firstSegment = sub.split('/')[0];
                       return !['dashboard', 'contacts'].includes(firstSegment);
+                    }
+                    if (href === '/contracts') {
+                      return pathname === '/contracts' || pathname.startsWith('/contracts/');
                     }
                     return false;
                   };

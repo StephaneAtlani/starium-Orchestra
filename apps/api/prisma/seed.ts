@@ -1317,6 +1317,86 @@ async function ensureActivityTypesModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureContractsModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "contracts" },
+    create: {
+      code: "contracts",
+      name: "Contrats",
+      description: "Registre contractuel fournisseur / IT (RFC-036)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "contracts.read", label: "Contrats — lecture" },
+    { code: "contracts.create", label: "Contrats — création" },
+    { code: "contracts.update", label: "Contrats — mise à jour" },
+    { code: "contracts.delete", label: "Contrats — clôture / résiliation" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label },
+    });
+  }
+}
+
+/** Rôle global : permissions contrats pour les CLIENT_ADMIN (UserRole). */
+async function ensureClientAdminContractsModuleRole(): Promise<void> {
+  const codes = [
+    "contracts.read",
+    "contracts.create",
+    "contracts.update",
+    "contracts.delete",
+  ] as const;
+  const permissions = await prisma.permission.findMany({
+    where: { code: { in: [...codes] } },
+  });
+  if (permissions.length !== codes.length) {
+    console.warn(
+      "⚠️  ensureClientAdminContractsModuleRole : permissions contracts.* manquantes — skip.",
+    );
+    return;
+  }
+  let role = await prisma.role.findFirst({
+    where: { scope: RoleScope.GLOBAL, name: "Client admin — contrats" },
+  });
+  if (!role) {
+    role = await prisma.role.create({
+      data: {
+        scope: RoleScope.GLOBAL,
+        name: "Client admin — contrats",
+        description: "Registre contractuel et pièces jointes",
+        isSystem: true,
+      },
+    });
+  }
+  for (const perm of permissions) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: { roleId: role.id, permissionId: perm.id },
+      },
+      create: { roleId: role.id, permissionId: perm.id },
+      update: {},
+    });
+  }
+  const admins = await prisma.clientUser.findMany({
+    where: { role: ClientUserRole.CLIENT_ADMIN, status: ClientUserStatus.ACTIVE },
+    select: { userId: true },
+  });
+  for (const a of admins) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: { userId: a.userId, roleId: role.id },
+      },
+      create: { userId: a.userId, roleId: role.id },
+      update: {},
+    });
+  }
+}
+
 async function ensureResourcesModuleAndPermissions(): Promise<void> {
   const mod = await prisma.module.upsert({
     where: { code: "resources" },
@@ -3088,6 +3168,7 @@ async function main() {
   await ensurePlatformUiBadgeDefaultsFromFile();
 
   await ensureComplianceModuleAndPermissions();
+  await ensureContractsModuleAndPermissions();
   await ensureCollaboratorsModuleAndPermissions();
   await ensureSkillsModuleAndPermissions();
   await ensureTeamsModuleAndPermissions();
@@ -3109,6 +3190,8 @@ async function main() {
   await ensureDefaultActivityTypesForAllClients();
 
   await ensureClientAdminTeamsModuleRole();
+
+  await ensureClientAdminContractsModuleRole();
 
   await ensureBudgetCockpitCompleteDemo(prisma);
 

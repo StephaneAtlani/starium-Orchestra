@@ -16,6 +16,10 @@
       "procurement.read",
       "procurement.create",
       "procurement.update",
+      "contracts.read",
+      "contracts.create",
+      "contracts.update",
+      "contracts.delete",
       "budgets.cost-centers.read",
       "budgets.cost-centers.create",
       "budgets.cost-centers.update",
@@ -37,6 +41,9 @@
       "budgets.create",
       "procurement.read",
       "procurement.create",
+      "contracts.read",
+      "contracts.create",
+      "contracts.update",
       "budgets.cost-centers.read",
       "budgets.general-ledger-accounts.read",
       "budgets.analytical-ledger-accounts.read"
@@ -76,6 +83,10 @@
       "procurement.read",
       "procurement.create",
       "procurement.update",
+      "contracts.read",
+      "contracts.create",
+      "contracts.update",
+      "contracts.delete",
       "projects.read"
     ]
   },
@@ -120,12 +131,12 @@
     "name": "Lecteur documents procurement",
     "description": "Consultation et téléchargement des pièces jointes GED sur commandes et factures (RFC-034) — sans création fournisseur / commande / facture ni dépôt de fichiers",
     "isSystem": true,
-    "permissionCodes": ["procurement.read"]
+    "permissionCodes": ["procurement.read", "contracts.read"]
   },
   {
     "name": "Gestionnaire documents procurement",
     "description": "Dépôt, consultation, téléchargement et archivage des pièces jointes GED sur commandes et factures — sans obligation d’avoir budgets.create ni la gestion complète procurement",
     "isSystem": true,
-    "permissionCodes": ["procurement.read", "procurement.update"]
+    "permissionCodes": ["procurement.read", "procurement.update", "contracts.read", "contracts.update"]
   }
 ]

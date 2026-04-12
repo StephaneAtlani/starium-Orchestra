@@ -77,6 +77,7 @@ import { PlatformUploadModule } from '../platform-upload/platform-upload.module'
     SuppliersLogoStorageService,
     SupplierContactsPhotoStorageService,
     SupplierContactsService,
+    ProcurementObjectStorageService,
   ],
 })
 export class ProcurementModule {}

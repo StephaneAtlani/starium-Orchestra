@@ -205,6 +205,8 @@ model Client {
   supplierCategories         SupplierCategory[]
   purchaseOrders             PurchaseOrder[]
   invoices                   Invoice[]
+  supplierContracts          SupplierContract[]
+  contractAttachments        ContractAttachment[]
   budgetSnapshots            BudgetSnapshot[]
   budgetSnapshotOccasionTypes BudgetSnapshotOccasionType[]
   budgetReallocations        BudgetReallocation[]
@@ -415,6 +417,7 @@ model User {
   /// Fiches collaborateur liées à ce compte plateforme sur un client (référentiel équipes / staffing).
   linkedCollaborators              Collaborator[]      @relation("CollaboratorLinkedUser")
   uploadedProcurementAttachments   ProcurementAttachment[] @relation("ProcurementAttachmentUploadedBy")
+  uploadedContractAttachments        ContractAttachment[]     @relation("ContractAttachmentUploadedBy")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -1902,6 +1905,38 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+/// RFC-036 — contrat fournisseur / IT.
+enum SupplierContractKind {
+  FRAMEWORK
+  LICENSE_SAAS
+  SERVICES
+  MAINTENANCE
+  OTHER
+}
+
+enum SupplierContractStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+  NOTICE
+  EXPIRED
+  TERMINATED
+}
+
+enum SupplierContractRenewalMode {
+  NONE
+  TACIT
+  EXPLICIT
+}
+
+/// RFC-036 — pièce jointe contrat (même stockage que procurement).
+enum ContractAttachmentCategory {
+  CONTRACT_PDF
+  AMENDMENT
+  SLA
+  OTHER
+}
+
 /// RFC-034 — pièce jointe procurement (commande / facture).
 enum ProcurementAttachmentCategory {
   QUOTE_PDF
@@ -2520,8 +2555,9 @@ model Supplier {
   client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   supplierCategory SupplierCategory? @relation(fields: [supplierCategoryId], references: [id], onDelete: SetNull)
   contacts       SupplierContact[]
-  purchaseOrders PurchaseOrder[]
-  invoices       Invoice[]
+  purchaseOrders     PurchaseOrder[]
+  invoices           Invoice[]
+  supplierContracts  SupplierContract[]
 
   @@unique([clientId, normalizedName])
   @@index([clientId])
@@ -2679,6 +2715,83 @@ model ProcurementAttachment {
   @@index([invoiceId])
   @@index([clientId, purchaseOrderId])
   @@index([clientId, invoiceId])
+}
+
+/// RFC-036 — registre contractuel client + fournisseur.
+model SupplierContract {
+  id         String   @id @default(cuid())
+  clientId   String
+  supplierId String
+
+  reference String
+  title     String
+
+  kind   SupplierContractKind
+  status SupplierContractStatus @default(DRAFT)
+
+  signedAt       DateTime?
+  effectiveStart DateTime
+  effectiveEnd   DateTime?
+  terminatedAt   DateTime?
+
+  renewalMode       SupplierContractRenewalMode @default(NONE)
+  noticePeriodDays  Int?
+  renewalTermMonths Int?
+
+  currency            String   @db.VarChar(3)
+  annualValue         Decimal? @db.Decimal(18, 2)
+  totalCommittedValue Decimal? @db.Decimal(18, 2)
+  billingFrequency    String?  @db.VarChar(32)
+
+  description   String? @db.VarChar(4000)
+  internalNotes String? @db.VarChar(4000)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client      Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplier    Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  attachments ContractAttachment[]
+
+  @@unique([clientId, reference])
+  @@index([clientId])
+  @@index([clientId, supplierId])
+  @@index([clientId, status])
+  @@index([clientId, effectiveEnd])
+}
+
+/// RFC-036 — pièce jointe contrat (stockage aligné procurement).
+model ContractAttachment {
+  id                 String   @id @default(cuid())
+  clientId           String
+  supplierContractId String
+
+  name             String
+  originalFilename String?
+  mimeType         String?
+  extension        String?
+  sizeBytes        Int?
+
+  category    ContractAttachmentCategory    @default(OTHER)
+  status      ProcurementAttachmentStatus   @default(ACTIVE)
+  storageType ProcurementStorageType        @default(STARIUM)
+
+  storageBucket  String
+  objectKey      String
+  checksumSha256 String?
+
+  uploadedByUserId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  archivedAt       DateTime?
+
+  client           Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplierContract SupplierContract @relation(fields: [supplierContractId], references: [id], onDelete: Cascade)
+  uploadedByUser   User?            @relation("ContractAttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([supplierContractId])
+  @@index([clientId, supplierContractId])
 }
 
 // --- Budget Import (RFC-018) ---

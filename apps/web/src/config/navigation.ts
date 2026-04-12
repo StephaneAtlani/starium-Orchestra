@@ -136,6 +136,13 @@ export const navigation: NavigationSection[] = [
             requiredPermissions: ['procurement.read'],
           },
           {
+            label: 'Contrats',
+            href: '/contracts',
+            scope: 'client',
+            moduleCode: 'contracts',
+            requiredPermissions: ['contracts.read'],
+          },
+          {
             label: 'Contacts',
             href: '/suppliers/contacts',
             scope: 'client',

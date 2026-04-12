@@ -86,6 +86,7 @@ apps/
 │   │   ├── budget-import
 │   │   ├── budget-versioning
 │   │   ├── procurement
+│   │   ├── contracts   (RFC-036 — SupplierContract, pièces jointes, module RBAC `contracts`)
 │   │   └── ...
 │   └── prisma / PostgreSQL
 │
@@ -94,6 +95,7 @@ apps/
     ├── components/ (UI partagée)
     ├── features/budgets (dont `forecast/` — UI forecast & comparaison budgétaire, [RFC-FE-BUD-030](./RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md))
     ├── features/procurement
+    ├── features/contracts   (liste / fiche `/contracts`, module `contracts.*`)
     ├── features/teams (`collaborators/`, `skills/`, `work-teams/`, `resource-time-entries/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md), [RFC-FE-TEAM-004](./RFC/RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md) ; module Équipes métier = **Resource HUMAN** — [RFC-TEAM-020](./RFC/RFC-TEAM-020%20%E2%80%94%20Refonte%20%C3%89quipes%20Resource%20HUMAN.md))
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)
@@ -227,7 +229,14 @@ Le document d’architecture confirme que `financial_allocations` et `financial_
 ```text
 Supplier
    ├── PurchaseOrder
-   └── Invoice
+   ├── Invoice
+   ├── supplierContracts[]   (RFC-036 — registre contractuel client + fournisseur)
+   └── (contrats : cycle de vie, dates, renouvellement déclaratif)
+
+SupplierContract
+   ├── supplierId, clientId
+   ├── reference (unique par client), title, kind, status
+   └── contractAttachments[]   (même pile de stockage que ProcurementAttachment — local / S3, API stream)
 
 PurchaseOrder
    ├── supplierId

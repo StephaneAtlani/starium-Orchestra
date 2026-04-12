@@ -34,6 +34,7 @@
 | **RFC-FOU-027** | Supplier Contacts | 🟡 Partielle | Backend + UI MVP livrés ; tests d’intégration backend à finaliser |
 | **RFC-034** | Documents et GED — Devis, Commande, Facture | 📝 Draft | **Phase 1 livrée (code)** : pièces jointes PO/facture, stockage local ou S3 ([RFC-035](./RFC-035%20%E2%80%94%20Procurement%20stockage%20local%20et%20dual%20backend.md)), settings plateforme `GET|PATCH /api/platform/procurement-s3-settings`, UI « Documents » dans le dialogue budget ; devis / `SupplierQuotation` — Phase 2 — voir [RFC](./RFC-034%20%E2%80%94%20Documents%20et%20GED%20%E2%80%94%20Devis%20Commande%20Facture.md) |
 | **RFC-035** | Procurement — stockage local et dual backend | 📝 Draft | Disque local par défaut (compose), S3 optionnel ; `PROCUREMENT_STORAGE_DRIVER`, `PROCUREMENT_LOCAL_ROOT` ; sentinel `local` sur `storageBucket` ; voir [RFC](./RFC-035%20%E2%80%94%20Procurement%20stockage%20local%20et%20dual%20backend.md) |
+| **RFC-036** | Gestion des contrats (fournisseur / IT) | ✅ Implémentée (MVP) | Prisma + API `/api/contracts` + pièces `/api/contracts/:id/attachments` + UI `/contracts` ; seed module `contracts` + rôle global CLIENT_ADMIN ; profils `default-profiles.json` enrichis ; voir [RFC](./RFC-036%20%E2%80%94%20Gestion%20des%20contrats.md) |
 
 ---
 

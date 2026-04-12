@@ -2336,6 +2336,31 @@ Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module procurement + 
 
 ---
 
+### Contrats fournisseur (RFC-036) — `/api/contracts`
+
+Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module **`contracts`** + permissions ci-dessous. Chaque contrat est rattaché à un **fournisseur** du même client. Référence **`reference`** unique par client.
+
+| Méthode | Route | Permission | Description |
+|---------|--------|------------|-------------|
+| `GET` | `/api/contracts` | `contracts.read` | Liste paginée (`limit`, `offset`, `supplierId`, `status`, `expiresBefore`, `search`). |
+| `GET` | `/api/contracts/:id` | `contracts.read` | Détail + fournisseur (`name`, `code`, catégorie si présente). |
+| `POST` | `/api/contracts` | `contracts.create` | Création (DTO validé, montants informatifs en chaîne décimale). |
+| `PATCH` | `/api/contracts/:id` | `contracts.update` | Mise à jour partielle ; transitions de statut contrôlées (422 si interdite). |
+| `DELETE` | `/api/contracts/:id` | `contracts.delete` | Clôture logique : statut **TERMINATED** (idempotent si déjà résilié). |
+
+**Pièces jointes** (même moteur de stockage que la GED procurement — local / S3, pas d’URL signée navigateur) :
+
+| Méthode | Route | Permission |
+|---------|--------|------------|
+| `GET` | `/api/contracts/:contractId/attachments` | `contracts.read` ou `contracts.update` |
+| `POST` | `/api/contracts/:contractId/attachments` | `contracts.update` — `multipart/form-data` : **`file`**, optionnels **`name`**, **`category`** (`ContractAttachmentCategory`). |
+| `GET` | `.../attachments/:attachmentId/download` | `contracts.read` ou `contracts.update` |
+| `PATCH` | `.../attachments/:attachmentId/archive` | `contracts.update` |
+
+**Audit** (exemples) : `contract.created`, `contract.updated`, `contract_attachment.uploaded`, `contract_attachment.downloaded`, `contract_attachment.archived`, `contract_attachment.access_denied`, `contract_attachment.archive_denied`.
+
+---
+
 ### Identifiants Azure AD par client Starium — `GET|PUT /api/clients/active/microsoft-oauth`
 
 Lecture / mise à jour des champs **BYO** sur le `Client` actif : ID d’application, tenant d’autorité optionnel, secret (le secret n’est pas renvoyé en lecture ; indicateur `hasClientSecret`). Retourne aussi l’URI de redirection et les scopes **effectifs** issus de la config plateforme (`platformRedirectUri`, `graphScopes`).
