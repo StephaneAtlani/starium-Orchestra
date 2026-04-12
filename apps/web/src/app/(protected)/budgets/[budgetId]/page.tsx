@@ -3,7 +3,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Pencil } from 'lucide-react';
+import {
+  BarChart3,
+  Bookmark,
+  FolderPlus,
+  Layers,
+  Pencil,
+  Plus,
+  Upload,
+} from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { BudgetKpiCards } from '@/features/budgets/components/budget-kpi-cards';
@@ -25,11 +33,8 @@ import { BudgetPlanningQuickCalculatorDialog } from '@/features/budgets/componen
 import { useInlineUpdateBudgetLineForBudgetMutation } from '@/features/budgets/hooks/use-inline-update-budget-line';
 import { usePermissions } from '@/hooks/use-permissions';
 import {
-  budgetLines,
   budgetReporting,
   budgetSnapshots,
-  budgetVersions,
-  budgetReallocations,
   budgetEdit,
   budgetEnvelopeNew,
   budgetImport,
@@ -38,7 +43,7 @@ import { NewBudgetLineDialog } from '@/features/budgets/components/new-budget-li
 import { CreateBudgetSnapshotDialog } from '@/features/budgets/components/create-budget-snapshot-dialog';
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -168,6 +173,7 @@ export default function BudgetDetailPage() {
     budget?.exerciseId ?? null,
   );
   const { has, isLoading: permLoading } = usePermissions();
+  const canCreateBudgetResources = !permLoading && has('budgets.create');
 
   const monthColumnLabels = useMemo(
     () => getBudgetMonthColumnLabelsSafe(exercise?.startDate),
@@ -512,91 +518,92 @@ export default function BudgetDetailPage() {
             </PermissionGate>
           </div>
 
-          <Card className="shadow-none">
-            <CardHeader className="space-y-1 py-4">
-              <CardTitle className="text-base">Accès rapides</CardTitle>
-              <CardDescription>Sous-domaines du budget.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2 pb-4 pt-0">
-              <Link
-                href={budgetLines(budgetId!)}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Lignes
-              </Link>
-              <span className="text-muted-foreground">·</span>
-              <Link
-                href={budgetReporting(budgetId!)}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Reporting
-              </Link>
-              <span className="text-muted-foreground">·</span>
-              <Link
-                href={budgetSnapshots(budgetId!)}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Snapshots
-              </Link>
-              <span className="text-muted-foreground">·</span>
-              <Link
-                href={budgetVersions(budgetId!)}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Versions
-              </Link>
-              <span className="text-muted-foreground">·</span>
-              <Link
-                href={budgetReallocations(budgetId!)}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Réallocations
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-3 shadow-sm sm:p-3.5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <PermissionGate permission="budgets.read">
+                  <Link
+                    href={budgetImport(budget.id)}
+                    className={cn(
+                      buttonVariants({ variant: 'outline', size: 'sm' }),
+                      'shrink-0 gap-1.5',
+                    )}
+                  >
+                    <Upload className="size-3.5 opacity-80" aria-hidden />
+                    Importer
+                  </Link>
+                </PermissionGate>
+                <PermissionGate permission="budgets.read">
+                  <Link
+                    href={budgetReporting(budget.id)}
+                    className={cn(
+                      buttonVariants({ variant: 'outline', size: 'sm' }),
+                      'shrink-0 gap-1.5',
+                    )}
+                  >
+                    <BarChart3 className="size-3.5 opacity-80" aria-hidden />
+                    Reporting
+                  </Link>
+                </PermissionGate>
+                <PermissionGate permission="budgets.read">
+                  <Link
+                    href={budgetSnapshots(budget.id)}
+                    className={cn(
+                      buttonVariants({ variant: 'outline', size: 'sm' }),
+                      'shrink-0 gap-1.5',
+                    )}
+                  >
+                    <Layers className="size-3.5 opacity-80" aria-hidden />
+                    Versions figées
+                  </Link>
+                </PermissionGate>
+              </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
-            <PermissionGate permission="budgets.read">
-              <Link
-                href={budgetImport(budget.id)}
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
-              >
-                Importer
-              </Link>
-            </PermissionGate>
-            <PermissionGate permission="budgets.read">
-              <Link
-                href={budgetSnapshots(budget.id)}
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
-              >
-                Versions figées
-              </Link>
-            </PermissionGate>
-            <PermissionGate permission="budgets.create">
-              <Button
-                type="button"
-                size="sm"
-                className="shrink-0"
-                onClick={() => setSnapshotDialogOpen(true)}
-              >
-                <span className="inline sm:hidden">Version</span>
-                <span className="hidden sm:inline">Enregistrer une version</span>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="shrink-0"
-                onClick={() => setNewLineDialogOpen(true)}
-              >
-                Nouvelle ligne
-              </Button>
-              <Link
-                href={budgetEnvelopeNew(budget.id)}
-                className={cn(buttonVariants({ size: 'sm' }), 'shrink-0')}
-              >
-                Nouvelle enveloppe
-              </Link>
-            </PermissionGate>
+              {canCreateBudgetResources ? (
+                <>
+                  <div
+                    className="h-px w-full shrink-0 bg-border/60 sm:h-7 sm:w-px"
+                    aria-hidden
+                  />
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <PermissionGate permission="budgets.create">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="shrink-0 gap-1.5"
+                        onClick={() => setSnapshotDialogOpen(true)}
+                      >
+                        <Bookmark className="size-3.5 opacity-80" aria-hidden />
+                        <span className="inline sm:hidden">Version</span>
+                        <span className="hidden sm:inline">
+                          Enregistrer une version
+                        </span>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="shrink-0 gap-1.5"
+                        onClick={() => setNewLineDialogOpen(true)}
+                      >
+                        <Plus className="size-3.5 opacity-90" aria-hidden />
+                        Nouvelle ligne
+                      </Button>
+                      <Link
+                        href={budgetEnvelopeNew(budget.id)}
+                        className={cn(
+                          buttonVariants({ variant: 'default', size: 'sm' }),
+                          'shrink-0 gap-1.5',
+                        )}
+                      >
+                        <FolderPlus className="size-3.5 opacity-90" aria-hidden />
+                        Nouvelle enveloppe
+                      </Link>
+                    </PermissionGate>
+                  </div>
+                </>
+              ) : null}
+            </div>
           </div>
         </header>
 
