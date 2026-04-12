@@ -12,6 +12,9 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { SuppliersService } from '../procurement/suppliers/suppliers.service';
+import { ListSuppliersQueryDto } from '../procurement/suppliers/dto/list-suppliers.query.dto';
+import { ContractKindTypesService } from './contract-kind-types.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { ListContractsQueryDto } from './dto/list-contracts.query.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
@@ -68,6 +71,7 @@ export interface ContractResponse {
   reference: string;
   title: string;
   kind: string;
+  kindLabel: string;
   status: string;
   signedAt: Date | null;
   effectiveStart: Date;
@@ -121,6 +125,7 @@ function toContractResponse(
       supplierCategory: { id: string; name: string } | null;
     };
   },
+  kindLabel: string,
 ): ContractResponse {
   return {
     id: row.id,
@@ -130,6 +135,7 @@ function toContractResponse(
     reference: row.reference,
     title: row.title,
     kind: row.kind,
+    kindLabel,
     status: row.status,
     signedAt: row.signedAt,
     effectiveStart: row.effectiveStart,
@@ -190,7 +196,25 @@ export class ContractsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly suppliers: SuppliersService,
+    private readonly contractKindTypes: ContractKindTypesService,
   ) {}
+
+  /**
+   * Liste fournisseurs du client pour formulaire / filtres contrats.
+   * Droit contracts.* — évite d’exiger procurement.read (ModuleAccessGuard = un module par route).
+   */
+  listSupplierOptionsForContracts(
+    clientId: string,
+    query: ListSuppliersQueryDto,
+  ) {
+    return this.suppliers.list(clientId, query);
+  }
+
+  /** Détail minimal fournisseur pour libellés contrats sans procurement.read. */
+  getSupplierForContractForm(clientId: string, supplierId: string) {
+    return this.suppliers.findById(clientId, supplierId);
+  }
 
   private supplierInclude() {
     return {
@@ -242,8 +266,15 @@ export class ContractsService {
       this.prisma.supplierContract.count({ where }),
     ]);
 
+    const kindLabels = await this.contractKindTypes.resolveKindLabels(
+      clientId,
+      rows.map((r) => r.kind),
+    );
+
     return {
-      items: rows.map(toContractResponse),
+      items: rows.map((r) =>
+        toContractResponse(r, kindLabels[r.kind] ?? r.kind),
+      ),
       total,
       limit,
       offset,
@@ -258,7 +289,11 @@ export class ContractsService {
     if (!row) {
       throw new NotFoundException('Contrat introuvable');
     }
-    return toContractResponse(row);
+    const kindLabels = await this.contractKindTypes.resolveKindLabels(
+      clientId,
+      [row.kind],
+    );
+    return toContractResponse(row, kindLabels[row.kind] ?? row.kind);
   }
 
   async create(
@@ -284,6 +319,8 @@ export class ContractsService {
     }
 
     assertDateOrder({ effectiveStart, effectiveEnd, terminatedAt });
+
+    await this.contractKindTypes.assertKindCodeAssignable(clientId, dto.kind);
 
     try {
       const created = await this.prisma.supplierContract.create({
@@ -334,7 +371,14 @@ export class ContractsService {
         requestId: context?.meta?.requestId,
       });
 
-      return toContractResponse(created);
+      const kindLabels = await this.contractKindTypes.resolveKindLabels(
+        clientId,
+        [created.kind],
+      );
+      return toContractResponse(
+        created,
+        kindLabels[created.kind] ?? created.kind,
+      );
     } catch (e) {
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&
@@ -393,6 +437,16 @@ export class ContractsService {
     }
 
     assertDateOrder({ effectiveStart, effectiveEnd, terminatedAt });
+
+    if (
+      dto.kind !== undefined &&
+      dto.kind !== existing.kind
+    ) {
+      await this.contractKindTypes.assertKindCodeAssignable(
+        clientId,
+        dto.kind,
+      );
+    }
 
     const data: Prisma.SupplierContractUpdateInput = {};
     if (dto.supplierId !== undefined) {
@@ -469,7 +523,14 @@ export class ContractsService {
         requestId: context?.meta?.requestId,
       });
 
-      return toContractResponse(updated);
+      const kindLabels = await this.contractKindTypes.resolveKindLabels(
+        clientId,
+        [updated.kind],
+      );
+      return toContractResponse(
+        updated,
+        kindLabels[updated.kind] ?? updated.kind,
+      );
     } catch (e) {
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&

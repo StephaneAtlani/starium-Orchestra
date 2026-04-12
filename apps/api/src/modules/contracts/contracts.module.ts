@@ -7,11 +7,16 @@ import { ContractsController } from './contracts.controller';
 import { ContractsService } from './contracts.service';
 import { ContractAttachmentsController } from './contract-attachments.controller';
 import { ContractAttachmentsService } from './contract-attachments.service';
+import { ContractKindTypesService } from './contract-kind-types.service';
 
 @Module({
   imports: [PrismaModule, AuditLogsModule, ProcurementModule, PlatformUploadModule],
   controllers: [ContractsController, ContractAttachmentsController],
-  providers: [ContractsService, ContractAttachmentsService],
-  exports: [ContractsService, ContractAttachmentsService],
+  providers: [
+    ContractsService,
+    ContractAttachmentsService,
+    ContractKindTypesService,
+  ],
+  exports: [ContractsService, ContractAttachmentsService, ContractKindTypesService],
 })
 export class ContractsModule {}

@@ -137,10 +137,25 @@ export const navigation: NavigationSection[] = [
           },
           {
             label: 'Contrats',
-            href: '/contracts',
             scope: 'client',
             moduleCode: 'contracts',
             requiredPermissions: ['contracts.read'],
+            children: [
+              {
+                label: 'Registre',
+                href: '/contracts',
+                scope: 'client',
+                moduleCode: 'contracts',
+                requiredPermissions: ['contracts.read'],
+              },
+              {
+                label: 'Types de contrat',
+                href: '/contracts/kind-types',
+                scope: 'client',
+                moduleCode: 'contracts',
+                requiredPermissions: ['contracts.kind_types.manage'],
+              },
+            ],
           },
           {
             label: 'Contacts',

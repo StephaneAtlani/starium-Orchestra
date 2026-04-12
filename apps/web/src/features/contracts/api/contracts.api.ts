@@ -6,14 +6,23 @@ import type {
   ContractListResult,
   ContractAttachmentCategory,
 } from '../types/contract.types';
+import type { PaginatedResponse, Supplier } from '@/features/procurement/types/supplier.types';
+import type {
+  ContractKindTypeDto,
+  CreateContractKindTypeInput,
+  UpdateContractKindTypeInput,
+} from '../types/contract-kind-types.types';
 
 const BASE = '/api/contracts';
 
-function buildQueryString(params?: Record<string, string | number | undefined>) {
+function buildQueryString(
+  params?: Record<string, string | number | boolean | undefined>,
+) {
   if (!params) return '';
   const search = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== '') search.set(k, String(v));
+    if (v === undefined || v === '') continue;
+    search.set(k, typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v));
   }
   const q = search.toString();
   return q ? `?${q}` : '';
@@ -57,6 +66,77 @@ export async function getContract(authFetch: AuthFetch, id: string): Promise<Con
   const res = await authFetch(`${BASE}/${id}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<Contract>;
+}
+
+/** Liste fournisseurs pour contrats (droit contracts.*, sans procurement.read). */
+export async function listContractSupplierOptions(
+  authFetch: AuthFetch,
+  params?: {
+    search?: string;
+    offset?: number;
+    limit?: number;
+    includeArchived?: boolean;
+    supplierCategoryId?: string;
+  },
+): Promise<PaginatedResponse<Supplier>> {
+  const qs = buildQueryString(params);
+  const res = await authFetch(`${BASE}/supplier-options${qs}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PaginatedResponse<Supplier>>;
+}
+
+/** Détail fournisseur pour libellés filtres / formulaire contrat. */
+export async function getContractSupplierById(
+  authFetch: AuthFetch,
+  supplierId: string,
+): Promise<Supplier> {
+  const res = await authFetch(`${BASE}/supplier/${supplierId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<Supplier>;
+}
+
+export async function listContractKindTypesMerged(
+  authFetch: AuthFetch,
+): Promise<ContractKindTypeDto[]> {
+  const res = await authFetch(`${BASE}/kind-types`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ContractKindTypeDto[]>;
+}
+
+export async function createClientContractKindType(
+  authFetch: AuthFetch,
+  body: CreateContractKindTypeInput,
+): Promise<ContractKindTypeDto> {
+  const res = await authFetch(`${BASE}/kind-types`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ContractKindTypeDto>;
+}
+
+export async function updateClientContractKindType(
+  authFetch: AuthFetch,
+  typeId: string,
+  body: UpdateContractKindTypeInput,
+): Promise<ContractKindTypeDto> {
+  const res = await authFetch(`${BASE}/kind-types/${typeId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ContractKindTypeDto>;
+}
+
+export async function deleteClientContractKindType(
+  authFetch: AuthFetch,
+  typeId: string,
+): Promise<ContractKindTypeDto> {
+  const res = await authFetch(`${BASE}/kind-types/${typeId}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ContractKindTypeDto>;
 }
 
 export interface CreateContractPayload {

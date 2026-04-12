@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
-import { Archive, Download, FileStack, Loader2, Upload } from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import { Archive, Download, FileStack, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,16 +23,7 @@ import {
   contractAttachmentCategoryLabel,
   contractAttachmentCategoryOptions,
 } from '../lib/contracts-labels';
-
-const ACCEPT_EXT = /\.(pdf|png|jpe?g)$/i;
-const ACCEPT_MIME = new Set(['application/pdf', 'image/png', 'image/jpeg']);
-
-function isAcceptedUploadFile(file: File): boolean {
-  if (file.type && ACCEPT_MIME.has(file.type)) return true;
-  if (file.type === 'application/octet-stream' && ACCEPT_EXT.test(file.name)) return true;
-  if (!file.type && ACCEPT_EXT.test(file.name)) return true;
-  return ACCEPT_EXT.test(file.name);
-}
+import { ContractAttachmentFilePicker } from './contract-attachment-file-picker';
 
 function formatBytes(n: number | null): string {
   if (n == null || n < 0) return '—';
@@ -58,8 +49,7 @@ export function ContractAttachmentsPanel(props: {
   const { contractId, canList, canUpload } = props;
   const uid = useId();
   const fileInputId = `contract-attach-${uid}`;
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [attachInputKey, setAttachInputKey] = useState(0);
 
   const query = useContractAttachments(contractId, canList);
   const mut = useContractAttachmentMutations(contractId);
@@ -72,20 +62,8 @@ export function ContractAttachmentsPanel(props: {
     setFile(null);
     setDocName('');
     setCategory('CONTRACT_PDF');
+    setAttachInputKey((k) => k + 1);
   }, [contractId]);
-
-  const pickFile = (f: File | null) => {
-    if (!f) {
-      setFile(null);
-      return;
-    }
-    if (!isAcceptedUploadFile(f)) {
-      toast.error('Format non accepté (PDF, PNG, JPEG).');
-      return;
-    }
-    setFile(f);
-    setDocName('');
-  };
 
   const handleUpload = (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +76,7 @@ export function ContractAttachmentsPanel(props: {
           setFile(null);
           setDocName('');
           setCategory('CONTRACT_PDF');
-          if (fileInputRef.current) fileInputRef.current.value = '';
+          setAttachInputKey((k) => k + 1);
         },
       },
     );
@@ -227,45 +205,18 @@ export function ContractAttachmentsPanel(props: {
           <form
             className="space-y-4 rounded-xl border border-dashed border-primary/25 bg-primary/[0.03] p-4"
             onSubmit={handleUpload}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault();
-              const next = e.relatedTarget;
-              if (next instanceof Node && e.currentTarget.contains(next)) return;
-              setIsDragging(false);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-              const f = e.dataTransfer.files?.[0];
-              if (f) pickFile(f);
-            }}
           >
             <p className="text-sm font-medium text-foreground">Ajouter un fichier</p>
+            <ContractAttachmentFilePicker
+              id={fileInputId}
+              file={file}
+              onFileChange={(f) => {
+                setFile(f);
+                if (f) setDocName('');
+              }}
+              inputKey={attachInputKey}
+            />
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor={fileInputId}>Fichier</Label>
-                <input
-                  id={fileInputId}
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  className="hidden"
-                  onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
-                />
-                <Button
-                  type="button"
-                  variant={isDragging ? 'default' : 'outline'}
-                  className="w-full gap-2"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="size-4" />
-                  {file ? file.name : 'Choisir un fichier'}
-                </Button>
-              </div>
               <div className="space-y-2">
                 <Label htmlFor={`${fileInputId}-name`}>Nom affiché</Label>
                 <Input
@@ -275,24 +226,24 @@ export function ContractAttachmentsPanel(props: {
                   placeholder="Optionnel"
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Catégorie</Label>
-              <Select
-                value={category}
-                onValueChange={(v) => setCategory(v as ContractAttachmentCategory)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {contractAttachmentCategoryOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label>Catégorie</Label>
+                <Select
+                  value={category}
+                  onValueChange={(v) => setCategory(v as ContractAttachmentCategory)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contractAttachmentCategoryOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Button type="submit" disabled={!file || mut.upload.isPending}>
               {mut.upload.isPending ? (

@@ -2338,13 +2338,19 @@ Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module procurement + 
 
 ### Contrats fournisseur (RFC-036) — `/api/contracts`
 
-Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module **`contracts`** + permissions ci-dessous. Chaque contrat est rattaché à un **fournisseur** du même client. Référence **`reference`** unique par client.
+Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module **`contracts`** + permissions ci-dessous. Chaque contrat est rattaché à un **fournisseur** du même client. Référence **`reference`** unique par client. Le champ **`kind`** est un **code** (catalogue plateforme + types propres au client) ; les réponses exposent aussi **`kindLabel`** pour l’affichage.
 
 | Méthode | Route | Permission | Description |
 |---------|--------|------------|-------------|
 | `GET` | `/api/contracts` | `contracts.read` | Liste paginée (`limit`, `offset`, `supplierId`, `status`, `expiresBefore`, `search`). |
+| `GET` | `/api/contracts/supplier-options` | `contracts.read` **ou** `contracts.create` **ou** `contracts.update` | Liste fournisseurs du client (mêmes filtres que `GET /api/suppliers`) pour formulaires / filtres contrat **sans** exiger `procurement.read` (le `ModuleAccessGuard` n’autorise qu’un module par route). |
+| `GET` | `/api/contracts/supplier/:supplierId` | idem | Détail fournisseur (même forme que `GET /api/suppliers/:id`) pour libellés. |
+| `GET` | `/api/contracts/kind-types` | `contracts.read` **ou** `contracts.create` **ou** `contracts.update` | Liste fusionnée des types de contrat (catalogue plateforme + types client **actifs**) pour sélecteurs. |
+| `POST` | `/api/contracts/kind-types` | `contracts.kind_types.manage` | Création d’un type **propre au client** (code unique vs plateforme et vs autres types du client). |
+| `PATCH` | `/api/contracts/kind-types/:typeId` | `contracts.kind_types.manage` | Mise à jour (libellé, code, ordre, désactivation). |
+| `DELETE` | `/api/contracts/kind-types/:typeId` | `contracts.kind_types.manage` | Désactivation logique (`isActive: false`). |
 | `GET` | `/api/contracts/:id` | `contracts.read` | Détail + fournisseur (`name`, `code`, catégorie si présente). |
-| `POST` | `/api/contracts` | `contracts.create` | Création (DTO validé, montants informatifs en chaîne décimale). |
+| `POST` | `/api/contracts` | `contracts.create` | Création (DTO validé, `kind` = code catalogue ; montants informatifs en chaîne décimale). |
 | `PATCH` | `/api/contracts/:id` | `contracts.update` | Mise à jour partielle ; transitions de statut contrôlées (422 si interdite). |
 | `DELETE` | `/api/contracts/:id` | `contracts.delete` | Clôture logique : statut **TERMINATED** (idempotent si déjà résilié). |
 
@@ -2357,7 +2363,7 @@ Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module **`contracts`*
 | `GET` | `.../attachments/:attachmentId/download` | `contracts.read` ou `contracts.update` |
 | `PATCH` | `.../attachments/:attachmentId/archive` | `contracts.update` |
 
-**Audit** (exemples) : `contract.created`, `contract.updated`, `contract_attachment.uploaded`, `contract_attachment.downloaded`, `contract_attachment.archived`, `contract_attachment.access_denied`, `contract_attachment.archive_denied`.
+**Audit** (exemples) : `contract.created`, `contract.updated`, `supplier_contract_kind_type.created`, `supplier_contract_kind_type.updated`, `contract_attachment.uploaded`, `contract_attachment.downloaded`, `contract_attachment.archived`, `contract_attachment.access_denied`, `contract_attachment.archive_denied`.
 
 ---
 

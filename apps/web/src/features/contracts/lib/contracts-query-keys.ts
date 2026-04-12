@@ -8,4 +8,6 @@ export const contractsKeys = {
     [...contractsKeys.root(clientId), 'detail', contractId] as const,
   attachments: (clientId: string, contractId: string) =>
     [...contractsKeys.root(clientId), 'attachments', contractId] as const,
+  kindTypesMerged: (clientId: string) =>
+    [...contractsKeys.root(clientId), 'kind-types-merged'] as const,
 };

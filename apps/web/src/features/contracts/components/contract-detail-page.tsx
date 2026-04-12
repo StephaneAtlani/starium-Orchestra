@@ -36,6 +36,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
   const canRead = has('contracts.read');
   const canUpdate = has('contracts.update');
   const canDelete = has('contracts.delete');
+  const canProcurement = has('procurement.read');
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -131,8 +132,20 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
         <p className="text-sm text-muted-foreground">{c.reference}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{c.title}</h1>
         <p className="mt-1 text-lg text-foreground">
-          {c.supplier.name}
-          {c.supplier.code ? ` · ${c.supplier.code}` : ''}
+          {canProcurement ? (
+            <Link
+              href={`/suppliers/${c.supplierId}`}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              {c.supplier.name}
+              {c.supplier.code ? ` · ${c.supplier.code}` : ''}
+            </Link>
+          ) : (
+            <>
+              {c.supplier.name}
+              {c.supplier.code ? ` · ${c.supplier.code}` : ''}
+            </>
+          )}
         </p>
         {c.supplier.supplierCategory && (
           <p className="text-sm text-muted-foreground">
@@ -144,7 +157,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
       <dl className="grid gap-3 rounded-lg border bg-card p-4 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-muted-foreground">Type</dt>
-          <dd className="font-medium">{contractKindLabel(c.kind)}</dd>
+          <dd className="font-medium">{contractKindLabel(c.kind, c.kindLabel)}</dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Statut</dt>
@@ -163,6 +176,10 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
         <div>
           <dt className="text-muted-foreground">Renouvellement</dt>
           <dd>{contractRenewalLabel(c.renewalMode)}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Durée initiale (mois)</dt>
+          <dd>{c.renewalTermMonths ?? '—'}</dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Préavis (jours)</dt>
@@ -186,7 +203,7 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
         </div>
         {c.description && (
           <div className="sm:col-span-2">
-            <dt className="text-muted-foreground">Description</dt>
+            <dt className="text-muted-foreground">Commentaires</dt>
             <dd className="whitespace-pre-wrap">{c.description}</dd>
           </div>
         )}

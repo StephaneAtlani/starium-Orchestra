@@ -1,11 +1,11 @@
 import type {
-  SupplierContractKind,
   SupplierContractRenewalMode,
   SupplierContractStatus,
   ContractAttachmentCategory,
 } from '../types/contract.types';
 
-const KIND: Record<SupplierContractKind, string> = {
+/** Libellés par défaut (catalogue plateforme) si l’API n’a pas encore résolu `kindLabel`. */
+const DEFAULT_KIND_LABELS: Record<string, string> = {
   FRAMEWORK: 'Cadre / accord-cadre',
   LICENSE_SAAS: 'Licence / SaaS',
   SERVICES: 'Prestations / services',
@@ -35,8 +35,9 @@ const ATT_CAT: Record<ContractAttachmentCategory, string> = {
   OTHER: 'Autre',
 };
 
-export function contractKindLabel(k: SupplierContractKind): string {
-  return KIND[k] ?? k;
+export function contractKindLabel(code: string, resolvedLabel?: string | null): string {
+  if (resolvedLabel != null && resolvedLabel.trim() !== '') return resolvedLabel;
+  return DEFAULT_KIND_LABELS[code] ?? code;
 }
 
 export function contractStatusLabel(s: SupplierContractStatus): string {
@@ -50,10 +51,6 @@ export function contractRenewalLabel(m: SupplierContractRenewalMode): string {
 export function contractAttachmentCategoryLabel(c: ContractAttachmentCategory): string {
   return ATT_CAT[c] ?? c;
 }
-
-export const contractKindOptions: { value: SupplierContractKind; label: string }[] = (
-  Object.keys(KIND) as SupplierContractKind[]
-).map((value) => ({ value, label: KIND[value] }));
 
 export const contractStatusOptions: { value: SupplierContractStatus; label: string }[] = (
   Object.keys(STATUS) as SupplierContractStatus[]

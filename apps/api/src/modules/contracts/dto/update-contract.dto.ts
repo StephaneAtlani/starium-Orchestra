@@ -6,14 +6,16 @@ import {
   IsNumberString,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
 import {
-  SupplierContractKind,
   SupplierContractRenewalMode,
   SupplierContractStatus,
 } from '@prisma/client';
+
+const CONTRACT_KIND_CODE_RE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
 export class UpdateContractDto {
   @IsOptional()
@@ -31,8 +33,13 @@ export class UpdateContractDto {
   title?: string;
 
   @IsOptional()
-  @IsEnum(SupplierContractKind)
-  kind?: SupplierContractKind;
+  @IsString()
+  @MaxLength(64)
+  @Matches(CONTRACT_KIND_CODE_RE, {
+    message:
+      'kind : code en MAJUSCULES (lettre initiale, puis lettres, chiffres ou underscore)',
+  })
+  kind?: string;
 
   @IsOptional()
   @IsEnum(SupplierContractStatus)

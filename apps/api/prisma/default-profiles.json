@@ -20,6 +20,7 @@
       "contracts.create",
       "contracts.update",
       "contracts.delete",
+      "contracts.kind_types.manage",
       "budgets.cost-centers.read",
       "budgets.cost-centers.create",
       "budgets.cost-centers.update",
@@ -87,6 +88,7 @@
       "contracts.create",
       "contracts.update",
       "contracts.delete",
+      "contracts.kind_types.manage",
       "projects.read"
     ]
   },

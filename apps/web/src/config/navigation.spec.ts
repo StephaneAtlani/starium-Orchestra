@@ -28,10 +28,16 @@ describe('platform navigation', () => {
     const childHrefs = (suppliersParent?.children ?? []).map((c) => c.href);
     expect(childHrefs).toContain('/suppliers/purchase-orders');
     expect(childHrefs).toContain('/suppliers/invoices');
-    expect(childHrefs).toContain('/contracts');
-    const contractsChild = suppliersParent?.children?.find((c) => c.href === '/contracts');
-    expect(contractsChild?.requiredPermissions).toEqual(['contracts.read']);
-    expect(contractsChild?.moduleCode).toBe('contracts');
+    const contractsNav = suppliersParent?.children?.find((c) => c.label === 'Contrats');
+    expect(contractsNav?.href).toBeUndefined();
+    expect(contractsNav?.children?.map((c) => c.href)).toEqual(
+      expect.arrayContaining(['/contracts', '/contracts/kind-types']),
+    );
+    const contractsRegistre = contractsNav?.children?.find((c) => c.href === '/contracts');
+    expect(contractsRegistre?.requiredPermissions).toEqual(['contracts.read']);
+    expect(contractsRegistre?.moduleCode).toBe('contracts');
+    const contractsKindTypes = contractsNav?.children?.find((c) => c.href === '/contracts/kind-types');
+    expect(contractsKindTypes?.requiredPermissions).toEqual(['contracts.kind_types.manage']);
   });
 
   it('expose une entrée Equipes (dropdown) avec any(skills.read, teams.read, resources.read)', () => {

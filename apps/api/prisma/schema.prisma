@@ -209,6 +209,7 @@ model Client {
   contractAttachments        ContractAttachment[]
   budgetSnapshots            BudgetSnapshot[]
   budgetSnapshotOccasionTypes BudgetSnapshotOccasionType[]
+  supplierContractKindTypes   SupplierContractKindType[]
   budgetReallocations        BudgetReallocation[]
   budgetImportMappings       BudgetImportMapping[]
   budgetImportJobs           BudgetImportJob[]
@@ -1905,15 +1906,6 @@ enum InvoiceStatus {
   CANCELLED
 }
 
-/// RFC-036 — contrat fournisseur / IT.
-enum SupplierContractKind {
-  FRAMEWORK
-  LICENSE_SAAS
-  SERVICES
-  MAINTENANCE
-  OTHER
-}
-
 enum SupplierContractStatus {
   DRAFT
   ACTIVE
@@ -2718,6 +2710,23 @@ model ProcurementAttachment {
 }
 
 /// RFC-036 — registre contractuel client + fournisseur.
+/// Types de contrat : `clientId` null = catalogue plateforme (RFC-036).
+model SupplierContractKindType {
+  id          String   @id @default(cuid())
+  clientId    String?
+  code        String   @db.VarChar(64)
+  label       String   @db.VarChar(200)
+  description String?  @db.VarChar(1000)
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, isActive, sortOrder])
+}
+
 model SupplierContract {
   id         String   @id @default(cuid())
   clientId   String
@@ -2726,7 +2735,8 @@ model SupplierContract {
   reference String
   title     String
 
-  kind   SupplierContractKind
+  /// Code métier aligné sur `SupplierContractKindType.code` (catalogue plateforme ou types client).
+  kind   String                 @db.VarChar(64)
   status SupplierContractStatus @default(DRAFT)
 
   signedAt       DateTime?

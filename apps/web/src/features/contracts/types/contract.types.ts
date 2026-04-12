@@ -1,10 +1,3 @@
-export type SupplierContractKind =
-  | 'FRAMEWORK'
-  | 'LICENSE_SAAS'
-  | 'SERVICES'
-  | 'MAINTENANCE'
-  | 'OTHER';
-
 export type SupplierContractStatus =
   | 'DRAFT'
   | 'ACTIVE'
@@ -31,7 +24,10 @@ export interface Contract {
   supplier: ContractSupplierSummary;
   reference: string;
   title: string;
-  kind: SupplierContractKind;
+  /** Code catalogue (`SupplierContractKindType.code`). */
+  kind: string;
+  /** Libellé résolu côté API (affichage). */
+  kindLabel: string;
   status: SupplierContractStatus;
   signedAt: string | null;
   effectiveStart: string;

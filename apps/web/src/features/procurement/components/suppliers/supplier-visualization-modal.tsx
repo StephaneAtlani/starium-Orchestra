@@ -22,6 +22,7 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { formatNumberFr } from '@/lib/currency-format';
 import { usePermissions } from '@/hooks/use-permissions';
+import { SupplierContractsPreviewCard } from '@/features/contracts/components/supplier-contracts-preview-card';
 
 const PROCUREMENT_PREVIEW_LIMIT = 8;
 
@@ -488,6 +489,8 @@ export function SupplierVisualizationContent({
           </CardContent>
         </Card>
       </div>
+
+      <SupplierContractsPreviewCard supplierId={supplierId} />
 
       <Card>
         <CardHeader>

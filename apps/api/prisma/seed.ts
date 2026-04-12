@@ -1333,6 +1333,10 @@ async function ensureContractsModuleAndPermissions(): Promise<void> {
     { code: "contracts.create", label: "Contrats — création" },
     { code: "contracts.update", label: "Contrats — mise à jour" },
     { code: "contracts.delete", label: "Contrats — clôture / résiliation" },
+    {
+      code: "contracts.kind_types.manage",
+      label: "Contrats — gestion des types (catalogue client)",
+    },
   ];
   for (const p of defs) {
     await prisma.permission.upsert({
@@ -1343,6 +1347,34 @@ async function ensureContractsModuleAndPermissions(): Promise<void> {
   }
 }
 
+/** Catalogue plateforme des types de contrat (codes utilisés par `SupplierContract.kind`). */
+async function ensureGlobalSupplierContractKindTypes(): Promise<void> {
+  const catalog: Array<{ code: string; label: string; sortOrder: number }> = [
+    { code: "FRAMEWORK", label: "Cadre / accord-cadre", sortOrder: 10 },
+    { code: "LICENSE_SAAS", label: "Licence / SaaS", sortOrder: 20 },
+    { code: "SERVICES", label: "Prestations / services", sortOrder: 30 },
+    { code: "MAINTENANCE", label: "Maintenance / support", sortOrder: 40 },
+    { code: "OTHER", label: "Autre", sortOrder: 50 },
+  ];
+  for (const row of catalog) {
+    const existing = await prisma.supplierContractKindType.findFirst({
+      where: { clientId: null, code: row.code },
+    });
+    if (!existing) {
+      await prisma.supplierContractKindType.create({
+        data: {
+          clientId: null,
+          code: row.code,
+          label: row.label,
+          description: null,
+          sortOrder: row.sortOrder,
+          isActive: true,
+        },
+      });
+    }
+  }
+}
+
 /** Rôle global : permissions contrats pour les CLIENT_ADMIN (UserRole). */
 async function ensureClientAdminContractsModuleRole(): Promise<void> {
   const codes = [
@@ -1350,6 +1382,7 @@ async function ensureClientAdminContractsModuleRole(): Promise<void> {
     "contracts.create",
     "contracts.update",
     "contracts.delete",
+    "contracts.kind_types.manage",
   ] as const;
   const permissions = await prisma.permission.findMany({
     where: { code: { in: [...codes] } },
@@ -3169,6 +3202,7 @@ async function main() {
 
   await ensureComplianceModuleAndPermissions();
   await ensureContractsModuleAndPermissions();
+  await ensureGlobalSupplierContractKindTypes();
   await ensureCollaboratorsModuleAndPermissions();
   await ensureSkillsModuleAndPermissions();
   await ensureTeamsModuleAndPermissions();

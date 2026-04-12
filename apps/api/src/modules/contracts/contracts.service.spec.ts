@@ -1,7 +1,6 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
-  SupplierContractKind,
   SupplierContractRenewalMode,
   SupplierContractStatus,
 } from '@prisma/client';
@@ -21,7 +20,7 @@ function baseContractRow(over?: Partial<Record<string, unknown>>) {
     supplierId: 'sup-1',
     reference: 'REF-1',
     title: 'Contrat test',
-    kind: SupplierContractKind.SERVICES,
+    kind: 'SERVICES',
     status: SupplierContractStatus.DRAFT,
     signedAt: null,
     effectiveStart: new Date('2026-01-01'),
@@ -47,6 +46,11 @@ describe('ContractsService', () => {
   let service: ContractsService;
   let prisma: any;
   let auditLogs: any;
+  let suppliers: { list: jest.Mock; findById: jest.Mock };
+  let contractKindTypes: {
+    assertKindCodeAssignable: jest.Mock;
+    resolveKindLabels: jest.Mock;
+  };
 
   beforeEach(() => {
     prisma = {
@@ -60,7 +64,23 @@ describe('ContractsService', () => {
       },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
-    service = new ContractsService(prisma, auditLogs);
+    suppliers = { list: jest.fn(), findById: jest.fn() };
+    contractKindTypes = {
+      assertKindCodeAssignable: jest.fn().mockResolvedValue(undefined),
+      resolveKindLabels: jest.fn().mockImplementation((_clientId: string, codes: string[]) => {
+        const m: Record<string, string> = {};
+        for (const c of codes) {
+          m[c] = c === 'SERVICES' ? 'Prestations / services' : c;
+        }
+        return Promise.resolve(m);
+      }),
+    };
+    service = new ContractsService(
+      prisma,
+      auditLogs,
+      suppliers as any,
+      contractKindTypes as any,
+    );
   });
 
   it('create rejette si fournisseur hors client', async () => {
@@ -72,7 +92,7 @@ describe('ContractsService', () => {
           supplierId: 'other-sup',
           reference: 'R1',
           title: 'T',
-          kind: SupplierContractKind.OTHER,
+          kind: 'OTHER',
           effectiveStart: new Date(),
           currency: 'EUR',
         },
@@ -96,7 +116,7 @@ describe('ContractsService', () => {
           supplierId: 'sup-1',
           reference: 'R1',
           title: 'T',
-          kind: SupplierContractKind.OTHER,
+          kind: 'OTHER',
           effectiveStart: new Date(),
           currency: 'EUR',
         },
@@ -114,7 +134,7 @@ describe('ContractsService', () => {
         supplierId: 'sup-1',
         reference: 'R1',
         title: 'T',
-        kind: SupplierContractKind.FRAMEWORK,
+        kind: 'FRAMEWORK',
         effectiveStart: new Date('2026-06-01'),
         currency: 'eur',
       },
