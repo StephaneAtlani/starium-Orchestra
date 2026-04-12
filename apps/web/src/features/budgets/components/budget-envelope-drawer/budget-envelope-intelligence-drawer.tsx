@@ -131,7 +131,7 @@ export function BudgetEnvelopeIntelligenceDrawer({
             'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-none',
             'border border-border/60 bg-background shadow-lg outline-none',
             'h-[100dvh] sm:h-[70vh] md:h-[65vh]',
-            panelExpanded && 'sm:h-[100dvh] md:h-[100dvh]',
+            panelExpanded && 'sm:h-[90dvh] md:h-[90dvh]',
             'rounded-none sm:rounded-t-2xl',
             'transition-[height] duration-300 ease-out motion-reduce:transition-none',
             'overflow-hidden',
