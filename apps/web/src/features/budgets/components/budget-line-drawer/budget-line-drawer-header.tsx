@@ -15,12 +15,8 @@ import type { BudgetLineDrilldownNavigation } from '../../lib/budget-envelope-na
 import { BudgetLineStatusBadge } from '../budget-line-status-badge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+
 export function BudgetLineDrawerHeader({
   line,
   budgetName,
@@ -55,45 +51,53 @@ export function BudgetLineDrawerHeader({
   const envelopeCodeLabel = envelopeCode ?? '—';
   const envelopeTypeLabel = envelopeType ?? '—';
 
+  const actionBtn =
+    'h-auto min-h-6 gap-1 px-1.5 py-0.5 text-[0.625rem] font-medium leading-none sm:min-h-6 sm:px-2 sm:py-0.5 sm:text-[0.6875rem]';
+
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-background/85 px-4 py-2.5 shadow-sm backdrop-blur-md supports-backdrop-filter:bg-background/70">
+    <div className="flex flex-col gap-2 bg-background/85 px-3 py-2 backdrop-blur-md supports-backdrop-filter:bg-background/70 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-4 sm:py-2">
       <div className="min-w-0">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex min-w-0 items-center gap-1.5">
           {line.code && (
-            <span className="text-xs text-muted-foreground shrink-0">
+            <span className="shrink-0 text-[10px] text-muted-foreground">
               [{line.code}]
             </span>
           )}
-          <h2 className="text-sm font-semibold leading-5 truncate">{line.name}</h2>
+          <h2 className="truncate text-xs font-semibold leading-tight sm:text-[0.8125rem]">
+            {line.name}
+          </h2>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+        <div className="mt-0.5 flex flex-wrap items-center gap-1">
           {isOverrun && (
-            <Badge variant="destructive" className="h-4 px-1.5 text-[10px]">
+            <Badge variant="destructive" className="h-3.5 px-1 py-0 text-[9px]">
               Dépassement
             </Badge>
           )}
           {isNegativeRemaining && (
-            <Badge variant="destructive" className="h-4 px-1.5 text-[10px]">
+            <Badge variant="destructive" className="h-3.5 px-1 py-0 text-[9px]">
               Reste négatif
             </Badge>
           )}
           {hasRecentInvoice30d && (
-            <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+            <Badge variant="secondary" className="h-3.5 px-1 py-0 text-[9px]">
               Facture récente (30j)
             </Badge>
           )}
           {isUncoveredOrder && (
-            <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
+            <Badge variant="outline" className="h-3.5 px-1 py-0 text-[9px]">
               Commande non couverte
             </Badge>
           )}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-          <BudgetLineStatusBadge status={line.status} className="h-4 px-1.5 text-[10px] uppercase" />
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-muted-foreground">
+          <BudgetLineStatusBadge
+            status={line.status}
+            className="h-3.5 px-1 py-0 text-[9px] uppercase"
+          />
           {envelopeName && (
             <>
               <span>·</span>
-              <span className="truncate max-w-[240px]" title={envelopeName}>
+              <span className="max-w-[240px] truncate" title={envelopeName}>
                 {envelopeName}
               </span>
             </>
@@ -109,7 +113,7 @@ export function BudgetLineDrawerHeader({
           {budgetName && (
             <>
               <span>·</span>
-              <span className="truncate max-w-[240px]" title={budgetName}>
+              <span className="max-w-[240px] truncate" title={budgetName}>
                 {budgetName}
               </span>
             </>
@@ -120,136 +124,102 @@ export function BudgetLineDrawerHeader({
         </div>
       </div>
 
-      <TooltipProvider delay={280}>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <div
-            className="flex flex-wrap items-center gap-0.5 rounded-xl border border-border/70 bg-muted/25 p-1 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.05]"
-            role="toolbar"
-            aria-label="Actions ligne budgétaire"
-          >
-            {lineDrilldownNavigation ? (
-              <>
-                <span className="flex items-center gap-0.5 pr-1">
-                  <Tooltip>
-                    <TooltipTrigger render={<span className="inline-flex" />}>
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        className="size-8 rounded-lg border border-transparent hover:border-border/60 hover:bg-background/80"
-                        disabled={!lineDrilldownNavigation.hasPrev}
-                        onClick={lineDrilldownNavigation.onPrevLine}
-                        aria-label="Ligne précédente"
-                      >
-                        <ChevronLeft className="size-4" aria-hidden />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">Ligne précédente</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger render={<span className="inline-flex" />}>
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        className="size-8 rounded-lg border border-transparent hover:border-border/60 hover:bg-background/80"
-                        disabled={!lineDrilldownNavigation.hasNext}
-                        onClick={lineDrilldownNavigation.onNextLine}
-                        aria-label="Ligne suivante"
-                      >
-                        <ChevronRight className="size-4" aria-hidden />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">Ligne suivante</TooltipContent>
-                  </Tooltip>
-                </span>
-                <span
-                  className="hidden h-6 w-px shrink-0 bg-border/60 sm:block"
-                  aria-hidden
-                />
-              </>
-            ) : null}
-            <span className="flex flex-wrap items-center gap-0.5">
-              <Tooltip>
-                <TooltipTrigger render={<span className="inline-flex" />}>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="size-8 rounded-lg border border-transparent hover:border-border/60 hover:bg-background/80"
-                    onClick={onCreateOrder}
-                    aria-label="Nouvelle commande"
-                  >
-                    <ShoppingCart className="size-4" aria-hidden />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Nouvelle commande</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger render={<span className="inline-flex" />}>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="size-8 rounded-lg border border-transparent hover:border-border/60 hover:bg-background/80"
-                    onClick={onCreateInvoice}
-                    aria-label="Nouvelle facture"
-                  >
-                    <Receipt className="size-4" aria-hidden />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Nouvelle facture</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger render={<span className="inline-flex" />}>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="size-8 rounded-lg border border-transparent hover:border-border/60 hover:bg-background/80"
-                    onClick={onCreateEngagement}
-                    aria-label="Saisir un engagement financier"
-                  >
-                    <CircleDollarSign className="size-4" aria-hidden />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Engagement financier</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger render={<span className="inline-flex" />}>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="size-8 rounded-lg border border-transparent hover:border-border/60 hover:bg-background/80"
-                    onClick={onCreateConsumption}
-                    aria-label="Saisir une consommation"
-                  >
-                    <ArrowDownCircle className="size-4" aria-hidden />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Consommation</TooltipContent>
-              </Tooltip>
-            </span>
-          </div>
-
-          <Tooltip>
-            <TooltipTrigger render={<span className="inline-flex" />}>
+      <div className="flex w-full shrink-0 flex-col gap-1.5 sm:w-auto sm:items-end">
+        <div
+          className="flex flex-wrap items-stretch justify-end gap-1"
+          role="toolbar"
+          aria-label="Actions ligne budgétaire"
+        >
+          {lineDrilldownNavigation ? (
+            <>
               <Button
                 type="button"
-                size="icon-sm"
-                variant="outline"
-                onClick={onClose}
-                className="size-8 shrink-0 rounded-lg border-border/70 bg-background/60 shadow-sm hover:bg-muted/50"
-                aria-label="Fermer"
+                variant="ghost"
+                size="xs"
+                disabled={!lineDrilldownNavigation.hasPrev}
+                title={
+                  lineDrilldownNavigation.hasPrev
+                    ? 'Ligne précédente'
+                    : 'Première ligne de la liste'
+                }
+                className={actionBtn}
+                onClick={lineDrilldownNavigation.onPrevLine}
               >
-                <X className="size-4" />
+                <ChevronLeft className="size-3 shrink-0 opacity-90" aria-hidden />
+                <span className="whitespace-nowrap">Précédent</span>
               </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Fermer</TooltipContent>
-          </Tooltip>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                disabled={!lineDrilldownNavigation.hasNext}
+                title={
+                  lineDrilldownNavigation.hasNext
+                    ? 'Ligne suivante'
+                    : 'Dernière ligne de la liste'
+                }
+                className={actionBtn}
+                onClick={lineDrilldownNavigation.onNextLine}
+              >
+                <span className="whitespace-nowrap">Suivant</span>
+                <ChevronRight className="size-3 shrink-0 opacity-90" aria-hidden />
+              </Button>
+            </>
+          ) : null}
+
+          <Button
+            type="button"
+            variant="default"
+            size="xs"
+            className={actionBtn}
+            onClick={onCreateOrder}
+          >
+            <ShoppingCart className="size-3 shrink-0 opacity-90" aria-hidden />
+            <span className="whitespace-nowrap">Commande</span>
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            size="xs"
+            className={actionBtn}
+            onClick={onCreateInvoice}
+          >
+            <Receipt className="size-3 shrink-0 opacity-90" aria-hidden />
+            <span className="whitespace-nowrap">Facture</span>
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            size="xs"
+            className={actionBtn}
+            onClick={onCreateEngagement}
+          >
+            <CircleDollarSign className="size-3 shrink-0 opacity-90" aria-hidden />
+            <span className="whitespace-nowrap">Engagement</span>
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            size="xs"
+            className={actionBtn}
+            onClick={onCreateConsumption}
+          >
+            <ArrowDownCircle className="size-3 shrink-0 opacity-90" aria-hidden />
+            <span className="whitespace-nowrap">Consommation</span>
+          </Button>
         </div>
-      </TooltipProvider>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className={cn(actionBtn, 'w-full justify-center sm:w-auto')}
+          onClick={onClose}
+        >
+          <X className="size-3 shrink-0 opacity-90" aria-hidden />
+          Fermer
+        </Button>
+      </div>
     </div>
   );
 }
