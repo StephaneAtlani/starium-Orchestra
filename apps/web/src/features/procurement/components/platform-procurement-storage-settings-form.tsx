@@ -376,15 +376,20 @@ export function PlatformProcurementStorageSettingsForm() {
               <p className="text-sm font-medium">Paramètres S3</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="proc-s3-endpoint">Endpoint</Label>
+                  <Label htmlFor="proc-s3-endpoint">Endpoint (optionnel pour AWS)</Label>
                   <Input
                     id="proc-s3-endpoint"
                     value={form.endpoint}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, endpoint: e.target.value }))
                     }
-                    placeholder="https://s3.eu-west-3.amazonaws.com ou http://minio:9000"
+                    placeholder="Vide = AWS selon la région ; ou http://minio:9000"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Pour <strong>Amazon S3</strong>, laissez vide et renseignez uniquement la
+                    région (ex. eu-west-3). Pour <strong>MinIO</strong>, indiquez l’URL du
+                    service (ex. http://minio:9000) et activez le path-style ci-dessous.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="proc-s3-region">Région</Label>
@@ -394,7 +399,7 @@ export function PlatformProcurementStorageSettingsForm() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, region: e.target.value }))
                     }
-                    placeholder="us-east-1"
+                    placeholder="eu-west-3"
                   />
                 </div>
                 <div className="space-y-2">
@@ -455,7 +460,12 @@ export function PlatformProcurementStorageSettingsForm() {
                   />
                 </div>
                 <div className="flex items-center justify-between gap-4 sm:justify-start">
-                  <Label className="text-sm font-normal">Path-style (MinIO)</Label>
+                  <div>
+                    <Label className="text-sm font-normal">Path-style (MinIO)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      À activer pour MinIO ; à laisser <strong>désactivé</strong> pour AWS.
+                    </p>
+                  </div>
                   <Switch
                     aria-label="Path-style URLs pour S3"
                     checked={form.forcePathStyle}

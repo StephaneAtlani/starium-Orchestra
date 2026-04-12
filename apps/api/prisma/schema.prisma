@@ -342,8 +342,8 @@ model PlatformProcurementS3Settings {
   secretKeyEncrypted String?
   bucket             String?
   useSsl             Boolean  @default(true)
-  /// MinIO et certains endpoints nécessitent path-style.
-  forcePathStyle     Boolean  @default(true)
+  /// MinIO / S3 custom : souvent true. AWS public : false (défaut).
+  forcePathStyle     Boolean  @default(false)
   updatedAt          DateTime @updatedAt
 }
 

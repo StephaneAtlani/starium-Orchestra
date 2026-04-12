@@ -2,27 +2,26 @@ import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import {
   CreateBucketCommand,
   GetObjectCommand,
-  HeadBucketCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { createHash, randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
+import { assertS3BucketReachable } from './procurement-s3-bucket-connectivity.util';
+import {
+  createProcurementS3Client,
+  procurementCreateBucketInput,
+} from './procurement-s3-client.factory';
 import type { ResolvedProcurementS3Config } from './procurement-s3.types';
 
 function buildS3Client(cfg: ResolvedProcurementS3Config): S3Client {
-  const raw = cfg.endpoint.trim();
-  const endpointUrl = /^https?:\/\//i.test(raw)
-    ? raw
-    : `${cfg.useSsl ? 'https' : 'http'}://${raw}`;
-  return new S3Client({
+  return createProcurementS3Client({
     region: cfg.region,
-    endpoint: endpointUrl,
+    endpoint: cfg.endpoint,
+    accessKey: cfg.accessKey,
+    secretKey: cfg.secretKey,
+    useSsl: cfg.useSsl,
     forcePathStyle: cfg.forcePathStyle,
-    credentials: {
-      accessKeyId: cfg.accessKey,
-      secretAccessKey: cfg.secretKey,
-    },
   });
 }
 
@@ -30,10 +29,15 @@ function buildS3Client(cfg: ResolvedProcurementS3Config): S3Client {
 export class S3ProcurementBlobStorageService {
   async ensureBucketExists(cfg: ResolvedProcurementS3Config): Promise<void> {
     const client = buildS3Client(cfg);
+    const awsImplicit = !cfg.endpoint.trim();
     try {
-      await client.send(new HeadBucketCommand({ Bucket: cfg.bucket }));
+      await assertS3BucketReachable(client, cfg.bucket);
     } catch {
-      await client.send(new CreateBucketCommand({ Bucket: cfg.bucket }));
+      await client.send(
+        new CreateBucketCommand(
+          procurementCreateBucketInput(cfg.bucket, cfg.region, awsImplicit),
+        ),
+      );
     }
   }
 

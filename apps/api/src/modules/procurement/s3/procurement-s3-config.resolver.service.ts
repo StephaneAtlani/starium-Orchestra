@@ -23,7 +23,6 @@ export class ProcurementS3ConfigResolverService {
     });
     if (
       row?.enabled &&
-      row.endpoint?.trim() &&
       row.accessKey?.trim() &&
       row.secretKeyEncrypted?.trim() &&
       row.bucket?.trim()
@@ -32,7 +31,7 @@ export class ProcurementS3ConfigResolverService {
         const secretKey = this.crypto.decrypt(row.secretKeyEncrypted);
         return {
           source: 'db',
-          endpoint: row.endpoint.trim(),
+          endpoint: row.endpoint?.trim() ?? '',
           region: (row.region ?? 'us-east-1').trim() || 'us-east-1',
           accessKey: row.accessKey.trim(),
           secretKey,
@@ -48,11 +47,11 @@ export class ProcurementS3ConfigResolverService {
   }
 
   private resolveFromEnv(): ResolvedProcurementS3Config | null {
-    const endpoint = this.config.get<string>('PROCUREMENT_S3_ENDPOINT')?.trim();
+    const endpoint = this.config.get<string>('PROCUREMENT_S3_ENDPOINT')?.trim() ?? '';
     const accessKey = this.config.get<string>('PROCUREMENT_S3_ACCESS_KEY')?.trim();
     const secretKey = this.config.get<string>('PROCUREMENT_S3_SECRET_KEY')?.trim();
     const bucket = this.config.get<string>('PROCUREMENT_S3_BUCKET')?.trim();
-    if (!endpoint || !accessKey || !secretKey || !bucket) {
+    if (!accessKey || !secretKey || !bucket) {
       return null;
     }
     const region =

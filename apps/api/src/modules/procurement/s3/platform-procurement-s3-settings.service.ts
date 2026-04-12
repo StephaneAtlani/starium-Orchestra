@@ -3,17 +3,20 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import {
-  CreateBucketCommand,
-  HeadBucketCommand,
-  S3Client,
-} from '@aws-sdk/client-s3';
+import { CreateBucketCommand } from '@aws-sdk/client-s3';
+import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
 import { ProcurementStorageDriver } from '@prisma/client';
 import { constants as fsConstants } from 'node:fs';
 import { access, mkdir } from 'node:fs/promises';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MicrosoftTokenCryptoService } from '../../microsoft/microsoft-token-crypto.service';
 import { UpdatePlatformProcurementS3SettingsDto } from './dto/update-platform-procurement-s3-settings.dto';
+import {
+  createProcurementS3Client,
+  procurementCreateBucketInput,
+} from './procurement-s3-client.factory';
+import { assertS3BucketReachable } from './procurement-s3-bucket-connectivity.util';
+import { formatAwsSdkErrorDetail } from './procurement-s3-error.util';
 import { ProcurementStorageResolutionService } from './procurement-storage-resolution.service';
 
 const SETTINGS_ID = 'default';
@@ -185,30 +188,55 @@ export class PlatformProcurementS3SettingsService {
     secretKeyEncrypted: string | null;
     useSsl: boolean;
     forcePathStyle: boolean;
-  }): S3Client {
-    if (
-      !row.endpoint?.trim() ||
-      !row.accessKey?.trim() ||
-      !row.secretKeyEncrypted?.trim()
-    ) {
+  }) {
+    if (!row.accessKey?.trim() || !row.secretKeyEncrypted?.trim()) {
       throw new BadRequestException(
-        'Configuration S3 incomplète : endpoint, accessKey et secret requis pour la validation.',
+        'Configuration S3 incomplète : clé d’accès et secret requis pour la validation.',
+      );
+    }
+    const ep = row.endpoint?.trim() ?? '';
+    if (!ep && !row.region?.trim()) {
+      throw new BadRequestException(
+        'Configuration S3 : renseignez la région (ex. eu-west-3) si l’endpoint est vide (mode AWS standard).',
       );
     }
     const secretKey = this.crypto.decrypt(row.secretKeyEncrypted);
-    const raw = row.endpoint.trim();
-    const endpointUrl = /^https?:\/\//i.test(raw)
-      ? raw
-      : `${row.useSsl ? 'https' : 'http'}://${raw}`;
-    return new S3Client({
+    return createProcurementS3Client({
       region: row.region?.trim() || 'us-east-1',
-      endpoint: endpointUrl,
+      endpoint: ep,
+      accessKey: row.accessKey.trim(),
+      secretKey,
+      useSsl: row.useSsl,
       forcePathStyle: row.forcePathStyle,
-      credentials: {
-        accessKeyId: row.accessKey.trim(),
-        secretAccessKey: secretKey,
-      },
     });
+  }
+
+  /**
+   * Aide au diagnostic 403 : si STS répond, les clés sont valides et le blocage est presque sûrement
+   * les policies S3 (IAM / bucket / autre compte).
+   */
+  private async tryStsCallerSummary(
+    accessKeyId: string,
+    secretAccessKey: string,
+    region: string,
+  ): Promise<
+    | { ok: true; account: string; arn: string }
+    | { ok: false; detail: string }
+  > {
+    try {
+      const sts = new STSClient({
+        region,
+        credentials: { accessKeyId, secretAccessKey },
+      });
+      const out = await sts.send(new GetCallerIdentityCommand({}));
+      return {
+        ok: true,
+        account: out.Account ?? '?',
+        arn: out.Arn ?? '?',
+      };
+    } catch (err) {
+      return { ok: false, detail: formatAwsSdkErrorDetail(err, 220) };
+    }
   }
 
   private async assertS3Connectivity(
@@ -222,27 +250,58 @@ export class PlatformProcurementS3SettingsService {
     const client = this.buildClientFromRow(row);
     const bucket = row.bucket.trim();
     try {
-      await client.send(new HeadBucketCommand({ Bucket: bucket }));
+      await assertS3BucketReachable(client, bucket);
     } catch (e: unknown) {
       const name = (e as { name?: string })?.name;
       const status = (e as { $metadata?: { httpStatusCode?: number } })?.$metadata
         ?.httpStatusCode;
       if (name === 'NotFound' || status === 404) {
         try {
-          await client.send(new CreateBucketCommand({ Bucket: bucket }));
+          await client.send(
+            new CreateBucketCommand(
+              procurementCreateBucketInput(
+                bucket,
+                row.region?.trim() || 'us-east-1',
+                !row.endpoint?.trim(),
+              ),
+            ),
+          );
           return;
         } catch (createErr) {
           this.logger.warn(
-            `CreateBucket failed: ${(createErr as Error).message}`,
+            `CreateBucket failed: ${formatAwsSdkErrorDetail(createErr)}`,
           );
         }
       }
-      this.logger.warn(
-        `S3 connectivity check failed: ${(e as Error).message}`,
-      );
-      throw new BadRequestException(
-        'Connexion S3 impossible (vérifier endpoint, identifiants et nom du bucket).',
-      );
+      const technical = formatAwsSdkErrorDetail(e);
+      this.logger.warn(`S3 connectivity check failed: ${technical}`);
+      let userMsg = `Connexion S3 impossible. Détail : ${technical}`;
+      if (status === 403 || /\bHTTP 403\b/.test(technical)) {
+        userMsg += ` — Accès refusé par AWS (403) : accorder à l’utilisateur IAM au minimum s3:ListBucket (et souvent s3:HeadBucket) sur arn:aws:s3:::${bucket}. Starium retente ListObjects (MaxKeys 1) si HeadBucket est refusé ; si les deux échouent, les droits ou une bucket policy / SCP bloque ce principal. Pour les fichiers : s3:GetObject et s3:PutObject sur arn:aws:s3:::${bucket}/*. Vérifier la bucket policy, un éventuel autre compte propriétaire du bucket (policy inter-comptes), et l’absence de SCP / boundary IAM.`;
+        try {
+          const sk = row.secretKeyEncrypted
+            ? this.crypto.decrypt(row.secretKeyEncrypted)
+            : '';
+          if (row.accessKey?.trim() && sk) {
+            const region = row.region?.trim() || 'us-east-1';
+            const sts = await this.tryStsCallerSummary(
+              row.accessKey.trim(),
+              sk,
+              region,
+            );
+            if (sts.ok) {
+              userMsg += ` Diagnostic : les clés répondent à AWS STS (compte ${sts.account}, principal ${sts.arn}) — le 403 vient donc des droits S3 sur ce bucket pour ce principal (après repli ListObjects), ou du bucket dans un autre compte sans policy autorisant ce principal.`;
+            } else {
+              userMsg += ` Diagnostic : échec STS avec les mêmes clés (${sts.detail}) — vérifier clé d’accès, secret, utilisateur IAM actif, ou une policy qui interdit sts:GetCallerIdentity.`;
+            }
+          }
+        } catch (diagErr) {
+          this.logger.warn(
+            `STS diagnostic skipped: ${(diagErr as Error).message}`,
+          );
+        }
+      }
+      throw new BadRequestException(userMsg);
     }
   }
 }
