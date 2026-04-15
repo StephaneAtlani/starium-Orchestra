@@ -17,7 +17,7 @@ import sys
 def iter_files(root: Path) -> list[Path]:
     # We only include regular files (no directories) and keep a deterministic sort.
     files: list[Path] = []
-    for p in root.rglob("*"):
+    for p in root.rglob("*.md"):
         if p.is_file():
             files.append(p)
     return sorted(files, key=lambda x: x.as_posix())
