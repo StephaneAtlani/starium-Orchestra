@@ -12,6 +12,7 @@ import {
   Settings,
   Shield,
   Users,
+  FileSignature,
   FileText,
   Scale,
   Tags,
@@ -116,6 +117,30 @@ export const navigation: NavigationSection[] = [
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
       {
+        label: 'Contrats',
+        icon: FileSignature,
+        scope: 'client',
+        moduleCode: 'contracts',
+        requiredPermissions: ['contracts.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+        children: [
+          {
+            label: 'Registre',
+            href: '/contracts',
+            scope: 'client',
+            moduleCode: 'contracts',
+            requiredPermissions: ['contracts.read'],
+          },
+          {
+            label: 'Types de contrat',
+            href: '/contracts/kind-types',
+            scope: 'client',
+            moduleCode: 'contracts',
+            requiredPermissions: ['contracts.kind_types.manage'],
+          },
+        ],
+      },
+      {
         label: 'Fournisseurs',
         icon: Handshake,
         scope: 'client',
@@ -134,28 +159,6 @@ export const navigation: NavigationSection[] = [
             href: '/suppliers',
             scope: 'client',
             requiredPermissions: ['procurement.read'],
-          },
-          {
-            label: 'Contrats',
-            scope: 'client',
-            moduleCode: 'contracts',
-            requiredPermissions: ['contracts.read'],
-            children: [
-              {
-                label: 'Registre',
-                href: '/contracts',
-                scope: 'client',
-                moduleCode: 'contracts',
-                requiredPermissions: ['contracts.read'],
-              },
-              {
-                label: 'Types de contrat',
-                href: '/contracts/kind-types',
-                scope: 'client',
-                moduleCode: 'contracts',
-                requiredPermissions: ['contracts.kind_types.manage'],
-              },
-            ],
           },
           {
             label: 'Contacts',

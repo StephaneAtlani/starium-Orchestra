@@ -3,6 +3,7 @@ import type {
   SupplierContractStatus,
   ContractAttachmentCategory,
 } from '../types/contract.types';
+import type { ContractKindTypeDto } from '../types/contract-kind-types.types';
 
 /** Libellés par défaut (catalogue plateforme) si l’API n’a pas encore résolu `kindLabel`. */
 const DEFAULT_KIND_LABELS: Record<string, string> = {
@@ -39,6 +40,28 @@ export function contractKindLabel(code: string, resolvedLabel?: string | null): 
   if (resolvedLabel != null && resolvedLabel.trim() !== '') return resolvedLabel;
   return DEFAULT_KIND_LABELS[code] ?? code;
 }
+
+const PLATFORM_KIND_CODES = [
+  'FRAMEWORK',
+  'LICENSE_SAAS',
+  'SERVICES',
+  'MAINTENANCE',
+  'OTHER',
+] as const;
+
+/** Si `GET /contracts/kind-types` échoue : sélecteur dégradé (codes plateforme uniquement). */
+export const fallbackPlatformContractKindSelectRows: ContractKindTypeDto[] =
+  PLATFORM_KIND_CODES.map((code, i) => ({
+    id: `__fallback_${code}`,
+    code,
+    label: DEFAULT_KIND_LABELS[code] ?? code,
+    description: null,
+    sortOrder: (i + 1) * 10,
+    isActive: true,
+    scope: 'global',
+    createdAt: '',
+    updatedAt: '',
+  }));
 
 export function contractStatusLabel(s: SupplierContractStatus): string {
   return STATUS[s] ?? s;

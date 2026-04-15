@@ -15,7 +15,7 @@ describe('platform navigation', () => {
     expect(systemRolesItem?.scope).toBe('platform');
   });
 
-  it('expose une entrée fournisseurs côté client avec procurement.read', () => {
+  it('expose une entrée fournisseurs côté client avec procurement.read (sans contrats)', () => {
     const pilotagesSection = navigation.find((section) => section.section === 'Pilotages');
     expect(pilotagesSection).toBeDefined();
 
@@ -28,15 +28,25 @@ describe('platform navigation', () => {
     const childHrefs = (suppliersParent?.children ?? []).map((c) => c.href);
     expect(childHrefs).toContain('/suppliers/purchase-orders');
     expect(childHrefs).toContain('/suppliers/invoices');
-    const contractsNav = suppliersParent?.children?.find((c) => c.label === 'Contrats');
-    expect(contractsNav?.href).toBeUndefined();
-    expect(contractsNav?.children?.map((c) => c.href)).toEqual(
+    expect(childHrefs).not.toContain('/contracts');
+  });
+
+  it('expose Contrats au niveau Pilotages (menu principal) avec registre et types', () => {
+    const pilotagesSection = navigation.find((section) => section.section === 'Pilotages');
+    expect(pilotagesSection).toBeDefined();
+
+    const contractsParent = pilotagesSection?.items.find((item) => item.label === 'Contrats');
+    expect(contractsParent).toBeDefined();
+    expect(contractsParent?.moduleCode).toBe('contracts');
+    expect(contractsParent?.requiredPermissions).toEqual(['contracts.read']);
+    expect(contractsParent?.href).toBeUndefined();
+    expect(contractsParent?.children?.map((c) => c.href)).toEqual(
       expect.arrayContaining(['/contracts', '/contracts/kind-types']),
     );
-    const contractsRegistre = contractsNav?.children?.find((c) => c.href === '/contracts');
+    const contractsRegistre = contractsParent?.children?.find((c) => c.href === '/contracts');
     expect(contractsRegistre?.requiredPermissions).toEqual(['contracts.read']);
     expect(contractsRegistre?.moduleCode).toBe('contracts');
-    const contractsKindTypes = contractsNav?.children?.find((c) => c.href === '/contracts/kind-types');
+    const contractsKindTypes = contractsParent?.children?.find((c) => c.href === '/contracts/kind-types');
     expect(contractsKindTypes?.requiredPermissions).toEqual(['contracts.kind_types.manage']);
   });
 

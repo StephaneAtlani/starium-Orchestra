@@ -18,22 +18,16 @@ import { RequireAnyPermissions } from '../../common/decorators/require-any-permi
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
-import { ContractKindTypesService } from './contract-kind-types.service';
 import { ContractsService } from './contracts.service';
-import { CreateContractKindTypeDto } from './dto/create-contract-kind-type.dto';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { ListContractsQueryDto } from './dto/list-contracts.query.dto';
-import { UpdateContractKindTypeDto } from './dto/update-contract-kind-type.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { ListSuppliersQueryDto } from '../procurement/suppliers/dto/list-suppliers.query.dto';
 
 @Controller('contracts')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class ContractsController {
-  constructor(
-    private readonly contracts: ContractsService,
-    private readonly contractKindTypes: ContractKindTypesService,
-  ) {}
+  constructor(private readonly contracts: ContractsService) {}
 
   @Get()
   @RequirePermissions('contracts.read')
@@ -61,55 +55,6 @@ export class ContractsController {
     @Param('supplierId') supplierId: string,
   ) {
     return this.contracts.getSupplierForContractForm(clientId!, supplierId);
-  }
-
-  @Get('kind-types')
-  @RequireAnyPermissions('contracts.read', 'contracts.create', 'contracts.update')
-  listKindTypes(@ActiveClientId() clientId: string | undefined) {
-    return this.contractKindTypes.listMergedForClient(clientId!);
-  }
-
-  @Post('kind-types')
-  @RequirePermissions('contracts.kind_types.manage')
-  createKindType(
-    @ActiveClientId() clientId: string | undefined,
-    @Body() dto: CreateContractKindTypeDto,
-    @RequestUserId() actorUserId: string | undefined,
-    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
-  ) {
-    return this.contractKindTypes.createForClient(clientId!, dto, {
-      actorUserId,
-      meta,
-    });
-  }
-
-  @Patch('kind-types/:typeId')
-  @RequirePermissions('contracts.kind_types.manage')
-  updateKindType(
-    @ActiveClientId() clientId: string | undefined,
-    @Param('typeId') typeId: string,
-    @Body() dto: UpdateContractKindTypeDto,
-    @RequestUserId() actorUserId: string | undefined,
-    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
-  ) {
-    return this.contractKindTypes.updateForClient(clientId!, typeId, dto, {
-      actorUserId,
-      meta,
-    });
-  }
-
-  @Delete('kind-types/:typeId')
-  @RequirePermissions('contracts.kind_types.manage')
-  removeKindType(
-    @ActiveClientId() clientId: string | undefined,
-    @Param('typeId') typeId: string,
-    @RequestUserId() actorUserId: string | undefined,
-    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
-  ) {
-    return this.contractKindTypes.softDeleteForClient(clientId!, typeId, {
-      actorUserId,
-      meta,
-    });
   }
 
   @Get(':id')

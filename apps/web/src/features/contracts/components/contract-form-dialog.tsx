@@ -44,6 +44,7 @@ import {
   contractKindLabel,
   contractRenewalOptions,
   contractStatusOptions,
+  fallbackPlatformContractKindSelectRows,
 } from '../lib/contracts-labels';
 import type {
   Contract,
@@ -122,6 +123,11 @@ export function ContractFormDialog(props: {
     queryFn: () => listContractKindTypesMerged(authFetch),
     enabled: open && !!clientId,
   });
+
+  const kindTypeRows = useMemo(() => {
+    if (kindTypesQ.isError) return fallbackPlatformContractKindSelectRows;
+    return kindTypesQ.data ?? [];
+  }, [kindTypesQ.isError, kindTypesQ.data]);
 
   const [supplierId, setSupplierId] = useState('');
   const [reference, setReference] = useState('');
@@ -687,40 +693,50 @@ export function ContractFormDialog(props: {
                   </div>
                   {kindTypesQ.isLoading ? (
                     <Skeleton className="h-9 w-full rounded-lg" />
-                  ) : kindTypesQ.isError ? (
-                    <p className="text-xs text-destructive">
-                      Impossible de charger les types de contrat.
-                    </p>
                   ) : (
-                    <Select value={kind} onValueChange={(v) => setKind(v ?? '')}>
-                      <SelectTrigger id="ctr-kind-trigger" className="w-full border-input">
-                        <SelectValue placeholder="Type">
-                          {(() => {
-                            const row = kindTypesQ.data?.find((t) => t.code === kind);
-                            if (row) return row.label;
-                            if (mode === 'edit' && contract && contract.kind === kind) {
-                              return contractKindLabel(kind, contract.kindLabel);
-                            }
-                            return contractKindLabel(kind);
-                          })()}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {kindTypesQ.data?.map((t) => (
-                          <SelectItem key={t.id} value={t.code}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                        {mode === 'edit' &&
-                        contract &&
-                        contract.kind === kind &&
-                        !kindTypesQ.data?.some((t) => t.code === kind) ? (
-                          <SelectItem value={kind}>
-                            {contractKindLabel(kind, contract.kindLabel)} (catalogue)
-                          </SelectItem>
-                        ) : null}
-                      </SelectContent>
-                    </Select>
+                    <>
+                      {kindTypesQ.isError ? (
+                        <Alert className="border-amber-500/40 bg-amber-500/[0.06] py-2">
+                          <AlertDescription className="text-xs text-amber-950 dark:text-amber-100">
+                            Catalogue types indisponible (API ou migration). Sélection plateforme par défaut ;
+                            les types client n’apparaissent pas tant que{' '}
+                            <code className="rounded bg-muted px-1 font-mono text-[11px]">
+                              GET /api/contracts/kind-types
+                            </code>{' '}
+                            ne répond pas correctement.
+                          </AlertDescription>
+                        </Alert>
+                      ) : null}
+                      <Select value={kind} onValueChange={(v) => setKind(v ?? '')}>
+                        <SelectTrigger id="ctr-kind-trigger" className="w-full border-input">
+                          <SelectValue placeholder="Type">
+                            {(() => {
+                              const row = kindTypeRows.find((t) => t.code === kind);
+                              if (row) return row.label;
+                              if (mode === 'edit' && contract && contract.kind === kind) {
+                                return contractKindLabel(kind, contract.kindLabel);
+                              }
+                              return contractKindLabel(kind);
+                            })()}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {kindTypeRows.map((t) => (
+                            <SelectItem key={t.id} value={t.code}>
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                          {mode === 'edit' &&
+                          contract &&
+                          contract.kind === kind &&
+                          !kindTypeRows.some((t) => t.code === kind) ? (
+                            <SelectItem value={kind}>
+                              {contractKindLabel(kind, contract.kindLabel)} (catalogue)
+                            </SelectItem>
+                          ) : null}
+                        </SelectContent>
+                      </Select>
+                    </>
                   )}
                   <p className="text-xs text-muted-foreground">
                     Catalogue plateforme complété par les types définis pour votre organisation (admin
