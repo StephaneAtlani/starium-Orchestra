@@ -175,6 +175,24 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 ---
 
+# 🧠 PHASE 1B — PROJETS SCÉNARIOS / BASELINE DÉCISIONNELLE
+
+| Ordre | RFC | Nom | Description | État | Commentaire |
+| ----- | --- | --- | --- | --- | --- |
+| 31b | **RFC-PROJ-SC-001** | Project Scenario Core | Entité `ProjectScenario`, duplication, baseline, archivage logique | 📝 Draft | [RFC](./RFC-PROJ-SC-001%20%E2%80%94%20Project%20Scenario%20Core.md) — fondation de la simulation projet |
+| 31c | **RFC-PROJ-SC-002** | Scenario Financial Planning | Projection financière scénario alignée sur `ProjectBudgetLink` / core budget | 📝 Draft | [RFC](./RFC-PROJ-SC-002%20%E2%80%94%20Scenario%20Financial%20Planning.md) — pas de moteur financier parallèle |
+| 31d | **RFC-PROJ-SC-003** | Scenario Resource Planning | Charge, période, rôle et coût dérivé par scénario sur `Resource` | 📝 Draft | [RFC](./RFC-PROJ-SC-003%20%E2%80%94%20Scenario%20Resource%20Planning.md) — n’utilise pas les anciens modèles staffing retirés |
+| 31e | **RFC-PROJ-SC-004** | Scenario Planning Gantt | Planning autonome par scénario (tâches, jalons, dépendances) | 📝 Draft | [RFC](./RFC-PROJ-SC-004%20%E2%80%94%20Scenario%20Planning%20Gantt.md) |
+| 31f | **RFC-PROJ-SC-005** | Scenario Capacity Engine | Calcul charge vs capacité pour juger la faisabilité | 📝 Draft | [RFC](./RFC-PROJ-SC-005%20%E2%80%94%20Scenario%20Capacity%20Engine.md) |
+| 31g | **RFC-PROJ-SC-006** | Scenario Risk Modeling | Risques projetés par scénario, criticité et synthèse | 📝 Draft | [RFC](./RFC-PROJ-SC-006%20%E2%80%94%20Scenario%20Risk%20Modeling.md) |
+| 31h | **RFC-PROJ-SC-007** | Scenario Selection Workflow | Sélection atomique de la baseline et archivage des variantes lors du passage `PLANNED` / `IN_PROGRESS` | 📝 Draft | [RFC](./RFC-PROJ-SC-007%20%E2%80%94%20Scenario%20Selection%20Workflow.md) — dépend de `SC-001` |
+| 31i | **RFC-FE-PROJ-SC-001** | Scenarios Tab UI | Onglet Scénarios dans la fiche projet | 📝 Draft | [RFC](./RFC-FE-PROJ-SC-001%20%E2%80%94%20Scenarios%20Tab%20UI.md) — backend-first |
+| 31j | **RFC-FE-PROJ-SC-002** | Scenario Cockpit UI | Cockpit de comparaison scénario vs baseline vs réel | 📝 Draft | [RFC](./RFC-FE-PROJ-SC-002%20%E2%80%94%20Scenario%20Cockpit%20UI.md) — après stabilisation des agrégats backend |
+
+*(Roadmap détaillée : [_Plan de déploiment - Projetscenario](./_Plan%20de%20d%C3%A9ploiment%20-%20Projetscenario.md).)*
+
+---
+
 # ⚙️ PHASE 2 — BUDGET PRÉVISIONNEL
 
 | RFC | Nom | État | Commentaire |
@@ -203,6 +221,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | --- | --- |
 | **RFC-PROJ-014 → 016** | **Structure portefeuille** (catégories / rattachements / agrégats cockpit) |
 | **RFC-PROJ-012** (suite) | **Métriques fiche** + **règles d’arbitrage** (lignes 10–11 table *Fiche projet*) — backend |
+| **RFC-PROJ-SC-001 → 007** | **Simulation projet / baseline / arbitrage** : vraie couche décisionnelle avant exécution |
 | **RFC-FE-PROJ-014** (suite) | Finitions **fiche** (UX arbitrage CODIR, scénarios avancés) si hors périmètre MVP actuel |
 | **RFC-PROJ-010** suite | **KPI budget projet** (ligne 13 — partiel) |
 | **RFC-RES-002** | Coût réel / affectation ressources |
