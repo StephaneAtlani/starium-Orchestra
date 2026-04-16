@@ -4,7 +4,7 @@
 
 | RFC                | Nom                         | Description                                                                      | Développement | État      |
 | ------------------ | --------------------------- | -------------------------------------------------------------------------------- | ------------- | --------- |
-| RFC-PROJ-SC-001    | Project Scenario Core       | Socle `ProjectScenario`, duplication, baseline, archivage                        | **Backend**   | ❌ À faire |
+| RFC-PROJ-SC-001    | Project Scenario Core       | Socle `ProjectScenario`, duplication légère, baseline, archivage                 | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-002    | Scenario Financial Planning | Projection financière scénario alignée sur `ProjectBudgetLink` et le core budget | **Backend**   | ❌ À faire |
 | RFC-PROJ-SC-003    | Scenario Resource Planning  | Plan de charge / rôle / période par scénario sur `Resource`                      | **Backend**   | ❌ À faire |
 | RFC-PROJ-SC-004    | Scenario Planning Gantt     | Planning autonome par scénario                                                   | **Backend**   | ❌ À faire |
@@ -88,7 +88,7 @@ Impact :
 
 ## Phase 1 — Fondations décisionnelles
 
-1. `RFC-PROJ-SC-001` — créer `ProjectScenario`, duplication, baseline, archivage.
+1. `RFC-PROJ-SC-001` — créer `ProjectScenario`, duplication légère, baseline, archivage.
    **Type : Backend**
 
 2. `RFC-PROJ-SC-007` — brancher le workflow de sélection sur les transitions projet `PLANNED` / `IN_PROGRESS`.
@@ -99,6 +99,13 @@ Résultat attendu :
 * plusieurs variantes par projet
 * une baseline unique
 * historique de décision exploitable
+
+État réel :
+
+* `ProjectScenario` livré côté backend
+* sélection baseline transactionnelle livrée
+* contrainte DB d’unicité `SELECTED` livrée
+* résumés exposés avec `budgetSummary` / `resourceSummary` / `timelineSummary` / `riskSummary` à `null` au MVP
 
 ## Phase 2 — Finance scénario
 

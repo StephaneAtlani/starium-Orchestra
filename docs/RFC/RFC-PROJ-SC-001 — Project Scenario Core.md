@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 Draft
+🟢 Implémenté (backend MVP)
 
 ## Priorité
 
@@ -16,6 +16,20 @@ Très haute
 - `RFC-PROJ-013` — points projet / historisation
 - `RFC-PROJ-018` — risques projet MVP
 - `RFC-013` — audit logs
+
+## Implémentation (référence repo)
+
+| Élément | Détail |
+| ------- | ------ |
+| **Prisma** | `apps/api/prisma/schema.prisma` — enum `ProjectScenarioStatus`, modèle `ProjectScenario`, relations `Client` / `Project` / `User` (`selectedByUserId`, `archivedByUserId`) |
+| **Migration** | `apps/api/prisma/migrations/20260419140000_project_scenarios_core/migration.sql` |
+| **Contrainte baseline** | index unique partiel PostgreSQL `UNIQUE (projectId) WHERE status = 'SELECTED'` |
+| **Module NestJS** | `apps/api/src/modules/project-scenarios/` |
+| **Routes** | `GET|POST /api/projects/:projectId/scenarios`, `GET|PATCH /api/projects/:projectId/scenarios/:scenarioId`, `POST .../duplicate`, `POST .../select`, `POST .../archive` |
+| **Permissions** | lecture `projects.read`, écriture `projects.update` |
+| **Guards** | `JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard` |
+| **Audit** | `project.scenario.created`, `project.scenario.updated`, `project.scenario.duplicated`, `project.scenario.selected`, `project.scenario.archived` |
+| **Tests** | `apps/api/src/modules/project-scenarios/project-scenarios.service.spec.ts`, `apps/api/src/modules/project-scenarios/project-scenarios.controller.spec.ts` |
 
 ---
 
@@ -123,11 +137,14 @@ model ProjectScenario {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  selectedByUser    User?    @relation("ProjectScenarioSelectedBy", fields: [selectedByUserId], references: [id], onDelete: SetNull)
+  archivedByUser    User?    @relation("ProjectScenarioArchivedBy", fields: [archivedByUserId], references: [id], onDelete: SetNull)
 
   @@index([clientId, projectId])
   @@index([clientId, projectId, status])
-  @@unique([projectId, code])
+  @@index([projectId, version])
 }
 ```
 
@@ -153,23 +170,30 @@ enum ProjectScenarioStatus {
 ## 6.2 Unicité baseline
 
 - un seul scénario `SELECTED` par projet
+- `status` est la source de vérité métier
 - `isBaseline = true` uniquement sur le scénario sélectionné
+- la garantie est portée par le service **et** par la base de données via un index unique partiel PostgreSQL sur `status = 'SELECTED'`
 
 ## 6.3 Duplication
 
-La duplication crée un nouveau scénario `DRAFT` avec copie de :
+La duplication MVP crée un nouveau scénario `DRAFT` avec copie de :
 
 - hypothèses
-- paramètres financiers synthétiques
-- structure planning si présente
-- projections de risques si présentes
+- libellés et description
 
-Mais jamais les audits ni métadonnées de sélection.
+Mais jamais :
+
+- les audits
+- les métadonnées de sélection / archivage
+- les sous-ressources futures des RFC `SC-002` à `SC-006`
+
+La `version` est calculée de manière monotone par projet : `MAX(version) + 1`, y compris si des scénarios plus anciens sont archivés.
 
 ## 6.4 Archivage
 
 - un scénario `SELECTED` ne peut pas être archivé directement
-- l’archivage des autres scénarios est automatique lors de la sélection, sauf demande explicite de conservation en `DRAFT`
+- pour sortir d’un baseline actif, il faut d’abord sélectionner un autre scénario
+- la sélection archive automatiquement les autres scénarios du projet
 
 ---
 
@@ -192,6 +216,11 @@ PATCH  /api/projects/:projectId/scenarios/:scenarioId
 POST   /api/projects/:projectId/scenarios/:scenarioId/select
 POST   /api/projects/:projectId/scenarios/:scenarioId/archive
 ```
+
+Règle MVP :
+
+- `POST /select` est autorisé à tout moment pour un projet accessible dans le scope client
+- il ne déclenche pas encore le workflow futur `PLANNED / IN_PROGRESS` de `RFC-PROJ-SC-007`
 
 ## 7.2 Permissions
 
@@ -217,28 +246,24 @@ Chaque scénario doit exposer un résumé directement exploitable côté UI :
 {
   "id": "sc_x",
   "name": "Option ambitieuse",
+  "code": null,
   "status": "DRAFT",
+  "version": 3,
   "isBaseline": false,
+  "description": "Hypothèse courte",
   "assumptionSummary": "Déploiement sur 2 vagues",
-  "budgetSummary": {
-    "plannedAmount": 120000,
-    "forecastAmount": 138000,
-    "varianceAmount": 18000
-  },
-  "resourceSummary": {
-    "plannedDays": 180,
-    "plannedFte": 2.4
-  },
-  "timelineSummary": {
-    "plannedStartDate": "2026-09-01",
-    "plannedEndDate": "2027-01-31"
-  },
-  "riskSummary": {
-    "criticalCount": 2,
-    "score": 18
-  }
+  "selectedAt": null,
+  "selectedByUserId": null,
+  "archivedAt": null,
+  "archivedByUserId": null,
+  "budgetSummary": null,
+  "resourceSummary": null,
+  "timelineSummary": null,
+  "riskSummary": null
 }
 ```
+
+Au MVP backend, les blocs `budgetSummary`, `resourceSummary`, `timelineSummary` et `riskSummary` sont présents mais toujours `null`. Ils sont réservés aux RFC `SC-002` à `SC-006`.
 
 ---
 
@@ -270,30 +295,34 @@ Payload minimal :
 - création scénario dans le bon `clientId`
 - refus d’accès inter-client
 - unicité du scénario sélectionné
+- resynchronisation `status -> isBaseline`
 - archivage automatique des variantes non retenues
 - duplication sans fuite de données de sélection
+- monotonie de `version`
+- mapping d’erreur de concurrence sur la contrainte d’unicité `SELECTED`
 
 ## Intégration
 
 - sélection d’un scénario depuis un projet multi-scénarios
-- lecture du résumé consolidé
+- lecture du résumé minimal
 
 ---
 
 # 11. Plan d’implémentation
 
-1. Ajouter Prisma `ProjectScenario` + migration + index.
+1. Ajouter Prisma `ProjectScenario` + migration + index unique partiel `SELECTED`.
 2. Créer module NestJS `project-scenarios`.
-3. Exposer CRUD minimal + duplication.
-4. Ajouter workflow de sélection avec transaction atomique.
+3. Exposer CRUD minimal + duplication légère.
+4. Ajouter sélection transactionnelle + archivage automatique des autres scénarios.
 5. Ajouter audit logs.
-6. Exposer résumé consolidé pour la future UI.
+6. Exposer résumé minimal stable pour la future UI.
 
 ---
 
 # 12. Points de vigilance
 
-- transaction obligatoire sur `select` pour garantir l’unicité baseline
+- transaction obligatoire sur `select` pour compléter la contrainte DB d’unicité baseline
 - ne pas coupler le socle scénario à un moteur financier trop tôt
 - conserver le scope `clientId` sur tous les agrégats
 - ne jamais exposer d’IDs bruts comme libellés côté frontend
+- mapper proprement la concurrence sur l’unicité `SELECTED` en erreur API maîtrisée

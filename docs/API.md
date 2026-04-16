@@ -1956,7 +1956,7 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ---
 
-## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
+## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|scenarios|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
 
 Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload **`GET /gantt`**), **RFC-PROJ-012** — *deux livrables distincts dans le dépôt* : [fiche décisionnelle Project Sheet](RFC/RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [UI Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
@@ -1983,6 +1983,27 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 - **GET /api/projects/:id/project-sheet** — Fiche enrichie (scores, ROI, priorité, cadrage, SWOT/TOWS, arbitrage multi-niveaux, etc.). Isolation **client actif**. Permission **`projects.read`**.
 - **PATCH /api/projects/:id/project-sheet** — Mise à jour partielle (`UpdateProjectSheetDto`) : champs fiche, dont `type` / `status` projet, arbitrage à trois niveaux (`ProjectArbitrationLevelStatus` : notamment `BROUILLON`, `EN_COURS`, `SOUMIS_VALIDATION`, `VALIDE`, `REFUSE`) et motifs de refus si refus ; recalcul serveur de ROI / `priorityScore` selon règles du service. Audit **`project.sheet.updated`** si diff. Permission **`projects.update`**.
 - **POST /api/projects/:id/arbitration** — Mise à jour du statut d’arbitrage **legacy** (`ProjectArbitrationStatus`). Audits **`project.arbitration.validated`** / **`project.arbitration.rejected`** selon cas. Permission **`projects.update`**.
+
+### Scénarios projet (RFC-PROJ-SC-001) — `/api/projects/:projectId/scenarios`
+
+Socle backend de simulation / baseline projet. Isolation stricte par **client actif** et par **`projectId`** ; un `scenarioId` seul ne suffit jamais. Les blocs `budgetSummary`, `resourceSummary`, `timelineSummary` et `riskSummary` sont présents dans la réponse mais restent **`null` au MVP**.
+
+- **GET /api/projects/:projectId/scenarios** — Liste paginée `{ items, total, limit, offset }`. Query supportée : `search`, `status`, `limit`, `offset`. **`projects.read`**
+- **POST /api/projects/:projectId/scenarios** — Création (`name` requis, `code` optionnel, `description`, `assumptionSummary`). Le scénario est créé en `DRAFT`, avec `isBaseline = false`. **`projects.update`**
+- **GET /api/projects/:projectId/scenarios/:scenarioId** — Détail / résumé d’un scénario. **`projects.read`**
+- **PATCH /api/projects/:projectId/scenarios/:scenarioId** — Mise à jour des métadonnées (`name`, `code`, `description`, `assumptionSummary`) ; refus si le scénario est `ARCHIVED`. **`projects.update`**
+- **POST /api/projects/:projectId/scenarios/:scenarioId/duplicate** — Duplication **légère** du scénario (pas de clonage tâches / risques / budget-links). La `version` est calculée par projet via `MAX(version) + 1`. **`projects.update`**
+- **POST /api/projects/:projectId/scenarios/:scenarioId/select** — Sélectionne la baseline du projet. Le scénario ciblé passe `SELECTED`, `isBaseline = true`, les autres scénarios du projet sont archivés. En cas de concurrence sur l’unicité `SELECTED`, l’API répond par un conflit maîtrisé. **`projects.update`**
+- **POST /api/projects/:projectId/scenarios/:scenarioId/archive** — Archive un scénario non baseline. Un scénario `SELECTED` ne peut pas être archivé directement ; il faut d’abord en sélectionner un autre. **`projects.update`**
+
+Règles MVP :
+
+- `status` est la source de vérité métier.
+- `isBaseline` est un champ dérivé maintenu synchronisé côté serveur.
+- Un seul scénario `SELECTED` par projet, garanti par transaction et par index unique partiel PostgreSQL.
+- `POST /select` est autorisé au MVP tant que le projet est accessible dans le scope client ; la restriction future liée au workflow `PLANNED / IN_PROGRESS` relève de `RFC-PROJ-SC-007`.
+
+Audits : **`project.scenario.created`**, **`project.scenario.updated`**, **`project.scenario.duplicated`**, **`project.scenario.selected`**, **`project.scenario.archived`**.
 
 ### Points projet (RFC-PROJ-013) — `/api/projects/:projectId/reviews`
 
