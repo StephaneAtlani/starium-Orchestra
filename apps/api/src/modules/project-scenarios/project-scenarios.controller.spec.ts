@@ -37,4 +37,30 @@ describe('ProjectScenariosController', () => {
       { actorUserId: 'user-1', meta: { requestId: 'req-1' } },
     );
   });
+
+  it('getOne délègue et retourne un budgetSummary enrichi (pas ID seul)', async () => {
+    service.getOne.mockResolvedValue({
+      id: 'scenario-1',
+      budgetSummary: {
+        plannedTotal: '100.00',
+        forecastTotal: '100.00',
+        actualTotal: '50.00',
+        varianceVsBaseline: null,
+        varianceVsActual: '50.00',
+        budgetCoverageRate: null,
+      },
+    } as any);
+
+    const result = await controller.getOne('client-1', 'project-1', 'scenario-1');
+
+    expect(service.getOne).toHaveBeenCalledWith('client-1', 'project-1', 'scenario-1');
+    expect(result.budgetSummary).toEqual({
+      plannedTotal: '100.00',
+      forecastTotal: '100.00',
+      actualTotal: '50.00',
+      varianceVsBaseline: null,
+      varianceVsActual: '50.00',
+      budgetCoverageRate: null,
+    });
+  });
 });

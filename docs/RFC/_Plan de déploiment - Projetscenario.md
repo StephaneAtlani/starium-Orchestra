@@ -5,7 +5,7 @@
 | RFC                | Nom                         | Description                                                                      | Développement | État      |
 | ------------------ | --------------------------- | -------------------------------------------------------------------------------- | ------------- | --------- |
 | RFC-PROJ-SC-001    | Project Scenario Core       | Socle `ProjectScenario`, duplication légère, baseline, archivage                 | **Backend**   | ✅ Implémenté (MVP) |
-| RFC-PROJ-SC-002    | Scenario Financial Planning | Projection financière scénario alignée sur `ProjectBudgetLink` et le core budget | **Backend**   | ❌ À faire |
+| RFC-PROJ-SC-002    | Scenario Financial Planning | Projection financière scénario alignée sur `ProjectBudgetLink` et le core budget | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-003    | Scenario Resource Planning  | Plan de charge / rôle / période par scénario sur `Resource`                      | **Backend**   | ❌ À faire |
 | RFC-PROJ-SC-004    | Scenario Planning Gantt     | Planning autonome par scénario                                                   | **Backend**   | ❌ À faire |
 | RFC-PROJ-SC-005    | Scenario Capacity Engine    | Calcul charge vs capacité pour juger la faisabilité                              | **Backend**   | ❌ À faire |
@@ -105,7 +105,7 @@ Résultat attendu :
 * `ProjectScenario` livré côté backend
 * sélection baseline transactionnelle livrée
 * contrainte DB d’unicité `SELECTED` livrée
-* résumés exposés avec `budgetSummary` / `resourceSummary` / `timelineSummary` / `riskSummary` à `null` au MVP
+* résumés exposés avec `resourceSummary` / `timelineSummary` / `riskSummary` à `null` au MVP ; `budgetSummary` reste **`null` sur la liste** des scénarios, mais est **alimenté sur le détail** dès que des lignes `ProjectScenarioFinancialLine` existent (agrégat aligné sur `RFC-PROJ-SC-002`)
 
 ## Phase 2 — Finance scénario
 
@@ -116,6 +116,13 @@ Résultat attendu :
 
 * comparaison coût projeté / baseline / réel
 * première vraie lecture d’arbitrage CODIR
+
+État réel (MVP backend livré) :
+
+* Prisma `ProjectScenarioFinancialLine` + migration `20260420120000_project_scenario_financial_lines`
+* Routes : `GET|POST|PATCH|DELETE /api/projects/:projectId/scenarios/:scenarioId/financial-lines`, `GET .../financial-summary`
+* `GET /api/projects/:projectId/scenarios/:scenarioId` expose `budgetSummary` (même agrégat que `financial-summary`)
+* Cockpit UI et reste du périmètre RFC (hors MVP) : voir `RFC-FE-PROJ-SC-001` / `RFC-FE-PROJ-SC-002`
 
 ## Phase 3 — Ressources et faisabilité
 

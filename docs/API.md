@@ -1956,9 +1956,9 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ---
 
-## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|scenarios|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
+## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|scenarios|.../financial-lines|.../financial-summary|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
 
-Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload **`GET /gantt`**), **RFC-PROJ-012** — *deux livrables distincts dans le dépôt* : [fiche décisionnelle Project Sheet](RFC/RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [UI Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload **`GET /gantt`**), **RFC-PROJ-012** — *deux livrables distincts dans le dépôt* : [fiche décisionnelle Project Sheet](RFC/RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [UI Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), **RFC-PROJ-SC-001** / **RFC-PROJ-SC-002** (scénarios + projections financières scénario), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
 ### Guards et headers
 
@@ -1984,13 +1984,13 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 - **PATCH /api/projects/:id/project-sheet** — Mise à jour partielle (`UpdateProjectSheetDto`) : champs fiche, dont `type` / `status` projet, arbitrage à trois niveaux (`ProjectArbitrationLevelStatus` : notamment `BROUILLON`, `EN_COURS`, `SOUMIS_VALIDATION`, `VALIDE`, `REFUSE`) et motifs de refus si refus ; recalcul serveur de ROI / `priorityScore` selon règles du service. Audit **`project.sheet.updated`** si diff. Permission **`projects.update`**.
 - **POST /api/projects/:id/arbitration** — Mise à jour du statut d’arbitrage **legacy** (`ProjectArbitrationStatus`). Audits **`project.arbitration.validated`** / **`project.arbitration.rejected`** selon cas. Permission **`projects.update`**.
 
-### Scénarios projet (RFC-PROJ-SC-001) — `/api/projects/:projectId/scenarios`
+### Scénarios projet (RFC-PROJ-SC-001 / RFC-PROJ-SC-002) — `/api/projects/:projectId/scenarios`
 
-Socle backend de simulation / baseline projet. Isolation stricte par **client actif** et par **`projectId`** ; un `scenarioId` seul ne suffit jamais. Les blocs `budgetSummary`, `resourceSummary`, `timelineSummary` et `riskSummary` sont présents dans la réponse mais restent **`null` au MVP**.
+Socle backend de simulation / baseline projet. Isolation stricte par **client actif** et par **`projectId`** ; un `scenarioId` seul ne suffit jamais. Les blocs `resourceSummary`, `timelineSummary` et `riskSummary` restent **`null` au MVP**. **`budgetSummary`** : **`null`** sur la liste des scénarios ; sur le **détail** d’un scénario, objet financier agrégé (même contrat que `GET .../financial-summary`, voir sous-section suivante).
 
 - **GET /api/projects/:projectId/scenarios** — Liste paginée `{ items, total, limit, offset }`. Query supportée : `search`, `status`, `limit`, `offset`. **`projects.read`**
 - **POST /api/projects/:projectId/scenarios** — Création (`name` requis, `code` optionnel, `description`, `assumptionSummary`). Le scénario est créé en `DRAFT`, avec `isBaseline = false`. **`projects.update`**
-- **GET /api/projects/:projectId/scenarios/:scenarioId** — Détail / résumé d’un scénario. **`projects.read`**
+- **GET /api/projects/:projectId/scenarios/:scenarioId** — Détail / résumé d’un scénario ; inclut `budgetSummary` (agrégat financier scénario). **`projects.read`**
 - **PATCH /api/projects/:projectId/scenarios/:scenarioId** — Mise à jour des métadonnées (`name`, `code`, `description`, `assumptionSummary`) ; refus si le scénario est `ARCHIVED`. **`projects.update`**
 - **POST /api/projects/:projectId/scenarios/:scenarioId/duplicate** — Duplication **légère** du scénario (pas de clonage tâches / risques / budget-links). La `version` est calculée par projet via `MAX(version) + 1`. **`projects.update`**
 - **POST /api/projects/:projectId/scenarios/:scenarioId/select** — Sélectionne la baseline du projet. Le scénario ciblé passe `SELECTED`, `isBaseline = true`, les autres scénarios du projet sont archivés. En cas de concurrence sur l’unicité `SELECTED`, l’API répond par un conflit maîtrisé. **`projects.update`**
@@ -2004,6 +2004,18 @@ Règles MVP :
 - `POST /select` est autorisé au MVP tant que le projet est accessible dans le scope client ; la restriction future liée au workflow `PLANNED / IN_PROGRESS` relève de `RFC-PROJ-SC-007`.
 
 Audits : **`project.scenario.created`**, **`project.scenario.updated`**, **`project.scenario.duplicated`**, **`project.scenario.selected`**, **`project.scenario.archived`**.
+
+### Projections financières scénario (RFC-PROJ-SC-002) — `/api/projects/:projectId/scenarios/:scenarioId/financial-lines|financial-summary`
+
+Lecture / écriture des lignes de projection **`ProjectScenarioFinancialLine`** ; aucune écriture dans le budget officiel ni génération d’événements financiers. Isolation **client actif** + `projectId` + `scenarioId` dans l’URL.
+
+- **GET .../financial-lines** — Liste paginée `{ items, total, limit, offset }` ; tri par défaut **`createdAt` desc** ; query `limit` (1–100), `offset`. Chaque item inclut `budgetLine` et `projectBudgetLink` enrichis (`code`, `name`, pas d’ID seul comme seule donnée affichable côté UI). **`projects.read`**
+- **POST .../financial-lines** — Création (`CreateProjectScenarioFinancialLineDto`) : `label`, `amountPlanned` (`IsNumberString`), `projectBudgetLinkId` / `budgetLineId` optionnels, montants optionnels, dates, `currencyCode` ISO 3 lettres. Refus si scénario `ARCHIVED`. **`projects.update`**
+- **PATCH .../financial-lines/:lineId** — Mise à jour partielle ; mêmes règles de cohérence que la création ; refus si scénario `ARCHIVED`. **`projects.update`**
+- **DELETE .../financial-lines/:lineId** — Suppression ; **`204 No Content`** ; refus si scénario `ARCHIVED`. **`projects.update`**
+- **GET .../financial-summary** — Synthèse agrégée : `plannedTotal`, `forecastTotal` (fallback `forecast ?? planned` par ligne), `actualTotal` (`null` traité comme 0), `varianceVsBaseline`, `varianceVsActual`, `budgetCoverageRate` — définitions alignées sur [RFC-PROJ-SC-002](RFC/RFC-PROJ-SC-002%20%E2%80%94%20Scenario%20Financial%20Planning.md) §7. **`projects.read`** (pas d’audit en lecture)
+
+Audits mutations lignes : **`project.scenario_financial_line.created`**, **`project.scenario_financial_line.updated`**, **`project.scenario_financial_line.deleted`**.
 
 ### Points projet (RFC-PROJ-013) — `/api/projects/:projectId/reviews`
 

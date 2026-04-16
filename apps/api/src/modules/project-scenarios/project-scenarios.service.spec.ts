@@ -1,12 +1,14 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma, ProjectScenarioStatus } from '@prisma/client';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { ProjectScenarioFinancialLinesService } from './project-scenario-financial-lines.service';
 import { ProjectScenariosService } from './project-scenarios.service';
 
 describe('ProjectScenariosService', () => {
   let service: ProjectScenariosService;
   let prisma: any;
   let auditLogs: { create: jest.Mock };
+  let scenarioFinancialLines: { buildBudgetSummary: jest.Mock };
 
   const clientId = 'client-1';
   const projectId = 'project-1';
@@ -55,9 +57,20 @@ describe('ProjectScenariosService', () => {
       }),
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
+    scenarioFinancialLines = {
+      buildBudgetSummary: jest.fn().mockResolvedValue({
+        plannedTotal: '0.00',
+        forecastTotal: '0.00',
+        actualTotal: '0.00',
+        varianceVsBaseline: null,
+        varianceVsActual: '0.00',
+        budgetCoverageRate: null,
+      }),
+    };
     service = new ProjectScenariosService(
       prisma,
       auditLogs as unknown as AuditLogsService,
+      scenarioFinancialLines as unknown as ProjectScenarioFinancialLinesService,
     );
   });
 
@@ -90,6 +103,27 @@ describe('ProjectScenariosService', () => {
     await expect(service.getOne(clientId, projectId, 'scenario-1')).rejects.toThrow(
       ConflictException,
     );
+  });
+
+  it('getOne : injecte budgetSummary via service financier', async () => {
+    prisma.project.findFirst.mockResolvedValue({ id: projectId });
+    prisma.projectScenario.findFirst.mockResolvedValue(baseScenario());
+
+    const result = await service.getOne(clientId, projectId, 'scenario-1');
+
+    expect(scenarioFinancialLines.buildBudgetSummary).toHaveBeenCalledWith(
+      clientId,
+      projectId,
+      'scenario-1',
+    );
+    expect(result.budgetSummary).toEqual({
+      plannedTotal: '0.00',
+      forecastTotal: '0.00',
+      actualTotal: '0.00',
+      varianceVsBaseline: null,
+      varianceVsActual: '0.00',
+      budgetCoverageRate: null,
+    });
   });
 
   it('duplicate : calcule une version monotone via MAX(version)+1', async () => {

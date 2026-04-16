@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 Draft
+🟡 Partiel (backend MVP) — pas de cockpit UI ; la RFC reste la référence fonctionnelle.
 
 ## Priorité
 
@@ -80,10 +80,18 @@ model ProjectScenarioFinancialLine {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  client            Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  scenario          ProjectScenario    @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  projectBudgetLink ProjectBudgetLink? @relation(fields: [projectBudgetLinkId], references: [id], onDelete: SetNull)
+  budgetLine        BudgetLine?        @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+
   @@index([clientId, scenarioId])
   @@index([clientId, budgetLineId])
+  @@index([clientId, projectBudgetLinkId])
 }
 ```
+
+**Implémentation dépôt (alignée)** : `apps/api/prisma/schema.prisma` ; migration `apps/api/prisma/migrations/20260420120000_project_scenario_financial_lines/migration.sql`.
 
 ---
 
@@ -91,9 +99,13 @@ model ProjectScenarioFinancialLine {
 
 - une ligne financière appartient à un seul scénario
 - `budgetLineId`, si renseigné, doit appartenir au même `clientId`
-- `amountPlanned >= 0`
+- `projectBudgetLinkId`, si renseigné, doit appartenir au même `clientId`, au même `projectId` que le scénario, et pointer vers une `ProjectBudgetLink` existante
+- si `projectBudgetLinkId` **et** `budgetLineId` sont tous deux renseignés, ils doivent désigner **la même** ligne budgétaire (cohérence avec le lien projet)
+- `amountPlanned >= 0` ; `amountForecast` et `amountActual`, s’ils sont fournis, sont `>= 0`
+- `startDate <= endDate` lorsque les deux dates sont présentes
 - la somme des projections scénario ne modifie jamais le budget officiel sans validation métier explicite hors périmètre
 - les montants exposés en UI doivent toujours afficher un libellé métier de `BudgetLine`, jamais l’ID
+- **Suppression / intégrité** : suppression d’un `ProjectScenario` supprime en cascade ses lignes financières ; suppression d’un `ProjectBudgetLink` ou d’une `BudgetLine` met à `null` les FK correspondantes sur la ligne scénario (`onDelete: SetNull`) — les montants projetés restent consultables sans baseline exploitable
 
 ---
 
@@ -109,8 +121,25 @@ GET    /api/projects/:projectId/scenarios/:scenarioId/financial-summary
 
 Permissions :
 
-- `projects.read`
-- `projects.update`
+- `GET` (liste, synthèse, détail scénario incluant `budgetSummary`) : **`projects.read`**
+- `POST` / `PATCH` / `DELETE` (lignes financières) : **`projects.update`**
+
+**Note RBAC** : comme pour `RFC-PROJ-010` (`project-budget-links.controller.ts`), les routes scénario sous `/api/projects/...` n’emploient **que** le préfixe `projects.*` — l’accès aux tables budget se fait en lecture interne côté service, sans exposer `budgets.*` sur la même route.
+
+**Contrats de réponse**
+
+- `GET .../financial-lines` : `{ items, total, limit, offset }` ; tri par défaut **`createdAt` desc** ; chaque item inclut obligatoirement les objets enrichis :
+  - `budgetLine: { id, code, name } | null`
+  - `projectBudgetLink: { id, allocationType, percentage, amount, budgetLine: { id, code, name } } | null`
+- `POST` / `PATCH` : une ligne `ProjectScenarioFinancialLine` (même forme enrichie que la liste)
+- `DELETE` : **`204 No Content`**
+- `GET .../financial-summary` : objet synthèse (voir §7)
+
+**Injection `budgetSummary` dans le détail scénario** : `GET /api/projects/:projectId/scenarios/:scenarioId` inclut désormais `budgetSummary` (même shape que `financial-summary`). La liste `GET /api/projects/:projectId/scenarios` conserve `budgetSummary: null` pour éviter un coût d’agrégation non paginé.
+
+**Audits (mutations uniquement)** : `project.scenario_financial_line.created`, `project.scenario_financial_line.updated`, `project.scenario_financial_line.deleted`. Aucun audit sur `GET .../financial-summary` ni sur la liste des lignes.
+
+**Code** : `apps/api/src/modules/project-scenarios/project-scenario-financial-lines.controller.ts`, `project-scenario-financial-lines.service.ts`, DTOs `dto/create|update|list-project-scenario-financial-line*.dto.ts`.
 
 ---
 
@@ -125,14 +154,35 @@ Le résumé API doit fournir :
 - `varianceVsActual`
 - `budgetCoverageRate`
 
+**Définitions implémentées (agrégation par scénario, lecture seule sur le core budget)**
+
+- `plannedTotal` = somme des `amountPlanned` des lignes du scénario
+- `forecastTotal` = somme des `amountForecast` avec règle **`amountForecast ?? amountPlanned`** par ligne
+- `actualTotal` = somme des `amountActual` en traitant `null` comme **0**
+- **Baseline par ligne** (priorité stricte, lecture seule) :
+  1. si `projectBudgetLinkId` présent : baseline dérivée du lien — `FULL` ⇒ `initialAmount` de la ligne budgétaire liée ; `PERCENTAGE` ⇒ `initialAmount * percentage / 100` (arrondi 2 décimales) ; `FIXED` ⇒ montant `amount` du lien (arrondi 2 décimales)
+  2. sinon si `budgetLineId` présent (ou dérivable du lien) : baseline = `initialAmount` de la `BudgetLine`
+  3. sinon : pas de baseline exploitable pour cette ligne
+- `baselineTotal` = somme des baselines exploitables par ligne
+- `varianceVsBaseline` = `plannedTotal - baselineTotal` si `baselineTotal > 0`, sinon **`null`**
+- `varianceVsActual` = `plannedTotal - actualTotal`
+- `budgetCoverageRate` = `plannedTotal / baselineTotal` si `baselineTotal > 0`, sinon **`null`** (nombre décimal, 4 décimales en interne)
+
 ---
 
 # 8. Tests
 
 - refus d’associer une `BudgetLine` d’un autre client
+- refus d’associer un `ProjectBudgetLink` hors scope projet / client
+- refus de combinaison incohérente `projectBudgetLinkId` + `budgetLineId`
 - calcul des totaux d’un scénario
 - comparaison baseline vs scénario
 - suppression d’une ligne financière sans casser les agrégats
+- couverture `budgetCoverageRate` (cas nominal + absence de baseline)
+- permissions `projects.read` / `projects.update` sur les routes dédiées
+- réponse enrichie : jamais d’IDs seuls sans `budgetLine` / `projectBudgetLink` structurés
+
+**Code** : `apps/api/src/modules/project-scenarios/project-scenario-financial-lines.service.spec.ts`, `project-scenario-financial-lines.controller.spec.ts`, ajustements `project-scenarios.*.spec.ts`.
 
 ---
 

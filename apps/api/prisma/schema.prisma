@@ -219,12 +219,13 @@ model Client {
   analyticalLedgerAccounts   AnalyticalLedgerAccount[]
   costCenters                CostCenter[]
   budgetLineCostCenterSplits BudgetLineCostCenterSplit[]
-  projects         Project[]
-  projectScenarios ProjectScenario[]
-  projectTasks     ProjectTask[]
-  projectRisks     ProjectRisk[]
-  projectMilestones  ProjectMilestone[]
-  projectBudgetLinks ProjectBudgetLink[]
+  projects                    Project[]
+  projectScenarios            ProjectScenario[]
+  projectScenarioFinancialLines ProjectScenarioFinancialLine[]
+  projectTasks                ProjectTask[]
+  projectRisks                ProjectRisk[]
+  projectMilestones           ProjectMilestone[]
+  projectBudgetLinks          ProjectBudgetLink[]
   projectTeamRoles   ProjectTeamRole[]
   projectTeamMembers ProjectTeamMember[]
   projectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
@@ -1013,10 +1014,41 @@ model ProjectScenario {
   project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   selectedByUser User?   @relation("ProjectScenarioSelectedBy", fields: [selectedByUserId], references: [id], onDelete: SetNull)
   archivedByUser User?   @relation("ProjectScenarioArchivedBy", fields: [archivedByUserId], references: [id], onDelete: SetNull)
+  financialLines ProjectScenarioFinancialLine[]
 
   @@index([clientId, projectId])
   @@index([clientId, projectId, status])
   @@index([projectId, version])
+}
+
+model ProjectScenarioFinancialLine {
+  id                  String   @id @default(cuid())
+  clientId            String
+  scenarioId          String
+  projectBudgetLinkId String?
+  budgetLineId        String?
+
+  label          String
+  costCategory   String?
+  amountPlanned  Decimal  @db.Decimal(18, 2)
+  amountForecast Decimal? @db.Decimal(18, 2)
+  amountActual   Decimal? @db.Decimal(18, 2)
+  currencyCode   String?  @db.VarChar(3)
+  startDate      DateTime?
+  endDate        DateTime?
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client            Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  scenario          ProjectScenario    @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  projectBudgetLink ProjectBudgetLink? @relation(fields: [projectBudgetLinkId], references: [id], onDelete: SetNull)
+  budgetLine        BudgetLine?        @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, scenarioId])
+  @@index([clientId, budgetLineId])
+  @@index([clientId, projectBudgetLinkId])
 }
 
 /// RFC-PROJ-DOC-001 — registre des documents rattachés à un projet (métadonnées + gouvernance).
@@ -1292,6 +1324,7 @@ model ProjectBudgetLink {
   client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
+  financialLines ProjectScenarioFinancialLine[]
 
   @@unique([projectId, budgetLineId])
   @@index([clientId])
@@ -2326,6 +2359,7 @@ model BudgetLine {
   reallocationsAsSource     BudgetReallocation[]      @relation("ReallocationSource")
   reallocationsAsTarget     BudgetReallocation[]      @relation("ReallocationTarget")
   projectBudgetLinks        ProjectBudgetLink[]
+  projectScenarioFinancialLines ProjectScenarioFinancialLine[]
   projectTasks              ProjectTask[]
   projectActivities         ProjectActivity[]
   planningMonths            BudgetLinePlanningMonth[]

@@ -14,6 +14,10 @@ import {
 import { normalizeListPagination } from '../projects/lib/paginated-list.util';
 import { CreateProjectScenarioDto } from './dto/create-project-scenario.dto';
 import { ListProjectScenariosQueryDto } from './dto/list-project-scenarios.query.dto';
+import {
+  ProjectScenarioFinancialLinesService,
+  type ProjectScenarioFinancialSummaryDto,
+} from './project-scenario-financial-lines.service';
 import { UpdateProjectScenarioDto } from './dto/update-project-scenario.dto';
 
 type ScenarioSummaryDto = {
@@ -33,7 +37,7 @@ type ScenarioSummaryDto = {
   archivedByUserId: string | null;
   createdAt: string;
   updatedAt: string;
-  budgetSummary: null;
+  budgetSummary: ProjectScenarioFinancialSummaryDto | null;
   resourceSummary: null;
   timelineSummary: null;
   riskSummary: null;
@@ -44,6 +48,7 @@ export class ProjectScenariosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly scenarioFinancialLines: ProjectScenarioFinancialLinesService,
   ) {}
 
   async list(
@@ -103,7 +108,16 @@ export class ProjectScenariosService {
     if (!row) {
       throw new NotFoundException('Project scenario not found');
     }
-    return this.toSummary(this.assertConsistent(row));
+    const summary = this.toSummary(this.assertConsistent(row));
+    const budgetSummary = await this.scenarioFinancialLines.buildBudgetSummary(
+      clientId,
+      projectId,
+      scenarioId,
+    );
+    return {
+      ...summary,
+      budgetSummary,
+    };
   }
 
   async create(
