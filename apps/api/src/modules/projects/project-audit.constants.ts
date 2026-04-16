@@ -8,6 +8,7 @@ export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT_RISK: 'project_risk',
   PROJECT_MILESTONE: 'project_milestone',
   PROJECT_BUDGET_LINK: 'project_budget_link',
+  PROJECT_SCENARIO: 'project_scenario',
   PROJECT_DOCUMENT: 'project_document',
   /** RFC-PROJ-013 */
   PROJECT_REVIEW: 'project_review',
@@ -58,6 +59,12 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_BUDGET_LINK_CREATED: 'project.budget_link.created',
   PROJECT_BUDGET_LINK_UPDATED: 'project.budget_link.updated',
   PROJECT_BUDGET_LINK_DELETED: 'project.budget_link.deleted',
+
+  PROJECT_SCENARIO_CREATED: 'project.scenario.created',
+  PROJECT_SCENARIO_UPDATED: 'project.scenario.updated',
+  PROJECT_SCENARIO_DUPLICATED: 'project.scenario.duplicated',
+  PROJECT_SCENARIO_SELECTED: 'project.scenario.selected',
+  PROJECT_SCENARIO_ARCHIVED: 'project.scenario.archived',
 
   /** RFC-PROJ-012 */
   PROJECT_SHEET_UPDATED: 'project.sheet.updated',

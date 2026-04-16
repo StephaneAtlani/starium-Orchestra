@@ -41,12 +41,14 @@ import { ResourcesModule } from '../resources/resources.module';
 import { ActionPlanTasksController } from './action-plan-tasks.controller';
 import { ActionPlansController } from './action-plans.controller';
 import { ActionPlansService } from './action-plans.service';
+import { ProjectScenariosModule } from '../project-scenarios/project-scenarios.module';
 @Module({
   imports: [
     PrismaModule,
     AuditLogsModule,
     RiskTaxonomyModule,
     ResourcesModule,
+    ProjectScenariosModule,
   ],
   controllers: [
     /** Routes `action-plans/:id/tasks/...` avant `action-plans/:id`. */

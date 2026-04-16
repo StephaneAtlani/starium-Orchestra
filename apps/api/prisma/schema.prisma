@@ -220,6 +220,7 @@ model Client {
   costCenters                CostCenter[]
   budgetLineCostCenterSplits BudgetLineCostCenterSplit[]
   projects         Project[]
+  projectScenarios ProjectScenario[]
   projectTasks     ProjectTask[]
   projectRisks     ProjectRisk[]
   projectMilestones  ProjectMilestone[]
@@ -406,6 +407,8 @@ model User {
   ownedProjectRisks          ProjectRisk[]
   projectTeamMembers         ProjectTeamMember[]
   createdProjectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[] @relation("ProjectSheetDecisionSnapshotCreatedBy")
+  selectedProjectScenarios             ProjectScenario[]              @relation("ProjectScenarioSelectedBy")
+  archivedProjectScenarios             ProjectScenario[]              @relation("ProjectScenarioArchivedBy")
   facilitatedProjectReviews          ProjectReview[]                  @relation("ProjectReviewFacilitator")
   finalizedProjectReviews            ProjectReview[]                  @relation("ProjectReviewFinalizedBy")
   projectReviewParticipants          ProjectReviewParticipant[]
@@ -653,6 +656,12 @@ enum ProjectStatus {
   ON_HOLD
   COMPLETED
   CANCELLED
+  ARCHIVED
+}
+
+enum ProjectScenarioStatus {
+  DRAFT
+  SELECTED
   ARCHIVED
 }
 
@@ -965,6 +974,7 @@ model Project {
   milestoneLabelAssignments ProjectMilestoneLabelAssignment[]
   activities  ProjectActivity[]
   budgetLinks ProjectBudgetLink[]
+  scenarios   ProjectScenario[]
   teamMembers ProjectTeamMember[]
   tagAssignments ProjectTagAssignment[]
   sheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
@@ -979,6 +989,34 @@ model Project {
   @@index([clientId, kind])
   @@index([clientId, portfolioCategoryId])
   @@index([targetEndDate])
+}
+
+model ProjectScenario {
+  id                String                @id @default(cuid())
+  clientId          String
+  projectId         String
+  name              String
+  code              String?
+  description       String?
+  assumptionSummary String?
+  status            ProjectScenarioStatus @default(DRAFT)
+  version           Int                   @default(1)
+  isBaseline        Boolean               @default(false)
+  selectedAt        DateTime?
+  selectedByUserId  String?
+  archivedAt        DateTime?
+  archivedByUserId  String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  client         Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  selectedByUser User?   @relation("ProjectScenarioSelectedBy", fields: [selectedByUserId], references: [id], onDelete: SetNull)
+  archivedByUser User?   @relation("ProjectScenarioArchivedBy", fields: [archivedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, projectId])
+  @@index([clientId, projectId, status])
+  @@index([projectId, version])
 }
 
 /// RFC-PROJ-DOC-001 — registre des documents rattachés à un projet (métadonnées + gouvernance).
