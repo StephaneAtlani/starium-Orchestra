@@ -1986,11 +1986,11 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 
 ### Scénarios projet (RFC-PROJ-SC-001 / RFC-PROJ-SC-002) — `/api/projects/:projectId/scenarios`
 
-Socle backend de simulation / baseline projet. Isolation stricte par **client actif** et par **`projectId`** ; un `scenarioId` seul ne suffit jamais. `budgetSummary`, `resourceSummary` et `timelineSummary` restent **`null` sur la liste** des scénarios ; sur le **détail** (`GET /api/projects/:projectId/scenarios/:scenarioId`), `budgetSummary`, `resourceSummary` et `timelineSummary` sont alimentés par leurs services dédiés. `riskSummary` reste `null` à ce stade.
+Socle backend de simulation / baseline projet. Isolation stricte par **client actif** et par **`projectId`** ; un `scenarioId` seul ne suffit jamais. `budgetSummary`, `resourceSummary`, `timelineSummary` et `capacitySummary` restent **`null` sur la liste** des scénarios ; sur le **détail** (`GET /api/projects/:projectId/scenarios/:scenarioId`), `budgetSummary`, `resourceSummary`, `timelineSummary` et `capacitySummary` sont alimentés par leurs services dédiés. `riskSummary` reste `null` à ce stade.
 
 - **GET /api/projects/:projectId/scenarios** — Liste paginée `{ items, total, limit, offset }`. Query supportée : `search`, `status`, `limit`, `offset`. **`projects.read`**
 - **POST /api/projects/:projectId/scenarios** — Création (`name` requis, `code` optionnel, `description`, `assumptionSummary`). Le scénario est créé en `DRAFT`, avec `isBaseline = false`. **`projects.update`**
-- **GET /api/projects/:projectId/scenarios/:scenarioId** — Détail / résumé d’un scénario ; inclut `budgetSummary`, `resourceSummary` et `timelineSummary` (SC-004). **`projects.read`**
+- **GET /api/projects/:projectId/scenarios/:scenarioId** — Détail / résumé d’un scénario ; inclut `budgetSummary`, `resourceSummary`, `timelineSummary` et `capacitySummary` (SC-005). **`projects.read`**
 - **PATCH /api/projects/:projectId/scenarios/:scenarioId** — Mise à jour des métadonnées (`name`, `code`, `description`, `assumptionSummary`) ; refus si le scénario est `ARCHIVED`. **`projects.update`**
 - **POST /api/projects/:projectId/scenarios/:scenarioId/duplicate** — Duplication **légère** du scénario (pas de clonage tâches / risques / budget-links). La `version` est calculée par projet via `MAX(version) + 1`. **`projects.update`**
 - **POST /api/projects/:projectId/scenarios/:scenarioId/select** — Sélectionne la baseline du projet. Le scénario ciblé passe `SELECTED`, `isBaseline = true`, les autres scénarios du projet sont archivés. En cas de concurrence sur l’unicité `SELECTED`, l’API répond par un conflit maîtrisé. **`projects.update`**
@@ -2032,6 +2032,50 @@ Lecture / écriture des lignes de planification ressources **`ProjectScenarioRes
   - `distinctResources` (number) : nombre de `resourceId` distincts. **`projects.read`**
 
 Audits mutations lignes : **`project.scenario_resource_plan.created`**, **`project.scenario_resource_plan.updated`**, **`project.scenario_resource_plan.deleted`**. Aucun audit sur les lectures ni sur `GET .../resource-summary`.
+
+### Capacity engine scénario (RFC-PROJ-SC-005) — `/api/projects/:projectId/scenarios/:scenarioId/capacity|capacity-summary|capacity/recompute`
+
+Périmètre **backend only**. Capacité MVP figée à `100.00` par snapshot ; aucun calcul inter-projets, aucune absence/calendrier/timesheet, aucun recalcul implicite sur les GET. Scope strict **client actif** + `projectId` + `scenarioId`.
+
+- **POST .../capacity/recompute** — Recalcule et remplace totalement les snapshots (`deleteMany + createMany`) en transaction Prisma ; refus si scénario `ARCHIVED`. Réponse exacte : `{ scenarioId: string, deletedCount: number, createdCount: number }`. Endpoint idempotent à état identique des resource plans. **`projects.update`**
+- **GET .../capacity** — Liste paginée `{ items, total, limit, offset }`, tri par défaut `snapshotDate ASC, resourceId ASC`. Query supportée : `limit`, `offset`, `resourceId`. **`projects.read`**
+- **GET .../capacity-summary** — KPI agrégés du scénario: `overCapacityCount`, `underCapacityCount`, `peakLoadPct`, `averageLoadPct`. **`projects.read`**
+
+Règles de projection SC-005 :
+
+- Un plan ressource contribue uniquement si `allocationPct`, `startDate`, `endDate` sont tous présents.
+- Projection **jour par jour** sur l’intervalle inclusif `[startDate, endDate]`.
+- Si plusieurs plans couvrent le même jour pour la même ressource: `plannedLoadPct = somme(allocationPct)`.
+- `availableCapacityPct = "100"` (string).
+- `variancePct = availableCapacityPct - plannedLoadPct`.
+- `status` : `OVER_CAPACITY` si `variancePct < 0`, `OK` si `variancePct = 0`, `UNDER_CAPACITY` si `variancePct > 0`.
+- Égalité évaluée sur la valeur décimale persistée (pas de tolérance).
+
+Conventions de sérialisation décimale :
+
+- Tous les décimaux Prisma sont sérialisés en **string** (jamais number):
+  - Snapshot item: `plannedLoadPct`, `availableCapacityPct`, `variancePct`
+  - Summary: `peakLoadPct`, `averageLoadPct`
+
+DTO `GET .../capacity` (item) :
+
+- `id`, `clientId`, `projectId`, `scenarioId`, `resourceId`, `snapshotDate`, `plannedLoadPct`, `availableCapacityPct`, `variancePct`, `status`
+- `resource` (quand relation existante) : `{ id, name, type }`
+- Cas sans snapshot : `items = []`
+
+DTO `GET .../capacity-summary` :
+
+- `overCapacityCount` (number)
+- `underCapacityCount` (number)
+- `peakLoadPct` (`string | null`)
+- `averageLoadPct` (`string | null`)
+- `OK` n’est pas exposé dans ce DTO.
+- Cas sans snapshot : `overCapacityCount = 0`, `underCapacityCount = 0`, `peakLoadPct = null`, `averageLoadPct = null`
+
+Audit :
+
+- Mutation auditée : **`project.scenario_capacity.recomputed`** (resourceType `project_scenario_capacity`) avec volumes `deletedCount` et `createdCount`.
+- Aucun audit sur `GET .../capacity` et `GET .../capacity-summary`.
 
 ### Planification Gantt scénario (RFC-PROJ-SC-004) — `/api/projects/:projectId/scenarios/:scenarioId/tasks|bootstrap-from-project-plan|timeline-summary`
 

@@ -8,7 +8,7 @@
 | RFC-PROJ-SC-002    | Scenario Financial Planning | Projection financière scénario alignée sur `ProjectBudgetLink` et le core budget | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-003    | Scenario Resource Planning  | Plan de charge / rôle / période par scénario sur `Resource`                      | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-004    | Scenario Planning Gantt     | Planning autonome par scénario                                                   | **Backend**   | ✅ Implémenté (MVP) |
-| RFC-PROJ-SC-005    | Scenario Capacity Engine    | Calcul charge vs capacité pour juger la faisabilité                              | **Backend**   | ❌ À faire |
+| RFC-PROJ-SC-005    | Scenario Capacity Engine    | Calcul charge vs capacité pour juger la faisabilité                              | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-006    | Scenario Risk Modeling      | Modélisation des risques projetés par scénario                                   | **Backend**   | ❌ À faire |
 | RFC-PROJ-SC-007    | Scenario Selection Workflow | Sélection atomique de la baseline et archivage des variantes                     | **Backend**   | ❌ À faire |
 | RFC-FE-PROJ-SC-001 | Scenarios Tab UI            | Onglet Scénarios dans la fiche projet                                            | **Frontend**  | ❌ À faire |
@@ -143,6 +143,11 @@ Résultat attendu :
 * Routes : `GET|POST|PATCH|DELETE /api/projects/:projectId/scenarios/:scenarioId/resource-plans`, `GET .../resource-summary`
 * `GET /api/projects/:projectId/scenarios/:scenarioId` expose `resourceSummary` (même agrégat que `resource-summary`)
 * périmètre volontairement backend-only (pas de cockpit UI), sans capacité multi-scénarios ni timesheets
+* SC-005 livré (backend MVP) :
+  * Prisma `ProjectScenarioCapacitySnapshot` + migration `20260421100000_project_scenario_capacity_snapshots`
+  * Routes : `POST /api/projects/:projectId/scenarios/:scenarioId/capacity/recompute`, `GET .../capacity`, `GET .../capacity-summary`
+  * `GET /api/projects/:projectId/scenarios/:scenarioId` expose `capacitySummary` (la liste scénarios conserve `capacitySummary: null`)
+  * règles figées : snapshot journalier, projection inclusive jour par jour, `availableCapacityPct = 100.00`, recompute `deleteMany + createMany`, aucun recalcul implicite en lecture
 
 ## Phase 4 — Délai
 

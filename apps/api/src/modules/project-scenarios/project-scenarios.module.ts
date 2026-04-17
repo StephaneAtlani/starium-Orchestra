@@ -4,6 +4,8 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { ProjectScenariosController } from './project-scenarios.controller';
 import { ProjectScenarioFinancialLinesController } from './project-scenario-financial-lines.controller';
 import { ProjectScenarioFinancialLinesService } from './project-scenario-financial-lines.service';
+import { ProjectScenarioCapacityController } from './project-scenario-capacity.controller';
+import { ProjectScenarioCapacityService } from './project-scenario-capacity.service';
 import { ProjectScenarioResourcePlansController } from './project-scenario-resource-plans.controller';
 import { ProjectScenarioResourcePlansService } from './project-scenario-resource-plans.service';
 import { ProjectScenarioTasksController } from './project-scenario-tasks.controller';
@@ -15,18 +17,21 @@ import { ProjectScenariosService } from './project-scenarios.service';
   controllers: [
     ProjectScenariosController,
     ProjectScenarioFinancialLinesController,
+    ProjectScenarioCapacityController,
     ProjectScenarioResourcePlansController,
     ProjectScenarioTasksController,
   ],
   providers: [
     ProjectScenariosService,
     ProjectScenarioFinancialLinesService,
+    ProjectScenarioCapacityService,
     ProjectScenarioResourcePlansService,
     ProjectScenarioTasksService,
   ],
   exports: [
     ProjectScenariosService,
     ProjectScenarioFinancialLinesService,
+    ProjectScenarioCapacityService,
     ProjectScenarioResourcePlansService,
     ProjectScenarioTasksService,
   ],

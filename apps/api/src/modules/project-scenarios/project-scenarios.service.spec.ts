@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma, ProjectScenarioStatus } from '@prisma/client';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { ProjectScenarioCapacityService } from './project-scenario-capacity.service';
 import { ProjectScenarioFinancialLinesService } from './project-scenario-financial-lines.service';
 import { ProjectScenarioResourcePlansService } from './project-scenario-resource-plans.service';
 import { ProjectScenarioTasksService } from './project-scenario-tasks.service';
@@ -11,6 +12,7 @@ describe('ProjectScenariosService', () => {
   let prisma: any;
   let auditLogs: { create: jest.Mock };
   let scenarioFinancialLines: { buildBudgetSummary: jest.Mock };
+  let scenarioCapacity: { buildCapacitySummary: jest.Mock };
   let scenarioResourcePlans: { buildResourceSummary: jest.Mock };
   let scenarioTasks: { buildTimelineSummary: jest.Mock };
 
@@ -79,6 +81,14 @@ describe('ProjectScenariosService', () => {
         distinctResources: 0,
       }),
     };
+    scenarioCapacity = {
+      buildCapacitySummary: jest.fn().mockResolvedValue({
+        overCapacityCount: 0,
+        underCapacityCount: 0,
+        peakLoadPct: null,
+        averageLoadPct: null,
+      }),
+    };
     scenarioTasks = {
       buildTimelineSummary: jest.fn().mockResolvedValue({
         plannedStartDate: null,
@@ -91,6 +101,7 @@ describe('ProjectScenariosService', () => {
       prisma,
       auditLogs as unknown as AuditLogsService,
       scenarioFinancialLines as unknown as ProjectScenarioFinancialLinesService,
+      scenarioCapacity as unknown as ProjectScenarioCapacityService,
       scenarioResourcePlans as unknown as ProjectScenarioResourcePlansService,
       scenarioTasks as unknown as ProjectScenarioTasksService,
     );
@@ -168,6 +179,17 @@ describe('ProjectScenariosService', () => {
       criticalPathDuration: null,
       milestoneCount: 0,
     });
+    expect(scenarioCapacity.buildCapacitySummary).toHaveBeenCalledWith(
+      clientId,
+      projectId,
+      'scenario-1',
+    );
+    expect(result.capacitySummary).toEqual({
+      overCapacityCount: 0,
+      underCapacityCount: 0,
+      peakLoadPct: null,
+      averageLoadPct: null,
+    });
   });
 
   it('duplicate : calcule une version monotone via MAX(version)+1', async () => {
@@ -195,6 +217,15 @@ describe('ProjectScenariosService', () => {
       }),
     );
     expect(result.version).toBe(8);
+  });
+
+  it('list conserve capacitySummary à null pour éviter le N+1', async () => {
+    prisma.project.findFirst.mockResolvedValue({ id: projectId });
+    prisma.projectScenario.findMany.mockResolvedValue([baseScenario()]);
+    prisma.projectScenario.count.mockResolvedValue(1);
+
+    const result = await service.list(clientId, projectId, { limit: 20, offset: 0 });
+    expect(result.items[0].capacitySummary).toBeNull();
   });
 
   it("getOne : retourne 404 si le scénario n'appartient pas au projet demandé", async () => {

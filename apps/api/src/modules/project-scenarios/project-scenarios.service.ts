@@ -15,6 +15,10 @@ import { normalizeListPagination } from '../projects/lib/paginated-list.util';
 import { CreateProjectScenarioDto } from './dto/create-project-scenario.dto';
 import { ListProjectScenariosQueryDto } from './dto/list-project-scenarios.query.dto';
 import {
+  ProjectScenarioCapacityService,
+  type ProjectScenarioCapacitySummaryDto,
+} from './project-scenario-capacity.service';
+import {
   ProjectScenarioFinancialLinesService,
   type ProjectScenarioFinancialSummaryDto,
 } from './project-scenario-financial-lines.service';
@@ -48,6 +52,7 @@ type ScenarioSummaryDto = {
   budgetSummary: ProjectScenarioFinancialSummaryDto | null;
   resourceSummary: ProjectScenarioResourceSummaryDto | null;
   timelineSummary: ProjectScenarioTimelineSummaryDto | null;
+  capacitySummary: ProjectScenarioCapacitySummaryDto | null;
   riskSummary: null;
 };
 
@@ -57,6 +62,7 @@ export class ProjectScenariosService {
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly scenarioFinancialLines: ProjectScenarioFinancialLinesService,
+    private readonly scenarioCapacity: ProjectScenarioCapacityService,
     private readonly scenarioResourcePlans: ProjectScenarioResourcePlansService,
     private readonly scenarioTasks: ProjectScenarioTasksService,
   ) {}
@@ -134,11 +140,17 @@ export class ProjectScenariosService {
       projectId,
       scenarioId,
     );
+    const capacitySummary = await this.scenarioCapacity.buildCapacitySummary(
+      clientId,
+      projectId,
+      scenarioId,
+    );
     return {
       ...summary,
       budgetSummary,
       resourceSummary,
       timelineSummary,
+      capacitySummary,
     };
   }
 
@@ -503,6 +515,7 @@ export class ProjectScenariosService {
       budgetSummary: null,
       resourceSummary: null,
       timelineSummary: null,
+      capacitySummary: null,
       riskSummary: null,
     };
   }
