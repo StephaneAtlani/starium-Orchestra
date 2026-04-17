@@ -30,12 +30,36 @@ describe('ProcurementStorageResolutionService', () => {
     service = module.get(ProcurementStorageResolutionService);
   });
 
-  it('env PROCUREMENT_STORAGE_DRIVER=local overrides DB S3', async () => {
+  it('DB storageDriver=S3 applies even if PROCUREMENT_STORAGE_DRIVER=local', async () => {
     prisma.platformProcurementS3Settings.findUnique.mockResolvedValue({
       storageDriver: ProcurementStorageDriver.S3,
       enabled: true,
       localRoot: '/data/db-root',
     });
+    config.get.mockImplementation((k: string) => {
+      if (k === 'PROCUREMENT_STORAGE_DRIVER') return 'local';
+      if (k === 'PROCUREMENT_LOCAL_ROOT') return '/env-root';
+      return undefined;
+    });
+    const s3cfg = {
+      source: 'env' as const,
+      endpoint: 'http://x',
+      region: 'us-east-1',
+      accessKey: 'a',
+      secretKey: 's',
+      bucket: 'b',
+      useSsl: false,
+      forcePathStyle: true,
+    };
+    s3Resolver.resolve.mockResolvedValue(s3cfg);
+
+    const ctx = await service.resolveForOperations();
+
+    expect(ctx).toEqual({ driver: 'S3', config: s3cfg });
+  });
+
+  it('when no platform row, PROCUREMENT_STORAGE_DRIVER=local selects local', async () => {
+    prisma.platformProcurementS3Settings.findUnique.mockResolvedValue(null);
     config.get.mockImplementation((k: string) => {
       if (k === 'PROCUREMENT_STORAGE_DRIVER') return 'local';
       if (k === 'PROCUREMENT_LOCAL_ROOT') return '/env-root';

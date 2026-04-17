@@ -86,9 +86,8 @@ services:
       SMTP_PORT: "1025"
       SMTP_SECURE: "false"
       SMTP_FROM: noreply@starium.local
-      # Ne pas définir PROCUREMENT_STORAGE_DRIVER ici : le driver effectif suit alors la DB
-      # (`PlatformProcurementS3Settings.storageDriver`, écran admin « Type de stockage » — RFC-035).
-      # Pour forcer le disque sans toucher à la DB (Docker sans MinIO) : PROCUREMENT_STORAGE_DRIVER=local dans apps/api/.env
+      # Ne pas définir PROCUREMENT_STORAGE_DRIVER ici : le driver suit `PlatformProcurementS3Settings.storageDriver` (admin).
+      # PROCUREMENT_STORAGE_DRIVER ne s’applique qu’en repli si la ligne plateforme est absente (bootstrap / tests).
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
       # PROCUREMENT_S3_* : uniquement dans apps/api/.env (sinon ce bloc écrase env_file — buckets créés dans la mauvaise région).
     ports:

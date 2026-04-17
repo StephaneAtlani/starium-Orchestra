@@ -8,7 +8,10 @@ import {
 import { Readable } from 'node:stream';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { ClientDocumentStorageDomain } from './client-document-storage-domain';
-import { buildClientDocumentObjectKey } from './client-document-storage-path.util';
+import {
+  buildLocalClientDocumentObjectKey,
+  buildS3ClientDocumentObjectKey,
+} from './client-document-storage-path.util';
 import { ClientDocumentsStorageProvisionerService } from './client-documents-storage-provisioner.service';
 import { LocalProcurementBlobStorageService } from './local-procurement-blob-storage.service';
 import { ProcurementS3ConfigResolverService } from './procurement-s3-config.resolver.service';
@@ -65,7 +68,7 @@ export class ProcurementObjectStorageService implements OnModuleInit {
 
     const ctx = await this.resolution.resolveForOperations();
     if (ctx.driver === 'LOCAL') {
-      const objectKey = buildClientDocumentObjectKey(
+      const objectKey = buildLocalClientDocumentObjectKey(
         params.clientId,
         params.domain,
         safeExt,
@@ -84,24 +87,22 @@ export class ProcurementObjectStorageService implements OnModuleInit {
       );
     }
 
-    const exists = await this.prisma.client.findUnique({
+    const clientRow = await this.prisma.client.findUnique({
       where: { id: params.clientId },
-      select: { id: true },
+      select: { id: true, documentsBucketName: true },
     });
-    if (!exists) {
+    if (!clientRow) {
       throw new NotFoundException('Client introuvable');
     }
 
-    const bucket = cfg.bucket.trim();
+    const bucket = clientRow.documentsBucketName?.trim();
     if (!bucket) {
-      throw new ServiceUnavailableException('Bucket S3 plateforme non configuré.');
+      throw new ServiceUnavailableException(
+        'Bucket documents client absent : attendre le provisionnement (création client ou ré-enregistrer le préfixe buckets).',
+      );
     }
 
-    const objectKey = buildClientDocumentObjectKey(
-      params.clientId,
-      params.domain,
-      safeExt,
-    );
+    const objectKey = buildS3ClientDocumentObjectKey(params.domain, safeExt);
 
     return this.s3Storage.putObject(cfg, {
       bucket,

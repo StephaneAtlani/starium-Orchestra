@@ -41,9 +41,16 @@ export class ProcurementStorageResolutionService {
     return null;
   }
 
+  /**
+   * Driver runtime : la configuration admin (ligne plateforme) prime.
+   * `PROCUREMENT_STORAGE_DRIVER` ne sert qu’en repli si aucune ligne n’existe (bootstrap / tests).
+   */
   effectiveDriverFromRow(
     row: { storageDriver: ProcurementStorageDriver } | null,
   ): ProcurementStorageDriver {
+    if (row) {
+      return row.storageDriver;
+    }
     const env = this.parseDriverFromEnv();
     if (env === 'local') {
       return ProcurementStorageDriver.LOCAL;
@@ -51,7 +58,7 @@ export class ProcurementStorageResolutionService {
     if (env === 's3') {
       return ProcurementStorageDriver.S3;
     }
-    return row?.storageDriver ?? ProcurementStorageDriver.S3;
+    return ProcurementStorageDriver.S3;
   }
 
   resolveLocalRootFromRow(row: {

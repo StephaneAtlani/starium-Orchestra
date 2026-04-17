@@ -82,7 +82,7 @@ docker compose -f docker-compose.dev.yml up -d --build
 Important en dev Docker:
 - Si `apps/api/package.json` ou `apps/api/prisma/schema.prisma` change, redémarrer `api-dev` pour resynchroniser les dépendances et régénérer le client Prisma.
 - **Web (`web-dev`)** : les rewrites Next (`/api/*` → Nest) utilisent **`INTERNAL_API_URL`** (URL vue par le conteneur, ex. `http://api-dev:3001`). Le bundle expose **`NEXT_PUBLIC_API_URL`** au navigateur (ex. `http://localhost:3001` pour joindre l’API publiée sur l’hôte). Voir `docker-compose.dev.yml` — ne pas mettre le hostname Docker dans `NEXT_PUBLIC_*` si le navigateur est sur la machine hôte.
-- **S3 / buckets documents clients (RFC-035)** : config **nominal = Administration plateforme** (type de stockage S3, **« Activer la configuration en base »**, clé d’accès, secret, bucket, **région** alignée sur la console AWS, ex. `eu-west-3`). Les variables **`PROCUREMENT_S3_*`** dans `apps/api/.env` ne sont qu’un **secours** (CI, override). `PROCUREMENT_STORAGE_DRIVER` absent → le driver suit la DB. Voir `.env.example` (section Procurement).
+- **S3 / buckets documents clients (RFC-035)** : config **nominal = Administration plateforme** (type de stockage S3, **« Activer la configuration en base »**, clé d’accès, secret, bucket de **test de connexion**, **préfixe buckets par client**, **région** ex. `eu-west-3`). Chaque client reçoit un **bucket S3** nommé `{préfixe}-{slug}` (créé à la demande). Les variables **`PROCUREMENT_S3_*`** dans `apps/api/.env` restent un **secours** (CI). Le **driver** suit la **base** ; `PROCUREMENT_STORAGE_DRIVER` : repli sans ligne plateforme. Voir `.env.example` (section Procurement).
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d --force-recreate api-dev

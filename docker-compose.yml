@@ -69,8 +69,7 @@ services:
     restart: unless-stopped
     environment:
       <<: *api-base-env
-      # RFC-035 — ne pas fixer PROCUREMENT_STORAGE_DRIVER ici : le driver suit la DB (UI admin) si la variable est absente.
-      # Forcer le disque : PROCUREMENT_STORAGE_DRIVER=local dans l’env du service (ou apps/api/.env selon déploiement).
+      # RFC-035 — le driver suit la ligne plateforme (admin). PROCUREMENT_STORAGE_DRIVER : repli sans cette ligne uniquement.
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
       # S3 : variables via `.env` à la racine du compose (interpolation). Région alignée sur la console AWS (ex. eu-west-3).
       PROCUREMENT_S3_ENDPOINT: ${PROCUREMENT_S3_ENDPOINT:-}

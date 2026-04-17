@@ -302,7 +302,7 @@ model Client {
   /// Overrides workflow budget (JSON sparse, contrat métier côté code — merge avec défauts applicatifs).
   budgetWorkflowConfig Json?
 
-  /// Mode S3 : nom du **bucket plateforme** utilisé pour ce client (identique pour tous) ; clés objet = `{clientId}/…`.
+  /// Mode S3 : nom du **bucket dédié** à ce client (dérivé du préfixe plateforme + slug) ; clés = Commandes|Factures|Contrats/…
   documentsBucketName          String?
   documentsBucketProvisionedAt DateTime?
 
@@ -354,7 +354,7 @@ model PlatformProcurementS3Settings {
   id                 String                   @id @default("default")
   /// Si false : fallback env uniquement ou stockage indisponible selon implémentation.
   enabled            Boolean                  @default(false)
-  /// Préférence persistée ; `PROCUREMENT_STORAGE_DRIVER` (env) prime au runtime (RFC-035).
+  /// Préférence persistée ; le runtime suit ce champ (admin). `PROCUREMENT_STORAGE_DRIVER` : repli si aucune ligne.
   storageDriver      ProcurementStorageDriver @default(S3)
   /// Racine disque (DB) si `enabled` ; `PROCUREMENT_LOCAL_ROOT` (env) prime (RFC-035).
   localRoot          String?
@@ -366,7 +366,7 @@ model PlatformProcurementS3Settings {
   useSsl             Boolean                  @default(true)
   /// MinIO / S3 custom : souvent true. AWS public : false (défaut).
   forcePathStyle     Boolean                  @default(false)
-  /// Hérité : non utilisé pour le rangement (préfixe client = id client dans le bucket plateforme).
+  /// Préfixe du nom des buckets S3 **par client** (ex. `starium-dev_` → `starium-dev-{slug}` ; `_` → `-`, max 63 car. au total).
   clientDocumentsBucketPrefix String?
   updatedAt          DateTime                 @updatedAt
 }

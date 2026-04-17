@@ -37,7 +37,7 @@ export interface PlatformProcurementS3SettingsPublic {
   updatedAt: Date;
   /** Source effective pour les opérations S3 (db / env / indisponible). */
   effectiveSource: 'db' | 'env' | 'none';
-  /** Driver effectif après override env `PROCUREMENT_STORAGE_DRIVER` (RFC-035). */
+  /** Driver effectif : suit `storageDriver` en base (admin). */
   effectiveDriver: 'local' | 's3';
   /** Origine de la racine locale lorsque `effectiveDriver === local`. */
   effectiveLocalRootSource: 'env' | 'db' | 'none';

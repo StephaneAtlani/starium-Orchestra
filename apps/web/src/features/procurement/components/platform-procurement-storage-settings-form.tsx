@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Info, Loader2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { PageContainer } from '@/components/layout/page-container';
@@ -68,15 +68,6 @@ function effectiveLocalRootSourceLabel(s: 'env' | 'db' | 'none'): string {
   if (s === 'env') return 'Variable PROCUREMENT_LOCAL_ROOT';
   if (s === 'db') return 'Champ « Racine locale » ci-dessous (avec option activée)';
   return 'Non défini';
-}
-
-function dbDriverMatchesEffective(
-  storageDriver: ProcurementStorageDriverApi,
-  effectiveDriver: 'local' | 's3',
-): boolean {
-  const want =
-    storageDriver === 'LOCAL' ? 'local' : ('s3' as const);
-  return want === effectiveDriver;
 }
 
 async function describeLoadFailure(res: Response): Promise<string> {
@@ -178,14 +169,6 @@ export function PlatformProcurementStorageSettingsForm() {
     void load();
   }, [load]);
 
-  const envOverridesDriver = useMemo(
-    () =>
-      meta
-        ? !dbDriverMatchesEffective(meta.storageDriver, meta.effectiveDriver)
-        : false,
-    [meta],
-  );
-
   const save = async () => {
     setSaving(true);
     try {
@@ -254,8 +237,10 @@ export function PlatformProcurementStorageSettingsForm() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Comportement actuel</CardTitle>
             <CardDescription>
-              Après application des variables d’environnement sur l’API, le type
-              effectivement utilisé est indiqué ci-dessous.
+              Le type de stockage suit la configuration enregistrée ci-dessous. Les
+              variables <code className="rounded bg-muted px-1 text-[0.7rem]">PROCUREMENT_LOCAL_ROOT</code> et{' '}
+              <code className="rounded bg-muted px-1 text-[0.7rem]">PROCUREMENT_S3_*</code> peuvent encore
+              compléter chemins ou identifiants selon la doc API.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
@@ -277,23 +262,6 @@ export function PlatformProcurementStorageSettingsForm() {
             )}
           </CardContent>
         </Card>
-      )}
-
-      {envOverridesDriver && meta && (
-        <Alert className="mb-6 max-w-2xl">
-          <Info className="size-4" />
-          <AlertTitle>Variable d’environnement prioritaire</AlertTitle>
-          <AlertDescription>
-            La préférence enregistrée en base est «{' '}
-            {storageDriverFormLabel(meta.storageDriver)} », mais l’API utilise «{' '}
-            {effectiveDriverLabel(meta.effectiveDriver)} » car{' '}
-            <code className="rounded bg-muted px-1 text-xs">
-              PROCUREMENT_STORAGE_DRIVER
-            </code>{' '}
-            est défini sur le serveur. Retirez ou ajustez cette variable pour que
-            le choix ci-dessous s’applique au runtime.
-          </AlertDescription>
-        </Alert>
       )}
 
       {meta?.effectiveLocalRootSource === 'env' && meta.effectiveDriver === 'local' && (
@@ -411,7 +379,7 @@ export function PlatformProcurementStorageSettingsForm() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="proc-s3-bucket">Bucket (plateforme / compat)</Label>
+                  <Label htmlFor="proc-s3-bucket">Bucket plateforme (connexion)</Label>
                   <Input
                     id="proc-s3-bucket"
                     value={form.bucket}
@@ -419,10 +387,14 @@ export function PlatformProcurementStorageSettingsForm() {
                       setForm((f) => ({ ...f, bucket: e.target.value }))
                     }
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Utilisé pour valider les identifiants S3 à l’enregistrement ; les pièces clients
+                    sont dans des buckets séparés (voir préfixe ci-dessous).
+                  </p>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="proc-s3-client-bucket-prefix">
-                    Préfixe buckets par client (hérité)
+                    Préfixe des buckets par client (S3)
                   </Label>
                   <Input
                     id="proc-s3-client-bucket-prefix"
@@ -433,12 +405,14 @@ export function PlatformProcurementStorageSettingsForm() {
                         clientDocumentsBucketPrefix: e.target.value,
                       }))
                     }
-                    placeholder=""
+                    placeholder="ex. starium-dev_"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Non utilisé : les pièces sont dans le **bucket ci-dessus**, sous un préfixe par
-                    client (<code className="text-xs">{'{clientId}'}</code> / Commandes, Factures,
-                    Contrats).
+                    Chaque client obtient un bucket{' '}
+                    <code className="text-xs">{'{préfixe}-{slug client}'}</code> (underscores → tirets,
+                    longueur totale ≤ 63 car. AWS). Les fichiers sont rangés par dossier : Commandes,
+                    Factures, Contrats. Changer le préfixe après coup ne migre pas les objets déjà
+                    stockés.
                   </p>
                 </div>
                 <div className="space-y-2">
