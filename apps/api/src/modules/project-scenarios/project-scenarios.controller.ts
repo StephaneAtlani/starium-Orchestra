@@ -20,6 +20,7 @@ import type { AuditContext } from '../budget-management/types/audit-context';
 import { CreateProjectScenarioDto } from './dto/create-project-scenario.dto';
 import { ListProjectScenariosQueryDto } from './dto/list-project-scenarios.query.dto';
 import { SelectProjectScenarioDto } from './dto/select-project-scenario.dto';
+import { SelectScenarioSyncOptionsDto } from './dto/select-scenario-sync.dto';
 import { UpdateProjectScenarioDto } from './dto/update-project-scenario.dto';
 import { ProjectScenariosService } from './project-scenarios.service';
 
@@ -94,12 +95,12 @@ export class ProjectScenariosController {
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
     @Param('scenarioId') scenarioId: string,
-    @Body() _dto: Record<string, never>,
+    @Body() dto: SelectScenarioSyncOptionsDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.scenarios.select(clientId!, projectId, scenarioId, context);
+    return this.scenarios.select(clientId!, projectId, scenarioId, dto, context);
   }
 
   @Post(':scenarioId/select-and-transition')

@@ -1,7 +1,9 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import {
   Prisma,
@@ -20,6 +22,11 @@ import { normalizeListPagination } from '../projects/lib/paginated-list.util';
 import { CreateProjectScenarioDto } from './dto/create-project-scenario.dto';
 import { ListProjectScenariosQueryDto } from './dto/list-project-scenarios.query.dto';
 import { SelectProjectScenarioDto } from './dto/select-project-scenario.dto';
+import {
+  resolveScenarioSyncOptions,
+  type ResolvedScenarioSyncOptions,
+  type SelectScenarioSyncOptionsDto,
+} from './dto/select-scenario-sync.dto';
 import {
   ProjectScenarioCapacityService,
   type ProjectScenarioCapacitySummaryDto,
@@ -41,6 +48,7 @@ import {
 } from './project-scenario-risks.service';
 import { type ProjectScenarioRiskSummaryDto } from './dto/project-scenario-risk-summary.dto';
 import { UpdateProjectScenarioDto } from './dto/update-project-scenario.dto';
+import { ProjectBudgetLinksService } from '../project-budget/project-budget-links.service';
 
 type ScenarioSummaryDto = {
   id: string;
@@ -83,6 +91,8 @@ export class ProjectScenariosService {
     private readonly scenarioResourcePlans: ProjectScenarioResourcePlansService,
     private readonly scenarioRisks: ProjectScenarioRisksService,
     private readonly scenarioTasks: ProjectScenarioTasksService,
+    @Inject(forwardRef(() => ProjectBudgetLinksService))
+    private readonly projectBudgetLinks: ProjectBudgetLinksService,
   ) {}
 
   async list(
@@ -300,12 +310,15 @@ export class ProjectScenariosService {
     clientId: string,
     projectId: string,
     scenarioId: string,
+    dto: SelectScenarioSyncOptionsDto,
     context?: AuditContext,
   ): Promise<ScenarioSummaryDto> {
     const scenario = await this.getScenarioForScope(clientId, projectId, scenarioId);
     if (scenario.status === ProjectScenarioStatus.ARCHIVED) {
       throw new ConflictException('An archived scenario cannot be selected');
     }
+
+    const syncOptions = resolveScenarioSyncOptions(dto);
 
     try {
       const result = await this.prisma.$transaction(async (tx) =>
@@ -320,9 +333,11 @@ export class ProjectScenariosService {
 
       await this.emitSelectionAudits({
         clientId,
-        result,
+        result: { ...result, syncOptions },
         context,
       });
+
+      await this.applyScenarioSelectionSync(clientId, projectId, scenarioId, syncOptions, context);
 
       return this.toSummary(result.selected);
     } catch (error) {
@@ -342,6 +357,8 @@ export class ProjectScenariosService {
     if (scenario.status === ProjectScenarioStatus.ARCHIVED) {
       throw new ConflictException('An archived scenario cannot be selected');
     }
+
+    const syncOptions = resolveScenarioSyncOptions(dto);
 
     try {
       const targetProjectStatus =
@@ -363,9 +380,12 @@ export class ProjectScenariosService {
         result: {
           ...result,
           decisionNote: dto.decisionNote ?? null,
+          syncOptions,
         },
         context,
       });
+
+      await this.applyScenarioSelectionSync(clientId, projectId, scenarioId, syncOptions, context);
 
       return {
         scenarioId: result.selected.id,
@@ -623,6 +643,7 @@ export class ProjectScenariosService {
       projectStatusBefore: ProjectStatus | null;
       projectStatusAfter: ProjectStatus | null;
       decisionNote?: string | null;
+      syncOptions?: ResolvedScenarioSyncOptions;
     };
     context?: AuditContext;
   }): Promise<void> {
@@ -636,6 +657,7 @@ export class ProjectScenariosService {
         ...this.auditPayload(params.result.selected),
         previousSelectedScenarioId: params.result.previousSelectedScenarioId,
         decisionNote: params.result.decisionNote ?? null,
+        syncOptions: params.result.syncOptions ?? null,
       },
       ipAddress: params.context?.meta?.ipAddress,
       userAgent: params.context?.meta?.userAgent,
@@ -678,6 +700,29 @@ export class ProjectScenariosService {
         requestId: params.context?.meta?.requestId,
       });
     }
+  }
+
+  /**
+   * Intégration des dimensions scénario → référentiels projet (budget, équipe, etc.).
+   * Les options sont enregistrées en audit ; le branchement métier se fait ici par flag.
+   */
+  private async applyScenarioSelectionSync(
+    clientId: string,
+    projectId: string,
+    scenarioId: string,
+    sync: ResolvedScenarioSyncOptions,
+    context?: AuditContext,
+  ): Promise<void> {
+    if (sync.syncBudget) {
+      await this.projectBudgetLinks.syncFromScenarioBaseline(
+        clientId,
+        projectId,
+        scenarioId,
+        context,
+      );
+    }
+    // TODO(RFC): syncResources → affectations ; syncPlanning → jalons / tâches ;
+    // syncCapacity → recompute ; syncRisks → registre projet.
   }
 
   private auditPayload(row: ProjectScenario) {

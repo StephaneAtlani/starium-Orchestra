@@ -255,11 +255,15 @@ export function ScenarioBudgetPanel({ scenario, canMutate }: Props) {
       setLabel(defaultLabelFromProjectLink(selectedLink));
       const hint = plannedAmountHintFromProjectLink(selectedLink);
       setAmountPlanned(hint ?? '');
+      const bl = lineById.get(selectedLink.budgetLineId);
+      if (bl?.currency) {
+        setCurrencyCode(bl.currency.trim().toUpperCase().slice(0, 3));
+      }
     } else if (!selectedLinkId && attachmentTab === 'link') {
       setLabel('');
       setAmountPlanned('');
     }
-  }, [createOpen, selectedLink, selectedLinkId, attachmentTab]);
+  }, [createOpen, selectedLink, selectedLinkId, attachmentTab, lineById]);
 
   useEffect(() => {
     if (!createOpen || attachmentTab !== 'line') return;
@@ -267,7 +271,7 @@ export function ScenarioBudgetPanel({ scenario, canMutate }: Props) {
     const bl = (directLinesQuery.data ?? []).find((l) => l.id === directBudgetLineId);
     if (bl) {
       setLabel(formatLineOptionLabel(bl));
-      setCurrencyCode(bl.currency ?? 'EUR');
+      setCurrencyCode((bl.currency ?? 'EUR').trim().toUpperCase().slice(0, 3));
     }
   }, [createOpen, attachmentTab, directBudgetLineId, directLinesQuery.data]);
 
@@ -762,13 +766,29 @@ export function ScenarioBudgetPanel({ scenario, canMutate }: Props) {
               </p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="fin-ccy">Devise (ISO 3 lettres)</Label>
+              <Label htmlFor="fin-ccy">Devise de la ligne</Label>
               <Input
                 id="fin-ccy"
                 value={currencyCode}
-                onChange={(e) => setCurrencyCode(e.target.value)}
+                onChange={(e) =>
+                  setCurrencyCode(
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z]/g, '')
+                      .slice(0, 3),
+                  )
+                }
                 maxLength={3}
+                placeholder="EUR"
+                autoCapitalize="characters"
+                spellCheck={false}
+                aria-describedby="fin-ccy-hint"
               />
+              <p id="fin-ccy-hint" className="text-[11px] leading-relaxed text-muted-foreground">
+                Code ISO 4217 pour cette ligne de projection. Repris automatiquement de la{' '}
+                <strong>ligne budgétaire</strong> lorsque tu en sélectionnes une ; tu peux l’ajuster
+                pour le scénario (sans impact sur le budget référentiel).
+              </p>
             </div>
           </div>
           <DialogFooter>

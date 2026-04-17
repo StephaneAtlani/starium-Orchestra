@@ -43,6 +43,11 @@ type ScenarioWorkspacePageProps = {
    * Fiche projet (modale) : pas de header page ni d’onglets navigation projet — contenu scénario seul.
    */
   embedded?: boolean;
+  /**
+   * Modale fiche projet : ouverture via « Visualisation » — force l’UI en lecture seule même si le projet
+   * permettrait l’édition.
+   */
+  embedForceReadOnly?: boolean;
   /** Modale : fermeture depuis les états erreur ou actions locales */
   onEmbeddedDismiss?: () => void;
 };
@@ -51,6 +56,7 @@ export function ScenarioWorkspacePage({
   projectId,
   scenarioId,
   embedded = false,
+  embedForceReadOnly = false,
   onEmbeddedDismiss,
 }: ScenarioWorkspacePageProps) {
   const { data: project, isLoading: projectLoading, error: projectError } = useProjectDetailQuery(projectId);
@@ -61,7 +67,7 @@ export function ScenarioWorkspacePage({
     ? isProjectScenarioEditingAllowed(project)
     : false;
   const canMutate = Boolean(project) && hasUpdate && projectAllowsScenarioEdits;
-  const readOnlyNotice =
+  const readOnlyNoticeBase =
     !project
       ? null
       : canMutate
@@ -69,6 +75,11 @@ export function ScenarioWorkspacePage({
         : !hasUpdate
           ? 'Permission requise : projects.update pour modifier ce scénario.'
           : 'Le projet n’est pas en brouillon : les scénarios sont en lecture seule.';
+  const readOnlyNotice =
+    embedForceReadOnly && canMutate
+      ? 'Mode visualisation — consultation seule. Ferme la modale et ouvre « Modification » pour éditer.'
+      : readOnlyNoticeBase;
+  const effectiveCanMutate = embedForceReadOnly ? false : canMutate;
   const { updateMutation } = useProjectScenariosMutations(projectId);
 
   if (!projectId || !scenarioId) {
@@ -143,7 +154,7 @@ export function ScenarioWorkspacePage({
     <ScenarioWorkspaceTabs
       projectId={projectId}
       scenario={scenario}
-      canMutate={canMutate}
+      canMutate={effectiveCanMutate}
       readOnlyNotice={readOnlyNotice}
       isUpdatePending={updateMutation.isPending}
       presentation={embedded ? 'modalShell' : 'default'}

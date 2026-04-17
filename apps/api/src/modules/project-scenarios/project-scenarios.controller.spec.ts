@@ -38,6 +38,7 @@ describe('ProjectScenariosController', () => {
       'client-1',
       'project-1',
       'scenario-1',
+      {},
       { actorUserId: 'user-1', meta: { requestId: 'req-1' } },
     );
   });

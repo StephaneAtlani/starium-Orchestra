@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
@@ -14,9 +14,15 @@ import { ProjectScenarioTasksController } from './project-scenario-tasks.control
 import { ProjectScenarioRisksService } from './project-scenario-risks.service';
 import { ProjectScenarioTasksService } from './project-scenario-tasks.service';
 import { ProjectScenariosService } from './project-scenarios.service';
+import { ProjectBudgetModule } from '../project-budget/project-budget.module';
 
 @Module({
-  imports: [PrismaModule, AuditLogsModule, RiskTaxonomyModule],
+  imports: [
+    PrismaModule,
+    AuditLogsModule,
+    RiskTaxonomyModule,
+    forwardRef(() => ProjectBudgetModule),
+  ],
   controllers: [
     ProjectScenariosController,
     ProjectScenarioFinancialLinesController,

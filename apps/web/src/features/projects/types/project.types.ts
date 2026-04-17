@@ -201,7 +201,16 @@ export type UpdateProjectScenarioPayload = {
   assumptionSummary?: string | null;
 };
 
-export type SelectProjectScenarioPayload = {
+/** Dimensions à intégrer au projet lors de la sélection baseline (côté API : défaut = tout si absent). */
+export type SelectScenarioSyncPayload = {
+  syncBudget?: boolean;
+  syncResources?: boolean;
+  syncPlanning?: boolean;
+  syncCapacity?: boolean;
+  syncRisks?: boolean;
+};
+
+export type SelectProjectScenarioPayload = SelectScenarioSyncPayload & {
   targetProjectStatus?: 'PLANNED' | 'IN_PROGRESS';
   decisionNote?: string | null;
   archiveOtherScenarios?: boolean;

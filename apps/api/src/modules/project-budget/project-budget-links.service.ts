@@ -924,4 +924,95 @@ export class ProjectBudgetLinksService {
       throw err;
     }
   }
+
+  /**
+   * Après sélection baseline (option « intégrer le budget ») : crée des liaisons projet ↔ lignes
+   * budgétaires à partir des lignes financières du scénario, en mode montants fixes (somme des
+   * prévisionnels par ligne budgétaire).
+   * Ne modifie rien si le projet a déjà au moins une liaison (invariants d’allocation globaux).
+   */
+  async syncFromScenarioBaseline(
+    clientId: string,
+    projectId: string,
+    scenarioId: string,
+    context?: AuditContext,
+  ): Promise<{ createdCount: number; reason?: string }> {
+    await this.projects.getProjectForScope(clientId, projectId);
+
+    const scenario = await this.prisma.projectScenario.findFirst({
+      where: { id: scenarioId, clientId, projectId },
+      select: { id: true },
+    });
+    if (!scenario) {
+      return { createdCount: 0, reason: 'scenario_not_found' };
+    }
+
+    const existing = await this.prisma.projectBudgetLink.findMany({
+      where: { clientId, projectId },
+      select: { id: true },
+    });
+    if (existing.length > 0) {
+      return {
+        createdCount: 0,
+        reason: 'project_already_has_budget_links',
+      };
+    }
+
+    const lines = await this.prisma.projectScenarioFinancialLine.findMany({
+      where: { clientId, scenarioId },
+      include: {
+        projectBudgetLink: {
+          select: { id: true, projectId: true, budgetLineId: true },
+        },
+      },
+    });
+
+    const byBudgetLine = new Map<string, Prisma.Decimal>();
+    for (const line of lines) {
+      if (line.projectBudgetLinkId != null && line.projectBudgetLink) {
+        if (line.projectBudgetLink.projectId === projectId) {
+          continue;
+        }
+        continue;
+      }
+
+      if (!line.budgetLineId) {
+        continue;
+      }
+
+      const add = line.amountPlanned;
+      const prev = byBudgetLine.get(line.budgetLineId) ?? new Prisma.Decimal(0);
+      byBudgetLine.set(line.budgetLineId, prev.plus(add));
+    }
+
+    if (byBudgetLine.size === 0) {
+      return { createdCount: 0, reason: 'no_budget_line_to_attach' };
+    }
+
+    let createdCount = 0;
+    for (const [budgetLineId, totalPlanned] of byBudgetLine) {
+      if (totalPlanned.lte(0)) {
+        continue;
+      }
+      const amount = totalPlanned.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+      const amountNum = Number(amount.toString());
+      if (!(amountNum > 0)) {
+        continue;
+      }
+
+      await this.create(
+        clientId,
+        projectId,
+        {
+          budgetLineId,
+          allocationType: ProjectBudgetAllocationType.FIXED,
+          amount: amountNum,
+        },
+        context,
+      );
+      createdCount += 1;
+    }
+
+    return { createdCount };
+  }
 }

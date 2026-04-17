@@ -135,7 +135,7 @@ export function ProjectScenariosTab({
           if (!open) setSelectingScenario(null);
         }}
         disabled={!canMutate || isAnyPending}
-        onSubmit={async (payload?: SelectProjectScenarioPayload) => {
+        onSubmit={async (payload: SelectProjectScenarioPayload) => {
           if (!selectingScenario) return;
           await selectMutation.mutateAsync({
             scenarioId: selectingScenario.id,

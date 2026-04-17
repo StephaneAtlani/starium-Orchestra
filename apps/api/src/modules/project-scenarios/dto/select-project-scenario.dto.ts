@@ -6,6 +6,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import { SelectScenarioSyncOptionsDto } from './select-scenario-sync.dto';
 
 export const SCENARIO_SELECTION_TARGET_PROJECT_STATUSES = [
   'PLANNED',
@@ -15,7 +16,7 @@ export const SCENARIO_SELECTION_TARGET_PROJECT_STATUSES = [
 export type ScenarioSelectionTargetProjectStatus =
   (typeof SCENARIO_SELECTION_TARGET_PROJECT_STATUSES)[number];
 
-export class SelectProjectScenarioDto {
+export class SelectProjectScenarioDto extends SelectScenarioSyncOptionsDto {
   @IsIn(SCENARIO_SELECTION_TARGET_PROJECT_STATUSES)
   targetProjectStatus!: ScenarioSelectionTargetProjectStatus;
 

@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronLeft,
+  Eye,
   Info,
   LayoutDashboard,
   Layers3,
@@ -951,7 +952,10 @@ export function ProjectSheetView({
   const { createMutation, isAnyPending: scenariosMutationPending } =
     useProjectScenariosMutations(projectId);
   const [createScenarioOpen, setCreateScenarioOpen] = useState(false);
-  const [scenarioWorkspaceModalId, setScenarioWorkspaceModalId] = useState<string | null>(null);
+  const [scenarioWorkspaceModal, setScenarioWorkspaceModal] = useState<{
+    id: string;
+    mode: 'view' | 'edit';
+  } | null>(null);
   const canAddScenarioOnSheet = useMemo(() => {
     if (!canEdit) return false;
     const st = projectDetailQuery.data?.status ?? projectStatus;
@@ -2476,22 +2480,18 @@ export function ProjectSheetView({
           ) : (
             <ul className="divide-y divide-border/60 rounded-lg border border-border/60 bg-muted/10">
               {scenariosSorted.map((s) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    className={cn(
-                      buttonVariants({ variant: 'ghost', size: 'sm' }),
-                      'h-auto min-h-11 w-full justify-start gap-3 rounded-none px-3 py-2.5 text-left font-normal sm:px-4',
-                    )}
-                    onClick={() => setScenarioWorkspaceModalId(s.id)}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-medium leading-snug text-foreground">{s.name}</span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                <li
+                  key={s.id}
+                  className="flex flex-col gap-3 border-border/60 py-3 pl-3 pr-3 sm:flex-row sm:items-center sm:gap-4 sm:py-2.5 sm:pl-4 sm:pr-3"
+                >
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium leading-snug text-foreground">{s.name}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         {s.code ? `Code ${s.code}` : 'Code non renseigné'} · v{s.version}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                       {s.status === 'SELECTED' || s.isBaseline ? (
                         <RegistryBadge className="border border-emerald-500/35 bg-emerald-500/10 text-xs text-emerald-900 dark:text-emerald-300">
                           Baseline
@@ -2508,8 +2508,36 @@ export function ProjectSheetView({
                           {s.status}
                         </RegistryBadge>
                       )}
-                    </span>
-                  </button>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:max-w-[min(100%,20rem)]">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => setScenarioWorkspaceModal({ id: s.id, mode: 'view' })}
+                    >
+                      <Eye className="size-4 shrink-0" aria-hidden />
+                      Visualisation
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={!canAddScenarioOnSheet}
+                      title={
+                        canAddScenarioOnSheet
+                          ? undefined
+                          : 'Modification : projet en lecture seule ou hors brouillon.'
+                      }
+                      onClick={() => setScenarioWorkspaceModal({ id: s.id, mode: 'edit' })}
+                    >
+                      <Pencil className="size-4 shrink-0" aria-hidden />
+                      Modification
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -2569,9 +2597,9 @@ export function ProjectSheetView({
       />
 
       <Dialog
-        open={scenarioWorkspaceModalId !== null}
+        open={scenarioWorkspaceModal !== null}
         onOpenChange={(open) => {
-          if (!open) setScenarioWorkspaceModalId(null);
+          if (!open) setScenarioWorkspaceModal(null);
         }}
       >
         <DialogContent
@@ -2596,12 +2624,13 @@ export function ProjectSheetView({
               <p className="mt-0.5 text-sm text-foreground/90">Fiche projet — aperçu rapide</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4 sm:px-6 sm:pb-7 sm:pr-14 sm:pt-5">
-              {scenarioWorkspaceModalId ? (
+              {scenarioWorkspaceModal ? (
                 <ScenarioWorkspacePage
                   projectId={projectId}
-                  scenarioId={scenarioWorkspaceModalId}
+                  scenarioId={scenarioWorkspaceModal.id}
                   embedded
-                  onEmbeddedDismiss={() => setScenarioWorkspaceModalId(null)}
+                  embedForceReadOnly={scenarioWorkspaceModal.mode === 'view'}
+                  onEmbeddedDismiss={() => setScenarioWorkspaceModal(null)}
                 />
               ) : null}
             </div>

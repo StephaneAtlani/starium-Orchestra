@@ -6,6 +6,7 @@ import { ProjectScenarioFinancialLinesService } from './project-scenario-financi
 import { ProjectScenarioRisksService } from './project-scenario-risks.service';
 import { ProjectScenarioResourcePlansService } from './project-scenario-resource-plans.service';
 import { ProjectScenarioTasksService } from './project-scenario-tasks.service';
+import { ProjectBudgetLinksService } from '../project-budget/project-budget-links.service';
 import { ProjectScenariosService } from './project-scenarios.service';
 
 describe('ProjectScenariosService', () => {
@@ -107,6 +108,9 @@ describe('ProjectScenariosService', () => {
         maxCriticality: null,
       }),
     };
+    const projectBudgetLinks = {
+      syncFromScenarioBaseline: jest.fn().mockResolvedValue({ createdCount: 0 }),
+    };
     service = new ProjectScenariosService(
       prisma,
       auditLogs as unknown as AuditLogsService,
@@ -115,6 +119,7 @@ describe('ProjectScenariosService', () => {
       scenarioResourcePlans as unknown as ProjectScenarioResourcePlansService,
       scenarioRisks as unknown as ProjectScenarioRisksService,
       scenarioTasks as unknown as ProjectScenarioTasksService,
+      projectBudgetLinks as unknown as ProjectBudgetLinksService,
     );
   });
 
@@ -273,7 +278,7 @@ describe('ProjectScenariosService', () => {
     prisma.projectScenario.updateMany.mockResolvedValue({ count: 1 });
     prisma.projectScenario.update.mockResolvedValue(selected);
 
-    const result = await service.select(clientId, projectId, 'scenario-1', {
+    const result = await service.select(clientId, projectId, 'scenario-1', {}, {
       actorUserId: 'user-1',
       meta: {},
     });
@@ -319,7 +324,7 @@ describe('ProjectScenariosService', () => {
       }),
     );
 
-    await expect(service.select(clientId, projectId, 'scenario-1')).rejects.toThrow(
+    await expect(service.select(clientId, projectId, 'scenario-1', {})).rejects.toThrow(
       ConflictException,
     );
   });

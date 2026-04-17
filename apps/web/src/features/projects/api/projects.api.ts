@@ -203,7 +203,21 @@ export async function selectProjectScenario(
 ): Promise<ProjectScenarioApi> {
   const shouldTransition = Boolean(payload?.targetProjectStatus);
   const endpoint = shouldTransition ? 'select-and-transition' : 'select';
-  const body = shouldTransition ? payload : {};
+  const sync = {
+    syncBudget: payload?.syncBudget,
+    syncResources: payload?.syncResources,
+    syncPlanning: payload?.syncPlanning,
+    syncCapacity: payload?.syncCapacity,
+    syncRisks: payload?.syncRisks,
+  };
+  const body = shouldTransition
+    ? {
+        targetProjectStatus: payload!.targetProjectStatus,
+        decisionNote: payload?.decisionNote,
+        archiveOtherScenarios: payload?.archiveOtherScenarios,
+        ...sync,
+      }
+    : sync;
   const res = await authFetch(`${BASE}/${projectId}/scenarios/${scenarioId}/${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

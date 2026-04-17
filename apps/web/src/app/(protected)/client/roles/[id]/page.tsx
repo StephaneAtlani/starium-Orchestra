@@ -1,10 +1,8 @@
+'use client';
+
 import { RoleDetailPage } from '@/features/client-rbac/components/role-detail-page';
 
-type PageProps = {
-  params: Promise<{ id: string }>;
-};
-
-export default async function ClientRoleDetailPage({ params }: PageProps) {
-  await params;
+/** Route dynamique : l’id est lu via `useParams()` dans `RoleDetailPage` (évite `params` async côté page). */
+export default function ClientRoleDetailPage() {
   return <RoleDetailPage />;
 }
