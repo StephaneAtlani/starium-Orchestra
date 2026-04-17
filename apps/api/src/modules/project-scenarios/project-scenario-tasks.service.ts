@@ -228,11 +228,15 @@ export class ProjectScenarioTasksService {
     const milestoneRows =
       projectTaskIds.length > 0
         ? await this.prisma.projectMilestone.findMany({
-            where: { clientId, projectTaskId: { in: projectTaskIds } },
-            select: { projectTaskId: true },
+            where: { clientId, linkedTaskId: { in: projectTaskIds } },
+            select: { linkedTaskId: true },
           })
         : [];
-    const milestoneTaskIds = new Set(milestoneRows.map((row) => row.projectTaskId));
+    const milestoneTaskIds = new Set(
+      milestoneRows
+        .map((row) => row.linkedTaskId)
+        .filter((taskId): taskId is string => typeof taskId === 'string'),
+    );
 
     const sourceToScenarioTaskId = new Map<string, string>();
     let createdCount = 0;

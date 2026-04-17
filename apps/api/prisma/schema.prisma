@@ -181,126 +181,128 @@ model HealthCheck {
 }
 
 model Client {
-  id                         String                    @id @default(cuid())
-  name                       String
-  slug                       String                    @unique
-  createdAt                  DateTime                  @default(now())
-  updatedAt                  DateTime                  @updatedAt
-  budgetAccountingEnabled    Boolean                   @default(false)
-  taxDisplayMode            TaxDisplayMode           @default(HT)
-  taxInputMode              TaxInputMode             @default(HT)
-  defaultTaxRate            Decimal?                  @db.Decimal(5, 2)
-  clientUsers                ClientUser[]
-  clientModules              ClientModule[]
-  roles                      Role[]
-  auditLogs                  AuditLog[]
-  budgetExercises            BudgetExercise[]
-  budgets                    Budget[]
-  budgetEnvelopes            BudgetEnvelope[]
-  budgetLines                BudgetLine[]
-  financialAllocations       FinancialAllocation[]
-  financialEvents            FinancialEvent[]
-  suppliers                  Supplier[]
-  supplierContacts           SupplierContact[]
-  supplierCategories         SupplierCategory[]
-  purchaseOrders             PurchaseOrder[]
-  invoices                   Invoice[]
-  supplierContracts          SupplierContract[]
-  contractAttachments        ContractAttachment[]
-  budgetSnapshots            BudgetSnapshot[]
-  budgetSnapshotOccasionTypes BudgetSnapshotOccasionType[]
-  supplierContractKindTypes   SupplierContractKindType[]
-  budgetReallocations        BudgetReallocation[]
-  budgetImportMappings       BudgetImportMapping[]
-  budgetImportJobs           BudgetImportJob[]
-  budgetImportRowLinks       BudgetImportRowLink[]
-  budgetVersionSets          BudgetVersionSet[]
-  generalLedgerAccounts      GeneralLedgerAccount[]
-  analyticalLedgerAccounts   AnalyticalLedgerAccount[]
-  costCenters                CostCenter[]
-  budgetLineCostCenterSplits BudgetLineCostCenterSplit[]
-  projects                    Project[]
-  projectScenarios            ProjectScenario[]
-  projectScenarioFinancialLines ProjectScenarioFinancialLine[]
-  projectScenarioResourcePlans  ProjectScenarioResourcePlan[]
+  id                               String                            @id @default(cuid())
+  name                             String
+  slug                             String                            @unique
+  createdAt                        DateTime                          @default(now())
+  updatedAt                        DateTime                          @updatedAt
+  budgetAccountingEnabled          Boolean                           @default(false)
+  taxDisplayMode                   TaxDisplayMode                    @default(HT)
+  taxInputMode                     TaxInputMode                      @default(HT)
+  defaultTaxRate                   Decimal?                          @db.Decimal(5, 2)
+  clientUsers                      ClientUser[]
+  clientModules                    ClientModule[]
+  roles                            Role[]
+  auditLogs                        AuditLog[]
+  budgetExercises                  BudgetExercise[]
+  budgets                          Budget[]
+  budgetEnvelopes                  BudgetEnvelope[]
+  budgetLines                      BudgetLine[]
+  financialAllocations             FinancialAllocation[]
+  financialEvents                  FinancialEvent[]
+  suppliers                        Supplier[]
+  supplierContacts                 SupplierContact[]
+  supplierCategories               SupplierCategory[]
+  purchaseOrders                   PurchaseOrder[]
+  invoices                         Invoice[]
+  supplierContracts                SupplierContract[]
+  contractAttachments              ContractAttachment[]
+  budgetSnapshots                  BudgetSnapshot[]
+  budgetSnapshotOccasionTypes      BudgetSnapshotOccasionType[]
+  supplierContractKindTypes        SupplierContractKindType[]
+  budgetReallocations              BudgetReallocation[]
+  budgetImportMappings             BudgetImportMapping[]
+  budgetImportJobs                 BudgetImportJob[]
+  budgetImportRowLinks             BudgetImportRowLink[]
+  budgetVersionSets                BudgetVersionSet[]
+  generalLedgerAccounts            GeneralLedgerAccount[]
+  analyticalLedgerAccounts         AnalyticalLedgerAccount[]
+  costCenters                      CostCenter[]
+  budgetLineCostCenterSplits       BudgetLineCostCenterSplit[]
+  projects                         Project[]
+  projectScenarios                 ProjectScenario[]
+  projectScenarioFinancialLines    ProjectScenarioFinancialLine[]
+  projectScenarioResourcePlans     ProjectScenarioResourcePlan[]
   projectScenarioCapacitySnapshots ProjectScenarioCapacitySnapshot[]
-  projectTasks                ProjectTask[]
-  projectRisks                ProjectRisk[]
-  projectMilestones           ProjectMilestone[]
-  projectBudgetLinks          ProjectBudgetLink[]
-  projectTeamRoles   ProjectTeamRole[]
-  projectTeamMembers ProjectTeamMember[]
-  projectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
-  projectReviews                ProjectReview[]
-  projectReviewParticipants     ProjectReviewParticipant[]
-  projectReviewDecisions        ProjectReviewDecision[]
-  projectReviewActionItems      ProjectReviewActionItem[]
-  projectActivities             ProjectActivity[]
-  projectTags                   ProjectTag[]
-  projectTagAssignments         ProjectTagAssignment[]
-  projectPortfolioCategories    ProjectPortfolioCategory[]
-  actionPlans                     ActionPlan[]
-  budgetLinePlanningMonths   BudgetLinePlanningMonth[]
-  budgetLinePlanningScenarios BudgetLinePlanningScenario[]
-  resourceRoles                 ResourceRole[]
-  resources                     Resource[]
-  microsoftConnections          MicrosoftConnection[]
-  projectMicrosoftLinks         ProjectMicrosoftLink[]
-  projectTaskSyncs             ProjectTaskMicrosoftSync[]
-  projectDocumentMicrosoftSyncs ProjectDocumentMicrosoftSync[]
-  projectDocuments              ProjectDocument[]
-  projectTaskBuckets            ProjectTaskBucket[]
-  projectTaskPhases            ProjectTaskPhase[]
-  projectTaskChecklistItems     ProjectTaskChecklistItem[]
-  projectTaskLabels            ProjectTaskLabel[]
-  projectTaskLabelAssignments ProjectTaskLabelAssignment[]
-  projectMilestoneLabels       ProjectMilestoneLabel[]
+  projectTasks                     ProjectTask[]
+  projectRisks                     ProjectRisk[]
+  projectMilestones                ProjectMilestone[]
+  projectBudgetLinks               ProjectBudgetLink[]
+  projectTeamRoles                 ProjectTeamRole[]
+  projectTeamMembers               ProjectTeamMember[]
+  projectSheetDecisionSnapshots    ProjectSheetDecisionSnapshot[]
+  projectReviews                   ProjectReview[]
+  projectReviewParticipants        ProjectReviewParticipant[]
+  projectReviewDecisions           ProjectReviewDecision[]
+  projectReviewActionItems         ProjectReviewActionItem[]
+  projectActivities                ProjectActivity[]
+  projectTags                      ProjectTag[]
+  projectTagAssignments            ProjectTagAssignment[]
+  projectPortfolioCategories       ProjectPortfolioCategory[]
+  actionPlans                      ActionPlan[]
+  budgetLinePlanningMonths         BudgetLinePlanningMonth[]
+  budgetLinePlanningScenarios      BudgetLinePlanningScenario[]
+  resourceRoles                    ResourceRole[]
+  resources                        Resource[]
+  microsoftConnections             MicrosoftConnection[]
+  projectMicrosoftLinks            ProjectMicrosoftLink[]
+  projectTaskSyncs                 ProjectTaskMicrosoftSync[]
+  projectDocumentMicrosoftSyncs    ProjectDocumentMicrosoftSync[]
+  projectDocuments                 ProjectDocument[]
+  projectTaskBuckets               ProjectTaskBucket[]
+  projectTaskPhases                ProjectTaskPhase[]
+  projectTaskChecklistItems        ProjectTaskChecklistItem[]
+  projectTaskLabels                ProjectTaskLabel[]
+  projectTaskLabelAssignments      ProjectTaskLabelAssignment[]
+  projectMilestoneLabels           ProjectMilestoneLabel[]
   projectMilestoneLabelAssignments ProjectMilestoneLabelAssignment[]
-  directoryConnections          DirectoryConnection[]
-  directoryGroupScopes          DirectoryGroupScope[]
-  directorySyncJobs             DirectorySyncJob[]
-  collaborators                 Collaborator[]
-  skillCategories               SkillCategory[]
-  skills                        Skill[]
-  collaboratorSkills            CollaboratorSkill[]
-  workTeams                     WorkTeam[]
-  workTeamMemberships           WorkTeamMembership[]
-  managerScopeConfigs           ManagerScopeConfig[]
-  managerScopeRootTeams         ManagerScopeRootTeam[]
-  complianceFrameworks   ComplianceFramework[]
-  complianceStatuses     ComplianceStatus[]
-  complianceEvidences    ComplianceEvidence[]
-  riskDomains            RiskDomain[]
-  riskTypes              RiskType[]
-  budgetDashboardConfigs BudgetDashboardConfig[]
-  budgetDashboardWidgets BudgetDashboardWidget[]
-  budgetDashboardWidgetOverrides BudgetDashboardWidgetOverride[]
-  activityTypes                  ActivityType[]
-  resourceTimeEntries            ResourceTimeEntry[]
-  resourceTimesheetMonths        ResourceTimesheetMonth[]
-  procurementAttachments         ProcurementAttachment[]
+  directoryConnections             DirectoryConnection[]
+  directoryGroupScopes             DirectoryGroupScope[]
+  directorySyncJobs                DirectorySyncJob[]
+  collaborators                    Collaborator[]
+  skillCategories                  SkillCategory[]
+  skills                           Skill[]
+  collaboratorSkills               CollaboratorSkill[]
+  workTeams                        WorkTeam[]
+  workTeamMemberships              WorkTeamMembership[]
+  managerScopeConfigs              ManagerScopeConfig[]
+  managerScopeRootTeams            ManagerScopeRootTeam[]
+  complianceFrameworks             ComplianceFramework[]
+  complianceStatuses               ComplianceStatus[]
+  complianceEvidences              ComplianceEvidence[]
+  riskDomains                      RiskDomain[]
+  riskTypes                        RiskType[]
+  budgetDashboardConfigs           BudgetDashboardConfig[]
+  budgetDashboardWidgets           BudgetDashboardWidget[]
+  budgetDashboardWidgetOverrides   BudgetDashboardWidgetOverride[]
+  activityTypes                    ActivityType[]
+  resourceTimeEntries              ResourceTimeEntry[]
+  resourceTimesheetMonths          ResourceTimesheetMonth[]
+  procurementAttachments           ProcurementAttachment[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
-  microsoftOAuthClientId                String?
-  microsoftOAuthClientSecretEncrypted   String?
+  microsoftOAuthClientId              String?
+  microsoftOAuthClientSecretEncrypted String?
   /// Segment d’autorité (`common`, GUID tenant, `organizations`…). Défaut `common` si vide.
-  microsoftOAuthAuthorityTenant         String?
+  microsoftOAuthAuthorityTenant       String?
 
   /// Surcharges libellés / tons des badges UI (tâches, priorités, entrées custom) — fusion côté app avec `badge-registry`.
   uiBadgeConfig Json?
 
   /// Temps réalisé : case « Sans week-ends » cochée par défaut sur la grille.
-  timesheetIgnoreWeekendsDefault Boolean @default(true)
+  timesheetIgnoreWeekendsDefault Boolean  @default(true)
   /// Temps réalisé : autoriser une fraction > 1 (plus d’une journée type) par cellule.
-  timesheetAllowFractionAboveOne Boolean @default(false)
+  timesheetAllowFractionAboveOne Boolean  @default(false)
   /// Durée d’une journée type (h) pour conversion fraction → heures ; null = défaut applicatif 7,5 h.
-  timesheetDayReferenceHours Decimal? @db.Decimal(5, 2)
+  timesheetDayReferenceHours     Decimal? @db.Decimal(5, 2)
 
   /// Onglet pilotage budget affiché par défaut (mode global cockpit / préférence client).
   budgetCockpitDefaultPilotageMode BudgetCockpitDefaultPilotageMode @default(SYNTHESE)
 
   /// Overrides workflow budget (JSON sparse, contrat métier côté code — merge avec défauts applicatifs).
   budgetWorkflowConfig Json?
+  projectScenarioTasks ProjectScenarioTask[]
+  projectScenarioRisks ProjectScenarioRisk[]
 }
 
 /// Défauts globaux badges UI (id = `default`) — fusionnés avant `Client.uiBadgeConfig`.
@@ -313,20 +315,20 @@ model PlatformUiBadgeSettings {
 /// Paramètres OAuth Microsoft **plateforme** (une ligne, id = `default`) — redirect URI, scopes, timeouts.
 /// Fusion avec variables d’environnement : la DB prime si la valeur est renseignée.
 model PlatformMicrosoftSettings {
-  id                    String   @id @default("default")
-  redirectUri           String?
-  graphScopes           String?
-  oauthSuccessUrl       String?
-  oauthErrorUrl         String?
-  oauthStateTtlSeconds  Int?
-  refreshLeewaySeconds  Int?
-  tokenHttpTimeoutMs    Int?
+  id                            String   @id @default("default")
+  redirectUri                   String?
+  graphScopes                   String?
+  oauthSuccessUrl               String?
+  oauthErrorUrl                 String?
+  oauthStateTtlSeconds          Int?
+  refreshLeewaySeconds          Int?
+  tokenHttpTimeoutMs            Int?
   /// Application Entra pour le SSO utilisateur (login). Secret chiffré au repos (même mécanisme que les autres secrets Microsoft).
   ssoOAuthClientId              String?
   ssoOAuthClientSecretEncrypted String?
   /// Segment d’autorité OAuth SSO (`common`, GUID tenant, …). Défaut `common` si vide.
   ssoOAuthAuthorityTenant       String?
-  updatedAt             DateTime @updatedAt
+  updatedAt                     DateTime @updatedAt
 }
 
 enum ProcurementStorageDriver {
@@ -337,16 +339,16 @@ enum ProcurementStorageDriver {
 /// Connexion stockage procurement — singleton id = `default` (RFC-034, RFC-035 : local + S3 optionnel).
 /// Plafond taille des fichiers « métier » (imports budget, pièces jointes procurement) — singleton id = `default`.
 model PlatformUploadSettings {
-  id              String   @id @default("default")
+  id             String   @id @default("default")
   /// Taille max en octets (bornée par min plateforme et plafond absolu configurable).
-  maxUploadBytes  Int
-  updatedAt       DateTime @updatedAt
+  maxUploadBytes Int
+  updatedAt      DateTime @updatedAt
 }
 
 model PlatformProcurementS3Settings {
-  id                 String   @id @default("default")
+  id                 String                   @id @default("default")
   /// Si false : fallback env uniquement ou stockage indisponible selon implémentation.
-  enabled            Boolean  @default(false)
+  enabled            Boolean                  @default(false)
   /// Préférence persistée ; `PROCUREMENT_STORAGE_DRIVER` (env) prime au runtime (RFC-035).
   storageDriver      ProcurementStorageDriver @default(S3)
   /// Racine disque (DB) si `enabled` ; `PROCUREMENT_LOCAL_ROOT` (env) prime (RFC-035).
@@ -356,92 +358,94 @@ model PlatformProcurementS3Settings {
   accessKey          String?
   secretKeyEncrypted String?
   bucket             String?
-  useSsl             Boolean  @default(true)
+  useSsl             Boolean                  @default(true)
   /// MinIO / S3 custom : souvent true. AWS public : false (défaut).
-  forcePathStyle     Boolean  @default(false)
-  updatedAt          DateTime @updatedAt
+  forcePathStyle     Boolean                  @default(false)
+  updatedAt          DateTime                 @updatedAt
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
+  id                                   String                          @id @default(cuid())
+  email                                String                          @unique
+  passwordHash                         String
   /// Si false : connexion email/mot de passe interdite (ex. après première connexion Microsoft SSO).
-  passwordLoginEnabled Boolean @default(true)
-  firstName     String?
-  lastName      String?
+  passwordLoginEnabled                 Boolean                         @default(true)
+  firstName                            String?
+  lastName                             String?
   /// Service / département (profil modifiable par l’utilisateur)
-  department    String?
+  department                           String?
   /// Intitulé de poste
-  jobTitle      String?
+  jobTitle                             String?
   /// Société / employeur affiché
-  company       String?
+  company                              String?
   /// Bureau / localisation
-  office        String?
+  office                               String?
   /// MIME image (ex. image/jpeg) si une photo est enregistrée sur disque
-  avatarMimeType String?
-  platformRole  PlatformRole?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  clientUsers   ClientUser[]
-  userRoles     UserRole[]
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
-  securityLogs  SecurityLog[]
-  userMfa         UserMfa?
-  mfaChallenges   MfaChallenge[]
-  trustedDevices  TrustedDevice[]
-  ownedBudgets Budget[]           @relation("OwnedBudgets")
-  createdBudgetSnapshots BudgetSnapshot[]
-  budgetReallocationsCreated BudgetReallocation[]
-  createdBudgetImportMappings BudgetImportMapping[]
-  createdBudgetImportJobs    BudgetImportJob[]
-  sponsoredProjects          Project[]           @relation("ProjectSponsor")
-  ownedProjects              Project[]           @relation("ProjectOwner")
-  ownedProjectTasks          ProjectTask[]       @relation("ProjectTaskOwner")
-  createdProjectTasks        ProjectTask[]       @relation("ProjectTaskCreatedBy")
-  updatedProjectTasks        ProjectTask[]       @relation("ProjectTaskUpdatedBy")
-  ownedProjectMilestones     ProjectMilestone[]  @relation("ProjectMilestoneOwner")
-  createdProjectMilestones   ProjectMilestone[]  @relation("ProjectMilestoneCreatedBy")
-  updatedProjectMilestones   ProjectMilestone[]  @relation("ProjectMilestoneUpdatedBy")
-  ownedProjectActivities     ProjectActivity[]   @relation("ProjectActivityOwner")
-  createdProjectActivities   ProjectActivity[]   @relation("ProjectActivityCreatedBy")
-  updatedProjectActivities   ProjectActivity[]   @relation("ProjectActivityUpdatedBy")
-  ownedProjectRisks          ProjectRisk[]
-  projectTeamMembers         ProjectTeamMember[]
-  createdProjectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[] @relation("ProjectSheetDecisionSnapshotCreatedBy")
-  selectedProjectScenarios             ProjectScenario[]              @relation("ProjectScenarioSelectedBy")
-  archivedProjectScenarios             ProjectScenario[]              @relation("ProjectScenarioArchivedBy")
-  facilitatedProjectReviews          ProjectReview[]                  @relation("ProjectReviewFacilitator")
-  finalizedProjectReviews            ProjectReview[]                  @relation("ProjectReviewFinalizedBy")
-  projectReviewParticipants          ProjectReviewParticipant[]
-  emailIdentities                    UserEmailIdentity[]
-  microsoftConnectionsConnected      MicrosoftConnection[] @relation("MicrosoftConnectedBy")
-  uploadedProjectDocuments           ProjectDocument[]     @relation("ProjectDocumentUploadedBy")
-  ownedActionPlans                   ActionPlan[]          @relation("ActionPlanOwner")
-  budgetDashboardWidgetOverrides   BudgetDashboardWidgetOverride[]
-  validatedCollaboratorSkills      CollaboratorSkill[] @relation("CollaboratorSkillValidator")
+  avatarMimeType                       String?
+  platformRole                         PlatformRole?
+  createdAt                            DateTime                        @default(now())
+  updatedAt                            DateTime                        @updatedAt
+  clientUsers                          ClientUser[]
+  userRoles                            UserRole[]
+  refreshTokens                        RefreshToken[]
+  auditLogs                            AuditLog[]
+  securityLogs                         SecurityLog[]
+  userMfa                              UserMfa?
+  mfaChallenges                        MfaChallenge[]
+  trustedDevices                       TrustedDevice[]
+  ownedBudgets                         Budget[]                        @relation("OwnedBudgets")
+  createdBudgetSnapshots               BudgetSnapshot[]
+  budgetReallocationsCreated           BudgetReallocation[]
+  createdBudgetImportMappings          BudgetImportMapping[]
+  createdBudgetImportJobs              BudgetImportJob[]
+  sponsoredProjects                    Project[]                       @relation("ProjectSponsor")
+  ownedProjects                        Project[]                       @relation("ProjectOwner")
+  ownedProjectTasks                    ProjectTask[]                   @relation("ProjectTaskOwner")
+  createdProjectTasks                  ProjectTask[]                   @relation("ProjectTaskCreatedBy")
+  updatedProjectTasks                  ProjectTask[]                   @relation("ProjectTaskUpdatedBy")
+  ownedProjectMilestones               ProjectMilestone[]              @relation("ProjectMilestoneOwner")
+  createdProjectMilestones             ProjectMilestone[]              @relation("ProjectMilestoneCreatedBy")
+  updatedProjectMilestones             ProjectMilestone[]              @relation("ProjectMilestoneUpdatedBy")
+  ownedProjectActivities               ProjectActivity[]               @relation("ProjectActivityOwner")
+  createdProjectActivities             ProjectActivity[]               @relation("ProjectActivityCreatedBy")
+  updatedProjectActivities             ProjectActivity[]               @relation("ProjectActivityUpdatedBy")
+  ownedProjectRisks                    ProjectRisk[]
+  projectTeamMembers                   ProjectTeamMember[]
+  createdProjectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[]  @relation("ProjectSheetDecisionSnapshotCreatedBy")
+  selectedProjectScenarios             ProjectScenario[]               @relation("ProjectScenarioSelectedBy")
+  archivedProjectScenarios             ProjectScenario[]               @relation("ProjectScenarioArchivedBy")
+  facilitatedProjectReviews            ProjectReview[]                 @relation("ProjectReviewFacilitator")
+  finalizedProjectReviews              ProjectReview[]                 @relation("ProjectReviewFinalizedBy")
+  projectReviewParticipants            ProjectReviewParticipant[]
+  emailIdentities                      UserEmailIdentity[]
+  microsoftConnectionsConnected        MicrosoftConnection[]           @relation("MicrosoftConnectedBy")
+  uploadedProjectDocuments             ProjectDocument[]               @relation("ProjectDocumentUploadedBy")
+  ownedActionPlans                     ActionPlan[]                    @relation("ActionPlanOwner")
+  budgetDashboardWidgetOverrides       BudgetDashboardWidgetOverride[]
+  validatedCollaboratorSkills          CollaboratorSkill[]             @relation("CollaboratorSkillValidator")
   /// Fiches collaborateur liées à ce compte plateforme sur un client (référentiel équipes / staffing).
-  linkedCollaborators              Collaborator[]      @relation("CollaboratorLinkedUser")
-  uploadedProcurementAttachments   ProcurementAttachment[] @relation("ProcurementAttachmentUploadedBy")
-  uploadedContractAttachments        ContractAttachment[]     @relation("ContractAttachmentUploadedBy")
+  linkedCollaborators                  Collaborator[]                  @relation("CollaboratorLinkedUser")
+  uploadedProcurementAttachments       ProcurementAttachment[]         @relation("ProcurementAttachmentUploadedBy")
+  uploadedContractAttachments          ContractAttachment[]            @relation("ContractAttachmentUploadedBy")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
 model UserEmailIdentity {
-  id                String   @id @default(cuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  email             String
-  emailNormalized   String
-  displayName       String?
-  replyToEmail      String?
-  isVerified        Boolean  @default(false)
-  isActive          Boolean  @default(true)
-  /** true si l’identité est pilotée par la synchro annuaire (AD DS / Graph), pas par l’utilisateur. */
-  directoryManaged  Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String       @id @default(cuid())
+  userId             String
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email              String
+  emailNormalized    String
+  displayName        String?
+  replyToEmail       String?
+  isVerified         Boolean      @default(false)
+  isActive           Boolean      @default(true)
+  /**
+   * true si l’identité est pilotée par la synchro annuaire (AD DS / Graph), pas par l’utilisateur.
+   */
+  directoryManaged   Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
   clientUsersDefault ClientUser[] @relation("ClientUserDefaultEmail")
 
   @@unique([userId, emailNormalized])
@@ -449,20 +453,20 @@ model UserEmailIdentity {
 }
 
 model ClientUser {
-  id        String           @id @default(cuid())
-  userId    String
-  clientId  String
-  role      ClientUserRole
-  status    ClientUserStatus @default(ACTIVE)
+  id                         String             @id @default(cuid())
+  userId                     String
+  clientId                   String
+  role                       ClientUserRole
+  status                     ClientUserStatus   @default(ACTIVE)
   /// Si true : pas de fiche Humaine dans le catalogue ressources pour ce membre (masquage explicite).
-  excludeFromResourceCatalog Boolean @default(false)
-  isDefault Boolean          @default(false)
-  defaultEmailIdentityId String?
-  defaultEmailIdentity   UserEmailIdentity? @relation("ClientUserDefaultEmail", fields: [defaultEmailIdentityId], references: [id], onDelete: Restrict)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  excludeFromResourceCatalog Boolean            @default(false)
+  isDefault                  Boolean            @default(false)
+  defaultEmailIdentityId     String?
+  defaultEmailIdentity       UserEmailIdentity? @relation("ClientUserDefaultEmail", fields: [defaultEmailIdentityId], references: [id], onDelete: Restrict)
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  user                       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client                     Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([userId, clientId])
   @@index([clientId])
@@ -501,17 +505,17 @@ model ClientModule {
 
 /// Rôle métier client (scopé par client).
 model Role {
-  id             String          @id @default(cuid())
-  clientId       String?
-  scope          RoleScope       @default(CLIENT)
-  name           String
-  description    String?
-  isSystem       Boolean         @default(false)
-  client         Client?         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  clientId        String?
+  scope           RoleScope        @default(CLIENT)
+  name            String
+  description     String?
+  isSystem        Boolean          @default(false)
+  client          Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   rolePermissions RolePermission[]
-  userRoles      UserRole[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  userRoles       UserRole[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@unique([clientId, name])
   @@index([scope])
@@ -521,22 +525,22 @@ model Role {
 
 /// Permission unitaire globale (<module>.<action>).
 model Permission {
-  id             String          @id @default(cuid())
-  code           String          @unique
-  label          String
-  description    String?
-  moduleId       String
-  module         Module          @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  id              String           @id @default(cuid())
+  code            String           @unique
+  label           String
+  description     String?
+  moduleId        String
+  module          Module           @relation(fields: [moduleId], references: [id], onDelete: Restrict)
   rolePermissions RolePermission[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([moduleId])
 }
 
 /// Liaison N:N rôle ↔ permission.
 model RolePermission {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   roleId       String
   permissionId String
   role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -594,40 +598,40 @@ model ResourceRole {
 }
 
 model Resource {
-  id         String       @id @default(cuid())
-  clientId   String
-  name       String
+  id             String               @id @default(cuid())
+  clientId       String
+  name           String
   /// Réservé au type HUMAN (optionnel).
-  firstName  String?
-  code       String?
-  type       ResourceType
-  email        String?
-  roleId       String?
-  affiliation  ResourceAffiliation?
+  firstName      String?
+  code           String?
+  type           ResourceType
+  email          String?
+  roleId         String?
+  affiliation    ResourceAffiliation?
   /// Société / employeur — pertinent si portée EXTERNE (HUMAN).
   companyName    String?
-  dailyRate    Decimal?     @db.Decimal(12, 2)
-  metadata     Json?
+  dailyRate      Decimal?             @db.Decimal(12, 2)
+  metadata       Json?
   /// Champs RH (RFC-TEAM-020 — alignement catalogue Humain / module Équipes).
   jobTitle       String?
   department     String?
   phone          String?
   mobile         String?
   employeeNumber String?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
-  client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  resourceRole ResourceRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  client                           Client                            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  resourceRole                     ResourceRole?                     @relation(fields: [roleId], references: [id], onDelete: SetNull)
   /// Tâches projet / plan dont cette ressource humaine est responsable (MVP pilotage).
-  responsibleForProjectTasks ProjectTask[] @relation("ProjectTaskResponsibleResource")
-  workTeamMemberships        WorkTeamMembership[]
-  ledWorkTeams               WorkTeam[]             @relation("WorkTeamLeadResource")
-  managerScopeConfig         ManagerScopeConfig?
-  projectScenarioResourcePlans ProjectScenarioResourcePlan[]
+  responsibleForProjectTasks       ProjectTask[]                     @relation("ProjectTaskResponsibleResource")
+  workTeamMemberships              WorkTeamMembership[]
+  ledWorkTeams                     WorkTeam[]                        @relation("WorkTeamLeadResource")
+  managerScopeConfig               ManagerScopeConfig?
+  projectScenarioResourcePlans     ProjectScenarioResourcePlan[]
   projectScenarioCapacitySnapshots ProjectScenarioCapacitySnapshot[]
-  resourceTimeEntries        ResourceTimeEntry[]
-  resourceTimesheetMonths    ResourceTimesheetMonth[]
+  resourceTimeEntries              ResourceTimeEntry[]
+  resourceTimesheetMonths          ResourceTimesheetMonth[]
 
   @@unique([clientId, email])
   @@unique([clientId, code])
@@ -637,7 +641,9 @@ model Resource {
 
 // --- Projects MVP (RFC-PROJ-001) ---
 
-/** Projet structuré vs activité de suivi plus légère (même entité `Project` côté SI). */
+/**
+ * Projet structuré vs activité de suivi plus légère (même entité `Project` côté SI).
+ */
 enum ProjectKind {
   PROJECT
   ACTIVITY
@@ -782,14 +788,18 @@ enum ProjectMilestoneStatus {
   CANCELLED
 }
 
-/** RFC-PROJ-010 — liaison projet ↔ ligne budgétaire */
+/**
+ * RFC-PROJ-010 — liaison projet ↔ ligne budgétaire
+ */
 enum ProjectBudgetAllocationType {
   FULL
   PERCENTAGE
   FIXED
 }
 
-/** RFC-PROJ-012 — fiche projet décisionnelle */
+/**
+ * RFC-PROJ-012 — fiche projet décisionnelle
+ */
 enum ProjectRiskLevel {
   LOW
   MEDIUM
@@ -803,7 +813,9 @@ enum ProjectArbitrationStatus {
   REJECTED
 }
 
-/** Statut par niveau d’arbitrage (Métier → Comité → Sponsor/CODIR). */
+/**
+ * Statut par niveau d’arbitrage (Métier → Comité → Sponsor/CODIR).
+ */
 enum ProjectArbitrationLevelStatus {
   BROUILLON
   EN_COURS
@@ -813,7 +825,9 @@ enum ProjectArbitrationLevelStatus {
   REFUSE
 }
 
-/** Recommandation saisie par le COPIL / COPRO (pas dérivée automatiquement des indicateurs). */
+/**
+ * Recommandation saisie par le COPIL / COPRO (pas dérivée automatiquement des indicateurs).
+ */
 enum ProjectCopilRecommendation {
   NOT_SET
   POURSUIVRE
@@ -823,14 +837,18 @@ enum ProjectCopilRecommendation {
   AJUSTER_CADRAGE
 }
 
-/** Instantané fiche projet lors d’une validation d’arbitrage (niveau passé à VALIDE). */
+/**
+ * Instantané fiche projet lors d’une validation d’arbitrage (niveau passé à VALIDE).
+ */
 enum ProjectSheetDecisionLevel {
   METIER
   COMITE
   CODIR
 }
 
-/** Rôle catalogue équipe projet — aligné sur Project.sponsorUserId / ownerUserId lorsque renseigné. */
+/**
+ * Rôle catalogue équipe projet — aligné sur Project.sponsorUserId / ownerUserId lorsque renseigné.
+ */
 enum ProjectTeamRoleSystemKind {
   SPONSOR
   OWNER
@@ -885,27 +903,27 @@ enum ProjectDocumentCategory {
 }
 
 model Project {
-  id        String  @id @default(cuid())
-  clientId  String
-  name      String
-  code      String
+  id          String  @id @default(cuid())
+  clientId    String
+  name        String
+  code        String
   description String?
 
-  kind         ProjectKind @default(PROJECT)
-  type         ProjectType
-  status       ProjectStatus
-  priority     ProjectPriority
+  kind     ProjectKind     @default(PROJECT)
+  type     ProjectType
+  status   ProjectStatus
+  priority ProjectPriority
 
-  sponsorUserId String?
-  ownerUserId   String?
+  sponsorUserId       String?
+  ownerUserId         String?
   portfolioCategoryId String?
   /// Responsable hors compte (dénormalisé ; aligné avec entrée équipe « Responsable » nom libre).
-  ownerFreeLabel    String?                       @db.VarChar(200)
-  ownerAffiliation  ProjectTeamMemberAffiliation?
+  ownerFreeLabel      String?                       @db.VarChar(200)
+  ownerAffiliation    ProjectTeamMemberAffiliation?
 
-  startDate      DateTime?
-  targetEndDate  DateTime?
-  actualEndDate  DateTime?
+  startDate     DateTime?
+  targetEndDate DateTime?
+  actualEndDate DateTime?
 
   criticality     ProjectCriticality
   progressPercent Int?
@@ -913,28 +931,28 @@ model Project {
   targetBudgetAmount Decimal? @db.Decimal(18, 2)
   pilotNotes         String?
 
-  businessValueScore   Int?
-  strategicAlignment   Int?
-  urgencyScore         Int?
+  businessValueScore Int?
+  strategicAlignment Int?
+  urgencyScore       Int?
 
-  estimatedCost     Decimal? @db.Decimal(18, 2)
-  estimatedGain     Decimal? @db.Decimal(18, 2)
-  roi               Decimal? @db.Decimal(10, 2)
-  riskLevel         ProjectRiskLevel?
+  estimatedCost                Decimal?                       @db.Decimal(18, 2)
+  estimatedGain                Decimal?                       @db.Decimal(18, 2)
+  roi                          Decimal?                       @db.Decimal(10, 2)
+  riskLevel                    ProjectRiskLevel?
   /// Réponse au risque : traitement, mitigation, plan d’action (texte libre, fiche CODIR)
-  riskResponse      String?
-  priorityScore     Decimal? @db.Decimal(5, 2)
+  riskResponse                 String?
+  priorityScore                Decimal?                       @db.Decimal(5, 2)
   /// Dérivé des trois niveaux (rétrocompat lecture / exports).
-  arbitrationStatus ProjectArbitrationStatus?
-  arbitrationMetierStatus  ProjectArbitrationLevelStatus @default(BROUILLON)
-  arbitrationComiteStatus    ProjectArbitrationLevelStatus?
-  arbitrationCodirStatus     ProjectArbitrationLevelStatus?
-  arbitrationMetierRefusalNote  String? @db.VarChar(2000)
-  arbitrationComiteRefusalNote  String? @db.VarChar(2000)
-  arbitrationCodirRefusalNote   String? @db.VarChar(2000)
-  copilRecommendation ProjectCopilRecommendation @default(NOT_SET)
+  arbitrationStatus            ProjectArbitrationStatus?
+  arbitrationMetierStatus      ProjectArbitrationLevelStatus  @default(BROUILLON)
+  arbitrationComiteStatus      ProjectArbitrationLevelStatus?
+  arbitrationCodirStatus       ProjectArbitrationLevelStatus?
+  arbitrationMetierRefusalNote String?                        @db.VarChar(2000)
+  arbitrationComiteRefusalNote String?                        @db.VarChar(2000)
+  arbitrationCodirRefusalNote  String?                        @db.VarChar(2000)
+  copilRecommendation          ProjectCopilRecommendation     @default(NOT_SET)
   /// Commentaire libre associé à la position COPIL (visible sur demande à l’UI).
-  copilRecommendationNote String? @db.VarChar(4000)
+  copilRecommendationNote      String?                        @db.VarChar(4000)
 
   /// Cadrage OQQCQPC (fiche projet)
   cadreLocation String? @db.VarChar(500)
@@ -944,8 +962,8 @@ model Project {
   involvedTeams String? @db.VarChar(2000)
 
   /// RFC-PROJ-012 — objectif métier (texte MVP)
-  businessProblem   String?
-  businessBenefits  String?
+  businessProblem     String?
+  businessBenefits    String?
   /// KPI de succès — liste de lignes (JSON string[])
   businessSuccessKpis Json?
 
@@ -959,35 +977,35 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  sponsor  User?  @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
-  owner    User?  @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
-  portfolioCategory ProjectPortfolioCategory? @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
-  microsoftLink ProjectMicrosoftLink?
-  microsoftTaskSyncs ProjectTaskMicrosoftSync[]
+  client                 Client                         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sponsor                User?                          @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
+  owner                  User?                          @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  portfolioCategory      ProjectPortfolioCategory?      @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
+  microsoftLink          ProjectMicrosoftLink?
+  microsoftTaskSyncs     ProjectTaskMicrosoftSync[]
   microsoftDocumentSyncs ProjectDocumentMicrosoftSync[]
 
-  tasks       ProjectTask[]
-  taskPhases  ProjectTaskPhase[]
-  taskBuckets ProjectTaskBucket[]
-  taskChecklistItems ProjectTaskChecklistItem[]
-  taskLabels ProjectTaskLabel[]
-  taskLabelAssignments ProjectTaskLabelAssignment[]
-  risks       ProjectRisk[]
-  milestones  ProjectMilestone[]
-  milestoneLabels ProjectMilestoneLabel[]
+  tasks                     ProjectTask[]
+  taskPhases                ProjectTaskPhase[]
+  taskBuckets               ProjectTaskBucket[]
+  taskChecklistItems        ProjectTaskChecklistItem[]
+  taskLabels                ProjectTaskLabel[]
+  taskLabelAssignments      ProjectTaskLabelAssignment[]
+  risks                     ProjectRisk[]
+  milestones                ProjectMilestone[]
+  milestoneLabels           ProjectMilestoneLabel[]
   milestoneLabelAssignments ProjectMilestoneLabelAssignment[]
-  activities  ProjectActivity[]
-  budgetLinks ProjectBudgetLink[]
-  scenarios   ProjectScenario[]
+  activities                ProjectActivity[]
+  budgetLinks               ProjectBudgetLink[]
+  scenarios                 ProjectScenario[]
   scenarioCapacitySnapshots ProjectScenarioCapacitySnapshot[]
-  teamMembers ProjectTeamMember[]
-  tagAssignments ProjectTagAssignment[]
-  sheetDecisionSnapshots ProjectSheetDecisionSnapshot[]
-  projectReviews         ProjectReview[]
-  projectReviewActionItems ProjectReviewActionItem[]
-  documents ProjectDocument[]
-  resourceTimeEntries     ResourceTimeEntry[]
+  teamMembers               ProjectTeamMember[]
+  tagAssignments            ProjectTagAssignment[]
+  sheetDecisionSnapshots    ProjectSheetDecisionSnapshot[]
+  projectReviews            ProjectReview[]
+  projectReviewActionItems  ProjectReviewActionItem[]
+  documents                 ProjectDocument[]
+  resourceTimeEntries       ResourceTimeEntry[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -1015,15 +1033,15 @@ model ProjectScenario {
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
-  client         Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  selectedByUser User?   @relation("ProjectScenarioSelectedBy", fields: [selectedByUserId], references: [id], onDelete: SetNull)
-  archivedByUser User?   @relation("ProjectScenarioArchivedBy", fields: [archivedByUserId], references: [id], onDelete: SetNull)
-  financialLines ProjectScenarioFinancialLine[]
-  resourcePlans  ProjectScenarioResourcePlan[]
+  client            Client                            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project           Project                           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  selectedByUser    User?                             @relation("ProjectScenarioSelectedBy", fields: [selectedByUserId], references: [id], onDelete: SetNull)
+  archivedByUser    User?                             @relation("ProjectScenarioArchivedBy", fields: [archivedByUserId], references: [id], onDelete: SetNull)
+  financialLines    ProjectScenarioFinancialLine[]
+  resourcePlans     ProjectScenarioResourcePlan[]
   capacitySnapshots ProjectScenarioCapacitySnapshot[]
-  risks          ProjectScenarioRisk[]
-  tasks          ProjectScenarioTask[]
+  risks             ProjectScenarioRisk[]
+  tasks             ProjectScenarioTask[]
 
   @@index([clientId, projectId])
   @@index([clientId, projectId, status])
@@ -1031,7 +1049,7 @@ model ProjectScenario {
 }
 
 model ProjectScenarioFinancialLine {
-  id                  String   @id @default(cuid())
+  id                  String  @id @default(cuid())
   clientId            String
   scenarioId          String
   projectBudgetLinkId String?
@@ -1039,10 +1057,10 @@ model ProjectScenarioFinancialLine {
 
   label          String
   costCategory   String?
-  amountPlanned  Decimal  @db.Decimal(18, 2)
-  amountForecast Decimal? @db.Decimal(18, 2)
-  amountActual   Decimal? @db.Decimal(18, 2)
-  currencyCode   String?  @db.VarChar(3)
+  amountPlanned  Decimal   @db.Decimal(18, 2)
+  amountForecast Decimal?  @db.Decimal(18, 2)
+  amountActual   Decimal?  @db.Decimal(18, 2)
+  currencyCode   String?   @db.VarChar(3)
   startDate      DateTime?
   endDate        DateTime?
   notes          String?
@@ -1067,8 +1085,8 @@ model ProjectScenarioResourcePlan {
   resourceId String
 
   roleLabel     String?
-  allocationPct Decimal? @db.Decimal(5, 2)
-  plannedDays   Decimal? @db.Decimal(8, 2)
+  allocationPct Decimal?  @db.Decimal(5, 2)
+  plannedDays   Decimal?  @db.Decimal(8, 2)
   startDate     DateTime?
   endDate       DateTime?
   notes         String?
@@ -1085,18 +1103,18 @@ model ProjectScenarioResourcePlan {
 }
 
 model ProjectScenarioTask {
-  id                  String @id @default(cuid())
+  id                  String  @id @default(cuid())
   clientId            String
   scenarioId          String
   sourceProjectTaskId String?
 
-  title        String
-  taskType     String?
-  startDate    DateTime?
-  endDate      DateTime?
-  durationDays Int?
+  title         String
+  taskType      String?
+  startDate     DateTime?
+  endDate       DateTime?
+  durationDays  Int?
   dependencyIds Json?
-  orderIndex   Int      @default(0)
+  orderIndex    Int       @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1158,36 +1176,36 @@ model ProjectScenarioRisk {
 /// RFC-PROJ-DOC-001 — registre des documents rattachés à un projet (métadonnées + gouvernance).
 /// NB: pas d'upload/download binaire dans le MVP ; pas de logique Microsoft dans cette RFC.
 model ProjectDocument {
-  id                String                     @id @default(cuid())
-  clientId          String
-  projectId         String
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
 
-  name              String
-  originalFilename  String?
-  mimeType          String?
-  extension         String?
-  sizeBytes         Int?
+  name             String
+  originalFilename String?
+  mimeType         String?
+  extension        String?
+  sizeBytes        Int?
 
-  category          ProjectDocumentCategory    @default(GENERAL)
-  status            ProjectDocumentStatus      @default(ACTIVE)
-  storageType       ProjectDocumentStorageType @default(STARIUM)
+  category    ProjectDocumentCategory    @default(GENERAL)
+  status      ProjectDocumentStatus      @default(ACTIVE)
+  storageType ProjectDocumentStorageType @default(STARIUM)
 
-  storageKey        String?
-  externalUrl       String?
+  storageKey  String?
+  externalUrl String?
 
-  description       String?
-  tags              Json?
+  description String?
+  tags        Json?
 
-  uploadedByUserId  String?
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
-  archivedAt        DateTime?
-  deletedAt         DateTime?
+  uploadedByUserId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  archivedAt       DateTime?
+  deletedAt        DateTime?
 
-  client            Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project           Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  uploadedByUser    User?                      @relation("ProjectDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
-  microsoftSync     ProjectDocumentMicrosoftSync?
+  client         Client                        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project        Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedByUser User?                         @relation("ProjectDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  microsoftSync  ProjectDocumentMicrosoftSync?
 
   @@index([clientId])
   @@index([projectId])
@@ -1211,7 +1229,7 @@ model ProjectPortfolioCategory {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client   Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   parent   ProjectPortfolioCategory?  @relation("ProjectPortfolioCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
   children ProjectPortfolioCategory[] @relation("ProjectPortfolioCategoryTree")
   projects Project[]
@@ -1256,17 +1274,17 @@ model ProjectTagAssignment {
 
 /// Historique des décisions — snapshot de fiche projet au passage d’un niveau d’arbitrage à VALIDE.
 model ProjectSheetDecisionSnapshot {
-  id        String   @id @default(cuid())
-  clientId  String
-  projectId String
-  createdAt DateTime @default(now())
+  id              String                    @id @default(cuid())
+  clientId        String
+  projectId       String
+  createdAt       DateTime                  @default(now())
   createdByUserId String?
-  decisionLevel ProjectSheetDecisionLevel
-  sheetPayload Json
+  decisionLevel   ProjectSheetDecisionLevel
+  sheetPayload    Json
 
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy User? @relation("ProjectSheetDecisionSnapshotCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("ProjectSheetDecisionSnapshotCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([clientId, projectId, createdAt])
   @@index([projectId, createdAt])
@@ -1278,13 +1296,13 @@ model ProjectReview {
   clientId  String
   projectId String
 
-  reviewDate   DateTime
-  reviewType   ProjectReviewType
-  status       ProjectReviewStatus @default(DRAFT)
+  reviewDate DateTime
+  reviewType ProjectReviewType
+  status     ProjectReviewStatus @default(DRAFT)
 
-  title             String?
-  executiveSummary  String?
-  contentPayload    Json?
+  title            String?
+  executiveSummary String?
+  contentPayload   Json?
 
   facilitatorUserId String?
   finalizedAt       DateTime?
@@ -1297,7 +1315,7 @@ model ProjectReview {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client      Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   facilitator User?   @relation("ProjectReviewFacilitator", fields: [facilitatorUserId], references: [id], onDelete: SetNull)
   finalizedBy User?   @relation("ProjectReviewFinalizedBy", fields: [finalizedByUserId], references: [id], onDelete: SetNull)
@@ -1370,12 +1388,12 @@ model ProjectReviewActionItem {
 
 /// Catalogue des rôles d’équipe projet (par client).
 model ProjectTeamRole {
-  id          String   @id @default(cuid())
-  clientId    String
-  name        String   @db.VarChar(200)
-  sortOrder   Int      @default(0)
+  id         String                     @id @default(cuid())
+  clientId   String
+  name       String                     @db.VarChar(200)
+  sortOrder  Int                        @default(0)
   /// Si défini, synchronisé avec Project.sponsorUserId ou ownerUserId (une personne « officielle »).
-  systemKind  ProjectTeamRoleSystemKind?
+  systemKind ProjectTeamRoleSystemKind?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1389,18 +1407,18 @@ model ProjectTeamRole {
 
 /// Membre d’équipe projet : utilisateur plateforme ou nom libre (prestataire / contact externe).
 model ProjectTeamMember {
-  id        String @id @default(cuid())
-  clientId  String
-  projectId String
-  roleId    String
+  id          String                        @id @default(cuid())
+  clientId    String
+  projectId   String
+  roleId      String
   /// Compte Starium du client ; vide si entrée libre uniquement.
-  userId    String?
+  userId      String?
   /// Nom affiché lorsqu’il n’y a pas de `userId` (personne hors plateforme).
-  freeLabel String? @db.VarChar(200)
+  freeLabel   String?                       @db.VarChar(200)
   /// Interne vs externe (surtout pour les noms libres).
   affiliation ProjectTeamMemberAffiliation?
   /// Clé d’unicité : `u:<userId>` ou `n:<normalisation du nom>` pour les entrées libres.
-  identityKey String @db.VarChar(150)
+  identityKey String                        @db.VarChar(150)
 
   createdAt DateTime @default(now())
 
@@ -1425,9 +1443,9 @@ model ProjectBudgetLink {
   amount         Decimal?                    @db.Decimal(18, 2)
   createdAt      DateTime                    @default(now())
 
-  client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
+  client         Client                         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project        Project                        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  budgetLine     BudgetLine                     @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
   financialLines ProjectScenarioFinancialLine[]
 
   @@unique([projectId, budgetLineId])
@@ -1440,16 +1458,16 @@ model ProjectTaskBucket {
   clientId  String
   projectId String
 
-  name    String
-  sortOrder Int    @default(0)
+  name            String
+  sortOrder       Int     @default(0)
   /// Renseigné quand le bucket provient d’un plan Planner (sync Microsoft).
   plannerBucketId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client  Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks   ProjectTask[]
 
   @@unique([projectId, plannerBucketId])
@@ -1469,19 +1487,19 @@ model ProjectTaskPhase {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   ProjectTask[]
+  client     Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project    Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks      ProjectTask[]
   milestones ProjectMilestone[]
 
+  @@unique([projectId, sortOrder])
   @@index([clientId, projectId])
   @@index([projectId, sortOrder])
-  @@unique([projectId, sortOrder])
 }
 
 /// RFC-PLA-001 — plan d’actions (agrégateur de `ProjectTask`)
 model ActionPlan {
-  id              String @id @default(cuid())
+  id              String             @id @default(cuid())
   clientId        String
   title           String
   code            String
@@ -1491,13 +1509,13 @@ model ActionPlan {
   ownerUserId     String?
   startDate       DateTime?
   targetDate      DateTime?
-  progressPercent Int    @default(0)
+  progressPercent Int                @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  owner  User?  @relation("ActionPlanOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  client Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  owner  User?         @relation("ActionPlanOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   tasks  ProjectTask[]
 
   @@unique([clientId, code])
@@ -1506,9 +1524,9 @@ model ActionPlan {
 
 /// RFC-PROJ-011 — tâche projet planifiable (Gantt-ready) ; `projectId` optionnel (RFC-PLA-001).
 model ProjectTask {
-  id              String @id @default(cuid())
-  clientId        String
-  projectId       String?
+  id        String  @id @default(cuid())
+  clientId  String
+  projectId String?
 
   actionPlanId String?
   riskId       String?
@@ -1535,15 +1553,15 @@ model ProjectTask {
 
   dependencyType ProjectTaskDependencyType?
 
-  ownerUserId   String?
+  ownerUserId           String?
   /// Responsable métier (ressource humaine — RFC-RES-001) ; distinct de `ownerUserId` (compte Starium).
   responsibleResourceId String?
-  budgetLineId  String?
+  budgetLineId          String?
 
   /// Charge estimée (heures) — pilotage plan / tâche.
   estimatedHours Float?
   /// Étiquettes libres (JSON string[]) — MVP hors étiquettes projet.
-  tags Json?
+  tags           Json?
 
   createdByUserId String?
   updatedByUserId String?
@@ -1551,21 +1569,21 @@ model ProjectTask {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client     Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  project    Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  actionPlan ActionPlan? @relation(fields: [actionPlanId], references: [id], onDelete: SetNull)
-  risk       ProjectRisk? @relation(fields: [riskId], references: [id], onDelete: SetNull)
-  budgetLine BudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
-  bucket   ProjectTaskBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
-  phase    ProjectTaskPhase?  @relation(fields: [phaseId], references: [id], onDelete: SetNull)
-  responsibleResource Resource? @relation("ProjectTaskResponsibleResource", fields: [responsibleResourceId], references: [id], onDelete: SetNull)
+  client              Client             @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  actionPlan          ActionPlan?        @relation(fields: [actionPlanId], references: [id], onDelete: SetNull)
+  risk                ProjectRisk?       @relation(fields: [riskId], references: [id], onDelete: SetNull)
+  budgetLine          BudgetLine?        @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  bucket              ProjectTaskBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
+  phase               ProjectTaskPhase?  @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  responsibleResource Resource?          @relation("ProjectTaskResponsibleResource", fields: [responsibleResourceId], references: [id], onDelete: SetNull)
 
-  dependsOnTask ProjectTask?  @relation("ProjectTaskDependency", fields: [dependsOnTaskId], references: [id], onDelete: SetNull)
-  dependentTasks ProjectTask[]  @relation("ProjectTaskDependency")
+  dependsOnTask  ProjectTask?  @relation("ProjectTaskDependency", fields: [dependsOnTaskId], references: [id], onDelete: SetNull)
+  dependentTasks ProjectTask[] @relation("ProjectTaskDependency")
 
-  ownerUser          User? @relation("ProjectTaskOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
-  createdByUser      User? @relation("ProjectTaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  updatedByUser      User? @relation("ProjectTaskUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  ownerUser     User? @relation("ProjectTaskOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUser User? @relation("ProjectTaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User? @relation("ProjectTaskUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
   activities               ProjectActivity[]
   milestones               ProjectMilestone[]
@@ -1573,7 +1591,7 @@ model ProjectTask {
 
   microsoftTaskSync ProjectTaskMicrosoftSync?
   checklistItems    ProjectTaskChecklistItem[]
-  labelAssignments ProjectTaskLabelAssignment[]
+  labelAssignments  ProjectTaskLabelAssignment[]
 
   @@index([clientId])
   @@index([projectId])
@@ -1595,23 +1613,23 @@ model ProjectTask {
 
 /// Sous-éléments type « liste de contrôle » (sync Microsoft Planner : plannerTaskDetails.checklist).
 model ProjectTaskChecklistItem {
-  id        String @id @default(cuid())
-  clientId  String
-  projectId String
+  id            String @id @default(cuid())
+  clientId      String
+  projectId     String
   projectTaskId String
 
-  title     String
-  isChecked Boolean @default(false)
-  sortOrder Int     @default(0)
+  title                   String
+  isChecked               Boolean @default(false)
+  sortOrder               Int     @default(0)
   /// Clé GUID côté Graph (identique au nom de propriété dans `checklist` Planner).
   plannerChecklistItemKey String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task ProjectTask @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
+  client  Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    ProjectTask @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
 
   @@unique([projectTaskId, plannerChecklistItemKey])
   @@index([clientId])
@@ -1625,9 +1643,9 @@ model ProjectTaskLabel {
   clientId  String
   projectId String
 
-  name    String
-  color   String?
-  sortOrder Int @default(0)
+  name      String
+  color     String?
+  sortOrder Int     @default(0)
 
   /// Clé catégorie Planner Microsoft (`category1`..`category25` via v1.0/Graph plan details).
   plannerCategoryId String?
@@ -1635,7 +1653,7 @@ model ProjectTaskLabel {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   assignments ProjectTaskLabelAssignment[]
@@ -1657,10 +1675,10 @@ model ProjectTaskLabelAssignment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  task  ProjectTask    @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
+  task  ProjectTask      @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
   label ProjectTaskLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
 
   @@unique([clientId, projectTaskId, labelId])
@@ -1677,14 +1695,14 @@ model ProjectMilestoneLabel {
   clientId  String
   projectId String
 
-  name    String
-  color   String?
-  sortOrder Int @default(0)
+  name      String
+  color     String?
+  sortOrder Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   assignments ProjectMilestoneLabelAssignment[]
@@ -1701,15 +1719,15 @@ model ProjectMilestoneLabelAssignment {
   projectId String
 
   projectMilestoneId String
-  labelId             String
+  labelId            String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  milestone ProjectMilestone @relation(fields: [projectMilestoneId], references: [id], onDelete: Cascade)
+  milestone ProjectMilestone      @relation(fields: [projectMilestoneId], references: [id], onDelete: Cascade)
   label     ProjectMilestoneLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
 
   @@unique([clientId, projectMilestoneId, labelId])
@@ -1729,7 +1747,7 @@ model ComplianceFramework {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client       Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client       Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   requirements ComplianceRequirement[]
 
   @@unique([clientId, name, version])
@@ -1747,9 +1765,9 @@ model ComplianceRequirement {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  framework ComplianceFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
-  statuses  ComplianceStatus[]
-  evidences ComplianceEvidence[]
+  framework    ComplianceFramework  @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  statuses     ComplianceStatus[]
+  evidences    ComplianceEvidence[]
   projectRisks ProjectRisk[]
 
   @@unique([frameworkId, code])
@@ -1757,14 +1775,14 @@ model ComplianceRequirement {
 }
 
 model ComplianceStatus {
-  id                   String                   @id @default(cuid())
-  clientId             String
-  requirementId        String
-  status               ComplianceAssessmentStatus
-  lastAssessmentDate   DateTime?
-  comment              String?
-  createdAt            DateTime                 @default(now())
-  updatedAt            DateTime                 @updatedAt
+  id                 String                     @id @default(cuid())
+  clientId           String
+  requirementId      String
+  status             ComplianceAssessmentStatus
+  lastAssessmentDate DateTime?
+  comment            String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
 
   client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
   requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
@@ -1810,18 +1828,18 @@ model RiskDomain {
 
 /// Type de risque sous un domaine (taxonomie client).
 model RiskType {
-  id           String       @id @default(cuid())
-  clientId     String
-  domainId     String
-  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  domain       RiskDomain   @relation(fields: [domainId], references: [id], onDelete: Restrict)
-  code         String
-  name         String
-  isActive     Boolean      @default(true)
-  projectRisks ProjectRisk[]
+  id            String                @id @default(cuid())
+  clientId      String
+  domainId      String
+  client        Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  domain        RiskDomain            @relation(fields: [domainId], references: [id], onDelete: Restrict)
+  code          String
+  name          String
+  isActive      Boolean               @default(true)
+  projectRisks  ProjectRisk[]
   scenarioRisks ProjectScenarioRisk[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
 
   @@unique([domainId, code])
   @@index([clientId])
@@ -1830,7 +1848,7 @@ model RiskType {
 
 /// RFC-PROJ-RISK-001 — risque projet (registre) ; peut être hors projet (`projectId` null).
 model ProjectRisk {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   clientId  String
   projectId String?
 
@@ -1841,36 +1859,36 @@ model ProjectRisk {
   category    String?
 
   /// RFC-PROJ-018 — origine de la menace (ex. cyberattaque, fournisseur).
-  threatSource String @default("—")
+  threatSource            String                     @default("—")
   /// RFC-PROJ-018 — conséquences pour l’organisation.
-  businessImpact String @default("—")
+  businessImpact          String                     @default("—")
   /// Justification du score de probabilité (optionnel).
   likelihoodJustification String?
   impactCategory          ProjectRiskImpactCategory?
 
   /// 1–5
-  probability Int
+  probability      Int
   /// 1–5
-  impact      Int
-  criticalityScore   Int
-  criticalityLevel   ProjectRiskCriticality
+  impact           Int
+  criticalityScore Int
+  criticalityLevel ProjectRiskCriticality
 
-  mitigationPlan    String?
-  contingencyPlan   String?
-  ownerUserId       String?
+  mitigationPlan  String?
+  contingencyPlan String?
+  ownerUserId     String?
 
   status     ProjectRiskStatus
   reviewDate DateTime?
   dueDate    DateTime?
   detectedAt DateTime?
   closedAt   DateTime?
-  sortOrder  Int @default(0)
+  sortOrder  Int               @default(0)
 
   complianceRequirementId String?
   treatmentStrategy       ProjectRiskTreatmentStrategy
   residualRiskLevel       ProjectRiskCriticality?
   /// RFC-PROJ-018 — justification du niveau résiduel (optionnel).
-  residualJustification String?
+  residualJustification   String?
 
   /// Classification métier : FK vers `RiskType` (domaine dérivé via jointure).
   riskTypeId String
@@ -1879,9 +1897,9 @@ model ProjectRisk {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  owner   User?    @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  client                Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project               Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  owner                 User?                  @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
   complianceRequirement ComplianceRequirement? @relation(fields: [complianceRequirementId], references: [id], onDelete: SetNull)
 
   tasks ProjectTask[]
@@ -1896,7 +1914,7 @@ model ProjectRisk {
 
 /// RFC-PROJ-011 — jalon (sans durée)
 model ProjectMilestone {
-  id           String @id @default(cuid())
+  id           String  @id @default(cuid())
   clientId     String
   projectId    String
   linkedTaskId String?
@@ -1920,9 +1938,9 @@ model ProjectMilestone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client   Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  linkedTask ProjectTask? @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  client     Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  linkedTask ProjectTask?      @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
   phase      ProjectTaskPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
 
   ownerUser     User? @relation("ProjectMilestoneOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
@@ -1950,8 +1968,8 @@ model ProjectActivity {
   name        String
   description String?
 
-  status    ProjectActivityStatus    @default(ACTIVE)
-  frequency ProjectActivityFrequency
+  status      ProjectActivityStatus    @default(ACTIVE)
+  frequency   ProjectActivityFrequency
   customRrule String?
 
   nextExecutionDate DateTime?
@@ -2151,22 +2169,22 @@ enum FinancialEventType {
 }
 
 model BudgetExercise {
-  id        String               @id @default(cuid())
-  clientId  String
-  name      String
-  code      String
-  startDate DateTime
-  endDate   DateTime
-  status    BudgetExerciseStatus @default(DRAFT)
-  createdAt DateTime             @default(now())
-  updatedAt DateTime             @updatedAt
-  client    Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  budgets   Budget[]
-  budgetSnapshots BudgetSnapshot[]
-  budgetVersionSets BudgetVersionSet[]
+  id                        String                  @id @default(cuid())
+  clientId                  String
+  name                      String
+  code                      String
+  startDate                 DateTime
+  endDate                   DateTime
+  status                    BudgetExerciseStatus    @default(DRAFT)
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  client                    Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budgets                   Budget[]
+  budgetSnapshots           BudgetSnapshot[]
+  budgetVersionSets         BudgetVersionSet[]
   dashboardConfigsAsDefault BudgetDashboardConfig[]
-  deferredFromLines     BudgetLine[]    @relation("DeferredExerciseBudgetLines")
-  deferredFromEnvelopes BudgetEnvelope[] @relation("DeferredExerciseBudgetEnvelopes")
+  deferredFromLines         BudgetLine[]            @relation("DeferredExerciseBudgetLines")
+  deferredFromEnvelopes     BudgetEnvelope[]        @relation("DeferredExerciseBudgetEnvelopes")
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -2174,22 +2192,22 @@ model BudgetExercise {
 }
 
 model BudgetVersionSet {
-  id               String    @id @default(cuid())
+  id               String   @id @default(cuid())
   clientId         String
   exerciseId       String
-  code            String
-  name            String
-  description     String?
-  baselineBudgetId String?   @unique
-  activeBudgetId   String?    @unique
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  code             String
+  name             String
+  description      String?
+  baselineBudgetId String?  @unique
+  activeBudgetId   String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  exercise        BudgetExercise  @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
-  versions        Budget[]        @relation("VersionSetVersions")
-  baselineBudget  Budget?         @relation("VersionSetBaseline", fields: [baselineBudgetId], references: [id], onDelete: SetNull)
-  activeBudget    Budget?         @relation("VersionSetActive", fields: [activeBudgetId], references: [id], onDelete: SetNull)
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  exercise       BudgetExercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  versions       Budget[]       @relation("VersionSetVersions")
+  baselineBudget Budget?        @relation("VersionSetBaseline", fields: [baselineBudgetId], references: [id], onDelete: SetNull)
+  activeBudget   Budget?        @relation("VersionSetActive", fields: [activeBudgetId], references: [id], onDelete: SetNull)
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -2197,41 +2215,41 @@ model BudgetVersionSet {
 }
 
 model Budget {
-  id            String       @id @default(cuid())
-  clientId      String
-  exerciseId    String
-  name          String
-  code          String
-  description   String?
-  currency      String
-  status        BudgetStatus @default(DRAFT)
-  taxMode       BudgetTaxMode @default(HT)
-  defaultTaxRate Decimal?    @db.Decimal(5, 2)
-  ownerUserId   String?
-  versionSetId  String?
-  versionNumber Int?
-  versionLabel  String?
-  versionKind   BudgetVersionKind?
-  versionStatus BudgetVersionStatus?
-  parentBudgetId String?
-  activatedAt   DateTime?
-  archivedAt    DateTime?
-  isVersioned   Boolean      @default(false)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  client        Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  exercise      BudgetExercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
-  owner         User?        @relation("OwnedBudgets", fields: [ownerUserId], references: [id], onDelete: SetNull)
-  versionSet    BudgetVersionSet? @relation("VersionSetVersions", fields: [versionSetId], references: [id], onDelete: SetNull)
-  parentBudget  Budget?      @relation("BudgetVersionParent", fields: [parentBudgetId], references: [id], onDelete: SetNull)
-  childVersions Budget[]     @relation("BudgetVersionParent")
-  baselineForSet BudgetVersionSet? @relation("VersionSetBaseline")
-  activeForSet   BudgetVersionSet? @relation("VersionSetActive")
-  envelopes     BudgetEnvelope[]
-  budgetLines   BudgetLine[]
-  budgetSnapshots BudgetSnapshot[]
-  budgetReallocations BudgetReallocation[]
-  budgetImportJobs    BudgetImportJob[]
+  id                        String                  @id @default(cuid())
+  clientId                  String
+  exerciseId                String
+  name                      String
+  code                      String
+  description               String?
+  currency                  String
+  status                    BudgetStatus            @default(DRAFT)
+  taxMode                   BudgetTaxMode           @default(HT)
+  defaultTaxRate            Decimal?                @db.Decimal(5, 2)
+  ownerUserId               String?
+  versionSetId              String?
+  versionNumber             Int?
+  versionLabel              String?
+  versionKind               BudgetVersionKind?
+  versionStatus             BudgetVersionStatus?
+  parentBudgetId            String?
+  activatedAt               DateTime?
+  archivedAt                DateTime?
+  isVersioned               Boolean                 @default(false)
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  client                    Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  exercise                  BudgetExercise          @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  owner                     User?                   @relation("OwnedBudgets", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  versionSet                BudgetVersionSet?       @relation("VersionSetVersions", fields: [versionSetId], references: [id], onDelete: SetNull)
+  parentBudget              Budget?                 @relation("BudgetVersionParent", fields: [parentBudgetId], references: [id], onDelete: SetNull)
+  childVersions             Budget[]                @relation("BudgetVersionParent")
+  baselineForSet            BudgetVersionSet?       @relation("VersionSetBaseline")
+  activeForSet              BudgetVersionSet?       @relation("VersionSetActive")
+  envelopes                 BudgetEnvelope[]
+  budgetLines               BudgetLine[]
+  budgetSnapshots           BudgetSnapshot[]
+  budgetReallocations       BudgetReallocation[]
+  budgetImportJobs          BudgetImportJob[]
   dashboardConfigsAsDefault BudgetDashboardConfig[]
 
   @@unique([clientId, code])
@@ -2246,21 +2264,21 @@ model Budget {
 
 /// Configuration cockpit budgétaire (RFC-022).
 model BudgetDashboardConfig {
-  id                  String   @id @default(cuid())
-  clientId            String
-  name                String
-  isDefault           Boolean  @default(false)
-  defaultExerciseId   String?
-  defaultBudgetId     String?
-  layoutConfig        Json     @default("{}")
-  filtersConfig       Json?
-  thresholdsConfig    Json?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                String   @id @default(cuid())
+  clientId          String
+  name              String
+  isDefault         Boolean  @default(false)
+  defaultExerciseId String?
+  defaultBudgetId   String?
+  layoutConfig      Json     @default("{}")
+  filtersConfig     Json?
+  thresholdsConfig  Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  defaultExercise BudgetExercise?  @relation(fields: [defaultExerciseId], references: [id], onDelete: SetNull)
-  defaultBudget   Budget?          @relation(fields: [defaultBudgetId], references: [id], onDelete: SetNull)
+  client          Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  defaultExercise BudgetExercise?         @relation(fields: [defaultExerciseId], references: [id], onDelete: SetNull)
+  defaultBudget   Budget?                 @relation(fields: [defaultBudgetId], references: [id], onDelete: SetNull)
   widgets         BudgetDashboardWidget[]
 
   @@index([clientId])
@@ -2292,8 +2310,8 @@ model BudgetDashboardWidget {
   createdAt DateTime                  @default(now())
   updatedAt DateTime                  @updatedAt
 
-  client Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  config BudgetDashboardConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  client    Client                          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  config    BudgetDashboardConfig           @relation(fields: [configId], references: [id], onDelete: Cascade)
   overrides BudgetDashboardWidgetOverride[]
 
   @@unique([configId, position])
@@ -2308,7 +2326,7 @@ model BudgetDashboardWidgetOverride {
   id String @id @default(cuid())
 
   clientId String
-  userId String
+  userId   String
   widgetId String
 
   isActive Boolean?
@@ -2318,8 +2336,8 @@ model BudgetDashboardWidgetOverride {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   widget BudgetDashboardWidget @relation(fields: [widgetId], references: [id], onDelete: Cascade)
 
   @@unique([clientId, userId, widgetId])
@@ -2329,25 +2347,25 @@ model BudgetDashboardWidgetOverride {
 }
 
 model BudgetEnvelope {
-  id          String             @id @default(cuid())
-  clientId    String
-  budgetId    String
-  parentId    String?
-  name        String
-  code        String
-  type        BudgetEnvelopeType
-  description String?
-  sortOrder   Int                @default(0)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  status                 BudgetEnvelopeStatus @default(ACTIVE)
-  deferredToExerciseId   String?
+  id                   String               @id @default(cuid())
+  clientId             String
+  budgetId             String
+  parentId             String?
+  name                 String
+  code                 String
+  type                 BudgetEnvelopeType
+  description          String?
+  sortOrder            Int                  @default(0)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  status               BudgetEnvelopeStatus @default(ACTIVE)
+  deferredToExerciseId String?
   deferredToExercise   BudgetExercise?      @relation("DeferredExerciseBudgetEnvelopes", fields: [deferredToExerciseId], references: [id], onDelete: SetNull)
-  client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  budget      Budget             @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  parent      BudgetEnvelope?    @relation("EnvelopeHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    BudgetEnvelope[]   @relation("EnvelopeHierarchy")
-  budgetLines BudgetLine[]
+  client               Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budget               Budget               @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  parent               BudgetEnvelope?      @relation("EnvelopeHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children             BudgetEnvelope[]     @relation("EnvelopeHierarchy")
+  budgetLines          BudgetLine[]
 
   @@unique([clientId, budgetId, code])
   @@index([clientId])
@@ -2418,57 +2436,57 @@ model CostCenter {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  client      Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  splits      BudgetLineCostCenterSplit[]
+  client Client                      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  splits BudgetLineCostCenterSplit[]
 
   @@unique([clientId, code])
   @@index([clientId, isActive])
 }
 
 model BudgetLine {
-  id                       String                     @id @default(cuid())
-  clientId                 String
-  budgetId                 String
-  envelopeId               String
-  code                     String
-  name                     String
-  description              String?
-  expenseType              ExpenseType
-  status                   BudgetLineStatus           @default(DRAFT)
-  currency                 String
-  taxRate                  Decimal?                   @db.Decimal(5, 2)
-  initialAmount            Decimal                    @db.Decimal(18, 2) @default(0)
-  forecastAmount           Decimal                    @db.Decimal(18, 2) @default(0)
-  committedAmount          Decimal                    @db.Decimal(18, 2) @default(0)
-  consumedAmount           Decimal                    @db.Decimal(18, 2) @default(0)
-  remainingAmount          Decimal                    @db.Decimal(18, 2) @default(0)
-  generalLedgerAccountId   String?
-  analyticalLedgerAccountId String?
-  allocationScope          BudgetLineAllocationScope  @default(ENTERPRISE)
-  planningMode             BudgetLinePlanningMode?
-  planningTotalAmount      Decimal?                   @db.Decimal(18, 2)
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  client                   Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  budget                   Budget                    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  envelope                 BudgetEnvelope            @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
-  deferredToExerciseId     String?
-  deferredToExercise       BudgetExercise?           @relation("DeferredExerciseBudgetLines", fields: [deferredToExerciseId], references: [id], onDelete: SetNull)
-  generalLedgerAccount     GeneralLedgerAccount?     @relation(fields: [generalLedgerAccountId], references: [id], onDelete: Restrict)
-  analyticalLedgerAccount  AnalyticalLedgerAccount?  @relation(fields: [analyticalLedgerAccountId], references: [id], onDelete: SetNull)
-  costCenterSplits         BudgetLineCostCenterSplit[]
-  allocations               FinancialAllocation[]
-  financialEvents           FinancialEvent[]
-  purchaseOrders            PurchaseOrder[]
-  invoices                  Invoice[]
-  reallocationsAsSource     BudgetReallocation[]      @relation("ReallocationSource")
-  reallocationsAsTarget     BudgetReallocation[]      @relation("ReallocationTarget")
-  projectBudgetLinks        ProjectBudgetLink[]
+  id                            String                         @id @default(cuid())
+  clientId                      String
+  budgetId                      String
+  envelopeId                    String
+  code                          String
+  name                          String
+  description                   String?
+  expenseType                   ExpenseType
+  status                        BudgetLineStatus               @default(DRAFT)
+  currency                      String
+  taxRate                       Decimal?                       @db.Decimal(5, 2)
+  initialAmount                 Decimal                        @default(0) @db.Decimal(18, 2)
+  forecastAmount                Decimal                        @default(0) @db.Decimal(18, 2)
+  committedAmount               Decimal                        @default(0) @db.Decimal(18, 2)
+  consumedAmount                Decimal                        @default(0) @db.Decimal(18, 2)
+  remainingAmount               Decimal                        @default(0) @db.Decimal(18, 2)
+  generalLedgerAccountId        String?
+  analyticalLedgerAccountId     String?
+  allocationScope               BudgetLineAllocationScope      @default(ENTERPRISE)
+  planningMode                  BudgetLinePlanningMode?
+  planningTotalAmount           Decimal?                       @db.Decimal(18, 2)
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
+  client                        Client                         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budget                        Budget                         @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  envelope                      BudgetEnvelope                 @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
+  deferredToExerciseId          String?
+  deferredToExercise            BudgetExercise?                @relation("DeferredExerciseBudgetLines", fields: [deferredToExerciseId], references: [id], onDelete: SetNull)
+  generalLedgerAccount          GeneralLedgerAccount?          @relation(fields: [generalLedgerAccountId], references: [id], onDelete: Restrict)
+  analyticalLedgerAccount       AnalyticalLedgerAccount?       @relation(fields: [analyticalLedgerAccountId], references: [id], onDelete: SetNull)
+  costCenterSplits              BudgetLineCostCenterSplit[]
+  allocations                   FinancialAllocation[]
+  financialEvents               FinancialEvent[]
+  purchaseOrders                PurchaseOrder[]
+  invoices                      Invoice[]
+  reallocationsAsSource         BudgetReallocation[]           @relation("ReallocationSource")
+  reallocationsAsTarget         BudgetReallocation[]           @relation("ReallocationTarget")
+  projectBudgetLinks            ProjectBudgetLink[]
   projectScenarioFinancialLines ProjectScenarioFinancialLine[]
-  projectTasks              ProjectTask[]
-  projectActivities         ProjectActivity[]
-  planningMonths            BudgetLinePlanningMonth[]
-  planningScenarios         BudgetLinePlanningScenario[]
+  projectTasks                  ProjectTask[]
+  projectActivities             ProjectActivity[]
+  planningMonths                BudgetLinePlanningMonth[]
+  planningScenarios             BudgetLinePlanningScenario[]
 
   @@unique([clientId, budgetId, code])
   @@index([clientId])
@@ -2487,8 +2505,8 @@ model BudgetLinePlanningMonth {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  client      Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  budgetLine  BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
 
   @@unique([budgetLineId, monthIndex])
   @@index([clientId, budgetLineId])
@@ -2503,8 +2521,8 @@ model BudgetLinePlanningScenario {
   createdById  String?
   createdAt    DateTime               @default(now())
 
-  client      Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  budgetLine  BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
 
   @@index([clientId, budgetLineId, createdAt])
 }
@@ -2551,37 +2569,37 @@ model BudgetSnapshotOccasionType {
 }
 
 model BudgetSnapshot {
-  id                   String                @id @default(cuid())
-  clientId             String
-  budgetId             String
-  exerciseId           String
-  name                 String
-  code                 String
-  description          String?
-  snapshotDate         DateTime
-  status               BudgetSnapshotStatus   @default(ACTIVE)
+  id           String               @id @default(cuid())
+  clientId     String
+  budgetId     String
+  exerciseId   String
+  name         String
+  code         String
+  description  String?
+  snapshotDate DateTime
+  status       BudgetSnapshotStatus @default(ACTIVE)
 
-  budgetName           String
-  budgetCode           String?
-  budgetCurrency       String
-  budgetStatus         BudgetStatus
+  budgetName     String
+  budgetCode     String?
+  budgetCurrency String
+  budgetStatus   BudgetStatus
 
-  totalInitialAmount   Decimal               @db.Decimal(18, 2)
-  totalForecastAmount  Decimal               @db.Decimal(18, 2)
-  totalCommittedAmount Decimal               @db.Decimal(18, 2)
-  totalConsumedAmount  Decimal               @db.Decimal(18, 2)
-  totalRemainingAmount Decimal               @db.Decimal(18, 2)
+  totalInitialAmount   Decimal @db.Decimal(18, 2)
+  totalForecastAmount  Decimal @db.Decimal(18, 2)
+  totalCommittedAmount Decimal @db.Decimal(18, 2)
+  totalConsumedAmount  Decimal @db.Decimal(18, 2)
+  totalRemainingAmount Decimal @db.Decimal(18, 2)
 
-  occasionTypeId       String?
-  createdByUserId      String?
-  createdAt            DateTime              @default(now())
+  occasionTypeId  String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
 
-  client               Client                @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  budget                Budget                @relation(fields: [budgetId], references: [id], onDelete: Restrict)
-  exercise              BudgetExercise        @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
-  occasionType          BudgetSnapshotOccasionType? @relation(fields: [occasionTypeId], references: [id], onDelete: SetNull)
-  createdByUser         User?                 @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  lines                 BudgetSnapshotLine[]
+  client        Client                      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  budget        Budget                      @relation(fields: [budgetId], references: [id], onDelete: Restrict)
+  exercise      BudgetExercise              @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  occasionType  BudgetSnapshotOccasionType? @relation(fields: [occasionTypeId], references: [id], onDelete: SetNull)
+  createdByUser User?                       @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  lines         BudgetSnapshotLine[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -2592,33 +2610,33 @@ model BudgetSnapshot {
 }
 
 model BudgetSnapshotLine {
-  id               String   @id @default(cuid())
-  snapshotId       String
-  clientId         String
+  id         String @id @default(cuid())
+  snapshotId String
+  clientId   String
 
-  budgetLineId     String
-  budgetId         String
-  envelopeId       String?
+  budgetLineId String
+  budgetId     String
+  envelopeId   String?
 
-  envelopeName     String?
-  envelopeCode     String?
-  envelopeType     BudgetEnvelopeType?
+  envelopeName String?
+  envelopeCode String?
+  envelopeType BudgetEnvelopeType?
 
-  lineCode         String
-  lineName         String
-  expenseType      ExpenseType
-  currency         String
-  lineStatus       BudgetLineStatus
+  lineCode    String
+  lineName    String
+  expenseType ExpenseType
+  currency    String
+  lineStatus  BudgetLineStatus
 
-  initialAmount    Decimal  @db.Decimal(18, 2)
-  forecastAmount   Decimal  @db.Decimal(18, 2)
-  committedAmount  Decimal  @db.Decimal(18, 2)
-  consumedAmount   Decimal  @db.Decimal(18, 2)
-  remainingAmount  Decimal  @db.Decimal(18, 2)
+  initialAmount   Decimal @db.Decimal(18, 2)
+  forecastAmount  Decimal @db.Decimal(18, 2)
+  committedAmount Decimal @db.Decimal(18, 2)
+  consumedAmount  Decimal @db.Decimal(18, 2)
+  remainingAmount Decimal @db.Decimal(18, 2)
 
-  createdAt        DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  snapshot         BudgetSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  snapshot BudgetSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
 
   @@index([snapshotId])
   @@index([clientId])
@@ -2628,20 +2646,20 @@ model BudgetSnapshotLine {
 }
 
 model FinancialAllocation {
-  id             String         @id @default(cuid())
-  clientId       String
-  budgetLineId  String
-  sourceType    FinancialSourceType
-  sourceId      String
-  allocationType AllocationType
-  allocatedAmount Decimal       @db.Decimal(18, 2)
-  currency      String
-  effectiveDate DateTime?
-  notes         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  budgetLine    BudgetLine     @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+  id              String              @id @default(cuid())
+  clientId        String
+  budgetLineId    String
+  sourceType      FinancialSourceType
+  sourceId        String
+  allocationType  AllocationType
+  allocatedAmount Decimal             @db.Decimal(18, 2)
+  currency        String
+  effectiveDate   DateTime?
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  client          Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budgetLine      BudgetLine          @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
   @@index([budgetLineId])
@@ -2650,25 +2668,25 @@ model FinancialAllocation {
 }
 
 model FinancialEvent {
-  id            String              @id @default(cuid())
-  clientId      String
-  budgetLineId  String
-  sourceType    FinancialSourceType
-  sourceId      String?
-  eventType     FinancialEventType
-  amount        Decimal             @db.Decimal(18, 2)
-  amountHt      Decimal             @db.Decimal(18, 2)
-  taxRate       Decimal?            @db.Decimal(5, 2)
-  taxAmount     Decimal?            @db.Decimal(18, 2)
-  amountTtc     Decimal?            @db.Decimal(18, 2)
-  currency      String
-  eventDate     DateTime
-  label         String
-  description   String?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  client        Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  budgetLine    BudgetLine          @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
+  id           String              @id @default(cuid())
+  clientId     String
+  budgetLineId String
+  sourceType   FinancialSourceType
+  sourceId     String?
+  eventType    FinancialEventType
+  amount       Decimal             @db.Decimal(18, 2)
+  amountHt     Decimal             @db.Decimal(18, 2)
+  taxRate      Decimal?            @db.Decimal(5, 2)
+  taxAmount    Decimal?            @db.Decimal(18, 2)
+  amountTtc    Decimal?            @db.Decimal(18, 2)
+  currency     String
+  eventDate    DateTime
+  label        String
+  description  String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budgetLine   BudgetLine          @relation(fields: [budgetLineId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
   @@index([budgetLineId])
@@ -2678,22 +2696,22 @@ model FinancialEvent {
 }
 
 model BudgetReallocation {
-  id            String    @id @default(cuid())
-  clientId      String
-  budgetId      String
-  sourceLineId  String
-  targetLineId  String
-  amount        Decimal   @db.Decimal(18, 2)
-  currency      String
-  reason        String?
-  createdById   String?
-  createdAt     DateTime  @default(now())
+  id           String   @id @default(cuid())
+  clientId     String
+  budgetId     String
+  sourceLineId String
+  targetLineId String
+  amount       Decimal  @db.Decimal(18, 2)
+  currency     String
+  reason       String?
+  createdById  String?
+  createdAt    DateTime @default(now())
 
-  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  budget        Budget    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  sourceLine    BudgetLine @relation("ReallocationSource", fields: [sourceLineId], references: [id], onDelete: Restrict)
-  targetLine    BudgetLine @relation("ReallocationTarget", fields: [targetLineId], references: [id], onDelete: Restrict)
-  createdBy     User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budget     Budget     @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  sourceLine BudgetLine @relation("ReallocationSource", fields: [sourceLineId], references: [id], onDelete: Restrict)
+  targetLine BudgetLine @relation("ReallocationTarget", fields: [targetLineId], references: [id], onDelete: Restrict)
+  createdBy  User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([budgetId])
@@ -2703,27 +2721,27 @@ model BudgetReallocation {
 }
 
 model Supplier {
-  id             String         @id @default(cuid())
-  clientId       String
+  id                 String             @id @default(cuid())
+  clientId           String
   supplierCategoryId String?
-  name           String
-  normalizedName String
-  code           String?
-  siret          String?
-  externalId     String?
-  email          String?
-  phone          String?
-  website        String?
-  logoUrl        String?
-  logoMimeType   String?
-  vatNumber      String?
-  notes          String?
-  status         SupplierStatus @default(ACTIVE)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  supplierCategory SupplierCategory? @relation(fields: [supplierCategoryId], references: [id], onDelete: SetNull)
-  contacts       SupplierContact[]
+  name               String
+  normalizedName     String
+  code               String?
+  siret              String?
+  externalId         String?
+  email              String?
+  phone              String?
+  website            String?
+  logoUrl            String?
+  logoMimeType       String?
+  vatNumber          String?
+  notes              String?
+  status             SupplierStatus     @default(ACTIVE)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  client             Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplierCategory   SupplierCategory?  @relation(fields: [supplierCategoryId], references: [id], onDelete: SetNull)
+  contacts           SupplierContact[]
   purchaseOrders     PurchaseOrder[]
   invoices           Invoice[]
   supplierContracts  SupplierContract[]
@@ -2792,24 +2810,24 @@ model SupplierCategory {
 }
 
 model PurchaseOrder {
-  id           String              @id @default(cuid())
-  clientId     String
-  supplierId   String
-  budgetLineId String?
-  reference    String
-  label        String
-  amountHt     Decimal             @db.Decimal(18, 2)
-  taxRate      Decimal?            @db.Decimal(5, 2)
-  taxAmount    Decimal?            @db.Decimal(18, 2)
-  amountTtc    Decimal?            @db.Decimal(18, 2)
-  orderDate    DateTime
-  status       PurchaseOrderStatus @default(APPROVED)
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  supplier     Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  budgetLine   BudgetLine?         @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
-  invoices     Invoice[]
+  id                     String                  @id @default(cuid())
+  clientId               String
+  supplierId             String
+  budgetLineId           String?
+  reference              String
+  label                  String
+  amountHt               Decimal                 @db.Decimal(18, 2)
+  taxRate                Decimal?                @db.Decimal(5, 2)
+  taxAmount              Decimal?                @db.Decimal(18, 2)
+  amountTtc              Decimal?                @db.Decimal(18, 2)
+  orderDate              DateTime
+  status                 PurchaseOrderStatus     @default(APPROVED)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  client                 Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplier               Supplier                @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  budgetLine             BudgetLine?             @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  invoices               Invoice[]
   procurementAttachments ProcurementAttachment[]
 
   @@unique([clientId, reference])
@@ -2820,25 +2838,25 @@ model PurchaseOrder {
 }
 
 model Invoice {
-  id              String        @id @default(cuid())
-  clientId        String
-  supplierId      String
-  budgetLineId    String?
-  purchaseOrderId String?
-  invoiceNumber   String
-  label           String
-  amountHt        Decimal       @db.Decimal(18, 2)
-  taxRate         Decimal?      @db.Decimal(5, 2)
-  taxAmount       Decimal?      @db.Decimal(18, 2)
-  amountTtc       Decimal?      @db.Decimal(18, 2)
-  invoiceDate     DateTime
-  status          InvoiceStatus @default(VALIDATED)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  supplier        Supplier      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  budgetLine      BudgetLine?   @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
-  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  id                     String                  @id @default(cuid())
+  clientId               String
+  supplierId             String
+  budgetLineId           String?
+  purchaseOrderId        String?
+  invoiceNumber          String
+  label                  String
+  amountHt               Decimal                 @db.Decimal(18, 2)
+  taxRate                Decimal?                @db.Decimal(5, 2)
+  taxAmount              Decimal?                @db.Decimal(18, 2)
+  amountTtc              Decimal?                @db.Decimal(18, 2)
+  invoiceDate            DateTime
+  status                 InvoiceStatus           @default(VALIDATED)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  client                 Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplier               Supplier                @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  budgetLine             BudgetLine?             @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  purchaseOrder          PurchaseOrder?          @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
   procurementAttachments ProcurementAttachment[]
 
   @@unique([clientId, invoiceNumber, supplierId])
@@ -2850,10 +2868,10 @@ model Invoice {
 
 /// RFC-034 Phase 1 — GED pièces jointes ; exactement un parent PO **ou** facture (contrainte CHECK migration).
 model ProcurementAttachment {
-  id               String   @id @default(cuid())
-  clientId         String
-  purchaseOrderId  String?
-  invoiceId        String?
+  id              String  @id @default(cuid())
+  clientId        String
+  purchaseOrderId String?
+  invoiceId       String?
 
   name             String
   originalFilename String?
@@ -2861,17 +2879,17 @@ model ProcurementAttachment {
   extension        String?
   sizeBytes        Int?
 
-  category   ProcurementAttachmentCategory @default(OTHER)
-  status     ProcurementAttachmentStatus   @default(ACTIVE)
-  storageType ProcurementStorageType       @default(STARIUM)
+  category    ProcurementAttachmentCategory @default(OTHER)
+  status      ProcurementAttachmentStatus   @default(ACTIVE)
+  storageType ProcurementStorageType        @default(STARIUM)
 
   storageBucket  String
   objectKey      String
   checksumSha256 String?
 
   uploadedByUserId String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
   archivedAt       DateTime?
 
   client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -2905,7 +2923,7 @@ model SupplierContractKindType {
 }
 
 model SupplierContract {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   clientId   String
   supplierId String
 
@@ -2949,7 +2967,7 @@ model SupplierContract {
 
 /// RFC-036 — pièce jointe contrat (stockage aligné procurement).
 model ContractAttachment {
-  id                 String   @id @default(cuid())
+  id                 String @id @default(cuid())
   clientId           String
   supplierContractId String
 
@@ -2959,17 +2977,17 @@ model ContractAttachment {
   extension        String?
   sizeBytes        Int?
 
-  category    ContractAttachmentCategory    @default(OTHER)
-  status      ProcurementAttachmentStatus   @default(ACTIVE)
-  storageType ProcurementStorageType        @default(STARIUM)
+  category    ContractAttachmentCategory  @default(OTHER)
+  status      ProcurementAttachmentStatus @default(ACTIVE)
+  storageType ProcurementStorageType      @default(STARIUM)
 
   storageBucket  String
   objectKey      String
   checksumSha256 String?
 
   uploadedByUserId String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
   archivedAt       DateTime?
 
   client           Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -3011,49 +3029,49 @@ enum BudgetImportMode {
 }
 
 model BudgetImportMapping {
-  id              String                  @id @default(cuid())
-  clientId        String
-  name            String
-  description     String?
-  sourceType      BudgetImportSourceType
-  entityType      BudgetImportEntityType   @default(BUDGET_LINES)
-  sheetName       String?
-  headerRowIndex  Int                      @default(1)
-  mappingConfig   Json
-  optionsConfig   Json?
-  createdById     String?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  id             String                 @id @default(cuid())
+  clientId       String
+  name           String
+  description    String?
+  sourceType     BudgetImportSourceType
+  entityType     BudgetImportEntityType @default(BUDGET_LINES)
+  sheetName      String?
+  headerRowIndex Int                    @default(1)
+  mappingConfig  Json
+  optionsConfig  Json?
+  createdById    String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdBy User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
   jobs      BudgetImportJob[]
 
   @@index([clientId])
 }
 
 model BudgetImportJob {
-  id            String                @id @default(cuid())
-  clientId      String
-  budgetId      String
-  mappingId     String?
-  fileName      String
-  sourceType    BudgetImportSourceType
-  status        BudgetImportJobStatus
-  importMode    BudgetImportMode
-  totalRows     Int                   @default(0)
-  createdRows   Int                   @default(0)
-  updatedRows   Int                   @default(0)
-  skippedRows   Int                   @default(0)
-  errorRows     Int                   @default(0)
-  summary       Json?
-  createdById   String?
-  createdAt     DateTime              @default(now())
+  id          String                 @id @default(cuid())
+  clientId    String
+  budgetId    String
+  mappingId   String?
+  fileName    String
+  sourceType  BudgetImportSourceType
+  status      BudgetImportJobStatus
+  importMode  BudgetImportMode
+  totalRows   Int                    @default(0)
+  createdRows Int                    @default(0)
+  updatedRows Int                    @default(0)
+  skippedRows Int                    @default(0)
+  errorRows   Int                    @default(0)
+  summary     Json?
+  createdById String?
+  createdAt   DateTime               @default(now())
 
-  client    Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  budget    Budget                 @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  mapping   BudgetImportMapping?   @relation(fields: [mappingId], references: [id], onDelete: SetNull)
-  createdBy User?                  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  client    Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budget    Budget                @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  mapping   BudgetImportMapping?  @relation(fields: [mappingId], references: [id], onDelete: SetNull)
+  createdBy User?                 @relation(fields: [createdById], references: [id], onDelete: SetNull)
   rowLinks  BudgetImportRowLink[]
 
   @@index([clientId, budgetId])
@@ -3071,10 +3089,10 @@ model BudgetImportRowLink {
   externalId       String?
   compositeHash    String?
   fingerprintData  Json?
-  createdAt        DateTime                    @default(now())
+  createdAt        DateTime                     @default(now())
 
-  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  importJob BudgetImportJob  @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  client    Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  importJob BudgetImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
 
   @@index([clientId, budgetId, targetEntityType, targetEntityId])
   @@index([clientId, budgetId, externalId])
@@ -3084,13 +3102,13 @@ model BudgetImportRowLink {
 // --- End Budget MVP ---
 
 model RefreshToken {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   tokenHash String
   userId    String
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   revokedAt DateTime?
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([tokenHash])
@@ -3098,9 +3116,9 @@ model RefreshToken {
 
 /// Paramètres 2FA TOTP par utilisateur (un seul enregistrement par user).
 model UserMfa {
-  id        String    @id @default(cuid())
-  userId    String    @unique
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Secret TOTP chiffré (AES-256-GCM) — présent dès l’init d’enrollment ou après activation
   totpSecretEncrypted String?
   totpPending         Boolean   @default(false)
@@ -3114,18 +3132,18 @@ model UserMfa {
 }
 
 model MfaChallenge {
-  id           String               @id @default(cuid())
+  id           String              @id @default(cuid())
   userId       String
-  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   purpose      MfaChallengePurpose
-  channel      MfaChallengeChannel  @default(TOTP)
+  channel      MfaChallengeChannel @default(TOTP)
   /// OTP email (fallback) : hash du code à usage unique
   otpCodeHash  String?
   emailSentAt  DateTime?
   expiresAt    DateTime
-  attemptCount Int                  @default(0)
+  attemptCount Int                 @default(0)
   consumedAt   DateTime?
-  createdAt    DateTime             @default(now())
+  createdAt    DateTime            @default(now())
 
   @@index([userId])
   @@index([expiresAt])
@@ -3229,15 +3247,15 @@ model SecurityLog {
 }
 
 model MicrosoftOAuthState {
-  id             String   @id @default(cuid())
-  stateTokenHash String   @unique
+  id             String    @id @default(cuid())
+  stateTokenHash String    @unique
   userId         String?
   clientId       String?
   /// Redirect URI OAuth utilisée pour cette demande (SSO plateforme ou connexion client).
   redirectUri    String?
   expiresAt      DateTime
   consumedAt     DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   @@index([expiresAt])
   @@index([consumedAt])
@@ -3258,9 +3276,9 @@ model MicrosoftConnection {
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
 
-  client          Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  connectedByUser User?  @relation("MicrosoftConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
-  projectLinks   ProjectMicrosoftLink[]
+  client          Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  connectedByUser User?                  @relation("MicrosoftConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
+  projectLinks    ProjectMicrosoftLink[]
 
   @@unique([clientId, tenantId])
   @@index([clientId])
@@ -3272,23 +3290,23 @@ model ProjectMicrosoftLink {
   id String @id @default(cuid())
 
   clientId              String
-  projectId             String @unique
+  projectId             String  @unique
   microsoftConnectionId String?
 
   isEnabled Boolean @default(false)
 
-  teamId         String?
-  teamName       String?
-  channelId      String?
-  channelName    String?
-  plannerPlanId  String?
+  teamId           String?
+  teamName         String?
+  channelId        String?
+  channelName      String?
+  plannerPlanId    String?
   plannerPlanTitle String?
 
-  filesDriveId   String?
-  filesFolderId  String?
+  filesDriveId  String?
+  filesFolderId String?
 
-  syncTasksEnabled      Boolean @default(true)
-  syncDocumentsEnabled  Boolean @default(true)
+  syncTasksEnabled           Boolean @default(true)
+  syncDocumentsEnabled       Boolean @default(true)
   /// Si true : les buckets du planning sont ceux du plan Planner (remplace les buckets Starium).
   useMicrosoftPlannerBuckets Boolean @default(false)
 
@@ -3300,11 +3318,11 @@ model ProjectMicrosoftLink {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client                Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project               Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  microsoftConnection   MicrosoftConnection? @relation(fields: [microsoftConnectionId], references: [id], onDelete: SetNull)
+  client              Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project             Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  microsoftConnection MicrosoftConnection? @relation(fields: [microsoftConnectionId], references: [id], onDelete: SetNull)
 
-  taskSyncs ProjectTaskMicrosoftSync[]
+  taskSyncs     ProjectTaskMicrosoftSync[]
   documentSyncs ProjectDocumentMicrosoftSync[]
 
   @@index([clientId])
@@ -3313,7 +3331,7 @@ model ProjectMicrosoftLink {
 
 /// RFC-PROJ-INT-009 — mapping sync one-way ProjectDocument → Teams/SharePoint drive.
 model ProjectDocumentMicrosoftSync {
-  id                     String @id @default(cuid())
+  id String @id @default(cuid())
 
   clientId               String
   projectId              String
@@ -3321,21 +3339,21 @@ model ProjectDocumentMicrosoftSync {
   projectDocumentId      String @unique
   projectMicrosoftLinkId String
 
-  driveId                String
-  driveItemId            String
-  folderPath             String
+  driveId     String
+  driveItemId String
+  folderPath  String
 
-  syncStatus             MicrosoftSyncStatus @default(PENDING)
-  lastPushedAt           DateTime?
-  lastError              String?
+  syncStatus   MicrosoftSyncStatus @default(PENDING)
+  lastPushedAt DateTime?
+  lastError    String?
 
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  client                 Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project                Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectDocument        ProjectDocument        @relation(fields: [projectDocumentId], references: [id], onDelete: Cascade)
-  projectMicrosoftLink   ProjectMicrosoftLink   @relation(fields: [projectMicrosoftLinkId], references: [id], onDelete: Cascade)
+  client               Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project              Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectDocument      ProjectDocument      @relation(fields: [projectDocumentId], references: [id], onDelete: Cascade)
+  projectMicrosoftLink ProjectMicrosoftLink @relation(fields: [projectMicrosoftLinkId], references: [id], onDelete: Cascade)
 
   @@index([clientId, projectId])
   @@index([driveItemId])
@@ -3344,25 +3362,25 @@ model ProjectDocumentMicrosoftSync {
 model ProjectTaskMicrosoftSync {
   id String @id @default(cuid())
 
-  clientId              String
-  projectId             String
-  projectTaskId         String @unique
+  clientId               String
+  projectId              String
+  projectTaskId          String @unique
   projectMicrosoftLinkId String
 
-  plannerTaskId         String
-  lastPushedAt          DateTime?
+  plannerTaskId           String
+  lastPushedAt            DateTime?
   lastPullFromMicrosoftAt DateTime?
-  lastSyncedPlannerEtag String?
+  lastSyncedPlannerEtag   String?
   lastSyncedTaskUpdatedAt DateTime?
-  syncStatus            MicrosoftSyncStatus @default(PENDING)
-  lastError             String?
+  syncStatus              MicrosoftSyncStatus @default(PENDING)
+  lastError               String?
 
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectTask ProjectTask @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
+  client               Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project              Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectTask          ProjectTask          @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
   projectMicrosoftLink ProjectMicrosoftLink @relation(fields: [projectMicrosoftLinkId], references: [id], onDelete: Cascade)
 
   @@unique([clientId, projectTaskId])
@@ -3401,7 +3419,7 @@ model DirectoryGroupScope {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  client     Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client     Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
   connection DirectoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
   @@unique([connectionId, groupId])
@@ -3409,20 +3427,20 @@ model DirectoryGroupScope {
 }
 
 model DirectorySyncJob {
-  id               String               @id @default(cuid())
-  clientId         String
-  connectionId     String
-  status           DirectorySyncJobStatus
-  mode             DirectorySyncMode
-  startedAt        DateTime             @default(now())
-  finishedAt       DateTime?
-  totalFound       Int                  @default(0)
-  createdCount     Int                  @default(0)
-  updatedCount     Int                  @default(0)
-  deactivatedCount Int                  @default(0)
-  skippedCount     Int                  @default(0)
-  errorCount       Int                  @default(0)
-  summary          Json?
+  id                String                 @id @default(cuid())
+  clientId          String
+  connectionId      String
+  status            DirectorySyncJobStatus
+  mode              DirectorySyncMode
+  startedAt         DateTime               @default(now())
+  finishedAt        DateTime?
+  totalFound        Int                    @default(0)
+  createdCount      Int                    @default(0)
+  updatedCount      Int                    @default(0)
+  deactivatedCount  Int                    @default(0)
+  skippedCount      Int                    @default(0)
+  errorCount        Int                    @default(0)
+  summary           Json?
   triggeredByUserId String?
 
   client     Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -3433,7 +3451,7 @@ model DirectorySyncJob {
 }
 
 model Collaborator {
-  id                    String                @id @default(cuid())
+  id                    String                 @id @default(cuid())
   clientId              String
   /// Compte plateforme rattaché à ce client (membre) — identité pilotée par User + synchro membre/ressource.
   userId                String?
@@ -3448,8 +3466,8 @@ model Collaborator {
   mobile                String?
   employeeNumber        String?
   managerId             String?
-  status                CollaboratorStatus    @default(ACTIVE)
-  source                CollaboratorSource    @default(MANUAL)
+  status                CollaboratorStatus     @default(ACTIVE)
+  source                CollaboratorSource     @default(MANUAL)
   externalDirectoryId   String?
   externalDirectoryType ExternalDirectoryType?
   externalUsername      String?
@@ -3461,13 +3479,13 @@ model Collaborator {
   internalTags          Json?
   assignments           Json?
   metadata              Json?
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
-  client       Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  linkedUser   User?          @relation("CollaboratorLinkedUser", fields: [userId], references: [id], onDelete: SetNull)
-  manager      Collaborator?  @relation("CollaboratorManager", fields: [managerId], references: [id], onDelete: SetNull)
-  reports      Collaborator[] @relation("CollaboratorManager")
+  client             Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  linkedUser         User?               @relation("CollaboratorLinkedUser", fields: [userId], references: [id], onDelete: SetNull)
+  manager            Collaborator?       @relation("CollaboratorManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports            Collaborator[]      @relation("CollaboratorManager")
   collaboratorSkills CollaboratorSkill[]
 
   @@unique([clientId, externalDirectoryId])
@@ -3493,8 +3511,8 @@ model ActivityType {
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  resourceTimeEntries     ResourceTimeEntry[]
+  client              Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  resourceTimeEntries ResourceTimeEntry[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -3504,17 +3522,17 @@ model ActivityType {
 
 /// RFC-TEAM-020 / TEAM-009 — temps réalisé (saisie par Resource HUMAN).
 model ResourceTimeEntry {
-  id               String          @id @default(cuid())
-  clientId         String
-  resourceId       String
-  workDate         DateTime
-  durationHours    Decimal         @db.Decimal(8, 2)
-  projectId        String?
-  activityTypeId   String?
-  status           TimeEntryStatus @default(DRAFT)
-  notes            String?         @db.VarChar(4000)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id             String          @id @default(cuid())
+  clientId       String
+  resourceId     String
+  workDate       DateTime
+  durationHours  Decimal         @db.Decimal(8, 2)
+  projectId      String?
+  activityTypeId String?
+  status         TimeEntryStatus @default(DRAFT)
+  notes          String?         @db.VarChar(4000)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   resource     Resource      @relation(fields: [resourceId], references: [id], onDelete: Restrict)
@@ -3529,18 +3547,18 @@ model ResourceTimeEntry {
 
 /// Verrouillage par mois calendaire UTC (YYYY-MM) : après validation, saisies figées jusqu’au déverrouillage par le manager.
 model ResourceTimesheetMonth {
-  id                  String               @id @default(cuid())
-  clientId            String
-  resourceId          String
+  id                String               @id @default(cuid())
+  clientId          String
+  resourceId        String
   /// Format `YYYY-MM` (mois UTC cohérent avec les filtres API des entrées).
-  yearMonth           String
-  status              TimesheetMonthStatus @default(OPEN)
-  submittedAt         DateTime?
-  submittedByUserId   String?
-  unlockedAt          DateTime?
-  unlockedByUserId    String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  yearMonth         String
+  status            TimesheetMonthStatus @default(OPEN)
+  submittedAt       DateTime?
+  submittedByUserId String?
+  unlockedAt        DateTime?
+  unlockedByUserId  String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
   client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
@@ -3592,14 +3610,14 @@ model WorkTeamMembership {
 }
 
 model ManagerScopeConfig {
-  id                String           @id @default(cuid())
-  clientId          String
-  managerResourceId String           @unique
-  mode              ManagerScopeMode
-  includeDirectReports Boolean       @default(true)
-  includeTeamSubtree   Boolean       @default(false)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  id                   String           @id @default(cuid())
+  clientId             String
+  managerResourceId    String           @unique
+  mode                 ManagerScopeMode
+  includeDirectReports Boolean          @default(true)
+  includeTeamSubtree   Boolean          @default(false)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   client    Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
   manager   Resource               @relation(fields: [managerResourceId], references: [id], onDelete: Cascade)
@@ -3632,7 +3650,7 @@ model SkillCategory {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   skills Skill[]
 
   @@unique([clientId, normalizedName])
@@ -3641,20 +3659,20 @@ model SkillCategory {
 }
 
 model Skill {
-  id              String              @id @default(cuid())
-  clientId        String
-  categoryId      String
-  name            String
-  normalizedName  String
-  description     String?
-  referenceLevel  SkillReferenceLevel @default(INTERMEDIATE)
-  status          SkillStatus         @default(DRAFT)
-  archivedAt      DateTime?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id             String              @id @default(cuid())
+  clientId       String
+  categoryId     String
+  name           String
+  normalizedName String
+  description    String?
+  referenceLevel SkillReferenceLevel @default(INTERMEDIATE)
+  status         SkillStatus         @default(DRAFT)
+  archivedAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
-  client   Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  category SkillCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  client             Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category           SkillCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   collaboratorSkills CollaboratorSkill[]
 
   @@unique([clientId, normalizedName])
@@ -3664,18 +3682,18 @@ model Skill {
 }
 
 model CollaboratorSkill {
-  id                  String                  @id @default(cuid())
-  clientId            String
+  id                String                  @id @default(cuid())
+  clientId          String
   collaboratorId    String
-  skillId             String
-  level               SkillReferenceLevel     @default(BEGINNER)
-  source              CollaboratorSkillSource @default(SELF_DECLARED)
-  comment             String?
-  reviewedAt          DateTime?
-  validatedByUserId   String?
-  validatedAt         DateTime?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
+  skillId           String
+  level             SkillReferenceLevel     @default(BEGINNER)
+  source            CollaboratorSkillSource @default(SELF_DECLARED)
+  comment           String?
+  reviewedAt        DateTime?
+  validatedByUserId String?
+  validatedAt       DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
   client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   collaborator Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
