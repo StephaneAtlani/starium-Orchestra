@@ -30,6 +30,10 @@ import {
   ProjectScenarioTasksService,
   type ProjectScenarioTimelineSummaryDto,
 } from './project-scenario-tasks.service';
+import {
+  ProjectScenarioRisksService,
+} from './project-scenario-risks.service';
+import { type ProjectScenarioRiskSummaryDto } from './dto/project-scenario-risk-summary.dto';
 import { UpdateProjectScenarioDto } from './dto/update-project-scenario.dto';
 
 type ScenarioSummaryDto = {
@@ -53,7 +57,7 @@ type ScenarioSummaryDto = {
   resourceSummary: ProjectScenarioResourceSummaryDto | null;
   timelineSummary: ProjectScenarioTimelineSummaryDto | null;
   capacitySummary: ProjectScenarioCapacitySummaryDto | null;
-  riskSummary: null;
+  riskSummary: ProjectScenarioRiskSummaryDto | null;
 };
 
 @Injectable()
@@ -64,6 +68,7 @@ export class ProjectScenariosService {
     private readonly scenarioFinancialLines: ProjectScenarioFinancialLinesService,
     private readonly scenarioCapacity: ProjectScenarioCapacityService,
     private readonly scenarioResourcePlans: ProjectScenarioResourcePlansService,
+    private readonly scenarioRisks: ProjectScenarioRisksService,
     private readonly scenarioTasks: ProjectScenarioTasksService,
   ) {}
 
@@ -145,12 +150,18 @@ export class ProjectScenariosService {
       projectId,
       scenarioId,
     );
+    const riskSummary = await this.scenarioRisks.buildRiskSummary(
+      clientId,
+      projectId,
+      scenarioId,
+    );
     return {
       ...summary,
       budgetSummary,
       resourceSummary,
       timelineSummary,
       capacitySummary,
+      riskSummary,
     };
   }
 

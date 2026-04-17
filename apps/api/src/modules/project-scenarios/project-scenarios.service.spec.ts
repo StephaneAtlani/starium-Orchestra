@@ -3,6 +3,7 @@ import { Prisma, ProjectScenarioStatus } from '@prisma/client';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ProjectScenarioCapacityService } from './project-scenario-capacity.service';
 import { ProjectScenarioFinancialLinesService } from './project-scenario-financial-lines.service';
+import { ProjectScenarioRisksService } from './project-scenario-risks.service';
 import { ProjectScenarioResourcePlansService } from './project-scenario-resource-plans.service';
 import { ProjectScenarioTasksService } from './project-scenario-tasks.service';
 import { ProjectScenariosService } from './project-scenarios.service';
@@ -14,6 +15,7 @@ describe('ProjectScenariosService', () => {
   let scenarioFinancialLines: { buildBudgetSummary: jest.Mock };
   let scenarioCapacity: { buildCapacitySummary: jest.Mock };
   let scenarioResourcePlans: { buildResourceSummary: jest.Mock };
+  let scenarioRisks: { buildRiskSummary: jest.Mock };
   let scenarioTasks: { buildTimelineSummary: jest.Mock };
 
   const clientId = 'client-1';
@@ -97,12 +99,20 @@ describe('ProjectScenariosService', () => {
         milestoneCount: 0,
       }),
     };
+    scenarioRisks = {
+      buildRiskSummary: jest.fn().mockResolvedValue({
+        criticalRiskCount: 0,
+        averageCriticality: null,
+        maxCriticality: null,
+      }),
+    };
     service = new ProjectScenariosService(
       prisma,
       auditLogs as unknown as AuditLogsService,
       scenarioFinancialLines as unknown as ProjectScenarioFinancialLinesService,
       scenarioCapacity as unknown as ProjectScenarioCapacityService,
       scenarioResourcePlans as unknown as ProjectScenarioResourcePlansService,
+      scenarioRisks as unknown as ProjectScenarioRisksService,
       scenarioTasks as unknown as ProjectScenarioTasksService,
     );
   });
@@ -190,6 +200,16 @@ describe('ProjectScenariosService', () => {
       peakLoadPct: null,
       averageLoadPct: null,
     });
+    expect(scenarioRisks.buildRiskSummary).toHaveBeenCalledWith(
+      clientId,
+      projectId,
+      'scenario-1',
+    );
+    expect(result.riskSummary).toEqual({
+      criticalRiskCount: 0,
+      averageCriticality: null,
+      maxCriticality: null,
+    });
   });
 
   it('duplicate : calcule une version monotone via MAX(version)+1', async () => {
@@ -226,6 +246,7 @@ describe('ProjectScenariosService', () => {
 
     const result = await service.list(clientId, projectId, { limit: 20, offset: 0 });
     expect(result.items[0].capacitySummary).toBeNull();
+    expect(result.items[0].riskSummary).toBeNull();
   });
 
   it("getOne : retourne 404 si le scénario n'appartient pas au projet demandé", async () => {

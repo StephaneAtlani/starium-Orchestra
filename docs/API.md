@@ -1986,11 +1986,11 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 
 ### Scénarios projet (RFC-PROJ-SC-001 / RFC-PROJ-SC-002) — `/api/projects/:projectId/scenarios`
 
-Socle backend de simulation / baseline projet. Isolation stricte par **client actif** et par **`projectId`** ; un `scenarioId` seul ne suffit jamais. `budgetSummary`, `resourceSummary`, `timelineSummary` et `capacitySummary` restent **`null` sur la liste** des scénarios ; sur le **détail** (`GET /api/projects/:projectId/scenarios/:scenarioId`), `budgetSummary`, `resourceSummary`, `timelineSummary` et `capacitySummary` sont alimentés par leurs services dédiés. `riskSummary` reste `null` à ce stade.
+Socle backend de simulation / baseline projet. Isolation stricte par **client actif** et par **`projectId`** ; un `scenarioId` seul ne suffit jamais. `budgetSummary`, `resourceSummary`, `timelineSummary`, `capacitySummary` et `riskSummary` restent **`null` sur la liste** des scénarios ; sur le **détail** (`GET /api/projects/:projectId/scenarios/:scenarioId`), `budgetSummary`, `resourceSummary`, `timelineSummary`, `capacitySummary` et `riskSummary` sont alimentés par leurs services dédiés.
 
 - **GET /api/projects/:projectId/scenarios** — Liste paginée `{ items, total, limit, offset }`. Query supportée : `search`, `status`, `limit`, `offset`. **`projects.read`**
 - **POST /api/projects/:projectId/scenarios** — Création (`name` requis, `code` optionnel, `description`, `assumptionSummary`). Le scénario est créé en `DRAFT`, avec `isBaseline = false`. **`projects.update`**
-- **GET /api/projects/:projectId/scenarios/:scenarioId** — Détail / résumé d’un scénario ; inclut `budgetSummary`, `resourceSummary`, `timelineSummary` et `capacitySummary` (SC-005). **`projects.read`**
+- **GET /api/projects/:projectId/scenarios/:scenarioId** — Détail / résumé d’un scénario ; inclut `budgetSummary`, `resourceSummary`, `timelineSummary`, `capacitySummary` (SC-005) et `riskSummary` (SC-006). **`projects.read`**
 - **PATCH /api/projects/:projectId/scenarios/:scenarioId** — Mise à jour des métadonnées (`name`, `code`, `description`, `assumptionSummary`) ; refus si le scénario est `ARCHIVED`. **`projects.update`**
 - **POST /api/projects/:projectId/scenarios/:scenarioId/duplicate** — Duplication **légère** du scénario (pas de clonage tâches / risques / budget-links). La `version` est calculée par projet via `MAX(version) + 1`. **`projects.update`**
 - **POST /api/projects/:projectId/scenarios/:scenarioId/select** — Sélectionne la baseline du projet. Le scénario ciblé passe `SELECTED`, `isBaseline = true`, les autres scénarios du projet sont archivés. En cas de concurrence sur l’unicité `SELECTED`, l’API répond par un conflit maîtrisé. **`projects.update`**
@@ -2076,6 +2076,37 @@ Audit :
 
 - Mutation auditée : **`project.scenario_capacity.recomputed`** (resourceType `project_scenario_capacity`) avec volumes `deletedCount` et `createdCount`.
 - Aucun audit sur `GET .../capacity` et `GET .../capacity-summary`.
+
+### Risques scénario (RFC-PROJ-SC-006) — `/api/projects/:projectId/scenarios/:scenarioId/risks|risk-summary`
+
+Périmètre **backend only**. Registre de risques de simulation strictement séparé de `ProjectRisk` (registre opérationnel). Scope strict **client actif** + `projectId` + `scenarioId`.
+
+- **GET .../risks** — Liste paginée `{ items, total, limit, offset }`, tri par défaut `createdAt DESC`. Query supportée au MVP : `limit`, `offset` (aucun autre filtre). **`projects.read`**
+- **POST .../risks** — Création ; retourne `ProjectScenarioRiskDto`. Validation: `probability` et `impact` bornés à `1..5`, `criticalityScore = probability * impact`. `riskTypeId` optionnel, validé via taxonomie client si fourni. Refus si scénario `ARCHIVED`. **`projects.update`**
+- **PATCH .../risks/:riskId** — Mise à jour partielle ; retourne `ProjectScenarioRiskDto`. Recalcul systématique de `criticalityScore` après merge des valeurs finales si `probability` ou `impact` changent. Refus si scénario `ARCHIVED`. **`projects.update`**
+- **DELETE .../risks/:riskId** — Suppression ; **`204 No Content`**. Refus si scénario `ARCHIVED`. **`projects.update`**
+- **GET .../risk-summary** — Retourne `ProjectScenarioRiskSummaryDto`: `criticalRiskCount`, `averageCriticality`, `maxCriticality`. Seuil canonique: `criticalRiskCount = nombre de risques avec criticalityScore >= 15`. **`projects.read`**
+
+DTO `ProjectScenarioRiskDto` :
+
+- `id`, `clientId`, `scenarioId`, `riskTypeId`, `title`, `description`, `probability`, `impact`, `criticalityScore`, `mitigationPlan`, `ownerLabel`, `createdAt`, `updatedAt`
+- `riskType` : `{ id, code, label } | null` (avec `label` dérivé du nom de taxonomie)
+
+DTO `ProjectScenarioRiskSummaryDto` :
+
+- `criticalRiskCount` (number)
+- `averageCriticality` (`number | null`)
+- `maxCriticality` (`number | null`)
+- Cas sans risque: `criticalRiskCount = 0`, `averageCriticality = null`, `maxCriticality = null`
+
+Audit :
+
+- Mutations auditées uniquement:
+  - **`project.scenario_risk.created`**
+  - **`project.scenario_risk.updated`**
+  - **`project.scenario_risk.deleted`**
+- `resourceType` : `project_scenario_risk`
+- Aucun audit sur `GET .../risks` et `GET .../risk-summary`.
 
 ### Planification Gantt scénario (RFC-PROJ-SC-004) — `/api/projects/:projectId/scenarios/:scenarioId/tasks|bootstrap-from-project-plan|timeline-summary`
 

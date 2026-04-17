@@ -9,7 +9,7 @@
 | RFC-PROJ-SC-003    | Scenario Resource Planning  | Plan de charge / rôle / période par scénario sur `Resource`                      | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-004    | Scenario Planning Gantt     | Planning autonome par scénario                                                   | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-005    | Scenario Capacity Engine    | Calcul charge vs capacité pour juger la faisabilité                              | **Backend**   | ✅ Implémenté (MVP) |
-| RFC-PROJ-SC-006    | Scenario Risk Modeling      | Modélisation des risques projetés par scénario                                   | **Backend**   | ❌ À faire |
+| RFC-PROJ-SC-006    | Scenario Risk Modeling      | Modélisation des risques projetés par scénario                                   | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-007    | Scenario Selection Workflow | Sélection atomique de la baseline et archivage des variantes                     | **Backend**   | ❌ À faire |
 | RFC-FE-PROJ-SC-001 | Scenarios Tab UI            | Onglet Scénarios dans la fiche projet                                            | **Frontend**  | ❌ À faire |
 | RFC-FE-PROJ-SC-002 | Scenario Cockpit UI         | Cockpit décisionnel scénario vs baseline vs réel                                 | **Frontend**  | ❌ À faire |
@@ -174,6 +174,14 @@ Résultat attendu :
 Résultat attendu :
 
 * arbitrage coût / délai / charge / risque réellement multidimensionnel
+
+État réel (MVP backend livré) :
+
+* Prisma `ProjectScenarioRisk` + migration dédiée
+* Routes : `GET|POST|PATCH|DELETE /api/projects/:projectId/scenarios/:scenarioId/risks`, `GET .../risk-summary`
+* `GET /api/projects/:projectId/scenarios/:scenarioId` expose `riskSummary` (liste scénarios inchangée avec `riskSummary: null`)
+* règles serveur : `criticalityScore = probability * impact`, bornes `1..5`, seuil `criticalRiskCount >= 15`
+* `riskTypeId` optionnel validé client-scopé, mutations interdites si scénario `ARCHIVED`, audit mutations uniquement
 
 ## Phase 6 — Frontend décisionnel
 

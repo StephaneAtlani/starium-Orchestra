@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 Draft
+✅ Implémentée (backend MVP)
 
 ## Priorité
 
@@ -107,6 +107,27 @@ GET    /api/projects/:projectId/scenarios/:scenarioId/risk-summary
 2. Réutiliser les conventions DTO / validation des risques projet.
 3. Exposer CRUD + résumé.
 4. Raccorder au cockpit scénario.
+
+### État réel d’implémentation
+
+- Backend livré (MVP) :
+  - modèle Prisma `ProjectScenarioRisk` + migration dédiée
+  - endpoints :
+    - `GET /api/projects/:projectId/scenarios/:scenarioId/risks` (paginé, tri `createdAt DESC`)
+    - `POST /api/projects/:projectId/scenarios/:scenarioId/risks`
+    - `PATCH /api/projects/:projectId/scenarios/:scenarioId/risks/:riskId`
+    - `DELETE /api/projects/:projectId/scenarios/:scenarioId/risks/:riskId` (`204 No Content`)
+    - `GET /api/projects/:projectId/scenarios/:scenarioId/risk-summary`
+  - règles métier verrouillées :
+    - `criticalityScore = probability * impact`
+    - bornes `probability`/`impact` : `1..5`
+    - seuil canonique `criticalRiskCount` : `criticalityScore >= 15`
+  - `riskTypeId` optionnel, validé client-scopé si fourni (`RiskTaxonomyService.assertUsableRiskTypeForWrite`)
+  - mutation refusée si scénario `ARCHIVED`
+  - audit mutations uniquement : `project.scenario_risk.created|updated|deleted`
+  - injection de `riskSummary` dans `GET /api/projects/:projectId/scenarios/:scenarioId` (liste scénarios inchangée : `riskSummary: null`)
+- Hors scope de ce lot :
+  - raccord cockpit frontend (`RFC-FE-PROJ-SC-002`)
 
 ---
 

@@ -12,6 +12,7 @@ export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT_SCENARIO_FINANCIAL_LINE: 'project_scenario_financial_line',
   PROJECT_SCENARIO_RESOURCE_PLAN: 'project_scenario_resource_plan',
   PROJECT_SCENARIO_CAPACITY: 'project_scenario_capacity',
+  PROJECT_SCENARIO_RISK: 'project_scenario_risk',
   PROJECT_SCENARIO_TASK: 'project_scenario_task',
   PROJECT_DOCUMENT: 'project_document',
   /** RFC-PROJ-013 */
@@ -76,6 +77,9 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_SCENARIO_RESOURCE_PLAN_UPDATED: 'project.scenario_resource_plan.updated',
   PROJECT_SCENARIO_RESOURCE_PLAN_DELETED: 'project.scenario_resource_plan.deleted',
   PROJECT_SCENARIO_CAPACITY_RECOMPUTED: 'project.scenario_capacity.recomputed',
+  PROJECT_SCENARIO_RISK_CREATED: 'project.scenario_risk.created',
+  PROJECT_SCENARIO_RISK_UPDATED: 'project.scenario_risk.updated',
+  PROJECT_SCENARIO_RISK_DELETED: 'project.scenario_risk.deleted',
   PROJECT_SCENARIO_TASK_CREATED: 'project.scenario_task.created',
   PROJECT_SCENARIO_TASK_UPDATED: 'project.scenario_task.updated',
   PROJECT_SCENARIO_TASK_DELETED: 'project.scenario_task.deleted',
