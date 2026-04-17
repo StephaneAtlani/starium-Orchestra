@@ -143,6 +143,16 @@ export async function getProjectScenarios(
   return res.json() as Promise<PaginatedList<ProjectScenarioApi>>;
 }
 
+export async function getProjectScenario(
+  authFetch: AuthFetch,
+  projectId: string,
+  scenarioId: string,
+): Promise<ProjectScenarioApi> {
+  const res = await authFetch(`${BASE}/${projectId}/scenarios/${scenarioId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectScenarioApi>;
+}
+
 export async function createProjectScenario(
   authFetch: AuthFetch,
   projectId: string,

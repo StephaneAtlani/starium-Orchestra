@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -14,8 +15,10 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { CreateScenarioDialog } from './CreateScenarioDialog';
 import { ScenarioCard } from './ScenarioCard';
 import { SelectScenarioDialog } from './SelectScenarioDialog';
+import { projectScenarioCockpit } from '../constants/project-routes';
 import { useProjectScenariosMutations } from '../hooks/use-project-scenarios-mutations';
 import type { ProjectScenarioApi, SelectProjectScenarioPayload } from '../types/project.types';
+import { cn } from '@/lib/utils';
 
 type ProjectScenariosTabProps = {
   projectId: string;
@@ -58,15 +61,23 @@ export function ProjectScenariosTab({
             {scenarios.length} scénario(x) · {selectedCount} baseline active
           </p>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          disabled={!canMutate || isAnyPending}
-          title={disabledReason ?? undefined}
-          onClick={() => setCreateOpen(true)}
-        >
-          Créer un scénario
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={projectScenarioCockpit(projectId)}
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+          >
+            Ouvrir le cockpit
+          </Link>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!canMutate || isAnyPending}
+            title={disabledReason ?? undefined}
+            onClick={() => setCreateOpen(true)}
+          >
+            Créer un scénario
+          </Button>
+        </div>
       </header>
 
       {!canMutate ? (

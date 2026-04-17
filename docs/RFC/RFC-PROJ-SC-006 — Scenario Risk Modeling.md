@@ -127,7 +127,7 @@ GET    /api/projects/:projectId/scenarios/:scenarioId/risk-summary
   - audit mutations uniquement : `project.scenario_risk.created|updated|deleted`
   - injection de `riskSummary` dans `GET /api/projects/:projectId/scenarios/:scenarioId` (liste scénarios inchangée : `riskSummary: null`)
 - Hors scope de ce lot :
-  - raccord cockpit frontend (`RFC-FE-PROJ-SC-002`)
+  - raccord cockpit frontend (`RFC-FE-PROJ-SC-002`) — MVP : `riskSummary` sur détail scénario + panneau risques dans `/projects/.../scenarios/cockpit`
 
 ---
 

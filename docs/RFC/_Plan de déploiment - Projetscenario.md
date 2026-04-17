@@ -12,7 +12,7 @@
 | RFC-PROJ-SC-006    | Scenario Risk Modeling      | Modélisation des risques projetés par scénario                                   | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-007    | Scenario Selection Workflow | Sélection atomique baseline + transition projet via `POST /select-and-transition` | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-FE-PROJ-SC-001 | Scenarios Tab UI            | Onglet Scénarios dans la fiche projet                                            | **Frontend**  | ✅ Implémentée (MVP) |
-| RFC-FE-PROJ-SC-002 | Scenario Cockpit UI         | Cockpit décisionnel scénario vs baseline vs réel                                 | **Frontend**  | ❌ À faire |
+| RFC-FE-PROJ-SC-002 | Scenario Cockpit UI         | Cockpit décisionnel : comparaison deux scénarios (agrégats API)                     | **Frontend**  | ✅ Implémentée (MVP) |
 
 ---
 
@@ -204,7 +204,7 @@ Résultat attendu :
   * actions `create / duplicate / select / archive` (permissions `projects.update` gérées côté UI)
   * sélection simple (`POST .../select`) ou transition optionnelle (`POST .../select-and-transition`) via un point d’entrée frontend unique
   * affichage des summaries API sans recalcul frontend
-* RFC-FE-PROJ-SC-002 reste à faire (cockpit avancé hors lot MVP)
+* RFC-FE-PROJ-SC-002 livrée en MVP frontend : route `/projects/:projectId/scenarios/cockpit`, CTA depuis la liste scénarios, comparaison baseline / comparé (`GET .../scenarios/:scenarioId` × 2), pas d’onglet workspace dédié — voir [RFC-FE-PROJ-SC-002](./RFC-FE-PROJ-SC-002%20%E2%80%94%20Scenario%20Cockpit%20UI.md) ; évolutions « cockpit avancé » / multi-scénarios hors MVP listées § *Evolution V2*
 
 ---
 

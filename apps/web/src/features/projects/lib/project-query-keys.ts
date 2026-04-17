@@ -13,6 +13,9 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'detail', clientId, projectId] as const,
   scenarios: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'scenarios', clientId, projectId] as const,
+  /** GET /api/projects/:projectId/scenarios/:scenarioId — pas de clé agrégée cockpit. */
+  scenarioDetail: (clientId: string, projectId: string, scenarioId: string) =>
+    [...projectQueryKeys.all, 'scenario-detail', clientId, projectId, scenarioId] as const,
   optionsTags: (clientId: string) =>
     [...projectQueryKeys.all, 'options-tags', clientId] as const,
   optionsPortfolioCategories: (clientId: string) =>

@@ -30,6 +30,9 @@ export function useProjectScenariosMutations(projectId: string) {
       queryClient.invalidateQueries({
         queryKey: projectQueryKeys.scenarios(clientId, projectId),
       }),
+      queryClient.invalidateQueries({
+        queryKey: [...projectQueryKeys.all, 'scenario-detail', clientId, projectId],
+      }),
     ]);
   };
 

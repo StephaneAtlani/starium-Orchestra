@@ -364,6 +364,17 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `projects-toolbar` - `features/projects/components/projects-toolbar.tsx` - centralise les actions et filtres pour projets.
 - `task-form-dialog-fields` - `features/projects/components/task-form-dialog-fields.tsx` - ouvre un dialogue pour tache fields.
 
+## Projets / Scénarios cockpit — RFC-FE-PROJ-SC-002 (8)
+
+- `scenario-cockpit-page` - `features/projects/scenario-cockpit/ScenarioCockpitPage.tsx` - compose le cockpit comparaison deux scénarios (queries liste + détail).
+- `scenario-comparison-selector` - `features/projects/scenario-cockpit/ScenarioComparisonSelector.tsx` - sélection baseline / comparé (libellés métier).
+- `scenario-variance-cards` - `features/projects/scenario-cockpit/ScenarioVarianceCards.tsx` - cartes d’écarts par summary.
+- `scenario-capacity-alert-panel` - `features/projects/scenario-cockpit/ScenarioCapacityAlertPanel.tsx` - alertes capacité + lien liste scénarios.
+- `scenario-risk-panel` - `features/projects/scenario-cockpit/ScenarioRiskPanel.tsx` - synthèse risque + lien registre risques.
+- `sort-scenarios-cockpit` - `features/projects/scenario-cockpit/sort-scenarios-cockpit.ts` - tri canonique non archivés + résolution comparé par défaut.
+- `scenario-delta-utils` - `features/projects/scenario-cockpit/scenario-delta-utils.ts` - parsing numérique et deltas comparé − baseline.
+- `project-scenario-cockpit-route-page` - `app/(protected)/projects/[projectId]/scenarios/cockpit/page.tsx` - route Next.js du cockpit.
+
 ## Projets / Gantt (1)
 
 - `project-gantt-view` - `features/projects/gantt/components/project-gantt-view.tsx` - affiche la vue de projet gantt.

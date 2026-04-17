@@ -39,6 +39,11 @@ export function projectScenarios(projectId: string): string {
   return `/projects/${projectId}/scenarios`;
 }
 
+/** Cockpit comparaison scénarios (RFC-FE-PROJ-SC-002). */
+export function projectScenarioCockpit(projectId: string): string {
+  return `/projects/${projectId}/scenarios/cockpit`;
+}
+
 /** Options du projet (RFC-PROJ-OPT-001) — distinct de `projectsOptions()` (module / placeholder). */
 export function projectProjectOptions(projectId: string): string {
   return `/projects/${projectId}/options`;

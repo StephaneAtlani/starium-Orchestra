@@ -9,6 +9,11 @@ describe('Scenarios navigation and screen states', () => {
     expect(state.isSynth).toBe(false);
   });
 
+  it('active le tab Scénarios sur la route cockpit (sous-route scénarios)', () => {
+    const state = deriveProjectWorkspaceTabState('/projects/p1/scenarios/cockpit', null);
+    expect(state.isScenarios).toBe(true);
+  });
+
   it('calcule loading/error/empty/success pour ProjectScenariosView', () => {
     expect(deriveScenariosScreenState({ isLoading: true, isError: false, totalItems: 0 })).toBe(
       'loading',
