@@ -1986,11 +1986,11 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 
 ### Scénarios projet (RFC-PROJ-SC-001 / RFC-PROJ-SC-002) — `/api/projects/:projectId/scenarios`
 
-Socle backend de simulation / baseline projet. Isolation stricte par **client actif** et par **`projectId`** ; un `scenarioId` seul ne suffit jamais. Les blocs `resourceSummary`, `timelineSummary` et `riskSummary` restent **`null` au MVP**. **`budgetSummary`** : **`null`** sur la liste des scénarios ; sur le **détail** d’un scénario, objet financier agrégé (même contrat que `GET .../financial-summary`, voir sous-section suivante).
+Socle backend de simulation / baseline projet. Isolation stricte par **client actif** et par **`projectId`** ; un `scenarioId` seul ne suffit jamais. `budgetSummary`, `resourceSummary` et `timelineSummary` restent **`null` sur la liste** des scénarios ; sur le **détail** (`GET /api/projects/:projectId/scenarios/:scenarioId`), `budgetSummary`, `resourceSummary` et `timelineSummary` sont alimentés par leurs services dédiés. `riskSummary` reste `null` à ce stade.
 
 - **GET /api/projects/:projectId/scenarios** — Liste paginée `{ items, total, limit, offset }`. Query supportée : `search`, `status`, `limit`, `offset`. **`projects.read`**
 - **POST /api/projects/:projectId/scenarios** — Création (`name` requis, `code` optionnel, `description`, `assumptionSummary`). Le scénario est créé en `DRAFT`, avec `isBaseline = false`. **`projects.update`**
-- **GET /api/projects/:projectId/scenarios/:scenarioId** — Détail / résumé d’un scénario ; inclut `budgetSummary` (agrégat financier scénario). **`projects.read`**
+- **GET /api/projects/:projectId/scenarios/:scenarioId** — Détail / résumé d’un scénario ; inclut `budgetSummary`, `resourceSummary` et `timelineSummary` (SC-004). **`projects.read`**
 - **PATCH /api/projects/:projectId/scenarios/:scenarioId** — Mise à jour des métadonnées (`name`, `code`, `description`, `assumptionSummary`) ; refus si le scénario est `ARCHIVED`. **`projects.update`**
 - **POST /api/projects/:projectId/scenarios/:scenarioId/duplicate** — Duplication **légère** du scénario (pas de clonage tâches / risques / budget-links). La `version` est calculée par projet via `MAX(version) + 1`. **`projects.update`**
 - **POST /api/projects/:projectId/scenarios/:scenarioId/select** — Sélectionne la baseline du projet. Le scénario ciblé passe `SELECTED`, `isBaseline = true`, les autres scénarios du projet sont archivés. En cas de concurrence sur l’unicité `SELECTED`, l’API répond par un conflit maîtrisé. **`projects.update`**
@@ -2016,6 +2016,54 @@ Lecture / écriture des lignes de projection **`ProjectScenarioFinancialLine`** 
 - **GET .../financial-summary** — Synthèse agrégée : `plannedTotal`, `forecastTotal` (fallback `forecast ?? planned` par ligne), `actualTotal` (`null` traité comme 0), `varianceVsBaseline`, `varianceVsActual`, `budgetCoverageRate` — définitions alignées sur [RFC-PROJ-SC-002](RFC/RFC-PROJ-SC-002%20%E2%80%94%20Scenario%20Financial%20Planning.md) §7. **`projects.read`** (pas d’audit en lecture)
 
 Audits mutations lignes : **`project.scenario_financial_line.created`**, **`project.scenario_financial_line.updated`**, **`project.scenario_financial_line.deleted`**.
+
+### Planification ressources scénario (RFC-PROJ-SC-003) — `/api/projects/:projectId/scenarios/:scenarioId/resource-plans|resource-summary`
+
+Lecture / écriture des lignes de planification ressources **`ProjectScenarioResourcePlan`** ; aucune écriture dans les timesheets ni calcul capacité multi-scénarios. Isolation stricte **client actif** + `projectId` + `scenarioId` sur toutes les lectures/mutations.
+
+- **GET .../resource-plans** — Liste paginée `{ items, total, limit, offset }` ; tri par défaut **`createdAt` desc** ; query `limit` (1–100), `offset`. Chaque item expose un nested `resource` enrichi (`id`, `name`, `code`, `type`) et les décimaux en string (`allocationPct`, `plannedDays`). **`projects.read`**
+- **POST .../resource-plans** — Création (`CreateProjectScenarioResourcePlanDto`) : `resourceId` requis, `roleLabel`, `allocationPct`, `plannedDays`, dates, `notes`. Validation : `allocationPct` entre 0 et 100 inclus, `plannedDays >= 0`, `endDate >= startDate` ; refus si scénario `ARCHIVED`. Si `resourceId` n’appartient pas au `clientId` actif : **`404 NotFound`**. **`projects.update`**
+- **PATCH .../resource-plans/:planId** — Mise à jour partielle (`resourceId` optionnel) ; mêmes règles de validation que la création ; refus si scénario `ARCHIVED`. **`projects.update`**
+- **DELETE .../resource-plans/:planId** — Suppression ; **`204 No Content`** ; refus si scénario `ARCHIVED`. **`projects.update`**
+- **GET .../resource-summary** — KPI agrégés (`ProjectScenarioResourceSummaryDto`) :
+  - `plannedDaysTotal` (string) : somme des `plannedDays` (`null` traité comme 0)
+  - `plannedCostTotal` (string) : somme des contributions `(plannedDays ?? 0) * dailyRate`, **uniquement** pour `resource.type === HUMAN` et `dailyRate` non nul (sinon contribution 0)
+  - `plannedFtePeak` (`string | null`) : pic FTE calculé jour par jour (bornes `startDate` / `endDate` inclusives), somme quotidienne des `allocationPct/100`, maximum observé ; `null` si aucune ligne n’a simultanément `allocationPct`, `startDate`, `endDate`
+  - `distinctResources` (number) : nombre de `resourceId` distincts. **`projects.read`**
+
+Audits mutations lignes : **`project.scenario_resource_plan.created`**, **`project.scenario_resource_plan.updated`**, **`project.scenario_resource_plan.deleted`**. Aucun audit sur les lectures ni sur `GET .../resource-summary`.
+
+### Planification Gantt scénario (RFC-PROJ-SC-004) — `/api/projects/:projectId/scenarios/:scenarioId/tasks|bootstrap-from-project-plan|timeline-summary`
+
+Périmètre **backend only** : séparation stricte entre planning officiel (`ProjectTask`) et planning scénario (`ProjectScenarioTask`). Aucune mutation des `ProjectTask` ni du Gantt projet officiel.
+
+- **GET .../tasks** — Liste paginée `{ items, total, limit, offset }` ; tri canonique **`orderIndex ASC, createdAt ASC`** ; query `limit` (1–100), `offset`. **`projects.read`**
+- **POST .../tasks** — Création (`CreateProjectScenarioTaskDto`) ; retourne `ProjectScenarioTaskDto`. Validations : `taskType` dans `TASK|MILESTONE`, `endDate >= startDate`, `durationDays >= 0`, `dependencyIds` tableau string unique intra-scénario. **`projects.update`**
+- **PATCH .../tasks/:taskId** — Mise à jour partielle (`UpdateProjectScenarioTaskDto`) ; retourne `ProjectScenarioTaskDto`. Même validations que création + rejet auto-dépendance (`taskId` dans `dependencyIds`). **`projects.update`**
+- **DELETE .../tasks/:taskId** — Suppression ; **`204 No Content`**. **`projects.update`**
+- **POST .../bootstrap-from-project-plan** — Initialise les tâches scénario depuis `ProjectTask`. Contrat réponse : `{ scenarioId, createdCount, skippedDependencyCount }`. Règle MVP : si le scénario contient déjà au moins une tâche, **`409 Conflict`** (pas de merge, pas de remplacement). **`projects.update`**
+- **GET .../timeline-summary** — Retourne `ProjectScenarioTimelineSummaryDto` : `plannedStartDate`, `plannedEndDate`, `criticalPathDuration`, `milestoneCount`. **`projects.read`**
+
+Règles SC-004 :
+
+- `taskType` autorisé : `TASK` ou `MILESTONE`; `milestoneCount` = nombre de tâches `taskType = MILESTONE`.
+- `dependencyIds` stocké en JSON tableau de strings ; `null` normalisé en `[]` ; doublons interdits ; dépendance absente interdite ; dépendance cross-scenario interdite ; auto-référence interdite.
+- `durationDays` est stocké indépendamment (pas de recalcul implicite automatique via dates).
+- Bootstrap mapping :
+  - `sourceProjectTaskId <- ProjectTask.id`
+  - `title <- ProjectTask.name`
+  - `taskType <- MILESTONE` si la tâche source porte au moins un milestone lié, sinon `TASK`
+  - `startDate <- ProjectTask.plannedStartDate`
+  - `endDate <- ProjectTask.plannedEndDate`
+  - `durationDays <- null`
+  - `orderIndex <- index séquentiel selon l’ordre canonique de lecture`
+  - `dependencyIds <- dependsOnTaskId` uniquement si la cible est copiée dans le lot, sinon dépendance ignorée et comptée dans `skippedDependencyCount`.
+- Définition `timeline-summary` :
+  - `plannedStartDate = min(startDate)` des tâches datées
+  - `plannedEndDate = max(endDate)` des tâches datées
+  - `criticalPathDuration` (MVP) = durée calendaire inclusive en jours entre `plannedStartDate` et `plannedEndDate`, sinon `null`.
+
+Audits mutations tâches : **`project.scenario_task.created`**, **`project.scenario_task.updated`**, **`project.scenario_task.deleted`**, **`project.scenario_task.bootstrapped`** (resourceType `project_scenario_task`). Aucun audit sur les lectures ni sur `GET .../timeline-summary`.
 
 ### Points projet (RFC-PROJ-013) — `/api/projects/:projectId/reviews`
 

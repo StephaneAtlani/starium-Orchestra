@@ -4,12 +4,31 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { ProjectScenariosController } from './project-scenarios.controller';
 import { ProjectScenarioFinancialLinesController } from './project-scenario-financial-lines.controller';
 import { ProjectScenarioFinancialLinesService } from './project-scenario-financial-lines.service';
+import { ProjectScenarioResourcePlansController } from './project-scenario-resource-plans.controller';
+import { ProjectScenarioResourcePlansService } from './project-scenario-resource-plans.service';
+import { ProjectScenarioTasksController } from './project-scenario-tasks.controller';
+import { ProjectScenarioTasksService } from './project-scenario-tasks.service';
 import { ProjectScenariosService } from './project-scenarios.service';
 
 @Module({
   imports: [PrismaModule, AuditLogsModule],
-  controllers: [ProjectScenariosController, ProjectScenarioFinancialLinesController],
-  providers: [ProjectScenariosService, ProjectScenarioFinancialLinesService],
-  exports: [ProjectScenariosService, ProjectScenarioFinancialLinesService],
+  controllers: [
+    ProjectScenariosController,
+    ProjectScenarioFinancialLinesController,
+    ProjectScenarioResourcePlansController,
+    ProjectScenarioTasksController,
+  ],
+  providers: [
+    ProjectScenariosService,
+    ProjectScenarioFinancialLinesService,
+    ProjectScenarioResourcePlansService,
+    ProjectScenarioTasksService,
+  ],
+  exports: [
+    ProjectScenariosService,
+    ProjectScenarioFinancialLinesService,
+    ProjectScenarioResourcePlansService,
+    ProjectScenarioTasksService,
+  ],
 })
 export class ProjectScenariosModule {}

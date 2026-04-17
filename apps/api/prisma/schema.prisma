@@ -222,6 +222,7 @@ model Client {
   projects                    Project[]
   projectScenarios            ProjectScenario[]
   projectScenarioFinancialLines ProjectScenarioFinancialLine[]
+  projectScenarioResourcePlans  ProjectScenarioResourcePlan[]
   projectTasks                ProjectTask[]
   projectRisks                ProjectRisk[]
   projectMilestones           ProjectMilestone[]
@@ -622,6 +623,7 @@ model Resource {
   workTeamMemberships        WorkTeamMembership[]
   ledWorkTeams               WorkTeam[]             @relation("WorkTeamLeadResource")
   managerScopeConfig         ManagerScopeConfig?
+  projectScenarioResourcePlans ProjectScenarioResourcePlan[]
   resourceTimeEntries        ResourceTimeEntry[]
   resourceTimesheetMonths    ResourceTimesheetMonth[]
 
@@ -1015,6 +1017,8 @@ model ProjectScenario {
   selectedByUser User?   @relation("ProjectScenarioSelectedBy", fields: [selectedByUserId], references: [id], onDelete: SetNull)
   archivedByUser User?   @relation("ProjectScenarioArchivedBy", fields: [archivedByUserId], references: [id], onDelete: SetNull)
   financialLines ProjectScenarioFinancialLine[]
+  resourcePlans  ProjectScenarioResourcePlan[]
+  tasks          ProjectScenarioTask[]
 
   @@index([clientId, projectId])
   @@index([clientId, projectId, status])
@@ -1049,6 +1053,53 @@ model ProjectScenarioFinancialLine {
   @@index([clientId, scenarioId])
   @@index([clientId, budgetLineId])
   @@index([clientId, projectBudgetLinkId])
+}
+
+model ProjectScenarioResourcePlan {
+  id         String @id @default(cuid())
+  clientId   String
+  scenarioId String
+  resourceId String
+
+  roleLabel     String?
+  allocationPct Decimal? @db.Decimal(5, 2)
+  plannedDays   Decimal? @db.Decimal(8, 2)
+  startDate     DateTime?
+  endDate       DateTime?
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  scenario ProjectScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  resource Resource        @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+
+  @@index([clientId, scenarioId])
+  @@index([clientId, resourceId])
+}
+
+model ProjectScenarioTask {
+  id                  String @id @default(cuid())
+  clientId            String
+  scenarioId          String
+  sourceProjectTaskId String?
+
+  title        String
+  taskType     String?
+  startDate    DateTime?
+  endDate      DateTime?
+  durationDays Int?
+  dependencyIds Json?
+  orderIndex   Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  scenario ProjectScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, scenarioId])
 }
 
 /// RFC-PROJ-DOC-001 — registre des documents rattachés à un projet (métadonnées + gouvernance).

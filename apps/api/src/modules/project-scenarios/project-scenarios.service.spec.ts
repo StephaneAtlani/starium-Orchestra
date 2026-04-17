@@ -2,6 +2,8 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma, ProjectScenarioStatus } from '@prisma/client';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ProjectScenarioFinancialLinesService } from './project-scenario-financial-lines.service';
+import { ProjectScenarioResourcePlansService } from './project-scenario-resource-plans.service';
+import { ProjectScenarioTasksService } from './project-scenario-tasks.service';
 import { ProjectScenariosService } from './project-scenarios.service';
 
 describe('ProjectScenariosService', () => {
@@ -9,6 +11,8 @@ describe('ProjectScenariosService', () => {
   let prisma: any;
   let auditLogs: { create: jest.Mock };
   let scenarioFinancialLines: { buildBudgetSummary: jest.Mock };
+  let scenarioResourcePlans: { buildResourceSummary: jest.Mock };
+  let scenarioTasks: { buildTimelineSummary: jest.Mock };
 
   const clientId = 'client-1';
   const projectId = 'project-1';
@@ -67,10 +71,28 @@ describe('ProjectScenariosService', () => {
         budgetCoverageRate: null,
       }),
     };
+    scenarioResourcePlans = {
+      buildResourceSummary: jest.fn().mockResolvedValue({
+        plannedDaysTotal: '0',
+        plannedCostTotal: '0',
+        plannedFtePeak: null,
+        distinctResources: 0,
+      }),
+    };
+    scenarioTasks = {
+      buildTimelineSummary: jest.fn().mockResolvedValue({
+        plannedStartDate: null,
+        plannedEndDate: null,
+        criticalPathDuration: null,
+        milestoneCount: 0,
+      }),
+    };
     service = new ProjectScenariosService(
       prisma,
       auditLogs as unknown as AuditLogsService,
       scenarioFinancialLines as unknown as ProjectScenarioFinancialLinesService,
+      scenarioResourcePlans as unknown as ProjectScenarioResourcePlansService,
+      scenarioTasks as unknown as ProjectScenarioTasksService,
     );
   });
 
@@ -123,6 +145,28 @@ describe('ProjectScenariosService', () => {
       varianceVsBaseline: null,
       varianceVsActual: '0.00',
       budgetCoverageRate: null,
+    });
+    expect(scenarioResourcePlans.buildResourceSummary).toHaveBeenCalledWith(
+      clientId,
+      projectId,
+      'scenario-1',
+    );
+    expect(result.resourceSummary).toEqual({
+      plannedDaysTotal: '0',
+      plannedCostTotal: '0',
+      plannedFtePeak: null,
+      distinctResources: 0,
+    });
+    expect(scenarioTasks.buildTimelineSummary).toHaveBeenCalledWith(
+      clientId,
+      projectId,
+      'scenario-1',
+    );
+    expect(result.timelineSummary).toEqual({
+      plannedStartDate: null,
+      plannedEndDate: null,
+      criticalPathDuration: null,
+      milestoneCount: 0,
     });
   });
 

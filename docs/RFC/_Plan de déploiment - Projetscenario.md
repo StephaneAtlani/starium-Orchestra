@@ -6,8 +6,8 @@
 | ------------------ | --------------------------- | -------------------------------------------------------------------------------- | ------------- | --------- |
 | RFC-PROJ-SC-001    | Project Scenario Core       | Socle `ProjectScenario`, duplication légère, baseline, archivage                 | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-002    | Scenario Financial Planning | Projection financière scénario alignée sur `ProjectBudgetLink` et le core budget | **Backend**   | ✅ Implémenté (MVP) |
-| RFC-PROJ-SC-003    | Scenario Resource Planning  | Plan de charge / rôle / période par scénario sur `Resource`                      | **Backend**   | ❌ À faire |
-| RFC-PROJ-SC-004    | Scenario Planning Gantt     | Planning autonome par scénario                                                   | **Backend**   | ❌ À faire |
+| RFC-PROJ-SC-003    | Scenario Resource Planning  | Plan de charge / rôle / période par scénario sur `Resource`                      | **Backend**   | ✅ Implémenté (MVP) |
+| RFC-PROJ-SC-004    | Scenario Planning Gantt     | Planning autonome par scénario                                                   | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-005    | Scenario Capacity Engine    | Calcul charge vs capacité pour juger la faisabilité                              | **Backend**   | ❌ À faire |
 | RFC-PROJ-SC-006    | Scenario Risk Modeling      | Modélisation des risques projetés par scénario                                   | **Backend**   | ❌ À faire |
 | RFC-PROJ-SC-007    | Scenario Selection Workflow | Sélection atomique de la baseline et archivage des variantes                     | **Backend**   | ❌ À faire |
@@ -137,6 +137,13 @@ Résultat attendu :
 * arbitrage staffing réaliste
 * détection des surcharges avant engagement
 
+État réel (MVP backend livré) :
+
+* Prisma `ProjectScenarioResourcePlan` + migration `20260420150000_project_scenario_resource_plans`
+* Routes : `GET|POST|PATCH|DELETE /api/projects/:projectId/scenarios/:scenarioId/resource-plans`, `GET .../resource-summary`
+* `GET /api/projects/:projectId/scenarios/:scenarioId` expose `resourceSummary` (même agrégat que `resource-summary`)
+* périmètre volontairement backend-only (pas de cockpit UI), sans capacité multi-scénarios ni timesheets
+
 ## Phase 4 — Délai
 
 6. `RFC-PROJ-SC-004` — planning autonome scénario.
@@ -146,6 +153,13 @@ Résultat attendu :
 
 * comparaison d’options temporelles
 * projection de date de fin et chemin critique
+
+État réel (MVP backend livré) :
+
+* Prisma `ProjectScenarioTask` + migration `20260420170000_project_scenario_tasks`
+* Routes : `GET|POST|PATCH|DELETE /api/projects/:projectId/scenarios/:scenarioId/tasks`, `POST .../bootstrap-from-project-plan`, `GET .../timeline-summary`
+* `GET /api/projects/:projectId/scenarios/:scenarioId` expose `timelineSummary` (liste scénarios inchangée avec `timelineSummary: null`)
+* périmètre backend-only, sans impact sur le Gantt officiel `ProjectTask`
 
 ## Phase 5 — Risque
 

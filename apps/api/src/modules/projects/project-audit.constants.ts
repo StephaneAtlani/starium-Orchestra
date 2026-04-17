@@ -10,6 +10,8 @@ export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT_BUDGET_LINK: 'project_budget_link',
   PROJECT_SCENARIO: 'project_scenario',
   PROJECT_SCENARIO_FINANCIAL_LINE: 'project_scenario_financial_line',
+  PROJECT_SCENARIO_RESOURCE_PLAN: 'project_scenario_resource_plan',
+  PROJECT_SCENARIO_TASK: 'project_scenario_task',
   PROJECT_DOCUMENT: 'project_document',
   /** RFC-PROJ-013 */
   PROJECT_REVIEW: 'project_review',
@@ -69,6 +71,13 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_SCENARIO_FINANCIAL_LINE_CREATED: 'project.scenario_financial_line.created',
   PROJECT_SCENARIO_FINANCIAL_LINE_UPDATED: 'project.scenario_financial_line.updated',
   PROJECT_SCENARIO_FINANCIAL_LINE_DELETED: 'project.scenario_financial_line.deleted',
+  PROJECT_SCENARIO_RESOURCE_PLAN_CREATED: 'project.scenario_resource_plan.created',
+  PROJECT_SCENARIO_RESOURCE_PLAN_UPDATED: 'project.scenario_resource_plan.updated',
+  PROJECT_SCENARIO_RESOURCE_PLAN_DELETED: 'project.scenario_resource_plan.deleted',
+  PROJECT_SCENARIO_TASK_CREATED: 'project.scenario_task.created',
+  PROJECT_SCENARIO_TASK_UPDATED: 'project.scenario_task.updated',
+  PROJECT_SCENARIO_TASK_DELETED: 'project.scenario_task.deleted',
+  PROJECT_SCENARIO_TASK_BOOTSTRAPPED: 'project.scenario_task.bootstrapped',
 
   /** RFC-PROJ-012 */
   PROJECT_SHEET_UPDATED: 'project.sheet.updated',

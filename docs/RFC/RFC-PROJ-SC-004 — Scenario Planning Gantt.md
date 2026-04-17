@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 Draft
+✅ Implémentée (backend MVP)
 
 ## Priorité
 
@@ -75,6 +75,9 @@ model ProjectScenarioTask {
 - un planning scénario n’affecte pas les `ProjectTask` réels tant que le scénario n’est pas retenu
 - `endDate >= startDate`
 - les dépendances ne peuvent cibler que des tâches du même scénario
+- `dependencyIds` est normalisé en tableau de strings (`[]` si `null`/absent), sans doublon, sans auto-référence
+- `taskType` autorisé : `TASK` ou `MILESTONE`
+- bootstrap MVP : refus (`409`) si le scénario contient déjà au moins une tâche
 
 ---
 
@@ -98,18 +101,50 @@ GET    /api/projects/:projectId/scenarios/:scenarioId/timeline-summary
 - `criticalPathDuration`
 - `milestoneCount`
 
+Définition MVP implémentée :
+
+- `plannedStartDate` = minimum des `startDate` renseignées
+- `plannedEndDate` = maximum des `endDate` renseignées
+- `milestoneCount` = nombre de tâches `taskType = MILESTONE`
+- `criticalPathDuration` = durée calendaire inclusive en jours entre `plannedStartDate` et `plannedEndDate` (sinon `null`)
+
 ---
 
 # 7. Tests
 
 - isolation du planning scénario
 - refus de dépendances cross-scenario
-- duplication depuis planning projet
+- refus auto-dépendance et doublons `dependencyIds`
+- bootstrap depuis planning projet
+- refus bootstrap si scénario déjà initialisé
 - calcul des bornes calendrier
 
 ---
 
-# 8. Plan d’implémentation
+# 8. Implémentation backend livrée (MVP)
+
+- Prisma :
+  - modèle `ProjectScenarioTask` ajouté dans `apps/api/prisma/schema.prisma`
+  - migration `apps/api/prisma/migrations/20260420170000_project_scenario_tasks/migration.sql`
+- API :
+  - `GET|POST|PATCH|DELETE /api/projects/:projectId/scenarios/:scenarioId/tasks`
+  - `POST /api/projects/:projectId/scenarios/:scenarioId/bootstrap-from-project-plan`
+  - `GET /api/projects/:projectId/scenarios/:scenarioId/timeline-summary`
+- RBAC :
+  - lecture en `projects.read`
+  - mutations et bootstrap en `projects.update`
+- Audit :
+  - `project.scenario_task.created`
+  - `project.scenario_task.updated`
+  - `project.scenario_task.deleted`
+  - `project.scenario_task.bootstrapped`
+- Intégration scénario :
+  - `timelineSummary` est alimenté sur `GET /api/projects/:projectId/scenarios/:scenarioId`
+  - `timelineSummary` reste `null` sur la liste `GET /api/projects/:projectId/scenarios` (évite N+1)
+
+---
+
+# 9. Plan d’implémentation
 
 1. Ajouter `ProjectScenarioTask`.
 2. Ajouter bootstrap depuis `ProjectTask`.
@@ -118,7 +153,7 @@ GET    /api/projects/:projectId/scenarios/:scenarioId/timeline-summary
 
 ---
 
-# 9. Points de vigilance
+# 10. Points de vigilance
 
 - ne pas casser le module planning actuel
 - garder une séparation claire entre plan projet officiel et plan scénario

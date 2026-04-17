@@ -18,6 +18,14 @@ import {
   ProjectScenarioFinancialLinesService,
   type ProjectScenarioFinancialSummaryDto,
 } from './project-scenario-financial-lines.service';
+import {
+  ProjectScenarioResourcePlansService,
+  type ProjectScenarioResourceSummaryDto,
+} from './project-scenario-resource-plans.service';
+import {
+  ProjectScenarioTasksService,
+  type ProjectScenarioTimelineSummaryDto,
+} from './project-scenario-tasks.service';
 import { UpdateProjectScenarioDto } from './dto/update-project-scenario.dto';
 
 type ScenarioSummaryDto = {
@@ -38,8 +46,8 @@ type ScenarioSummaryDto = {
   createdAt: string;
   updatedAt: string;
   budgetSummary: ProjectScenarioFinancialSummaryDto | null;
-  resourceSummary: null;
-  timelineSummary: null;
+  resourceSummary: ProjectScenarioResourceSummaryDto | null;
+  timelineSummary: ProjectScenarioTimelineSummaryDto | null;
   riskSummary: null;
 };
 
@@ -49,6 +57,8 @@ export class ProjectScenariosService {
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly scenarioFinancialLines: ProjectScenarioFinancialLinesService,
+    private readonly scenarioResourcePlans: ProjectScenarioResourcePlansService,
+    private readonly scenarioTasks: ProjectScenarioTasksService,
   ) {}
 
   async list(
@@ -114,9 +124,21 @@ export class ProjectScenariosService {
       projectId,
       scenarioId,
     );
+    const resourceSummary = await this.scenarioResourcePlans.buildResourceSummary(
+      clientId,
+      projectId,
+      scenarioId,
+    );
+    const timelineSummary = await this.scenarioTasks.buildTimelineSummary(
+      clientId,
+      projectId,
+      scenarioId,
+    );
     return {
       ...summary,
       budgetSummary,
+      resourceSummary,
+      timelineSummary,
     };
   }
 

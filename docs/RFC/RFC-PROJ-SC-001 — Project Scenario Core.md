@@ -263,7 +263,12 @@ Chaque scénario doit exposer un résumé directement exploitable côté UI :
 }
 ```
 
-Au MVP backend, les blocs `budgetSummary`, `resourceSummary`, `timelineSummary` et `riskSummary` sont présents mais toujours `null`. Ils sont réservés aux RFC `SC-002` à `SC-006`.
+Le comportement des résumés a évolué avec les RFC suivantes :
+
+- `budgetSummary` est `null` sur la **liste** et alimenté sur le **détail** scénario (`RFC-PROJ-SC-002`).
+- `resourceSummary` est `null` sur la **liste** et alimenté sur le **détail** scénario (`RFC-PROJ-SC-003`).
+- `timelineSummary` est `null` sur la **liste** mais alimenté sur le **détail** scénario (`RFC-PROJ-SC-004`).
+- `riskSummary` reste `null` à ce stade (`RFC-PROJ-SC-006` non implémentée).
 
 ---
 
