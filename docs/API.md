@@ -1994,6 +1994,17 @@ Socle backend de simulation / baseline projet. Isolation stricte par **client ac
 - **PATCH /api/projects/:projectId/scenarios/:scenarioId** — Mise à jour des métadonnées (`name`, `code`, `description`, `assumptionSummary`) ; refus si le scénario est `ARCHIVED`. **`projects.update`**
 - **POST /api/projects/:projectId/scenarios/:scenarioId/duplicate** — Duplication **légère** du scénario (pas de clonage tâches / risques / budget-links). La `version` est calculée par projet via `MAX(version) + 1`. **`projects.update`**
 - **POST /api/projects/:projectId/scenarios/:scenarioId/select** — Sélectionne la baseline du projet. Le scénario ciblé passe `SELECTED`, `isBaseline = true`, les autres scénarios du projet sont archivés. En cas de concurrence sur l’unicité `SELECTED`, l’API répond par un conflit maîtrisé. **`projects.update`**
+- **POST /api/projects/:projectId/scenarios/:scenarioId/select-and-transition** — Workflow RFC-PROJ-SC-007 backend-only: sélectionne le scénario (baseline) **et** applique la transition projet vers `PLANNED` ou `IN_PROGRESS` dans une transaction unique. **`projects.update`**
+  - Body exact:
+    - `targetProjectStatus`: **requis**, valeurs autorisées `PLANNED | IN_PROGRESS`
+    - `decisionNote`: optionnel, trimé, chaîne vide normalisée à `null`, max `2000`
+    - `archiveOtherScenarios`: optionnel, accepté pour compatibilité mais ignoré côté métier (forcé à `true`)
+  - Réponse JSON exacte:
+    - `{ "scenarioId": "...", "projectId": "...", "selectedStatus": "SELECTED", "projectStatus": "PLANNED|IN_PROGRESS" }`
+  - Comportement idempotent:
+    - si le projet est déjà dans le `targetProjectStatus`, la requête réussit sans erreur et retourne l’état cible.
+  - Compatibilité:
+    - `POST /select` est conservé et ne met pas à jour le statut projet.
 - **POST /api/projects/:projectId/scenarios/:scenarioId/archive** — Archive un scénario non baseline. Un scénario `SELECTED` ne peut pas être archivé directement ; il faut d’abord en sélectionner un autre. **`projects.update`**
 
 Règles MVP :

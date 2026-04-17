@@ -10,7 +10,7 @@
 | RFC-PROJ-SC-004    | Scenario Planning Gantt     | Planning autonome par scénario                                                   | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-005    | Scenario Capacity Engine    | Calcul charge vs capacité pour juger la faisabilité                              | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-006    | Scenario Risk Modeling      | Modélisation des risques projetés par scénario                                   | **Backend**   | ✅ Implémenté (MVP) |
-| RFC-PROJ-SC-007    | Scenario Selection Workflow | Sélection atomique de la baseline et archivage des variantes                     | **Backend**   | ❌ À faire |
+| RFC-PROJ-SC-007    | Scenario Selection Workflow | Sélection atomique baseline + transition projet via `POST /select-and-transition` | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-FE-PROJ-SC-001 | Scenarios Tab UI            | Onglet Scénarios dans la fiche projet                                            | **Frontend**  | ❌ À faire |
 | RFC-FE-PROJ-SC-002 | Scenario Cockpit UI         | Cockpit décisionnel scénario vs baseline vs réel                                 | **Frontend**  | ❌ À faire |
 
@@ -104,6 +104,7 @@ Résultat attendu :
 
 * `ProjectScenario` livré côté backend
 * sélection baseline transactionnelle livrée
+* workflow `select-and-transition` livré (`PLANNED` / `IN_PROGRESS`, idempotent si statut déjà cible)
 * contrainte DB d’unicité `SELECTED` livrée
 * résumés exposés avec `resourceSummary` / `timelineSummary` / `riskSummary` à `null` au MVP ; `budgetSummary` reste **`null` sur la liste** des scénarios, mais est **alimenté sur le détail** dès que des lignes `ProjectScenarioFinancialLine` existent (agrégat aligné sur `RFC-PROJ-SC-002`)
 

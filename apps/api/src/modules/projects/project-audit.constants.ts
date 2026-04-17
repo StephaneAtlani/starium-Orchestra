@@ -69,7 +69,10 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_SCENARIO_UPDATED: 'project.scenario.updated',
   PROJECT_SCENARIO_DUPLICATED: 'project.scenario.duplicated',
   PROJECT_SCENARIO_SELECTED: 'project.scenario.selected',
+  PROJECT_SCENARIO_AUTO_ARCHIVED: 'project.scenario.auto_archived',
   PROJECT_SCENARIO_ARCHIVED: 'project.scenario.archived',
+  PROJECT_STATUS_CHANGED_FROM_SCENARIO_SELECTION:
+    'project.status.changed_from_scenario_selection',
   PROJECT_SCENARIO_FINANCIAL_LINE_CREATED: 'project.scenario_financial_line.created',
   PROJECT_SCENARIO_FINANCIAL_LINE_UPDATED: 'project.scenario_financial_line.updated',
   PROJECT_SCENARIO_FINANCIAL_LINE_DELETED: 'project.scenario_financial_line.deleted',

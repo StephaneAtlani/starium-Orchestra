@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProjectScenario, ProjectScenarioStatus } from '@prisma/client';
+import {
+  Prisma,
+  ProjectScenario,
+  ProjectScenarioStatus,
+  ProjectStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
@@ -14,6 +19,7 @@ import {
 import { normalizeListPagination } from '../projects/lib/paginated-list.util';
 import { CreateProjectScenarioDto } from './dto/create-project-scenario.dto';
 import { ListProjectScenariosQueryDto } from './dto/list-project-scenarios.query.dto';
+import { SelectProjectScenarioDto } from './dto/select-project-scenario.dto';
 import {
   ProjectScenarioCapacityService,
   type ProjectScenarioCapacitySummaryDto,
@@ -58,6 +64,13 @@ type ScenarioSummaryDto = {
   timelineSummary: ProjectScenarioTimelineSummaryDto | null;
   capacitySummary: ProjectScenarioCapacitySummaryDto | null;
   riskSummary: ProjectScenarioRiskSummaryDto | null;
+};
+
+export type SelectAndTransitionScenarioResponseDto = {
+  scenarioId: string;
+  projectId: string;
+  selectedStatus: ProjectScenarioStatus;
+  projectStatus: ProjectStatus;
 };
 
 @Injectable()
@@ -294,57 +307,72 @@ export class ProjectScenariosService {
       throw new ConflictException('An archived scenario cannot be selected');
     }
 
-    const now = new Date();
     try {
-      const result = await this.prisma.$transaction(async (tx) => {
-        const previousSelected = await tx.projectScenario.findFirst({
-          where: {
-            clientId,
-            projectId,
-            status: ProjectScenarioStatus.SELECTED,
-            id: { not: scenarioId },
-          },
-          orderBy: { updatedAt: 'desc' },
-        });
+      const result = await this.prisma.$transaction(async (tx) =>
+        this.runSelectionWorkflow(tx, {
+          clientId,
+          projectId,
+          scenarioId,
+          actorUserId: context?.actorUserId,
+          targetProjectStatus: null,
+        }),
+      );
 
-        await tx.projectScenario.updateMany({
-          where: {
-            clientId,
-            projectId,
-            id: { not: scenarioId },
-            status: { in: [ProjectScenarioStatus.DRAFT, ProjectScenarioStatus.SELECTED] },
-          },
-          data: {
-            ...this.buildStatusState(ProjectScenarioStatus.ARCHIVED, context?.actorUserId, now),
-          },
-        });
-
-        const selected = await tx.projectScenario.update({
-          where: { id: scenarioId },
-          data: {
-            ...this.buildStatusState(ProjectScenarioStatus.SELECTED, context?.actorUserId, now),
-          },
-        });
-
-        return { selected, previousSelectedScenarioId: previousSelected?.id ?? null };
-      });
-
-      await this.auditLogs.create({
+      await this.emitSelectionAudits({
         clientId,
-        userId: context?.actorUserId,
-        action: PROJECT_AUDIT_ACTION.PROJECT_SCENARIO_SELECTED,
-        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_SCENARIO,
-        resourceId: result.selected.id,
-        newValue: {
-          ...this.auditPayload(result.selected),
-          previousSelectedScenarioId: result.previousSelectedScenarioId,
-        },
-        ipAddress: context?.meta?.ipAddress,
-        userAgent: context?.meta?.userAgent,
-        requestId: context?.meta?.requestId,
+        result,
+        context,
       });
 
       return this.toSummary(result.selected);
+    } catch (error) {
+      this.rethrowSelectedConstraint(error);
+      throw error;
+    }
+  }
+
+  async selectAndTransition(
+    clientId: string,
+    projectId: string,
+    scenarioId: string,
+    dto: SelectProjectScenarioDto,
+    context?: AuditContext,
+  ): Promise<SelectAndTransitionScenarioResponseDto> {
+    const scenario = await this.getScenarioForScope(clientId, projectId, scenarioId);
+    if (scenario.status === ProjectScenarioStatus.ARCHIVED) {
+      throw new ConflictException('An archived scenario cannot be selected');
+    }
+
+    try {
+      const targetProjectStatus =
+        dto.targetProjectStatus === 'PLANNED'
+          ? ProjectStatus.PLANNED
+          : ProjectStatus.IN_PROGRESS;
+      const result = await this.prisma.$transaction(async (tx) =>
+        this.runSelectionWorkflow(tx, {
+          clientId,
+          projectId,
+          scenarioId,
+          actorUserId: context?.actorUserId,
+          targetProjectStatus,
+        }),
+      );
+
+      await this.emitSelectionAudits({
+        clientId,
+        result: {
+          ...result,
+          decisionNote: dto.decisionNote ?? null,
+        },
+        context,
+      });
+
+      return {
+        scenarioId: result.selected.id,
+        projectId: result.selected.projectId,
+        selectedStatus: result.selected.status,
+        projectStatus: result.projectStatusAfter ?? result.projectStatusBefore!,
+      };
     } catch (error) {
       this.rethrowSelectedConstraint(error);
       throw error;
@@ -488,6 +516,167 @@ export class ProjectScenariosService {
       throw new ConflictException(
         'Another scenario has been selected concurrently for this project',
       );
+    }
+  }
+
+  private async runSelectionWorkflow(
+    tx: Prisma.TransactionClient,
+    params: {
+      clientId: string;
+      projectId: string;
+      scenarioId: string;
+      actorUserId?: string;
+      targetProjectStatus: ProjectStatus | null;
+    },
+  ): Promise<{
+    selected: ProjectScenario;
+    previousSelectedScenarioId: string | null;
+    autoArchivedScenarioIds: string[];
+    projectStatusBefore: ProjectStatus | null;
+    projectStatusAfter: ProjectStatus | null;
+    decisionNote?: string | null;
+  }> {
+    const now = new Date();
+    const previousSelected = await tx.projectScenario.findFirst({
+      where: {
+        clientId: params.clientId,
+        projectId: params.projectId,
+        status: ProjectScenarioStatus.SELECTED,
+        id: { not: params.scenarioId },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const archivable = await tx.projectScenario.findMany({
+      where: {
+        clientId: params.clientId,
+        projectId: params.projectId,
+        id: { not: params.scenarioId },
+        status: { in: [ProjectScenarioStatus.DRAFT, ProjectScenarioStatus.SELECTED] },
+      },
+      select: { id: true },
+    });
+
+    await tx.projectScenario.updateMany({
+      where: {
+        clientId: params.clientId,
+        projectId: params.projectId,
+        id: { not: params.scenarioId },
+        status: { in: [ProjectScenarioStatus.DRAFT, ProjectScenarioStatus.SELECTED] },
+      },
+      data: {
+        ...this.buildStatusState(ProjectScenarioStatus.ARCHIVED, params.actorUserId, now),
+      },
+    });
+
+    const selected = await tx.projectScenario.update({
+      where: { id: params.scenarioId },
+      data: {
+        ...this.buildStatusState(ProjectScenarioStatus.SELECTED, params.actorUserId, now),
+      },
+    });
+
+    if (!params.targetProjectStatus) {
+      return {
+        selected,
+        previousSelectedScenarioId: previousSelected?.id ?? null,
+        autoArchivedScenarioIds: archivable.map((item) => item.id),
+        projectStatusBefore: null,
+        projectStatusAfter: null,
+      };
+    }
+
+    const project = await tx.project.findFirst({
+      where: { id: params.projectId, clientId: params.clientId },
+      select: { status: true },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const projectStatusBefore = project.status;
+    let projectStatusAfter = project.status;
+    if (project.status !== params.targetProjectStatus) {
+      const updatedProject = await tx.project.update({
+        where: { id: params.projectId },
+        data: { status: params.targetProjectStatus },
+        select: { status: true },
+      });
+      projectStatusAfter = updatedProject.status;
+    }
+
+    return {
+      selected,
+      previousSelectedScenarioId: previousSelected?.id ?? null,
+      autoArchivedScenarioIds: archivable.map((item) => item.id),
+      projectStatusBefore,
+      projectStatusAfter,
+    };
+  }
+
+  private async emitSelectionAudits(params: {
+    clientId: string;
+    result: {
+      selected: ProjectScenario;
+      previousSelectedScenarioId: string | null;
+      autoArchivedScenarioIds: string[];
+      projectStatusBefore: ProjectStatus | null;
+      projectStatusAfter: ProjectStatus | null;
+      decisionNote?: string | null;
+    };
+    context?: AuditContext;
+  }): Promise<void> {
+    await this.auditLogs.create({
+      clientId: params.clientId,
+      userId: params.context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_SCENARIO_SELECTED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_SCENARIO,
+      resourceId: params.result.selected.id,
+      newValue: {
+        ...this.auditPayload(params.result.selected),
+        previousSelectedScenarioId: params.result.previousSelectedScenarioId,
+        decisionNote: params.result.decisionNote ?? null,
+      },
+      ipAddress: params.context?.meta?.ipAddress,
+      userAgent: params.context?.meta?.userAgent,
+      requestId: params.context?.meta?.requestId,
+    });
+
+    if (params.result.autoArchivedScenarioIds.length > 0) {
+      await this.auditLogs.create({
+        clientId: params.clientId,
+        userId: params.context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_SCENARIO_AUTO_ARCHIVED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_SCENARIO,
+        resourceId: params.result.selected.id,
+        newValue: {
+          projectId: params.result.selected.projectId,
+          selectedScenarioId: params.result.selected.id,
+          autoArchivedScenarioIds: params.result.autoArchivedScenarioIds,
+        },
+        ipAddress: params.context?.meta?.ipAddress,
+        userAgent: params.context?.meta?.userAgent,
+        requestId: params.context?.meta?.requestId,
+      });
+    }
+
+    if (params.result.projectStatusBefore && params.result.projectStatusAfter) {
+      await this.auditLogs.create({
+        clientId: params.clientId,
+        userId: params.context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_STATUS_CHANGED_FROM_SCENARIO_SELECTION,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+        resourceId: params.result.selected.projectId,
+        oldValue: { status: params.result.projectStatusBefore },
+        newValue: {
+          status: params.result.projectStatusAfter,
+          scenarioId: params.result.selected.id,
+          decisionNote: params.result.decisionNote ?? null,
+        },
+        ipAddress: params.context?.meta?.ipAddress,
+        userAgent: params.context?.meta?.userAgent,
+        requestId: params.context?.meta?.requestId,
+      });
     }
   }
 

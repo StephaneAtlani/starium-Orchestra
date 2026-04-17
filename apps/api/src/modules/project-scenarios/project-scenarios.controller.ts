@@ -94,12 +94,26 @@ export class ProjectScenariosController {
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
     @Param('scenarioId') scenarioId: string,
-    @Body() _dto: SelectProjectScenarioDto,
+    @Body() _dto: Record<string, never>,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.scenarios.select(clientId!, projectId, scenarioId, context);
+  }
+
+  @Post(':scenarioId/select-and-transition')
+  @RequirePermissions('projects.update')
+  selectAndTransition(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('scenarioId') scenarioId: string,
+    @Body() dto: SelectProjectScenarioDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.scenarios.selectAndTransition(clientId!, projectId, scenarioId, dto, context);
   }
 
   @Post(':scenarioId/archive')

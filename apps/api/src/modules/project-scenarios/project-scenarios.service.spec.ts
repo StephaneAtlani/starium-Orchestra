@@ -1,5 +1,5 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { Prisma, ProjectScenarioStatus } from '@prisma/client';
+import { Prisma, ProjectScenarioStatus, ProjectStatus } from '@prisma/client';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ProjectScenarioCapacityService } from './project-scenario-capacity.service';
 import { ProjectScenarioFinancialLinesService } from './project-scenario-financial-lines.service';
@@ -47,9 +47,10 @@ describe('ProjectScenariosService', () => {
     prisma = {
       project: {
         findFirst: jest.fn(),
+        update: jest.fn(),
       },
       projectScenario: {
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn(),
         findFirst: jest.fn(),
         create: jest.fn(),
@@ -321,5 +322,117 @@ describe('ProjectScenariosService', () => {
     await expect(service.select(clientId, projectId, 'scenario-1')).rejects.toThrow(
       ConflictException,
     );
+  });
+
+  it('selectAndTransition : exécute sélection + archivage + update statut projet', async () => {
+    const selected = baseScenario({
+      status: ProjectScenarioStatus.SELECTED,
+      isBaseline: true,
+      selectedAt: new Date('2026-04-19T14:00:00.000Z'),
+      selectedByUserId: 'user-1',
+    });
+    prisma.project.findFirst
+      .mockResolvedValueOnce({ id: projectId })
+      .mockResolvedValueOnce({ status: ProjectStatus.DRAFT });
+    prisma.project.update.mockResolvedValue({ status: ProjectStatus.PLANNED });
+    prisma.projectScenario.findFirst
+      .mockResolvedValueOnce(baseScenario())
+      .mockResolvedValueOnce({ id: 'scenario-old' });
+    prisma.projectScenario.findMany.mockResolvedValue([{ id: 'scenario-old' }]);
+    prisma.projectScenario.updateMany.mockResolvedValue({ count: 1 });
+    prisma.projectScenario.update.mockResolvedValue(selected);
+
+    const result = await service.selectAndTransition(
+      clientId,
+      projectId,
+      'scenario-1',
+      {
+        targetProjectStatus: 'PLANNED',
+        decisionNote: '  validée CODIR  ',
+        archiveOtherScenarios: false,
+      },
+      {
+        actorUserId: 'user-1',
+        meta: {},
+      },
+    );
+
+    expect(prisma.projectScenario.updateMany).toHaveBeenCalled();
+    expect(prisma.project.update).toHaveBeenCalledWith({
+      where: { id: projectId },
+      data: { status: ProjectStatus.PLANNED },
+      select: { status: true },
+    });
+    expect(result).toEqual({
+      scenarioId: 'scenario-1',
+      projectId,
+      selectedStatus: ProjectScenarioStatus.SELECTED,
+      projectStatus: ProjectStatus.PLANNED,
+    });
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'project.status.changed_from_scenario_selection',
+        newValue: expect.objectContaining({
+          status: ProjectStatus.PLANNED,
+          decisionNote: '  validée CODIR  ',
+        }),
+      }),
+    );
+  });
+
+  it('selectAndTransition : idempotent si projet déjà au statut cible', async () => {
+    const selected = baseScenario({
+      status: ProjectScenarioStatus.SELECTED,
+      isBaseline: true,
+      selectedAt: new Date('2026-04-19T14:00:00.000Z'),
+      selectedByUserId: 'user-1',
+    });
+    prisma.project.findFirst
+      .mockResolvedValueOnce({ id: projectId })
+      .mockResolvedValueOnce({ status: ProjectStatus.PLANNED });
+    prisma.projectScenario.findFirst
+      .mockResolvedValueOnce(baseScenario())
+      .mockResolvedValueOnce({ id: 'scenario-old' });
+    prisma.projectScenario.findMany.mockResolvedValue([{ id: 'scenario-old' }]);
+    prisma.projectScenario.updateMany.mockResolvedValue({ count: 1 });
+    prisma.projectScenario.update.mockResolvedValue(selected);
+
+    const result = await service.selectAndTransition(clientId, projectId, 'scenario-1', {
+      targetProjectStatus: 'PLANNED',
+      decisionNote: null,
+    });
+
+    expect(prisma.project.update).not.toHaveBeenCalled();
+    expect(result.projectStatus).toBe(ProjectStatus.PLANNED);
+  });
+
+  it('selectAndTransition : refuse un scénario ARCHIVED', async () => {
+    prisma.project.findFirst.mockResolvedValue({ id: projectId });
+    prisma.projectScenario.findFirst.mockResolvedValue(
+      baseScenario({ status: ProjectScenarioStatus.ARCHIVED, isBaseline: false }),
+    );
+
+    await expect(
+      service.selectAndTransition(clientId, projectId, 'scenario-1', {
+        targetProjectStatus: 'IN_PROGRESS',
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('selectAndTransition : mappe P2002 en conflit', async () => {
+    prisma.project.findFirst.mockResolvedValue({ id: projectId });
+    prisma.projectScenario.findFirst.mockResolvedValue(baseScenario());
+    prisma.$transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('dup', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+
+    await expect(
+      service.selectAndTransition(clientId, projectId, 'scenario-1', {
+        targetProjectStatus: 'IN_PROGRESS',
+      }),
+    ).rejects.toThrow(ConflictException);
   });
 });
