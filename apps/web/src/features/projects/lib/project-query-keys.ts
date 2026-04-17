@@ -11,6 +11,8 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'portfolio-gantt', clientId, params] as const,
   detail: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'detail', clientId, projectId] as const,
+  scenarios: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'scenarios', clientId, projectId] as const,
   optionsTags: (clientId: string) =>
     [...projectQueryKeys.all, 'options-tags', clientId] as const,
   optionsPortfolioCategories: (clientId: string) =>

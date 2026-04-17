@@ -11,7 +11,7 @@
 | RFC-PROJ-SC-005    | Scenario Capacity Engine    | Calcul charge vs capacité pour juger la faisabilité                              | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-006    | Scenario Risk Modeling      | Modélisation des risques projetés par scénario                                   | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-PROJ-SC-007    | Scenario Selection Workflow | Sélection atomique baseline + transition projet via `POST /select-and-transition` | **Backend**   | ✅ Implémenté (MVP) |
-| RFC-FE-PROJ-SC-001 | Scenarios Tab UI            | Onglet Scénarios dans la fiche projet                                            | **Frontend**  | ❌ À faire |
+| RFC-FE-PROJ-SC-001 | Scenarios Tab UI            | Onglet Scénarios dans la fiche projet                                            | **Frontend**  | ✅ Implémentée (MVP) |
 | RFC-FE-PROJ-SC-002 | Scenario Cockpit UI         | Cockpit décisionnel scénario vs baseline vs réel                                 | **Frontend**  | ❌ À faire |
 
 ---
@@ -197,6 +197,15 @@ Résultat attendu :
 * outillage concret pour créer, comparer et sélectionner
 * cockpit de décision lisible pour COPIL / CODIR
 
+État réel :
+
+* RFC-FE-PROJ-SC-001 livrée en MVP frontend :
+  * route dédiée `/projects/:projectId/scenarios` + tab `Scénarios` actif
+  * actions `create / duplicate / select / archive` (permissions `projects.update` gérées côté UI)
+  * sélection simple (`POST .../select`) ou transition optionnelle (`POST .../select-and-transition`) via un point d’entrée frontend unique
+  * affichage des summaries API sans recalcul frontend
+* RFC-FE-PROJ-SC-002 reste à faire (cockpit avancé hors lot MVP)
+
 ---
 
 # 🧪 Plan de tests cible
@@ -216,3 +225,9 @@ Résultat attendu :
 * affichage cohérent des badges baseline / archive
 * comparaison lisible entre scénario, baseline et réel
 
+#L'Evolution  
+-  page détail scénario
+- pas de cockpit scénario avancé
+- pas de comparaison multi-scénarios
+- pas de refacto large du module projets
+- pas de logique métier frontend

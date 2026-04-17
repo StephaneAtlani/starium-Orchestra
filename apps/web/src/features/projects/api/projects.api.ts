@@ -3,6 +3,7 @@ import { parseApiFormError } from '@/features/budgets/api/budget-management.api'
 import type { Paginated, ResourceListItem } from '@/services/resources';
 import type {
   CreateRetroplanMacroPayload,
+  CreateProjectScenarioPayload,
   PaginatedList,
   ProjectActivityApi,
   ProjectArbitrationStatus,
@@ -24,9 +25,11 @@ import type {
   ProjectSheetDecisionSnapshotDetail,
   ProjectSheetDecisionSnapshotListResponse,
   ProjectPortfolioCategoryNode,
+  ProjectScenarioApi,
   ProjectTag,
   RiskTaxonomyDomainApi,
   UpdateProjectSheetPayload,
+  SelectProjectScenarioPayload,
 } from '../types/project.types';
 
 const BASE = '/api/projects';
@@ -123,6 +126,77 @@ export async function getProject(
   const res = await authFetch(`${BASE}/${id}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectDetail>;
+}
+
+export async function getProjectScenarios(
+  authFetch: AuthFetch,
+  projectId: string,
+  params?: {
+    search?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<PaginatedList<ProjectScenarioApi>> {
+  const res = await authFetch(`${BASE}/${projectId}/scenarios${qs(params)}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<PaginatedList<ProjectScenarioApi>>;
+}
+
+export async function createProjectScenario(
+  authFetch: AuthFetch,
+  projectId: string,
+  payload: CreateProjectScenarioPayload,
+): Promise<ProjectScenarioApi> {
+  const res = await authFetch(`${BASE}/${projectId}/scenarios`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectScenarioApi>;
+}
+
+export async function duplicateProjectScenario(
+  authFetch: AuthFetch,
+  projectId: string,
+  scenarioId: string,
+): Promise<ProjectScenarioApi> {
+  const res = await authFetch(`${BASE}/${projectId}/scenarios/${scenarioId}/duplicate`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectScenarioApi>;
+}
+
+export async function selectProjectScenario(
+  authFetch: AuthFetch,
+  projectId: string,
+  scenarioId: string,
+  payload?: SelectProjectScenarioPayload,
+): Promise<ProjectScenarioApi> {
+  const shouldTransition = Boolean(payload?.targetProjectStatus);
+  const endpoint = shouldTransition ? 'select-and-transition' : 'select';
+  const body = shouldTransition ? payload : {};
+  const res = await authFetch(`${BASE}/${projectId}/scenarios/${scenarioId}/${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectScenarioApi>;
+}
+
+export async function archiveProjectScenario(
+  authFetch: AuthFetch,
+  projectId: string,
+  scenarioId: string,
+): Promise<ProjectScenarioApi> {
+  const res = await authFetch(`${BASE}/${projectId}/scenarios/${scenarioId}/archive`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectScenarioApi>;
 }
 
 export async function listProjectTags(authFetch: AuthFetch): Promise<ProjectTag[]> {

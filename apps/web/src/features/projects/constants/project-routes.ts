@@ -34,6 +34,11 @@ export function projectPlanning(
   return `${base}?sub=${sub}`;
 }
 
+/** Scénarios projet (RFC-FE-PROJ-SC-001). */
+export function projectScenarios(projectId: string): string {
+  return `/projects/${projectId}/scenarios`;
+}
+
 /** Options du projet (RFC-PROJ-OPT-001) — distinct de `projectsOptions()` (module / placeholder). */
 export function projectProjectOptions(projectId: string): string {
   return `/projects/${projectId}/options`;

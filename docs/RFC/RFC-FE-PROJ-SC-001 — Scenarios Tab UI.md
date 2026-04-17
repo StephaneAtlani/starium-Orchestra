@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 Draft
+✅ Implémentée (MVP Frontend)
 
 ## Priorité
 
@@ -90,7 +90,35 @@ Composants suggérés :
 
 ---
 
-# 8. Points de vigilance
+# 8. Implémentation réalisée (MVP)
+
+- route dédiée ajoutée : `/projects/:projectId/scenarios` (pas de `?tab=scenarios`)
+- navigation intégrée dans `ProjectWorkspaceTabs` avec tab `Scénarios` et état actif
+- composants livrés :
+  - `ProjectScenariosView`
+  - `ProjectScenariosTab`
+  - `ScenarioCard`
+  - `ScenarioSummaryGrid`
+  - `CreateScenarioDialog`
+  - `SelectScenarioDialog`
+- client API frontend livré :
+  - `getProjectScenarios`
+  - `createProjectScenario`
+  - `duplicateProjectScenario`
+  - `selectProjectScenario`
+  - `archiveProjectScenario`
+- sélection baseline via point d’entrée unique `selectProjectScenario(projectId, scenarioId, payload?)` :
+  - sans `targetProjectStatus` → `POST .../select`
+  - avec `targetProjectStatus` → `POST .../select-and-transition`
+- permissions UI MVP : actions visibles (`create`, `duplicate`, `select`, `archive`) mais désactivées sans `projects.update`
+- règles UX MVP : `Sélectionner` primaire, `Dupliquer` secondaire, confirmation avant archivage, archivage désactivé pour `SELECTED`
+- `ScenarioSummaryGrid` affiche strictement les summaries API (`budgetSummary`, `resourceSummary`, `timelineSummary`, `capacitySummary`, `riskSummary`) sans recalcul frontend ; fallback lisible si `null`
+- invalidations React Query ciblées après mutation : `project detail` + `project scenarios list`
+- tests frontend ajoutés (navigation/tab actif, badges, fallback summaries, routage `/select` vs `/select-and-transition`, états écran)
+
+---
+
+# 9. Points de vigilance
 
 - ne pas recalculer les KPI en UI
 - bien refléter la baseline courante après mutation

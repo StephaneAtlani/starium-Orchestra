@@ -161,6 +161,44 @@ export type PaginatedList<T> = {
   offset: number;
 };
 
+export type ProjectScenarioStatus = 'DRAFT' | 'SELECTED' | 'ARCHIVED';
+
+export type ProjectScenarioSummary = Record<string, unknown> | null;
+
+export type ProjectScenarioApi = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  code: string | null;
+  name: string;
+  description: string | null;
+  assumptionSummary: string | null;
+  version: number;
+  status: ProjectScenarioStatus;
+  isBaseline: boolean;
+  selectedAt: string | null;
+  selectedByUserId: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  budgetSummary: ProjectScenarioSummary;
+  resourceSummary: ProjectScenarioSummary;
+  timelineSummary: ProjectScenarioSummary;
+  capacitySummary: ProjectScenarioSummary;
+  riskSummary: ProjectScenarioSummary;
+};
+
+export type CreateProjectScenarioPayload = {
+  name: string;
+  description?: string;
+};
+
+export type SelectProjectScenarioPayload = {
+  targetProjectStatus?: 'PLANNED' | 'IN_PROGRESS';
+  decisionNote?: string | null;
+  archiveOtherScenarios?: boolean;
+};
+
 /** RFC-PLA-001 — plan d’actions */
 export type ActionPlanApi = {
   id: string;

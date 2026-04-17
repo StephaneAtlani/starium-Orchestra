@@ -8,12 +8,14 @@ import {
   LayoutDashboard,
   Layers3,
   ListTodo,
+  Split,
   Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   projectDetail,
   projectPlanning,
+  projectScenarios,
   projectProjectOptions,
   projectSheet,
   projectRisks,
@@ -33,6 +35,30 @@ function tabLinkClass(active: boolean) {
 const tablistClassName =
   'grid h-11 min-w-[min(100%,22rem)] grid-cols-2 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/40 sm:min-w-0 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7';
 
+export type ProjectWorkspaceTabState = {
+  isSheet: boolean;
+  isRisks: boolean;
+  isPlanning: boolean;
+  isScenarios: boolean;
+  isOptions: boolean;
+  isPoints: boolean;
+  isSynth: boolean;
+};
+
+export function deriveProjectWorkspaceTabState(
+  pathname: string | null | undefined,
+  tab: string | null,
+): ProjectWorkspaceTabState {
+  const isSheet = Boolean(pathname?.includes('/sheet'));
+  const isRisks = Boolean(pathname?.includes('/risks'));
+  const isPlanning = Boolean(pathname?.includes('/planning'));
+  const isScenarios = Boolean(pathname?.includes('/scenarios'));
+  const isOptions = Boolean(pathname?.includes('/options'));
+  const isPoints = tab === 'points';
+  const isSynth = !isSheet && !isRisks && !isPoints && !isPlanning && !isScenarios && !isOptions;
+  return { isSheet, isRisks, isPlanning, isScenarios, isOptions, isPoints, isSynth };
+}
+
 /**
  * Navigation principale projet : Synthèse · Fiche projet · Planning · Points projet · Options.
  * À placer dans un `CardHeader` (même structure que le détail : `Card` + header dégradé).
@@ -40,14 +66,7 @@ const tablistClassName =
 export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const tab = searchParams.get('tab');
-  const isSheet = pathname?.includes('/sheet');
-  const isRisks = pathname?.includes('/risks');
-  const isPlanning = pathname?.includes('/planning');
-  const isOptions = pathname?.includes('/options');
-  const isPoints = tab === 'points';
-  const isSynth =
-    !isSheet && !isRisks && !isPoints && !isPlanning && !isOptions;
+  const tabState = deriveProjectWorkspaceTabState(pathname, searchParams.get('tab'));
 
   const detailHref = projectDetail(projectId);
   const pointsHref = `${detailHref}?tab=points`;
@@ -63,8 +82,8 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       <Link
         href={detailHref}
         role="tab"
-        aria-current={isSynth ? 'page' : undefined}
-        className={tabLinkClass(isSynth)}
+        aria-current={tabState.isSynth ? 'page' : undefined}
+        className={tabLinkClass(tabState.isSynth)}
       >
         <LayoutDashboard className="size-4 shrink-0 opacity-70" />
         Synthèse
@@ -72,8 +91,8 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       <Link
         href={projectSheet(projectId)}
         role="tab"
-        aria-current={isSheet ? 'page' : undefined}
-        className={tabLinkClass(isSheet)}
+        aria-current={tabState.isSheet ? 'page' : undefined}
+        className={tabLinkClass(tabState.isSheet)}
       >
         <Layers3 className="size-4 shrink-0 opacity-70" />
         Fiche projet
@@ -81,8 +100,8 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       <Link
         href={projectRisks(projectId)}
         role="tab"
-        aria-current={isRisks ? 'page' : undefined}
-        className={tabLinkClass(isRisks)}
+        aria-current={tabState.isRisks ? 'page' : undefined}
+        className={tabLinkClass(tabState.isRisks)}
       >
         <ListTodo className="size-4 shrink-0 opacity-70" />
         Risques
@@ -90,8 +109,8 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       <Link
         href={planningHref}
         role="tab"
-        aria-current={isPlanning ? 'page' : undefined}
-        className={tabLinkClass(isPlanning)}
+        aria-current={tabState.isPlanning ? 'page' : undefined}
+        className={tabLinkClass(tabState.isPlanning)}
       >
         <CalendarRange className="size-4 shrink-0 opacity-70" />
         Planning
@@ -99,17 +118,26 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
       <Link
         href={pointsHref}
         role="tab"
-        aria-current={isPoints ? 'page' : undefined}
-        className={tabLinkClass(isPoints)}
+        aria-current={tabState.isPoints ? 'page' : undefined}
+        className={tabLinkClass(tabState.isPoints)}
       >
         <ClipboardList className="size-4 shrink-0 opacity-70" />
         Points projet
       </Link>
       <Link
+        href={projectScenarios(projectId)}
+        role="tab"
+        aria-current={tabState.isScenarios ? 'page' : undefined}
+        className={tabLinkClass(tabState.isScenarios)}
+      >
+        <Split className="size-4 shrink-0 opacity-70" />
+        Scénarios
+      </Link>
+      <Link
         href={projectProjectOptions(projectId)}
         role="tab"
-        aria-current={isOptions ? 'page' : undefined}
-        className={tabLinkClass(isOptions)}
+        aria-current={tabState.isOptions ? 'page' : undefined}
+        className={tabLinkClass(tabState.isOptions)}
       >
         <Settings className="size-4 shrink-0 opacity-70" />
         Options
