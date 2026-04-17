@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ProcurementStorageDriver } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MicrosoftTokenCryptoService } from '../../microsoft/microsoft-token-crypto.service';
@@ -8,6 +9,8 @@ const SETTINGS_ID = 'default';
 
 @Injectable()
 export class ProcurementS3ConfigResolverService {
+  private readonly logger = new Logger(ProcurementS3ConfigResolverService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
@@ -15,12 +18,25 @@ export class ProcurementS3ConfigResolverService {
   ) {}
 
   /**
-   * DB si ligne `enabled` + champs requis + secret déchiffrable ; sinon env `PROCUREMENT_S3_*` ; sinon null.
+   * DB si `enabled` + champs requis + secret déchiffrable ; sinon env `PROCUREMENT_S3_*` ; sinon null.
+   * Sans `enabled`, les champs saisis en admin ne sont pas appliqués (RFC-035 / schéma Prisma).
    */
   async resolve(): Promise<ResolvedProcurementS3Config | null> {
     const row = await this.prisma.platformProcurementS3Settings.findUnique({
       where: { id: SETTINGS_ID },
     });
+    if (
+      row &&
+      !row.enabled &&
+      row.storageDriver === ProcurementStorageDriver.S3 &&
+      row.accessKey?.trim() &&
+      row.bucket?.trim() &&
+      row.secretKeyEncrypted?.trim()
+    ) {
+      this.logger.warn(
+        'PlatformProcurementS3Settings : paramètres S3 présents en base mais « Activer la configuration en base » est désactivé — la résolution utilise les variables PROCUREMENT_S3_* (ou rien). Activer le switch dans Administration → stockage procurement.',
+      );
+    }
     if (
       row?.enabled &&
       row.accessKey?.trim() &&
@@ -39,7 +55,10 @@ export class ProcurementS3ConfigResolverService {
           useSsl: row.useSsl,
           forcePathStyle: row.forcePathStyle,
         };
-      } catch {
+      } catch (e) {
+        this.logger.warn(
+          `Secret S3 plateforme indéchiffrable, repli sur PROCUREMENT_S3_* : ${(e as Error).message}`,
+        );
         return this.resolveFromEnv();
       }
     }

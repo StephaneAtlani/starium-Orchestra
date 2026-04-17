@@ -19,6 +19,7 @@ import { SupplierContactsController } from './supplier-contacts/supplier-contact
 import { SupplierContactsListController } from './supplier-contacts/supplier-contacts-list.controller';
 import { SupplierContactsPhotoStorageService } from './supplier-contacts/supplier-contacts-photo.storage';
 import { SupplierContactsService } from './supplier-contacts/supplier-contacts.service';
+import { ClientDocumentsStorageProvisionerService } from './s3/client-documents-storage-provisioner.service';
 import { LocalProcurementBlobStorageService } from './s3/local-procurement-blob-storage.service';
 import { ProcurementS3ConfigResolverService } from './s3/procurement-s3-config.resolver.service';
 import { ProcurementObjectStorageService } from './s3/procurement-object-storage.service';
@@ -58,6 +59,7 @@ import { PlatformUploadModule } from '../platform-upload/platform-upload.module'
     ProcurementStorageResolutionService,
     LocalProcurementBlobStorageService,
     S3ProcurementBlobStorageService,
+    ClientDocumentsStorageProvisionerService,
     ProcurementObjectStorageService,
     PlatformProcurementS3SettingsService,
     ProcurementAttachmentsService,
@@ -78,6 +80,7 @@ import { PlatformUploadModule } from '../platform-upload/platform-upload.module'
     SupplierContactsPhotoStorageService,
     SupplierContactsService,
     ProcurementObjectStorageService,
+    ClientDocumentsStorageProvisionerService,
   ],
 })
 export class ProcurementModule {}

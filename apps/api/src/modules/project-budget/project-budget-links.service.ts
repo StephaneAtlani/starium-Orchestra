@@ -926,10 +926,13 @@ export class ProjectBudgetLinksService {
   }
 
   /**
-   * Après sélection baseline (option « intégrer le budget ») : crée des liaisons projet ↔ lignes
-   * budgétaires à partir des lignes financières du scénario, en mode montants fixes (somme des
-   * prévisionnels par ligne budgétaire).
-   * Ne modifie rien si le projet a déjà au moins une liaison (invariants d’allocation globaux).
+   * Après sélection baseline (option « intégrer le budget ») : rattache au projet les lignes
+   * budgétaires présentes dans le scénario (référence directe ou via liaison projet), en mode
+   * montants fixes — somme des prévisionnels par ligne budgétaire pour les liaisons manquantes.
+   *
+   * - Résout `budgetLineId` depuis la ligne scénario ou depuis `projectBudgetLink.budgetLineId`.
+   * - Ignore les lignes budgétaires déjà liées au projet.
+   * - Si le projet a déjà des liaisons non-FIXED (FULL / PERCENTAGE), ne crée rien (invariants).
    */
   async syncFromScenarioBaseline(
     clientId: string,
@@ -947,15 +950,25 @@ export class ProjectBudgetLinksService {
       return { createdCount: 0, reason: 'scenario_not_found' };
     }
 
-    const existing = await this.prisma.projectBudgetLink.findMany({
+    const existingLinks = await this.prisma.projectBudgetLink.findMany({
       where: { clientId, projectId },
-      select: { id: true },
+      select: { budgetLineId: true, allocationType: true },
     });
-    if (existing.length > 0) {
-      return {
-        createdCount: 0,
-        reason: 'project_already_has_budget_links',
-      };
+
+    const attachedBudgetLineIds = new Set(existingLinks.map((l) => l.budgetLineId));
+
+    if (existingLinks.length > 0) {
+      const modes = new Set(existingLinks.map((l) => l.allocationType));
+      if (modes.size !== 1) {
+        return { createdCount: 0, reason: 'inconsistent_project_budget_links' };
+      }
+      const mode = existingLinks[0]!.allocationType;
+      if (mode !== ProjectBudgetAllocationType.FIXED) {
+        return {
+          createdCount: 0,
+          reason: 'existing_non_fixed_project_links',
+        };
+      }
     }
 
     const lines = await this.prisma.projectScenarioFinancialLine.findMany({
@@ -967,22 +980,31 @@ export class ProjectBudgetLinksService {
       },
     });
 
+    const resolveScenarioBudgetLineId = (
+      line: (typeof lines)[number],
+    ): string | null => {
+      if (line.budgetLineId) {
+        return line.budgetLineId;
+      }
+      if (line.projectBudgetLink?.budgetLineId) {
+        return line.projectBudgetLink.budgetLineId;
+      }
+      return null;
+    };
+
     const byBudgetLine = new Map<string, Prisma.Decimal>();
     for (const line of lines) {
-      if (line.projectBudgetLinkId != null && line.projectBudgetLink) {
-        if (line.projectBudgetLink.projectId === projectId) {
-          continue;
-        }
+      const budgetLineId = resolveScenarioBudgetLineId(line);
+      if (!budgetLineId) {
         continue;
       }
-
-      if (!line.budgetLineId) {
+      if (attachedBudgetLineIds.has(budgetLineId)) {
         continue;
       }
 
       const add = line.amountPlanned;
-      const prev = byBudgetLine.get(line.budgetLineId) ?? new Prisma.Decimal(0);
-      byBudgetLine.set(line.budgetLineId, prev.plus(add));
+      const prev = byBudgetLine.get(budgetLineId) ?? new Prisma.Decimal(0);
+      byBudgetLine.set(budgetLineId, prev.plus(add));
     }
 
     if (byBudgetLine.size === 0) {
@@ -1011,6 +1033,7 @@ export class ProjectBudgetLinksService {
         context,
       );
       createdCount += 1;
+      attachedBudgetLineIds.add(budgetLineId);
     }
 
     return { createdCount };

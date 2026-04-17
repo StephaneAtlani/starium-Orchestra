@@ -69,15 +69,15 @@ services:
     restart: unless-stopped
     environment:
       <<: *api-base-env
-      # RFC-035 — stockage procurement sur disque par défaut (volume ci-dessous).
-      PROCUREMENT_STORAGE_DRIVER: local
+      # RFC-035 — ne pas fixer PROCUREMENT_STORAGE_DRIVER ici : le driver suit la DB (UI admin) si la variable est absente.
+      # Forcer le disque : PROCUREMENT_STORAGE_DRIVER=local dans l’env du service (ou apps/api/.env selon déploiement).
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
-      # Si `PROCUREMENT_STORAGE_DRIVER=s3`, renseigner PROCUREMENT_S3_* (ex. profil procurement-s3 + service minio).
+      # S3 : variables via `.env` à la racine du compose (interpolation). Région alignée sur la console AWS (ex. eu-west-3).
       PROCUREMENT_S3_ENDPOINT: ${PROCUREMENT_S3_ENDPOINT:-}
       PROCUREMENT_S3_ACCESS_KEY: ${PROCUREMENT_S3_ACCESS_KEY:-}
       PROCUREMENT_S3_SECRET_KEY: ${PROCUREMENT_S3_SECRET_KEY:-}
       PROCUREMENT_S3_BUCKET: ${PROCUREMENT_S3_BUCKET:-starium-procurement}
-      PROCUREMENT_S3_REGION: ${PROCUREMENT_S3_REGION:-us-east-1}
+      PROCUREMENT_S3_REGION: ${PROCUREMENT_S3_REGION:-}
       PROCUREMENT_S3_USE_SSL: ${PROCUREMENT_S3_USE_SSL:-false}
       PROCUREMENT_S3_FORCE_PATH_STYLE: ${PROCUREMENT_S3_FORCE_PATH_STYLE:-true}
     ports:

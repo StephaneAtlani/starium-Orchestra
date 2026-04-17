@@ -173,6 +173,8 @@ export class ProcurementAttachmentsService {
     const mime = file!.mimetype.toLowerCase();
     const ext = MIME_TO_EXT[mime] ?? '.bin';
     const { bucket, objectKey, checksumSha256 } = await this.storage.putObject({
+      clientId,
+      domain: 'commandes',
       body: file!.buffer,
       contentType: mime,
       extension: ext,
@@ -242,6 +244,8 @@ export class ProcurementAttachmentsService {
     const mime = file!.mimetype.toLowerCase();
     const ext = MIME_TO_EXT[mime] ?? '.bin';
     const { bucket, objectKey, checksumSha256 } = await this.storage.putObject({
+      clientId,
+      domain: 'factures',
       body: file!.buffer,
       contentType: mime,
       extension: ext,

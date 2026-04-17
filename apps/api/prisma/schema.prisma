@@ -301,6 +301,11 @@ model Client {
 
   /// Overrides workflow budget (JSON sparse, contrat métier côté code — merge avec défauts applicatifs).
   budgetWorkflowConfig Json?
+
+  /// Mode S3 : nom du **bucket plateforme** utilisé pour ce client (identique pour tous) ; clés objet = `{clientId}/…`.
+  documentsBucketName          String?
+  documentsBucketProvisionedAt DateTime?
+
   projectScenarioTasks ProjectScenarioTask[]
   projectScenarioRisks ProjectScenarioRisk[]
 }
@@ -361,6 +366,8 @@ model PlatformProcurementS3Settings {
   useSsl             Boolean                  @default(true)
   /// MinIO / S3 custom : souvent true. AWS public : false (défaut).
   forcePathStyle     Boolean                  @default(false)
+  /// Hérité : non utilisé pour le rangement (préfixe client = id client dans le bucket plateforme).
+  clientDocumentsBucketPrefix String?
   updatedAt          DateTime                 @updatedAt
 }
 

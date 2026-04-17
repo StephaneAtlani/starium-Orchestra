@@ -60,6 +60,13 @@ export class UpdatePlatformProcurementS3SettingsDto {
   @MaxLength(256)
   bucket?: string;
 
+  /** Préfixe des noms de bucket documents par client (S3). */
+  @IsOptional()
+  @Transform(({ value }) => emptyToUndefined(value))
+  @IsString()
+  @MaxLength(128)
+  clientDocumentsBucketPrefix?: string;
+
   @IsOptional()
   @IsBoolean()
   useSsl?: boolean;

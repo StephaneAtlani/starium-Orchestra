@@ -1,11 +1,11 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import {
   CreateBucketCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { assertS3BucketReachable } from './procurement-s3-bucket-connectivity.util';
 import {
@@ -13,6 +13,7 @@ import {
   procurementCreateBucketInput,
 } from './procurement-s3-client.factory';
 import type { ResolvedProcurementS3Config } from './procurement-s3.types';
+import { formatAwsSdkErrorDetail } from './procurement-s3-error.util';
 
 function buildS3Client(cfg: ResolvedProcurementS3Config): S3Client {
   return createProcurementS3Client({
@@ -27,46 +28,66 @@ function buildS3Client(cfg: ResolvedProcurementS3Config): S3Client {
 
 @Injectable()
 export class S3ProcurementBlobStorageService {
-  async ensureBucketExists(cfg: ResolvedProcurementS3Config): Promise<void> {
+  private readonly logger = new Logger(S3ProcurementBlobStorageService.name);
+
+  /**
+   * @param bucketOverride — si renseigné, vérifie / crée ce bucket (ex. bucket dédié client).
+   */
+  async ensureBucketExists(
+    cfg: ResolvedProcurementS3Config,
+    bucketOverride?: string,
+  ): Promise<void> {
+    const bucket = bucketOverride?.trim() || cfg.bucket;
     const client = buildS3Client(cfg);
     const awsImplicit = !cfg.endpoint.trim();
     try {
-      await assertS3BucketReachable(client, cfg.bucket);
-    } catch {
-      await client.send(
-        new CreateBucketCommand(
-          procurementCreateBucketInput(cfg.bucket, cfg.region, awsImplicit),
-        ),
+      await assertS3BucketReachable(client, bucket);
+      this.logger.debug(`S3 bucket « ${bucket} » déjà joignable (HeadBucket/List OK).`);
+    } catch (headErr: unknown) {
+      this.logger.log(
+        `S3 création bucket « ${bucket} » (région ${cfg.region}) après échec Head/List : ${formatAwsSdkErrorDetail(headErr)}`,
       );
+      try {
+        await client.send(
+          new CreateBucketCommand(
+            procurementCreateBucketInput(bucket, cfg.region, awsImplicit),
+          ),
+        );
+        this.logger.log(`S3 bucket « ${bucket} » créé (région ${cfg.region}).`);
+      } catch (createErr: unknown) {
+        this.logger.error(
+          `S3 CreateBucket « ${bucket} » échoué : ${formatAwsSdkErrorDetail(createErr)}`,
+        );
+        throw createErr;
+      }
     }
   }
 
   async putObject(
     cfg: ResolvedProcurementS3Config,
     params: {
+      bucket: string;
+      objectKey: string;
       body: Buffer;
       contentType: string;
-      extension: string;
     },
   ): Promise<{ bucket: string; objectKey: string; checksumSha256: string }> {
     const client = buildS3Client(cfg);
-    await this.ensureBucketExists(cfg);
-    const ext =
-      params.extension && params.extension.startsWith('.')
-        ? params.extension
-        : `.${params.extension || 'bin'}`;
-    const safeExt = ext.replace(/[^.a-zA-Z0-9]/g, '') || '.bin';
-    const objectKey = `procurement/${randomUUID()}/${randomUUID()}${safeExt}`;
+    await this.ensureBucketExists(cfg, params.bucket);
     const checksumSha256 = createHash('sha256').update(params.body).digest('hex');
     await client.send(
       new PutObjectCommand({
-        Bucket: cfg.bucket,
-        Key: objectKey,
+        Bucket: params.bucket,
+        Key: params.objectKey,
         Body: params.body,
         ContentType: params.contentType,
       }),
     );
-    return { bucket: cfg.bucket, objectKey, checksumSha256 };
+    return {
+      bucket: params.bucket,
+      objectKey: params.objectKey,
+      checksumSha256,
+    };
   }
 
   async getObjectStream(
@@ -74,9 +95,6 @@ export class S3ProcurementBlobStorageService {
     bucket: string,
     objectKey: string,
   ): Promise<{ stream: Readable; contentType?: string }> {
-    if (bucket !== cfg.bucket) {
-      throw new ServiceUnavailableException('Bucket incohérent avec la configuration active.');
-    }
     const client = buildS3Client(cfg);
     const out = await client.send(
       new GetObjectCommand({ Bucket: bucket, Key: objectKey }),

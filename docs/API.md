@@ -398,6 +398,7 @@ Crée un client **sans** gérer d’administrateur ou de rattachement utilisateu
 Le Platform Admin utilise ensuite les autres endpoints (`/api/platform/users`, `/api/clients/:clientId/users`, `/api/users`) pour rattacher des utilisateurs au client.
 
 Le backend applique immédiatement les profils RBAC système du client (via `DefaultProfilesService`).  
+En parallèle, le stockage **documents** (pièces procurement/contrats) est provisionné : **dossier** sous la racine locale si le driver est `local`, ou **bucket S3** dédié si le driver est `s3` (échec → rollback de la création client).  
 Pré-requis : le référentiel global des permissions doit être présent (seed modules/permissions).
 
 **Headers**
@@ -2449,14 +2450,17 @@ RFC-034 + **RFC-035** : configuration **globale** du stockage des pièces jointe
 - **`PROCUREMENT_STORAGE_DRIVER`** : `local` \| `s3` (insensible à la casse) — **prime** sur le champ DB `storageDriver`.
 - **`PROCUREMENT_LOCAL_ROOT`** : répertoire racine des fichiers (local) — **prime** sur le champ DB `localRoot` lorsqu’il est défini.
 - **`PROCUREMENT_S3_*`** : repli / config S3 lorsque le driver effectif est **s3** (voir détail historique RFC-034) ; résolution DB si `enabled` et champs complets, sinon env.
+- **`PROCUREMENT_CLIENT_DOCUMENTS_BUCKET_PREFIX`** (optionnel, hérité) : ignoré par le code actuel ; le rangement S3 utilise le bucket plateforme et le préfixe `{clientId}/…` sur les clés objet.
 
 **Guards** : `JwtAuthGuard`, `PlatformAdminGuard` — **pas** de `X-Client-Id`.
 
 **GET (200)** : ligne `PlatformProcurementS3Settings` (créée à la volée si absente) + **`effectiveDriver`** (`local` \| `s3`) + **`effectiveLocalRootSource`** (`env` \| `db` \| `none`) + **`effectiveSource`** (`db` \| `env` \| `none`, origine de la config **S3** lorsque applicable).
 
-**Corps (aperçu)** : `id`, `enabled`, `storageDriver`, `localRoot`, `endpoint`, `region`, `accessKey`, **`hasSecret`** (booléen), `bucket`, `useSsl`, `forcePathStyle`, `updatedAt`. Le **secret** (`secretKey`) n’est **jamais** renvoyé, ni en clair ni chiffré.
+**Corps (aperçu)** : `id`, `enabled`, `storageDriver`, `localRoot`, `endpoint`, `region`, `accessKey`, **`hasSecret`** (booléen), `bucket`, **`clientDocumentsBucketPrefix`** (hérité, non utilisé pour le rangement ; peut être `null`), `useSsl`, `forcePathStyle`, `updatedAt`. Le **secret** (`secretKey`) n’est **jamais** renvoyé, ni en clair ni chiffré.
 
-**PATCH** : JSON partiel — `enabled`, `storageDriver` (`LOCAL` \| `S3`), `localRoot`, `endpoint`, `region`, `accessKey`, `secretKey` (écriture seule ; chaîne vide ou omission pour ne pas changer), `bucket`, `useSsl`, `forcePathStyle`. Si `enabled` est vrai après enregistrement : contrôle **répertoire local inscriptible** si le driver effectif est local, sinon contrôle S3 (`HeadBucket` ; création du bucket si réponse 404). En cas d’échec : **400** avec message métier. Réponse : même forme que **GET**.
+**PATCH** : JSON partiel — `enabled`, `storageDriver` (`LOCAL` \| `S3`), `localRoot`, `endpoint`, `region`, `accessKey`, `secretKey` (écriture seule ; chaîne vide ou omission pour ne pas changer), `bucket`, **`clientDocumentsBucketPrefix`**, `useSsl`, `forcePathStyle`. Si `enabled` est vrai après enregistrement : contrôle **répertoire local inscriptible** si le driver effectif est local, sinon contrôle S3 (`HeadBucket` sur le bucket **plateforme** ; création si réponse 404). En cas d’échec : **400** avec message métier. Réponse : même forme que **GET**.
+
+**Stockage par client** : en **local**, les fichiers sont sous `{racine}/{clientId}/Commandes|Factures|Contrats/…`. En **S3**, un seul **bucket plateforme** ; chaque client a un « dossier » logique `{clientId}/…` dans les clés objet. `Client.documentsBucketName` enregistre ce bucket partagé après provisionnement (création client ou premier upload).
 
 ---
 

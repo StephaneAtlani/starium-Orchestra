@@ -27,6 +27,7 @@ import { PlatformUiBadgeSettingsService } from './platform-ui-badge-settings.ser
 import { ClientAdminGuard } from '../../common/guards/client-admin.guard';
 import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
 import { ActivityTypesModule } from '../activity-types/activity-types.module';
+import { ProcurementModule } from '../procurement/procurement.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ActivityTypesModule } from '../activity-types/activity-types.module';
     RolesModule,
     ProjectsModule,
     ResourcesModule,
+    ProcurementModule,
     RiskTaxonomyModule,
     ActivityTypesModule,
   ],

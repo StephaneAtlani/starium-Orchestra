@@ -148,6 +148,8 @@ export class ContractAttachmentsService {
     const mime = file!.mimetype.toLowerCase();
     const ext = MIME_TO_EXT[mime] ?? '.bin';
     const { bucket, objectKey, checksumSha256 } = await this.storage.putObject({
+      clientId,
+      domain: 'contrats',
       body: file!.buffer,
       contentType: mime,
       extension: ext,

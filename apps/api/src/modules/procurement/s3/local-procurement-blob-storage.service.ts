@@ -1,5 +1,5 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { access, mkdir, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
@@ -35,15 +35,10 @@ export class LocalProcurementBlobStorageService {
     params: {
       body: Buffer;
       contentType: string;
-      extension: string;
+      objectKey: string;
     },
   ): Promise<{ bucket: string; objectKey: string; checksumSha256: string }> {
-    const ext =
-      params.extension && params.extension.startsWith('.')
-        ? params.extension
-        : `.${params.extension || 'bin'}`;
-    const safeExt = ext.replace(/[^.a-zA-Z0-9]/g, '') || '.bin';
-    const objectKey = `procurement/${randomUUID()}/${randomUUID()}${safeExt}`;
+    const objectKey = params.objectKey;
     const checksumSha256 = createHash('sha256').update(params.body).digest('hex');
     const filePath = this.resolveFilePath(root, objectKey);
     await mkdir(path.dirname(filePath), { recursive: true });

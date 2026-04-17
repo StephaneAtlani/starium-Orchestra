@@ -17,6 +17,8 @@
 # Notes :
 # - Le fichier .env n'est pas packagé dans l'image (voir .dockerignore).
 #   Compose injecte `apps/api/.env` via `env_file`.
+# - Les clés du bloc `environment` priment sur `env_file` : ne pas y redéfinir
+#   PROCUREMENT_S3_* (sinon elles écrasent apps/api/.env, ex. région eu-west-3 → us-east-1).
 # =============================================================================
 
 x-postgres-healthcheck: &postgres-healthcheck
@@ -84,15 +86,11 @@ services:
       SMTP_PORT: "1025"
       SMTP_SECURE: "false"
       SMTP_FROM: noreply@starium.local
-      PROCUREMENT_STORAGE_DRIVER: local
+      # Ne pas définir PROCUREMENT_STORAGE_DRIVER ici : le driver effectif suit alors la DB
+      # (`PlatformProcurementS3Settings.storageDriver`, écran admin « Type de stockage » — RFC-035).
+      # Pour forcer le disque sans toucher à la DB (Docker sans MinIO) : PROCUREMENT_STORAGE_DRIVER=local dans apps/api/.env
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
-      PROCUREMENT_S3_ENDPOINT: ${PROCUREMENT_S3_ENDPOINT:-}
-      PROCUREMENT_S3_ACCESS_KEY: ${PROCUREMENT_S3_ACCESS_KEY:-}
-      PROCUREMENT_S3_SECRET_KEY: ${PROCUREMENT_S3_SECRET_KEY:-}
-      PROCUREMENT_S3_BUCKET: ${PROCUREMENT_S3_BUCKET:-starium-procurement}
-      PROCUREMENT_S3_REGION: ${PROCUREMENT_S3_REGION:-us-east-1}
-      PROCUREMENT_S3_USE_SSL: ${PROCUREMENT_S3_USE_SSL:-false}
-      PROCUREMENT_S3_FORCE_PATH_STYLE: ${PROCUREMENT_S3_FORCE_PATH_STYLE:-true}
+      # PROCUREMENT_S3_* : uniquement dans apps/api/.env (sinon ce bloc écrase env_file — buckets créés dans la mauvaise région).
     ports:
       - "3001:3001"
     volumes:

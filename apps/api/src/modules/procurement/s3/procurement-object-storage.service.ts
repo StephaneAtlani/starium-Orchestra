@@ -1,11 +1,15 @@
 import {
   Injectable,
   Logger,
+  NotFoundException,
   OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Readable } from 'node:stream';
 import { PrismaService } from '../../../prisma/prisma.service';
+import type { ClientDocumentStorageDomain } from './client-document-storage-domain';
+import { buildClientDocumentObjectKey } from './client-document-storage-path.util';
+import { ClientDocumentsStorageProvisionerService } from './client-documents-storage-provisioner.service';
 import { LocalProcurementBlobStorageService } from './local-procurement-blob-storage.service';
 import { ProcurementS3ConfigResolverService } from './procurement-s3-config.resolver.service';
 import {
@@ -26,6 +30,7 @@ export class ProcurementObjectStorageService implements OnModuleInit {
     private readonly localStorage: LocalProcurementBlobStorageService,
     private readonly s3Storage: S3ProcurementBlobStorageService,
     private readonly s3Resolver: ProcurementS3ConfigResolverService,
+    private readonly clientDocumentsProvisioner: ClientDocumentsStorageProvisionerService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -44,15 +49,66 @@ export class ProcurementObjectStorageService implements OnModuleInit {
   }
 
   async putObject(params: {
+    clientId: string;
+    domain: ClientDocumentStorageDomain;
     body: Buffer;
     contentType: string;
     extension: string;
   }): Promise<{ bucket: string; objectKey: string; checksumSha256: string }> {
+    await this.clientDocumentsProvisioner.provisionClientDocumentStorage(params.clientId);
+
+    const ext =
+      params.extension && params.extension.startsWith('.')
+        ? params.extension
+        : `.${params.extension || 'bin'}`;
+    const safeExt = ext.replace(/[^.a-zA-Z0-9]/g, '') || '.bin';
+
     const ctx = await this.resolution.resolveForOperations();
     if (ctx.driver === 'LOCAL') {
-      return this.localStorage.putObject(ctx.root, params);
+      const objectKey = buildClientDocumentObjectKey(
+        params.clientId,
+        params.domain,
+        safeExt,
+      );
+      return this.localStorage.putObject(ctx.root, {
+        body: params.body,
+        contentType: params.contentType,
+        objectKey,
+      });
     }
-    return this.s3Storage.putObject(ctx.config, params);
+
+    const cfg = await this.s3Resolver.resolve();
+    if (!cfg) {
+      throw new ServiceUnavailableException(
+        'Stockage des pièces indisponible : configurer S3 (plateforme ou variables PROCUREMENT_S3_*).',
+      );
+    }
+
+    const exists = await this.prisma.client.findUnique({
+      where: { id: params.clientId },
+      select: { id: true },
+    });
+    if (!exists) {
+      throw new NotFoundException('Client introuvable');
+    }
+
+    const bucket = cfg.bucket.trim();
+    if (!bucket) {
+      throw new ServiceUnavailableException('Bucket S3 plateforme non configuré.');
+    }
+
+    const objectKey = buildClientDocumentObjectKey(
+      params.clientId,
+      params.domain,
+      safeExt,
+    );
+
+    return this.s3Storage.putObject(cfg, {
+      bucket,
+      objectKey,
+      body: params.body,
+      contentType: params.contentType,
+    });
   }
 
   async getObjectStream(

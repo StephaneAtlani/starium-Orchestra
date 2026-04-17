@@ -16,6 +16,7 @@ import { ProjectTeamService } from '../projects/project-team.service';
 import { ResourcesModuleBootstrapService } from '../resources/resources-module-bootstrap.service';
 import { RiskTaxonomyService } from '../risk-taxonomy/risk-taxonomy.service';
 import { ActivityTypesService } from '../activity-types/activity-types.service';
+import { ClientDocumentsStorageProvisionerService } from '../procurement/s3/client-documents-storage-provisioner.service';
 
 /** Réponse client pour GET /clients (liste). */
 export interface ClientListItem {
@@ -46,6 +47,7 @@ export class ClientsService {
     private readonly resourcesBootstrap: ResourcesModuleBootstrapService,
     private readonly riskTaxonomy: RiskTaxonomyService,
     private readonly activityTypes: ActivityTypesService,
+    private readonly clientDocumentsStorageProvisioner: ClientDocumentsStorageProvisionerService,
   ) {}
 
   /**
@@ -88,6 +90,7 @@ export class ClientsService {
     });
 
     try {
+      await this.clientDocumentsStorageProvisioner.provisionClientDocumentStorage(client.id);
       await this.enableDefaultModulesForClient(client.id);
       await this.defaultProfiles.applyForClient(client.id);
       await this.projectTeam.seedDefaultRolesForClient(client.id);

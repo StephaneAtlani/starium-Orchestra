@@ -33,6 +33,7 @@ export interface PlatformProcurementS3SettingsPublic {
   bucket: string | null;
   useSsl: boolean;
   forcePathStyle: boolean;
+  clientDocumentsBucketPrefix: string | null;
   updatedAt: Date;
   /** Source effective pour les opérations S3 (db / env / indisponible). */
   effectiveSource: 'db' | 'env' | 'none';
@@ -64,6 +65,7 @@ export class PlatformProcurementS3SettingsService {
     bucket: string | null;
     useSsl: boolean;
     forcePathStyle: boolean;
+    clientDocumentsBucketPrefix: string | null;
     updatedAt: Date;
   }): Omit<
     PlatformProcurementS3SettingsPublic,
@@ -81,6 +83,7 @@ export class PlatformProcurementS3SettingsService {
       bucket: row.bucket,
       useSsl: row.useSsl,
       forcePathStyle: row.forcePathStyle,
+      clientDocumentsBucketPrefix: row.clientDocumentsBucketPrefix,
       updatedAt: row.updatedAt,
     };
   }
@@ -116,6 +119,9 @@ export class PlatformProcurementS3SettingsService {
         : null;
     }
     if (dto.bucket !== undefined) data.bucket = dto.bucket?.trim() || null;
+    if (dto.clientDocumentsBucketPrefix !== undefined) {
+      data.clientDocumentsBucketPrefix = dto.clientDocumentsBucketPrefix?.trim() || null;
+    }
     if (dto.useSsl !== undefined) data.useSsl = dto.useSsl;
     if (dto.forcePathStyle !== undefined) data.forcePathStyle = dto.forcePathStyle;
 

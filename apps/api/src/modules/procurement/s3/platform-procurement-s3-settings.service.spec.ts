@@ -28,6 +28,7 @@ describe('PlatformProcurementS3SettingsService', () => {
     bucket: 'starium-procurement',
     useSsl: false,
     forcePathStyle: true,
+    clientDocumentsBucketPrefix: null,
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   };
 

@@ -38,6 +38,8 @@ type PlatformProcurementStorageGetResponse = {
   accessKey: string | null;
   hasSecret: boolean;
   bucket: string | null;
+  /** Préfixe des noms de bucket S3 créés par client (documents). */
+  clientDocumentsBucketPrefix: string | null;
   useSsl: boolean;
   forcePathStyle: boolean;
   updatedAt: string;
@@ -122,6 +124,7 @@ export function PlatformProcurementStorageSettingsForm() {
     accessKey: '',
     secretKey: '',
     bucket: '',
+    clientDocumentsBucketPrefix: '',
     useSsl: true,
     forcePathStyle: true,
   });
@@ -154,6 +157,7 @@ export function PlatformProcurementStorageSettingsForm() {
         accessKey: data.accessKey ?? '',
         secretKey: '',
         bucket: data.bucket ?? '',
+        clientDocumentsBucketPrefix: data.clientDocumentsBucketPrefix ?? '',
         useSsl: data.useSsl,
         forcePathStyle: data.forcePathStyle,
       });
@@ -193,6 +197,7 @@ export function PlatformProcurementStorageSettingsForm() {
         region: form.region.trim() || null,
         accessKey: form.accessKey.trim() || null,
         bucket: form.bucket.trim() || null,
+        clientDocumentsBucketPrefix: form.clientDocumentsBucketPrefix.trim() || null,
         useSsl: form.useSsl,
         forcePathStyle: form.forcePathStyle,
       };
@@ -316,8 +321,11 @@ export function PlatformProcurementStorageSettingsForm() {
             <div className="space-y-0.5">
               <Label>Activer la configuration en base</Label>
               <p className="text-xs text-muted-foreground">
-                Si désactivé, la résolution peut reposer uniquement sur les variables
-                d’environnement (selon le type de stockage).
+                <strong className="font-medium text-foreground">Requis</strong> pour que
+                l’API applique les paramètres S3 / disque saisis ici (buckets clients,
+                pièces jointes). Si désactivé, seules les variables{' '}
+                <code className="rounded bg-muted px-1 text-[0.7rem]">PROCUREMENT_S3_*</code>{' '}
+                sur le serveur sont prises en compte (sinon pas de S3).
               </p>
             </div>
             <Switch
@@ -403,7 +411,7 @@ export function PlatformProcurementStorageSettingsForm() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="proc-s3-bucket">Bucket</Label>
+                  <Label htmlFor="proc-s3-bucket">Bucket (plateforme / compat)</Label>
                   <Input
                     id="proc-s3-bucket"
                     value={form.bucket}
@@ -411,6 +419,27 @@ export function PlatformProcurementStorageSettingsForm() {
                       setForm((f) => ({ ...f, bucket: e.target.value }))
                     }
                   />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="proc-s3-client-bucket-prefix">
+                    Préfixe buckets par client (hérité)
+                  </Label>
+                  <Input
+                    id="proc-s3-client-bucket-prefix"
+                    value={form.clientDocumentsBucketPrefix}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        clientDocumentsBucketPrefix: e.target.value,
+                      }))
+                    }
+                    placeholder=""
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Non utilisé : les pièces sont dans le **bucket ci-dessus**, sous un préfixe par
+                    client (<code className="text-xs">{'{clientId}'}</code> / Commandes, Factures,
+                    Contrats).
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="proc-s3-access">Clé d’accès</Label>

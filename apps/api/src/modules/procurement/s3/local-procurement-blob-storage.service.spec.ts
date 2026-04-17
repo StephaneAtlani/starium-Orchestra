@@ -28,7 +28,7 @@ describe('LocalProcurementBlobStorageService', () => {
     const put = await service.putObject(root, {
       body,
       contentType: 'text/plain',
-      extension: '.txt',
+      objectKey: 'c1/Commandes/a/b/hello.txt',
     });
     const { stream } = await service.getObjectStream(root, put.bucket, put.objectKey);
     const chunks: Buffer[] = [];

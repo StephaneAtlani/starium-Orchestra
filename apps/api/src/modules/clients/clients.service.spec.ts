@@ -8,6 +8,7 @@ import { ProjectTeamService } from '../projects/project-team.service';
 import { ResourcesModuleBootstrapService } from '../resources/resources-module-bootstrap.service';
 import { RiskTaxonomyService } from '../risk-taxonomy/risk-taxonomy.service';
 import { ActivityTypesService } from '../activity-types/activity-types.service';
+import { ClientDocumentsStorageProvisionerService } from '../procurement/s3/client-documents-storage-provisioner.service';
 
 describe('ClientsService', () => {
   let service: ClientsService;
@@ -79,6 +80,12 @@ describe('ClientsService', () => {
             ensureDefaultsForClient: jest.fn().mockResolvedValue(undefined),
           },
         },
+        {
+          provide: ClientDocumentsStorageProvisionerService,
+          useValue: {
+            provisionClientDocumentStorage: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
@@ -136,6 +143,12 @@ describe('ClientsService', () => {
           },
           { provide: RiskTaxonomyService, useValue: riskTaxonomy },
           { provide: ActivityTypesService, useValue: activityTypes },
+          {
+            provide: ClientDocumentsStorageProvisionerService,
+            useValue: {
+              provisionClientDocumentStorage: jest.fn().mockResolvedValue(undefined),
+            },
+          },
         ],
       }).compile();
       const svc = testModule.get<ClientsService>(ClientsService);
@@ -219,6 +232,12 @@ describe('ClientsService', () => {
             provide: ActivityTypesService,
             useValue: {
               ensureDefaultsForClient: jest.fn().mockResolvedValue(undefined),
+            },
+          },
+          {
+            provide: ClientDocumentsStorageProvisionerService,
+            useValue: {
+              provisionClientDocumentStorage: jest.fn().mockResolvedValue(undefined),
             },
           },
         ],
