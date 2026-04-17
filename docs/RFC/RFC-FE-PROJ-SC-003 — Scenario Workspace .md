@@ -59,7 +59,7 @@ Depuis la liste scénarios :
 
 👉 Ajouter CTA obligatoire sur chaque carte :
 
-* **"Ouvrir"** ou **"Éditer"**
+* **« Ouvrir »** (libellé unique MVP)
 
 Interdit :
 
@@ -221,3 +221,20 @@ features/projects/scenario-workspace/
 👉 Avec cette RFC :
 
 * tu transformes les scénarios en **vrai outil de pilotage**
+
+---
+
+### 16) Implémentation (référence code — avril 2026)
+
+Comportement aligné sur le plan verrouillé (tabs **locales** sans sous-route ni `?tab=` ; pas de réutilisation du module **cockpit** dans le workspace ; PATCH **uniquement** `name`, `code`, `description`, `assumptionSummary`).
+
+| Élément | Emplacement |
+| ------- | ----------- |
+| Route Next.js | `apps/web/src/app/(protected)/projects/[projectId]/scenarios/[scenarioId]/page.tsx` |
+| Feature | `apps/web/src/features/projects/scenario-workspace/` — `ScenarioWorkspacePage`, `ScenarioWorkspaceTabs`, panneaux par dimension, `ScenarioSummaryPanel` (affichage homogène des `*Summary` du détail API), `scenario-patch-payload.ts`, `invalidate-after-scenario-update.ts`, `scenario-workspace-readonly.ts` |
+| Helper route | `projectScenarioWorkspace(projectId, scenarioId)` dans `features/projects/constants/project-routes.ts` |
+| API client | `updateProjectScenario` (PATCH) + type `UpdateProjectScenarioPayload` dans `features/projects/api/projects.api.ts` et `project.types.ts` |
+| Mutation React Query | `updateMutation` dans `features/projects/hooks/use-project-scenarios-mutations.ts` — invalidations : `scenarioDetail`, `scenarios`, `detail` projet |
+| Query | `useProjectScenarioQuery` + clé `projectQueryKeys.scenarioDetail` (inchangée) |
+| Liste scénarios | CTA **Ouvrir** sur `ScenarioCard` (lien vers le workspace) |
+| Tests | `scenario-workspace/*.spec.ts`, extensions `project-scenarios-view.spec.ts`, `use-project-scenarios-mutations.spec.ts` |

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { projectScenarioWorkspace } from '../constants/project-routes';
 import { deriveScenariosScreenState } from '../components/project-scenarios-view';
 import { deriveProjectWorkspaceTabState } from '../components/project-workspace-tabs';
 
@@ -7,6 +8,15 @@ describe('Scenarios navigation and screen states', () => {
     const state = deriveProjectWorkspaceTabState('/projects/p1/scenarios', null);
     expect(state.isScenarios).toBe(true);
     expect(state.isSynth).toBe(false);
+  });
+
+  it('active le tab Scénarios sur la route workspace scénario (RFC-FE-PROJ-SC-003)', () => {
+    const state = deriveProjectWorkspaceTabState('/projects/p1/scenarios/sc-99', null);
+    expect(state.isScenarios).toBe(true);
+  });
+
+  it('expose la route canonique workspace pour le CTA Ouvrir', () => {
+    expect(projectScenarioWorkspace('proj-1', 'sc-1')).toBe('/projects/proj-1/scenarios/sc-1');
   });
 
   it('active le tab Scénarios sur la route cockpit (sous-route scénarios)', () => {

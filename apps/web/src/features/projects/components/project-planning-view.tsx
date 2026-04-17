@@ -115,7 +115,7 @@ export function ProjectPlanningView({ projectId }: { projectId: string }) {
 
       <Card size="sm" className="min-w-0 overflow-hidden py-0 shadow-sm">
         <CardHeader className="space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
-          <ProjectWorkspaceTabs projectId={projectId} />
+          <ProjectWorkspaceTabs projectId={projectId} projectStatus={project.status} />
         </CardHeader>
         <CardContent className="flex min-h-0 w-full min-w-0 flex-col gap-4 p-4 sm:p-6">
           <PlanningSubTabs projectId={projectId} active={sub} />

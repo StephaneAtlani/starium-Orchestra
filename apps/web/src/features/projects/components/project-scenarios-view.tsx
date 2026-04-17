@@ -12,6 +12,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { projectsList } from '../constants/project-routes';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { useProjectScenariosQuery } from '../hooks/use-project-scenarios-query';
+import { isProjectScenarioEditingAllowed } from '../lib/project-scenario-editing-allowed';
 import { ProjectScenariosTab } from '../scenarios/ProjectScenariosTab';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
 
@@ -31,7 +32,18 @@ export function ProjectScenariosView({ projectId }: { projectId: string }) {
   const { data: project, isLoading: projectLoading, error: projectError } = useProjectDetailQuery(projectId);
   const scenariosQuery = useProjectScenariosQuery(projectId);
   const { has } = usePermissions();
-  const canMutate = has('projects.update');
+  const hasUpdate = has('projects.update');
+  const projectAllowsScenarioEdits = project
+    ? isProjectScenarioEditingAllowed(project)
+    : false;
+  const canMutate = Boolean(project) && hasUpdate && projectAllowsScenarioEdits;
+  const mutationDisabledReason = !project
+    ? null
+    : !hasUpdate
+      ? 'Permission requise : projects.update.'
+      : !projectAllowsScenarioEdits
+        ? 'Projet hors brouillon : scénarios en lecture seule.'
+        : null;
 
   if (!projectId) {
     return <p className="text-sm text-destructive">Identifiant de projet manquant.</p>;
@@ -80,7 +92,7 @@ export function ProjectScenariosView({ projectId }: { projectId: string }) {
 
       <Card size="sm" className="min-w-0 overflow-hidden py-0 shadow-sm">
         <CardHeader className="space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
-          <ProjectWorkspaceTabs projectId={projectId} />
+          <ProjectWorkspaceTabs projectId={projectId} projectStatus={project.status} />
         </CardHeader>
         <CardContent className="flex flex-col gap-5 p-4 sm:p-6">
           {screenState === 'error' ? (
@@ -98,6 +110,7 @@ export function ProjectScenariosView({ projectId }: { projectId: string }) {
               scenarios={scenarios}
               isLoading={screenState === 'loading'}
               canMutate={canMutate}
+              mutationDisabledReason={mutationDisabledReason}
             />
           )}
         </CardContent>

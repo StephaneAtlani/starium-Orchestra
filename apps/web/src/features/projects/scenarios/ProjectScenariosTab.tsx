@@ -25,6 +25,8 @@ type ProjectScenariosTabProps = {
   scenarios: ProjectScenarioApi[];
   isLoading: boolean;
   canMutate: boolean;
+  /** Si `canMutate` est false : message pour alerte / title boutons (permission vs cycle de vie). */
+  mutationDisabledReason?: string | null;
 };
 
 export function ProjectScenariosTab({
@@ -32,6 +34,7 @@ export function ProjectScenariosTab({
   scenarios,
   isLoading,
   canMutate,
+  mutationDisabledReason,
 }: ProjectScenariosTabProps) {
   const { createMutation, duplicateMutation, selectMutation, archiveMutation, isAnyPending } =
     useProjectScenariosMutations(projectId);
@@ -41,7 +44,8 @@ export function ProjectScenariosTab({
 
   const disabledReason = canMutate
     ? null
-    : 'Permission requise: projects.update pour exécuter cette action.';
+    : (mutationDisabledReason ??
+      'Permission requise: projects.update pour exécuter cette action.');
 
   const selectedCount = useMemo(
     () => scenarios.filter((scenario) => scenario.status === 'SELECTED' || scenario.isBaseline).length,
@@ -83,9 +87,7 @@ export function ProjectScenariosTab({
       {!canMutate ? (
         <Alert>
           <AlertTitle>Action limitée</AlertTitle>
-          <AlertDescription>
-            Les actions de mutation sont visibles mais désactivées sans permission `projects.update`.
-          </AlertDescription>
+          <AlertDescription>{disabledReason}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -101,6 +103,7 @@ export function ProjectScenariosTab({
           {scenarios.map((scenario) => (
             <ScenarioCard
               key={scenario.id}
+              projectId={projectId}
               scenario={scenario}
               canMutate={canMutate}
               disableMutations={isAnyPending}

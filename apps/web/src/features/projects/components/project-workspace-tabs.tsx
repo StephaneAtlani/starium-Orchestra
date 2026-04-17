@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Layers3,
   ListTodo,
+  Lock,
   Split,
   Settings,
 } from 'lucide-react';
@@ -63,7 +64,14 @@ export function deriveProjectWorkspaceTabState(
  * Navigation principale projet : Synthèse · Fiche projet · Planning · Points projet · Options.
  * À placer dans un `CardHeader` (même structure que le détail : `Card` + header dégradé).
  */
-export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
+export function ProjectWorkspaceTabs({
+  projectId,
+  projectStatus,
+}: {
+  projectId: string;
+  /** Si défini et ≠ DRAFT, l’onglet Scénarios indique la lecture seule (mutations désactivées côté écrans). */
+  projectStatus?: string;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tabState = deriveProjectWorkspaceTabState(pathname, searchParams.get('tab'));
@@ -71,6 +79,8 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
   const detailHref = projectDetail(projectId);
   const pointsHref = `${detailHref}?tab=points`;
   const planningHref = projectPlanning(projectId);
+  const scenariosReadOnly =
+    projectStatus !== undefined && projectStatus !== 'DRAFT';
 
   return (
     <div className="min-w-0 overflow-x-auto [-webkit-overflow-scrolling:touch]">
@@ -128,9 +138,19 @@ export function ProjectWorkspaceTabs({ projectId }: { projectId: string }) {
         href={projectScenarios(projectId)}
         role="tab"
         aria-current={tabState.isScenarios ? 'page' : undefined}
+        title={
+          scenariosReadOnly
+            ? 'Scénarios consultables en lecture seule (projet hors brouillon)'
+            : undefined
+        }
+        aria-label={scenariosReadOnly ? 'Scénarios, lecture seule' : 'Scénarios'}
         className={tabLinkClass(tabState.isScenarios)}
       >
-        <Split className="size-4 shrink-0 opacity-70" />
+        {scenariosReadOnly ? (
+          <Lock className="size-4 shrink-0 opacity-70" aria-hidden />
+        ) : (
+          <Split className="size-4 shrink-0 opacity-70" />
+        )}
         Scénarios
       </Link>
       <Link

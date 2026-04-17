@@ -193,6 +193,14 @@ export type CreateProjectScenarioPayload = {
   description?: string;
 };
 
+/** PATCH `/api/projects/:projectId/scenarios/:scenarioId` — métadonnées uniquement. */
+export type UpdateProjectScenarioPayload = {
+  name?: string;
+  code?: string | null;
+  description?: string | null;
+  assumptionSummary?: string | null;
+};
+
 export type SelectProjectScenarioPayload = {
   targetProjectStatus?: 'PLANNED' | 'IN_PROGRESS';
   decisionNote?: string | null;

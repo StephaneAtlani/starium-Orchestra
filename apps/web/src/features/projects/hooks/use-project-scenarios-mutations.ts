@@ -9,12 +9,15 @@ import {
   createProjectScenario,
   duplicateProjectScenario,
   selectProjectScenario,
+  updateProjectScenario,
 } from '../api/projects.api';
 import type {
   CreateProjectScenarioPayload,
   SelectProjectScenarioPayload,
+  UpdateProjectScenarioPayload,
 } from '../types/project.types';
 import { projectQueryKeys } from '../lib/project-query-keys';
+import { invalidateAfterScenarioUpdate } from '../scenario-workspace/invalidate-after-scenario-update';
 
 export function useProjectScenariosMutations(projectId: string) {
   const authFetch = useAuthenticatedFetch();
@@ -87,15 +90,39 @@ export function useProjectScenariosMutations(projectId: string) {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({
+      scenarioId,
+      payload,
+    }: {
+      scenarioId: string;
+      payload: UpdateProjectScenarioPayload;
+    }) => updateProjectScenario(authFetch, projectId, scenarioId, payload),
+    onSuccess: async (_data, variables) => {
+      await invalidateAfterScenarioUpdate(
+        queryClient,
+        clientId,
+        projectId,
+        variables.scenarioId,
+      );
+      toast.success('Scénario mis à jour');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Mise à jour du scénario impossible');
+    },
+  });
+
   return {
     createMutation,
     duplicateMutation,
     selectMutation,
     archiveMutation,
+    updateMutation,
     isAnyPending:
       createMutation.isPending ||
       duplicateMutation.isPending ||
       selectMutation.isPending ||
-      archiveMutation.isPending,
+      archiveMutation.isPending ||
+      updateMutation.isPending,
   };
 }

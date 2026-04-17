@@ -44,6 +44,11 @@ export function projectScenarioCockpit(projectId: string): string {
   return `/projects/${projectId}/scenarios/cockpit`;
 }
 
+/** Édition scénario (RFC-FE-PROJ-SC-003). */
+export function projectScenarioWorkspace(projectId: string, scenarioId: string): string {
+  return `/projects/${projectId}/scenarios/${scenarioId}`;
+}
+
 /** Options du projet (RFC-PROJ-OPT-001) — distinct de `projectsOptions()` (module / placeholder). */
 export function projectProjectOptions(projectId: string): string {
   return `/projects/${projectId}/options`;

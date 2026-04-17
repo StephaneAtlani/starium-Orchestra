@@ -375,6 +375,19 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `scenario-delta-utils` - `features/projects/scenario-cockpit/scenario-delta-utils.ts` - parsing numérique et deltas comparé − baseline.
 - `project-scenario-cockpit-route-page` - `app/(protected)/projects/[projectId]/scenarios/cockpit/page.tsx` - route Next.js du cockpit.
 
+## Projets / Scénarios workspace — RFC-FE-PROJ-SC-003 (12)
+
+- `scenario-workspace-page` - `features/projects/scenario-workspace/ScenarioWorkspacePage.tsx` - page édition scénario (queries projet + détail scénario, header, onglets internes).
+- `scenario-workspace-tabs` - `features/projects/scenario-workspace/ScenarioWorkspaceTabs.tsx` - onglets locaux (Vue d’ensemble, Budget, Ressources, Planning, Capacité, Risques).
+- `scenario-overview-panel` - `features/projects/scenario-workspace/ScenarioOverviewPanel.tsx` - formulaire PATCH métadonnées (quatre champs).
+- `scenario-budget-panel` / `scenario-resource-panel` / `scenario-timeline-panel` / `scenario-capacity-panel` - `features/projects/scenario-workspace/` - panneaux lecture seule sur `*Summary` du détail API.
+- `scenario-risk-panel` (workspace) - `features/projects/scenario-workspace/ScenarioRiskPanel.tsx` - synthèse risque scénario + lien registre risques projet (distinct du panneau cockpit).
+- `scenario-summary-panel` - `features/projects/scenario-workspace/ScenarioSummaryPanel.tsx` - rendu homogène d’un bloc summary JSON.
+- `scenario-patch-payload` - `features/projects/scenario-workspace/scenario-patch-payload.ts` - construction du payload PATCH (champs modifiés uniquement).
+- `invalidate-after-scenario-update` - `features/projects/scenario-workspace/invalidate-after-scenario-update.ts` - invalidations React Query après mise à jour.
+- `scenario-workspace-readonly` - `features/projects/scenario-workspace/scenario-workspace-readonly.ts` - règle lecture seule si `ARCHIVED`.
+- `project-scenario-workspace-route-page` - `app/(protected)/projects/[projectId]/scenarios/[scenarioId]/page.tsx` - route Next.js du workspace.
+
 ## Projets / Gantt (1)
 
 - `project-gantt-view` - `features/projects/gantt/components/project-gantt-view.tsx` - affiche la vue de projet gantt.

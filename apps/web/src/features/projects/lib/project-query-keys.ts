@@ -16,6 +16,19 @@ export const projectQueryKeys = {
   /** GET /api/projects/:projectId/scenarios/:scenarioId — pas de clé agrégée cockpit. */
   scenarioDetail: (clientId: string, projectId: string, scenarioId: string) =>
     [...projectQueryKeys.all, 'scenario-detail', clientId, projectId, scenarioId] as const,
+  /** Listes / synthèses dimensions scénario (RFC-PROJ-SC-002…006) — workspace. */
+  scenarioFinancialLines: (clientId: string, projectId: string, scenarioId: string) =>
+    [...projectQueryKeys.all, 'scenario-financial-lines', clientId, projectId, scenarioId] as const,
+  scenarioResourcePlans: (clientId: string, projectId: string, scenarioId: string) =>
+    [...projectQueryKeys.all, 'scenario-resource-plans', clientId, projectId, scenarioId] as const,
+  scenarioScenarioTasks: (clientId: string, projectId: string, scenarioId: string) =>
+    [...projectQueryKeys.all, 'scenario-scenario-tasks', clientId, projectId, scenarioId] as const,
+  scenarioCapacitySnapshots: (clientId: string, projectId: string, scenarioId: string) =>
+    [...projectQueryKeys.all, 'scenario-capacity-snapshots', clientId, projectId, scenarioId] as const,
+  scenarioCapacitySummary: (clientId: string, projectId: string, scenarioId: string) =>
+    [...projectQueryKeys.all, 'scenario-capacity-summary', clientId, projectId, scenarioId] as const,
+  scenarioRisks: (clientId: string, projectId: string, scenarioId: string) =>
+    [...projectQueryKeys.all, 'scenario-risks', clientId, projectId, scenarioId] as const,
   optionsTags: (clientId: string) =>
     [...projectQueryKeys.all, 'options-tags', clientId] as const,
   optionsPortfolioCategories: (clientId: string) =>

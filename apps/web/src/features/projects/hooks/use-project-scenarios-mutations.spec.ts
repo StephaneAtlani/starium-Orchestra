@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { selectProjectScenario } from '../api/projects.api';
+import { selectProjectScenario, updateProjectScenario } from '../api/projects.api';
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 
 function createAuthFetchSpy() {
@@ -29,5 +29,22 @@ describe('selectProjectScenario API routing', () => {
     const [url, init] = (authFetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(url).toBe('/api/projects/proj-1/scenarios/sc-1/select-and-transition');
     expect((init as RequestInit).method).toBe('POST');
+  });
+});
+
+describe('updateProjectScenario', () => {
+  it('envoie PATCH avec un corps JSON limité aux champs supportés', async () => {
+    const authFetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ id: 'sc-1' }),
+    })) as unknown as AuthFetch & ReturnType<typeof vi.fn>;
+
+    await updateProjectScenario(authFetch, 'proj-1', 'sc-1', { name: 'Nouveau', description: null });
+
+    const [, init] = (authFetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect((init as RequestInit).method).toBe('PATCH');
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(Object.keys(body)).toEqual(['name', 'description']);
+    expect(body).toEqual({ name: 'Nouveau', description: null });
   });
 });

@@ -6,7 +6,10 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { getProjectScenarios } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 
-export function useProjectScenariosQuery(projectId: string) {
+export function useProjectScenariosQuery(
+  projectId: string,
+  options?: { enabled?: boolean },
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -14,6 +17,7 @@ export function useProjectScenariosQuery(projectId: string) {
   return useQuery({
     queryKey: projectQueryKeys.scenarios(clientId, projectId),
     queryFn: () => getProjectScenarios(authFetch, projectId),
-    enabled: Boolean(clientId) && Boolean(projectId),
+    enabled:
+      (options?.enabled !== false) && Boolean(clientId) && Boolean(projectId),
   });
 }

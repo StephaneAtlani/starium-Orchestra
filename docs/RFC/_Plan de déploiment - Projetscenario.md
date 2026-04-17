@@ -13,6 +13,7 @@
 | RFC-PROJ-SC-007    | Scenario Selection Workflow | Sélection atomique baseline + transition projet via `POST /select-and-transition` | **Backend**   | ✅ Implémenté (MVP) |
 | RFC-FE-PROJ-SC-001 | Scenarios Tab UI            | Onglet Scénarios dans la fiche projet                                            | **Frontend**  | ✅ Implémentée (MVP) |
 | RFC-FE-PROJ-SC-002 | Scenario Cockpit UI         | Cockpit décisionnel : comparaison deux scénarios (agrégats API)                     | **Frontend**  | ✅ Implémentée (MVP) |
+| RFC-FE-PROJ-SC-003 | Scenario Workspace          | Édition scénario : onglets locaux, PATCH métadonnées, lecture des `*Summary` détail | **Frontend**  | ✅ Implémentée (MVP) |
 
 ---
 

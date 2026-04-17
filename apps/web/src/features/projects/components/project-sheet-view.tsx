@@ -19,6 +19,7 @@ import {
   Pencil,
   Percent,
   Plus,
+  Split,
   Trash2,
   TrendingUp,
   UsersRound,
@@ -69,7 +70,12 @@ import {
   listProjectSheetDecisionSnapshots,
   updateProjectSheet,
 } from '../api/projects.api';
-import { projectsList, projectRisks } from '../constants/project-routes';
+import {
+  projectsList,
+  projectRisks,
+  projectScenarioCockpit,
+  projectScenarios,
+} from '../constants/project-routes';
 import {
   MILESTONE_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
@@ -80,10 +86,13 @@ import {
   WARNING_CODE_LABEL,
 } from '../constants/project-enum-labels';
 import { projectQueryKeys } from '../lib/project-query-keys';
+import { isProjectScenarioEditingAllowed } from '../lib/project-scenario-editing-allowed';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
+import { CreateScenarioDialog } from '../scenarios/CreateScenarioDialog';
+import { ScenarioWorkspacePage } from '../scenario-workspace/ScenarioWorkspacePage';
 import { ProjectDocumentsSection } from './project-documents-section';
 import { ProjectTeamMatrix } from './project-team-matrix';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
@@ -91,12 +100,15 @@ import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { computeRoiFromCostGain } from '../lib/project-sheet-priority-preview';
 import { mapAuditPayloadToProjectSheet } from '../lib/map-audit-payload-to-project-sheet';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
+import { useProjectScenariosMutations } from '../hooks/use-project-scenarios-mutations';
+import { useProjectScenariosQuery } from '../hooks/use-project-scenarios-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import type {
   ProjectArbitrationLevelStatus,
   ProjectCopilRecommendation,
   ProjectMilestoneApi,
+  ProjectScenarioApi,
   ProjectSheet,
   ProjectSheetRiskLevel,
   UpdateProjectSheetPayload,
@@ -922,6 +934,29 @@ export function ProjectSheetView({
       (a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime(),
     );
   }, [milestonesQuery.data]);
+  const scenariosQuery = useProjectScenariosQuery(projectId, {
+    enabled: !sheetReadOnlyOverride,
+  });
+  const scenariosSorted = useMemo((): ProjectScenarioApi[] => {
+    const items = scenariosQuery.data?.items ?? [];
+    return [...items].sort((a, b) => {
+      const rank = (s: ProjectScenarioApi) =>
+        s.status === 'SELECTED' || s.isBaseline ? 0 : s.status === 'ARCHIVED' ? 2 : 1;
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      return a.name.localeCompare(b.name, 'fr');
+    });
+  }, [scenariosQuery.data]);
+  const { createMutation, isAnyPending: scenariosMutationPending } =
+    useProjectScenariosMutations(projectId);
+  const [createScenarioOpen, setCreateScenarioOpen] = useState(false);
+  const [scenarioWorkspaceModalId, setScenarioWorkspaceModalId] = useState<string | null>(null);
+  const canAddScenarioOnSheet = useMemo(() => {
+    if (!canEdit) return false;
+    const st = projectDetailQuery.data?.status ?? projectStatus;
+    return isProjectScenarioEditingAllowed({ status: st });
+  }, [canEdit, projectDetailQuery.data?.status, projectStatus]);
   const [retroplanOpen, setRetroplanOpen] = useState(false);
 
   if (!projectId) {
@@ -1080,7 +1115,7 @@ export function ProjectSheetView({
                 className="min-w-0 overflow-hidden py-0 shadow-sm"
                 aria-hidden
               >
-                <CardHeader className="space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
+                <CardHeader className="space-y-0 border-b border-border/60 bg-muted/35 px-3 py-3.5 sm:px-5">
                   <div className="h-11 w-full animate-pulse rounded-xl bg-muted/60 ring-1 ring-border/50" />
                 </CardHeader>
               </Card>
@@ -1091,8 +1126,11 @@ export function ProjectSheetView({
               data-workspace-tabs=""
               className="min-w-0 overflow-hidden py-0 shadow-sm"
             >
-              <CardHeader className="space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
-                <ProjectWorkspaceTabs projectId={projectId} />
+                <CardHeader className="space-y-0 border-b border-border/60 bg-muted/35 px-3 py-3.5 sm:px-5">
+                  <ProjectWorkspaceTabs
+                  projectId={projectId}
+                  projectStatus={projectDetailQuery.data?.status ?? projectStatus}
+                />
               </CardHeader>
             </Card>
           </Suspense>
@@ -2414,6 +2452,163 @@ export function ProjectSheetView({
           </div>
         </CardContent>
       </Card>
+
+      {/* I — Scénarios (variantes / baseline) */}
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Split className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            I. Scénarios
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Variantes de plan possibles et baseline — arbitrage budgétaire et capacité ; accès détaillé depuis
+            la liste ou le cockpit.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {scenariosQuery.isLoading ? (
+            <LoadingState rows={3} />
+          ) : scenariosSorted.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Aucun scénario — créez des variantes depuis l’onglet Scénarios du projet pour comparer les
+              options et fixer une baseline.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border/60 rounded-lg border border-border/60 bg-muted/10">
+              {scenariosSorted.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className={cn(
+                      buttonVariants({ variant: 'ghost', size: 'sm' }),
+                      'h-auto min-h-11 w-full justify-start gap-3 rounded-none px-3 py-2.5 text-left font-normal sm:px-4',
+                    )}
+                    onClick={() => setScenarioWorkspaceModalId(s.id)}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium leading-snug text-foreground">{s.name}</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {s.code ? `Code ${s.code}` : 'Code non renseigné'} · v{s.version}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                      {s.status === 'SELECTED' || s.isBaseline ? (
+                        <RegistryBadge className="border border-emerald-500/35 bg-emerald-500/10 text-xs text-emerald-900 dark:text-emerald-300">
+                          Baseline
+                        </RegistryBadge>
+                      ) : (
+                        <RegistryBadge
+                          className={cn(
+                            'border text-xs',
+                            s.status === 'ARCHIVED'
+                              ? 'border-border/70 bg-muted text-muted-foreground'
+                              : 'border-sky-500/40 bg-sky-500/10 text-sky-900 dark:text-sky-300',
+                          )}
+                        >
+                          {s.status}
+                        </RegistryBadge>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Gestion complète (création, sélection baseline, archivage) dans l’espace Scénarios.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={projectScenarios(projectId)}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}
+              >
+                Liste scénarios
+              </Link>
+              <Link
+                href={projectScenarioCockpit(projectId)}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}
+              >
+                Cockpit comparaison
+              </Link>
+              {canAddScenarioOnSheet ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={scenariosMutationPending}
+                  title={
+                    scenariosMutationPending
+                      ? 'Création en cours…'
+                      : 'Créer un nouveau scénario sur ce projet'
+                  }
+                  className={cn(
+                    'gap-1.5 border-violet-600 bg-violet-600 text-white shadow-sm',
+                    'hover:bg-violet-700 dark:border-violet-600 dark:bg-violet-600 dark:hover:bg-violet-700',
+                    'focus-visible:ring-violet-500/40',
+                  )}
+                  onClick={() => setCreateScenarioOpen(true)}
+                >
+                  <Plus className="size-4 shrink-0" aria-hidden />
+                  Ajouter un scénario
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <CreateScenarioDialog
+        open={createScenarioOpen}
+        onOpenChange={setCreateScenarioOpen}
+        disabled={!canAddScenarioOnSheet || scenariosMutationPending}
+        onSubmit={async (payload) => {
+          await createMutation.mutateAsync(payload);
+          setCreateScenarioOpen(false);
+        }}
+      />
+
+      <Dialog
+        open={scenarioWorkspaceModalId !== null}
+        onOpenChange={(open) => {
+          if (!open) setScenarioWorkspaceModalId(null);
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'flex max-h-[min(92vh,900px)] w-[min(96vw,1200px)] max-w-[min(96vw,1200px)] flex-col gap-0 overflow-hidden p-0',
+            'border-border/60 bg-background shadow-2xl ring-1 ring-black/[0.06] sm:max-w-[min(96vw,1200px)]',
+            'dark:ring-white/[0.08]',
+          )}
+          showCloseButton
+        >
+          <div className="sr-only">
+            <DialogTitle>Détail scénario</DialogTitle>
+            <DialogDescription>
+              Édition et synthèses du scénario ouvert depuis la fiche projet.
+            </DialogDescription>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="shrink-0 border-b border-border/50 bg-background/80 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-3.5 sm:pr-14">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Workspace scénario
+              </p>
+              <p className="mt-0.5 text-sm text-foreground/90">Fiche projet — aperçu rapide</p>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4 sm:px-6 sm:pb-7 sm:pr-14 sm:pt-5">
+              {scenarioWorkspaceModalId ? (
+                <ScenarioWorkspacePage
+                  projectId={projectId}
+                  scenarioId={scenarioWorkspaceModalId}
+                  embedded
+                  onEmbeddedDismiss={() => setScenarioWorkspaceModalId(null)}
+                />
+              ) : null}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ProjectDocumentsSection projectId={projectId} />
       </>
       ) : null}

@@ -30,6 +30,7 @@ import type {
   RiskTaxonomyDomainApi,
   UpdateProjectSheetPayload,
   SelectProjectScenarioPayload,
+  UpdateProjectScenarioPayload,
 } from '../types/project.types';
 
 const BASE = '/api/projects';
@@ -149,6 +150,21 @@ export async function getProjectScenario(
   scenarioId: string,
 ): Promise<ProjectScenarioApi> {
   const res = await authFetch(`${BASE}/${projectId}/scenarios/${scenarioId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectScenarioApi>;
+}
+
+export async function updateProjectScenario(
+  authFetch: AuthFetch,
+  projectId: string,
+  scenarioId: string,
+  payload: UpdateProjectScenarioPayload,
+): Promise<ProjectScenarioApi> {
+  const res = await authFetch(`${BASE}/${projectId}/scenarios/${scenarioId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectScenarioApi>;
 }

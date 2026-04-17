@@ -7,7 +7,10 @@ import { budgetQueryKeys } from '../lib/budget-query-keys';
 import * as api from '../api/budget-management.api';
 import type { ListBudgetsQuery } from '../types/budget-management.types';
 
-export function useBudgetsList(query?: ListBudgetsQuery) {
+export function useBudgetsList(
+  query?: ListBudgetsQuery,
+  options?: { enabled?: boolean },
+) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -15,7 +18,7 @@ export function useBudgetsList(query?: ListBudgetsQuery) {
   return useQuery({
     queryKey: budgetQueryKeys.budgetList(clientId, query),
     queryFn: () => api.listBudgets(authFetch, query),
-    enabled: !!clientId,
+    enabled: (options?.enabled !== false) && !!clientId,
   });
 }
 

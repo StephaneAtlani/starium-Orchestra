@@ -1,7 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { projectScenarioWorkspace } from '../constants/project-routes';
 import { ScenarioSummaryGrid } from './ScenarioSummaryGrid';
 import type { ProjectScenarioApi } from '../types/project.types';
 
@@ -32,6 +35,7 @@ export function buildScenarioMetaLabel(scenario: Pick<ProjectScenarioApi, 'code'
 }
 
 type ScenarioCardProps = {
+  projectId: string;
   scenario: ProjectScenarioApi;
   canMutate: boolean;
   disableMutations: boolean;
@@ -42,6 +46,7 @@ type ScenarioCardProps = {
 };
 
 export function ScenarioCard({
+  projectId,
   scenario,
   canMutate,
   disableMutations,
@@ -76,6 +81,12 @@ export function ScenarioCard({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Link
+          href={projectScenarioWorkspace(projectId, scenario.id)}
+          className={cn(buttonVariants({ variant: 'default', size: 'sm' }))}
+        >
+          Ouvrir
+        </Link>
         <Button
           type="button"
           size="sm"
