@@ -225,9 +225,9 @@ Résultat attendu :
 * affichage cohérent des badges baseline / archive
 * comparaison lisible entre scénario, baseline et réel
 
-#L'Evolution  
--  page détail scénario
-- pas de cockpit scénario avancé
-- pas de comparaison multi-scénarios
-- pas de refacto large du module projets
-- pas de logique métier frontend
+# Evolution V2  
+* page détail scénario
+* cockpit scénario avancé
+* comparaison multi-scénarios
+* refacto large du module projets
+* logique métier frontend
