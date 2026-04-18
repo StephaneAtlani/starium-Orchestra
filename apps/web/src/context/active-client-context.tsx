@@ -1,6 +1,10 @@
 "use client";
 
 import React, { createContext, useCallback, useEffect, useState } from 'react';
+import {
+  ACTIVE_CLIENT_STORAGE_KEY,
+  LAST_SELECTED_CLIENT_ID_KEY,
+} from '../lib/auth/remembered-client-id';
 
 export type ActiveClientStatus = 'ACTIVE' | 'SUSPENDED' | 'INVITED';
 
@@ -26,8 +30,6 @@ export const ActiveClientContext = createContext<ActiveClientContextValue>({
   initialized: false,
 });
 
-const STORAGE_KEY = 'starium.activeClient';
-
 export function ActiveClientProvider({
   children,
 }: {
@@ -42,9 +44,13 @@ export function ActiveClientProvider({
     setActiveClientState(client);
     if (typeof window === 'undefined') return;
     if (client) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(client));
+      window.localStorage.setItem(
+        ACTIVE_CLIENT_STORAGE_KEY,
+        JSON.stringify(client),
+      );
+      window.localStorage.setItem(LAST_SELECTED_CLIENT_ID_KEY, client.id);
     } else {
-      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(ACTIVE_CLIENT_STORAGE_KEY);
     }
   }, []);
 
@@ -53,13 +59,13 @@ export function ActiveClientProvider({
       setInitialized(true);
       return;
     }
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = window.localStorage.getItem(ACTIVE_CLIENT_STORAGE_KEY);
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as ActiveClient;
         setActiveClientState(parsed);
       } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(ACTIVE_CLIENT_STORAGE_KEY);
       }
     }
     setInitialized(true);

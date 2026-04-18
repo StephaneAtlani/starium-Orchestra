@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { readRememberedClientId } from '@/lib/auth/remembered-client-id';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import type { MeClient } from '@/services/me';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -25,6 +27,20 @@ export default function SelectClientPage() {
   const [clients, setClients] = useState<MeClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { activeClientsSorted, rememberedId } = useMemo(() => {
+    const list = clients.filter((c) => c.status === 'ACTIVE');
+    const rid = readRememberedClientId();
+    if (!rid) {
+      return { activeClientsSorted: list, rememberedId: rid };
+    }
+    const sorted = [...list].sort((a, b) => {
+      if (a.id === rid) return -1;
+      if (b.id === rid) return 1;
+      return 0;
+    });
+    return { activeClientsSorted: sorted, rememberedId: rid };
+  }, [clients]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,14 +92,14 @@ export default function SelectClientPage() {
               </p>
             ) : error ? (
               <p className="text-sm text-destructive">{error}</p>
-            ) : clients.length === 0 ? (
+            ) : activeClientsSorted.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Aucun client actif n&apos;est associé à votre compte. Contactez
                 un administrateur.
               </p>
             ) : (
               <ul className="space-y-2" role="list" aria-label="Clients disponibles">
-                {clients.map((client) => (
+                {activeClientsSorted.map((client) => (
                   <li key={client.id}>
                     <Card
                       size="sm"
@@ -108,6 +124,11 @@ export default function SelectClientPage() {
                               <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[0.7rem] font-medium text-primary">
                                 Par défaut
                               </span>
+                            )}
+                            {rememberedId === client.id && (
+                              <Badge variant="secondary" className="text-[0.65rem] font-normal">
+                                Dernière sélection
+                              </Badge>
                             )}
                           </div>
                           <p className="truncate text-xs text-muted-foreground">

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { LAST_SELECTED_CLIENT_ID_KEY } from '@/lib/auth/remembered-client-id';
 import { useActiveClient } from '../hooks/use-active-client';
 import type { MeClient } from '../services/me';
 
@@ -41,6 +42,9 @@ export function ClientSwitcher({ accessToken, className }: ClientSwitcherProps) 
         if (activeClient) {
           const match = activeClients.find((c) => c.id === activeClient.id);
           if (!match) {
+            if (typeof window !== 'undefined') {
+              window.localStorage.removeItem(LAST_SELECTED_CLIENT_ID_KEY);
+            }
             setActiveClient(null);
           }
           return;

@@ -5,13 +5,13 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
 import { useActiveClient } from '../../hooks/use-active-client';
 import { useAuthenticatedFetch } from '../../hooks/use-authenticated-fetch';
+import { readRememberedClientId } from '../../lib/auth/remembered-client-id';
 import { resolveActiveClient } from '../../lib/auth/resolve-active-client';
 import type { MeClient } from '../../services/me';
 import { QueryProvider } from '../../providers/query-provider';
 import { AppShell } from '../../components/shell/app-shell';
 import { AppNotifications } from '../../components/notifications';
 
-const ACTIVE_CLIENT_KEY = 'starium.activeClient';
 const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
 
 export default function ProtectedLayout({
@@ -94,18 +94,8 @@ export default function ProtectedLayout({
         }
         const clients = (await res.json()) as MeClient[];
 
-        let storedActiveClientId: string | null = null;
-        if (typeof window !== 'undefined') {
-          const stored = window.localStorage.getItem(ACTIVE_CLIENT_KEY);
-          if (stored) {
-            try {
-              const parsed = JSON.parse(stored) as { id?: string };
-              storedActiveClientId = parsed?.id ?? null;
-            } catch {
-              // ignore
-            }
-          }
-        }
+        const storedActiveClientId =
+          typeof window !== 'undefined' ? readRememberedClientId() : null;
 
         const resolution = resolveActiveClient(
           clients,

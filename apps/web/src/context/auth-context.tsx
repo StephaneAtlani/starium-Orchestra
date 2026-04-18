@@ -21,6 +21,7 @@ import {
   getTrustedDeviceToken,
   setTrustedDeviceToken,
 } from '../lib/auth/trusted-device-storage';
+import { ACTIVE_CLIENT_STORAGE_KEY } from '../lib/auth/remembered-client-id';
 
 export type AuthUser = {
   id: string;
@@ -37,7 +38,6 @@ export type AuthUser = {
 };
 
 const REFRESH_TOKEN_KEY = 'starium.refreshToken';
-const ACTIVE_CLIENT_KEY = 'starium.activeClient';
 
 function profileToAuthUser(p: MeProfile): AuthUser {
   return {
@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken(null);
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-      window.localStorage.removeItem(ACTIVE_CLIENT_KEY);
+      window.localStorage.removeItem(ACTIVE_CLIENT_STORAGE_KEY);
     }
   }, []);
 

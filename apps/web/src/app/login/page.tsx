@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { fetchPasswordLoginEligibilityApi } from '@/services/auth';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { readRememberedClientId } from '@/lib/auth/remembered-client-id';
 import { resolveActiveClient } from '@/lib/auth/resolve-active-client';
 import type { MeClient } from '@/services/me';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,6 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 
-const ACTIVE_CLIENT_KEY = 'starium.activeClient';
 const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
 
 /** Messages alignés sur les `reason` renvoyées par GET /api/auth/microsoft/callback (query). */
@@ -150,16 +150,7 @@ function LoginPageContent() {
           throw new Error('Impossible de récupérer la liste des clients');
         }
         const clients = (await res.json()) as MeClient[];
-        let storedActiveClientId: string | null = null;
-        const stored = window.localStorage.getItem(ACTIVE_CLIENT_KEY);
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored) as { id?: string };
-            storedActiveClientId = parsed?.id ?? null;
-          } catch {
-            // ignore
-          }
-        }
+        const storedActiveClientId = readRememberedClientId();
         const resolution = resolveActiveClient(
           clients,
           loggedInUser.platformRole,
@@ -251,18 +242,8 @@ function LoginPageContent() {
       }
       const clients = (await res.json()) as MeClient[];
 
-      let storedActiveClientId: string | null = null;
-      if (typeof window !== 'undefined') {
-        const stored = window.localStorage.getItem(ACTIVE_CLIENT_KEY);
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored) as { id?: string };
-            storedActiveClientId = parsed?.id ?? null;
-          } catch {
-            // ignore
-          }
-        }
-      }
+      const storedActiveClientId =
+        typeof window !== 'undefined' ? readRememberedClientId() : null;
 
       const resolution = resolveActiveClient(
         clients,
@@ -321,18 +302,9 @@ function LoginPageContent() {
         throw new Error('Impossible de récupérer la liste des clients');
       }
       const clients = (await res.json()) as MeClient[];
-      let storedActiveClientId: string | null = null;
-      if (typeof window !== 'undefined') {
-        const stored = window.localStorage.getItem(ACTIVE_CLIENT_KEY);
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored) as { id?: string };
-            storedActiveClientId = parsed?.id ?? null;
-          } catch {
-            // ignore
-          }
-        }
-      }
+      const storedActiveClientId =
+        typeof window !== 'undefined' ? readRememberedClientId() : null;
+
       const resolution = resolveActiveClient(
         clients,
         loggedInUser.platformRole,
@@ -401,18 +373,9 @@ function LoginPageContent() {
         throw new Error('Impossible de récupérer la liste des clients');
       }
       const clients = (await res.json()) as MeClient[];
-      let storedActiveClientId: string | null = null;
-      if (typeof window !== 'undefined') {
-        const stored = window.localStorage.getItem(ACTIVE_CLIENT_KEY);
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored) as { id?: string };
-            storedActiveClientId = parsed?.id ?? null;
-          } catch {
-            // ignore
-          }
-        }
-      }
+      const storedActiveClientId =
+        typeof window !== 'undefined' ? readRememberedClientId() : null;
+
       const resolution = resolveActiveClient(
         clients,
         loggedInUser.platformRole,
@@ -465,18 +428,9 @@ function LoginPageContent() {
         throw new Error('Impossible de récupérer la liste des clients');
       }
       const clients = (await res.json()) as MeClient[];
-      let storedActiveClientId: string | null = null;
-      if (typeof window !== 'undefined') {
-        const stored = window.localStorage.getItem(ACTIVE_CLIENT_KEY);
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored) as { id?: string };
-            storedActiveClientId = parsed?.id ?? null;
-          } catch {
-            // ignore
-          }
-        }
-      }
+      const storedActiveClientId =
+        typeof window !== 'undefined' ? readRememberedClientId() : null;
+
       const resolution = resolveActiveClient(
         clients,
         loggedInUser.platformRole,
