@@ -1,5 +1,66 @@
 # Changelog
 
+## [0.96] - 2026-04-20
+
+### Scenarios projet (nouveau domaine)
+
+- Ajout d'un module complet **Project Scenarios** côté API: scénario principal, lignes financières, plans de charge, tâches, risques et snapshots de capacité.
+- Ajout des vues front associées: onglet scénarios, cockpit de comparaison, workspace d'édition, sélection/synchronisation du scénario actif.
+- Intégration des endpoints, hooks React Query, types et invalidations de cache pour supporter un cycle d'analyse "what-if" complet.
+
+### Procurement / documents
+
+- Mise en place de la gestion des pièces jointes procurement (devis, commandes, factures) de bout en bout: upload, consultation, détail.
+- Implémentation d'un stockage **dual backend** (local + S3/MinIO) avec résolution dynamique selon la configuration.
+- Ajout de la configuration plateforme S3/STS et provisioning des emplacements documentaires client.
+
+### Contrats fournisseurs
+
+- Introduction d'un nouveau module **Contracts** (API + UI): CRUD, permissions, catalogues de types de contrat et pièces jointes.
+- Nouvelles pages front de listing, création/édition et détail contrat.
+
+### Budgets (workflow et pilotage)
+
+- Renforcement du workflow de statuts budgets/enveloppes/lignes avec transitions explicites et propagation en cascade.
+- Ajout de l'historique des décisions budgétaires avec commentaires de transition.
+- Ajout des `snapshot occasion types` et des réglages workflow budgétaires par client.
+- Enrichissement des écrans budgets (dashboard, drawers, badges, comparaison forecast, quick calculator, bulk update des statuts).
+
+### Teams / RH / staffing
+
+- Ajout des modules compétences collaborateurs, activity types, work teams, manager scopes et affectations.
+- Ajout des time entries et du suivi mensuel timesheet, avec paramètres client dédiés.
+- Amélioration de la synchronisation User/Collaborator et de l'intégration ressources humaines.
+
+### Plateforme / sécurité / architecture
+
+- Évolution importante du schéma Prisma et ajout d'une série de migrations couvrant budgets, procurement, contracts, teams, timesheet et scenarios projet.
+- Ajustements des guards d'accès et ajout d'un décorateur `require-any-permissions`.
+- Mise à jour des seeders pour refléter les nouveaux workflows et référentiels.
+
+### UI/UX transverse
+
+- Amélioration de la navigation conditionnelle (RBAC/contexte client) et des layouts protégés.
+- Ajustements de nombreux formulaires/dialogs pour lisibilité, densité d'information et accessibilité.
+- Respect renforcé de la règle produit: affichage de valeurs métier lisibles dans les inputs/référentiels, jamais d'ID technique brut.
+
+### Infra & outillage
+
+- Ajustements Docker dev (API/Web/compose/entrypoints).
+- Patch dépendance `sonner` et mise à jour du lockfile.
+- Correctifs du script de consolidation de documentation markdown.
+
+### Documentation
+
+- Mise à jour étendue de la documentation API/architecture.
+- Ajout et mise à jour d'un lot conséquent de RFC (budgets, procurement, contracts, teams, scenarios projet).
+
+### Correctifs notables
+
+- Correction Prisma sur références `Client` dans le domaine projets.
+- Correction migration no-op pour éviter une erreur Prisma `P3015`.
+- Correctifs sur la sélection de client actif et la gestion de stockage associée.
+
 ## [0.9.0] - 2026-03-31
 
 ### Budget (core, cockpit, forecast, snapshots)
