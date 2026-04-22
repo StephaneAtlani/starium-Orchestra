@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { HealthBadge, ProjectPortfolioBadges } from '../../components/project-badges';
 import {
+  MILESTONE_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
   PROJECT_KIND_LABEL,
   PROJECT_PRIORITY_LABEL,
@@ -22,6 +23,7 @@ import {
 } from '../../constants/project-enum-labels';
 import { projectDetail } from '../../constants/project-routes';
 import type { ProjectListItem, ProjectSignals } from '../../types/project.types';
+import { useProjectMilestonesQuery } from '../../hooks/use-project-milestones-query';
 import { useProjectReviewDetailQuery } from '../../hooks/use-project-review-detail-query';
 import { useProjectReviewsQuery } from '../../hooks/use-project-reviews-query';
 import {
@@ -417,6 +419,173 @@ function BoolCell({ ok }: { ok: boolean }) {
   );
 }
 
+function milestoneDotClass(status: string) {
+  switch (status) {
+    case 'ACHIEVED':
+      return 'bg-emerald-500 ring-emerald-500/35';
+    case 'DELAYED':
+      return 'bg-red-500 ring-red-500/35';
+    case 'CANCELLED':
+      return 'bg-muted-foreground/45 ring-muted-foreground/25';
+    default:
+      return 'bg-primary ring-primary/35';
+  }
+}
+
+/** Frise horizontale jalons + fin cible ; consommé dans la slide comité (pleine largeur multicol). */
+function PlanningTimelineWidget({ project }: { project: ProjectListItem }) {
+  const mq = useProjectMilestonesQuery(project.id);
+  const items = useMemo(
+    () =>
+      [...(mq.data?.items ?? [])]
+        .sort((a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime())
+        .slice(0, 48),
+    [mq.data],
+  );
+
+  type Marker = {
+    id: string;
+    label: string;
+    ts: number;
+    status: string;
+    iso: string;
+    synthetic?: boolean;
+  };
+
+  const markers = useMemo(() => {
+    const pts: Marker[] = items.map((m) => ({
+      id: m.id,
+      label: m.name,
+      ts: new Date(m.targetDate).getTime(),
+      status: m.status,
+      iso: m.targetDate,
+    }));
+    if (project.targetEndDate) {
+      const te = new Date(project.targetEndDate).getTime();
+      if (!pts.some((p) => Math.abs(p.ts - te) < 43_200_000)) {
+        pts.push({
+          id: 'synthetic-target-end',
+          label: 'Fin cible (projet)',
+          ts: te,
+          status: 'PLANNED',
+          iso: project.targetEndDate,
+          synthetic: true,
+        });
+      }
+    }
+    return pts.sort((a, b) => a.ts - b.ts);
+  }, [items, project.targetEndDate]);
+
+  const range = useMemo(() => {
+    if (markers.length === 0) {
+      const now = Date.now();
+      const end = project.targetEndDate
+        ? new Date(project.targetEndDate).getTime()
+        : now + 14 * 86_400_000;
+      const min = Math.min(now, end) - 86_400_000;
+      const max = Math.max(now, end) + 86_400_000;
+      return { min, max };
+    }
+    let min = markers[0].ts;
+    let max = markers[markers.length - 1].ts;
+    const now = Date.now();
+    min = Math.min(min, now);
+    max = Math.max(max, now);
+    if (project.targetEndDate) {
+      const te = new Date(project.targetEndDate).getTime();
+      max = Math.max(max, te);
+      min = Math.min(min, te);
+    }
+    if (max - min < 7 * 86_400_000) {
+      const mid = (min + max) / 2;
+      min = mid - 3.5 * 86_400_000;
+      max = mid + 3.5 * 86_400_000;
+    }
+    return { min, max };
+  }, [markers, project.targetEndDate]);
+
+  const positionPct = (ts: number) => {
+    const span = range.max - range.min || 1;
+    const p = ((ts - range.min) / span) * 100;
+    return Math.max(1.5, Math.min(98.5, p));
+  };
+  const nowPct = positionPct(Date.now());
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+      <div className="border-b border-border/60 bg-muted/30 px-4 py-2.5">
+        <h3 className="text-sm font-semibold">Planning — jalons</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Frise des dates cibles (jalons API) et fin cible projet si distincte.
+        </p>
+      </div>
+      <div className="p-4">
+        {mq.isLoading ? (
+          <p className="text-sm text-muted-foreground">Chargement des jalons…</p>
+        ) : markers.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucun jalon ni date de fin cible.</p>
+        ) : (
+          <>
+            <div className="relative min-h-[6.5rem] w-full overflow-x-auto pb-1">
+              <div className="relative mx-auto min-h-[6.5rem] min-w-[min(100%,480px)] md:min-w-[600px]">
+                <div
+                  className="pointer-events-none absolute bottom-3 top-1 w-px bg-amber-500/55"
+                  style={{ left: `${nowPct}%`, transform: 'translateX(-50%)' }}
+                  aria-hidden
+                />
+                <div
+                  className="pointer-events-none absolute top-0 whitespace-nowrap text-[9px] font-medium uppercase tracking-wide text-amber-800 dark:text-amber-400/95"
+                  style={{ left: `${nowPct}%`, transform: 'translateX(-50%)' }}
+                >
+                  <span className="rounded bg-amber-500/15 px-1 py-px">Aujourd&apos;hui</span>
+                </div>
+                <div className="absolute bottom-3 left-0 right-0 h-px bg-border" />
+                {markers.map((m) => (
+                  <div
+                    key={m.id}
+                    className="absolute bottom-3 w-0"
+                    style={{ left: `${positionPct(m.ts)}%` }}
+                  >
+                    <div className="flex -translate-x-1/2 flex-col-reverse items-center gap-1.5 pb-0">
+                      <div
+                        className={cn(
+                          'size-3 shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-background',
+                          milestoneDotClass(m.status),
+                        )}
+                        title={`${MILESTONE_STATUS_LABEL[m.status] ?? m.status}${m.synthetic ? ' (référence projet)' : ''}`}
+                      />
+                      <div className="mb-0.5 max-w-[6.5rem] text-center">
+                        <p className="line-clamp-2 text-[10px] font-medium leading-tight">{m.label}</p>
+                        <p className="text-[9px] tabular-nums text-muted-foreground">
+                          {new Date(m.iso).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-border/50 pt-2 text-[10px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-primary" /> Planifié
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-emerald-500" /> Atteint
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-red-500" /> En retard
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-muted-foreground/45" /> Annulé
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Métriques + signaux structurés pour la diapositive projet. */
 export function ProjectCommitteeDetailTables({ project }: { project: ProjectListItem }) {
   const statusLabel = PROJECT_STATUS_LABEL[project.status] ?? project.status;
@@ -467,6 +636,7 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
 
   type WidgetId =
     | 'metrics'
+    | 'planningTimeline'
     | 'signals'
     | 'nextPoints'
     | 'decisionsTaken'
@@ -476,6 +646,7 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
     | 'tags';
   const defaultOrder: WidgetId[] = [
     'metrics',
+    'planningTimeline',
     'signals',
     'nextPoints',
     'decisionsTaken',
@@ -541,6 +712,7 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
 
   const widgetTitle: Record<WidgetId, string> = {
     metrics: 'Indicateurs',
+    planningTimeline: 'Planning — jalons',
     signals: 'Signaux portefeuille',
     nextPoints: 'Prochains points projet',
     decisionsTaken: 'Décisions prises',
@@ -602,6 +774,9 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
           </div>
         </div>
       );
+    }
+    if (id === 'planningTimeline') {
+      return <PlanningTimelineWidget project={project} />;
     }
     if (id === 'signals') {
       return (
@@ -756,7 +931,11 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/*
+        Deux colonnes sans « trous » de grille : `columns` + `break-inside-avoid` repartit
+        les blocs en colonnes équilibrées (pas de ligne forcée à la hauteur du plus grand).
+      */}
+      <div className="columns-1 [column-gap:1.25rem] md:columns-2 md:[column-gap:1.5rem]">
         {widgetOrder
           .filter((id) => !hiddenWidgets.includes(id))
           .map((id) => (
@@ -766,7 +945,10 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
               onDragStart={() => setDraggedWidget(id)}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => onDropWidget(id)}
-              className="group"
+              className={cn(
+                'group mb-4',
+                id === 'planningTimeline' ? '[column-span:all]' : 'break-inside-avoid',
+              )}
             >
               <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
                 <GripVertical className="size-4 opacity-60" />
