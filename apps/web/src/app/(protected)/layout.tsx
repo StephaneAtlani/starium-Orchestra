@@ -24,7 +24,7 @@ export default function ProtectedLayout({
   const { user, isAuthenticated, isLoading, accessToken } = useAuth();
   const { setActiveClient } = useActiveClient();
   const authenticatedFetch = useAuthenticatedFetch();
-  const bootstrapDone = useRef(false);
+  const bootstrapInFlight = useRef(false);
   const [bootstrapResolved, setBootstrapResolved] = useState(false);
   const BOOTSTRAP_TIMEOUT_MS = 15_000;
 
@@ -36,18 +36,18 @@ export default function ProtectedLayout({
   }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || !user || bootstrapDone.current) return;
+    if (bootstrapResolved) return;
+    if (isLoading || !isAuthenticated || !user) return;
+    if (bootstrapInFlight.current) return;
 
     // La page /select-client gère elle-même le chargement de /api/me/clients.
     if (pathname === '/select-client') {
-      bootstrapDone.current = true;
       setBootstrapResolved(true);
       return;
     }
 
     // Routes plateforme / outils dev : ne dépendent pas du client actif.
     if (pathname.startsWith('/admin') || pathname.startsWith('/rbac-test')) {
-      bootstrapDone.current = true;
       setBootstrapResolved(true);
       return;
     }
@@ -59,7 +59,6 @@ export default function ProtectedLayout({
         try {
           const parsed = JSON.parse(stored) as { client?: MeClient };
           if (parsed?.client) {
-            bootstrapDone.current = true;
             setActiveClient(parsed.client);
             setBootstrapResolved(true);
             window.sessionStorage.removeItem(BOOTSTRAP_FROM_LOGIN_KEY);
@@ -71,19 +70,22 @@ export default function ProtectedLayout({
       }
     }
 
-    if (!accessToken) return;
+    if (!accessToken) {
+      setBootstrapResolved(true);
+      return;
+    }
 
     const currentUser = user;
     let cancelled = false;
+    bootstrapInFlight.current = true;
 
     const timeoutId = setTimeout(() => {
       if (cancelled) return;
-      bootstrapDone.current = true;
+      bootstrapInFlight.current = false;
       setBootstrapResolved(true);
     }, BOOTSTRAP_TIMEOUT_MS);
 
     async function runBootstrap() {
-      bootstrapDone.current = true;
       try {
         const res = await authenticatedFetch('/api/me/clients');
         if (cancelled) return;
@@ -125,13 +127,17 @@ export default function ProtectedLayout({
         if (!cancelled) setBootstrapResolved(true);
       } finally {
         clearTimeout(timeoutId);
-        if (!cancelled) setBootstrapResolved(true);
+        if (!cancelled) {
+          bootstrapInFlight.current = false;
+          setBootstrapResolved(true);
+        }
       }
     }
 
     void runBootstrap();
     return () => {
       cancelled = true;
+      bootstrapInFlight.current = false;
       clearTimeout(timeoutId);
     };
   }, [
@@ -143,6 +149,7 @@ export default function ProtectedLayout({
     setActiveClient,
     router,
     pathname,
+    bootstrapResolved,
   ]);
 
   if (isLoading || !isAuthenticated) {
