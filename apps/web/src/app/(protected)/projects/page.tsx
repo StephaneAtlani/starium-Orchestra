@@ -22,7 +22,11 @@ import { usePortfolioSummaryQuery } from '@/features/projects/hooks/use-portfoli
 import { ProjectsPortfolioKpi } from '@/features/projects/components/projects-portfolio-kpi';
 import { ProjectsToolbar } from '@/features/projects/components/projects-toolbar';
 import { ProjectsListTable } from '@/features/projects/components/projects-list-table';
-import { projectNew, projectsPortfolioGantt } from '@/features/projects/constants/project-routes';
+import {
+  projectNew,
+  projectsCommitteeCodir,
+  projectsPortfolioGantt,
+} from '@/features/projects/constants/project-routes';
 import type { ApiFormError } from '@/features/budgets/api/types';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -33,6 +37,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  Presentation,
 } from 'lucide-react';
 import { useTablePan } from '@/hooks/use-table-pan';
 
@@ -70,16 +75,28 @@ export default function ProjectsPortfolioPage() {
           actions={
             <div className="flex flex-wrap items-center gap-2">
               {permsSuccess && canReadProjects && (
-                <Link
-                  href={projectsPortfolioGantt()}
-                  className={cn(
-                    buttonVariants({ variant: 'outline', size: 'sm' }),
-                    'gap-1.5',
-                  )}
-                >
-                  <CalendarRange className="size-4" />
-                  Gantt portefeuille
-                </Link>
+                <>
+                  <Link
+                    href={projectsCommitteeCodir()}
+                    className={cn(
+                      buttonVariants({ variant: 'default', size: 'sm' }),
+                      'gap-1.5',
+                    )}
+                  >
+                    <Presentation className="size-4" />
+                    Présentation CODIR
+                  </Link>
+                  <Link
+                    href={projectsPortfolioGantt()}
+                    className={cn(
+                      buttonVariants({ variant: 'outline', size: 'sm' }),
+                      'gap-1.5',
+                    )}
+                  >
+                    <CalendarRange className="size-4" />
+                    Gantt portefeuille
+                  </Link>
+                </>
               )}
               <PermissionGate permission="projects.create">
                 <Link

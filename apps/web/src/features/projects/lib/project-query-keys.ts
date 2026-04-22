@@ -3,6 +3,9 @@ import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
 export const projectQueryKeys = {
   all: ['projects'] as const,
   summary: (clientId: string) => [...projectQueryKeys.all, 'summary', clientId] as const,
+  /** Deck complet portefeuille pour présentation CODIR (tenant-scopé via clientId dans la clé). */
+  committeeCodirDeck: (clientId: string) =>
+    [...projectQueryKeys.all, 'committee-codir-deck', clientId] as const,
   assignableUsers: (clientId: string) =>
     [...projectQueryKeys.all, 'assignable-users', clientId] as const,
   list: (clientId: string, params: ProjectsListFilters | Record<string, unknown>) =>

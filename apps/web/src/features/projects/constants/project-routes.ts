@@ -7,6 +7,11 @@ export function projectsPortfolioGantt(): string {
   return '/projects/portfolio-gantt';
 }
 
+/** Mode présentation CODIR — portefeuille multi-projets (plein écran, navigation diaporama). */
+export function projectsCommitteeCodir(): string {
+  return '/projects/committee/codir';
+}
+
 /** Options / paramètres module Projets (placeholder). */
 export function projectsOptions(): string {
   return '/projects/options';
