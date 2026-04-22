@@ -2,39 +2,29 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { HealthBadge, ProjectPortfolioBadges } from '../../components/project-badges';
 import {
-  MILESTONE_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
-  PROJECT_KIND_LABEL,
   PROJECT_PRIORITY_LABEL,
   PROJECT_STATUS_LABEL,
   PROJECT_TYPE_LABEL,
 } from '../../constants/project-enum-labels';
 import { projectDetail } from '../../constants/project-routes';
-import type { ProjectListItem, ProjectSignals } from '../../types/project.types';
+import type { ProjectListItem } from '../../types/project.types';
 import { useProjectMilestonesQuery } from '../../hooks/use-project-milestones-query';
 import { useProjectReviewDetailQuery } from '../../hooks/use-project-review-detail-query';
 import { useProjectReviewsQuery } from '../../hooks/use-project-reviews-query';
+import { ArrowDown, ArrowUp, ArrowUpDown, GripVertical, Settings2 } from 'lucide-react';
+import { CommitteeWidgetConfigPanel } from '../widgets/committee-widget-config-panel';
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  Check,
-  GripVertical,
-  Settings2,
-  X,
-} from 'lucide-react';
+  COMMITTEE_WIDGETS_V1,
+  WIDGET_BY_ID,
+  type WidgetId,
+  type WidgetRenderContext,
+} from '../widgets/committee-widget-registry';
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -51,11 +41,6 @@ function progressCell(p: ProjectListItem) {
   if (main != null) return `${main} %`;
   if (derived != null) return `${derived} % (dérivé)`;
   return '—';
-}
-
-function clampPercent(value: number | null | undefined): number {
-  if (value == null || Number.isNaN(value)) return 0;
-  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 type PortfolioSortKey =
@@ -392,271 +377,22 @@ export function PortfolioDeckTable({
   );
 }
 
-const SIGNAL_ROWS: {
-  key: keyof ProjectSignals;
-  label: string;
-  activeWhen: (s: ProjectSignals) => boolean;
-}[] = [
-  { key: 'isLate', label: 'En retard (planning)', activeWhen: (s) => s.isLate },
-  { key: 'isBlocked', label: 'Bloqué', activeWhen: (s) => s.isBlocked },
-  { key: 'isCritical', label: 'Criticité pilotage', activeWhen: (s) => s.isCritical },
-  { key: 'hasPlanningDrift', label: 'Dérive de planning', activeWhen: (s) => s.hasPlanningDrift },
-  { key: 'hasNoOwner', label: 'Sans responsable identifié', activeWhen: (s) => s.hasNoOwner },
-  { key: 'hasNoTasks', label: 'Sans tâche', activeWhen: (s) => s.hasNoTasks },
-  { key: 'hasNoRisks', label: 'Sans risque enregistré', activeWhen: (s) => s.hasNoRisks },
-  { key: 'hasNoMilestones', label: 'Sans jalon', activeWhen: (s) => s.hasNoMilestones },
-];
-
-function BoolCell({ ok }: { ok: boolean }) {
-  return (
-    <TableCell className="text-center">
-      {ok ? (
-        <Check className="mx-auto size-4 text-emerald-600 dark:text-emerald-400" aria-label="Oui" />
-      ) : (
-        <X className="mx-auto size-4 text-muted-foreground/50" aria-label="Non" />
-      )}
-    </TableCell>
-  );
-}
-
-function milestoneDotClass(status: string) {
-  switch (status) {
-    case 'ACHIEVED':
-      return 'bg-emerald-500 ring-emerald-500/35';
-    case 'DELAYED':
-      return 'bg-red-500 ring-red-500/35';
-    case 'CANCELLED':
-      return 'bg-muted-foreground/45 ring-muted-foreground/25';
-    default:
-      return 'bg-primary ring-primary/35';
-  }
-}
-
-/** Frise horizontale jalons + fin cible ; consommé dans la slide comité (pleine largeur multicol). */
-function PlanningTimelineWidget({ project }: { project: ProjectListItem }) {
-  const mq = useProjectMilestonesQuery(project.id);
-  const items = useMemo(
-    () =>
-      [...(mq.data?.items ?? [])]
-        .sort((a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime())
-        .slice(0, 48),
-    [mq.data],
-  );
-
-  type Marker = {
-    id: string;
-    label: string;
-    ts: number;
-    status: string;
-    iso: string;
-    synthetic?: boolean;
-  };
-
-  const markers = useMemo(() => {
-    const pts: Marker[] = items.map((m) => ({
-      id: m.id,
-      label: m.name,
-      ts: new Date(m.targetDate).getTime(),
-      status: m.status,
-      iso: m.targetDate,
-    }));
-    if (project.targetEndDate) {
-      const te = new Date(project.targetEndDate).getTime();
-      if (!pts.some((p) => Math.abs(p.ts - te) < 43_200_000)) {
-        pts.push({
-          id: 'synthetic-target-end',
-          label: 'Fin cible (projet)',
-          ts: te,
-          status: 'PLANNED',
-          iso: project.targetEndDate,
-          synthetic: true,
-        });
-      }
-    }
-    return pts.sort((a, b) => a.ts - b.ts);
-  }, [items, project.targetEndDate]);
-
-  const range = useMemo(() => {
-    if (markers.length === 0) {
-      const now = Date.now();
-      const end = project.targetEndDate
-        ? new Date(project.targetEndDate).getTime()
-        : now + 14 * 86_400_000;
-      const min = Math.min(now, end) - 86_400_000;
-      const max = Math.max(now, end) + 86_400_000;
-      return { min, max };
-    }
-    let min = markers[0].ts;
-    let max = markers[markers.length - 1].ts;
-    const now = Date.now();
-    min = Math.min(min, now);
-    max = Math.max(max, now);
-    if (project.targetEndDate) {
-      const te = new Date(project.targetEndDate).getTime();
-      max = Math.max(max, te);
-      min = Math.min(min, te);
-    }
-    if (max - min < 7 * 86_400_000) {
-      const mid = (min + max) / 2;
-      min = mid - 3.5 * 86_400_000;
-      max = mid + 3.5 * 86_400_000;
-    }
-    return { min, max };
-  }, [markers, project.targetEndDate]);
-
-  const positionPct = (ts: number) => {
-    const span = range.max - range.min || 1;
-    const p = ((ts - range.min) / span) * 100;
-    return Math.max(1.5, Math.min(98.5, p));
-  };
-  const nowPct = positionPct(Date.now());
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-      <div className="border-b border-border/60 bg-muted/30 px-4 py-2.5">
-        <h3 className="text-sm font-semibold">Planning — jalons</h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Frise des dates cibles (jalons API) et fin cible projet si distincte.
-        </p>
-      </div>
-      <div className="p-4">
-        {mq.isLoading ? (
-          <p className="text-sm text-muted-foreground">Chargement des jalons…</p>
-        ) : markers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun jalon ni date de fin cible.</p>
-        ) : (
-          <>
-            <div className="relative min-h-[6.5rem] w-full overflow-x-auto pb-1">
-              <div className="relative mx-auto min-h-[6.5rem] min-w-[min(100%,480px)] md:min-w-[600px]">
-                <div
-                  className="pointer-events-none absolute bottom-3 top-1 w-px bg-amber-500/55"
-                  style={{ left: `${nowPct}%`, transform: 'translateX(-50%)' }}
-                  aria-hidden
-                />
-                <div
-                  className="pointer-events-none absolute top-0 whitespace-nowrap text-[9px] font-medium uppercase tracking-wide text-amber-800 dark:text-amber-400/95"
-                  style={{ left: `${nowPct}%`, transform: 'translateX(-50%)' }}
-                >
-                  <span className="rounded bg-amber-500/15 px-1 py-px">Aujourd&apos;hui</span>
-                </div>
-                <div className="absolute bottom-3 left-0 right-0 h-px bg-border" />
-                {markers.map((m) => (
-                  <div
-                    key={m.id}
-                    className="absolute bottom-3 w-0"
-                    style={{ left: `${positionPct(m.ts)}%` }}
-                  >
-                    <div className="flex -translate-x-1/2 flex-col-reverse items-center gap-1.5 pb-0">
-                      <div
-                        className={cn(
-                          'size-3 shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-background',
-                          milestoneDotClass(m.status),
-                        )}
-                        title={`${MILESTONE_STATUS_LABEL[m.status] ?? m.status}${m.synthetic ? ' (référence projet)' : ''}`}
-                      />
-                      <div className="mb-0.5 max-w-[6.5rem] text-center">
-                        <p className="line-clamp-2 text-[10px] font-medium leading-tight">{m.label}</p>
-                        <p className="text-[9px] tabular-nums text-muted-foreground">
-                          {new Date(m.iso).toLocaleDateString('fr-FR')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-border/50 pt-2 text-[10px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-primary" /> Planifié
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-emerald-500" /> Atteint
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-red-500" /> En retard
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-muted-foreground/45" /> Annulé
-              </span>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /** Métriques + signaux structurés pour la diapositive projet. */
 export function ProjectCommitteeDetailTables({ project }: { project: ProjectListItem }) {
-  const statusLabel = PROJECT_STATUS_LABEL[project.status] ?? project.status;
-  const typeLabel = PROJECT_TYPE_LABEL[project.type] ?? project.type;
-  const kindLabel = PROJECT_KIND_LABEL[project.kind] ?? project.kind;
-
   const reviewsQ = useProjectReviewsQuery(project.id, { enabled: true });
   const latestReview = (reviewsQ.data ?? [])[0] ?? null;
-  const latestFinalizedReview =
-    (reviewsQ.data ?? []).find((r) => r.status === 'FINALIZED') ?? null;
   const reviewDetailQ = useProjectReviewDetailQuery(project.id, latestReview?.id ?? null);
+  const milestonesQ = useProjectMilestonesQuery(project.id, { enabled: true });
 
-  const nextPoints = useMemo(() => {
-    return (reviewsQ.data ?? [])
-      .filter((r) => r.nextReviewDate != null || r.status === 'DRAFT')
-      .slice(0, 5);
-  }, [reviewsQ.data]);
-
-  const decisionsTaken = useMemo(() => {
-    if (!reviewDetailQ.data?.decisions) return [];
-    if (reviewDetailQ.data.status !== 'FINALIZED') return [];
-    return reviewDetailQ.data.decisions.slice(0, 6);
-  }, [reviewDetailQ.data]);
-
-  const decisionsPending = useMemo(() => {
-    if (!reviewDetailQ.data?.decisions) return [];
-    if (reviewDetailQ.data.status === 'FINALIZED') return [];
-    return reviewDetailQ.data.decisions.slice(0, 6);
-  }, [reviewDetailQ.data]);
-
-  const openActionItems = useMemo(() => {
-    if (!reviewDetailQ.data?.actionItems) return [];
-    return reviewDetailQ.data.actionItems
-      .filter((a) => a.status !== 'DONE' && a.status !== 'CANCELLED')
-      .slice(0, 8);
-  }, [reviewDetailQ.data]);
-
-  const progressPct = clampPercent(
-    project.progressPercent ?? project.derivedProgressPercent ?? 0,
+  const widgets = COMMITTEE_WIDGETS_V1;
+  const defaultOrder = useMemo(() => widgets.map((w) => w.id), [widgets]);
+  const defaultHidden = useMemo(
+    () => widgets.filter((w) => !w.enabledByDefault).map((w) => w.id),
+    [widgets],
   );
-  const healthPct =
-    project.computedHealth === 'GREEN'
-      ? 100
-      : project.computedHealth === 'ORANGE'
-        ? 60
-        : 25;
-  const progressRing = `conic-gradient(hsl(var(--primary)) ${progressPct}%, hsl(var(--muted)) 0)`;
 
-  type WidgetId =
-    | 'metrics'
-    | 'planningTimeline'
-    | 'signals'
-    | 'nextPoints'
-    | 'decisionsTaken'
-    | 'decisionsPending'
-    | 'actionItems'
-    | 'warnings'
-    | 'tags';
-  const defaultOrder: WidgetId[] = [
-    'metrics',
-    'planningTimeline',
-    'signals',
-    'nextPoints',
-    'decisionsTaken',
-    'decisionsPending',
-    'actionItems',
-    'warnings',
-    'tags',
-  ];
   const [widgetOrder, setWidgetOrder] = useState<WidgetId[]>(defaultOrder);
-  const [hiddenWidgets, setHiddenWidgets] = useState<WidgetId[]>([]);
+  const [hiddenWidgets, setHiddenWidgets] = useState<WidgetId[]>(defaultHidden);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState<WidgetId | null>(null);
 
@@ -667,7 +403,7 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
       const raw = localStorage.getItem(storageKey);
       if (!raw) {
         setWidgetOrder(defaultOrder);
-        setHiddenWidgets([]);
+        setHiddenWidgets(defaultHidden);
         return;
       }
       const parsed = JSON.parse(raw) as {
@@ -676,13 +412,20 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
       };
       const base = defaultOrder.filter((id) => parsed.order?.includes(id));
       const extra = defaultOrder.filter((id) => !base.includes(id));
-      setWidgetOrder([...base, ...extra]);
-      setHiddenWidgets((parsed.hidden ?? []).filter((id) => defaultOrder.includes(id)));
+      const order = [...base, ...extra];
+      const parsedHidden = (parsed.hidden ?? []).filter((id) => defaultOrder.includes(id));
+      const known = new Set<WidgetId>([...(parsed.order ?? []), ...(parsed.hidden ?? [])]);
+      const hidden = new Set<WidgetId>(parsedHidden);
+      defaultHidden.forEach((id) => {
+        if (!known.has(id)) hidden.add(id);
+      });
+      setWidgetOrder(order);
+      setHiddenWidgets([...hidden]);
     } catch {
       setWidgetOrder(defaultOrder);
-      setHiddenWidgets([]);
+      setHiddenWidgets(defaultHidden);
     }
-  }, [storageKey]);
+  }, [defaultHidden, defaultOrder, storageKey]);
 
   const saveLayout = () => {
     localStorage.setItem(
@@ -710,195 +453,23 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
     );
   };
 
-  const widgetTitle: Record<WidgetId, string> = {
-    metrics: 'Indicateurs',
-    planningTimeline: 'Planning — jalons',
-    signals: 'Signaux portefeuille',
-    nextPoints: 'Prochains points projet',
-    decisionsTaken: 'Décisions prises',
-    decisionsPending: 'Décisions à prendre',
-    actionItems: 'Actions ouvertes',
-    warnings: 'Alertes',
-    tags: 'Etiquettes',
-  };
-
-  const renderWidget = (id: WidgetId) => {
-    if (id === 'metrics') {
-      return (
-        <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-          <div className="border-b border-border/60 bg-muted/30 px-4 py-2.5">
-            <h3 className="text-sm font-semibold">Indicateurs — vue graphique</h3>
-          </div>
-          <div className="space-y-4 p-4">
-            {/* Bandeau KPI dense : pas de grille « 4 cartes » avec trous entre colonnes */}
-            <div className="overflow-hidden rounded-lg border border-border/70 bg-muted/15">
-              <div className="grid grid-cols-2 divide-x divide-y divide-border/60 sm:grid-cols-4 sm:divide-y-0">
-                <KpiCell label="Avancement" value={`${progressPct} %`} />
-                <KpiCell label="Tâches ouvertes" value={String(project.openTasksCount)} />
-                <KpiCell label="Risques ouverts" value={String(project.openRisksCount)} />
-                <KpiCell label="Jalons en retard" value={String(project.delayedMilestonesCount)} />
-              </div>
-            </div>
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-              <div className="flex shrink-0 justify-center lg:w-[200px] lg:justify-start">
-                <div
-                  className="relative grid size-28 place-items-center rounded-full"
-                  style={{ background: progressRing }}
-                >
-                  <div className="grid size-[92px] place-items-center rounded-full bg-card text-center">
-                    <div className="text-xs text-muted-foreground">Progression</div>
-                    <div className="text-xl font-semibold tabular-nums">{progressPct}%</div>
-                  </div>
-                </div>
-              </div>
-              <div className="min-w-0 flex-1 space-y-3">
-                <BarRow label="Santé projet" value={healthPct} hint={project.computedHealth} />
-                <BarRow
-                  label="Charge action ouverte"
-                  value={Math.min(100, project.openTasksCount * 8)}
-                  hint={`${project.openTasksCount} tâches`}
-                />
-                <BarRow
-                  label="Pression risque"
-                  value={Math.min(100, project.openRisksCount * 12)}
-                  hint={`${project.openRisksCount} risques`}
-                />
-                <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
-                  <HealthBadge health={project.computedHealth} />
-                  <span className="text-xs text-muted-foreground">
-                    {kindLabel} • {typeLabel} • {statusLabel}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    if (id === 'planningTimeline') {
-      return <PlanningTimelineWidget project={project} />;
-    }
-    if (id === 'signals') {
-      return (
-        <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-          <div className="border-b border-border/60 bg-muted/30 px-4 py-2.5">
-            <h3 className="text-sm font-semibold">Signaux portefeuille (automatisés)</h3>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Signal
-                </TableHead>
-                <TableHead className="w-24 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Actif
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {SIGNAL_ROWS.map((row) => {
-                const active = row.activeWhen(project.signals);
-                return (
-                  <TableRow
-                    key={row.key}
-                    className={cn('even:bg-muted/20', active && 'bg-amber-500/5 dark:bg-amber-500/10')}
-                  >
-                    <TableCell className="text-sm">{row.label}</TableCell>
-                    <BoolCell ok={active} />
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      );
-    }
-    if (id === 'nextPoints') {
-      return (
-        <WidgetTimeline
-          title="Prochains points projet"
-          items={nextPoints.map((r) => ({
-            title: `${r.reviewType} (${r.status})`,
-            subtitle: r.title ?? 'Point projet',
-            date: new Date(r.nextReviewDate ?? r.reviewDate).toLocaleDateString('fr-FR'),
-          }))}
-          emptyLabel={reviewsQ.isLoading ? 'Chargement des points projet…' : 'Aucun prochain point planifié.'}
-        />
-      );
-    }
-    if (id === 'decisionsTaken') {
-      return (
-        <WidgetBarList
-          title="Decisions prises"
-          items={decisionsTaken.map((d) => ({ label: d.title, value: 100 }))}
-          emptyLabel={
-            reviewDetailQ.isLoading
-              ? 'Chargement des décisions…'
-              : "Aucune décision finalisée sur le dernier point."
-          }
-        />
-      );
-    }
-    if (id === 'decisionsPending') {
-      return (
-        <WidgetBarList
-          title="Decisions a prendre"
-          items={decisionsPending.map((d, idx) => ({
-            label: d.title,
-            value: Math.max(25, 100 - idx * 12),
-          }))}
-          emptyLabel={
-            reviewDetailQ.isLoading
-              ? 'Chargement des décisions…'
-              : 'Aucune décision en attente sur le brouillon courant.'
-          }
-        />
-      );
-    }
-    if (id === 'actionItems') {
-      const statusCount = openActionItems.reduce<Record<string, number>>((acc, item) => {
-        const key = item.status || 'UNKNOWN';
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      }, {});
-      const max = Math.max(1, ...Object.values(statusCount));
-      return (
-        <WidgetBarList
-          title="Actions ouvertes"
-          items={Object.entries(statusCount).map(([status, count]) => ({
-            label: `${status} (${count})`,
-            value: Math.round((count / max) * 100),
-          }))}
-          emptyLabel={reviewDetailQ.isLoading ? 'Chargement des actions…' : 'Aucune action ouverte.'}
-        />
-      );
-    }
-    if (id === 'warnings') {
-      return (
-        <WidgetList
-          title="Alertes & points d'attention"
-          items={project.warnings}
-          emptyLabel="Aucun point d'attention."
-        />
-      );
-    }
-    if (id === 'tags') {
-      return (
-        <WidgetList
-          title="Etiquettes"
-          items={project.tags.map((t) => t.name)}
-          emptyLabel="Aucune étiquette."
-        />
-      );
-    }
-    return null;
+  const ctx: WidgetRenderContext = {
+    project,
+    reviews: reviewsQ.data ?? [],
+    reviewDetail: reviewDetailQ.data ?? null,
+    milestones: milestonesQ.data?.items ?? [],
+    isLoading: {
+      reviews: reviewsQ.isLoading,
+      reviewDetail: reviewDetailQ.isLoading,
+      milestones: milestonesQ.isLoading,
+    },
   };
 
   return (
     <div className="flex w-full min-w-0 max-w-none flex-col gap-6">
       <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
         <p className="text-xs text-muted-foreground">
-          Widgets de pilotage : deplace-les, masque ceux non utiles, puis enregistre.
+          Widgets de pilotage : déplace-les, masque ceux non utiles, puis enregistre.
         </p>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => setSettingsOpen((v) => !v)}>
@@ -911,52 +482,40 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
         </div>
       </div>
 
-      {settingsOpen && (
-        <div className="rounded-lg border border-border/70 bg-card px-3 py-3">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Visibilite des widgets
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {defaultOrder.map((id) => (
-              <label key={id} className="inline-flex items-center gap-2 rounded border border-border/70 px-2 py-1 text-xs">
-                <input
-                  type="checkbox"
-                  checked={!hiddenWidgets.includes(id)}
-                  onChange={() => toggleWidget(id)}
-                />
-                {widgetTitle[id]}
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
+      {settingsOpen ? (
+        <CommitteeWidgetConfigPanel
+          widgets={widgets}
+          hiddenWidgets={hiddenWidgets}
+          onToggle={toggleWidget}
+        />
+      ) : null}
 
-      {/*
-        Deux colonnes sans « trous » de grille : `columns` + `break-inside-avoid` repartit
-        les blocs en colonnes équilibrées (pas de ligne forcée à la hauteur du plus grand).
-      */}
       <div className="columns-1 [column-gap:1.25rem] md:columns-2 md:[column-gap:1.5rem]">
         {widgetOrder
           .filter((id) => !hiddenWidgets.includes(id))
-          .map((id) => (
-            <div
-              key={id}
-              draggable
-              onDragStart={() => setDraggedWidget(id)}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => onDropWidget(id)}
-              className={cn(
-                'group mb-4',
-                id === 'planningTimeline' ? '[column-span:all]' : 'break-inside-avoid',
-              )}
-            >
-              <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <GripVertical className="size-4 opacity-60" />
-                <span>{widgetTitle[id]}</span>
+          .map((id) => {
+            const widget = WIDGET_BY_ID[id];
+            if (!widget) return null;
+            return (
+              <div
+                key={id}
+                draggable
+                onDragStart={() => setDraggedWidget(id)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => onDropWidget(id)}
+                className={cn(
+                  'group mb-4',
+                  widget.size === 'full' ? '[column-span:all]' : 'break-inside-avoid',
+                )}
+              >
+                <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <GripVertical className="size-4 opacity-60" />
+                  <span>{widget.title}</span>
+                </div>
+                {widget.render(ctx)}
               </div>
-              {renderWidget(id)}
-            </div>
-          ))}
+            );
+          })}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -967,129 +526,6 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
           <Link href={`${projectDetail(project.id)}?tab=points`}>Points projet</Link>
         </Button>
       </div>
-    </div>
-  );
-}
-
-function WidgetList({
-  title,
-  items,
-  emptyLabel,
-}: {
-  title: string;
-  items: string[];
-  emptyLabel: string;
-}) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-      <div className="border-b border-border/60 bg-muted/30 px-4 py-2.5">
-        <h3 className="text-sm font-semibold">{title}</h3>
-      </div>
-      <Table>
-        <TableBody>
-          {items.length === 0 ? (
-            <TableRow>
-              <TableCell className="py-4 text-sm text-muted-foreground">{emptyLabel}</TableCell>
-            </TableRow>
-          ) : (
-            items.map((item, i) => (
-              <TableRow key={`${title}-${i}-${item.slice(0, 12)}`} className="even:bg-muted/20">
-                <TableCell className="text-sm">{item}</TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-function WidgetBarList({
-  title,
-  items,
-  emptyLabel,
-}: {
-  title: string;
-  items: Array<{ label: string; value: number }>;
-  emptyLabel: string;
-}) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-      <div className="border-b border-border/60 bg-muted/30 px-4 py-2.5">
-        <h3 className="text-sm font-semibold">{title}</h3>
-      </div>
-      <div className="space-y-3 p-4">
-        {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{emptyLabel}</p>
-        ) : (
-          items.map((item, i) => (
-            <BarRow key={`${title}-${i}-${item.label.slice(0, 10)}`} label={item.label} value={item.value} />
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function WidgetTimeline({
-  title,
-  items,
-  emptyLabel,
-}: {
-  title: string;
-  items: Array<{ title: string; subtitle: string; date: string }>;
-  emptyLabel: string;
-}) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-      <div className="border-b border-border/60 bg-muted/30 px-4 py-2.5">
-        <h3 className="text-sm font-semibold">{title}</h3>
-      </div>
-      <div className="space-y-3 p-4">
-        {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{emptyLabel}</p>
-        ) : (
-          items.map((item, i) => (
-            <div key={`${item.title}-${i}`} className="flex gap-3">
-              <div className="mt-1 size-2 shrink-0 rounded-full bg-primary" />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">{item.date}</p>
-                <p className="truncate text-sm font-medium">{item.title}</p>
-                <p className="truncate text-xs text-muted-foreground">{item.subtitle}</p>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function BarRow({ label, value, hint }: { label: string; value: number; hint?: string }) {
-  const pct = Math.max(0, Math.min(100, Math.round(value)));
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="truncate text-xs">{label}</span>
-        <span className="text-xs tabular-nums text-muted-foreground">{hint ?? `${pct}%`}</span>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary transition-[width] duration-300"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function KpiCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center px-2 py-3 text-center sm:px-3 sm:py-3.5">
-      <div className="text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1 text-base font-semibold tabular-nums sm:text-lg">{value}</div>
     </div>
   );
 }

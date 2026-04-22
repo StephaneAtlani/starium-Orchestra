@@ -206,6 +206,39 @@ decision --> execution[Execution projet retenu]
 3. Afficher uniquement colonnes utiles (nom, statut, criticité, échéance).
 4. Capturer la liste comme slide d'ouverture.
 
+## 7.4 Présentation comité CODIR (mode diaporama)
+
+### Route
+
+- `/projects/committee/codir`
+
+### Objectif
+
+Présenter un projet en mode comité avec un set de widgets thématisés, reconfigurables, sans sortir de l’interface.
+
+### Widgets (lot V1)
+
+- Le panneau projet expose 15 widgets au total:
+  - 9 widgets existants migrés (`metrics`, `planningTimeline`, `signals`, `nextPoints`, `decisionsTaken`, `decisionsPending`, `actionItems`, `warnings`, `tags`);
+  - 6 nouveaux widgets (`milestoneStatusSplit`, `milestonesDueSoon`, `reviewsStatusSplit`, `reviewsCadence30d`, `actionItemsAging`, `ownershipCoverage`).
+- Les nouveaux widgets sont masqués par défaut.
+- Thèmes affichés dans la configuration: `execution`, `governance`, `ownership`.
+
+### Procédure opératoire
+
+1. Ouvrir `/projects/committee/codir`.
+2. Naviguer jusqu’au projet à présenter.
+3. Cliquer `Configurer`.
+4. Activer uniquement les widgets utiles au comité.
+5. Réordonner les widgets par glisser-déposer.
+6. Cliquer `Enregistrer`.
+
+### Comportement de persistance
+
+- La configuration est sauvegardée localement par projet (`order` + `hidden`).
+- Les layouts existants restent compatibles: les nouveaux widgets sont ajoutés sans casser les préférences déjà enregistrées.
+- Le widget `planningTimeline` s’affiche sur toute la largeur (2 colonnes).
+
 ---
 
 ## 8) Risques — utilisation opérationnelle
@@ -307,6 +340,7 @@ progressTracked --> riskReduced[Risque reduit]
 - **Scénarios invisibles**: route non autorisée par droits/module.
 - **Gantt vide**: tâches non datées.
 - **Accès refusé**: mauvais client actif.
+- **Widget non visible en CODIR**: ouvrir `Configurer`, vérifier qu’il n’est pas masqué, puis `Enregistrer`.
 
 ---
 

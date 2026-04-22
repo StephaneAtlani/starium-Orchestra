@@ -130,6 +130,7 @@ Référence: `MANUEL-30-BUDGETS.md`.
 - portefeuille projets;
 - fiches projet/planning;
 - scénarios et cockpit scénario;
+- présentation comité CODIR avec widgets thématisés configurables;
 - registre des risques;
 - plans d'action.
 - parcours détaillés "avec scénario" et "sans scénario";
@@ -239,6 +240,7 @@ Référence: `MANUEL-70-CONFORMITE.md`.
 - `/projects`
 - `/projects/new`
 - `/projects/options`
+- `/projects/committee/codir`
 - `/projects/portfolio-gantt`
 - `/projects/[projectId]`
 - `/projects/[projectId]/sheet` (partiel)
