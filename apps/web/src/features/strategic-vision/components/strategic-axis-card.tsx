@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Pencil } from 'lucide-react';
 import type {
   StrategicAxisDto,
   StrategicObjectiveDto,
@@ -28,6 +29,7 @@ export function StrategicAxisCard({
   draggable = false,
   onDragStart,
   onDrop,
+  showEditIcon = false,
 }: {
   axis: StrategicAxisDto;
   displayIndex?: number;
@@ -38,6 +40,7 @@ export function StrategicAxisCard({
   draggable?: boolean;
   onDragStart?: (axisId: string) => void;
   onDrop?: (axisId: string) => void;
+  showEditIcon?: boolean;
 }) {
   const objectiveCount = axis.objectives.length;
   const { logo, title, color } = splitAxisLogoAndTitle(axis.name);
@@ -65,19 +68,25 @@ export function StrategicAxisCard({
           </CardTitle>
           {canUpdate && onEdit ? (
             <Button
-              size="sm"
-              variant="outline"
+              size={showEditIcon ? 'icon' : 'sm'}
+              variant={showEditIcon ? 'ghost' : 'outline'}
               onClick={(event) => {
                 event.stopPropagation();
                 onEdit(axis);
               }}
+              aria-label="Modifier l'axe"
             >
-              Modifier
+              {showEditIcon ? <Pencil className="size-4" /> : 'Modifier'}
             </Button>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-1">
-          <Badge variant="secondary">{objectiveCount} objectif(s)</Badge>
+          <Badge
+            variant="outline"
+            className="h-auto rounded-full border-blue-500/60 bg-blue-100 px-3 py-1 text-xs font-semibold tracking-tight text-blue-900 shadow-sm dark:border-blue-300/50 dark:bg-blue-500/20 dark:text-blue-100"
+          >
+            {objectiveCount} objectif(s)
+          </Badge>
           {draggable ? <Badge variant="outline">Glisser-déposer</Badge> : null}
         </div>
       </CardHeader>

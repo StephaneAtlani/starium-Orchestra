@@ -29,7 +29,7 @@ export function StrategicAlertsPanel({
   if (isLoading) {
     return (
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Alertes strategiques</h2>
+        <h2 className="text-lg font-semibold">Alertes de desalignement</h2>
         <Skeleton className="h-20 w-full" />
       </section>
     );
@@ -38,7 +38,7 @@ export function StrategicAlertsPanel({
   if (isError) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>Impossible de charger les alertes strategiques.</AlertDescription>
+        <AlertDescription>Impossible de charger les alertes de desalignement.</AlertDescription>
       </Alert>
     );
   }
@@ -47,7 +47,7 @@ export function StrategicAlertsPanel({
   if (items.length === 0) {
     return (
       <Alert>
-        <AlertTitle>Alertes strategiques</AlertTitle>
+        <AlertTitle>Alertes de desalignement</AlertTitle>
         <AlertDescription>Aucune alerte active pour ce client.</AlertDescription>
       </Alert>
     );
@@ -55,8 +55,8 @@ export function StrategicAlertsPanel({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Alertes strategiques</h2>
-      <div className="grid gap-3 md:grid-cols-2">
+      <h2 className="text-lg font-semibold">Alertes de desalignement</h2>
+      <div className="grid gap-3">
         {items.map((alert) => (
           <Card key={alert.id} size="sm">
             <CardHeader className="gap-2">

@@ -16,6 +16,7 @@ import { StrategicVisionEnterpriseTab } from './strategic-vision-enterprise-tab'
 import { StrategicVisionOverviewTab } from './strategic-vision-overview-tab';
 import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
 import { StrategicAlignmentTab } from './strategic-alignment-tab';
+import { StrategicAlignmentScoreCard } from './strategic-alignment-score-card';
 
 type QueryState = {
   isLoading: boolean;
@@ -59,6 +60,7 @@ export function StrategicVisionTabs({
   alerts,
   canUpdate,
   canCreate,
+  isEditMode,
   queryStates,
 }: {
   vision: StrategicVisionDto | null;
@@ -69,6 +71,7 @@ export function StrategicVisionTabs({
   alerts: StrategicVisionAlertsResponseDto | undefined;
   canUpdate: boolean;
   canCreate: boolean;
+  isEditMode: boolean;
   queryStates: {
     visions: QueryState;
     objectives: QueryState;
@@ -96,25 +99,34 @@ export function StrategicVisionTabs({
         <TabsTrigger value="axes">Axes strategiques</TabsTrigger>
         <TabsTrigger value="objectives">Objectifs</TabsTrigger>
         <TabsTrigger value="alignment">Alignement</TabsTrigger>
-        <TabsTrigger value="history">Historique</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="space-y-4">
-        <QueryStateBlock
-          loadingLabel="Chargement de la vue d'ensemble..."
-          errorLabel="Impossible de charger la vue d'ensemble."
-          queryState={baseState}
-        />
-        {!baseState.isLoading && !baseState.isError ? (
-          <>
-            <StrategicVisionOverviewTab vision={vision} axes={axes} objectives={objectives} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <StrategicVisionOverviewTab
+              vision={vision}
+              axes={axes}
+              objectives={objectives}
+              isLoading={baseState.isLoading}
+              isError={baseState.isError}
+              isEditMode={isEditMode}
+              canUpdate={canUpdate}
+            />
+          </div>
+          <div className="space-y-6 lg:col-span-1">
+            <StrategicAlignmentScoreCard
+              kpis={kpis}
+              isLoading={queryStates.kpis.isLoading}
+              isError={queryStates.kpis.isError}
+            />
             <StrategicAlertsPanel
               alerts={alerts}
               isLoading={queryStates.alerts.isLoading}
               isError={queryStates.alerts.isError}
             />
-          </>
-        ) : null}
+          </div>
+        </div>
       </TabsContent>
 
       <TabsContent value="enterprise">
@@ -176,12 +188,6 @@ export function StrategicVisionTabs({
         {!baseState.isLoading && !baseState.isError ? (
           <StrategicAlignmentTab axes={axes} objectives={objectives} kpis={kpis} />
         ) : null}
-      </TabsContent>
-
-      <TabsContent value="history">
-        <Alert>
-          <AlertDescription>Disponible prochainement.</AlertDescription>
-        </Alert>
       </TabsContent>
     </Tabs>
   );

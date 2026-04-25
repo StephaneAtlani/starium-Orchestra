@@ -56,6 +56,7 @@ export function StrategicVisionPage() {
         alerts={alertsQ.data}
         canUpdate={canUpdate}
         canCreate={canCreate}
+        isEditMode={false}
         queryStates={{
           visions: { isLoading: visionsQ.isLoading, isError: visionsQ.isError },
           objectives: {
