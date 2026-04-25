@@ -182,7 +182,6 @@ export function Sidebar() {
                 if (isProjets) {
                   const projectsChildren = [
                     { label: 'Portefeuille projet', href: '/projects' },
-                    { label: 'Présentation CODIR', href: '/projects/committee/codir' },
                     { label: 'Option', href: '/projects/options' },
                   ];
 
