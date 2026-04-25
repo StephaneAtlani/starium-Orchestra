@@ -29,7 +29,15 @@
 
 | RFC | Nom | État | Commentaire |
 | --- | --- | --- | --- |
-| **RFC-038** | Socle alertes et emails async | 📝 Draft | Socle transverse `Alert` client-scopé + API `/api/alerts` + queue BullMQ (`send_email`) + worker séparé + audit `alert.*` / `email.*` ; V1: email uniquement pour alertes `critical` |
+| **RFC-038** | Socle alertes et emails async | 🟢 Implémentée (socle MVP) | Prisma `Alert` / `Notification` / `EmailDelivery`, API `/api/alerts` et `/api/notifications`, queue BullMQ + Redis, worker `pnpm start:worker` (`apps/api`), UI cloche + panel critiques sur `/dashboard` ; triggers `AlertsTriggerService` encore no-op ; permissions seedées — enrichir `default-profiles.json` ou rôles pour `notifications.*` en démo |
+
+---
+
+## Plateforme — recherche
+
+| RFC | Nom | État | Commentaire |
+| --- | --- | --- | --- |
+| **RFC-039** | Recherche transversale (Global Search) | 📝 Draft | Commande globale + endpoint unique `GET /api/search`, agrégation multi-modules côté backend avec scope client actif et RBAC, résultats UI en valeur métier (`label`/`subtitle`) sans ID brut |
 
 ---
 

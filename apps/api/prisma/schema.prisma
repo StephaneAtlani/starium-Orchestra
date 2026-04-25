@@ -175,6 +175,44 @@ enum ActivityTaxonomyKind {
   OTHER
 }
 
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  ACTIVE
+  RESOLVED
+  DISMISSED
+}
+
+enum AlertType {
+  BUDGET
+  PROJECT
+  STRATEGIC_VISION
+  SYSTEM
+  GENERIC
+}
+
+enum NotificationType {
+  ALERT
+  SYSTEM
+  INFO
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
+enum EmailDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  RETRYING
+}
+
 model HealthCheck {
   id        String   @id @default(uuid())
   checkedAt DateTime @default(now())
@@ -283,6 +321,9 @@ model Client {
   resourceTimeEntries              ResourceTimeEntry[]
   resourceTimesheetMonths          ResourceTimesheetMonth[]
   procurementAttachments           ProcurementAttachment[]
+  alerts                           Alert[]
+  notifications                    Notification[]
+  emailDeliveries                  EmailDelivery[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId              String?
@@ -438,6 +479,10 @@ model User {
   linkedCollaborators                  Collaborator[]                  @relation("CollaboratorLinkedUser")
   uploadedProcurementAttachments       ProcurementAttachment[]         @relation("ProcurementAttachmentUploadedBy")
   uploadedContractAttachments          ContractAttachment[]            @relation("ContractAttachmentUploadedBy")
+  notifications                        Notification[]
+  resolvedAlerts                       Alert[]                         @relation("AlertResolvedBy")
+  dismissedAlerts                      Alert[]                         @relation("AlertDismissedBy")
+  emailDeliveries                      EmailDelivery[]                 @relation("EmailDeliveryCreatedBy")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -3293,6 +3338,90 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+
+model Alert {
+  id           String        @id @default(cuid())
+  clientId     String
+  type         AlertType
+  severity     AlertSeverity
+  title        String
+  message      String
+  entityType   String?
+  entityId     String?
+  entityLabel  String?
+  actionUrl    String?
+  status       AlertStatus   @default(ACTIVE)
+  ruleCode     String
+  metadata     Json?
+  resolvedAt   DateTime?
+  dismissedAt  DateTime?
+  resolvedById String?
+  dismissedById String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  resolvedBy  User?          @relation("AlertResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  dismissedBy User?          @relation("AlertDismissedBy", fields: [dismissedById], references: [id], onDelete: SetNull)
+  notifications Notification[]
+  emailDeliveries EmailDelivery[]
+
+  @@index([clientId, status, severity])
+  @@index([clientId, type, severity, entityType, entityId, ruleCode, status])
+  @@index([clientId, createdAt])
+}
+
+model Notification {
+  id           String             @id @default(cuid())
+  clientId     String
+  userId       String
+  alertId      String?
+  type         NotificationType   @default(ALERT)
+  title        String
+  message      String
+  status       NotificationStatus @default(UNREAD)
+  entityType   String?
+  entityId     String?
+  entityLabel  String?
+  actionUrl    String?
+  alertSeverity AlertSeverity?
+  metadata     Json?
+  readAt       DateTime?
+  createdAt    DateTime           @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alert  Alert? @relation(fields: [alertId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, userId, status])
+  @@index([clientId, userId, createdAt])
+  @@index([alertId])
+}
+
+model EmailDelivery {
+  id              String              @id @default(cuid())
+  clientId        String
+  alertId         String?
+  recipient       String
+  subject         String
+  templateKey     String
+  status          EmailDeliveryStatus @default(PENDING)
+  attempts        Int                 @default(0)
+  lastError       String?
+  providerMessageId String?
+  sentAt          DateTime?
+  createdByUserId String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  alert  Alert? @relation(fields: [alertId], references: [id], onDelete: SetNull)
+  createdBy User? @relation("EmailDeliveryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, status, createdAt])
+  @@index([alertId])
+  @@index([recipient])
 }
 
 model AuditLogArchive {

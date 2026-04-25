@@ -483,7 +483,10 @@ Core plateforme
 ├── users
 ├── roles / permissions
 ├── audit-logs
-└── notifications
+├── alerts (RFC-038 — `Alert`, `/api/alerts`)
+├── notifications (RFC-038 — in-app, `/api/notifications`)
+├── queue (RFC-038 — BullMQ + Redis)
+└── email (RFC-038 — templates, processor, `EmailDelivery`)
 
 Core budgétaire / financier
 ├── budget-management
@@ -508,6 +511,8 @@ Autres domaines
 ├── applications
 └── ...
 ```
+
+**Socle alertes / notifications in-app / email async (RFC-038)** : modèles Prisma `Alert`, `Notification`, `EmailDelivery` ; modules Nest `alerts`, `notifications`, `queue` (BullMQ + **Redis** : `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` optionnel), `email` ; worker applicatif **sans serveur HTTP** : `apps/api/src/worker/main.ts` (`pnpm start:worker` depuis `apps/api`). API : `GET /api/alerts`, `PATCH /api/alerts/:id/resolve`, `PATCH /api/alerts/:id/dismiss` ; `GET /api/notifications` (réponse paginée + champ `unread` pour badge), `PATCH /api/notifications/:id/read`, `PATCH /api/notifications/read-all`. Même pipeline guards que le métier (`JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`) ; isolation stricte `clientId` et pour les notifications **filtrage `userId` courant**. Permissions `alerts.*` et `notifications.*` ; seed dans `prisma/seed.ts`. UI : cloche dans `apps/web/src/components/shell/workspace-header.tsx`, panel alertes critiques minimal sur `/dashboard`. Ne pas confondre avec `GET /api/strategic-vision/alerts` (alertes métier vision). Détail : [RFC-038](RFC/RFC-038%20%E2%80%94%20Socle%20alertes%20et%20emails%20async.md), [API.md](API.md) §5.4.
 
 **Module `projects` (MVP — RFC-PROJ-001)** : API `/api/projects` (+ tâches RFC-PROJ-011 avec liste paginée et **sans** `DELETE` tâche au MVP, **`GET|POST|PATCH|DELETE /api/projects/:projectId/task-buckets`** buckets planning `ProjectTaskBucket` + `bucketId` sur `ProjectTask`, **`GET /api/projects/:projectId/gantt`** tâches+jalons, **`/activities`**, risques (**RFC-PROJ-018** — `GET|POST|PATCH|DELETE /api/projects/:projectId/risks`), jalons, **fiche décisionnelle** `GET|PATCH /api/projects/:id/project-sheet`, **arbitrage legacy** `POST /api/projects/:id/arbitration`, **points projet** `GET|POST /api/projects/:projectId/reviews` et sous-routes RFC-PROJ-013 — types COPIL/COPRO/… et **POST_MORTEM** (REX, projet clos uniquement), pilotage calculé dans `projects-pilotage.service.ts`, sous-modules `project-sheet/` (fiche — RFC-PROJ-012 Project Sheet) et `project-reviews/` (RFC-PROJ-013), UI Next.js (`/projects`, détail projet avec onglet Points projet, **Planning Gantt** `/projects/[projectId]/planning` — RFC-PROJ-012 Gantt Tâches et Jalons, `apps/web/src/features/projects/components/project-gantt-panel.tsx`, **options par projet** `/projects/[projectId]/options` — RFC-PROJ-OPT-001, `apps/web/src/features/projects/options/` ; le chemin `/projects/options` sans id reste un **placeholder** module). Détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 

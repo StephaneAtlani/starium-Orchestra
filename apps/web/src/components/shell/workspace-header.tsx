@@ -9,8 +9,9 @@ import { useActiveClientEmailDisplay } from '../../hooks/use-active-client-email
 import { ClientSwitcher } from '../ClientSwitcher';
 import { Button } from '../ui/button';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
-import { Bell, Calendar, ChevronDown, FileText, Menu, Search, UserCircle, X } from 'lucide-react';
+import { Calendar, ChevronDown, FileText, Menu, Search, UserCircle, X } from 'lucide-react';
 import { useSidebarNav } from './sidebar-nav-context';
+import { NotificationBell } from '@/features/notifications/components/notification-bell';
 
 interface WorkspaceHeaderProps {
   contentClassName?: string;
@@ -186,9 +187,7 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
             <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Calendrier">
               <Calendar className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Notifications">
-              <Bell className="h-4 w-4" />
-            </Button>
+            <NotificationBell />
           </div>
           {accessToken && (
             <div className="min-w-0 max-w-[min(11rem,calc(100vw-8rem))] sm:max-w-[16rem]">

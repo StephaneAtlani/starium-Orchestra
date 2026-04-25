@@ -10,6 +10,57 @@
 set -eu
 cd /app
 
+# BullMQ (RFC-038) : en conteneur, 127.0.0.1 = le conteneur ; le hostname « redis » peut
+# rester introuvable (Docker Desktop / réseaux). docker-compose.dev.yml utilise
+# host.docker.internal + port 6379 publié par le service redis.
+case "${DATABASE_URL:-}" in
+  *"@postgres:"*)
+    case "${REDIS_HOST:-}" in
+      '' | 127.0.0.1 | localhost | redis)
+        export REDIS_HOST=host.docker.internal
+        export REDIS_PORT="${REDIS_PORT:-6379}"
+        echo "[api-dev] REDIS_HOST -> host.docker.internal:${REDIS_PORT:-6379} (Redis via port hôte)"
+        ;;
+    esac
+    ;;
+esac
+
+# Attente TCP : host.docker.internal = port 6379 exposé par le service redis du compose.
+wait_for_redis() {
+  case "${DATABASE_URL:-}" in *"@postgres:"*) ;; *) return 0 ;; esac
+  _rh="${REDIS_HOST:-host.docker.internal}"
+  _rp="${REDIS_PORT:-6379}"
+  export _R_WAIT_HOST="$_rh"
+  export _R_WAIT_PORT="$_rp"
+  echo "[api-dev] attente TCP Redis ${_R_WAIT_HOST}:${_R_WAIT_PORT}..."
+  _i=0
+  while [ "$_i" -lt 90 ]; do
+    if node -e "
+const n=require('net');
+const h=process.env._R_WAIT_HOST,p=Number(process.env._R_WAIT_PORT||6379);
+const s=n.createConnection({host:h,port:p},()=>{s.end();process.exit(0)});
+s.on('error',()=>process.exit(1));
+setTimeout(()=>process.exit(1),800);
+" 2>/dev/null; then
+      echo "[api-dev] Redis joignable."
+      unset _R_WAIT_HOST _R_WAIT_PORT
+      return 0
+    fi
+    _i=$((_i + 1))
+    if [ "$((_i % 15))" -eq 0 ]; then
+      echo "[api-dev] Redis toujours absent après ${_i}s — démarre le service « redis » (port 6379 publié sur l’hôte)."
+    fi
+    sleep 1
+  done
+  unset _R_WAIT_HOST _R_WAIT_PORT
+  echo "[api-dev] ERREUR: Redis injoignable (${_rh}:${_rp})." >&2
+  echo "[api-dev] → docker compose -f docker-compose.dev.yml up -d redis api-dev" >&2
+  echo "[api-dev] → Vérifie que le port 6379 est bien publié (redis:6379:6379) et qu’aucun autre process n’occupe 6379 sur l’hôte." >&2
+  exit 1
+}
+
+wait_for_redis
+
 SCHEMA="/app/apps/api/prisma/schema.prisma"
 
 api_prisma_generate() {

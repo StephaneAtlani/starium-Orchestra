@@ -8,7 +8,7 @@
 #         (voir README) en pointant DATABASE_URL sur cette base.
 #
 #   docker compose --profile standard up -d
-#       → PostgreSQL + API (3001) + Web (hôte 3002 → conteneur 3000), images
+#       → PostgreSQL + Redis + API (3001) + Web (hôte 3002 → conteneur 3000), images
 #         buildées (prod-like), pas de bind mount. Le port hôte 3002 est volontaire
 #         (évite un conflit avec un autre process sur :3000). Le navigateur appelle
 #         l’API sur :3001 ; NEXT_PUBLIC_API_URL=http://localhost:3001.
@@ -28,10 +28,15 @@ x-api-base-env: &api-base-env
   JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
   MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
   MFA_KEY_VERSION: ${MFA_KEY_VERSION:-1}
+  # BullMQ / RFC-038 : hostname du service Compose (pas 127.0.0.1 dans le conteneur).
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
 
-x-depends-postgres-healthy: &depends-postgres-healthy
-  postgres:
-    condition: service_healthy
+x-redis-healthcheck: &redis-healthcheck
+  test: ["CMD", "redis-cli", "ping"]
+  interval: 2s
+  timeout: 3s
+  retries: 10
 
 services:
   postgres:
@@ -46,6 +51,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck: *postgres-healthcheck
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    expose:
+      - "6379"
+    healthcheck: *redis-healthcheck
 
   # RFC-035 — MinIO optionnel (profil `procurement-s3`) si stockage objet S3 en Docker.
   minio:
@@ -83,7 +95,11 @@ services:
       - "3001:3001"
     volumes:
       - procurement_blobs:/data/procurement-blobs
-    depends_on: *depends-postgres-healthy
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test:
         [

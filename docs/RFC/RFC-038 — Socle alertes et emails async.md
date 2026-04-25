@@ -398,6 +398,21 @@ Cette RFC introduit un socle transverse **`Alert` (signal métier) + `Notificati
 - Envoi email exclusivement asynchrone via queue BullMQ + worker séparé.
 - Extension prête vers futures notifications sans casser le socle.
 
+## 7.1 État d’implémentation synchronisé (repo)
+
+Alignement **code / schéma Prisma** (à distinguer des libellés métier minuscules du §4.2) :
+
+- En base PostgreSQL, les enums Prisma sont en **MAJUSCULES** (`AlertStatus` : `ACTIVE`, `RESOLVED`, `DISMISSED` ; `AlertSeverity` : `INFO`, `WARNING`, `CRITICAL` ; `AlertType`, `NotificationStatus`, etc.).
+- Migration : `apps/api/prisma/migrations/20260425195500_rfc_038_alerts_notifications_async_email/` — index unique partiel anti-doublon alertes actives `Alert_active_dedup_unique_idx` sur `(clientId, type, severity, entityType, entityId, ruleCode)` avec `WHERE status = 'ACTIVE'`.
+- Modules Nest enregistrés dans `apps/api/src/app.module.ts` : `AlertsModule`, `NotificationsModule`, `QueueModule`, `EmailModule`. Code sous `apps/api/src/modules/alerts/`, `notifications/`, `queue/`, `email/`.
+- Worker sans HTTP : `apps/api/src/worker/main.ts` + `WorkerModule` ; script `pnpm start:worker` depuis `apps/api`.
+- Orchestration : `AlertsService.upsertAlert` crée les `Notification` et enfile l’email si sévérité `CRITICAL` ; `AlertsTriggerService` expose `evaluateStrategicVisionAlerts` / `evaluateBudgetAlerts` / `evaluateProjectAlerts` en **stubs** (retour `{ evaluated: 0 }`) jusqu’au branchement dans les services métier.
+- RBAC : modules `alerts` et `notifications` + permissions `alerts.read`, `alerts.update`, `notifications.read`, `notifications.update` créés par `ensureAlertsAndNotificationsModulesAndPermissions` dans `apps/api/prisma/seed.ts`. Les profils globaux [`apps/api/prisma/default-profiles.json`](../../apps/api/prisma/default-profiles.json) **n’ajoutent pas** encore `notifications.read` / `notifications.update` : prévoir assignation de rôles ou enrichissement des profils pour que la cloche fonctionne hors admin technique.
+- UI : `apps/web/src/features/notifications/` (cloche dans `workspace-header.tsx`), `apps/web/src/features/alerts/` (panel minimal sur `/dashboard`), services `apps/web/src/services/notifications.ts` et `alerts.ts`.
+- Contrat HTTP détaillé : [docs/API.md](../API.md) §5.4.
+
+**Route distincte** : `GET /api/strategic-vision/alerts` (RFC Strategic Vision) reste indépendante du socle `GET /api/alerts`.
+
 ## 8. Points de vigilance
 
 - Ne jamais envoyer d’email depuis un flux HTTP synchrone.

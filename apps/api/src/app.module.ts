@@ -37,6 +37,10 @@ import { ActivityTypesModule } from './modules/activity-types/activity-types.mod
 import { ResourceTimeEntriesModule } from './modules/resource-time-entries/resource-time-entries.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
 import { StrategicVisionModule } from './modules/strategic-vision/strategic-vision.module';
+import { AlertsModule } from './modules/alerts/alerts.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { QueueModule } from './modules/queue/queue.module';
+import { EmailModule } from './modules/email/email.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -81,6 +85,10 @@ import { StrategicVisionModule } from './modules/strategic-vision/strategic-visi
     ResourceTimeEntriesModule,
     ContractsModule,
     StrategicVisionModule,
+    QueueModule,
+    EmailModule,
+    AlertsModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

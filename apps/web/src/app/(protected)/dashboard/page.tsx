@@ -17,6 +17,7 @@ import {
 import { DashboardBudgetKpiWidget } from '@/features/dashboard/components/dashboard-budget-kpi-widget';
 import { DashboardProjectsKpiWidget } from '@/features/dashboard/components/dashboard-projects-kpi-widget';
 import { DashboardSuppliersKpiWidget } from '@/features/dashboard/components/dashboard-suppliers-kpi-widget';
+import { CriticalAlertsPanel } from '@/features/alerts/components/critical-alerts-panel';
 
 export default function DashboardPage() {
   return (
@@ -32,6 +33,8 @@ export default function DashboardPage() {
         <DashboardProjectsKpiWidget />
 
         <DashboardSuppliersKpiWidget />
+
+        <CriticalAlertsPanel />
 
         <section className="space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

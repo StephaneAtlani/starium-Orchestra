@@ -8,11 +8,17 @@
 # Usage :
 #   docker compose -f docker-compose.dev.yml up -d --build
 #
+# Docker Desktop : ne pas lancer seulement postgres/mailhog/api-dev — le service
+# « redis » doit tourner sur la même stack, sinon l’API (BullMQ) : ENOTFOUND redis.
+#
 # Ports :
 #   - Web (Next dev)  : http://localhost:3000
 #   - API (Nest dev)  : http://localhost:3001/api
 #   - Postgres         : localhost:5432
 #   - MailHog (SMTP capture + UI) : http://localhost:8025 — SMTP pour l’API : mailhog:1025 (voir env api-dev)
+#   - Redis (BullMQ / RFC-038) : service `redis` (port 6379 publié). L’API utilise
+#     host.docker.internal:6379 pour éviter ENOTFOUND « redis » si Docker Desktop
+#     ne met pas api-dev sur le même réseau DNS que Redis.
 #
 # Notes :
 # - Le fichier .env n'est pas packagé dans l'image (voir .dockerignore).
@@ -21,11 +27,23 @@
 #   PROCUREMENT_S3_* (sinon elles écrasent apps/api/.env, ex. région eu-west-3 → us-east-1).
 # =============================================================================
 
+name: starium-orchestra
+
+networks:
+  orchestra_dev:
+    driver: bridge
+
 x-postgres-healthcheck: &postgres-healthcheck
   test: ["CMD-SHELL", "pg_isready -U starium -d starium"]
   interval: 2s
   timeout: 5s
   retries: 5
+
+x-redis-healthcheck: &redis-healthcheck
+  test: ["CMD", "redis-cli", "ping"]
+  interval: 2s
+  timeout: 3s
+  retries: 10
 
 x-api-base-env: &api-base-env
   DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
@@ -33,6 +51,7 @@ x-api-base-env: &api-base-env
 
 services:
   postgres:
+    networks: [orchestra_dev]
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -46,15 +65,25 @@ services:
     healthcheck: *postgres-healthcheck
 
   mailhog:
+    networks: [orchestra_dev]
     image: mailhog/mailhog:latest
     restart: unless-stopped
     ports:
       - "1025:1025"
       - "8025:8025"
 
+  redis:
+    networks: [orchestra_dev]
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck: *redis-healthcheck
+
   # RFC-035 — MinIO optionnel : `docker compose -f docker-compose.dev.yml --profile procurement-s3 up -d`
   minio:
     profiles: ["procurement-s3"]
+    networks: [orchestra_dev]
     image: minio/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -71,6 +100,10 @@ services:
       - "9001"
 
   api-dev:
+    networks: [orchestra_dev]
+    # Linux / Docker Desktop : accès à l’hôte (port 6379 → conteneur redis).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       context: .
       dockerfile: apps/api/Dockerfile.dev
@@ -86,6 +119,9 @@ services:
       SMTP_PORT: "1025"
       SMTP_SECURE: "false"
       SMTP_FROM: noreply@starium.local
+      # BullMQ / RFC-038 : via l’hôte (port publié) — évite ENOTFOUND sur le hostname « redis » (réseau Desktop).
+      REDIS_HOST: host.docker.internal
+      REDIS_PORT: "6379"
       # Ne pas définir PROCUREMENT_STORAGE_DRIVER ici : le driver suit `PlatformProcurementS3Settings.storageDriver` (admin).
       # PROCUREMENT_STORAGE_DRIVER ne s’applique qu’en repli si la ligne plateforme est absente (bootstrap / tests).
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
@@ -113,6 +149,8 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_started
+      redis:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -127,6 +165,7 @@ services:
       start_period: 90s
 
   web-dev:
+    networks: [orchestra_dev]
     build:
       context: .
       dockerfile: apps/web/Dockerfile.dev

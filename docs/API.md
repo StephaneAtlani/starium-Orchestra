@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-038 (socle alertes, notifications in-app, file email async).
 
 ---
 
@@ -617,6 +617,42 @@ Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
   total: number;
 }
 ```
+
+## 5.4 Socle alertes et notifications (RFC-038) — `/api/alerts`, `/api/notifications`
+
+Socle transverse **distinct** de `GET /api/strategic-vision/alerts` (§5.3). Toutes les routes ci-dessous exigent **`Authorization`** + **`X-Client-Id`**, avec guards `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`.
+
+### GET /api/alerts
+
+- **Permission** : `alerts.read`
+- **Query** : `limit`, `offset` (pagination), optionnellement `status`, `severity`, `type`, `entityType` (valeurs enum Prisma / JSON : `ACTIVE`, `CRITICAL`, etc.).
+- **Réponse 200** : `{ items, total, limit, offset }` — chaque item est une `Alert` scopée `clientId` actif.
+
+### PATCH /api/alerts/:id/resolve
+
+- **Permission** : `alerts.update`
+
+### PATCH /api/alerts/:id/dismiss
+
+- **Permission** : `alerts.update`
+
+### GET /api/notifications
+
+- **Permission** : `notifications.read`
+- **Query** : `limit`, `offset`, optionnellement `status` (`UNREAD` | `READ`).
+- **Réponse 200** : `{ items, total, unread, limit, offset }` — **uniquement** les notifications du **user JWT courant** pour le `clientId` actif ; `unread` sert au badge cloche.
+
+### PATCH /api/notifications/:id/read
+
+- **Permission** : `notifications.update`  
+- Effet : ligne appartenant à `(clientId, userId)` uniquement.
+
+### PATCH /api/notifications/read-all
+
+- **Permission** : `notifications.update`  
+- Effet : toutes les notifications **UNREAD** du **user courant** + **client actif** uniquement.
+
+**Modules RBAC** : codes plateforme `alerts` et `notifications` (activation client via `ClientModule`, comme les autres modules). **Worker email** : traitement asynchrone des jobs `send_email` — process séparé, voir [RFC-038](RFC/RFC-038%20%E2%80%94%20Socle%20alertes%20et%20emails%20async.md) et [ARCHITECTURE.md](../ARCHITECTURE.md) §7.
 
 ## 6. Gestion des utilisateurs globaux — `/api/platform/users`
 

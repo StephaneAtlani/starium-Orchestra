@@ -1376,6 +1376,59 @@ async function ensureStrategicVisionModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureAlertsAndNotificationsModulesAndPermissions(): Promise<void> {
+  const alertsModule = await prisma.module.upsert({
+    where: { code: "alerts" },
+    create: {
+      code: "alerts",
+      name: "Alertes",
+      description: "Socle transverse alertes métier",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const notificationsModule = await prisma.module.upsert({
+    where: { code: "notifications" },
+    create: {
+      code: "notifications",
+      name: "Notifications",
+      description: "Notifications personnelles (cloche)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+
+  const defs: Array<{ code: string; label: string; moduleId: string }> = [
+    {
+      code: "alerts.read",
+      label: "Alertes — lecture",
+      moduleId: alertsModule.id,
+    },
+    {
+      code: "alerts.update",
+      label: "Alertes — mise à jour",
+      moduleId: alertsModule.id,
+    },
+    {
+      code: "notifications.read",
+      label: "Notifications — lecture",
+      moduleId: notificationsModule.id,
+    },
+    {
+      code: "notifications.update",
+      label: "Notifications — mise à jour",
+      moduleId: notificationsModule.id,
+    },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: p.moduleId },
+      update: { label: p.label, moduleId: p.moduleId },
+    });
+  }
+}
+
 /** Catalogue plateforme des types de contrat (codes utilisés par `SupplierContract.kind`). */
 async function ensureGlobalSupplierContractKindTypes(): Promise<void> {
   const catalog: Array<{ code: string; label: string; sortOrder: number }> = [
@@ -3242,6 +3295,7 @@ async function main() {
   await ensureComplianceModuleAndPermissions();
   await ensureContractsModuleAndPermissions();
   await ensureStrategicVisionModuleAndPermissions();
+  await ensureAlertsAndNotificationsModulesAndPermissions();
   await ensureGlobalSupplierContractKindTypes();
   await ensureCollaboratorsModuleAndPermissions();
   await ensureSkillsModuleAndPermissions();
