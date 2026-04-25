@@ -25,6 +25,14 @@
 
 ---
 
+## Plateforme — alertes & notifications
+
+| RFC | Nom | État | Commentaire |
+| --- | --- | --- | --- |
+| **RFC-038** | Socle alertes et emails async | 📝 Draft | Socle transverse `Alert` client-scopé + API `/api/alerts` + queue BullMQ (`send_email`) + worker séparé + audit `alert.*` / `email.*` ; V1: email uniquement pour alertes `critical` |
+
+---
+
 ## Procurement — fournisseurs
 
 | RFC | Nom | État | Commentaire |
