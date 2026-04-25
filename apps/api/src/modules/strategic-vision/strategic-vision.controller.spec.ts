@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { REQUIRE_PERMISSIONS_KEY } from '../../common/decorators/require-permissions.decorator';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -13,6 +14,7 @@ const passGuard = { canActivate: () => true };
 describe('StrategicVisionController', () => {
   const serviceMock = {
     listVisions: jest.fn(),
+    getKpis: jest.fn(),
     createVision: jest.fn(),
     updateVision: jest.fn(),
     listAxes: jest.fn(),
@@ -55,6 +57,9 @@ describe('StrategicVisionController', () => {
         StrategicVisionController.prototype.listObjectives,
       ),
     ).toEqual(['strategic_vision.read']);
+    expect(
+      Reflect.getMetadata(REQUIRE_PERMISSIONS_KEY, StrategicVisionController.prototype.getKpis),
+    ).toEqual(['strategic_vision.read']);
   });
 
   it('permissions strategic_vision.create sur routes POST de création', () => {
@@ -88,5 +93,15 @@ describe('StrategicVisionController', () => {
         StrategicVisionController.prototype.removeObjectiveLink,
       ),
     ).toEqual(['strategic_vision.manage_links']);
+  });
+
+  it('applique la chaîne de guards attendue au controller', () => {
+    const guards = Reflect.getMetadata(GUARDS_METADATA, StrategicVisionController);
+    expect(guards).toEqual([
+      JwtAuthGuard,
+      ActiveClientGuard,
+      ModuleAccessGuard,
+      PermissionsGuard,
+    ]);
   });
 });

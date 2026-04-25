@@ -1094,6 +1094,7 @@ model StrategicObjective {
   @@index([clientId])
   @@index([clientId, axisId])
   @@index([clientId, status])
+  @@index([clientId, deadline])
 }
 
 model StrategicLink {
@@ -1112,6 +1113,7 @@ model StrategicLink {
   @@index([clientId])
   @@index([clientId, objectiveId])
   @@index([clientId, linkType])
+  @@index([clientId, targetId])
 }
 
 model ProjectScenario {

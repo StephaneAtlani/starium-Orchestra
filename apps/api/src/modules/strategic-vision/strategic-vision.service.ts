@@ -4,9 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, StrategicLinkType, StrategicObjectiveStatus } from '@prisma/client';
+import {
+  Prisma,
+  StrategicLinkType,
+  StrategicObjectiveStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { activePortfolioProjectsWhere } from '../projects/lib/project-portfolio-active-filter.util';
+import { StrategicVisionKpisResponseDto } from './dto/strategic-vision-kpis-response.dto';
 import { CreateStrategicAxisDto } from './dto/create-strategic-axis.dto';
 import { CreateStrategicLinkDto } from './dto/create-strategic-link.dto';
 import { CreateStrategicObjectiveDto } from './dto/create-strategic-objective.dto';
@@ -30,6 +36,17 @@ const strategicVisionInclude = {
     },
   },
 } as const;
+
+const OBJECTIVE_AT_RISK_STATUSES: readonly StrategicObjectiveStatus[] = [
+  StrategicObjectiveStatus.AT_RISK,
+];
+const OBJECTIVE_OFF_TRACK_STATUSES: readonly StrategicObjectiveStatus[] = [
+  StrategicObjectiveStatus.OFF_TRACK,
+];
+const OBJECTIVE_TERMINAL_STATUSES: readonly StrategicObjectiveStatus[] = [
+  StrategicObjectiveStatus.COMPLETED,
+  StrategicObjectiveStatus.ARCHIVED,
+];
 
 @Injectable()
 export class StrategicVisionService {
@@ -67,6 +84,73 @@ export class StrategicVisionService {
       include: strategicVisionInclude,
       orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
     });
+  }
+
+  async getKpis(clientId: string): Promise<StrategicVisionKpisResponseDto> {
+    const now = new Date();
+    const activeProjects = await this.prisma.project.findMany({
+      where: activePortfolioProjectsWhere(clientId),
+      select: { id: true },
+    });
+    const activeProjectIds = activeProjects.map((project) => project.id);
+
+    const [
+      atRiskObjectives,
+      offTrackObjectives,
+      overdueObjectives,
+      alignedActiveProjectLinks,
+    ] = await Promise.all([
+      this.prisma.strategicObjective.count({
+        where: {
+          clientId,
+          status: { in: [...OBJECTIVE_AT_RISK_STATUSES] },
+        },
+      }),
+      this.prisma.strategicObjective.count({
+        where: {
+          clientId,
+          status: { in: [...OBJECTIVE_OFF_TRACK_STATUSES] },
+        },
+      }),
+      this.prisma.strategicObjective.count({
+        where: {
+          clientId,
+          deadline: { not: null, lt: now },
+          status: { notIn: [...OBJECTIVE_TERMINAL_STATUSES] },
+        },
+      }),
+      activeProjectIds.length
+        ? this.prisma.strategicLink.findMany({
+            where: {
+              clientId,
+              linkType: StrategicLinkType.PROJECT,
+              targetId: { in: activeProjectIds },
+            },
+            select: { targetId: true },
+            distinct: ['targetId'],
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const totalActiveProjects = activeProjectIds.length;
+    const alignedActiveProjects = alignedActiveProjectLinks.length;
+    const unalignedProjectsCount = Math.max(
+      totalActiveProjects - alignedActiveProjects,
+      0,
+    );
+
+    const rawRate =
+      totalActiveProjects === 0 ? 0 : alignedActiveProjects / totalActiveProjects;
+    const projectAlignmentRate = Math.min(Math.max(rawRate, 0), 1);
+
+    return {
+      projectAlignmentRate,
+      unalignedProjectsCount,
+      objectivesAtRiskCount: atRiskObjectives,
+      objectivesOffTrackCount: offTrackObjectives,
+      overdueObjectivesCount: overdueObjectives,
+      generatedAt: now.toISOString(),
+    };
   }
 
   async createVision(

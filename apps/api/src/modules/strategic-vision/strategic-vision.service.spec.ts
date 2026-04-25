@@ -19,14 +19,17 @@ type PrismaMock = {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
   };
   strategicLink: {
     findFirst: jest.Mock;
     create: jest.Mock;
     delete: jest.Mock;
+    findMany: jest.Mock;
   };
   project: {
     findFirst: jest.Mock;
+    findMany: jest.Mock;
   };
 };
 
@@ -75,14 +78,17 @@ describe('StrategicVisionService', () => {
         findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        count: jest.fn(),
       },
       strategicLink: {
         findFirst: jest.fn(),
         create: jest.fn(),
         delete: jest.fn(),
+        findMany: jest.fn(),
       },
       project: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
       },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
@@ -156,5 +162,65 @@ describe('StrategicVisionService', () => {
     await expect(service.removeObjectiveLink('c1', 'o1', 'l1')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('getKpis calcule ratios et compteurs selon règles RFC-STRAT-002', async () => {
+    prisma.project.findMany.mockResolvedValue([{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }]);
+    prisma.strategicObjective.count
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(4);
+    prisma.strategicLink.findMany.mockResolvedValue([{ targetId: 'p1' }, { targetId: 'p2' }]);
+
+    const out = await service.getKpis('c1');
+
+    expect(prisma.project.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          clientId: 'c1',
+          status: { not: 'ARCHIVED' },
+        }),
+      }),
+    );
+    expect(prisma.strategicObjective.count).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          clientId: 'c1',
+          deadline: expect.objectContaining({ not: null }),
+          status: { notIn: ['COMPLETED', 'ARCHIVED'] },
+        }),
+      }),
+    );
+    expect(prisma.strategicLink.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          clientId: 'c1',
+          linkType: StrategicLinkType.PROJECT,
+          targetId: { in: ['p1', 'p2', 'p3'] },
+        },
+      }),
+    );
+    expect(out.objectivesAtRiskCount).toBe(2);
+    expect(out.objectivesOffTrackCount).toBe(1);
+    expect(out.overdueObjectivesCount).toBe(4);
+    expect(out.unalignedProjectsCount).toBe(1);
+    expect(out.projectAlignmentRate).toBeCloseTo(2 / 3);
+    expect(new Date(out.generatedAt).toISOString()).toBe(out.generatedAt);
+  });
+
+  it('getKpis retourne un ratio 0 quand aucun projet actif', async () => {
+    prisma.project.findMany.mockResolvedValue([]);
+    prisma.strategicObjective.count
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
+    prisma.strategicLink.findMany.mockResolvedValue([]);
+
+    const out = await service.getKpis('c1');
+
+    expect(prisma.strategicLink.findMany).not.toHaveBeenCalled();
+    expect(out.projectAlignmentRate).toBe(0);
+    expect(out.unalignedProjectsCount).toBe(0);
   });
 });

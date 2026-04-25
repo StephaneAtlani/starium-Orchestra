@@ -548,6 +548,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/budget-import-mappings | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-version-sets | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budgets/:id/create-baseline, create-revision, activate-version, archive-version, version-history, compare | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update` selon l’action) |
+| /api/strategic-vision/kpis | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 
 ---
 
@@ -563,6 +564,30 @@ Règles :
 - **Stratégie AND** : toutes les permissions listées sont requises.
 - **Un seul module par route** : ne jamais mélanger `budgets.*` et `contracts.*` sur le même handler.\n  - Raison : `ModuleAccessGuard` déduit le module depuis la 1ère permission et doit rester non ambigu.
 - **`CLIENT_ADMIN` n’implique pas “toutes les permissions métier”** : l’administration du client passe par `ClientAdminGuard`, les permissions métier restent RBAC.
+
+## 5.2 Strategic Vision KPI — `/api/strategic-vision/kpis`
+
+Endpoint RFC-STRAT-002 (moteur KPI stratégique MVP).
+
+- **Méthode/route** : `GET /api/strategic-vision/kpis`
+- **Headers requis** :
+  - `Authorization: Bearer <accessToken>`
+  - `X-Client-Id: <clientId>`
+- **Guards (ordre)** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- **Permission requise** : `strategic_vision.read`
+
+**Contrat de réponse (200)** :
+
+```ts
+{
+  projectAlignmentRate: number; // ratio borné 0..1
+  unalignedProjectsCount: number;
+  objectivesAtRiskCount: number;
+  objectivesOffTrackCount: number;
+  overdueObjectivesCount: number;
+  generatedAt: string; // ISO datetime
+}
+```
 
 ## 6. Gestion des utilisateurs globaux — `/api/platform/users`
 

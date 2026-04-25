@@ -1,5 +1,14 @@
 # RFC-STRAT-002 — Strategic Vision KPI and Alignment Engine
 
+## Statut
+
+✅ Implémentée (MVP backend)
+
+Hors scope de cette livraison :
+- UI dédiée Strategic Vision (`RFC-STRAT-003`)
+- alertes/widgets CODIR (`RFC-STRAT-004`)
+- KPI V2 (`budgetAlignmentRate`, `riskCoverageRate`, `strategicDriftScore`)
+
 ## 1) Contexte
 
 Le module Strategic Vision doit permettre une lecture décisionnelle de l'alignement entre stratégie et exécution.  
@@ -128,3 +137,30 @@ Principes :
 - `OFF_TRACK` est correctement compté comme dérive.
 - Toutes les données sont strictement filtrées par `clientId` actif.
 - Le contrat de réponse est stable, typé, et prêt pour extension V2 additive.
+
+## 10) Implémentation réalisée (backend)
+
+### API
+- Endpoint livré : `GET /api/strategic-vision/kpis`
+- Guards appliqués : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- Permission : `strategic_vision.read`
+- Contrat de réponse livré : 5 KPI MVP + `generatedAt` (ISO datetime)
+
+### Règles de calcul effectivement codées
+- `objectivesAtRiskCount` : `status = AT_RISK`
+- `objectivesOffTrackCount` : `status = OFF_TRACK`
+- `overdueObjectivesCount` : `clientId` actif + `deadline` non null + `deadline < now()` + `status NOT IN (COMPLETED, ARCHIVED)`
+- `projectAlignmentRate` :
+  - dénominateur = projets actifs du client
+  - numérateur = projets actifs avec au moins un `StrategicLink` `PROJECT` valide dans le même `clientId`
+  - ratio borné `[0,1]`
+  - retourne `0` si aucun projet actif
+
+### Définition opérationnelle des projets actifs (MVP)
+- Exclusion des projets `ARCHIVED` du périmètre KPI.
+- Réutilisation d’un filtre partagé côté domaine projets (pas de logique dupliquée locale).
+
+### Performance / index
+- Index ajoutés :
+  - `StrategicObjective(clientId, deadline)`
+  - `StrategicLink(clientId, targetId)`
