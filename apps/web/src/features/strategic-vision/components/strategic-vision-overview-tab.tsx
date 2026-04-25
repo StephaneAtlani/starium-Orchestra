@@ -33,6 +33,8 @@ export function StrategicVisionOverviewTab({
   canUpdate: boolean;
 }) {
   const canShowEditControls = isEditMode && canUpdate;
+  const getObjectiveCountLabel = (count: number) =>
+    count === 1 ? '1 objectif classé' : `${count} objectifs classés`;
 
   const handleEditVision = () => undefined;
   const handleEditAxes = () => undefined;
@@ -181,7 +183,7 @@ export function StrategicVisionOverviewTab({
                           objectiveBadgeClassName(axis.name),
                         )}
                       >
-                        {axis.objectives.length} objectif(s)
+                        {getObjectiveCountLabel(axis.objectives.length)}
                       </span>
                     </CardContent>
                   </Card>

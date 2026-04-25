@@ -43,6 +43,8 @@ export function StrategicAxisCard({
   showEditIcon?: boolean;
 }) {
   const objectiveCount = axis.objectives.length;
+  const objectiveCountLabel =
+    objectiveCount === 1 ? '1 objectif classé' : `${objectiveCount} objectifs classés`;
   const { logo, title, color } = splitAxisLogoAndTitle(axis.name);
   const AxisIcon = logo ? STRATEGIC_AXIS_ICONS[logo as keyof typeof STRATEGIC_AXIS_ICONS] : null;
   return (
@@ -85,7 +87,7 @@ export function StrategicAxisCard({
             variant="outline"
             className="h-auto rounded-full border-blue-500/60 bg-blue-100 px-3 py-1 text-xs font-semibold tracking-tight text-blue-900 shadow-sm dark:border-blue-300/50 dark:bg-blue-500/20 dark:text-blue-100"
           >
-            {objectiveCount} objectif(s)
+            {objectiveCountLabel}
           </Badge>
           {draggable ? <Badge variant="outline">Glisser-déposer</Badge> : null}
         </div>
