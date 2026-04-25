@@ -87,6 +87,17 @@ Exemples d'affichage attendu :
 - Toute règle de calcul (statut, dérive, retard, alignement) vient du backend.
 - Le frontend orchestre l'affichage, les états de chargement et les actions utilisateur autorisées.
 
+## 10.1 Permissions UI
+
+- `strategic_vision.read` → accès à la page `/strategic-vision`.
+- `strategic_vision.create` → création vision/axe/objectif.
+- `strategic_vision.update` → modification de vision/axe/objectif.
+- `strategic_vision.manage_links` → gestion des liens projets.
+
+Contraintes :
+- Ces permissions sont utilisées uniquement pour le gating UI (affichage/activation des actions).
+- La validation finale de sécurité et d'autorisation reste toujours côté backend.
+
 ## 11) Critères d'acceptation frontend
 
 - La route `/strategic-vision` est définie dans le plan d'architecture frontend.

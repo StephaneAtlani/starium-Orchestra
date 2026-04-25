@@ -1,5 +1,9 @@
 # RFC-STRAT-001 — Strategic Vision Core Backend
 
+## Statut
+
+✅ Implémentée (MVP backend) — 2026-04-25
+
 ## 1) Contexte
 
 Starium Orchestra doit offrir un module stratégique orienté pilotage décisionnel, non un espace d'inspiration libre.  
@@ -116,6 +120,21 @@ Le modèle cible est hiérarchique et orienté pilotage :
 - MVP : `StrategicLinkType.PROJECT` uniquement en exécution.
 - `BUDGET` et `RISK` présents dans les enums/contrats pour préparation V2, non activés fonctionnellement.
 
+### 7.1 Validation stricte de `StrategicLink` selon `linkType`
+
+MVP :
+- si `linkType = PROJECT` :
+  - vérifier l'existence du `Project` ciblé ;
+  - vérifier que ce projet appartient au `clientId` actif.
+- si `linkType = BUDGET` ou `linkType = RISK` :
+  - refuser la requête avec erreur HTTP `400 Bad Request` ;
+  - message explicite : `"not supported in MVP"`.
+
+### 7.2 Unicité logique des liens
+
+- Contrainte métier et technique : `(objectiveId, linkType, targetId)` unique.
+- En cas de tentative de doublon, le backend rejette la création du lien (contrat d'erreur cohérent, voir règles API du module).
+
 ## 8) API cible
 
 ### Vision
@@ -183,3 +202,99 @@ Chaque événement d'audit doit capturer a minima :
 - Les logs d'audit listés sont émis sur chaque mutation sensible.
 - Le MVP accepte uniquement des liens `PROJECT`; `BUDGET` et `RISK` restent non activés.
 - Aucune duplication de données métier sources dans `StrategicLink`.
+
+## 12) Implémentation réalisée (code)
+
+### 12.1 Schéma et migration Prisma
+
+- Schéma mis à jour :
+  - `apps/api/prisma/schema.prisma`
+- Migration créée :
+  - `apps/api/prisma/migrations/20260425114500_strategic_vision_core_backend/migration.sql`
+- Modèles ajoutés :
+  - `StrategicVision`
+  - `StrategicAxis`
+  - `StrategicObjective`
+  - `StrategicLink`
+- Enums ajoutés :
+  - `StrategicObjectiveStatus`
+  - `StrategicLinkType`
+- Contraintes et index livrés :
+  - unicité `(objectiveId, linkType, targetId)` sur `StrategicLink`
+  - index `clientId` et index composites liés au scoping lecture
+
+### 12.2 Module backend NestJS
+
+- Module branché dans l’application :
+  - `apps/api/src/app.module.ts`
+- Implémentation du module :
+  - `apps/api/src/modules/strategic-vision/strategic-vision.module.ts`
+  - `apps/api/src/modules/strategic-vision/strategic-vision.controller.ts`
+  - `apps/api/src/modules/strategic-vision/strategic-vision.service.ts`
+  - `apps/api/src/modules/strategic-vision/dto/*`
+
+### 12.3 Contrat API livré
+
+- Vision :
+  - `GET /api/strategic-vision`
+  - `POST /api/strategic-vision`
+  - `PATCH /api/strategic-vision/:id`
+- Axes :
+  - `GET /api/strategic-axes`
+  - `POST /api/strategic-axes`
+  - `PATCH /api/strategic-axes/:id`
+- Objectifs :
+  - `GET /api/strategic-objectives`
+  - `POST /api/strategic-objectives`
+  - `PATCH /api/strategic-objectives/:id`
+- Liens objectifs :
+  - `POST /api/strategic-objectives/:id/links`
+  - `DELETE /api/strategic-objectives/:id/links/:linkId`
+
+### 12.4 Sécurité, scoping et règles MVP
+
+- Guards appliqués sur le contrôleur :
+  - `JwtAuthGuard`
+  - `ActiveClientGuard`
+  - `ModuleAccessGuard`
+  - `PermissionsGuard`
+- Permissions livrées :
+  - `strategic_vision.read`
+  - `strategic_vision.create`
+  - `strategic_vision.update`
+  - `strategic_vision.manage_links`
+- Scoping :
+  - aucun `clientId` accepté dans les DTO d’entrée
+  - scope dérivé du client actif sur toutes les lectures/écritures
+- Règles liens MVP :
+  - `PROJECT` validé sur existence projet dans le `clientId` actif
+  - `BUDGET` / `RISK` rejetés en `400` avec message `not supported in MVP`
+
+### 12.5 Audit logs implémentés
+
+- `strategic_vision.created`
+- `strategic_vision.updated`
+- `strategic_axis.created`
+- `strategic_axis.updated`
+- `strategic_objective.created`
+- `strategic_objective.updated`
+- `strategic_objective.status_changed`
+- `strategic_objective.link_added`
+- `strategic_objective.link_removed`
+
+### 12.6 Seed RBAC et profils globaux
+
+- Seed module + permissions :
+  - `apps/api/prisma/seed.ts`
+- Profils globaux enrichis :
+  - `apps/api/prisma/default-profiles.json`
+
+### 12.7 Tests
+
+- `apps/api/src/modules/strategic-vision/strategic-vision.service.spec.ts`
+- `apps/api/src/modules/strategic-vision/strategic-vision.controller.spec.ts`
+- `apps/api/src/modules/strategic-vision/tests/strategic-vision-seed-permissions.spec.ts`
+
+Exécution validée :
+- `pnpm --filter @starium-orchestra/api test -- strategic-vision`
+- `pnpm --filter @starium-orchestra/api exec eslint "src/modules/strategic-vision/**/*.ts" "src/app.module.ts"`

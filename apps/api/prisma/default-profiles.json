@@ -3,7 +3,13 @@
     "name": "Directeur",
     "description": "Visualisation budget, reporting, portefeuille projets, collaborateurs et vue transverse Risques (lecture seule)",
     "isSystem": true,
-    "permissionCodes": ["budgets.read", "projects.read", "compliance.read", "collaborators.read"]
+    "permissionCodes": [
+      "budgets.read",
+      "projects.read",
+      "compliance.read",
+      "collaborators.read",
+      "strategic_vision.read"
+    ]
   },
   {
     "name": "Responsable Budgets",
@@ -74,6 +80,18 @@
     "description": "Pilotage des risques sur tous les projets accessibles : vue /risks, registres projet, création et mise à jour des risques (pas de suppression de projet)",
     "isSystem": true,
     "permissionCodes": ["projects.read", "projects.update"]
+  },
+  {
+    "name": "Responsable Stratégie",
+    "description": "Gestion de la vision stratégique : visions, axes, objectifs et liens d’alignement projets",
+    "isSystem": true,
+    "permissionCodes": [
+      "strategic_vision.read",
+      "strategic_vision.create",
+      "strategic_vision.update",
+      "strategic_vision.manage_links",
+      "projects.read"
+    ]
   },
   {
     "name": "Gestionnaire Procurement",

@@ -1347,6 +1347,35 @@ async function ensureContractsModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureStrategicVisionModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "strategic_vision" },
+    create: {
+      code: "strategic_vision",
+      name: "Vision stratégique",
+      description: "Pilotage vision, axes, objectifs et alignement projet (RFC-STRAT-001)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "strategic_vision.read", label: "Vision stratégique — lecture" },
+    { code: "strategic_vision.create", label: "Vision stratégique — création" },
+    { code: "strategic_vision.update", label: "Vision stratégique — mise à jour" },
+    {
+      code: "strategic_vision.manage_links",
+      label: "Vision stratégique — gestion des liens objectifs",
+    },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label, moduleId: mod.id },
+    });
+  }
+}
+
 /** Catalogue plateforme des types de contrat (codes utilisés par `SupplierContract.kind`). */
 async function ensureGlobalSupplierContractKindTypes(): Promise<void> {
   const catalog: Array<{ code: string; label: string; sortOrder: number }> = [
@@ -3202,6 +3231,7 @@ async function main() {
 
   await ensureComplianceModuleAndPermissions();
   await ensureContractsModuleAndPermissions();
+  await ensureStrategicVisionModuleAndPermissions();
   await ensureGlobalSupplierContractKindTypes();
   await ensureCollaboratorsModuleAndPermissions();
   await ensureSkillsModuleAndPermissions();

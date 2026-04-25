@@ -193,7 +193,7 @@ Livrer l'UI `/strategic-vision` orientée cockpit décisionnel.
 - Afficher des valeurs métier (jamais ID brut).
 
 ### Fichiers probables à modifier/créer
-- `apps/web/src/app/strategic-vision/page.tsx`
+- `apps/web/src/app/(protected)/strategic-vision/page.tsx`
 - `apps/web/src/features/strategic-vision/*`
 - `apps/web/src/services/strategic-vision.ts`
 - `apps/web/src/lib/query-keys/strategic-vision-query-keys.ts`
@@ -223,6 +223,11 @@ Stabiliser et fiabiliser les liens `PROJECT` entre objectifs et exécution.
 - Prévenir doublons de liens.
 - Exposer restitutions lisibles (labels).
 
+### Contraintes explicites
+- Un lien stratégique est unique par triplet `(objectiveId, linkType, targetId)`.
+- Validation backend obligatoire sur la création de lien.
+- En cas de doublon, rejet avec erreur HTTP `409 Conflict`.
+
 ### Fichiers probables à modifier/créer
 - `apps/api/src/modules/strategic-vision/strategic-links.service.ts`
 - `apps/api/src/modules/strategic-vision/strategic-links.controller.ts`
@@ -249,8 +254,9 @@ Intégrer les signaux stratégiques dans le cockpit CODIR global.
 
 ### Tâches
 - Définir endpoints d'alertes stratégiques.
+- Endpoint cible : `GET /api/strategic-vision/alerts`.
 - Brancher widgets CODIR Strategic Vision.
-- Garantir backend-driven metrics/alerts.
+- Garantir des métriques et alertes pilotées par le backend.
 - Vérifier non-duplication avec autres modules cockpit.
 
 ### Fichiers probables à modifier/créer

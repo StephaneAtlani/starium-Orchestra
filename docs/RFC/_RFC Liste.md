@@ -234,7 +234,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 | RFC | Nom | État | Commentaire |
 | --- | --- | --- | --- |
-| **RFC-STRAT-001** | Strategic Vision Core Backend | 📝 Draft | Socle backend stratégique : vision/axes/objectifs/liens, multi-tenant strict, permissions + audit ; MVP `StrategicLinkType.PROJECT` uniquement ; `BUDGET`/`RISK` préparés non activés |
+| **RFC-STRAT-001** | Strategic Vision Core Backend | ✅ Implémentée (MVP backend) | Socle backend livré : module `strategic-vision`, schéma Prisma, API vision/axes/objectifs/liens, guards standards, permissions `strategic_vision.*`, audit ; MVP `PROJECT` actif, `BUDGET`/`RISK` rejetés (`not supported in MVP`) |
 | **RFC-STRAT-002** | Strategic Vision KPI and Alignment Engine | 📝 Draft | KPI backend d'alignement : `projectAlignmentRate`, `unalignedProjectsCount`, `objectivesAtRiskCount`, `objectivesOffTrackCount`, `overdueObjectivesCount` |
 | **RFC-STRAT-003** | Strategic Vision Frontend UI | 📝 Draft | UI `/strategic-vision` en mode cockpit décisionnel (pas moodboard/canvas libre), hooks/query keys tenant-aware, règles UX valeur métier (pas ID brut) |
 | **RFC-STRAT-004** | Strategic Vision Alerts and CODIR Widgets | 📝 Draft | Alertes stratégiques MVP + widgets CODIR backend-driven, sans calcul frontend |

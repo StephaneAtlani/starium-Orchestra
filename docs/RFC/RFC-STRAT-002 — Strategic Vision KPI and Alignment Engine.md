@@ -31,6 +31,7 @@ Formule :
 Règles :
 - un projet archivé ne compte pas dans le total ;
 - en cas de total à 0, renvoyer `0` (et non `null`) pour un contrat API stable.
+- `projectAlignmentRate` est toujours un ratio borné entre `0` et `1`.
 
 ### 4.2 `unalignedProjectsCount`
 
@@ -94,6 +95,11 @@ Exemple :
 - Aucune logique KPI métier dans le frontend.
 - Toutes les requêtes sont filtrées par `clientId`.
 - Éviter les N+1 : privilégier agrégations SQL/Prisma groupées.
+
+### Note de présentation frontend
+
+- Toute transformation en pourcentage (ex: `72%`) est effectuée côté frontend uniquement pour l'affichage.
+- Le backend renvoie la valeur canonique en ratio `0..1`.
 
 ### Index recommandés
 

@@ -238,6 +238,10 @@ model Client {
   projectActivities                ProjectActivity[]
   projectTags                      ProjectTag[]
   projectTagAssignments            ProjectTagAssignment[]
+  strategicVisions                 StrategicVision[]
+  strategicAxes                    StrategicAxis[]
+  strategicObjectives              StrategicObjective[]
+  strategicLinks                   StrategicLink[]
   projectPortfolioCategories       ProjectPortfolioCategory[]
   actionPlans                      ActionPlan[]
   budgetLinePlanningMonths         BudgetLinePlanningMonth[]
@@ -909,6 +913,20 @@ enum ProjectDocumentCategory {
   OTHER
 }
 
+enum StrategicObjectiveStatus {
+  ON_TRACK
+  AT_RISK
+  OFF_TRACK
+  COMPLETED
+  ARCHIVED
+}
+
+enum StrategicLinkType {
+  PROJECT
+  BUDGET
+  RISK
+}
+
 model Project {
   id          String  @id @default(cuid())
   clientId    String
@@ -1020,6 +1038,80 @@ model Project {
   @@index([clientId, kind])
   @@index([clientId, portfolioCategoryId])
   @@index([targetEndDate])
+}
+
+model StrategicVision {
+  id           String  @id @default(cuid())
+  clientId     String
+  title        String
+  statement    String
+  horizonLabel String
+  isActive     Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  axes   StrategicAxis[]
+
+  @@index([clientId])
+  @@index([clientId, isActive])
+}
+
+model StrategicAxis {
+  id          String  @id @default(cuid())
+  clientId    String
+  visionId    String
+  name        String
+  description String?
+  orderIndex  Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client     Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vision     StrategicVision     @relation(fields: [visionId], references: [id], onDelete: Cascade)
+  objectives StrategicObjective[]
+
+  @@index([clientId])
+  @@index([clientId, visionId])
+}
+
+model StrategicObjective {
+  id          String                   @id @default(cuid())
+  clientId    String
+  axisId      String
+  title       String
+  description String?
+  ownerLabel  String?
+  status      StrategicObjectiveStatus @default(ON_TRACK)
+  deadline    DateTime?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  client Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  axis   StrategicAxis   @relation(fields: [axisId], references: [id], onDelete: Cascade)
+  links  StrategicLink[]
+
+  @@index([clientId])
+  @@index([clientId, axisId])
+  @@index([clientId, status])
+}
+
+model StrategicLink {
+  id                  String            @id @default(cuid())
+  clientId            String
+  objectiveId         String
+  linkType            StrategicLinkType
+  targetId            String
+  targetLabelSnapshot String
+  createdAt           DateTime          @default(now())
+
+  client    Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  objective StrategicObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+
+  @@unique([objectiveId, linkType, targetId])
+  @@index([clientId])
+  @@index([clientId, objectiveId])
+  @@index([clientId, linkType])
 }
 
 model ProjectScenario {

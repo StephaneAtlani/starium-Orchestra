@@ -36,6 +36,7 @@ import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
 import { ActivityTypesModule } from './modules/activity-types/activity-types.module';
 import { ResourceTimeEntriesModule } from './modules/resource-time-entries/resource-time-entries.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
+import { StrategicVisionModule } from './modules/strategic-vision/strategic-vision.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -79,6 +80,7 @@ import { ContractsModule } from './modules/contracts/contracts.module';
     ActivityTypesModule,
     ResourceTimeEntriesModule,
     ContractsModule,
+    StrategicVisionModule,
   ],
 })
 export class AppModule {}

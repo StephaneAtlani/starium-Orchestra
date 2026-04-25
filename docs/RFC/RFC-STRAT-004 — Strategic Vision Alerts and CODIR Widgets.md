@@ -7,7 +7,7 @@ Le module Strategic Vision doit donc exposer alertes et widgets de pilotage pour
 
 ## 2) Objectif
 
-Remonter les dérives stratégiques dans le cockpit global CODIR via des widgets backend-driven, cohérents avec Strategic Vision et sans duplication de logique.
+Remonter les dérives stratégiques dans le cockpit global CODIR via des widgets pilotés par le backend, cohérents avec Strategic Vision et sans duplication de logique.
 
 ## 3) Alertes MVP
 
@@ -37,11 +37,35 @@ Intentions :
 - Aucune duplication des données métier dans les widgets.
 - Les widgets réutilisent les sources de vérité Strategic Vision / KPI.
 
-## 6) Contrats API (cible)
+## 6) Contrat API alertes (cible)
 
-MVP minimal attendu :
-- réutilisation de `GET /api/strategic-vision/kpis` pour les indicateurs agrégés ;
-- endpoint(s) complémentaire(s) d'alertes client-scopées (naming final à valider en implémentation RFC API détaillée).
+Endpoint :
+- `GET /api/strategic-vision/alerts`
+
+Réponse :
+
+```ts
+type StrategicVisionAlertsResponse = {
+  items: Array<{
+    id: string;
+    type: "OBJECTIVE_OVERDUE" | "OBJECTIVE_OFF_TRACK" | "PROJECT_UNALIGNED";
+    severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+    title: string;
+    description: string;
+    targetType: "OBJECTIVE" | "PROJECT";
+    targetId: string;
+    targetLabel: string;
+    createdAt: string;
+  }>;
+  total: number;
+};
+```
+
+Contraintes :
+- filtrage strict par `clientId` actif ;
+- aucune logique d'alertes côté frontend ;
+- cohérence obligatoire avec les KPI calculés côté backend.
+- `GET /api/strategic-vision/kpis` reste la source d'indicateurs agrégés pour les widgets CODIR.
 
 ## 7) Préparation future
 
