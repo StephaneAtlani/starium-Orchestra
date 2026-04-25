@@ -72,6 +72,7 @@ describe('platform navigation', () => {
     );
     expect(strategicVisionItem).toBeDefined();
     expect(strategicVisionItem?.label).toBe('Vision strategique');
+    expect(strategicVisionItem?.moduleCode).toBe('strategic_vision');
     expect(strategicVisionItem?.requiredPermissions).toEqual(['strategic_vision.read']);
     expect(strategicVisionItem?.scope).toBe('client');
   });

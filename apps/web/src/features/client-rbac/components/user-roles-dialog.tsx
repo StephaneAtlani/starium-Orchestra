@@ -83,7 +83,7 @@ export function UserRolesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Rôles de l&apos;utilisateur</DialogTitle>
           <DialogDescription>
@@ -117,9 +117,9 @@ export function UserRolesDialog({
                       </p>
                       <Badge variant="secondary">{globalRoles.length}</Badge>
                     </div>
-                    <ul className="space-y-2">
+                    <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 max-h-56 overflow-y-auto pr-1">
                       {globalRoles.map((role) => (
-                        <li key={role.id} className="flex items-center gap-2 text-sm">
+                        <li key={role.id} className="flex items-center gap-2 text-sm min-w-0">
                           <input
                             type="checkbox"
                             id={`role-${role.id}`}
@@ -129,9 +129,9 @@ export function UserRolesDialog({
                           />
                           <label
                             htmlFor={`role-${role.id}`}
-                            className={cn('cursor-pointer flex items-center gap-2')}
+                            className={cn('cursor-pointer flex items-center gap-2 min-w-0')}
                           >
-                            <span>{role.name}</span>
+                            <span className="truncate">{role.name}</span>
                             <Badge variant="secondary">Global</Badge>
                           </label>
                         </li>

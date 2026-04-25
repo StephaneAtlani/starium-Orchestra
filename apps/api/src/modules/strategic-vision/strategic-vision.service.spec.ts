@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma, StrategicLinkType } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StrategicVisionService } from './strategic-vision.service';
 
 type PrismaMock = {
@@ -92,7 +94,10 @@ describe('StrategicVisionService', () => {
       },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
-    service = new StrategicVisionService(prisma, auditLogs);
+    service = new StrategicVisionService(
+      prisma as unknown as PrismaService,
+      auditLogs as unknown as AuditLogsService,
+    );
   });
 
   it('createVision active la vision créée et audite strategic_vision.created', async () => {

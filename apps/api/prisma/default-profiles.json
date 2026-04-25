@@ -82,8 +82,24 @@
     "permissionCodes": ["projects.read", "projects.update"]
   },
   {
-    "name": "Responsable Stratégie",
-    "description": "Gestion de la vision stratégique : visions, axes, objectifs et liens d’alignement projets",
+    "name": "Lecteur Strategic Board",
+    "description": "Lecture seule du Strategic Board (vision, axes, objectifs, KPI et alertes)",
+    "isSystem": true,
+    "permissionCodes": ["strategic_vision.read"]
+  },
+  {
+    "name": "Contributeur Strategic Board",
+    "description": "Contribution au Strategic Board (création/mise à jour de visions, axes et objectifs, sans gestion des liens)",
+    "isSystem": true,
+    "permissionCodes": [
+      "strategic_vision.read",
+      "strategic_vision.create",
+      "strategic_vision.update"
+    ]
+  },
+  {
+    "name": "Gestionnaire Strategic Board",
+    "description": "Gestion complète du Strategic Board, y compris la gestion des liens d’alignement projet",
     "isSystem": true,
     "permissionCodes": [
       "strategic_vision.read",

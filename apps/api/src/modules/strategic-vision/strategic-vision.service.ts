@@ -27,16 +27,16 @@ type StrategicAuditContext = {
   meta?: { ipAddress?: string; userAgent?: string; requestId?: string };
 };
 
-const strategicVisionInclude = {
+const strategicVisionInclude: Prisma.StrategicVisionInclude = {
   axes: {
-    orderBy: [{ orderIndex: 'asc' as const }, { createdAt: 'asc' as const }],
+    orderBy: [{ orderIndex: 'asc' }, { createdAt: 'asc' }],
     include: {
       objectives: {
-        orderBy: [{ createdAt: 'asc' as const }],
+        orderBy: [{ createdAt: 'asc' }],
       },
     },
   },
-} as const;
+};
 
 const OBJECTIVE_AT_RISK_STATUSES: readonly StrategicObjectiveStatus[] = [
   StrategicObjectiveStatus.AT_RISK,

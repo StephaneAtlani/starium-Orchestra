@@ -112,7 +112,7 @@ export const navigation: NavigationSection[] = [
         href: '/strategic-vision',
         icon: Scale,
         scope: 'client',
-        moduleCode: 'projects',
+        moduleCode: 'strategic_vision',
         requiredPermissions: ['strategic_vision.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },

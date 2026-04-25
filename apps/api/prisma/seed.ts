@@ -1694,6 +1694,16 @@ async function ensureDefaultGlobalProfiles(): Promise<void> {
       });
     }
   }
+  // Cleanup migration STRAT: remplace l'ancien rôle unique par la triplette
+  // Lecteur/Contributeur/Gestionnaire Strategic Board.
+  const legacyStrategicRole = await prisma.role.findFirst({
+    where: { scope: RoleScope.GLOBAL, name: "Responsable Stratégie" },
+    select: { id: true },
+  });
+  if (legacyStrategicRole) {
+    await prisma.role.delete({ where: { id: legacyStrategicRole.id } });
+    console.log("🧹 Rôle global legacy supprimé : Responsable Stratégie");
+  }
   console.log(`✅ Rôles globaux (default-profiles.json) : ${profiles.length} profil(s) synchronisé(s)`);
 }
 
