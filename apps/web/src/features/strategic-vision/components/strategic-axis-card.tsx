@@ -1,14 +1,61 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StrategicObjectiveCard } from './strategic-objective-card';
-import type { StrategicAxisDto } from '../types/strategic-vision.types';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import type {
+  StrategicAxisDto,
+  StrategicObjectiveDto,
+  StrategicObjectiveStatus,
+} from '../types/strategic-vision.types';
 
-export function StrategicAxisCard({ axis }: { axis: StrategicAxisDto }) {
+function countByStatus(
+  objectives: StrategicObjectiveDto[],
+  status: StrategicObjectiveStatus,
+): number {
+  return objectives.filter((objective) => objective.status === status).length;
+}
+
+export function StrategicAxisCard({
+  axis,
+  isSelected = false,
+  onSelect,
+  canUpdate = false,
+  onEdit,
+}: {
+  axis: StrategicAxisDto;
+  isSelected?: boolean;
+  onSelect?: (axisId: string) => void;
+  canUpdate?: boolean;
+  onEdit?: (axis: StrategicAxisDto) => void;
+}) {
+  const objectiveCount = axis.objectives.length;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{axis.name}</CardTitle>
+    <Card
+      className={isSelected ? 'border-primary/60 ring-1 ring-primary/30' : undefined}
+      role={onSelect ? 'button' : undefined}
+      onClick={onSelect ? () => onSelect(axis.id) : undefined}
+    >
+      <CardHeader className="gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle>{axis.name}</CardTitle>
+          {canUpdate && onEdit ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(axis);
+              }}
+            >
+              Modifier
+            </Button>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          <Badge variant="outline">Ordre: {axis.orderIndex ?? '-'}</Badge>
+          <Badge variant="secondary">{objectiveCount} objectif(s)</Badge>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {axis.description ? (
@@ -16,16 +63,13 @@ export function StrategicAxisCard({ axis }: { axis: StrategicAxisDto }) {
         ) : (
           <p className="text-sm text-muted-foreground">Aucune description d'axe.</p>
         )}
-
-        {axis.objectives.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun objectif sur cet axe.</p>
-        ) : (
-          <div className="grid gap-3 lg:grid-cols-2">
-            {axis.objectives.map((objective) => (
-              <StrategicObjectiveCard key={objective.id} objective={objective} />
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground md:grid-cols-5">
+          <span>ON_TRACK: {countByStatus(axis.objectives, 'ON_TRACK')}</span>
+          <span>AT_RISK: {countByStatus(axis.objectives, 'AT_RISK')}</span>
+          <span>OFF_TRACK: {countByStatus(axis.objectives, 'OFF_TRACK')}</span>
+          <span>COMPLETED: {countByStatus(axis.objectives, 'COMPLETED')}</span>
+          <span>ARCHIVED: {countByStatus(axis.objectives, 'ARCHIVED')}</span>
+        </div>
       </CardContent>
     </Card>
   );

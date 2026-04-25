@@ -40,5 +40,9 @@ function statusVariant(
 }
 
 export function ObjectiveStatusBadge({ status }: { status: StrategicObjectiveStatus }) {
-  return <Badge variant={statusVariant(status)}>{statusLabel(status)}</Badge>;
+  return (
+    <Badge variant={statusVariant(status)} className="uppercase tracking-wide">
+      {statusLabel(status)}
+    </Badge>
+  );
 }

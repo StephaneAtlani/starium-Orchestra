@@ -9,15 +9,13 @@ describe('strategicVisionKeys', () => {
     expect(strategicVisionKeys.root(c1)).not.toEqual(strategicVisionKeys.root(c2));
     expect(strategicVisionKeys.kpis(c1)).toContain(c1);
     expect(strategicVisionKeys.alerts(c1)).toContain(c1);
-    expect(strategicVisionKeys.axes(c1)).toContain(c1);
+    expect(strategicVisionKeys.objectives(c1)).toContain(c1);
   });
 
-  it('compose correctement la cle objectifs avec filtres', () => {
-    const key = strategicVisionKeys.objectives('client-a', {
-      status: 'AT_RISK',
-      page: 1,
-    });
+  it('compose correctement la cle objectifs sans filtres', () => {
+    const key = strategicVisionKeys.objectives('client-a');
     expect(key[0]).toBe('strategic-vision');
     expect(key).toContain('objectives');
+    expect(key).toEqual(['strategic-vision', 'client-a', 'objectives']);
   });
 });

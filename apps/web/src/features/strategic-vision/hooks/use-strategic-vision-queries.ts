@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
@@ -9,6 +9,10 @@ import {
   listStrategicAxes,
   listStrategicObjectives,
   listStrategicVisions,
+  type UpdateStrategicAxisInput,
+  type UpdateStrategicObjectiveInput,
+  updateStrategicAxis,
+  updateStrategicObjective,
 } from '../api/strategic-vision.api';
 import { strategicVisionKeys } from '../lib/strategic-vision-query-keys';
 
@@ -30,11 +34,23 @@ export function useStrategicObjectivesQuery(options?: { enabled?: boolean }) {
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const enabled = options?.enabled !== false;
-  const filters = {};
 
   return useQuery({
-    queryKey: strategicVisionKeys.objectives(clientId, filters),
+    queryKey: strategicVisionKeys.objectives(clientId),
     queryFn: () => listStrategicObjectives(authFetch),
+    enabled: Boolean(clientId) && enabled,
+  });
+}
+
+export function useStrategicAxesFallbackQuery(options?: { enabled?: boolean }) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const enabled = options?.enabled !== false;
+
+  return useQuery({
+    queryKey: [...strategicVisionKeys.root(clientId), 'axes-fallback'],
+    queryFn: () => listStrategicAxes(authFetch),
     enabled: Boolean(clientId) && enabled,
   });
 }
@@ -65,15 +81,46 @@ export function useStrategicAlertsQuery(options?: { enabled?: boolean }) {
   });
 }
 
-export function useStrategicAxesQuery(options?: { enabled?: boolean }) {
+export function useUpdateStrategicAxisMutation() {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
-  const enabled = options?.enabled !== false;
+  const queryClient = useQueryClient();
 
-  return useQuery({
-    queryKey: strategicVisionKeys.axes(clientId),
-    queryFn: () => listStrategicAxes(authFetch),
-    enabled: Boolean(clientId) && enabled,
+  return useMutation({
+    mutationFn: ({
+      axisId,
+      body,
+    }: {
+      axisId: string;
+      body: UpdateStrategicAxisInput;
+    }) => updateStrategicAxis(authFetch, axisId, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: strategicVisionKeys.root(clientId),
+      });
+    },
+  });
+}
+
+export function useUpdateStrategicObjectiveMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      objectiveId,
+      body,
+    }: {
+      objectiveId: string;
+      body: UpdateStrategicObjectiveInput;
+    }) => updateStrategicObjective(authFetch, objectiveId, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: strategicVisionKeys.root(clientId),
+      });
+    },
   });
 }

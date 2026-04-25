@@ -45,3 +45,45 @@ export async function getStrategicVisionAlerts(
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<StrategicVisionAlertsResponseDto>;
 }
+
+export type UpdateStrategicAxisInput = {
+  name?: string;
+  description?: string | null;
+  orderIndex?: number | null;
+};
+
+export async function updateStrategicAxis(
+  authFetch: AuthFetch,
+  axisId: string,
+  body: UpdateStrategicAxisInput,
+): Promise<StrategicAxisDto> {
+  const res = await authFetch(`/api/strategic-axes/${axisId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicAxisDto>;
+}
+
+export type UpdateStrategicObjectiveInput = {
+  title?: string;
+  description?: string | null;
+  ownerLabel?: string | null;
+  status?: StrategicObjectiveDto['status'];
+  deadline?: string | null;
+};
+
+export async function updateStrategicObjective(
+  authFetch: AuthFetch,
+  objectiveId: string,
+  body: UpdateStrategicObjectiveInput,
+): Promise<StrategicObjectiveDto> {
+  const res = await authFetch(`/api/strategic-objectives/${objectiveId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicObjectiveDto>;
+}
