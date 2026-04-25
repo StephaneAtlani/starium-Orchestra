@@ -62,4 +62,17 @@ describe('platform navigation', () => {
     expect(teamsItem?.requiredPermissionsMatch).toBe('any');
     expect(teamsItem?.scope).toBe('client');
   });
+
+  it('expose Vision strategique avec strategic_vision.read', () => {
+    const pilotagesSection = navigation.find((section) => section.section === 'Pilotages');
+    expect(pilotagesSection).toBeDefined();
+
+    const strategicVisionItem = pilotagesSection?.items.find(
+      (item) => item.href === '/strategic-vision',
+    );
+    expect(strategicVisionItem).toBeDefined();
+    expect(strategicVisionItem?.label).toBe('Vision strategique');
+    expect(strategicVisionItem?.requiredPermissions).toEqual(['strategic_vision.read']);
+    expect(strategicVisionItem?.scope).toBe('client');
+  });
 });

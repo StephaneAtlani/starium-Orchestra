@@ -549,6 +549,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/budget-version-sets | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budgets/:id/create-baseline, create-revision, activate-version, archive-version, version-history, compare | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update` selon l’action) |
 | /api/strategic-vision/kpis | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
+| /api/strategic-vision/alerts | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 
 ---
 
@@ -586,6 +587,34 @@ Endpoint RFC-STRAT-002 (moteur KPI stratégique MVP).
   objectivesOffTrackCount: number;
   overdueObjectivesCount: number;
   generatedAt: string; // ISO datetime
+}
+```
+
+## 5.3 Strategic Vision Alerts — `/api/strategic-vision/alerts`
+
+Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
+
+- **Méthode/route** : `GET /api/strategic-vision/alerts`
+- **Headers requis** :
+  - `Authorization: Bearer <accessToken>`
+  - `X-Client-Id: <clientId>`
+- **Guards (ordre)** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- **Permission requise** : `strategic_vision.read`
+
+**Contrat de réponse (200)** :
+
+```ts
+{
+  items: Array<{
+    id: string;
+    type: "OBJECTIVE_OVERDUE" | "OBJECTIVE_OFF_TRACK" | "PROJECT_UNALIGNED";
+    severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+    targetType: "OBJECTIVE" | "PROJECT";
+    targetLabel: string;
+    message: string;
+    createdAt: string; // ISO datetime
+  }>;
+  total: number;
 }
 ```
 

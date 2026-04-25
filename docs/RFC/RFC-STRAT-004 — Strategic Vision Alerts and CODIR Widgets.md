@@ -33,9 +33,10 @@ Intentions :
 ## 5) Règles d'architecture
 
 - Les widgets consomment des endpoints backend dédiés.
-- Aucun calcul widget côté frontend.
+- Aucun calcul métier critique côté frontend.
 - Aucune duplication des données métier dans les widgets.
 - Les widgets réutilisent les sources de vérité Strategic Vision / KPI.
+- `GET /api/strategic-vision/kpis` reste inchangé (5 KPI STRAT-002) ; `Strategic Drift` est un indicateur visuel/composite UI basé sur ces KPI, non persisté et non exposé comme donnée métier API.
 
 ## 6) Contrat API alertes (cible)
 
@@ -50,11 +51,9 @@ type StrategicVisionAlertsResponse = {
     id: string;
     type: "OBJECTIVE_OVERDUE" | "OBJECTIVE_OFF_TRACK" | "PROJECT_UNALIGNED";
     severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-    title: string;
-    description: string;
     targetType: "OBJECTIVE" | "PROJECT";
-    targetId: string;
     targetLabel: string;
+    message: string;
     createdAt: string;
   }>;
   total: number;
@@ -66,6 +65,15 @@ Contraintes :
 - aucune logique d'alertes côté frontend ;
 - cohérence obligatoire avec les KPI calculés côté backend.
 - `GET /api/strategic-vision/kpis` reste la source d'indicateurs agrégés pour les widgets CODIR.
+
+## 9) Statut d'implémentation (MVP)
+
+- Endpoint `GET /api/strategic-vision/alerts` implémenté avec guards standards et permission `strategic_vision.read`.
+- Réponse API documentée dans `docs/API.md` (headers `Authorization` + `X-Client-Id`, payload `{ items, total }`).
+- Page `Strategic Vision` implémentée avec:
+  - `StrategicAlertsPanel` data-driven (loading/error/empty/success),
+  - 4 widgets CODIR (`Strategic Alignment`, `Objectives at Risk`, `Unaligned Projects`, `Strategic Drift`),
+  - `Strategic Drift` traité comme composite visuel UI basé sur les KPI existants.
 
 ## 7) Préparation future
 

@@ -223,4 +223,94 @@ describe('StrategicVisionService', () => {
     expect(out.projectAlignmentRate).toBe(0);
     expect(out.unalignedProjectsCount).toBe(0);
   });
+
+  it('getAlerts retourne les alertes MVP avec mapping complet', async () => {
+    prisma.strategicObjective.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 'o-overdue',
+          title: 'Objectif Retard',
+          deadline: new Date('2026-02-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-02-03T00:00:00.000Z'),
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'o-offtrack',
+          title: 'Objectif Hors Trajectoire',
+          updatedAt: new Date('2026-02-05T00:00:00.000Z'),
+        },
+      ]);
+    prisma.project.findMany.mockResolvedValue([
+      {
+        id: 'p-1',
+        code: 'PRJ-001',
+        name: 'Migration ERP',
+        updatedAt: new Date('2026-02-04T00:00:00.000Z'),
+      },
+      {
+        id: 'p-2',
+        code: null,
+        name: 'Refonte IAM',
+        updatedAt: new Date('2026-02-06T00:00:00.000Z'),
+      },
+    ]);
+    prisma.strategicLink.findMany.mockResolvedValue([{ targetId: 'p-1' }]);
+
+    const out = await service.getAlerts('c1');
+
+    expect(prisma.strategicObjective.findMany).toHaveBeenCalledTimes(2);
+    expect(prisma.project.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ clientId: 'c1' }),
+      }),
+    );
+    expect(prisma.strategicLink.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          clientId: 'c1',
+          linkType: StrategicLinkType.PROJECT,
+        }),
+      }),
+    );
+    expect(out.total).toBe(3);
+    expect(out.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'OBJECTIVE_OVERDUE',
+          severity: 'HIGH',
+          targetType: 'OBJECTIVE',
+          targetLabel: 'Objectif Retard',
+          message: expect.stringContaining('Objectif en retard'),
+        }),
+        expect.objectContaining({
+          type: 'OBJECTIVE_OFF_TRACK',
+          severity: 'CRITICAL',
+          targetType: 'OBJECTIVE',
+          targetLabel: 'Objectif Hors Trajectoire',
+          message: expect.stringContaining('Objectif hors trajectoire'),
+        }),
+        expect.objectContaining({
+          type: 'PROJECT_UNALIGNED',
+          severity: 'MEDIUM',
+          targetType: 'PROJECT',
+          targetLabel: 'Refonte IAM',
+          message: expect.stringContaining('Projet actif non aligne'),
+        }),
+      ]),
+    );
+    expect(out.items.every((item) => new Date(item.createdAt).toISOString() === item.createdAt)).toBe(
+      true,
+    );
+  });
+
+  it('getAlerts ne requete pas strategicLink si aucun projet actif', async () => {
+    prisma.strategicObjective.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    prisma.project.findMany.mockResolvedValue([]);
+
+    const out = await service.getAlerts('c1');
+
+    expect(prisma.strategicLink.findMany).not.toHaveBeenCalled();
+    expect(out).toEqual({ items: [], total: 0 });
+  });
 });

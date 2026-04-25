@@ -12,6 +12,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { activePortfolioProjectsWhere } from '../projects/lib/project-portfolio-active-filter.util';
+import { StrategicVisionAlertsResponseDto } from './dto/strategic-vision-alerts-response.dto';
 import { StrategicVisionKpisResponseDto } from './dto/strategic-vision-kpis-response.dto';
 import { CreateStrategicAxisDto } from './dto/create-strategic-axis.dto';
 import { CreateStrategicLinkDto } from './dto/create-strategic-link.dto';
@@ -150,6 +151,104 @@ export class StrategicVisionService {
       objectivesOffTrackCount: offTrackObjectives,
       overdueObjectivesCount: overdueObjectives,
       generatedAt: now.toISOString(),
+    };
+  }
+
+  async getAlerts(clientId: string): Promise<StrategicVisionAlertsResponseDto> {
+    const now = new Date();
+
+    const [overdueObjectives, offTrackObjectives, activeProjects] = await Promise.all([
+      this.prisma.strategicObjective.findMany({
+        where: {
+          clientId,
+          deadline: { not: null, lt: now },
+          status: { notIn: [...OBJECTIVE_TERMINAL_STATUSES] },
+        },
+        select: {
+          id: true,
+          title: true,
+          deadline: true,
+          updatedAt: true,
+        },
+        orderBy: [{ deadline: 'asc' }, { createdAt: 'asc' }],
+      }),
+      this.prisma.strategicObjective.findMany({
+        where: {
+          clientId,
+          status: { in: [...OBJECTIVE_OFF_TRACK_STATUSES] },
+        },
+        select: {
+          id: true,
+          title: true,
+          updatedAt: true,
+        },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      }),
+      this.prisma.project.findMany({
+        where: activePortfolioProjectsWhere(clientId),
+        select: { id: true, code: true, name: true, updatedAt: true },
+      }),
+    ]);
+
+    const activeProjectIds = activeProjects.map((project) => project.id);
+    const alignedLinks = activeProjectIds.length
+      ? await this.prisma.strategicLink.findMany({
+          where: {
+            clientId,
+            linkType: StrategicLinkType.PROJECT,
+            targetId: { in: activeProjectIds },
+          },
+          select: { targetId: true },
+          distinct: ['targetId'],
+        })
+      : [];
+    const alignedProjectIds = new Set(alignedLinks.map((link) => link.targetId));
+    const unalignedProjects = activeProjects.filter(
+      (project) => !alignedProjectIds.has(project.id),
+    );
+
+    const overdueAlerts = overdueObjectives.map((objective) => ({
+      id: `objective-overdue:${objective.id}`,
+      type: 'OBJECTIVE_OVERDUE' as const,
+      severity: 'HIGH' as const,
+      targetType: 'OBJECTIVE' as const,
+      targetLabel: objective.title,
+      message: `Objectif en retard: ${objective.title}`,
+      createdAt: (objective.deadline ?? objective.updatedAt).toISOString(),
+    }));
+
+    const offTrackAlerts = offTrackObjectives.map((objective) => ({
+      id: `objective-off-track:${objective.id}`,
+      type: 'OBJECTIVE_OFF_TRACK' as const,
+      severity: 'CRITICAL' as const,
+      targetType: 'OBJECTIVE' as const,
+      targetLabel: objective.title,
+      message: `Objectif hors trajectoire: ${objective.title}`,
+      createdAt: objective.updatedAt.toISOString(),
+    }));
+
+    const unalignedProjectAlerts = unalignedProjects.map((project) => {
+      const targetLabel = project.code
+        ? `${project.code} - ${project.name}`
+        : project.name;
+      return {
+        id: `project-unaligned:${project.id}`,
+        type: 'PROJECT_UNALIGNED' as const,
+        severity: 'MEDIUM' as const,
+        targetType: 'PROJECT' as const,
+        targetLabel,
+        message: `Projet actif non aligne: ${targetLabel}`,
+        createdAt: project.updatedAt.toISOString(),
+      };
+    });
+
+    const items = [...overdueAlerts, ...offTrackAlerts, ...unalignedProjectAlerts].sort(
+      (a, b) => b.createdAt.localeCompare(a.createdAt),
+    );
+
+    return {
+      items,
+      total: items.length,
     };
   }
 

@@ -15,6 +15,7 @@ describe('StrategicVisionController', () => {
   const serviceMock = {
     listVisions: jest.fn(),
     getKpis: jest.fn(),
+    getAlerts: jest.fn(),
     createVision: jest.fn(),
     updateVision: jest.fn(),
     listAxes: jest.fn(),
@@ -59,6 +60,9 @@ describe('StrategicVisionController', () => {
     ).toEqual(['strategic_vision.read']);
     expect(
       Reflect.getMetadata(REQUIRE_PERMISSIONS_KEY, StrategicVisionController.prototype.getKpis),
+    ).toEqual(['strategic_vision.read']);
+    expect(
+      Reflect.getMetadata(REQUIRE_PERMISSIONS_KEY, StrategicVisionController.prototype.getAlerts),
     ).toEqual(['strategic_vision.read']);
   });
 

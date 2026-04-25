@@ -20,6 +20,7 @@ import { CreateStrategicAxisDto } from './dto/create-strategic-axis.dto';
 import { CreateStrategicLinkDto } from './dto/create-strategic-link.dto';
 import { CreateStrategicObjectiveDto } from './dto/create-strategic-objective.dto';
 import { CreateStrategicVisionDto } from './dto/create-strategic-vision.dto';
+import { StrategicVisionAlertsResponseDto } from './dto/strategic-vision-alerts-response.dto';
 import { StrategicVisionKpisResponseDto } from './dto/strategic-vision-kpis-response.dto';
 import { UpdateStrategicAxisDto } from './dto/update-strategic-axis.dto';
 import { UpdateStrategicObjectiveDto } from './dto/update-strategic-objective.dto';
@@ -43,6 +44,14 @@ export class StrategicVisionController {
     @ActiveClientId() clientId: string | undefined,
   ): Promise<StrategicVisionKpisResponseDto> {
     return this.service.getKpis(clientId!);
+  }
+
+  @Get('strategic-vision/alerts')
+  @RequirePermissions('strategic_vision.read')
+  getAlerts(
+    @ActiveClientId() clientId: string | undefined,
+  ): Promise<StrategicVisionAlertsResponseDto> {
+    return this.service.getAlerts(clientId!);
   }
 
   @Post('strategic-vision')

@@ -108,6 +108,15 @@ export const navigation: NavigationSection[] = [
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
       {
+        label: 'Vision strategique',
+        href: '/strategic-vision',
+        icon: Scale,
+        scope: 'client',
+        moduleCode: 'projects',
+        requiredPermissions: ['strategic_vision.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+      },
+      {
         label: 'Risques',
         href: '/risks',
         icon: AlertTriangle,

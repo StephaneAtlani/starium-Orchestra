@@ -1,5 +1,21 @@
 # RFC-STRAT-003 — Strategic Vision Frontend UI
 
+## Statut
+
+🟡 Implémentée (MVP frontend lecture seule)
+
+Implémenté dans `apps/web` :
+- route protégée `GET /strategic-vision` (UI) avec `RequireActiveClient` ;
+- cockpit lecture seule : KPI, vision active, axes/objectifs, liens projet (depuis `strategic-objectives.links`) ;
+- query keys tenant-aware avec `clientId` + `enabled: !!clientId` ;
+- gating UI en lecture via `strategic_vision.read` ;
+- états `loading/error/empty` sur les sections principales.
+
+Hors scope de cette livraison :
+- formulaires/actions UI `create/update/manage_links` ;
+- endpoint dédié `GET /api/strategic-links` (non exposé, panel alimenté via `GET /api/strategic-objectives`) ;
+- alertes/misalignment avancées (`RFC-STRAT-004`) : placeholder UI uniquement.
+
 ## 1) Contexte UX
 
 Le module Strategic Vision côté frontend doit offrir une lecture claire de l'alignement stratégique, orientée pilotage et arbitrage.  
