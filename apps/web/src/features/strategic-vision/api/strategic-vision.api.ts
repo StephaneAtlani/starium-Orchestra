@@ -16,6 +16,26 @@ export async function listStrategicVisions(
   return res.json() as Promise<StrategicVisionDto[]>;
 }
 
+export type CreateStrategicVisionInput = {
+  title: string;
+  statement: string;
+  horizonLabel: string;
+  isActive?: boolean;
+};
+
+export async function createStrategicVision(
+  authFetch: AuthFetch,
+  body: CreateStrategicVisionInput,
+): Promise<StrategicVisionDto> {
+  const res = await authFetch('/api/strategic-vision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicVisionDto>;
+}
+
 export async function listStrategicAxes(authFetch: AuthFetch): Promise<StrategicAxisDto[]> {
   const res = await authFetch('/api/strategic-axes');
   if (!res.ok) throw await parseApiFormError(res);
@@ -46,11 +66,52 @@ export async function getStrategicVisionAlerts(
   return res.json() as Promise<StrategicVisionAlertsResponseDto>;
 }
 
+export type UpdateStrategicVisionInput = {
+  title?: string;
+  statement?: string;
+  horizonLabel?: string;
+  isActive?: boolean;
+};
+
+export async function updateStrategicVision(
+  authFetch: AuthFetch,
+  visionId: string,
+  body: UpdateStrategicVisionInput,
+): Promise<StrategicVisionDto> {
+  const res = await authFetch(`/api/strategic-vision/${visionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicVisionDto>;
+}
+
 export type UpdateStrategicAxisInput = {
   name?: string;
   description?: string | null;
   orderIndex?: number | null;
 };
+
+export type CreateStrategicAxisInput = {
+  visionId: string;
+  name: string;
+  description?: string;
+  orderIndex?: number;
+};
+
+export async function createStrategicAxis(
+  authFetch: AuthFetch,
+  body: CreateStrategicAxisInput,
+): Promise<StrategicAxisDto> {
+  const res = await authFetch('/api/strategic-axes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicAxisDto>;
+}
 
 export async function updateStrategicAxis(
   authFetch: AuthFetch,
@@ -86,4 +147,35 @@ export async function updateStrategicObjective(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<StrategicObjectiveDto>;
+}
+
+export type CreateStrategicObjectiveLinkInput = {
+  linkType: 'PROJECT' | 'BUDGET' | 'RISK';
+  targetId: string;
+  targetLabelSnapshot: string;
+};
+
+export async function addStrategicObjectiveLink(
+  authFetch: AuthFetch,
+  objectiveId: string,
+  body: CreateStrategicObjectiveLinkInput,
+) {
+  const res = await authFetch(`/api/strategic-objectives/${objectiveId}/links`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<unknown>;
+}
+
+export async function removeStrategicObjectiveLink(
+  authFetch: AuthFetch,
+  objectiveId: string,
+  linkId: string,
+) {
+  const res = await authFetch(`/api/strategic-objectives/${objectiveId}/links/${linkId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
 }

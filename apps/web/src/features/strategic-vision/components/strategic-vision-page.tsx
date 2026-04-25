@@ -18,6 +18,7 @@ export function StrategicVisionPage() {
   const { has } = usePermissions();
   const canRead = has('strategic_vision.read');
   const canUpdate = has('strategic_vision.update');
+  const canCreate = has('strategic_vision.create');
 
   const visionsQ = useStrategicVisionQuery({ enabled: canRead });
   const axesFallbackQ = useStrategicAxesFallbackQuery({ enabled: canRead });
@@ -48,11 +49,13 @@ export function StrategicVisionPage() {
       />
       <StrategicVisionTabs
         vision={activeVision}
+        visions={visionsQ.data ?? []}
         axes={axes}
         objectives={objectives}
         kpis={kpisQ.data}
         alerts={alertsQ.data}
         canUpdate={canUpdate}
+        canCreate={canCreate}
         queryStates={{
           visions: { isLoading: visionsQ.isLoading, isError: visionsQ.isError },
           objectives: {

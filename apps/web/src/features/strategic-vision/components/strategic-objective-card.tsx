@@ -28,7 +28,9 @@ export function StrategicObjectiveCard({
   canUpdate?: boolean;
   onEdit?: (objective: StrategicObjectiveDto) => void;
 }) {
-  const projectLinks = objective.links.filter((link: StrategicLinkDto) => link.linkType === 'PROJECT');
+  const projectLinks = (objective.links ?? []).filter(
+    (link: StrategicLinkDto) => link.linkType === 'PROJECT',
+  );
 
   return (
     <Card size="sm">

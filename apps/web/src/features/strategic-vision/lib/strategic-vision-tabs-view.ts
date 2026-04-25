@@ -5,6 +5,11 @@ import type {
   StrategicObjectiveStatus,
   StrategicVisionDto,
 } from '../types/strategic-vision.types';
+import {
+  isStrategicAxisIconColor,
+  isStrategicAxisIconKey,
+  type StrategicAxisIconColor,
+} from '../components/strategic-axis-icons';
 
 export type ObjectiveStatusCounts = Record<StrategicObjectiveStatus, number>;
 
@@ -43,7 +48,7 @@ export function getAxesFromVision(vision: StrategicVisionDto | null): StrategicA
 }
 
 export function buildAxisNameMap(axes: StrategicAxisDto[]): Map<string, string> {
-  return new Map(axes.map((axis) => [axis.id, axis.name]));
+  return new Map(axes.map((axis) => [axis.id, splitAxisLogoAndTitle(axis.name).title]));
 }
 
 export function buildObjectiveStatusCounts(
@@ -89,4 +94,55 @@ export function buildObjectivesByAxis(
     groups.set(objective.axisId, existing);
   }
   return groups;
+}
+
+export function splitAxisLogoAndTitle(name: string): {
+  logo: string | null;
+  title: string;
+  color: StrategicAxisIconColor;
+} {
+  const trimmed = name.trim();
+  const tokenMatch = trimmed.match(
+    /^\[icon:([a-z0-9_-]+)(?:;color:([a-z0-9_-]+))?\]\s+(.+)$/i,
+  );
+  if (tokenMatch) {
+    const iconCandidate = tokenMatch[1];
+    const colorCandidate = tokenMatch[2] ?? 'auto';
+    const title = tokenMatch[3].trim();
+    if (isStrategicAxisIconKey(iconCandidate) && title.length > 0) {
+      return {
+        logo: iconCandidate,
+        title,
+        color: isStrategicAxisIconColor(colorCandidate) ? colorCandidate : 'auto',
+      };
+    }
+  }
+
+  const firstSpace = trimmed.indexOf(' ');
+  if (firstSpace <= 0) return { logo: null, title: trimmed, color: 'auto' };
+
+  const firstToken = trimmed.slice(0, firstSpace);
+  const rest = trimmed.slice(firstSpace + 1).trim();
+  if (!rest) return { logo: null, title: trimmed, color: 'auto' };
+
+  // UTF-8 logo support (emoji/symbol token at start)
+  if (/[^\u0000-\u007F]/.test(firstToken)) {
+    return { logo: firstToken, title: rest, color: 'auto' };
+  }
+  return { logo: null, title: trimmed, color: 'auto' };
+}
+
+export function buildAxisNameWithLogo(params: {
+  logo?: string | null;
+  title: string;
+  color?: StrategicAxisIconColor;
+}): string {
+  const title = params.title.trim();
+  const logo = (params.logo ?? '').trim();
+  const color = params.color ?? 'auto';
+  if (!logo) return title;
+  if (isStrategicAxisIconKey(logo)) {
+    return `[icon:${logo};color:${color}] ${title}`;
+  }
+  return title;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,14 +11,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from '@/lib/toast';
-import type { StrategicAxisDto } from '../types/strategic-vision.types';
-import { useUpdateStrategicAxisMutation } from '../hooks/use-strategic-vision-queries';
+import { useCreateStrategicAxisMutation } from '../hooks/use-strategic-vision-queries';
+import { buildAxisNameWithLogo } from '../lib/strategic-vision-tabs-view';
 import {
-  buildAxisNameWithLogo,
-  splitAxisLogoAndTitle,
-} from '../lib/strategic-vision-tabs-view';
-import {
-  isStrategicAxisIconKey,
   STRATEGIC_AXIS_COLOR_OPTIONS,
   STRATEGIC_AXIS_ICONS,
   STRATEGIC_AXIS_ICON_OPTIONS,
@@ -27,58 +22,71 @@ import {
   strategicAxisIconColorClass,
 } from './strategic-axis-icons';
 
-export function StrategicAxisEditDialog({
-  axis,
+export function StrategicAxisCreateDialog({
+  visionId,
+  visionTitle,
   open,
   onOpenChange,
 }: {
-  axis: StrategicAxisDto | null;
+  visionId: string | null;
+  visionTitle: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const updateAxis = useUpdateStrategicAxisMutation();
+  const createAxis = useCreateStrategicAxisMutation();
   const [logo, setLogo] = useState<StrategicAxisIconKey | ''>('');
   const [color, setColor] = useState<StrategicAxisIconColor>('auto');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
 
-  useEffect(() => {
-    if (!axis) return;
-    const parsed = splitAxisLogoAndTitle(axis.name);
-    setLogo(parsed.logo && isStrategicAxisIconKey(parsed.logo) ? parsed.logo : '');
-    setColor(parsed.color);
-    setName(parsed.title);
-    setDescription(axis.description ?? '');
-  }, [axis]);
+  const resetForm = () => {
+    setLogo('');
+    setColor('auto');
+    setName('');
+    setDescription('');
+  };
 
   const handleSave = async () => {
-    if (!axis) return;
+    if (!visionId) return;
     try {
-      await updateAxis.mutateAsync({
-        axisId: axis.id,
-        body: {
-          name: buildAxisNameWithLogo({ logo, title: name, color }),
-          description: description.trim() ? description.trim() : null,
-        },
+      await createAxis.mutateAsync({
+        visionId,
+        name: buildAxisNameWithLogo({ logo, title: name, color }),
+        description: description.trim() || undefined,
       });
-      toast.success('Axe stratégique mis à jour.');
+      toast.success('Axe stratégique créé.');
+      resetForm();
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Mise à jour impossible.');
+      toast.error(error instanceof Error ? error.message : 'Création impossible.');
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) resetForm();
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Modifier l&apos;axe stratégique</DialogTitle>
+          <DialogTitle>Nouvel axe stratégique</DialogTitle>
           <DialogDescription>
-            Mettez à jour le nom et la description de l&apos;axe.
+            Créez un nouvel axe rattaché à la vision active.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground">Vision active</span>
+            <input
+              className="h-9 w-full rounded-md border border-input bg-muted px-3 text-sm"
+              value={visionTitle ?? 'Vision non définie'}
+              readOnly
+            />
+          </label>
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground">Icône (Lucide)</span>
             <select
@@ -98,7 +106,6 @@ export function StrategicAxisEditDialog({
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               {(() => {
                 const Icon = STRATEGIC_AXIS_ICONS[logo];
-                if (!Icon) return null;
                 return <Icon className={`size-4 ${strategicAxisIconColorClass(color)}`} />;
               })()}
               Aperçu icône
@@ -126,7 +133,6 @@ export function StrategicAxisEditDialog({
               onChange={(event) => setName(event.target.value)}
             />
           </label>
-
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground">Description</span>
             <textarea
@@ -135,7 +141,6 @@ export function StrategicAxisEditDialog({
               onChange={(event) => setDescription(event.target.value)}
             />
           </label>
-
         </div>
 
         <DialogFooter showCloseButton={false}>
@@ -144,9 +149,9 @@ export function StrategicAxisEditDialog({
           </Button>
           <Button
             onClick={() => void handleSave()}
-            disabled={updateAxis.isPending || name.trim().length === 0}
+            disabled={createAxis.isPending || !visionId || name.trim().length === 0}
           >
-            {updateAxis.isPending ? 'Enregistrement...' : 'Enregistrer'}
+            {createAxis.isPending ? 'Création...' : 'Créer'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -14,6 +14,8 @@ import { StrategicAxesTab } from './strategic-axes-tab';
 import { StrategicObjectivesTab } from './strategic-objectives-tab';
 import { StrategicVisionEnterpriseTab } from './strategic-vision-enterprise-tab';
 import { StrategicVisionOverviewTab } from './strategic-vision-overview-tab';
+import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
+import { StrategicAlignmentTab } from './strategic-alignment-tab';
 
 type QueryState = {
   isLoading: boolean;
@@ -50,19 +52,23 @@ function QueryStateBlock({
 
 export function StrategicVisionTabs({
   vision,
+  visions,
   axes,
   objectives,
   kpis,
   alerts,
   canUpdate,
+  canCreate,
   queryStates,
 }: {
   vision: StrategicVisionDto | null;
+  visions: StrategicVisionDto[];
   axes: StrategicAxisDto[];
   objectives: StrategicObjectiveDto[];
   kpis: StrategicVisionKpisResponseDto | undefined;
   alerts: StrategicVisionAlertsResponseDto | undefined;
   canUpdate: boolean;
+  canCreate: boolean;
   queryStates: {
     visions: QueryState;
     objectives: QueryState;
@@ -77,7 +83,10 @@ export function StrategicVisionTabs({
         ? { isLoading: false, isError: true }
         : { isLoading: false, isError: false };
 
-  const axisOptions = axes.map((axis) => ({ id: axis.id, name: axis.name }));
+  const axisOptions = axes.map((axis) => ({
+    id: axis.id,
+    name: splitAxisLogoAndTitle(axis.name).title,
+  }));
 
   return (
     <Tabs defaultValue="overview" className="space-y-4">
@@ -117,9 +126,11 @@ export function StrategicVisionTabs({
         {!baseState.isLoading && !baseState.isError ? (
           <StrategicVisionEnterpriseTab
             vision={vision}
+            visions={visions}
             axes={axes}
             objectives={objectives}
             canUpdate={canUpdate}
+            canCreate={canCreate}
           />
         ) : null}
       </TabsContent>
@@ -131,7 +142,13 @@ export function StrategicVisionTabs({
           queryState={baseState}
         />
         {!baseState.isLoading && !baseState.isError ? (
-          <StrategicAxesTab axes={axes} canUpdate={canUpdate} />
+          <StrategicAxesTab
+            axes={axes}
+            canUpdate={canUpdate}
+            canCreate={canCreate}
+            visionId={vision?.id ?? null}
+            visionTitle={vision?.title ?? null}
+          />
         ) : null}
       </TabsContent>
 
@@ -151,13 +168,13 @@ export function StrategicVisionTabs({
       </TabsContent>
 
       <TabsContent value="alignment">
-        <Alert>
-          <AlertDescription>Disponible prochainement.</AlertDescription>
-        </Alert>
-        {kpis ? (
-          <p className="text-sm text-muted-foreground">
-            KPI disponibles: alignement projets {Math.round(kpis.projectAlignmentRate * 100)}%.
-          </p>
+        <QueryStateBlock
+          loadingLabel="Chargement de l'alignement..."
+          errorLabel="Impossible de charger l'alignement."
+          queryState={baseState}
+        />
+        {!baseState.isLoading && !baseState.isError ? (
+          <StrategicAlignmentTab axes={axes} objectives={objectives} kpis={kpis} />
         ) : null}
       </TabsContent>
 

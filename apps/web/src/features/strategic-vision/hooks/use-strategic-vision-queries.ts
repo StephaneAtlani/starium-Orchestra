@@ -4,14 +4,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
+  createStrategicVision,
+  type CreateStrategicVisionInput,
+  createStrategicAxis,
+  type CreateStrategicAxisInput,
   getStrategicVisionAlerts,
   getStrategicVisionKpis,
   listStrategicAxes,
   listStrategicObjectives,
   listStrategicVisions,
   type UpdateStrategicAxisInput,
+  type UpdateStrategicVisionInput,
   type UpdateStrategicObjectiveInput,
   updateStrategicAxis,
+  updateStrategicVision,
   updateStrategicObjective,
 } from '../api/strategic-vision.api';
 import { strategicVisionKeys } from '../lib/strategic-vision-query-keys';
@@ -103,6 +109,22 @@ export function useUpdateStrategicAxisMutation() {
   });
 }
 
+export function useCreateStrategicAxisMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: CreateStrategicAxisInput) => createStrategicAxis(authFetch, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: strategicVisionKeys.root(clientId),
+      });
+    },
+  });
+}
+
 export function useUpdateStrategicObjectiveMutation() {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -117,6 +139,44 @@ export function useUpdateStrategicObjectiveMutation() {
       objectiveId: string;
       body: UpdateStrategicObjectiveInput;
     }) => updateStrategicObjective(authFetch, objectiveId, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: strategicVisionKeys.root(clientId),
+      });
+    },
+  });
+}
+
+export function useUpdateStrategicVisionMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      visionId,
+      body,
+    }: {
+      visionId: string;
+      body: UpdateStrategicVisionInput;
+    }) => updateStrategicVision(authFetch, visionId, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: strategicVisionKeys.root(clientId),
+      });
+    },
+  });
+}
+
+export function useCreateStrategicVisionMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: CreateStrategicVisionInput) => createStrategicVision(authFetch, body),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: strategicVisionKeys.root(clientId),

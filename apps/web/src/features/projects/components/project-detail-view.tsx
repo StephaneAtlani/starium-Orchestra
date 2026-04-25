@@ -66,6 +66,10 @@ import {
   replaceProjectTags,
   updateProject,
 } from '../api/projects.api';
+import {
+  addStrategicObjectiveLink,
+  removeStrategicObjectiveLink,
+} from '@/features/strategic-vision/api/strategic-vision.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import {
   findDraftPostMortemReview,
@@ -75,6 +79,9 @@ import {
 import { formatCurrencyAmountFr } from '@/lib/currency-format';
 import { usePermissions } from '@/hooks/use-permissions';
 import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
+import { useStrategicObjectivesQuery } from '@/features/strategic-vision/hooks/use-strategic-vision-queries';
+import { strategicVisionKeys } from '@/features/strategic-vision/lib/strategic-vision-query-keys';
+import { useStrategicVisionQuery } from '@/features/strategic-vision/hooks/use-strategic-vision-queries';
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -119,11 +126,15 @@ function ProjectDetailTabbedContent({
   project,
   risks,
   badgeMerged,
+  canReadStrategicVision,
+  canManageStrategicLinks,
 }: {
   projectId: string;
   project: ProjectDetail;
   risks: ReturnType<typeof useProjectRisksQuery>;
   badgeMerged: MergedUiBadges;
+  canReadStrategicVision: boolean;
+  canManageStrategicLinks: boolean;
 }) {
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
@@ -137,9 +148,16 @@ function ProjectDetailTabbedContent({
   const [editablePortfolioCategoryId, setEditablePortfolioCategoryId] = useState<string>(
     project.portfolioCategory?.id ?? '__none__',
   );
+  const [editableStrategicObjectiveId, setEditableStrategicObjectiveId] = useState<string>('__none__');
   const [activeInlineEdit, setActiveInlineEdit] = useState<
-    'type' | 'status' | 'portfolioCategory' | null
+    'type' | 'status' | 'portfolioCategory' | 'strategicObjective' | null
   >(null);
+  const strategicObjectivesQuery = useStrategicObjectivesQuery({
+    enabled: canReadStrategicVision,
+  });
+  const strategicVisionQuery = useStrategicVisionQuery({
+    enabled: canReadStrategicVision,
+  });
   useEffect(() => {
     setSelectedTagIds(project.tags.map((tag) => tag.id));
   }, [project.tags]);
@@ -192,6 +210,45 @@ function ProjectDetailTabbedContent({
           queryKey: projectQueryKeys.list(clientId, {}),
         }),
       ]);
+    },
+  });
+  const updateStrategicObjectiveLinkMutation = useMutation({
+    mutationFn: async (nextObjectiveId: string) => {
+      const objectives = strategicObjectivesQuery.data ?? [];
+      const projectLinks = objectives.flatMap((objective) =>
+        (objective.links ?? [])
+          .filter((link) => link.linkType === 'PROJECT' && link.targetId === projectId)
+          .map((link) => ({ objectiveId: objective.id, linkId: link.id })),
+      );
+      const linksToRemove =
+        nextObjectiveId === '__none__'
+          ? projectLinks
+          : projectLinks.filter((link) => link.objectiveId !== nextObjectiveId);
+      if (linksToRemove.length > 0) {
+        await Promise.all(
+          linksToRemove.map((link) =>
+            removeStrategicObjectiveLink(authFetch, link.objectiveId, link.linkId),
+          ),
+        );
+      }
+      if (nextObjectiveId !== '__none__') {
+        const alreadyLinked = projectLinks.some((link) => link.objectiveId === nextObjectiveId);
+        if (!alreadyLinked) {
+          await addStrategicObjectiveLink(authFetch, nextObjectiveId, {
+            linkType: 'PROJECT',
+            targetId: projectId,
+            targetLabelSnapshot: project.code
+              ? `${project.code} - ${project.name}`
+              : project.name,
+          });
+        }
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: strategicVisionKeys.root(clientId),
+      });
+      setActiveInlineEdit(null);
     },
   });
 
@@ -288,6 +345,58 @@ function ProjectDetailTabbedContent({
   }, [milestonesQuery.data]);
 
   const kpiProgressPct = project.derivedProgressPercent ?? project.progressPercent;
+  const strategicObjectivesForProject = useMemo(() => {
+    const objectives = strategicObjectivesQuery.data ?? [];
+    return objectives.filter((objective) =>
+      (objective.links ?? []).some(
+        (link) => link.linkType === 'PROJECT' && link.targetId === projectId,
+      ),
+    );
+  }, [projectId, strategicObjectivesQuery.data]);
+  const strategicAxisNameById = useMemo(() => {
+    const visions = strategicVisionQuery.data ?? [];
+    const map = new Map<string, string>();
+    for (const vision of visions) {
+      for (const axis of vision.axes ?? []) {
+        if (!map.has(axis.id)) map.set(axis.id, axis.name);
+      }
+    }
+    return map;
+  }, [strategicVisionQuery.data]);
+  const strategicObjectiveOptions = useMemo(() => {
+    const objectives = strategicObjectivesQuery.data ?? [];
+    return [...objectives].sort((a, b) => {
+      const axisA = strategicAxisNameById.get(a.axisId) ?? 'Sans axe';
+      const axisB = strategicAxisNameById.get(b.axisId) ?? 'Sans axe';
+      const axisCmp = axisA.localeCompare(axisB, 'fr');
+      if (axisCmp !== 0) return axisCmp;
+      return a.title.localeCompare(b.title, 'fr');
+    });
+  }, [strategicAxisNameById, strategicObjectivesQuery.data]);
+  const strategicObjectiveGroups = useMemo(() => {
+    const grouped = new Map<
+      string,
+      Array<(typeof strategicObjectiveOptions)[number]>
+    >();
+    for (const objective of strategicObjectiveOptions) {
+      const axisName = strategicAxisNameById.get(objective.axisId) ?? 'Sans axe';
+      const current = grouped.get(axisName) ?? [];
+      current.push(objective);
+      grouped.set(axisName, current);
+    }
+    return Array.from(grouped.entries()).map(([axisName, objectives]) => ({
+      axisName,
+      objectives,
+    }));
+  }, [strategicAxisNameById, strategicObjectiveOptions]);
+  const selectedStrategicObjectiveLabel =
+    editableStrategicObjectiveId === '__none__'
+      ? 'Aucun objectif'
+      : strategicObjectiveOptions.find((objective) => objective.id === editableStrategicObjectiveId)
+          ?.title ?? 'Aucun objectif';
+  useEffect(() => {
+    setEditableStrategicObjectiveId(strategicObjectivesForProject[0]?.id ?? '__none__');
+  }, [strategicObjectivesForProject]);
 
   return (
     <Card size="sm" className="min-w-0 overflow-hidden py-0 shadow-sm">
@@ -456,6 +565,114 @@ function ProjectDetailTabbedContent({
                 <div className="min-w-0">
                   <span className="text-muted-foreground">Responsable projet / activité : </span>
                   {project.ownerDisplayName ?? '—'}
+                </div>
+                <div className="min-w-0">
+                  <span className="text-muted-foreground">Objectif stratégique : </span>
+                  {canReadStrategicVision ? (
+                    activeInlineEdit === 'strategicObjective' && canManageStrategicLinks ? (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <Select
+                          value={editableStrategicObjectiveId}
+                          onValueChange={(value) =>
+                            setEditableStrategicObjectiveId(value ?? '__none__')
+                          }
+                        >
+                          <SelectTrigger className="h-7 w-[420px] max-w-full text-xs">
+                            <SelectValue>{selectedStrategicObjectiveLabel}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="min-w-[420px]">
+                            <SelectItem value="__none__">Aucun objectif</SelectItem>
+                            <SelectSeparator />
+                            {strategicObjectiveGroups.map((group) => (
+                              <SelectGroup key={group.axisName}>
+                                <SelectLabel>{group.axisName}</SelectLabel>
+                                {group.objectives.map((objective) => (
+                                  <SelectItem key={objective.id} value={objective.id}>
+                                    {objective.title}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() =>
+                            updateStrategicObjectiveLinkMutation.mutate(
+                              editableStrategicObjectiveId,
+                            )
+                          }
+                          disabled={updateStrategicObjectiveLinkMutation.isPending}
+                        >
+                          OK
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            setEditableStrategicObjectiveId(
+                              strategicObjectivesForProject[0]?.id ?? '__none__',
+                            );
+                            setActiveInlineEdit(null);
+                          }}
+                          disabled={updateStrategicObjectiveLinkMutation.isPending}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    ) : (
+                    strategicObjectivesQuery.isLoading ? (
+                      <span className="text-muted-foreground">Chargement...</span>
+                    ) : strategicObjectivesForProject.length > 0 ? (
+                      <button
+                        type="button"
+                        className="rounded px-1 py-0.5 text-left hover:bg-muted"
+                        onClick={() => {
+                          if (canManageStrategicLinks) {
+                            setActiveInlineEdit('strategicObjective');
+                          }
+                        }}
+                        disabled={!canManageStrategicLinks}
+                      >
+                        <span className="inline-flex flex-wrap items-center gap-1.5">
+                          {strategicObjectivesForProject.slice(0, 2).map((objective) => (
+                            <Link
+                              key={objective.id}
+                              href="/strategic-vision"
+                              className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+                            >
+                              {objective.title}
+                            </Link>
+                          ))}
+                          {strategicObjectivesForProject.length > 2 ? (
+                            <span className="text-muted-foreground">
+                              +{strategicObjectivesForProject.length - 2}
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="rounded px-1 py-0.5 text-left text-muted-foreground hover:bg-muted"
+                        onClick={() => {
+                          if (canManageStrategicLinks) {
+                            setActiveInlineEdit('strategicObjective');
+                          }
+                        }}
+                        disabled={!canManageStrategicLinks}
+                      >
+                        —
+                      </button>
+                    )
+                    )
+                  ) : (
+                    '—'
+                  )}
                 </div>
                 <div className="sm:col-span-2 border-t pt-3">
                   <div className="mb-2 flex items-center gap-2">
@@ -1026,6 +1243,8 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   const { merged: badgeMerged } = useClientUiBadgeConfig();
   const { has } = usePermissions();
   const canPostMortemCta = has('projects.update');
+  const canReadStrategicVision = has('strategic_vision.read');
+  const canManageStrategicLinks = has('strategic_vision.manage_links');
   const showPostMortemHeaderCta =
     project != null &&
     isPostMortemEligibleProjectStatus(project.status) &&
@@ -1187,6 +1406,8 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           project={project}
           risks={risks}
           badgeMerged={badgeMerged}
+          canReadStrategicVision={canReadStrategicVision}
+          canManageStrategicLinks={canManageStrategicLinks}
         />
       </Suspense>
     </>

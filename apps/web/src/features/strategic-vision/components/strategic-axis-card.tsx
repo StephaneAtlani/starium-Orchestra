@@ -8,6 +8,8 @@ import type {
   StrategicObjectiveDto,
   StrategicObjectiveStatus,
 } from '../types/strategic-vision.types';
+import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
+import { STRATEGIC_AXIS_ICONS, strategicAxisIconColorClass } from './strategic-axis-icons';
 
 function countByStatus(
   objectives: StrategicObjectiveDto[],
@@ -18,27 +20,49 @@ function countByStatus(
 
 export function StrategicAxisCard({
   axis,
+  displayIndex,
   isSelected = false,
   onSelect,
   canUpdate = false,
   onEdit,
+  draggable = false,
+  onDragStart,
+  onDrop,
 }: {
   axis: StrategicAxisDto;
+  displayIndex?: number;
   isSelected?: boolean;
   onSelect?: (axisId: string) => void;
   canUpdate?: boolean;
   onEdit?: (axis: StrategicAxisDto) => void;
+  draggable?: boolean;
+  onDragStart?: (axisId: string) => void;
+  onDrop?: (axisId: string) => void;
 }) {
   const objectiveCount = axis.objectives.length;
+  const { logo, title, color } = splitAxisLogoAndTitle(axis.name);
+  const AxisIcon = logo ? STRATEGIC_AXIS_ICONS[logo as keyof typeof STRATEGIC_AXIS_ICONS] : null;
   return (
     <Card
       className={isSelected ? 'border-primary/60 ring-1 ring-primary/30' : undefined}
       role={onSelect ? 'button' : undefined}
+      draggable={draggable}
+      onDragStart={draggable ? () => onDragStart?.(axis.id) : undefined}
+      onDragOver={draggable ? (event) => event.preventDefault() : undefined}
+      onDrop={draggable ? () => onDrop?.(axis.id) : undefined}
       onClick={onSelect ? () => onSelect(axis.id) : undefined}
     >
       <CardHeader className="gap-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle>{axis.name}</CardTitle>
+          <CardTitle>
+            {displayIndex ? `${String(displayIndex).padStart(2, '0')} · ` : ''}
+            {AxisIcon ? (
+              <AxisIcon
+                className={`mr-1 inline-block size-4 align-text-bottom ${strategicAxisIconColorClass(color)}`}
+              />
+            ) : null}
+            {title}
+          </CardTitle>
           {canUpdate && onEdit ? (
             <Button
               size="sm"
@@ -53,8 +77,8 @@ export function StrategicAxisCard({
           ) : null}
         </div>
         <div className="flex flex-wrap gap-1">
-          <Badge variant="outline">Ordre: {axis.orderIndex ?? '-'}</Badge>
           <Badge variant="secondary">{objectiveCount} objectif(s)</Badge>
+          {draggable ? <Badge variant="outline">Glisser-déposer</Badge> : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
