@@ -41,6 +41,8 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { EmailModule } from './modules/email/email.module';
+import { ChatbotModule } from './modules/chatbot/chatbot.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -89,6 +91,7 @@ import { EmailModule } from './modules/email/email.module';
     EmailModule,
     AlertsModule,
     NotificationsModule,
+    ChatbotModule,
   ],
 })
 export class AppModule {}

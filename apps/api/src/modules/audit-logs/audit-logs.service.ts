@@ -20,6 +20,19 @@ export interface CreateAuditLogInput {
   requestId?: string;
 }
 
+/** Événements plateforme sans rattachement à un client métier (RFC-AI-001, archives GLOBAL, etc.). */
+export interface CreatePlatformAuditLogInput {
+  userId?: string;
+  action: string;
+  resourceType: string;
+  resourceId?: string;
+  oldValue?: unknown;
+  newValue?: unknown;
+  ipAddress?: string;
+  userAgent?: string;
+  requestId?: string;
+}
+
 export interface AuditLogItem {
   id: string;
   clientId: string;
@@ -60,6 +73,30 @@ export class AuditLogsService {
     } catch (error) {
       this.logger.error(
         `Failed to write audit log "${input.action}" for client "${input.clientId}": ${
+          (error as Error)?.message ?? error
+        }`,
+      );
+    }
+  }
+
+  async createPlatform(input: CreatePlatformAuditLogInput): Promise<void> {
+    try {
+      await this.prisma.platformAuditLog.create({
+        data: {
+          userId: input.userId ?? null,
+          action: input.action,
+          resourceType: input.resourceType,
+          resourceId: input.resourceId ?? null,
+          oldValue: input.oldValue ?? undefined,
+          newValue: input.newValue ?? undefined,
+          ipAddress: input.ipAddress ?? null,
+          userAgent: input.userAgent ?? null,
+          requestId: input.requestId ?? null,
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to write platform audit log "${input.action}": ${
           (error as Error)?.message ?? error
         }`,
       );

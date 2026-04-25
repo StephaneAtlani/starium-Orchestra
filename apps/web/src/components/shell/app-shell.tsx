@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { SidebarNavProvider } from './sidebar-nav-context';
 import { WorkspaceHeader } from './workspace-header';
+import { StariumChatDrawer } from '@/features/chatbot/starium-chat-drawer';
 
 /** Contenu centré, même largeur pour header et main (alignement vertical). */
 const CONTENT_WRAPPER_NARROW = 'mx-auto w-full max-w-7xl px-6 sm:px-8';
@@ -29,6 +30,7 @@ export function AppShell({ children }: AppShellProps) {
           <main className="starium-main min-h-0 flex-1 overflow-auto">
             <div className={`${contentWrapper} py-6 sm:py-8`}>{children}</div>
           </main>
+          <StariumChatDrawer />
         </div>
       </div>
     </SidebarNavProvider>

@@ -88,6 +88,12 @@ export default function AdminPlatformDashboardPage() {
             >
               Journaux d’audit
             </Link>
+            <Link
+              href="/admin/chatbot"
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+            >
+              Chatbot
+            </Link>
           </div>
         }
       />

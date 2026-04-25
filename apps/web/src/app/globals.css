@@ -265,6 +265,27 @@ body {
   animation: starium-notification-out 0.28s ease-in both;
 }
 
+/* Launcher chatbot — léger pulse vertical sur l’icône (entrée : animate-in sur le bouton) */
+@keyframes starium-chat-fab-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.starium-chat-fab-icon-float {
+  animation: starium-chat-fab-float 2.75s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starium-chat-fab-icon-float {
+    animation: none !important;
+  }
+}
+
 /* Comparaison budget — graphiques SVG (transitions + tracé courbes) */
 .chart-svg-bar {
   transition:

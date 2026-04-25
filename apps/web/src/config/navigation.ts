@@ -18,6 +18,7 @@ import {
   Tags,
   Upload,
   Wallet,
+  Sparkles,
 } from 'lucide-react';
 
 export type NavigationItem = {
@@ -229,6 +230,13 @@ export const navigation: NavigationSection[] = [
         label: 'Tableau de bord',
         href: '/admin/dashboard',
         icon: LayoutDashboard,
+        scope: 'platform',
+        platformOnly: true,
+      },
+      {
+        label: 'Cursor Starium (chatbot)',
+        href: '/admin/chatbot',
+        icon: Sparkles,
         scope: 'platform',
         platformOnly: true,
       },

@@ -177,16 +177,18 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
         </div>
 
         <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2 md:pl-2">
-          <div className="hidden items-center gap-0.5 md:flex">
-            <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Rechercher">
-              <Search className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Document">
-              <FileText className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Calendrier">
-              <Calendar className="h-4 w-4" />
-            </Button>
+          <div className="flex items-center gap-0.5">
+            <div className="hidden items-center gap-0.5 md:flex">
+              <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Rechercher">
+                <Search className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Document">
+                <FileText className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Calendrier">
+                <Calendar className="h-4 w-4" />
+              </Button>
+            </div>
             <NotificationBell />
           </div>
           {accessToken && (
