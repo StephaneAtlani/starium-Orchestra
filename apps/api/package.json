@@ -10,7 +10,7 @@
     "start:worker": "nest start --entryFile worker/main",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
+    "test": "jest --json --outputFile=../../.test-recap/api.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:push": "prisma db push",

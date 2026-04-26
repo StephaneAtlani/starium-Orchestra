@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --reporter=default --reporter=json --outputFile=../../.test-recap/web.json",
     "clean": "rm -rf .next node_modules/.cache",
     "generate:badge-matrix": "node scripts/generate-badge-palette-matrix.mjs"
   },

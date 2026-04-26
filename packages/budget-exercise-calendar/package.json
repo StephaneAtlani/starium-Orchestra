@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --reporter=default --reporter=json --outputFile=../../.test-recap/budget-exercise-calendar.json"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

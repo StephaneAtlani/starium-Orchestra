@@ -5,7 +5,7 @@
     "lint": "pnpm -r --parallel run lint",
     "typecheck": "pnpm -r run typecheck",
     "build": "pnpm -r run build",
-    "test": "pnpm -r run test"
+    "test": "node scripts/run-tests-with-recap.mjs"
   },
   "engines": {
     "node": ">=20"

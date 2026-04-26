@@ -37,7 +37,7 @@ describe('project-sheet-priority-preview', () => {
     ).toBe('MEDIUM');
     expect(
       effectiveRiskLevelForSheetPreview('__unset__', '__unset__', [
-        { probability: 'HIGH', impact: 'HIGH' } as any,
+        { criticalityLevel: 'HIGH' } as any,
       ]),
     ).toBe('HIGH');
   });

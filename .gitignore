@@ -27,6 +27,7 @@ pnpm-debug.log*
 # Test / coverage
 coverage/
 .nyc_output/
+.test-recap/
 
 # Prisma
 apps/api/prisma/*.db

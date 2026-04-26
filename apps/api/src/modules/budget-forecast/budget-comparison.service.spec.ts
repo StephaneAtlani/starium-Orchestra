@@ -9,14 +9,17 @@ function line(params: {
   revised: number;
   forecast: number;
   consumed: number;
+  committed?: number;
 }) {
   return {
     id: params.id,
     code: params.code,
     name: params.name ?? params.code,
+    initialAmount: params.revised,
     revisedAmount: params.revised,
     forecastAmount: params.forecast,
     consumedAmount: params.consumed,
+    committedAmount: params.committed ?? 0,
   };
 }
 
@@ -64,9 +67,10 @@ describe('BudgetComparisonService', () => {
     );
 
     expect(result.diff).toEqual({
-      revisedAmount: 0,
+      budgetAmount: 0,
       forecastAmount: 0,
       consumedAmount: 0,
+      committedAmount: 0,
     });
   });
 
@@ -106,9 +110,11 @@ describe('BudgetComparisonService', () => {
             budgetLineId: 'l1',
             lineCode: 'A',
             lineName: 'Line A',
+            initialAmount: 100,
             revisedAmount: 100,
             forecastAmount: 150,
             consumedAmount: 120,
+            committedAmount: 0,
           },
         ],
       })
@@ -124,9 +130,11 @@ describe('BudgetComparisonService', () => {
             budgetLineId: 'l1',
             lineCode: 'A',
             lineName: 'Line A',
+            initialAmount: 100,
             revisedAmount: 100,
             forecastAmount: 80,
             consumedAmount: 30,
+            committedAmount: 0,
           },
         ],
       });

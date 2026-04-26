@@ -35,6 +35,7 @@ function mockLine(overrides: Partial<{
   id: string;
   envelopeId: string;
   envelope: { id: string; code: string; name: string; type: string };
+  initialAmount: number;
   revisedAmount: number;
   committedAmount: number;
   remainingAmount: number;
@@ -44,10 +45,11 @@ function mockLine(overrides: Partial<{
   code: string;
   name: string;
 }> = {}) {
-  return {
+  const defaults = {
     id: 'line-1',
     envelopeId: 'env-1',
     revisedAmount: 1000,
+    initialAmount: 1000,
     committedAmount: 300,
     remainingAmount: 600,
     consumedAmount: 400,
@@ -56,8 +58,13 @@ function mockLine(overrides: Partial<{
     code: 'L1',
     name: 'Ligne 1',
     envelope: { id: 'env-1', code: 'E1', name: 'Enveloppe 1', type: 'RUN' },
-    ...overrides,
   };
+  const merged = { ...defaults, ...overrides };
+  // Le cockpit agrège `initialAmount` ; si le test ne fournit que `revisedAmount`, on aligne.
+  if (!('initialAmount' in overrides) && 'revisedAmount' in overrides) {
+    merged.initialAmount = merged.revisedAmount;
+  }
+  return merged;
 }
 
 function mockDashboardConfigWidgets() {
@@ -426,7 +433,7 @@ describe('BudgetDashboardService', () => {
   });
 
   describe('runBuildDistribution et alertsSummary', () => {
-    it('agrège RUN / BUILD / TRANSVERSE sur revisedAmount', async () => {
+    it('agrège RUN / BUILD / TRANSVERSE sur initialAmount (budget HT)', async () => {
       prisma.budget.findFirst.mockResolvedValue(mockBudget);
       prisma.budgetExercise.findFirst.mockResolvedValue(mockExercise);
       prisma.budgetLine.findMany.mockResolvedValue([
