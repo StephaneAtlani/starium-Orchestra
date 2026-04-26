@@ -125,7 +125,7 @@ export class BudgetImportService {
       fileName: origName,
       sourceType,
     });
-    const analyzed = this.parser.analyze(buffer, sourceType, {
+    const analyzed = await this.parser.analyze(buffer, sourceType, {
       sampleLimit: SAMPLE_ROWS_LIMIT,
     });
     await this.auditLogs.create({
@@ -162,11 +162,11 @@ export class BudgetImportService {
     if (fileMeta.sourceType !== 'XLSX') {
       throw new BadRequestException('La sélection d’onglet ne s’applique qu’aux fichiers Excel (.xlsx)');
     }
-    const names = this.parser.listXlsxSheetNames(buffer);
+    const names = await this.parser.listXlsxSheetNames(buffer);
     if (!names.includes(dto.sheetName)) {
       throw new BadRequestException(`Onglet inconnu : « ${dto.sheetName} »`);
     }
-    const analyzed = this.parser.analyze(buffer, fileMeta.sourceType, {
+    const analyzed = await this.parser.analyze(buffer, fileMeta.sourceType, {
       sampleLimit: SAMPLE_ROWS_LIMIT,
       sheetName: dto.sheetName,
     });
@@ -208,7 +208,7 @@ export class BudgetImportService {
     await this.validateBudget(clientId, dto.budgetId);
     const envelopeMaps = await this.loadEnvelopeMaps(clientId, dto.budgetId);
     const rowLinkMaps = await this.loadRowLinkMaps(clientId, dto.budgetId);
-    const parseResult = this.parser.parse(buffer, fileMeta.sourceType, {
+    const parseResult = await this.parser.parse(buffer, fileMeta.sourceType, {
       headerRowIndex: 1,
       maxRows: 20000,
       sheetName: dto.sheetName,
@@ -269,7 +269,7 @@ export class BudgetImportService {
     );
     const envelopeMaps = await this.loadEnvelopeMaps(clientId, dto.budgetId);
     const rowLinkMaps = await this.loadRowLinkMaps(clientId, dto.budgetId);
-    const parseResult = this.parser.parse(buffer, fileMeta.sourceType, {
+    const parseResult = await this.parser.parse(buffer, fileMeta.sourceType, {
       headerRowIndex: 1,
       maxRows: 20000,
       sheetName: dto.sheetName,

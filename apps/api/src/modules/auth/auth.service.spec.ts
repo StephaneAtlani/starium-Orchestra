@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import * as bcrypt from 'bcrypt';
+import bcrypt from '@/lib/bcrypt-compat';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -9,12 +9,14 @@ import { MfaService } from '../mfa/mfa.service';
 import { TrustedDeviceService } from './trusted-device.service';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 
-jest.mock('bcrypt', () => {
-  const actual = jest.requireActual('bcrypt');
+jest.mock('@/lib/bcrypt-compat', () => {
+  const actual = jest.requireActual<typeof import('@/lib/bcrypt-compat')>('@/lib/bcrypt-compat');
   return {
     __esModule: true,
-    ...actual,
-    compare: jest.fn(),
+    default: {
+      ...actual.default,
+      compare: jest.fn(),
+    },
   };
 });
 

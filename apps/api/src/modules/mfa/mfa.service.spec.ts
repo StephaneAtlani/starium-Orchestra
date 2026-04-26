@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import * as bcrypt from 'bcrypt';
+import bcrypt from '@/lib/bcrypt-compat';
 import * as speakeasy from 'speakeasy';
 import { MfaService } from './mfa.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -9,9 +9,12 @@ import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { MfaChallengeChannel, MfaChallengePurpose } from '@prisma/client';
 import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 
-jest.mock('bcrypt', () => {
-  const actual = jest.requireActual('bcrypt');
-  return { __esModule: true, ...actual, compare: jest.fn() };
+jest.mock('@/lib/bcrypt-compat', () => {
+  const actual = jest.requireActual<typeof import('@/lib/bcrypt-compat')>('@/lib/bcrypt-compat');
+  return {
+    __esModule: true,
+    default: { ...actual.default, compare: jest.fn() },
+  };
 });
 
 jest.mock('speakeasy', () => ({

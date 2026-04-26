@@ -8,12 +8,12 @@ describe('BudgetImportParserService', () => {
   });
 
   describe('parse CSV', () => {
-    it('parses CSV with comma delimiter', () => {
+    it('parses CSV with comma delimiter', async () => {
       const buffer = Buffer.from(
         'Date,Montant,Fournisseur\n2026-01-01,1000,AWS\n2026-01-02,2000,GCP',
         'utf-8',
       );
-      const result = service.parse(buffer, 'CSV', { maxRows: 10 });
+      const result = await service.parse(buffer, 'CSV', { maxRows: 10 });
       expect(result.columns).toEqual(['Date', 'Montant', 'Fournisseur']);
       expect(result.rows).toHaveLength(2);
       expect(result.rows[0]).toEqual({
@@ -23,12 +23,12 @@ describe('BudgetImportParserService', () => {
       });
     });
 
-    it('parses CSV with semicolon delimiter', () => {
+    it('parses CSV with semicolon delimiter', async () => {
       const buffer = Buffer.from(
         'Date;Montant;Libelle\n01/01/2026;1500,50;Service',
         'utf-8',
       );
-      const result = service.parse(buffer, 'CSV', {
+      const result = await service.parse(buffer, 'CSV', {
         maxRows: 10,
         csvDelimiter: ';',
       });
@@ -38,12 +38,12 @@ describe('BudgetImportParserService', () => {
   });
 
   describe('analyze', () => {
-    it('returns columns, sample rows and row count for CSV', () => {
+    it('returns columns, sample rows and row count for CSV', async () => {
       const buffer = Buffer.from(
         'A,B,C\n1,2,3\n4,5,6\n7,8,9',
         'utf-8',
       );
-      const result = service.analyze(buffer, 'CSV', { sampleLimit: 2 });
+      const result = await service.analyze(buffer, 'CSV', { sampleLimit: 2 });
       expect(result.columns).toEqual(['A', 'B', 'C']);
       expect(result.sampleRows).toHaveLength(2);
       expect(result.rowCount).toBe(3);

@@ -8,7 +8,7 @@ import {
   DirectorySyncMode,
   ExternalDirectoryType,
 } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import bcrypt from '@/lib/bcrypt-compat';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';

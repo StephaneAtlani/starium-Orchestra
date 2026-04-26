@@ -11,7 +11,7 @@ import {
   ResourceAffiliation,
   ResourceType,
 } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import bcrypt from '@/lib/bcrypt-compat';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   AuditLogsService,

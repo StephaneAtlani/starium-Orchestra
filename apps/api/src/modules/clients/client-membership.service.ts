@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ClientUserStatus } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import bcrypt from '@/lib/bcrypt-compat';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ActiveClientCacheService } from '../../common/cache/active-client-cache.service';
 import {

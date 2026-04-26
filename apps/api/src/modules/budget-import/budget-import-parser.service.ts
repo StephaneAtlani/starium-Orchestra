@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { parse } from 'csv-parse/sync';
-import {
-  BudgetImportSourceType,
-} from '@prisma/client';
+import { BudgetImportSourceType } from '@prisma/client';
 import { MAX_ROWS } from './constants';
 
 export interface ParsedSheetRow {
@@ -26,16 +24,16 @@ export interface ParseOptions {
 @Injectable()
 export class BudgetImportParserService {
   /** Noms des onglets d’un classeur Excel (sans lecture complète des lignes). */
-  listXlsxSheetNames(buffer: Buffer): string[] {
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    return workbook.SheetNames ?? [];
+  async listXlsxSheetNames(buffer: Buffer): Promise<string[]> {
+    const workbook = await this.loadWorkbook(buffer);
+    return workbook.worksheets.map((w) => w.name);
   }
 
-  parse(
+  async parse(
     buffer: Buffer,
     sourceType: BudgetImportSourceType,
     options: ParseOptions = {},
-  ): ParseResult {
+  ): Promise<ParseResult> {
     const maxRows = options.maxRows ?? MAX_ROWS;
     const headerRowIndex = options.headerRowIndex ?? 0;
 
@@ -49,30 +47,66 @@ export class BudgetImportParserService {
     });
   }
 
-  private parseXlsx(
+  private formatXlsxCellValue(value: ExcelJS.CellValue): string {
+    if (value === null || value === undefined) return '';
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    if (typeof value === 'object' && value !== null && 'richText' in value) {
+      const rt = value as ExcelJS.CellRichTextValue;
+      return rt.richText.map((t) => t.text).join('');
+    }
+    if (typeof value === 'object' && value !== null && 'hyperlink' in value) {
+      const h = value as { text?: string };
+      return String(h.text ?? '');
+    }
+    if (typeof value === 'object' && value !== null && 'result' in value) {
+      const f = value as ExcelJS.CellFormulaValue;
+      return this.formatXlsxCellValue(f.result as ExcelJS.CellValue);
+    }
+    return String(value);
+  }
+
+  private readSheetAsMatrix(sheet: ExcelJS.Worksheet): string[][] {
+    const lastRow = sheet.rowCount;
+    const lastCol = sheet.columnCount || 1;
+    const rows: string[][] = [];
+    for (let r = 1; r <= lastRow; r++) {
+      const row = sheet.getRow(r);
+      const arr: string[] = [];
+      for (let c = 1; c <= lastCol; c++) {
+        arr.push(this.formatXlsxCellValue(row.getCell(c).value));
+      }
+      rows.push(arr);
+    }
+    return rows;
+  }
+
+  private async loadWorkbook(buffer: Buffer): Promise<ExcelJS.Workbook> {
+    const workbook = new ExcelJS.Workbook();
+    // @ts-expect-error exceljs 4.x : signature `Buffer` incompatible avec le branding TS de `Buffer` (Node 22+).
+    await workbook.xlsx.load(buffer);
+    return workbook;
+  }
+
+  private async parseXlsx(
     buffer: Buffer,
     options: { sheetName?: string; headerRowIndex: number; maxRows: number },
-  ): ParseResult {
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetNames = workbook.SheetNames;
+  ): Promise<ParseResult> {
+    const workbook = await this.loadWorkbook(buffer);
+    const sheetNames = workbook.worksheets.map((w) => w.name);
     const sheetName = options.sheetName ?? sheetNames[0];
-    if (!sheetName || !workbook.Sheets[sheetName]) {
+    const sheet = sheetName ? workbook.getWorksheet(sheetName) : undefined;
+    if (!sheet) {
       return { columns: [], rows: [], sheetNames };
     }
-    const sheet = workbook.Sheets[sheetName];
-    const rawRows: unknown[][] = XLSX.utils.sheet_to_json(sheet, {
-      header: 1,
-      defval: '',
-      raw: false,
-    }) as unknown[][];
+    const rawRows = this.readSheetAsMatrix(sheet);
 
     if (rawRows.length === 0) {
       return { columns: [], rows: [], sheetNames };
     }
-    const headerRow = rawRows[options.headerRowIndex] as string[];
+    const headerRow = rawRows[options.headerRowIndex] ?? [];
     const columns = headerRow.map((c) => String(c ?? '').trim() || `Column_${headerRow.indexOf(c)}`);
     const dataStart = options.headerRowIndex + 1;
-    const dataRows = rawRows.slice(dataStart, dataStart + options.maxRows) as string[][];
+    const dataRows = rawRows.slice(dataStart, dataStart + options.maxRows);
     const rows: ParsedSheetRow[] = dataRows.map((row) => {
       const obj: ParsedSheetRow = {};
       columns.forEach((col, i) => {
@@ -120,31 +154,28 @@ export class BudgetImportParserService {
   }
 
   /** Used by analyze: get columns and sample rows without full parse. */
-  analyze(
+  async analyze(
     buffer: Buffer,
     sourceType: BudgetImportSourceType,
     options: { sheetName?: string; headerRowIndex?: number; sampleLimit?: number } = {},
-  ): {
+  ): Promise<{
     columns: string[];
     sampleRows: ParsedSheetRow[];
     rowCount: number;
     sheetNames?: string[];
-    /** Feuille Excel effectivement lue (CSV : undefined). */
     activeSheetName?: string;
-  } {
+  }> {
     const sampleLimit = options.sampleLimit ?? 20;
-    const result = this.parse(buffer, sourceType, {
+    const result = await this.parse(buffer, sourceType, {
       ...options,
       maxRows: sampleLimit,
     });
     const fullCount =
       sourceType === 'XLSX'
-        ? this.countXlsxRows(buffer, options.sheetName, options.headerRowIndex ?? 0)
+        ? await this.countXlsxRows(buffer, options.sheetName, options.headerRowIndex ?? 0)
         : this.countCsvRows(buffer);
     const activeSheetName =
-      sourceType === 'XLSX'
-        ? (options.sheetName ?? result.sheetNames?.[0])
-        : undefined;
+      sourceType === 'XLSX' ? (options.sheetName ?? result.sheetNames?.[0]) : undefined;
     return {
       columns: result.columns,
       sampleRows: result.rows,
@@ -154,12 +185,12 @@ export class BudgetImportParserService {
     };
   }
 
-  private countXlsxRows(buffer: Buffer, sheetName?: string, headerRowIndex = 0): number {
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const name = sheetName ?? workbook.SheetNames[0];
-    const sheet = name ? workbook.Sheets[name] : null;
+  private async countXlsxRows(buffer: Buffer, sheetName?: string, headerRowIndex = 0): Promise<number> {
+    const workbook = await this.loadWorkbook(buffer);
+    const name = sheetName ?? workbook.worksheets[0]?.name;
+    const sheet = name ? workbook.getWorksheet(name) : undefined;
     if (!sheet) return 0;
-    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+    const rawRows = this.readSheetAsMatrix(sheet);
     const dataRows = rawRows.length - 1 - headerRowIndex;
     return Math.max(0, dataRows);
   }

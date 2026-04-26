@@ -8,8 +8,8 @@ RUN pnpm --filter @starium-orchestra/budget-exercise-calendar build
 # Un seul arbre node_modules (racine) : un 2e `pnpm install` dans apps/api créait
 # un @prisma/client / prisma generate désaligné du paquet hoisted sous /app/node_modules.
 RUN pnpm --filter @starium-orchestra/api exec prisma generate --schema=/app/apps/api/prisma/schema.prisma
-# Vérifier que xlsx et csv-parse sont résolubles (évite MODULE_NOT_FOUND au runtime)
-RUN cd /app/apps/api && node -e "require('xlsx'); require('csv-parse/sync'); console.log('modules OK');"
+# Vérifier que exceljs et csv-parse sont résolubles (évite MODULE_NOT_FOUND au runtime)
+RUN cd /app/apps/api && node -e "require('exceljs'); require('csv-parse/sync'); console.log('modules OK');"
 WORKDIR /app/apps/api
 EXPOSE 3001
 CMD ["pnpm", "start:dev"]

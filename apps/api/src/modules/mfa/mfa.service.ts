@@ -14,7 +14,7 @@ import {
   MfaChallengePurpose,
   Prisma,
 } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import bcrypt from '@/lib/bcrypt-compat';
 import { randomBytes } from 'crypto';
 import * as speakeasy from 'speakeasy';
 import QRCode from 'qrcode';

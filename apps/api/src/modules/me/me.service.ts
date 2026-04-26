@@ -8,7 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ClientUserStatus, RoleScope } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import bcrypt from '@/lib/bcrypt-compat';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SecurityLogsService } from '../security-logs/security-logs.service';
 import { MfaService } from '../mfa/mfa.service';

@@ -9,6 +9,7 @@ export default {
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
   moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/$1',
     '^../../prisma/prisma.service$': '<rootDir>/prisma/prisma.service.ts',
     '^@starium-orchestra/budget-exercise-calendar$':
       '<rootDir>/../../../packages/budget-exercise-calendar/dist/index.js',

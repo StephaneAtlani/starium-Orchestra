@@ -42,7 +42,7 @@ Contraintes d’unicité à respecter côté service (et éventuellement en base
 
 ## 2. Dépendances NPM
 
-- **Excel** : `xlsx` (SheetJS).
+- **Excel** : `exceljs` (lecture `.xlsx`, sans SheetJS community).
 - **CSV** : `csv-parse` (ou parsing manuel `,` / `;`).
 - **Upload** : `@types/multer` (dev).
 

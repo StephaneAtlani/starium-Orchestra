@@ -19,7 +19,12 @@ if (fs.existsSync(envPath)) {
 }
 
 const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcrypt');
+const bcryptjs = require('bcryptjs');
+const { promisify } = require('util');
+const bcrypt = {
+  hash: promisify(bcryptjs.hash),
+  compare: promisify(bcryptjs.compare),
+};
 
 const prisma = new PrismaClient();
 const isProduction = process.env.NODE_ENV === 'production';

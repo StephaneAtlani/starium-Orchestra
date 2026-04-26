@@ -35,7 +35,7 @@ import {
   PlatformRole,
   RoleScope,
 } from "@prisma/client";
-import * as bcrypt from "bcrypt";
+import bcrypt from "../src/lib/bcrypt-compat";
 import { DEMO_PROJECT_SHEETS, type DemoProjectSheet } from "./seed-project-demo-sheets";
 import { ensureDemoActionPlans } from "./seed-action-plans-demo";
 import { ensureDemoProjectReviews } from "./seed-project-demo-reviews";

@@ -44,8 +44,48 @@ if (fs.existsSync(envPath)) {
   }
 }
 
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const { PrismaClient } = require('@prisma/client');
+
+function formatCellValue(value) {
+  if (value == null) return '';
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === 'object' && value !== null && Array.isArray(value.richText)) {
+    return value.richText.map((t) => t.text).join('');
+  }
+  if (typeof value === 'object' && value.text != null) return String(value.text);
+  if (typeof value === 'object' && value.result !== undefined) {
+    return formatCellValue(value.result);
+  }
+  return String(value);
+}
+
+/** Équivalent pratique de `XLSX.utils.sheet_to_json(sheet, { defval: '' })` : 1ère ligne = clés. */
+function sheetToJsonRecords(sheet) {
+  if (!sheet || sheet.rowCount < 1) return [];
+  const lastCol = sheet.columnCount || 1;
+  const rawMatrix = [];
+  for (let r = 1; r <= sheet.rowCount; r++) {
+    const row = sheet.getRow(r);
+    const arr = [];
+    for (let c = 1; c <= lastCol; c++) {
+      arr.push(formatCellValue(row.getCell(c).value));
+    }
+    rawMatrix.push(arr);
+  }
+  const headers = rawMatrix[0].map((h) => String(h ?? '').trim());
+  const records = [];
+  for (let ri = 1; ri < rawMatrix.length; ri++) {
+    const row = rawMatrix[ri];
+    const obj = {};
+    for (let c = 0; c < headers.length; c++) {
+      const key = headers[c] || `Column_${c}`;
+      obj[key] = row[c] != null ? String(row[c]) : '';
+    }
+    records.push(obj);
+  }
+  return records;
+}
 
 const prisma = new PrismaClient();
 
@@ -213,19 +253,20 @@ function getOrderedAccountCodes(compteRows, sheetNames) {
 }
 
 /**
- * @returns {{ wb: import('xlsx').WorkBook, compteRows: Array<{ metier: string, compte: string, libelle: string }> }}
+ * @returns {Promise<{ wb: import('exceljs').Workbook, compteRows: Array<{ metier: string, compte: string, libelle: string }> }>}
  */
-function parseWorkbook(xlsxPath) {
+async function parseWorkbook(xlsxPath) {
   if (!fs.existsSync(xlsxPath)) {
     throw new Error(`Fichier introuvable : ${xlsxPath}`);
   }
-  const wb = XLSX.readFile(xlsxPath, { cellDates: true });
-  const compteSheet = wb.Sheets['Compte'];
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.readFile(xlsxPath);
+  const compteSheet = wb.getWorksheet('Compte');
   if (!compteSheet) {
     throw new Error('Onglet « Compte » manquant dans le classeur.');
   }
 
-  const raw = XLSX.utils.sheet_to_json(compteSheet, { defval: '' });
+  const raw = sheetToJsonRecords(compteSheet);
   const compteRows = [];
   for (const row of raw) {
     const compte = String(row['Compte'] ?? row['compte'] ?? '').trim();
@@ -244,11 +285,12 @@ async function main() {
   const xlsxPath = DEFAULT_XLSX;
   console.log('Fichier :', xlsxPath);
 
-  const { wb, compteRows } = parseWorkbook(xlsxPath);
+  const { wb, compteRows } = await parseWorkbook(xlsxPath);
+  const sheetNames = wb.worksheets.map((w) => w.name);
   const libelleByCompte = new Map(
     compteRows.map((r) => [r.compte, r.libelle || r.compte]),
   );
-  const orderedAccounts = getOrderedAccountCodes(compteRows, wb.SheetNames);
+  const orderedAccounts = getOrderedAccountCodes(compteRows, sheetNames);
   console.log(
     'Comptes à traiter :',
     orderedAccounts.length,
@@ -320,10 +362,8 @@ async function main() {
   const supplierIds = new Set();
 
   for (const accountCode of orderedAccounts) {
-    const sh = wb.Sheets[accountCode];
-    const rows = sh
-      ? XLSX.utils.sheet_to_json(sh, { defval: '' })
-      : [];
+    const sh = wb.getWorksheet(accountCode);
+    const rows = sh ? sheetToJsonRecords(sh) : [];
 
     const glName =
       libelleByCompte.get(accountCode) || `Compte ${accountCode}`;
