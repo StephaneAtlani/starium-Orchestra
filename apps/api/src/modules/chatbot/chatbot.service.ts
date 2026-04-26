@@ -14,6 +14,9 @@ import {
 } from './chatbot-entry-filter.service';
 import { ChatbotMatchingService } from './chatbot-matching.service';
 import { UserClientAccessService } from './user-client-access.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import type { PostChatbotFeedbackDto } from './dto/post-chatbot-feedback.dto';
+import type { RequestMeta } from '../../common/decorators/request-meta.decorator';
 
 const FALLBACK_DEFAULT =
   "Je n'ai pas encore de réponse configurée pour cette question.";
@@ -41,6 +44,7 @@ export class ChatbotService {
     private readonly entryFilter: ChatbotEntryFilterService,
     private readonly matching: ChatbotMatchingService,
     private readonly access: UserClientAccessService,
+    private readonly auditLogs: AuditLogsService,
   ) {}
 
   private scopeWhere(clientId: string): Prisma.ChatbotKnowledgeEntryWhereInput {
@@ -231,6 +235,7 @@ export class ChatbotService {
         relatedArticles: [],
         score: null,
         fallbackMessage: fb,
+        noAnswerFallbackUsed: true,
         recommendedCategories: featured,
         popularArticles,
       };
@@ -272,6 +277,7 @@ export class ChatbotService {
       relatedArticles,
       score: match.score,
       fallbackMessage: null,
+      noAnswerFallbackUsed: false,
       recommendedCategories: featured,
       popularArticles,
     };
@@ -468,5 +474,37 @@ export class ChatbotService {
         type: e.type,
       })),
     };
+  }
+
+  /**
+   * Retour utilisateur vers l’équipe Starium — persistance via journal plateforme (consultation admin / exports).
+   */
+  async submitFeedback(
+    userId: string,
+    clientId: string,
+    dto: PostChatbotFeedbackDto,
+    meta: RequestMeta,
+  ): Promise<{ ok: true }> {
+    const message = dto.message.trim();
+    const pagePath = dto.pagePath?.trim() || null;
+    const category = dto.category;
+
+    await this.auditLogs.createPlatform({
+      userId,
+      action: 'USER_FEEDBACK_STARIUM',
+      resourceType: 'PRODUCT_FEEDBACK',
+      resourceId: clientId,
+      newValue: {
+        category,
+        message,
+        pagePath,
+        source: 'cursor_starium_chat_widget',
+      },
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+    });
+
+    return { ok: true };
   }
 }

@@ -10,14 +10,26 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
+import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { ChatbotService } from './chatbot.service';
+import { PostChatbotFeedbackDto } from './dto/post-chatbot-feedback.dto';
 import { PostChatbotMessageDto } from './dto/post-chatbot-message.dto';
 
 @Controller('chatbot')
 @UseGuards(JwtAuthGuard, ActiveClientGuard)
 export class ChatbotController {
   constructor(private readonly chatbot: ChatbotService) {}
+
+  @Post('feedback')
+  submitFeedback(
+    @RequestUserId() userId: string | undefined,
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: PostChatbotFeedbackDto,
+    @RequestMeta() meta: import('../../common/decorators/request-meta.decorator').RequestMeta,
+  ) {
+    return this.chatbot.submitFeedback(userId!, clientId!, dto, meta);
+  }
 
   @Post('message')
   postMessage(

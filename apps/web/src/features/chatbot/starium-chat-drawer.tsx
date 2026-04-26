@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   ArrowUp,
   ChevronRight,
   CircleHelp,
   Home,
+  Megaphone,
   MessageCircle,
   Search,
   Sparkles,
@@ -19,15 +21,33 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuth } from '@/context/auth-context';
+import {
+  STARIUM_FEEDBACK_CATEGORY_LABEL,
+  type StariumFeedbackCategoryCode,
+} from './starium-feedback-categories';
+import { humanizeFetchErrorMessage } from '@/lib/humanize-fetch-error';
 import { stariumApiPath } from '@/lib/starium-api-base';
 import { cn } from '@/lib/utils';
 
-type ChatLine = { role: 'USER' | 'ASSISTANT'; content: string };
+type ChatLine = {
+  role: 'USER' | 'ASSISTANT';
+  content: string;
+  /** Réponse générique « pas d’entrée KB » — proposer le support. */
+  noAnswerFallbackUsed?: boolean;
+};
 
 type StructuredLink = {
   label: string;
@@ -57,6 +77,7 @@ type PostMessageResponse = {
   structuredLinks?: StructuredLink[];
   relatedArticles?: { title: string; slug: string; icon?: string | null }[];
   fallbackMessage?: string | null;
+  noAnswerFallbackUsed?: boolean;
 };
 
 type ExplorePayload = {
@@ -85,7 +106,7 @@ function formatRelativeFr(iso: string): string {
   }
 }
 
-type TabId = 'home' | 'conversations' | 'help';
+type TabId = 'home' | 'conversations' | 'help' | 'feedback';
 
 export function StariumChatDrawer() {
   const [open, setOpen] = useState(false);
@@ -99,6 +120,14 @@ export function StariumChatDrawer() {
     'idle' | 'loading' | 'empty' | 'error' | 'unauthorized'
   >('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackStatus, setFeedbackStatus] = useState<
+    'idle' | 'sending' | 'success' | 'error'
+  >('idle');
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackCategory, setFeedbackCategory] =
+    useState<StariumFeedbackCategoryCode>('BUG');
+  const pathname = usePathname();
   const [lastExtras, setLastExtras] = useState<{
     slug: string | null;
     hasFullContent: boolean;
@@ -167,7 +196,8 @@ export function StariumChatDrawer() {
       }
       if (!res.ok) {
         setStatus('error');
-        setErrorMessage(await res.text().catch(() => res.statusText));
+        const body = await res.text().catch(() => res.statusText);
+        setErrorMessage(humanizeFetchErrorMessage(body || res.statusText));
         setLines((prev) => prev.slice(0, -1));
         return;
       }
@@ -177,7 +207,11 @@ export function StariumChatDrawer() {
       if (data.fallbackMessage && !data.slug) {
         assistant = data.fallbackMessage;
       }
-      setLines((prev) => [...prev, { role: 'ASSISTANT', content: assistant }]);
+      const noAnswerFallbackUsed = data.noAnswerFallbackUsed === true;
+      setLines((prev) => [
+        ...prev,
+        { role: 'ASSISTANT', content: assistant, noAnswerFallbackUsed },
+      ]);
       setLastExtras({
         slug: data.slug,
         hasFullContent: !!data.hasFullContent,
@@ -188,7 +222,11 @@ export function StariumChatDrawer() {
       void loadHomeData();
     } catch (e) {
       setStatus('error');
-      setErrorMessage(e instanceof Error ? e.message : 'Erreur réseau');
+      setErrorMessage(
+        e instanceof Error
+          ? humanizeFetchErrorMessage(e.message)
+          : humanizeFetchErrorMessage(''),
+      );
       setLines((prev) => prev.slice(0, -1));
     }
   }, [input, fetchAuth, activeClient?.id, conversationId, loadHomeData]);
@@ -201,7 +239,55 @@ export function StariumChatDrawer() {
     setErrorMessage(null);
     setInput('');
     setLastExtras(null);
+    setFeedbackText('');
+    setFeedbackStatus('idle');
+    setFeedbackError(null);
+    setFeedbackCategory('BUG');
   };
+
+  const submitFeedback = useCallback(async () => {
+    const msg = feedbackText.trim();
+    if (msg.length < 10) {
+      setFeedbackStatus('error');
+      setFeedbackError('Écrivez au moins 10 caractères pour qu’on comprenne votre retour.');
+      return;
+    }
+    if (!activeClient?.id) {
+      setFeedbackStatus('error');
+      setFeedbackError('Sélectionnez un client actif.');
+      return;
+    }
+    setFeedbackStatus('sending');
+    setFeedbackError(null);
+    const url = stariumApiPath('/api/chatbot/feedback');
+    try {
+      const res = await fetchAuth(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: feedbackCategory,
+          message: msg,
+          pagePath:
+            pathname && pathname.startsWith('/') ? pathname.slice(0, 512) : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => res.statusText);
+        setFeedbackStatus('error');
+        setFeedbackError(humanizeFetchErrorMessage(body || res.statusText));
+        return;
+      }
+      setFeedbackStatus('success');
+      setFeedbackText('');
+    } catch (e) {
+      setFeedbackStatus('error');
+      setFeedbackError(
+        e instanceof Error
+          ? humanizeFetchErrorMessage(e.message)
+          : humanizeFetchErrorMessage(''),
+      );
+    }
+  }, [feedbackText, feedbackCategory, fetchAuth, activeClient?.id, pathname]);
 
   const openConversation = async (id: string) => {
     setConversationId(id);
@@ -212,12 +298,21 @@ export function StariumChatDrawer() {
       setLines([]);
       return;
     }
-    const msgs = (await res.json()) as { role: string; content: string }[];
+    const msgs = (await res.json()) as {
+      role: string;
+      content: string;
+      noAnswerFallbackUsed?: boolean;
+    }[];
     setLines(
-      msgs.map((m) => ({
-        role: m.role === 'USER' ? 'USER' : 'ASSISTANT',
-        content: m.content,
-      })),
+      msgs.map((m) => {
+        const role = m.role === 'USER' ? 'USER' : 'ASSISTANT';
+        return {
+          role,
+          content: m.content,
+          noAnswerFallbackUsed:
+            role === 'ASSISTANT' ? Boolean(m.noAnswerFallbackUsed) : undefined,
+        };
+      }),
     );
     setLastExtras(null);
   };
@@ -247,6 +342,21 @@ export function StariumChatDrawer() {
   }
 
   const recent = conversations[0] ?? null;
+
+  const openSupportFeedback = (userQuestion?: string) => {
+    setTab('feedback');
+    setFeedbackCategory('CHATBOT');
+    const q = userQuestion?.trim();
+    if (q) {
+      setFeedbackText(
+        `La réponse automatique ne couvrait pas ma question : « ${q.slice(0, 300)}${q.length > 300 ? '…' : ''} »\n\n`,
+      );
+    } else {
+      setFeedbackText('');
+    }
+    setFeedbackStatus('idle');
+    setFeedbackError(null);
+  };
 
   return (
     <>
@@ -455,26 +565,49 @@ export function StariumChatDrawer() {
                       Écrivez votre question ci-dessous. La réponse provient uniquement de la base configurée.
                     </p>
                   )}
-                  {lines.map((line, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        'mb-2 flex w-full',
-                        line.role === 'USER' ? 'justify-end' : 'justify-start',
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          'max-w-[88%] rounded-2xl px-3 py-2 text-[0.8125rem] leading-relaxed shadow-sm',
-                          line.role === 'USER'
-                            ? 'rounded-br-md bg-primary text-primary-foreground'
-                            : 'rounded-bl-md border border-border/60 bg-card text-card-foreground',
-                        )}
-                      >
-                        {line.content}
-                      </div>
-                    </div>
-                  ))}
+                  {lines.map((line, i) => {
+                    const prevUser =
+                      i > 0 && lines[i - 1]?.role === 'USER' ? lines[i - 1].content : undefined;
+                    return (
+                      <Fragment key={i}>
+                        <div
+                          className={cn(
+                            'mb-2 flex w-full',
+                            line.role === 'USER' ? 'justify-end' : 'justify-start',
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'max-w-[88%] rounded-2xl px-3 py-2 text-[0.8125rem] leading-relaxed shadow-sm',
+                              line.role === 'USER'
+                                ? 'rounded-br-md bg-primary text-primary-foreground'
+                                : 'rounded-bl-md border border-border/60 bg-card text-card-foreground',
+                            )}
+                          >
+                            {line.content}
+                          </div>
+                        </div>
+                        {line.role === 'ASSISTANT' && line.noAnswerFallbackUsed ? (
+                          <div className="mb-2 flex w-full justify-start">
+                            <div className="max-w-[88%] space-y-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5">
+                              <p className="text-[0.7rem] leading-snug text-muted-foreground">
+                                Besoin d&apos;un humain ? Envoyez un message à l&apos;équipe Starium (onglet Feedback).
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                className="h-8 w-full text-xs"
+                                onClick={() => openSupportFeedback(prevUser)}
+                              >
+                                Contacter le support Starium
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
                   {status === 'loading' && (
                     <div className="flex justify-start">
                       <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
@@ -573,6 +706,98 @@ export function StariumChatDrawer() {
                 </Button>
               </div>
             )}
+
+            {/* ——— Feedback équipe Starium ——— */}
+            {tab === 'feedback' && (
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+                <h3 className="text-sm font-semibold text-foreground">Feedback Starium</h3>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                  Une idée, un bug, une friction sur l’app ? Décrivez ce que vous voyiez et ce que vous attendiez — l’équipe
+                  Starium lit ces retours (liés au client actif et à votre compte).
+                </p>
+                {pathname ? (
+                  <p className="mt-2 text-[0.65rem] text-muted-foreground">
+                    Page d’origine :{' '}
+                    <span className="font-mono text-foreground/80">{pathname}</span>
+                  </p>
+                ) : null}
+                {feedbackStatus === 'success' && (
+                  <Alert className="mt-3 border-emerald-500/40 bg-emerald-500/5 py-2">
+                    <AlertDescription className="text-xs text-emerald-900 dark:text-emerald-100">
+                      Merci — votre message a bien été transmis à Starium.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {feedbackStatus === 'error' && feedbackError && (
+                  <Alert variant="destructive" className="mt-3 py-2">
+                    <AlertDescription className="text-xs">{feedbackError}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="mt-4 space-y-1.5">
+                  <Label htmlFor="feedback-category" className="text-xs font-medium">
+                    Catégorie
+                  </Label>
+                  <Select
+                    value={feedbackCategory}
+                    onValueChange={(v) => {
+                      if (!v) return;
+                      setFeedbackCategory(v as StariumFeedbackCategoryCode);
+                      if (feedbackStatus === 'success') setFeedbackStatus('idle');
+                    }}
+                    disabled={feedbackStatus === 'sending'}
+                  >
+                    <SelectTrigger
+                      id="feedback-category"
+                      size="sm"
+                      className="h-9 w-full min-w-0"
+                    >
+                      <SelectValue>
+                        {STARIUM_FEEDBACK_CATEGORY_LABEL[feedbackCategory]}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="z-[220]">
+                      {(Object.keys(STARIUM_FEEDBACK_CATEGORY_LABEL) as StariumFeedbackCategoryCode[]).map(
+                        (code) => (
+                          <SelectItem key={code} value={code}>
+                            {STARIUM_FEEDBACK_CATEGORY_LABEL[code]}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <label className="mt-4 block space-y-1.5">
+                  <span className="text-xs font-medium text-foreground">Votre message</span>
+                  <textarea
+                    className="min-h-32 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                    value={feedbackText}
+                    onChange={(e) => {
+                      setFeedbackText(e.target.value);
+                      if (feedbackStatus === 'success') setFeedbackStatus('idle');
+                    }}
+                    placeholder="Ex. : sur la page Budgets, le bouton X ne réagit pas quand…"
+                    maxLength={4000}
+                    disabled={feedbackStatus === 'sending'}
+                    aria-label="Message de feedback pour Starium"
+                  />
+                </label>
+                <p className="mt-1 text-[0.65rem] text-muted-foreground">
+                  {feedbackText.trim().length}/4000 — minimum 10 caractères.
+                </p>
+                <Button
+                  type="button"
+                  className="mt-4 w-full"
+                  disabled={
+                    feedbackStatus === 'sending' ||
+                    feedbackText.trim().length < 10 ||
+                    !activeClient?.id
+                  }
+                  onClick={() => void submitFeedback()}
+                >
+                  {feedbackStatus === 'sending' ? 'Envoi…' : 'Envoyer à Starium'}
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Barre navigation façon widget support */}
@@ -585,6 +810,7 @@ export function StariumChatDrawer() {
                 { id: 'home' as const, label: 'Accueil', Icon: Home },
                 { id: 'conversations' as const, label: 'Conversations', Icon: MessageCircle },
                 { id: 'help' as const, label: 'Aide', Icon: CircleHelp },
+                { id: 'feedback' as const, label: 'Feedback', Icon: Megaphone },
               ] as const
             ).map(({ id, label, Icon }) => (
               <button

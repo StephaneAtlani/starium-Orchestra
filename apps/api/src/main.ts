@@ -15,6 +15,38 @@ async function bootstrap() {
   const adapter = new ExpressAdapter(expressApp);
   const app = await NestFactory.create(AppModule, adapter);
   app.setGlobalPrefix('api');
+
+  // Navigateur + NEXT_PUBLIC_API_URL vers un autre host (ex. Next :3000 → API :3001) = cross-origin : CORS requis.
+  const isProduction = process.env.NODE_ENV === 'production';
+  const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const corsHeaders = [
+    'Content-Type',
+    'Authorization',
+    'X-Client-Id',
+    'X-Request-Id',
+    'Accept',
+    'Origin',
+  ];
+  const corsMethods = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
+  if (!isProduction) {
+    app.enableCors({
+      origin: true,
+      credentials: true,
+      methods: corsMethods,
+      allowedHeaders: corsHeaders,
+    });
+  } else if (corsOrigins.length > 0) {
+    app.enableCors({
+      origin: corsOrigins,
+      credentials: true,
+      methods: corsMethods,
+      allowedHeaders: corsHeaders,
+    });
+  }
+
   expressApp.use((req: Request, res: Response, next: NextFunction) => {
     const existing = req.headers['x-request-id'];
     const requestId =
