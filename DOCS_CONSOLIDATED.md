@@ -9459,7 +9459,7 @@ Ces fonctionnalités sont traitées dans :
 
 Retourne **tous** les clients, **sans pagination**, **sans filtre**, triés par **`createdAt` desc**.
 
-Réponse : tableau d’objets (ex. `id`, `name`, `slug`, `createdAt`).
+Réponse : tableau d’objets avec notamment `id`, `name`, `slug`, `createdAt`, **`procurementAttachmentsNotOnS3Count`** (nombre de `ProcurementAttachment` dont le stockage n’est pas encore S3 — `storageBucket` sentinel `local`), **`procurementS3Configured`** (booléen : configuration S3 procurement résolue côté API pour la plateforme).
 
 ```json
 [
@@ -9467,10 +9467,20 @@ Réponse : tableau d’objets (ex. `id`, `name`, `slug`, `createdAt`).
     "id": "client_001",
     "name": "Client démo",
     "slug": "demo",
-    "createdAt": "2026-03-08T10:00:00Z"
+    "createdAt": "2026-03-08T10:00:00Z",
+    "procurementAttachmentsNotOnS3Count": 0,
+    "procurementS3Configured": true
   }
 ]
 ```
+
+### POST /clients/:id/migrate-procurement-documents-to-s3
+
+**Admin plateforme** (`JwtAuthGuard` + `PlatformAdminGuard`). Corps vide.
+
+Migre les pièces jointes procurement du client dont le stockage est encore **hors S3** (fichiers locaux + références `storageBucket` sentinel `local`) vers le **bucket S3** dédié au client, puis met à jour la base. Nécessite une **config S3** exploitable et une **racine locale** lisible pour lire les fichiers sources.
+
+Réponse **200** : `{ "migratedCount": <number> }` (0 si rien à migrer).
 
 ---
 

@@ -39,6 +39,16 @@
 
 - Consolidation de la doc API / références et extension des RFC (vision stratégique, alertes).
 
+### Procurement — migration admin hors S3 → S3
+
+- **GET `/api/clients`** : chaque ligne inclut `procurementAttachmentsNotOnS3Count` (pièces jointes procurement encore hors S3) et `procurementS3Configured` (config S3 résolue côté plateforme).
+- **POST `/api/clients/:id/migrate-procurement-documents-to-s3`** (admin plateforme) : copie des pièces encore en stockage local vers le bucket S3 du client, mise à jour des références, suppression des fichiers locaux après succès ; audit `client.procurement_documents_migrated_to_s3` si au moins une pièce migrée.
+- **UI** `/admin/clients` : action **Hors S3 → S3** avec modale (prérequis ou lancement).
+
+### Sécurité / conformité
+
+- Correctifs **gitleaks** (JWT de tests, `.env.example`, exemples `docs/API.md`) + `.gitleaksignore` pour empreintes historiques.
+
 ## [0.96] - 2026-04-20
 
 ### Scenarios projet (nouveau domaine)

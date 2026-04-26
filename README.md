@@ -77,7 +77,7 @@ docker compose -f docker-compose.dev.yml up -d --build
 
 - Web : `http://localhost:3000`
 - API : `http://localhost:3001/api`
-- **MailHog** (capture SMTP — OTP MFA, etc.) : `http://localhost:8025` ; l’API `api-dev` est configurée avec `SMTP_HOST=mailhog` et `SMTP_PORT=1025` (voir `docker-compose.dev.yml`).
+- **MailHog** (capture SMTP dev — OTP MFA, etc.) : UI `http://localhost:8025` ; l’API `api-dev` envoie le fallback MFA vers MailHog (`SMTP_HOST=mailhog`, `SMTP_PORT=1025` — voir `docker-compose.dev.yml`).
 
 Important en dev Docker:
 - Si `apps/api/package.json` ou `apps/api/prisma/schema.prisma` change, redémarrer `api-dev` pour resynchroniser les dépendances et régénérer le client Prisma.
