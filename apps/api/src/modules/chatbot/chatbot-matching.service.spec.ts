@@ -29,6 +29,8 @@ function entry(partial: Partial<ChatbotEntryWithCategory>): ChatbotEntryWithCate
     isPopular: partial.isPopular ?? false,
     icon: partial.icon ?? null,
     content: partial.content ?? null,
+    searchText: partial.searchText ?? null,
+    indexedAt: partial.indexedAt ?? null,
     structuredLinks: partial.structuredLinks ?? null,
     relatedEntryIds: partial.relatedEntryIds ?? [],
     createdByUserId: partial.createdByUserId ?? 'u1',

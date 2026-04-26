@@ -17,7 +17,8 @@
     "prisma:seed": "prisma db seed",
     "prisma:backfill:client-bootstrap": "node prisma/backfill-client-bootstrap.js",
     "seed:aravis": "node prisma/seed-aravis-2025.js",
-    "revert:aravis": "node prisma/revert-aravis-import.js"
+    "revert:aravis": "node prisma/revert-aravis-import.js",
+    "backfill:search-text": "ts-node --transpile-only scripts/backfill-search-text.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

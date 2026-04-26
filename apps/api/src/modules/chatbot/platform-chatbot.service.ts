@@ -26,6 +26,7 @@ import {
   STARIUM_FEEDBACK_CATEGORY_LABELS,
   type StariumFeedbackCategoryCode,
 } from './dto/starium-feedback-category';
+import { buildChatbotKnowledgeSearchText } from '../search/search-text-build.util';
 
 function feedbackCategoryDisplay(raw: string): string {
   if (
@@ -100,6 +101,16 @@ export class PlatformChatbotService {
       dto.clientId ?? null,
     );
 
+    const searchText = buildChatbotKnowledgeSearchText({
+      slug: dto.slug,
+      title: dto.title,
+      question: dto.question,
+      answer: dto.answer,
+      keywords: dto.keywords ?? [],
+      tags: dto.tags ?? [],
+      content: dto.content ?? null,
+    });
+    const now = new Date();
     return this.prisma.chatbotKnowledgeEntry.create({
       data: {
         slug: dto.slug,
@@ -121,6 +132,8 @@ export class PlatformChatbotService {
         isPopular: dto.isPopular ?? false,
         icon: dto.icon ?? null,
         content: dto.content ?? null,
+        searchText,
+        indexedAt: now,
         structuredLinks: links
           ? (links as unknown as Prisma.InputJsonValue)
           : Prisma.JsonNull,
@@ -159,6 +172,18 @@ export class PlatformChatbotService {
       dto.categoryId !== undefined ? dto.categoryId : existing.categoryId;
     await this.assertCategoryCoherent(categoryId, scope, clientId);
 
+    const mergedForSearch = {
+      slug: dto.slug ?? existing.slug,
+      title: dto.title ?? existing.title,
+      question: dto.question ?? existing.question,
+      answer: dto.answer ?? existing.answer,
+      keywords: dto.keywords ?? existing.keywords,
+      tags: dto.tags ?? existing.tags,
+      content:
+        dto.content !== undefined ? dto.content : existing.content,
+    };
+    const searchText = buildChatbotKnowledgeSearchText(mergedForSearch);
+
     return this.prisma.chatbotKnowledgeEntry.update({
       where: { id },
       data: {
@@ -189,6 +214,8 @@ export class PlatformChatbotService {
         ...(dto.relatedEntryIds != null && {
           relatedEntryIds: dto.relatedEntryIds,
         }),
+        searchText,
+        indexedAt: new Date(),
         updatedByUserId: actorUserId,
       },
       include: { category: true },

@@ -72,6 +72,7 @@ describe('ProjectsPilotageService', () => {
     swotOpportunities: null,
     swotThreats: null,
     towsActions: null,
+    searchText: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

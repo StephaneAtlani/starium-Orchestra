@@ -34,6 +34,8 @@ import { CreateBudgetDto } from './dto/create-budget.dto';
 import { ListBudgetsQueryDto } from './dto/list-budgets.query.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 import { BudgetSnapshotsService } from '../../budget-snapshots/budget-snapshots.service';
+import { normalizeSearchText } from '../../search/search-normalize.util';
+import { buildBudgetSearchText } from '../../search/search-text-build.util';
 import { BudgetEnvelopesService } from '../budget-envelopes/budget-envelopes.service';
 import { BudgetLinesService } from '../budget-lines/budget-lines.service';
 
@@ -64,9 +66,13 @@ export class BudgetsService {
     };
     if (query.search?.trim()) {
       const term = query.search.trim();
+      const nt = normalizeSearchText(term);
       where.OR = [
         { name: { contains: term, mode: 'insensitive' } },
         { code: { contains: term, mode: 'insensitive' } },
+        ...(nt.length > 0
+          ? [{ searchText: { contains: nt, mode: 'insensitive' as const } }]
+          : []),
       ];
     }
 
@@ -191,6 +197,11 @@ export class BudgetsService {
         name: dto.name,
         code,
         description: dto.description ?? null,
+        searchText: buildBudgetSearchText({
+          name: dto.name,
+          code,
+          description: dto.description ?? null,
+        }),
         currency: dto.currency,
         status: dto.status ?? BudgetStatus.DRAFT,
         ownerUserId: dto.ownerUserId ?? null,
@@ -367,6 +378,13 @@ export class BudgetsService {
 
     let updated: BudgetUpdateRow;
 
+    const budgetSearchTextMerged = buildBudgetSearchText({
+      name: dto.name != null ? dto.name : existing.name,
+      code: dto.code != null ? dto.code : existing.code,
+      description:
+        dto.description !== undefined ? dto.description : existing.description,
+    });
+
     if (useCascadeTransaction && dto.status != null) {
       const result = await this.prisma.$transaction(async (tx) => {
         let audits: CreateAuditLogInput[] = [];
@@ -421,6 +439,7 @@ export class BudgetsService {
             ...(dto.defaultTaxRate !== undefined
               ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
               : {}),
+            searchText: budgetSearchTextMerged,
           },
           include: {
             exercise: { select: { name: true, code: true } },
@@ -471,6 +490,7 @@ export class BudgetsService {
           ...(dto.defaultTaxRate !== undefined
             ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
             : {}),
+          searchText: budgetSearchTextMerged,
         },
         include: {
           exercise: { select: { name: true, code: true } },

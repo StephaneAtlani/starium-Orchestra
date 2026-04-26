@@ -986,6 +986,8 @@ model Project {
   name        String
   code        String
   description String?
+  /// Texte de recherche normalisé (concat champs clés) — RFC-CORE-SEARCH-001
+  searchText  String? @db.Text
 
   kind     ProjectKind     @default(PROJECT)
   type     ProjectType
@@ -2375,6 +2377,8 @@ model Budget {
   name                      String
   code                      String
   description               String?
+  /// Texte de recherche normalisé — RFC-CORE-SEARCH-001
+  searchText                String? @db.Text
   currency                  String
   status                    BudgetStatus            @default(DRAFT)
   taxMode                   BudgetTaxMode           @default(HT)
@@ -3455,6 +3459,9 @@ model ChatbotKnowledgeEntry {
   isPopular          Boolean                  @default(false)
   icon               String?
   content            String?
+  /// Texte de recherche normalisé (title, question, answer, content, keywords, tags, slug) — RFC-CORE-SEARCH-001
+  searchText         String? @db.Text
+  indexedAt          DateTime?
   structuredLinks    Json?
   relatedEntryIds    String[]                 @default([])
   createdByUserId    String

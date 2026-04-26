@@ -12,6 +12,7 @@ import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { ChevronDown, Menu, Search, UserCircle, X } from 'lucide-react';
 import { useSidebarNav } from './sidebar-nav-context';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
+import { GlobalSearchDialog } from '@/features/global-search/global-search-dialog';
 
 interface WorkspaceHeaderProps {
   contentClassName?: string;
@@ -26,6 +27,7 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
     useActiveClientEmailDisplay();
   const accountMenuRef = useRef<HTMLDetailsElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     if (!accessToken || !user?.hasAvatar) {
@@ -85,6 +87,17 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
     };
   }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        if (accessToken && activeClient) setSearchOpen(true);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [accessToken, activeClient]);
+
   async function handleLogout() {
     await logout();
     setActiveClient(null);
@@ -108,6 +121,7 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
 
   return (
     <header className="starium-header sticky top-0 z-10 shrink-0 border-b border-border">
+      <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
       <div
         className={`flex min-h-14 flex-col gap-2 py-2 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-0 ${contentClassName ?? 'mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8'}`}
       >
@@ -178,11 +192,18 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
 
         <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2 md:pl-2">
           <div className="flex items-center gap-0.5">
-            <div className="hidden items-center gap-0.5 md:flex">
-              <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Rechercher">
+            {accessToken && activeClient ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="starium-text hover:starium-bg-muted"
+                aria-label="Recherche globale"
+                onClick={() => setSearchOpen(true)}
+              >
                 <Search className="h-4 w-4" />
               </Button>
-            </div>
+            ) : null}
             <NotificationBell />
           </div>
           {accessToken && (

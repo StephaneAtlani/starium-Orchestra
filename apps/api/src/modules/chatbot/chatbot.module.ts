@@ -18,6 +18,7 @@ import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 
 @Module({
   imports: [PrismaModule, AuthModule, AuditLogsModule, AlertsModule],
+  exports: [UserClientAccessService, ChatbotEntryFilterService, ChatbotService],
   controllers: [
     ChatbotController,
     PlatformChatbotEntriesController,

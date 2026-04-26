@@ -42,6 +42,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { QueueModule } from './modules/queue/queue.module';
 import { EmailModule } from './modules/email/email.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { ChatbotModule } from './modules/chatbot/chatbot.module';
     AlertsModule,
     NotificationsModule,
     ChatbotModule,
+    SearchModule,
   ],
 })
 export class AppModule {}

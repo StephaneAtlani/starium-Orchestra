@@ -38,6 +38,8 @@ import {
 } from './projects-pilotage.service';
 import { ProjectTeamService } from './project-team.service';
 import type { ComputedHealth } from './projects.types';
+import { normalizeSearchText } from '../search/search-normalize.util';
+import { buildProjectSearchText } from '../search/search-text-build.util';
 
 const projectIncludeList = {
   tasks: true,
@@ -584,10 +586,14 @@ export class ProjectsService {
 
     if (query.search?.trim()) {
       const s = query.search.trim();
+      const ns = normalizeSearchText(s);
       andFilters.push({
         OR: [
           { name: { contains: s, mode: 'insensitive' } },
           { code: { contains: s, mode: 'insensitive' } },
+          ...(ns.length > 0
+            ? [{ searchText: { contains: ns, mode: 'insensitive' as const } }]
+            : []),
         ],
       });
     }
@@ -960,6 +966,11 @@ export class ProjectsService {
           ? new Prisma.Decimal(dto.targetBudgetAmount)
           : null,
       pilotNotes: dto.pilotNotes?.trim() ?? null,
+      searchText: buildProjectSearchText({
+        name: dto.name.trim(),
+        code: dto.code.trim(),
+        description: dto.description?.trim() ?? null,
+      }),
     } satisfies Prisma.ProjectUncheckedCreateInput;
 
     const created = await this.prisma.project.create({
@@ -1081,6 +1092,20 @@ export class ProjectsService {
     if (dto.copilRecommendation !== undefined) {
       data.copilRecommendation = dto.copilRecommendation;
     }
+
+    const nameForSearch =
+      dto.name !== undefined ? dto.name.trim() : existing.name;
+    const codeForSearch =
+      dto.code !== undefined ? dto.code.trim() : existing.code;
+    const descForSearch =
+      dto.description !== undefined
+        ? (dto.description?.trim() ?? null)
+        : existing.description;
+    data.searchText = buildProjectSearchText({
+      name: nameForSearch,
+      code: codeForSearch,
+      description: descForSearch,
+    });
 
     const updated = await this.prisma.project.update({
       where: { id },
