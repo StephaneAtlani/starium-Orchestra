@@ -94,7 +94,9 @@ export function StrategicAxisCard({
         {axis.description ? (
           <p className="text-sm text-muted-foreground">{axis.description}</p>
         ) : (
-          <p className="text-sm text-muted-foreground">Aucune description d'axe.</p>
+          <p className="text-sm text-muted-foreground">
+            {"Aucune description d'axe."}
+          </p>
         )}
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground md:grid-cols-5">
           <span>ON_TRACK: {countByStatus(axis.objectives, 'ON_TRACK')}</span>

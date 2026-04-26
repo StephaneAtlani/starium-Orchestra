@@ -156,7 +156,7 @@ export function ProjectScenariosTab({
             <DialogTitle>Confirmer l’archivage</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Confirmez l’archivage du scénario "{archiveScenario?.name ?? ''}".
+            Confirmez l’archivage du scénario «&nbsp;{archiveScenario?.name ?? ''}&nbsp;».
           </p>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setArchiveScenario(null)}>

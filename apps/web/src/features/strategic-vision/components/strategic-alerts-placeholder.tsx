@@ -7,7 +7,9 @@ export function StrategicAlertsPlaceholder() {
     <Alert>
       <AlertTitle>Alertes et desalignements</AlertTitle>
       <AlertDescription>
-        Cette section sera activee des que l'endpoint d'alertes strategiques sera disponible.
+        {
+          "Cette section sera activee des que l'endpoint d'alertes strategiques sera disponible."
+        }
       </AlertDescription>
     </Alert>
   );

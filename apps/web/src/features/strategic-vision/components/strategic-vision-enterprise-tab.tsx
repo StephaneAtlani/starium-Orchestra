@@ -45,6 +45,11 @@ export function StrategicVisionEnterpriseTab({
   canUpdate: boolean;
   canCreate: boolean;
 }) {
+  const [editingVision, setEditingVision] = useState(false);
+  const [creatingVision, setCreatingVision] = useState(false);
+  const updateVision = useUpdateStrategicVisionMutation();
+  const updateObjective = useUpdateStrategicObjectiveMutation();
+
   if (!vision) {
     return (
       <Alert>
@@ -54,10 +59,6 @@ export function StrategicVisionEnterpriseTab({
   }
 
   const statusCounts = buildObjectiveStatusCounts(objectives);
-  const [editingVision, setEditingVision] = useState(false);
-  const [creatingVision, setCreatingVision] = useState(false);
-  const updateVision = useUpdateStrategicVisionMutation();
-  const updateObjective = useUpdateStrategicObjectiveMutation();
   const pastVisions = visions.filter((item) => !item.isActive);
 
   const handleArchivePastVision = async (pastVision: StrategicVisionDto) => {

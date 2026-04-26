@@ -538,22 +538,23 @@ export function SvgMultiLineChart({
   const iw = w - padL - padR;
   const ih = h - padT - padB;
   const len = series[0]?.values.length ?? 0;
-  if (len < 1) return null;
-
-  const maxY = Math.max(
-    1,
-    ...series.flatMap((s) => s.values),
-  );
-  const step = len <= 1 ? iw / 2 : iw / (len - 1);
+  const maxY =
+    len < 1 ? 1 : Math.max(1, ...series.flatMap((s) => s.values));
+  const step = len < 1 ? iw / 2 : len <= 1 ? iw / 2 : iw / (len - 1);
   const xa = (i: number) => padL + i * step;
   const ya = (v: number) => padT + ih - (v / maxY) * ih;
 
-  const pathSig = series
-    .map((s) => s.values.map((v, i) => `${xa(i)},${ya(v)}`).join(';'))
-    .join('|');
+  const pathSig =
+    len < 1
+      ? ''
+      : series
+          .map((s) => s.values.map((v, i) => `${xa(i)},${ya(v)}`).join(';'))
+          .join('|');
 
   const svgRef = useRef<SVGSVGElement>(null);
   useLinePathsDraw(svgRef, pathSig, animateKey);
+
+  if (len < 1) return null;
 
   return (
     <svg
