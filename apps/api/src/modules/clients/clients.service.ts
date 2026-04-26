@@ -17,6 +17,9 @@ import { ResourcesModuleBootstrapService } from '../resources/resources-module-b
 import { RiskTaxonomyService } from '../risk-taxonomy/risk-taxonomy.service';
 import { ActivityTypesService } from '../activity-types/activity-types.service';
 import { ClientDocumentsStorageProvisionerService } from '../procurement/s3/client-documents-storage-provisioner.service';
+import { ProcurementS3ConfigResolverService } from '../procurement/s3/procurement-s3-config.resolver.service';
+import { ProcurementLocalDocumentsS3MigrationService } from '../procurement/s3/procurement-local-documents-s3-migration.service';
+import { PROCUREMENT_LOCAL_BUCKET_SENTINEL } from '../procurement/s3/procurement-storage-resolution.service';
 
 /** Réponse client pour GET /clients (liste). */
 export interface ClientListItem {
@@ -24,6 +27,10 @@ export interface ClientListItem {
   name: string;
   slug: string;
   createdAt: Date;
+  /** Pièces procurement dont le stockage n’est pas encore S3 (`storageBucket` sentinel `local`). */
+  procurementAttachmentsNotOnS3Count: number;
+  /** Config S3 procurement résolue (permet la migration). */
+  procurementS3Configured: boolean;
 }
 
 /** Réponse client pour POST /clients et PATCH /clients/:id. */
@@ -48,22 +55,54 @@ export class ClientsService {
     private readonly riskTaxonomy: RiskTaxonomyService,
     private readonly activityTypes: ActivityTypesService,
     private readonly clientDocumentsStorageProvisioner: ClientDocumentsStorageProvisionerService,
+    private readonly procurementS3ConfigResolver: ProcurementS3ConfigResolverService,
+    private readonly procurementLocalDocumentsS3Migration: ProcurementLocalDocumentsS3MigrationService,
   ) {}
 
   /**
    * Retourne tous les clients, sans pagination ni filtre, triés par createdAt desc.
    */
   async findAll(): Promise<ClientListItem[]> {
-    const clients = await this.prisma.client.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        createdAt: true,
-      },
-    });
-    return clients;
+    const [s3Cfg, clients, counts] = await Promise.all([
+      this.procurementS3ConfigResolver.resolve(),
+      this.prisma.client.findMany({
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.procurementAttachment.groupBy({
+        by: ['clientId'],
+        where: { storageBucket: PROCUREMENT_LOCAL_BUCKET_SENTINEL },
+        _count: { id: true },
+      }),
+    ]);
+    const countMap = new Map(
+      counts.map((c) => [c.clientId, c._count.id]),
+    );
+    const procurementS3Configured = s3Cfg != null;
+    return clients.map((c) => ({
+      ...c,
+      procurementAttachmentsNotOnS3Count: countMap.get(c.id) ?? 0,
+      procurementS3Configured,
+    }));
+  }
+
+  /**
+   * Migre les pièces jointes procurement encore sur disque vers le bucket S3 du client.
+   * Plateforme admin uniquement (contrôleur).
+   */
+  async migrateProcurementLocalDocumentsToS3(
+    clientId: string,
+    context: { actorUserId: string; meta: RequestMeta },
+  ): Promise<{ migratedCount: number }> {
+    return this.procurementLocalDocumentsS3Migration.migrateClientProcurementLocalDocumentsToS3(
+      clientId,
+      context,
+    );
   }
 
   /**

@@ -16,6 +16,12 @@ describe('ClientsController', () => {
     name: 'Client démo',
     slug: 'demo',
   };
+  const mockClientListItem = {
+    ...mockClientResponse,
+    createdAt: new Date('2020-01-01'),
+    procurementAttachmentsNotOnS3Count: 0,
+    procurementS3Configured: true,
+  };
   const passGuard = { canActivate: () => true };
 
   beforeEach(async () => {
@@ -29,6 +35,7 @@ describe('ClientsController', () => {
             create: jest.fn(),
             update: jest.fn(),
             remove: jest.fn(),
+            migrateProcurementLocalDocumentsToS3: jest.fn(),
           },
         },
         {
@@ -57,10 +64,10 @@ describe('ClientsController', () => {
 
   describe('findAll', () => {
     it('should return list of clients', async () => {
-      (service.findAll as jest.Mock).mockResolvedValue([mockClientResponse]);
+      (service.findAll as jest.Mock).mockResolvedValue([mockClientListItem]);
       const result = await controller.findAll();
       expect(service.findAll).toHaveBeenCalledWith();
-      expect(result).toEqual([mockClientResponse]);
+      expect(result).toEqual([mockClientListItem]);
     });
   });
 
@@ -112,6 +119,24 @@ describe('ClientsController', () => {
       (service.remove as jest.Mock).mockResolvedValue(undefined);
       await controller.remove(mockClientResponse.id);
       expect(service.remove).toHaveBeenCalledWith(mockClientResponse.id);
+    });
+  });
+
+  describe('migrateProcurementDocumentsToS3', () => {
+    it('should delegate to service', async () => {
+      (service.migrateProcurementLocalDocumentsToS3 as jest.Mock).mockResolvedValue({
+        migratedCount: 3,
+      });
+      const result = await controller.migrateProcurementDocumentsToS3(
+        mockClientResponse.id,
+        'actor-1',
+        meta,
+      );
+      expect(service.migrateProcurementLocalDocumentsToS3).toHaveBeenCalledWith(
+        mockClientResponse.id,
+        { actorUserId: 'actor-1', meta },
+      );
+      expect(result).toEqual({ migratedCount: 3 });
     });
   });
 });

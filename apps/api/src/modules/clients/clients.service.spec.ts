@@ -9,6 +9,22 @@ import { ResourcesModuleBootstrapService } from '../resources/resources-module-b
 import { RiskTaxonomyService } from '../risk-taxonomy/risk-taxonomy.service';
 import { ActivityTypesService } from '../activity-types/activity-types.service';
 import { ClientDocumentsStorageProvisionerService } from '../procurement/s3/client-documents-storage-provisioner.service';
+import { ProcurementS3ConfigResolverService } from '../procurement/s3/procurement-s3-config.resolver.service';
+import { ProcurementLocalDocumentsS3MigrationService } from '../procurement/s3/procurement-local-documents-s3-migration.service';
+
+const s3ResolverProvider = {
+  provide: ProcurementS3ConfigResolverService,
+  useValue: { resolve: jest.fn().mockResolvedValue({ bucket: 'x' }) },
+};
+
+const procurementMigrationProvider = {
+  provide: ProcurementLocalDocumentsS3MigrationService,
+  useValue: {
+    migrateClientProcurementLocalDocumentsToS3: jest
+      .fn()
+      .mockResolvedValue({ migratedCount: 0 }),
+  },
+};
 
 describe('ClientsService', () => {
   let service: ClientsService;
@@ -35,6 +51,9 @@ describe('ClientsService', () => {
               create: jest.fn(),
               update: jest.fn(),
               delete: jest.fn(),
+            },
+            procurementAttachment: {
+              groupBy: jest.fn(),
             },
             module: {
               findMany: jest.fn(),
@@ -86,6 +105,8 @@ describe('ClientsService', () => {
             provisionClientDocumentStorage: jest.fn().mockResolvedValue(undefined),
           },
         },
+        s3ResolverProvider,
+        procurementMigrationProvider,
       ],
     }).compile();
 
@@ -101,6 +122,9 @@ describe('ClientsService', () => {
   describe('findAll', () => {
     it('should return all clients sorted by createdAt desc', async () => {
       (prisma.client.findMany as jest.Mock).mockResolvedValue([mockClient]);
+      (prisma.procurementAttachment.groupBy as jest.Mock).mockResolvedValue([
+        { clientId: mockClient.id, _count: { id: 2 } },
+      ]);
       const result = await service.findAll();
       expect(prisma.client.findMany).toHaveBeenCalledWith({
         orderBy: { createdAt: 'desc' },
@@ -115,6 +139,8 @@ describe('ClientsService', () => {
       expect(result[0].id).toBe(mockClient.id);
       expect(result[0].name).toBe(mockClient.name);
       expect(result[0].slug).toBe(mockClient.slug);
+      expect(result[0].procurementAttachmentsNotOnS3Count).toBe(2);
+      expect(result[0].procurementS3Configured).toBe(true);
     });
   });
 
@@ -149,6 +175,8 @@ describe('ClientsService', () => {
               provisionClientDocumentStorage: jest.fn().mockResolvedValue(undefined),
             },
           },
+          s3ResolverProvider,
+          procurementMigrationProvider,
         ],
       }).compile();
       const svc = testModule.get<ClientsService>(ClientsService);
@@ -240,6 +268,8 @@ describe('ClientsService', () => {
               provisionClientDocumentStorage: jest.fn().mockResolvedValue(undefined),
             },
           },
+          s3ResolverProvider,
+          procurementMigrationProvider,
         ],
       }).compile();
       const svc = testModule.get<ClientsService>(ClientsService);

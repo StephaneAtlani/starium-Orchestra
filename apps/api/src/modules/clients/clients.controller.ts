@@ -62,6 +62,24 @@ export class ClientsController {
     return this.clients.update(id, dto, { actorUserId: actorUserId!, meta });
   }
 
+  /**
+   * POST /clients/:id/migrate-procurement-documents-to-s3 — migre les pièces procurement
+   * dont le stockage n’est pas encore S3 (références `local`) vers le bucket S3 du client.
+   * Admin plateforme uniquement.
+   */
+  @Post(':id/migrate-procurement-documents-to-s3')
+  @HttpCode(HttpStatus.OK)
+  migrateProcurementDocumentsToS3(
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
+  ) {
+    return this.clients.migrateProcurementLocalDocumentsToS3(id, {
+      actorUserId: actorUserId!,
+      meta,
+    });
+  }
+
   /** DELETE /clients/:id — Suppression physique du client et des ClientUser liés. */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

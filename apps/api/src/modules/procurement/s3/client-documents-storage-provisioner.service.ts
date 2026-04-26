@@ -66,6 +66,30 @@ export class ClientDocumentsStorageProvisionerService {
       return;
     }
 
+    const clientBucket = await this.ensureS3ClientDocumentsBucket(clientId);
+    this.logger.log(
+      `[procurement] S3 → bucket client « ${clientBucket} » (marqueur « ${CLIENT_S3_ROOT_MARKER} » ; pièces sous Commandes|Factures|Contrats).`,
+    );
+  }
+
+  /**
+   * Crée ou met à jour le bucket S3 documents du client (marqueur racine + `documentsBucketName`),
+   * **sans** exiger que le driver effectif soit S3 (ex. migration disque → S3).
+   */
+  async ensureS3ClientDocumentsBucket(clientId: string): Promise<string> {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: {
+        id: true,
+        slug: true,
+        documentsBucketName: true,
+        documentsBucketProvisionedAt: true,
+      },
+    });
+    if (!client) {
+      throw new NotFoundException('Client introuvable');
+    }
+
     const cfg = await this.s3Resolver.resolve();
     if (!cfg) {
       throw new ServiceUnavailableException(
@@ -114,8 +138,6 @@ export class ClientDocumentsStorageProvisionerService {
         },
       });
     }
-    this.logger.log(
-      `[procurement] S3 → bucket client « ${clientBucket} » (marqueur « ${CLIENT_S3_ROOT_MARKER} » ; pièces sous Commandes|Factures|Contrats).`,
-    );
+    return clientBucket;
   }
 }

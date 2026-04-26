@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { CreateClientDialog } from '../../../../features/admin-studio/components/create-client-dialog';
 import { EditClientDialog } from '../../../../features/admin-studio/components/edit-client-dialog';
+import { MigrateClientProcurementS3Dialog } from '../../../../features/admin-studio/components/migrate-client-procurement-s3-dialog';
 import { useClientsQuery } from '../../../../features/admin-studio/hooks/use-clients-query';
 import type { AdminClientSummary } from '../../../../features/admin-studio/types/admin-studio.types';
 
@@ -40,8 +41,13 @@ export default function AdminClientsPage() {
     {
       key: 'actions',
       header: 'Actions',
-      cell: (row) => <EditClientDialog client={row} />,
-      className: 'text-right',
+      cell: (row) => (
+        <div className="flex min-w-[200px] flex-wrap items-center justify-end gap-2">
+          <MigrateClientProcurementS3Dialog client={row} />
+          <EditClientDialog client={row} />
+        </div>
+      ),
+      className: 'text-right align-top',
     },
   ];
 

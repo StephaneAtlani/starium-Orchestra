@@ -27,6 +27,7 @@ import { ProcurementStorageResolutionService } from './s3/procurement-storage-re
 import { S3ProcurementBlobStorageService } from './s3/s3-procurement-blob-storage.service';
 import { PlatformProcurementS3SettingsService } from './s3/platform-procurement-s3-settings.service';
 import { PlatformProcurementS3SettingsController } from './s3/platform-procurement-s3-settings.controller';
+import { ProcurementLocalDocumentsS3MigrationService } from './s3/procurement-local-documents-s3-migration.service';
 import { ProcurementAttachmentsService } from './attachments/procurement-attachments.service';
 import { PurchaseOrderAttachmentsController } from './attachments/purchase-order-attachments.controller';
 import { InvoiceAttachmentsController } from './attachments/invoice-attachments.controller';
@@ -62,6 +63,7 @@ import { PlatformUploadModule } from '../platform-upload/platform-upload.module'
     ClientDocumentsStorageProvisionerService,
     ProcurementObjectStorageService,
     PlatformProcurementS3SettingsService,
+    ProcurementLocalDocumentsS3MigrationService,
     ProcurementAttachmentsService,
     SuppliersService,
     PurchaseOrdersService,
@@ -81,6 +83,8 @@ import { PlatformUploadModule } from '../platform-upload/platform-upload.module'
     SupplierContactsService,
     ProcurementObjectStorageService,
     ClientDocumentsStorageProvisionerService,
+    ProcurementS3ConfigResolverService,
+    ProcurementLocalDocumentsS3MigrationService,
   ],
 })
 export class ProcurementModule {}

@@ -3,6 +3,10 @@ export interface AdminClientSummary {
   name: string;
   slug: string;
   createdAt: string;
+  /** Pièces procurement dont le stockage n’est pas encore S3 (sentinel `local`). */
+  procurementAttachmentsNotOnS3Count: number;
+  /** S3 procurement résolu côté plateforme. */
+  procurementS3Configured: boolean;
 }
 
 export interface AdminClientUserSummary {
