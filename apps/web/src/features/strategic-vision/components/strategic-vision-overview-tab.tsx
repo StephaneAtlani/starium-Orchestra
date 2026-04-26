@@ -10,6 +10,10 @@ import type {
   StrategicObjectiveDto,
   StrategicVisionDto,
 } from '../types/strategic-vision.types';
+import {
+  getObjectiveCountLabel,
+  objectiveCountMetaClassName,
+} from '../lib/strategic-axis-objective-count-badge';
 import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
 import { cn } from '@/lib/utils';
 import { STRATEGIC_AXIS_ICONS, strategicAxisIconColorClass } from './strategic-axis-icons';
@@ -33,8 +37,6 @@ export function StrategicVisionOverviewTab({
   canUpdate: boolean;
 }) {
   const canShowEditControls = isEditMode && canUpdate;
-  const getObjectiveCountLabel = (count: number) =>
-    count === 1 ? '1 objectif classé' : `${count} objectifs classés`;
 
   const handleEditVision = () => undefined;
   const handleEditAxes = () => undefined;
@@ -42,21 +44,23 @@ export function StrategicVisionOverviewTab({
 
   const axisToneClassName = (axisName: string) => {
     const { color } = splitAxisLogoAndTitle(axisName);
-    if (color === 'green') return 'border-emerald-500/30 bg-emerald-500/5';
-    if (color === 'yellow') return 'border-amber-500/30 bg-amber-500/5';
-    if (color === 'purple') return 'border-violet-500/30 bg-violet-500/5';
-    return 'border-blue-500/30 bg-blue-500/5';
-  };
-
-  const objectiveBadgeClassName = (axisName: string) => {
-    const { color } = splitAxisLogoAndTitle(axisName);
-    if (color === 'green')
-      return '!border !border-[#059669] !bg-[#D1FAE5] !text-[#064E3B] dark:!border-[#34D399] dark:!bg-[#065F46]/45 dark:!text-[#ECFDF5]';
-    if (color === 'yellow')
-      return '!border !border-[#D97706] !bg-[#FEF3C7] !text-[#78350F] dark:!border-[#FBBF24] dark:!bg-[#92400E]/40 dark:!text-[#FFFBEB]';
-    if (color === 'purple')
-      return '!border !border-[#7C3AED] !bg-[#EDE9FE] !text-[#4C1D95] dark:!border-[#A78BFA] dark:!bg-[#5B21B6]/40 dark:!text-[#F5F3FF]';
-    return '!border !border-[#2563EB] !bg-[#DBEAFE] !text-[#1E3A8A] dark:!border-[#60A5FA] dark:!bg-[#1D4ED8]/40 dark:!text-[#EFF6FF]';
+    switch (color) {
+      case 'green':
+        return 'border-emerald-500/30 bg-emerald-500/5';
+      case 'amber':
+        return 'border-amber-500/30 bg-amber-500/5';
+      case 'violet':
+        return 'border-violet-500/30 bg-violet-500/5';
+      case 'red':
+        return 'border-red-500/30 bg-red-500/5';
+      case 'primary':
+        return 'border-primary/35 bg-primary/5';
+      case 'blue':
+        return 'border-blue-500/30 bg-blue-500/5';
+      case 'auto':
+      default:
+        return 'border-border/60 bg-muted/40';
+    }
   };
 
   if (isLoading) {
@@ -177,14 +181,9 @@ export function StrategicVisionOverviewTab({
                       <p className="line-clamp-4 min-h-[5rem] text-sm text-muted-foreground">
                         {axis.description ?? 'Aucune description definie pour cet axe.'}
                       </p>
-                      <span
-                        className={cn(
-                          'inline-flex rounded-full px-3 py-1 text-xs font-bold tracking-tight shadow-sm',
-                          objectiveBadgeClassName(axis.name),
-                        )}
-                      >
+                      <p className={objectiveCountMetaClassName}>
                         {getObjectiveCountLabel(axis.objectives.length)}
-                      </span>
+                      </p>
                     </CardContent>
                   </Card>
                 );

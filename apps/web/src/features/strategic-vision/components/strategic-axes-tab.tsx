@@ -11,6 +11,24 @@ import { StrategicObjectiveCard } from './strategic-objective-card';
 import { StrategicAxisEditDialog } from './strategic-axis-edit-dialog';
 import { StrategicObjectiveEditDialog } from './strategic-objective-edit-dialog';
 import { useUpdateStrategicAxisMutation } from '../hooks/use-strategic-vision-queries';
+import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
+import { STRATEGIC_AXIS_ICONS, strategicAxisIconColorClass } from './strategic-axis-icons';
+
+function StrategicAxisHeadingTitle({ axisName }: { axisName: string }) {
+  const { logo, title, color } = splitAxisLogoAndTitle(axisName);
+  const AxisIcon = logo ? STRATEGIC_AXIS_ICONS[logo as keyof typeof STRATEGIC_AXIS_ICONS] : null;
+  return (
+    <>
+      {AxisIcon ? (
+        <AxisIcon
+          className={`size-5 shrink-0 ${strategicAxisIconColorClass(color)}`}
+          aria-hidden
+        />
+      ) : null}
+      <span>{title}</span>
+    </>
+  );
+}
 
 export function StrategicAxesTab({
   axes,
@@ -109,8 +127,13 @@ export function StrategicAxesTab({
       </div>
 
       <section className="space-y-3">
-        <h3 className="text-base font-semibold">
-          Detail axe: {selectedAxis?.name ?? 'Aucun axe selectionne'}
+        <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
+          <span className="text-muted-foreground">Détail de l&apos;axe</span>
+          {selectedAxis ? (
+            <StrategicAxisHeadingTitle axisName={selectedAxis.name} />
+          ) : (
+            <span className="font-normal text-muted-foreground">Aucun axe sélectionné</span>
+          )}
         </h3>
         {!selectedAxis || selectedAxis.objectives.length === 0 ? (
           <Alert>

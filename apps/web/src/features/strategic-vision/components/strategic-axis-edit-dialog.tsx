@@ -13,6 +13,7 @@ import {
 import { toast } from '@/lib/toast';
 import type { StrategicAxisDto } from '../types/strategic-vision.types';
 import { useUpdateStrategicAxisMutation } from '../hooks/use-strategic-vision-queries';
+import { suggestStrategicAxisIconKeyFromTitle } from '../lib/strategic-axis-icon-suggest-from-title';
 import {
   buildAxisNameWithLogo,
   splitAxisLogoAndTitle,
@@ -50,6 +51,8 @@ export function StrategicAxisEditDialog({
     setName(parsed.title);
     setDescription(axis.description ?? '');
   }, [axis]);
+
+  const previewIconKey = logo ? logo : suggestStrategicAxisIconKeyFromTitle(name);
 
   const handleSave = async () => {
     if (!axis) return;
@@ -94,14 +97,22 @@ export function StrategicAxisEditDialog({
               ))}
             </select>
           </label>
-          {logo ? (
+          {previewIconKey ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               {(() => {
-                const Icon = STRATEGIC_AXIS_ICONS[logo];
+                const Icon = STRATEGIC_AXIS_ICONS[previewIconKey];
                 if (!Icon) return null;
-                return <Icon className={`size-4 ${strategicAxisIconColorClass(color)}`} />;
+                return (
+                  <Icon
+                    className={`size-4 shrink-0 ${strategicAxisIconColorClass(color)}${logo ? '' : ' opacity-80'}`}
+                  />
+                );
               })()}
-              Aperçu icône
+              <span>
+                {logo
+                  ? 'Aperçu icône'
+                  : 'Exemple selon le titre — choisissez une icône pour l’enregistrer'}
+              </span>
             </div>
           ) : null}
           <label className="space-y-1 text-sm">

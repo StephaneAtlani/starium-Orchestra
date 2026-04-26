@@ -9,6 +9,10 @@ import type {
   StrategicObjectiveDto,
   StrategicObjectiveStatus,
 } from '../types/strategic-vision.types';
+import {
+  getObjectiveCountLabel,
+  objectiveCountMetaClassName,
+} from '../lib/strategic-axis-objective-count-badge';
 import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
 import { STRATEGIC_AXIS_ICONS, strategicAxisIconColorClass } from './strategic-axis-icons';
 
@@ -43,8 +47,7 @@ export function StrategicAxisCard({
   showEditIcon?: boolean;
 }) {
   const objectiveCount = axis.objectives.length;
-  const objectiveCountLabel =
-    objectiveCount === 1 ? '1 objectif classé' : `${objectiveCount} objectifs classés`;
+  const objectiveCountLabel = getObjectiveCountLabel(objectiveCount);
   const { logo, title, color } = splitAxisLogoAndTitle(axis.name);
   const AxisIcon = logo ? STRATEGIC_AXIS_ICONS[logo as keyof typeof STRATEGIC_AXIS_ICONS] : null;
   return (
@@ -82,13 +85,8 @@ export function StrategicAxisCard({
             </Button>
           ) : null}
         </div>
-        <div className="flex flex-wrap gap-1">
-          <Badge
-            variant="outline"
-            className="h-auto rounded-full border-blue-500/60 bg-blue-100 px-3 py-1 text-xs font-semibold tracking-tight text-blue-900 shadow-sm dark:border-blue-300/50 dark:bg-blue-500/20 dark:text-blue-100"
-          >
-            {objectiveCountLabel}
-          </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={objectiveCountMetaClassName}>{objectiveCountLabel}</p>
           {draggable ? <Badge variant="outline">Glisser-déposer</Badge> : null}
         </div>
       </CardHeader>
