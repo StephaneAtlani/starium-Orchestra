@@ -90,7 +90,7 @@ export default function ProjectsPortfolioPage() {
                     href={projectsPortfolioGantt()}
                     className={cn(
                       buttonVariants({ variant: 'outline', size: 'sm' }),
-                      'gap-1.5',
+                      'gap-1.5 border-primary/45 text-primary hover:border-primary/70 hover:bg-primary/10 hover:text-primary',
                     )}
                   >
                     <CalendarRange className="size-4" />
