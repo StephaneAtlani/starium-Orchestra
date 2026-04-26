@@ -1062,6 +1062,11 @@ const CLIENTS: ClientSeed[] = [
 ];
 
 async function upsertUser(user: UserSeed, passwordHash: string) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "upsertUser: interdit en production — le seed ne doit jamais créer ni mettre à jour des comptes.",
+    );
+  }
   return prisma.user.upsert({
     where: { email: user.email },
     update: {
@@ -1102,6 +1107,11 @@ async function upsertClient(seed: ClientSeed) {
  * Mot de passe = même constante PASSWORD que les comptes *.demo.
  */
 async function ensurePlatformAdminUser(passwordHash: string): Promise<void> {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "ensurePlatformAdminUser: interdit en production — le seed ne doit jamais réécrire les comptes.",
+    );
+  }
   const email = "admin@starium.fr";
   await prisma.user.upsert({
     where: { email },
@@ -3279,6 +3289,33 @@ async function ensurePlatformUiBadgeDefaultsFromFile(): Promise<void> {
   );
 }
 
+/**
+ * --- Périmètre `prisma db seed` en PRODUCTION (`NODE_ENV=production`) ---
+ *
+ * Prérequis : `ALLOW_PROD_SEED=true` (sinon le script quitte en erreur).
+ *
+ * **Jamais en prod** (même avec d’anciennes variables d’env) :
+ * - table `User` (pas de création / mise à jour / `passwordHash` / `passwordLoginEnabled`) ;
+ * - clients démo, budgets démo, projets SEED, `updateMany` sur les `*.demo` ;
+ * - `ensureMemberHumanResourcesForAllClientUsers` (bloc démo uniquement hors prod).
+ *
+ * **Toujours exécuté en prod** (référentiel plateforme + RBAC, hors identifiants) :
+ * - `PlatformUiBadgeSettings` : défauts JSON **uniquement si** `badgeConfig` est encore null ;
+ * - `Module` + `Permission` : compliance, contracts, strategic vision, alerts, notifications,
+ *   collaborators, skills, teams, activity_types, risks, resources ; permission snapshot budgets ;
+ * - `SupplierContractKindType` globaux (`clientId` null) manquants ;
+ * - `Role` scope GLOBAL depuis `default-profiles.json` + **remplacement** des `RolePermission`
+ *   de ces rôles par le contenu du fichier (deleteMany puis createMany par rôle) ;
+ *   suppression éventuelle du rôle legacy « Responsable Stratégie » ;
+ * - `BudgetSnapshotOccasionType` globaux manquants (CODIR, workflow, etc.) ;
+ * - rôles globaux « Client admin — taxonomie risques / équipes métier / contrats » + leurs
+ *   `RolePermission` ; **liaisons `UserRole`** (upsert) pour chaque `ClientUser` CLIENT_ADMIN actif
+ *   → élargit les droits métier des admins client, **sans** toucher aux mots de passe ;
+ * - `ActivityType` : pour chaque client, une ligne par `kind` **seulement** si aucune ligne n’existe
+ *   déjà pour ce kind (pas de modification des types existants).
+ *
+ * Hors production : le bloc démo complet s’exécute en plus (voir `if (runDemoSeed)` dans `main`).
+ */
 async function main() {
   const isProduction = process.env.NODE_ENV === "production";
   const allowProdSeed = process.env.ALLOW_PROD_SEED === "true";
@@ -3288,7 +3325,17 @@ async function main() {
     );
   }
 
-  const passwordHash = await bcrypt.hash(PASSWORD, 10);
+  /**
+   * Le bloc démo (comptes `User`, `admin@starium.fr`, clients fictifs, portefeuille SEED, etc.)
+   * ne s’exécute **jamais** en `NODE_ENV=production` — aucune création ni mise à jour de comptes depuis le seed.
+   * En prod, seul le référentiel RBAC / modules / profils globaux (hors `User`) peut tourner avec `ALLOW_PROD_SEED=true`.
+   */
+  const runDemoSeed = !isProduction;
+  if (isProduction && process.env.ALLOW_PROD_SEED_DEMO === "true") {
+    console.warn(
+      "ALLOW_PROD_SEED_DEMO est ignoré en production : le seed ne modifie jamais les comptes ni ne rejoue la démo.",
+    );
+  }
 
   await ensurePlatformUiBadgeDefaultsFromFile();
 
@@ -3307,13 +3354,40 @@ async function main() {
   await ensureDefaultGlobalProfiles();
   await ensureGlobalBudgetSnapshotOccasionTypes();
   await ensureClientAdminRiskTaxonomyRole();
-  await ensurePlatformAdminUser(passwordHash);
 
-  for (const clientSeed of CLIENTS) {
-    await seedClient(clientSeed, passwordHash);
+  if (runDemoSeed) {
+    const passwordHash = await bcrypt.hash(PASSWORD, 10);
+    await ensurePlatformAdminUser(passwordHash);
+
+    for (const clientSeed of CLIENTS) {
+      await seedClient(clientSeed, passwordHash);
+    }
+
+    await ensureMemberHumanResourcesForAllClientUsers();
+
+    await ensureBudgetCockpitCompleteDemo(prisma);
+
+    await ensureBudgetSnapshotsAndVersions(prisma);
+
+    await backfillBudgetLinesMissingPlanningMonths();
+
+    await ensureDemoProjectsForAllClients();
+
+    /** Après un SSO Microsoft, `passwordLoginEnabled` est à false → login mot de passe impossible. Réactive les comptes démo à chaque seed. */
+    const demoLoginReset = await prisma.user.updateMany({
+      where: {
+        email: { endsWith: ".demo", mode: "insensitive" },
+      },
+      data: { passwordLoginEnabled: true },
+    });
+    console.log(
+      `✅ Comptes *.demo : connexion par mot de passe réactivée (${demoLoginReset.count} utilisateur(s))`,
+    );
+  } else if (isProduction) {
+    console.log(
+      "⏭️  Production : seed démo / comptes utilisateurs ignorés (règle stricte — jamais d’écriture User en prod via ce script).",
+    );
   }
-
-  await ensureMemberHumanResourcesForAllClientUsers();
 
   await ensureDefaultActivityTypesForAllClients();
 
@@ -3321,27 +3395,10 @@ async function main() {
 
   await ensureClientAdminContractsModuleRole();
 
-  await ensureBudgetCockpitCompleteDemo(prisma);
-
-  await ensureBudgetSnapshotsAndVersions(prisma);
-
-  await backfillBudgetLinesMissingPlanningMonths();
-
-  await ensureDemoProjectsForAllClients();
-
-  /** Après un SSO Microsoft, `passwordLoginEnabled` est à false → login mot de passe impossible. Réactive les comptes démo à chaque seed. */
-  const demoLoginReset = await prisma.user.updateMany({
-    where: {
-      email: { endsWith: ".demo", mode: "insensitive" },
-    },
-    data: { passwordLoginEnabled: true },
-  });
-  console.log(
-    `✅ Comptes *.demo : connexion par mot de passe réactivée (${demoLoginReset.count} utilisateur(s))`,
-  );
-
   console.log("✅ Seed termine");
-  console.log(`Mot de passe commun: ${PASSWORD}`);
+  if (runDemoSeed) {
+    console.log(`Mot de passe commun (comptes seed / admin plateforme): ${PASSWORD}`);
+  }
 }
 
 main()
