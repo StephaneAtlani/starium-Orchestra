@@ -1,10 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+  AlertSeverity,
+  AlertType,
   ChatbotKnowledgeEntryType,
   ChatbotKnowledgeScope,
   ChatbotMessageRole,
+  NotificationStatus,
+  NotificationType,
   Prisma,
+  PlatformRole,
 } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ChatbotStructuredLink } from './chatbot-structured-links.validator';
 import { parseAndValidateStructuredLinks } from './chatbot-structured-links.validator';
@@ -15,6 +21,7 @@ import {
 import { ChatbotMatchingService } from './chatbot-matching.service';
 import { UserClientAccessService } from './user-client-access.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AlertsService } from '../alerts/alerts.service';
 import type { PostChatbotFeedbackDto } from './dto/post-chatbot-feedback.dto';
 import type { RequestMeta } from '../../common/decorators/request-meta.decorator';
 
@@ -45,6 +52,7 @@ export class ChatbotService {
     private readonly matching: ChatbotMatchingService,
     private readonly access: UserClientAccessService,
     private readonly auditLogs: AuditLogsService,
+    private readonly alerts: AlertsService,
   ) {}
 
   private scopeWhere(clientId: string): Prisma.ChatbotKnowledgeEntryWhereInput {
@@ -272,6 +280,8 @@ export class ChatbotService {
       answer: e.answer,
       entryId: e.id,
       slug: e.slug,
+      entryTitle: e.title,
+      entryType: e.type,
       hasFullContent: !!(e.content && e.content.trim().length > 0),
       structuredLinks,
       relatedArticles,
@@ -320,7 +330,7 @@ export class ChatbotService {
       where: { id: conversationId, userId, clientId },
     });
     if (!conv) throw new NotFoundException();
-    return this.prisma.chatbotMessage.findMany({
+    const msgs = await this.prisma.chatbotMessage.findMany({
       where: { conversationId },
       orderBy: { createdAt: 'asc' },
       select: {
@@ -328,7 +338,36 @@ export class ChatbotService {
         content: true,
         noAnswerFallbackUsed: true,
         createdAt: true,
+        matchedEntryId: true,
       },
+    });
+
+    const ids = [
+      ...new Set(
+        msgs.map((m) => m.matchedEntryId).filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const entries =
+      ids.length === 0
+        ? []
+        : await this.prisma.chatbotKnowledgeEntry.findMany({
+            where: { id: { in: ids } },
+            select: { id: true, slug: true, title: true, type: true },
+          });
+    const byId = new Map(entries.map((e) => [e.id, e]));
+
+    return msgs.map((m) => {
+      const ent = m.matchedEntryId ? byId.get(m.matchedEntryId) : undefined;
+      return {
+        role: m.role,
+        content: m.content,
+        noAnswerFallbackUsed: m.noAnswerFallbackUsed,
+        createdAt: m.createdAt,
+        matchedEntry:
+          m.role === ChatbotMessageRole.ASSISTANT && ent
+            ? { slug: ent.slug, title: ent.title, type: ent.type }
+            : null,
+      };
     });
   }
 
@@ -438,11 +477,24 @@ export class ChatbotService {
   }
 
   async explore(userId: string, clientId: string, q?: string) {
-    const categories = await this.listCategoriesPublic(userId, clientId);
+    const categoriesAll = await this.listCategoriesPublic(userId, clientId);
     const visible = await this.loadVisibleEntries(userId, clientId, {
       isActive: true,
       archivedAt: null,
     });
+
+    const categorySlugsWithArticles = new Set<string>();
+    for (const e of visible) {
+      if (
+        e.type === ChatbotKnowledgeEntryType.ARTICLE &&
+        e.category?.slug
+      ) {
+        categorySlugsWithArticles.add(e.category.slug);
+      }
+    }
+    const categories = categoriesAll.filter((c) =>
+      categorySlugsWithArticles.has(c.slug),
+    );
 
     let articles = visible.filter((e) => e.type === ChatbotKnowledgeEntryType.ARTICLE);
     const qn = (q ?? '').trim().toLowerCase();
@@ -504,6 +556,74 @@ export class ChatbotService {
       userAgent: meta.userAgent,
       requestId: meta.requestId,
     });
+
+    // Assistance générale + retours « Assistance Cursor Starium » (code CHATBOT) :
+    // alerte client + notifs admins plateforme + visibilité onglet Support admin.
+    if (category === 'ASSISTANCE' || category === 'CHATBOT') {
+      const entityId = randomUUID();
+      const preview =
+        message.length > 280 ? `${message.slice(0, 280)}…` : message;
+      const ruleCode =
+        category === 'CHATBOT'
+          ? 'chatbot.feedback.cursor_starium'
+          : 'chatbot.feedback.assistance';
+      const entityLabel =
+        category === 'CHATBOT'
+          ? 'Assistance Cursor Starium (widget)'
+          : 'Demande assistance (widget Starium)';
+      const title =
+        category === 'CHATBOT'
+          ? 'Assistance Cursor Starium — incident / demande'
+          : 'Demande d’assistance (Cursor Starium)';
+      const alert = await this.alerts.upsertAlert({
+        clientId,
+        actorUserId: userId,
+        type: AlertType.GENERIC,
+        severity: AlertSeverity.WARNING,
+        ruleCode,
+        entityType: 'chatbot.feedback',
+        entityId,
+        entityLabel,
+        title,
+        message: preview,
+        metadata: { pagePath, feedbackUserId: userId, feedbackCategory: category },
+        meta: {
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+          requestId: meta.requestId,
+        },
+      });
+
+      const platformAdmins = await this.prisma.user.findMany({
+        where: { platformRole: PlatformRole.PLATFORM_ADMIN },
+        select: { id: true },
+      });
+      for (const admin of platformAdmins) {
+        const existing = await this.prisma.notification.findFirst({
+          where: {
+            clientId,
+            userId: admin.id,
+            alertId: alert.id,
+          },
+        });
+        if (existing) continue;
+        await this.prisma.notification.create({
+          data: {
+            clientId,
+            userId: admin.id,
+            alertId: alert.id,
+            type: NotificationType.ALERT,
+            title,
+            message: preview,
+            status: NotificationStatus.UNREAD,
+            entityType: 'chatbot.feedback',
+            entityId,
+            entityLabel,
+            alertSeverity: AlertSeverity.WARNING,
+          },
+        });
+      }
+    }
 
     return { ok: true };
   }

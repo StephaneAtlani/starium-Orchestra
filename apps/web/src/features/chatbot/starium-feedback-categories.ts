@@ -5,6 +5,7 @@ export const STARIUM_FEEDBACK_CATEGORY_CODES = [
   'FEATURE',
   'PERFORMANCE',
   'CHATBOT',
+  'ASSISTANCE',
   'OTHER',
 ] as const;
 
@@ -15,6 +16,7 @@ export const STARIUM_FEEDBACK_CATEGORY_LABEL: Record<StariumFeedbackCategoryCode
   UX: 'Ergonomie, clarté, navigation',
   FEATURE: 'Idée ou besoin métier',
   PERFORMANCE: 'Lenteur ou fiabilité',
-  CHATBOT: 'Assistant Cursor Starium',
+  CHATBOT: 'Assistance Cursor Starium',
+  ASSISTANCE: 'Assistance',
   OTHER: 'Autre',
 };

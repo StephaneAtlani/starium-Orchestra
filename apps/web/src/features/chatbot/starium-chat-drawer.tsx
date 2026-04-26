@@ -1,10 +1,18 @@
 'use client';
 
-import React, { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   ArrowUp,
+  ChevronLeft,
   ChevronRight,
   CircleHelp,
   Home,
@@ -30,6 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LoadingState } from '@/components/feedback/loading-state';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -47,6 +56,8 @@ type ChatLine = {
   content: string;
   /** Réponse générique « pas d’entrée KB » — proposer le support. */
   noAnswerFallbackUsed?: boolean;
+  /** Entrée KB ayant servi de source — lien « Voir la FAQ / l’article ». */
+  sourceEntry?: { slug: string; title: string; type: 'FAQ' | 'ARTICLE' };
 };
 
 type StructuredLink = {
@@ -73,6 +84,8 @@ type PostMessageResponse = {
   conversationId: string;
   answer: string;
   slug: string | null;
+  entryTitle?: string | null;
+  entryType?: 'FAQ' | 'ARTICLE' | null;
   hasFullContent?: boolean;
   structuredLinks?: StructuredLink[];
   relatedArticles?: { title: string; slug: string; icon?: string | null }[];
@@ -83,8 +96,60 @@ type PostMessageResponse = {
 type ExplorePayload = {
   categories: { name: string; slug: string; isFeatured: boolean }[];
   featuredCategories: { name: string; slug: string }[];
-  popularArticles: { title: string; slug: string }[];
+  popularArticles: { title: string; slug: string; icon?: string | null; type?: string }[];
+  /** Jusqu’à 50 entrées (filtrées côté API si `?q=`). */
+  articles?: { title: string; slug: string; icon?: string | null; type?: string }[];
 };
+
+type ReaderFrame =
+  | { kind: 'article'; slug: string }
+  | { kind: 'category'; slug: string; titleHint?: string }
+  | { kind: 'explore' };
+
+type ArticleReaderPayload = {
+  title: string;
+  slug: string;
+  answer: string | null;
+  content: string | null;
+  structuredLinks: StructuredLink[];
+  relatedArticles: { title: string; slug: string; icon?: string | null }[];
+  category: { name: string; slug: string; icon?: string | null } | null;
+};
+
+type CategoryEntryRow = {
+  title: string;
+  slug: string;
+  icon?: string | null;
+  type?: string;
+};
+
+type ReaderBody =
+  | { type: 'article'; data: ArticleReaderPayload }
+  | { type: 'category'; slug: string; items: CategoryEntryRow[] }
+  | { type: 'explore'; data: ExplorePayload }
+  | { type: 'error'; message: string };
+
+function parseExploreHref(href: string): ReaderFrame | null {
+  try {
+    const path = (href.split('?')[0] ?? '').split('#')[0] ?? '';
+    const mArticle = path.match(/^\/chatbot\/explore\/article\/(.+)$/);
+    if (mArticle?.[1]) {
+      return { kind: 'article', slug: decodeURIComponent(mArticle[1]) };
+    }
+    const mCat = path.match(/^\/chatbot\/explore\/category\/(.+)$/);
+    if (mCat?.[1]) {
+      return { kind: 'category', slug: decodeURIComponent(mCat[1]) };
+    }
+    if (path === '/chatbot/explore') {
+      return { kind: 'explore' };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+type ArticleHint = { title: string; slug: string };
 
 type ConvRow = { id: string; title: string | null; updatedAt: string };
 
@@ -104,6 +169,100 @@ function formatRelativeFr(iso: string): string {
   } catch {
     return '';
   }
+}
+
+function ExploreKnowledgeSections({
+  data,
+  pushReader,
+}: {
+  data: ExplorePayload;
+  pushReader: (frame: ReaderFrame) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <section>
+        <h2 className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+          Catégories mises en avant
+        </h2>
+        {data.featuredCategories.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Aucune catégorie mise en avant.</p>
+        ) : (
+          <ul className="space-y-1">
+            {data.featuredCategories.map((c) => (
+              <li key={c.slug}>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-left text-sm hover:bg-muted/60"
+                  onClick={() =>
+                    pushReader({
+                      kind: 'category',
+                      slug: c.slug,
+                      titleHint: c.name,
+                    })
+                  }
+                >
+                  <span className="font-medium text-foreground">{c.name}</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-primary opacity-80" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section>
+        <h2 className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+          Toutes les catégories
+        </h2>
+        {data.categories.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Aucune catégorie.</p>
+        ) : (
+          <ul className="space-y-1">
+            {data.categories.map((c) => (
+              <li key={c.slug}>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-left text-sm hover:bg-muted/60"
+                  onClick={() =>
+                    pushReader({
+                      kind: 'category',
+                      slug: c.slug,
+                      titleHint: c.name,
+                    })
+                  }
+                >
+                  {c.name}
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section>
+        <h2 className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+          Articles populaires
+        </h2>
+        {data.popularArticles.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Aucun article populaire.</p>
+        ) : (
+          <ul className="divide-y divide-border/50 rounded-xl border border-border/50 bg-card">
+            {data.popularArticles.map((a) => (
+              <li key={a.slug}>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                  onClick={() => pushReader({ kind: 'article', slug: a.slug })}
+                >
+                  <span className="line-clamp-2">{a.title}</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-primary opacity-80" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
 }
 
 type TabId = 'home' | 'conversations' | 'help' | 'feedback';
@@ -134,6 +293,13 @@ export function StariumChatDrawer() {
     structuredLinks: StructuredLink[];
     relatedArticles: { title: string; slug: string; icon?: string | null }[];
   } | null>(null);
+  /** Saisie conversations : résultats API `explore?q=` (debounce). */
+  const [remoteArticleHits, setRemoteArticleHits] = useState<ArticleHint[] | null>(null);
+  const [remoteArticleLoading, setRemoteArticleLoading] = useState(false);
+  /** Lecteur KB interne (pile) — ne quitte pas le widget. */
+  const [readerStack, setReaderStack] = useState<ReaderFrame[]>([]);
+  const [readerBody, setReaderBody] = useState<ReaderBody | null>(null);
+  const [readerLoading, setReaderLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fetchAuth = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -160,9 +326,84 @@ export function StariumChatDrawer() {
     void loadHomeData();
   }, [open, loadHomeData]);
 
+  const catalogArticles = useMemo((): ArticleHint[] => {
+    if (!explore) return [];
+    const bySlug = new Map<string, ArticleHint>();
+    for (const a of explore.popularArticles ?? []) {
+      bySlug.set(a.slug, { title: a.title, slug: a.slug });
+    }
+    for (const a of explore.articles ?? []) {
+      bySlug.set(a.slug, { title: a.title, slug: a.slug });
+    }
+    return [...bySlug.values()];
+  }, [explore]);
+
+  /** Suggestions pendant la saisie (nouvelle conversation) : local puis résultats API si ≥ 2 caractères. */
+  const articleHintsWhileTyping = useMemo(() => {
+    const raw = input.trim();
+    const q = raw.toLowerCase();
+    if (raw.length === 0) return null;
+    const localFiltered = catalogArticles.filter(
+      (a) =>
+        a.title.toLowerCase().includes(q) || a.slug.toLowerCase().includes(q),
+    ).slice(0, 12);
+    if (q.length >= 2 && remoteArticleHits !== null) return remoteArticleHits;
+    return localFiltered;
+  }, [input, catalogArticles, remoteArticleHits]);
+
+  useEffect(() => {
+    if (tab !== 'conversations' || lines.length > 0 || conversationId != null) {
+      setRemoteArticleHits(null);
+      setRemoteArticleLoading(false);
+      return;
+    }
+    const q = input.trim();
+    if (q.length < 2) {
+      setRemoteArticleHits(null);
+      setRemoteArticleLoading(false);
+      return;
+    }
+    if (!activeClient?.id) return;
+
+    setRemoteArticleHits(null);
+    let cancelled = false;
+    setRemoteArticleLoading(true);
+    const t = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const url = `${stariumApiPath('/api/chatbot/explore')}?q=${encodeURIComponent(q)}`;
+          const res = await fetchAuth(url);
+          if (cancelled) return;
+          if (!res.ok) {
+            setRemoteArticleHits([]);
+            return;
+          }
+          const data = (await res.json()) as ExplorePayload;
+          const bySlug = new Map<string, ArticleHint>();
+          for (const a of data.articles ?? []) {
+            bySlug.set(a.slug, { title: a.title, slug: a.slug });
+          }
+          for (const a of data.popularArticles ?? []) {
+            bySlug.set(a.slug, { title: a.title, slug: a.slug });
+          }
+          setRemoteArticleHits([...bySlug.values()].slice(0, 15));
+        } catch {
+          if (!cancelled) setRemoteArticleHits([]);
+        } finally {
+          if (!cancelled) setRemoteArticleLoading(false);
+        }
+      })();
+    }, 320);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+      setRemoteArticleLoading(false);
+    };
+  }, [input, tab, lines.length, conversationId, fetchAuth, activeClient?.id]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [lines, open, tab, status]);
+  }, [lines, open, tab, status, input, remoteArticleHits, remoteArticleLoading]);
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -208,9 +449,17 @@ export function StariumChatDrawer() {
         assistant = data.fallbackMessage;
       }
       const noAnswerFallbackUsed = data.noAnswerFallbackUsed === true;
+      const sourceEntry =
+        data.slug && !noAnswerFallbackUsed
+          ? {
+              slug: data.slug,
+              title: (data.entryTitle ?? '').trim() || data.slug,
+              type: data.entryType === 'FAQ' ? ('FAQ' as const) : ('ARTICLE' as const),
+            }
+          : undefined;
       setLines((prev) => [
         ...prev,
-        { role: 'ASSISTANT', content: assistant, noAnswerFallbackUsed },
+        { role: 'ASSISTANT', content: assistant, noAnswerFallbackUsed, sourceEntry },
       ]);
       setLastExtras({
         slug: data.slug,
@@ -231,6 +480,126 @@ export function StariumChatDrawer() {
     }
   }, [input, fetchAuth, activeClient?.id, conversationId, loadHomeData]);
 
+  const pushReader = useCallback((frame: ReaderFrame) => {
+    setReaderStack((s) => [...s, frame]);
+  }, []);
+
+  const popReader = useCallback(() => {
+    setReaderStack((s) => s.slice(0, -1));
+  }, []);
+
+  useEffect(() => {
+    if (!open || !activeClient?.id) {
+      return;
+    }
+    if (readerStack.length === 0) {
+      setReaderBody(null);
+      setReaderLoading(false);
+      return;
+    }
+
+    const top = readerStack[readerStack.length - 1];
+    let cancelled = false;
+    setReaderLoading(true);
+    setReaderBody(null);
+
+    void (async () => {
+      try {
+        if (top.kind === 'article') {
+          const res = await fetchAuth(
+            stariumApiPath(`/api/chatbot/entries/${encodeURIComponent(top.slug)}`),
+          );
+          if (cancelled) return;
+          if (!res.ok) {
+            const t = await res.text().catch(() => res.statusText);
+            setReaderBody({
+              type: 'error',
+              message: humanizeFetchErrorMessage(t || res.statusText),
+            });
+            setReaderLoading(false);
+            return;
+          }
+          const data = (await res.json()) as ArticleReaderPayload;
+          if (!cancelled) {
+            setReaderBody({ type: 'article', data });
+            setReaderLoading(false);
+          }
+          return;
+        }
+        if (top.kind === 'category') {
+          const res = await fetchAuth(
+            stariumApiPath(`/api/chatbot/categories/${encodeURIComponent(top.slug)}/entries`),
+          );
+          if (cancelled) return;
+          if (!res.ok) {
+            const t = await res.text().catch(() => res.statusText);
+            setReaderBody({
+              type: 'error',
+              message: humanizeFetchErrorMessage(t || res.statusText),
+            });
+            setReaderLoading(false);
+            return;
+          }
+          const items = (await res.json()) as CategoryEntryRow[];
+          if (!cancelled) {
+            setReaderBody({ type: 'category', slug: top.slug, items });
+            setReaderLoading(false);
+          }
+          return;
+        }
+        const res = await fetchAuth(stariumApiPath('/api/chatbot/explore'));
+        if (cancelled) return;
+        if (!res.ok) {
+          const t = await res.text().catch(() => res.statusText);
+          setReaderBody({
+            type: 'error',
+            message: humanizeFetchErrorMessage(t || res.statusText),
+          });
+          setReaderLoading(false);
+          return;
+        }
+        const data = (await res.json()) as ExplorePayload;
+        if (!cancelled) {
+          setReaderBody({ type: 'explore', data });
+          setReaderLoading(false);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setReaderBody({
+            type: 'error',
+            message:
+              e instanceof Error
+                ? humanizeFetchErrorMessage(e.message)
+                : humanizeFetchErrorMessage(''),
+          });
+          setReaderLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [readerStack, open, activeClient?.id, fetchAuth]);
+
+  const readerHeaderTitle = useMemo(() => {
+    if (readerStack.length === 0) return '';
+    const top = readerStack[readerStack.length - 1];
+    if (readerLoading && !readerBody) {
+      if (top.kind === 'article') return 'Article';
+      if (top.kind === 'category') return top.titleHint ?? 'Catégorie';
+      return 'Base de connaissance';
+    }
+    if (!readerBody) return '';
+    if (readerBody.type === 'article') return readerBody.data.title;
+    if (readerBody.type === 'category') {
+      return top.kind === 'category' && top.titleHint ? top.titleHint : 'Catégorie';
+    }
+    if (readerBody.type === 'explore') return 'Base de connaissance';
+    if (readerBody.type === 'error') return 'Erreur';
+    return '';
+  }, [readerStack, readerLoading, readerBody]);
+
   const reset = () => {
     setTab('home');
     setLines([]);
@@ -243,6 +612,9 @@ export function StariumChatDrawer() {
     setFeedbackStatus('idle');
     setFeedbackError(null);
     setFeedbackCategory('BUG');
+    setReaderStack([]);
+    setReaderBody(null);
+    setReaderLoading(false);
   };
 
   const submitFeedback = useCallback(async () => {
@@ -302,6 +674,7 @@ export function StariumChatDrawer() {
       role: string;
       content: string;
       noAnswerFallbackUsed?: boolean;
+      matchedEntry?: { slug: string; title: string; type: 'FAQ' | 'ARTICLE' } | null;
     }[];
     setLines(
       msgs.map((m) => {
@@ -311,6 +684,14 @@ export function StariumChatDrawer() {
           content: m.content,
           noAnswerFallbackUsed:
             role === 'ASSISTANT' ? Boolean(m.noAnswerFallbackUsed) : undefined,
+          sourceEntry:
+            role === 'ASSISTANT' && m.matchedEntry
+              ? {
+                  slug: m.matchedEntry.slug,
+                  title: m.matchedEntry.title,
+                  type: m.matchedEntry.type,
+                }
+              : undefined,
         };
       }),
     );
@@ -324,19 +705,21 @@ export function StariumChatDrawer() {
     setTab('conversations');
   };
 
-  const faqRows: { label: string; href: string }[] = [];
+  const faqRows: { label: string; key: string; frame: ReaderFrame }[] = [];
   if (explore) {
     for (const c of explore.featuredCategories.slice(0, 4)) {
       faqRows.push({
         label: c.name,
-        href: `/chatbot/explore/category/${encodeURIComponent(c.slug)}`,
+        key: `cat:${c.slug}`,
+        frame: { kind: 'category', slug: c.slug, titleHint: c.name },
       });
     }
     for (const a of explore.popularArticles.slice(0, 4)) {
       if (faqRows.length >= 8) break;
       faqRows.push({
         label: a.title,
-        href: `/chatbot/explore/article/${encodeURIComponent(a.slug)}`,
+        key: `art:${a.slug}`,
+        frame: { kind: 'article', slug: a.slug },
       });
     }
   }
@@ -371,7 +754,7 @@ export function StariumChatDrawer() {
             setOpen(true);
           }}
           className={cn(
-            'absolute z-20 flex h-14 w-14 items-center justify-center rounded-full',
+            'absolute z-[500] flex h-14 w-14 items-center justify-center rounded-full',
             'bg-primary text-primary-foreground shadow-[0_8px_32px_-4px_rgba(0,0,0,0.35)]',
             'ring-4 ring-background transition-transform hover:scale-[1.06] active:scale-95',
             'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -381,21 +764,145 @@ export function StariumChatDrawer() {
           )}
         >
           <Sparkles className="starium-chat-fab-icon-float h-6 w-6" aria-hidden />
-          <span
-            className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[8px] font-bold leading-none text-white ring-2 ring-background"
-            aria-hidden
-          />
         </button>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent chatWidget showCloseButton>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) {
+            setReaderStack([]);
+            setReaderBody(null);
+            setReaderLoading(false);
+          }
+        }}
+      >
+        <DialogContent
+          chatWidget
+          showCloseButton
+          overlayClassName="z-[500]"
+          className="z-[501]"
+        >
           <DialogTitle className="sr-only">Cursor Starium</DialogTitle>
           <DialogDescription className="sr-only">
             Assistant à réponses configurées — style accueil support.
           </DialogDescription>
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+            {readerStack.length > 0 ? (
+              <div className="absolute inset-0 z-[100] flex min-h-0 flex-col overflow-hidden bg-background">
+                <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-muted/20 px-2 py-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shrink-0 gap-1 px-2 text-xs"
+                    onClick={popReader}
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden />
+                    Retour
+                  </Button>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+                    {readerHeaderTitle}
+                  </span>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
+                  {readerLoading && !readerBody ? (
+                    <LoadingState rows={5} />
+                  ) : readerBody?.type === 'error' ? (
+                    <Alert variant="destructive">
+                      <AlertDescription className="text-xs">{readerBody.message}</AlertDescription>
+                    </Alert>
+                  ) : readerBody?.type === 'article' ? (
+                    <div className="space-y-4">
+                      {readerBody.data.category ? (
+                        <p className="text-xs text-muted-foreground">
+                          Catégorie : {readerBody.data.category.name}
+                        </p>
+                      ) : null}
+                      {readerBody.data.answer ? (
+                        <p className="text-sm text-muted-foreground">{readerBody.data.answer}</p>
+                      ) : null}
+                      {readerBody.data.content ? (
+                        <div className="whitespace-pre-wrap text-sm text-foreground">
+                          {readerBody.data.content}
+                        </div>
+                      ) : null}
+                      {readerBody.data.structuredLinks.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {readerBody.data.structuredLinks.map((l, i) => {
+                            const href = hrefForStructuredLink(l);
+                            const frame = parseExploreHref(href);
+                            if (frame) {
+                              return (
+                                <Button
+                                  key={i}
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => pushReader(frame)}
+                                >
+                                  {l.label}
+                                </Button>
+                              );
+                            }
+                            return (
+                              <Button key={i} variant="secondary" size="sm" asChild>
+                                <Link href={href} onClick={() => setOpen(false)}>
+                                  {l.label}
+                                </Link>
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      {readerBody.data.relatedArticles.length > 0 ? (
+                        <div className="rounded-xl border border-border/50 bg-card/90 p-2 text-sm shadow-sm">
+                          <p className="mb-1 font-medium text-foreground">Articles liés</p>
+                          <ul className="space-y-1">
+                            {readerBody.data.relatedArticles.map((a) => (
+                              <li key={a.slug}>
+                                <button
+                                  type="button"
+                                  className="text-left text-muted-foreground underline hover:text-foreground"
+                                  onClick={() => pushReader({ kind: 'article', slug: a.slug })}
+                                >
+                                  {a.title}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : readerBody?.type === 'category' ? (
+                    <ul className="divide-y divide-border/50 rounded-xl border border-border/50 bg-card">
+                      {readerBody.items.length === 0 ? (
+                        <li className="px-3 py-4 text-xs text-muted-foreground">
+                          Aucune entrée dans cette catégorie.
+                        </li>
+                      ) : (
+                        readerBody.items.map((row) => (
+                          <li key={row.slug}>
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                              onClick={() => pushReader({ kind: 'article', slug: row.slug })}
+                            >
+                              <span className="line-clamp-2">{row.title}</span>
+                              <ChevronRight className="h-4 w-4 shrink-0 text-primary opacity-80" />
+                            </button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  ) : readerBody?.type === 'explore' ? (
+                    <ExploreKnowledgeSections data={readerBody.data} pushReader={pushReader} />
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
             {/* ——— Accueil ——— */}
             {tab === 'home' && (
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -473,15 +980,15 @@ export function StariumChatDrawer() {
                           </li>
                         ) : (
                           faqRows.map((row) => (
-                            <li key={row.href}>
-                              <Link
-                                href={row.href}
-                                className="flex items-center justify-between gap-2 px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-                                onClick={() => setOpen(false)}
+                            <li key={row.key}>
+                              <button
+                                type="button"
+                                className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                                onClick={() => pushReader(row.frame)}
                               >
                                 <span className="line-clamp-2">{row.label}</span>
                                 <ChevronRight className="h-4 w-4 shrink-0 text-primary opacity-80" />
-                              </Link>
+                              </button>
                             </li>
                           ))
                         )}
@@ -561,13 +1068,50 @@ export function StariumChatDrawer() {
                     </Alert>
                   )}
                   {lines.length === 0 && conversationId === null && (
-                    <p className="py-6 text-center text-xs text-muted-foreground">
-                      Écrivez votre question ci-dessous. La réponse provient uniquement de la base configurée.
-                    </p>
+                    <>
+                      {articleHintsWhileTyping === null ? (
+                        <p className="py-6 text-center text-xs text-muted-foreground">
+                          Écrivez votre question ci-dessous. La réponse provient uniquement de la base configurée.
+                        </p>
+                      ) : (
+                        <div className="space-y-2 py-2">
+                          <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+                            Articles de la base
+                            {input.trim().length >= 2 && remoteArticleLoading ? (
+                              <span className="ml-1 font-normal normal-case text-muted-foreground/80">
+                                (recherche…)
+                              </span>
+                            ) : null}
+                          </p>
+                          {articleHintsWhileTyping.length === 0 ? (
+                            <p className="rounded-lg border border-border/50 bg-card px-3 py-2 text-xs text-muted-foreground">
+                              Aucun article ne correspond à votre saisie pour l’instant — vous pouvez quand même envoyer
+                              votre message.
+                            </p>
+                          ) : (
+                            <ul className="max-h-[38dvh] space-y-0.5 overflow-y-auto rounded-xl border border-border/50 bg-card p-1.5 shadow-sm">
+                              {articleHintsWhileTyping.map((a) => (
+                                <li key={a.slug}>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted/70"
+                                    onClick={() => pushReader({ kind: 'article', slug: a.slug })}
+                                  >
+                                    <span className="line-clamp-2">{a.title}</span>
+                                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-primary opacity-80" />
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                   {lines.map((line, i) => {
                     const prevUser =
                       i > 0 && lines[i - 1]?.role === 'USER' ? lines[i - 1].content : undefined;
+                    const sourceEntry = line.sourceEntry;
                     return (
                       <Fragment key={i}>
                         <div
@@ -587,6 +1131,20 @@ export function StariumChatDrawer() {
                             {line.content}
                           </div>
                         </div>
+                        {line.role === 'ASSISTANT' && sourceEntry ? (
+                          <div className="mb-2 flex w-full justify-start">
+                            <button
+                              type="button"
+                              className="max-w-[88%] text-left text-[0.7rem] font-medium leading-snug text-primary underline-offset-2 hover:underline"
+                              onClick={() =>
+                                pushReader({ kind: 'article', slug: sourceEntry.slug })
+                              }
+                            >
+                              {sourceEntry.type === 'FAQ' ? 'Voir la FAQ' : "Voir l'article"} :{' '}
+                              {sourceEntry.title}
+                            </button>
+                          </div>
+                        ) : null}
                         {line.role === 'ASSISTANT' && line.noAnswerFallbackUsed ? (
                           <div className="mb-2 flex w-full justify-start">
                             <div className="max-w-[88%] space-y-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5">
@@ -620,25 +1178,33 @@ export function StariumChatDrawer() {
                       </div>
                     </div>
                   )}
-                  {lastExtras && lastExtras.slug && lastExtras.hasFullContent && (
-                    <div className="mb-2 flex justify-start">
-                      <Button variant="secondary" size="sm" className="h-8 text-xs" asChild>
-                        <Link
-                          href={`/chatbot/explore/article/${encodeURIComponent(lastExtras.slug)}`}
-                          onClick={() => setOpen(false)}
-                        >
-                          Voir le détail
-                        </Link>
-                      </Button>
-                    </div>
-                  )}
                   {lastExtras && lastExtras.structuredLinks.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-1.5">
-                      {lastExtras.structuredLinks.map((l, idx) => (
-                        <Button key={idx} variant="outline" size="sm" className="h-7 text-[0.65rem]" asChild>
-                          <Link href={hrefForStructuredLink(l)}>{l.label}</Link>
-                        </Button>
-                      ))}
+                      {lastExtras.structuredLinks.map((l, idx) => {
+                        const href = hrefForStructuredLink(l);
+                        const frame = parseExploreHref(href);
+                        if (frame) {
+                          return (
+                            <Button
+                              key={idx}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-[0.65rem]"
+                              onClick={() => pushReader(frame)}
+                            >
+                              {l.label}
+                            </Button>
+                          );
+                        }
+                        return (
+                          <Button key={idx} variant="outline" size="sm" className="h-7 text-[0.65rem]" asChild>
+                            <Link href={href} onClick={() => setOpen(false)}>
+                              {l.label}
+                            </Link>
+                          </Button>
+                        );
+                      })}
                     </div>
                   )}
                   {lastExtras && lastExtras.relatedArticles.length > 0 && (
@@ -647,13 +1213,13 @@ export function StariumChatDrawer() {
                       <ul className="space-y-1 text-muted-foreground">
                         {lastExtras.relatedArticles.map((a) => (
                           <li key={a.slug}>
-                            <Link
-                              className="underline hover:text-foreground"
-                              href={`/chatbot/explore/article/${encodeURIComponent(a.slug)}`}
-                              onClick={() => setOpen(false)}
+                            <button
+                              type="button"
+                              className="text-left underline hover:text-foreground"
+                              onClick={() => pushReader({ kind: 'article', slug: a.slug })}
                             >
                               {a.title}
-                            </Link>
+                            </button>
                           </li>
                         ))}
                       </ul>
@@ -699,11 +1265,22 @@ export function StariumChatDrawer() {
                   Cursor Starium affiche uniquement des réponses préconfigurées par votre administrateur plateforme. Aucune
                   génération par IA à partir de vos données métier.
                 </p>
-                <Button className="mt-4 w-full" variant="secondary" asChild>
-                  <Link href="/chatbot/explore" onClick={() => setOpen(false)}>
-                    Ouvrir l’explorateur de la base
-                  </Link>
-                </Button>
+                <h4 className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Base de connaissance
+                </h4>
+                {!activeClient?.id ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Sélectionnez un client actif pour parcourir la base.
+                  </p>
+                ) : explore == null ? (
+                  <div className="mt-3">
+                    <LoadingState rows={4} />
+                  </div>
+                ) : (
+                  <div className="mt-3">
+                    <ExploreKnowledgeSections data={explore} pushReader={pushReader} />
+                  </div>
+                )}
               </div>
             )}
 
@@ -755,7 +1332,7 @@ export function StariumChatDrawer() {
                         {STARIUM_FEEDBACK_CATEGORY_LABEL[feedbackCategory]}
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent className="z-[220]">
+                    <SelectContent className="z-[510]">
                       {(Object.keys(STARIUM_FEEDBACK_CATEGORY_LABEL) as StariumFeedbackCategoryCode[]).map(
                         (code) => (
                           <SelectItem key={code} value={code}>

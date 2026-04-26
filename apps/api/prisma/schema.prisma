@@ -490,6 +490,7 @@ model User {
   chatbotKnowledgeEntriesCreated       ChatbotKnowledgeEntry[]         @relation("ChatbotEntryCreatedBy")
   chatbotKnowledgeEntriesUpdated       ChatbotKnowledgeEntry[]         @relation("ChatbotEntryUpdatedBy")
   platformAuditLogs                    PlatformAuditLog[]
+  stariumFeedbackRepliesAuthored       PlatformStariumFeedbackReply[]  @relation("PlatformStariumFeedbackReplyAuthor")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -3368,11 +3369,28 @@ model PlatformAuditLog {
   createdAt DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  stariumFeedbackReplies PlatformStariumFeedbackReply[]
 
   @@index([userId])
   @@index([action])
   @@index([createdAt])
   @@index([resourceType])
+}
+
+/// Réponse d’un administrateur plateforme à un retour widget Cursor Starium (journal `PlatformAuditLog`).
+model PlatformStariumFeedbackReply {
+  id                 String   @id @default(cuid())
+  platformAuditLogId String
+  authorUserId       String
+  body               String
+  createdAt          DateTime @default(now())
+
+  auditLog PlatformAuditLog @relation(fields: [platformAuditLogId], references: [id], onDelete: Cascade)
+  author   User             @relation("PlatformStariumFeedbackReplyAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([platformAuditLogId])
+  @@index([authorUserId])
+  @@index([createdAt])
 }
 
 /// Périmètre d’une entrée ou catégorie chatbot (plateforme vs client).

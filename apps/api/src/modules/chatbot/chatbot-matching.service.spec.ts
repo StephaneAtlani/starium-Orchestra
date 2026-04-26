@@ -53,10 +53,48 @@ describe('ChatbotMatchingService', () => {
     expect(best?.entry.id).toBe('2');
   });
 
-  it('retourne null si aucune FAQ', () => {
+  it('matche un ARTICLE quand un mot significatif de la question apparaît dans le titre', () => {
     const svc = new ChatbotMatchingService(config);
-    const best = svc.matchBest('hello', [
-      entry({ type: ChatbotKnowledgeEntryType.ARTICLE, question: 'x' }),
+    const best = svc.matchBest('comment créer un projet', [
+      entry({
+        type: ChatbotKnowledgeEntryType.ARTICLE,
+        id: 'art2',
+        title: 'Guide des projets — Starium',
+        question: 'Sommaire',
+        keywords: [],
+        tags: [],
+        priority: 0,
+      }),
+    ]);
+    expect(best?.entry.id).toBe('art2');
+  });
+
+  it('matche un ARTICLE lorsque la question utilisateur contient le titre', () => {
+    const svc = new ChatbotMatchingService(config);
+    const best = svc.matchBest('comment créer un projet sur la plateforme', [
+      entry({
+        type: ChatbotKnowledgeEntryType.ARTICLE,
+        id: 'art1',
+        title: 'Créer un projet',
+        question: 'Introduction',
+        keywords: [],
+        tags: [],
+        priority: 2,
+      }),
+    ]);
+    expect(best?.entry.id).toBe('art1');
+  });
+
+  it('retourne null si aucune FAQ ni ARTICLE pertinente', () => {
+    const svc = new ChatbotMatchingService(config);
+    const best = svc.matchBest('hello xyz inconnu', [
+      entry({
+        type: ChatbotKnowledgeEntryType.ARTICLE,
+        question: 'x',
+        title: 'y',
+        keywords: [],
+        tags: [],
+      }),
     ]);
     expect(best).toBeNull();
   });

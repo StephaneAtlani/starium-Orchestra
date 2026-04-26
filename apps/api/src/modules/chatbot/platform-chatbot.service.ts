@@ -5,8 +5,11 @@ import {
 } from '@nestjs/common';
 import {
   ChatbotKnowledgeScope,
+  NotificationStatus,
+  NotificationType,
   Prisma,
 } from '@prisma/client';
+import type { ListPlatformChatbotConversationsQueryDto } from './dto/list-platform-chatbot-conversations.query.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { parseAndValidateStructuredLinks } from './chatbot-structured-links.validator';
@@ -18,6 +21,22 @@ import {
   CreateChatbotEntryDto,
   UpdateChatbotEntryDto,
 } from './dto/create-chatbot-entry.dto';
+import {
+  STARIUM_FEEDBACK_CATEGORY_CODES,
+  STARIUM_FEEDBACK_CATEGORY_LABELS,
+  type StariumFeedbackCategoryCode,
+} from './dto/starium-feedback-category';
+
+function feedbackCategoryDisplay(raw: string): string {
+  if (
+    STARIUM_FEEDBACK_CATEGORY_CODES.includes(
+      raw as StariumFeedbackCategoryCode,
+    )
+  ) {
+    return STARIUM_FEEDBACK_CATEGORY_LABELS[raw as StariumFeedbackCategoryCode];
+  }
+  return raw || '—';
+}
 
 function assertScopeClientConsistency(
   scope: ChatbotKnowledgeScope,
@@ -225,10 +244,145 @@ export class PlatformChatbotService {
     }
   }
 
+  /**
+   * Catégories GLOBAL par défaut = une ligne par module actif (slug = code module avec _ → -).
+   * Ne réactive pas une catégorie archivée manuellement.
+   */
+  private async ensureGlobalModuleDefaultCategories(): Promise<void> {
+    const modules = await this.prisma.module.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+    for (const [order, m] of modules.entries()) {
+      const slug = m.code.replace(/_/g, '-');
+      if (!this.slugPattern.test(slug)) continue;
+      const existing = await this.prisma.chatbotCategory.findFirst({
+        where: {
+          scope: ChatbotKnowledgeScope.GLOBAL,
+          clientId: null,
+          slug,
+        },
+      });
+      if (existing?.archivedAt) continue;
+      if (existing) {
+        await this.prisma.chatbotCategory.update({
+          where: { id: existing.id },
+          data: {
+            name: m.name,
+            description: m.description ?? null,
+            order,
+          },
+        });
+        continue;
+      }
+      await this.prisma.chatbotCategory.create({
+        data: {
+          name: m.name,
+          slug,
+          description: m.description ?? null,
+          scope: ChatbotKnowledgeScope.GLOBAL,
+          clientId: null,
+          order,
+          isActive: true,
+          isFeatured: false,
+          icon: null,
+        },
+      });
+    }
+  }
+
   async listCategories() {
+    await this.ensureGlobalModuleDefaultCategories();
     return this.prisma.chatbotCategory.findMany({
       orderBy: [{ scope: 'asc' }, { order: 'asc' }],
     });
+  }
+
+  async listPlatformConversations(query: ListPlatformChatbotConversationsQueryDto) {
+    const limit = query.limit ?? 50;
+    const offset = query.offset ?? 0;
+    const [convs, total] = await Promise.all([
+      this.prisma.chatbotConversation.findMany({
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+        skip: offset,
+        include: {
+          client: { select: { id: true, name: true, slug: true } },
+          _count: { select: { messages: true } },
+        },
+      }),
+      this.prisma.chatbotConversation.count(),
+    ]);
+    const userIds = [...new Set(convs.map((c) => c.userId))];
+    const users =
+      userIds.length === 0
+        ? []
+        : await this.prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: { id: true, email: true, firstName: true, lastName: true },
+          });
+    const userById = new Map(users.map((u) => [u.id, u]));
+    return {
+      total,
+      limit,
+      offset,
+      items: convs.map((c) => ({
+        id: c.id,
+        title: c.title,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        messageCount: c._count.messages,
+        client: c.client,
+        user:
+          userById.get(c.userId) ?? {
+            id: c.userId,
+            email: null as string | null,
+            firstName: null as string | null,
+            lastName: null as string | null,
+          },
+      })),
+    };
+  }
+
+  async listPlatformConversationMessages(conversationId: string) {
+    const conv = await this.prisma.chatbotConversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        client: { select: { id: true, name: true, slug: true } },
+      },
+    });
+    if (!conv) throw new NotFoundException();
+    const user = await this.prisma.user.findUnique({
+      where: { id: conv.userId },
+      select: { id: true, email: true, firstName: true, lastName: true },
+    });
+    const messages = await this.prisma.chatbotMessage.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        role: true,
+        content: true,
+        createdAt: true,
+        noAnswerFallbackUsed: true,
+      },
+    });
+    return {
+      conversation: {
+        id: conv.id,
+        title: conv.title,
+        createdAt: conv.createdAt,
+        updatedAt: conv.updatedAt,
+        client: conv.client,
+        user: user ?? {
+          id: conv.userId,
+          email: null,
+          firstName: null,
+          lastName: null,
+        },
+      },
+      messages,
+    };
   }
 
   async createCategory(dto: CreateChatbotCategoryDto) {
@@ -308,4 +462,154 @@ export class PlatformChatbotService {
       });
     }
   }
+
+  /** Tous les retours widget Starium (journal plateforme) — assistance, feedback, etc. */
+  async listAssistanceSupportRequests() {
+    const rows = await this.prisma.platformAuditLog.findMany({
+      where: { action: 'USER_FEEDBACK_STARIUM' },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        user: { select: { email: true, firstName: true, lastName: true } },
+        _count: { select: { stariumFeedbackReplies: true } },
+      },
+    });
+    const clientIds = [
+      ...new Set(
+        rows
+          .map((r) => r.resourceId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const clients =
+      clientIds.length === 0
+        ? []
+        : await this.prisma.client.findMany({
+            where: { id: { in: clientIds } },
+            select: { id: true, name: true, slug: true },
+          });
+    const clientById = new Map(clients.map((c) => [c.id, c]));
+    return rows.map((r) => {
+      const v = r.newValue as Record<string, unknown> | null;
+      const rawCat = typeof v?.category === 'string' ? v.category : '';
+      const categoryDisplay = feedbackCategoryDisplay(rawCat);
+      const msg = typeof v?.message === 'string' ? v.message : '';
+      const pagePath = typeof v?.pagePath === 'string' ? v.pagePath : null;
+      const cid = r.resourceId;
+      const client = cid ? clientById.get(cid) : undefined;
+      const nameFromUser = [r.user?.firstName, r.user?.lastName]
+        .filter(Boolean)
+        .join(' ');
+      const userDisplay =
+        r.user?.email?.trim() || nameFromUser || '—';
+      return {
+        id: r.id,
+        createdAt: r.createdAt,
+        clientName: client?.name ?? '—',
+        clientSlug: client?.slug ?? null,
+        userDisplay,
+        categoryDisplay,
+        pagePath,
+        messagePreview: msg.length > 400 ? `${msg.slice(0, 400)}…` : msg,
+        replyCount: r._count.stariumFeedbackReplies,
+      };
+    });
+  }
+
+  async getStariumFeedbackThread(auditLogId: string) {
+    const log = await this.prisma.platformAuditLog.findUnique({
+      where: { id: auditLogId },
+      include: {
+        user: { select: { email: true, firstName: true, lastName: true } },
+        stariumFeedbackReplies: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            author: {
+              select: { email: true, firstName: true, lastName: true },
+            },
+          },
+        },
+      },
+    });
+    if (!log || log.action !== 'USER_FEEDBACK_STARIUM') {
+      throw new NotFoundException();
+    }
+    const v = log.newValue as Record<string, unknown> | null;
+    const rawCat = typeof v?.category === 'string' ? v.category : '';
+    const msg = typeof v?.message === 'string' ? v.message : '';
+    const pagePath = typeof v?.pagePath === 'string' ? v.pagePath : null;
+    const nameFromUser = [log.user?.firstName, log.user?.lastName]
+      .filter(Boolean)
+      .join(' ');
+    const authorDisplay =
+      log.user?.email?.trim() || nameFromUser || '—';
+    const formatAuthor = (u: {
+      email: string | null;
+      firstName: string | null;
+      lastName: string | null;
+    }) => {
+      const n = [u.firstName, u.lastName].filter(Boolean).join(' ');
+      return u.email?.trim() || n || '—';
+    };
+    return {
+      ticket: {
+        id: log.id,
+        createdAt: log.createdAt,
+        categoryDisplay: feedbackCategoryDisplay(rawCat),
+        message: msg,
+        pagePath,
+        authorDisplay,
+      },
+      replies: log.stariumFeedbackReplies.map((rep) => ({
+        id: rep.id,
+        createdAt: rep.createdAt,
+        body: rep.body,
+        authorDisplay: formatAuthor(rep.author),
+      })),
+    };
+  }
+
+  async postStariumFeedbackReply(
+    auditLogId: string,
+    authorUserId: string,
+    message: string,
+  ): Promise<{ id: string; createdAt: Date }> {
+    const log = await this.prisma.platformAuditLog.findUnique({
+      where: { id: auditLogId },
+    });
+    if (!log || log.action !== 'USER_FEEDBACK_STARIUM') {
+      throw new NotFoundException();
+    }
+    const clientId = log.resourceId;
+    if (!clientId) {
+      throw new BadRequestException('Retour sans organisation cible.');
+    }
+    const body = message.trim();
+    const reply = await this.prisma.platformStariumFeedbackReply.create({
+      data: {
+        platformAuditLogId: auditLogId,
+        authorUserId,
+        body,
+      },
+    });
+    if (log.userId) {
+      const preview =
+        body.length > 800 ? `${body.slice(0, 800)}…` : body;
+      await this.prisma.notification.create({
+        data: {
+          clientId,
+          userId: log.userId,
+          type: NotificationType.INFO,
+          title: 'Réponse de l’équipe Starium',
+          message: preview,
+          status: NotificationStatus.UNREAD,
+          entityType: 'platform_starium_feedback',
+          entityId: auditLogId,
+          entityLabel: 'Retour widget Cursor Starium',
+        },
+      });
+    }
+    return { id: reply.id, createdAt: reply.createdAt };
+  }
 }
+
