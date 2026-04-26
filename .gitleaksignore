@@ -1,0 +1,9 @@
+# Faux positifs historiques (fixtures de tests / doc / .env.example) — ne pas réutiliser pour de vrais secrets.
+a9699dd0d3a9d73e25dad0071047cea67969b531:apps/api/src/modules/auth/microsoft-sso/microsoft-sso.service.spec.ts:jwt:91
+a9699dd0d3a9d73e25dad0071047cea67969b531:apps/api/src/modules/auth/microsoft-sso/microsoft-sso.service.spec.ts:jwt:108
+a9699dd0d3a9d73e25dad0071047cea67969b531:apps/api/src/modules/auth/microsoft-sso/microsoft-sso.service.spec.ts:jwt:127
+a9699dd0d3a9d73e25dad0071047cea67969b531:apps/api/src/modules/auth/microsoft-sso/microsoft-sso.service.spec.ts:jwt:147
+a9699dd0d3a9d73e25dad0071047cea67969b531:apps/api/src/modules/auth/microsoft-sso/microsoft-sso.service.spec.ts:jwt:166
+f71037d85a6c138bf6c0e5fa8dd8ea1d49a4fa35:.env.example:generic-api-key:13
+9096e0159943d3f21d152257b0b98c28c40b78a6:docs/API.md:generic-api-key:28
+9096e0159943d3f21d152257b0b98c28c40b78a6:docs/API.md:generic-api-key:29

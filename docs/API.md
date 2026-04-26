@@ -25,8 +25,8 @@ Connexion par email / mot de passe. Retourne un access token (JWT) et un refresh
 
 ```json
 {
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "1a76cf26ae3bcc38963bae24c249f3ee..."
+  "accessToken": "<access_token_JWT>",
+  "refreshToken": "<refresh_token>"
 }
 ```
 

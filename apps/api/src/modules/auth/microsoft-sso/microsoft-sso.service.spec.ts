@@ -8,6 +8,13 @@ import { MicrosoftTokenHttpService } from '../../microsoft/microsoft-token-http.
 import { SecurityLogsService } from '../../security-logs/security-logs.service';
 import { MicrosoftPlatformConfigService } from '../../microsoft/microsoft-platform-config.service';
 
+/** JWT non signé (alg none) pour les tests — construit en runtime pour ne pas déclencher les scanners de secrets. */
+function unsignedTestIdToken(email: string): string {
+  const b64 = (obj: Record<string, unknown>) =>
+    Buffer.from(JSON.stringify(obj)).toString('base64url');
+  return `${b64({ alg: 'none' })}.${b64({ email })}.`;
+}
+
 const microsoftIdTokenMock = {
   verifyIdToken: jest.fn().mockResolvedValue({ tid: 't' }),
 };
@@ -152,8 +159,7 @@ describe('MicrosoftSsoService', () => {
   it('refuse si email secondaire non verifiee', async () => {
     (tokenHttp.postTokenForm as jest.Mock).mockResolvedValue({
       access_token: 'access-token',
-      id_token:
-        'eyJhbGciOiJub25lIn0.eyJlbWFpbCI6InNzb0BleGFtcGxlLmNvbSJ9.',
+      id_token: unsignedTestIdToken('sso@example.com'),
     });
     (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.userEmailIdentity.findMany as jest.Mock).mockResolvedValue([]);
@@ -169,8 +175,7 @@ describe('MicrosoftSsoService', () => {
   it('accepte si email Microsoft = email principal avec acces actif', async () => {
     (tokenHttp.postTokenForm as jest.Mock).mockResolvedValue({
       access_token: 'access-token',
-      id_token:
-        'eyJhbGciOiJub25lIn0.eyJlbWFpbCI6InByaW1hcnlAZXhhbXBsZS5jb20ifQ.',
+      id_token: unsignedTestIdToken('primary@example.com'),
     });
     (prisma.user.findMany as jest.Mock).mockResolvedValue([
       { id: 'u1', platformRole: null, clientUsers: [{ id: 'cu1' }] },
@@ -196,8 +201,7 @@ describe('MicrosoftSsoService', () => {
   it('accepte si email Microsoft = email secondaire verifiee', async () => {
     (tokenHttp.postTokenForm as jest.Mock).mockResolvedValue({
       access_token: 'access-token',
-      id_token:
-        'eyJhbGciOiJub25lIn0.eyJlbWFpbCI6InNlY29uZGFyeUBleGFtcGxlLmNvbSJ9.',
+      id_token: unsignedTestIdToken('secondary@example.com'),
     });
     (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.userEmailIdentity.findMany as jest.Mock).mockResolvedValue([
@@ -224,8 +228,7 @@ describe('MicrosoftSsoService', () => {
   it('refuse si correspondance ambigue sur plusieurs users', async () => {
     (tokenHttp.postTokenForm as jest.Mock).mockResolvedValue({
       access_token: 'access-token',
-      id_token:
-        'eyJhbGciOiJub25lIn0.eyJlbWFpbCI6ImR1cGxpY2F0ZUBleGFtcGxlLmNvbSJ9.',
+      id_token: unsignedTestIdToken('duplicate@example.com'),
     });
     (prisma.user.findMany as jest.Mock).mockResolvedValue([
       { id: 'u1', platformRole: null, clientUsers: [{ id: 'cu1' }] },
@@ -243,8 +246,7 @@ describe('MicrosoftSsoService', () => {
   it('refuse si aucun email verifie ne correspond', async () => {
     (tokenHttp.postTokenForm as jest.Mock).mockResolvedValue({
       access_token: 'access-token',
-      id_token:
-        'eyJhbGciOiJub25lIn0.eyJlbWFpbCI6InVua25vd25AZXhhbXBsZS5jb20ifQ.',
+      id_token: unsignedTestIdToken('unknown@example.com'),
     });
     (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.userEmailIdentity.findMany as jest.Mock).mockResolvedValue([]);

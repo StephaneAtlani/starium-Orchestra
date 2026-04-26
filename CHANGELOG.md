@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.97] - 2026-04-26
+
+### Vision stratégique
+
+- Module **Strategic Vision** côté API : axes, objectifs, liens, métriques KPI, alertes de pilotage et permissions dédiées.
+- Enrichissement UI (création/mise à jour, terminologie, compteurs d’objectifs, prévisualisation d’icônes sur les axes, alertes).
+
+### Chatbot Starium (plateforme)
+
+- Intégration du module **chatbot** (conversations, entrées, catégories, matching) avec journalisation d’audit renforcée.
+- Soumission de **feedback** utilisateur et fil de **réponses** côté support.
+
+### Recherche transverse
+
+- Recherche texte sur plusieurs modèles métier (parcours unifié côté produit).
+
+### Alertes et notifications
+
+- Socle **alerts / notifications** (RFC associée) : déclenchement, consultation et documentation alignée.
+
+### Budgets et pilotage
+
+- Correctif graphiques multi-séries : gestion des séries vides sans erreur de rendu.
+- Ajustements **budget dashboard** : données de mock / tests (ex. `initialAmount` sur les lignes).
+
+### UI / layout
+
+- Sidebar et workspace : lisibilité et ergonomie (header workspace, présentation projets / CODIR).
+- Fiabilisation du **bootstrap** du layout protégé (chargement contexte).
+
+### Outiling et dépendances
+
+- Remplacement de **`xlsx`** par **`exceljs`** pour les flux tableur.
+- Mise à jour de la configuration **ESLint** (règles TypeScript).
+
+### Documentation
+
+- Consolidation de la doc API / références et extension des RFC (vision stratégique, alertes).
+
 ## [0.96] - 2026-04-20
 
 ### Scenarios projet (nouveau domaine)
@@ -130,4 +169,4 @@
 
 ## Non publié
 
-- Aucun changement publié depuis `0.9.0`.
+- Aucun lot en attente au-delà de `0.97`.
