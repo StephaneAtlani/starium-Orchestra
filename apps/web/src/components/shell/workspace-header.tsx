@@ -9,7 +9,7 @@ import { useActiveClientEmailDisplay } from '../../hooks/use-active-client-email
 import { ClientSwitcher } from '../ClientSwitcher';
 import { Button } from '../ui/button';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
-import { Calendar, ChevronDown, FileText, Menu, Search, UserCircle, X } from 'lucide-react';
+import { ChevronDown, Menu, Search, UserCircle, X } from 'lucide-react';
 import { useSidebarNav } from './sidebar-nav-context';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 
@@ -181,12 +181,6 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
             <div className="hidden items-center gap-0.5 md:flex">
               <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Rechercher">
                 <Search className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Document">
-                <FileText className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon-sm" className="starium-text hover:starium-bg-muted" aria-label="Calendrier">
-                <Calendar className="h-4 w-4" />
               </Button>
             </div>
             <NotificationBell />
