@@ -14,7 +14,7 @@ import { CollaboratorsService } from '../collaborators/collaborators.service';
 describe('UsersService', () => {
   let service: UsersService;
   let prisma: PrismaService;
-  let activeClientCache: ActiveClientCacheService;
+  let _activeClientCache: ActiveClientCacheService;
 
   const clientId = 'client-1';
   const mockUser = {
@@ -100,7 +100,7 @@ describe('UsersService', () => {
 
     service = module.get<UsersService>(UsersService);
     prisma = module.get<PrismaService>(PrismaService);
-    activeClientCache = module.get<ActiveClientCacheService>(
+    _activeClientCache = module.get<ActiveClientCacheService>(
       ActiveClientCacheService,
     );
     jest.clearAllMocks();

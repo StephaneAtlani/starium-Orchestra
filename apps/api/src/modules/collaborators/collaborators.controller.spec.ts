@@ -16,7 +16,6 @@ import { ListCollaboratorTagsOptionsQueryDto } from './dto/list-collaborator-tag
 const passGuard = { canActivate: () => true };
 
 describe('CollaboratorsController', () => {
-  let controller: CollaboratorsController;
   const service = {
     list: jest.fn(),
     create: jest.fn(),
@@ -49,7 +48,7 @@ describe('CollaboratorsController', () => {
       .useValue(passGuard)
       .compile();
 
-    controller = module.get(CollaboratorsController);
+    void module.get(CollaboratorsController);
     jest.clearAllMocks();
   });
 

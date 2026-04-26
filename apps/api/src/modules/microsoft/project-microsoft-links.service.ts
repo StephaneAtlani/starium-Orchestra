@@ -865,7 +865,7 @@ export class ProjectMicrosoftLinksService {
       assignments?: Record<string, unknown> | null;
     };
 
-    let pulledTaskIds = new Set<string>();
+    const pulledTaskIds = new Set<string>();
     let stopError: unknown = null;
     const mappingsByTaskId = new Map<string, any>();
 

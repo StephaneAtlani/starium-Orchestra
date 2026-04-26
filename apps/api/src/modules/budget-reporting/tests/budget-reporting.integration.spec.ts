@@ -14,7 +14,6 @@ import { PrismaService } from '../../../prisma/prisma.service';
  * et pagination sur un endpoint de liste.
  */
 describe('Budget reporting integration', () => {
-  let service: BudgetReportingService;
   let controller: BudgetReportingController;
   let prisma: {
     budgetExercise: { findFirst: jest.Mock };
@@ -63,7 +62,6 @@ describe('Budget reporting integration', () => {
       .useValue(passGuard)
       .compile();
 
-    service = module.get<BudgetReportingService>(BudgetReportingService);
     controller = module.get<BudgetReportingController>(
       BudgetReportingController,
     );

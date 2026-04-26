@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AllocationType, FinancialEventType, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { assertBudgetLineExistsForClient } from './helpers/budget-line.helper';
 import { aggregateBudgetLineAmounts } from './budget-line-amounts.aggregate';

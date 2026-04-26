@@ -216,29 +216,17 @@ describe('ProjectsPilotageService', () => {
   describe('isBlocked', () => {
     it('true when ON_HOLD', () => {
       const p = { ...baseProject, status: 'ON_HOLD' as ProjectStatus };
-      expect(svc.isBlocked(p, [])).toBe(true);
+      expect(svc.isBlocked(p)).toBe(true);
     });
 
     it('false when COMPLETED even with OPEN high risk (no operational block)', () => {
-      const risks = [
-        {
-          status: 'OPEN' as ProjectRiskStatus,
-          criticalityLevel: 'CRITICAL' as ProjectRiskCriticality,
-        },
-      ] as any[];
       const p = { ...baseProject, status: 'COMPLETED' as ProjectStatus };
-      expect(svc.isBlocked(p, risks)).toBe(false);
+      expect(svc.isBlocked(p)).toBe(false);
     });
 
     it('false when IN_PROGRESS with OPEN HIGH/CRITICAL risk (risks do not set blocked)', () => {
-      const risks = [
-        {
-          status: 'OPEN' as ProjectRiskStatus,
-          criticalityLevel: 'HIGH' as ProjectRiskCriticality,
-        },
-      ] as any[];
       const p = { ...baseProject, status: 'IN_PROGRESS' as ProjectStatus };
-      expect(svc.isBlocked(p, risks)).toBe(false);
+      expect(svc.isBlocked(p)).toBe(false);
     });
   });
 });

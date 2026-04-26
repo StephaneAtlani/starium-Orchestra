@@ -1,11 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { BudgetImportTargetEntityType } from '@prisma/client';
-import type {
-  MappingConfig,
-  MappingMatchingConfig,
-  BudgetImportOptionsConfig,
-} from './types/mapping.types';
+import type { MappingConfig, BudgetImportOptionsConfig } from './types/mapping.types';
 import type { ParsedSheetRow } from './budget-import-parser.service';
 
 export interface RowLinkLookup {

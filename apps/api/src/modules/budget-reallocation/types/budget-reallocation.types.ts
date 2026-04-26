@@ -9,7 +9,7 @@ export interface BudgetReallocationResponse {
   createdAt: Date;
 }
 
-export interface BudgetReallocationListItem extends BudgetReallocationResponse {}
+export type BudgetReallocationListItem = BudgetReallocationResponse;
 
 export interface CreateReallocationContext {
   actorUserId?: string;

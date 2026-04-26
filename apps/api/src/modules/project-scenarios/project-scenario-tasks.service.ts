@@ -24,6 +24,8 @@ import {
 import { type ProjectScenarioTimelineSummaryDto } from './dto/project-scenario-timeline-summary.dto';
 import { UpdateProjectScenarioTaskDto } from './dto/update-project-scenario-task.dto';
 
+// Prisma : `{}` = payload par défaut (tous les scalaires).
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type ScenarioTaskRecord = Prisma.ProjectScenarioTaskGetPayload<{}>;
 export type { ProjectScenarioTimelineSummaryDto };
 

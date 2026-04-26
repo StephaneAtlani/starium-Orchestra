@@ -1,7 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
 import { BudgetImportMappingsService } from './budget-import-mappings.service';
-import { PrismaService } from '../../prisma/prisma.service';
-import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 describe('BudgetImportMappingsService', () => {
   let service: BudgetImportMappingsService;

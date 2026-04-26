@@ -181,7 +181,7 @@ export class ClientMembershipService {
   async detachUserFromClient(
     clientId: string,
     userId: string,
-    context?: { actorUserId?: string; meta?: RequestMeta },
+    _context?: { actorUserId?: string; meta?: RequestMeta },
   ): Promise<void> {
     const link = await this.prisma.clientUser.findUnique({
       where: {

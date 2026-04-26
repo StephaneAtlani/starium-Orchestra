@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { BudgetEnvelopeStatus, BudgetStatus } from '@prisma/client';
+import { BudgetStatus } from '@prisma/client';
 import { BudgetsService } from '../budgets/budgets.service';
 
 describe('BudgetsService', () => {

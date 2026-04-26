@@ -78,7 +78,7 @@ describe('Budget dashboard integration', () => {
   });
 
   const mockConfigService = {
-    ensureDefaultConfig: jest.fn().mockImplementation((clientId: string) =>
+    ensureDefaultConfig: jest.fn().mockImplementation((_clientId: string) =>
       Promise.resolve(mockDashboardConfig()),
     ),
   };

@@ -94,7 +94,7 @@ export class BudgetDashboardService {
     );
 
     let budget = exerciseResolution.budget;
-    let exercise = exerciseResolution.exercise;
+    const exercise = exerciseResolution.exercise;
 
     // Id de budget réellement utilisé pour les taxes/TTc (un seul budget “repère”),
     // tandis que le périmètre “agrégé” s’appuie sur plusieurs budgetIds.
@@ -153,7 +153,6 @@ export class BudgetDashboardService {
     }
 
     const budgetId = budgetIdForTax;
-    const exerciseId = exercise.id;
 
     const includeEnvelopes = query.includeEnvelopes !== false;
     const includeLines = query.includeLines !== false;

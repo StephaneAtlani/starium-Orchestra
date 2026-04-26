@@ -140,10 +140,7 @@ function computeTtcTotalsOrNull(params: {
   };
 }
 
-function assertSingleCurrency(
-  currencies: string[],
-  linesLength: number,
-): void {
+function assertSingleCurrency(currencies: string[]): void {
   const distinct = [...new Set(currencies)];
   if (distinct.length > 1) {
     throw new BadRequestException(MULTI_CURRENCY_MESSAGE);
@@ -244,7 +241,7 @@ export class BudgetReportingService {
     );
 
     const currencies = lines.map((l) => l.currency);
-    assertSingleCurrency(currencies, lines.length);
+    assertSingleCurrency(currencies);
     const amounts = lines.map((l) => toLineAmounts(l));
     const kpi = aggregateLinesToKpi(amounts, lines[0].currency, {
       budgetCount: budgetIds.length,
@@ -302,7 +299,7 @@ export class BudgetReportingService {
     ]);
 
     const currencies = lines.map((l) => l.currency);
-    assertSingleCurrency(currencies, lines.length);
+    assertSingleCurrency(currencies);
     const amounts = lines.map((l) => toLineAmounts(l));
     const kpi = aggregateLinesToKpi(amounts, lines[0].currency, {
       envelopeCount,
@@ -359,7 +356,7 @@ export class BudgetReportingService {
       return aggregateLinesToKpi([], parentCurrency);
     }
     const currencies = lines.map((l) => l.currency);
-    assertSingleCurrency(currencies, lines.length);
+    assertSingleCurrency(currencies);
     const amounts = lines.map((l) => toLineAmounts(l));
     const kpi = aggregateLinesToKpi(amounts, lines[0].currency);
 

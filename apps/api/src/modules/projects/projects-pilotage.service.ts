@@ -1,13 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type {
   Project,
-  ProjectCriticality,
   ProjectMilestone,
-  ProjectMilestoneStatus,
   ProjectRisk,
   ProjectStatus,
   ProjectTask,
-  ProjectTaskStatus,
 } from '@prisma/client';
 import {
   ComputedHealth,
@@ -106,7 +103,7 @@ export class ProjectsPilotageService {
    * Les risques OPEN à criticité HIGH/CRITICAL restent visibles via la santé (RED) et `isCritical`,
    * mais ne portent plus le signal « Bloqué » / warning `BLOCKED`.
    */
-  isBlocked(project: Project, _risks: ProjectRisk[]): boolean {
+  isBlocked(project: Project): boolean {
     return project.status === 'ON_HOLD';
   }
 
@@ -169,7 +166,7 @@ export class ProjectsPilotageService {
   ): ProjectSignalsDto {
     const active = isActiveProjectStatus(project.status);
     const isLate = this.isLate(project);
-    const blocked = this.isBlocked(project, risks);
+    const blocked = this.isBlocked(project);
 
     const hasNoTasks = active && tasks.length === 0;
     const hasNoRisks = active && risks.length === 0;

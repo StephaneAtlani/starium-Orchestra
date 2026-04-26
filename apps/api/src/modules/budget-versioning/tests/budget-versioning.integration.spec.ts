@@ -9,8 +9,6 @@ import { AuditLogsModule } from '../../audit-logs/audit-logs.module';
 import { BudgetVersionSetsController } from '../budget-version-sets.controller';
 import { BudgetVersioningService } from '../budget-versioning.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { AuditLogsService } from '../../audit-logs/audit-logs.service';
-
 describe('Budget versioning integration', () => {
   let controller: BudgetVersionSetsController;
   let prisma: { budgetVersionSet: { findMany: jest.Mock; findFirst: jest.Mock; count: jest.Mock } };

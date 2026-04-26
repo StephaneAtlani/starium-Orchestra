@@ -157,7 +157,7 @@ export class ResourcesService {
   private validateTypeRules(
     type: ResourceType,
     raw: Record<string, unknown>,
-    mode: 'create' | 'update',
+    _mode: 'create' | 'update',
   ): void {
     const forbidden = [
       'email',
