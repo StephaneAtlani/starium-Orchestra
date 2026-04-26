@@ -98,15 +98,15 @@ export function SidebarDropdown({ label, icon: Icon, children }: SidebarDropdown
         ref={triggerRef}
         type="button"
         className={cn(
-          'group flex w-full flex-row items-center gap-3 rounded-lg rounded-r-lg px-3 py-2.5 text-sm font-medium transition-colors starium-sidebar-item',
+          'group flex w-full flex-row items-center gap-2 rounded-md rounded-r-md px-2.5 py-2 text-xs font-medium transition-colors starium-sidebar-item',
           open && 'starium-sidebar-item-active',
         )}
         aria-expanded={open}
         aria-haspopup="true"
       >
-        {Icon && <Icon className="h-4 w-4 shrink-0 opacity-90 text-inherit" />}
+        {Icon && <Icon className="h-3.5 w-3.5 shrink-0 opacity-90 text-inherit" />}
         <span className="truncate flex-1 text-left">{label}</span>
-        <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 starium-sidebar-chevron transition-transform', open && 'rotate-90')} aria-hidden />
+        <ChevronRight className={cn('h-3 w-3 shrink-0 starium-sidebar-chevron transition-transform', open && 'rotate-90')} aria-hidden />
       </button>
     </div>
   );
@@ -117,7 +117,7 @@ export function SidebarDropdownLayer({ panel }: { panel: SidebarDropdownPanelSta
   return (
     <div
       role="menu"
-      className="starium-dropdown-panel starium-dropdown-panel--sidebar min-w-[11rem] rounded-lg py-1 shadow-lg"
+      className="starium-dropdown-panel starium-dropdown-panel--sidebar min-w-[10rem] rounded-md py-0.5 shadow-lg"
       style={{
         position: 'fixed',
         top: panel.position.top,

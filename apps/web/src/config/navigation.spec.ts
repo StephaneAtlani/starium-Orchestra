@@ -16,10 +16,10 @@ describe('platform navigation', () => {
   });
 
   it('expose une entrée fournisseurs côté client avec procurement.read (sans contrats)', () => {
-    const pilotagesSection = navigation.find((section) => section.section === 'Pilotages');
-    expect(pilotagesSection).toBeDefined();
+    const financialSection = navigation.find((section) => section.section === 'PILOTAGE FINANCIER');
+    expect(financialSection).toBeDefined();
 
-    const suppliersParent = pilotagesSection?.items.find((item) => item.label === 'Fournisseurs');
+    const suppliersParent = financialSection?.items.find((item) => item.label === 'Fournisseurs');
     expect(suppliersParent).toBeDefined();
     expect(suppliersParent?.moduleCode).toBe('procurement');
     expect(suppliersParent?.requiredPermissions).toEqual(['procurement.read']);
@@ -31,11 +31,11 @@ describe('platform navigation', () => {
     expect(childHrefs).not.toContain('/contracts');
   });
 
-  it('expose Contrats au niveau Pilotages (menu principal) avec registre et types', () => {
-    const pilotagesSection = navigation.find((section) => section.section === 'Pilotages');
-    expect(pilotagesSection).toBeDefined();
+  it('expose Contrats au niveau Pilotage financier (menu principal) avec registre et types', () => {
+    const financialSection = navigation.find((section) => section.section === 'PILOTAGE FINANCIER');
+    expect(financialSection).toBeDefined();
 
-    const contractsParent = pilotagesSection?.items.find((item) => item.label === 'Contrats');
+    const contractsParent = financialSection?.items.find((item) => item.label === 'Contrats');
     expect(contractsParent).toBeDefined();
     expect(contractsParent?.moduleCode).toBe('contracts');
     expect(contractsParent?.requiredPermissions).toEqual(['contracts.read']);
@@ -50,11 +50,11 @@ describe('platform navigation', () => {
     expect(contractsKindTypes?.requiredPermissions).toEqual(['contracts.kind_types.manage']);
   });
 
-  it('expose une entrée Equipes (dropdown) avec any(skills.read, teams.read, resources.read)', () => {
-    const orgSection = navigation.find((section) => section.section === 'Organisation');
+  it('expose une entrée Équipes (dropdown) avec any(skills.read, teams.read, resources.read)', () => {
+    const orgSection = navigation.find((section) => section.section === 'ORGANISATION');
     expect(orgSection).toBeDefined();
 
-    const teamsItem = orgSection?.items.find((item) => item.label === 'Equipes');
+    const teamsItem = orgSection?.items.find((item) => item.label === 'Équipes');
     expect(teamsItem).toBeDefined();
     expect(teamsItem?.href).toBeUndefined();
     expect(teamsItem?.moduleCode).toBeUndefined();
@@ -63,15 +63,15 @@ describe('platform navigation', () => {
     expect(teamsItem?.scope).toBe('client');
   });
 
-  it('expose Vision strategique avec strategic_vision.read', () => {
-    const pilotagesSection = navigation.find((section) => section.section === 'Pilotages');
-    expect(pilotagesSection).toBeDefined();
+  it('expose Vision stratégique avec strategic_vision.read', () => {
+    const strategicSection = navigation.find((section) => section.section === 'PILOTAGE STRATÉGIQUE');
+    expect(strategicSection).toBeDefined();
 
-    const strategicVisionItem = pilotagesSection?.items.find(
+    const strategicVisionItem = strategicSection?.items.find(
       (item) => item.href === '/strategic-vision',
     );
     expect(strategicVisionItem).toBeDefined();
-    expect(strategicVisionItem?.label).toBe('Vision strategique');
+    expect(strategicVisionItem?.label).toBe('Vision stratégique');
     expect(strategicVisionItem?.moduleCode).toBe('strategic_vision');
     expect(strategicVisionItem?.requiredPermissions).toEqual(['strategic_vision.read']);
     expect(strategicVisionItem?.scope).toBe('client');

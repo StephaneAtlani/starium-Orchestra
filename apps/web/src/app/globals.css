@@ -72,8 +72,8 @@ html.dark {
 
 /* Shell : classes sémantiques (variables :root) */
 .starium-sidebar {
-  width: 12rem;
-  min-width: 12rem;
+  width: 11rem;
+  min-width: 11rem;
   /* Colonne gauche : même fond du haut au bas (y compris scroll long) */
   min-height: 100vh;
   min-height: 100dvh;
@@ -164,6 +164,34 @@ html.dark {
 .starium-main {
   background-color: var(--starium-background);
 }
+
+/*
+ * Plein écran navigateur : `ProjectsToolbar` appelle requestFullscreen sur #starium-app-workspace.
+ * Sans ça, max-w-7xl + gros px laissent des bandes vides alors que la zone est déjà plein viewport.
+ */
+#starium-app-workspace:fullscreen,
+#starium-app-workspace:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+  background-color: var(--starium-background);
+}
+#starium-app-workspace:fullscreen .starium-workspace-inner,
+#starium-app-workspace:-webkit-full-screen .starium-workspace-inner {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+@media (min-width: 640px) {
+  #starium-app-workspace:fullscreen .starium-workspace-inner,
+  #starium-app-workspace:-webkit-full-screen .starium-workspace-inner {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+}
+
 .starium-header {
   background-color: var(--starium-surface);
   border-bottom: 1px solid var(--starium-border);

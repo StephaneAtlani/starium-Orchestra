@@ -8,7 +8,12 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
+import { STARIUM_APP_WORKSPACE_DOM_ID } from '@/components/shell/app-shell';
 import { Expand, Minimize } from 'lucide-react';
+
+function getWorkspaceFullscreenTarget(): HTMLElement | null {
+  return document.getElementById(STARIUM_APP_WORKSPACE_DOM_ID);
+}
 
 export interface ProjectsToolbarProps {
   filters: ProjectsListFilters;
@@ -27,18 +32,23 @@ export function ProjectsToolbar({
 
   useEffect(() => {
     const onFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      const target = getWorkspaceFullscreenTarget();
+      setIsFullscreen(
+        !!target && document.fullscreenElement === target,
+      );
     };
     document.addEventListener('fullscreenchange', onFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
 
   const toggleFullscreen = async () => {
+    const target = getWorkspaceFullscreenTarget();
     if (document.fullscreenElement) {
       await document.exitFullscreen();
       return;
     }
-    await document.documentElement.requestFullscreen();
+    if (!target?.requestFullscreen) return;
+    await target.requestFullscreen();
   };
 
   const content = (

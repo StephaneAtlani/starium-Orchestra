@@ -73,7 +73,7 @@ export function Sidebar() {
   }, [mobileOpen, closeMobile]);
 
   return (
-    <div className="min-w-0 w-0 shrink-0 overflow-visible md:flex md:h-full md:w-48 md:shrink-0 md:flex-col">
+    <div className="min-w-0 w-0 shrink-0 overflow-visible md:flex md:h-full md:w-44 md:shrink-0 md:flex-col">
       <button
         type="button"
         aria-hidden={!mobileOpen}
@@ -87,22 +87,22 @@ export function Sidebar() {
       <aside
         id="starium-app-sidebar"
         className={cn(
-          'starium-sidebar flex h-full min-h-0 w-48 flex-col border-r border-white/10 bg-background',
+          'starium-sidebar flex h-full min-h-0 w-44 flex-col border-r border-white/10 bg-background',
           'fixed inset-y-0 left-0 z-[60] transition-transform duration-200 ease-out',
           'md:relative md:z-10 md:translate-x-0',
           mobileOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0',
         )}
       >
       <SidebarDropdownContext.Provider value={contextValue}>
-        <div className="starium-sidebar-header flex h-14 min-w-0 shrink-0 items-center gap-2 border-b border-white/10 px-3 md:px-4">
-          <div className="min-w-0 flex flex-1 flex-col leading-tight">
+        <div className="starium-sidebar-header flex h-12 min-w-0 shrink-0 items-center gap-1.5 border-b border-white/10 px-3 md:px-3.5">
+          <div className="min-w-0 flex flex-1 flex-col leading-snug">
             <span
-              className="starium-sidebar-brand truncate text-sm font-semibold tracking-tight"
+              className="starium-sidebar-brand truncate text-xs font-semibold tracking-tight"
               title={activeClient?.name?.trim() || undefined}
             >
               {activeClient?.name?.trim() || 'Starium Orchestra'}
             </span>
-            <span className="starium-sidebar-brand-muted text-xs">Cockpit</span>
+            <span className="starium-sidebar-brand-muted text-[10px] leading-tight">Cockpit</span>
           </div>
           <Button
             type="button"
@@ -115,7 +115,7 @@ export function Sidebar() {
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <nav className="starium-sidebar-nav min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
+        <nav className="starium-sidebar-nav min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
         {navigation.map((section) => {
           const items = section.items.filter((item) =>
             visible(item, platformRole, clientRole, has, permsSuccess),
@@ -166,7 +166,7 @@ export function Sidebar() {
                             href={child.href}
                             role="menuitem"
                             className={cn(
-                              'block px-3 py-2 text-sm starium-dropdown-link',
+                              'block px-3 py-1.5 text-xs starium-dropdown-link',
                               isActive && 'starium-dropdown-link-active',
                             )}
                           >
@@ -222,7 +222,7 @@ export function Sidebar() {
                             href={child.href}
                             role="menuitem"
                             className={cn(
-                              'block px-3 py-2 text-sm starium-dropdown-link',
+                              'block px-3 py-1.5 text-xs starium-dropdown-link',
                               isActive && 'starium-dropdown-link-active',
                             )}
                           >
@@ -240,9 +240,6 @@ export function Sidebar() {
                     { label: 'Dashboard', href: '/suppliers/dashboard' },
                     { label: 'Fournisseurs', href: '/suppliers' },
                   ];
-                  if (permsSuccess && has('contracts.read')) {
-                    suppliersChildren.push({ label: 'Contrats', href: '/contracts' });
-                  }
                   suppliersChildren.push(
                     { label: 'Contacts', href: '/suppliers/contacts' },
                   );
@@ -268,9 +265,6 @@ export function Sidebar() {
                       const firstSegment = sub.split('/')[0];
                       return !['dashboard', 'contacts'].includes(firstSegment);
                     }
-                    if (href === '/contracts') {
-                      return pathname === '/contracts' || pathname.startsWith('/contracts/');
-                    }
                     return false;
                   };
 
@@ -289,7 +283,7 @@ export function Sidebar() {
                             href={child.href}
                             role="menuitem"
                             className={cn(
-                              'block px-3 py-2 text-sm starium-dropdown-link',
+                              'block px-3 py-1.5 text-xs starium-dropdown-link',
                               isActive && 'starium-dropdown-link-active',
                             )}
                           >
@@ -301,7 +295,58 @@ export function Sidebar() {
                   );
                 }
 
-                const isEquipes = item.label === 'Equipes';
+                const isContrats = item.label === 'Contrats';
+                if (isContrats) {
+                  const contractsChildren = [
+                    { label: 'Registre', href: '/contracts' },
+                    { label: 'Types de contrat', href: '/contracts/kind-types' },
+                  ];
+
+                  const isContractsChildActive = (href: string) => {
+                    if (!pathname) return false;
+                    if (href === '/contracts/kind-types') {
+                      return (
+                        pathname === '/contracts/kind-types' ||
+                        pathname.startsWith('/contracts/kind-types/')
+                      );
+                    }
+                    if (href === '/contracts') {
+                      if (pathname.startsWith('/contracts/kind-types')) return false;
+                      if (pathname === '/contracts') return true;
+                      if (!pathname.startsWith('/contracts/')) return false;
+                      return true;
+                    }
+                    return false;
+                  };
+
+                  return (
+                    <SidebarDropdown
+                      key="dropdown-contracts"
+                      label={item.label}
+                      icon={item.icon}
+                    >
+                      {contractsChildren.map((child) => {
+                        const isActive = isContractsChildActive(child.href);
+
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            role="menuitem"
+                            className={cn(
+                              'block px-3 py-1.5 text-xs starium-dropdown-link',
+                              isActive && 'starium-dropdown-link-active',
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                    </SidebarDropdown>
+                  );
+                }
+
+                const isEquipes = item.label === 'Équipes';
                 if (isEquipes) {
                   const teamsChildren: { label: string; href: string }[] = [];
                   if (permsSuccess && has('skills.read')) {
@@ -348,7 +393,7 @@ export function Sidebar() {
                             href={child.href}
                             role="menuitem"
                             className={cn(
-                              'block px-3 py-2 text-sm starium-dropdown-link',
+                              'block px-3 py-1.5 text-xs starium-dropdown-link',
                               isActive && 'starium-dropdown-link-active',
                             )}
                           >

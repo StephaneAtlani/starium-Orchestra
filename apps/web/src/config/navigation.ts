@@ -51,7 +51,7 @@ export type NavigationSection = {
 
 export const navigation: NavigationSection[] = [
   {
-    section: 'Home',
+    section: 'ACCUEIL',
     items: [
       {
         label: 'Dashboard',
@@ -62,20 +62,16 @@ export const navigation: NavigationSection[] = [
     ],
   },
   {
-    section: 'Pilotages',
+    section: 'PILOTAGE STRATÉGIQUE',
     items: [
       {
-        label: 'Budgets',
-        icon: Wallet,
+        label: 'Vision stratégique',
+        href: '/strategic-vision',
+        icon: Scale,
         scope: 'client',
-        moduleCode: 'budgets',
-        requiredPermissions: ['budgets.read'],
+        moduleCode: 'strategic_vision',
+        requiredPermissions: ['strategic_vision.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
-        children: [
-          { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
-          { label: 'Budget', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
-          { label: 'Configuration', href: '/budgets/configuration', scope: 'client', requiredPermissions: ['budgets.read'] },
-        ],
       },
       {
         label: 'Projets',
@@ -109,15 +105,6 @@ export const navigation: NavigationSection[] = [
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
       {
-        label: 'Vision strategique',
-        href: '/strategic-vision',
-        icon: Scale,
-        scope: 'client',
-        moduleCode: 'strategic_vision',
-        requiredPermissions: ['strategic_vision.read'],
-        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
-      },
-      {
         label: 'Risques',
         href: '/risks',
         icon: AlertTriangle,
@@ -126,28 +113,22 @@ export const navigation: NavigationSection[] = [
         requiredPermissions: ['projects.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
+    ],
+  },
+  {
+    section: 'PILOTAGE FINANCIER',
+    items: [
       {
-        label: 'Contrats',
-        icon: FileSignature,
+        label: 'Budgets',
+        icon: Wallet,
         scope: 'client',
-        moduleCode: 'contracts',
-        requiredPermissions: ['contracts.read'],
+        moduleCode: 'budgets',
+        requiredPermissions: ['budgets.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
         children: [
-          {
-            label: 'Registre',
-            href: '/contracts',
-            scope: 'client',
-            moduleCode: 'contracts',
-            requiredPermissions: ['contracts.read'],
-          },
-          {
-            label: 'Types de contrat',
-            href: '/contracts/kind-types',
-            scope: 'client',
-            moduleCode: 'contracts',
-            requiredPermissions: ['contracts.kind_types.manage'],
-          },
+          { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
+          { label: 'Budget', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
+          { label: 'Configuration', href: '/budgets/configuration', scope: 'client', requiredPermissions: ['budgets.read'] },
         ],
       },
       {
@@ -190,10 +171,34 @@ export const navigation: NavigationSection[] = [
           },
         ],
       },
+      {
+        label: 'Contrats',
+        icon: FileSignature,
+        scope: 'client',
+        moduleCode: 'contracts',
+        requiredPermissions: ['contracts.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+        children: [
+          {
+            label: 'Registre',
+            href: '/contracts',
+            scope: 'client',
+            moduleCode: 'contracts',
+            requiredPermissions: ['contracts.read'],
+          },
+          {
+            label: 'Types de contrat',
+            href: '/contracts/kind-types',
+            scope: 'client',
+            moduleCode: 'contracts',
+            requiredPermissions: ['contracts.kind_types.manage'],
+          },
+        ],
+      },
     ],
   },
   {
-    section: 'Organisation',
+    section: 'ORGANISATION',
     items: [
       {
         label: 'Ressources',
@@ -205,13 +210,18 @@ export const navigation: NavigationSection[] = [
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
       {
-        label: 'Equipes',
+        label: 'Équipes',
         icon: Users,
         scope: 'client',
         requiredPermissions: ['skills.read', 'teams.read', 'resources.read'],
         requiredPermissionsMatch: 'any',
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
+    ],
+  },
+  {
+    section: 'GOUVERNANCE & CONFORMITÉ',
+    items: [
       {
         label: 'Conformité',
         href: '/compliance/dashboard',
@@ -220,6 +230,18 @@ export const navigation: NavigationSection[] = [
         moduleCode: 'compliance',
         requiredPermissions: ['compliance.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+      },
+    ],
+  },
+  {
+    section: 'ADMINISTRATION',
+    items: [
+      {
+        label: 'Administration',
+        href: '/client/administration',
+        icon: Settings,
+        scope: 'client',
+        clientAdminOnly: true,
       },
     ],
   },
@@ -299,18 +321,6 @@ export const navigation: NavigationSection[] = [
     ],
   },
   {
-    section: 'Administration client',
-    items: [
-      {
-        label: 'Administration',
-        href: '/client/administration',
-        icon: Settings,
-        scope: 'client',
-        clientAdminOnly: true,
-      },
-    ],
-  },
-  {
     section: 'Security',
     items: [
       {
@@ -323,4 +333,3 @@ export const navigation: NavigationSection[] = [
     ],
   },
 ];
-

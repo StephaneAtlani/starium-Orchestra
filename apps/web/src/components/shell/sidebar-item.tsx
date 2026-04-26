@@ -22,11 +22,11 @@ export function SidebarItem({ label, href, icon: Icon }: SidebarItemProps) {
     <Link
       href={href}
       className={cn(
-        'group flex flex-row items-center gap-3 rounded-lg rounded-r-lg px-3 py-2.5 text-sm font-medium transition-colors starium-sidebar-item',
+        'group flex flex-row items-center gap-2 rounded-md rounded-r-md px-2.5 py-2 text-xs font-medium transition-colors starium-sidebar-item',
         isActive && 'starium-sidebar-item-active',
       )}
     >
-      {Icon && <Icon className="h-4 w-4 shrink-0 opacity-90 text-inherit" />}
+      {Icon && <Icon className="h-3.5 w-3.5 shrink-0 opacity-90 text-inherit" />}
       <span className="truncate">{label}</span>
     </Link>
   );
