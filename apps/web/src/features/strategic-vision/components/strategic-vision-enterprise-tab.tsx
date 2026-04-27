@@ -50,11 +50,42 @@ export function StrategicVisionEnterpriseTab({
   const updateVision = useUpdateStrategicVisionMutation();
   const updateObjective = useUpdateStrategicObjectiveMutation();
 
+  const headerActions = (
+    <div className="flex justify-end gap-2">
+      <Button disabled={!canCreate} onClick={() => setCreatingVision(true)}>
+        Nouvelle vision
+      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger render={<span tabIndex={0} />}>
+            <Button disabled={!canUpdate || !vision} onClick={() => setEditingVision(true)}>
+              Modifier la vision
+            </Button>
+          </TooltipTrigger>
+          {!canUpdate ? (
+            <TooltipContent>Permission strategic_vision.update requise</TooltipContent>
+          ) : !vision ? (
+            <TooltipContent>Aucune vision active à modifier</TooltipContent>
+          ) : (
+            <TooltipContent>Modifier la vision active</TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
+
   if (!vision) {
     return (
-      <Alert>
-        <AlertDescription>Aucune vision disponible pour ce client.</AlertDescription>
-      </Alert>
+      <section className="space-y-4">
+        {headerActions}
+        <Alert>
+          <AlertDescription>Aucune vision disponible pour ce client.</AlertDescription>
+        </Alert>
+        <StrategicVisionCreateDialog
+          open={creatingVision}
+          onOpenChange={setCreatingVision}
+        />
+      </section>
     );
   }
 
@@ -100,25 +131,7 @@ export function StrategicVisionEnterpriseTab({
 
   return (
     <section className="space-y-4">
-      <div className="flex justify-end gap-2">
-        <Button disabled={!canCreate} onClick={() => setCreatingVision(true)}>
-          Nouvelle vision
-        </Button>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger render={<span tabIndex={0} />}>
-              <Button disabled={!canUpdate} onClick={() => setEditingVision(true)}>
-                Modifier la vision
-              </Button>
-            </TooltipTrigger>
-            {!canUpdate ? (
-              <TooltipContent>Permission strategic_vision.update requise</TooltipContent>
-            ) : (
-              <TooltipContent>Modifier la vision active</TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+      {headerActions}
 
       <Card>
         <CardHeader>

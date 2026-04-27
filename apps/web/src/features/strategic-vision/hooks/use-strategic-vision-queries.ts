@@ -8,6 +8,8 @@ import {
   type CreateStrategicVisionInput,
   createStrategicAxis,
   type CreateStrategicAxisInput,
+  createStrategicObjective,
+  type CreateStrategicObjectiveInput,
   getStrategicVisionAlerts,
   getStrategicVisionKpis,
   listStrategicAxes,
@@ -177,6 +179,23 @@ export function useCreateStrategicVisionMutation() {
 
   return useMutation({
     mutationFn: (body: CreateStrategicVisionInput) => createStrategicVision(authFetch, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: strategicVisionKeys.root(clientId),
+      });
+    },
+  });
+}
+
+export function useCreateStrategicObjectiveMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: CreateStrategicObjectiveInput) =>
+      createStrategicObjective(authFetch, body),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: strategicVisionKeys.root(clientId),

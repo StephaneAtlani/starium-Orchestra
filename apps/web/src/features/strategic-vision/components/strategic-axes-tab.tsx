@@ -10,6 +10,7 @@ import { StrategicAxisCreateDialog } from './strategic-axis-create-dialog';
 import { StrategicObjectiveCard } from './strategic-objective-card';
 import { StrategicAxisEditDialog } from './strategic-axis-edit-dialog';
 import { StrategicObjectiveEditDialog } from './strategic-objective-edit-dialog';
+import { StrategicObjectiveCreateDialog } from './strategic-objective-create-dialog';
 import { useUpdateStrategicAxisMutation } from '../hooks/use-strategic-vision-queries';
 import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
 import { STRATEGIC_AXIS_ICONS, strategicAxisIconColorClass } from './strategic-axis-icons';
@@ -50,6 +51,7 @@ export function StrategicAxesTab({
   const [editingAxis, setEditingAxis] = useState<StrategicAxisDto | null>(null);
   const [editingObjective, setEditingObjective] = useState<StrategicObjectiveDto | null>(null);
   const [creatingAxis, setCreatingAxis] = useState(false);
+  const [creatingObjective, setCreatingObjective] = useState(false);
 
   useEffect(() => {
     setOrderedAxes(axes);
@@ -94,17 +96,41 @@ export function StrategicAxesTab({
     [orderedAxes, selectedAxisId],
   );
 
+  const axisOptions = orderedAxes.map((axis) => ({
+    id: axis.id,
+    name: splitAxisLogoAndTitle(axis.name).title,
+  }));
+
   if (orderedAxes.length === 0) {
     return (
-      <Alert>
-        <AlertDescription>Aucun axe strategique disponible.</AlertDescription>
-      </Alert>
+      <section className="space-y-4">
+        <div className="flex justify-end">
+          <Button onClick={() => setCreatingAxis(true)} disabled={!canCreate || !visionId}>
+            Nouvel axe stratégique
+          </Button>
+        </div>
+        <Alert>
+          <AlertDescription>Aucun axe strategique disponible.</AlertDescription>
+        </Alert>
+        <StrategicAxisCreateDialog
+          visionId={visionId}
+          visionTitle={visionTitle}
+          open={creatingAxis}
+          onOpenChange={setCreatingAxis}
+        />
+      </section>
     );
   }
 
   return (
     <section className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button
+          onClick={() => setCreatingObjective(true)}
+          disabled={!canCreate || !selectedAxis}
+        >
+          Nouvel objectif
+        </Button>
         <Button onClick={() => setCreatingAxis(true)} disabled={!canCreate || !visionId}>
           Nouvel axe stratégique
         </Button>
@@ -174,6 +200,12 @@ export function StrategicAxesTab({
         visionTitle={visionTitle}
         open={creatingAxis}
         onOpenChange={setCreatingAxis}
+      />
+      <StrategicObjectiveCreateDialog
+        open={creatingObjective}
+        onOpenChange={setCreatingObjective}
+        axisOptions={axisOptions}
+        initialAxisId={selectedAxis?.id ?? null}
       />
     </section>
   );

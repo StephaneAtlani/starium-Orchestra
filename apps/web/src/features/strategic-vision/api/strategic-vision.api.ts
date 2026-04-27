@@ -135,6 +135,28 @@ export type UpdateStrategicObjectiveInput = {
   deadline?: string | null;
 };
 
+export type CreateStrategicObjectiveInput = {
+  axisId: string;
+  title: string;
+  description?: string;
+  ownerLabel?: string;
+  status?: StrategicObjectiveDto['status'];
+  deadline?: string;
+};
+
+export async function createStrategicObjective(
+  authFetch: AuthFetch,
+  body: CreateStrategicObjectiveInput,
+): Promise<StrategicObjectiveDto> {
+  const res = await authFetch('/api/strategic-objectives', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicObjectiveDto>;
+}
+
 export async function updateStrategicObjective(
   authFetch: AuthFetch,
   objectiveId: string,

@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StrategicObjectiveCard } from './strategic-objective-card';
 import { StrategicObjectiveEditDialog } from './strategic-objective-edit-dialog';
+import { StrategicObjectiveCreateDialog } from './strategic-objective-create-dialog';
 import {
   buildObjectivesByAxis,
   isObjectiveOverdue,
@@ -23,10 +25,12 @@ function normalizeSearch(value: string): string {
 export function StrategicObjectivesTab({
   objectives,
   axisOptions,
+  canCreate,
   canUpdate,
 }: {
   objectives: StrategicObjectiveDto[];
   axisOptions: AxisOption[];
+  canCreate: boolean;
   canUpdate: boolean;
 }) {
   const [axisFilter, setAxisFilter] = useState<string>('ALL');
@@ -34,6 +38,7 @@ export function StrategicObjectivesTab({
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [overdueOnly, setOverdueOnly] = useState<boolean>(false);
   const [editingObjective, setEditingObjective] = useState<StrategicObjectiveDto | null>(null);
+  const [creatingObjective, setCreatingObjective] = useState(false);
 
   const axisNameById = useMemo(
     () => new Map(axisOptions.map((axis) => [axis.id, axis.name])),
@@ -65,16 +70,21 @@ export function StrategicObjectivesTab({
     [filteredObjectives],
   );
 
-  if (objectives.length === 0) {
-    return (
-      <Alert>
-        <AlertDescription>Aucun objectif strategique disponible.</AlertDescription>
-      </Alert>
-    );
-  }
-
   return (
     <section className="space-y-4">
+      <div className="flex justify-end">
+        <Button
+          onClick={() => setCreatingObjective(true)}
+          disabled={!canCreate || axisOptions.length === 0}
+        >
+          Nouvel objectif
+        </Button>
+      </div>
+      {objectives.length === 0 ? (
+        <Alert>
+          <AlertDescription>Aucun objectif strategique disponible.</AlertDescription>
+        </Alert>
+      ) : null}
       <div className="grid gap-2 lg:grid-cols-4">
         <select
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -150,6 +160,11 @@ export function StrategicObjectivesTab({
         onOpenChange={(open) => {
           if (!open) setEditingObjective(null);
         }}
+      />
+      <StrategicObjectiveCreateDialog
+        open={creatingObjective}
+        onOpenChange={setCreatingObjective}
+        axisOptions={axisOptions}
       />
     </section>
   );

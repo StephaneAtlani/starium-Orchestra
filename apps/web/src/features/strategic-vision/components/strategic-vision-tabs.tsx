@@ -174,6 +174,7 @@ export function StrategicVisionTabs({
           <StrategicObjectivesTab
             objectives={objectives}
             axisOptions={axisOptions}
+            canCreate={canCreate}
             canUpdate={canUpdate}
           />
         ) : null}
