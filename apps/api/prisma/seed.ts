@@ -1786,6 +1786,19 @@ async function ensureEnabledClientModules(clientId: string): Promise<void> {
   });
 }
 
+/**
+ * Synchronise les modules actifs vers tous les clients existants.
+ * Utile en prod : lorsqu'un nouveau module est ajouté, il doit apparaître
+ * dans ClientModule sans dépendre du seed démo.
+ */
+async function ensureEnabledClientModulesForAllClients(): Promise<void> {
+  const clients = await prisma.client.findMany({ select: { id: true } });
+  if (clients.length === 0) return;
+  for (const client of clients) {
+    await ensureEnabledClientModules(client.id);
+  }
+}
+
 /** Rôles d’équipe projet (Sponsor / Responsable) — aligné ProjectTeamService.ensureDefaultTeamRolesForClient. */
 async function ensureProjectTeamCatalogForClient(clientId: string): Promise<void> {
   const defs: Array<{
@@ -3354,6 +3367,7 @@ async function main() {
   await ensureDefaultGlobalProfiles();
   await ensureGlobalBudgetSnapshotOccasionTypes();
   await ensureClientAdminRiskTaxonomyRole();
+  await ensureEnabledClientModulesForAllClients();
 
   if (runDemoSeed) {
     const passwordHash = await bcrypt.hash(PASSWORD, 10);
