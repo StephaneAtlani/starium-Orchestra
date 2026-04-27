@@ -31,6 +31,7 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
 import { listClientRisks, listProjects } from '@/features/projects/api/projects.api';
+import { updateActionPlan } from '@/features/projects/api/action-plans.api';
 import { ActionPlanTaskCreateDialog } from '@/features/projects/components/action-plan-task-create-dialog';
 import { ActionPlanTaskEditDialog } from '@/features/projects/components/action-plan-task-edit-dialog';
 import {
@@ -44,6 +45,14 @@ import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import type { ActionPlanApi } from '@/features/projects/types/project.types';
 import { cn } from '@/lib/utils';
 import { AlertCircle, ChevronLeft, ClipboardList, Plus } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 function fmtShortDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -133,6 +142,13 @@ export default function ActionPlanDetailPage() {
   const [ownerUserIdF, setOwnerUserIdF] = useState<string>('');
   const [sortByField, setSortByField] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [activeMetaEdit, setActiveMetaEdit] = useState<
+    'status' | 'priority' | 'owner' | null
+  >(null);
+  const [editableStatus, setEditableStatus] = useState<string>('ACTIVE');
+  const [editablePriority, setEditablePriority] = useState<string>('MEDIUM');
+  const [editableOwnerUserId, setEditableOwnerUserId] = useState<string>('__none__');
+  const queryClient = useQueryClient();
 
   const tasksQuery = useActionPlanTasksQuery(
     actionPlanId,
@@ -188,6 +204,21 @@ export default function ActionPlanDetailPage() {
 
   const plan = planQuery.data;
   const progressPct = plan ? Math.min(100, Math.max(0, plan.progressPercent)) : 0;
+  const planMetaMutation = useMutation({
+    mutationFn: (payload: { status?: string; priority?: string; ownerUserId?: string | null }) =>
+      updateActionPlan(authFetch, actionPlanId, payload),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: projectQueryKeys.actionPlanDetail(clientId, actionPlanId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [...projectQueryKeys.all, 'action-plan-tasks', clientId, actionPlanId],
+        }),
+      ]);
+      setActiveMetaEdit(null);
+    },
+  });
 
   const detailTask = useMemo(() => {
     if (!selectedTaskId || !tasksQuery.data?.items) return null;
@@ -239,6 +270,43 @@ export default function ActionPlanDetailPage() {
   const ownerLabel = plan?.owner
     ? [plan.owner.firstName, plan.owner.lastName].filter(Boolean).join(' ').trim() || plan.owner.email
     : null;
+  const ownerOptions = useMemo(
+    () =>
+      users.map((u) => ({
+        id: u.id,
+        label: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email,
+      })),
+    [users],
+  );
+  const selectedOwnerLabel =
+    editableOwnerUserId === '__none__'
+      ? 'Non assigné'
+      : ownerOptions.find((o) => o.id === editableOwnerUserId)?.label ?? 'Non assigné';
+  const derivedWindow = useMemo(() => {
+    const items = tasksQuery.data?.items ?? [];
+    const toTs = (iso: string | null | undefined) => {
+      if (!iso) return null;
+      const ts = new Date(iso).getTime();
+      return Number.isFinite(ts) ? ts : null;
+    };
+    const starts = items
+      .map((t) => toTs(t.actualStartDate ?? t.plannedStartDate))
+      .filter((v): v is number => v != null);
+    const ends = items
+      .map((t) => toTs(t.actualEndDate ?? t.plannedEndDate))
+      .filter((v): v is number => v != null);
+    return {
+      startDate: starts.length > 0 ? new Date(Math.min(...starts)).toISOString() : null,
+      endDate: ends.length > 0 ? new Date(Math.max(...ends)).toISOString() : null,
+    };
+  }, [tasksQuery.data?.items]);
+
+  useEffect(() => {
+    if (!plan) return;
+    setEditableStatus(plan.status);
+    setEditablePriority(plan.priority);
+    setEditableOwnerUserId(plan.ownerUserId ?? '__none__');
+  }, [plan]);
 
   return (
     <RequireActiveClient>
@@ -294,7 +362,77 @@ export default function ActionPlanDetailPage() {
                     <ClipboardList className="size-5" />
                   </div>
                   <div className="min-w-0 space-y-2">
-                    <PlanMetaBadges plan={plan} />
+                    {activeMetaEdit === 'status' || activeMetaEdit === 'priority' ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Select value={editableStatus} onValueChange={(value) => setEditableStatus(value ?? '')}>
+                          <SelectTrigger className="h-8 w-[150px] text-xs">
+                            <SelectValue>
+                              {ACTION_PLAN_STATUS_LABELS[editableStatus] ?? editableStatus}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(ACTION_PLAN_STATUS_LABELS).map(([value, label]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={editablePriority}
+                          onValueChange={(value) => setEditablePriority(value ?? '')}
+                        >
+                          <SelectTrigger className="h-8 w-[150px] text-xs">
+                            <SelectValue>
+                              {ACTION_PLAN_PRIORITY_LABELS[editablePriority] ?? editablePriority}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(ACTION_PLAN_PRIORITY_LABELS).map(([value, label]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-8 px-2 text-xs"
+                          disabled={planMetaMutation.isPending}
+                          onClick={() =>
+                            planMetaMutation.mutate({
+                              status: editableStatus,
+                              priority: editablePriority,
+                            })
+                          }
+                        >
+                          OK
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 text-xs"
+                          disabled={planMetaMutation.isPending}
+                          onClick={() => {
+                            setEditableStatus(plan.status);
+                            setEditablePriority(plan.priority);
+                            setActiveMetaEdit(null);
+                          }}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="rounded px-1 py-0.5 text-left hover:bg-muted"
+                        onClick={() => setActiveMetaEdit('status')}
+                      >
+                        <PlanMetaBadges plan={plan} />
+                      </button>
+                    )}
                     {plan.description?.trim() ? (
                       <p className="max-w-2xl text-sm text-muted-foreground">{plan.description.trim()}</p>
                     ) : null}
@@ -312,27 +450,78 @@ export default function ActionPlanDetailPage() {
               <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
                   <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Début
+                    Début (calculé)
                   </div>
                   <div className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
-                    {fmtShortDate(plan.startDate)}
+                    {fmtShortDate(derivedWindow.startDate)}
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
                   <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Échéance cible
+                    Fin (calculée)
                   </div>
                   <div className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
-                    {fmtShortDate(plan.targetDate)}
+                    {fmtShortDate(derivedWindow.endDate)}
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-2 sm:col-span-2 lg:col-span-2">
                   <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
                     Responsable plan
                   </div>
-                  <div className="mt-0.5 truncate text-sm font-medium text-foreground">
-                    {ownerLabel ?? '—'}
-                  </div>
+                  {activeMetaEdit === 'owner' ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <Select
+                        value={editableOwnerUserId}
+                        onValueChange={(value) => setEditableOwnerUserId(value ?? '__none__')}
+                      >
+                        <SelectTrigger className="h-8 w-[280px] text-xs">
+                          <SelectValue>{selectedOwnerLabel}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Non assigné</SelectItem>
+                          {ownerOptions.map((option) => (
+                            <SelectItem key={option.id} value={option.id}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
+                        disabled={planMetaMutation.isPending}
+                        onClick={() =>
+                          planMetaMutation.mutate({
+                            ownerUserId: editableOwnerUserId === '__none__' ? null : editableOwnerUserId,
+                          })
+                        }
+                      >
+                        OK
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
+                        disabled={planMetaMutation.isPending}
+                        onClick={() => {
+                          setEditableOwnerUserId(plan.ownerUserId ?? '__none__');
+                          setActiveMetaEdit(null);
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="mt-0.5 truncate rounded px-1 py-0.5 text-left text-sm font-medium text-foreground hover:bg-muted"
+                      onClick={() => setActiveMetaEdit('owner')}
+                    >
+                      {ownerLabel ?? '—'}
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
