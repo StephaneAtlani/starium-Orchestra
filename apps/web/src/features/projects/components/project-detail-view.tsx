@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -60,9 +60,7 @@ import type { ProjectDetail } from '../types/project.types';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from '@/lib/toast';
 import {
-  deleteProject,
   listProjectPortfolioCategories,
   listProjectTags,
   replaceProjectTags,
@@ -1240,17 +1238,11 @@ function ProjectDetailTabbedContent({
 }
 
 export function ProjectDetailView({ projectId }: { projectId: string }) {
-  const router = useRouter();
-  const authFetch = useAuthenticatedFetch();
-  const queryClient = useQueryClient();
-  const { activeClient } = useActiveClient();
-  const clientId = activeClient?.id ?? '';
   const { data: project, isLoading, error } = useProjectDetailQuery(projectId);
   const risks = useProjectRisksQuery(projectId);
   const { merged: badgeMerged } = useClientUiBadgeConfig();
   const { has } = usePermissions();
   const canPostMortemCta = has('projects.update');
-  const canDeleteProject = has('projects.delete');
   const canReadStrategicVision = has('strategic_vision.read');
   const canManageStrategicLinks = has('strategic_vision.manage_links');
   const showPostMortemHeaderCta =
@@ -1278,16 +1270,6 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     reviewsForRexCta.isSuccess &&
     hasFinalizedPostMortemReview(reviewsForRexCta.data) &&
     !findDraftPostMortemReview(reviewsForRexCta.data);
-
-  const deleteProjectMutation = useMutation({
-    mutationFn: (id: string) => deleteProject(authFetch, id),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: projectQueryKeys.list(clientId, {}),
-      });
-      router.push(projectsList());
-    },
-  });
 
   if (!projectId) {
     return (
@@ -1331,40 +1313,6 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             actions={
               <div className="flex flex-wrap items-center gap-2">
                 <HealthBadge health={project.computedHealth} merged={badgeMerged} />
-                {canDeleteProject ? (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    disabled={deleteProjectMutation.isPending}
-                    onClick={() => {
-                      const firstConfirm = window.confirm(
-                        `Supprimer définitivement le projet "${project.name}" ? Cette action est irréversible.`,
-                      );
-                      if (!firstConfirm) return;
-                      const validationToken = project.code?.trim() || project.name.trim();
-                      const typed = window.prompt(
-                        `Validation requise : tape "${validationToken}" pour confirmer la suppression.`,
-                        '',
-                      );
-                      if (typed == null) return;
-                      if (typed.trim() !== validationToken) {
-                        window.alert('Validation incorrecte. Suppression annulée.');
-                        return;
-                      }
-                      deleteProjectMutation.mutate(projectId, {
-                        onSuccess: () => {
-                          toast.success('Projet supprimé.');
-                        },
-                        onError: (e: Error) => {
-                          toast.error(e.message || 'Suppression impossible.');
-                        },
-                      });
-                    }}
-                  >
-                    {deleteProjectMutation.isPending ? 'Suppression...' : 'Supprimer'}
-                  </Button>
-                ) : null}
               </div>
             }
           />

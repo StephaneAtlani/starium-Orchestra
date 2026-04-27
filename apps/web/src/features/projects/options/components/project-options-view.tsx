@@ -75,7 +75,11 @@ export function ProjectOptionsView({ projectId }: Props) {
           <ProjectWorkspaceTabs projectId={projectId} projectStatus={project.status} />
         </CardHeader>
         <CardContent className="flex min-h-0 w-full min-w-0 flex-col gap-4 p-4 sm:p-6">
-          <ProjectOptionsTabs projectId={project.id} />
+          <ProjectOptionsTabs
+            projectId={project.id}
+            projectName={project.name}
+            projectCode={project.code ?? null}
+          />
         </CardContent>
       </Card>
     </>
