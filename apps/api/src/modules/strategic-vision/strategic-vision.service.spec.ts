@@ -246,39 +246,12 @@ describe('StrategicVisionService', () => {
           updatedAt: new Date('2026-02-05T00:00:00.000Z'),
         },
       ]);
-    prisma.project.findMany.mockResolvedValue([
-      {
-        id: 'p-1',
-        code: 'PRJ-001',
-        name: 'Migration ERP',
-        updatedAt: new Date('2026-02-04T00:00:00.000Z'),
-      },
-      {
-        id: 'p-2',
-        code: null,
-        name: 'Refonte IAM',
-        updatedAt: new Date('2026-02-06T00:00:00.000Z'),
-      },
-    ]);
-    prisma.strategicLink.findMany.mockResolvedValue([{ targetId: 'p-1' }]);
-
     const out = await service.getAlerts('c1');
 
     expect(prisma.strategicObjective.findMany).toHaveBeenCalledTimes(2);
-    expect(prisma.project.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ clientId: 'c1' }),
-      }),
-    );
-    expect(prisma.strategicLink.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          clientId: 'c1',
-          linkType: StrategicLinkType.PROJECT,
-        }),
-      }),
-    );
-    expect(out.total).toBe(3);
+    expect(prisma.project.findMany).not.toHaveBeenCalled();
+    expect(prisma.strategicLink.findMany).not.toHaveBeenCalled();
+    expect(out.total).toBe(2);
     expect(out.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -295,13 +268,6 @@ describe('StrategicVisionService', () => {
           targetLabel: 'Objectif Hors Trajectoire',
           message: expect.stringContaining('Objectif hors trajectoire'),
         }),
-        expect.objectContaining({
-          type: 'PROJECT_UNALIGNED',
-          severity: 'MEDIUM',
-          targetType: 'PROJECT',
-          targetLabel: 'Refonte IAM',
-          message: expect.stringContaining('Projet actif non aligne'),
-        }),
       ]),
     );
     expect(out.items.every((item) => new Date(item.createdAt).toISOString() === item.createdAt)).toBe(
@@ -309,12 +275,12 @@ describe('StrategicVisionService', () => {
     );
   });
 
-  it('getAlerts ne requete pas strategicLink si aucun projet actif', async () => {
+  it('getAlerts retourne vide si aucun objectif en alerte', async () => {
     prisma.strategicObjective.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
-    prisma.project.findMany.mockResolvedValue([]);
 
     const out = await service.getAlerts('c1');
 
+    expect(prisma.project.findMany).not.toHaveBeenCalled();
     expect(prisma.strategicLink.findMany).not.toHaveBeenCalled();
     expect(out).toEqual({ items: [], total: 0 });
   });
