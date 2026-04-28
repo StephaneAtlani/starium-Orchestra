@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ensureRiskTaxonomyForClient } from './risk-taxonomy-defaults';
+import {
+  ensureRiskTaxonomyForClient,
+  getRiskDomainUiFamily,
+  isRiskDomainVisibleInV1Catalog,
+} from './risk-taxonomy-defaults';
 
 @Injectable()
 export class RiskTaxonomyService {
@@ -16,13 +20,14 @@ export class RiskTaxonomyService {
   }
 
   /** Formulaires / filtres : domaines et types actifs uniquement. */
-  async getCatalog(clientId: string) {
-    const domains = await this.prisma.riskDomain.findMany({
-      where: { clientId, isActive: true },
+  async getCatalog(clientId: string, includeLegacy = false) {
+    await this.ensureForClient(clientId);
+    const domainsRaw = await this.prisma.riskDomain.findMany({
+      where: includeLegacy ? { clientId } : { clientId, isActive: true },
       orderBy: [{ name: 'asc' }],
       include: {
         types: {
-          where: { isActive: true },
+          where: includeLegacy ? undefined : { isActive: true },
           orderBy: [{ name: 'asc' }],
           select: {
             id: true,
@@ -33,11 +38,23 @@ export class RiskTaxonomyService {
         },
       },
     });
+    const domains = domainsRaw
+      .filter((d) => includeLegacy || isRiskDomainVisibleInV1Catalog(d.code))
+      .map((d) => {
+        const family = getRiskDomainUiFamily(d.code);
+        return {
+          ...d,
+          familyCode: family.code,
+          familyLabel: family.label,
+          isVisibleInCatalog: isRiskDomainVisibleInV1Catalog(d.code),
+        };
+      });
     return { domains };
   }
 
   /** Administration : tous les domaines (types inclus). */
   async listDomainsAdmin(clientId: string, activeOnly?: boolean) {
+    await this.ensureForClient(clientId);
     const where: Prisma.RiskDomainWhereInput = { clientId };
     if (activeOnly === true) where.isActive = true;
     return this.prisma.riskDomain.findMany({

@@ -29,8 +29,12 @@ export class RiskTaxonomyController {
   /** Catalogue pour formulaires et filtres (domaines + types actifs). */
   @Get('catalog')
   @RequirePermissions('projects.read')
-  getCatalog(@ActiveClientId() clientId: string | undefined) {
-    return this.taxonomy.getCatalog(clientId!);
+  getCatalog(
+    @ActiveClientId() clientId: string | undefined,
+    @Query('includeLegacy') includeLegacy?: string,
+  ) {
+    const withLegacy = includeLegacy === 'true' || includeLegacy === '1';
+    return this.taxonomy.getCatalog(clientId!, withLegacy);
   }
 
   @Get('admin/domains')

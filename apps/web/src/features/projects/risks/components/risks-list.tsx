@@ -184,6 +184,13 @@ export function RisksRegistryTable({
   taxonomyDomains,
   filtersDisabled,
 }: TableProps) {
+  const sortedDomains = [...taxonomyDomains].sort((a, b) => {
+    const fa = a.familyLabel ?? '';
+    const fb = b.familyLabel ?? '';
+    if (fa !== fb) return fa.localeCompare(fb, 'fr');
+    return a.name.localeCompare(b.name, 'fr');
+  });
+
   const typesForSelectedDomain =
     filters.domainId === ALL
       ? []
@@ -333,9 +340,9 @@ export function RisksRegistryTable({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Tous les domaines</SelectItem>
-                {taxonomyDomains.map((d) => (
+                {sortedDomains.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
-                    {d.name}
+                    {d.familyLabel ? `${d.familyLabel} — ${d.name}` : d.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -355,10 +362,10 @@ export function RisksRegistryTable({
               <SelectContent>
                 <SelectItem value={ALL}>Tous les types</SelectItem>
                 {filters.domainId === ALL
-                  ? taxonomyDomains.flatMap((d) =>
+                  ? sortedDomains.flatMap((d) =>
                       d.types.map((t) => (
                         <SelectItem key={t.id} value={t.id}>
-                          {d.name} — {t.name}
+                          {d.familyLabel ? `${d.familyLabel} — ${d.name} — ${t.name}` : `${d.name} — ${t.name}`}
                         </SelectItem>
                       )),
                     )

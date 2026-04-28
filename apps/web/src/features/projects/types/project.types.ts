@@ -354,6 +354,9 @@ export type RiskTaxonomyDomainApi = {
   name: string;
   description: string | null;
   isActive: boolean;
+  familyCode?: string;
+  familyLabel?: string;
+  isVisibleInCatalog?: boolean;
   types: Array<{ id: string; code: string; name: string; isActive: boolean }>;
 };
 

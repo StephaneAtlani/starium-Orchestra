@@ -36,6 +36,68 @@ export const RISK_DOMAIN_CODES = [
   'CONTINUITY',
 ] as const;
 
+export const RISK_V1_VISIBLE_DOMAIN_CODES = [
+  'STRATEGY',
+  'GOVERNANCE',
+  'FINANCE',
+  'PROJECTS',
+  'OPERATIONS',
+  'CONTINUITY',
+  'IT',
+  'CYBERSECURITY',
+  'DATA',
+  'SUPPLIERS',
+  'LEGAL_COMPLIANCE',
+  'HUMAN_RESOURCES',
+  'REPUTATION',
+] as const;
+
+export type RiskUiFamily = {
+  code: string;
+  label: string;
+};
+
+const DOMAIN_UI_FAMILY_BY_CODE: Record<string, RiskUiFamily> = {
+  STRATEGY: { code: 'PILOTAGE_STRATEGIE', label: 'Pilotage & stratégie' },
+  GOVERNANCE: { code: 'PILOTAGE_STRATEGIE', label: 'Pilotage & stratégie' },
+  FINANCE: { code: 'FINANCE_PERFORMANCE', label: 'Finance & performance' },
+  PROJECTS: { code: 'OPERATIONS_CONTINUITE', label: 'Opérations & continuité' },
+  OPERATIONS: { code: 'OPERATIONS_CONTINUITE', label: 'Opérations & continuité' },
+  CONTINUITY: { code: 'OPERATIONS_CONTINUITE', label: 'Opérations & continuité' },
+  IT: { code: 'TECHNOLOGIE_DONNEES', label: 'Technologie & données' },
+  CYBERSECURITY: { code: 'TECHNOLOGIE_DONNEES', label: 'Technologie & données' },
+  DATA: { code: 'TECHNOLOGIE_DONNEES', label: 'Technologie & données' },
+  SUPPLIERS: { code: 'ECOSYSTEME_EXTERNE', label: 'Écosystème externe' },
+  LEGAL_COMPLIANCE: { code: 'JURIDIQUE_CONFORMITE', label: 'Juridique & conformité' },
+  HUMAN_RESOURCES: { code: 'HUMAIN_ORGANISATION', label: 'Humain & organisation' },
+  REPUTATION: { code: 'IMAGE_REPUTATION', label: 'Image & réputation' },
+  GENERAL: { code: 'PILOTAGE_STRATEGIE', label: 'Pilotage & stratégie' },
+};
+
+const DEFAULT_UI_FAMILY: RiskUiFamily = {
+  code: 'PILOTAGE_STRATEGIE',
+  label: 'Pilotage & stratégie',
+};
+
+const V1_GENERIC_TYPE_BY_DOMAIN: Record<string, { code: string; name: string }> = {
+  STRATEGY: { code: 'OTHER_STRATEGIC_RISK', name: 'Autre risque stratégique' },
+  GOVERNANCE: { code: 'OTHER_GOVERNANCE_RISK', name: 'Autre risque de gouvernance' },
+  FINANCE: { code: 'OTHER_FINANCIAL_RISK', name: 'Autre risque financier' },
+  PROJECTS: { code: 'OTHER_PROJECT_RISK', name: 'Autre risque projet' },
+  OPERATIONS: { code: 'OTHER_OPERATIONAL_RISK', name: 'Autre risque opérationnel' },
+  CONTINUITY: { code: 'OTHER_CONTINUITY_RISK', name: 'Autre risque de continuité' },
+  IT: { code: 'OTHER_IT_RISK', name: 'Autre risque IT' },
+  CYBERSECURITY: { code: 'OTHER_CYBER_RISK', name: 'Autre risque cyber' },
+  DATA: { code: 'OTHER_DATA_RISK', name: 'Autre risque data' },
+  SUPPLIERS: { code: 'OTHER_SUPPLIER_RISK', name: 'Autre risque fournisseurs' },
+  LEGAL_COMPLIANCE: {
+    code: 'OTHER_LEGAL_COMPLIANCE_RISK',
+    name: 'Autre risque juridique & conformité',
+  },
+  HUMAN_RESOURCES: { code: 'OTHER_HR_RISK', name: 'Autre risque RH' },
+  REPUTATION: { code: 'OTHER_REPUTATION_RISK', name: 'Autre risque de réputation' },
+};
+
 type DomainDef = {
   code: string;
   name: string;
@@ -47,7 +109,7 @@ type DomainDef = {
  * Taxonomie par défaut : domaine → types.
  * Les libellés `name` sont en français (affichage UI / registre).
  */
-const DOMAIN_DEFINITIONS: DomainDef[] = [
+const RAW_DOMAIN_DEFINITIONS: DomainDef[] = [
   {
     code: 'GENERAL',
     name: 'Général',
@@ -159,6 +221,26 @@ const DOMAIN_DEFINITIONS: DomainDef[] = [
     ],
   },
   {
+    code: 'LEGAL_COMPLIANCE',
+    name: 'Juridique & conformité',
+    types: [
+      { code: 'CONTRACT_BREACH', name: 'Violation de contrat' },
+      { code: 'LITIGATION', name: 'Contentieux' },
+      { code: 'LIABILITY_EXPOSURE', name: 'Exposition à la responsabilité' },
+      { code: 'NON_COMPLIANT_CONTRACT', name: 'Contrat non conforme' },
+      { code: 'INTELLECTUAL_PROPERTY_ISSUE', name: 'Problème de propriété intellectuelle' },
+      { code: 'REGULATORY_NON_COMPLIANCE', name: 'Non-conformité réglementaire' },
+      { code: 'AUDIT_FAILURE', name: 'Échec d’audit' },
+      { code: 'CONTROL_DEFICIENCY', name: 'Défaut de contrôle interne' },
+      { code: 'DOCUMENTATION_GAP', name: 'Lacune documentaire' },
+      { code: 'CERTIFICATION_LOSS', name: 'Perte de certification' },
+      { code: 'TAX_NON_COMPLIANCE', name: 'Non-conformité fiscale' },
+      { code: 'TAX_OPTIMIZATION_RISK', name: 'Risque lié à l’optimisation fiscale' },
+      { code: 'TAX_PENALTY', name: 'Pénalité fiscale' },
+      { code: 'VAT_ERROR', name: 'Erreur de TVA' },
+    ],
+  },
+  {
     code: 'LEGAL',
     name: 'Juridique',
     types: [
@@ -209,6 +291,15 @@ const DOMAIN_DEFINITIONS: DomainDef[] = [
       { code: 'QUALITY_DEFECT', name: 'Défaut de qualité' },
       { code: 'COST_INCREASE', name: 'Hausse de coûts' },
       { code: 'SINGLE_SUPPLIER_DEPENDENCY', name: 'Dépendance à un fournisseur unique' },
+      { code: 'PARTNER_FAILURE', name: 'Défaillance partenaire' },
+      { code: 'MISALIGNED_INTERESTS', name: 'Intérêts non alignés' },
+      { code: 'PARTNERSHIP_BREAKDOWN', name: 'Rupture de partenariat' },
+      { code: 'THIRD_PARTY_FAILURE', name: 'Défaillance d’un tiers' },
+      { code: 'OUTSOURCING_RISK', name: 'Risque d’externalisation' },
+      { code: 'EXTERNAL_SECURITY_RISK', name: 'Risque de sécurité externe' },
+      { code: 'VENDOR_LOCK_IN', name: 'Verrouillage fournisseur' },
+      { code: 'TECHNOLOGY_DEPENDENCY', name: 'Dépendance technologique' },
+      { code: 'KEY_RESOURCE_DEPENDENCY', name: 'Dépendance à une ressource clé' },
     ],
   },
   {
@@ -350,19 +441,40 @@ const DOMAIN_DEFINITIONS: DomainDef[] = [
   },
 ];
 
+const DOMAIN_DEFINITIONS: DomainDef[] = RAW_DOMAIN_DEFINITIONS.map((d) => {
+  const generic = V1_GENERIC_TYPE_BY_DOMAIN[d.code];
+  if (!generic) return d;
+  const hasGeneric = d.types.some((t) => t.code === generic.code);
+  if (hasGeneric) return d;
+  return { ...d, types: [...d.types, generic] };
+});
+
+export function isRiskDomainVisibleInV1Catalog(domainCode: string): boolean {
+  return (
+    domainCode === 'GENERAL' ||
+    RISK_V1_VISIBLE_DOMAIN_CODES.includes(
+      domainCode as (typeof RISK_V1_VISIBLE_DOMAIN_CODES)[number],
+    )
+  );
+}
+
+export function getRiskDomainUiFamily(domainCode: string): RiskUiFamily {
+  return DOMAIN_UI_FAMILY_BY_CODE[domainCode] ?? DEFAULT_UI_FAMILY;
+}
+
 /** Mapping enum legacy `impactCategory` → type seed (domaine explicite). */
 export function legacyImpactToTypeCode(
   impact: ProjectRiskImpactCategory | null | undefined,
 ): { domainCode: string; typeCode: string } {
   switch (impact) {
     case 'FINANCIAL':
-      return { domainCode: 'FINANCE', typeCode: 'BUDGET_OVERRUN' };
+      return { domainCode: 'FINANCE', typeCode: 'OTHER_FINANCIAL_RISK' };
     case 'OPERATIONAL':
-      return { domainCode: 'OPERATIONS', typeCode: 'PROCESS_BREAKDOWN' };
+      return { domainCode: 'OPERATIONS', typeCode: 'OTHER_OPERATIONAL_RISK' };
     case 'LEGAL':
-      return { domainCode: 'LEGAL', typeCode: 'CONTRACT_BREACH' };
+      return { domainCode: 'LEGAL_COMPLIANCE', typeCode: 'OTHER_LEGAL_COMPLIANCE_RISK' };
     case 'REPUTATION':
-      return { domainCode: 'REPUTATION', typeCode: 'BRAND_DAMAGE' };
+      return { domainCode: 'REPUTATION', typeCode: 'OTHER_REPUTATION_RISK' };
     default:
       return { domainCode: 'GENERAL', typeCode: 'UNCLASSIFIED' };
   }
@@ -373,6 +485,7 @@ export async function ensureRiskTaxonomyForClient(
   clientId: string,
 ): Promise<void> {
   for (const d of DOMAIN_DEFINITIONS) {
+    const domainVisibleInV1 = isRiskDomainVisibleInV1Catalog(d.code);
     const domain = await prisma.riskDomain.upsert({
       where: { clientId_code: { clientId, code: d.code } },
       create: {
@@ -380,7 +493,7 @@ export async function ensureRiskTaxonomyForClient(
         code: d.code,
         name: d.name,
         description: d.description ?? null,
-        isActive: true,
+        isActive: domainVisibleInV1,
       },
       update: {
         name: d.name,
@@ -397,7 +510,7 @@ export async function ensureRiskTaxonomyForClient(
           domainId: domain.id,
           code: t.code,
           name: t.name,
-          isActive: true,
+          isActive: domainVisibleInV1,
         },
         update: {
           name: t.name,

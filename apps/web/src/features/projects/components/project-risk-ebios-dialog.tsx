@@ -408,6 +408,16 @@ export function ProjectRiskEbiosDialog({
     [mode, risk, riskDetailQuery.data],
   );
 
+  const sortedCatalogDomains = useMemo(() => {
+    const domains = taxonomyQuery.data?.domains ?? [];
+    return [...domains].sort((a, b) => {
+      const fa = a.familyLabel ?? '';
+      const fb = b.familyLabel ?? '';
+      if (fa !== fb) return fa.localeCompare(fb, 'fr');
+      return a.name.localeCompare(b.name, 'fr');
+    });
+  }, [taxonomyQuery.data?.domains]);
+
   const riskPlanTasksQuery = useQuery({
     queryKey: projectQueryKeys.riskActionPlanTasks(clientId, riskResolved?.id ?? ''),
     queryFn: () => listRiskActionPlanTasks(authFetch, riskResolved!.id),
@@ -908,16 +918,42 @@ export function ProjectRiskEbiosDialog({
                       <span className={selectTriggerLabelClass}>
                         {taxonomyDomainId === NONE
                           ? 'Chargement…'
-                          : (taxonomyQuery.data?.domains ?? []).find((d) => d.id === taxonomyDomainId)
-                              ?.name ?? 'Domaine'}
+                          : (() => {
+                              const fromCatalog = (taxonomyQuery.data?.domains ?? []).find(
+                                (d) => d.id === taxonomyDomainId,
+                              );
+                              if (fromCatalog) return fromCatalog.name;
+                              const legacyDomain = riskResolved?.riskType?.domain;
+                              if (legacyDomain?.id === taxonomyDomainId) {
+                                return `${legacyDomain.name}${legacyDomain.isActive ? '' : ' (inactif)'}`;
+                              }
+                              return 'Domaine';
+                            })()}
                       </span>
                     </SelectTrigger>
                     <SelectContent>
-                      {(taxonomyQuery.data?.domains ?? []).map((d) => (
+                      {sortedCatalogDomains.map((d) => (
                         <SelectItem key={d.id} value={d.id}>
-                          {d.name}
+                          {d.familyLabel ? `${d.familyLabel} — ${d.name}` : d.name}
                         </SelectItem>
                       ))}
+                      {(() => {
+                        const legacyDomain = riskResolved?.riskType?.domain;
+                        if (
+                          mode === 'edit' &&
+                          legacyDomain &&
+                          legacyDomain.id === taxonomyDomainId &&
+                          !sortedCatalogDomains.some((d) => d.id === legacyDomain.id)
+                        ) {
+                          return (
+                            <SelectItem value={legacyDomain.id}>
+                              {legacyDomain.name}
+                              {!legacyDomain.isActive ? ' (inactif)' : ''}
+                            </SelectItem>
+                          );
+                        }
+                        return null;
+                      })()}
                     </SelectContent>
                   </Select>
                 </div>
