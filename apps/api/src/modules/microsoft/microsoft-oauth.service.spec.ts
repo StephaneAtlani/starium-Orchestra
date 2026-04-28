@@ -68,6 +68,7 @@ describe('MicrosoftOAuthService', () => {
                 microsoftOAuthClientId: null,
                 microsoftOAuthClientSecretEncrypted: null,
                 microsoftOAuthAuthorityTenant: null,
+                microsoftOAuthRedirectUri: 'http://localhost:3001/api/microsoft/auth/callback',
               }),
             },
           },
@@ -174,6 +175,7 @@ describe('MicrosoftOAuthService', () => {
           microsoftOAuthClientId: null,
           microsoftOAuthClientSecretEncrypted: null,
           microsoftOAuthAuthorityTenant: null,
+          microsoftOAuthRedirectUri: 'http://localhost:3001/api/microsoft/auth/callback',
         });
       });
 
@@ -409,6 +411,7 @@ describe('MicrosoftOAuthService', () => {
         microsoftOAuthClientId: null,
         microsoftOAuthClientSecretEncrypted: null,
         microsoftOAuthAuthorityTenant: null,
+        microsoftOAuthRedirectUri: 'http://localhost:3001/api/microsoft/auth/callback',
       });
 
       const moduleRef = await Test.createTestingModule({
@@ -504,6 +507,7 @@ describe('MicrosoftOAuthService', () => {
             microsoftOAuthClientId: null,
             microsoftOAuthClientSecretEncrypted: null,
             microsoftOAuthAuthorityTenant: null,
+            microsoftOAuthRedirectUri: 'http://localhost:3001/api/microsoft/auth/callback',
           }),
         },
         microsoftConnection: {
@@ -592,6 +596,7 @@ describe('MicrosoftOAuthService', () => {
             microsoftOAuthClientId: null,
             microsoftOAuthClientSecretEncrypted: null,
             microsoftOAuthAuthorityTenant: null,
+            microsoftOAuthRedirectUri: 'http://localhost:3001/api/microsoft/auth/callback',
           }),
         },
         microsoftConnection: {

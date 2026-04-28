@@ -18,4 +18,9 @@ export class UpdateClientMicrosoftOAuthDto {
   @IsString()
   @MaxLength(200)
   microsoftOAuthAuthorityTenant?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  microsoftOAuthRedirectUri?: string | null;
 }

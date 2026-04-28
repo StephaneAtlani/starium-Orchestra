@@ -63,6 +63,7 @@ export class MicrosoftOAuthService {
     azureClientId: string;
     azureClientSecret: string;
     authorityTenant: string;
+    redirectUri: string;
   }> {
     const row = await this.prisma.client.findUnique({
       where: { id: stariumClientId },
@@ -70,6 +71,7 @@ export class MicrosoftOAuthService {
         microsoftOAuthClientId: true,
         microsoftOAuthClientSecretEncrypted: true,
         microsoftOAuthAuthorityTenant: true,
+        microsoftOAuthRedirectUri: true,
       },
     });
     const envId = this.config.get<string>('MICROSOFT_CLIENT_ID')?.trim();
@@ -95,13 +97,14 @@ export class MicrosoftOAuthService {
     }
     const authorityTenant =
       row?.microsoftOAuthAuthorityTenant?.trim() || envTenant;
+    const redirectUri = row?.microsoftOAuthRedirectUri?.trim() || '';
 
-    if (!azureClientId || !azureClientSecret) {
+    if (!azureClientId || !azureClientSecret || !redirectUri) {
       throw new BadRequestException(
-        'Configuration Microsoft incomplète : enregistrer l’ID et le secret d’application Azure (administration client) ou définir MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET (environnement).',
+        "Configuration Microsoft client incomplète : renseigner l'ID, le secret et l'URI de redirection OAuth dans l'administration client.",
       );
     }
-    return { azureClientId, azureClientSecret, authorityTenant };
+    return { azureClientId, azureClientSecret, authorityTenant, redirectUri };
   }
 
   /**
@@ -112,11 +115,6 @@ export class MicrosoftOAuthService {
     stariumClientId: string,
   ): Promise<{ authorizationUrl: string }> {
     const platform = await this.platformConfig.getResolved();
-    if (!platform.redirectUri) {
-      throw new BadRequestException(
-        'URI de redirection OAuth manquante : la configurer en administration plateforme (Microsoft) ou via MICROSOFT_REDIRECT_URI.',
-      );
-    }
     const creds = await this.resolveAzureAppCredentials(stariumClientId);
 
     const jti = randomUUID();
@@ -136,7 +134,7 @@ export class MicrosoftOAuthService {
     const params = new URLSearchParams({
       client_id: creds.azureClientId,
       response_type: 'code',
-      redirect_uri: platform.redirectUri,
+      redirect_uri: creds.redirectUri,
       response_mode: 'query',
       scope: platform.graphScopes,
       state,
@@ -213,6 +211,7 @@ export class MicrosoftOAuthService {
       azureClientId: string;
       azureClientSecret: string;
       authorityTenant: string;
+      redirectUri: string;
     };
     let platform: ResolvedPlatformMicrosoftConfig;
     try {
@@ -228,7 +227,7 @@ export class MicrosoftOAuthService {
       client_secret: creds.azureClientSecret,
       grant_type: 'authorization_code',
       code,
-      redirect_uri: platform.redirectUri,
+      redirect_uri: creds.redirectUri,
     });
 
     let tokens: Awaited<ReturnType<MicrosoftTokenHttpService['postTokenForm']>>;

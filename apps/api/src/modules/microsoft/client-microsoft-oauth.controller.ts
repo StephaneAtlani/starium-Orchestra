@@ -9,7 +9,7 @@ import { UpdateClientMicrosoftOAuthDto } from './dto/update-client-microsoft-oau
 
 /**
  * Identifiants d’application Azure **par client Starium** (BYO).
- * L’URI de redirection et les scopes sont côté `GET/PATCH /platform/microsoft-settings`.
+ * L’URI de redirection sync est côté client ; les scopes Graph restent côté plateforme.
  */
 @Controller('clients')
 @UseGuards(

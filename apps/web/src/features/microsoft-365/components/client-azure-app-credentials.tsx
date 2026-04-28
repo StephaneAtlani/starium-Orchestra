@@ -18,8 +18,9 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 type ClientOAuthGet = {
   microsoftOAuthClientId: string | null;
   microsoftOAuthAuthorityTenant: string | null;
+  microsoftOAuthRedirectUri: string | null;
   hasClientSecret: boolean;
-  platformRedirectUri: string | null;
+  redirectUri: string | null;
   graphScopes: string;
 };
 
@@ -65,8 +66,8 @@ export function ClientAzureAppCredentials() {
   const [clientId, setClientId] = useState('');
   const [tenant, setTenant] = useState('');
   const [secret, setSecret] = useState('');
+  const [redirectUri, setRedirectUri] = useState('');
   const [meta, setMeta] = useState<{
-    platformRedirectUri: string | null;
     graphScopes: string;
     hasClientSecret: boolean;
   } | null>(null);
@@ -89,9 +90,9 @@ export function ClientAzureAppCredentials() {
       const data = (await res.json()) as ClientOAuthGet;
       setClientId(data.microsoftOAuthClientId ?? '');
       setTenant(data.microsoftOAuthAuthorityTenant ?? '');
+      setRedirectUri(data.microsoftOAuthRedirectUri ?? data.redirectUri ?? '');
       setSecret('');
       setMeta({
-        platformRedirectUri: data.platformRedirectUri,
         graphScopes: data.graphScopes,
         hasClientSecret: data.hasClientSecret,
       });
@@ -121,6 +122,7 @@ export function ClientAzureAppCredentials() {
         body: JSON.stringify({
           microsoftOAuthClientId: clientId || null,
           microsoftOAuthAuthorityTenant: tenant || null,
+          microsoftOAuthRedirectUri: redirectUri || null,
           ...(secret.trim()
             ? { microsoftOAuthClientSecret: secret.trim() }
             : {}),
@@ -163,23 +165,16 @@ export function ClientAzureAppCredentials() {
         <CardTitle>Application Azure AD (Entra)</CardTitle>
         <CardDescription>
           ID d’application et secret de l’app enregistrée dans votre tenant
-          Microsoft. L’URI de redirection et les scopes sont définis au niveau{' '}
-          <strong>plateforme</strong> Starium.
+          Microsoft. Cette configuration est spécifique au client actif.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {meta?.platformRedirectUri && (
-          <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
-            <p className="font-medium text-foreground">URI de redirection à déclarer dans Azure</p>
-            <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
-              {meta.platformRedirectUri}
-            </p>
-            <p className="mt-2 text-muted-foreground">
-              Scopes attendus :{' '}
-              <span className="font-mono text-xs">{meta.graphScopes}</span>
-            </p>
-          </div>
-        )}
+        <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+          <p className="font-medium text-foreground">Scopes attendus</p>
+          <p className="mt-1 text-muted-foreground">
+            <span className="font-mono text-xs">{meta?.graphScopes}</span>
+          </p>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="azureClientId">ID d’application (client)</Label>
           <Input
@@ -196,6 +191,16 @@ export function ClientAzureAppCredentials() {
             value={tenant}
             onChange={(e) => setTenant(e.target.value)}
             placeholder="common"
+            autoComplete="off"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="azureRedirectUri">URI de redirection OAuth</Label>
+          <Input
+            id="azureRedirectUri"
+            value={redirectUri}
+            onChange={(e) => setRedirectUri(e.target.value)}
+            placeholder="https://app.starium.fr/api/microsoft/auth/callback"
             autoComplete="off"
           />
         </div>

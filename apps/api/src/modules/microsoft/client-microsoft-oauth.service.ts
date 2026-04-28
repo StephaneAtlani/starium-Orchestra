@@ -7,9 +7,10 @@ import { UpdateClientMicrosoftOAuthDto } from './dto/update-client-microsoft-oau
 export interface ClientMicrosoftOAuthPublic {
   microsoftOAuthClientId: string | null;
   microsoftOAuthAuthorityTenant: string | null;
+  microsoftOAuthRedirectUri: string | null;
   hasClientSecret: boolean;
-  /** URI exacte à enregistrer dans l’app Entra (config plateforme). */
-  platformRedirectUri: string | null;
+  /** URI exacte à enregistrer dans l’app Entra (config client). */
+  redirectUri: string | null;
   graphScopes: string;
 }
 
@@ -28,6 +29,7 @@ export class ClientMicrosoftOAuthService {
         microsoftOAuthClientId: true,
         microsoftOAuthClientSecretEncrypted: true,
         microsoftOAuthAuthorityTenant: true,
+        microsoftOAuthRedirectUri: true,
       },
     });
     if (!row) {
@@ -37,8 +39,9 @@ export class ClientMicrosoftOAuthService {
     return {
       microsoftOAuthClientId: row.microsoftOAuthClientId,
       microsoftOAuthAuthorityTenant: row.microsoftOAuthAuthorityTenant,
+      microsoftOAuthRedirectUri: row.microsoftOAuthRedirectUri,
       hasClientSecret: Boolean(row.microsoftOAuthClientSecretEncrypted?.length),
-      platformRedirectUri: resolved.redirectUri || null,
+      redirectUri: row.microsoftOAuthRedirectUri ?? null,
       graphScopes: resolved.graphScopes,
     };
   }
@@ -74,6 +77,9 @@ export class ClientMicrosoftOAuthService {
         ...(dto.microsoftOAuthAuthorityTenant !== undefined && {
           microsoftOAuthAuthorityTenant:
             dto.microsoftOAuthAuthorityTenant?.trim() || null,
+        }),
+        ...(dto.microsoftOAuthRedirectUri !== undefined && {
+          microsoftOAuthRedirectUri: dto.microsoftOAuthRedirectUri?.trim() || null,
         }),
         ...(secretEnc !== undefined && {
           microsoftOAuthClientSecretEncrypted: secretEnc,

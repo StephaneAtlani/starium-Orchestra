@@ -334,6 +334,8 @@ model Client {
   microsoftOAuthClientSecretEncrypted String?
   /// Segment d’autorité (`common`, GUID tenant, `organizations`…). Défaut `common` si vide.
   microsoftOAuthAuthorityTenant       String?
+  /// Redirect URI OAuth Microsoft dédiée au client (sync M365, hors SSO).
+  microsoftOAuthRedirectUri           String?
 
   /// Surcharges libellés / tons des badges UI (tâches, priorités, entrées custom) — fusion côté app avec `badge-registry`.
   uiBadgeConfig Json?
