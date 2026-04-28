@@ -119,10 +119,10 @@ export class MicrosoftSsoService {
         userAgent: meta.userAgent,
         requestId: meta.requestId,
       });
-      return { redirectUrl: this.errorRedirectUrl('microsoft_oauth_error') };
+      return { redirectUrl: await this.errorRedirectUrl('microsoft_oauth_error') };
     }
     if (!query.code || !query.state) {
-      return { redirectUrl: this.errorRedirectUrl('missing_code_or_state') };
+      return { redirectUrl: await this.errorRedirectUrl('missing_code_or_state') };
     }
 
     const stateValid = await this.consumeState(query.state);
@@ -135,7 +135,7 @@ export class MicrosoftSsoService {
         userAgent: meta.userAgent,
         requestId: meta.requestId,
       });
-      return { redirectUrl: this.errorRedirectUrl('invalid_or_expired_state') };
+      return { redirectUrl: await this.errorRedirectUrl('invalid_or_expired_state') };
     }
 
     try {
@@ -150,7 +150,9 @@ export class MicrosoftSsoService {
           userAgent: meta.userAgent,
           requestId: meta.requestId,
         });
-        return { redirectUrl: this.errorRedirectUrl('missing_or_unreliable_email') };
+        return {
+          redirectUrl: await this.errorRedirectUrl('missing_or_unreliable_email'),
+        };
       }
 
       const match = await this.findSingleEligibleUserByEmail(reliableEmail);
@@ -164,7 +166,7 @@ export class MicrosoftSsoService {
           userAgent: meta.userAgent,
           requestId: meta.requestId,
         });
-        return { redirectUrl: this.errorRedirectUrl(match.reason) };
+        return { redirectUrl: await this.errorRedirectUrl(match.reason) };
       }
 
       /** Désactivation mot de passe puis jetons (hors transaction interactive — évite régressions Prisma/driver). */
@@ -183,7 +185,7 @@ export class MicrosoftSsoService {
         userAgent: meta.userAgent,
         requestId: meta.requestId,
       });
-      return { redirectUrl: this.successRedirectUrl(tokens) };
+      return { redirectUrl: await this.successRedirectUrl(tokens) };
     } catch (error) {
       const err = error as Error;
       const reason = this.mapCallbackFailureReason(error);
@@ -203,7 +205,7 @@ export class MicrosoftSsoService {
         userAgent: meta.userAgent,
         requestId: meta.requestId,
       });
-      return { redirectUrl: this.errorRedirectUrl(reason) };
+      return { redirectUrl: await this.errorRedirectUrl(reason) };
     }
   }
 
@@ -488,8 +490,13 @@ export class MicrosoftSsoService {
     return legacy.replace('/api/microsoft/auth/callback', '/api/auth/microsoft/callback');
   }
 
-  private successRedirectUrl(tokens: { accessToken: string; refreshToken: string }): string {
+  private async successRedirectUrl(tokens: {
+    accessToken: string;
+    refreshToken: string;
+  }): Promise<string> {
+    const resolvedPlatformConfig = await this.platformConfig.getResolved();
     const base =
+      resolvedPlatformConfig.oauthSuccessUrl?.trim() ||
       this.config.get<string>('MICROSOFT_SSO_SUCCESS_URL')?.trim() ||
       this.config.get<string>('MICROSOFT_OAUTH_SUCCESS_URL')?.trim() ||
       'http://localhost:3000/login?status=success';
@@ -500,8 +507,10 @@ export class MicrosoftSsoService {
     return `${base}#${fragment.toString()}`;
   }
 
-  private errorRedirectUrl(reason: string): string {
+  private async errorRedirectUrl(reason: string): Promise<string> {
+    const resolvedPlatformConfig = await this.platformConfig.getResolved();
     const base =
+      resolvedPlatformConfig.oauthErrorUrl?.trim() ||
       this.config.get<string>('MICROSOFT_SSO_ERROR_URL')?.trim() ||
       this.config.get<string>('MICROSOFT_OAUTH_ERROR_URL')?.trim() ||
       'http://localhost:3000/login?status=error';
