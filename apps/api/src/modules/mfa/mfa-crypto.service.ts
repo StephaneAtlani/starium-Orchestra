@@ -24,6 +24,7 @@ export class MfaCryptoService {
   private readonly logger = new Logger(MfaCryptoService.name);
   private readonly currentVersion: number;
   private readonly keys = new Map<number, Buffer>();
+  private readonly jwtFallbackV1Key?: Buffer;
 
   constructor(private readonly config: ConfigService) {
     const envKey = this.config.get<string>('MFA_ENCRYPTION_KEY')?.trim();
@@ -41,6 +42,13 @@ export class MfaCryptoService {
 
     if (envKey) {
       this.keys.set(this.currentVersion, this.deriveKey(envKey));
+      try {
+        // Compat prod: secrets historiques chiffrés avec JWT secret (avant MFA_ENCRYPTION_KEY).
+        const jwtSecret = resolveJwtSecret(this.config);
+        this.jwtFallbackV1Key = scryptSync(jwtSecret, SALT, KEY_LENGTH);
+      } catch {
+        // Pas de JWT secret lisible: on reste uniquement sur les clés MFA explicites.
+      }
     } else {
       const jwtSecret = resolveJwtSecret(this.config);
       this.keys.set(this.currentVersion, scryptSync(jwtSecret, SALT, KEY_LENGTH));
@@ -103,6 +111,34 @@ export class MfaCryptoService {
     const iv = Buffer.from(ivHex, 'hex');
     const tag = Buffer.from(tagHex, 'hex');
     const data = Buffer.from(dataHex, 'hex');
+
+    try {
+      return this.decryptWithKey(key, iv, tag, data);
+    } catch (primaryError) {
+      const canUseJwtFallback =
+        version === 1 &&
+        this.jwtFallbackV1Key &&
+        !this.jwtFallbackV1Key.equals(key);
+      if (canUseJwtFallback) {
+        try {
+          this.logger.warn(
+            'Decrypt using legacy JWT-derived MFA key fallback (v1). Configure MFA_ENCRYPTION_KEY_V1 to make this explicit.',
+          );
+          return this.decryptWithKey(this.jwtFallbackV1Key, iv, tag, data);
+        } catch {
+          // noop: on relance l'erreur d'origine pour garder un signal clair.
+        }
+      }
+      throw primaryError;
+    }
+  }
+
+  private decryptWithKey(
+    key: Buffer,
+    iv: Buffer,
+    tag: Buffer,
+    data: Buffer,
+  ): string {
     const decipher = createDecipheriv('aes-256-gcm', key, iv);
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');

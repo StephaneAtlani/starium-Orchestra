@@ -114,4 +114,37 @@ describe('MfaCryptoService', () => {
 
     expect(moduleRef.get(MfaCryptoService).getCurrentKeyVersion()).toBe(3);
   });
+
+  it('décrypte un payload legacy chiffré avec JWT secret après introduction de MFA_ENCRYPTION_KEY', async () => {
+    const plain = 'JWT_LEGACY_SECRET';
+
+    const legacyModuleRef = await Test.createTestingModule({
+      providers: [
+        MfaCryptoService,
+        {
+          provide: ConfigService,
+          useValue: buildConfigValue({
+            JWT_SECRET: 'legacy-jwt-secret',
+          }),
+        },
+      ],
+    }).compile();
+    const legacyCrypto = legacyModuleRef.get(MfaCryptoService);
+    const encryptedWithJwtDerivedKey = legacyCrypto.encrypt(plain);
+
+    const migratedModuleRef = await Test.createTestingModule({
+      providers: [
+        MfaCryptoService,
+        {
+          provide: ConfigService,
+          useValue: buildConfigValue({
+            JWT_SECRET: 'legacy-jwt-secret',
+            MFA_ENCRYPTION_KEY: HEX_KEY_V1,
+          }),
+        },
+      ],
+    }).compile();
+    const migratedCrypto = migratedModuleRef.get(MfaCryptoService);
+    expect(migratedCrypto.decrypt(encryptedWithJwtDerivedKey)).toBe(plain);
+  });
 });
