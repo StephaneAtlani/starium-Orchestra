@@ -1974,12 +1974,14 @@ model RiskDomain {
   name        String
   description String?
   isActive    Boolean    @default(true)
+  isVisibleInCatalog Boolean @default(true)
   types       RiskType[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
   @@unique([clientId, code])
   @@index([clientId])
+  @@index([clientId, isVisibleInCatalog])
 }
 
 /// Type de risque sous un domaine (taxonomie client).
@@ -1992,6 +1994,8 @@ model RiskType {
   code          String
   name          String
   isActive      Boolean               @default(true)
+  isVisibleInCatalog Boolean          @default(true)
+  isRecommended Boolean               @default(false)
   projectRisks  ProjectRisk[]
   scenarioRisks ProjectScenarioRisk[]
   createdAt     DateTime              @default(now())
@@ -2000,6 +2004,7 @@ model RiskType {
   @@unique([domainId, code])
   @@index([clientId])
   @@index([domainId])
+  @@index([clientId, isVisibleInCatalog, isRecommended])
 }
 
 /// RFC-PROJ-RISK-001 — risque projet (registre) ; peut être hors projet (`projectId` null).

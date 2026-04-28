@@ -23,17 +23,23 @@ export class RiskTaxonomyService {
   async getCatalog(clientId: string, includeLegacy = false) {
     await this.ensureForClient(clientId);
     const domainsRaw = await this.prisma.riskDomain.findMany({
-      where: includeLegacy ? { clientId } : { clientId, isActive: true },
-      orderBy: [{ name: 'asc' }],
+      where: includeLegacy
+        ? { clientId, isActive: true }
+        : { clientId, isActive: true, isVisibleInCatalog: true },
+      orderBy: [{ code: 'asc' }],
       include: {
         types: {
-          where: includeLegacy ? undefined : { isActive: true },
-          orderBy: [{ name: 'asc' }],
+          where: includeLegacy
+            ? { isActive: true }
+            : { isActive: true, isVisibleInCatalog: true },
+          orderBy: [{ isRecommended: 'desc' }, { name: 'asc' }, { code: 'asc' }],
           select: {
             id: true,
             code: true,
             name: true,
             isActive: true,
+            isRecommended: true,
+            isVisibleInCatalog: true,
           },
         },
       },
@@ -46,7 +52,7 @@ export class RiskTaxonomyService {
           ...d,
           familyCode: family.code,
           familyLabel: family.label,
-          isVisibleInCatalog: isRiskDomainVisibleInV1Catalog(d.code),
+          isVisibleInCatalog: d.isVisibleInCatalog,
         };
       });
     return { domains };

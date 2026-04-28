@@ -408,16 +408,6 @@ export function ProjectRiskEbiosDialog({
     [mode, risk, riskDetailQuery.data],
   );
 
-  const sortedCatalogDomains = useMemo(() => {
-    const domains = taxonomyQuery.data?.domains ?? [];
-    return [...domains].sort((a, b) => {
-      const fa = a.familyLabel ?? '';
-      const fb = b.familyLabel ?? '';
-      if (fa !== fb) return fa.localeCompare(fb, 'fr');
-      return a.name.localeCompare(b.name, 'fr');
-    });
-  }, [taxonomyQuery.data?.domains]);
-
   const riskPlanTasksQuery = useQuery({
     queryKey: projectQueryKeys.riskActionPlanTasks(clientId, riskResolved?.id ?? ''),
     queryFn: () => listRiskActionPlanTasks(authFetch, riskResolved!.id),
@@ -435,6 +425,7 @@ export function ProjectRiskEbiosDialog({
   const [businessImpact, setBusinessImpact] = useState('');
   const [taxonomyDomainId, setTaxonomyDomainId] = useState<string>(NONE);
   const [riskTypeId, setRiskTypeId] = useState<string>(NONE);
+  const [riskTypeSearch, setRiskTypeSearch] = useState('');
   const [probability, setProbability] = useState(3);
   const [impact, setImpact] = useState(3);
   const [likelihoodJustification, setLikelihoodJustification] = useState('');
@@ -716,6 +707,36 @@ export function ProjectRiskEbiosDialog({
 
   const linkedPlanTasks = riskPlanTasksQuery.data?.items ?? [];
 
+  const filteredTypesForSelectedDomain = useMemo(() => {
+    const query = riskTypeSearch.trim().toLowerCase();
+    const d = (taxonomyQuery.data?.domains ?? []).find((x) => x.id === taxonomyDomainId);
+    let types = d?.types ?? [];
+    const legacy = riskResolved?.riskType;
+    if (
+      mode === 'edit' &&
+      legacy &&
+      legacy.id === riskTypeId &&
+      !types.some((t) => t.id === legacy.id)
+    ) {
+      types = [
+        ...types,
+        {
+          id: legacy.id,
+          code: legacy.code,
+          name: legacy.name,
+          isActive: legacy.isActive,
+          isRecommended: false,
+        },
+      ];
+    }
+    if (!query) return types;
+    return types.filter(
+      (t) =>
+        t.name.toLowerCase().includes(query) ||
+        t.code.toLowerCase().includes(query),
+    );
+  }, [taxonomyDomainId, taxonomyQuery.data?.domains, mode, riskResolved?.riskType, riskTypeId, riskTypeSearch]);
+
   const treatmentHeaderExtra = !riskResolved?.id ? (
     <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
       Enregistrez le risque pour l’associer à un plan d’action.
@@ -908,6 +929,7 @@ export function ProjectRiskEbiosDialog({
                     onValueChange={(v) => {
                       if (!v) return;
                       setTaxonomyDomainId(v);
+                      setRiskTypeSearch('');
                       const d = (taxonomyQuery.data?.domains ?? []).find((x) => x.id === v);
                       const first = d?.types[0];
                       if (first) setRiskTypeId(first.id);
@@ -932,7 +954,7 @@ export function ProjectRiskEbiosDialog({
                       </span>
                     </SelectTrigger>
                     <SelectContent>
-                      {sortedCatalogDomains.map((d) => (
+                      {(taxonomyQuery.data?.domains ?? []).map((d) => (
                         <SelectItem key={d.id} value={d.id}>
                           {d.familyLabel ? `${d.familyLabel} — ${d.name}` : d.name}
                         </SelectItem>
@@ -943,7 +965,7 @@ export function ProjectRiskEbiosDialog({
                           mode === 'edit' &&
                           legacyDomain &&
                           legacyDomain.id === taxonomyDomainId &&
-                          !sortedCatalogDomains.some((d) => d.id === legacyDomain.id)
+                          !(taxonomyQuery.data?.domains ?? []).some((d) => d.id === legacyDomain.id)
                         ) {
                           return (
                             <SelectItem value={legacyDomain.id}>
@@ -985,35 +1007,21 @@ export function ProjectRiskEbiosDialog({
                       </span>
                     </SelectTrigger>
                     <SelectContent>
-                      {(() => {
-                        const d = (taxonomyQuery.data?.domains ?? []).find(
-                          (x) => x.id === taxonomyDomainId,
-                        );
-                        let types = d?.types ?? [];
-                        const legacy = riskResolved?.riskType;
-                        if (
-                          mode === 'edit' &&
-                          legacy &&
-                          legacy.id === riskTypeId &&
-                          !types.some((t) => t.id === legacy.id)
-                        ) {
-                          types = [
-                            ...types,
-                            {
-                              id: legacy.id,
-                              code: legacy.code,
-                              name: legacy.name,
-                              isActive: legacy.isActive,
-                            },
-                          ];
-                        }
-                        return types.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.name}
-                            {!t.isActive ? ' (inactif)' : ''}
-                          </SelectItem>
-                        ));
-                      })()}
+                      <div className="p-2">
+                        <Input
+                          value={riskTypeSearch}
+                          onChange={(e) => setRiskTypeSearch(e.target.value)}
+                          placeholder="Rechercher un type (nom ou code)"
+                          className="h-8"
+                        />
+                      </div>
+                      {filteredTypesForSelectedDomain.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.isRecommended ? '★ ' : ''}
+                          {t.name}
+                          {!t.isActive ? ' (inactif)' : ''}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

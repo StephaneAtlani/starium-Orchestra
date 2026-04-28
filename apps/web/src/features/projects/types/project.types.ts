@@ -357,7 +357,13 @@ export type RiskTaxonomyDomainApi = {
   familyCode?: string;
   familyLabel?: string;
   isVisibleInCatalog?: boolean;
-  types: Array<{ id: string; code: string; name: string; isActive: boolean }>;
+  types: Array<{
+    id: string;
+    code: string;
+    name: string;
+    isActive: boolean;
+    isRecommended?: boolean;
+  }>;
 };
 
 export type ProjectRiskDomainApi = {

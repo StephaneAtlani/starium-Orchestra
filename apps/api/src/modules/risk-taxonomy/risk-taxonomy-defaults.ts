@@ -98,11 +98,228 @@ const V1_GENERIC_TYPE_BY_DOMAIN: Record<string, { code: string; name: string }> 
   REPUTATION: { code: 'OTHER_REPUTATION_RISK', name: 'Autre risque de réputation' },
 };
 
+const MINIMUM_TYPE_CODES_BY_DOMAIN: Record<string, string[]> = {
+  STRATEGY: [
+    'STRATEGIC_MISALIGNMENT',
+    'WRONG_POSITIONING',
+    'MARKET_EVOLUTION_MISSED',
+    'BUSINESS_MODEL_FAILURE',
+    'INVESTMENT_MISALLOCATION',
+    'LOSS_OF_COMPETITIVE_ADVANTAGE',
+    'POOR_PORTFOLIO_PRIORITIZATION',
+    'STRATEGIC_DEPENDENCY',
+    'STRATEGIC_OBJECTIVE_FAILURE',
+    'DIGITAL_TRANSFORMATION_FAILURE',
+    'INNOVATION_ROADMAP_FAILURE',
+    'MERGER_INTEGRATION_FAILURE',
+    'OTHER_STRATEGIC_RISK',
+  ],
+  GOVERNANCE: [
+    'POOR_DECISION_PROCESS',
+    'LACK_OF_STEERING',
+    'NO_CLEAR_ACCOUNTABILITY',
+    'KPI_MISSING_OR_UNUSED',
+    'CONFLICT_OF_INTEREST',
+    'MANAGEMENT_FAILURE',
+    'GOVERNANCE_ROLE_AMBIGUITY',
+    'ESCALATION_PROCESS_FAILURE',
+    'COMMITTEE_DECISION_DELAY',
+    'POLICY_NOT_APPLIED',
+    'INTERNAL_CONTROL_WEAKNESS',
+    'LACK_OF_AUDIT_TRAIL',
+    'OTHER_GOVERNANCE_RISK',
+  ],
+  FINANCE: [
+    'BUDGET_OVERRUN',
+    'CASHFLOW_SHORTAGE',
+    'LIQUIDITY_RISK',
+    'PROFITABILITY_DROP',
+    'COST_UNDER_ESTIMATION',
+    'FRAUD',
+    'FINANCIAL_REPORTING_ERROR',
+    'UNPLANNED_EXPENSE',
+    'FUNDING_DELAY',
+    'ROI_NOT_ACHIEVED',
+    'COST_ALLOCATION_ERROR',
+    'FORECASTING_ERROR',
+    'INVOICE_DISPUTE',
+    'OTHER_FINANCIAL_RISK',
+  ],
+  PROJECTS: [
+    'PROJECT_DELAY',
+    'COST_OVERRUN_PROJECT',
+    'SCOPE_CREEP',
+    'PROJECT_FAILURE',
+    'RESOURCE_MISMANAGEMENT',
+    'POOR_REQUIREMENTS_DEFINITION',
+    'STAKEHOLDER_ALIGNMENT_FAILURE',
+    'PLANNING_ERROR',
+    'DEPENDENCY_BLOCKER',
+    'CHANGE_MANAGEMENT_FAILURE',
+    'DELIVERY_QUALITY_FAILURE',
+    'VENDOR_PROJECT_FAILURE',
+    'BENEFITS_NOT_REALIZED',
+    'OTHER_PROJECT_RISK',
+  ],
+  OPERATIONS: [
+    'PROCESS_BREAKDOWN',
+    'DELIVERY_DELAY',
+    'SERVICE_INTERRUPTION',
+    'RESOURCE_SHORTAGE',
+    'CAPACITY_OVERLOAD',
+    'QUALITY_FAILURE',
+    'INTERNAL_COORDINATION_FAILURE',
+    'PROCEDURE_NOT_FOLLOWED',
+    'MANUAL_ERROR',
+    'OPERATIONAL_BACKLOG',
+    'SUPPORT_OVERLOAD',
+    'SLA_BREACH',
+    'STOCK_OR_SUPPLY_SHORTAGE',
+    'OTHER_OPERATIONAL_RISK',
+  ],
+  CONTINUITY: [
+    'BUSINESS_INTERRUPTION',
+    'DISASTER',
+    'RECOVERY_FAILURE',
+    'NO_BCP_PLAN',
+    'BACKUP_FAILURE',
+    'RESTORE_FAILURE',
+    'CRISIS_MANAGEMENT_FAILURE',
+    'SITE_UNAVAILABILITY',
+    'CRITICAL_SERVICE_UNAVAILABLE',
+    'SINGLE_POINT_OF_FAILURE',
+    'INCIDENT_RESPONSE_DELAY',
+    'RESILIENCE_TEST_FAILURE',
+    'OTHER_CONTINUITY_RISK',
+  ],
+  IT: [
+    'SYSTEM_OUTAGE',
+    'APPLICATION_FAILURE',
+    'PERFORMANCE_DEGRADATION',
+    'TECHNICAL_DEBT',
+    'ARCHITECTURE_LIMITATION',
+    'OBSOLESCENCE',
+    'INTEGRATION_FAILURE',
+    'CONFIGURATION_ERROR',
+    'CHANGE_DEPLOYMENT_FAILURE',
+    'PATCHING_DELAY',
+    'CLOUD_SERVICE_FAILURE',
+    'LICENSE_NON_COMPLIANCE',
+    'MONITORING_GAP',
+    'OTHER_IT_RISK',
+  ],
+  CYBERSECURITY: [
+    'UNAUTHORIZED_ACCESS',
+    'DATA_BREACH',
+    'RANSOMWARE_ATTACK',
+    'PHISHING_ATTACK',
+    'VULNERABILITY_EXPLOITATION',
+    'PRIVILEGE_ESCALATION',
+    'IDENTITY_COMPROMISE',
+    'DENIAL_OF_SERVICE',
+    'MALWARE_INFECTION',
+    'WEAK_PASSWORD_POLICY',
+    'MFA_NOT_ENFORCED',
+    'SECURITY_LOGGING_GAP',
+    'THIRD_PARTY_CYBER_RISK',
+    'OTHER_CYBER_RISK',
+  ],
+  DATA: [
+    'DATA_LOSS',
+    'DATA_CORRUPTION',
+    'DATA_INCONSISTENCY',
+    'POOR_DATA_QUALITY',
+    'DATA_UNAVAILABILITY',
+    'WRONG_ANALYTICS',
+    'DECISION_ON_INVALID_DATA',
+    'MASTER_DATA_ERROR',
+    'DATA_DUPLICATION',
+    'DATA_OWNERSHIP_GAP',
+    'GDPR_DATA_RETENTION_ISSUE',
+    'DATA_ACCESS_ERROR',
+    'REPORTING_DELAY',
+    'OTHER_DATA_RISK',
+  ],
+  SUPPLIERS: [
+    'SUPPLIER_DEFAULT',
+    'DELIVERY_FAILURE',
+    'QUALITY_DEFECT',
+    'COST_INCREASE',
+    'SINGLE_SUPPLIER_DEPENDENCY',
+    'CONTRACTOR_UNAVAILABILITY',
+    'OUTSOURCING_RISK',
+    'VENDOR_LOCK_IN',
+    'THIRD_PARTY_FAILURE',
+    'PARTNER_FAILURE',
+    'SLA_PROVIDER_BREACH',
+    'SUPPLIER_SECURITY_FAILURE',
+    'SUPPLIER_FINANCIAL_WEAKNESS',
+    'OTHER_SUPPLIER_RISK',
+  ],
+  LEGAL_COMPLIANCE: [
+    'REGULATORY_NON_COMPLIANCE',
+    'CONTRACT_BREACH',
+    'LITIGATION',
+    'LIABILITY_EXPOSURE',
+    'NON_COMPLIANT_CONTRACT',
+    'INTELLECTUAL_PROPERTY_ISSUE',
+    'AUDIT_FAILURE',
+    'CONTROL_DEFICIENCY',
+    'DOCUMENTATION_GAP',
+    'CERTIFICATION_LOSS',
+    'TAX_NON_COMPLIANCE',
+    'VAT_ERROR',
+    'GDPR_NON_COMPLIANCE',
+    'OTHER_LEGAL_COMPLIANCE_RISK',
+  ],
+  HUMAN_RESOURCES: [
+    'SKILL_SHORTAGE',
+    'KEY_PERSON_DEPENDENCY',
+    'HIGH_TURNOVER',
+    'ABSENTEEISM',
+    'INTERNAL_CONFLICT',
+    'LOW_ENGAGEMENT',
+    'BURNOUT',
+    'RECRUITMENT_FAILURE',
+    'KNOWLEDGE_LOSS',
+    'TRAINING_GAP',
+    'SUCCESSION_PLANNING_GAP',
+    'WORKLOAD_IMBALANCE',
+    'MANAGERIAL_FAILURE',
+    'OTHER_HR_RISK',
+  ],
+  REPUTATION: [
+    'BRAND_DAMAGE',
+    'NEGATIVE_MEDIA_EXPOSURE',
+    'SOCIAL_MEDIA_CRISIS',
+    'CUSTOMER_TRUST_LOSS',
+    'PUBLIC_COMMUNICATION_FAILURE',
+    'CUSTOMER_COMPLAINT_ESCALATION',
+    'ETHICAL_ISSUE_PUBLICIZED',
+    'EXECUTIVE_REPUTATION_RISK',
+    'PRODUCT_OR_SERVICE_BAD_BUZZ',
+    'PARTNER_REPUTATION_CONTAGION',
+    'EMPLOYER_BRAND_DAMAGE',
+    'LOSS_OF_CREDIBILITY',
+    'OTHER_REPUTATION_RISK',
+  ],
+};
+
+function humanizeRiskTypeCode(code: string): string {
+  return code
+    .replace(/^OTHER_/, 'AUTRE_')
+    .split('_')
+    .join(' ')
+    .toLowerCase()
+    .replace(/^\w/, (c) => c.toUpperCase());
+}
+
 type DomainDef = {
   code: string;
   name: string;
   description?: string | null;
-  types: Array<{ code: string; name: string }>;
+  isVisibleInCatalog?: boolean;
+  types: Array<{ code: string; name: string; isRecommended?: boolean }>;
 };
 
 /**
@@ -113,7 +330,8 @@ const RAW_DOMAIN_DEFINITIONS: DomainDef[] = [
   {
     code: 'GENERAL',
     name: 'Général',
-    types: [{ code: 'UNCLASSIFIED', name: 'Non classé' }],
+    isVisibleInCatalog: true,
+    types: [{ code: 'UNCLASSIFIED', name: 'Non classé', isRecommended: true }],
   },
   {
     code: 'STRATEGY',
@@ -442,12 +660,36 @@ const RAW_DOMAIN_DEFINITIONS: DomainDef[] = [
 ];
 
 const DOMAIN_DEFINITIONS: DomainDef[] = RAW_DOMAIN_DEFINITIONS.map((d) => {
+  const byCode = new Map(
+    d.types.map((t) => [t.code, { ...t, isRecommended: t.isRecommended ?? false }]),
+  );
+
   const generic = V1_GENERIC_TYPE_BY_DOMAIN[d.code];
-  if (!generic) return d;
-  const hasGeneric = d.types.some((t) => t.code === generic.code);
-  if (hasGeneric) return d;
-  return { ...d, types: [...d.types, generic] };
+  if (generic && !byCode.has(generic.code)) {
+    byCode.set(generic.code, { ...generic, isRecommended: true });
+  }
+
+  const minimumCodes = MINIMUM_TYPE_CODES_BY_DOMAIN[d.code] ?? [];
+  for (const code of minimumCodes) {
+    if (!byCode.has(code)) {
+      byCode.set(code, {
+        code,
+        name: humanizeRiskTypeCode(code),
+        isRecommended: code.startsWith('OTHER_'),
+      });
+    }
+  }
+
+  return {
+    ...d,
+    isVisibleInCatalog: isRiskDomainVisibleInV1Catalog(d.code),
+    types: [...byCode.values()],
+  };
 });
+
+export function getRiskDefaultDomainDefinitions(): ReadonlyArray<DomainDef> {
+  return DOMAIN_DEFINITIONS;
+}
 
 export function isRiskDomainVisibleInV1Catalog(domainCode: string): boolean {
   return (
@@ -485,7 +727,7 @@ export async function ensureRiskTaxonomyForClient(
   clientId: string,
 ): Promise<void> {
   for (const d of DOMAIN_DEFINITIONS) {
-    const domainVisibleInV1 = isRiskDomainVisibleInV1Catalog(d.code);
+    const domainVisibleInV1 = d.isVisibleInCatalog ?? isRiskDomainVisibleInV1Catalog(d.code);
     const domain = await prisma.riskDomain.upsert({
       where: { clientId_code: { clientId, code: d.code } },
       create: {
@@ -493,11 +735,13 @@ export async function ensureRiskTaxonomyForClient(
         code: d.code,
         name: d.name,
         description: d.description ?? null,
-        isActive: domainVisibleInV1,
+        isActive: true,
+        isVisibleInCatalog: domainVisibleInV1,
       },
       update: {
         name: d.name,
         description: d.description ?? null,
+        isVisibleInCatalog: domainVisibleInV1,
       },
     });
     for (const t of d.types) {
@@ -510,10 +754,14 @@ export async function ensureRiskTaxonomyForClient(
           domainId: domain.id,
           code: t.code,
           name: t.name,
-          isActive: domainVisibleInV1,
+          isActive: true,
+          isVisibleInCatalog: domainVisibleInV1,
+          isRecommended: t.isRecommended ?? false,
         },
         update: {
           name: t.name,
+          isVisibleInCatalog: domainVisibleInV1,
+          isRecommended: t.isRecommended ?? false,
         },
       });
     }

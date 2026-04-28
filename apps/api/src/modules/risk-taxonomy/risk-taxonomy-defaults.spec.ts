@@ -1,5 +1,7 @@
 import {
+  getRiskDefaultDomainDefinitions,
   isRiskDomainVisibleInV1Catalog,
+  RISK_V1_VISIBLE_DOMAIN_CODES,
   legacyImpactToTypeCode,
 } from './risk-taxonomy-defaults';
 
@@ -34,5 +36,15 @@ describe('risk-taxonomy-defaults', () => {
     expect(isRiskDomainVisibleInV1Catalog('LEGAL')).toBe(false);
     expect(isRiskDomainVisibleInV1Catalog('THIRD_PARTY')).toBe(false);
     expect(isRiskDomainVisibleInV1Catalog('ECONOMIC')).toBe(false);
+  });
+
+  it('garantit au moins 12 types et un OTHER_* pour chaque domaine V1', () => {
+    const defs = getRiskDefaultDomainDefinitions();
+    for (const code of RISK_V1_VISIBLE_DOMAIN_CODES) {
+      const domain = defs.find((d) => d.code === code);
+      expect(domain).toBeDefined();
+      expect(domain!.types.length).toBeGreaterThanOrEqual(12);
+      expect(domain!.types.some((t) => /^OTHER_.*_RISK$/.test(t.code))).toBe(true);
+    }
   });
 });
