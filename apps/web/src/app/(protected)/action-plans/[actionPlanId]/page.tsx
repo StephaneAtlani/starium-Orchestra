@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   PROJECT_ENTITY_PRIORITY_KEYS,
@@ -143,8 +144,9 @@ export default function ActionPlanDetailPage() {
   const [sortByField, setSortByField] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [activeMetaEdit, setActiveMetaEdit] = useState<
-    'status' | 'priority' | 'owner' | null
+    'title' | 'status' | 'priority' | 'owner' | null
   >(null);
+  const [editableTitle, setEditableTitle] = useState<string>('');
   const [editableStatus, setEditableStatus] = useState<string>('ACTIVE');
   const [editablePriority, setEditablePriority] = useState<string>('MEDIUM');
   const [editableOwnerUserId, setEditableOwnerUserId] = useState<string>('__none__');
@@ -303,6 +305,7 @@ export default function ActionPlanDetailPage() {
 
   useEffect(() => {
     if (!plan) return;
+    setEditableTitle(plan.title);
     setEditableStatus(plan.status);
     setEditablePriority(plan.priority);
     setEditableOwnerUserId(plan.ownerUserId ?? '__none__');
@@ -339,7 +342,54 @@ export default function ActionPlanDetailPage() {
         {plan && (
           <>
             <PageHeader
-              title={plan.title}
+              title={
+                activeMetaEdit === 'title' ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      value={editableTitle}
+                      onChange={(event) => setEditableTitle(event.target.value)}
+                      className="h-9 w-full max-w-xl"
+                      aria-label="Titre du plan d’action"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={planMetaMutation.isPending || editableTitle.trim().length === 0}
+                      onClick={() =>
+                        planMetaMutation.mutate({
+                          title: editableTitle.trim(),
+                        })
+                      }
+                    >
+                      OK
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={planMetaMutation.isPending}
+                      onClick={() => {
+                        setEditableTitle(plan.title);
+                        setActiveMetaEdit(null);
+                      }}
+                    >
+                      Annuler
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="rounded px-1 py-0.5 text-left text-2xl font-semibold tracking-tight text-foreground hover:bg-muted"
+                    onClick={() => {
+                      if (!canUpdateProjects) return;
+                      setEditableTitle(plan.title);
+                      setActiveMetaEdit('title');
+                    }}
+                  >
+                    {plan.title}
+                  </button>
+                )
+              }
               description={pageDescription}
               actions={
                 <PermissionGate permission="projects.update">
