@@ -6,28 +6,15 @@ export type ResolveM365SyncRedirectResult =
   | { ok: false; message: string };
 
 /**
- * URI de redirection OAuth pour la sync M365 projet : une seule valeur par déploiement
- * (env prioritaire), pas par client Entra.
+ * URI de redirection OAuth **uniquement** pour la sync M365 projet.
+ * Ne lit pas la config plateforme (réservée au SSO) : uniquement variables d’environnement API.
  */
 export function resolveM365OAuthSyncRedirectUri(input: {
   envM365Sync?: string | null;
-  platformRedirectUri?: string | null;
   envMicrosoftRedirect?: string | null;
 }): ResolveM365SyncRedirectResult {
   const fromDedicated = input.envM365Sync?.trim();
   if (fromDedicated) return { ok: true, uri: fromDedicated };
-
-  const fromPlatform = input.platformRedirectUri?.trim();
-  if (fromPlatform) {
-    if (fromPlatform.includes('/api/auth/microsoft/callback')) {
-      return {
-        ok: false,
-        message:
-          'La redirect URI plateforme pointe vers le callback SSO. Définissez MICROSOFT_M365_SYNC_REDIRECT_URI (ex. https://…/api/microsoft/auth/callback) pour la sync M365.',
-      };
-    }
-    return { ok: true, uri: fromPlatform };
-  }
 
   const legacy = input.envMicrosoftRedirect?.trim();
   if (legacy?.includes(M365_SYNC_OAUTH_CALLBACK_PATH)) {
@@ -37,6 +24,6 @@ export function resolveM365OAuthSyncRedirectUri(input: {
   return {
     ok: false,
     message:
-      'URI de redirection sync M365 manquante : définir MICROSOFT_M365_SYNC_REDIRECT_URI sur l’API (ex. https://app.starium.fr/api/microsoft/auth/callback), ou une redirect plateforme non-SSO.',
+      'URI de redirection sync M365 manquante : définir MICROSOFT_M365_SYNC_REDIRECT_URI sur l’API (ex. https://app.starium.fr/api/microsoft/auth/callback). Le flux sync n’utilise pas la redirect plateforme (SSO).',
   };
 }

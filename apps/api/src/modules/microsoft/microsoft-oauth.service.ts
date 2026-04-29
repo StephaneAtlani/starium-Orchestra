@@ -105,11 +105,9 @@ export class MicrosoftOAuthService {
     return { azureClientId, azureClientSecret, authorityTenant };
   }
 
-  private async resolveM365SyncRedirectUri(): Promise<string> {
-    const platform = await this.platformConfig.getResolved();
+  private resolveM365SyncRedirectUri(): string {
     const r = resolveM365OAuthSyncRedirectUri({
       envM365Sync: this.config.get<string>('MICROSOFT_M365_SYNC_REDIRECT_URI'),
-      platformRedirectUri: platform.redirectUri,
       envMicrosoftRedirect: this.config.get<string>('MICROSOFT_REDIRECT_URI'),
     });
     if (!r.ok) {
@@ -127,7 +125,7 @@ export class MicrosoftOAuthService {
   ): Promise<{ authorizationUrl: string }> {
     const platform = await this.platformConfig.getResolved();
     const creds = await this.resolveAzureAppCredentials(stariumClientId);
-    const redirectUri = await this.resolveM365SyncRedirectUri();
+    const redirectUri = this.resolveM365SyncRedirectUri();
 
     const jti = randomUUID();
     const ttlMs = platform.oauthStateTtlSeconds * 1000;
@@ -229,7 +227,7 @@ export class MicrosoftOAuthService {
     try {
       creds = await this.resolveAzureAppCredentials(clientId);
       platform = await this.platformConfig.getResolved();
-      syncRedirectUri = await this.resolveM365SyncRedirectUri();
+      syncRedirectUri = this.resolveM365SyncRedirectUri();
     } catch (e: unknown) {
       this.logger.warn(`Credentials Microsoft: ${(e as Error).message}`);
       return { redirectUrl: await this.buildErrorRedirect('missing_credentials') };

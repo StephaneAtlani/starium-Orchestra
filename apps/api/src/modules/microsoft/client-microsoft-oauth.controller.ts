@@ -9,7 +9,7 @@ import { UpdateClientMicrosoftOAuthDto } from './dto/update-client-microsoft-oau
 
 /**
  * Identifiants d’application Azure **par client Starium** (BYO).
- * L’URI de redirection sync est globale au déploiement (env / plateforme) ; id + secret + tenant restent côté client.
+ * L’URI de redirection sync est globale au déploiement (env API uniquement, pas la redirect plateforme SSO) ; id + secret + tenant restent côté client.
  */
 @Controller('clients')
 @UseGuards(

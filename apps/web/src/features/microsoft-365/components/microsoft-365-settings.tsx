@@ -182,10 +182,71 @@ export function Microsoft365Settings() {
     <PageContainer>
       <PageHeader
         title="Microsoft 365"
-        description="Connexion OAuth au tenant Microsoft du client actif (consentement administrateur ou utilisateur selon votre Azure AD). Chaque client Starium configure sa propre connexion."
+        description="Synchronisation Teams / Planner / fichiers : le client configure son application Microsoft Entra ; Starium stocke les jetons par client Starium actif."
       />
 
       <div className="space-y-6">
+        <Card className="max-w-2xl border-border/70">
+          <CardHeader>
+            <CardTitle>Mode opératoire</CardTitle>
+            <CardDescription>
+              Rôle distinct : <strong>l’hébergeur / l’API</strong> expose une redirect OAuth
+              identique pour tous les clients ; <strong>votre organisation</strong> enregistre
+              cette même URL dans <strong>votre</strong> application Entra.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm leading-relaxed text-muted-foreground">
+            <ol className="list-decimal space-y-3 pl-5 marker:text-foreground">
+              <li>
+                <span className="font-medium text-foreground">Hébergement Starium (API)</span>{' '}
+                : la variable d’environnement{' '}
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+                  MICROSOFT_M365_SYNC_REDIRECT_URI
+                </code>{' '}
+                doit pointer vers le callback sync public, par exemple{' '}
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+                  https://app.starium.fr/api/microsoft/auth/callback
+                </code>
+                . Ce n’est <strong>pas</strong> l’URL de connexion SSO Starium (
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+                  …/api/auth/microsoft/callback
+                </code>
+                ).
+              </li>
+              <li>
+                <span className="font-medium text-foreground">
+                  Application Entra (côté client Microsoft)
+                </span>{' '}
+                : dans le portail Azure de <strong>votre tenant</strong>, créez ou ouvrez une
+                inscription d’application dédiée à Orchestra / Starium. Notez l’
+                <strong>ID d’application (client)</strong>, créez un <strong>secret client</strong>
+                , et renseignez le <strong>tenant autorité</strong> attendu par Microsoft (souvent
+                le GUID du tenant pour une app « comptes dans cet annuaire uniquement » — pas{' '}
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">common</code> dans
+                ce cas).
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Redirect URI dans Entra</span> : sous
+                « Authentification », ajoutez une <strong>URI de redirection Web</strong> exactement
+                égale à l’URL affichée dans la section « Application Azure AD » ci-dessous (elle
+                reprend la valeur configurée sur l’API). Les scopes Graph attendus y sont aussi
+                listés : accordez les permissions correspondantes (souvent consentement admin).
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Starium (client actif)</span> : saisissez
+                l’ID d’application, le tenant, le secret, puis enregistrez. Utilisez ensuite{' '}
+                <strong>Connecter Microsoft 365</strong> pour le consentement OAuth (équivalent
+                depuis les options projet Microsoft 365).
+              </li>
+            </ol>
+            <p className="border-t border-border pt-3 text-xs">
+              En cas d’erreur Microsoft sur le <em>redirect_uri</em> ou le tenant : vérifiez que
+              l’URL dans Entra correspond bit à bit à celle de l’API, et que l’autorité OAuth
+              (tenant) correspond au type d’application (single-tenant vs multi-tenant).
+            </p>
+          </CardContent>
+        </Card>
+
         <ClientAzureAppCredentials />
 
       <Card className="max-w-2xl border-border/70">
@@ -197,8 +258,8 @@ export function Microsoft365Settings() {
             <div>
               <CardTitle>Intégration Microsoft 365</CardTitle>
               <CardDescription>
-                Les jetons sont stockés uniquement côté serveur ; vous serez
-                redirigé vers Microsoft pour le consentement.
+                Après configuration de votre app Entra (ci-dessus), le consentement s’effectue
+                chez Microsoft ; les jetons restent chiffrés côté serveur Starium pour ce client.
               </CardDescription>
             </div>
           </div>

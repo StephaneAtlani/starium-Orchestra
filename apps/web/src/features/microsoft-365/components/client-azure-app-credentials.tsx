@@ -165,9 +165,10 @@ export function ClientAzureAppCredentials() {
       <CardHeader>
         <CardTitle>Application Azure AD (Entra)</CardTitle>
         <CardDescription>
-          ID d’application et secret de l’app enregistrée dans votre tenant Microsoft. L’URI de
-          redirection sync est la même pour tous les clients (variable d’environnement API{' '}
-          <code className="text-xs">MICROSOFT_M365_SYNC_REDIRECT_URI</code> ou repli plateforme).
+          ID d’application et secret de l’app enregistrée dans votre tenant           Microsoft. L’URI de redirection sync est la même pour tous les clients : variable
+          d’environnement API{' '}
+          <code className="text-xs">MICROSOFT_M365_SYNC_REDIRECT_URI</code> (indépendante du SSO /
+          admin plateforme).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

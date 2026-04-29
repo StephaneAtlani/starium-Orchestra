@@ -10,9 +10,9 @@ export interface ClientMicrosoftOAuthPublic {
   microsoftOAuthClientId: string | null;
   microsoftOAuthAuthorityTenant: string | null;
   hasClientSecret: boolean;
-  /** Même valeur pour tous les clients : env `MICROSOFT_M365_SYNC_REDIRECT_URI` ou repli plateforme / env legacy. */
+  /** Même valeur pour tous les clients : env `MICROSOFT_M365_SYNC_REDIRECT_URI` (ou repli `MICROSOFT_REDIRECT_URI` si chemin sync). */
   syncRedirectUri: string | null;
-  /** Si la config redirect est invalide (ex. SSO mélangé). */
+  /** Si l’env redirect sync est absente. */
   syncRedirectUriError: string | null;
   graphScopes: string;
 }
@@ -41,7 +41,6 @@ export class ClientMicrosoftOAuthService {
     const resolved = await this.platformConfig.getResolved();
     const redirect = resolveM365OAuthSyncRedirectUri({
       envM365Sync: this.config.get<string>('MICROSOFT_M365_SYNC_REDIRECT_URI'),
-      platformRedirectUri: resolved.redirectUri,
       envMicrosoftRedirect: this.config.get<string>('MICROSOFT_REDIRECT_URI'),
     });
     return {
