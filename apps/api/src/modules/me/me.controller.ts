@@ -155,6 +155,16 @@ export class MeController {
     await this.me.deleteEmailIdentity(userId!, identityId);
   }
 
+  /** POST /me/email-identities/:id/resend-verification — Renvoyer un lien de vérification (JWT requis, sans X-Client-Id). */
+  @Post('email-identities/:id/resend-verification')
+  @HttpCode(HttpStatus.OK)
+  resendEmailIdentityVerification(
+    @RequestUserId() userId: string | undefined,
+    @Param('id') identityId: string,
+  ) {
+    return this.me.resendEmailIdentityVerification(userId!, identityId);
+  }
+
   /** PATCH /me/default-client — Définit le client par défaut (RFC-009-1). */
   @Patch('default-client')
   setDefaultClient(

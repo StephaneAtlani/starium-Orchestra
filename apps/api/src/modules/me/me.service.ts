@@ -3,8 +3,11 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  HttpException,
+  HttpStatus,
   NotFoundException,
   StreamableFile,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ClientUserStatus, RoleScope } from '@prisma/client';
@@ -24,6 +27,9 @@ import { ResourceTimesheetMonthsService } from '../resource-time-entries/resourc
 import { MeAvatarStorageService } from './me-avatar.storage';
 import { ALLOWED_AVATAR_MIME, MAX_AVATAR_BYTES } from './me.constants';
 import { normalizeEmail } from './email-identity.util';
+import { EmailService } from '../email/email.service';
+import { ConfigService } from '@nestjs/config';
+import { createHash, randomBytes } from 'crypto';
 
 /** Profil utilisateur exposé par GET /me (RFC-014-2 : inclut platformRole). */
 export interface MeProfile {
@@ -107,6 +113,8 @@ export class MeService {
     private readonly mfa: MfaService,
     private readonly avatarStorage: MeAvatarStorageService,
     private readonly timesheetMonths: ResourceTimesheetMonthsService,
+    private readonly emailService: EmailService,
+    private readonly config: ConfigService,
   ) {}
 
   /** Ressource catalogue Humaine liée au compte (email membre client), pour saisie temps « mes saisies ». */
@@ -441,11 +449,269 @@ export class MeService {
         replyToEmail: replyTrimmed,
       },
     });
+
+    // Vérification e-mail secondaire : token + enqueue e-mail (pas d’envoi SMTP synchrone).
+    await this.issueEmailIdentityVerificationTokenAndEnqueueEmail({
+      userId,
+      emailIdentityId: row.id,
+      email: row.email,
+    });
+
     const accountNorm = await getAccountEmailNormalizedForUser(
       this.prisma,
       userId,
     );
     return this.toMeEmailIdentity(row, accountNorm);
+  }
+
+  private resolveEmailIdentityVerifyTtlMs(): number {
+    const hoursRaw = this.config.get<string>('EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS');
+    const hours = Number(hoursRaw);
+    const ttlHours = Number.isFinite(hours) && hours > 0 ? hours : 24;
+    return ttlHours * 3600_000;
+  }
+
+  private resolveEmailIdentityVerifyResendCooldownMs(): number {
+    const minutesRaw = this.config.get<string>('EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES');
+    const minutes = Number(minutesRaw);
+    const cooldownMinutes =
+      Number.isFinite(minutes) && minutes >= 0 ? minutes : 15;
+    return cooldownMinutes * 60_000;
+  }
+
+  private resolveVerifySuccessAndErrorUrls(): { successUrl: string; errorUrl: string } {
+    const successUrl = this.config.get<string>('EMAIL_IDENTITY_VERIFY_SUCCESS_URL')?.trim();
+    const errorUrl = this.config.get<string>('EMAIL_IDENTITY_VERIFY_ERROR_URL')?.trim();
+    if (!successUrl || !errorUrl) {
+      throw new ServiceUnavailableException(
+        "Configuration de vérification e-mail manquante : définissez EMAIL_IDENTITY_VERIFY_SUCCESS_URL et EMAIL_IDENTITY_VERIFY_ERROR_URL.",
+      );
+    }
+    return { successUrl, errorUrl };
+  }
+
+  private hashVerificationToken(tokenPlain: string): string {
+    return createHash('sha256').update(tokenPlain).digest('hex');
+  }
+
+  private buildVerifyActionUrl(tokenPlain: string): string {
+    const { successUrl } = this.resolveVerifySuccessAndErrorUrls();
+    let origin: string;
+    try {
+      origin = new URL(successUrl).origin;
+    } catch {
+      origin = '';
+    }
+    if (!origin) {
+      throw new ServiceUnavailableException(
+        'EMAIL_IDENTITY_VERIFY_SUCCESS_URL doit être une URL absolue valide.',
+      );
+    }
+    const token = encodeURIComponent(tokenPlain);
+    return `${origin}/api/email-identities/verify?token=${token}`;
+  }
+
+  private async resolveClientIdForEmailDelivery(userId: string): Promise<string> {
+    const row = await this.prisma.clientUser.findFirst({
+      where: { userId, status: ClientUserStatus.ACTIVE },
+      select: { clientId: true },
+      orderBy: { isDefault: 'desc' },
+    });
+    if (!row?.clientId) {
+      throw new NotFoundException(
+        'Aucun client actif trouvé pour envoyer le lien de vérification.',
+      );
+    }
+    return row.clientId;
+  }
+
+  private async issueEmailIdentityVerificationTokenAndEnqueueEmail(params: {
+    userId: string;
+    emailIdentityId: string;
+    email: string;
+  }): Promise<void> {
+    const clientId = await this.resolveClientIdForEmailDelivery(params.userId);
+    const tokenPlain = randomBytes(32).toString('base64url');
+    const tokenHash = this.hashVerificationToken(tokenPlain);
+    const expiresAt = new Date(Date.now() + this.resolveEmailIdentityVerifyTtlMs());
+
+    await this.prisma.emailIdentityVerificationToken.create({
+      data: {
+        userId: params.userId,
+        emailIdentityId: params.emailIdentityId,
+        tokenHash,
+        expiresAt,
+      },
+    });
+
+    const verifyActionUrl = this.buildVerifyActionUrl(tokenPlain);
+    await this.emailService.queueEmail({
+      clientId,
+      recipient: params.email,
+      templateKey: 'email_identity_verify',
+      title: 'Vérifier votre adresse e-mail',
+      message: 'Cliquez sur le lien ci-dessous pour confirmer que vous contrôlez cette adresse.',
+      actionUrl: verifyActionUrl,
+      createdByUserId: params.userId,
+    });
+
+    await this.securityLogs.create({
+      event: 'email.identity_verification.token_issued',
+      userId: params.userId,
+      email: params.email,
+      success: true,
+    });
+  }
+
+  /**
+   * Resend verification: anti-spam + invalidation des anciens tokens non consommés.
+   */
+  async resendEmailIdentityVerification(userId: string, identityId: string): Promise<void> {
+    const identity = await this.prisma.userEmailIdentity.findFirst({
+      where: { id: identityId, userId },
+      select: { id: true, email: true, isVerified: true, isActive: true },
+    });
+    if (!identity) {
+      throw new NotFoundException('Identité e-mail introuvable');
+    }
+    if (!identity.isActive) {
+      throw new BadRequestException('Identité e-mail inactive');
+    }
+    if (identity.isVerified) {
+      throw new BadRequestException('Identité déjà vérifiée');
+    }
+
+    const now = new Date();
+    const cooldownMs = this.resolveEmailIdentityVerifyResendCooldownMs();
+    const cutoff = new Date(now.getTime() - cooldownMs);
+
+    // Anti-spam identité : token valide récent => pas de resend, message dédié cooldown.
+    const recentIdentityToken = await this.prisma.emailIdentityVerificationToken.findFirst({
+      where: {
+        emailIdentityId: identityId,
+        consumedAt: null,
+        expiresAt: { gt: now },
+        createdAt: { gt: cutoff },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recentIdentityToken) {
+      throw new HttpException(
+        'Veuillez patienter avant de renvoyer le lien (cooldown).',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    // Anti-spam user : trop de demandes récentes => rate limit.
+    const recentUserToken = await this.prisma.emailIdentityVerificationToken.findFirst({
+      where: {
+        userId,
+        consumedAt: null,
+        expiresAt: { gt: now },
+        createdAt: { gt: cutoff },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recentUserToken) {
+      throw new HttpException(
+        'Trop de tentatives de vérification : veuillez patienter.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const clientId = await this.resolveClientIdForEmailDelivery(userId);
+    const tokenPlain = randomBytes(32).toString('base64url');
+    const tokenHash = this.hashVerificationToken(tokenPlain);
+    const expiresAt = new Date(now.getTime() + this.resolveEmailIdentityVerifyTtlMs());
+
+    await this.prisma.$transaction(async (tx) => {
+      // Invalidation proactive des tokens non consommés (ancien lien devient invalide).
+      await tx.emailIdentityVerificationToken.updateMany({
+        where: {
+          emailIdentityId: identityId,
+          consumedAt: null,
+        },
+        data: { consumedAt: now },
+      });
+
+      await tx.emailIdentityVerificationToken.create({
+        data: {
+          userId,
+          emailIdentityId: identityId,
+          tokenHash,
+          expiresAt,
+        },
+      });
+    });
+
+    const verifyActionUrl = this.buildVerifyActionUrl(tokenPlain);
+    await this.emailService.queueEmail({
+      clientId,
+      recipient: identity.email,
+      templateKey: 'email_identity_verify',
+      title: 'Vérifier votre adresse e-mail',
+      message: 'Cliquez sur le lien ci-dessous pour confirmer que vous contrôlez cette adresse.',
+      actionUrl: verifyActionUrl,
+      createdByUserId: userId,
+    });
+
+    await this.securityLogs.create({
+      event: 'email.identity_verification.token_resent',
+      userId,
+      email: identity.email,
+      success: true,
+    });
+  }
+
+  /**
+   * Vérifie le token et passe l’identité en isVerified=true.
+   * Retourne l’URL de redirection (succès ou erreur).
+   */
+  async verifyEmailIdentityVerificationToken(tokenPlain: string | undefined): Promise<string> {
+    const { successUrl, errorUrl } = this.resolveVerifySuccessAndErrorUrls();
+    if (!tokenPlain) return errorUrl;
+
+    const now = new Date();
+    const tokenHash = this.hashVerificationToken(tokenPlain);
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const token = await tx.emailIdentityVerificationToken.findFirst({
+          where: {
+            tokenHash,
+            consumedAt: null,
+            expiresAt: { gt: now },
+          },
+          select: { emailIdentityId: true },
+        });
+        if (!token) {
+          throw new BadRequestException('token_invalide');
+        }
+
+        const [tokenUpdated, identityUpdated] = await Promise.all([
+          tx.emailIdentityVerificationToken.updateMany({
+            where: { tokenHash, consumedAt: null },
+            data: { consumedAt: now },
+          }),
+          tx.userEmailIdentity.updateMany({
+            where: {
+              id: token.emailIdentityId,
+              isActive: true,
+              isVerified: false,
+            },
+            data: { isVerified: true },
+          }),
+        ]);
+
+        if (tokenUpdated.count !== 1 || identityUpdated.count !== 1) {
+          throw new BadRequestException('token_invalide');
+        }
+      });
+
+      return successUrl;
+    } catch {
+      return errorUrl;
+    }
   }
 
   async updateEmailIdentity(

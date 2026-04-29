@@ -4,13 +4,21 @@ import { AuthModule } from '../auth/auth.module';
 import { MfaModule } from '../mfa/mfa.module';
 import { ResourceTimesheetMonthsModule } from '../resource-time-entries/resource-timesheet-months.module';
 import { SecurityLogsModule } from '../security-logs/security-logs.module';
+import { EmailModule } from '../email/email.module';
 import { MeController } from './me.controller';
+import { EmailIdentitiesVerificationController } from './email-identities-verification.controller';
 import { MeService } from './me.service';
 import { MeAvatarStorageService } from './me-avatar.storage';
 
 @Module({
-  imports: [AuthModule, MfaModule, SecurityLogsModule, ResourceTimesheetMonthsModule],
-  controllers: [MeController],
+  imports: [
+    AuthModule,
+    MfaModule,
+    SecurityLogsModule,
+    ResourceTimesheetMonthsModule,
+    EmailModule,
+  ],
+  controllers: [MeController, EmailIdentitiesVerificationController],
   providers: [MeService, MeAvatarStorageService, ActiveClientGuard],
   exports: [MeService],
 })

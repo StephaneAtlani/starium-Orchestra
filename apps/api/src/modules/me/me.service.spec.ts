@@ -2,9 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   NotFoundException,
 } from '@nestjs/common';
 import { ClientUserRole, ClientUserStatus } from '@prisma/client';
+import { createHash } from 'crypto';
 import { MeService } from './me.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -12,6 +15,7 @@ describe('MeService', () => {
   let service: MeService;
   let prisma: any;
   const securityLogs = { create: jest.fn() };
+  const emailService = { queueEmail: jest.fn() };
   const mfa = {
     getTwoFactorStatus: jest.fn(),
     startTotpEnrollment: jest.fn(),
@@ -28,8 +32,12 @@ describe('MeService', () => {
   const timesheetMonths = {
     getHumanResourceIdForUser: jest.fn(),
   };
+  const config = { get: jest.fn() };
 
   beforeEach(() => {
+    securityLogs.create.mockReset();
+    emailService.queueEmail.mockReset();
+    config.get.mockReset();
     prisma = {
       user: {
         findUnique: jest.fn(),
@@ -41,9 +49,11 @@ describe('MeService', () => {
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        updateMany: jest.fn(),
       },
       clientUser: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         findUnique: jest.fn(),
         updateMany: jest.fn(),
         update: jest.fn(),
@@ -56,7 +66,21 @@ describe('MeService', () => {
         findMany: jest.fn(),
       },
       refreshToken: { deleteMany: jest.fn() },
-      $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+      $transaction: jest.fn((input: unknown) => {
+        if (Array.isArray(input)) {
+          return Promise.all(input as Promise<unknown>[]);
+        }
+        if (typeof input === 'function') {
+          return (input as any)(prisma);
+        }
+        return Promise.resolve(undefined);
+      }),
+      emailIdentityVerificationToken: {
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        updateMany: jest.fn(),
+      },
     } as unknown as jest.Mocked<PrismaService>;
     service = new MeService(
       prisma,
@@ -64,6 +88,8 @@ describe('MeService', () => {
       mfa as any,
       avatarStorage as any,
       timesheetMonths as any,
+      emailService as any,
+      config as any,
     );
   });
 
@@ -262,6 +288,248 @@ describe('MeService', () => {
         service.deleteEmailIdentity('user-1', 'eid-1'),
       ).rejects.toBeInstanceOf(ConflictException);
       expect(prisma.userEmailIdentity.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createEmailIdentity', () => {
+    it('crée l’identité et envoie un e-mail de vérification via la pile async', async () => {
+      config.get.mockImplementation((key: string) => {
+        switch (key) {
+          case 'EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS':
+            return '24';
+          case 'EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES':
+            return '15';
+          case 'EMAIL_IDENTITY_VERIFY_SUCCESS_URL':
+            return 'http://localhost/success';
+          case 'EMAIL_IDENTITY_VERIFY_ERROR_URL':
+            return 'http://localhost/error';
+          default:
+            return undefined;
+        }
+      });
+
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.userEmailIdentity.findFirst.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue({ email: 'primary@example.com' } as any);
+
+      const createdIdentity = {
+        id: 'eid-2',
+        userId: 'user-1',
+        email: 'secondary@example.com',
+        emailNormalized: 'secondary@example.com',
+        displayName: null,
+        replyToEmail: null,
+        isVerified: false,
+        isActive: true,
+        directoryManaged: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
+      prisma.userEmailIdentity.create.mockResolvedValue(createdIdentity);
+
+      prisma.clientUser.findFirst.mockResolvedValue({ clientId: 'client-1' } as any);
+
+      prisma.emailIdentityVerificationToken.create.mockResolvedValue({} as any);
+
+      await service.createEmailIdentity('user-1', {
+        email: 'secondary@example.com',
+        displayName: null,
+        replyToEmail: null,
+      } as any);
+
+      expect(prisma.emailIdentityVerificationToken.create).toHaveBeenCalledTimes(1);
+      expect(emailService.queueEmail).toHaveBeenCalledTimes(1);
+      expect(emailService.queueEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientId: 'client-1',
+          recipient: 'secondary@example.com',
+          templateKey: 'email_identity_verify',
+          actionUrl: expect.stringContaining(
+            'http://localhost/api/email-identities/verify?token=',
+          ),
+        }),
+      );
+      expect(securityLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'email.identity_verification.token_issued',
+          userId: 'user-1',
+          email: 'secondary@example.com',
+          success: true,
+        }),
+      );
+    });
+  });
+
+  describe('resendEmailIdentityVerification', () => {
+    it('renvoie un lien de vérification si l’identité est non vérifiée et hors cooldown', async () => {
+      config.get.mockImplementation((key: string) => {
+        switch (key) {
+          case 'EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS':
+            return '24';
+          case 'EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES':
+            return '15';
+          case 'EMAIL_IDENTITY_VERIFY_SUCCESS_URL':
+            return 'http://localhost/success';
+          case 'EMAIL_IDENTITY_VERIFY_ERROR_URL':
+            return 'http://localhost/error';
+          default:
+            return undefined;
+        }
+      });
+
+      prisma.userEmailIdentity.findFirst.mockResolvedValue({
+        id: 'eid-1',
+        userId: 'user-1',
+        email: 'secondary@example.com',
+        isVerified: false,
+        isActive: true,
+      } as any);
+
+      prisma.emailIdentityVerificationToken.findFirst
+        .mockResolvedValueOnce(null) // recentIdentityToken
+        .mockResolvedValueOnce(null); // recentUserToken
+
+      prisma.clientUser.findFirst.mockResolvedValue({ clientId: 'client-1' } as any);
+
+      prisma.emailIdentityVerificationToken.updateMany.mockResolvedValue({} as any);
+      prisma.emailIdentityVerificationToken.create.mockResolvedValue({} as any);
+
+      await service.resendEmailIdentityVerification('user-1', 'eid-1');
+
+      expect(prisma.emailIdentityVerificationToken.create).toHaveBeenCalledTimes(1);
+      expect(emailService.queueEmail).toHaveBeenCalledTimes(1);
+      expect(emailService.queueEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipient: 'secondary@example.com',
+          templateKey: 'email_identity_verify',
+          actionUrl: expect.stringContaining(
+            'http://localhost/api/email-identities/verify?token=',
+          ),
+        }),
+      );
+    });
+
+    it('refuse si l’identité est déjà vérifiée', async () => {
+      config.get.mockReturnValue('24');
+      prisma.userEmailIdentity.findFirst.mockResolvedValue({
+        id: 'eid-1',
+        userId: 'user-1',
+        email: 'secondary@example.com',
+        isVerified: true,
+        isActive: true,
+      } as any);
+
+      await expect(
+        service.resendEmailIdentityVerification('user-1', 'eid-1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('refuse si cooldown non écoulé (anti-spam)', async () => {
+      config.get.mockImplementation((key: string) => {
+        switch (key) {
+          case 'EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS':
+            return '24';
+          case 'EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES':
+            return '60'; // grand cooldown
+          case 'EMAIL_IDENTITY_VERIFY_SUCCESS_URL':
+            return 'http://localhost/success';
+          case 'EMAIL_IDENTITY_VERIFY_ERROR_URL':
+            return 'http://localhost/error';
+          default:
+            return undefined;
+        }
+      });
+
+      prisma.userEmailIdentity.findFirst.mockResolvedValue({
+        id: 'eid-1',
+        userId: 'user-1',
+        email: 'secondary@example.com',
+        isVerified: false,
+        isActive: true,
+      } as any);
+
+      const now = Date.now();
+      prisma.emailIdentityVerificationToken.findFirst
+        .mockResolvedValueOnce({
+          createdAt: new Date(now - 5 * 60_000),
+          consumedAt: null,
+        }) // recentIdentityToken
+        .mockResolvedValueOnce(null); // recentUserToken (non atteint dans ce test)
+
+      try {
+        await service.resendEmailIdentityVerification('user-1', 'eid-1');
+        throw new Error('Expected resend to throw');
+      } catch (e) {
+        expect(e).toBeInstanceOf(HttpException);
+        expect((e as HttpException).getStatus()).toBe(
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    });
+  });
+
+  describe('verifyEmailIdentityVerificationToken', () => {
+    it('consomme le token et passe isVerified=true en transaction', async () => {
+      config.get.mockImplementation((key: string) => {
+        switch (key) {
+          case 'EMAIL_IDENTITY_VERIFY_SUCCESS_URL':
+            return 'http://localhost/success';
+          case 'EMAIL_IDENTITY_VERIFY_ERROR_URL':
+            return 'http://localhost/error';
+          default:
+            return undefined;
+        }
+      });
+
+      const tokenPlain = 'token-123';
+      const expectedTokenHash = createHash('sha256').update(tokenPlain).digest('hex');
+
+      prisma.emailIdentityVerificationToken.findFirst.mockResolvedValue({
+        emailIdentityId: 'eid-1',
+      } as any);
+
+      prisma.emailIdentityVerificationToken.updateMany.mockResolvedValue({
+        count: 1,
+      } as any);
+      prisma.userEmailIdentity.updateMany.mockResolvedValue({
+        count: 1,
+      } as any);
+
+      const redirect = await service.verifyEmailIdentityVerificationToken(tokenPlain);
+      expect(redirect).toBe('http://localhost/success');
+
+      expect(prisma.emailIdentityVerificationToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tokenHash: expectedTokenHash, consumedAt: null },
+        }) as any,
+      );
+      expect(prisma.userEmailIdentity.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'eid-1',
+            isActive: true,
+            isVerified: false,
+          },
+        }) as any,
+      );
+    });
+
+    it('redirige vers l’URL erreur si token introuvable / expiré', async () => {
+      config.get.mockImplementation((key: string) => {
+        switch (key) {
+          case 'EMAIL_IDENTITY_VERIFY_SUCCESS_URL':
+            return 'http://localhost/success';
+          case 'EMAIL_IDENTITY_VERIFY_ERROR_URL':
+            return 'http://localhost/error';
+          default:
+            return undefined;
+        }
+      });
+
+      prisma.emailIdentityVerificationToken.findFirst.mockResolvedValue(null);
+
+      const redirect = await service.verifyEmailIdentityVerificationToken('bad-token');
+      expect(redirect).toBe('http://localhost/error');
     });
   });
 

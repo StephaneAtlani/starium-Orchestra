@@ -8,6 +8,7 @@ import {
   createEmailIdentity,
   deleteEmailIdentity,
   getEmailIdentities,
+  resendEmailIdentityVerification,
   setDefaultClient,
   setDefaultEmailIdentityForClient,
   updateEmailIdentity,
@@ -105,6 +106,15 @@ export function useDeleteEmailIdentityMutation() {
       void queryClient.invalidateQueries({ queryKey: meQueryKeys.emailIdentities() });
       void queryClient.invalidateQueries({ queryKey: meQueryKeys.clients() });
     },
+  });
+}
+
+export function useResendEmailIdentityVerificationMutation() {
+  const authFetch = useAuthenticatedFetch();
+
+  return useMutation({
+    mutationFn: (identityId: string) =>
+      resendEmailIdentityVerification(authFetch, identityId),
   });
 }
 

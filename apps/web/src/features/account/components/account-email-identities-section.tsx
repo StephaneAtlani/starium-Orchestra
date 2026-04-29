@@ -6,6 +6,7 @@ import {
   useDeleteEmailIdentityMutation,
   useEmailIdentitiesQuery,
   useUpdateEmailIdentityMutation,
+  useResendEmailIdentityVerificationMutation,
 } from '@/features/account/hooks/use-me-email-queries';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import type { MeEmailIdentity } from '@/services/me';
 import { useAuth } from '@/context/auth-context';
+import { toast } from '@/lib/toast';
 
 function formatQueryErrorMessage(error: unknown): string {
   const base =
@@ -39,6 +41,8 @@ function IdentityRow({
   onSaveEdit,
   onDelete,
   onDeactivate,
+  onResendVerification,
+  resending,
   saving,
 }: {
   identity: MeEmailIdentity;
@@ -55,6 +59,8 @@ function IdentityRow({
   onSaveEdit: () => void;
   onDelete: () => void;
   onDeactivate: () => void;
+  onResendVerification: () => void;
+  resending: boolean;
   saving: boolean;
 }) {
   const locked =
@@ -204,6 +210,18 @@ function IdentityRow({
             >
               Modifier
             </Button>
+            {identity.isActive && !identity.isVerified ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 text-muted-foreground hover:text-foreground"
+                disabled={saving || resending}
+                onClick={onResendVerification}
+              >
+                {resending ? 'Envoi…' : 'Renvoyer le lien'}
+              </Button>
+            ) : null}
             {identity.isActive ? (
               <Button
                 type="button"
@@ -264,11 +282,13 @@ export function AccountEmailIdentitiesSection() {
   const createMut = useCreateEmailIdentityMutation();
   const updateMut = useUpdateEmailIdentityMutation();
   const deleteMut = useDeleteEmailIdentityMutation();
+  const resendMut = useResendEmailIdentityVerificationMutation();
 
   const [newEmail, setNewEmail] = useState('');
   const [newDisplayName, setNewDisplayName] = useState('');
   const [newReplyTo, setNewReplyTo] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [resendingIdentityId, setResendingIdentityId] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
@@ -277,8 +297,20 @@ export function AccountEmailIdentitiesSection() {
     replyToEmail: '',
   });
 
-  const saving =
-    createMut.isPending || updateMut.isPending || deleteMut.isPending;
+  const saving = createMut.isPending || updateMut.isPending || deleteMut.isPending;
+
+  async function handleResend(identityId: string) {
+    setFormError(null);
+    setResendingIdentityId(identityId);
+    try {
+      await resendMut.mutateAsync(identityId);
+      toast.success('Lien envoyé');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setResendingIdentityId(null);
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -393,6 +425,8 @@ export function AccountEmailIdentitiesSection() {
                 onSaveEdit={() => void handleSaveEdit(identity.id)}
                 onDelete={() => void handleDelete(identity.id)}
                 onDeactivate={() => void handleDeactivate(identity.id)}
+                onResendVerification={() => void handleResend(identity.id)}
+                resending={resendingIdentityId === identity.id}
               />
             ))}
           </ul>

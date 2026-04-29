@@ -168,6 +168,23 @@ export async function deleteEmailIdentity(
   }
 }
 
+/** POST /api/me/email-identities/:id/resend-verification */
+export async function resendEmailIdentityVerification(
+  authenticatedFetch: (
+    input: RequestInfo,
+    init?: RequestInit,
+  ) => Promise<Response>,
+  identityId: string,
+): Promise<void> {
+  const res = await authenticatedFetch(
+    `/api/me/email-identities/${encodeURIComponent(identityId)}/resend-verification`,
+    { method: 'POST' },
+  );
+  if (!res.ok) {
+    throw new Error(await readApiErrorMessage(res));
+  }
+}
+
 export interface SetDefaultEmailIdentityResult {
   success: true;
   clientId: string;

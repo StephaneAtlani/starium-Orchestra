@@ -474,6 +474,7 @@ model User {
   finalizedProjectReviews              ProjectReview[]                 @relation("ProjectReviewFinalizedBy")
   projectReviewParticipants            ProjectReviewParticipant[]
   emailIdentities                      UserEmailIdentity[]
+  emailIdentityVerificationTokens    EmailIdentityVerificationToken[] @relation("EmailIdentityTokenUser")
   microsoftConnectionsConnected        MicrosoftConnection[]           @relation("MicrosoftConnectedBy")
   uploadedProjectDocuments             ProjectDocument[]               @relation("ProjectDocumentUploadedBy")
   ownedActionPlans                     ActionPlan[]                    @relation("ActionPlanOwner")
@@ -511,9 +512,29 @@ model UserEmailIdentity {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   clientUsersDefault ClientUser[] @relation("ClientUserDefaultEmail")
+  verificationTokens EmailIdentityVerificationToken[] @relation("EmailIdentityTokenEmailIdentity")
 
   @@unique([userId, emailNormalized])
   @@index([userId])
+}
+
+/// Token de vérification pour une identité e-mail secondaire.
+/// Contrainte: token stocké en hash uniquement (jamais exposé ni journalisé en clair).
+model EmailIdentityVerificationToken {
+  id              String             @id @default(cuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade, name: "EmailIdentityTokenUser")
+  emailIdentityId String
+  emailIdentity  UserEmailIdentity @relation(fields: [emailIdentityId], references: [id], onDelete: Cascade, name: "EmailIdentityTokenEmailIdentity")
+
+  tokenHash       String            @unique
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  createdAt       DateTime          @default(now())
+
+  @@index([userId, createdAt])
+  @@index([emailIdentityId, createdAt])
+  @@index([emailIdentityId, expiresAt])
 }
 
 model ClientUser {
