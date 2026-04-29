@@ -182,7 +182,7 @@ export function Microsoft365Settings() {
     <PageContainer>
       <PageHeader
         title="Microsoft 365"
-        description="Synchronisation Teams / Planner / fichiers : le client configure son application Microsoft Entra ; Starium stocke les jetons par client Starium actif."
+        description="Synchronisation Teams / Planner / fichiers : vous configurez l’application Microsoft Entra de votre tenant. Starium fournit l’URL de callback de synchronisation et chiffre les jetons pour le client actif."
       />
 
       <div className="space-y-6">
@@ -190,24 +190,19 @@ export function Microsoft365Settings() {
           <CardHeader>
             <CardTitle>Mode opératoire</CardTitle>
             <CardDescription>
-              Rôle distinct : <strong>l’hébergeur / l’API</strong> expose une redirect OAuth
-              identique pour tous les clients ; <strong>votre organisation</strong> enregistre
-              cette même URL dans <strong>votre</strong> application Entra.
+              Starium fournit l’URL de callback de synchronisation. Côté client : enregistrez-la
+              dans Entra, autorisez les scopes Graph, puis saisissez vos identifiants dans
+              Starium pour déclencher le consentement.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm leading-relaxed text-muted-foreground">
             <ol className="list-decimal space-y-3 pl-5 marker:text-foreground">
               <li>
                 <span className="font-medium text-foreground">Hébergement Starium (API)</span>{' '}
-                : la variable d’environnement{' '}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-                  MICROSOFT_M365_SYNC_REDIRECT_URI
-                </code>{' '}
-                doit pointer vers le callback sync public, par exemple{' '}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-                  https://app.starium.fr/api/microsoft/auth/callback
-                </code>
-                . Ce n’est <strong>pas</strong> l’URL de connexion SSO Starium (
+                : Starium fournit l’URL de callback de synchronisation (identique pour tous
+                les clients). Déclarez-la dans Entra avec l’URL affichée dans ce bloc
+                (« Application Azure AD »).
+                Ce n’est <strong>pas</strong> l’URL de connexion SSO Starium (
                 <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
                   …/api/auth/microsoft/callback
                 </code>
@@ -219,30 +214,35 @@ export function Microsoft365Settings() {
                 </span>{' '}
                 : dans le portail Azure de <strong>votre tenant</strong>, créez ou ouvrez une
                 inscription d’application dédiée à Orchestra / Starium. Notez l’
-                <strong>ID d’application (client)</strong>, créez un <strong>secret client</strong>
-                , et renseignez le <strong>tenant autorité</strong> attendu par Microsoft (souvent
-                le GUID du tenant pour une app « comptes dans cet annuaire uniquement » — pas{' '}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">common</code> dans
-                ce cas).
+                <strong>ID d’application (client)</strong> et créez un <strong>secret client</strong>.
+                Ensuite, choisissez le mode d’accès de l’application :
+                <ul className="mt-2 list-disc pl-5">
+                  <li>
+                    single-tenant : dans Starium, utilisez le <strong>Tenant ID (GUID)</strong>
+                    de votre tenant (champ « tenant autorité »).
+                  </li>
+                  <li>
+                    multi-tenant : dans Starium, utilisez <code>common</code> (ou laissez la valeur par défaut).
+                  </li>
+                </ul>
               </li>
               <li>
                 <span className="font-medium text-foreground">Redirect URI dans Entra</span> : sous
                 « Authentification », ajoutez une <strong>URI de redirection Web</strong> exactement
-                égale à l’URL affichée dans la section « Application Azure AD » ci-dessous (elle
-                reprend la valeur configurée sur l’API). Les scopes Graph attendus y sont aussi
-                listés : accordez les permissions correspondantes (souvent consentement admin).
+                égale à l’URL affichée dans ce bloc (« URI de redirection à déclarer dans Azure »).
+                Les scopes Graph attendus y sont listés : accordez les permissions correspondantes
+                (souvent consentement admin).
               </li>
               <li>
                 <span className="font-medium text-foreground">Starium (client actif)</span> : saisissez
-                l’ID d’application, le tenant, le secret, puis enregistrez. Utilisez ensuite{' '}
-                <strong>Connecter Microsoft 365</strong> pour le consentement OAuth (équivalent
-                depuis les options projet Microsoft 365).
+                l’ID d’application, le tenant, le secret, puis enregistrez. Cliquez ensuite sur{' '}
+                <strong>Connecter Microsoft 365</strong> pour le consentement OAuth.
               </li>
             </ol>
             <p className="border-t border-border pt-3 text-xs">
-              En cas d’erreur Microsoft sur le <em>redirect_uri</em> ou le tenant : vérifiez que
-              l’URL dans Entra correspond bit à bit à celle de l’API, et que l’autorité OAuth
-              (tenant) correspond au type d’application (single-tenant vs multi-tenant).
+              En cas d’erreur Microsoft sur le <em>redirect_uri</em> ou le tenant autorité :
+              vérifiez que l’URL dans Entra correspond bit à bit à celle affichée ci-dessous, et
+              que le mode single-tenant / multi-tenant correspond à votre app Entra.
             </p>
           </CardContent>
         </Card>

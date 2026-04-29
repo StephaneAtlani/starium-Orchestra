@@ -165,16 +165,15 @@ export function ClientAzureAppCredentials() {
       <CardHeader>
         <CardTitle>Application Azure AD (Entra)</CardTitle>
         <CardDescription>
-          ID d’application et secret de l’app enregistrée dans votre tenant           Microsoft. L’URI de redirection sync est la même pour tous les clients : variable
-          d’environnement API{' '}
-          <code className="text-xs">MICROSOFT_M365_SYNC_REDIRECT_URI</code> (indépendante du SSO /
-          admin plateforme).
+          ID d’application et secret de l’app enregistrée dans votre tenant Microsoft.
+          L’URL de callback de synchronisation à déclarer dans Entra est affichée dans
+          l’encadré ci-dessous (« URI de redirection à déclarer dans Azure »).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
           <p className="font-medium text-foreground">URI de redirection à déclarer dans Azure</p>
-          {meta?.syncRedirectUriError ? (
+          {meta?.syncRedirectUriError != null ? (
             <p className="mt-2 text-sm text-destructive">{meta.syncRedirectUriError}</p>
           ) : meta?.syncRedirectUri ? (
             <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
