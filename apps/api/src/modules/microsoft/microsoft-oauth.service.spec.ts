@@ -28,6 +28,8 @@ function configServiceMock() {
       if (k === 'JWT_SECRET') return JWT_SECRET;
       if (k === 'MICROSOFT_CLIENT_ID') return 'app-id';
       if (k === 'MICROSOFT_CLIENT_SECRET') return 'secret';
+      if (k === 'MICROSOFT_M365_SYNC_REDIRECT_URI')
+        return 'http://localhost:3001/api/microsoft/auth/callback';
       if (k === 'MICROSOFT_REDIRECT_URI') return 'http://localhost:3001/cb';
       if (k === 'MICROSOFT_TENANT') return 'common';
       if (k === 'MICROSOFT_GRAPH_SCOPES') return 'offline_access User.Read';
@@ -68,7 +70,6 @@ describe('MicrosoftOAuthService', () => {
                 microsoftOAuthClientId: null,
                 microsoftOAuthClientSecretEncrypted: null,
                 microsoftOAuthAuthorityTenant: null,
-                microsoftOAuthRedirectUri: 'http://localhost:3001/api/microsoft/auth/callback',
               }),
             },
           },
@@ -175,7 +176,6 @@ describe('MicrosoftOAuthService', () => {
           microsoftOAuthClientId: null,
           microsoftOAuthClientSecretEncrypted: null,
           microsoftOAuthAuthorityTenant: null,
-          microsoftOAuthRedirectUri: 'http://localhost:3001/api/microsoft/auth/callback',
         });
       });
 
@@ -411,7 +411,6 @@ describe('MicrosoftOAuthService', () => {
         microsoftOAuthClientId: null,
         microsoftOAuthClientSecretEncrypted: null,
         microsoftOAuthAuthorityTenant: null,
-        microsoftOAuthRedirectUri: 'http://localhost:3001/api/microsoft/auth/callback',
       });
 
       const moduleRef = await Test.createTestingModule({
@@ -507,7 +506,6 @@ describe('MicrosoftOAuthService', () => {
             microsoftOAuthClientId: null,
             microsoftOAuthClientSecretEncrypted: null,
             microsoftOAuthAuthorityTenant: null,
-            microsoftOAuthRedirectUri: 'http://localhost:3001/api/microsoft/auth/callback',
           }),
         },
         microsoftConnection: {
@@ -596,7 +594,6 @@ describe('MicrosoftOAuthService', () => {
             microsoftOAuthClientId: null,
             microsoftOAuthClientSecretEncrypted: null,
             microsoftOAuthAuthorityTenant: null,
-            microsoftOAuthRedirectUri: 'http://localhost:3001/api/microsoft/auth/callback',
           }),
         },
         microsoftConnection: {

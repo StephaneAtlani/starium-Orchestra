@@ -1,16 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MicrosoftTokenCryptoService } from './microsoft-token-crypto.service';
 import { MicrosoftPlatformConfigService } from './microsoft-platform-config.service';
 import { UpdateClientMicrosoftOAuthDto } from './dto/update-client-microsoft-oauth.dto';
+import { resolveM365OAuthSyncRedirectUri } from './microsoft-m365-sync-redirect.util';
 
 export interface ClientMicrosoftOAuthPublic {
   microsoftOAuthClientId: string | null;
   microsoftOAuthAuthorityTenant: string | null;
-  microsoftOAuthRedirectUri: string | null;
   hasClientSecret: boolean;
-  /** URI exacte à enregistrer dans l’app Entra (config client). */
-  redirectUri: string | null;
+  /** Même valeur pour tous les clients : env `MICROSOFT_M365_SYNC_REDIRECT_URI` ou repli plateforme / env legacy. */
+  syncRedirectUri: string | null;
+  /** Si la config redirect est invalide (ex. SSO mélangé). */
+  syncRedirectUriError: string | null;
   graphScopes: string;
 }
 
@@ -20,6 +23,7 @@ export class ClientMicrosoftOAuthService {
     private readonly prisma: PrismaService,
     private readonly crypto: MicrosoftTokenCryptoService,
     private readonly platformConfig: MicrosoftPlatformConfigService,
+    private readonly config: ConfigService,
   ) {}
 
   async getForClient(clientId: string): Promise<ClientMicrosoftOAuthPublic> {
@@ -29,19 +33,23 @@ export class ClientMicrosoftOAuthService {
         microsoftOAuthClientId: true,
         microsoftOAuthClientSecretEncrypted: true,
         microsoftOAuthAuthorityTenant: true,
-        microsoftOAuthRedirectUri: true,
       },
     });
     if (!row) {
       throw new NotFoundException('Client introuvable');
     }
     const resolved = await this.platformConfig.getResolved();
+    const redirect = resolveM365OAuthSyncRedirectUri({
+      envM365Sync: this.config.get<string>('MICROSOFT_M365_SYNC_REDIRECT_URI'),
+      platformRedirectUri: resolved.redirectUri,
+      envMicrosoftRedirect: this.config.get<string>('MICROSOFT_REDIRECT_URI'),
+    });
     return {
       microsoftOAuthClientId: row.microsoftOAuthClientId,
       microsoftOAuthAuthorityTenant: row.microsoftOAuthAuthorityTenant,
-      microsoftOAuthRedirectUri: row.microsoftOAuthRedirectUri,
       hasClientSecret: Boolean(row.microsoftOAuthClientSecretEncrypted?.length),
-      redirectUri: row.microsoftOAuthRedirectUri ?? null,
+      syncRedirectUri: redirect.ok ? redirect.uri : null,
+      syncRedirectUriError: redirect.ok ? null : redirect.message,
       graphScopes: resolved.graphScopes,
     };
   }
@@ -77,9 +85,6 @@ export class ClientMicrosoftOAuthService {
         ...(dto.microsoftOAuthAuthorityTenant !== undefined && {
           microsoftOAuthAuthorityTenant:
             dto.microsoftOAuthAuthorityTenant?.trim() || null,
-        }),
-        ...(dto.microsoftOAuthRedirectUri !== undefined && {
-          microsoftOAuthRedirectUri: dto.microsoftOAuthRedirectUri?.trim() || null,
         }),
         ...(secretEnc !== undefined && {
           microsoftOAuthClientSecretEncrypted: secretEnc,

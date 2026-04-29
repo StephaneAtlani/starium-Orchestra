@@ -18,9 +18,9 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 type ClientOAuthGet = {
   microsoftOAuthClientId: string | null;
   microsoftOAuthAuthorityTenant: string | null;
-  microsoftOAuthRedirectUri: string | null;
   hasClientSecret: boolean;
-  redirectUri: string | null;
+  syncRedirectUri: string | null;
+  syncRedirectUriError: string | null;
   graphScopes: string;
 };
 
@@ -66,10 +66,11 @@ export function ClientAzureAppCredentials() {
   const [clientId, setClientId] = useState('');
   const [tenant, setTenant] = useState('');
   const [secret, setSecret] = useState('');
-  const [redirectUri, setRedirectUri] = useState('');
   const [meta, setMeta] = useState<{
     graphScopes: string;
     hasClientSecret: boolean;
+    syncRedirectUri: string | null;
+    syncRedirectUriError: string | null;
   } | null>(null);
 
   const load = useCallback(async () => {
@@ -90,11 +91,12 @@ export function ClientAzureAppCredentials() {
       const data = (await res.json()) as ClientOAuthGet;
       setClientId(data.microsoftOAuthClientId ?? '');
       setTenant(data.microsoftOAuthAuthorityTenant ?? '');
-      setRedirectUri(data.microsoftOAuthRedirectUri ?? data.redirectUri ?? '');
       setSecret('');
       setMeta({
         graphScopes: data.graphScopes,
         hasClientSecret: data.hasClientSecret,
+        syncRedirectUri: data.syncRedirectUri,
+        syncRedirectUriError: data.syncRedirectUriError,
       });
     } catch (e) {
       if (e instanceof TypeError) {
@@ -122,7 +124,6 @@ export function ClientAzureAppCredentials() {
         body: JSON.stringify({
           microsoftOAuthClientId: clientId || null,
           microsoftOAuthAuthorityTenant: tenant || null,
-          microsoftOAuthRedirectUri: redirectUri || null,
           ...(secret.trim()
             ? { microsoftOAuthClientSecret: secret.trim() }
             : {}),
@@ -164,13 +165,24 @@ export function ClientAzureAppCredentials() {
       <CardHeader>
         <CardTitle>Application Azure AD (Entra)</CardTitle>
         <CardDescription>
-          ID d’application et secret de l’app enregistrée dans votre tenant
-          Microsoft. Cette configuration est spécifique au client actif.
+          ID d’application et secret de l’app enregistrée dans votre tenant Microsoft. L’URI de
+          redirection sync est la même pour tous les clients (variable d’environnement API{' '}
+          <code className="text-xs">MICROSOFT_M365_SYNC_REDIRECT_URI</code> ou repli plateforme).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
-          <p className="font-medium text-foreground">Scopes attendus</p>
+          <p className="font-medium text-foreground">URI de redirection à déclarer dans Azure</p>
+          {meta?.syncRedirectUriError ? (
+            <p className="mt-2 text-sm text-destructive">{meta.syncRedirectUriError}</p>
+          ) : meta?.syncRedirectUri ? (
+            <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+              {meta.syncRedirectUri}
+            </p>
+          ) : (
+            <p className="mt-1 text-muted-foreground">—</p>
+          )}
+          <p className="mt-2 font-medium text-foreground">Scopes attendus</p>
           <p className="mt-1 text-muted-foreground">
             <span className="font-mono text-xs">{meta?.graphScopes}</span>
           </p>
@@ -191,16 +203,6 @@ export function ClientAzureAppCredentials() {
             value={tenant}
             onChange={(e) => setTenant(e.target.value)}
             placeholder="common"
-            autoComplete="off"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="azureRedirectUri">URI de redirection OAuth</Label>
-          <Input
-            id="azureRedirectUri"
-            value={redirectUri}
-            onChange={(e) => setRedirectUri(e.target.value)}
-            placeholder="https://app.starium.fr/api/microsoft/auth/callback"
             autoComplete="off"
           />
         </div>

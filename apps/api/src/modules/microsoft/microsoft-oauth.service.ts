@@ -23,6 +23,7 @@ import { MicrosoftIdTokenService } from './microsoft-id-token.service';
 import { MicrosoftTokenHttpService } from './microsoft-token-http.service';
 import { MicrosoftPlatformConfigService } from './microsoft-platform-config.service';
 import { MICROSOFT_OAUTH_STATE_PURPOSE } from './microsoft.constants';
+import { resolveM365OAuthSyncRedirectUri } from './microsoft-m365-sync-redirect.util';
 import type { MicrosoftOAuthStatePayload } from './microsoft-oauth.types';
 import type { ResolvedPlatformMicrosoftConfig } from './microsoft-platform-config.types';
 
@@ -63,7 +64,6 @@ export class MicrosoftOAuthService {
     azureClientId: string;
     azureClientSecret: string;
     authorityTenant: string;
-    redirectUri: string;
   }> {
     const row = await this.prisma.client.findUnique({
       where: { id: stariumClientId },
@@ -71,7 +71,6 @@ export class MicrosoftOAuthService {
         microsoftOAuthClientId: true,
         microsoftOAuthClientSecretEncrypted: true,
         microsoftOAuthAuthorityTenant: true,
-        microsoftOAuthRedirectUri: true,
       },
     });
     const envId = this.config.get<string>('MICROSOFT_CLIENT_ID')?.trim();
@@ -97,14 +96,26 @@ export class MicrosoftOAuthService {
     }
     const authorityTenant =
       row?.microsoftOAuthAuthorityTenant?.trim() || envTenant;
-    const redirectUri = row?.microsoftOAuthRedirectUri?.trim() || '';
 
-    if (!azureClientId || !azureClientSecret || !redirectUri) {
+    if (!azureClientId || !azureClientSecret) {
       throw new BadRequestException(
-        "Configuration Microsoft client incomplète : renseigner l'ID, le secret et l'URI de redirection OAuth dans l'administration client.",
+        'Configuration Microsoft incomplète : enregistrer l’ID et le secret d’application Azure (administration client) ou définir MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET (environnement).',
       );
     }
-    return { azureClientId, azureClientSecret, authorityTenant, redirectUri };
+    return { azureClientId, azureClientSecret, authorityTenant };
+  }
+
+  private async resolveM365SyncRedirectUri(): Promise<string> {
+    const platform = await this.platformConfig.getResolved();
+    const r = resolveM365OAuthSyncRedirectUri({
+      envM365Sync: this.config.get<string>('MICROSOFT_M365_SYNC_REDIRECT_URI'),
+      platformRedirectUri: platform.redirectUri,
+      envMicrosoftRedirect: this.config.get<string>('MICROSOFT_REDIRECT_URI'),
+    });
+    if (!r.ok) {
+      throw new BadRequestException(r.message);
+    }
+    return r.uri;
   }
 
   /**
@@ -116,6 +127,7 @@ export class MicrosoftOAuthService {
   ): Promise<{ authorizationUrl: string }> {
     const platform = await this.platformConfig.getResolved();
     const creds = await this.resolveAzureAppCredentials(stariumClientId);
+    const redirectUri = await this.resolveM365SyncRedirectUri();
 
     const jti = randomUUID();
     const ttlMs = platform.oauthStateTtlSeconds * 1000;
@@ -134,7 +146,7 @@ export class MicrosoftOAuthService {
     const params = new URLSearchParams({
       client_id: creds.azureClientId,
       response_type: 'code',
-      redirect_uri: creds.redirectUri,
+      redirect_uri: redirectUri,
       response_mode: 'query',
       scope: platform.graphScopes,
       state,
@@ -211,12 +223,13 @@ export class MicrosoftOAuthService {
       azureClientId: string;
       azureClientSecret: string;
       authorityTenant: string;
-      redirectUri: string;
     };
     let platform: ResolvedPlatformMicrosoftConfig;
+    let syncRedirectUri: string;
     try {
       creds = await this.resolveAzureAppCredentials(clientId);
       platform = await this.platformConfig.getResolved();
+      syncRedirectUri = await this.resolveM365SyncRedirectUri();
     } catch (e: unknown) {
       this.logger.warn(`Credentials Microsoft: ${(e as Error).message}`);
       return { redirectUrl: await this.buildErrorRedirect('missing_credentials') };
@@ -227,7 +240,7 @@ export class MicrosoftOAuthService {
       client_secret: creds.azureClientSecret,
       grant_type: 'authorization_code',
       code,
-      redirect_uri: creds.redirectUri,
+      redirect_uri: syncRedirectUri,
     });
 
     let tokens: Awaited<ReturnType<MicrosoftTokenHttpService['postTokenForm']>>;
