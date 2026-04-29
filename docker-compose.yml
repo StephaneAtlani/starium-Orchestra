@@ -91,6 +91,8 @@ services:
     environment:
       <<: *api-base-env
       MICROSOFT_M365_SYNC_REDIRECT_URI: ${MICROSOFT_M365_SYNC_REDIRECT_URI:-}
+      EMAIL_IDENTITY_VERIFY_SUCCESS_URL: ${EMAIL_IDENTITY_VERIFY_SUCCESS_URL:-}
+      EMAIL_IDENTITY_VERIFY_ERROR_URL: ${EMAIL_IDENTITY_VERIFY_ERROR_URL:-}
       # RFC-035 — le driver suit la ligne plateforme (admin). PROCUREMENT_STORAGE_DRIVER : repli sans cette ligne uniquement.
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
       # S3 : variables via `.env` à la racine du compose (interpolation). Région alignée sur la console AWS (ex. eu-west-3).
