@@ -15,6 +15,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { QueueService } from '../queue/queue.service';
 import { renderTemplate, type EmailTemplateKey } from './email.templates';
+import { buildSmtpTransportOptions } from './smtp-transport.util';
 
 type QueueEmailInput = {
   clientId: string;
@@ -269,26 +270,32 @@ export class EmailService {
         `SMTP configuration missing in production: ${missing.join(', ')}`,
       );
     }
-  }
 
-  private async getTransporter(): Promise<Transporter> {
-    if (this.transporter) return this.transporter;
-
-    const nodemailer = await import('nodemailer');
+    const host = process.env.SMTP_HOST!.trim().toLowerCase();
     const user = process.env.SMTP_USER?.trim() ?? '';
     const pass = (
       process.env.SMTP_PASSWORD ??
       process.env.SMTP_PASS ??
       ''
     ).trim();
-    // MailHog / dev sans auth : ne pas passer auth vide — nodemailer 8 tente sinon PLAIN et lève « Missing credentials ».
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT ?? '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      ...(user || pass ? { auth: { user, pass } } : {}),
-      connectionTimeout: Number(process.env.SMTP_TIMEOUT_MS ?? '10000'),
-    });
+    const authMandatory =
+      host.includes('brevo.com') ||
+      host.includes('sendinblue.com') ||
+      host.includes('smtp.gmail.com') ||
+      host.includes('smtp.office365.com');
+    if (authMandatory && (!user || !pass)) {
+      throw new Error(
+        'SMTP : ce fournisseur exige SMTP_USER + SMTP_PASSWORD (ou SMTP_PASS). Brevo : clé SMTP (xsmtpsib-…), pas la clé API REST — voir https://developers.brevo.com/docs/smtp-integration',
+      );
+    }
+  }
+
+  private async getTransporter(): Promise<Transporter> {
+    if (this.transporter) return this.transporter;
+
+    const nodemailer = await import('nodemailer');
+    // MailHog / dev sans auth : options sans auth — voir smtp-transport.util.ts (Brevo : requireTLS sur 587).
+    this.transporter = nodemailer.createTransport(buildSmtpTransportOptions());
     return this.transporter;
   }
 

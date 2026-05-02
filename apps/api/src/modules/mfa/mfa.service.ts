@@ -21,6 +21,7 @@ import QRCode from 'qrcode';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { SecurityLogsService } from '../security-logs/security-logs.service';
+import { buildSmtpTransportOptions } from '../email/smtp-transport.util';
 import { MfaCryptoService } from './mfa-crypto.service';
 import {
   MFA_CHALLENGE_TTL_MS,
@@ -405,20 +406,7 @@ export class MfaService {
     }
     try {
       const nodemailer = await import('nodemailer');
-      const port = Number(process.env.SMTP_PORT ?? '587');
-      const secure = process.env.SMTP_SECURE === 'true';
-      const user = process.env.SMTP_USER?.trim() ?? '';
-      const pass = (
-        process.env.SMTP_PASSWORD ??
-        process.env.SMTP_PASS ??
-        ''
-      ).trim();
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port,
-        secure,
-        ...(user || pass ? { auth: { user, pass } } : {}),
-      });
+      const transporter = nodemailer.createTransport(buildSmtpTransportOptions());
       await transporter.sendMail({
         from: process.env.SMTP_FROM ?? 'noreply@starium.local',
         to,
