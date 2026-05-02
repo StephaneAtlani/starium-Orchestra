@@ -27,7 +27,10 @@ type ScenarioCockpitPageProps = {
 export function ScenarioCockpitPage({ projectId }: ScenarioCockpitPageProps) {
   const { data: project, isLoading: projectLoading, error: projectError } = useProjectDetailQuery(projectId);
   const scenariosQuery = useProjectScenariosQuery(projectId);
-  const scenarios = scenariosQuery.data?.items ?? [];
+  const scenarios = useMemo(
+    () => scenariosQuery.data?.items ?? [],
+    [scenariosQuery.data?.items],
+  );
 
   const selectedId = useMemo(
     () => scenarios.find((s) => s.status === 'SELECTED')?.id ?? null,

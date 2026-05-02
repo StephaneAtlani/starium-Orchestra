@@ -377,8 +377,14 @@ export default function ResourceTimeEntriesPage() {
     enabled: permsOk && !!clientId && canRead,
   });
 
-  const projectItems = projectsQ.data?.items ?? [];
-  const activityItems = activityQ.data?.items ?? [];
+  const projectItems = useMemo(
+    () => projectsQ.data?.items ?? [],
+    [projectsQ.data?.items],
+  );
+  const activityItems = useMemo(
+    () => activityQ.data?.items ?? [],
+    [activityQ.data?.items],
+  );
 
   /** Lignes : chaque projet + chaque type d’activité + couples présents dans les données. */
   const gridRows: GridRow[] = useMemo(() => {
@@ -717,7 +723,7 @@ export default function ResourceTimeEntriesPage() {
       }
     }
     return totals;
-  }, [grid, gridRows, dim, cellDrafts, ignoreWeekends, dayMetas]);
+  }, [grid, gridRows, dim, cellDrafts, ignoreWeekends, dayMetas, parseDraftToFrac]);
 
   const hasGridFraction = useMemo(() => {
     for (const row of gridRows) {
@@ -733,7 +739,7 @@ export default function ResourceTimeEntriesPage() {
       }
     }
     return false;
-  }, [grid, gridRows, cellDrafts, dim, ignoreWeekends, dayMetas]);
+  }, [grid, gridRows, cellDrafts, dim, ignoreWeekends, dayMetas, parseDraftToFrac]);
 
   const hasPersistedSaisie =
     !!listQuery.data?.items.some((e) => Number(e.durationHours) > 0);

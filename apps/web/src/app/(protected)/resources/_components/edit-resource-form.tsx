@@ -150,7 +150,7 @@ export function EditResourceForm({
     setManagerResourceFallbackLabel(d.managerResourceFallbackLabel ?? null);
     setSelectedWorkTeamIds(d.memberships.map((m) => m.teamId));
     setInitialMemberships(d.memberships);
-  }, [collabTeamsQuery.isSuccess, collabTeamsQuery.dataUpdatedAt, resourceId]);
+  }, [collabTeamsQuery.isSuccess, collabTeamsQuery.dataUpdatedAt, collabTeamsQuery.data, resourceId]);
 
   const teamsQuery = useWorkTeamsList(
     {

@@ -123,7 +123,10 @@ export function ScenarioBudgetPanel({ scenario, canMutate }: Props) {
   const readOnly = isScenarioWorkspaceReadOnly(scenario) || !canMutate;
 
   const projectLinksQuery = useProjectBudgetLinksQuery(projectId);
-  const projectLinks = projectLinksQuery.data?.items ?? [];
+  const projectLinks = useMemo(
+    () => projectLinksQuery.data?.items ?? [],
+    [projectLinksQuery.data?.items],
+  );
   const budgetIdFromFirstLink = projectLinks[0]?.budgetLine.budgetId ?? null;
 
   const exerciseOptionsQuery = useBudgetExerciseOptionsQuery();

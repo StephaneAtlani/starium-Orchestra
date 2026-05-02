@@ -109,7 +109,10 @@ export function TaskFormDialogFields({
 }: TaskFormDialogFieldsProps) {
   const fid = (suffix: string) => `${fieldIdPrefix}-${suffix}`;
 
-  const selectedLabelIds = form.taskLabelIds ?? [];
+  const selectedLabelIds = useMemo(
+    () => form.taskLabelIds ?? [],
+    [form.taskLabelIds],
+  );
   const [newLabelName, setNewLabelName] = useState('');
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [newPhaseName, setNewPhaseName] = useState('');

@@ -609,7 +609,10 @@ export function ProjectRiskEbiosDialog({
     await onSave(p);
   }, [buildPayload, onSave]);
 
-  const users = assignableQuery.data?.users ?? [];
+  const users = useMemo(
+    () => assignableQuery.data?.users ?? [],
+    [assignableQuery.data?.users],
+  );
 
   const residualLevelSelectKeys = useMemo(() => {
     const base: string[] = [...RESIDUAL_LEVELS];

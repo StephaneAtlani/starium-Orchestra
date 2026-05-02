@@ -45,7 +45,7 @@ export function ScenarioOverviewPanel({
 
   useEffect(() => {
     setDraft(scenarioToDraft(scenario));
-  }, [scenario.id, scenario.updatedAt]);
+  }, [scenario]);
 
   const dirty = isScenarioDraftDirty(scenario, draft);
   const payload = buildScenarioPatchPayload(scenario, draft);

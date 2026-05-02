@@ -89,7 +89,10 @@ export function BudgetEnvelopeIntelligenceDrawer({
   const hasActiveFilters =
     searchInput.trim().length > 0 || statusFilter !== 'ALL';
 
-  const linesOnPage = linesQuery.data?.items ?? [];
+  const linesOnPage = useMemo(
+    () => linesQuery.data?.items ?? [],
+    [linesQuery.data?.items],
+  );
 
   const toggleLineSelected = useCallback((lineId: string, selected: boolean) => {
     setSelectedLineIds((prev) => {

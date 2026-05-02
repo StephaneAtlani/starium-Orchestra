@@ -43,6 +43,16 @@ type Props = {
   isSubmitDisabled?: boolean;
 };
 
+const SUPPLIER_CONTACT_DEFAULT_ROLES: string[] = [
+  'Commercial',
+  'Support',
+  'Comptabilite',
+  'Finance',
+  'Direction',
+  'Technique',
+  'Achats',
+];
+
 export function SupplierContactModal({
   open,
   onOpenChange,
@@ -61,19 +71,11 @@ export function SupplierContactModal({
 }: Props) {
   const authFetch = useAuthenticatedFetch();
   const [customRole, setCustomRole] = useState('');
-  const defaultRoles = [
-    'Commercial',
-    'Support',
-    'Comptabilite',
-    'Finance',
-    'Direction',
-    'Technique',
-    'Achats',
-  ];
   const roleOptions = useMemo(() => {
+    const base = [...SUPPLIER_CONTACT_DEFAULT_ROLES];
     const current = form.role.trim();
-    if (!current) return defaultRoles;
-    return defaultRoles.includes(current) ? defaultRoles : [...defaultRoles, current];
+    if (!current) return base;
+    return base.includes(current) ? base : [...base, current];
   }, [form.role]);
   const [photoPreview, setPhotoPreview] = useState<string | null>(photoUrl ?? null);
   const [photoObjectUrl, setPhotoObjectUrl] = useState<string | null>(null);

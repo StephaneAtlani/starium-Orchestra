@@ -260,11 +260,12 @@ export default function BudgetDetailPage() {
     return m;
   }, [planningFetchedLineIds, draftAmounts12ByLineId, planningByLineId]);
 
+  const { reset: resetPlanningQuickCalc } = planningQuickCalc;
   useEffect(() => {
     if (!planningCalculatorLineId) return;
     const amounts = amounts12ByLineId.get(planningCalculatorLineId);
-    planningQuickCalc.reset(amounts ?? null);
-  }, [planningCalculatorLineId]);
+    resetPlanningQuickCalc(amounts ?? null);
+  }, [planningCalculatorLineId, amounts12ByLineId, resetPlanningQuickCalc]);
 
   const canEditPrevisionnel =
     !permLoading && has('budgets.update') && pilotageMode === 'previsionnel';

@@ -216,7 +216,10 @@ export function ActionPlanTaskCreateDialog({
     enabled: queriesEnabled,
   });
 
-  const humanResources = resourcesHuman.data?.items ?? [];
+  const humanResources = useMemo(
+    () => resourcesHuman.data?.items ?? [],
+    [resourcesHuman.data?.items],
+  );
 
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [creating, setCreating] = useState(false);

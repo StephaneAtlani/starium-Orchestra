@@ -135,7 +135,10 @@ export default function BudgetSnapshotsPage() {
     enabled: !!clientId && !!budgetId,
   });
 
-  const items = snapshotsQuery.data?.items ?? [];
+  const items = useMemo(
+    () => snapshotsQuery.data?.items ?? [],
+    [snapshotsQuery.data?.items],
+  );
 
   const handleSort = (key: SnapshotSortKey) => {
     if (sortKey === key) {

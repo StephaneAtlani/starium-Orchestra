@@ -41,7 +41,10 @@ export function MembersSyncDialog() {
   const connectionsQuery = useDirectoryConnectionsQuery();
   const { previewSyncMutation, executeSyncMutation } = useTeamSyncMutations();
 
-  const connections = connectionsQuery.data ?? [];
+  const connections = useMemo(
+    () => connectionsQuery.data ?? [],
+    [connectionsQuery.data],
+  );
   const resolvedConnectionId = useMemo(() => {
     if (selectedConnectionId && connections.some((c) => c.id === selectedConnectionId)) {
       return selectedConnectionId;

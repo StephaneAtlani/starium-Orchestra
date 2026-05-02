@@ -50,7 +50,10 @@ export function MilestoneFormDialogFields({
 }: MilestoneFormDialogFieldsProps) {
   const fid = (suffix: string) => `${fieldIdPrefix}-${suffix}`;
 
-  const selectedLabelIds = form.milestoneLabelIds ?? [];
+  const selectedLabelIds = useMemo(
+    () => form.milestoneLabelIds ?? [],
+    [form.milestoneLabelIds],
+  );
   const [newLabelName, setNewLabelName] = useState('');
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [labelPickerValue, setLabelPickerValue] = useState('');

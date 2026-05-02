@@ -209,7 +209,7 @@ export function useBudgetDashboardPage() {
       setBudgetId(undefined);
     }
     setSelectionHydrated(true);
-  }, [activeClient?.id, searchParams, useUserOverrides, user?.id]);
+  }, [activeClient?.id, searchParams, useUserOverrides, user]);
 
   const dashboardEnabled =
     selectionHydrated &&
@@ -262,7 +262,7 @@ export function useBudgetDashboardPage() {
       { exerciseId, budgetId },
       personal ? { userId: user!.id } : undefined,
     );
-  }, [activeClient?.id, exerciseId, budgetId, useUserOverrides, user?.id]);
+  }, [activeClient?.id, exerciseId, budgetId, useUserOverrides, user]);
 
   const onExerciseChange = useCallback((nextExerciseId: string) => {
     setExerciseId(nextExerciseId);

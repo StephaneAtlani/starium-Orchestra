@@ -230,7 +230,10 @@ export function ActionPlanTaskEditDialog({
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
   const assignable = useProjectAssignableUsers({ enabled: open && !!clientId });
-  const users = assignable.data?.users ?? [];
+  const users = useMemo(
+    () => assignable.data?.users ?? [],
+    [assignable.data?.users],
+  );
 
   const [draft, setDraft] = useState<TaskDraft | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -255,7 +258,10 @@ export function ActionPlanTaskEditDialog({
     enabled: open && !!clientId,
   });
 
-  const humanResources = resourcesHuman.data?.items ?? [];
+  const humanResources = useMemo(
+    () => resourcesHuman.data?.items ?? [],
+    [resourcesHuman.data?.items],
+  );
 
   const phasesPick = useQuery({
     queryKey: [...projectQueryKeys.all, 'task-phases-pick', clientId, draft?.projectId ?? ''],
@@ -307,7 +313,7 @@ export function ActionPlanTaskEditDialog({
     const payload = draftToPayload(draft);
     if (!payload.name?.trim()) return;
     await mutation.mutateAsync(payload);
-  }, [task, draft, mutation, authFetch, actionPlanId]);
+  }, [task, draft, mutation]);
 
   const saveRef = useRef(saveFromDraft);
   saveRef.current = saveFromDraft;

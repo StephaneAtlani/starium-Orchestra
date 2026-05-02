@@ -89,7 +89,10 @@ export function SupplierVisualizationContent({
     enabled: procurementListsEnabled,
   });
 
-  const contacts = contactsQuery.data?.items ?? [];
+  const contacts = useMemo(
+    () => contactsQuery.data?.items ?? [],
+    [contactsQuery.data?.items],
+  );
   const activeContacts = useMemo(() => contacts.filter((c) => c.isActive), [contacts]);
   const primaryContact = useMemo(
     () => activeContacts.find((c) => c.isPrimary) ?? activeContacts[0] ?? null,

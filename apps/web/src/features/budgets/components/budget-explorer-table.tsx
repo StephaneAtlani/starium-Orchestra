@@ -97,6 +97,9 @@ function ExplorerSortableHead({
 
   return (
     <TableHead
+      aria-sort={
+        active ? (state.direction === 'asc' ? 'ascending' : 'descending') : 'none'
+      }
       className={cn(
         align === 'right' && 'text-right',
         !headClassName && align === 'right' && 'min-w-[6.75rem] whitespace-nowrap',
@@ -118,9 +121,6 @@ function ExplorerSortableHead({
             align === 'right' && 'w-full justify-end text-right',
           )}
           onClick={() => onSortPresetChange(toggleExplorerSortColumn(sortPreset, column))}
-          aria-sort={
-            active ? (state.direction === 'asc' ? 'ascending' : 'descending') : 'none'
-          }
         >
           <span className="whitespace-nowrap">{label}</span>
           <Icon

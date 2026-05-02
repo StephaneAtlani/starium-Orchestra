@@ -35,7 +35,7 @@ function useLinePathsDraw(svgRef: React.RefObject<SVGSVGElement | null>, pathSig
       cancelAnimationFrame(raf);
       timeouts.forEach(clearTimeout);
     };
-  }, [animateKey, pathSignature]);
+  }, [animateKey, pathSignature, svgRef]);
 }
 
 /** Point sur le cercle : angle 0° = midi, sens horaire. */

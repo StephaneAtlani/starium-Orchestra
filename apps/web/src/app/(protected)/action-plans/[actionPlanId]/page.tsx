@@ -32,7 +32,10 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
 import { listClientRisks, listProjects } from '@/features/projects/api/projects.api';
-import { updateActionPlan } from '@/features/projects/api/action-plans.api';
+import {
+  updateActionPlan,
+  type UpdateActionPlanPayload,
+} from '@/features/projects/api/action-plans.api';
 import { ActionPlanTaskCreateDialog } from '@/features/projects/components/action-plan-task-create-dialog';
 import { ActionPlanTaskEditDialog } from '@/features/projects/components/action-plan-task-edit-dialog';
 import {
@@ -199,7 +202,10 @@ export default function ActionPlanDetailPage() {
 
   const assignable = useProjectAssignableUsers({ enabled });
 
-  const users = assignable.data?.users ?? [];
+  const users = useMemo(
+    () => assignable.data?.users ?? [],
+    [assignable.data?.users],
+  );
 
   const [open, setOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -207,7 +213,7 @@ export default function ActionPlanDetailPage() {
   const plan = planQuery.data;
   const progressPct = plan ? Math.min(100, Math.max(0, plan.progressPercent)) : 0;
   const planMetaMutation = useMutation({
-    mutationFn: (payload: { status?: string; priority?: string; ownerUserId?: string | null }) =>
+    mutationFn: (payload: UpdateActionPlanPayload) =>
       updateActionPlan(authFetch, actionPlanId, payload),
     onSuccess: async () => {
       await Promise.all([

@@ -305,6 +305,7 @@ export function CollaboratorManagerCombobox({
               <button
                 type="button"
                 role="option"
+                aria-selected={!value.trim()}
                 className={cn(
                   'w-full rounded-md px-2 py-1.5 text-left hover:bg-accent/60',
                   !value.trim() && 'bg-accent/40',
@@ -374,6 +375,7 @@ export function CollaboratorManagerCombobox({
                   <button
                     type="button"
                     role="option"
+                    aria-selected={false}
                     disabled={!!resolvingResourceId}
                     className={cn(
                       'w-full rounded-md px-2 py-1.5 text-left hover:bg-accent/60 disabled:opacity-50',

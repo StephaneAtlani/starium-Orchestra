@@ -94,7 +94,10 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
       });
   }, [authFetch, projectId]);
 
-  const items = milestonesQuery.data?.items ?? [];
+  const items = useMemo(
+    () => milestonesQuery.data?.items ?? [],
+    [milestonesQuery.data?.items],
+  );
 
   const sortedMilestones = useMemo(() => {
     return [...items].sort((a, b) => {

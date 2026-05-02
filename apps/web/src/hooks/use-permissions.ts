@@ -25,11 +25,11 @@ export function usePermissions() {
     staleTime: 60_000,
   });
 
-  const permissionCodes = data?.permissionCodes ?? [];
-  const set = useMemo(
-    () => new Set(permissionCodes),
+  const permissionCodes = useMemo(
+    () => data?.permissionCodes ?? [],
     [data?.permissionCodes],
   );
+  const set = useMemo(() => new Set(permissionCodes), [permissionCodes]);
 
   const has = (code: string): boolean => set.has(code);
 

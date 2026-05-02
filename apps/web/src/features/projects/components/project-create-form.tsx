@@ -172,7 +172,10 @@ export function ProjectCreateForm() {
     queryFn: () => listProjectTags(authFetch),
     enabled: Boolean(clientId),
   });
-  const tagCatalog = tagsOptionsQuery.data ?? [];
+  const tagCatalog = useMemo(
+    () => tagsOptionsQuery.data ?? [],
+    [tagsOptionsQuery.data],
+  );
   const availableTagsForCreate = useMemo(
     () => tagCatalog.filter((t) => !selectedTagIds.includes(t.id)),
     [tagCatalog, selectedTagIds],

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { fetchPasswordLoginEligibilityApi } from '@/services/auth';
@@ -487,11 +488,14 @@ function LoginPageContent() {
       <Card className="w-full max-w-4xl">
         <div className="grid gap-0 md:grid-cols-2">
           <div className="relative hidden flex-col justify-between bg-muted/40 p-8 md:flex">
-            <img
+            <Image
               src="/login-hero.svg"
               alt=""
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-45"
+              fill
+              priority={false}
+              unoptimized
+              aria-hidden
+              className="pointer-events-none object-cover opacity-45"
             />
             <div className="text-sm font-medium tracking-tight text-muted-foreground">
               Starium Orchestra

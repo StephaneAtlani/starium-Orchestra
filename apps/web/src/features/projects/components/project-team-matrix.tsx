@@ -75,8 +75,8 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
   const [teamOwnerResourceDetails, setTeamOwnerResourceDetails] =
     useState<ResourceListItem | null>(null);
 
-  const roles = rolesQuery.data ?? [];
-  const members = teamQuery.data ?? [];
+  const roles = useMemo(() => rolesQuery.data ?? [], [rolesQuery.data]);
+  const members = useMemo(() => teamQuery.data ?? [], [teamQuery.data]);
 
   const byRole = useMemo(() => membersByRole(members), [members]);
 

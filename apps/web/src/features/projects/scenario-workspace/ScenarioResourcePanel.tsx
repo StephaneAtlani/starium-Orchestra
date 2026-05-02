@@ -154,7 +154,10 @@ export function ScenarioResourcePanel({ projectId, scenario, canMutate }: Props)
 
   const items = resourceQuery.data?.plans.items ?? [];
   const summary = resourceQuery.data?.summary;
-  const humanResources = resourcesQuery.data?.items ?? [];
+  const humanResources = useMemo(
+    () => resourcesQuery.data?.items ?? [],
+    [resourcesQuery.data?.items],
+  );
 
   const resourcesFilteredSortedByRole = useMemo(() => {
     const filtered = humanResources.filter((r) => personResourceMatchesSearch(r, resourceSearch));

@@ -902,8 +902,9 @@ export function ProjectSheetView({
       saveMutation.mutate(undefined);
     }, SHEET_AUTOSAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(id);
-    // sheet / refetch exclus : évite un POST à chaque invalidation ; mutationFn lit l’état courant.
+    // sheet / saveMutation exclus : évite un POST à chaque refetch ; mutationFn + buildProjectSheetPayloadRef lisent l’état courant.
     // Champs suivis via autosaveFormSnapshotKey (deps de taille fixe).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionnel (voir commentaire ci-dessus)
   }, [sheetReadOnlyOverride, canEdit, sheet?.id, projectId, autosaveFormSnapshotKey]);
 
   const copilSaveMutation = useMutation({

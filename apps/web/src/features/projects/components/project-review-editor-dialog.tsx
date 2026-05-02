@@ -663,66 +663,81 @@ export function ProjectReviewEditorDialog({
     [projectStatus, reviewType],
   );
 
-  const buildPatchBody = (opts?: { committedNextReviewOverride?: string | null }) => {
-    const committedForApi =
-      opts?.committedNextReviewOverride !== undefined
-        ? opts.committedNextReviewOverride
-        : committedNextReviewDate;
-    const parts = participants
-      .filter((p) => p.displayName.trim() || p.userId.trim())
-      .map((p) => ({
-        userId: p.userId.trim() || null,
-        displayName: p.displayName.trim() || null,
-        attended: p.attended,
-        isRequired: p.isRequired,
-      }));
-    const dec = decisions
-      .filter((x) => x.title.trim())
-      .map((x) => ({
-        title: x.title.trim(),
-        description: x.description.trim() || null,
-      }));
-    const act = actions
-      .filter((a) => a.title.trim())
-      .map((a) => ({
-        title: a.title.trim(),
-        status: a.status,
-        dueDate: a.dueDate ? fromLocalDatetimeInput(a.dueDate) : null,
-        linkedTaskId: a.linkedTaskId.trim() || null,
-      }));
-    const payloadBase = parseContentPayload(d?.contentPayload);
-    const contentPayload: Record<string, unknown> =
-      reviewType === 'POST_MORTEM'
-        ? {
-            ...payloadBase,
-            postMortem: { ...postMortemForm },
-          }
-        : {
-            ...payloadBase,
-            [COMMITTEE_MOOD_KEY]: committeeMood,
-          };
-    if (reviewType === 'POST_MORTEM') {
-      delete contentPayload[COMMITTEE_MOOD_KEY];
-    } else {
-      delete contentPayload.postMortem;
-    }
-    return {
-      reviewDate: fromLocalDatetimeInput(reviewDate),
-      reviewType,
-      title: title.trim() || null,
-      executiveSummary: executiveSummary.trim() || null,
-      nextReviewDate:
+  const buildPatchBody = useCallback(
+    (opts?: { committedNextReviewOverride?: string | null }) => {
+      const committedForApi =
+        opts?.committedNextReviewOverride !== undefined
+          ? opts.committedNextReviewOverride
+          : committedNextReviewDate;
+      const parts = participants
+        .filter((p) => p.displayName.trim() || p.userId.trim())
+        .map((p) => ({
+          userId: p.userId.trim() || null,
+          displayName: p.displayName.trim() || null,
+          attended: p.attended,
+          isRequired: p.isRequired,
+        }));
+      const dec = decisions
+        .filter((x) => x.title.trim())
+        .map((x) => ({
+          title: x.title.trim(),
+          description: x.description.trim() || null,
+        }));
+      const act = actions
+        .filter((a) => a.title.trim())
+        .map((a) => ({
+          title: a.title.trim(),
+          status: a.status,
+          dueDate: a.dueDate ? fromLocalDatetimeInput(a.dueDate) : null,
+          linkedTaskId: a.linkedTaskId.trim() || null,
+        }));
+      const payloadBase = parseContentPayload(d?.contentPayload);
+      const contentPayload: Record<string, unknown> =
         reviewType === 'POST_MORTEM'
-          ? null
-          : committedForApi && committedForApi.trim()
-            ? fromLocalDatetimeInput(committedForApi)
-            : null,
-      participants: parts,
-      decisions: dec,
-      actionItems: act,
-      contentPayload,
-    };
-  };
+          ? {
+              ...payloadBase,
+              postMortem: { ...postMortemForm },
+            }
+          : {
+              ...payloadBase,
+              [COMMITTEE_MOOD_KEY]: committeeMood,
+            };
+      if (reviewType === 'POST_MORTEM') {
+        delete contentPayload[COMMITTEE_MOOD_KEY];
+      } else {
+        delete contentPayload.postMortem;
+      }
+      return {
+        reviewDate: fromLocalDatetimeInput(reviewDate),
+        reviewType,
+        title: title.trim() || null,
+        executiveSummary: executiveSummary.trim() || null,
+        nextReviewDate:
+          reviewType === 'POST_MORTEM'
+            ? null
+            : committedForApi && committedForApi.trim()
+              ? fromLocalDatetimeInput(committedForApi)
+              : null,
+        participants: parts,
+        decisions: dec,
+        actionItems: act,
+        contentPayload,
+      };
+    },
+    [
+      committedNextReviewDate,
+      participants,
+      decisions,
+      actions,
+      d,
+      reviewType,
+      postMortemForm,
+      committeeMood,
+      reviewDate,
+      title,
+      executiveSummary,
+    ],
+  );
 
   /** Sauvegarde automatique du brouillon (debounce) — pas de clic « Enregistrer » requis. */
   useEffect(() => {
@@ -764,6 +779,7 @@ export function ProjectReviewEditorDialog({
     committeeMood,
     postMortemForm,
     update,
+    buildPatchBody,
   ]);
 
   const pilotageSinceLast = useMemo(() => {

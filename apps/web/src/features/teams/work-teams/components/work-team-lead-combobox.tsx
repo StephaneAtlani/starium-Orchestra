@@ -298,6 +298,7 @@ export function WorkTeamLeadCombobox({
                   <button
                     type="button"
                     role="option"
+                    aria-selected={value === r.id}
                     className="w-full rounded-md px-2 py-1.5 text-left hover:bg-accent/60"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => pickHumanResource(r)}

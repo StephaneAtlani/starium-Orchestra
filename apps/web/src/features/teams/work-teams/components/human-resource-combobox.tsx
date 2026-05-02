@@ -69,7 +69,10 @@ export function HumanResourceCombobox({
     retry: 1,
   });
 
-  const humanItemsRaw = searchReady ? (humanResourcesQuery.data?.items ?? []) : [];
+  const humanItemsRaw = useMemo(
+    () => (searchReady ? (humanResourcesQuery.data?.items ?? []) : []),
+    [searchReady, humanResourcesQuery.data?.items],
+  );
 
   const humanItems = useMemo(() => {
     if (!excludeResourceId) return humanItemsRaw;

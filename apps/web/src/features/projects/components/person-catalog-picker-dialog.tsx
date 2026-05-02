@@ -126,7 +126,10 @@ export function PersonCatalogPickerDialog({
     enabled: open && queryEnabled,
   });
 
-  const rawItems = resourcesOutcome?.ok ? resourcesOutcome.data.items : [];
+  const rawItems = useMemo(
+    () => (resourcesOutcome?.ok ? resourcesOutcome.data.items : []),
+    [resourcesOutcome],
+  );
   const humanResources = useMemo(
     () => (filterFetchedResources ? filterFetchedResources(rawItems) : rawItems),
     [rawItems, filterFetchedResources],
