@@ -284,8 +284,15 @@ export class EmailService {
       host.includes('smtp.gmail.com') ||
       host.includes('smtp.office365.com');
     if (authMandatory && (!user || !pass)) {
+      const passSet = Boolean(
+        process.env.SMTP_PASSWORD?.trim() || process.env.SMTP_PASS?.trim(),
+      );
       throw new Error(
-        'SMTP : ce fournisseur exige SMTP_USER + SMTP_PASSWORD (ou SMTP_PASS). Brevo : clé SMTP (xsmtpsib-…), pas la clé API REST — voir https://developers.brevo.com/docs/smtp-integration',
+        `SMTP : ce fournisseur exige SMTP_USER + mot de passe (SMTP_PASSWORD ou SMTP_PASS). ` +
+          `user=${user ? 'défini' : 'absent'}, motDePasse=${passSet ? 'défini' : 'absent'}. ` +
+          `Si vous utilisez Docker Compose : ne pas définir SMTP_PASS/SMTP_PASSWORD à une chaîne vide dans le YAML ` +
+          `(sinon dotenv ne peut pas les remplir depuis .env). Brevo : clé SMTP xsmtpsib-… — ` +
+          `https://developers.brevo.com/docs/smtp-integration`,
       );
     }
   }

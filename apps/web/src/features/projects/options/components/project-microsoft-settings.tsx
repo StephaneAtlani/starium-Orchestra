@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { toast } from '@/lib/toast';
+import { readApiErrorMessageFromResponse } from '@/lib/read-api-error-message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -49,9 +50,8 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
     queryFn: async () => {
       const res = await authFetch('/api/microsoft/connection');
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
         throw new Error(
-          (body as { message?: string })?.message ??
+          (await readApiErrorMessageFromResponse(res)) ||
             'Impossible de charger la connexion Microsoft.',
         );
       }
@@ -78,9 +78,8 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
   const handleConnect = useCallback(async () => {
     const res = await authFetch('/api/microsoft/auth/url');
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
       throw new Error(
-        (body as { message?: string })?.message ??
+        (await readApiErrorMessageFromResponse(res)) ||
           'Impossible de démarrer la connexion Microsoft.',
       );
     }

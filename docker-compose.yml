@@ -12,9 +12,10 @@
 #         buildées (prod-like), pas de bind mount. Le port hôte 3002 est volontaire
 #         (évite un conflit avec un autre process sur :3000). Le navigateur appelle
 #         l’API sur :3001 ; NEXT_PUBLIC_API_URL=http://localhost:3001.
-#         Variables injectées : voir `x-api-base-env` + bloc `api.environment` (interpolation
-#         depuis le `.env` à la racine du repo, même nom que pour `docker compose config`).
-#         Vérifier dans le conteneur : `docker compose exec api sh -lc 'env | sort | grep -E \"^(SMTP_|EMAIL_|REDIS_|JWT_)\"'`.
+#         Secrets SMTP : ne pas les mettre dans `environment` avec `${VAR:-}` vide — cela définit
+#         SMTP_PASS="" et empêche Nest/dotenv de charger la vraie valeur depuis `env_file: .env`.
+#         Voir `x-api-base-env` (pas de USER/PASS/HOST/FROM dans le compose) + `api.env_file`.
+#         Vérifier : `docker compose exec api sh -lc 'env | sort | grep -E \"^(SMTP_|EMAIL_|REDIS_|JWT_)\"'`.
 #         E-mails en file (RFC-038) : lancer aussi `pnpm start:worker` (hors compose) ou un service worker dédié.
 #
 # Hot reload : hors Docker (`pnpm` dans apps/api et apps/web), pas de service dédié.
@@ -38,14 +39,10 @@ x-api-base-env: &api-base-env
   REDIS_HOST: redis
   REDIS_PORT: "6379"
   REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-  # SMTP — secrets via `.env` racine (ne pas committer). Mail sans auth : laisser USER/PASS vides.
-  SMTP_HOST: ${SMTP_HOST:-}
+  # SMTP : host / user / pass / from uniquement via `api.env_file: .env` ou variables injectées par la plateforme
+  # (évite SMTP_PASS="" dans ce YAML qui masque les secrets — comportement dotenv « ne pas écraser l’existant »).
   SMTP_PORT: ${SMTP_PORT:-587}
   SMTP_SECURE: ${SMTP_SECURE:-false}
-  SMTP_USER: ${SMTP_USER:-}
-  SMTP_PASS: ${SMTP_PASS:-}
-  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-  SMTP_FROM: ${SMTP_FROM:-}
   SMTP_TIMEOUT_MS: ${SMTP_TIMEOUT_MS:-10000}
   # Vérification identités e-mail (MeService) — URLs HTTPS obligatoires en vrai prod.
   EMAIL_IDENTITY_VERIFY_SUCCESS_URL: ${EMAIL_IDENTITY_VERIFY_SUCCESS_URL:-}
@@ -103,6 +100,9 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
       <<: *api-base-env
       MICROSOFT_M365_SYNC_REDIRECT_URI: ${MICROSOFT_M365_SYNC_REDIRECT_URI:-}

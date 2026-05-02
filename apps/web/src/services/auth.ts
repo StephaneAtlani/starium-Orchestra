@@ -1,3 +1,5 @@
+import { readApiErrorMessageFromResponse } from '@/lib/read-api-error-message';
+
 /** Réponse POST /api/auth/login */
 export type LoginApiResponse =
   | {
@@ -15,17 +17,20 @@ export async function getMicrosoftSsoAuthorizationUrlApi(): Promise<
   { ok: true; authorizationUrl: string } | { ok: false; message: string }
 > {
   const res = await fetch('/api/auth/microsoft/url');
-  const data = (await res.json().catch(() => ({}))) as {
-    authorizationUrl?: string;
-    message?: string | string[];
-  };
-  if (!res.ok || !data.authorizationUrl) {
-    const msg = Array.isArray(data.message)
-      ? data.message.join(', ')
-      : data.message;
+  if (!res.ok) {
+    const msg = await readApiErrorMessageFromResponse(res);
     return {
       ok: false,
       message: msg || 'Impossible de démarrer la connexion Microsoft',
+    };
+  }
+  const data = (await res.json().catch(() => ({}))) as {
+    authorizationUrl?: string;
+  };
+  if (!data.authorizationUrl) {
+    return {
+      ok: false,
+      message: 'Impossible de démarrer la connexion Microsoft',
     };
   }
   return { ok: true, authorizationUrl: data.authorizationUrl };

@@ -19,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
+import { readApiErrorMessageFromResponse } from '@/lib/read-api-error-message';
 import { ClientAzureAppCredentials } from './client-azure-app-credentials';
 
 const QUERY_KEY = 'microsoft-connection';
@@ -57,11 +58,10 @@ export function Microsoft365Settings() {
     queryFn: async () => {
       const res = await authFetch('/api/microsoft/connection');
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const msg =
-          (body as { message?: string })?.message ??
-          'Impossible de charger la connexion Microsoft';
-        throw new Error(msg);
+        throw new Error(
+          (await readApiErrorMessageFromResponse(res)) ||
+            'Impossible de charger la connexion Microsoft',
+        );
       }
       return res.json() as Promise<{
         connection: MicrosoftConnectionDto | null;
@@ -85,9 +85,8 @@ export function Microsoft365Settings() {
   const connect = useCallback(async () => {
     const res = await authFetch('/api/microsoft/auth/url');
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
       throw new Error(
-        (body as { message?: string })?.message ??
+        (await readApiErrorMessageFromResponse(res)) ||
           'Impossible de démarrer la connexion Microsoft',
       );
     }
@@ -100,9 +99,8 @@ export function Microsoft365Settings() {
       method: 'DELETE',
     });
     if (!res.ok && res.status !== 204) {
-      const body = await res.json().catch(() => ({}));
       throw new Error(
-        (body as { message?: string })?.message ?? 'Déconnexion impossible',
+        (await readApiErrorMessageFromResponse(res)) || 'Déconnexion impossible',
       );
     }
     await queryClient.invalidateQueries({
