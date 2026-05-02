@@ -63,7 +63,9 @@ docker compose --profile standard up --build
 
 Sans profil, `docker compose up` ne démarre que Postgres.
 
-Variables d’environnement requises pour l’API : `DATABASE_URL`, `JWT_SECRET` (voir `.env.example` pour `JWT_ACCESS_EXPIRATION`, `JWT_REFRESH_EXPIRATION`).
+Variables d’environnement requises pour l’API : `DATABASE_URL`, `JWT_SECRET` (voir `.env.example` pour `JWT_ACCESS_EXPIRATION`, `JWT_REFRESH_EXPIRATION`). Le `docker-compose.yml` (profil `standard`) expose **`SMTP_HOST`**, **`SMTP_USER`**, **`SMTP_PASS`**, **`SMTP_PASSWORD`**, **`SMTP_FROM`** dans `x-api-base-env` avec interpolation `${…}` **sans** valeur par défaut : elles doivent être présentes au **parse** Compose (`.env` à la racine du projet, ou `docker compose --env-file apps/api/.env …`) sinon Compose met des chaînes vides qui **écrasent** `api.env_file`. Vérification : `docker compose exec api sh -lc 'env | grep ^SMTP_'`.
+
+**Dokploy (ou autre PaaS)** : le clone Git n’embarque pas `.env`. Déclarer les mêmes clés dans **Variables d’environnement** du service **API** (ou équivalent). Ne pas laisser de variable `SMTP_*` vide dans l’UI (ça écrase une valeur correcte). Si tu n’as **pas** de worker BullMQ déployé avec la même `REDIS_*` et les mêmes `SMTP_*`, mets `EMAIL_DELIVERIES_INLINE=true` sur l’API pour envoyer sans file d’attente.
 
 ### Développement 100% Docker avec hot reload (stack `docker-compose.dev.yml`)
 

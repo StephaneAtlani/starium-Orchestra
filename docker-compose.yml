@@ -12,10 +12,10 @@
 #         buildées (prod-like), pas de bind mount. Le port hôte 3002 est volontaire
 #         (évite un conflit avec un autre process sur :3000). Le navigateur appelle
 #         l’API sur :3001 ; NEXT_PUBLIC_API_URL=http://localhost:3001.
-#         Secrets SMTP : ne pas les mettre dans `environment` avec `${VAR:-}` vide — cela définit
-#         SMTP_PASS="" et empêche Nest/dotenv de charger la vraie valeur depuis `env_file: .env`.
-#         Voir `x-api-base-env` (pas de USER/PASS/HOST/FROM dans le compose) + `api.env_file`.
-#         Vérifier : `docker compose exec api sh -lc 'env | sort | grep -E \"^(SMTP_|EMAIL_|REDIS_|JWT_)\"'`.
+#         SMTP (Brevo, etc.) : clés explicites dans `x-api-base-env` avec `${SMTP_*}` **sans** `:-` (évite SMTP_PASS="").
+#         Substitution Compose : `.env` à la racine du projet **ou** `docker compose --env-file apps/api/.env …`.
+#         Si `${…}` est vide au parse, la clé `environment` écrase `api.env_file` : alors fournir les vars au parse ou retirer ces lignes.
+#         Dokploy : mêmes noms en UI + fichier / export vu par le job `docker compose` au parse. Vérifier : `docker compose exec api sh -lc 'env | grep ^SMTP_'`.
 #         E-mails en file (RFC-038) : lancer aussi `pnpm start:worker` (hors compose) ou un service worker dédié.
 #
 # Hot reload : hors Docker (`pnpm` dans apps/api et apps/web), pas de service dédié.
@@ -39,8 +39,12 @@ x-api-base-env: &api-base-env
   REDIS_HOST: redis
   REDIS_PORT: "6379"
   REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-  # SMTP : host / user / pass / from uniquement via `api.env_file: .env` ou variables injectées par la plateforme
-  # (évite SMTP_PASS="" dans ce YAML qui masque les secrets — comportement dotenv « ne pas écraser l’existant »).
+  # SMTP (Brevo, etc.) — secrets **hors Git** : `.env` racine / `--env-file` / env du processus Compose (Dokploy). Pas de `:-` sur USER/PASS/HOST/FROM.
+  SMTP_HOST: ${SMTP_HOST}
+  SMTP_USER: ${SMTP_USER}
+  SMTP_PASS: ${SMTP_PASS}
+  SMTP_PASSWORD: ${SMTP_PASSWORD}
+  SMTP_FROM: ${SMTP_FROM}
   SMTP_PORT: ${SMTP_PORT:-587}
   SMTP_SECURE: ${SMTP_SECURE:-false}
   SMTP_TIMEOUT_MS: ${SMTP_TIMEOUT_MS:-10000}
@@ -102,6 +106,9 @@ services:
     restart: unless-stopped
     env_file:
       - path: .env
+        required: false
+      # Souvent les secrets SMTP sont déjà dans apps/api/.env (Nest local) — même fichier pour le conteneur prod-like.
+      - path: apps/api/.env
         required: false
     environment:
       <<: *api-base-env

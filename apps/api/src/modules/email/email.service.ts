@@ -15,7 +15,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { QueueService } from '../queue/queue.service';
 import { renderTemplate, type EmailTemplateKey } from './email.templates';
-import { buildSmtpTransportOptions } from './smtp-transport.util';
+import {
+  buildSmtpTransportOptions,
+  formatSmtpSendResultLogLine,
+} from './smtp-transport.util';
 
 type QueueEmailInput = {
   clientId: string;
@@ -162,13 +165,19 @@ export class EmailService {
         );
       } else {
         const transporter = await this.getTransporter();
-        await transporter.sendMail({
+        const sent = await transporter.sendMail({
           from: process.env.SMTP_FROM!,
           to: delivery.recipient,
           subject: rendered.subject,
           text: rendered.text,
           html: rendered.html,
         });
+        this.logger.log(
+          formatSmtpSendResultLogLine(
+            `emailDeliveryId=${delivery.id} to=${delivery.recipient}`,
+            sent,
+          ),
+        );
       }
 
       await this.prisma.emailDelivery.update({

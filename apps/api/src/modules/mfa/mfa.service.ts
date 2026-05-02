@@ -21,7 +21,10 @@ import QRCode from 'qrcode';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { SecurityLogsService } from '../security-logs/security-logs.service';
-import { buildSmtpTransportOptions } from '../email/smtp-transport.util';
+import {
+  buildSmtpTransportOptions,
+  formatSmtpSendResultLogLine,
+} from '../email/smtp-transport.util';
 import { MfaCryptoService } from './mfa-crypto.service';
 import {
   MFA_CHALLENGE_TTL_MS,
@@ -407,12 +410,13 @@ export class MfaService {
     try {
       const nodemailer = await import('nodemailer');
       const transporter = nodemailer.createTransport(buildSmtpTransportOptions());
-      await transporter.sendMail({
+      const sent = await transporter.sendMail({
         from: process.env.SMTP_FROM ?? 'noreply@starium.local',
         to,
         subject: 'Code de connexion Starium Orchestra',
         text: `Votre code de connexion : ${code}\nIl expire dans 10 minutes.`,
       });
+      this.logger.log(formatSmtpSendResultLogLine(`MFA OTP to=${to}`, sent));
     } catch (e) {
       this.logger.error(
         `Échec envoi email OTP : ${(e as Error)?.message ?? e}`,

@@ -1,4 +1,7 @@
-import { buildSmtpTransportOptions } from './smtp-transport.util';
+import {
+  buildSmtpTransportOptions,
+  formatSmtpSendResultLogLine,
+} from './smtp-transport.util';
 
 describe('buildSmtpTransportOptions', () => {
   const backup = { ...process.env };
@@ -43,5 +46,19 @@ describe('buildSmtpTransportOptions', () => {
     const opts = buildSmtpTransportOptions();
     expect(opts.requireTLS).toBeUndefined();
     expect(opts.auth).toBeUndefined();
+  });
+});
+
+describe('formatSmtpSendResultLogLine', () => {
+  it('formate la réponse SMTP Brevo / messageId', () => {
+    const line = formatSmtpSendResultLogLine('ctx=1', {
+      messageId: '<abc@brevo>',
+      response: '250 2.0.0 Ok: queued as <msg@infra>',
+      accepted: ['user@example.com'],
+      rejected: [],
+    });
+    expect(line).toContain('messageId=<abc@brevo>');
+    expect(line).toContain('250 2.0.0 Ok: queued');
+    expect(line).toContain('accepted=user@example.com');
   });
 });
