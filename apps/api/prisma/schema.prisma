@@ -3604,6 +3604,11 @@ model EmailDelivery {
   alertId         String?
   recipient       String
   subject         String
+  /// Lien CTA (ex. vérification e-mail) — requis au traitement async car non porté par Alert.
+  actionUrl          String?
+  /// Titre / message affichés dans le template au moment de l’envoi (évite une recomposition incorrecte depuis subject seul).
+  emailBodyTitle     String?
+  emailBodyMessage   String?
   templateKey     String
   status          EmailDeliveryStatus @default(PENDING)
   attempts        Int                 @default(0)

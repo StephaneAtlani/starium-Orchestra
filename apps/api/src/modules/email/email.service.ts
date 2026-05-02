@@ -2,9 +2,14 @@ import {
   EmailDeliveryStatus,
   NotificationStatus,
   NotificationType,
+  Prisma,
   type AlertSeverity,
 } from '@prisma/client';
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { Transporter } from 'nodemailer';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -46,22 +51,67 @@ export class EmailService {
       actionUrl: input.actionUrl,
     });
 
-    const delivery = await this.prisma.emailDelivery.create({
-      data: {
-        clientId: input.clientId,
-        alertId: input.alertId ?? null,
-        createdByUserId: input.createdByUserId ?? null,
-        recipient: input.recipient,
-        templateKey: input.templateKey,
-        subject: rendered.subject,
-        status: EmailDeliveryStatus.PENDING,
-      },
-      select: { id: true },
-    });
+    let delivery: { id: string };
+    try {
+      delivery = await this.prisma.emailDelivery.create({
+        data: {
+          clientId: input.clientId,
+          alertId: input.alertId ?? null,
+          createdByUserId: input.createdByUserId ?? null,
+          recipient: input.recipient,
+          templateKey: input.templateKey,
+          subject: rendered.subject,
+          actionUrl: input.actionUrl ?? null,
+          emailBodyTitle: input.title,
+          emailBodyMessage: input.message,
+          status: EmailDeliveryStatus.PENDING,
+        },
+        select: { id: true },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2022') {
+        this.logger.error(e);
+        throw new ServiceUnavailableException(
+          'Base de données non à jour : appliquer les migrations Prisma (table EmailDelivery, colonnes template / actionUrl).',
+        );
+      }
+      throw e;
+    }
 
-    await this.queueService.enqueueSendEmail({
-      emailDeliveryId: delivery.id,
-    });
+    if (this.shouldProcessEmailDeliveriesInline()) {
+      await this.processEmailDelivery(delivery.id);
+      return;
+    }
+
+    try {
+      await this.queueService.enqueueSendEmail({
+        emailDeliveryId: delivery.id,
+      });
+    } catch (error) {
+      if ((process.env.NODE_ENV ?? 'development') === 'production') {
+        this.logger.error(
+          `enqueueSendEmail failed, emailDeliveryId=${delivery.id}`,
+          error,
+        );
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error ?? '');
+      this.logger.warn(
+        `enqueueSendEmail failed (${errMsg}) — traitement inline (hors production).`,
+      );
+      await this.processEmailDelivery(delivery.id);
+    }
+  }
+
+  /**
+   * Hors production : envoi immédiat (pas de worker BullMQ requis pour les e-mails en file).
+   * Production : file + worker ; surcharger avec EMAIL_DELIVERIES_INLINE=true uniquement si besoin.
+   */
+  private shouldProcessEmailDeliveriesInline(): boolean {
+    const raw = process.env.EMAIL_DELIVERIES_INLINE?.trim().toLowerCase();
+    if (raw === 'true' || raw === '1' || raw === 'yes') return true;
+    if (raw === 'false' || raw === '0' || raw === 'no') return false;
+    return (process.env.NODE_ENV ?? 'development') !== 'production';
   }
 
   async processEmailDelivery(emailDeliveryId: string): Promise<void> {
@@ -81,12 +131,19 @@ export class EmailService {
     });
     if (!delivery) return;
 
-    const title = delivery.alert?.title ?? 'Notification Starium';
-    const message = delivery.alert?.message ?? delivery.subject;
+    const title =
+      delivery.emailBodyTitle?.trim() ||
+      delivery.alert?.title ||
+      'Notification Starium';
+    const message =
+      delivery.emailBodyMessage?.trim() ||
+      delivery.alert?.message ||
+      delivery.subject;
+    const actionUrl = delivery.actionUrl ?? delivery.alert?.actionUrl ?? null;
     const rendered = renderTemplate(delivery.templateKey as EmailTemplateKey, {
       title,
       message,
-      actionUrl: delivery.alert?.actionUrl ?? null,
+      actionUrl,
     });
 
     try {
@@ -218,14 +275,18 @@ export class EmailService {
     if (this.transporter) return this.transporter;
 
     const nodemailer = await import('nodemailer');
+    const user = process.env.SMTP_USER?.trim() ?? '';
+    const pass = (
+      process.env.SMTP_PASSWORD ??
+      process.env.SMTP_PASS ??
+      ''
+    ).trim();
+    // MailHog / dev sans auth : ne pas passer auth vide — nodemailer 8 tente sinon PLAIN et lève « Missing credentials ».
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT ?? '587'),
       secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER ?? '',
-        pass: process.env.SMTP_PASSWORD ?? process.env.SMTP_PASS ?? '',
-      },
+      ...(user || pass ? { auth: { user, pass } } : {}),
       connectionTimeout: Number(process.env.SMTP_TIMEOUT_MS ?? '10000'),
     });
     return this.transporter;

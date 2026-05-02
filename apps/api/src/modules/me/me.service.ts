@@ -472,11 +472,60 @@ export class MeService {
   }
 
   private resolveEmailIdentityVerifyResendCooldownMs(): number {
+    const isProd = (process.env.NODE_ENV ?? 'development') === 'production';
+    const skipRaw = (
+      process.env.STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN ??
+      this.config.get<string>('STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN')
+    )?.trim();
+    const skipCooldown = skipRaw === '1' || skipRaw === 'true';
+    if (!isProd && skipCooldown) {
+      return 0;
+    }
+
     const minutesRaw = this.config.get<string>('EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES');
     const minutes = Number(minutesRaw);
     const cooldownMinutes =
       Number.isFinite(minutes) && minutes >= 0 ? minutes : 15;
     return cooldownMinutes * 60_000;
+  }
+
+  /** Libellé FR pour le temps restant avant fin de cooldown (secondes entières, >= 1). */
+  private formatFrenchResendCooldownRemaining(totalSeconds: number): string {
+    const s = Math.max(1, Math.ceil(totalSeconds));
+    if (s < 60) {
+      return s === 1 ? '1 seconde' : `${s} secondes`;
+    }
+    const minutes = Math.floor(s / 60);
+    const seconds = s % 60;
+    if (seconds === 0) {
+      return minutes === 1 ? '1 minute' : `${minutes} minutes`;
+    }
+    const minPart = minutes === 1 ? '1 minute' : `${minutes} minutes`;
+    return seconds === 1
+      ? `${minPart} et 1 seconde`
+      : `${minPart} et ${seconds} secondes`;
+  }
+
+  private buildResendVerificationTooManyRequests(
+    recentToken: { createdAt: Date },
+    now: Date,
+    cooldownMs: number,
+    detailMessage: string,
+  ): HttpException {
+    const availableAt = recentToken.createdAt.getTime() + cooldownMs;
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((availableAt - now.getTime()) / 1000),
+    );
+    const waitFr = this.formatFrenchResendCooldownRemaining(retryAfterSeconds);
+    return new HttpException(
+      {
+        statusCode: HttpStatus.TOO_MANY_REQUESTS,
+        message: `${detailMessage} Temps restant : ${waitFr}.`,
+        retryAfterSeconds,
+      },
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
   }
 
   private resolveVerifySuccessAndErrorUrls(): { successUrl: string; errorUrl: string } {
@@ -596,9 +645,11 @@ export class MeService {
       orderBy: { createdAt: 'desc' },
     });
     if (recentIdentityToken) {
-      throw new HttpException(
-        'Veuillez patienter avant de renvoyer le lien (cooldown).',
-        HttpStatus.TOO_MANY_REQUESTS,
+      throw this.buildResendVerificationTooManyRequests(
+        recentIdentityToken,
+        now,
+        cooldownMs,
+        'Veuillez patienter avant de renvoyer le lien.',
       );
     }
 
@@ -613,9 +664,11 @@ export class MeService {
       orderBy: { createdAt: 'desc' },
     });
     if (recentUserToken) {
-      throw new HttpException(
-        'Trop de tentatives de vérification : veuillez patienter.',
-        HttpStatus.TOO_MANY_REQUESTS,
+      throw this.buildResendVerificationTooManyRequests(
+        recentUserToken,
+        now,
+        cooldownMs,
+        'Trop de tentatives de vérification.',
       );
     }
 

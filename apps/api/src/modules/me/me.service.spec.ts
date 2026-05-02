@@ -361,6 +361,10 @@ describe('MeService', () => {
   });
 
   describe('resendEmailIdentityVerification', () => {
+    beforeEach(() => {
+      delete process.env.STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN;
+    });
+
     it('renvoie un lien de vérification si l’identité est non vérifiée et hors cooldown', async () => {
       config.get.mockImplementation((key: string) => {
         switch (key) {
@@ -461,9 +465,17 @@ describe('MeService', () => {
         throw new Error('Expected resend to throw');
       } catch (e) {
         expect(e).toBeInstanceOf(HttpException);
-        expect((e as HttpException).getStatus()).toBe(
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
+        const http = e as HttpException;
+        expect(http.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+        const body = http.getResponse() as {
+          message?: string;
+          retryAfterSeconds?: number;
+        };
+        expect(body.message).toContain('Veuillez patienter avant de renvoyer le lien');
+        expect(body.message).toMatch(/Temps restant\s*:/);
+        expect(body.message).toContain('minute');
+        expect(body.retryAfterSeconds).toBeGreaterThanOrEqual(55 * 60 - 2);
+        expect(body.retryAfterSeconds).toBeLessThanOrEqual(55 * 60 + 2);
       }
     });
   });

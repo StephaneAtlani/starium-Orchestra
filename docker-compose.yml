@@ -12,8 +12,10 @@
 #         buildées (prod-like), pas de bind mount. Le port hôte 3002 est volontaire
 #         (évite un conflit avec un autre process sur :3000). Le navigateur appelle
 #         l’API sur :3001 ; NEXT_PUBLIC_API_URL=http://localhost:3001.
-#         Définir SMTP_* (fichier .env à côté du compose ou env hôte) pour le fallback
-#         email MFA en prod — voir .env.example.
+#         Variables injectées : voir `x-api-base-env` + bloc `api.environment` (interpolation
+#         depuis le `.env` à la racine du repo, même nom que pour `docker compose config`).
+#         Vérifier dans le conteneur : `docker compose exec api sh -lc 'env | sort | grep -E \"^(SMTP_|EMAIL_|REDIS_|JWT_)\"'`.
+#         E-mails en file (RFC-038) : lancer aussi `pnpm start:worker` (hors compose) ou un service worker dédié.
 #
 # Hot reload : hors Docker (`pnpm` dans apps/api et apps/web), pas de service dédié.
 # =============================================================================
@@ -27,19 +29,32 @@ x-postgres-healthcheck: &postgres-healthcheck
 x-api-base-env: &api-base-env
   DATABASE_URL: "postgresql://starium:starium@postgres:5432/starium"
   PORT: "3001"
+  # Image API : NODE_ENV=production dans Dockerfile ; ici pour visibilité `compose config`.
+  NODE_ENV: production
   JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
   MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
   MFA_KEY_VERSION: ${MFA_KEY_VERSION:-1}
   # BullMQ / RFC-038 : hostname du service Compose (pas 127.0.0.1 dans le conteneur).
   REDIS_HOST: redis
   REDIS_PORT: "6379"
-  # OTP email (fallback MFA) — injectées depuis l’hôte / .env (ne pas committer les secrets)
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+  # SMTP — secrets via `.env` racine (ne pas committer). Mail sans auth : laisser USER/PASS vides.
   SMTP_HOST: ${SMTP_HOST:-}
   SMTP_PORT: ${SMTP_PORT:-587}
   SMTP_SECURE: ${SMTP_SECURE:-false}
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASS: ${SMTP_PASS:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
   SMTP_FROM: ${SMTP_FROM:-}
+  SMTP_TIMEOUT_MS: ${SMTP_TIMEOUT_MS:-10000}
+  # Vérification identités e-mail (MeService) — URLs HTTPS obligatoires en vrai prod.
+  EMAIL_IDENTITY_VERIFY_SUCCESS_URL: ${EMAIL_IDENTITY_VERIFY_SUCCESS_URL:-}
+  EMAIL_IDENTITY_VERIFY_ERROR_URL: ${EMAIL_IDENTITY_VERIFY_ERROR_URL:-}
+  EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS: ${EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS:-24}
+  EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES: ${EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES:-15}
+  # Ignoré en prod côté app ; laisser vide. Dev seulement.
+  STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN: ${STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN:-}
+  EMAIL_DELIVERIES_INLINE: ${EMAIL_DELIVERIES_INLINE:-}
 
 x-redis-healthcheck: &redis-healthcheck
   test: ["CMD", "redis-cli", "ping"]
@@ -91,8 +106,6 @@ services:
     environment:
       <<: *api-base-env
       MICROSOFT_M365_SYNC_REDIRECT_URI: ${MICROSOFT_M365_SYNC_REDIRECT_URI:-}
-      EMAIL_IDENTITY_VERIFY_SUCCESS_URL: ${EMAIL_IDENTITY_VERIFY_SUCCESS_URL:-}
-      EMAIL_IDENTITY_VERIFY_ERROR_URL: ${EMAIL_IDENTITY_VERIFY_ERROR_URL:-}
       # RFC-035 — le driver suit la ligne plateforme (admin). PROCUREMENT_STORAGE_DRIVER : repli sans cette ligne uniquement.
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
       # S3 : variables via `.env` à la racine du compose (interpolation). Région alignée sur la console AWS (ex. eu-west-3).

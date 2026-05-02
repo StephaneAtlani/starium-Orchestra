@@ -16,13 +16,14 @@
 #   - API (Nest dev)  : http://localhost:3001/api
 #   - Postgres         : localhost:5432
 #   - MailHog (SMTP capture + UI) : http://localhost:8025 — SMTP pour l’API : mailhog:1025 (voir env api-dev)
+#   - Vérification identités e-mail : URLs / TTL / cooldown via variables racine (.env) — voir bloc api-dev.
 #   - Redis (BullMQ / RFC-038) : service `redis` (port 6379 publié). L’API utilise
 #     host.docker.internal:6379 pour éviter ENOTFOUND « redis » si Docker Desktop
 #     ne met pas api-dev sur le même réseau DNS que Redis.
 #
 # Notes :
-# - Le fichier .env n'est pas packagé dans l'image (voir .dockerignore).
-#   Compose injecte `apps/api/.env` via `env_file`.
+# - Le fichier `.env` à la racine du repo est lu par Compose pour `${VAR:-défaut}` sur api-dev (ne pas confondre avec apps/api/.env).
+# - Compose injecte aussi `apps/api/.env` via `env_file` sur api-dev.
 # - Les clés du bloc `environment` priment sur `env_file` : ne pas y redéfinir
 #   PROCUREMENT_S3_* (sinon elles écrasent apps/api/.env, ex. région eu-west-3 → us-east-1).
 # =============================================================================
@@ -80,24 +81,6 @@ services:
       - "6379:6379"
     healthcheck: *redis-healthcheck
 
-  # RFC-035 — MinIO optionnel : `docker compose -f docker-compose.dev.yml --profile procurement-s3 up -d`
-  minio:
-    profiles: ["procurement-s3"]
-    networks: [orchestra_dev]
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-starium_minio}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-starium_minio_dev_only}
-    volumes:
-      - minio_data:/data
-    ports:
-      - "9000:9000" # S3 API — depuis l’hôte : http://127.0.0.1:9000
-      - "9001:9001" # Console web — http://127.0.0.1:9001
-    expose:
-      - "9000"
-      - "9001"
 
   api-dev:
     networks: [orchestra_dev]
@@ -122,6 +105,13 @@ services:
       # BullMQ / RFC-038 : via l’hôte (port publié) — évite ENOTFOUND sur le hostname « redis » (réseau Desktop).
       REDIS_HOST: host.docker.internal
       REDIS_PORT: "6379"
+      # Vérification identités e-mail (RFC) — surcharges via .env racine si besoin.
+      EMAIL_IDENTITY_VERIFY_SUCCESS_URL: ${EMAIL_IDENTITY_VERIFY_SUCCESS_URL:-http://localhost:3000/account?emailVerified=1}
+      EMAIL_IDENTITY_VERIFY_ERROR_URL: ${EMAIL_IDENTITY_VERIFY_ERROR_URL:-http://localhost:3000/account?emailVerified=0}
+      EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS: ${EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS:-24}
+      EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES: ${EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES:-15}
+      # 1 / true = pas de délai entre renvois du lien (dev uniquement, ignoré en prod côté app).
+      STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN: ${STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN:-1}
       # Ne pas définir PROCUREMENT_STORAGE_DRIVER ici : le driver suit `PlatformProcurementS3Settings.storageDriver` (admin).
       # PROCUREMENT_STORAGE_DRIVER ne s’applique qu’en repli si la ligne plateforme est absente (bootstrap / tests).
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs

@@ -407,14 +407,17 @@ export class MfaService {
       const nodemailer = await import('nodemailer');
       const port = Number(process.env.SMTP_PORT ?? '587');
       const secure = process.env.SMTP_SECURE === 'true';
+      const user = process.env.SMTP_USER?.trim() ?? '';
+      const pass = (
+        process.env.SMTP_PASSWORD ??
+        process.env.SMTP_PASS ??
+        ''
+      ).trim();
       const transporter = nodemailer.createTransport({
         host: smtpHost,
         port,
         secure,
-        auth: {
-          user: process.env.SMTP_USER ?? '',
-          pass: process.env.SMTP_PASS ?? '',
-        },
+        ...(user || pass ? { auth: { user, pass } } : {}),
       });
       await transporter.sendMail({
         from: process.env.SMTP_FROM ?? 'noreply@starium.local',
