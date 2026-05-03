@@ -195,7 +195,7 @@ Variables d’environnement obligatoires:
 - `SMTP_HOST`
 - `SMTP_PORT`
 - `SMTP_USER`
-- `SMTP_PASSWORD`
+- `SMTP_PASS`
 - `SMTP_FROM`
 - `SMTP_SECURE`
 - `SMTP_TIMEOUT_MS`

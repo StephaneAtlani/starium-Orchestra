@@ -1,6 +1,7 @@
 import {
   buildSmtpTransportOptions,
   formatSmtpSendResultLogLine,
+  resolveSmtpPasswordEnv,
 } from './smtp-transport.util';
 
 describe('buildSmtpTransportOptions', () => {
@@ -46,6 +47,30 @@ describe('buildSmtpTransportOptions', () => {
     const opts = buildSmtpTransportOptions();
     expect(opts.requireTLS).toBeUndefined();
     expect(opts.auth).toBeUndefined();
+  });
+});
+
+describe('resolveSmtpPasswordEnv', () => {
+  const backup = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...backup };
+  });
+
+  it('lit uniquement SMTP_PASS', () => {
+    delete process.env.SMTP_PASSWORD;
+    process.env.SMTP_PASS = 'xsmtpsib-real';
+
+    expect(resolveSmtpPasswordEnv()).toBe('xsmtpsib-real');
+    const opts = buildSmtpTransportOptions();
+    expect(opts.auth).toEqual({ user: '', pass: 'xsmtpsib-real' });
+  });
+
+  it('ignore SMTP_PASSWORD même si défini', () => {
+    process.env.SMTP_PASSWORD = 'legacy-only';
+    process.env.SMTP_PASS = 'from-smtp-pass';
+
+    expect(resolveSmtpPasswordEnv()).toBe('from-smtp-pass');
   });
 });
 

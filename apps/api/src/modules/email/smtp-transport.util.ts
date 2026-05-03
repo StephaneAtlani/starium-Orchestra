@@ -49,6 +49,11 @@ export function formatSmtpSendResultLogLine(
   return `[SMTP] ${context} | ${parts.join(' | ')}`;
 }
 
+/** Mot de passe SMTP : uniquement `SMTP_PASS` (ex. clé Brevo `xsmtpsib-…`). */
+export function resolveSmtpPasswordEnv(): string {
+  return process.env.SMTP_PASS?.trim() ?? '';
+}
+
 /**
  * Options Nodemailer pour relais SMTP (Brevo, MailHog, etc.).
  * Brevo / ex-Sendinblue sur 587 : STARTTLS explicite évite des échecs de connexion selon stacks TLS.
@@ -59,11 +64,7 @@ export function buildSmtpTransportOptions(): SMTPTransport.Options {
   const secure = process.env.SMTP_SECURE === 'true';
   const hostLower = host.toLowerCase();
   const user = process.env.SMTP_USER?.trim() ?? '';
-  const pass = (
-    process.env.SMTP_PASSWORD ??
-    process.env.SMTP_PASS ??
-    ''
-  ).trim();
+  const pass = resolveSmtpPasswordEnv();
 
   const requireTlsExplicit = process.env.SMTP_REQUIRE_TLS?.trim().toLowerCase();
   const requireTls =
