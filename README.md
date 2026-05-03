@@ -65,7 +65,40 @@ Sans profil, `docker compose up` ne démarre que Postgres.
 
 Variables d’environnement requises pour l’API : `DATABASE_URL`, `JWT_SECRET` (voir `.env.example` pour `JWT_ACCESS_EXPIRATION`, `JWT_REFRESH_EXPIRATION`). Le `docker-compose.yml` (profil `standard`) expose **`SMTP_HOST`**, **`SMTP_USER`**, **`SMTP_PASS`**, **`SMTP_FROM`** dans `x-api-base-env` avec interpolation `${…}` **sans** valeur par défaut : elles doivent être présentes au **parse** Compose (`.env` à la racine du projet, ou `docker compose --env-file apps/api/.env …`) sinon Compose met des chaînes vides qui **écrasent** `api.env_file`. Vérification : `docker compose exec api sh -lc 'env | grep ^SMTP_'`.
 
-**Dokploy (ou autre PaaS)** : le clone Git n’embarque pas `.env`. Déclarer les mêmes clés dans **Variables d’environnement** du service **API** (ou équivalent). Ne pas laisser de variable `SMTP_*` vide dans l’UI (ça écrase une valeur correcte). Si tu n’as **pas** de worker BullMQ déployé avec la même `REDIS_*` et les mêmes `SMTP_*`, mets `EMAIL_DELIVERIES_INLINE=true` sur l’API pour envoyer sans file d’attente.
+**Dokploy (ou autre PaaS)** : le clone Git n’embarque pas `.env`. Déclarer les mêmes clés dans **Variables d’environnement** du service **API** (ou équivalent). Ne pas laisser de variable `SMTP_*` vide dans l’UI (ça écrase une valeur correcte).
+
+#### Worker BullMQ vs envoi inline
+
+- **File + worker (recommandé en prod)** : ne **pas** définir `EMAIL_DELIVERIES_INLINE` (ou `false`). L’API logue `[EMAIL] mode=file` puis `[EMAIL queue] bullJobId=…` ; le **worker** (autre conteneur / processus) logue `[EMAIL worker]`, puis `[EMAIL send]` et `[SMTP]` quand Brevo répond.
+- **Sans worker** : soit tu lances le worker (voir ci-dessous), soit tu mets **`EMAIL_DELIVERIES_INLINE=true`** sur l’API : alors `[EMAIL] mode=inline` et tout le SMTP part **dans le même processus** que l’API (pas de `[EMAIL queue]`).
+
+**Dokploy — activer le worker** : deux applications (ou deux services) à partir de la **même image** Docker que l’API.
+
+1. **API** : inchangé (ex. `pnpm prisma migrate deploy` + `node apps/api/dist/main.js` selon ton Dockerfile).
+2. **Worker** : **même image**, **sans** migrate ; commande de démarrage : `node apps/api/dist/worker/main.js` (le Dockerfile de l’API pose `WORKDIR /app` à la racine du monorepo). Variables **identiques** à l’API pour au minimum `DATABASE_URL`, `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD`, `SMTP_*`, `JWT_SECRET`, `NODE_ENV=production`. Aucun port public.
+
+**Docker Compose** : le fichier `docker-compose.yml` inclut le service **`api-worker`** (`command: node apps/api/dist/worker/main.js`). Logs : `docker compose logs -f api-worker`.
+
+#### Où voir les logs `[EMAIL]` / `[SMTP]` (réponse)
+
+Ce ne sont **pas** des logs navigateur ni MailHog : c’est **stdout du processus Node** (Nest) dans le **conteneur qui exécute l’API**.
+
+- **Dokploy** : ouvre ton **projet** → l’**application** qui héberge l’API → onglet ou entrée **Logs** / **Runtime logs** (souvent à côté de *Deployments*). C’est là que défilent les lignes `Nest` avec `[EmailService]`, `[QueueService]`, etc. Si tu as un **second** service *worker*, les lignes `[EMAIL worker]` sont **dans les logs de ce conteneur-là**, pas dans l’API.
+- **Docker Compose** : `docker compose logs -f api` (API) et `docker compose logs -f api-worker` (worker e-mail).
+- **Filtre rapide** : `docker compose logs api api-worker 2>&1 | grep -E '\[EMAIL|\[SMTP\]'` (même idée sur les logs exportés depuis Dokploy).
+
+Préfixes utiles : `[EMAIL]` (création livraison, `mode=inline` vs `mode=file`), `[EMAIL queue]` (id job BullMQ), `[EMAIL send]` (début / échec SMTP), `[EMAIL worker]` (uniquement le worker), `[SMTP]` (réponse serveur après envoi OK).
+
+**Valider SMTP** (même stack que l’API : `buildSmtpTransportOptions` + `verify()` Nodemailer) : à la racine du monorepo, avec les mêmes `SMTP_*` / `NODE_ENV` qu’en prod (fichier `.env` ou exports) :
+
+```bash
+pnpm --filter @starium-orchestra/api verify:smtp -- --strict
+# optionnel : un message réel (parcimonie : quotas / anti-spam)
+pnpm --filter @starium-orchestra/api verify:smtp -- --strict --send=ton-email@example.com
+```
+
+Dans l’image Docker (si `pnpm` + dépendances présents) :  
+`docker compose exec api sh -lc 'cd /app && pnpm --filter @starium-orchestra/api verify:smtp -- --strict'`
 
 ### Développement 100% Docker avec hot reload (stack `docker-compose.dev.yml`)
 

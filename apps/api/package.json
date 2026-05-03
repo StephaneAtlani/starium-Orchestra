@@ -8,6 +8,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:worker": "nest start --entryFile worker/main",
+    "start:worker:dev": "nest start --watch --entryFile worker/main",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "jest --json --outputFile=../../.test-recap/api.json",
@@ -18,7 +19,8 @@
     "prisma:backfill:client-bootstrap": "node prisma/backfill-client-bootstrap.js",
     "seed:aravis": "node prisma/seed-aravis-2025.js",
     "revert:aravis": "node prisma/revert-aravis-import.js",
-    "backfill:search-text": "ts-node --transpile-only scripts/backfill-search-text.ts"
+    "backfill:search-text": "ts-node --transpile-only scripts/backfill-search-text.ts",
+    "verify:smtp": "ts-node --transpile-only scripts/verify-smtp.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

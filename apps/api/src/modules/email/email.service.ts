@@ -83,12 +83,22 @@ export class EmailService {
       throw e;
     }
 
+    this.logger.log(
+      `[EMAIL] livraison créée id=${delivery.id} → ${input.recipient} template=${input.templateKey}`,
+    );
+
     if (this.shouldProcessEmailDeliveriesInline()) {
+      this.logger.log(
+        `[EMAIL] mode=inline (pas de worker) emailDeliveryId=${delivery.id}`,
+      );
       await this.processEmailDelivery(delivery.id);
       return;
     }
 
     try {
+      this.logger.log(
+        `[EMAIL] mode=file emailDeliveryId=${delivery.id} — enqueue BullMQ`,
+      );
       await this.queueService.enqueueSendEmail({
         emailDeliveryId: delivery.id,
       });
@@ -134,7 +144,16 @@ export class EmailService {
         },
       },
     });
-    if (!delivery) return;
+    if (!delivery) {
+      this.logger.warn(
+        `[EMAIL send] emailDeliveryId=${emailDeliveryId} introuvable en base (job orphelin ?)`,
+      );
+      return;
+    }
+
+    this.logger.log(
+      `[EMAIL send] début emailDeliveryId=${delivery.id} to=${delivery.recipient} template=${delivery.templateKey} smtp=${this.isLogOnlyMode() ? 'log-only' : 'relay'}`,
+    );
 
     const title =
       delivery.emailBodyTitle?.trim() ||
@@ -200,6 +219,10 @@ export class EmailService {
       });
     } catch (error) {
       const sanitized = this.sanitizeError(error);
+      this.logger.error(
+        `[EMAIL send] échec emailDeliveryId=${delivery.id} to=${delivery.recipient}: ${sanitized}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       await this.prisma.emailDelivery.update({
         where: { id: delivery.id },
         data: {

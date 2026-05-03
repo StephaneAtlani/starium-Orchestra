@@ -16,7 +16,7 @@
 #         Substitution Compose : `.env` à la racine du projet **ou** `docker compose --env-file apps/api/.env …`.
 #         Si `${…}` est vide au parse, la clé `environment` écrase `api.env_file` : alors fournir les vars au parse ou retirer ces lignes.
 #         Dokploy : mêmes noms en UI + fichier / export vu par le job `docker compose` au parse. Vérifier : `docker compose exec api sh -lc 'env | grep ^SMTP_'`.
-#         E-mails en file (RFC-038) : lancer aussi `pnpm start:worker` (hors compose) ou un service worker dédié.
+#         E-mails en file (RFC-038) : service `api-worker` (même image API, sans HTTP) ou `pnpm start:worker` en local.
 #
 # Hot reload : hors Docker (`pnpm` dans apps/api et apps/web), pas de service dédié.
 # =============================================================================
@@ -143,6 +143,27 @@ services:
       timeout: 3s
       retries: 30
       start_period: 180s
+
+  # Worker BullMQ e-mails (RFC-038) : même image que `api`, pas de `prisma migrate`, pas de port HTTP.
+  # Laisser `EMAIL_DELIVERIES_INLINE` vide/false en prod pour utiliser la file ; sinon l’API envoie sans worker.
+  api-worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    command: ["node", "apps/api/dist/worker/main.js"]
+    env_file:
+      - path: .env
+        required: false
+      - path: apps/api/.env
+        required: false
+    environment:
+      <<: *api-base-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   web:
     build:

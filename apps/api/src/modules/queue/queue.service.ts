@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { JobsOptions, Queue } from 'bullmq';
 import { EMAIL_QUEUE } from './queue.constants';
 
@@ -8,6 +8,8 @@ export type SendEmailJobPayload = {
 
 @Injectable()
 export class QueueService {
+  private readonly logger = new Logger(QueueService.name);
+
   constructor(@Inject(EMAIL_QUEUE) private readonly emailQueue: Queue) {}
 
   async enqueueSendEmail(payload: SendEmailJobPayload): Promise<void> {
@@ -23,6 +25,9 @@ export class QueueService {
       removeOnFail: 2000,
     };
 
-    await this.emailQueue.add('send_email', payload, options);
+    const job = await this.emailQueue.add('send_email', payload, options);
+    this.logger.log(
+      `[EMAIL queue] job BullMQ id=${String(job.id)} emailDeliveryId=${payload.emailDeliveryId} (consommé par le worker pnpm start:worker)`,
+    );
   }
 }
