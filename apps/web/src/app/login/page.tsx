@@ -77,9 +77,11 @@ function messageForM365SyncOAuthRedirectError(
 ): string {
   switch (code) {
     case 'invalid_state':
+      return 'Le jeton de session Microsoft 365 a expiré ou est invalide (délai trop long avant la fin du consentement, ou horloge serveur). Rouvre Administration client → Microsoft 365 et clique à nouveau sur « Connecter Microsoft 365 ». Si c’est souvent trop juste, augmente la durée côté plateforme (TTL state OAuth M365).';
     case 'invalid_state_payload':
+      return 'Session Microsoft 365 incohérente (données internes). Ferme les autres onglets Starium, rouvre Administration client → Microsoft 365 et relance « Connecter Microsoft 365 ». Si ça persiste, contacte le support.';
     case 'state_replay':
-      return 'Session de consentement Microsoft 365 expirée ou déjà utilisée. Rouvrez Administration client → Microsoft 365 et cliquez à nouveau sur « Connecter Microsoft 365 ».';
+      return 'Ce retour Microsoft 365 a déjà été traité, ou une autre instance d’API n’a pas vu la session (souvent sans Redis partagé). Vérifie côté hébergement : MICROSOFT_OAUTH_STATE_STORE=redis avec REDIS_* joignable par toutes les instances API. Sinon un seul onglet, pas de retour arrière après Microsoft.';
     case 'missing_code_or_state':
       return 'Réponse Microsoft incomplète (consentement M365). Réessayez depuis Administration client → Microsoft 365.';
     case 'oauth_upstream':
@@ -91,7 +93,7 @@ function messageForM365SyncOAuthRedirectError(
     case 'missing_credentials':
       return 'Identifiants Entra incomplets pour ce client Starium (ID ou secret manquant). Ouvre Administration client → Microsoft 365, enregistre ID + secret + tenant, puis réessaie.';
     case 'token_exchange_failed':
-      return 'Microsoft a refusé l’échange du code (souvent invalid_client dans les logs API : secret expiré ou erroné, mauvais ID d’application, ou repli sur MICROSOFT_CLIENT_SECRET du .env si le secret client en base ne déchiffre pas). Vérifie la même app Entra que dans le formulaire client, régénère le secret dans Azure, recolle-le dans Administration client → Microsoft 365 puis Enregistrer. En second : redirect URI …/api/microsoft/auth/callback identique dans Entra et dans MICROSOFT_M365_SYNC_REDIRECT_URI.';
+      return 'Microsoft a refusé l’échange du code (souvent invalid_client dans les logs API : secret expiré ou erroné, mauvais ID d’application, ou tenant autorité incohérent avec l’app Entra). Les identifiants utilisés sont ceux enregistrés en base pour ce client : vérifie qu’ils correspondent à la même app Entra, régénère le secret dans le portail Azure, recolle-le dans Administration client → Microsoft 365 puis Enregistrer. Vérifie aussi que l’URI de redirection Web dans Entra est exactement celle affichée dans Starium sous « URI de redirection à déclarer dans Azure ».';
     case 'invalid_id_token':
     case 'missing_id_token':
       return 'Jeton d’identité Microsoft invalide ou absent après consentement. Vérifie l’app Entra (scopes openid) et que l’ID client correspond au secret enregistré pour ce client Starium.';
@@ -101,9 +103,9 @@ function messageForM365SyncOAuthRedirectError(
       return 'Trop de tentatives de callback OAuth. Patientez quelques minutes puis réessayez.';
     default:
       if (code) {
-        return `Connexion Microsoft 365 impossible (code : ${code}). Vérifie Administration client → Microsoft 365 (ID, secret, tenant), les logs API (erreur token Microsoft), et l’URI de callback sync.`;
+        return `Connexion Microsoft 365 impossible (code : ${code}). Vérifie les identifiants enregistrés dans Administration client → Microsoft 365, les logs API (erreur token Microsoft), et l’URI de redirection affichée dans Starium vs Entra.`;
       }
-      return 'Connexion Microsoft 365 impossible. Vérifie que MICROSOFT_OAUTH_ERROR_URL pointe vers Administration client → Microsoft 365 (pas /login?status=error, réservé au SSO).';
+      return 'Connexion Microsoft 365 impossible. Si tu es administrateur hébergement : l’URL de retour après erreur OAuth ne doit pas être la page login SSO ; sinon ouvre Administration client → Microsoft 365 pour corriger les identifiants.';
   }
 }
 
