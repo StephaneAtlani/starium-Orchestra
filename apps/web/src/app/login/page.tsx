@@ -65,6 +65,45 @@ function messageForMicrosoftCallbackError(reason: string | null): string {
   }
 }
 
+/**
+ * Erreur après callback OAuth **sync M365** (`GET /api/microsoft/auth/callback`) quand
+ * `oauthErrorUrl` / `MICROSOFT_OAUTH_ERROR_URL` pointe vers `/login?status=error` (modèle SSO) :
+ * l’API ajoute `microsoft=error&code=…` sans `reason` → sans ce bloc, la page affiche le message SSO générique.
+ * Codes alignés sur `MicrosoftOAuthService.buildErrorRedirect`.
+ */
+function messageForM365SyncOAuthRedirectError(code: string | null): string {
+  switch (code) {
+    case 'invalid_state':
+    case 'invalid_state_payload':
+    case 'state_replay':
+      return 'Session de consentement Microsoft 365 expirée ou déjà utilisée. Rouvrez Administration → Microsoft 365 et cliquez à nouveau sur « Connecter Microsoft 365 ».';
+    case 'missing_code_or_state':
+      return 'Réponse Microsoft incomplète (consentement M365). Réessayez la connexion depuis la page Microsoft 365.';
+    case 'oauth_upstream':
+      return 'Microsoft a renvoyé une erreur lors du consentement. Réessayez ou vérifiez les restrictions du tenant (conditions d’utilisation, blocages admin).';
+    case 'invalid_client':
+      return 'Client Starium introuvable après le retour Microsoft. Reconnectez-vous à Starium puis réessayez.';
+    case 'forbidden_client':
+      return 'Vous n’avez plus d’accès actif à ce client Starium. Réactivez votre accès ou choisissez un autre client.';
+    case 'missing_credentials':
+      return 'Identifiants d’application Entra manquants côté Starium (ID client / secret). Complétez la configuration dans Administration → Microsoft 365.';
+    case 'token_exchange_failed':
+      return 'Échec de l’échange du code Microsoft (secret, redirect URI Entra ou délai). Vérifiez que l’URI de redirection dans Azure est **exactement** celle indiquée dans Starium (`…/api/microsoft/auth/callback`, pas l’URL SSO).';
+    case 'invalid_id_token':
+    case 'missing_id_token':
+      return 'Jeton d’identité Microsoft invalide ou absent après consentement. Vérifiez l’application Entra (scopes openid) et que le client_id correspond au secret enregistré.';
+    case 'persist_failed':
+      return 'Impossible d’enregistrer la connexion Microsoft côté serveur. Réessayez ou contactez le support.';
+    case 'rate_limited':
+      return 'Trop de tentatives de callback OAuth. Patientez quelques minutes puis réessayez.';
+    default:
+      if (code) {
+        return `Connexion Microsoft 365 impossible (code : ${code}). Vérifiez l’URI de redirection dans Entra et les variables MICROSOFT_M365_SYNC_REDIRECT_URI / MICROSOFT_OAUTH_ERROR_URL sur l’API.`;
+      }
+      return 'Connexion Microsoft 365 impossible. Vérifiez que l’URL d’erreur OAuth plateforme (`MICROSOFT_OAUTH_ERROR_URL`) pointe vers la page Administration → Microsoft 365, et non vers `/login?status=error` (réservé au SSO).';
+  }
+}
+
 function looksLikeEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
@@ -121,6 +160,14 @@ function LoginPageContent() {
     if (didHandleMicrosoftCallback.current) return;
     const status = searchParams.get('status');
     const reason = searchParams.get('reason');
+    /** Consentement Graph (M365) : l’API met `microsoft=error` + `code=` (slug métier), pas `reason=` (SSO). */
+    if (searchParams.get('microsoft') === 'error') {
+      didHandleMicrosoftCallback.current = true;
+      setError(
+        messageForM365SyncOAuthRedirectError(searchParams.get('code')),
+      );
+      return;
+    }
     if (status === 'error') {
       didHandleMicrosoftCallback.current = true;
       setError(messageForMicrosoftCallbackError(reason));
