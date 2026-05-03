@@ -5,7 +5,8 @@
     "lint": "pnpm -r --parallel run lint",
     "typecheck": "pnpm -r run typecheck",
     "build": "pnpm -r run build",
-    "test": "node scripts/run-tests-with-recap.mjs"
+    "test": "node scripts/run-tests-with-recap.mjs",
+    "predeploy:api": "pnpm --filter @starium-orchestra/api run predeploy"
   },
   "engines": {
     "node": ">=20"

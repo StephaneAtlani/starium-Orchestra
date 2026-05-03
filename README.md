@@ -14,6 +14,23 @@ Plateforme SaaS de pilotage opérationnel pour DSI à temps partagé (multi-tena
 pnpm install
 ```
 
+## Avant de déployer l’API
+
+À lancer en CI ou en local **avec le même Node/pnpm** que la prod :
+
+```bash
+pnpm predeploy:api
+```
+
+Ça enchaîne **build Nest**, **typecheck** et les **tests Jest** du module e-mail (`src/modules/email/` : SMTP, `EmailService`, etc.).  
+Optionnel, avec les vraies variables `SMTP_*` (fichier `.env` ou exports) :
+
+```bash
+pnpm --filter @starium-orchestra/api verify:smtp -- --strict
+```
+
+Pour toute la suite de tests du monorepo : `pnpm test` (plus long).
+
 ## Démarrage rapide environnement de dev
 
 ### Option 1 — Hot reload (recommandé) : Postgres Docker + API/Web en local (pnpm)
@@ -113,6 +130,7 @@ docker compose -f docker-compose.dev.yml up -d --build
 - Web : `http://localhost:3000`
 - API : `http://localhost:3001/api`
 - **MailHog** (capture SMTP dev — OTP MFA, etc.) : UI `http://localhost:8025` ; l’API `api-dev` envoie le fallback MFA vers MailHog (`SMTP_HOST=mailhog`, `SMTP_PORT=1025` — voir `docker-compose.dev.yml`).
+- **E-mails en file (comme prod)** : par défaut `EMAIL_DELIVERIES_INLINE=false` ; le service **`api-worker-dev`** consomme BullMQ avec `REDIS_HOST=redis` sur le réseau compose. Logs : `docker compose -f docker-compose.dev.yml logs -f api-worker-dev`. Pour tout envoyer dans `api-dev` sans worker : `EMAIL_DELIVERIES_INLINE=true` dans le `.env` racine (interpolé par Compose).
 - **Vérification e-mail (identités secondaires)** : le `.env` à la racine du repo est interpolé par Compose (`EMAIL_IDENTITY_VERIFY_*`, `STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN`, etc.) ; voir `docker-compose.dev.yml` et `.env.example`.
 
 Important en dev Docker:

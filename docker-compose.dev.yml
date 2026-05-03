@@ -11,6 +11,10 @@
 # Docker Desktop : ne pas lancer seulement postgres/mailhog/api-dev — le service
 # « redis » doit tourner sur la même stack, sinon l’API (BullMQ) : ENOTFOUND redis.
 #
+# Par défaut (aligné prod) : `EMAIL_DELIVERIES_INLINE=false` → e-mails via file BullMQ ;
+# le service `api-worker-dev` consomme la queue (logs `[EMAIL worker]`). Pour tout
+# envoyer dans le process API sans worker : `EMAIL_DELIVERIES_INLINE=true` dans le `.env` racine.
+#
 # Ports :
 #   - Web (Next dev)  : http://localhost:3000
 #   - API (Nest dev)  : http://localhost:3001/api
@@ -49,6 +53,22 @@ x-redis-healthcheck: &redis-healthcheck
 x-api-base-env: &api-base-env
   DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
   PORT: "3001"
+
+# Montages partagés api-dev / api-worker-dev (hot reload sources + manifests pnpm).
+x-api-dev-mounts: &api-dev-mounts
+  - ./package.json:/app/package.json:ro
+  - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
+  - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml:ro
+  - ./apps/api/package.json:/app/apps/api/package.json:ro
+  - ./apps/web/package.json:/app/apps/web/package.json:ro
+  - ./packages/types/package.json:/app/packages/types/package.json:ro
+  - ./packages/config/package.json:/app/packages/config/package.json:ro
+  - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
+  - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
+  - ./apps/api/docker-entrypoint-worker-dev.sh:/app/apps/api/docker-entrypoint-worker-dev.sh:ro
+  - ./apps/api/src:/app/apps/api/src
+  - ./apps/api/prisma:/app/apps/api/prisma
+  - procurement_blobs:/data/procurement-blobs
 
 services:
   postgres:
@@ -112,28 +132,15 @@ services:
       EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES: ${EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES:-15}
       # 1 / true = pas de délai entre renvois du lien (dev uniquement, ignoré en prod côté app).
       STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN: ${STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN:-1}
+      # false = file BullMQ + `api-worker-dev` (comme prod). true = envoi inline dans api-dev seul.
+      EMAIL_DELIVERIES_INLINE: ${EMAIL_DELIVERIES_INLINE:-false}
       # Ne pas définir PROCUREMENT_STORAGE_DRIVER ici : le driver suit `PlatformProcurementS3Settings.storageDriver` (admin).
       # PROCUREMENT_STORAGE_DRIVER ne s’applique qu’en repli si la ligne plateforme est absente (bootstrap / tests).
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
       # PROCUREMENT_S3_* : uniquement dans apps/api/.env (sinon ce bloc écrase env_file — buckets créés dans la mauvaise région).
     ports:
       - "3001:3001"
-    volumes:
-      # Manifestes workspace : sans ça, pnpm install lit le package.json figé dans l’image
-      # (deps ajoutées sur l’hôte invisibles → Nest ne compile pas → rien sur :3001).
-      - ./package.json:/app/package.json:ro
-      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
-      - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml:ro
-      - ./apps/api/package.json:/app/apps/api/package.json:ro
-      - ./apps/web/package.json:/app/apps/web/package.json:ro
-      - ./packages/types/package.json:/app/packages/types/package.json:ro
-      - ./packages/config/package.json:/app/packages/config/package.json:ro
-      # Package workspace (RFC-023) : sans montage, l’image peut être vieille → pnpm ne voit pas le projet (TS2307).
-      - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
-      - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
-      - ./apps/api/src:/app/apps/api/src
-      - ./apps/api/prisma:/app/apps/api/prisma
-      - procurement_blobs:/data/procurement-blobs
+    volumes: *api-dev-mounts
     depends_on:
       postgres:
         condition: service_healthy
@@ -153,6 +160,39 @@ services:
       timeout: 5s
       retries: 30
       start_period: 90s
+
+  # Worker BullMQ e-mails (RFC-038) — même logique prod : Redis hostname `redis`, pas de HTTP.
+  api-worker-dev:
+    networks: [orchestra_dev]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    restart: unless-stopped
+    command: ["sh", "/app/apps/api/docker-entrypoint-worker-dev.sh"]
+    env_file:
+      - apps/api/.env
+    environment:
+      <<: *api-base-env
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_FROM: noreply@starium.local
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      EMAIL_IDENTITY_VERIFY_SUCCESS_URL: ${EMAIL_IDENTITY_VERIFY_SUCCESS_URL:-http://localhost:3000/account?emailVerified=1}
+      EMAIL_IDENTITY_VERIFY_ERROR_URL: ${EMAIL_IDENTITY_VERIFY_ERROR_URL:-http://localhost:3000/account?emailVerified=0}
+      EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS: ${EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS:-24}
+      EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES: ${EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES:-15}
+      STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN: ${STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN:-1}
+      PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
+    volumes: *api-dev-mounts
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api-dev:
+        condition: service_healthy
 
   web-dev:
     networks: [orchestra_dev]

@@ -15,7 +15,13 @@ export class EmailProcessor implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.redis.connect();
+    // Même instance `IORedis` que BullMQ `Queue` : celle-ci peut déjà être en cours de connexion.
+    // Un second `connect()` lève « Redis is already connecting/connected ».
+    const st = this.redis.status;
+    if (st === 'wait' || st === 'end') {
+      await this.redis.connect();
+    }
+
     this.worker = new Worker(
       EMAIL_QUEUE_NAME,
       async (job: Job<{ emailDeliveryId: string }>) => {
