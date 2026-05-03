@@ -1,15 +1,15 @@
 import { MemoryMicrosoftOAuthStateStore } from './microsoft-oauth-state.store';
 
 describe('MemoryMicrosoftOAuthStateStore', () => {
-  it('consume returns true once then false (one-time)', () => {
+  it('consume returns true once then false (one-time)', async () => {
     const store = new MemoryMicrosoftOAuthStateStore();
-    store.register('jti-1', 60_000);
-    expect(store.consume('jti-1')).toBe(true);
-    expect(store.consume('jti-1')).toBe(false);
+    await store.register('jti-1', 60_000);
+    expect(await store.consume('jti-1')).toBe(true);
+    expect(await store.consume('jti-1')).toBe(false);
   });
 
-  it('rejects unknown jti', () => {
+  it('rejects unknown jti', async () => {
     const store = new MemoryMicrosoftOAuthStateStore();
-    expect(store.consume('unknown')).toBe(false);
+    expect(await store.consume('unknown')).toBe(false);
   });
 });

@@ -80,20 +80,33 @@ export class MicrosoftOAuthService {
       this.config.get<string>('MICROSOFT_AUTHORITY_TENANT')?.trim() ||
       'common';
 
-    const azureClientId = row?.microsoftOAuthClientId?.trim() || envId;
+    const fromDbId = row?.microsoftOAuthClientId?.trim() ?? '';
+    const azureClientId = fromDbId || envId;
+
     let azureClientSecret: string | undefined;
-    if (row?.microsoftOAuthClientSecretEncrypted) {
+    if (fromDbId) {
+      /**
+       * App Entra **du client** (BYO) : ne jamais mélanger l’ID client en base avec
+       * `MICROSOFT_CLIENT_SECRET` du .env (SSO plateforme) → `invalid_client` chez Microsoft.
+       */
+      if (!row?.microsoftOAuthClientSecretEncrypted) {
+        throw new BadRequestException(
+          'Secret d’application Microsoft manquant pour ce client : saisissez le secret client Entra dans Administration client → Microsoft 365 puis Enregistrer.',
+        );
+      }
       try {
         azureClientSecret = this.crypto.decrypt(
           row.microsoftOAuthClientSecretEncrypted,
         );
       } catch {
-        azureClientSecret = undefined;
+        throw new BadRequestException(
+          'Secret Microsoft illisible (chiffrement). Resaisissez le secret client Entra dans Administration client → Microsoft 365 puis Enregistrer.',
+        );
       }
-    }
-    if (!azureClientSecret) {
+    } else {
       azureClientSecret = envSecret;
     }
+
     const authorityTenant =
       row?.microsoftOAuthAuthorityTenant?.trim() || envTenant;
 
@@ -138,7 +151,7 @@ export class MicrosoftOAuthService {
     const state = this.jwt.sign(payload, {
       expiresIn: Math.ceil(ttlMs / 1000),
     });
-    this.stateStore.register(jti, ttlMs);
+    await this.stateStore.register(jti, ttlMs);
 
     const authority = `https://login.microsoftonline.com/${creds.authorityTenant}`;
     const params = new URLSearchParams({
@@ -192,7 +205,7 @@ export class MicrosoftOAuthService {
       return { redirectUrl: await this.buildErrorRedirect('invalid_state_payload') };
     }
 
-    if (!this.stateStore.consume(payload.jti)) {
+    if (!(await this.stateStore.consume(payload.jti))) {
       return { redirectUrl: await this.buildErrorRedirect('state_replay') };
     }
 

@@ -104,7 +104,7 @@ describe('MicrosoftOAuthService', () => {
     expect(payload.sub).toBe('user-1');
     expect(payload.cid).toBe('client-1');
     expect(payload.jti).toBeDefined();
-    expect(store.consume(payload.jti)).toBe(true);
+    expect(await store.consume(payload.jti)).toBe(true);
   });
 
   describe('handleOAuthCallback', () => {
@@ -128,7 +128,7 @@ describe('MicrosoftOAuthService', () => {
       auditCreate: jest.Mock;
     }) {
       const store = new MemoryMicrosoftOAuthStateStore();
-      store.register(jti, 600_000);
+      await store.register(jti, 600_000);
 
       const moduleRef = await Test.createTestingModule({
         providers: [
@@ -363,8 +363,8 @@ describe('MicrosoftOAuthService', () => {
       const auditCreate = jest.fn();
       const jwtVerify = jest.fn().mockReturnValue(statePayload);
       const store = new MemoryMicrosoftOAuthStateStore();
-      store.register(jti, 600_000);
-      store.consume(jti);
+      await store.register(jti, 600_000);
+      await store.consume(jti);
 
       const moduleRef = await Test.createTestingModule({
         providers: [
@@ -404,7 +404,7 @@ describe('MicrosoftOAuthService', () => {
       const auditCreate = jest.fn();
       const jwtVerify = jest.fn().mockReturnValue(statePayload);
       const store = new MemoryMicrosoftOAuthStateStore();
-      store.register(jti, 600_000);
+      await store.register(jti, 600_000);
 
       const clientFindUnique = jest.fn().mockResolvedValue({
         id: clientIdA,

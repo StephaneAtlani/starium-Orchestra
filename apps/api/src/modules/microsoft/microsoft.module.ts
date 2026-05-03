@@ -1,12 +1,17 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type IORedis from 'ioredis';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { QueueModule } from '../queue/queue.module';
+import { QUEUE_CONNECTION } from '../queue/queue.constants';
 import { MicrosoftTokenCryptoService } from './microsoft-token-crypto.service';
 import {
   MemoryMicrosoftOAuthStateStore,
   MicrosoftOAuthStateStore,
+  RedisMicrosoftOAuthStateStore,
 } from './microsoft-oauth-state.store';
 import { MicrosoftRefreshLockService } from './microsoft-refresh-lock.service';
 import { MicrosoftIdTokenService } from './microsoft-id-token.service';
@@ -31,7 +36,7 @@ import { ProjectMicrosoftLinksController } from './project-microsoft-links.contr
 import { ProjectMicrosoftLinksService } from './project-microsoft-links.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, AuditLogsModule, ProjectsModule],
+  imports: [PrismaModule, AuthModule, AuditLogsModule, ProjectsModule, QueueModule],
   controllers: [
     MicrosoftAuthController,
     MicrosoftOAuthCallbackController,
@@ -52,7 +57,20 @@ import { ProjectMicrosoftLinksService } from './project-microsoft-links.service'
     MemoryMicrosoftOAuthStateStore,
     {
       provide: MicrosoftOAuthStateStore,
-      useExisting: MemoryMicrosoftOAuthStateStore,
+      useFactory: (
+        config: ConfigService,
+        memory: MemoryMicrosoftOAuthStateStore,
+        redis: IORedis,
+      ) => {
+        const mode =
+          config.get<string>('MICROSOFT_OAUTH_STATE_STORE')?.trim() ||
+          'memory';
+        if (mode.toLowerCase() === 'redis') {
+          return new RedisMicrosoftOAuthStateStore(redis);
+        }
+        return memory;
+      },
+      inject: [ConfigService, MemoryMicrosoftOAuthStateStore, QUEUE_CONNECTION],
     },
     MicrosoftRefreshLockService,
     MicrosoftIdTokenService,
