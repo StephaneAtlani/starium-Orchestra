@@ -168,6 +168,8 @@ export class MicrosoftOAuthService {
 
   /**
    * Callback OAuth — redirect URL finale (succès ou erreur).
+   * Idempotent : un retry (proxy/CDN, prefetch, double-clic) renvoie le même résultat
+   * que le 1ᵉʳ traitement (même URL succès, ou même URL erreur).
    */
   async handleOAuthCallback(query: Record<string, string | undefined>): Promise<{
     redirectUrl: string;
@@ -205,8 +207,25 @@ export class MicrosoftOAuthService {
       return { redirectUrl: await this.buildErrorRedirect('invalid_state_payload') };
     }
 
+    /**
+     * Idempotence : si un précédent appel avec ce même `jti` a déjà produit un résultat,
+     * on le renvoie tel quel (retry proxy/CDN, prefetch). Pas de nouvel appel à Microsoft.
+     */
+    const previous = await this.stateStore.getRememberedResult(payload.jti);
+    if (previous) {
+      this.logger.log(
+        `Callback OAuth idempotent: jti=${payload.jti} renvoyé (retry détecté)`,
+      );
+      return { redirectUrl: previous };
+    }
+
     if (!(await this.stateStore.consume(payload.jti))) {
-      return { redirectUrl: await this.buildErrorRedirect('state_replay') };
+      return {
+        redirectUrl: await this.finalize(
+          payload.jti,
+          await this.buildErrorRedirect('state_replay'),
+        ),
+      };
     }
 
     const userId = payload.sub;
@@ -216,7 +235,12 @@ export class MicrosoftOAuthService {
       where: { id: clientId },
     });
     if (!client) {
-      return { redirectUrl: await this.buildErrorRedirect('invalid_client') };
+      return {
+        redirectUrl: await this.finalize(
+          payload.jti,
+          await this.buildErrorRedirect('invalid_client'),
+        ),
+      };
     }
 
     const membership = await this.prisma.clientUser.findFirst({
@@ -227,7 +251,12 @@ export class MicrosoftOAuthService {
       },
     });
     if (!membership) {
-      return { redirectUrl: await this.buildErrorRedirect('forbidden_client') };
+      return {
+        redirectUrl: await this.finalize(
+          payload.jti,
+          await this.buildErrorRedirect('forbidden_client'),
+        ),
+      };
     }
 
     let creds: {
@@ -243,7 +272,12 @@ export class MicrosoftOAuthService {
       syncRedirectUri = this.resolveM365SyncRedirectUri();
     } catch (e: unknown) {
       this.logger.warn(`Credentials Microsoft: ${(e as Error).message}`);
-      return { redirectUrl: await this.buildErrorRedirect('missing_credentials') };
+      return {
+        redirectUrl: await this.finalize(
+          payload.jti,
+          await this.buildErrorRedirect('missing_credentials'),
+        ),
+      };
     }
 
     const body = new URLSearchParams({
@@ -262,7 +296,12 @@ export class MicrosoftOAuthService {
       });
     } catch (e: unknown) {
       await this.auditError(clientId, userId, undefined, e);
-      return { redirectUrl: await this.buildErrorRedirect('token_exchange_failed') };
+      return {
+        redirectUrl: await this.finalize(
+          payload.jti,
+          await this.buildErrorRedirect('token_exchange_failed'),
+        ),
+      };
     }
 
     let tenantId: string;
@@ -276,11 +315,21 @@ export class MicrosoftOAuthService {
       } catch (err) {
         this.logger.warn(`id_token invalide: ${(err as Error).message}`);
         await this.auditError(clientId, userId, undefined, err);
-        return { redirectUrl: await this.buildErrorRedirect('invalid_id_token') };
+        return {
+          redirectUrl: await this.finalize(
+            payload.jti,
+            await this.buildErrorRedirect('invalid_id_token'),
+          ),
+        };
       }
     } else {
       this.logger.warn('Réponse token sans id_token');
-      return { redirectUrl: await this.buildErrorRedirect('missing_id_token') };
+      return {
+        redirectUrl: await this.finalize(
+          payload.jti,
+          await this.buildErrorRedirect('missing_id_token'),
+        ),
+      };
     }
 
     const accessEnc = this.crypto.encrypt(tokens.access_token);
@@ -352,10 +401,39 @@ export class MicrosoftOAuthService {
     } catch (e: unknown) {
       this.logger.error(`Persistance connexion Microsoft: ${(e as Error).message}`);
       await this.auditError(clientId, userId, tenantId, e);
-      return { redirectUrl: await this.buildErrorRedirect('persist_failed') };
+      return {
+        redirectUrl: await this.finalize(
+          payload.jti,
+          await this.buildErrorRedirect('persist_failed'),
+        ),
+      };
     }
 
-    return { redirectUrl: await this.buildSuccessRedirect() };
+    return {
+      redirectUrl: await this.finalize(
+        payload.jti,
+        await this.buildSuccessRedirect(),
+      ),
+    };
+  }
+
+  /**
+   * Mémorise la `redirectUrl` finale pour ce `jti` afin que tout retry du callback
+   * (proxy/CDN, prefetch navigateur, double-clic) renvoie la **même** URL.
+   * Le TTL est borné à la durée du state OAuth (≈10 min) ; suffisant pour absorber
+   * les retries sans laisser fuir un résultat ad vitam.
+   */
+  private async finalize(jti: string, redirectUrl: string): Promise<string> {
+    try {
+      const platform = await this.platformConfig.getResolved();
+      const ttlMs = (platform.oauthStateTtlSeconds || 600) * 1000;
+      await this.stateStore.rememberResult(jti, redirectUrl, ttlMs);
+    } catch (e) {
+      this.logger.warn(
+        `rememberResult ignoré: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    return redirectUrl;
   }
 
   async getActiveConnection(

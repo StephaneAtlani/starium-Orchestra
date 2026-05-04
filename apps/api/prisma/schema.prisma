@@ -3687,6 +3687,8 @@ model MicrosoftOAuthState {
   clientId       String?
   /// Redirect URI OAuth utilisée pour cette demande (SSO plateforme ou connexion client).
   redirectUri    String?
+  /// Résultat final (URL succès/erreur) mémorisé après le 1ᵉʳ callback : permet l’idempotence sur retry (proxy, prefetch).
+  redirectResultUrl String?
   expiresAt      DateTime
   consumedAt     DateTime?
   createdAt      DateTime  @default(now())

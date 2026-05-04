@@ -4,19 +4,22 @@ import type IORedis from 'ioredis';
 import type { PrismaService } from '../../prisma/prisma.service';
 
 /**
- * Store one-shot des `jti` OAuth M365 (anti-replay).
- * `db` (défaut) : table `MicrosoftOAuthState` partagée par toutes les instances API ;
- * `redis` : alternative low-latency (BullMQ existant) ;
- * `memory` : tests / process unique.
+ * Store one-shot des `jti` OAuth M365 (anti-replay) **et** mémoire du résultat de callback
+ * pour idempotence (retry proxy/CDN, prefetch navigateur). Les deux opérations sur la même clé.
  */
 export abstract class MicrosoftOAuthStateStore {
   abstract register(jti: string, ttlMs: number): Promise<void>;
   abstract consume(jti: string): Promise<boolean>;
+  /** Mémoriser le résultat final (URL de redirection navigateur) du 1ᵉʳ callback. */
+  abstract rememberResult(jti: string, redirectUrl: string, ttlMs: number): Promise<void>;
+  /** null si pas encore mémorisé ou expiré. */
+  abstract getRememberedResult(jti: string): Promise<string | null>;
 }
 
 @Injectable()
 export class MemoryMicrosoftOAuthStateStore extends MicrosoftOAuthStateStore {
   private readonly entries = new Map<string, number>();
+  private readonly results = new Map<string, { url: string; expiresAt: number }>();
 
   override async register(jti: string, ttlMs: number): Promise<void> {
     const expiresAt = Date.now() + ttlMs;
@@ -36,11 +39,35 @@ export class MemoryMicrosoftOAuthStateStore extends MicrosoftOAuthStateStore {
     return true;
   }
 
+  override async rememberResult(jti: string, redirectUrl: string, ttlMs: number): Promise<void> {
+    this.results.set(jti, { url: redirectUrl, expiresAt: Date.now() + ttlMs });
+    this.pruneExpiredResults();
+  }
+
+  override async getRememberedResult(jti: string): Promise<string | null> {
+    const entry = this.results.get(jti);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.results.delete(jti);
+      return null;
+    }
+    return entry.url;
+  }
+
   private pruneExpired(): void {
     const now = Date.now();
     for (const [k, exp] of this.entries) {
       if (now > exp) {
         this.entries.delete(k);
+      }
+    }
+  }
+
+  private pruneExpiredResults(): void {
+    const now = Date.now();
+    for (const [k, v] of this.results) {
+      if (now > v.expiresAt) {
+        this.results.delete(k);
       }
     }
   }
@@ -109,6 +136,40 @@ export class DbMicrosoftOAuthStateStore extends MicrosoftOAuthStateStore {
       return false;
     }
   }
+
+  override async rememberResult(jti: string, redirectUrl: string, ttlMs: number): Promise<void> {
+    const expiresAt = new Date(Date.now() + ttlMs);
+    try {
+      /** On met à jour la même ligne (déjà créée par `register`) ; ne crée rien si la ligne a été purgée. */
+      await this.prisma.microsoftOAuthState.updateMany({
+        where: { stateTokenHash: dbHash(jti) },
+        data: { redirectResultUrl: redirectUrl, expiresAt },
+      });
+    } catch (e) {
+      this.logger.warn(
+        `rememberResult jti DB: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  override async getRememberedResult(jti: string): Promise<string | null> {
+    try {
+      const row = await this.prisma.microsoftOAuthState.findFirst({
+        where: {
+          stateTokenHash: dbHash(jti),
+          expiresAt: { gt: new Date() },
+          NOT: { redirectResultUrl: null },
+        },
+        select: { redirectResultUrl: true },
+      });
+      return row?.redirectResultUrl ?? null;
+    } catch (e) {
+      this.logger.warn(
+        `getRememberedResult jti DB: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    }
+  }
 }
 
 @Injectable()
@@ -141,6 +202,29 @@ export class RedisMicrosoftOAuthStateStore extends MicrosoftOAuthStateStore {
         `consume jti Redis: ${e instanceof Error ? e.message : String(e)}`,
       );
       return false;
+    }
+  }
+
+  override async rememberResult(jti: string, redirectUrl: string, ttlMs: number): Promise<void> {
+    const key = `${REDIS_JTI_PREFIX}result:${jti}`;
+    try {
+      await this.redis.set(key, redirectUrl, 'PX', ttlMs);
+    } catch (e) {
+      this.logger.warn(
+        `rememberResult jti Redis: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  override async getRememberedResult(jti: string): Promise<string | null> {
+    const key = `${REDIS_JTI_PREFIX}result:${jti}`;
+    try {
+      return (await this.redis.get(key)) ?? null;
+    } catch (e) {
+      this.logger.warn(
+        `getRememberedResult jti Redis: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
     }
   }
 }
