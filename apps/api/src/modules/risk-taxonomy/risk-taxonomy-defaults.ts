@@ -305,7 +305,104 @@ const MINIMUM_TYPE_CODES_BY_DOMAIN: Record<string, string[]> = {
   ],
 };
 
+/**
+ * Libellés FR explicites pour les codes générés via `MINIMUM_TYPE_CODES_BY_DOMAIN`
+ * mais absents des `RAW_DOMAIN_DEFINITIONS`. Couvre l'ensemble des codes seedés.
+ * Pour tout code admin non listé, fallback dans `humanizeRiskTypeCode`.
+ */
+const FRENCH_NAME_BY_CODE: Record<string, string> = {
+  STRATEGIC_DEPENDENCY: 'Dépendance stratégique',
+  POOR_PORTFOLIO_PRIORITIZATION: 'Mauvaise priorisation du portefeuille',
+  STRATEGIC_OBJECTIVE_FAILURE: 'Échec d’un objectif stratégique',
+  DIGITAL_TRANSFORMATION_FAILURE: 'Échec de transformation digitale',
+  INNOVATION_ROADMAP_FAILURE: 'Échec de roadmap innovation',
+  MERGER_INTEGRATION_FAILURE: 'Échec d’intégration post-fusion',
+
+  GOVERNANCE_ROLE_AMBIGUITY: 'Ambiguïté des rôles de gouvernance',
+  ESCALATION_PROCESS_FAILURE: 'Défaillance du processus d’escalade',
+  COMMITTEE_DECISION_DELAY: 'Retard des décisions en comité',
+  POLICY_NOT_APPLIED: 'Politique non appliquée',
+  INTERNAL_CONTROL_WEAKNESS: 'Faiblesse du contrôle interne',
+  LACK_OF_AUDIT_TRAIL: 'Absence de piste d’audit',
+
+  UNPLANNED_EXPENSE: 'Dépense non prévue',
+  FUNDING_DELAY: 'Retard de financement',
+  ROI_NOT_ACHIEVED: 'ROI non atteint',
+  COST_ALLOCATION_ERROR: 'Erreur d’imputation des coûts',
+  FORECASTING_ERROR: 'Erreur de prévision',
+  INVOICE_DISPUTE: 'Litige de facturation',
+
+  POOR_REQUIREMENTS_DEFINITION: 'Mauvaise définition des besoins',
+  STAKEHOLDER_ALIGNMENT_FAILURE: 'Défaut d’alignement des parties prenantes',
+  PLANNING_ERROR: 'Erreur de planification',
+  DEPENDENCY_BLOCKER: 'Dépendance bloquante',
+  CHANGE_MANAGEMENT_FAILURE: 'Défaut de conduite du changement',
+  DELIVERY_QUALITY_FAILURE: 'Défaut de qualité de livraison',
+  VENDOR_PROJECT_FAILURE: 'Défaillance d’un fournisseur projet',
+  BENEFITS_NOT_REALIZED: 'Bénéfices non réalisés',
+
+  PROCEDURE_NOT_FOLLOWED: 'Procédure non respectée',
+  MANUAL_ERROR: 'Erreur manuelle',
+  OPERATIONAL_BACKLOG: 'Backlog opérationnel',
+  SUPPORT_OVERLOAD: 'Surcharge du support',
+  SLA_BREACH: 'Non-respect d’un SLA',
+  STOCK_OR_SUPPLY_SHORTAGE: 'Rupture de stock / d’approvisionnement',
+
+  BACKUP_FAILURE: 'Échec de sauvegarde',
+  RESTORE_FAILURE: 'Échec de restauration',
+  CRISIS_MANAGEMENT_FAILURE: 'Défaillance de gestion de crise',
+  SITE_UNAVAILABILITY: 'Indisponibilité d’un site',
+  CRITICAL_SERVICE_UNAVAILABLE: 'Indisponibilité d’un service critique',
+  SINGLE_POINT_OF_FAILURE: 'Point unique de défaillance (SPOF)',
+  INCIDENT_RESPONSE_DELAY: 'Retard de réponse à incident',
+  RESILIENCE_TEST_FAILURE: 'Échec d’un test de résilience',
+
+  CONFIGURATION_ERROR: 'Erreur de configuration',
+  CHANGE_DEPLOYMENT_FAILURE: 'Échec d’un déploiement / change',
+  PATCHING_DELAY: 'Retard de patching',
+  CLOUD_SERVICE_FAILURE: 'Défaillance d’un service cloud',
+  LICENSE_NON_COMPLIANCE: 'Non-conformité de licence',
+  MONITORING_GAP: 'Lacune de supervision',
+
+  MALWARE_INFECTION: 'Infection par malware',
+  WEAK_PASSWORD_POLICY: 'Politique de mot de passe faible',
+  MFA_NOT_ENFORCED: 'MFA non appliquée',
+  SECURITY_LOGGING_GAP: 'Lacune de journalisation de sécurité',
+  THIRD_PARTY_CYBER_RISK: 'Risque cyber lié à un tiers',
+
+  MASTER_DATA_ERROR: 'Erreur de données de référence (MDM)',
+  DATA_DUPLICATION: 'Duplication de données',
+  DATA_OWNERSHIP_GAP: 'Propriété de la donnée non définie',
+  GDPR_DATA_RETENTION_ISSUE: 'Problème de rétention RGPD',
+  DATA_ACCESS_ERROR: 'Erreur d’accès aux données',
+  REPORTING_DELAY: 'Retard de reporting',
+
+  CONTRACTOR_UNAVAILABILITY: 'Indisponibilité d’un prestataire',
+  SLA_PROVIDER_BREACH: 'Non-respect SLA fournisseur',
+  SUPPLIER_SECURITY_FAILURE: 'Défaillance de sécurité fournisseur',
+  SUPPLIER_FINANCIAL_WEAKNESS: 'Fragilité financière fournisseur',
+
+  GDPR_NON_COMPLIANCE: 'Non-conformité RGPD',
+
+  KNOWLEDGE_LOSS: 'Perte de connaissance',
+  TRAINING_GAP: 'Lacune de formation',
+  SUCCESSION_PLANNING_GAP: 'Absence de plan de succession',
+  WORKLOAD_IMBALANCE: 'Déséquilibre de charge',
+  MANAGERIAL_FAILURE: 'Défaillance managériale',
+
+  PUBLIC_COMMUNICATION_FAILURE: 'Défaillance de communication publique',
+  CUSTOMER_COMPLAINT_ESCALATION: 'Escalade de plaintes clients',
+  ETHICAL_ISSUE_PUBLICIZED: 'Affaire éthique médiatisée',
+  EXECUTIVE_REPUTATION_RISK: 'Réputation d’un dirigeant',
+  PRODUCT_OR_SERVICE_BAD_BUZZ: 'Bad buzz produit / service',
+  PARTNER_REPUTATION_CONTAGION: 'Contagion réputationnelle d’un partenaire',
+  EMPLOYER_BRAND_DAMAGE: 'Atteinte à la marque employeur',
+  LOSS_OF_CREDIBILITY: 'Perte de crédibilité',
+};
+
 function humanizeRiskTypeCode(code: string): string {
+  const explicit = FRENCH_NAME_BY_CODE[code];
+  if (explicit) return explicit;
   return code
     .replace(/^OTHER_/, 'AUTRE_')
     .split('_')

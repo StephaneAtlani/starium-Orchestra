@@ -136,6 +136,7 @@ describe('ProjectsPilotageService', () => {
           treatmentStrategy: ProjectRiskTreatmentStrategy.REDUCE,
           residualRiskLevel: null,
           residualJustification: null,
+          complementaryTreatmentMeasures: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },

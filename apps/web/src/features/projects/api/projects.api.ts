@@ -531,6 +531,7 @@ export type CreateProjectRiskPayload = {
   treatmentStrategy: string;
   residualRiskLevel?: string | null;
   residualJustification?: string | null;
+  complementaryTreatmentMeasures?: string | null;
 };
 
 export type UpdateProjectRiskPayload = Partial<CreateProjectRiskPayload> & {

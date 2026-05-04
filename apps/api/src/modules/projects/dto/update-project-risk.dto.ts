@@ -121,4 +121,8 @@ export class UpdateProjectRiskDto {
   @IsOptional()
   @IsString()
   residualJustification?: string;
+
+  @IsOptional()
+  @IsString()
+  complementaryTreatmentMeasures?: string;
 }

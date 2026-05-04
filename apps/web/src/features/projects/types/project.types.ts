@@ -414,6 +414,8 @@ export type ProjectRiskApi = {
   treatmentStrategy: string;
   residualRiskLevel: ProjectRiskCriticalityLevel | null;
   residualJustification: string | null;
+  /** Traitement / mesures complémentaires (post-résiduel). */
+  complementaryTreatmentMeasures: string | null;
   createdAt: string;
   updatedAt: string;
 };

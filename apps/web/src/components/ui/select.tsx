@@ -59,6 +59,8 @@ function SelectTrigger({
 function SelectContent({
   className,
   children,
+  /** Contenu hors du `listbox` (ex. champ de recherche) — sinon les touches sont captées par le Select. */
+  header,
   side = "bottom",
   sideOffset = 8,
   align = "center",
@@ -69,7 +71,9 @@ function SelectContent({
   Pick<
     SelectPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger"
-  >) {
+  > & {
+    header?: React.ReactNode
+  }) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -87,6 +91,14 @@ function SelectContent({
           {...props}
         >
           <SelectScrollUpButton />
+          {header != null ? (
+            <div
+              data-slot="select-header"
+              className="sticky top-0 z-20 shrink-0 border-b border-border/60 bg-popover p-2"
+            >
+              {header}
+            </div>
+          ) : null}
           <SelectPrimitive.List
             data-slot="select-list"
             className={cn(

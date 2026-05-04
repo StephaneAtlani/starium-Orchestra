@@ -2071,6 +2071,8 @@ model ProjectRisk {
   residualRiskLevel       ProjectRiskCriticality?
   /// RFC-PROJ-018 — justification du niveau résiduel (optionnel).
   residualJustification   String?
+  /// Traitement / mesures complémentaires après évaluation du résiduel (optionnel).
+  complementaryTreatmentMeasures String?
 
   /// Classification métier : FK vers `RiskType` (domaine dérivé via jointure).
   riskTypeId String

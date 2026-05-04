@@ -208,6 +208,7 @@ export function projectRiskEntityAuditSnapshot(
     treatmentStrategy: r.treatmentStrategy,
     residualRiskLevel: r.residualRiskLevel ?? null,
     residualJustification: r.residualJustification ?? null,
+    complementaryTreatmentMeasures: r.complementaryTreatmentMeasures ?? null,
   };
 }
 

@@ -13,6 +13,7 @@ import {
   ProjectTask,
   ProjectTeamMemberAffiliation,
   ProjectTeamRoleSystemKind,
+  ResourceType,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -488,6 +489,46 @@ export class ProjectsService {
     if (!cu) {
       throw new BadRequestException(
         'User must be an active member of the client',
+      );
+    }
+  }
+
+  /**
+   * Responsable de risque : membre client actif, ou identité plateforme alignée sur une fiche
+   * ressource Humaine du client (même e-mail que le catalogue RH — `linkedUserId` côté API).
+   */
+  async assertProjectRiskOwnerUser(
+    clientId: string,
+    userId: string | null | undefined,
+  ): Promise<void> {
+    if (!userId) return;
+    const activeMember = await this.prisma.clientUser.findFirst({
+      where: { clientId, userId, status: ClientUserStatus.ACTIVE },
+      select: { id: true },
+    });
+    if (activeMember) return;
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId },
+      select: { email: true },
+    });
+    const email = user?.email?.trim();
+    if (!email) {
+      throw new BadRequestException(
+        'Le responsable doit être un membre actif du client ou une ressource humaine du catalogue (compte lié).',
+      );
+    }
+    const human = await this.prisma.resource.findFirst({
+      where: {
+        clientId,
+        type: ResourceType.HUMAN,
+        email: { equals: email, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+    if (!human) {
+      throw new BadRequestException(
+        'Le responsable doit être un membre actif du client ou une ressource humaine du catalogue avec la même identité e-mail.',
       );
     }
   }

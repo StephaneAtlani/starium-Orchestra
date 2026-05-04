@@ -36,6 +36,7 @@ type DemoRiskSeed = {
   treatmentStrategy?: ProjectRiskTreatmentStrategy;
   residualRiskLevel?: ProjectRiskCriticality;
   residualJustification?: string;
+  complementaryTreatmentMeasures?: string;
   /** Échéance cible (jours depuis `now`) */
   dueDateOffsetDays?: number;
   /** Date de détection / identification (jours depuis `now`, souvent négatif) */
@@ -200,6 +201,8 @@ function buildDemoRiskFieldData(
       seed.treatmentStrategy ?? defaultTreatmentStrategy(seed.status),
     residualRiskLevel: residual.level,
     residualJustification: residual.justification,
+    complementaryTreatmentMeasures:
+      seed.complementaryTreatmentMeasures?.trim() ?? null,
   };
 }
 

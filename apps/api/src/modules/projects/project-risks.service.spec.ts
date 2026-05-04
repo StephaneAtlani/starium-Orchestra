@@ -56,6 +56,7 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
       treatmentStrategy: ProjectRiskTreatmentStrategy.REDUCE,
       residualRiskLevel: null,
       residualJustification: null,
+      complementaryTreatmentMeasures: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,

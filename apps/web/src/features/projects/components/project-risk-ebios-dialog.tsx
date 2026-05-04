@@ -14,9 +14,10 @@ import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,8 +32,10 @@ import {
   getProjectRisk,
   getRiskTaxonomyCatalog,
   listAssignableUsers,
+  listHumanResourcesForTaskPickers,
   listRiskActionPlanTasks,
 } from '../api/projects.api';
+import type { ResourceListItem } from '@/services/resources';
 import type { CreateProjectRiskPayload } from '../api/projects.api';
 import {
   ActionPlanTaskCreateDialog,
@@ -107,6 +110,7 @@ function stableRiskSnapshot(p: CreateProjectRiskPayload): string {
     treatmentStrategy: p.treatmentStrategy,
     residualRiskLevel: p.residualRiskLevel ?? '',
     residualJustification: p.residualJustification ?? '',
+    complementaryTreatmentMeasures: p.complementaryTreatmentMeasures ?? '',
     ownerUserId: p.ownerUserId ?? '',
   };
   return JSON.stringify(o);
@@ -133,6 +137,7 @@ function snapshotFromRisk(r: ProjectRiskApi): string {
     treatmentStrategy: r.treatmentStrategy,
     residualRiskLevel: r.residualRiskLevel ?? undefined,
     residualJustification: r.residualJustification?.trim() || undefined,
+    complementaryTreatmentMeasures: r.complementaryTreatmentMeasures?.trim() || undefined,
     ownerUserId: r.ownerUserId ?? null,
   });
 }
@@ -144,6 +149,16 @@ function formatUserLabel(u: {
 }): string {
   const n = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
   return n ? `${n} (${u.email})` : u.email;
+}
+
+/** Libellé pour une ressource HUMAN dont on choisit le `linkedUserId` comme responsable. */
+function labelForHumanResourceOwner(r: ResourceListItem): string {
+  const n = [r.firstName?.trim(), r.name.trim()].filter(Boolean).join(' ').trim();
+  const mail = r.email?.trim();
+  if (n && mail) return `${n} (${mail})`;
+  if (n) return n;
+  if (mail) return mail;
+  return 'Ressource humaine';
 }
 
 function residualLevelDisplayLabel(value: string): string {
@@ -378,6 +393,14 @@ export function ProjectRiskEbiosDialog({
     enabled: open && Boolean(clientId),
   });
 
+  /** Référentiel RH (HUMAN) avec compte plateforme — même droit que `assignable-users` (`projects.read`). */
+  const humanResourcesQuery = useQuery({
+    queryKey: ['projects', 'options', 'human-resources', clientId],
+    queryFn: () => listHumanResourcesForTaskPickers(authFetch),
+    enabled: open && Boolean(clientId),
+    staleTime: 60_000,
+  });
+
   /** Détail complet : évite un formulaire vide si la liste ou un 1er rendu n’expose pas tous les champs. */
   const riskDetailQuery = useQuery({
     queryKey:
@@ -435,6 +458,7 @@ export function ProjectRiskEbiosDialog({
     useState<string>('REDUCE');
   const [residualRiskLevel, setResidualRiskLevel] = useState<string>(NONE);
   const [residualJustification, setResidualJustification] = useState('');
+  const [complementaryTreatmentMeasures, setComplementaryTreatmentMeasures] = useState('');
   const [status, setStatus] = useState<string>('OPEN');
   const [dueDate, setDueDate] = useState('');
   const [detectedAt, setDetectedAt] = useState('');
@@ -484,6 +508,7 @@ export function ProjectRiskEbiosDialog({
       setTreatmentStrategy(r.treatmentStrategy ?? 'REDUCE');
       setResidualRiskLevel(r.residualRiskLevel ?? NONE);
       setResidualJustification(r.residualJustification ?? '');
+      setComplementaryTreatmentMeasures(r.complementaryTreatmentMeasures ?? '');
       setStatus(r.status);
       setDueDate(toDateInputValue(r.dueDate));
       setDetectedAt(toDateInputValue(r.detectedAt));
@@ -509,6 +534,7 @@ export function ProjectRiskEbiosDialog({
       setTreatmentStrategy('REDUCE');
       setResidualRiskLevel(NONE);
       setResidualJustification('');
+      setComplementaryTreatmentMeasures('');
       setStatus('OPEN');
       setDueDate('');
       setDetectedAt('');
@@ -569,6 +595,8 @@ export function ProjectRiskEbiosDialog({
       treatmentStrategy,
       residualRiskLevel: residualRiskLevel !== NONE ? residualRiskLevel : undefined,
       residualJustification: residualJustification.trim() || undefined,
+      complementaryTreatmentMeasures:
+        complementaryTreatmentMeasures.trim() || undefined,
       ownerUserId: ownerUserId === OWNER_NONE ? null : ownerUserId,
     };
     if (riskApiScope === 'client') {
@@ -595,6 +623,7 @@ export function ProjectRiskEbiosDialog({
     treatmentStrategy,
     residualRiskLevel,
     residualJustification,
+    complementaryTreatmentMeasures,
     ownerUserId,
   ]);
 
@@ -613,6 +642,35 @@ export function ProjectRiskEbiosDialog({
     () => assignableQuery.data?.users ?? [],
     [assignableQuery.data?.users],
   );
+
+  const sortedMemberUsers = useMemo(
+    () =>
+      [...users].sort((a, b) =>
+        formatUserLabel(a).localeCompare(formatUserLabel(b), 'fr', { sensitivity: 'base' }),
+      ),
+    [users],
+  );
+
+  /** Utilisateurs plateforme joignables via fiche RH (`linkedUserId`), hors membres client déjà listés. */
+  const hrLinkedOwnerOptions = useMemo(() => {
+    const items = humanResourcesQuery.data?.items ?? [];
+    const memberIds = new Set(users.map((u) => u.id));
+    const byUserId = new Map<string, ResourceListItem>();
+    for (const r of items) {
+      const uid = r.linkedUserId?.trim();
+      if (!uid || memberIds.has(uid)) continue;
+      if (!byUserId.has(uid)) byUserId.set(uid, r);
+    }
+    return [...byUserId.entries()]
+      .map(([userId, resource]) => ({ userId, resource }))
+      .sort((a, b) =>
+        labelForHumanResourceOwner(a.resource).localeCompare(
+          labelForHumanResourceOwner(b.resource),
+          'fr',
+          { sensitivity: 'base' },
+        ),
+      );
+  }, [users, humanResourcesQuery.data?.items]);
 
   const residualLevelSelectKeys = useMemo(() => {
     const base: string[] = [...RESIDUAL_LEVELS];
@@ -638,15 +696,21 @@ export function ProjectRiskEbiosDialog({
     return known;
   }, [status]);
 
-  const ownerMissingFromList =
-    ownerUserId !== OWNER_NONE && !users.some((u) => u.id === ownerUserId);
+  const ownerKnownInPicker =
+    ownerUserId === OWNER_NONE ||
+    users.some((u) => u.id === ownerUserId) ||
+    hrLinkedOwnerOptions.some((o) => o.userId === ownerUserId);
+
+  const ownerMissingFromList = ownerUserId !== OWNER_NONE && !ownerKnownInPicker;
 
   const ownerLabel = useMemo(() => {
     if (ownerUserId === OWNER_NONE) return 'Non assigné';
     const u = users.find((x) => x.id === ownerUserId);
     if (u) return formatUserLabel(u);
+    const hr = hrLinkedOwnerOptions.find((o) => o.userId === ownerUserId);
+    if (hr) return labelForHumanResourceOwner(hr.resource);
     return OWNER_UNKNOWN_LABEL;
-  }, [ownerUserId, users]);
+  }, [ownerUserId, users, hrLinkedOwnerOptions]);
 
   /** Libellé projet affiché dans le trigger (jamais l’id — règle produit). */
   const linkedProjectTriggerLabel = useMemo(() => {
@@ -710,35 +774,109 @@ export function ProjectRiskEbiosDialog({
 
   const linkedPlanTasks = riskPlanTasksQuery.data?.items ?? [];
 
-  const filteredTypesForSelectedDomain = useMemo(() => {
-    const query = riskTypeSearch.trim().toLowerCase();
-    const d = (taxonomyQuery.data?.domains ?? []).find((x) => x.id === taxonomyDomainId);
-    let types = d?.types ?? [];
-    const legacy = riskResolved?.riskType;
+  /** Index domaine -> données enrichies. Inclut le domaine legacy si absent du catalogue. */
+  const allDomainsForPicker = useMemo(() => {
+    const fromCatalog = taxonomyQuery.data?.domains ?? [];
+    const legacyDomain = riskResolved?.riskType?.domain;
+    const legacyType = riskResolved?.riskType;
     if (
-      mode === 'edit' &&
-      legacy &&
-      legacy.id === riskTypeId &&
-      !types.some((t) => t.id === legacy.id)
+      mode !== 'edit' ||
+      !legacyDomain ||
+      !legacyType ||
+      fromCatalog.some((d) => d.id === legacyDomain.id)
     ) {
-      types = [
-        ...types,
-        {
-          id: legacy.id,
-          code: legacy.code,
-          name: legacy.name,
-          isActive: legacy.isActive,
-          isRecommended: false,
-        },
-      ];
+      return fromCatalog;
     }
-    if (!query) return types;
-    return types.filter(
-      (t) =>
-        t.name.toLowerCase().includes(query) ||
-        t.code.toLowerCase().includes(query),
-    );
-  }, [taxonomyDomainId, taxonomyQuery.data?.domains, mode, riskResolved?.riskType, riskTypeId, riskTypeSearch]);
+    return [
+      ...fromCatalog,
+      {
+        id: legacyDomain.id,
+        code: legacyDomain.code,
+        name: legacyDomain.name,
+        description: null,
+        isActive: legacyDomain.isActive,
+        familyCode: undefined,
+        familyLabel: undefined,
+        isVisibleInCatalog: false,
+        types: [
+          {
+            id: legacyType.id,
+            code: legacyType.code,
+            name: legacyType.name,
+            isActive: legacyType.isActive,
+            isRecommended: false,
+          },
+        ],
+      },
+    ];
+  }, [taxonomyQuery.data?.domains, mode, riskResolved?.riskType]);
+
+  /**
+   * Picker unifié : recherche globale (nom + code), groupes triés par famille puis domaine.
+   * Si un type legacy existe sur un domaine présent du catalogue, on l'injecte côté domaine.
+   */
+  const groupedDomainsForPicker = useMemo(() => {
+    const query = riskTypeSearch.trim().toLowerCase();
+    const legacy = riskResolved?.riskType;
+
+    const enrichedDomains = allDomainsForPicker.map((d) => {
+      let types = d.types;
+      if (
+        mode === 'edit' &&
+        legacy &&
+        legacy.id === riskTypeId &&
+        legacy.domain?.id === d.id &&
+        !types.some((t) => t.id === legacy.id)
+      ) {
+        types = [
+          ...types,
+          {
+            id: legacy.id,
+            code: legacy.code,
+            name: legacy.name,
+            isActive: legacy.isActive,
+            isRecommended: false,
+          },
+        ];
+      }
+      const filteredTypes = !query
+        ? types
+        : types.filter(
+            (t) =>
+              t.name.toLowerCase().includes(query) ||
+              t.code.toLowerCase().includes(query) ||
+              d.name.toLowerCase().includes(query) ||
+              (d.familyLabel ?? '').toLowerCase().includes(query),
+          );
+      return { domain: d, types: filteredTypes };
+    });
+
+    return enrichedDomains
+      .filter((g) => g.types.length > 0)
+      .sort((a, b) => {
+        const fa = a.domain.familyLabel ?? 'zz';
+        const fb = b.domain.familyLabel ?? 'zz';
+        if (fa !== fb) return fa.localeCompare(fb, 'fr');
+        return a.domain.name.localeCompare(b.domain.name, 'fr');
+      });
+  }, [allDomainsForPicker, riskTypeSearch, mode, riskResolved?.riskType, riskTypeId]);
+
+  const selectedRiskType = useMemo(() => {
+    if (riskTypeId === NONE) return null;
+    for (const d of allDomainsForPicker) {
+      const t = d.types.find((x) => x.id === riskTypeId);
+      if (t) return { type: t, domain: d };
+    }
+    return null;
+  }, [riskTypeId, allDomainsForPicker]);
+
+  const riskTypeTriggerLabel = useMemo(() => {
+    if (!selectedRiskType) return 'Choisir un type de risque';
+    const { type, domain } = selectedRiskType;
+    const family = domain.familyLabel ? `${domain.familyLabel} · ` : '';
+    const inactive = !type.isActive ? ' (inactif)' : '';
+    return `${family}${domain.name} — ${type.name}${inactive}`;
+  }, [selectedRiskType]);
 
   const treatmentHeaderExtra = !riskResolved?.id ? (
     <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
@@ -924,110 +1062,89 @@ export function ProjectRiskEbiosDialog({
                   required
                 />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Domaine</Label>
-                  <Select
-                    value={taxonomyDomainId}
-                    onValueChange={(v) => {
-                      if (!v) return;
-                      setTaxonomyDomainId(v);
-                      setRiskTypeSearch('');
-                      const d = (taxonomyQuery.data?.domains ?? []).find((x) => x.id === v);
-                      const first = d?.types[0];
-                      if (first) setRiskTypeId(first.id);
-                    }}
-                    disabled={isPending || taxonomyQuery.isLoading}
+              <div className="space-y-2">
+                <Label>Type de risque</Label>
+                <Select
+                  value={riskTypeId}
+                  onValueChange={(v) => {
+                    if (!v) return;
+                    setRiskTypeId(v);
+                    for (const d of allDomainsForPicker) {
+                      if (d.types.some((t) => t.id === v)) {
+                        setTaxonomyDomainId(d.id);
+                        break;
+                      }
+                    }
+                  }}
+                  disabled={isPending || taxonomyQuery.isLoading}
+                >
+                  <SelectTrigger className="w-full min-w-0">
+                    <span
+                      className={cn(
+                        selectTriggerLabelClass,
+                        !selectedRiskType && 'text-muted-foreground',
+                      )}
+                    >
+                      {taxonomyQuery.isLoading && !selectedRiskType
+                        ? 'Chargement de la taxonomie…'
+                        : riskTypeTriggerLabel}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent
+                    className="max-h-[60vh] w-(--anchor-width) min-w-[min(34rem,90vw)]"
+                    header={
+                      <Input
+                        value={riskTypeSearch}
+                        onChange={(e) => setRiskTypeSearch(e.target.value)}
+                        placeholder="Rechercher un type, un domaine ou un code…"
+                        className="h-8"
+                        autoComplete="off"
+                        onKeyDown={(e) => e.stopPropagation()}
+                      />
+                    }
                   >
-                    <SelectTrigger className="w-full min-w-0">
-                      <span className={selectTriggerLabelClass}>
-                        {taxonomyDomainId === NONE
-                          ? 'Chargement…'
-                          : (() => {
-                              const fromCatalog = (taxonomyQuery.data?.domains ?? []).find(
-                                (d) => d.id === taxonomyDomainId,
-                              );
-                              if (fromCatalog) return fromCatalog.name;
-                              const legacyDomain = riskResolved?.riskType?.domain;
-                              if (legacyDomain?.id === taxonomyDomainId) {
-                                return `${legacyDomain.name}${legacyDomain.isActive ? '' : ' (inactif)'}`;
-                              }
-                              return 'Domaine';
-                            })()}
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(taxonomyQuery.data?.domains ?? []).map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.familyLabel ? `${d.familyLabel} — ${d.name}` : d.name}
-                        </SelectItem>
-                      ))}
-                      {(() => {
-                        const legacyDomain = riskResolved?.riskType?.domain;
-                        if (
-                          mode === 'edit' &&
-                          legacyDomain &&
-                          legacyDomain.id === taxonomyDomainId &&
-                          !(taxonomyQuery.data?.domains ?? []).some((d) => d.id === legacyDomain.id)
-                        ) {
-                          return (
-                            <SelectItem value={legacyDomain.id}>
-                              {legacyDomain.name}
-                              {!legacyDomain.isActive ? ' (inactif)' : ''}
-                            </SelectItem>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Type de risque</Label>
-                  <Select
-                    value={riskTypeId}
-                    onValueChange={(v) => {
-                      if (v) setRiskTypeId(v);
-                    }}
-                    disabled={isPending || taxonomyQuery.isLoading || taxonomyDomainId === NONE}
-                  >
-                    <SelectTrigger className="w-full min-w-0">
-                      <span className={selectTriggerLabelClass}>
-                        {riskTypeId === NONE
-                          ? '—'
-                          : (() => {
-                              const d = (taxonomyQuery.data?.domains ?? []).find(
-                                (x) => x.id === taxonomyDomainId,
-                              );
-                              const fromCat = d?.types.find((t) => t.id === riskTypeId);
-                              if (fromCat) return fromCat.name;
-                              const legacy = riskResolved?.riskType;
-                              if (legacy?.id === riskTypeId) {
-                                return `${legacy.name}${legacy.isActive ? '' : ' (inactif)'}`;
-                              }
-                              return 'Non classé';
-                            })()}
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <div className="p-2">
-                        <Input
-                          value={riskTypeSearch}
-                          onChange={(e) => setRiskTypeSearch(e.target.value)}
-                          placeholder="Rechercher un type (nom ou code)"
-                          className="h-8"
-                        />
+                    {groupedDomainsForPicker.length === 0 ? (
+                      <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                        Aucun type ne correspond à « {riskTypeSearch.trim()} ».
                       </div>
-                      {filteredTypesForSelectedDomain.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.isRecommended ? '★ ' : ''}
-                          {t.name}
-                          {!t.isActive ? ' (inactif)' : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    ) : (
+                      groupedDomainsForPicker.map(({ domain, types }) => (
+                        <SelectGroup key={domain.id}>
+                          <SelectLabel className="flex items-baseline gap-2 px-2 pt-2 pb-1">
+                            <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                              {domain.familyLabel ?? 'Autres'}
+                            </span>
+                            <span className="text-xs font-medium text-foreground">
+                              {domain.name}
+                              {!domain.isActive ? ' (inactif)' : ''}
+                            </span>
+                          </SelectLabel>
+                          {types.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.isRecommended ? '★ ' : ''}
+                              {t.name}
+                              {!t.isActive ? ' (inactif)' : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {selectedRiskType ? (
+                  <p className="text-xs text-muted-foreground">
+                    Domaine :{' '}
+                    <span className="font-medium text-foreground">
+                      {selectedRiskType.domain.familyLabel
+                        ? `${selectedRiskType.domain.familyLabel} · ${selectedRiskType.domain.name}`
+                        : selectedRiskType.domain.name}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Recherchez un type métier ; le domaine est déduit automatiquement.
+                  </p>
+                )}
               </div>
               {taxonomyQuery.isError ? (
                 <p className="text-xs text-destructive">Impossible de charger la taxonomie risques.</p>
@@ -1230,7 +1347,7 @@ export function ProjectRiskEbiosDialog({
             <EbiosSection
               step={5}
               title="Risque résiduel"
-              hint="Niveau résiduel après traitement ; cohérent avec la criticité initiale (indicatif)."
+              hint="Niveau résiduel après traitement ; cohérent avec la criticité initiale (indicatif). Mesures complémentaires si besoin."
             >
               {residualSoftWarning ? (
                 <Alert className="border-amber-500/40 bg-amber-500/[0.06]">
@@ -1285,6 +1402,24 @@ export function ProjectRiskEbiosDialog({
                   )}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="ebios-resid-complementary">
+                  Traitement / mesures complémentaires (optionnel)
+                </Label>
+                <textarea
+                  id="ebios-resid-complementary"
+                  value={complementaryTreatmentMeasures}
+                  onChange={(e) => setComplementaryTreatmentMeasures(e.target.value)}
+                  disabled={isPending}
+                  rows={3}
+                  placeholder="Actions ou garde-fous additionnels après évaluation du résiduel (surveillance, renforts, revues…)"
+                  className={cn(
+                    'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
+                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                />
+              </div>
             </EbiosSection>
 
             <EbiosSection
@@ -1297,7 +1432,9 @@ export function ProjectRiskEbiosDialog({
                 <Select
                   value={ownerUserId}
                   onValueChange={(v) => setOwnerUserId(v ?? OWNER_NONE)}
-                  disabled={isPending || assignableQuery.isLoading}
+                  disabled={
+                    isPending || assignableQuery.isLoading || humanResourcesQuery.isLoading
+                  }
                 >
                   <SelectTrigger className="w-full min-w-0">
                     <span
@@ -1314,13 +1451,38 @@ export function ProjectRiskEbiosDialog({
                     {ownerMissingFromList ? (
                       <SelectItem value={ownerUserId}>{OWNER_UNKNOWN_LABEL}</SelectItem>
                     ) : null}
-                    {users.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {formatUserLabel(u)}
-                      </SelectItem>
-                    ))}
+                    {sortedMemberUsers.length > 0 ? (
+                      <SelectGroup>
+                        <SelectLabel>Membres du client</SelectLabel>
+                        {sortedMemberUsers.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {formatUserLabel(u)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ) : null}
+                    {hrLinkedOwnerOptions.length > 0 ? (
+                      <SelectGroup>
+                        <SelectLabel>Ressources humaines (compte lié)</SelectLabel>
+                        {hrLinkedOwnerOptions.map(({ userId, resource }) => (
+                          <SelectItem key={userId} value={userId}>
+                            {labelForHumanResourceOwner(resource)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ) : null}
                   </SelectContent>
                 </Select>
+                {humanResourcesQuery.isError ? (
+                  <p className="text-xs text-muted-foreground">
+                    Référentiel RH indisponible — seuls les membres client sont proposés.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Inclut les fiches ressource « Humaine » avec un utilisateur plateforme lié (hors
+                    doublon avec les membres ci-dessus).
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Statut du risque</Label>

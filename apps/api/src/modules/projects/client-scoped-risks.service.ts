@@ -122,7 +122,7 @@ export class ClientScopedRisksService {
     if (projectId != null) {
       await this.projects.getProjectForScope(clientId, projectId);
     }
-    await this.projects.assertClientUser(clientId, dto.ownerUserId);
+    await this.projects.assertProjectRiskOwnerUser(clientId, dto.ownerUserId);
     await this.assertComplianceRequirementForClient(clientId, dto.complianceRequirementId);
     await this.riskTaxonomy.assertUsableRiskTypeForWrite(clientId, dto.riskTypeId);
 
@@ -164,6 +164,7 @@ export class ClientScopedRisksService {
       treatmentStrategy: dto.treatmentStrategy,
       residualRiskLevel: dto.residualRiskLevel ?? null,
       residualJustification: dto.residualJustification?.trim() ?? null,
+      complementaryTreatmentMeasures: dto.complementaryTreatmentMeasures?.trim() ?? null,
     };
     if (dto.complianceRequirementId) {
       data.complianceRequirement = { connect: { id: dto.complianceRequirementId } };
@@ -216,7 +217,7 @@ export class ClientScopedRisksService {
     }
 
     if (dto.ownerUserId !== undefined) {
-      await this.projects.assertClientUser(clientId, dto.ownerUserId);
+      await this.projects.assertProjectRiskOwnerUser(clientId, dto.ownerUserId);
     }
     if (dto.complianceRequirementId !== undefined) {
       await this.assertComplianceRequirementForClient(clientId, dto.complianceRequirementId);
@@ -314,6 +315,9 @@ export class ClientScopedRisksService {
         }),
         ...(dto.residualJustification !== undefined && {
           residualJustification: dto.residualJustification?.trim() ?? null,
+        }),
+        ...(dto.complementaryTreatmentMeasures !== undefined && {
+          complementaryTreatmentMeasures: dto.complementaryTreatmentMeasures?.trim() ?? null,
         }),
         ...(dto.complianceRequirementId !== undefined &&
           (dto.complianceRequirementId
