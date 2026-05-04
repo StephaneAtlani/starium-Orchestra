@@ -11,12 +11,14 @@ import {
   PortfolioDeckTable,
   ProjectCommitteeDetailTables,
 } from './committee-presentation-tables';
-import { projectsList } from '../../constants/project-routes';
+import { projectDetail, projectsList } from '../../constants/project-routes';
 import type { ProjectListItem } from '../../types/project.types';
 import { useCommitteeCodirDeckQuery } from '../hooks/use-committee-codir-deck-query';
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Maximize2,
   Minimize2,
   PanelLeftClose,
@@ -80,6 +82,8 @@ export function CodirCommitteePresentation() {
   const totalSlides = 1 + sortedProjects.length;
   const [slideIndex, setSlideIndex] = useState(0);
   const [navOpen, setNavOpen] = useState(true);
+  /** Rail étroit (~56px) : numéros + infobulles, pour libérer la largeur utile. */
+  const [navCompact, setNavCompact] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const shellRef = useRef<HTMLDivElement>(null);
 
@@ -166,7 +170,10 @@ export function CodirCommitteePresentation() {
           variant={navOpen ? 'secondary' : 'outline'}
           size="sm"
           className="gap-1.5"
-          onClick={() => setNavOpen((o) => !o)}
+          onClick={() => {
+            setNavOpen((o) => !o);
+            if (!navOpen) setNavCompact(false);
+          }}
           aria-pressed={navOpen}
           aria-label={navOpen ? 'Masquer le menu de navigation' : 'Afficher le menu de navigation'}
         >
@@ -177,6 +184,30 @@ export function CodirCommitteePresentation() {
           )}
           Navigation
         </Button>
+
+        {navOpen ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 px-2 sm:px-2.5"
+            onClick={() => setNavCompact((c) => !c)}
+            aria-pressed={navCompact}
+            aria-label={
+              navCompact
+                ? 'Élargir la colonne de navigation'
+                : 'Réduire la colonne de navigation (rail compact)'
+            }
+            title={navCompact ? 'Élargir la navigation' : 'Réduire la navigation'}
+          >
+            {navCompact ? (
+              <ChevronsRight className="size-4" aria-hidden />
+            ) : (
+              <ChevronsLeft className="size-4" aria-hidden />
+            )}
+            <span className="hidden sm:inline">{navCompact ? 'Élargir' : 'Réduire'}</span>
+          </Button>
+        ) : null}
 
         <div className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden />
 
@@ -213,51 +244,92 @@ export function CodirCommitteePresentation() {
         <aside
           className={cn(
             'shrink-0 overflow-y-auto border-r border-border/60 bg-muted/20 transition-[width,opacity] duration-200',
-            navOpen ? 'w-[min(100%,280px)] opacity-100' : 'w-0 overflow-hidden border-0 opacity-0',
+            navOpen && !navCompact && 'w-[min(100%,280px)] opacity-100',
+            navOpen && navCompact && 'w-[52px] opacity-100 sm:w-14',
+            !navOpen && 'w-0 overflow-hidden border-0 opacity-0',
           )}
           aria-hidden={!navOpen}
         >
           {navOpen && (
-            <nav className="space-y-1 p-3" aria-label="Ordre de passage">
+            <nav
+              className={cn('space-y-1', navCompact ? 'p-1.5' : 'p-3')}
+              aria-label="Ordre de passage"
+            >
               <button
                 type="button"
                 onClick={() => setSlideIndex(0)}
+                title="Synthèse portefeuille"
+                aria-label="Diapositive 1 : Synthèse portefeuille"
                 className={cn(
-                  'flex w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
+                  'flex w-full rounded-lg font-medium transition-colors',
+                  navCompact
+                    ? 'items-center justify-center px-0 py-2 text-xs tabular-nums sm:text-sm'
+                    : 'px-3 py-2 text-left text-sm',
                   clampedSlide === 0
                     ? 'bg-primary text-primary-foreground'
                     : 'hover:bg-muted/80',
                 )}
               >
-                Synthèse portefeuille
+                {navCompact ? '1' : 'Synthèse portefeuille'}
               </button>
               {deckQ.isLoading && (
-                <p className="px-3 py-2 text-xs text-muted-foreground">Chargement des projets…</p>
+                <p
+                  className={cn(
+                    'text-muted-foreground',
+                    navCompact
+                      ? 'flex justify-center px-0 py-1 text-[0.65rem] leading-tight'
+                      : 'px-3 py-2 text-xs',
+                  )}
+                  title="Chargement des projets"
+                >
+                  {navCompact ? '…' : 'Chargement des projets…'}
+                </p>
               )}
               {deckQ.isError && (
-                <p className="px-3 py-2 text-xs text-destructive">Impossible de charger le deck.</p>
+                <p
+                  className={cn(
+                    'text-destructive',
+                    navCompact ? 'px-0 py-1 text-center text-[0.65rem]' : 'px-3 py-2 text-xs',
+                  )}
+                  title="Impossible de charger le deck"
+                >
+                  {navCompact ? '!' : 'Impossible de charger le deck.'}
+                </p>
               )}
               {sortedProjects.map((p, idx) => {
                 const active = clampedSlide === idx + 1;
+                const slideNum = idx + 2;
+                const labelFull = `${p.name} (${p.code})`;
                 return (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => setSlideIndex(idx + 1)}
+                    title={labelFull}
+                    aria-label={`Diapositive ${slideNum} : ${p.name}, code ${p.code}`}
                     className={cn(
-                      'flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                      'flex w-full rounded-lg transition-colors',
+                      navCompact
+                        ? 'items-center justify-center px-0 py-2 text-xs tabular-nums sm:text-sm'
+                        : 'flex-col gap-0.5 px-3 py-2 text-left text-sm',
                       active ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/80',
                     )}
                   >
-                    <span className="truncate font-medium">{p.name}</span>
-                    <span
-                      className={cn(
-                        'truncate text-xs',
-                        active ? 'text-primary-foreground/85' : 'text-muted-foreground',
-                      )}
-                    >
-                      {p.code}
-                    </span>
+                    {navCompact ? (
+                      <span className="tabular-nums">{slideNum}</span>
+                    ) : (
+                      <>
+                        <span className="truncate font-medium">{p.name}</span>
+                        <span
+                          className={cn(
+                            'truncate text-xs',
+                            active ? 'text-primary-foreground/85' : 'text-muted-foreground',
+                          )}
+                        >
+                          {p.code}
+                        </span>
+                      </>
+                    )}
                   </button>
                 );
               })}
@@ -332,14 +404,22 @@ export function CodirCommitteePresentation() {
 function ProjectCommitteeSlide({ project }: { project: ProjectListItem }) {
   return (
     <div className="flex w-full min-w-0 max-w-none flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/60 pb-4">
-        <div className="min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-border/70 bg-card/60 px-4 py-4 shadow-sm sm:px-6">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Fiche projet — CODIR
           </p>
           <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{project.name}</h2>
-          <p className="mt-1 font-mono text-sm text-muted-foreground">{project.code}</p>
+          <p className="mt-2 inline-flex items-center rounded-full border border-border/80 bg-muted/30 px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
+            {project.code}
+          </p>
         </div>
+        <Button asChild size="sm" className="shrink-0 gap-1.5">
+          <Link href={projectDetail(project.id)}>
+            <Presentation className="size-4" aria-hidden />
+            Fiche détaillée
+          </Link>
+        </Button>
       </div>
       <ProjectCommitteeDetailTables project={project} />
     </div>

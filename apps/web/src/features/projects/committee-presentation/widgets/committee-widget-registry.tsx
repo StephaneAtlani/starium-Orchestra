@@ -45,12 +45,16 @@ export type WidgetRenderContext = {
   };
 };
 
+export type CommitteeWidgetPresentationColumn = 'center' | 'pilotage';
+
 export type CommitteeWidgetDefinition = {
   id: WidgetId;
   title: string;
   theme: WidgetTheme;
   enabledByDefault: boolean;
   size: WidgetSize;
+  /** Colonne en mode présentation fiche projet (gouvernance au centre, pilotage à droite). */
+  presentationColumn?: CommitteeWidgetPresentationColumn;
   description?: string;
   render: (ctx: WidgetRenderContext) => React.ReactNode;
 };
@@ -217,6 +221,7 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
     title: 'Signaux portefeuille',
     description: 'Signaux automatiques de qualité de pilotage.',
     theme: 'execution',
+    presentationColumn: 'pilotage',
     enabledByDefault: true,
     size: 'single',
     render: ({ project }) => (
@@ -251,6 +256,7 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
     title: 'Prochains points projet',
     description: 'Revues planifiées ou brouillons à venir.',
     theme: 'governance',
+    presentationColumn: 'pilotage',
     enabledByDefault: true,
     size: 'single',
     render: ({ reviews, isLoading }) => (
@@ -347,6 +353,7 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
     title: 'Répartition statuts jalons',
     description: 'Comptage jalons par statut.',
     theme: 'execution',
+    presentationColumn: 'pilotage',
     enabledByDefault: false,
     size: 'single',
     render: ({ milestones, isLoading }) => {
@@ -369,6 +376,7 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
     title: 'Jalons à échéance proche',
     description: 'Jalons avec échéance <= 30 jours.',
     theme: 'execution',
+    presentationColumn: 'pilotage',
     enabledByDefault: false,
     size: 'single',
     render: ({ milestones, isLoading }) => {

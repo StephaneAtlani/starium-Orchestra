@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { HealthBadge, ProjectPortfolioBadges } from '../../components/project-badges';
 import {
@@ -17,7 +18,7 @@ import type { ProjectListItem } from '../../types/project.types';
 import { useProjectMilestonesQuery } from '../../hooks/use-project-milestones-query';
 import { useProjectReviewDetailQuery } from '../../hooks/use-project-review-detail-query';
 import { useProjectReviewsQuery } from '../../hooks/use-project-reviews-query';
-import { ArrowDown, ArrowUp, ArrowUpDown, GripVertical, Settings2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Settings2, Shield, Thermometer } from 'lucide-react';
 import { CommitteeWidgetConfigPanel } from '../widgets/committee-widget-config-panel';
 import {
   COMMITTEE_WIDGETS_V1,
@@ -33,6 +34,153 @@ function formatDate(iso: string | null) {
   } catch {
     return '—';
   }
+}
+
+function ownerInitials(displayName: string | null | undefined): string {
+  const n = displayName?.trim();
+  if (!n) return '?';
+  const parts = n.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase();
+}
+
+function ProjectCodirCharacteristicsSidebar({
+  project,
+  className,
+}: {
+  project: ProjectListItem;
+  className?: string;
+}) {
+  const priorityLabel = PROJECT_PRIORITY_LABEL[project.priority] ?? project.priority;
+  const criticalityLabel = PROJECT_CRITICALITY_LABEL[project.criticality] ?? project.criticality;
+  const statusLabel = PROJECT_STATUS_LABEL[project.status] ?? project.status;
+  const typeLabel = PROJECT_TYPE_LABEL[project.type] ?? project.type;
+  const progressPct =
+    project.progressPercent ?? project.derivedProgressPercent ?? null;
+  const cat = project.portfolioCategory;
+
+  return (
+    <aside className={cn('lg:sticky lg:top-0 lg:self-start', className)}>
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+        <div className="border-b border-border/60 bg-muted/30 px-4 py-2.5">
+          <h3 className="text-sm font-semibold tracking-tight">Caractéristiques</h3>
+        </div>
+        <div className="space-y-4 p-4">
+          <div className="flex items-start gap-3">
+            <div
+              className="grid size-11 shrink-0 place-items-center rounded-full border border-border/70 bg-muted/40 text-sm font-semibold tabular-nums text-muted-foreground"
+              aria-hidden
+            >
+              {ownerInitials(project.ownerDisplayName)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+                Responsable
+              </p>
+              <p className="truncate text-sm font-medium leading-snug">
+                {project.ownerDisplayName?.trim() || 'Non renseigné'}
+              </p>
+            </div>
+          </div>
+
+          <dl className="grid gap-3 text-sm">
+            <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
+              <dt className="text-xs text-muted-foreground">Code</dt>
+              <dd className="font-mono text-xs font-medium">{project.code}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
+              <dt className="text-xs text-muted-foreground">Fin cible</dt>
+              <dd className="text-xs tabular-nums">{formatDate(project.targetEndDate)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
+              <dt className="text-xs text-muted-foreground">Avancement</dt>
+              <dd className="text-xs font-medium tabular-nums">
+                {progressPct != null ? `${progressPct} %` : '—'}
+              </dd>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2">
+              <dt className="text-xs text-muted-foreground">Statut</dt>
+              <dd className="text-right text-xs">{statusLabel}</dd>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <dt className="text-xs text-muted-foreground">Type</dt>
+              <dd className="text-right text-xs">{typeLabel}</dd>
+            </div>
+          </dl>
+
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary" className="gap-1 font-normal">
+              <Thermometer className="size-3 opacity-70" aria-hidden />
+              {priorityLabel}
+            </Badge>
+            <Badge variant="outline" className="gap-1 font-normal">
+              <Shield className="size-3 opacity-70" aria-hidden />
+              {criticalityLabel}
+            </Badge>
+          </div>
+
+          {cat ? (
+            <div>
+              <p className="mb-1.5 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+                Portefeuille
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {cat.parentName ? (
+                  <Badge variant="outline" className="max-w-full truncate font-normal">
+                    {cat.parentName}
+                  </Badge>
+                ) : null}
+                <Badge variant="secondary" className="max-w-full truncate font-normal">
+                  {cat.name}
+                </Badge>
+              </div>
+            </div>
+          ) : null}
+
+          {project.tags.length > 0 ? (
+            <div>
+              <p className="mb-1.5 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+                Étiquettes
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {project.tags.map((t) => (
+                  <Badge
+                    key={t.id}
+                    variant="outline"
+                    className="max-w-full truncate border-dashed font-normal"
+                    style={
+                      t.color
+                        ? {
+                            borderColor: t.color,
+                            color: t.color,
+                          }
+                        : undefined
+                    }
+                  >
+                    {t.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="border-t border-border/50 pt-3">
+            <p className="mb-2 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+              Santé (météo)
+            </p>
+            <HealthBadge health={project.computedHealth} />
+          </div>
+
+          <div className="border-t border-border/50 pt-3">
+            <p className="mb-2 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+              Signaux
+            </p>
+            <ProjectPortfolioBadges signals={project.signals} />
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
 }
 
 function progressCell(p: ProjectListItem) {
@@ -385,16 +533,25 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
   const milestonesQ = useProjectMilestonesQuery(project.id, { enabled: true });
 
   const widgets = COMMITTEE_WIDGETS_V1;
-  const defaultOrder = useMemo(() => widgets.map((w) => w.id), [widgets]);
+  const defaultCenterOrder = useMemo(
+    () => widgets.filter((w) => (w.presentationColumn ?? 'center') === 'center').map((w) => w.id),
+    [widgets],
+  );
+  const defaultPilotageOrder = useMemo(
+    () => widgets.filter((w) => w.presentationColumn === 'pilotage').map((w) => w.id),
+    [widgets],
+  );
+  const allWidgetIds = useMemo(
+    () => [...defaultCenterOrder, ...defaultPilotageOrder],
+    [defaultCenterOrder, defaultPilotageOrder],
+  );
   const defaultHidden = useMemo(
     () => widgets.filter((w) => !w.enabledByDefault).map((w) => w.id),
     [widgets],
   );
 
-  const [widgetOrder, setWidgetOrder] = useState<WidgetId[]>(defaultOrder);
   const [hiddenWidgets, setHiddenWidgets] = useState<WidgetId[]>(defaultHidden);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [draggedWidget, setDraggedWidget] = useState<WidgetId | null>(null);
 
   const storageKey = `committee-codir-widgets:${project.id}`;
 
@@ -402,49 +559,41 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
     try {
       const raw = localStorage.getItem(storageKey);
       if (!raw) {
-        setWidgetOrder(defaultOrder);
         setHiddenWidgets(defaultHidden);
         return;
       }
       const parsed = JSON.parse(raw) as {
-        order?: WidgetId[];
         hidden?: WidgetId[];
+        order?: WidgetId[];
+        centerOrder?: WidgetId[];
+        pilotageOrder?: WidgetId[];
       };
-      const base = defaultOrder.filter((id) => parsed.order?.includes(id));
-      const extra = defaultOrder.filter((id) => !base.includes(id));
-      const order = [...base, ...extra];
-      const parsedHidden = (parsed.hidden ?? []).filter((id) => defaultOrder.includes(id));
-      const known = new Set<WidgetId>([...(parsed.order ?? []), ...(parsed.hidden ?? [])]);
+      const parsedHidden = (parsed.hidden ?? []).filter((id) => allWidgetIds.includes(id));
+      const known = new Set<WidgetId>([
+        ...(parsed.hidden ?? []),
+        ...(parsed.order ?? []),
+        ...(parsed.centerOrder ?? []),
+        ...(parsed.pilotageOrder ?? []),
+      ]);
       const hidden = new Set<WidgetId>(parsedHidden);
       defaultHidden.forEach((id) => {
         if (!known.has(id)) hidden.add(id);
       });
-      setWidgetOrder(order);
       setHiddenWidgets([...hidden]);
     } catch {
-      setWidgetOrder(defaultOrder);
       setHiddenWidgets(defaultHidden);
     }
-  }, [defaultHidden, defaultOrder, storageKey]);
+  }, [allWidgetIds, defaultHidden, storageKey]);
 
   const saveLayout = () => {
     localStorage.setItem(
       storageKey,
-      JSON.stringify({ order: widgetOrder, hidden: hiddenWidgets }),
+      JSON.stringify({
+        hidden: hiddenWidgets,
+        version: 3,
+      }),
     );
     setSettingsOpen(false);
-  };
-
-  const onDropWidget = (target: WidgetId) => {
-    if (!draggedWidget || draggedWidget === target) return;
-    setWidgetOrder((prev) => {
-      const without = prev.filter((id) => id !== draggedWidget);
-      const index = without.indexOf(target);
-      if (index < 0) return prev;
-      without.splice(index, 0, draggedWidget);
-      return without;
-    });
-    setDraggedWidget(null);
   };
 
   const toggleWidget = (id: WidgetId) => {
@@ -465,13 +614,24 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
     },
   };
 
+  const renderWidget = (id: WidgetId) => {
+    const widget = WIDGET_BY_ID[id];
+    if (!widget) return null;
+    return (
+      <div key={id} className="min-w-0">
+        {widget.render(ctx)}
+      </div>
+    );
+  };
+
   return (
     <div className="flex w-full min-w-0 max-w-none flex-col gap-6">
-      <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
-        <p className="text-xs text-muted-foreground">
-          Widgets de pilotage : déplace-les, masque ceux non utiles, puis enregistre.
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
+        <p className="max-w-xl text-xs text-muted-foreground">
+          Colonnes gauche / centre / pilotage : masquez les blocs non utiles via Configurer, puis
+          Enregistrer (ordre fixe).
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => setSettingsOpen((v) => !v)}>
             <Settings2 className="mr-1 size-4" />
             Configurer
@@ -490,32 +650,36 @@ export function ProjectCommitteeDetailTables({ project }: { project: ProjectList
         />
       ) : null}
 
-      <div className="columns-1 [column-gap:1.25rem] md:columns-2 md:[column-gap:1.5rem]">
-        {widgetOrder
-          .filter((id) => !hiddenWidgets.includes(id))
-          .map((id) => {
-            const widget = WIDGET_BY_ID[id];
-            if (!widget) return null;
-            return (
-              <div
-                key={id}
-                draggable
-                onDragStart={() => setDraggedWidget(id)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => onDropWidget(id)}
-                className={cn(
-                  'group mb-4',
-                  widget.size === 'full' ? '[column-span:all]' : 'break-inside-avoid',
-                )}
-              >
-                <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-                  <GripVertical className="size-4 opacity-60" />
-                  <span>{widget.title}</span>
-                </div>
-                {widget.render(ctx)}
-              </div>
-            );
-          })}
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(220px,260px)_minmax(0,1fr)_minmax(280px,320px)] lg:items-start lg:gap-6">
+        <ProjectCodirCharacteristicsSidebar project={project} className="order-1 lg:order-none" />
+
+        <section className="order-3 flex min-w-0 flex-col gap-4 lg:order-none">
+          <div className="rounded-lg border border-border/60 bg-card/40 px-3 py-2">
+            <p className="text-xs font-semibold tracking-tight">Suivi & gouvernance</p>
+            <p className="text-[0.65rem] text-muted-foreground">
+              Indicateurs, planning jalons, décisions, actions…
+            </p>
+          </div>
+          <div className="flex min-w-0 flex-col gap-5">
+            {defaultCenterOrder
+              .filter((id) => !hiddenWidgets.includes(id))
+              .map((id) => renderWidget(id))}
+          </div>
+        </section>
+
+        <section className="order-2 flex min-w-0 flex-col gap-4 lg:order-none">
+          <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 dark:bg-primary/10">
+            <p className="text-xs font-semibold tracking-tight text-primary">Pilotage</p>
+            <p className="text-[0.65rem] text-muted-foreground">
+              Signaux, points projet et jalons — indicateurs et planning sont au centre.
+            </p>
+          </div>
+          <div className="flex min-w-0 flex-col gap-5">
+            {defaultPilotageOrder
+              .filter((id) => !hiddenWidgets.includes(id))
+              .map((id) => renderWidget(id))}
+          </div>
+        </section>
       </div>
 
       <div className="flex flex-wrap gap-2">
