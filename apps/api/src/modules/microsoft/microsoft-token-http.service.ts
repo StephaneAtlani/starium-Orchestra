@@ -71,13 +71,24 @@ export class MicrosoftTokenHttpService {
         if (!res.ok) {
           const err = json as unknown as MicrosoftTokenErrorBody;
           const msg = err.error ?? 'unknown_error';
+          const fullDesc = (err.error_description ?? '').replace(/\s+/g, ' ');
           /**
-           * `error_description` Microsoft contient le code AAD ciblé (ex. AADSTS7000215 secret invalide,
-           * AADSTS50012 secret expiré, AADSTS700016 application non trouvée). Le tronquer pour rester loggable.
+           * En prod : on logue uniquement le code AADSTS extrait (suffisant pour diagnostic
+           * support : 7000215=secret invalide, 50012=secret expiré, 700016=app inconnue, …).
+           * Pas de Trace ID, pas de message complet — qui peuvent contenir des données client.
+           * Hors prod ou si `MICROSOFT_OAUTH_VERBOSE_ERRORS=true`, log complet (≤240 chars).
            */
-          const desc = (err.error_description ?? '').replace(/\s+/g, ' ').slice(0, 240);
+          const verbose =
+            this.config.get<string>('NODE_ENV') !== 'production' ||
+            this.config
+              .get<string>('MICROSOFT_OAUTH_VERBOSE_ERRORS')
+              ?.toLowerCase() === 'true';
+          const aadStsCode = /AADSTS\d+/i.exec(fullDesc)?.[0];
+          const logDesc = verbose
+            ? fullDesc.slice(0, 240)
+            : aadStsCode ?? '';
           this.logger.warn(
-            `Token endpoint: ${res.status} error=${msg}${desc ? ` desc="${desc}"` : ''}`,
+            `Token endpoint: ${res.status} error=${msg}${logDesc ? ` desc="${logDesc}"` : ''}`,
           );
           const e = new Error(msg) as Error & {
             oauthError?: string;

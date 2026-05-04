@@ -20,6 +20,15 @@ import {
 
 const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
 
+/**
+ * Mode verbeux des erreurs Microsoft (SSO + sync M365) côté UI.
+ * - Par défaut : messages courts, orientés utilisateur final, sans détails techniques (code AAD, noms de variables, traces internes).
+ * - `NEXT_PUBLIC_MICROSOFT_VERBOSE_ERRORS=true` (build) : messages longs avec pistes de configuration, utiles en debug / hors prod.
+ * Aligné côté API avec `MICROSOFT_OAUTH_VERBOSE_ERRORS` (qui contrôle l’ajout de `microsoft_error` / `microsoft_error_description` dans l’URL de retour).
+ */
+const VERBOSE_OAUTH_ERRORS =
+  process.env.NEXT_PUBLIC_MICROSOFT_VERBOSE_ERRORS === 'true';
+
 /** Messages alignés sur les `reason` renvoyées par GET /api/auth/microsoft/callback (query). */
 function messageForMicrosoftCallbackError(reason: string | null): string {
   switch (reason) {
@@ -31,7 +40,7 @@ function messageForMicrosoftCallbackError(reason: string | null): string {
     case 'user_without_valid_access':
       return 'Ce compte n’a pas d’accès actif à un client Starium. Contactez un administrateur.';
     case 'invalid_or_expired_state':
-      return 'La session de connexion Microsoft a expiré ou est invalide. Réessayez depuis « Se connecter avec Microsoft ».';
+      return 'La session de connexion Microsoft a expiré. Réessayez « Se connecter avec Microsoft ».';
     case 'missing_code_or_state':
       return 'Réponse Microsoft incomplète. Réessayez la connexion.';
     case 'microsoft_oauth_error':
@@ -39,26 +48,37 @@ function messageForMicrosoftCallbackError(reason: string | null): string {
     case 'callback_processing_error':
       return 'Erreur lors du traitement de la connexion Microsoft. Réessayez dans quelques instants.';
     case 'microsoft_id_token_invalid':
-      return 'Le jeton Microsoft n’a pas pu être validé. Vérifiez que l’ID d’application (client) Entra correspond à la configuration de l’API (audience / client_id).';
     case 'microsoft_sso_misconfigured':
-      return 'Configuration SSO Microsoft incomplète (client, secret, URL de redirection). Vérifiez l’environnement de l’API ou l’administration plateforme.';
     case 'database_schema_mismatch':
-      return 'La base de données n’est pas à jour : exécutez les migrations (ex. prisma migrate deploy) puis réessayez.';
-    case 'microsoft_token_invalid_grant':
-      return 'Le code Microsoft a expiré ou a déjà été utilisé, ou l’URL de redirection ne correspond pas à Entra. Réessayez « Se connecter avec Microsoft » depuis le début.';
-    case 'microsoft_oauth_unauthorized_client':
-      return 'L’application n’est pas autorisée pour ce flux OAuth (client Entra / secret / redirect URI). Vérifiez la configuration.';
+    case 'jwt_misconfigured':
     case 'prisma_validation_error':
     case 'prisma_unknown_error':
     case 'prisma_init_error':
-      return 'Erreur base de données ou schéma Prisma. Vérifiez les migrations et la connexion à la base.';
-    case 'jwt_misconfigured':
-      return 'Configuration JWT invalide sur l’API (secret / durées). Contactez un administrateur.';
+      if (VERBOSE_OAUTH_ERRORS) {
+        if (reason === 'microsoft_id_token_invalid') {
+          return 'Le jeton Microsoft n’a pas pu être validé. Vérifiez que l’ID d’application (client) Entra correspond à la configuration de l’API (audience / client_id).';
+        }
+        if (reason === 'microsoft_sso_misconfigured') {
+          return 'Configuration SSO Microsoft incomplète (client, secret, URL de redirection). Vérifiez l’environnement de l’API ou l’administration plateforme.';
+        }
+        if (reason === 'database_schema_mismatch') {
+          return 'La base de données n’est pas à jour : exécutez les migrations (ex. prisma migrate deploy) puis réessayez.';
+        }
+        if (reason === 'jwt_misconfigured') {
+          return 'Configuration JWT invalide sur l’API (secret / durées). Contactez un administrateur.';
+        }
+        return 'Erreur base de données ou schéma Prisma. Vérifiez les migrations et la connexion à la base.';
+      }
+      return 'Connexion Microsoft indisponible. Contactez votre administrateur.';
+    case 'microsoft_token_invalid_grant':
+      return 'La session Microsoft a expiré. Réessayez « Se connecter avec Microsoft » depuis le début.';
+    case 'microsoft_oauth_unauthorized_client':
+      return 'Connexion Microsoft refusée. Contactez votre administrateur.';
     default:
       if (reason === 'access_denied' || reason?.includes('access_denied')) {
         return 'Connexion Microsoft annulée.';
       }
-      if (reason) {
+      if (reason && VERBOSE_OAUTH_ERRORS) {
         return `Connexion Microsoft impossible (code : ${reason}). Si le problème persiste, vérifiez la configuration SSO côté serveur.`;
       }
       return 'Connexion Microsoft impossible. Réessayez ou contactez le support.';
@@ -66,10 +86,10 @@ function messageForMicrosoftCallbackError(reason: string | null): string {
 }
 
 /**
- * Erreur après callback OAuth **sync M365** (`GET /api/microsoft/auth/callback`) quand
- * `oauthErrorUrl` / `MICROSOFT_OAUTH_ERROR_URL` pointe vers `/login?status=error` (modèle SSO) :
- * l’API ajoute `microsoft=error&code=…` sans `reason` → sans ce bloc, la page affiche le message SSO générique.
- * Codes alignés sur `MicrosoftOAuthService.buildErrorRedirect`.
+ * Erreur après callback OAuth **sync M365** (`GET /api/microsoft/auth/callback`).
+ * En prod (mode non verbeux) : messages courts orientés admin client, sans détails AAD ni noms de variables.
+ * Le slug `code` reste utile au support si l’utilisateur le mentionne ; les détails Microsoft (`microsoft_error`)
+ * ne sont injectés dans l’URL que si `MICROSOFT_OAUTH_VERBOSE_ERRORS=true` côté API.
  */
 function messageForM365SyncOAuthRedirectError(
   code: string | null,
@@ -77,35 +97,38 @@ function messageForM365SyncOAuthRedirectError(
 ): string {
   switch (code) {
     case 'invalid_state':
-      return 'Le jeton de session Microsoft 365 a expiré ou est invalide (délai trop long avant la fin du consentement, ou horloge serveur). Rouvre Administration client → Microsoft 365 et clique à nouveau sur « Connecter Microsoft 365 ». Si c’est souvent trop juste, augmente la durée côté plateforme (TTL state OAuth M365).';
     case 'invalid_state_payload':
-      return 'Session Microsoft 365 incohérente (données internes). Ferme les autres onglets Starium, rouvre Administration client → Microsoft 365 et relance « Connecter Microsoft 365 ». Si ça persiste, contacte le support.';
     case 'state_replay':
-      return 'Ce retour Microsoft 365 a déjà été utilisé (double validation, retour arrière du navigateur, ou deux onglets sur le même flux). Relance « Connecter Microsoft 365 » depuis Administration client → Microsoft 365 dans un seul onglet, sans revenir en arrière après l’écran Microsoft.';
     case 'missing_code_or_state':
-      return 'Réponse Microsoft incomplète (consentement M365). Réessayez depuis Administration client → Microsoft 365.';
+      return 'La session de connexion Microsoft 365 a expiré ou a déjà été utilisée. Rouvrez Administration client → Microsoft 365 dans un seul onglet et cliquez à nouveau sur « Connecter Microsoft 365 ».';
     case 'oauth_upstream':
-      return `Microsoft a renvoyé une erreur lors du consentement${microsoftError ? ` (${microsoftError})` : ''}. Réessayez ou vérifiez les restrictions du tenant.`;
+      if (VERBOSE_OAUTH_ERRORS && microsoftError) {
+        return `Microsoft a renvoyé une erreur lors du consentement (${microsoftError}). Réessayez ou vérifiez les restrictions du tenant.`;
+      }
+      return 'Microsoft a interrompu le consentement. Réessayez « Connecter Microsoft 365 ».';
     case 'invalid_client':
-      return 'Client Starium introuvable après le retour Microsoft (données internes). Reconnectez-vous ou contactez le support.';
+      return 'Session Starium expirée. Reconnectez-vous puis réessayez « Connecter Microsoft 365 ».';
     case 'forbidden_client':
-      return 'Vous n’avez plus d’accès actif à ce client Starium. Réactivez votre accès ou choisissez un autre client.';
+      return 'Vous n’avez plus d’accès actif à ce client Starium. Choisissez un autre client ou contactez votre administrateur.';
     case 'missing_credentials':
-      return 'Identifiants Entra incomplets pour ce client Starium (ID ou secret manquant). Ouvre Administration client → Microsoft 365, enregistre ID + secret + tenant, puis réessaie.';
+      return 'Identifiants Microsoft 365 incomplets pour ce client. Ouvrez Administration client → Microsoft 365 pour les compléter.';
     case 'token_exchange_failed':
-      return 'Microsoft a refusé l’échange du code (souvent invalid_client dans les logs API : secret expiré ou erroné, mauvais ID d’application, ou tenant autorité incohérent avec l’app Entra). Les identifiants utilisés sont ceux enregistrés en base pour ce client : vérifie qu’ils correspondent à la même app Entra, régénère le secret dans le portail Azure, recolle-le dans Administration client → Microsoft 365 puis Enregistrer. Vérifie aussi que l’URI de redirection Web dans Entra est exactement celle affichée dans Starium sous « URI de redirection à déclarer dans Azure ».';
+      if (VERBOSE_OAUTH_ERRORS) {
+        return 'Microsoft a refusé l’échange du code (souvent secret expiré ou erroné). Régénérez le secret dans le portail Azure, recollez-le dans Administration client → Microsoft 365 puis Enregistrer.';
+      }
+      return 'Connexion Microsoft 365 refusée. Vérifiez les identifiants Azure dans Administration client → Microsoft 365 (en particulier le secret), puis réessayez.';
     case 'invalid_id_token':
     case 'missing_id_token':
-      return 'Jeton d’identité Microsoft invalide ou absent après consentement. Vérifie l’app Entra (scopes openid) et que l’ID client correspond au secret enregistré pour ce client Starium.';
+      return 'Réponse Microsoft incomplète. Vérifiez la configuration de l’application dans Administration client → Microsoft 365.';
     case 'persist_failed':
-      return 'Impossible d’enregistrer la connexion Microsoft côté serveur. Réessayez ou contactez le support.';
+      return 'Impossible d’enregistrer la connexion Microsoft 365. Réessayez ou contactez le support.';
     case 'rate_limited':
-      return 'Trop de tentatives de callback OAuth. Patientez quelques minutes puis réessayez.';
+      return 'Trop de tentatives. Patientez quelques minutes puis réessayez.';
     default:
-      if (code) {
-        return `Connexion Microsoft 365 impossible (code : ${code}). Vérifie les identifiants enregistrés dans Administration client → Microsoft 365, les logs API (erreur token Microsoft), et l’URI de redirection affichée dans Starium vs Entra.`;
+      if (code && VERBOSE_OAUTH_ERRORS) {
+        return `Connexion Microsoft 365 impossible (code : ${code}). Vérifiez les identifiants dans Administration client → Microsoft 365.`;
       }
-      return 'Connexion Microsoft 365 impossible. Si tu es administrateur hébergement : l’URL de retour après erreur OAuth ne doit pas être la page login SSO ; sinon ouvre Administration client → Microsoft 365 pour corriger les identifiants.';
+      return 'Connexion Microsoft 365 impossible. Ouvrez Administration client → Microsoft 365 pour vérifier la configuration, puis réessayez.';
   }
 }
 

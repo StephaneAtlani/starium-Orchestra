@@ -680,14 +680,26 @@ export class MicrosoftOAuthService {
     }
     url.searchParams.set('microsoft', 'error');
     url.searchParams.set('code', code);
-    if (microsoftError) {
-      url.searchParams.set('microsoft_error', microsoftError);
-    }
-    if (microsoftDesc) {
-      url.searchParams.set(
-        'microsoft_error_description',
-        microsoftDesc.slice(0, 200),
-      );
+    /**
+     * Détails Microsoft (`error` + `error_description`) **uniquement hors prod** ou si
+     * `MICROSOFT_OAUTH_VERBOSE_ERRORS=true` : évite d’exposer Trace ID / app ID / message AAD
+     * dans une URL bookmarkée. En prod, la description complète reste dans les logs Nest et
+     * l’audit `microsoft_connection.error` (visibles côté admin / support).
+     */
+    const verbose =
+      this.config.get<string>('NODE_ENV') !== 'production' ||
+      this.config.get<string>('MICROSOFT_OAUTH_VERBOSE_ERRORS')?.toLowerCase() ===
+        'true';
+    if (verbose) {
+      if (microsoftError) {
+        url.searchParams.set('microsoft_error', microsoftError);
+      }
+      if (microsoftDesc) {
+        url.searchParams.set(
+          'microsoft_error_description',
+          microsoftDesc.slice(0, 200),
+        );
+      }
     }
     if (base.startsWith('http')) {
       return url.toString();
