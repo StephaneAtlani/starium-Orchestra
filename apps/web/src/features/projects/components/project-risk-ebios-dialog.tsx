@@ -56,7 +56,8 @@ import {
   RISK_STATUS_LABEL,
   RISK_TREATMENT_STRATEGY_LABEL,
 } from '../constants/project-enum-labels';
-import { CloudUpload, ListPlus, Loader2 } from 'lucide-react';
+import { Popover as PopoverPrimitive } from '@base-ui/react/popover';
+import { ChevronDown, CloudUpload, ListPlus, Loader2 } from 'lucide-react';
 
 const PI_OPTIONS = [1, 2, 3, 4, 5] as const;
 const NONE = '__none__';
@@ -164,6 +165,14 @@ function labelForHumanResourceOwner(r: ResourceListItem): string {
 function residualLevelDisplayLabel(value: string): string {
   if (value === NONE) return '';
   return PROJECT_RISK_CRITICALITY_LABEL[value] ?? 'Niveau enregistré';
+}
+
+function normalizeRiskSearchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 const selectTriggerLabelClass =
@@ -449,6 +458,7 @@ export function ProjectRiskEbiosDialog({
   const [taxonomyDomainId, setTaxonomyDomainId] = useState<string>(NONE);
   const [riskTypeId, setRiskTypeId] = useState<string>(NONE);
   const [riskTypeSearch, setRiskTypeSearch] = useState('');
+  const [riskTypePickerOpen, setRiskTypePickerOpen] = useState(false);
   const [probability, setProbability] = useState(3);
   const [impact, setImpact] = useState(3);
   const [likelihoodJustification, setLikelihoodJustification] = useState('');
@@ -473,10 +483,13 @@ export function ProjectRiskEbiosDialog({
 
   const savedSnapshotRef = useRef<string>('');
   const loadedKeyRef = useRef<string | null>(null);
+  const riskTypeSearchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) {
       loadedKeyRef.current = null;
+      setRiskTypePickerOpen(false);
+      setRiskTypeSearch('');
       return;
     }
     const sourcePhase: 'list' | 'detail' =
@@ -816,7 +829,7 @@ export function ProjectRiskEbiosDialog({
    * Si un type legacy existe sur un domaine présent du catalogue, on l'injecte côté domaine.
    */
   const groupedDomainsForPicker = useMemo(() => {
-    const query = riskTypeSearch.trim().toLowerCase();
+    const query = normalizeRiskSearchText(riskTypeSearch);
     const legacy = riskResolved?.riskType;
 
     const enrichedDomains = allDomainsForPicker.map((d) => {
@@ -843,10 +856,10 @@ export function ProjectRiskEbiosDialog({
         ? types
         : types.filter(
             (t) =>
-              t.name.toLowerCase().includes(query) ||
-              t.code.toLowerCase().includes(query) ||
-              d.name.toLowerCase().includes(query) ||
-              (d.familyLabel ?? '').toLowerCase().includes(query),
+              normalizeRiskSearchText(t.name).includes(query) ||
+              normalizeRiskSearchText(t.code).includes(query) ||
+              normalizeRiskSearchText(d.name).includes(query) ||
+              normalizeRiskSearchText(d.familyLabel ?? '').includes(query),
           );
       return { domain: d, types: filteredTypes };
     });
@@ -877,6 +890,56 @@ export function ProjectRiskEbiosDialog({
     const inactive = !type.isActive ? ' (inactif)' : '';
     return `${family}${domain.name} — ${type.name}${inactive}`;
   }, [selectedRiskType]);
+
+  const selectRiskTypeById = useCallback(
+    (typeId: string) => {
+      setRiskTypeId(typeId);
+      for (const d of allDomainsForPicker) {
+        if (d.types.some((t) => t.id === typeId)) {
+          setTaxonomyDomainId(d.id);
+          break;
+        }
+      }
+    },
+    [allDomainsForPicker],
+  );
+
+  const pickRiskTypeAndClosePicker = useCallback(
+    (typeId: string) => {
+      selectRiskTypeById(typeId);
+      setRiskTypePickerOpen(false);
+      setRiskTypeSearch('');
+    },
+    [selectRiskTypeById],
+  );
+
+  const riskTypeAutocompleteSuggestion = useMemo(() => {
+    const query = normalizeRiskSearchText(riskTypeSearch);
+    if (!query) return null;
+    const candidates = groupedDomainsForPicker.flatMap(({ domain, types }) =>
+      types.map((type) => ({
+        typeId: type.id,
+        domainId: domain.id,
+        name: type.name,
+        code: type.code,
+        domainName: domain.name,
+      })),
+    );
+    if (candidates.length === 0) return null;
+
+    const startsWith = candidates.find(
+      (c) =>
+        normalizeRiskSearchText(c.name).startsWith(query) ||
+        normalizeRiskSearchText(c.code).startsWith(query) ||
+        normalizeRiskSearchText(c.domainName).startsWith(query),
+    );
+    const pick = startsWith ?? candidates[0];
+    return {
+      typeId: pick.typeId,
+      domainId: pick.domainId,
+      label: `${pick.domainName} — ${pick.name}`,
+    };
+  }, [groupedDomainsForPicker, riskTypeSearch]);
 
   const treatmentHeaderExtra = !riskResolved?.id ? (
     <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
@@ -1063,22 +1126,25 @@ export function ProjectRiskEbiosDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label>Type de risque</Label>
-                <Select
-                  value={riskTypeId}
-                  onValueChange={(v) => {
-                    if (!v) return;
-                    setRiskTypeId(v);
-                    for (const d of allDomainsForPicker) {
-                      if (d.types.some((t) => t.id === v)) {
-                        setTaxonomyDomainId(d.id);
-                        break;
-                      }
-                    }
+                <Label htmlFor="ebios-risk-type-trigger">Type de risque</Label>
+                <PopoverPrimitive.Root
+                  open={riskTypePickerOpen}
+                  onOpenChange={(next) => {
+                    setRiskTypePickerOpen(next);
+                    if (!next) setRiskTypeSearch('');
                   }}
-                  disabled={isPending || taxonomyQuery.isLoading}
                 >
-                  <SelectTrigger className="w-full min-w-0">
+                  <PopoverPrimitive.Trigger
+                    id="ebios-risk-type-trigger"
+                    type="button"
+                    disabled={isPending || taxonomyQuery.isLoading}
+                    className={cn(
+                      'flex h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm outline-none transition-colors',
+                      'select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                      (isPending || taxonomyQuery.isLoading) && 'pointer-events-none',
+                    )}
+                  >
                     <span
                       className={cn(
                         selectTriggerLabelClass,
@@ -1089,48 +1155,98 @@ export function ProjectRiskEbiosDialog({
                         ? 'Chargement de la taxonomie…'
                         : riskTypeTriggerLabel}
                     </span>
-                  </SelectTrigger>
-                  <SelectContent
-                    className="max-h-[60vh] w-(--anchor-width) min-w-[min(34rem,90vw)]"
-                    header={
-                      <Input
-                        value={riskTypeSearch}
-                        onChange={(e) => setRiskTypeSearch(e.target.value)}
-                        placeholder="Rechercher un type, un domaine ou un code…"
-                        className="h-8"
-                        autoComplete="off"
-                        onKeyDown={(e) => e.stopPropagation()}
-                      />
-                    }
-                  >
-                    {groupedDomainsForPicker.length === 0 ? (
-                      <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                        Aucun type ne correspond à « {riskTypeSearch.trim()} ».
-                      </div>
-                    ) : (
-                      groupedDomainsForPicker.map(({ domain, types }) => (
-                        <SelectGroup key={domain.id}>
-                          <SelectLabel className="flex items-baseline gap-2 px-2 pt-2 pb-1">
-                            <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
-                              {domain.familyLabel ?? 'Autres'}
-                            </span>
-                            <span className="text-xs font-medium text-foreground">
-                              {domain.name}
-                              {!domain.isActive ? ' (inactif)' : ''}
-                            </span>
-                          </SelectLabel>
-                          {types.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.isRecommended ? '★ ' : ''}
-                              {t.name}
-                              {!t.isActive ? ' (inactif)' : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                    <ChevronDown className="pointer-events-none size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  </PopoverPrimitive.Trigger>
+                  <PopoverPrimitive.Portal>
+                    <PopoverPrimitive.Positioner
+                      side="bottom"
+                      sideOffset={8}
+                      align="start"
+                      className="isolate z-[300]"
+                    >
+                      <PopoverPrimitive.Popup
+                        initialFocus={riskTypeSearchInputRef}
+                        className={cn(
+                          'max-h-[min(60vh,520px)] w-[min(var(--anchor-width),100vw-2rem)] min-w-[min(34rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-border/60 bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10',
+                          'data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95',
+                          'data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+                        )}
+                      >
+                        <div className="border-b border-border/60 bg-popover p-2">
+                          <div className="space-y-1">
+                            <Input
+                              ref={riskTypeSearchInputRef}
+                              value={riskTypeSearch}
+                              onChange={(e) => setRiskTypeSearch(e.target.value)}
+                              placeholder="Rechercher un type, un domaine ou un code…"
+                              className="h-8"
+                              autoComplete="off"
+                              onKeyDown={(e) => {
+                                if (
+                                  e.key === 'Enter' &&
+                                  riskTypeAutocompleteSuggestion
+                                ) {
+                                  e.preventDefault();
+                                  pickRiskTypeAndClosePicker(riskTypeAutocompleteSuggestion.typeId);
+                                }
+                              }}
+                            />
+                            {riskTypeAutocompleteSuggestion ? (
+                              <button
+                                type="button"
+                                className="text-left text-xs text-muted-foreground hover:text-foreground"
+                                onClick={() =>
+                                  pickRiskTypeAndClosePicker(riskTypeAutocompleteSuggestion.typeId)
+                                }
+                              >
+                                Suggestion : {riskTypeAutocompleteSuggestion.label}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="max-h-[min(48vh,440px)] overflow-y-auto p-1">
+                          {groupedDomainsForPicker.length === 0 ? (
+                            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                              Aucun type ne correspond à « {riskTypeSearch.trim()} ».
+                            </div>
+                          ) : (
+                            groupedDomainsForPicker.map(({ domain, types }) => (
+                              <div key={domain.id} className="space-y-0.5 pb-2">
+                                <div className="flex items-baseline gap-2 px-2 pt-2 pb-1 text-xs text-muted-foreground">
+                                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                                    {domain.familyLabel ?? 'Autres'}
+                                  </span>
+                                  <span className="font-medium text-foreground">
+                                    {domain.name}
+                                    {!domain.isActive ? ' (inactif)' : ''}
+                                  </span>
+                                </div>
+                                {types.map((t) => (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => pickRiskTypeAndClosePicker(t.id)}
+                                    className={cn(
+                                      'flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left text-sm text-card-foreground',
+                                      'hover:bg-accent/50 focus-visible:bg-accent focus-visible:outline-none',
+                                      t.id === riskTypeId && 'bg-accent/60',
+                                    )}
+                                  >
+                                    <span className="min-w-0 flex-1 truncate">
+                                      {t.isRecommended ? '★ ' : ''}
+                                      {t.name}
+                                      {!t.isActive ? ' (inactif)' : ''}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </PopoverPrimitive.Popup>
+                    </PopoverPrimitive.Positioner>
+                  </PopoverPrimitive.Portal>
+                </PopoverPrimitive.Root>
                 {selectedRiskType ? (
                   <p className="text-xs text-muted-foreground">
                     Domaine :{' '}
