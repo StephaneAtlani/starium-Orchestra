@@ -47,7 +47,7 @@ import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-
 import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { listProjectPortfolioCategories } from '../api/projects.api';
+import { listProjectPortfolioCategories, listAssignableUsers } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 
@@ -69,6 +69,7 @@ const SORT_LABEL: Record<ProjectsListFilters['sortBy'], string> = {
   criticality: 'Criticité',
   computedHealth: 'Santé',
   progressPercent: 'Avancement',
+  owner: 'Chef de projets',
 };
 
 function HeaderTip({
@@ -198,6 +199,11 @@ export function ProjectsListTable({
     queryFn: () => listProjectPortfolioCategories(authFetch),
     enabled: Boolean(clientId),
   });
+  const assignableUsersQuery = useQuery({
+    queryKey: projectQueryKeys.assignableUsers(clientId),
+    queryFn: () => listAssignableUsers(authFetch),
+    enabled: Boolean(clientId),
+  });
   const categoryGroups = (categoriesQuery.data ?? []).map((root) => ({
     rootId: root.id,
     rootName: root.name,
@@ -211,11 +217,18 @@ export function ProjectsListTable({
   const categoryOptions = categoryGroups.flatMap((group) =>
     group.children.map((child) => ({ id: child.id, label: child.fullLabel })),
   );
+  const ownerOptions = (assignableUsersQuery.data?.users ?? [])
+    .map((user) => {
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+      return { id: user.id, label: name || user.email };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, 'fr-FR'));
   const categoryKey = filters.portfolioCategoryId ?? '__all__';
   const kindKey = filters.kind ?? '__all__';
   const statusKey = filters.status ?? '__all__';
   const healthKey = filters.computedHealth ?? '__all__';
   const myRoleKey = filters.myRole ?? '__all__';
+  const ownerKey = filters.ownerUserId ?? '__all__';
   const myRoleOptions = Array.from(
     new Set(
       items
@@ -226,7 +239,7 @@ export function ProjectsListTable({
   ).sort((a, b) => a.localeCompare(b));
   return (
     <TooltipProvider delay={250}>
-      <Table noWrapper className="min-w-[56rem] text-sm">
+      <Table noWrapper className="min-w-[64rem] text-sm">
       <TableHeader className="sticky top-0 z-50 bg-muted [&_tr]:border-b-0">
         <TableRow className="border-0 hover:bg-transparent">
           <TableHead
@@ -282,6 +295,16 @@ export function ProjectsListTable({
           <TableHead className={cn(th, 'min-w-[9rem]')}>
             <HeaderTip tip="Rôle de l'utilisateur connecté sur ce projet.">
               Mon rôle
+            </HeaderTip>
+          </TableHead>
+          <TableHead className={cn(th, 'min-w-[10rem]')}>
+            <HeaderTip tip="Responsable du projet (chef de projet) — utilisateur client ou identité nom libre.">
+              <SortHeaderButton
+                label="Chef de projets"
+                sortKey="owner"
+                filters={filters}
+                setFilters={setFilters}
+              />
             </HeaderTip>
           </TableHead>
           <TableHead className={cn(th, 'w-[7.5rem] text-right')}>
@@ -471,6 +494,31 @@ export function ProjectsListTable({
               </SelectContent>
             </Select>
           </TableHead>
+          {/* CHEF DE PROJETS */}
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0">
+            <Select
+              value={ownerKey}
+              onValueChange={(v) =>
+                setFilters({ ownerUserId: !v || v === '__all__' ? undefined : v })
+              }
+            >
+              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+                <SelectValue>
+                  {ownerKey === '__all__'
+                    ? 'Tous chefs'
+                    : ownerOptions.find((option) => option.id === ownerKey)?.label ?? 'Chef'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Tous chefs</SelectItem>
+                {ownerOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </TableHead>
           {/* AVANCEMENT / ECHEANCE / T·R·J / SIGNAUX / ETIQUETTES */}
           <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
             —
@@ -528,14 +576,6 @@ export function ProjectsListTable({
               )}
               <div className="mt-1.5 flex flex-wrap gap-x-1.5 gap-y-0.5 text-[0.65rem] text-muted-foreground">
                 <span>{PROJECT_CRITICALITY_LABEL[p.criticality] ?? p.criticality}</span>
-                {p.ownerDisplayName ? (
-                  <>
-                    <span aria-hidden className="text-border">
-                      ·
-                    </span>
-                    <span className="truncate">{p.ownerDisplayName}</span>
-                  </>
-                ) : null}
               </div>
             </TableCell>
             <TableCell className="align-top py-3">
@@ -589,6 +629,15 @@ export function ProjectsListTable({
                     </RegistryBadge>
                   ))}
                 </div>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
+            </TableCell>
+            <TableCell className="align-top py-3 text-sm">
+              {p.ownerDisplayName ? (
+                <CellTip wrap tip={p.ownerDisplayName}>
+                  <span className="block truncate">{p.ownerDisplayName}</span>
+                </CellTip>
               ) : (
                 <span className="text-xs text-muted-foreground">—</span>
               )}

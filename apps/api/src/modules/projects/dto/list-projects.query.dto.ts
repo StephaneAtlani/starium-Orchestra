@@ -61,6 +61,7 @@ export class ListProjectsQueryDto {
     'criticality',
     'computedHealth',
     'progressPercent',
+    'owner',
   ])
   sortBy?: string = 'targetEndDate';
 
@@ -92,4 +93,10 @@ export class ListProjectsQueryDto {
   @IsString()
   @MinLength(1)
   portfolioCategoryId?: string;
+
+  /** Filtre par chef de projet (utilisateur client). */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  ownerUserId?: string;
 }

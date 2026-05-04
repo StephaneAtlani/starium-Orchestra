@@ -13,6 +13,7 @@ const SORT_BY_VALUES = [
   'criticality',
   'computedHealth',
   'progressPercent',
+  'owner',
 ] as const;
 
 export type ProjectsSortBy = (typeof SORT_BY_VALUES)[number];
@@ -29,6 +30,8 @@ export type ProjectsListFilters = {
   portfolioCategoryId?: string;
   computedHealth?: 'GREEN' | 'ORANGE' | 'RED';
   myRole?: string;
+  /** Filtre par chef de projet (utilisateur client). */
+  ownerUserId?: string;
   sortBy: ProjectsSortBy;
   sortOrder: 'asc' | 'desc';
   atRiskOnly: boolean;
@@ -67,6 +70,7 @@ export function useProjectsListFilters(): {
     portfolioCategoryId: undefined,
     computedHealth: undefined,
     myRole: undefined,
+    ownerUserId: undefined,
     page: PROJECTS_DEFAULT_PAGE,
     limit: PROJECTS_DEFAULT_LIMIT,
     sortBy: 'targetEndDate',
@@ -88,6 +92,7 @@ export function useProjectsListFilters(): {
             'portfolioCategoryId' in updates ||
             'computedHealth' in updates ||
             'myRole' in updates ||
+            'ownerUserId' in updates ||
             'sortBy' in updates ||
             'sortOrder' in updates ||
             'atRiskOnly' in updates ||
@@ -112,6 +117,7 @@ export function useProjectsListFilters(): {
       portfolioCategoryId: undefined,
       computedHealth: undefined,
       myRole: undefined,
+      ownerUserId: undefined,
       page: PROJECTS_DEFAULT_PAGE,
       limit: PROJECTS_DEFAULT_LIMIT,
       sortBy: 'targetEndDate',
@@ -135,6 +141,7 @@ export function useProjectsListFilters(): {
       }),
       ...(filters.computedHealth && { computedHealth: filters.computedHealth }),
       ...(filters.myRole && { myRole: filters.myRole }),
+      ...(filters.ownerUserId && { ownerUserId: filters.ownerUserId }),
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
       ...(filters.atRiskOnly && { atRiskOnly: true }),

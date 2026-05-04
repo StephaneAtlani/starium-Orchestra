@@ -31,6 +31,7 @@ const SORT_LABEL: Record<ProjectsListFilters['sortBy'], string> = {
   criticality: 'Criticité',
   computedHealth: 'Santé',
   progressPercent: 'Avancement',
+  owner: 'Chef de projets',
 };
 
 export interface ProjectsPortfolioFiltersBarProps {

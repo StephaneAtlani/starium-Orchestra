@@ -85,6 +85,7 @@ export async function getPortfolioGantt(
     portfolioCategoryId?: string;
     computedHealth?: 'GREEN' | 'ORANGE' | 'RED';
     myRole?: string;
+    ownerUserId?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     atRiskOnly?: boolean;
@@ -109,6 +110,7 @@ export async function listProjects(
     portfolioCategoryId?: string;
     computedHealth?: 'GREEN' | 'ORANGE' | 'RED';
     myRole?: string;
+    ownerUserId?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     atRiskOnly?: boolean;

@@ -583,6 +583,7 @@ export class ProjectsService {
     if (query.criticality) where.criticality = query.criticality;
     if (query.kind) where.kind = query.kind;
     if (query.portfolioCategoryId) where.portfolioCategoryId = query.portfolioCategoryId;
+    if (query.ownerUserId) where.ownerUserId = query.ownerUserId;
 
     if (query.search?.trim()) {
       const s = query.search.trim();
@@ -698,6 +699,12 @@ export class ProjectsService {
           const pa = a.progressPercent ?? -1;
           const pb = b.progressPercent ?? -1;
           cmp = pa - pb;
+          break;
+        }
+        case 'owner': {
+          const oa = (a.ownerDisplayName ?? '').toLocaleLowerCase('fr-FR');
+          const ob = (b.ownerDisplayName ?? '').toLocaleLowerCase('fr-FR');
+          cmp = oa.localeCompare(ob, 'fr-FR');
           break;
         }
         default:
