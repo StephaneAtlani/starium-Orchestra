@@ -81,7 +81,7 @@ function messageForM365SyncOAuthRedirectError(
     case 'invalid_state_payload':
       return 'Session Microsoft 365 incohérente (données internes). Ferme les autres onglets Starium, rouvre Administration client → Microsoft 365 et relance « Connecter Microsoft 365 ». Si ça persiste, contacte le support.';
     case 'state_replay':
-      return 'Ce retour Microsoft 365 a déjà été traité, ou une autre instance d’API n’a pas vu la session (souvent sans Redis partagé). Vérifie côté hébergement : MICROSOFT_OAUTH_STATE_STORE=redis avec REDIS_* joignable par toutes les instances API. Sinon un seul onglet, pas de retour arrière après Microsoft.';
+      return 'Ce retour Microsoft 365 a déjà été utilisé (double validation, retour arrière du navigateur, ou deux onglets sur le même flux). Relance « Connecter Microsoft 365 » depuis Administration client → Microsoft 365 dans un seul onglet, sans revenir en arrière après l’écran Microsoft.';
     case 'missing_code_or_state':
       return 'Réponse Microsoft incomplète (consentement M365). Réessayez depuis Administration client → Microsoft 365.';
     case 'oauth_upstream':

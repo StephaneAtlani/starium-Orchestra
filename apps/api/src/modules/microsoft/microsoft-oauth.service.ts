@@ -547,6 +547,9 @@ export class MicrosoftOAuthService {
       (err as { oauthError?: string }).oauthError ??
       (err as Error)?.message ??
       'unknown';
+    const description = (err as { oauthDescription?: string }).oauthDescription;
+    /** Premier code AADSTSxxxxx (ex. 7000215 = secret invalide, 50012 = secret expiré, 700016 = app introuvable). */
+    const aadStsCode = description ? /AADSTS\d+/i.exec(description)?.[0] ?? null : null;
     await this.audit.create({
       clientId,
       userId,
@@ -555,6 +558,8 @@ export class MicrosoftOAuthService {
       newValue: {
         tenantId,
         code,
+        aadStsCode,
+        description: description ? description.slice(0, 240) : null,
         interactionRequired: code === 'interaction_required',
       },
     });

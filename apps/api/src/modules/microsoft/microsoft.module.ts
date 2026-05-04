@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type IORedis from 'ioredis';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { PrismaService } from '../../prisma/prisma.service';
 import { AuthModule } from '../auth/auth.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
@@ -9,6 +10,7 @@ import { QueueModule } from '../queue/queue.module';
 import { QUEUE_CONNECTION } from '../queue/queue.constants';
 import { MicrosoftTokenCryptoService } from './microsoft-token-crypto.service';
 import {
+  DbMicrosoftOAuthStateStore,
   MemoryMicrosoftOAuthStateStore,
   MicrosoftOAuthStateStore,
   RedisMicrosoftOAuthStateStore,
@@ -60,17 +62,32 @@ import { ProjectMicrosoftLinksService } from './project-microsoft-links.service'
       useFactory: (
         config: ConfigService,
         memory: MemoryMicrosoftOAuthStateStore,
+        prisma: PrismaService,
         redis: IORedis,
       ) => {
-        const mode =
-          config.get<string>('MICROSOFT_OAUTH_STATE_STORE')?.trim() ||
-          'memory';
-        if (mode.toLowerCase() === 'redis') {
+        const log = new Logger('MicrosoftOAuthStateStoreFactory');
+        const mode = (
+          config.get<string>('MICROSOFT_OAUTH_STATE_STORE')?.trim() || 'db'
+        ).toLowerCase();
+        if (mode === 'redis') {
+          log.log('store=redis');
           return new RedisMicrosoftOAuthStateStore(redis);
         }
-        return memory;
+        if (mode === 'memory') {
+          log.warn(
+            'store=memory : OK process unique uniquement, ne PAS utiliser avec plusieurs instances API',
+          );
+          return memory;
+        }
+        log.log('store=db (Postgres, partagé entre instances)');
+        return new DbMicrosoftOAuthStateStore(prisma);
       },
-      inject: [ConfigService, MemoryMicrosoftOAuthStateStore, QUEUE_CONNECTION],
+      inject: [
+        ConfigService,
+        MemoryMicrosoftOAuthStateStore,
+        PrismaService,
+        QUEUE_CONNECTION,
+      ],
     },
     MicrosoftRefreshLockService,
     MicrosoftIdTokenService,

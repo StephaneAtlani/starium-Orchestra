@@ -1,9 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { createHash } from 'crypto';
 import type IORedis from 'ioredis';
+import type { PrismaService } from '../../prisma/prisma.service';
 
 /**
- * Store one-shot des `jti` OAuth (anti-replay).
- * `memory` : process unique. `redis` : plusieurs réplicas API (même Redis que BullMQ).
+ * Store one-shot des `jti` OAuth M365 (anti-replay).
+ * `db` (défaut) : table `MicrosoftOAuthState` partagée par toutes les instances API ;
+ * `redis` : alternative low-latency (BullMQ existant) ;
+ * `memory` : tests / process unique.
  */
 export abstract class MicrosoftOAuthStateStore {
   abstract register(jti: string, ttlMs: number): Promise<void>;
@@ -51,6 +55,61 @@ if not v then return 0 end
 redis.call('DEL', KEYS[1])
 return 1
 `;
+
+/**
+ * Préfixe sur le `stateTokenHash` partagé avec le SSO pour éviter toute collision théorique
+ * entre un `jti` M365 et un state aléatoire du SSO.
+ */
+const DB_HASH_PREFIX = 'm365sync:';
+
+function dbHash(jti: string): string {
+  return DB_HASH_PREFIX + createHash('sha256').update(jti).digest('hex');
+}
+
+@Injectable()
+export class DbMicrosoftOAuthStateStore extends MicrosoftOAuthStateStore {
+  private readonly logger = new Logger(DbMicrosoftOAuthStateStore.name);
+
+  constructor(private readonly prisma: PrismaService) {
+    super();
+  }
+
+  override async register(jti: string, ttlMs: number): Promise<void> {
+    try {
+      await this.prisma.microsoftOAuthState.create({
+        data: {
+          stateTokenHash: dbHash(jti),
+          expiresAt: new Date(Date.now() + ttlMs),
+        },
+      });
+    } catch (e) {
+      this.logger.error(
+        `register jti DB: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      throw e;
+    }
+  }
+
+  override async consume(jti: string): Promise<boolean> {
+    const now = new Date();
+    try {
+      const r = await this.prisma.microsoftOAuthState.updateMany({
+        where: {
+          stateTokenHash: dbHash(jti),
+          consumedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { consumedAt: now },
+      });
+      return r.count === 1;
+    } catch (e) {
+      this.logger.warn(
+        `consume jti DB: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return false;
+    }
+  }
+}
 
 @Injectable()
 export class RedisMicrosoftOAuthStateStore extends MicrosoftOAuthStateStore {

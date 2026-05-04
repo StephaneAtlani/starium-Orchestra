@@ -125,6 +125,8 @@ services:
       # BullMQ / RFC-038 : via l’hôte (port publié) — évite ENOTFOUND sur le hostname « redis » (réseau Desktop).
       REDIS_HOST: host.docker.internal
       REDIS_PORT: "6379"
+      # OAuth M365 (jti) : défaut db (Postgres). `.env` racine ou apps/api/.env peuvent surcharger (db | redis | memory).
+      MICROSOFT_OAUTH_STATE_STORE: ${MICROSOFT_OAUTH_STATE_STORE:-db}
       # Vérification identités e-mail (RFC) — surcharges via .env racine si besoin.
       EMAIL_IDENTITY_VERIFY_SUCCESS_URL: ${EMAIL_IDENTITY_VERIFY_SUCCESS_URL:-http://localhost:3000/account?emailVerified=1}
       EMAIL_IDENTITY_VERIFY_ERROR_URL: ${EMAIL_IDENTITY_VERIFY_ERROR_URL:-http://localhost:3000/account?emailVerified=0}

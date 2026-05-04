@@ -39,8 +39,8 @@ x-api-base-env: &api-base-env
   REDIS_HOST: redis
   REDIS_PORT: "6379"
   REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-  # OAuth M365 (consentement Graph) : store jti partagé entre réplicas API (obligatoire si >1 instance).
-  MICROSOFT_OAUTH_STATE_STORE: ${MICROSOFT_OAUTH_STATE_STORE:-redis}
+  # OAuth M365 : store jti partagé entre réplicas API. Défaut = db (Postgres). redis : alternative ; memory : interdit en multi-instances.
+  MICROSOFT_OAUTH_STATE_STORE: ${MICROSOFT_OAUTH_STATE_STORE:-db}
   # SMTP (Brevo, etc.) — secrets **hors Git** : `.env` racine / `--env-file` / env du processus Compose (Dokploy). Pas de `:-` sur USER/PASS/HOST/FROM.
   SMTP_HOST: ${SMTP_HOST}
   SMTP_USER: ${SMTP_USER}

@@ -71,8 +71,13 @@ export class MicrosoftTokenHttpService {
         if (!res.ok) {
           const err = json as unknown as MicrosoftTokenErrorBody;
           const msg = err.error ?? 'unknown_error';
+          /**
+           * `error_description` Microsoft contient le code AAD ciblé (ex. AADSTS7000215 secret invalide,
+           * AADSTS50012 secret expiré, AADSTS700016 application non trouvée). Le tronquer pour rester loggable.
+           */
+          const desc = (err.error_description ?? '').replace(/\s+/g, ' ').slice(0, 240);
           this.logger.warn(
-            `Token endpoint: ${res.status} error=${msg}`,
+            `Token endpoint: ${res.status} error=${msg}${desc ? ` desc="${desc}"` : ''}`,
           );
           const e = new Error(msg) as Error & {
             oauthError?: string;
