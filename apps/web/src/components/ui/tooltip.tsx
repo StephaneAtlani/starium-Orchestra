@@ -3,6 +3,7 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 
 import { cn } from "@/lib/utils"
+import { useFullscreenPortalContainer } from "@/hooks/use-fullscreen-portal-container"
 
 function TooltipProvider({
   delay = 0,
@@ -45,8 +46,9 @@ function TooltipContent({
     TooltipPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset"
   >) {
+  const fullscreenContainer = useFullscreenPortalContainer()
   return (
-    <TooltipPrimitive.Portal>
+    <TooltipPrimitive.Portal container={fullscreenContainer}>
       <TooltipPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}
