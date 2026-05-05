@@ -20,7 +20,14 @@ function qs(params?: Record<string, string | number | boolean | undefined>): str
 
 export async function listActionPlans(
   authFetch: AuthFetch,
-  params?: { search?: string; offset?: number; limit?: number },
+  params?: {
+    search?: string;
+    status?: 'DRAFT' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED';
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+    owner?: 'ASSIGNED' | 'UNASSIGNED';
+    offset?: number;
+    limit?: number;
+  },
 ): Promise<PaginatedList<ActionPlanApi>> {
   const res = await authFetch(`${BASE}${qs(params)}`);
   if (!res.ok) throw await parseApiFormError(res);

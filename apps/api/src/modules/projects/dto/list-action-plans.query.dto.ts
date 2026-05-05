@@ -1,10 +1,28 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { ActionPlanPriority, ActionPlanStatus } from '@prisma/client';
+
+export enum ActionPlanOwnerFilter {
+  ASSIGNED = 'ASSIGNED',
+  UNASSIGNED = 'UNASSIGNED',
+}
 
 export class ListActionPlansQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsEnum(ActionPlanStatus)
+  status?: ActionPlanStatus;
+
+  @IsOptional()
+  @IsEnum(ActionPlanPriority)
+  priority?: ActionPlanPriority;
+
+  @IsOptional()
+  @IsEnum(ActionPlanOwnerFilter)
+  owner?: ActionPlanOwnerFilter;
 
   @IsOptional()
   @Type(() => Number)

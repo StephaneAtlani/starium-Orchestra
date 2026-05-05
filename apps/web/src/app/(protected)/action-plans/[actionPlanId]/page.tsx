@@ -102,6 +102,26 @@ function taskOwnerLabel(task: ActionPlanTaskApi, ownerLabelById: Map<string, str
   return 'Non assigne';
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** Style = cycle de vie projet (RFC-PLA-001 `ACTIVE` ≈ `IN_PROGRESS`). */
 function actionPlanStatusToLifecycleKey(
   status: string,
@@ -232,6 +252,7 @@ export default function ActionPlanDetailPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingXlsx, setIsExportingXlsx] = useState(false);
+  const [exportFormatValue, setExportFormatValue] = useState<string>('');
 
   const plan = planQuery.data;
   const progressPct = plan ? Math.min(100, Math.max(0, plan.progressPercent)) : 0;
@@ -297,46 +318,51 @@ export default function ActionPlanDetailPage() {
     const core = sanitizeFileName(`${plan.code}-${plan.title}`) || plan.code.toLowerCase();
     return `${core}-${fmtExportDateTime(new Date())}`;
   }, [plan]);
+  const isExporting = isExportingPdf || isExportingXlsx;
 
   const handleExportXlsx = useCallback(async () => {
     if (!plan) return;
     setIsExportingXlsx(true);
     try {
-      const XLSX = await import('xlsx');
-      const rows = taskRowsForExport.map((row) => ({
-        '#': row.index,
-        Code: row.code,
-        Tache: row.name,
-        Statut: row.status,
-        Priorite: row.priority,
-        Avancement: row.progress,
-        Responsable: row.owner,
-        Projet: row.project,
-        Risque: row.risk,
-        'Debut prevu': row.plannedStartDate,
-        'Fin prevue': row.plannedEndDate,
-        'Debut reel': row.actualStartDate,
-        'Fin reelle': row.actualEndDate,
-        Description: row.description,
-      }));
+      const excel = await import('exceljs');
+      const workbook = new excel.Workbook();
+      workbook.created = new Date();
 
-      const workbook = XLSX.utils.book_new();
-      const summarySheet = XLSX.utils.json_to_sheet([
-        {
-          Code: plan.code,
-          Titre: plan.title,
-          Statut: ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status,
-          Priorite: ACTION_PLAN_PRIORITY_LABELS[plan.priority] ?? plan.priority,
-          Avancement: `${plan.progressPercent}%`,
-          Responsable: ownerLabel ?? 'Non assigne',
-          'Nombre de taches': taskRowsForExport.length,
-        },
-      ]);
-      const tasksSheet = XLSX.utils.json_to_sheet(rows);
+      const summarySheet = workbook.addWorksheet('Plan');
+      summarySheet.addRow(['Code', plan.code]);
+      summarySheet.addRow(['Titre', plan.title]);
+      summarySheet.addRow(['Statut', ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status]);
+      summarySheet.addRow(['Priorite', ACTION_PLAN_PRIORITY_LABELS[plan.priority] ?? plan.priority]);
+      summarySheet.addRow(['Avancement', `${plan.progressPercent}%`]);
+      summarySheet.addRow(['Responsable', ownerLabel ?? 'Non assigne']);
+      summarySheet.addRow(['Nombre de taches', String(taskRowsForExport.length)]);
+      summarySheet.columns = [{ width: 24 }, { width: 60 }];
 
-      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Plan');
-      XLSX.utils.book_append_sheet(workbook, tasksSheet, 'Taches');
-      XLSX.writeFile(workbook, `${exportBaseName}.xlsx`, { compression: true });
+      const tasksSheet = workbook.addWorksheet('Taches');
+      tasksSheet.columns = [
+        { header: '#', key: 'index', width: 6 },
+        { header: 'Code', key: 'code', width: 16 },
+        { header: 'Tache', key: 'name', width: 40 },
+        { header: 'Statut', key: 'status', width: 14 },
+        { header: 'Priorite', key: 'priority', width: 12 },
+        { header: 'Avancement', key: 'progress', width: 12 },
+        { header: 'Responsable', key: 'owner', width: 24 },
+        { header: 'Projet', key: 'project', width: 26 },
+        { header: 'Risque', key: 'risk', width: 26 },
+        { header: 'Debut prevu', key: 'plannedStartDate', width: 14 },
+        { header: 'Fin prevue', key: 'plannedEndDate', width: 14 },
+        { header: 'Debut reel', key: 'actualStartDate', width: 14 },
+        { header: 'Fin reelle', key: 'actualEndDate', width: 14 },
+        { header: 'Description', key: 'description', width: 40 },
+      ];
+      tasksSheet.getRow(1).font = { bold: true };
+      taskRowsForExport.forEach((row) => tasksSheet.addRow(row));
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      downloadBlob(blob, `${exportBaseName}.xlsx`);
       toast.success('Export XLSX genere.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Export XLSX impossible.");
@@ -349,46 +375,68 @@ export default function ActionPlanDetailPage() {
     if (!plan) return;
     setIsExportingPdf(true);
     try {
-      const [{ jsPDF }, autoTableModule] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
-      const autoTable = autoTableModule.default;
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+      const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1280,height=900');
+      if (!printWindow) {
+        throw new Error("Popup bloquee. Autorise les popups pour exporter en PDF.");
+      }
 
-      doc.setFontSize(14);
-      doc.text(`Plan d'action: ${plan.code} - ${plan.title}`, 36, 36);
-      doc.setFontSize(10);
-      doc.text(
-        `Statut: ${ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status} | Priorite: ${ACTION_PLAN_PRIORITY_LABELS[plan.priority] ?? plan.priority} | Avancement: ${plan.progressPercent}%`,
-        36,
-        54,
-      );
-      doc.text(`Responsable: ${ownerLabel ?? 'Non assigne'} | Taches: ${taskRowsForExport.length}`, 36, 70);
+      const tableRows = taskRowsForExport
+        .map(
+          (row) => `<tr>
+<td>${row.index}</td>
+<td>${escapeHtml(row.code || '-')}</td>
+<td>${escapeHtml(row.name)}</td>
+<td>${escapeHtml(row.status)}</td>
+<td>${escapeHtml(row.priority)}</td>
+<td>${escapeHtml(row.progress)}</td>
+<td>${escapeHtml(row.owner)}</td>
+<td>${escapeHtml(row.project || '-')}</td>
+<td>${escapeHtml(row.risk || '-')}</td>
+<td>${escapeHtml(row.plannedEndDate)}</td>
+</tr>`,
+        )
+        .join('');
 
-      autoTable(doc, {
-        startY: 84,
-        styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
-        head: [['#', 'Code', 'Tache', 'Statut', 'Priorite', '%', 'Responsable', 'Projet', 'Risque', 'Fin prevue']],
-        body: taskRowsForExport.map((row) => [
-          String(row.index),
-          row.code || '-',
-          row.name,
-          row.status,
-          row.priority,
-          row.progress,
-          row.owner,
-          row.project || '-',
-          row.risk || '-',
-          row.plannedEndDate,
-        ]),
-        columnStyles: {
-          2: { cellWidth: 180 },
-          6: { cellWidth: 100 },
-          7: { cellWidth: 120 },
-          8: { cellWidth: 120 },
-        },
-      });
+      const html = `<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(exportBaseName)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #111; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    .meta { font-size: 12px; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { border: 1px solid #d4d4d4; padding: 6px; text-align: left; vertical-align: top; }
+    th { background: #f4f4f5; }
+  </style>
+</head>
+<body>
+  <h1>Plan d'action: ${escapeHtml(plan.code)} - ${escapeHtml(plan.title)}</h1>
+  <div class="meta">
+    Statut: ${escapeHtml(ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status)} |
+    Priorite: ${escapeHtml(ACTION_PLAN_PRIORITY_LABELS[plan.priority] ?? plan.priority)} |
+    Avancement: ${escapeHtml(`${plan.progressPercent}%`)} |
+    Responsable: ${escapeHtml(ownerLabel ?? 'Non assigne')} |
+    Taches: ${taskRowsForExport.length}
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Code</th><th>Tache</th><th>Statut</th><th>Priorite</th><th>%</th><th>Responsable</th><th>Projet</th><th>Risque</th><th>Fin prevue</th>
+      </tr>
+    </thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+</body>
+</html>`;
 
-      doc.save(`${exportBaseName}.pdf`);
-      toast.success('Export PDF genere.');
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      toast.success('Apercu PDF ouvert.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Export PDF impossible.');
     } finally {
@@ -551,26 +599,31 @@ export default function ActionPlanDetailPage() {
               description={pageDescription}
               actions={
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isExportingPdf || tasksQuery.isLoading}
-                    onClick={() => void handleExportPdf()}
-                  >
-                    <Download className="size-4" />
-                    {isExportingPdf ? 'Export PDF...' : 'Exporter PDF'}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isExportingXlsx || tasksQuery.isLoading}
-                    onClick={() => void handleExportXlsx()}
-                  >
-                    <Download className="size-4" />
-                    {isExportingXlsx ? 'Export XLSX...' : 'Exporter XLSX'}
-                  </Button>
+                  <div className="flex items-center gap-1 rounded-md border border-input bg-background px-2">
+                    <Download className="size-4 text-muted-foreground" />
+                    <Select
+                      value={exportFormatValue}
+                      onValueChange={(value) => {
+                        setExportFormatValue('');
+                        if (value === 'pdf') {
+                          void handleExportPdf();
+                          return;
+                        }
+                        if (value === 'xlsx') {
+                          void handleExportXlsx();
+                        }
+                      }}
+                      disabled={isExporting || tasksQuery.isLoading}
+                    >
+                      <SelectTrigger className="h-9 min-w-[170px] border-0 px-1 shadow-none focus:ring-0">
+                        <SelectValue placeholder={isExporting ? 'Export en cours...' : 'Exporter'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pdf">Exporter en PDF</SelectItem>
+                        <SelectItem value="xlsx">Exporter en XLSX</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <PermissionGate permission="projects.update">
                     <Button type="button" size="sm" onClick={() => setOpen(true)}>
                       <Plus className="size-4" />

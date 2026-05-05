@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
@@ -59,10 +59,23 @@ export default function ActionPlansListPage() {
   const listEnabled = !!clientId && permsSuccess && canRead;
 
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [ownerFilter, setOwnerFilter] = useState<string>('all');
   const { data, isLoading, error, refetch } = useActionPlansListQuery(
     { search: search.trim() || undefined, limit: 50, offset: 0 },
     { enabled: listEnabled },
   );
+  const filteredItems = useMemo(() => {
+    const items = data?.items ?? [];
+    return items.filter((p) => {
+      if (statusFilter !== 'all' && p.status !== statusFilter) return false;
+      if (priorityFilter !== 'all' && p.priority !== priorityFilter) return false;
+      if (ownerFilter === 'assigned' && !p.ownerUserId) return false;
+      if (ownerFilter === 'unassigned' && p.ownerUserId) return false;
+      return true;
+    });
+  }, [data?.items, ownerFilter, priorityFilter, statusFilter]);
 
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -74,6 +87,7 @@ export default function ActionPlansListPage() {
   const [formPriority, setFormPriority] = useState('MEDIUM');
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
+  const hasFilters = statusFilter !== 'all' || priorityFilter !== 'all' || ownerFilter !== 'all';
 
   function resetCreateForm() {
     setFormTitle('');
@@ -150,6 +164,62 @@ export default function ActionPlansListPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <div className="space-y-1.5">
+            <Label>Statut</Label>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? 'all')}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Tous les statuts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="DRAFT">Brouillon</SelectItem>
+                <SelectItem value="ACTIVE">Actif</SelectItem>
+                <SelectItem value="ON_HOLD">En pause</SelectItem>
+                <SelectItem value="COMPLETED">Terminé</SelectItem>
+                <SelectItem value="CANCELLED">Annulé</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Priorité</Label>
+            <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v ?? 'all')}>
+              <SelectTrigger className="w-[170px]">
+                <SelectValue placeholder="Toutes les priorités" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les priorités</SelectItem>
+                <SelectItem value="LOW">Basse</SelectItem>
+                <SelectItem value="MEDIUM">Moyenne</SelectItem>
+                <SelectItem value="HIGH">Haute</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Responsable</Label>
+            <Select value={ownerFilter} onValueChange={(v) => setOwnerFilter(v ?? 'all')}>
+              <SelectTrigger className="w-[170px]">
+                <SelectValue placeholder="Tous" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous</SelectItem>
+                <SelectItem value="assigned">Assigné</SelectItem>
+                <SelectItem value="unassigned">Non assigné</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!hasFilters}
+            onClick={() => {
+              setStatusFilter('all');
+              setPriorityFilter('all');
+              setOwnerFilter('all');
+            }}
+          >
+            Réinitialiser filtres
+          </Button>
           <Button type="button" variant="secondary" size="sm" onClick={() => void refetch()}>
             Actualiser
           </Button>
@@ -165,16 +235,28 @@ export default function ActionPlansListPage() {
           </Card>
         )}
 
-        {data && data.items.length === 0 && !isLoading && (
+        {data && filteredItems.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {filteredItems.length} plan{filteredItems.length > 1 ? 's' : ''} affiché
+            {filteredItems.length > 1 ? 's' : ''}
+            {data.items.length !== filteredItems.length ? ` sur ${data.items.length}` : ''}
+          </p>
+        )}
+
+        {data && filteredItems.length === 0 && !isLoading && (
           <EmptyState
             title="Aucun plan d’action"
-            description="Créez un plan pour regrouper des tâches de pilotage."
+            description={
+              data.items.length > 0
+                ? 'Aucun plan ne correspond aux filtres sélectionnés.'
+                : 'Créez un plan pour regrouper des tâches de pilotage.'
+            }
           />
         )}
 
-        {data && data.items.length > 0 && (
+        {data && filteredItems.length > 0 && (
           <ul className="space-y-2">
-            {data.items.map((p) => (
+            {filteredItems.map((p) => (
               <li key={p.id}>
                 <Link
                   href={`/action-plans/${p.id}`}

@@ -6,7 +6,10 @@ import {
 import { Prisma, ProjectTaskStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateActionPlanDto } from './dto/create-action-plan.dto';
-import { ListActionPlansQueryDto } from './dto/list-action-plans.query.dto';
+import {
+  ActionPlanOwnerFilter,
+  ListActionPlansQueryDto,
+} from './dto/list-action-plans.query.dto';
 import { UpdateActionPlanDto } from './dto/update-action-plan.dto';
 import { normalizeListPagination } from './lib/paginated-list.util';
 import { ProjectsService } from './projects.service';
@@ -36,6 +39,17 @@ export class ActionPlansService {
         { title: { contains: query.search.trim(), mode: 'insensitive' } },
         { code: { contains: query.search.trim(), mode: 'insensitive' } },
       ];
+    }
+    if (query.status) {
+      where.status = query.status;
+    }
+    if (query.priority) {
+      where.priority = query.priority;
+    }
+    if (query.owner === ActionPlanOwnerFilter.ASSIGNED) {
+      where.ownerUserId = { not: null };
+    } else if (query.owner === ActionPlanOwnerFilter.UNASSIGNED) {
+      where.ownerUserId = null;
     }
     const [items, total] = await Promise.all([
       this.prisma.actionPlan.findMany({

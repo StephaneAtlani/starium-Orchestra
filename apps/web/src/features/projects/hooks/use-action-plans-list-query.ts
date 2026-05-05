@@ -9,7 +9,14 @@ import { projectQueryKeys } from '../lib/project-query-keys';
 const STALE = 30_000;
 
 export function useActionPlansListQuery(
-  params: { search?: string; offset?: number; limit?: number },
+  params: {
+    search?: string;
+    status?: 'DRAFT' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED';
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+    owner?: 'ASSIGNED' | 'UNASSIGNED';
+    offset?: number;
+    limit?: number;
+  },
   options?: { enabled?: boolean },
 ) {
   const authFetch = useAuthenticatedFetch();
