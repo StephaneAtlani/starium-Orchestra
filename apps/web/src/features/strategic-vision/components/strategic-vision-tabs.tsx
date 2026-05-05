@@ -4,9 +4,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type {
   StrategicAxisDto,
+  StrategicDirectionDto,
+  StrategicDirectionKpiRowDto,
   StrategicObjectiveDto,
   StrategicVisionAlertsResponseDto,
   StrategicVisionDto,
+  StrategicVisionKpisByDirectionResponseDto,
   StrategicVisionKpisResponseDto,
 } from '../types/strategic-vision.types';
 import { StrategicAlertsPanel } from './strategic-alerts-panel';
@@ -56,7 +59,11 @@ export function StrategicVisionTabs({
   visions,
   axes,
   objectives,
+  directions,
+  directionFilter,
+  onDirectionFilterChange,
   kpis,
+  kpisByDirection,
   alerts,
   canUpdate,
   canCreate,
@@ -67,7 +74,11 @@ export function StrategicVisionTabs({
   visions: StrategicVisionDto[];
   axes: StrategicAxisDto[];
   objectives: StrategicObjectiveDto[];
+  directions: StrategicDirectionDto[];
+  directionFilter: string;
+  onDirectionFilterChange: (value: string) => void;
   kpis: StrategicVisionKpisResponseDto | undefined;
+  kpisByDirection: StrategicVisionKpisByDirectionResponseDto | undefined;
   alerts: StrategicVisionAlertsResponseDto | undefined;
   canUpdate: boolean;
   canCreate: boolean;
@@ -76,6 +87,7 @@ export function StrategicVisionTabs({
     visions: QueryState;
     objectives: QueryState;
     kpis: QueryState;
+    kpisByDirection: QueryState;
     alerts: QueryState;
   };
 }) {
@@ -90,9 +102,46 @@ export function StrategicVisionTabs({
     id: axis.id,
     name: splitAxisLogoAndTitle(axis.name).title,
   }));
+  const filteredObjectives =
+    directionFilter === 'ALL'
+      ? objectives
+      : directionFilter === 'UNASSIGNED'
+        ? objectives.filter((objective) => objective.directionId == null)
+        : objectives.filter((objective) => objective.directionId === directionFilter);
+
+  const selectedDirectionRow =
+    directionFilter === 'ALL'
+      ? null
+      : kpisByDirection?.rows.find((row) =>
+          directionFilter === 'UNASSIGNED'
+            ? row.directionId == null
+            : row.directionId === directionFilter,
+        ) ?? null;
+
+  const directionRowsForGlobal = (kpisByDirection?.rows ?? []).filter(
+    (row) => row.directionId !== null,
+  );
 
   return (
     <Tabs defaultValue="overview" className="space-y-4">
+      <div className="flex justify-end">
+        <label className="w-full max-w-xs space-y-1 text-sm">
+          <span className="text-muted-foreground">Vue par direction</span>
+          <select
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={directionFilter}
+            onChange={(event) => onDirectionFilterChange(event.target.value)}
+          >
+            <option value="ALL">Vue globale entreprise</option>
+            {directions.map((direction) => (
+              <option key={direction.id} value={direction.id}>
+                {direction.name} ({direction.code})
+              </option>
+            ))}
+            <option value="UNASSIGNED">Non affecté</option>
+          </select>
+        </label>
+      </div>
       <TabsList variant="line" className="w-full justify-start overflow-x-auto">
         <TabsTrigger value="overview">Vue d&apos;ensemble</TabsTrigger>
         <TabsTrigger value="enterprise">Vision entreprise</TabsTrigger>
@@ -107,7 +156,7 @@ export function StrategicVisionTabs({
             <StrategicVisionOverviewTab
               vision={vision}
               axes={axes}
-              objectives={objectives}
+              objectives={filteredObjectives}
               isLoading={baseState.isLoading}
               isError={baseState.isError}
               isEditMode={isEditMode}
@@ -116,10 +165,24 @@ export function StrategicVisionTabs({
           </div>
           <div className="space-y-6 lg:col-span-1">
             <StrategicAlignmentScoreCard
-              kpis={kpis}
+              kpis={
+                directionFilter === 'ALL' || !selectedDirectionRow
+                  ? kpis
+                  : {
+                      projectAlignmentRate: selectedDirectionRow.projectAlignmentRate,
+                      unalignedProjectsCount: selectedDirectionRow.unalignedProjectsCount,
+                      objectivesAtRiskCount: selectedDirectionRow.objectivesAtRiskCount,
+                      objectivesOffTrackCount: selectedDirectionRow.objectivesOffTrackCount,
+                      overdueObjectivesCount: selectedDirectionRow.overdueObjectivesCount,
+                      generatedAt: kpisByDirection?.generatedAt ?? kpis?.generatedAt ?? '',
+                    }
+              }
               isLoading={queryStates.kpis.isLoading}
               isError={queryStates.kpis.isError}
             />
+            {directionFilter === 'ALL' && !queryStates.kpisByDirection.isLoading ? (
+              <DirectionKpisTable rows={directionRowsForGlobal} />
+            ) : null}
             <StrategicAlertsPanel
               alerts={alerts}
               isLoading={queryStates.alerts.isLoading}
@@ -140,7 +203,8 @@ export function StrategicVisionTabs({
             vision={vision}
             visions={visions}
             axes={axes}
-            objectives={objectives}
+            objectives={filteredObjectives}
+            directions={directions}
             canUpdate={canUpdate}
             canCreate={canCreate}
           />
@@ -174,6 +238,11 @@ export function StrategicVisionTabs({
           <StrategicObjectivesTab
             objectives={objectives}
             axisOptions={axisOptions}
+            directionOptions={directions.map((direction) => ({
+              id: direction.id,
+              label: `${direction.name} (${direction.code})`,
+            }))}
+            directionFilter={directionFilter}
             canCreate={canCreate}
             canUpdate={canUpdate}
           />
@@ -187,9 +256,26 @@ export function StrategicVisionTabs({
           queryState={baseState}
         />
         {!baseState.isLoading && !baseState.isError ? (
-          <StrategicAlignmentTab axes={axes} objectives={objectives} kpis={kpis} />
+          <StrategicAlignmentTab axes={axes} objectives={filteredObjectives} kpis={kpis} />
         ) : null}
       </TabsContent>
     </Tabs>
+  );
+}
+
+function DirectionKpisTable({ rows }: { rows: StrategicDirectionKpiRowDto[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="rounded-md border p-3">
+      <p className="mb-2 text-sm font-medium">Lecture KPI par direction</p>
+      <div className="space-y-1 text-xs text-muted-foreground">
+        {rows.map((row) => (
+          <p key={row.directionCode}>
+            {row.directionName}: {Math.round(row.projectAlignmentRate * 100)}% alignement,{' '}
+            {row.objectivesAtRiskCount + row.objectivesOffTrackCount} objectifs à risque
+          </p>
+        ))}
+      </div>
+    </div>
   );
 }

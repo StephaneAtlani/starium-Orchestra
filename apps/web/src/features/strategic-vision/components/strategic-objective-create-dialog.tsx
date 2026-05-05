@@ -28,11 +28,13 @@ export function StrategicObjectiveCreateDialog({
   open,
   onOpenChange,
   axisOptions,
+  directionOptions,
   initialAxisId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   axisOptions: AxisOption[];
+  directionOptions: Array<{ id: string; label: string }>;
   initialAxisId?: string | null;
 }) {
   const createObjective = useCreateStrategicObjectiveMutation();
@@ -42,6 +44,7 @@ export function StrategicObjectiveCreateDialog({
   const [ownerLabel, setOwnerLabel] = useState('');
   const [status, setStatus] = useState<StrategicObjectiveStatus>('ON_TRACK');
   const [deadline, setDeadline] = useState('');
+  const [directionId, setDirectionId] = useState<string>('UNASSIGNED');
 
   const effectiveAxisId = useMemo(() => {
     if (axisId) return axisId;
@@ -56,6 +59,7 @@ export function StrategicObjectiveCreateDialog({
     setOwnerLabel('');
     setStatus('ON_TRACK');
     setDeadline('');
+    setDirectionId('UNASSIGNED');
   };
 
   const handleCreate = async () => {
@@ -68,6 +72,7 @@ export function StrategicObjectiveCreateDialog({
         ownerLabel: ownerLabel.trim() || undefined,
         status,
         deadline: deadline || undefined,
+        directionId: directionId === 'UNASSIGNED' ? null : directionId,
       });
       toast.success('Objectif stratégique créé.');
       reset();
@@ -156,6 +161,21 @@ export function StrategicObjectiveCreateDialog({
               />
             </label>
           </div>
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground">Direction</span>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={directionId}
+              onChange={(event) => setDirectionId(event.target.value)}
+            >
+              <option value="UNASSIGNED">Non affecté</option>
+              {directionOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         <DialogFooter showCloseButton={false}>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

@@ -278,6 +278,7 @@ model Client {
   projectTagAssignments            ProjectTagAssignment[]
   strategicVisions                 StrategicVision[]
   strategicAxes                    StrategicAxis[]
+  strategicDirections              StrategicDirection[]
   strategicObjectives              StrategicObjective[]
   strategicLinks                   StrategicLink[]
   projectPortfolioCategories       ProjectPortfolioCategory[]
@@ -1155,6 +1156,7 @@ model StrategicObjective {
   id          String                   @id @default(cuid())
   clientId    String
   axisId      String
+  directionId String?
   title       String
   description String?
   ownerLabel  String?
@@ -1163,14 +1165,35 @@ model StrategicObjective {
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
 
-  client Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  axis   StrategicAxis   @relation(fields: [axisId], references: [id], onDelete: Cascade)
-  links  StrategicLink[]
+  client    Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  axis      StrategicAxis       @relation(fields: [axisId], references: [id], onDelete: Cascade)
+  direction StrategicDirection? @relation(fields: [directionId], references: [id], onDelete: SetNull)
+  links     StrategicLink[]
 
   @@index([clientId])
   @@index([clientId, axisId])
+  @@index([clientId, directionId])
   @@index([clientId, status])
   @@index([clientId, deadline])
+}
+
+model StrategicDirection {
+  id          String   @id @default(cuid())
+  clientId    String
+  code        String
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client     Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  objectives StrategicObjective[]
+
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([clientId, isActive])
 }
 
 model StrategicLink {

@@ -61,6 +61,14 @@ export function StrategicObjectiveCard({
           <span className="font-medium">{objective.ownerLabel ?? 'Non assigne'}</span>
         </p>
         <p className="text-sm">
+          Direction:{' '}
+          <span className="font-medium">
+            {objective.direction?.name
+              ? `${objective.direction.name} (${objective.direction.code})`
+              : 'Non affecté'}
+          </span>
+        </p>
+        <p className="text-sm">
           Echeance: <span className="font-medium">{formatDate(objective.deadline)}</span>
         </p>
         <div className="flex flex-wrap gap-1">

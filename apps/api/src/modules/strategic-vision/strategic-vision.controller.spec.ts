@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { REQUIRE_ANY_PERMISSIONS_KEY } from '../../common/decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../../common/decorators/require-permissions.decorator';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -15,12 +16,16 @@ describe('StrategicVisionController', () => {
   const serviceMock = {
     listVisions: jest.fn(),
     getKpis: jest.fn(),
+    getKpisByDirection: jest.fn(),
     getAlerts: jest.fn(),
     createVision: jest.fn(),
     updateVision: jest.fn(),
     listAxes: jest.fn(),
     createAxis: jest.fn(),
     updateAxis: jest.fn(),
+    listDirections: jest.fn(),
+    createDirection: jest.fn(),
+    updateDirection: jest.fn(),
     listObjectives: jest.fn(),
     createObjective: jest.fn(),
     updateObjective: jest.fn(),
@@ -64,6 +69,18 @@ describe('StrategicVisionController', () => {
     expect(
       Reflect.getMetadata(REQUIRE_PERMISSIONS_KEY, StrategicVisionController.prototype.getAlerts),
     ).toEqual(['strategic_vision.read']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        StrategicVisionController.prototype.getKpisByDirection,
+      ),
+    ).toEqual(['strategic_vision.read']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        StrategicVisionController.prototype.listDirections,
+      ),
+    ).toEqual(['strategic_vision.read']);
   });
 
   it('permissions strategic_vision.create sur routes POST de création', () => {
@@ -97,6 +114,21 @@ describe('StrategicVisionController', () => {
         StrategicVisionController.prototype.removeObjectiveLink,
       ),
     ).toEqual(['strategic_vision.manage_links']);
+  });
+
+  it('permissions OR pour gestion des directions', () => {
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_ANY_PERMISSIONS_KEY,
+        StrategicVisionController.prototype.createDirection,
+      ),
+    ).toEqual(['strategic_vision.update', 'strategic_vision.manage_directions']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_ANY_PERMISSIONS_KEY,
+        StrategicVisionController.prototype.updateDirection,
+      ),
+    ).toEqual(['strategic_vision.update', 'strategic_vision.manage_directions']);
   });
 
   it('applique la chaîne de guards attendue au controller', () => {

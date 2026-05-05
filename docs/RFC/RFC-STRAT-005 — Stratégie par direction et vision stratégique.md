@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 **Draft** — spécification cible ; non implémentée au moment de la rédaction (2026-05-04).
+✅ **Implémentée (MVP)** — backend + frontend livrés (2026-05-05).
 
 **Dépend de** : [RFC-STRAT-001](./RFC-STRAT-001%20%E2%80%94%20Strategic%20Vision%20Core%20Backend.md) (modèle vision / axes / objectifs / liens), [RFC-STRAT-002](./RFC-STRAT-002%20%E2%80%94%20Strategic%20Vision%20KPI%20and%20Alignment%20Engine.md) (KPI agrégés), [RFC-STRAT-003](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md), [RFC-STRAT-004](./RFC-STRAT-004%20%E2%80%94%20Strategic%20Vision%20Alerts%20and%20CODIR%20Widgets.md) (alertes & widgets).
 

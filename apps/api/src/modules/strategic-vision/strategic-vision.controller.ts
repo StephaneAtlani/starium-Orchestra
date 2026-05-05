@@ -6,8 +6,10 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import { RequireAnyPermissions } from '../../common/decorators/require-any-permissions.decorator';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
@@ -17,11 +19,15 @@ import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateStrategicAxisDto } from './dto/create-strategic-axis.dto';
+import { CreateStrategicDirectionDto } from './dto/create-strategic-direction.dto';
 import { CreateStrategicLinkDto } from './dto/create-strategic-link.dto';
 import { CreateStrategicObjectiveDto } from './dto/create-strategic-objective.dto';
 import { CreateStrategicVisionDto } from './dto/create-strategic-vision.dto';
+import { ListStrategicDirectionsQueryDto } from './dto/list-strategic-directions-query.dto';
 import { StrategicVisionAlertsResponseDto } from './dto/strategic-vision-alerts-response.dto';
+import { StrategicVisionKpisByDirectionResponseDto } from './dto/strategic-vision-kpis-by-direction-response.dto';
 import { StrategicVisionKpisResponseDto } from './dto/strategic-vision-kpis-response.dto';
+import { UpdateStrategicDirectionDto } from './dto/update-strategic-direction.dto';
 import { UpdateStrategicAxisDto } from './dto/update-strategic-axis.dto';
 import { UpdateStrategicObjectiveDto } from './dto/update-strategic-objective.dto';
 import { UpdateStrategicVisionDto } from './dto/update-strategic-vision.dto';
@@ -50,8 +56,21 @@ export class StrategicVisionController {
   @RequirePermissions('strategic_vision.read')
   getAlerts(
     @ActiveClientId() clientId: string | undefined,
+    @Query('directionId') directionId?: string,
+    @Query('unassigned') unassigned?: string,
   ): Promise<StrategicVisionAlertsResponseDto> {
-    return this.service.getAlerts(clientId!);
+    return this.service.getAlerts(clientId!, {
+      directionId,
+      unassigned: unassigned === 'true',
+    });
+  }
+
+  @Get('strategic-vision/kpis/by-direction')
+  @RequirePermissions('strategic_vision.read')
+  getKpisByDirection(
+    @ActiveClientId() clientId: string | undefined,
+  ): Promise<StrategicVisionKpisByDirectionResponseDto> {
+    return this.service.getKpisByDirection(clientId!);
   }
 
   @Post('strategic-vision')
@@ -104,6 +123,47 @@ export class StrategicVisionController {
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     return this.service.updateAxis(clientId!, axisId, dto, { actorUserId, meta });
+  }
+
+  @Get('strategic-directions')
+  @RequirePermissions('strategic_vision.read')
+  listDirections(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: ListStrategicDirectionsQueryDto,
+  ) {
+    return this.service.listDirections(clientId!, query);
+  }
+
+  @Post('strategic-directions')
+  @RequireAnyPermissions(
+    'strategic_vision.update',
+    'strategic_vision.manage_directions',
+  )
+  createDirection(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: CreateStrategicDirectionDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.service.createDirection(clientId!, dto, { actorUserId, meta });
+  }
+
+  @Patch('strategic-directions/:id')
+  @RequireAnyPermissions(
+    'strategic_vision.update',
+    'strategic_vision.manage_directions',
+  )
+  updateDirection(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') directionId: string,
+    @Body() dto: UpdateStrategicDirectionDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.service.updateDirection(clientId!, directionId, dto, {
+      actorUserId,
+      meta,
+    });
   }
 
   @Get('strategic-objectives')

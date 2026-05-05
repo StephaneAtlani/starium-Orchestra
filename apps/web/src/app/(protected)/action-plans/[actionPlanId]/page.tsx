@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from '@/lib/toast';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -46,9 +47,9 @@ import { useActionPlanDetailQuery } from '@/features/projects/hooks/use-action-p
 import { useActionPlanTasksQuery } from '@/features/projects/hooks/use-action-plan-tasks-query';
 import { useProjectAssignableUsers } from '@/features/projects/hooks/use-project-assignable-users';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
-import type { ActionPlanApi } from '@/features/projects/types/project.types';
+import type { ActionPlanApi, ActionPlanTaskApi } from '@/features/projects/types/project.types';
 import { cn } from '@/lib/utils';
-import { AlertCircle, ChevronLeft, ClipboardList, Plus } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ClipboardList, Download, Plus } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Select,
@@ -80,6 +81,26 @@ const ACTION_PLAN_PRIORITY_LABELS: Record<string, string> = {
   MEDIUM: 'Moyenne',
   HIGH: 'Haute',
 };
+
+function sanitizeFileName(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+function fmtExportDateTime(date: Date): string {
+  const pad = (v: number) => String(v).padStart(2, '0');
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
+}
+
+function taskOwnerLabel(task: ActionPlanTaskApi, ownerLabelById: Map<string, string>): string {
+  if (task.ownerUserId) {
+    return ownerLabelById.get(task.ownerUserId) ?? task.ownerUserId;
+  }
+  return 'Non assigne';
+}
 
 /** Style = cycle de vie projet (RFC-PLA-001 `ACTIVE` ≈ `IN_PROGRESS`). */
 function actionPlanStatusToLifecycleKey(
@@ -209,9 +230,22 @@ export default function ActionPlanDetailPage() {
 
   const [open, setOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingXlsx, setIsExportingXlsx] = useState(false);
 
   const plan = planQuery.data;
   const progressPct = plan ? Math.min(100, Math.max(0, plan.progressPercent)) : 0;
+  const ownerLabel = plan?.owner
+    ? [plan.owner.firstName, plan.owner.lastName].filter(Boolean).join(' ').trim() || plan.owner.email
+    : null;
+  const ownerOptions = useMemo(
+    () =>
+      users.map((u) => ({
+        id: u.id,
+        label: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email,
+      })),
+    [users],
+  );
   const planMetaMutation = useMutation({
     mutationFn: (payload: UpdateActionPlanPayload) =>
       updateActionPlan(authFetch, actionPlanId, payload),
@@ -232,6 +266,135 @@ export default function ActionPlanDetailPage() {
     if (!selectedTaskId || !tasksQuery.data?.items) return null;
     return tasksQuery.data.items.find((t) => t.id === selectedTaskId) ?? null;
   }, [selectedTaskId, tasksQuery.data?.items]);
+
+  const ownerLabelById = useMemo(
+    () => new Map(ownerOptions.map((option) => [option.id, option.label])),
+    [ownerOptions],
+  );
+
+  const taskRowsForExport = useMemo(
+    () => (tasksQuery.data?.items ?? []).map((task, index) => ({
+      index: index + 1,
+      code: task.code ?? '',
+      name: task.name,
+      status: task.status,
+      priority: task.priority,
+      progress: `${task.progress}%`,
+      owner: taskOwnerLabel(task, ownerLabelById),
+      project: task.project ? `${task.project.code} - ${task.project.name}` : '',
+      risk: task.risk ? `${task.risk.code} - ${task.risk.title}` : '',
+      plannedStartDate: fmtShortDate(task.plannedStartDate),
+      plannedEndDate: fmtShortDate(task.plannedEndDate),
+      actualStartDate: fmtShortDate(task.actualStartDate),
+      actualEndDate: fmtShortDate(task.actualEndDate),
+      description: task.description ?? '',
+    })),
+    [tasksQuery.data?.items, ownerLabelById],
+  );
+
+  const exportBaseName = useMemo(() => {
+    if (!plan) return 'plan-action';
+    const core = sanitizeFileName(`${plan.code}-${plan.title}`) || plan.code.toLowerCase();
+    return `${core}-${fmtExportDateTime(new Date())}`;
+  }, [plan]);
+
+  const handleExportXlsx = useCallback(async () => {
+    if (!plan) return;
+    setIsExportingXlsx(true);
+    try {
+      const XLSX = await import('xlsx');
+      const rows = taskRowsForExport.map((row) => ({
+        '#': row.index,
+        Code: row.code,
+        Tache: row.name,
+        Statut: row.status,
+        Priorite: row.priority,
+        Avancement: row.progress,
+        Responsable: row.owner,
+        Projet: row.project,
+        Risque: row.risk,
+        'Debut prevu': row.plannedStartDate,
+        'Fin prevue': row.plannedEndDate,
+        'Debut reel': row.actualStartDate,
+        'Fin reelle': row.actualEndDate,
+        Description: row.description,
+      }));
+
+      const workbook = XLSX.utils.book_new();
+      const summarySheet = XLSX.utils.json_to_sheet([
+        {
+          Code: plan.code,
+          Titre: plan.title,
+          Statut: ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status,
+          Priorite: ACTION_PLAN_PRIORITY_LABELS[plan.priority] ?? plan.priority,
+          Avancement: `${plan.progressPercent}%`,
+          Responsable: ownerLabel ?? 'Non assigne',
+          'Nombre de taches': taskRowsForExport.length,
+        },
+      ]);
+      const tasksSheet = XLSX.utils.json_to_sheet(rows);
+
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Plan');
+      XLSX.utils.book_append_sheet(workbook, tasksSheet, 'Taches');
+      XLSX.writeFile(workbook, `${exportBaseName}.xlsx`, { compression: true });
+      toast.success('Export XLSX genere.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Export XLSX impossible.");
+    } finally {
+      setIsExportingXlsx(false);
+    }
+  }, [exportBaseName, ownerLabel, plan, taskRowsForExport]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!plan) return;
+    setIsExportingPdf(true);
+    try {
+      const [{ jsPDF }, autoTableModule] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+      const autoTable = autoTableModule.default;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+      doc.setFontSize(14);
+      doc.text(`Plan d'action: ${plan.code} - ${plan.title}`, 36, 36);
+      doc.setFontSize(10);
+      doc.text(
+        `Statut: ${ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status} | Priorite: ${ACTION_PLAN_PRIORITY_LABELS[plan.priority] ?? plan.priority} | Avancement: ${plan.progressPercent}%`,
+        36,
+        54,
+      );
+      doc.text(`Responsable: ${ownerLabel ?? 'Non assigne'} | Taches: ${taskRowsForExport.length}`, 36, 70);
+
+      autoTable(doc, {
+        startY: 84,
+        styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
+        head: [['#', 'Code', 'Tache', 'Statut', 'Priorite', '%', 'Responsable', 'Projet', 'Risque', 'Fin prevue']],
+        body: taskRowsForExport.map((row) => [
+          String(row.index),
+          row.code || '-',
+          row.name,
+          row.status,
+          row.priority,
+          row.progress,
+          row.owner,
+          row.project || '-',
+          row.risk || '-',
+          row.plannedEndDate,
+        ]),
+        columnStyles: {
+          2: { cellWidth: 180 },
+          6: { cellWidth: 100 },
+          7: { cellWidth: 120 },
+          8: { cellWidth: 120 },
+        },
+      });
+
+      doc.save(`${exportBaseName}.pdf`);
+      toast.success('Export PDF genere.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Export PDF impossible.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [exportBaseName, ownerLabel, plan, taskRowsForExport]);
 
   useEffect(() => {
     if (!selectedTaskId || !tasksQuery.isSuccess || !tasksQuery.data?.items) return;
@@ -275,17 +438,6 @@ export default function ActionPlanDetailPage() {
     ? `${plan.code} · ${ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status} · avancement ${plan.progressPercent}%`
     : undefined;
 
-  const ownerLabel = plan?.owner
-    ? [plan.owner.firstName, plan.owner.lastName].filter(Boolean).join(' ').trim() || plan.owner.email
-    : null;
-  const ownerOptions = useMemo(
-    () =>
-      users.map((u) => ({
-        id: u.id,
-        label: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email,
-      })),
-    [users],
-  );
   const selectedOwnerLabel =
     editableOwnerUserId === '__none__'
       ? 'Non assigné'
@@ -398,12 +550,34 @@ export default function ActionPlanDetailPage() {
               }
               description={pageDescription}
               actions={
-                <PermissionGate permission="projects.update">
-                  <Button type="button" size="sm" onClick={() => setOpen(true)}>
-                    <Plus className="size-4" />
-                    Nouvelle tâche
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isExportingPdf || tasksQuery.isLoading}
+                    onClick={() => void handleExportPdf()}
+                  >
+                    <Download className="size-4" />
+                    {isExportingPdf ? 'Export PDF...' : 'Exporter PDF'}
                   </Button>
-                </PermissionGate>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isExportingXlsx || tasksQuery.isLoading}
+                    onClick={() => void handleExportXlsx()}
+                  >
+                    <Download className="size-4" />
+                    {isExportingXlsx ? 'Export XLSX...' : 'Exporter XLSX'}
+                  </Button>
+                  <PermissionGate permission="projects.update">
+                    <Button type="button" size="sm" onClick={() => setOpen(true)}>
+                      <Plus className="size-4" />
+                      Nouvelle tâche
+                    </Button>
+                  </PermissionGate>
+                </div>
               }
             />
 

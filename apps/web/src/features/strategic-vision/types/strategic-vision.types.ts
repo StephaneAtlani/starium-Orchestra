@@ -17,6 +17,18 @@ export type StrategicLinkDto = {
   createdAt: string;
 };
 
+export type StrategicDirectionDto = {
+  id: string;
+  clientId: string;
+  code: string;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type StrategicObjectiveDto = {
   id: string;
   clientId: string;
@@ -24,6 +36,8 @@ export type StrategicObjectiveDto = {
   title: string;
   description: string | null;
   ownerLabel: string | null;
+  directionId: string | null;
+  direction: Pick<StrategicDirectionDto, 'id' | 'code' | 'name' | 'isActive'> | null;
   status: StrategicObjectiveStatus;
   deadline: string | null;
   createdAt: string;
@@ -76,6 +90,25 @@ export type StrategicVisionKpisResponseDto = {
   generatedAt: string;
 };
 
+export type StrategicDirectionKpiRowDto = {
+  directionId: string | null;
+  directionCode: string;
+  directionName: string;
+  projectAlignmentRate: number;
+  unalignedProjectsCount: number;
+  objectivesAtRiskCount: number;
+  objectivesOffTrackCount: number;
+  overdueObjectivesCount: number;
+  alignedActiveProjectsCount: number;
+  totalActiveProjectsRelevantCount: number;
+};
+
+export type StrategicVisionKpisByDirectionResponseDto = {
+  rows: StrategicDirectionKpiRowDto[];
+  global: StrategicVisionKpisResponseDto;
+  generatedAt: string;
+};
+
 export type StrategicVisionAlertSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export type StrategicVisionAlertType =
@@ -90,6 +123,8 @@ export type StrategicVisionAlertDto = {
   type: StrategicVisionAlertType;
   severity: StrategicVisionAlertSeverity;
   targetType: StrategicVisionAlertTargetType;
+  directionId: string | null;
+  directionName: string;
   targetLabel: string;
   message: string;
   createdAt: string;

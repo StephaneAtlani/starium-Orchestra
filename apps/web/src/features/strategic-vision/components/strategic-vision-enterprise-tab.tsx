@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/tooltip';
 import type {
   StrategicAxisDto,
+  StrategicDirectionDto,
   StrategicObjectiveDto,
   StrategicVisionDto,
 } from '../types/strategic-vision.types';
@@ -35,6 +36,7 @@ export function StrategicVisionEnterpriseTab({
   visions,
   axes,
   objectives,
+  directions,
   canUpdate,
   canCreate,
 }: {
@@ -42,6 +44,7 @@ export function StrategicVisionEnterpriseTab({
   visions: StrategicVisionDto[];
   axes: StrategicAxisDto[];
   objectives: StrategicObjectiveDto[];
+  directions: StrategicDirectionDto[];
   canUpdate: boolean;
   canCreate: boolean;
 }) {
@@ -152,6 +155,24 @@ export function StrategicVisionEnterpriseTab({
             Derniere mise a jour:{' '}
             <span className="font-medium">{formatDateTime(vision.updatedAt)}</span>
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Directions stratégiques</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {directions.length === 0 ? (
+            <p className="text-muted-foreground">Aucune direction configurée.</p>
+          ) : (
+            directions.map((direction) => (
+              <p key={direction.id}>
+                <span className="font-medium">{direction.name}</span> ({direction.code}) -{' '}
+                {direction.isActive ? 'Active' : 'Archivée'}
+              </p>
+            ))
+          )}
         </CardContent>
       </Card>
 

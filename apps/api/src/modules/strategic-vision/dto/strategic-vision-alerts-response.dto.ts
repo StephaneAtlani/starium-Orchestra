@@ -12,6 +12,8 @@ export type StrategicVisionAlertItemDto = {
   type: StrategicVisionAlertType;
   severity: StrategicVisionAlertSeverity;
   targetType: StrategicVisionAlertTargetType;
+  directionId: string | null;
+  directionName: string;
   targetLabel: string;
   message: string;
   createdAt: string;

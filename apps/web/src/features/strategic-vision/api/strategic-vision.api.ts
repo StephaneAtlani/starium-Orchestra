@@ -2,7 +2,9 @@ import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
 import type {
   StrategicAxisDto,
+  StrategicDirectionDto,
   StrategicVisionAlertsResponseDto,
+  StrategicVisionKpisByDirectionResponseDto,
   StrategicObjectiveDto,
   StrategicVisionDto,
   StrategicVisionKpisResponseDto,
@@ -60,10 +62,31 @@ export async function getStrategicVisionKpis(
 
 export async function getStrategicVisionAlerts(
   authFetch: AuthFetch,
+  filters?: { directionId?: string; unassigned?: boolean },
 ): Promise<StrategicVisionAlertsResponseDto> {
-  const res = await authFetch('/api/strategic-vision/alerts');
+  const params = new URLSearchParams();
+  if (filters?.directionId) params.set('directionId', filters.directionId);
+  if (filters?.unassigned) params.set('unassigned', 'true');
+  const query = params.size > 0 ? `?${params.toString()}` : '';
+  const res = await authFetch(`/api/strategic-vision/alerts${query}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<StrategicVisionAlertsResponseDto>;
+}
+
+export async function getStrategicVisionKpisByDirection(
+  authFetch: AuthFetch,
+): Promise<StrategicVisionKpisByDirectionResponseDto> {
+  const res = await authFetch('/api/strategic-vision/kpis/by-direction');
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicVisionKpisByDirectionResponseDto>;
+}
+
+export async function listStrategicDirections(
+  authFetch: AuthFetch,
+): Promise<StrategicDirectionDto[]> {
+  const res = await authFetch('/api/strategic-directions');
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicDirectionDto[]>;
 }
 
 export type UpdateStrategicVisionInput = {
@@ -133,6 +156,7 @@ export type UpdateStrategicObjectiveInput = {
   ownerLabel?: string | null;
   status?: StrategicObjectiveDto['status'];
   deadline?: string | null;
+  directionId?: string | null;
 };
 
 export type CreateStrategicObjectiveInput = {
@@ -142,6 +166,7 @@ export type CreateStrategicObjectiveInput = {
   ownerLabel?: string;
   status?: StrategicObjectiveDto['status'];
   deadline?: string;
+  directionId?: string | null;
 };
 
 export async function createStrategicObjective(

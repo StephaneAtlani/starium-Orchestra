@@ -25,11 +25,15 @@ function normalizeSearch(value: string): string {
 export function StrategicObjectivesTab({
   objectives,
   axisOptions,
+  directionOptions,
+  directionFilter,
   canCreate,
   canUpdate,
 }: {
   objectives: StrategicObjectiveDto[];
   axisOptions: AxisOption[];
+  directionOptions: Array<{ id: string; label: string }>;
+  directionFilter: string;
   canCreate: boolean;
   canUpdate: boolean;
 }) {
@@ -57,6 +61,7 @@ export function StrategicObjectivesTab({
         objective.title,
         objective.description ?? '',
         objective.ownerLabel ?? '',
+        objective.direction?.name ?? '',
         axisNameById.get(objective.axisId) ?? '',
       ]
         .join(' ')
@@ -126,6 +131,15 @@ export function StrategicObjectivesTab({
           En retard uniquement
         </label>
       </div>
+      {directionFilter !== 'ALL' ? (
+        <p className="text-xs text-muted-foreground">
+          Filtre cockpit actif :{' '}
+          {directionFilter === 'UNASSIGNED'
+            ? 'Non affecté'
+            : directionOptions.find((option) => option.id === directionFilter)?.label ??
+              'Direction'}
+        </p>
+      ) : null}
 
       {filteredObjectives.length === 0 ? (
         <Alert>
@@ -157,6 +171,7 @@ export function StrategicObjectivesTab({
       <StrategicObjectiveEditDialog
         objective={editingObjective}
         open={editingObjective != null}
+        directionOptions={directionOptions}
         onOpenChange={(open) => {
           if (!open) setEditingObjective(null);
         }}
@@ -165,6 +180,7 @@ export function StrategicObjectivesTab({
         open={creatingObjective}
         onOpenChange={setCreatingObjective}
         axisOptions={axisOptions}
+        directionOptions={directionOptions}
       />
     </section>
   );

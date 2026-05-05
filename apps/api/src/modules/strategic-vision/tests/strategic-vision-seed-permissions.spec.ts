@@ -9,6 +9,7 @@ describe('strategic vision seed permissions', () => {
     expect(content).toContain('strategic_vision.read');
     expect(content).toContain('strategic_vision.create');
     expect(content).toContain('strategic_vision.update');
+    expect(content).toContain('strategic_vision.manage_directions');
     expect(content).toContain('strategic_vision.manage_links');
     expect(content).toContain('ensureStrategicVisionModuleAndPermissions');
   });

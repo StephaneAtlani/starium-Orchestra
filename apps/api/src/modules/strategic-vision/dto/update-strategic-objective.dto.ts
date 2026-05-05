@@ -6,6 +6,7 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { StrategicObjectiveStatus } from '@prisma/client';
 
@@ -34,4 +35,10 @@ export class UpdateStrategicObjectiveDto {
   @Type(() => Date)
   @IsDate()
   deadline?: Date;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MinLength(1)
+  directionId?: string | null;
 }

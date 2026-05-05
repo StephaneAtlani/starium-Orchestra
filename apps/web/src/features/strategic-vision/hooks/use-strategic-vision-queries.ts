@@ -11,7 +11,9 @@ import {
   createStrategicObjective,
   type CreateStrategicObjectiveInput,
   getStrategicVisionAlerts,
+  getStrategicVisionKpisByDirection,
   getStrategicVisionKpis,
+  listStrategicDirections,
   listStrategicAxes,
   listStrategicObjectives,
   listStrategicVisions,
@@ -76,15 +78,50 @@ export function useStrategicKpisQuery(options?: { enabled?: boolean }) {
   });
 }
 
-export function useStrategicAlertsQuery(options?: { enabled?: boolean }) {
+export function useStrategicKpisByDirectionQuery(options?: { enabled?: boolean }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const enabled = options?.enabled !== false;
 
   return useQuery({
-    queryKey: strategicVisionKeys.alerts(clientId),
-    queryFn: () => getStrategicVisionAlerts(authFetch),
+    queryKey: strategicVisionKeys.kpisByDirection(clientId),
+    queryFn: () => getStrategicVisionKpisByDirection(authFetch),
+    enabled: Boolean(clientId) && enabled,
+  });
+}
+
+export function useStrategicDirectionsQuery(options?: { enabled?: boolean }) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const enabled = options?.enabled !== false;
+
+  return useQuery({
+    queryKey: strategicVisionKeys.directions(clientId),
+    queryFn: () => listStrategicDirections(authFetch),
+    enabled: Boolean(clientId) && enabled,
+  });
+}
+
+export function useStrategicAlertsQuery(
+  options?: { enabled?: boolean; directionId?: string; unassigned?: boolean },
+) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const enabled = options?.enabled !== false;
+
+  return useQuery({
+    queryKey: strategicVisionKeys.alerts(clientId, {
+      directionId: options?.directionId,
+      unassigned: options?.unassigned,
+    }),
+    queryFn: () =>
+      getStrategicVisionAlerts(authFetch, {
+        directionId: options?.directionId,
+        unassigned: options?.unassigned,
+      }),
     enabled: Boolean(clientId) && enabled,
   });
 }

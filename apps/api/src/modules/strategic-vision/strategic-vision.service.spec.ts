@@ -23,6 +23,12 @@ type PrismaMock = {
     update: jest.Mock;
     count: jest.Mock;
   };
+  strategicDirection: {
+    findMany: jest.Mock;
+    findFirst: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+  };
   strategicLink: {
     findFirst: jest.Mock;
     create: jest.Mock;
@@ -81,6 +87,12 @@ describe('StrategicVisionService', () => {
         create: jest.fn(),
         update: jest.fn(),
         count: jest.fn(),
+      },
+      strategicDirection: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
       },
       strategicLink: {
         findFirst: jest.fn(),
@@ -237,6 +249,8 @@ describe('StrategicVisionService', () => {
           title: 'Objectif Retard',
           deadline: new Date('2026-02-01T00:00:00.000Z'),
           updatedAt: new Date('2026-02-03T00:00:00.000Z'),
+          directionId: null,
+          direction: null,
         },
       ])
       .mockResolvedValueOnce([
@@ -244,6 +258,8 @@ describe('StrategicVisionService', () => {
           id: 'o-offtrack',
           title: 'Objectif Hors Trajectoire',
           updatedAt: new Date('2026-02-05T00:00:00.000Z'),
+          directionId: 'd1',
+          direction: { name: 'DSI' },
         },
       ]);
     const out = await service.getAlerts('c1');
@@ -258,6 +274,8 @@ describe('StrategicVisionService', () => {
           type: 'OBJECTIVE_OVERDUE',
           severity: 'HIGH',
           targetType: 'OBJECTIVE',
+          directionId: null,
+          directionName: 'Non affecté',
           targetLabel: 'Objectif Retard',
           message: expect.stringContaining('Objectif en retard'),
         }),
@@ -265,6 +283,8 @@ describe('StrategicVisionService', () => {
           type: 'OBJECTIVE_OFF_TRACK',
           severity: 'CRITICAL',
           targetType: 'OBJECTIVE',
+          directionId: 'd1',
+          directionName: 'DSI',
           targetLabel: 'Objectif Hors Trajectoire',
           message: expect.stringContaining('Objectif hors trajectoire'),
         }),
@@ -283,5 +303,115 @@ describe('StrategicVisionService', () => {
     expect(prisma.project.findMany).not.toHaveBeenCalled();
     expect(prisma.strategicLink.findMany).not.toHaveBeenCalled();
     expect(out).toEqual({ items: [], total: 0 });
+  });
+
+  it('createObjective rejette une direction hors client actif', async () => {
+    prisma.strategicAxis.findFirst.mockResolvedValue({ id: 'a1' });
+    prisma.strategicDirection.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.createObjective('c1', {
+        axisId: 'a1',
+        title: 'Objectif',
+        directionId: 'd-foreign',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('updateObjective audite strategic_objective.direction_changed', async () => {
+    prisma.strategicObjective.findFirst
+      .mockResolvedValueOnce({
+        id: 'o1',
+        clientId: 'c1',
+        title: 'Objectif',
+        description: null,
+        ownerLabel: null,
+        status: 'ON_TRACK',
+        deadline: null,
+        directionId: 'd-old',
+      })
+      .mockResolvedValueOnce({
+        id: 'o1',
+        clientId: 'c1',
+        title: 'Objectif',
+        description: null,
+        ownerLabel: null,
+        status: 'ON_TRACK',
+        deadline: null,
+        directionId: 'd-new',
+        direction: { id: 'd-new', code: 'DSI', name: 'DSI', isActive: true },
+        links: [],
+      });
+    prisma.strategicDirection.findFirst.mockResolvedValue({ id: 'd-new', clientId: 'c1' });
+    prisma.strategicObjective.update.mockResolvedValue({
+      id: 'o1',
+      clientId: 'c1',
+      title: 'Objectif',
+      description: null,
+      ownerLabel: null,
+      status: 'ON_TRACK',
+      deadline: null,
+      directionId: 'd-new',
+    });
+
+    await service.updateObjective('c1', 'o1', { directionId: 'd-new' }, { actorUserId: 'u1' });
+
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'strategic_objective.direction_changed' }),
+    );
+  });
+
+  it('getKpisByDirection retourne actifs, inactifs référencés et Non affecté', async () => {
+    prisma.project.findMany.mockResolvedValue([{ id: 'p1' }, { id: 'p2' }]);
+    prisma.strategicObjective.findMany
+      .mockResolvedValueOnce([{ directionId: 'd1' }, { directionId: 'd2' }])
+      .mockResolvedValueOnce([]);
+    prisma.strategicDirection.findMany
+      .mockResolvedValueOnce([{ id: 'd1', code: 'DSI', name: 'DSI', sortOrder: 1, isActive: true }])
+      .mockResolvedValueOnce([{ id: 'd2', code: 'DAF', name: 'DAF', sortOrder: 2, isActive: false }]);
+    prisma.strategicObjective.count.mockImplementation(async (args: { where: { directionId?: string | null; status?: { in?: string[]; notIn?: string[] } } }) => {
+      const directionId = Object.prototype.hasOwnProperty.call(args.where, 'directionId')
+        ? args.where.directionId
+        : 'GLOBAL';
+      if (args.where.status?.in?.includes('AT_RISK')) return directionId === 'd1' ? 1 : 0;
+      if (args.where.status?.in?.includes('OFF_TRACK')) return directionId === 'd2' ? 1 : 0;
+      if (args.where.status?.notIn) return directionId === null ? 2 : 0;
+      return 0;
+    });
+    prisma.strategicLink.findMany.mockImplementation(async (args: { where: { objective?: { directionId?: string | null } } }) => {
+      const directionId = args.where.objective?.directionId;
+      if (directionId === 'd1') return [{ targetId: 'p1' }];
+      if (directionId === 'd2') return [{ targetId: 'p2' }];
+      if (directionId === null) return [{ targetId: 'p1' }];
+      return [{ targetId: 'p1' }, { targetId: 'p2' }];
+    });
+
+    const out = await service.getKpisByDirection('c1');
+
+    expect(out.rows.map((row) => row.directionCode)).toEqual(['DSI', 'DAF', 'UNASSIGNED']);
+    expect(out.rows.find((row) => row.directionCode === 'UNASSIGNED')?.directionId).toBeNull();
+    expect(out.rows.find((row) => row.directionCode === 'DSI')?.projectAlignmentRate).toBe(0.5);
+    expect(out.global.projectAlignmentRate).toBe(1);
+  });
+
+  it('getAlerts applique le filtre unassigned=true', async () => {
+    prisma.strategicObjective.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+    await service.getAlerts('c1', { unassigned: true });
+
+    expect(prisma.strategicObjective.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          clientId: 'c1',
+          directionId: null,
+        }),
+      }),
+    );
+  });
+
+  it('getAlerts rejette directionId + unassigned', async () => {
+    await expect(
+      service.getAlerts('c1', { directionId: 'd1', unassigned: true }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

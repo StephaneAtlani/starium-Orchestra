@@ -71,6 +71,7 @@ export function StrategicAlertsPanel({
             </CardHeader>
             <CardContent className="space-y-1 text-sm">
               <p>{alert.message}</p>
+              <p className="text-muted-foreground">Direction: {alert.directionName}</p>
               <p className="text-muted-foreground">
                 {alert.type} - {formatAlertDate(alert.createdAt)}
               </p>

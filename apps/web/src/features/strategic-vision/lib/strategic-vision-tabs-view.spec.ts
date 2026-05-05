@@ -12,6 +12,7 @@ function makeObjective(
   id: string,
   overrides: Partial<StrategicObjectiveDto> = {},
 ): StrategicObjectiveDto {
+  const { directionId, direction, ...restOverrides } = overrides;
   return {
     id,
     clientId: 'c1',
@@ -24,7 +25,9 @@ function makeObjective(
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     links: [],
-    ...overrides,
+    ...restOverrides,
+    directionId: directionId ?? null,
+    direction: direction ?? null,
   };
 }
 

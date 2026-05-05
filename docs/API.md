@@ -549,7 +549,10 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/budget-version-sets | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budgets/:id/create-baseline, create-revision, activate-version, archive-version, version-history, compare | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update` selon l’action) |
 | /api/strategic-vision/kpis | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
+| /api/strategic-vision/kpis/by-direction | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-vision/alerts | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
+| /api/strategic-directions (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
+| /api/strategic-directions (POST/PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.update` **ou** `strategic_vision.manage_directions`) |
 
 ---
 
@@ -600,6 +603,10 @@ Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
   - `X-Client-Id: <clientId>`
 - **Guards (ordre)** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
 - **Permission requise** : `strategic_vision.read`
+- **Query optionnelle** :
+  - `directionId=<strategicDirectionId>` : alerte(s) liées à une direction précise
+  - `unassigned=true` : alerte(s) liées à des objectifs sans direction
+  - `directionId` et `unassigned=true` sont mutuellement exclusifs
 
 **Contrat de réponse (200)** :
 
@@ -610,6 +617,8 @@ Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
     type: "OBJECTIVE_OVERDUE" | "OBJECTIVE_OFF_TRACK" | "PROJECT_UNALIGNED";
     severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
     targetType: "OBJECTIVE" | "PROJECT";
+    directionId: string | null;
+    directionName: string; // ex: "DSI", "Non affecté"
     targetLabel: string;
     message: string;
     createdAt: string; // ISO datetime
@@ -618,7 +627,60 @@ Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
 }
 ```
 
-## 5.4 Socle alertes et notifications (RFC-038) — `/api/alerts`, `/api/notifications`
+## 5.4 Strategic Vision KPI by direction — `/api/strategic-vision/kpis/by-direction`
+
+Endpoint RFC-STRAT-005 (lecture cockpit par direction, sans changer le KPI global STRAT-002).
+
+- **Méthode/route** : `GET /api/strategic-vision/kpis/by-direction`
+- **Headers requis** :
+  - `Authorization: Bearer <accessToken>`
+  - `X-Client-Id: <clientId>`
+- **Guards (ordre)** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- **Permission requise** : `strategic_vision.read`
+
+**Contrat de réponse (200)** :
+
+```ts
+{
+  rows: Array<{
+    directionId: string | null;
+    directionCode: string;
+    directionName: string;
+    projectAlignmentRate: number;
+    unalignedProjectsCount: number;
+    objectivesAtRiskCount: number;
+    objectivesOffTrackCount: number;
+    overdueObjectivesCount: number;
+    alignedActiveProjectsCount: number;
+    totalActiveProjectsRelevantCount: number;
+  }>;
+  global: {
+    projectAlignmentRate: number;
+    unalignedProjectsCount: number;
+    objectivesAtRiskCount: number;
+    objectivesOffTrackCount: number;
+    overdueObjectivesCount: number;
+    generatedAt: string;
+  };
+  generatedAt: string;
+}
+```
+
+## 5.5 Strategic directions — `/api/strategic-directions`
+
+Référentiel direction métier client-scopé (RFC-STRAT-005), orthogonal aux axes stratégiques.
+
+- **GET /api/strategic-directions** :
+  - Permission : `strategic_vision.read`
+  - Query optionnelle : `isActive=true|false`, `search=<code|name>`
+- **POST /api/strategic-directions** :
+  - Permission : `strategic_vision.update` **ou** `strategic_vision.manage_directions`
+- **PATCH /api/strategic-directions/:id** :
+  - Permission : `strategic_vision.update` **ou** `strategic_vision.manage_directions`
+
+**Champs principaux** : `id`, `clientId`, `code`, `name`, `description`, `sortOrder`, `isActive`, `createdAt`, `updatedAt`.
+
+## 5.6 Socle alertes et notifications (RFC-038) — `/api/alerts`, `/api/notifications`
 
 Socle transverse **distinct** de `GET /api/strategic-vision/alerts` (§5.3). Toutes les routes ci-dessous exigent **`Authorization`** + **`X-Client-Id`**, avec guards `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`.
 

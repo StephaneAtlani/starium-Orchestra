@@ -94,7 +94,8 @@
     "permissionCodes": [
       "strategic_vision.read",
       "strategic_vision.create",
-      "strategic_vision.update"
+      "strategic_vision.update",
+      "strategic_vision.manage_directions"
     ]
   },
   {
@@ -105,6 +106,7 @@
       "strategic_vision.read",
       "strategic_vision.create",
       "strategic_vision.update",
+      "strategic_vision.manage_directions",
       "strategic_vision.manage_links",
       "projects.read"
     ]

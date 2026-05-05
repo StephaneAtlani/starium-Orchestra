@@ -191,6 +191,7 @@ export function StrategicAxesTab({
       <StrategicObjectiveEditDialog
         objective={editingObjective}
         open={editingObjective != null}
+        directionOptions={[]}
         onOpenChange={(open) => {
           if (!open) setEditingObjective(null);
         }}
@@ -205,6 +206,7 @@ export function StrategicAxesTab({
         open={creatingObjective}
         onOpenChange={setCreatingObjective}
         axisOptions={axisOptions}
+        directionOptions={[]}
         initialAxisId={selectedAxis?.id ?? null}
       />
     </section>

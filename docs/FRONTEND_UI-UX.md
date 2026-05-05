@@ -238,9 +238,20 @@ L’écran **`/projects`** (`app/(protected)/projects/page.tsx`) regroupe **filt
 - **`CardHeader`** : `border-b border-border/60`, titre **`CardTitle`** `text-sm font-medium` : « Filtrer et trier ».
 - **Actions à droite** (`flex gap-2`, `size="sm"`) :
   - **Mes projets** — `Button` `variant={myProjectsOnly ? 'default' : 'outline'}` : filtre « uniquement les projets où l’utilisateur a un rôle » (`myProjectsOnly`).
-  - **Plein écran** — bascule `document.documentElement.requestFullscreen` / `exitFullscreen` (icônes `Expand` / `Minimize`).
+  - **Plein écran** — bascule `requestFullscreen` sur `#starium-app-workspace` (`STARIUM_APP_WORKSPACE_DOM_ID`) puis `exitFullscreen` (icônes `Expand` / `Minimize`), pour conserver la sidebar hors écran.
   - **Réinitialiser** — `onReset` (état filtres + tri via `use-projects-list-filters`).
 - Conteneur : `role="search"` + `aria-label="Filtrer et trier la liste des projets"`.
+
+### 7.1.1 Portals en plein écran (Select / Tooltip / Dialog)
+
+Quand `/projects` est en plein écran, les popups Base UI (`Select`, `Tooltip`, `Dialog`) ne doivent pas être montés dans `document.body`, sinon ils sortent du sous-arbre plein écran et deviennent invisibles/non interactifs.
+
+- Hook commun : `apps/web/src/hooks/use-fullscreen-portal-container.ts` → renvoie `document.fullscreenElement` (ou `undefined` hors plein écran).
+- `Select` : `apps/web/src/components/ui/select.tsx` (`SelectPrimitive.Portal container={fullscreenContainer}`).
+- `Tooltip` : `apps/web/src/components/ui/tooltip.tsx` (`TooltipPrimitive.Portal container={fullscreenContainer}`).
+- `Dialog` : `apps/web/src/components/ui/dialog.tsx` (`DialogPortal` utilise `container ?? fullscreenContainer` pour garder un override explicite possible).
+
+Effet attendu : les filtres inline du tableau Projets (ligne 2 des en-têtes) restent utilisables en mode plein écran.
 
 ### 7.2 Tableau : double ligne d’en-tête + filtres inline (`ProjectsListTable`)
 
@@ -507,6 +518,7 @@ Implémentation : `**apps/web/src/components/ui/dialog.tsx`** (Base UI `Backdrop
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Backdrop** | Voile : `fixed inset-0 z-[80]`, `bg-black/40`, `dark:bg-black/55`, léger flou `backdrop-blur-[2px]` ; `duration-200` ; animations fade `data-open` / `data-closed`. Attribut **`forceRender`** sur le `Backdrop` pour que le voile reste correctement empilé en **dialogues imbriqués** (Base UI). |
 | **Panneau**  | `Popup` : `z-[81]`, `rounded-xl border border-border/60`, `bg-background/95`, `backdrop-blur-2xl`, `shadow-lg`, `ring-1 ring-black/[0.04]` (`dark:ring-white/[0.06]`) — panneau type « vitré » au-dessus du voile (§2). |
+| **Portal container** | En plein écran, le `Portal` cible `document.fullscreenElement` via `useFullscreenPortalContainer`; hors plein écran, comportement standard (`body`). `DialogPortal` conserve `container` prioritaire si fourni explicitement. |
 | **Fermeture** | Clic sur le **voile** (bouton gauche, cible = le scrim) appelle `onOpenChange(false)` lorsque le `Dialog` racine reçoit **`onOpenChange`** ; un contexte interne relie le backdrop à cette fermeture. |
 | **Titre**    | `DialogTitle` : `text-lg font-semibold tracking-tight text-foreground` (cohérent avec les modales métier §12.2).                                                                                       |
 | **Pied**     | `DialogFooter` : `border-t border-border/60` sur le séparateur (§2).                                                                                                                                   |

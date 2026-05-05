@@ -29,10 +29,12 @@ export function StrategicObjectiveEditDialog({
   objective,
   open,
   onOpenChange,
+  directionOptions,
 }: {
   objective: StrategicObjectiveDto | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  directionOptions: Array<{ id: string; label: string }>;
 }) {
   const updateObjective = useUpdateStrategicObjectiveMutation();
   const [title, setTitle] = useState('');
@@ -40,6 +42,7 @@ export function StrategicObjectiveEditDialog({
   const [ownerLabel, setOwnerLabel] = useState('');
   const [status, setStatus] = useState<StrategicObjectiveStatus>('ON_TRACK');
   const [deadline, setDeadline] = useState('');
+  const [directionId, setDirectionId] = useState<string>('UNASSIGNED');
 
   useEffect(() => {
     if (!objective) return;
@@ -48,6 +51,7 @@ export function StrategicObjectiveEditDialog({
     setOwnerLabel(objective.ownerLabel ?? '');
     setStatus(objective.status);
     setDeadline(objective.deadline ? objective.deadline.slice(0, 10) : '');
+    setDirectionId(objective.directionId ?? 'UNASSIGNED');
   }, [objective]);
 
   const handleSave = async () => {
@@ -61,6 +65,7 @@ export function StrategicObjectiveEditDialog({
           ownerLabel: ownerLabel.trim() ? ownerLabel.trim() : null,
           status,
           deadline: deadline ? `${deadline}T00:00:00.000Z` : null,
+          directionId: directionId === 'UNASSIGNED' ? null : directionId,
         },
       });
       toast.success('Objectif stratégique mis à jour.');
@@ -133,6 +138,22 @@ export function StrategicObjectiveEditDialog({
               value={deadline}
               onChange={(event) => setDeadline(event.target.value)}
             />
+          </label>
+
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground">Direction</span>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={directionId}
+              onChange={(event) => setDirectionId(event.target.value)}
+            >
+              <option value="UNASSIGNED">Non affecté</option>
+              {directionOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
 
