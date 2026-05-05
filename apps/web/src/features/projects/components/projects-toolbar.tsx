@@ -20,6 +20,8 @@ export interface ProjectsToolbarProps {
   setFilters: (updates: Partial<ProjectsListFilters>) => void;
   onReset: () => void;
   embedded?: boolean;
+  viewMode?: 'table' | 'kanban';
+  onViewModeChange?: (mode: 'table' | 'kanban') => void;
 }
 
 export function ProjectsToolbar({
@@ -27,6 +29,8 @@ export function ProjectsToolbar({
   setFilters,
   onReset,
   embedded = false,
+  viewMode = 'table',
+  onViewModeChange,
 }: ProjectsToolbarProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -58,6 +62,28 @@ export function ProjectsToolbar({
           <CardTitle className="text-sm font-medium">Filtrer et trier</CardTitle>
         </div>
         <div className="flex items-center gap-2 self-start">
+          {onViewModeChange ? (
+            <div className="inline-flex items-center gap-1 rounded-md border bg-background p-1">
+              <Button
+                type="button"
+                variant={viewMode === 'table' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => onViewModeChange('table')}
+              >
+                Tableau
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => onViewModeChange('kanban')}
+              >
+                Kanban
+              </Button>
+            </div>
+          ) : null}
           <Button
             type="button"
             variant={filters.myProjectsOnly ? 'default' : 'outline'}

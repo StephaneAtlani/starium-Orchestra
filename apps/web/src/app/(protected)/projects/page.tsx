@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -22,6 +23,7 @@ import { usePortfolioSummaryQuery } from '@/features/projects/hooks/use-portfoli
 import { ProjectsPortfolioKpi } from '@/features/projects/components/projects-portfolio-kpi';
 import { ProjectsToolbar } from '@/features/projects/components/projects-toolbar';
 import { ProjectsListTable } from '@/features/projects/components/projects-list-table';
+import { ProjectsListKanban } from '@/features/projects/components/projects-list-kanban';
 import {
   projectNew,
   projectsCommitteeCodir,
@@ -40,6 +42,9 @@ import {
   Presentation,
 } from 'lucide-react';
 import { useTablePan } from '@/hooks/use-table-pan';
+import { useUpdateProjectStatus } from '@/features/projects/hooks/use-update-project-status';
+
+const PROJECTS_VIEW_MODE_STORAGE_KEY = 'starium.projects.viewMode';
 
 export default function ProjectsPortfolioPage() {
   const { activeClient } = useActiveClient();
@@ -48,12 +53,15 @@ export default function ProjectsPortfolioPage() {
   const { has, isLoading: permsLoading, isSuccess: permsSuccess, isError: permsError } =
     usePermissions();
   const canReadProjects = has('projects.read');
+  const canUpdateProjects = has('projects.update');
   const listEnabled = !!clientId && permsSuccess && canReadProjects;
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
 
   const { filters, setFilters, reset, apiParams } = useProjectsListFilters();
   const { data, isLoading, error, refetch, isRefetching } = useProjectsListQuery(apiParams, {
     enabled: listEnabled,
   });
+  const updateStatusMutation = useUpdateProjectStatus(apiParams);
   const { data: summary, isLoading: summaryLoading } = usePortfolioSummaryQuery({
     enabled: listEnabled,
   });
@@ -65,6 +73,26 @@ export default function ProjectsPortfolioPage() {
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const currentPage = Math.min(filters.page, totalPages);
   const offset = data ? (data.page - 1) * data.limit : 0;
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(PROJECTS_VIEW_MODE_STORAGE_KEY);
+      if (stored === 'table' || stored === 'kanban') {
+        setViewMode(stored);
+      }
+    } catch {
+      // ignore localStorage failures
+    }
+  }, []);
+
+  const handleViewModeChange = (nextMode: 'table' | 'kanban') => {
+    setViewMode(nextMode);
+    try {
+      window.localStorage.setItem(PROJECTS_VIEW_MODE_STORAGE_KEY, nextMode);
+    } catch {
+      // ignore localStorage failures
+    }
+  };
 
   return (
     <RequireActiveClient>
@@ -213,23 +241,40 @@ export default function ProjectsPortfolioPage() {
                   filters={filters}
                   setFilters={setFilters}
                   onReset={reset}
+                  viewMode={viewMode}
+                  onViewModeChange={handleViewModeChange}
                   embedded
                 />
                 {data && data.items.length > 0 ? (
                   <>
                     <CardContent
-                      ref={tablePan.scrollRef}
-                      onMouseDown={tablePan.onMouseDown}
                       className={cn(
                         'min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
-                        tablePan.isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+                        viewMode === 'table' &&
+                          (tablePan.isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'),
                       )}
+                      ref={viewMode === 'table' ? tablePan.scrollRef : undefined}
+                      onMouseDown={viewMode === 'table' ? tablePan.onMouseDown : undefined}
                     >
-                      <ProjectsListTable
-                        items={data.items}
-                        filters={filters}
-                        setFilters={setFilters}
-                      />
+                      {viewMode === 'table' ? (
+                        <ProjectsListTable
+                          items={data.items}
+                          filters={filters}
+                          setFilters={setFilters}
+                        />
+                      ) : (
+                        <ProjectsListKanban
+                          items={data.items}
+                          statusFilter={filters.status}
+                          canUpdate={canUpdateProjects}
+                          isUpdating={updateStatusMutation.isPending}
+                          onStatusDrop={({ projectId, fromStatus, toStatus }) => {
+                            if (!canUpdateProjects) return;
+                            if (fromStatus === toStatus) return;
+                            updateStatusMutation.mutate({ projectId, targetStatus: toStatus });
+                          }}
+                        />
+                      )}
                     </CardContent>
                     <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <PaginationSummary offset={offset} limit={data.limit} total={data.total} />
