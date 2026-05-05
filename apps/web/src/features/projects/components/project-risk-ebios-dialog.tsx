@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { toast } from '@/lib/toast';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -177,6 +179,8 @@ function normalizeRiskSearchText(value: string): string {
 
 const selectTriggerLabelClass =
   'min-w-0 flex-1 truncate text-left text-sm leading-none';
+
+const requiredAsteriskClass = 'ml-1 text-destructive';
 
 function criticalityBadgeClass(level: string): string {
   switch (level) {
@@ -583,19 +587,37 @@ export function ProjectRiskEbiosDialog({
     riskResolved &&
     (probability !== riskResolved.probability || impact !== riskResolved.impact);
 
+  const fallbackRiskTypeId = useMemo(() => {
+    const domains = taxonomyQuery.data?.domains ?? [];
+    const general = domains.find((d) => d.code === 'GENERAL');
+    const unclassified = general?.types.find((t) => t.code === 'UNCLASSIFIED');
+    if (unclassified) return unclassified.id;
+    const firstActiveType = domains.flatMap((d) => d.types).find((t) => t.isActive);
+    return firstActiveType?.id ?? null;
+  }, [taxonomyQuery.data?.domains]);
+
   const buildPayload = useCallback((): CreateProjectRiskPayload | null => {
     const t = title.trim();
-    const ts = threatSource.trim();
-    const sc = description.trim();
-    const bi = businessImpact.trim();
+    const ts =
+      mode === 'create' ? threatSource.trim() || t : threatSource.trim();
+    const sc =
+      mode === 'create'
+        ? description.trim() || `Risque identifié: ${t}`
+        : description.trim();
+    const bi =
+      mode === 'create'
+        ? businessImpact.trim() || 'Impact métier à qualifier'
+        : businessImpact.trim();
     if (!t || !ts || !sc || !bi || !treatmentStrategy) return null;
-    if (riskTypeId === NONE) return null;
+    const effectiveRiskTypeId =
+      riskTypeId !== NONE ? riskTypeId : mode === 'create' ? fallbackRiskTypeId : null;
+    if (!effectiveRiskTypeId) return null;
     const payload: CreateProjectRiskPayload = {
       title: t,
       threatSource: ts,
       description: sc,
       businessImpact: bi,
-      riskTypeId,
+      riskTypeId: effectiveRiskTypeId,
       likelihoodJustification: likelihoodJustification.trim() || undefined,
       probability,
       impact,
@@ -638,6 +660,7 @@ export function ProjectRiskEbiosDialog({
     residualJustification,
     complementaryTreatmentMeasures,
     ownerUserId,
+    fallbackRiskTypeId,
   ]);
 
   const snapshot = useMemo(() => {
@@ -650,6 +673,20 @@ export function ProjectRiskEbiosDialog({
     if (!p) return;
     await onSave(p);
   }, [buildPayload, onSave]);
+
+  const handleManualSave = useCallback(async () => {
+    const payload = buildPayload();
+    if (isPending) return;
+    if (!payload) {
+      toast.error('Enregistrement impossible: titre, type de risque et stratégie sont requis.');
+      return;
+    }
+    await onSave(payload);
+    savedSnapshotRef.current = stableRiskSnapshot(payload);
+    if (mode === 'create') {
+      onOpenChange(false);
+    }
+  }, [buildPayload, isPending, mode, onOpenChange, onSave]);
 
   const users = useMemo(
     () => assignableQuery.data?.users ?? [],
@@ -746,10 +783,11 @@ export function ProjectRiskEbiosDialog({
     Boolean(threatSource.trim()) &&
     Boolean(description.trim()) &&
     Boolean(businessImpact.trim()) &&
-    Boolean(treatmentStrategy);
+    Boolean(treatmentStrategy) &&
+    riskTypeId !== NONE;
 
   useDebouncedServerAutosave({
-    enabled: open,
+    enabled: open && mode === 'edit',
     snapshot,
     savedSnapshotRef,
     canSave: canSubmit,
@@ -1071,6 +1109,13 @@ export function ProjectRiskEbiosDialog({
             </div>
           ) : null}
 
+          <Alert className="border-primary/30 bg-primary/5">
+            <AlertDescription className="text-xs text-foreground">
+              <span className="font-medium">Champs obligatoires :</span> Titre, Source de menace,
+              Scénario, Impact métier, Type de risque, Stratégie de traitement.
+            </AlertDescription>
+          </Alert>
+
           <div className="space-y-4 py-0.5">
             <EbiosSection
               step={1}
@@ -1085,7 +1130,10 @@ export function ProjectRiskEbiosDialog({
               }
             >
               <div className="space-y-2">
-                <Label htmlFor="ebios-title">Titre du risque (registre)</Label>
+                <Label htmlFor="ebios-title">
+                  Titre du risque (registre)
+                  <span className={requiredAsteriskClass}>*</span>
+                </Label>
                 <Input
                   id="ebios-title"
                   value={title}
@@ -1097,7 +1145,10 @@ export function ProjectRiskEbiosDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ebios-threat">Source de menace</Label>
+                <Label htmlFor="ebios-threat">
+                  Source de menace
+                  <span className={requiredAsteriskClass}>*</span>
+                </Label>
                 <Input
                   id="ebios-threat"
                   value={threatSource}
@@ -1109,7 +1160,10 @@ export function ProjectRiskEbiosDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ebios-scenario">Scénario (Si X alors Y)</Label>
+                <Label htmlFor="ebios-scenario">
+                  Scénario (Si X alors Y)
+                  <span className={requiredAsteriskClass}>*</span>
+                </Label>
                 <textarea
                   id="ebios-scenario"
                   value={description}
@@ -1126,7 +1180,10 @@ export function ProjectRiskEbiosDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ebios-risk-type-trigger">Type de risque</Label>
+                <Label htmlFor="ebios-risk-type-trigger">
+                  Type de risque
+                  <span className={requiredAsteriskClass}>*</span>
+                </Label>
                 <PopoverPrimitive.Root
                   open={riskTypePickerOpen}
                   onOpenChange={(next) => {
@@ -1380,7 +1437,10 @@ export function ProjectRiskEbiosDialog({
               hint="Conséquences pour l’organisation."
             >
               <div className="space-y-2">
-                <Label htmlFor="ebios-bi">Impact métier</Label>
+                <Label htmlFor="ebios-bi">
+                  Impact métier
+                  <span className={requiredAsteriskClass}>*</span>
+                </Label>
                 <textarea
                   id="ebios-bi"
                   value={businessImpact}
@@ -1405,7 +1465,10 @@ export function ProjectRiskEbiosDialog({
               headerExtra={treatmentHeaderExtra}
             >
               <div className="space-y-2">
-                <Label>Stratégie de traitement</Label>
+                <Label>
+                  Stratégie de traitement
+                  <span className={requiredAsteriskClass}>*</span>
+                </Label>
                 <Select
                   value={treatmentStrategy}
                   onValueChange={(v) => v && setTreatmentStrategy(v)}
@@ -1696,6 +1759,23 @@ export function ProjectRiskEbiosDialog({
               </div>
             ) : null}
           </div>
+          <DialogFooter className="border-t border-border/60 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleOpenChange(false)}
+              disabled={isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleManualSave()}
+              disabled={isPending || !canSubmit}
+            >
+              {isPending ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
