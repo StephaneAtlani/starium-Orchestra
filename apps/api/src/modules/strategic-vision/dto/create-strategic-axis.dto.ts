@@ -1,5 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import { StrategicAxisStatus } from '@prisma/client';
 
 export class CreateStrategicAxisDto {
   @IsString()
@@ -17,8 +26,23 @@ export class CreateStrategicAxisDto {
   description?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  code?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
   orderIndex?: number;
+
+  @IsOptional()
+  @IsEnum(StrategicAxisStatus)
+  status?: StrategicAxisStatus;
 }

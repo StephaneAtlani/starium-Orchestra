@@ -250,9 +250,11 @@ export async function updateStrategicObjective(
 }
 
 export type CreateStrategicObjectiveLinkInput = {
-  linkType: 'PROJECT' | 'BUDGET' | 'RISK';
-  targetId: string;
+  linkType: 'PROJECT' | 'MANUAL';
+  targetId?: string;
   targetLabelSnapshot: string;
+  alignmentScore?: number | null;
+  comment?: string | null;
 };
 
 export async function addStrategicObjectiveLink(

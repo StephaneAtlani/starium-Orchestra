@@ -181,12 +181,11 @@ export function Sidebar() {
 
                 const isStrategicVision = item.label === 'Vision stratégique' && (item.children?.length ?? 0) > 0;
                 if (isStrategicVision) {
-                  const visionTab = searchParams?.get('tab') ?? '';
                   const strategicChildren: { label: string; href: string }[] = [];
                   if (permsSuccess && has('strategic_vision.read')) {
                     strategicChildren.push({
-                      label: 'Vision Entreprise',
-                      href: '/strategic-vision?tab=enterprise',
+                      label: 'Vision stratégique',
+                      href: '/strategic-vision',
                     });
                   }
                   if (permsSuccess && has('strategic_direction_strategy.read')) {
@@ -199,14 +198,13 @@ export function Sidebar() {
                     return null;
                   }
 
-                  const isEnterpriseActive =
-                    pathname === '/strategic-vision' && visionTab === 'enterprise';
+                  const isStrategicVisionActive = pathname === '/strategic-vision';
                   const isStrategyActive =
                     pathname === '/strategic-direction-strategy' ||
                     (pathname ?? '').startsWith('/strategic-direction-strategy/');
 
                   const strategicTriggerActive =
-                    isEnterpriseActive || isStrategyActive;
+                    isStrategicVisionActive || isStrategyActive;
 
                   return (
                     <SidebarDropdown
@@ -217,8 +215,8 @@ export function Sidebar() {
                     >
                       {strategicChildren.map((child) => {
                         const isActive =
-                          child.href.includes('tab=enterprise')
-                            ? isEnterpriseActive
+                          child.href === '/strategic-vision'
+                            ? isStrategicVisionActive
                             : isStrategyActive;
 
                         return (

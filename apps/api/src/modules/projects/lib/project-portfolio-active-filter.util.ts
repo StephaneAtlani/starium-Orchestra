@@ -2,13 +2,24 @@ import { ProjectStatus, Prisma } from '@prisma/client';
 
 /**
  * Filtre partagé des projets "actifs" pour les KPI portefeuille/alignement :
- * tout projet client sauf ARCHIVED.
+ * projets client hors états terminaux/non-actifs.
+ *
+ * Exclus explicitement:
+ * - ARCHIVED
+ * - CANCELLED
+ * - COMPLETED
  */
 export function activePortfolioProjectsWhere(
   clientId: string,
 ): Prisma.ProjectWhereInput {
   return {
     clientId,
-    status: { not: ProjectStatus.ARCHIVED },
+    status: {
+      notIn: [
+        ProjectStatus.ARCHIVED,
+        ProjectStatus.CANCELLED,
+        ProjectStatus.COMPLETED,
+      ],
+    },
   };
 }

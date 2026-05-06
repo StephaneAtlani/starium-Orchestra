@@ -13,6 +13,7 @@ import {
 import { toast } from '@/lib/toast';
 import type { StrategicVisionDto } from '../types/strategic-vision.types';
 import { useUpdateStrategicVisionMutation } from '../hooks/use-strategic-vision-queries';
+import { getFirstZodError, strategicVisionFormSchema } from '../schemas/strategic-vision.schemas';
 
 export function StrategicVisionEditDialog({
   vision,
@@ -39,14 +40,19 @@ export function StrategicVisionEditDialog({
 
   const handleSave = async () => {
     if (!vision) return;
+    const parsed = strategicVisionFormSchema.safeParse({ title, statement, horizonLabel, isActive });
+    if (!parsed.success) {
+      toast.error(getFirstZodError(parsed.error));
+      return;
+    }
     try {
       await updateVision.mutateAsync({
         visionId: vision.id,
         body: {
-          title: title.trim(),
-          statement: statement.trim(),
-          horizonLabel: horizonLabel.trim(),
-          isActive,
+          title: parsed.data.title,
+          statement: parsed.data.statement,
+          horizonLabel: parsed.data.horizonLabel,
+          isActive: parsed.data.isActive,
         },
       });
       toast.success('Vision stratégique mise à jour.');

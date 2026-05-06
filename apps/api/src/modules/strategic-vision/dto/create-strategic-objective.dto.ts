@@ -2,14 +2,21 @@ import { Type } from 'class-transformer';
 import {
   IsDate,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
+  MaxLength,
+  Min,
   MinLength,
   ValidateIf,
-  MaxLength,
 } from 'class-validator';
-import { StrategicObjectiveStatus } from '@prisma/client';
+import {
+  StrategicObjectiveHealthStatus,
+  StrategicObjectiveLifecycleStatus,
+  StrategicObjectiveStatus,
+} from '@prisma/client';
 
 export class CreateStrategicObjectiveDto {
   @IsString()
@@ -32,13 +39,40 @@ export class CreateStrategicObjectiveDto {
   ownerLabel?: string;
 
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MinLength(1)
+  ownerUserId?: string | null;
+
+  @IsOptional()
   @IsEnum(StrategicObjectiveStatus)
   status?: StrategicObjectiveStatus;
+
+  @IsOptional()
+  @IsEnum(StrategicObjectiveLifecycleStatus)
+  lifecycleStatus?: StrategicObjectiveLifecycleStatus;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsEnum(StrategicObjectiveHealthStatus)
+  healthStatus?: StrategicObjectiveHealthStatus | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  progressPercent?: number;
 
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   deadline?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  targetDate?: Date;
 
   @IsOptional()
   @ValidateIf((_, value) => value !== null)

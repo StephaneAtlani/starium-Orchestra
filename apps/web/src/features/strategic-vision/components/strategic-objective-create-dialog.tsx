@@ -13,16 +13,13 @@ import {
 import { toast } from '@/lib/toast';
 import { useCreateStrategicObjectiveMutation } from '../hooks/use-strategic-vision-queries';
 import type { StrategicObjectiveStatus } from '../types/strategic-vision.types';
+import { STRATEGIC_OBJECTIVE_STATUS_OPTIONS } from '../lib/strategic-vision-labels';
+import {
+  getFirstZodError,
+  strategicObjectiveFormSchema,
+} from '../schemas/strategic-vision.schemas';
 
 type AxisOption = { id: string; name: string };
-
-const STATUS_OPTIONS: Array<{ value: StrategicObjectiveStatus; label: string }> = [
-  { value: 'ON_TRACK', label: 'On track' },
-  { value: 'AT_RISK', label: 'À risque' },
-  { value: 'OFF_TRACK', label: 'Hors trajectoire' },
-  { value: 'COMPLETED', label: 'Terminé' },
-  { value: 'ARCHIVED', label: 'Archivé' },
-];
 
 export function StrategicObjectiveCreateDialog({
   open,
@@ -64,15 +61,28 @@ export function StrategicObjectiveCreateDialog({
 
   const handleCreate = async () => {
     if (!effectiveAxisId || !title.trim()) return;
+    const parsed = strategicObjectiveFormSchema.safeParse({
+      axisId: effectiveAxisId,
+      title,
+      description,
+      ownerLabel,
+      status,
+      deadline,
+      directionId,
+    });
+    if (!parsed.success) {
+      toast.error(getFirstZodError(parsed.error));
+      return;
+    }
     try {
       await createObjective.mutateAsync({
-        axisId: effectiveAxisId,
-        title: title.trim(),
-        description: description.trim() || undefined,
-        ownerLabel: ownerLabel.trim() || undefined,
-        status,
-        deadline: deadline || undefined,
-        directionId: directionId === 'UNASSIGNED' ? null : directionId,
+        axisId: parsed.data.axisId,
+        title: parsed.data.title,
+        description: parsed.data.description || undefined,
+        ownerLabel: parsed.data.ownerLabel || undefined,
+        status: parsed.data.status,
+        deadline: parsed.data.deadline || undefined,
+        directionId: parsed.data.directionId === 'UNASSIGNED' ? null : parsed.data.directionId,
       });
       toast.success('Objectif stratégique créé.');
       reset();
@@ -144,7 +154,7 @@ export function StrategicObjectiveCreateDialog({
                 value={status}
                 onChange={(event) => setStatus(event.target.value as StrategicObjectiveStatus)}
               >
-                {STATUS_OPTIONS.map((option) => (
+                {STRATEGIC_OBJECTIVE_STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

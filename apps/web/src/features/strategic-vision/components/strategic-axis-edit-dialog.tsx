@@ -18,6 +18,7 @@ import {
   buildAxisNameWithLogo,
   splitAxisLogoAndTitle,
 } from '../lib/strategic-vision-tabs-view';
+import { getFirstZodError, strategicAxisFormSchema } from '../schemas/strategic-vision.schemas';
 import {
   isStrategicAxisIconKey,
   STRATEGIC_AXIS_COLOR_OPTIONS,
@@ -56,12 +57,17 @@ export function StrategicAxisEditDialog({
 
   const handleSave = async () => {
     if (!axis) return;
+    const parsed = strategicAxisFormSchema.safeParse({ name, description });
+    if (!parsed.success) {
+      toast.error(getFirstZodError(parsed.error));
+      return;
+    }
     try {
       await updateAxis.mutateAsync({
         axisId: axis.id,
         body: {
-          name: buildAxisNameWithLogo({ logo, title: name, color }),
-          description: description.trim() ? description.trim() : null,
+          name: buildAxisNameWithLogo({ logo, title: parsed.data.name, color }),
+          description: parsed.data.description?.trim() ? parsed.data.description : null,
         },
       });
       toast.success('Axe stratégique mis à jour.');

@@ -1,4 +1,12 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { StrategicVisionStatus } from '@prisma/client';
 
 export class CreateStrategicVisionDto {
   @IsString()
@@ -19,4 +27,8 @@ export class CreateStrategicVisionDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsEnum(StrategicVisionStatus)
+  status?: StrategicVisionStatus;
 }

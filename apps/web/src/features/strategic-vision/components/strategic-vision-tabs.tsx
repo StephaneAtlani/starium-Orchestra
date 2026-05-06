@@ -28,27 +28,34 @@ type QueryState = {
   isError: boolean;
 };
 
-type StrategicVisionMenuKey =
+export type StrategicVisionMenuKey =
   | 'overview'
   | 'enterprise'
   | 'directions'
   | 'axes'
   | 'objectives'
-  | 'alignment';
+  | 'alignment'
+  | 'alerts'
+  | 'history';
 
-function parseMenuKey(value: string | null): StrategicVisionMenuKey | null {
+export function parseMenuKey(value: string | null): StrategicVisionMenuKey | null {
   if (
     value === 'overview' ||
     value === 'enterprise' ||
     value === 'directions' ||
     value === 'axes' ||
     value === 'objectives' ||
-    value === 'alignment'
+    value === 'alignment' ||
+    value === 'alerts' ||
+    value === 'history'
   ) {
     return value;
   }
   return null;
 }
+
+export const STRATEGIC_VISION_HISTORY_PLACEHOLDER_MESSAGE =
+  "L'historique détaillé sera disponible dans une prochaine version. Cette V1 n'inclut pas encore de source backend dédiée.";
 
 function QueryStateBlock({
   loadingLabel,
@@ -90,6 +97,7 @@ export function StrategicVisionTabs({
   alerts,
   canUpdate,
   canCreate,
+  canManageLinks,
   canManageDirections,
   directionsQueryState,
   isEditMode,
@@ -106,6 +114,7 @@ export function StrategicVisionTabs({
   alerts: StrategicVisionAlertsResponseDto | undefined;
   canUpdate: boolean;
   canCreate: boolean;
+  canManageLinks: boolean;
   canManageDirections: boolean;
   directionsQueryState: { isLoading: boolean; isError: boolean };
   isEditMode: boolean;
@@ -155,81 +164,77 @@ export function StrategicVisionTabs({
     }
   }, [searchParams]);
 
+  const tabClass = (isActive: boolean) =>
+    cn(
+      'rounded-lg border px-3 py-2 text-sm transition-colors whitespace-nowrap',
+      isActive
+        ? 'border-[#DB9801]/50 bg-[#DB9801]/15 font-medium text-[#1B1B1B]'
+        : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground',
+    );
+
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border bg-card p-1.5" aria-label="Onglets strategic vision">
-        <nav className="flex flex-wrap gap-1">
+    <div className="space-y-5">
+      <div
+        className="rounded-xl border bg-card p-2 sm:p-2.5"
+        aria-label="Onglets strategic vision"
+        data-testid="strategic-tabs-container"
+      >
+        <nav className="flex min-h-12 items-center gap-1 overflow-x-auto pb-1">
           <button
             type="button"
             onClick={() => setActiveMenu('overview')}
-            className={cn(
-              'rounded-lg px-3 py-2 text-sm transition-colors',
-              activeMenu === 'overview'
-                ? 'bg-primary/15 text-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
+            className={tabClass(activeMenu === 'overview')}
           >
             Vue d&apos;ensemble
           </button>
           <button
             type="button"
             onClick={() => setActiveMenu('enterprise')}
-            className={cn(
-              'rounded-lg px-3 py-2 text-sm transition-colors',
-              activeMenu === 'enterprise'
-                ? 'bg-primary/15 text-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
+            className={tabClass(activeMenu === 'enterprise')}
           >
             Vision entreprise
           </button>
           <button
             type="button"
             onClick={() => setActiveMenu('directions')}
-            className={cn(
-              'rounded-lg px-3 py-2 text-sm transition-colors',
-              activeMenu === 'directions'
-                ? 'bg-primary/15 text-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
+            className={tabClass(activeMenu === 'directions')}
           >
             Directions
           </button>
           <button
             type="button"
             onClick={() => setActiveMenu('axes')}
-            className={cn(
-              'rounded-lg px-3 py-2 text-sm transition-colors',
-              activeMenu === 'axes'
-                ? 'bg-primary/15 text-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
+            className={tabClass(activeMenu === 'axes')}
           >
             Axes stratégiques
           </button>
           <button
             type="button"
             onClick={() => setActiveMenu('objectives')}
-            className={cn(
-              'rounded-lg px-3 py-2 text-sm transition-colors',
-              activeMenu === 'objectives'
-                ? 'bg-primary/15 text-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
+            className={tabClass(activeMenu === 'objectives')}
           >
             Objectifs
           </button>
           <button
             type="button"
             onClick={() => setActiveMenu('alignment')}
-            className={cn(
-              'rounded-lg px-3 py-2 text-sm transition-colors',
-              activeMenu === 'alignment'
-                ? 'bg-primary/15 text-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
+            className={tabClass(activeMenu === 'alignment')}
           >
             Alignement
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMenu('alerts')}
+            className={tabClass(activeMenu === 'alerts')}
+          >
+            Alertes
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMenu('history')}
+            className={tabClass(activeMenu === 'history')}
+          >
+            Historique
           </button>
         </nav>
       </div>
@@ -341,6 +346,7 @@ export function StrategicVisionTabs({
             directionFilter={directionFilter}
             canCreate={canCreate}
             canUpdate={canUpdate}
+            canManageLinks={canManageLinks}
           />
         ) : null}
             </div>
@@ -357,6 +363,31 @@ export function StrategicVisionTabs({
           <StrategicAlignmentTab axes={axes} objectives={filteredObjectives} kpis={kpis} />
         ) : null}
             </div>
+          ) : null}
+
+          {activeMenu === 'alerts' ? (
+            <div>
+              <QueryStateBlock
+                loadingLabel="Chargement des alertes..."
+                errorLabel="Impossible de charger les alertes."
+                queryState={queryStates.alerts}
+              />
+              {!queryStates.alerts.isLoading && !queryStates.alerts.isError ? (
+                <StrategicAlertsPanel
+                  alerts={alerts}
+                  isLoading={queryStates.alerts.isLoading}
+                  isError={queryStates.alerts.isError}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          {activeMenu === 'history' ? (
+            <Alert>
+              <AlertDescription>
+                {STRATEGIC_VISION_HISTORY_PLACEHOLDER_MESSAGE}
+              </AlertDescription>
+            </Alert>
           ) : null}
       </section>
     </div>

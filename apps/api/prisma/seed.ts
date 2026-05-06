@@ -1373,6 +1373,10 @@ async function ensureStrategicVisionModuleAndPermissions(): Promise<void> {
     { code: "strategic_vision.create", label: "Vision stratégique — création" },
     { code: "strategic_vision.update", label: "Vision stratégique — mise à jour" },
     {
+      code: "strategic_vision.delete",
+      label: "Vision stratégique — suppression (archivage logique)",
+    },
+    {
       code: "strategic_vision.manage_directions",
       label: "Vision stratégique — gestion des directions",
     },

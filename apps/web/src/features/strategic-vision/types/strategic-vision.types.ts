@@ -5,7 +5,13 @@ export type StrategicObjectiveStatus =
   | 'COMPLETED'
   | 'ARCHIVED';
 
-export type StrategicLinkType = 'PROJECT' | 'BUDGET' | 'RISK';
+export type StrategicLinkType =
+  | 'PROJECT'
+  | 'BUDGET'
+  | 'RISK'
+  | 'BUDGET_LINE'
+  | 'GOVERNANCE_CYCLE'
+  | 'MANUAL';
 
 export type StrategicLinkDto = {
   id: string;
@@ -71,6 +77,7 @@ export type StrategicVisionDto = {
   statement: string;
   horizonLabel: string;
   isActive: boolean;
+  status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
   createdAt: string;
   updatedAt: string;
   axes: StrategicAxisWithObjectivesDto[];

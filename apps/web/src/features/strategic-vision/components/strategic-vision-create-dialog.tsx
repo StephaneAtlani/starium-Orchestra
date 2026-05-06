@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from '@/lib/toast';
 import { useCreateStrategicVisionMutation } from '../hooks/use-strategic-vision-queries';
+import { getFirstZodError, strategicVisionFormSchema } from '../schemas/strategic-vision.schemas';
 
 export function StrategicVisionCreateDialog({
   open,
@@ -34,12 +35,17 @@ export function StrategicVisionCreateDialog({
   };
 
   const handleCreate = async () => {
+    const parsed = strategicVisionFormSchema.safeParse({ title, statement, horizonLabel, isActive });
+    if (!parsed.success) {
+      toast.error(getFirstZodError(parsed.error));
+      return;
+    }
     try {
       await createVision.mutateAsync({
-        title: title.trim(),
-        statement: statement.trim(),
-        horizonLabel: horizonLabel.trim(),
-        isActive,
+        title: parsed.data.title,
+        statement: parsed.data.statement,
+        horizonLabel: parsed.data.horizonLabel,
+        isActive: parsed.data.isActive,
       });
       toast.success('Vision stratégique créée.');
       reset();

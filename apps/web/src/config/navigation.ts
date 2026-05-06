@@ -73,8 +73,8 @@ export const navigation: NavigationSection[] = [
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
         children: [
           {
-            label: 'Vision Entreprise',
-            href: '/strategic-vision?tab=enterprise',
+            label: 'Vision stratégique',
+            href: '/strategic-vision',
             scope: 'client',
             requiredPermissions: ['strategic_vision.read'],
           },

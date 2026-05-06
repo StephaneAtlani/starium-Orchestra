@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { StrategicObjectiveCard } from './strategic-objective-card';
 import { StrategicObjectiveEditDialog } from './strategic-objective-edit-dialog';
 import { StrategicObjectiveCreateDialog } from './strategic-objective-create-dialog';
+import { StrategicLinksPanel } from './strategic-links-panel';
 import {
   buildObjectivesByAxis,
   isObjectiveOverdue,
@@ -15,6 +16,7 @@ import type {
   StrategicObjectiveDto,
   StrategicObjectiveStatus,
 } from '../types/strategic-vision.types';
+import { STRATEGIC_OBJECTIVE_STATUS_OPTIONS } from '../lib/strategic-vision-labels';
 
 type AxisOption = { id: string; name: string };
 
@@ -29,6 +31,7 @@ export function StrategicObjectivesTab({
   directionFilter,
   canCreate,
   canUpdate,
+  canManageLinks,
 }: {
   objectives: StrategicObjectiveDto[];
   axisOptions: AxisOption[];
@@ -36,6 +39,7 @@ export function StrategicObjectivesTab({
   directionFilter: string;
   canCreate: boolean;
   canUpdate: boolean;
+  canManageLinks: boolean;
 }) {
   const [axisFilter, setAxisFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | StrategicObjectiveStatus>('ALL');
@@ -111,11 +115,11 @@ export function StrategicObjectivesTab({
           }
         >
           <option value="ALL">Tous les statuts</option>
-          <option value="ON_TRACK">ON_TRACK</option>
-          <option value="AT_RISK">AT_RISK</option>
-          <option value="OFF_TRACK">OFF_TRACK</option>
-          <option value="COMPLETED">COMPLETED</option>
-          <option value="ARCHIVED">ARCHIVED</option>
+          {STRATEGIC_OBJECTIVE_STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         <Input
           placeholder="Rechercher un objectif..."
@@ -168,6 +172,10 @@ export function StrategicObjectivesTab({
           ))}
         </div>
       )}
+      <StrategicLinksPanel
+        objectives={filteredObjectives}
+        canManageLinks={canManageLinks}
+      />
       <StrategicObjectiveEditDialog
         objective={editingObjective}
         open={editingObjective != null}

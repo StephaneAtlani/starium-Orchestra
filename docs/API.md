@@ -548,11 +548,13 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/budget-import-mappings | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-version-sets | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budgets/:id/create-baseline, create-revision, activate-version, archive-version, version-history, compare | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update` selon l’action) |
+| /api/strategic-vision (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-vision/kpis | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-vision/kpis/by-direction | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-vision/alerts | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-directions (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-directions (POST/PATCH/DELETE `:id`) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.update` **ou** `strategic_vision.manage_directions`) · DELETE → `204` sans corps si aucune stratégie de direction liée |
+| /api/strategic-vision/objectives/:objectiveId/links (POST/PATCH/DELETE) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.manage_links`) |
 | /api/strategic-direction-strategies (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
 | /api/strategic-direction-strategies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.create`) |
 | /api/strategic-direction-strategies/:id/links (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
@@ -579,7 +581,20 @@ Règles :
 - **Un seul module par route** : ne jamais mélanger `budgets.*` et `contracts.*` sur le même handler.\n  - Raison : `ModuleAccessGuard` déduit le module depuis la 1ère permission et doit rester non ambigu.
 - **`CLIENT_ADMIN` n’implique pas “toutes les permissions métier”** : l’administration du client passe par `ClientAdminGuard`, les permissions métier restent RBAC.
 
-## 5.2 Strategic Vision KPI — `/api/strategic-vision/kpis`
+## 5.2 Strategic Vision listing — `/api/strategic-vision`
+
+- **Méthode/route** : `GET /api/strategic-vision`
+- **Headers requis** :
+  - `Authorization: Bearer <accessToken>`
+  - `X-Client-Id: <clientId>`
+- **Guards (ordre)** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- **Permission requise** : `strategic_vision.read`
+- **Query optionnelle** :
+  - `status=<DRAFT|ACTIVE|ARCHIVED>`
+  - `search=<texte>`
+  - `includeArchived=true|false` (par défaut, les visions `ARCHIVED` sont exclues sauf filtre explicite)
+
+## 5.3 Strategic Vision KPI — `/api/strategic-vision/kpis`
 
 Endpoint RFC-STRAT-002 (moteur KPI stratégique MVP).
 
@@ -603,9 +618,9 @@ Endpoint RFC-STRAT-002 (moteur KPI stratégique MVP).
 }
 ```
 
-## 5.3 Strategic Vision Alerts — `/api/strategic-vision/alerts`
+## 5.4 Strategic Vision Alerts — `/api/strategic-vision/alerts`
 
-Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
+Endpoint RFC-STRAT-008 (alertes stratégiques V1, scoping client strict).
 
 - **Méthode/route** : `GET /api/strategic-vision/alerts`
 - **Headers requis** :
@@ -617,6 +632,26 @@ Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
   - `directionId=<strategicDirectionId>` : alerte(s) liées à une direction précise
   - `unassigned=true` : alerte(s) liées à des objectifs sans direction
   - `directionId` et `unassigned=true` sont mutuellement exclusifs
+- **Périmètre V1** :
+  - backend-only (pas de branchement sur le socle transverse `Alert`/`Notification`)
+  - pas d’extension frontend dans cette RFC
+- **Projets actifs (PROJECT_UNALIGNED)** :
+  - source unique : `activePortfolioProjectsWhere(clientId)`
+  - exclus a minima : `ARCHIVED`, `CANCELLED`, `COMPLETED`
+- **Règles V1 complémentaires** :
+  - `PROJECT_UNALIGNED` est toujours renvoyée avec `severity = MEDIUM` (pas de sévérité dynamique en V1)
+  - IDs déterministes (pas de `uuid`, `cuid`, `Date.now()`)
+    - `strategic-objective-overdue:<objectiveId>`
+    - `strategic-objective-off-track:<objectiveId>`
+    - `strategic-project-unaligned:<projectId>`
+  - tri stable : `severity` (`CRITICAL` > `HIGH` > `MEDIUM` > `LOW`), puis `createdAt` décroissant, puis `targetLabel` alphabétique
+  - `createdAt` est dérivé de la ressource :
+    - `OBJECTIVE_OVERDUE` : `targetDate`, sinon `updatedAt`, sinon `createdAt`
+    - `OBJECTIVE_OFF_TRACK` : `updatedAt`, sinon `createdAt`
+    - `PROJECT_UNALIGNED` : `updatedAt` projet, sinon `createdAt` projet
+  - `targetLabel` est un libellé métier lisible (jamais UUID seul)
+    - objectif : `title`/`name`
+    - projet : `code + name` quand disponibles
 
 **Contrat de réponse (200)** :
 
@@ -637,7 +672,7 @@ Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
 }
 ```
 
-## 5.4 Strategic Vision KPI by direction — `/api/strategic-vision/kpis/by-direction`
+## 5.5 Strategic Vision KPI by direction — `/api/strategic-vision/kpis/by-direction`
 
 Endpoint RFC-STRAT-005 (lecture cockpit par direction, sans changer le KPI global STRAT-002).
 
@@ -676,7 +711,7 @@ Endpoint RFC-STRAT-005 (lecture cockpit par direction, sans changer le KPI globa
 }
 ```
 
-## 5.5 Strategic directions — `/api/strategic-directions`
+## 5.6 Strategic directions — `/api/strategic-directions`
 
 Référentiel direction métier client-scopé (RFC-STRAT-005), orthogonal aux axes stratégiques.
 
@@ -694,7 +729,7 @@ Référentiel direction métier client-scopé (RFC-STRAT-005), orthogonal aux ax
 
 **Champs principaux** : `id`, `clientId`, `code`, `name`, `description`, `sortOrder`, `isActive`, `createdAt`, `updatedAt`.
 
-## 5.6 Strategic direction strategy workflow — `/api/strategic-direction-strategies`
+## 5.7 Strategic direction strategy workflow — `/api/strategic-direction-strategies`
 
 Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/objectifs.
 

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -6,10 +7,14 @@ import {
 } from '@nestjs/common';
 import {
   Prisma,
+  StrategicAxisStatus,
   StrategicDirection,
   StrategicDirectionStrategyStatus,
   StrategicLinkType,
+  StrategicObjectiveHealthStatus,
+  StrategicObjectiveLifecycleStatus,
   StrategicObjectiveStatus,
+  StrategicVisionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -22,11 +27,20 @@ import { CreateStrategicLinkDto } from './dto/create-strategic-link.dto';
 import { CreateStrategicObjectiveDto } from './dto/create-strategic-objective.dto';
 import { CreateStrategicVisionDto } from './dto/create-strategic-vision.dto';
 import { ListStrategicDirectionsQueryDto } from './dto/list-strategic-directions-query.dto';
+import { ListStrategicVisionQueryDto } from './dto/list-strategic-vision-query.dto';
 import { StrategicVisionKpisByDirectionResponseDto } from './dto/strategic-vision-kpis-by-direction-response.dto';
 import { UpdateStrategicDirectionDto } from './dto/update-strategic-direction.dto';
 import { UpdateStrategicAxisDto } from './dto/update-strategic-axis.dto';
+import { UpdateStrategicLinkDto } from './dto/update-strategic-link.dto';
 import { UpdateStrategicObjectiveDto } from './dto/update-strategic-objective.dto';
 import { UpdateStrategicVisionDto } from './dto/update-strategic-vision.dto';
+
+const SUPPORTED_LINK_TYPES_V1: readonly StrategicLinkType[] = [
+  StrategicLinkType.PROJECT,
+  StrategicLinkType.MANUAL,
+];
+
+const UNSUPPORTED_LINK_MESSAGE = 'Target type not supported in MVP';
 
 type StrategicAuditContext = {
   actorUserId?: string;
@@ -64,6 +78,12 @@ const OBJECTIVE_TERMINAL_STATUSES: readonly StrategicObjectiveStatus[] = [
   StrategicObjectiveStatus.COMPLETED,
   StrategicObjectiveStatus.ARCHIVED,
 ];
+const ALERT_SEVERITY_RANK: Readonly<Record<string, number>> = {
+  CRITICAL: 4,
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1,
+};
 
 @Injectable()
 export class StrategicVisionService {
@@ -97,6 +117,166 @@ export class StrategicVisionService {
 
   private normalizeDirectionCode(rawCode: string): string {
     return rawCode.trim().toUpperCase();
+  }
+
+  /**
+   * RFC-STRAT-007 — synchronisation centralisée du statut Vision et de `isActive` legacy.
+   * Règles :
+   *  - status=ACTIVE   ⇔ isActive=true
+   *  - status=ARCHIVED → isActive=false
+   *  - status=DRAFT    → isActive=false
+   *  - isActive=true (legacy) → status=ACTIVE
+   *  - isActive=false (legacy) sur vision non archivée → status=DRAFT
+   */
+  private resolveVisionStatus(input: {
+    status?: StrategicVisionStatus;
+    isActive?: boolean;
+    currentStatus?: StrategicVisionStatus;
+    currentIsActive?: boolean;
+  }): { status: StrategicVisionStatus; isActive: boolean } {
+    if (input.status !== undefined) {
+      const status = input.status;
+      const isActive = status === StrategicVisionStatus.ACTIVE;
+      return { status, isActive };
+    }
+    if (input.isActive !== undefined) {
+      if (input.isActive) {
+        return { status: StrategicVisionStatus.ACTIVE, isActive: true };
+      }
+      const baseStatus = input.currentStatus ?? StrategicVisionStatus.DRAFT;
+      const status =
+        baseStatus === StrategicVisionStatus.ARCHIVED
+          ? StrategicVisionStatus.ARCHIVED
+          : StrategicVisionStatus.DRAFT;
+      return { status, isActive: false };
+    }
+    const status = input.currentStatus ?? StrategicVisionStatus.DRAFT;
+    const isActive =
+      input.currentIsActive ?? status === StrategicVisionStatus.ACTIVE;
+    return { status, isActive };
+  }
+
+  /**
+   * RFC-STRAT-007 — synchronisation centralisée des trois statuts d'objectif.
+   * Règles :
+   *  - status legacy fourni :
+   *      COMPLETED                  → lifecycleStatus=COMPLETED, healthStatus=null
+   *      ARCHIVED                   → lifecycleStatus=ARCHIVED,  healthStatus=null
+   *      ON_TRACK|AT_RISK|OFF_TRACK → lifecycleStatus=ACTIVE,    healthStatus=status
+   *  - lifecycleStatus / healthStatus fournis :
+   *      lifecycleStatus=COMPLETED  → status=COMPLETED
+   *      lifecycleStatus=ARCHIVED   → status=ARCHIVED
+   *      lifecycleStatus=DRAFT|ACTIVE → status=healthStatus ?? ON_TRACK
+   */
+  private resolveObjectiveStatuses(input: {
+    status?: StrategicObjectiveStatus;
+    lifecycleStatus?: StrategicObjectiveLifecycleStatus;
+    healthStatus?: StrategicObjectiveHealthStatus | null;
+    currentStatus?: StrategicObjectiveStatus;
+    currentLifecycleStatus?: StrategicObjectiveLifecycleStatus;
+    currentHealthStatus?: StrategicObjectiveHealthStatus | null;
+  }): {
+    status: StrategicObjectiveStatus;
+    lifecycleStatus: StrategicObjectiveLifecycleStatus;
+    healthStatus: StrategicObjectiveHealthStatus | null;
+  } {
+    if (input.status !== undefined) {
+      const status = input.status;
+      if (status === StrategicObjectiveStatus.COMPLETED) {
+        return {
+          status,
+          lifecycleStatus: StrategicObjectiveLifecycleStatus.COMPLETED,
+          healthStatus: null,
+        };
+      }
+      if (status === StrategicObjectiveStatus.ARCHIVED) {
+        return {
+          status,
+          lifecycleStatus: StrategicObjectiveLifecycleStatus.ARCHIVED,
+          healthStatus: null,
+        };
+      }
+      return {
+        status,
+        lifecycleStatus: StrategicObjectiveLifecycleStatus.ACTIVE,
+        healthStatus: status as unknown as StrategicObjectiveHealthStatus,
+      };
+    }
+
+    if (input.lifecycleStatus !== undefined || input.healthStatus !== undefined) {
+      const lifecycleStatus =
+        input.lifecycleStatus ??
+        input.currentLifecycleStatus ??
+        StrategicObjectiveLifecycleStatus.ACTIVE;
+      const healthStatus =
+        input.healthStatus !== undefined
+          ? input.healthStatus
+          : (input.currentHealthStatus ?? null);
+
+      if (lifecycleStatus === StrategicObjectiveLifecycleStatus.COMPLETED) {
+        return {
+          status: StrategicObjectiveStatus.COMPLETED,
+          lifecycleStatus,
+          healthStatus: null,
+        };
+      }
+      if (lifecycleStatus === StrategicObjectiveLifecycleStatus.ARCHIVED) {
+        return {
+          status: StrategicObjectiveStatus.ARCHIVED,
+          lifecycleStatus,
+          healthStatus: null,
+        };
+      }
+      const effectiveHealth =
+        healthStatus ?? StrategicObjectiveHealthStatus.ON_TRACK;
+      return {
+        status: effectiveHealth as unknown as StrategicObjectiveStatus,
+        lifecycleStatus,
+        healthStatus: effectiveHealth,
+      };
+    }
+
+    const status = input.currentStatus ?? StrategicObjectiveStatus.ON_TRACK;
+    const lifecycleStatus =
+      input.currentLifecycleStatus ?? StrategicObjectiveLifecycleStatus.ACTIVE;
+    const healthStatus =
+      input.currentHealthStatus !== undefined ? input.currentHealthStatus : null;
+    return { status, lifecycleStatus, healthStatus };
+  }
+
+  /**
+   * RFC-STRAT-007 — types de liens autorisés en write V1 : PROJECT et MANUAL.
+   * Tout autre type (BUDGET, BUDGET_LINE, RISK, GOVERNANCE_CYCLE) est refusé.
+   */
+  private assertWritableLinkTypeV1(linkType: StrategicLinkType): void {
+    if (!SUPPORTED_LINK_TYPES_V1.includes(linkType)) {
+      throw new BadRequestException(UNSUPPORTED_LINK_MESSAGE);
+    }
+  }
+
+  private resolveLinkType(dto: {
+    linkType?: StrategicLinkType;
+    targetType?: StrategicLinkType;
+  }): StrategicLinkType {
+    const fromAlias = dto.targetType ?? dto.linkType;
+    if (!fromAlias) {
+      throw new BadRequestException('linkType or targetType is required');
+    }
+    return fromAlias;
+  }
+
+  private buildManualTargetId(): string {
+    return `manual:${randomUUID()}`;
+  }
+
+  private assertPercentBounds(
+    field: 'progressPercent' | 'alignmentScore',
+    value: number | null | undefined,
+  ): void {
+    if (value === null || value === undefined) return;
+    if (!Number.isInteger(value) || value < 0 || value > 100) {
+      throw new BadRequestException(`${field} must be an integer between 0 and 100`);
+    }
   }
 
   private async resolveDirectionForClient(
@@ -158,7 +338,12 @@ export class StrategicVisionService {
       this.prisma.strategicObjective.count({
         where: {
           ...objectiveWhereBase,
-          deadline: { not: null, lt: now },
+          OR: [
+            { targetDate: { lt: now } },
+            {
+              AND: [{ targetDate: null }, { deadline: { not: null, lt: now } }],
+            },
+          ],
           status: { notIn: [...OBJECTIVE_TERMINAL_STATUSES] },
         },
       }),
@@ -199,9 +384,30 @@ export class StrategicVisionService {
     };
   }
 
-  async listVisions(clientId: string) {
+  async listVisions(clientId: string, query?: ListStrategicVisionQueryDto) {
+    const search = query?.search?.trim();
+    const includeArchived = query?.includeArchived === true;
+    const statusFilter = query?.status;
+
+    const where: Prisma.StrategicVisionWhereInput = {
+      clientId,
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(!includeArchived && !statusFilter
+        ? { status: { not: StrategicVisionStatus.ARCHIVED } }
+        : {}),
+      ...(search
+        ? {
+            OR: [
+              { title: { contains: search, mode: 'insensitive' } },
+              { statement: { contains: search, mode: 'insensitive' } },
+              { horizonLabel: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
     return this.prisma.strategicVision.findMany({
-      where: { clientId },
+      where,
       include: strategicVisionInclude,
       orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
     });
@@ -330,13 +536,20 @@ export class StrategicVisionService {
       this.prisma.strategicObjective.findMany({
         where: {
           ...objectiveFilter,
-          deadline: { not: null, lt: now },
+          OR: [
+            { targetDate: { lt: now } },
+            {
+              AND: [{ targetDate: null }, { deadline: { not: null, lt: now } }],
+            },
+          ],
           status: { notIn: [...OBJECTIVE_TERMINAL_STATUSES] },
         },
         select: {
           id: true,
           title: true,
+          targetDate: true,
           deadline: true,
+          createdAt: true,
           updatedAt: true,
           directionId: true,
           direction: {
@@ -353,6 +566,7 @@ export class StrategicVisionService {
         select: {
           id: true,
           title: true,
+          createdAt: true,
           updatedAt: true,
           directionId: true,
           direction: {
@@ -363,8 +577,38 @@ export class StrategicVisionService {
       }),
     ]);
 
+    const activeProjects = await this.prisma.project.findMany({
+      where: activePortfolioProjectsWhere(clientId),
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        updatedAt: true,
+        createdAt: true,
+      },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+    });
+    const activeProjectIds = activeProjects.map((project) => project.id);
+    const alignedProjectLinks =
+      activeProjectIds.length === 0
+        ? []
+        : await this.prisma.strategicLink.findMany({
+            where: {
+              clientId,
+              linkType: StrategicLinkType.PROJECT,
+              targetId: { in: activeProjectIds },
+              ...(filters?.directionId
+                ? { objective: { directionId: filters.directionId } }
+                : {}),
+              ...(filters?.unassigned ? { objective: { directionId: null } } : {}),
+            },
+            select: { targetId: true },
+            distinct: ['targetId'],
+          });
+    const alignedProjectIds = new Set(alignedProjectLinks.map((link) => link.targetId));
+
     const overdueAlerts = overdueObjectives.map((objective) => ({
-      id: `objective-overdue:${objective.id}`,
+      id: `strategic-objective-overdue:${objective.id}`,
       type: 'OBJECTIVE_OVERDUE' as const,
       severity: 'HIGH' as const,
       targetType: 'OBJECTIVE' as const,
@@ -372,11 +616,15 @@ export class StrategicVisionService {
       directionName: objective.direction?.name ?? 'Non affecté',
       targetLabel: objective.title,
       message: `Objectif en retard: ${objective.title}`,
-      createdAt: (objective.deadline ?? objective.updatedAt).toISOString(),
+      createdAt: (
+        objective.targetDate ??
+        objective.updatedAt ??
+        objective.createdAt
+      ).toISOString(),
     }));
 
     const offTrackAlerts = offTrackObjectives.map((objective) => ({
-      id: `objective-off-track:${objective.id}`,
+      id: `strategic-objective-off-track:${objective.id}`,
       type: 'OBJECTIVE_OFF_TRACK' as const,
       severity: 'CRITICAL' as const,
       targetType: 'OBJECTIVE' as const,
@@ -384,11 +632,35 @@ export class StrategicVisionService {
       directionName: objective.direction?.name ?? 'Non affecté',
       targetLabel: objective.title,
       message: `Objectif hors trajectoire: ${objective.title}`,
-      createdAt: objective.updatedAt.toISOString(),
+      createdAt: (objective.updatedAt ?? objective.createdAt).toISOString(),
     }));
 
-    const items = [...overdueAlerts, ...offTrackAlerts].sort(
-      (a, b) => b.createdAt.localeCompare(a.createdAt),
+    const unalignedProjectAlerts = activeProjects
+      .filter((project) => !alignedProjectIds.has(project.id))
+      .map((project) => {
+        const targetLabel = [project.code, project.name].filter(Boolean).join(' - ');
+        return {
+          id: `strategic-project-unaligned:${project.id}`,
+          type: 'PROJECT_UNALIGNED' as const,
+          severity: 'MEDIUM' as const,
+          targetType: 'PROJECT' as const,
+          directionId: null,
+          directionName: 'Non affecté',
+          targetLabel: targetLabel || 'Projet sans libelle',
+          message: `Projet non aligne: ${targetLabel || 'Projet sans libelle'}`,
+          createdAt: (project.updatedAt ?? project.createdAt).toISOString(),
+        };
+      });
+
+    const items = [...overdueAlerts, ...offTrackAlerts, ...unalignedProjectAlerts].sort(
+      (a, b) => {
+        const severityDelta =
+          (ALERT_SEVERITY_RANK[b.severity] ?? 0) - (ALERT_SEVERITY_RANK[a.severity] ?? 0);
+        if (severityDelta !== 0) return severityDelta;
+        const createdAtDelta = b.createdAt.localeCompare(a.createdAt);
+        if (createdAtDelta !== 0) return createdAtDelta;
+        return a.targetLabel.localeCompare(b.targetLabel, 'fr', { sensitivity: 'base' });
+      },
     );
 
     return {
@@ -408,13 +680,16 @@ export class StrategicVisionService {
       horizonLabel: dto.horizonLabel.trim(),
     };
 
-    const shouldBeActive = dto.isActive ?? true;
+    const resolved = this.resolveVisionStatus({
+      status: dto.status,
+      isActive: dto.isActive ?? true,
+    });
 
     const created = await this.prisma.$transaction(async (tx) => {
-      if (shouldBeActive) {
+      if (resolved.isActive) {
         await tx.strategicVision.updateMany({
           where: { clientId, isActive: true },
-          data: { isActive: false },
+          data: { isActive: false, status: StrategicVisionStatus.DRAFT },
         });
       }
 
@@ -422,7 +697,8 @@ export class StrategicVisionService {
         data: {
           clientId,
           ...payload,
-          isActive: shouldBeActive,
+          isActive: resolved.isActive,
+          status: resolved.status,
         },
       });
     });
@@ -434,7 +710,11 @@ export class StrategicVisionService {
       'strategic_vision',
       created.id,
       undefined,
-      payload as Prisma.JsonObject,
+      {
+        ...payload,
+        isActive: resolved.isActive,
+        status: resolved.status,
+      } as Prisma.JsonObject,
     );
 
     return this.getVisionById(clientId, created.id);
@@ -460,27 +740,44 @@ export class StrategicVisionService {
     });
     if (!existing) throw new NotFoundException('Strategic vision not found');
 
-    if (dto.isActive === false && existing.isActive) {
+    if (
+      existing.status === StrategicVisionStatus.ARCHIVED &&
+      dto.status !== StrategicVisionStatus.ARCHIVED
+    ) {
+      throw new BadRequestException('archived strategic vision cannot be modified');
+    }
+
+    if (dto.isActive === false && existing.isActive && dto.status === undefined) {
       throw new BadRequestException(
         'active strategic vision cannot be deactivated directly',
       );
     }
 
+    const resolved = this.resolveVisionStatus({
+      status: dto.status,
+      isActive: dto.isActive,
+      currentStatus: existing.status,
+      currentIsActive: existing.isActive,
+    });
+
     const data: Prisma.StrategicVisionUncheckedUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title.trim();
     if (dto.statement !== undefined) data.statement = dto.statement.trim();
     if (dto.horizonLabel !== undefined) data.horizonLabel = dto.horizonLabel.trim();
-    if (dto.isActive !== undefined) data.isActive = dto.isActive;
+    if (dto.isActive !== undefined || dto.status !== undefined) {
+      data.isActive = resolved.isActive;
+      data.status = resolved.status;
+    }
 
     if (Object.keys(data).length === 0) {
       return this.getVisionById(clientId, id);
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (dto.isActive === true) {
+      if (resolved.isActive) {
         await tx.strategicVision.updateMany({
           where: { clientId, isActive: true, id: { not: id } },
-          data: { isActive: false },
+          data: { isActive: false, status: StrategicVisionStatus.DRAFT },
         });
       }
       return tx.strategicVision.update({
@@ -500,13 +797,50 @@ export class StrategicVisionService {
         statement: existing.statement,
         horizonLabel: existing.horizonLabel,
         isActive: existing.isActive,
+        status: existing.status,
       },
       {
         title: updated.title,
         statement: updated.statement,
         horizonLabel: updated.horizonLabel,
         isActive: updated.isActive,
+        status: updated.status,
       },
+    );
+
+    return this.getVisionById(clientId, id);
+  }
+
+  async archiveVision(
+    clientId: string,
+    id: string,
+    context?: StrategicAuditContext,
+  ) {
+    const existing = await this.prisma.strategicVision.findFirst({
+      where: { id, clientId },
+    });
+    if (!existing) throw new NotFoundException('Strategic vision not found');
+
+    if (existing.status === StrategicVisionStatus.ARCHIVED) {
+      return this.getVisionById(clientId, id);
+    }
+
+    await this.prisma.strategicVision.update({
+      where: { id },
+      data: {
+        status: StrategicVisionStatus.ARCHIVED,
+        isActive: false,
+      },
+    });
+
+    await this.audit(
+      clientId,
+      context,
+      'strategic_vision.archived',
+      'strategic_vision',
+      id,
+      { status: existing.status, isActive: existing.isActive },
+      { status: StrategicVisionStatus.ARCHIVED, isActive: false },
     );
 
     return this.getVisionById(clientId, id);
@@ -690,18 +1024,87 @@ export class StrategicVisionService {
     );
   }
 
+  async listAxesByVision(clientId: string, visionId: string) {
+    await this.assertVisionInClient(clientId, visionId);
+    return this.prisma.strategicAxis.findMany({
+      where: { clientId, visionId },
+      include: {
+        objectives: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            direction: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                isActive: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { orderIndex: 'asc' },
+        { createdAt: 'asc' },
+      ],
+    });
+  }
+
+  async getAxisById(clientId: string, visionId: string, axisId: string) {
+    const axis = await this.prisma.strategicAxis.findFirst({
+      where: { id: axisId, clientId, visionId },
+      include: {
+        objectives: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            direction: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                isActive: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!axis) throw new NotFoundException('Strategic axis not found');
+    return axis;
+  }
+
+  private async assertVisionInClient(
+    clientId: string,
+    visionId: string,
+    options?: { mustNotBeArchived?: boolean },
+  ) {
+    const vision = await this.prisma.strategicVision.findFirst({
+      where: { id: visionId, clientId },
+      select: { id: true, status: true },
+    });
+    if (!vision) {
+      throw new BadRequestException('strategic vision not found for active client');
+    }
+    if (
+      options?.mustNotBeArchived &&
+      vision.status === StrategicVisionStatus.ARCHIVED
+    ) {
+      throw new BadRequestException(
+        'cannot create or modify axis on archived strategic vision',
+      );
+    }
+    return vision;
+  }
+
   async createAxis(
     clientId: string,
     dto: CreateStrategicAxisDto,
     context?: StrategicAuditContext,
   ) {
-    const vision = await this.prisma.strategicVision.findFirst({
-      where: { id: dto.visionId, clientId },
-      select: { id: true },
+    await this.assertVisionInClient(clientId, dto.visionId, {
+      mustNotBeArchived: true,
     });
-    if (!vision) {
-      throw new BadRequestException('strategic vision not found for active client');
-    }
 
     const created = await this.prisma.strategicAxis.create({
       data: {
@@ -709,7 +1112,10 @@ export class StrategicVisionService {
         visionId: dto.visionId,
         name: dto.name.trim(),
         description: dto.description?.trim() || null,
+        code: dto.code?.trim() || null,
+        sortOrder: dto.sortOrder ?? null,
         orderIndex: dto.orderIndex ?? null,
+        status: dto.status ?? StrategicAxisStatus.ACTIVE,
       },
     });
 
@@ -723,7 +1129,10 @@ export class StrategicVisionService {
       {
         visionId: created.visionId,
         name: created.name,
+        code: created.code,
+        sortOrder: created.sortOrder,
         orderIndex: created.orderIndex,
+        status: created.status,
       },
     );
 
@@ -735,16 +1144,32 @@ export class StrategicVisionService {
     axisId: string,
     dto: UpdateStrategicAxisDto,
     context?: StrategicAuditContext,
+    options?: { visionId?: string },
   ) {
     const existing = await this.prisma.strategicAxis.findFirst({
-      where: { id: axisId, clientId },
+      where: {
+        id: axisId,
+        clientId,
+        ...(options?.visionId ? { visionId: options.visionId } : {}),
+      },
     });
     if (!existing) throw new NotFoundException('Strategic axis not found');
+
+    if (existing.status === StrategicAxisStatus.ARCHIVED && dto.status !== StrategicAxisStatus.ARCHIVED) {
+      throw new BadRequestException('archived strategic axis cannot be modified');
+    }
+
+    await this.assertVisionInClient(clientId, existing.visionId, {
+      mustNotBeArchived: true,
+    });
 
     const data: Prisma.StrategicAxisUncheckedUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.description !== undefined) data.description = dto.description?.trim() || null;
+    if (dto.code !== undefined) data.code = dto.code?.trim() || null;
+    if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
     if (dto.orderIndex !== undefined) data.orderIndex = dto.orderIndex;
+    if (dto.status !== undefined) data.status = dto.status;
 
     if (Object.keys(data).length === 0) return existing;
 
@@ -762,13 +1187,52 @@ export class StrategicVisionService {
       {
         name: existing.name,
         description: existing.description,
+        code: existing.code,
+        sortOrder: existing.sortOrder,
         orderIndex: existing.orderIndex,
+        status: existing.status,
       },
       {
         name: updated.name,
         description: updated.description,
+        code: updated.code,
+        sortOrder: updated.sortOrder,
         orderIndex: updated.orderIndex,
+        status: updated.status,
       },
+    );
+
+    return updated;
+  }
+
+  async archiveAxis(
+    clientId: string,
+    visionId: string,
+    axisId: string,
+    context?: StrategicAuditContext,
+  ) {
+    const existing = await this.prisma.strategicAxis.findFirst({
+      where: { id: axisId, clientId, visionId },
+    });
+    if (!existing) throw new NotFoundException('Strategic axis not found');
+
+    if (existing.status === StrategicAxisStatus.ARCHIVED) {
+      return existing;
+    }
+
+    const updated = await this.prisma.strategicAxis.update({
+      where: { id: axisId },
+      data: { status: StrategicAxisStatus.ARCHIVED },
+    });
+
+    await this.audit(
+      clientId,
+      context,
+      'strategic_axis.archived',
+      'strategic_axis',
+      axisId,
+      { status: existing.status },
+      { status: updated.status },
     );
 
     return updated;
@@ -799,14 +1263,34 @@ export class StrategicVisionService {
   ) {
     const axis = await this.prisma.strategicAxis.findFirst({
       where: { id: dto.axisId, clientId },
-      select: { id: true },
+      select: { id: true, status: true, visionId: true },
     });
     if (!axis) {
       throw new BadRequestException('strategic axis not found for active client');
     }
+    if (axis.status === StrategicAxisStatus.ARCHIVED) {
+      throw new BadRequestException('cannot create objective on archived axis');
+    }
+    await this.assertVisionInClient(clientId, axis.visionId, {
+      mustNotBeArchived: true,
+    });
     if (dto.directionId) {
       await this.resolveDirectionForClient(clientId, dto.directionId);
     }
+    if (dto.ownerUserId) {
+      await this.assertUserInClient(clientId, dto.ownerUserId);
+    }
+
+    this.assertPercentBounds('progressPercent', dto.progressPercent);
+
+    const resolvedStatuses = this.resolveObjectiveStatuses({
+      status: dto.status,
+      lifecycleStatus: dto.lifecycleStatus,
+      healthStatus: dto.healthStatus,
+    });
+
+    const targetDate = dto.targetDate ?? dto.deadline ?? null;
+    const deadline = dto.deadline ?? dto.targetDate ?? null;
 
     const created = await this.prisma.strategicObjective.create({
       data: {
@@ -816,8 +1300,13 @@ export class StrategicVisionService {
         title: dto.title.trim(),
         description: dto.description?.trim() || null,
         ownerLabel: dto.ownerLabel?.trim() || null,
-        status: dto.status ?? StrategicObjectiveStatus.ON_TRACK,
-        deadline: dto.deadline ?? null,
+        ownerUserId: dto.ownerUserId ?? null,
+        status: resolvedStatuses.status,
+        lifecycleStatus: resolvedStatuses.lifecycleStatus,
+        healthStatus: resolvedStatuses.healthStatus,
+        progressPercent: dto.progressPercent ?? null,
+        deadline,
+        targetDate,
       },
     });
 
@@ -833,10 +1322,25 @@ export class StrategicVisionService {
         directionId: created.directionId,
         title: created.title,
         status: created.status,
+        lifecycleStatus: created.lifecycleStatus,
+        healthStatus: created.healthStatus,
+        progressPercent: created.progressPercent,
+        targetDate: created.targetDate?.toISOString() ?? null,
+        ownerUserId: created.ownerUserId,
       },
     );
 
-    return created;
+    return this.getObjectiveById(clientId, created.id);
+  }
+
+  private async assertUserInClient(clientId: string, userId: string) {
+    const link = await this.prisma.clientUser.findFirst({
+      where: { clientId, userId },
+      select: { id: true },
+    });
+    if (!link) {
+      throw new BadRequestException('owner user not found for active client');
+    }
   }
 
   async updateObjective(
@@ -850,12 +1354,53 @@ export class StrategicVisionService {
     });
     if (!existing) throw new NotFoundException('Strategic objective not found');
 
+    if (
+      existing.lifecycleStatus === StrategicObjectiveLifecycleStatus.ARCHIVED &&
+      dto.lifecycleStatus !== StrategicObjectiveLifecycleStatus.ARCHIVED &&
+      dto.status !== StrategicObjectiveStatus.ARCHIVED
+    ) {
+      throw new BadRequestException(
+        'archived strategic objective cannot be modified',
+      );
+    }
+
+    const resolvedStatuses =
+      dto.status !== undefined ||
+      dto.lifecycleStatus !== undefined ||
+      dto.healthStatus !== undefined
+        ? this.resolveObjectiveStatuses({
+            status: dto.status,
+            lifecycleStatus: dto.lifecycleStatus,
+            healthStatus: dto.healthStatus,
+            currentStatus: existing.status,
+            currentLifecycleStatus: existing.lifecycleStatus,
+            currentHealthStatus: existing.healthStatus,
+          })
+        : null;
+
     const data: Prisma.StrategicObjectiveUncheckedUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title.trim();
     if (dto.description !== undefined) data.description = dto.description?.trim() || null;
     if (dto.ownerLabel !== undefined) data.ownerLabel = dto.ownerLabel?.trim() || null;
-    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.ownerUserId !== undefined) {
+      if (dto.ownerUserId) {
+        await this.assertUserInClient(clientId, dto.ownerUserId);
+        data.ownerUserId = dto.ownerUserId;
+      } else {
+        data.ownerUserId = null;
+      }
+    }
+    if (resolvedStatuses) {
+      data.status = resolvedStatuses.status;
+      data.lifecycleStatus = resolvedStatuses.lifecycleStatus;
+      data.healthStatus = resolvedStatuses.healthStatus;
+    }
+    if (dto.progressPercent !== undefined) {
+      this.assertPercentBounds('progressPercent', dto.progressPercent);
+      data.progressPercent = dto.progressPercent;
+    }
     if (dto.deadline !== undefined) data.deadline = dto.deadline ?? null;
+    if (dto.targetDate !== undefined) data.targetDate = dto.targetDate ?? null;
     if (dto.directionId !== undefined) {
       if (dto.directionId) {
         await this.resolveDirectionForClient(clientId, dto.directionId);
@@ -882,16 +1427,26 @@ export class StrategicVisionService {
         title: existing.title,
         description: existing.description,
         ownerLabel: existing.ownerLabel,
+        ownerUserId: existing.ownerUserId,
         status: existing.status,
+        lifecycleStatus: existing.lifecycleStatus,
+        healthStatus: existing.healthStatus,
+        progressPercent: existing.progressPercent,
         deadline: existing.deadline?.toISOString() ?? null,
+        targetDate: existing.targetDate?.toISOString() ?? null,
         directionId: existing.directionId,
       },
       {
         title: updated.title,
         description: updated.description,
         ownerLabel: updated.ownerLabel,
+        ownerUserId: updated.ownerUserId,
         status: updated.status,
+        lifecycleStatus: updated.lifecycleStatus,
+        healthStatus: updated.healthStatus,
+        progressPercent: updated.progressPercent,
         deadline: updated.deadline?.toISOString() ?? null,
+        targetDate: updated.targetDate?.toISOString() ?? null,
         directionId: updated.directionId,
       },
     );
@@ -922,6 +1477,74 @@ export class StrategicVisionService {
     return this.getObjectiveById(clientId, objectiveId);
   }
 
+  async archiveObjective(
+    clientId: string,
+    objectiveId: string,
+    context?: StrategicAuditContext,
+  ) {
+    const existing = await this.prisma.strategicObjective.findFirst({
+      where: { id: objectiveId, clientId },
+    });
+    if (!existing) throw new NotFoundException('Strategic objective not found');
+
+    if (existing.lifecycleStatus === StrategicObjectiveLifecycleStatus.ARCHIVED) {
+      return this.getObjectiveById(clientId, objectiveId);
+    }
+
+    await this.prisma.strategicObjective.update({
+      where: { id: objectiveId },
+      data: {
+        status: StrategicObjectiveStatus.ARCHIVED,
+        lifecycleStatus: StrategicObjectiveLifecycleStatus.ARCHIVED,
+        healthStatus: null,
+      },
+    });
+
+    await this.audit(
+      clientId,
+      context,
+      'strategic_objective.archived',
+      'strategic_objective',
+      objectiveId,
+      {
+        status: existing.status,
+        lifecycleStatus: existing.lifecycleStatus,
+        healthStatus: existing.healthStatus,
+      },
+      {
+        status: StrategicObjectiveStatus.ARCHIVED,
+        lifecycleStatus: StrategicObjectiveLifecycleStatus.ARCHIVED,
+        healthStatus: null,
+      },
+    );
+
+    return this.getObjectiveById(clientId, objectiveId);
+  }
+
+  async listObjectivesByAxis(clientId: string, axisId: string) {
+    const axis = await this.prisma.strategicAxis.findFirst({
+      where: { id: axisId, clientId },
+      select: { id: true },
+    });
+    if (!axis) throw new NotFoundException('Strategic axis not found');
+
+    return this.prisma.strategicObjective.findMany({
+      where: { clientId, axisId },
+      include: {
+        direction: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            isActive: true,
+          },
+        },
+        links: { orderBy: { createdAt: 'desc' } },
+      },
+      orderBy: [{ createdAt: 'asc' }],
+    });
+  }
+
   async getObjectiveById(clientId: string, objectiveId: string) {
     const objective = await this.prisma.strategicObjective.findFirst({
       where: { id: objectiveId, clientId },
@@ -941,6 +1564,19 @@ export class StrategicVisionService {
     return objective;
   }
 
+  async listObjectiveLinks(clientId: string, objectiveId: string) {
+    const objective = await this.prisma.strategicObjective.findFirst({
+      where: { id: objectiveId, clientId },
+      select: { id: true },
+    });
+    if (!objective) throw new NotFoundException('Strategic objective not found');
+
+    return this.prisma.strategicLink.findMany({
+      where: { clientId, objectiveId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async addObjectiveLink(
     clientId: string,
     objectiveId: string,
@@ -953,7 +1589,15 @@ export class StrategicVisionService {
     });
     if (!objective) throw new NotFoundException('Strategic objective not found');
 
-    if (dto.linkType === StrategicLinkType.PROJECT) {
+    const linkType = this.resolveLinkType(dto);
+    this.assertWritableLinkTypeV1(linkType);
+    this.assertPercentBounds('alignmentScore', dto.alignmentScore);
+
+    let targetId: string | undefined;
+    if (linkType === StrategicLinkType.PROJECT) {
+      if (!dto.targetId) {
+        throw new BadRequestException('targetId is required for PROJECT link');
+      }
       const project = await this.prisma.project.findFirst({
         where: { id: dto.targetId, clientId },
         select: { id: true },
@@ -961,22 +1605,51 @@ export class StrategicVisionService {
       if (!project) {
         throw new BadRequestException('target project not found for active client');
       }
+      targetId = dto.targetId;
     } else {
-      throw new BadRequestException('not supported in MVP');
+      const labelTrimmed = dto.targetLabelSnapshot?.trim();
+      if (!labelTrimmed) {
+        throw new BadRequestException(
+          'targetLabelSnapshot is required for MANUAL link',
+        );
+      }
+      targetId = dto.targetId?.trim() || this.buildManualTargetId();
     }
 
-    const payload = {
+    const payload: Prisma.StrategicLinkUncheckedCreateInput = {
       clientId,
       objectiveId,
-      linkType: dto.linkType,
-      targetId: dto.targetId,
-      targetLabelSnapshot: dto.targetLabelSnapshot.trim(),
+      linkType,
+      targetId: targetId!,
+      targetLabelSnapshot: (dto.targetLabelSnapshot ?? '').trim(),
+      alignmentScore: dto.alignmentScore ?? null,
+      comment: dto.comment?.trim() || null,
     };
+
+    if (!payload.targetLabelSnapshot) {
+      throw new BadRequestException('targetLabelSnapshot is required');
+    }
 
     try {
       const created = await this.prisma.strategicLink.create({
         data: payload,
       });
+      await this.audit(
+        clientId,
+        context,
+        'strategic_link.created',
+        'strategic_link',
+        created.id,
+        undefined,
+        {
+          objectiveId: created.objectiveId,
+          linkType: created.linkType,
+          targetId: created.targetId,
+          targetLabelSnapshot: created.targetLabelSnapshot,
+          alignmentScore: created.alignmentScore,
+          comment: created.comment,
+        },
+      );
       await this.audit(
         clientId,
         context,
@@ -1000,6 +1673,60 @@ export class StrategicVisionService {
     }
   }
 
+  async updateObjectiveLink(
+    clientId: string,
+    objectiveId: string,
+    linkId: string,
+    dto: UpdateStrategicLinkDto,
+    context?: StrategicAuditContext,
+  ) {
+    const existing = await this.prisma.strategicLink.findFirst({
+      where: { id: linkId, objectiveId, clientId },
+    });
+    if (!existing) throw new NotFoundException('Strategic link not found');
+
+    const data: Prisma.StrategicLinkUncheckedUpdateInput = {};
+    if (dto.targetLabelSnapshot !== undefined) {
+      const trimmed = dto.targetLabelSnapshot.trim();
+      if (!trimmed) {
+        throw new BadRequestException('targetLabelSnapshot must not be empty');
+      }
+      data.targetLabelSnapshot = trimmed;
+    }
+    if (dto.alignmentScore !== undefined) {
+      this.assertPercentBounds('alignmentScore', dto.alignmentScore);
+      data.alignmentScore = dto.alignmentScore;
+    }
+    if (dto.comment !== undefined) data.comment = dto.comment?.trim() || null;
+
+    if (Object.keys(data).length === 0) return existing;
+
+    const updated = await this.prisma.strategicLink.update({
+      where: { id: linkId },
+      data,
+    });
+
+    await this.audit(
+      clientId,
+      context,
+      'strategic_link.updated',
+      'strategic_link',
+      linkId,
+      {
+        targetLabelSnapshot: existing.targetLabelSnapshot,
+        alignmentScore: existing.alignmentScore,
+        comment: existing.comment,
+      },
+      {
+        targetLabelSnapshot: updated.targetLabelSnapshot,
+        alignmentScore: updated.alignmentScore,
+        comment: updated.comment,
+      },
+    );
+
+    return updated;
+  }
+
   async removeObjectiveLink(
     clientId: string,
     objectiveId: string,
@@ -1013,6 +1740,19 @@ export class StrategicVisionService {
 
     await this.prisma.strategicLink.delete({ where: { id: linkId } });
 
+    await this.audit(
+      clientId,
+      context,
+      'strategic_link.deleted',
+      'strategic_link',
+      linkId,
+      {
+        objectiveId: link.objectiveId,
+        linkType: link.linkType,
+        targetId: link.targetId,
+      },
+      undefined,
+    );
     await this.audit(
       clientId,
       context,

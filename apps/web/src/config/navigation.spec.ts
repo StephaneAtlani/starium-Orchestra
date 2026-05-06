@@ -63,7 +63,7 @@ describe('platform navigation', () => {
     expect(teamsItem?.scope).toBe('client');
   });
 
-  it('expose Vision stratégique en menu parent (Vision Entreprise, Stratégie)', () => {
+  it('expose Vision stratégique en menu parent (Vision stratégique, Stratégie)', () => {
     const strategicSection = navigation.find((section) => section.section === 'PILOTAGE STRATÉGIQUE');
     expect(strategicSection).toBeDefined();
 
@@ -77,11 +77,11 @@ describe('platform navigation', () => {
     expect(strategicVisionParent?.scope).toBe('client');
 
     const childHrefs = (strategicVisionParent?.children ?? []).map((c) => c.href);
-    expect(childHrefs).toContain('/strategic-vision?tab=enterprise');
+    expect(childHrefs).toContain('/strategic-vision');
     expect(childHrefs).toContain('/strategic-direction-strategy');
 
     const enterprise = strategicVisionParent?.children?.find(
-      (c) => c.href === '/strategic-vision?tab=enterprise',
+      (c) => c.href === '/strategic-vision',
     );
     expect(enterprise?.requiredPermissions).toEqual(['strategic_vision.read']);
 

@@ -2,23 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import type { StrategicObjectiveStatus } from '../types/strategic-vision.types';
-
-function statusLabel(status: StrategicObjectiveStatus): string {
-  switch (status) {
-    case 'ON_TRACK':
-      return 'Dans la trajectoire';
-    case 'AT_RISK':
-      return 'A risque';
-    case 'OFF_TRACK':
-      return 'Hors trajectoire';
-    case 'COMPLETED':
-      return 'Termine';
-    case 'ARCHIVED':
-      return 'Archive';
-    default:
-      return status;
-  }
-}
+import { getObjectiveStatusLabel } from '../lib/strategic-vision-labels';
 
 function statusVariant(
   status: StrategicObjectiveStatus,
@@ -41,8 +25,8 @@ function statusVariant(
 
 export function ObjectiveStatusBadge({ status }: { status: StrategicObjectiveStatus }) {
   return (
-    <Badge variant={statusVariant(status)} className="uppercase tracking-wide">
-      {statusLabel(status)}
+    <Badge variant={statusVariant(status)} className="tracking-wide">
+      {getObjectiveStatusLabel(status)}
     </Badge>
   );
 }

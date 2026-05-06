@@ -14,6 +14,7 @@ import { toast } from '@/lib/toast';
 import { useCreateStrategicAxisMutation } from '../hooks/use-strategic-vision-queries';
 import { suggestStrategicAxisIconKeyFromTitle } from '../lib/strategic-axis-icon-suggest-from-title';
 import { buildAxisNameWithLogo } from '../lib/strategic-vision-tabs-view';
+import { getFirstZodError, strategicAxisFormSchema } from '../schemas/strategic-vision.schemas';
 import {
   STRATEGIC_AXIS_COLOR_OPTIONS,
   STRATEGIC_AXIS_ICONS,
@@ -51,11 +52,16 @@ export function StrategicAxisCreateDialog({
 
   const handleSave = async () => {
     if (!visionId) return;
+    const parsed = strategicAxisFormSchema.safeParse({ name, description });
+    if (!parsed.success) {
+      toast.error(getFirstZodError(parsed.error));
+      return;
+    }
     try {
       await createAxis.mutateAsync({
         visionId,
-        name: buildAxisNameWithLogo({ logo, title: name, color }),
-        description: description.trim() || undefined,
+        name: buildAxisNameWithLogo({ logo, title: parsed.data.name, color }),
+        description: parsed.data.description?.trim() || undefined,
       });
       toast.success('Axe stratégique créé.');
       resetForm();

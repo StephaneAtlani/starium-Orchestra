@@ -1,9 +1,11 @@
 'use client';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import React from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { StrategicVisionAlertsResponseDto } from '../types/strategic-vision.types';
+import { getAlertSeverityLabel, getAlertTypeLabel } from '../lib/strategic-vision-labels';
 
 const severityClassName: Record<string, string> = {
   LOW: 'bg-slate-100 text-slate-800',
@@ -12,7 +14,7 @@ const severityClassName: Record<string, string> = {
   CRITICAL: 'bg-red-100 text-red-900',
 };
 
-function formatAlertDate(iso: string): string {
+export function formatAlertDate(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString('fr-FR');
 }
@@ -47,8 +49,7 @@ export function StrategicAlertsPanel({
   if (items.length === 0) {
     return (
       <Alert>
-        <AlertTitle>Alertes de desalignement</AlertTitle>
-        <AlertDescription>Aucune alerte active pour ce client.</AlertDescription>
+        <AlertDescription>Alertes de desalignement: aucune alerte active pour ce client.</AlertDescription>
       </Alert>
     );
   }
@@ -65,7 +66,7 @@ export function StrategicAlertsPanel({
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-medium ${severityClassName[alert.severity] ?? severityClassName.MEDIUM}`}
                 >
-                  {alert.severity}
+                  {getAlertSeverityLabel(alert.severity)}
                 </span>
               </div>
             </CardHeader>
@@ -73,7 +74,7 @@ export function StrategicAlertsPanel({
               <p>{alert.message}</p>
               <p className="text-muted-foreground">Direction: {alert.directionName}</p>
               <p className="text-muted-foreground">
-                {alert.type} - {formatAlertDate(alert.createdAt)}
+                {getAlertTypeLabel(alert.type)} - {formatAlertDate(alert.createdAt)}
               </p>
             </CardContent>
           </Card>

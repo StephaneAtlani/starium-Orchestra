@@ -16,14 +16,11 @@ import type {
   StrategicObjectiveStatus,
 } from '../types/strategic-vision.types';
 import { useUpdateStrategicObjectiveMutation } from '../hooks/use-strategic-vision-queries';
-
-const STATUS_OPTIONS: StrategicObjectiveStatus[] = [
-  'ON_TRACK',
-  'AT_RISK',
-  'OFF_TRACK',
-  'COMPLETED',
-  'ARCHIVED',
-];
+import { STRATEGIC_OBJECTIVE_STATUS_OPTIONS } from '../lib/strategic-vision-labels';
+import {
+  getFirstZodError,
+  strategicObjectiveFormSchema,
+} from '../schemas/strategic-vision.schemas';
 
 export function StrategicObjectiveEditDialog({
   objective,
@@ -56,16 +53,30 @@ export function StrategicObjectiveEditDialog({
 
   const handleSave = async () => {
     if (!objective) return;
+    const parsed = strategicObjectiveFormSchema.safeParse({
+      axisId: objective.axisId,
+      title,
+      description,
+      ownerLabel,
+      status,
+      deadline,
+      directionId,
+    });
+    if (!parsed.success) {
+      toast.error(getFirstZodError(parsed.error));
+      return;
+    }
     try {
       await updateObjective.mutateAsync({
         objectiveId: objective.id,
         body: {
-          title: title.trim(),
-          description: description.trim() ? description.trim() : null,
-          ownerLabel: ownerLabel.trim() ? ownerLabel.trim() : null,
-          status,
-          deadline: deadline ? `${deadline}T00:00:00.000Z` : null,
-          directionId: directionId === 'UNASSIGNED' ? null : directionId,
+          title: parsed.data.title,
+          description: parsed.data.description?.trim() ? parsed.data.description : null,
+          ownerLabel: parsed.data.ownerLabel?.trim() ? parsed.data.ownerLabel : null,
+          status: parsed.data.status,
+          deadline: parsed.data.deadline ? `${parsed.data.deadline}T00:00:00.000Z` : null,
+          directionId:
+            parsed.data.directionId === 'UNASSIGNED' ? null : parsed.data.directionId,
         },
       });
       toast.success('Objectif stratégique mis à jour.');
@@ -121,9 +132,9 @@ export function StrategicObjectiveEditDialog({
                 value={status}
                 onChange={(event) => setStatus(event.target.value as StrategicObjectiveStatus)}
               >
-                {STATUS_OPTIONS.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
+                {STRATEGIC_OBJECTIVE_STATUS_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
                   </option>
                 ))}
               </select>
