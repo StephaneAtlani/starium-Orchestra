@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-038 (socle alertes, notifications in-app, file email async).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-038 (socle alertes, notifications in-app, file email async), **RFC-ACL-005** (`/api/resource-acl/*`, admin client).
 
 ---
 
@@ -528,6 +528,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | Auth              | —                                                  | —                                                           |
 | /api/me           | `Authorization: Bearer <accessToken>`             | JwtAuthGuard                                                |
 | /api/users        | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
+| /api/resource-acl/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard |
 | /api/roles        | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
 | /api/permissions  | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
 | /api/clients      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
@@ -567,6 +568,21 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/strategic-direction-strategies/:id/review | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.review`) |
 
 ---
+
+## 5.0 ACL ressources — `/api/resource-acl` (RFC-ACL-005)
+
+Administration des entrées **ResourceAcl** pour une ressource donnée, **dans le client actif uniquement** (`X-Client-Id`). Détail métier : [RFC-ACL-005](RFC/RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md).
+
+- **Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `ClientAdminGuard`.
+- **Routes** :
+  - `GET /api/resource-acl/:resourceType/:resourceId`
+  - `PUT /api/resource-acl/:resourceType/:resourceId` (remplacement transactionnel des entrées)
+  - `POST /api/resource-acl/:resourceType/:resourceId/entries`
+  - `DELETE /api/resource-acl/:resourceType/:resourceId/entries/:entryId`
+- **Paramètres** : `resourceType` sur liste blanche V1 ; `resourceId` au format CUID. La validation est centralisée (**`resolveResourceAclRoute`**) avant toute lecture / écriture Prisma.
+- **Corps JSON** : aucun champ `clientId` (rejet `forbidNonWhitelisted` si fourni) ; le client provient du contexte.
+- **Audit** : mutations tracées avec instantanés **old/new** exploitables (`resource_acl.*`).
+- **Garde métier** : `ResourceAclGuard` + `@RequireResourceAcl` (RFC-ACL-006) ; le module Nest du domaine importe **`AccessControlModule`** — il n’est pas fourni via **`CommonModule`**.
 
 ## 5.1 RBAC métier — décorateur et conventions
 

@@ -2,7 +2,7 @@
 
 ## Statut
 
-✅ **Implémentée (backend MVP)** — Prisma, migration, `AccessControlService`, API admin client ` /api/resource-acl/...`, `ResourceAclGuard` + décorateur `@RequireResourceAcl`, tests unitaires ; pas d’UI cockpit ACL (RFC-ACL-007) ; pas de branchement sur routes métier (RFC-ACL-006).
+✅ **Implémentée (backend MVP)** — Prisma, migration, `AccessControlService`, API admin client **`/api/resource-acl/...`**, `ResourceAclGuard` + décorateur **`@RequireResourceAcl`**, tests unitaires ; **`AccessControlModule`** chargé par **`AppModule`** (pas **`CommonModule`**) ; pas d’UI cockpit ACL (RFC-ACL-007) ; pas de branchement sur routes métier (RFC-ACL-006).
 
 ## 1. Analyse de l’existant
 
@@ -49,6 +49,10 @@ Le RBAC contrôle l’accès fonctionnel global, mais ne permet pas d’exprimer
 - **`AccessControlService`** : `resolveResourceAclRoute` (validation unique utilisée avant toute lecture/écriture Prisma pour une paire route), helpers `parse*`, `loadAclPayload…` interne avec **`resourceType` déjà whitelist / uppercase**, `assertSubjectInClient`, `listEntries`, `replaceEntries`, `addEntry`, `removeEntry`, `canReadResource` / `canWriteResource` / `canAdminResource` (pas d’entrées => **autoriser** ; mode restreint => agrégation **max** USER + GROUP membres).
 
 - **`ResourceAclGuard`** + **`@RequireResourceAcl({ operation })`** : résout la route via **`resolveResourceAclRoute`** comme les endpoints HTTP ; paramètres `resourceTypeParam` / `resourceIdParam` optionnels pour RFC-ACL-006 ; sans métadonnée, la garde est **transparente**. **Aucun branchement** sur contrôleurs métier dans cette livraison.
+
+- **`AccessControlModule`** exporte **`AccessControlService`** et **`ResourceAclGuard`** ; un module métier qui applique la garde en **RFC-ACL-006** doit **`imports: [AccessControlModule]`** sur son module Nest (pas d’export global depuis **`CommonModule`**).
+
+- **DTO corps** (`ReplaceResourceAclEntriesDto`, création d’entrée) : aucun **`clientId`** ; le client actif vient exclusivement du contexte requête (cohérent avec **`ValidationPipe`** global `forbidNonWhitelisted`).
 
 ### Audit (mutations)
 
