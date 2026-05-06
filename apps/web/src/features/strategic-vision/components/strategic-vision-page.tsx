@@ -67,8 +67,42 @@ export function StrategicVisionPage() {
         : 'Brouillon';
 
   return (
-    <PageContainer className="space-y-6">
-      <section className="space-y-3 rounded-xl border bg-card p-4 sm:p-5">
+    <PageContainer className="space-y-3">
+      <StrategicVisionTabs
+        vision={activeVision}
+        visions={visionsQ.data ?? []}
+        axes={axes}
+        objectives={objectives}
+        directions={directionsQ.data ?? []}
+        directionFilter={directionFilter}
+        kpis={kpisQ.data}
+        kpisByDirection={kpisByDirectionQ.data}
+        alerts={alertsQ.data}
+        canUpdate={canUpdate}
+        canCreate={canCreate}
+        canManageLinks={canManageLinks}
+        canManageDirections={canManageDirections}
+        directionsQueryState={{
+          isLoading: directionsQ.isLoading,
+          isError: directionsQ.isError,
+        }}
+        isEditMode={false}
+        queryStates={{
+          visions: { isLoading: visionsQ.isLoading, isError: visionsQ.isError },
+          objectives: {
+            isLoading: objectivesQ.isLoading || axesFallbackQ.isLoading,
+            isError: objectivesQ.isError || axesFallbackQ.isError,
+          },
+          kpis: { isLoading: kpisQ.isLoading, isError: kpisQ.isError },
+          kpisByDirection: {
+            isLoading: kpisByDirectionQ.isLoading,
+            isError: kpisByDirectionQ.isError,
+          },
+          alerts: { isLoading: alertsQ.isLoading, isError: alertsQ.isError },
+        }}
+      />
+
+      <section className="space-y-2 rounded-xl border bg-card p-4 sm:p-5">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Gouvernance / Vision stratégique
         </p>
@@ -103,48 +137,28 @@ export function StrategicVisionPage() {
         </div>
       </section>
 
-      <section className="space-y-4">
-        {kpisQ.data ? <StrategicKpiCards kpis={kpisQ.data} /> : null}
+      <section className="space-y-3">
+        {kpisQ.isLoading ? (
+          <Alert>
+            <AlertDescription>Chargement des KPI stratégiques...</AlertDescription>
+          </Alert>
+        ) : kpisQ.isError ? (
+          <Alert variant="destructive">
+            <AlertDescription>Impossible de charger les KPI stratégiques.</AlertDescription>
+          </Alert>
+        ) : kpisQ.data ? (
+          <StrategicKpiCards kpis={kpisQ.data} />
+        ) : (
+          <Alert>
+            <AlertDescription>Aucun KPI stratégique disponible.</AlertDescription>
+          </Alert>
+        )}
         <StrategicAlertsPanel
           alerts={alertsQ.data}
           isLoading={alertsQ.isLoading}
           isError={alertsQ.isError}
         />
       </section>
-
-      <StrategicVisionTabs
-        vision={activeVision}
-        visions={visionsQ.data ?? []}
-        axes={axes}
-        objectives={objectives}
-        directions={directionsQ.data ?? []}
-        directionFilter={directionFilter}
-        kpis={kpisQ.data}
-        kpisByDirection={kpisByDirectionQ.data}
-        alerts={alertsQ.data}
-        canUpdate={canUpdate}
-        canCreate={canCreate}
-        canManageLinks={canManageLinks}
-        canManageDirections={canManageDirections}
-        directionsQueryState={{
-          isLoading: directionsQ.isLoading,
-          isError: directionsQ.isError,
-        }}
-        isEditMode={false}
-        queryStates={{
-          visions: { isLoading: visionsQ.isLoading, isError: visionsQ.isError },
-          objectives: {
-            isLoading: objectivesQ.isLoading || axesFallbackQ.isLoading,
-            isError: objectivesQ.isError || axesFallbackQ.isError,
-          },
-          kpis: { isLoading: kpisQ.isLoading, isError: kpisQ.isError },
-          kpisByDirection: {
-            isLoading: kpisByDirectionQ.isLoading,
-            isError: kpisByDirectionQ.isError,
-          },
-          alerts: { isLoading: alertsQ.isLoading, isError: alertsQ.isError },
-        }}
-      />
     </PageContainer>
   );
 }

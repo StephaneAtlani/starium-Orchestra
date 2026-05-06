@@ -22,6 +22,7 @@ import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
 import { StrategicAlignmentTab } from './strategic-alignment-tab';
 import { StrategicAlignmentScoreCard } from './strategic-alignment-score-card';
 import { StrategicDirectionsTab } from './strategic-directions-tab';
+import { StrategicKpiCards } from './strategic-kpi-cards';
 
 type QueryState = {
   isLoading: boolean;
@@ -179,7 +180,7 @@ export function StrategicVisionTabs({
         aria-label="Onglets strategic vision"
         data-testid="strategic-tabs-container"
       >
-        <nav className="flex min-h-12 items-center gap-1 overflow-x-auto pb-1">
+        <nav className="flex min-h-12 flex-wrap items-center gap-1 pb-1">
           <button
             type="button"
             onClick={() => setActiveMenu('overview')}
@@ -238,6 +239,22 @@ export function StrategicVisionTabs({
           </button>
         </nav>
       </div>
+
+      {queryStates.kpis.isLoading ? (
+        <Alert>
+          <AlertDescription>Chargement des KPI stratégiques...</AlertDescription>
+        </Alert>
+      ) : queryStates.kpis.isError ? (
+        <Alert variant="destructive">
+          <AlertDescription>Impossible de charger les KPI stratégiques.</AlertDescription>
+        </Alert>
+      ) : kpis ? (
+        <StrategicKpiCards kpis={kpis} />
+      ) : (
+        <Alert>
+          <AlertDescription>Aucun KPI stratégique disponible.</AlertDescription>
+        </Alert>
+      )}
 
       <section className="space-y-4">
           {activeMenu === 'overview' ? (
