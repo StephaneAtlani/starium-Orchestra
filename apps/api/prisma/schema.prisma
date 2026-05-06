@@ -279,6 +279,9 @@ model Client {
   strategicVisions                 StrategicVision[]
   strategicAxes                    StrategicAxis[]
   strategicDirections              StrategicDirection[]
+  strategicDirectionStrategies     StrategicDirectionStrategy[]
+  strategicDirectionStrategyAxisLinks StrategicDirectionStrategyAxisLink[]
+  strategicDirectionStrategyObjectiveLinks StrategicDirectionStrategyObjectiveLink[]
   strategicObjectives              StrategicObjective[]
   strategicLinks                   StrategicLink[]
   projectPortfolioCategories       ProjectPortfolioCategory[]
@@ -488,6 +491,7 @@ model User {
   notifications                        Notification[]
   resolvedAlerts                       Alert[]                         @relation("AlertResolvedBy")
   dismissedAlerts                      Alert[]                         @relation("AlertDismissedBy")
+  approvedStrategicDirectionStrategies StrategicDirectionStrategy[]    @relation("StrategicDirectionStrategyApprovedBy")
   emailDeliveries                      EmailDelivery[]                 @relation("EmailDeliveryCreatedBy")
   chatbotKnowledgeEntriesCreated       ChatbotKnowledgeEntry[]         @relation("ChatbotEntryCreatedBy")
   chatbotKnowledgeEntriesUpdated       ChatbotKnowledgeEntry[]         @relation("ChatbotEntryUpdatedBy")
@@ -1002,6 +1006,14 @@ enum StrategicLinkType {
   RISK
 }
 
+enum StrategicDirectionStrategyStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
 model Project {
   id          String  @id @default(cuid())
   clientId    String
@@ -1127,8 +1139,9 @@ model StrategicVision {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  axes   StrategicAxis[]
+  client              Client                       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  axes                StrategicAxis[]
+  directionStrategies StrategicDirectionStrategy[]
 
   @@index([clientId])
   @@index([clientId, isActive])
@@ -1147,6 +1160,7 @@ model StrategicAxis {
   client     Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
   vision     StrategicVision     @relation(fields: [visionId], references: [id], onDelete: Cascade)
   objectives StrategicObjective[]
+  directionStrategyAxisLinks StrategicDirectionStrategyAxisLink[]
 
   @@index([clientId])
   @@index([clientId, visionId])
@@ -1169,6 +1183,7 @@ model StrategicObjective {
   axis      StrategicAxis       @relation(fields: [axisId], references: [id], onDelete: Cascade)
   direction StrategicDirection? @relation(fields: [directionId], references: [id], onDelete: SetNull)
   links     StrategicLink[]
+  directionStrategyObjectiveLinks StrategicDirectionStrategyObjectiveLink[]
 
   @@index([clientId])
   @@index([clientId, axisId])
@@ -1188,12 +1203,83 @@ model StrategicDirection {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  client     Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client     Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   objectives StrategicObjective[]
+  strategies StrategicDirectionStrategy[]
 
   @@unique([clientId, code])
   @@index([clientId])
   @@index([clientId, isActive])
+}
+
+model StrategicDirectionStrategy {
+  id               String                           @id @default(cuid())
+  clientId         String
+  directionId      String
+  alignedVisionId  String
+  title            String?
+  ambition         String?
+  context          String?
+  statement        String
+  strategicPriorities Json?
+  expectedOutcomes Json?
+  kpis             Json?
+  majorInitiatives Json?
+  risks            Json?
+  horizonLabel     String
+  ownerLabel       String?
+  status           StrategicDirectionStrategyStatus @default(DRAFT)
+  submittedAt      DateTime?
+  submittedByUserId String?
+  approvedAt       DateTime?
+  approvedByUserId String?
+  rejectionReason  String?
+  archivedReason   String?
+  archivedAt       DateTime?
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
+
+  client        Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  direction     StrategicDirection @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  alignedVision StrategicVision    @relation(fields: [alignedVisionId], references: [id], onDelete: Cascade)
+  approvedBy    User?              @relation("StrategicDirectionStrategyApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  axisLinks      StrategicDirectionStrategyAxisLink[]
+  objectiveLinks StrategicDirectionStrategyObjectiveLink[]
+
+  /// Une seule stratégie **non archivée** par (client, direction, vision) — garanti par index partiel SQL (migration).
+  @@index([clientId])
+  @@index([clientId, directionId])
+  @@index([clientId, status])
+}
+
+model StrategicDirectionStrategyAxisLink {
+  id                String   @id @default(cuid())
+  clientId          String
+  strategyId        String
+  strategicAxisId   String
+  createdAt         DateTime @default(now())
+
+  client   Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  strategy StrategicDirectionStrategy  @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  axis     StrategicAxis               @relation(fields: [strategicAxisId], references: [id], onDelete: Cascade)
+
+  @@unique([strategyId, strategicAxisId])
+  @@index([clientId])
+}
+
+model StrategicDirectionStrategyObjectiveLink {
+  id                    String   @id @default(cuid())
+  clientId              String
+  strategyId            String
+  strategicObjectiveId  String
+  createdAt             DateTime @default(now())
+
+  client      Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  strategy    StrategicDirectionStrategy  @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  objective   StrategicObjective           @relation(fields: [strategicObjectiveId], references: [id], onDelete: Cascade)
+
+  @@unique([strategyId, strategicObjectiveId])
+  @@index([clientId])
 }
 
 model StrategicLink {

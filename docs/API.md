@@ -552,7 +552,17 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/strategic-vision/kpis/by-direction | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-vision/alerts | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-directions (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
-| /api/strategic-directions (POST/PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.update` **ou** `strategic_vision.manage_directions`) |
+| /api/strategic-directions (POST/PATCH/DELETE `:id`) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.update` **ou** `strategic_vision.manage_directions`) · DELETE → `204` sans corps si aucune stratégie de direction liée |
+| /api/strategic-direction-strategies (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
+| /api/strategic-direction-strategies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.create`) |
+| /api/strategic-direction-strategies/:id/links (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
+| /api/strategic-direction-strategies/:id/axes (PUT) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/objectives (PUT) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
+| /api/strategic-direction-strategies/:id (PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/submit | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/archive | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/review | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.review`) |
 
 ---
 
@@ -677,10 +687,89 @@ Référentiel direction métier client-scopé (RFC-STRAT-005), orthogonal aux ax
   - Permission : `strategic_vision.update` **ou** `strategic_vision.manage_directions`
 - **PATCH /api/strategic-directions/:id** :
   - Permission : `strategic_vision.update` **ou** `strategic_vision.manage_directions`
+- **DELETE /api/strategic-directions/:id** :
+  - Permission : `strategic_vision.update` **ou** `strategic_vision.manage_directions`
+  - Réponse : `204 No Content`
+  - Refus (`400`) tant qu’il existe au moins une stratégie de direction **non archivée** (`status` ≠ `ARCHIVED`) pour cette direction.
 
 **Champs principaux** : `id`, `clientId`, `code`, `name`, `description`, `sortOrder`, `isActive`, `createdAt`, `updatedAt`.
 
-## 5.6 Socle alertes et notifications (RFC-038) — `/api/alerts`, `/api/notifications`
+## 5.6 Strategic direction strategy workflow — `/api/strategic-direction-strategies`
+
+Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/objectifs.
+
+- **Alignement cockpit** — une stratégie porte déjà une `alignedVisionId` obligatoire. Les liaisons **`StrategicDirectionStrategyAxisLink`** et **`StrategicDirectionStrategyObjectiveLink`** matérialisent un sous-ensemble d’axes / objectifs de cette vision utilisé pour le pilotage CODIR :
+
+  - **`PUT …/axes`** : body `{ strategicAxisIds: string[] }` (`[]` autorise tout retirer) ; tous les axes doivent appartenir à la vision alignée ; si tous les axes sont retirés, **toutes** les liaisons objectifs sont supprimées.
+  - **`PUT …/objectives`** : body `{ strategicObjectiveIds: string[] }` ; chaque objectif doit être sous un axe dont la vision est la vision alignée ; **si au moins un axe est encore lié à la stratégie**, l’objectif doit être sous l’un de ces axes ; sinon, tout objectif de la vision est éligible.
+  - Réponses métier lisibles dans **`GET …/links`** (noms d’axes, titres et statuts d’objectifs, axe parent pour chaque objectif).
+
+- **GET /api/strategic-direction-strategies**
+  - Permission : `strategic_direction_strategy.read`
+  - Query optionnelle : `directionId=<strategicDirectionId>`, `alignedVisionId=<visionId>`, `status=<DRAFT|SUBMITTED|APPROVED|REJECTED|ARCHIVED>`, `search=<titre|ambition|direction>`, `includeArchived=true` (liste par défaut : **sans** les entrées `ARCHIVED`, sauf filtre explicite `status=ARCHIVED` qui les inclut).
+- **POST /api/strategic-direction-strategies**
+  - Permission : `strategic_direction_strategy.create`
+  - Crée un brouillon (`DRAFT`) ; `directionId` est porté par le body, `clientId` vient du contexte actif.
+  - Champs V1 : `directionId`, `alignedVisionId`, `title`, `ambition`, `context`, `horizonLabel`, `ownerLabel?`, `statement?`, `strategicPriorities?`, `expectedOutcomes?`, `kpis?`, `majorInitiatives?`, `risks?`.
+  - Retourne `409 Conflict` s’il existe déjà une stratégie **active** `(clientId, directionId, alignedVisionId)` (statut différent de `ARCHIVED`).
+- **GET /api/strategic-direction-strategies/:id/links**
+  - Permission : `strategic_direction_strategy.read`
+  - Réponse 200 exemple :
+
+```json
+{
+  "axes": [{ "id": "…", "name": "Souveraineté & sécurité", "orderIndex": 1 }],
+  "objectives": [
+    {
+      "id": "…",
+      "title": "Renforcer IAM",
+      "status": "ON_TRACK",
+      "axis": { "id": "…", "name": "Souveraineté & sécurité" }
+    }
+  ]
+}
+```
+
+- **PUT /api/strategic-direction-strategies/:id/axes**
+  - Permission : `strategic_direction_strategy.update`
+  - Même fenêtre éditable que le `PATCH` principal (`DRAFT`/`REJECTED`/`APPROVED`, jamais `SUBMITTED`/`ARCHIVED`).
+  - Body : `{ "strategicAxisIds": ["…"] }`
+  - `400` si un axe est inconnu, hors client, ou hors vision alignée. Réponse 200 : payload identique à `GET …/links`.
+- **PUT /api/strategic-direction-strategies/:id/objectives**
+  - Permission : `strategic_direction_strategy.update`
+  - Body : `{ "strategicObjectiveIds": ["…"] }` ; règle de périmètre axes décrite ci-dessus. Réponse 200 : `GET …/links`.
+- **GET /api/strategic-direction-strategies/:id**
+  - Permission : `strategic_direction_strategy.read`
+- **PATCH /api/strategic-direction-strategies/:id**
+  - Permission : `strategic_direction_strategy.update`
+  - Autorisé en `DRAFT`, `REJECTED` et `APPROVED` (interdit en `SUBMITTED` et `ARCHIVED`).
+  - Règle d’adaptation d’une stratégie `APPROVED` : le body doit inclure `archiveReason` (motif obligatoire). Le backend archive automatiquement un **snapshot** de la version approuvée précédente (`status=ARCHIVED`, `archivedReason`, `archivedAt`, liens axes/objectifs clonés), puis met à jour l’enregistrement courant en `DRAFT` avec reset des champs de review (`submitted*`, `approved*`, `rejectionReason`).
+  - Champs modifiables V1 : `alignedVisionId`, `title`, `ambition`, `context`, `horizonLabel`, `ownerLabel`, `statement`, `strategicPriorities`, `expectedOutcomes`, `kpis`, `majorInitiatives`, `risks`, `archiveReason?` (requis seulement si statut courant = `APPROVED`).
+- **POST /api/strategic-direction-strategies/:id/submit**
+  - Permission : `strategic_direction_strategy.update`
+  - Autorisé depuis `DRAFT` ou `REJECTED` uniquement.
+  - Requiert `alignedVisionId` du même client et les champs `title`, `ambition`, `context` renseignés.
+- **POST /api/strategic-direction-strategies/:id/archive**
+  - Permission : `strategic_direction_strategy.update`
+  - Passe une stratégie **`APPROVED`** en **`ARCHIVED`** (horodatage `archivedAt`) ; lecture seule ensuite. Permet d’ouvrir un **nouveau** cycle pour la même tripletta `(client, direction, vision)` grâce à l’unicité partielle en base (une seule stratégie non archivée par tripletta).
+- **POST /api/strategic-direction-strategies/:id/review**
+  - Permission : `strategic_direction_strategy.review`
+  - Body :
+
+```ts
+{
+  decision: "APPROVED" | "REJECTED";
+  rejectionReason?: string; // requis si REJECTED
+}
+```
+
+Statuts : `DRAFT` -> `SUBMITTED` -> `APPROVED | REJECTED` ; depuis `APPROVED`, deux options :
+- `POST …/archive` pour archiver explicitement la version approuvée ;
+- `PATCH …/:id` avec `archiveReason` pour **adapter** la stratégie courante (snapshot `ARCHIVED` auto + stratégie courante repassée en `DRAFT`).
+Le `PATCH` reste interdit en `SUBMITTED` et `ARCHIVED`.
+`statement` reste conservé en legacy (compat API), tandis que l’UI V1 pilote les contenus via `title`, `ambition`, `context`.
+
+## 5.7 Socle alertes et notifications (RFC-038) — `/api/alerts`, `/api/notifications`
 
 Socle transverse **distinct** de `GET /api/strategic-vision/alerts` (§5.3). Toutes les routes ci-dessous exigent **`Authorization`** + **`X-Client-Id`**, avec guards `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`.
 

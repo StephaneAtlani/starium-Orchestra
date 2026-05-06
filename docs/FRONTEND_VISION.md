@@ -94,6 +94,7 @@ Exemple :
 Dashboard
 
 Pilotage
+Vision stratégique (déroulant : Vision Entreprise, Stratégie)
 Budgets
 Projets
 Contrats

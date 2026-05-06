@@ -564,7 +564,20 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/budget-version-sets | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budgets/:id/create-baseline, create-revision, activate-version, archive-version, version-history, compare | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update` selon l’action) |
 | /api/strategic-vision/kpis | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
+| /api/strategic-vision/kpis/by-direction | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-vision/alerts | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
+| /api/strategic-directions (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
+| /api/strategic-directions (POST/PATCH/DELETE `:id`) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.update` **ou** `strategic_vision.manage_directions`) · DELETE → `204` sans corps si aucune stratégie de direction liée |
+| /api/strategic-direction-strategies (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
+| /api/strategic-direction-strategies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.create`) |
+| /api/strategic-direction-strategies/:id/links (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
+| /api/strategic-direction-strategies/:id/axes (PUT) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/objectives (PUT) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
+| /api/strategic-direction-strategies/:id (PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/submit | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/archive | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/review | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.review`) |
 
 ---
 
@@ -615,6 +628,10 @@ Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
   - `X-Client-Id: <clientId>`
 - **Guards (ordre)** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
 - **Permission requise** : `strategic_vision.read`
+- **Query optionnelle** :
+  - `directionId=<strategicDirectionId>` : alerte(s) liées à une direction précise
+  - `unassigned=true` : alerte(s) liées à des objectifs sans direction
+  - `directionId` et `unassigned=true` sont mutuellement exclusifs
 
 **Contrat de réponse (200)** :
 
@@ -625,6 +642,8 @@ Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
     type: "OBJECTIVE_OVERDUE" | "OBJECTIVE_OFF_TRACK" | "PROJECT_UNALIGNED";
     severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
     targetType: "OBJECTIVE" | "PROJECT";
+    directionId: string | null;
+    directionName: string; // ex: "DSI", "Non affecté"
     targetLabel: string;
     message: string;
     createdAt: string; // ISO datetime
@@ -633,7 +652,135 @@ Endpoint RFC-STRAT-004 (alertes stratégiques MVP, scoping client strict).
 }
 ```
 
-## 5.4 Socle alertes et notifications (RFC-038) — `/api/alerts`, `/api/notifications`
+## 5.4 Strategic Vision KPI by direction — `/api/strategic-vision/kpis/by-direction`
+
+Endpoint RFC-STRAT-005 (lecture cockpit par direction, sans changer le KPI global STRAT-002).
+
+- **Méthode/route** : `GET /api/strategic-vision/kpis/by-direction`
+- **Headers requis** :
+  - `Authorization: Bearer <accessToken>`
+  - `X-Client-Id: <clientId>`
+- **Guards (ordre)** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- **Permission requise** : `strategic_vision.read`
+
+**Contrat de réponse (200)** :
+
+```ts
+{
+  rows: Array<{
+    directionId: string | null;
+    directionCode: string;
+    directionName: string;
+    projectAlignmentRate: number;
+    unalignedProjectsCount: number;
+    objectivesAtRiskCount: number;
+    objectivesOffTrackCount: number;
+    overdueObjectivesCount: number;
+    alignedActiveProjectsCount: number;
+    totalActiveProjectsRelevantCount: number;
+  }>;
+  global: {
+    projectAlignmentRate: number;
+    unalignedProjectsCount: number;
+    objectivesAtRiskCount: number;
+    objectivesOffTrackCount: number;
+    overdueObjectivesCount: number;
+    generatedAt: string;
+  };
+  generatedAt: string;
+}
+```
+
+## 5.5 Strategic directions — `/api/strategic-directions`
+
+Référentiel direction métier client-scopé (RFC-STRAT-005), orthogonal aux axes stratégiques.
+
+- **GET /api/strategic-directions** :
+  - Permission : `strategic_vision.read`
+  - Query optionnelle : `isActive=true|false`, `search=<code|name>`
+- **POST /api/strategic-directions** :
+  - Permission : `strategic_vision.update` **ou** `strategic_vision.manage_directions`
+- **PATCH /api/strategic-directions/:id** :
+  - Permission : `strategic_vision.update` **ou** `strategic_vision.manage_directions`
+- **DELETE /api/strategic-directions/:id** :
+  - Permission : `strategic_vision.update` **ou** `strategic_vision.manage_directions`
+  - Réponse : `204 No Content`
+  - Refus (`400`) tant qu’il existe au moins une stratégie de direction **non archivée** (`status` ≠ `ARCHIVED`) pour cette direction.
+
+**Champs principaux** : `id`, `clientId`, `code`, `name`, `description`, `sortOrder`, `isActive`, `createdAt`, `updatedAt`.
+
+## 5.6 Strategic direction strategy workflow — `/api/strategic-direction-strategies`
+
+Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/objectifs.
+
+- **Alignement cockpit** — une stratégie porte déjà une `alignedVisionId` obligatoire. Les liaisons **`StrategicDirectionStrategyAxisLink`** et **`StrategicDirectionStrategyObjectiveLink`** matérialisent un sous-ensemble d’axes / objectifs de cette vision utilisé pour le pilotage CODIR :
+
+  - **`PUT …/axes`** : body `{ strategicAxisIds: string[] }` (`[]` autorise tout retirer) ; tous les axes doivent appartenir à la vision alignée ; si tous les axes sont retirés, **toutes** les liaisons objectifs sont supprimées.
+  - **`PUT …/objectives`** : body `{ strategicObjectiveIds: string[] }` ; chaque objectif doit être sous un axe dont la vision est la vision alignée ; **si au moins un axe est encore lié à la stratégie**, l’objectif doit être sous l’un de ces axes ; sinon, tout objectif de la vision est éligible.
+  - Réponses métier lisibles dans **`GET …/links`** (noms d’axes, titres et statuts d’objectifs, axe parent pour chaque objectif).
+
+- **GET /api/strategic-direction-strategies**
+  - Permission : `strategic_direction_strategy.read`
+  - Query optionnelle : `directionId=<strategicDirectionId>`, `alignedVisionId=<visionId>`, `status=<DRAFT|SUBMITTED|APPROVED|REJECTED|ARCHIVED>`, `search=<titre|ambition|direction>`, `includeArchived=true` (liste par défaut : **sans** les entrées `ARCHIVED`, sauf filtre explicite `status=ARCHIVED` qui les inclut).
+- **POST /api/strategic-direction-strategies**
+  - Permission : `strategic_direction_strategy.create`
+  - Crée un brouillon (`DRAFT`) ; `directionId` est porté par le body, `clientId` vient du contexte actif.
+  - Champs V1 : `directionId`, `alignedVisionId`, `title`, `ambition`, `context`, `horizonLabel`, `ownerLabel?`, `statement?`, `strategicPriorities?`, `expectedOutcomes?`, `kpis?`, `majorInitiatives?`, `risks?`.
+  - Retourne `409 Conflict` s’il existe déjà une stratégie **active** `(clientId, directionId, alignedVisionId)` (statut différent de `ARCHIVED`).
+- **GET /api/strategic-direction-strategies/:id/links**
+  - Permission : `strategic_direction_strategy.read`
+  - Réponse 200 exemple :
+
+```json
+{
+  "axes": [{ "id": "…", "name": "Souveraineté & sécurité", "orderIndex": 1 }],
+  "objectives": [
+    {
+      "id": "…",
+      "title": "Renforcer IAM",
+      "status": "ON_TRACK",
+      "axis": { "id": "…", "name": "Souveraineté & sécurité" }
+    }
+  ]
+}
+```
+
+- **PUT /api/strategic-direction-strategies/:id/axes**
+  - Permission : `strategic_direction_strategy.update`
+  - Même fenêtre éditable que le `PATCH` principal (`DRAFT`/`REJECTED`, pas une stratégie `SUBMITTED`/`APPROVED`).
+  - Body : `{ "strategicAxisIds": ["…"] }`
+  - `400` si un axe est inconnu, hors client, ou hors vision alignée. Réponse 200 : payload identique à `GET …/links`.
+- **PUT /api/strategic-direction-strategies/:id/objectives**
+  - Permission : `strategic_direction_strategy.update`
+  - Body : `{ "strategicObjectiveIds": ["…"] }` ; règle de périmètre axes décrite ci-dessus. Réponse 200 : `GET …/links`.
+- **GET /api/strategic-direction-strategies/:id**
+  - Permission : `strategic_direction_strategy.read`
+- **PATCH /api/strategic-direction-strategies/:id**
+  - Permission : `strategic_direction_strategy.update`
+  - Autorisé en `DRAFT` ou `REJECTED` (et `REJECTED` repasse en `DRAFT` avec reset du motif).
+  - Champs modifiables V1 : `alignedVisionId`, `title`, `ambition`, `context`, `horizonLabel`, `ownerLabel`, `statement`, `strategicPriorities`, `expectedOutcomes`, `kpis`, `majorInitiatives`, `risks`.
+- **POST /api/strategic-direction-strategies/:id/submit**
+  - Permission : `strategic_direction_strategy.update`
+  - Autorisé depuis `DRAFT` ou `REJECTED` uniquement.
+  - Requiert `alignedVisionId` du même client et les champs `title`, `ambition`, `context` renseignés.
+- **POST /api/strategic-direction-strategies/:id/archive**
+  - Permission : `strategic_direction_strategy.update`
+  - Passe une stratégie **`APPROVED`** en **`ARCHIVED`** (horodatage `archivedAt`) ; lecture seule ensuite. Permet d’ouvrir un **nouveau** cycle pour la même tripletta `(client, direction, vision)` grâce à l’unicité partielle en base (une seule stratégie non archivée par tripletta).
+- **POST /api/strategic-direction-strategies/:id/review**
+  - Permission : `strategic_direction_strategy.review`
+  - Body :
+
+```ts
+{
+  decision: "APPROVED" | "REJECTED";
+  rejectionReason?: string; // requis si REJECTED
+}
+```
+
+Statuts : `DRAFT` -> `SUBMITTED` -> `APPROVED | REJECTED` ; depuis `APPROVED`, passage optionnel à `ARCHIVED` via `POST …/archive` (pas de patch direct en `SUBMITTED`/`APPROVED`/`ARCHIVED`).
+`statement` reste conservé en legacy (compat API), tandis que l’UI V1 pilote les contenus via `title`, `ambition`, `context`.
+
+## 5.7 Socle alertes et notifications (RFC-038) — `/api/alerts`, `/api/notifications`
 
 Socle transverse **distinct** de `GET /api/strategic-vision/alerts` (§5.3). Toutes les routes ci-dessous exigent **`Authorization`** + **`X-Client-Id`**, avec guards `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`.
 
@@ -2749,6 +2896,8 @@ apps/
 │   │   ├── budget-versioning
 │   │   ├── procurement
 │   │   ├── contracts   (RFC-036 — SupplierContract, pièces jointes, module RBAC `contracts`)
+│   │   ├── strategic-vision   (RFC-STRAT-001→005 — vision, axes, objectifs, directions, KPI/alerts client-scopés)
+│   │   ├── strategic-direction-strategy   (RFC-STRAT-006 — stratégie par direction, workflow CODIR)
 │   │   └── ...
 │   └── prisma / PostgreSQL
 │
@@ -2758,6 +2907,8 @@ apps/
     ├── features/budgets (dont `forecast/` — UI forecast & comparaison budgétaire, [RFC-FE-BUD-030](./RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md))
     ├── features/procurement
     ├── features/contracts   (liste / fiche `/contracts`, module `contracts.*`)
+    ├── features/strategic-vision   (`/strategic-vision`, onglets cockpit + référentiel directions — RFC-STRAT-003/005)
+    ├── features/strategic-direction-strategy   (`/strategic-direction-strategy`, RFC-STRAT-006)
     ├── features/teams (`collaborators/`, `skills/`, `work-teams/`, `resource-time-entries/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md), [RFC-FE-TEAM-004](./RFC/RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md) ; module Équipes métier = **Resource HUMAN** — [RFC-TEAM-020](./RFC/RFC-TEAM-020%20%E2%80%94%20Refonte%20%C3%89quipes%20Resource%20HUMAN.md))
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)
@@ -4786,9 +4937,20 @@ L’écran **`/projects`** (`app/(protected)/projects/page.tsx`) regroupe **filt
 - **`CardHeader`** : `border-b border-border/60`, titre **`CardTitle`** `text-sm font-medium` : « Filtrer et trier ».
 - **Actions à droite** (`flex gap-2`, `size="sm"`) :
   - **Mes projets** — `Button` `variant={myProjectsOnly ? 'default' : 'outline'}` : filtre « uniquement les projets où l’utilisateur a un rôle » (`myProjectsOnly`).
-  - **Plein écran** — bascule `document.documentElement.requestFullscreen` / `exitFullscreen` (icônes `Expand` / `Minimize`).
+  - **Plein écran** — bascule `requestFullscreen` sur `#starium-app-workspace` (`STARIUM_APP_WORKSPACE_DOM_ID`) puis `exitFullscreen` (icônes `Expand` / `Minimize`), pour conserver la sidebar hors écran.
   - **Réinitialiser** — `onReset` (état filtres + tri via `use-projects-list-filters`).
 - Conteneur : `role="search"` + `aria-label="Filtrer et trier la liste des projets"`.
+
+### 7.1.1 Portals en plein écran (Select / Tooltip / Dialog)
+
+Quand `/projects` est en plein écran, les popups Base UI (`Select`, `Tooltip`, `Dialog`) ne doivent pas être montés dans `document.body`, sinon ils sortent du sous-arbre plein écran et deviennent invisibles/non interactifs.
+
+- Hook commun : `apps/web/src/hooks/use-fullscreen-portal-container.ts` → renvoie `document.fullscreenElement` (ou `undefined` hors plein écran).
+- `Select` : `apps/web/src/components/ui/select.tsx` (`SelectPrimitive.Portal container={fullscreenContainer}`).
+- `Tooltip` : `apps/web/src/components/ui/tooltip.tsx` (`TooltipPrimitive.Portal container={fullscreenContainer}`).
+- `Dialog` : `apps/web/src/components/ui/dialog.tsx` (`DialogPortal` utilise `container ?? fullscreenContainer` pour garder un override explicite possible).
+
+Effet attendu : les filtres inline du tableau Projets (ligne 2 des en-têtes) restent utilisables en mode plein écran.
 
 ### 7.2 Tableau : double ligne d’en-tête + filtres inline (`ProjectsListTable`)
 
@@ -5055,6 +5217,7 @@ Implémentation : `**apps/web/src/components/ui/dialog.tsx`** (Base UI `Backdrop
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Backdrop** | Voile : `fixed inset-0 z-[80]`, `bg-black/40`, `dark:bg-black/55`, léger flou `backdrop-blur-[2px]` ; `duration-200` ; animations fade `data-open` / `data-closed`. Attribut **`forceRender`** sur le `Backdrop` pour que le voile reste correctement empilé en **dialogues imbriqués** (Base UI). |
 | **Panneau**  | `Popup` : `z-[81]`, `rounded-xl border border-border/60`, `bg-background/95`, `backdrop-blur-2xl`, `shadow-lg`, `ring-1 ring-black/[0.04]` (`dark:ring-white/[0.06]`) — panneau type « vitré » au-dessus du voile (§2). |
+| **Portal container** | En plein écran, le `Portal` cible `document.fullscreenElement` via `useFullscreenPortalContainer`; hors plein écran, comportement standard (`body`). `DialogPortal` conserve `container` prioritaire si fourni explicitement. |
 | **Fermeture** | Clic sur le **voile** (bouton gauche, cible = le scrim) appelle `onOpenChange(false)` lorsque le `Dialog` racine reçoit **`onOpenChange`** ; un contexte interne relie le backdrop à cette fermeture. |
 | **Titre**    | `DialogTitle` : `text-lg font-semibold tracking-tight text-foreground` (cohérent avec les modales métier §12.2).                                                                                       |
 | **Pied**     | `DialogFooter` : `border-t border-border/60` sur le séparateur (§2).                                                                                                                                   |
@@ -5297,6 +5460,7 @@ Exemple :
 Dashboard
 
 Pilotage
+Vision stratégique (déroulant : Vision Entreprise, Stratégie)
 Budgets
 Projets
 Contrats
@@ -51270,6 +51434,11 @@ Hors scope de cette livraison :
 - endpoint dédié `GET /api/strategic-links` (non exposé, panel alimenté via `GET /api/strategic-objectives`) ;
 - alertes/misalignment avancées (`RFC-STRAT-004`) : placeholder UI uniquement.
 
+## Compléments livrés (cockpit — 2026-05)
+
+- **Navigation cockpit** (`apps/web/src/config/navigation.ts`, `components/shell/sidebar.tsx`) : entrée **Vision stratégique** sous forme de **menu déroulant** (hover) avec au minimum **Vision Entreprise** (`/strategic-vision?tab=enterprise`) et **Stratégie** (`/strategic-direction-strategy`, module [RFC-STRAT-006](./RFC-STRAT-006%20%E2%80%94%20Stratégie%20de%20direction%20et%20validation%20CODIR)) ; filtres permissions par sous-lien.
+- Page `/strategic-vision` : onglets internes (query `tab=`) incluant entre autres **Directions** pour le référentiel `StrategicDirection` (CRUD autorisé `strategic_vision.update` ou `strategic_vision.manage_directions`) — voir aussi [RFC-STRAT-005](./RFC-STRAT-005%20%E2%80%94%20Stratégie%20par%20direction%20et%20vision%20stratégique.md) §6.2.
+
 ## 1) Contexte UX
 
 Le module Strategic Vision côté frontend doit offrir une lecture claire de l'alignement stratégique, orientée pilotage et arbitrage.  
@@ -51489,7 +51658,7 @@ Contraintes :
 
 ## Statut
 
-📝 **Draft** — spécification cible ; non implémentée au moment de la rédaction (2026-05-04).
+✅ **Implémentée (MVP)** — backend + frontend livrés (2026-05-05).
 
 **Dépend de** : [RFC-STRAT-001](./RFC-STRAT-001%20%E2%80%94%20Strategic%20Vision%20Core%20Backend.md) (modèle vision / axes / objectifs / liens), [RFC-STRAT-002](./RFC-STRAT-002%20%E2%80%94%20Strategic%20Vision%20KPI%20and%20Alignment%20Engine.md) (KPI agrégés), [RFC-STRAT-003](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md), [RFC-STRAT-004](./RFC-STRAT-004%20%E2%80%94%20Strategic%20Vision%20Alerts%20and%20CODIR%20Widgets.md) (alertes & widgets).
 
@@ -51550,6 +51719,8 @@ Aujourd’hui :
 - Les directions sont **au niveau client** (réutilisables d’une vision à l’autre), avec **cycle de vie** (archivage logique) pour ne pas casser l’historique des objectifs passés.
 - Lors d’un changement de vision active, les directions **restent** ; les objectifs de l’ancienne vision peuvent garder leur `directionId` pour historique (lecture) ou être masqués selon règles UX (hors scope technique minimal : lecture filtrée par `visionId` déjà portée par l’axe).
 
+**Suppression d’une direction (alignement code)** : en plus du **statut logique** recommandé via `isActive: false`, une suppression **physique** `DELETE` est exposée lorsqu’aucune stratégie de direction ne référence encore la ligne. Les stratégies de direction ([RFC-STRAT-006](./RFC-STRAT-006%20%E2%80%94%20Stratégie%20de%20direction%20et%20validation%20CODIR)) en dépendent par `directionId` en cascade métier protégée côté service.
+
 ### 3.4 Relation avec les axes
 
 - Un objectif reste rattaché à un **axe** (`axisId`). La **direction** est une **deuxième dimension** : matrice « axe × direction » lisible en cockpit (pas fusion axe = direction sauf cadrage produit explicite côté client).
@@ -51596,8 +51767,9 @@ Guards sur **toutes** les routes : `JwtAuthGuard`, `ActiveClientGuard`, `ModuleA
 | Méthode | Route | Permission | Description |
 | ------- | ----- | ---------- | ----------- |
 | `GET` | `/api/strategic-directions` | `strategic_vision.read` | Liste paginée ou complète ; filtres `isActive`, `search` sur code/name |
-| `POST` | `/api/strategic-directions` | `strategic_vision.update` *ou* nouvelle `strategic_vision.manage_directions` | Création |
-| `PATCH` | `/api/strategic-directions/:id` | idem | Mise à jour (name, description, sortOrder, isActive) |
+| `POST` | `/api/strategic-directions` | `strategic_vision.update` *ou* `strategic_vision.manage_directions` | Création |
+| `PATCH` | `/api/strategic-directions/:id` | idem | Mise à jour (name, description, sortOrder, isActive, code) |
+| `DELETE` | `/api/strategic-directions/:id` | idem | Suppression : réponse `204 No Content` ; **refus `400`** tant qu’il existe au moins une `StrategicDirectionStrategy` pour cette direction (éviter cascade destructive). Les `StrategicObjective` liés passent en `directionId` null si la suppression est effectuée (`onDelete: SetNull`). Audit `strategic_direction.deleted`. |
 
 **DTO** : `CreateStrategicDirectionDto` / `UpdateStrategicDirectionDto` avec `class-validator` (`code`, `name`, …). Réponses : inclure `name`, `code`, jamais seul `id` comme seule « valeur » côté UI (l’ID reste clé technique).
 
@@ -51663,16 +51835,17 @@ Les définitions numériques de chaque compteur **reprennent les mêmes règles*
 | `apps/api/prisma/schema.prisma` | Modèle `StrategicDirection` + `StrategicObjective.directionId` |
 | `apps/api/prisma/migrations/*` | Migration idempotente |
 | `apps/api/src/modules/strategic-vision/` | Service : CRUD directions, validation cross-entités, méthode `getKpisByDirection` |
-| `apps/api/src/modules/strategic-vision/strategic-vision.controller.ts` (ou sous-contrôleur) | Routes §5 |
+| `apps/api/src/modules/strategic-vision/strategic-vision.controller.ts` (ou sous-contrôleur) | Routes §5 incl. `DELETE /api/strategic-directions/:id` |
 | `apps/api/src/modules/strategic-vision/dto/` | DTOs create/update direction ; extension patch objectif |
 | `apps/api/prisma/seed.ts` / `default-profiles.json` | Si nouvelle permission `strategic_vision.manage_directions` : seed rôles admin client |
-| Audit | `strategic_direction.created` / `.updated`, `strategic_objective.direction_changed` |
+| Audit | `strategic_direction.created` / `.updated` / `.deleted`, `strategic_objective.direction_changed` |
 
 ### 6.2 Frontend Next.js
 
 | Fichier / zone | Action |
 | -------------- | ------ |
-| `apps/web/src/features/strategic-vision/` | Référentiel directions (liste admin légère ou intégrée page vision selon maquette), sélecteur **libellé** sur fiche objectif |
+| `apps/web/src/features/strategic-vision/` | Onglet **Directions** (`/strategic-vision` → navigation interne `?tab=directions`) : liste + création / édition / suppression (UI) ; invalidation cache croisée avec le module stratégie ; sélecteur **libellé** sur fiche objectif |
+| `apps/web/src/config/navigation.ts` + `apps/web/src/components/shell/sidebar.tsx` | Entrée **Vision stratégique** en menu latéral déroulant : **Vision Entreprise** → `/strategic-vision?tab=enterprise`, **Stratégie** → `/strategic-direction-strategy` ; visibilité parent si **au moins une** des permissions `strategic_vision.read` ou `strategic_direction_strategy.read` |
 | Query keys | Inclure `clientId` ; invalidation sur mutations |
 | `/strategic-vision` | Filtre global par direction ; tableaux / KPI utilisant `/kpis/by-direction` |
 | Widgets CODIR | Variante filtrée ou carte par direction ([RFC-STRAT-004](./RFC-STRAT-004%20%E2%80%94%20Strategic%20Vision%20Alerts%20and%20CODIR%20Widgets.md)) |
@@ -51688,7 +51861,8 @@ Les définitions numériques de chaque compteur **reprennent les mêmes règles*
 
 ### 7.1 Backend
 
-- Création / mise à jour direction : scoping `clientId` ; impossible de lier une direction d’un autre client à un objectif.
+- Création / mise à jour / suppression direction : scoping `clientId` ; impossible de lier une direction d’un autre client à un objectif.
+- `DELETE` direction : **404** si hors client ; **400** si stratégies de direction dépendantes ; **204** si succès.
 - `PATCH` objectif avec `directionId` invalide → `400` ou `404` cohérent avec le reste du module.
 - `GET .../kpis/by-direction` : jeux de données avec objectifs avec/sans direction ; projets archivés exclus ; cohérence avec `GET .../kpis` global.
 - Audit : au moins un test sur `direction_changed`.
@@ -51702,7 +51876,7 @@ Les définitions numériques de chaque compteur **reprennent les mêmes règles*
 
 ## 8) Critères d’acceptation (produit)
 
-- [ ] Un administrateur métier peut définir la **liste des directions** du client avec libellés stables.
+- [ ] Un administrateur métier peut définir la **liste des directions** du client avec libellés stables (via l’onglet **Directions** sous `/strategic-vision`).
 - [ ] Un objectif peut être **rattaché** à une direction (ou laissé non affecté) depuis l’UI autorisée.
 - [ ] Le cockpit expose une **lecture par direction** (KPI + liste objectifs / alertes filtrables) cohérente avec la vision active.
 - [ ] Aucune fuite inter-client ; pas de `clientId` injecté depuis le client.
@@ -56625,9 +56799,10 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | --- | --- | --- | --- |
 | **RFC-STRAT-001** | Strategic Vision Core Backend | ✅ Implémentée (MVP backend) | Socle backend livré : module `strategic-vision`, schéma Prisma, API vision/axes/objectifs/liens, guards standards, permissions `strategic_vision.*`, audit ; MVP `PROJECT` actif, `BUDGET`/`RISK` rejetés (`not supported in MVP`) |
 | **RFC-STRAT-002** | Strategic Vision KPI and Alignment Engine | ✅ Implémentée (MVP backend) | Endpoint `GET /api/strategic-vision/kpis` livré (guards standards + `strategic_vision.read`), 5 KPI backend calculés et client-scopés, index perf ajoutés ; UI/alerts restent dans RFC-STRAT-003/004 |
-| **RFC-STRAT-003** | Strategic Vision Frontend UI | 🟡 Implémentée (MVP FE lecture seule) | Route `/strategic-vision` livrée (RequireActiveClient + `strategic_vision.read`), sections KPI/vision/axes/objectifs, query keys tenant-aware avec `clientId` et `enabled: !!clientId`, règles UX valeur métier (pas ID brut) ; create/update/manage_links et alertes avancées hors scope (`RFC-STRAT-004`) |
+| **RFC-STRAT-003** | Strategic Vision Frontend UI | 🟡 Implémentée (MVP FE + évolutions cockpit) | Route `/strategic-vision`, onglets (query `tab=`) dont **Directions** référentiel et **Vision entreprise** ; sidebar **Vision stratégique** déroulante (**Vision Entreprise** `?tab=enterprise`, lien **Stratégie** → `/strategic-direction-strategy`). Query keys tenant-aware ; valeur métier en UI ; périmètre historique RFC (create/objectifs/manage_links hors MVP initial) inchangé — voir compléments dans la RFC |
 | **RFC-STRAT-004** | Strategic Vision Alerts and CODIR Widgets | ✅ Implémentée (MVP) | Endpoint `GET /api/strategic-vision/alerts` (guards standards + `strategic_vision.read`), section `StrategicAlertsPanel` côté page `/strategic-vision`, widgets CODIR alignés RFC dont `Strategic Drift` en composite visuel UI basé sur les KPI STRAT-002 (contrat `/kpis` inchangé) |
-| **RFC-STRAT-005** | Stratégie par direction et vision stratégique | 📝 Draft | Référentiel `StrategicDirection` (client-scoped), `StrategicObjective.directionId`, KPI `/api/strategic-vision/kpis/by-direction`, filtres CODIR / UI ; orthogonal aux `StrategicAxis` ; voir [RFC](./RFC-STRAT-005%20%E2%80%94%20Strat%C3%A9gie%20par%20direction%20et%20vision%20strat%C3%A9gique.md) |
+| **RFC-STRAT-005** | Stratégie par direction et vision stratégique | ✅ Implémentée (MVP) | Référentiel `StrategicDirection`, CRUD UI onglet **Directions**, `DELETE /api/strategic-directions/:id` protégée (pas de suppression si stratégies de direction liées), `StrategicObjective.directionId`, KPI par direction et alertes filtrées ; `Project` via `StrategicLink` uniquement |
+| **RFC-STRAT-006** | Stratégie par direction métier | ✅ Implémentée (MVP phase 2) | Module Nest `strategic-direction-strategy`, UI `/strategic-direction-strategy`, entrée sidebar sous **Vision stratégique › Stratégie** ; workflow CODIR via `/api/strategic-direction-strategies*` ; liens vision↔axes↔objectifs (`GET /:id/links`, `PUT …/axes`, `PUT …/objectives`) ; placeholders schéma directeur & exécution (hors API) ; `strategic_direction_strategy.*` ; aucune route stratégie sous `/api/strategic-vision` |
 | **PLAN-DEV-STRATEGIC-VISION** | Plan de développement ordonné | 📝 Draft | Plan en 11 phases (0→10), dépendances, risques, critères de sortie et préparation V2 |
 ~~~
 
@@ -58270,7 +58445,7 @@ Section **« Administration client »** (visible uniquement si `activeClient?.ro
 - **Administration** → `/client/administration` (page d’accueil : cartes Membres, Rôles, **Microsoft 365**)
 - Depuis cette page : **Membres** → `/client/members`, **Rôles** → `/client/roles`, **Microsoft 365** → `/client/administration/microsoft-365` (configuration OAuth par client Starium, alignée [RFC-PROJ-INT-003](../RFC/RFC-PROJ-INT-003%20—%20Auth%20Microsoft%20OAuth.md))
 
-Config : [apps/web/src/config/navigation.ts](../../apps/web/src/config/navigation.ts).
+Config : [apps/web/src/config/navigation.ts](../../apps/web/src/config/navigation.ts) (menus client **Pilotage stratégique** : entrée **Vision stratégique** en sous-menu — **Vision Entreprise**, **Stratégie** — voir RFC-STRAT-003 § compléments).
 
 ### 4.2 Structure (feature client-rbac)
 

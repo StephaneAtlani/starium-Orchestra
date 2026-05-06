@@ -87,6 +87,8 @@ apps/
 │   │   ├── budget-versioning
 │   │   ├── procurement
 │   │   ├── contracts   (RFC-036 — SupplierContract, pièces jointes, module RBAC `contracts`)
+│   │   ├── strategic-vision   (RFC-STRAT-001→005 — vision, axes, objectifs, directions, KPI/alerts client-scopés)
+│   │   ├── strategic-direction-strategy   (RFC-STRAT-006 — stratégie par direction, workflow CODIR)
 │   │   └── ...
 │   └── prisma / PostgreSQL
 │
@@ -96,6 +98,8 @@ apps/
     ├── features/budgets (dont `forecast/` — UI forecast & comparaison budgétaire, [RFC-FE-BUD-030](./RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md))
     ├── features/procurement
     ├── features/contracts   (liste / fiche `/contracts`, module `contracts.*`)
+    ├── features/strategic-vision   (`/strategic-vision`, onglets cockpit + référentiel directions — RFC-STRAT-003/005)
+    ├── features/strategic-direction-strategy   (`/strategic-direction-strategy`, RFC-STRAT-006)
     ├── features/teams (`collaborators/`, `skills/`, `work-teams/`, `resource-time-entries/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md), [RFC-FE-TEAM-004](./RFC/RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md) ; module Équipes métier = **Resource HUMAN** — [RFC-TEAM-020](./RFC/RFC-TEAM-020%20%E2%80%94%20Refonte%20%C3%89quipes%20Resource%20HUMAN.md))
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)

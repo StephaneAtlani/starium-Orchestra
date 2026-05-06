@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
@@ -7,13 +8,12 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 
 export class UpdateStrategicDirectionDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
-  @MaxLength(64)
+  @MaxLength(30)
   code?: string;
 
   @IsOptional()

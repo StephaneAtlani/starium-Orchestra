@@ -30,10 +30,12 @@ function useSidebarDropdownContext() {
 interface SidebarDropdownProps {
   label: string;
   icon?: LucideIcon;
+  /** Met en évidence le trigger comme la route courante correspond à un sous-lien */
+  triggerActive?: boolean;
   children: React.ReactNode;
 }
 
-export function SidebarDropdown({ label, icon: Icon, children }: SidebarDropdownProps) {
+export function SidebarDropdown({ label, icon: Icon, triggerActive, children }: SidebarDropdownProps) {
   const { setPanel, panelOwnerLabelRef } = useSidebarDropdownContext();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -99,7 +101,7 @@ export function SidebarDropdown({ label, icon: Icon, children }: SidebarDropdown
         type="button"
         className={cn(
           'group flex w-full flex-row items-center gap-2 rounded-md rounded-r-md px-2.5 py-2 text-xs font-medium transition-colors starium-sidebar-item',
-          open && 'starium-sidebar-item-active',
+          (open || triggerActive) && 'starium-sidebar-item-active',
         )}
         aria-expanded={open}
         aria-haspopup="true"

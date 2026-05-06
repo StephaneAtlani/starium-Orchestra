@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -164,6 +166,21 @@ export class StrategicVisionController {
       actorUserId,
       meta,
     });
+  }
+
+  @Delete('strategic-directions/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequireAnyPermissions(
+    'strategic_vision.update',
+    'strategic_vision.manage_directions',
+  )
+  deleteDirection(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') directionId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.service.deleteDirection(clientId!, directionId, { actorUserId, meta });
   }
 
   @Get('strategic-objectives')

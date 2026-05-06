@@ -18,4 +18,5 @@ describe('strategicVisionKeys', () => {
     expect(key).toContain('objectives');
     expect(key).toEqual(['strategic-vision', 'client-a', 'objectives']);
   });
+
 });

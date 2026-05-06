@@ -26,6 +26,7 @@ describe('StrategicVisionController', () => {
     listDirections: jest.fn(),
     createDirection: jest.fn(),
     updateDirection: jest.fn(),
+    deleteDirection: jest.fn(),
     listObjectives: jest.fn(),
     createObjective: jest.fn(),
     updateObjective: jest.fn(),
@@ -127,6 +128,12 @@ describe('StrategicVisionController', () => {
       Reflect.getMetadata(
         REQUIRE_ANY_PERMISSIONS_KEY,
         StrategicVisionController.prototype.updateDirection,
+      ),
+    ).toEqual(['strategic_vision.update', 'strategic_vision.manage_directions']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_ANY_PERMISSIONS_KEY,
+        StrategicVisionController.prototype.deleteDirection,
       ),
     ).toEqual(['strategic_vision.update', 'strategic_vision.manage_directions']);
   });

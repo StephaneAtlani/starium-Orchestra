@@ -22,6 +22,7 @@ export function StrategicVisionPage() {
   const canRead = has('strategic_vision.read');
   const canUpdate = has('strategic_vision.update');
   const canCreate = has('strategic_vision.create');
+  const canManageDirections = has('strategic_vision.update') || has('strategic_vision.manage_directions');
   const [directionFilter, setDirectionFilter] = useState<string>('ALL');
 
   const visionsQ = useStrategicVisionQuery({ enabled: canRead });
@@ -64,12 +65,16 @@ export function StrategicVisionPage() {
         objectives={objectives}
         directions={directionsQ.data ?? []}
         directionFilter={directionFilter}
-        onDirectionFilterChange={setDirectionFilter}
         kpis={kpisQ.data}
         kpisByDirection={kpisByDirectionQ.data}
         alerts={alertsQ.data}
         canUpdate={canUpdate}
         canCreate={canCreate}
+        canManageDirections={canManageDirections}
+        directionsQueryState={{
+          isLoading: directionsQ.isLoading,
+          isError: directionsQ.isError,
+        }}
         isEditMode={false}
         queryStates={{
           visions: { isLoading: visionsQ.isLoading, isError: visionsQ.isError },

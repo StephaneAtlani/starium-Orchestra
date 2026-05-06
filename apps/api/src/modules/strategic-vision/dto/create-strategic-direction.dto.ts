@@ -1,18 +1,10 @@
-import {
-  IsBoolean,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MaxLength,
-  Min,
-} from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreateStrategicDirectionDto {
   @IsString()
   @IsNotEmpty()
-  @MaxLength(64)
+  @MaxLength(30)
   code!: string;
 
   @IsString()

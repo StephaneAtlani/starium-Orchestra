@@ -1,11 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import type {
   StrategicAxisDto,
   StrategicDirectionDto,
-  StrategicDirectionKpiRowDto,
   StrategicObjectiveDto,
   StrategicVisionAlertsResponseDto,
   StrategicVisionDto,
@@ -20,11 +21,34 @@ import { StrategicVisionOverviewTab } from './strategic-vision-overview-tab';
 import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
 import { StrategicAlignmentTab } from './strategic-alignment-tab';
 import { StrategicAlignmentScoreCard } from './strategic-alignment-score-card';
+import { StrategicDirectionsTab } from './strategic-directions-tab';
 
 type QueryState = {
   isLoading: boolean;
   isError: boolean;
 };
+
+type StrategicVisionMenuKey =
+  | 'overview'
+  | 'enterprise'
+  | 'directions'
+  | 'axes'
+  | 'objectives'
+  | 'alignment';
+
+function parseMenuKey(value: string | null): StrategicVisionMenuKey | null {
+  if (
+    value === 'overview' ||
+    value === 'enterprise' ||
+    value === 'directions' ||
+    value === 'axes' ||
+    value === 'objectives' ||
+    value === 'alignment'
+  ) {
+    return value;
+  }
+  return null;
+}
 
 function QueryStateBlock({
   loadingLabel,
@@ -61,12 +85,13 @@ export function StrategicVisionTabs({
   objectives,
   directions,
   directionFilter,
-  onDirectionFilterChange,
   kpis,
   kpisByDirection,
   alerts,
   canUpdate,
   canCreate,
+  canManageDirections,
+  directionsQueryState,
   isEditMode,
   queryStates,
 }: {
@@ -76,12 +101,13 @@ export function StrategicVisionTabs({
   objectives: StrategicObjectiveDto[];
   directions: StrategicDirectionDto[];
   directionFilter: string;
-  onDirectionFilterChange: (value: string) => void;
   kpis: StrategicVisionKpisResponseDto | undefined;
   kpisByDirection: StrategicVisionKpisByDirectionResponseDto | undefined;
   alerts: StrategicVisionAlertsResponseDto | undefined;
   canUpdate: boolean;
   canCreate: boolean;
+  canManageDirections: boolean;
+  directionsQueryState: { isLoading: boolean; isError: boolean };
   isEditMode: boolean;
   queryStates: {
     visions: QueryState;
@@ -118,39 +144,99 @@ export function StrategicVisionTabs({
             : row.directionId === directionFilter,
         ) ?? null;
 
-  const directionRowsForGlobal = (kpisByDirection?.rows ?? []).filter(
-    (row) => row.directionId !== null,
-  );
+  const searchParams = useSearchParams();
+  const initialMenu = parseMenuKey(searchParams.get('tab')) ?? 'overview';
+  const [activeMenu, setActiveMenu] = useState<StrategicVisionMenuKey>(initialMenu);
+
+  useEffect(() => {
+    const nextMenu = parseMenuKey(searchParams.get('tab'));
+    if (nextMenu) {
+      setActiveMenu(nextMenu);
+    }
+  }, [searchParams]);
 
   return (
-    <Tabs defaultValue="overview" className="space-y-4">
-      <div className="flex justify-end">
-        <label className="w-full max-w-xs space-y-1 text-sm">
-          <span className="text-muted-foreground">Vue par direction</span>
-          <select
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            value={directionFilter}
-            onChange={(event) => onDirectionFilterChange(event.target.value)}
+    <div className="space-y-4">
+      <div className="rounded-xl border bg-card p-1.5" aria-label="Onglets strategic vision">
+        <nav className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveMenu('overview')}
+            className={cn(
+              'rounded-lg px-3 py-2 text-sm transition-colors',
+              activeMenu === 'overview'
+                ? 'bg-primary/15 text-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
           >
-            <option value="ALL">Vue globale entreprise</option>
-            {directions.map((direction) => (
-              <option key={direction.id} value={direction.id}>
-                {direction.name} ({direction.code})
-              </option>
-            ))}
-            <option value="UNASSIGNED">Non affecté</option>
-          </select>
-        </label>
+            Vue d&apos;ensemble
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMenu('enterprise')}
+            className={cn(
+              'rounded-lg px-3 py-2 text-sm transition-colors',
+              activeMenu === 'enterprise'
+                ? 'bg-primary/15 text-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            Vision entreprise
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMenu('directions')}
+            className={cn(
+              'rounded-lg px-3 py-2 text-sm transition-colors',
+              activeMenu === 'directions'
+                ? 'bg-primary/15 text-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            Directions
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMenu('axes')}
+            className={cn(
+              'rounded-lg px-3 py-2 text-sm transition-colors',
+              activeMenu === 'axes'
+                ? 'bg-primary/15 text-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            Axes stratégiques
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMenu('objectives')}
+            className={cn(
+              'rounded-lg px-3 py-2 text-sm transition-colors',
+              activeMenu === 'objectives'
+                ? 'bg-primary/15 text-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            Objectifs
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMenu('alignment')}
+            className={cn(
+              'rounded-lg px-3 py-2 text-sm transition-colors',
+              activeMenu === 'alignment'
+                ? 'bg-primary/15 text-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            Alignement
+          </button>
+        </nav>
       </div>
-      <TabsList variant="line" className="w-full justify-start overflow-x-auto">
-        <TabsTrigger value="overview">Vue d&apos;ensemble</TabsTrigger>
-        <TabsTrigger value="enterprise">Vision entreprise</TabsTrigger>
-        <TabsTrigger value="axes">Axes strategiques</TabsTrigger>
-        <TabsTrigger value="objectives">Objectifs</TabsTrigger>
-        <TabsTrigger value="alignment">Alignement</TabsTrigger>
-      </TabsList>
 
-      <TabsContent value="overview" className="space-y-4">
+      <section className="space-y-4">
+          {activeMenu === 'overview' ? (
+            <div className="space-y-4">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <StrategicVisionOverviewTab
@@ -180,9 +266,6 @@ export function StrategicVisionTabs({
               isLoading={queryStates.kpis.isLoading}
               isError={queryStates.kpis.isError}
             />
-            {directionFilter === 'ALL' && !queryStates.kpisByDirection.isLoading ? (
-              <DirectionKpisTable rows={directionRowsForGlobal} />
-            ) : null}
             <StrategicAlertsPanel
               alerts={alerts}
               isLoading={queryStates.alerts.isLoading}
@@ -190,9 +273,11 @@ export function StrategicVisionTabs({
             />
           </div>
         </div>
-      </TabsContent>
+            </div>
+          ) : null}
 
-      <TabsContent value="enterprise">
+          {activeMenu === 'enterprise' ? (
+            <div>
         <QueryStateBlock
           loadingLabel="Chargement de la vision entreprise..."
           errorLabel="Impossible de charger la vision entreprise."
@@ -204,14 +289,23 @@ export function StrategicVisionTabs({
             visions={visions}
             axes={axes}
             objectives={filteredObjectives}
-            directions={directions}
             canUpdate={canUpdate}
             canCreate={canCreate}
           />
         ) : null}
-      </TabsContent>
+            </div>
+          ) : null}
 
-      <TabsContent value="axes">
+          {activeMenu === 'directions' ? (
+            <StrategicDirectionsTab
+              directions={directions}
+              directionsQueryState={directionsQueryState}
+              canManageDirections={canManageDirections}
+            />
+          ) : null}
+
+          {activeMenu === 'axes' ? (
+            <div>
         <QueryStateBlock
           loadingLabel="Chargement des axes strategiques..."
           errorLabel="Impossible de charger les axes strategiques."
@@ -226,9 +320,11 @@ export function StrategicVisionTabs({
             visionTitle={vision?.title ?? null}
           />
         ) : null}
-      </TabsContent>
+            </div>
+          ) : null}
 
-      <TabsContent value="objectives">
+          {activeMenu === 'objectives' ? (
+            <div>
         <QueryStateBlock
           loadingLabel="Chargement des objectifs..."
           errorLabel="Impossible de charger les objectifs."
@@ -247,9 +343,11 @@ export function StrategicVisionTabs({
             canUpdate={canUpdate}
           />
         ) : null}
-      </TabsContent>
+            </div>
+          ) : null}
 
-      <TabsContent value="alignment">
+          {activeMenu === 'alignment' ? (
+            <div>
         <QueryStateBlock
           loadingLabel="Chargement de l'alignement..."
           errorLabel="Impossible de charger l'alignement."
@@ -258,24 +356,9 @@ export function StrategicVisionTabs({
         {!baseState.isLoading && !baseState.isError ? (
           <StrategicAlignmentTab axes={axes} objectives={filteredObjectives} kpis={kpis} />
         ) : null}
-      </TabsContent>
-    </Tabs>
-  );
-}
-
-function DirectionKpisTable({ rows }: { rows: StrategicDirectionKpiRowDto[] }) {
-  if (rows.length === 0) return null;
-  return (
-    <div className="rounded-md border p-3">
-      <p className="mb-2 text-sm font-medium">Lecture KPI par direction</p>
-      <div className="space-y-1 text-xs text-muted-foreground">
-        {rows.map((row) => (
-          <p key={row.directionCode}>
-            {row.directionName}: {Math.round(row.projectAlignmentRate * 100)}% alignement,{' '}
-            {row.objectivesAtRiskCount + row.objectivesOffTrackCount} objectifs à risque
-          </p>
-        ))}
-      </div>
+            </div>
+          ) : null}
+      </section>
     </div>
   );
 }

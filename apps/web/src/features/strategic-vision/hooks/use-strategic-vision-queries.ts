@@ -3,7 +3,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { strategicDirectionStrategyKeys } from '@/features/strategic-direction-strategy/lib/strategic-direction-strategy-query-keys';
 import {
+  createStrategicDirection,
+  type CreateStrategicDirectionInput,
+  deleteStrategicDirection,
+  updateStrategicDirection,
+  type UpdateStrategicDirectionInput,
   createStrategicVision,
   type CreateStrategicVisionInput,
   createStrategicAxis,
@@ -25,6 +31,17 @@ import {
   updateStrategicObjective,
 } from '../api/strategic-vision.api';
 import { strategicVisionKeys } from '../lib/strategic-vision-query-keys';
+import type { QueryClient } from '@tanstack/react-query';
+
+async function invalidateStrategicDirectionRelatedQueries(queryClient: QueryClient, clientId: string) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: strategicVisionKeys.directions(clientId) }),
+    queryClient.invalidateQueries({ queryKey: strategicVisionKeys.kpisByDirection(clientId) }),
+    queryClient.invalidateQueries({ queryKey: strategicVisionKeys.root(clientId) }),
+    queryClient.invalidateQueries({ queryKey: strategicVisionKeys.objectives(clientId) }),
+    queryClient.invalidateQueries({ queryKey: strategicDirectionStrategyKeys.root(clientId) }),
+  ]);
+}
 
 export function useStrategicVisionQuery(options?: { enabled?: boolean }) {
   const authFetch = useAuthenticatedFetch();
@@ -240,3 +257,53 @@ export function useCreateStrategicObjectiveMutation() {
     },
   });
 }
+
+export function useCreateStrategicDirectionMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: CreateStrategicDirectionInput) =>
+      createStrategicDirection(authFetch, body),
+    onSuccess: async () => {
+      await invalidateStrategicDirectionRelatedQueries(queryClient, clientId);
+    },
+  });
+}
+
+export function useUpdateStrategicDirectionMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      directionId,
+      body,
+    }: {
+      directionId: string;
+      body: UpdateStrategicDirectionInput;
+    }) => updateStrategicDirection(authFetch, directionId, body),
+    onSuccess: async () => {
+      await invalidateStrategicDirectionRelatedQueries(queryClient, clientId);
+    },
+  });
+}
+
+export function useDeleteStrategicDirectionMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (directionId: string) => deleteStrategicDirection(authFetch, directionId),
+    onSuccess: async () => {
+      await invalidateStrategicDirectionRelatedQueries(queryClient, clientId);
+    },
+  });
+}
+

@@ -24,13 +24,13 @@ export function StrategicVisionCreateDialog({
   const [title, setTitle] = useState('');
   const [statement, setStatement] = useState('');
   const [horizonLabel, setHorizonLabel] = useState('');
-  const [isActive, setIsActive] = useState(true);
+  const [isActive, setIsActive] = useState(false);
 
   const reset = () => {
     setTitle('');
     setStatement('');
     setHorizonLabel('');
-    setIsActive(true);
+    setIsActive(false);
   };
 
   const handleCreate = async () => {
@@ -93,7 +93,7 @@ export function StrategicVisionCreateDialog({
               checked={isActive}
               onChange={(event) => setIsActive(event.target.checked)}
             />
-            Définir active
+            Activer immédiatement
           </label>
         </div>
         <DialogFooter showCloseButton={false}>

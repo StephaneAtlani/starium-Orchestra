@@ -66,12 +66,25 @@ export const navigation: NavigationSection[] = [
     items: [
       {
         label: 'Vision stratégique',
-        href: '/strategic-vision',
         icon: Scale,
         scope: 'client',
-        moduleCode: 'strategic_vision',
-        requiredPermissions: ['strategic_vision.read'],
+        requiredPermissions: ['strategic_vision.read', 'strategic_direction_strategy.read'],
+        requiredPermissionsMatch: 'any',
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+        children: [
+          {
+            label: 'Vision Entreprise',
+            href: '/strategic-vision?tab=enterprise',
+            scope: 'client',
+            requiredPermissions: ['strategic_vision.read'],
+          },
+          {
+            label: 'Stratégie',
+            href: '/strategic-direction-strategy',
+            scope: 'client',
+            requiredPermissions: ['strategic_direction_strategy.read'],
+          },
+        ],
       },
       {
         label: 'Projets',

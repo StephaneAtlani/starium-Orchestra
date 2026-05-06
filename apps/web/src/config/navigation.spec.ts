@@ -63,17 +63,35 @@ describe('platform navigation', () => {
     expect(teamsItem?.scope).toBe('client');
   });
 
-  it('expose Vision stratégique avec strategic_vision.read', () => {
+  it('expose Vision stratégique en menu parent (Vision Entreprise, Stratégie)', () => {
     const strategicSection = navigation.find((section) => section.section === 'PILOTAGE STRATÉGIQUE');
     expect(strategicSection).toBeDefined();
 
-    const strategicVisionItem = strategicSection?.items.find(
-      (item) => item.href === '/strategic-vision',
+    const strategicVisionParent = strategicSection?.items.find((item) => item.label === 'Vision stratégique');
+    expect(strategicVisionParent).toBeDefined();
+    expect(strategicVisionParent?.href).toBeUndefined();
+    expect(strategicVisionParent?.requiredPermissionsMatch).toBe('any');
+    expect(strategicVisionParent?.requiredPermissions).toEqual(
+      expect.arrayContaining(['strategic_vision.read', 'strategic_direction_strategy.read']),
     );
-    expect(strategicVisionItem).toBeDefined();
-    expect(strategicVisionItem?.label).toBe('Vision stratégique');
-    expect(strategicVisionItem?.moduleCode).toBe('strategic_vision');
-    expect(strategicVisionItem?.requiredPermissions).toEqual(['strategic_vision.read']);
-    expect(strategicVisionItem?.scope).toBe('client');
+    expect(strategicVisionParent?.scope).toBe('client');
+
+    const childHrefs = (strategicVisionParent?.children ?? []).map((c) => c.href);
+    expect(childHrefs).toContain('/strategic-vision?tab=enterprise');
+    expect(childHrefs).toContain('/strategic-direction-strategy');
+
+    const enterprise = strategicVisionParent?.children?.find(
+      (c) => c.href === '/strategic-vision?tab=enterprise',
+    );
+    expect(enterprise?.requiredPermissions).toEqual(['strategic_vision.read']);
+
+    const strategy = strategicVisionParent?.children?.find(
+      (c) => c.href === '/strategic-direction-strategy',
+    );
+    expect(strategy?.requiredPermissions).toEqual(['strategic_direction_strategy.read']);
+
+    expect(strategicSection?.items.some((item) => item.href === '/strategic-direction-strategy')).toBe(
+      false,
+    );
   });
 });

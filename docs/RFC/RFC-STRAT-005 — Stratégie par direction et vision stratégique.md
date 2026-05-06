@@ -63,6 +63,8 @@ Aujourd’hui :
 - Les directions sont **au niveau client** (réutilisables d’une vision à l’autre), avec **cycle de vie** (archivage logique) pour ne pas casser l’historique des objectifs passés.
 - Lors d’un changement de vision active, les directions **restent** ; les objectifs de l’ancienne vision peuvent garder leur `directionId` pour historique (lecture) ou être masqués selon règles UX (hors scope technique minimal : lecture filtrée par `visionId` déjà portée par l’axe).
 
+**Suppression d’une direction (alignement code)** : en plus du **statut logique** recommandé via `isActive: false`, une suppression **physique** `DELETE` est exposée lorsqu’aucune stratégie de direction ne référence encore la ligne. Les stratégies de direction ([RFC-STRAT-006](./RFC-STRAT-006%20%E2%80%94%20Stratégie%20de%20direction%20et%20validation%20CODIR)) en dépendent par `directionId` en cascade métier protégée côté service.
+
 ### 3.4 Relation avec les axes
 
 - Un objectif reste rattaché à un **axe** (`axisId`). La **direction** est une **deuxième dimension** : matrice « axe × direction » lisible en cockpit (pas fusion axe = direction sauf cadrage produit explicite côté client).
@@ -109,8 +111,9 @@ Guards sur **toutes** les routes : `JwtAuthGuard`, `ActiveClientGuard`, `ModuleA
 | Méthode | Route | Permission | Description |
 | ------- | ----- | ---------- | ----------- |
 | `GET` | `/api/strategic-directions` | `strategic_vision.read` | Liste paginée ou complète ; filtres `isActive`, `search` sur code/name |
-| `POST` | `/api/strategic-directions` | `strategic_vision.update` *ou* nouvelle `strategic_vision.manage_directions` | Création |
-| `PATCH` | `/api/strategic-directions/:id` | idem | Mise à jour (name, description, sortOrder, isActive) |
+| `POST` | `/api/strategic-directions` | `strategic_vision.update` *ou* `strategic_vision.manage_directions` | Création |
+| `PATCH` | `/api/strategic-directions/:id` | idem | Mise à jour (name, description, sortOrder, isActive, code) |
+| `DELETE` | `/api/strategic-directions/:id` | idem | Suppression : réponse `204 No Content` ; **refus `400`** tant qu’il existe au moins une `StrategicDirectionStrategy` pour cette direction (éviter cascade destructive). Les `StrategicObjective` liés passent en `directionId` null si la suppression est effectuée (`onDelete: SetNull`). Audit `strategic_direction.deleted`. |
 
 **DTO** : `CreateStrategicDirectionDto` / `UpdateStrategicDirectionDto` avec `class-validator` (`code`, `name`, …). Réponses : inclure `name`, `code`, jamais seul `id` comme seule « valeur » côté UI (l’ID reste clé technique).
 
@@ -176,16 +179,17 @@ Les définitions numériques de chaque compteur **reprennent les mêmes règles*
 | `apps/api/prisma/schema.prisma` | Modèle `StrategicDirection` + `StrategicObjective.directionId` |
 | `apps/api/prisma/migrations/*` | Migration idempotente |
 | `apps/api/src/modules/strategic-vision/` | Service : CRUD directions, validation cross-entités, méthode `getKpisByDirection` |
-| `apps/api/src/modules/strategic-vision/strategic-vision.controller.ts` (ou sous-contrôleur) | Routes §5 |
+| `apps/api/src/modules/strategic-vision/strategic-vision.controller.ts` (ou sous-contrôleur) | Routes §5 incl. `DELETE /api/strategic-directions/:id` |
 | `apps/api/src/modules/strategic-vision/dto/` | DTOs create/update direction ; extension patch objectif |
 | `apps/api/prisma/seed.ts` / `default-profiles.json` | Si nouvelle permission `strategic_vision.manage_directions` : seed rôles admin client |
-| Audit | `strategic_direction.created` / `.updated`, `strategic_objective.direction_changed` |
+| Audit | `strategic_direction.created` / `.updated` / `.deleted`, `strategic_objective.direction_changed` |
 
 ### 6.2 Frontend Next.js
 
 | Fichier / zone | Action |
 | -------------- | ------ |
-| `apps/web/src/features/strategic-vision/` | Référentiel directions (liste admin légère ou intégrée page vision selon maquette), sélecteur **libellé** sur fiche objectif |
+| `apps/web/src/features/strategic-vision/` | Onglet **Directions** (`/strategic-vision` → navigation interne `?tab=directions`) : liste + création / édition / suppression (UI) ; invalidation cache croisée avec le module stratégie ; sélecteur **libellé** sur fiche objectif |
+| `apps/web/src/config/navigation.ts` + `apps/web/src/components/shell/sidebar.tsx` | Entrée **Vision stratégique** en menu latéral déroulant : **Vision Entreprise** → `/strategic-vision?tab=enterprise`, **Stratégie** → `/strategic-direction-strategy` ; visibilité parent si **au moins une** des permissions `strategic_vision.read` ou `strategic_direction_strategy.read` |
 | Query keys | Inclure `clientId` ; invalidation sur mutations |
 | `/strategic-vision` | Filtre global par direction ; tableaux / KPI utilisant `/kpis/by-direction` |
 | Widgets CODIR | Variante filtrée ou carte par direction ([RFC-STRAT-004](./RFC-STRAT-004%20%E2%80%94%20Strategic%20Vision%20Alerts%20and%20CODIR%20Widgets.md)) |
@@ -201,7 +205,8 @@ Les définitions numériques de chaque compteur **reprennent les mêmes règles*
 
 ### 7.1 Backend
 
-- Création / mise à jour direction : scoping `clientId` ; impossible de lier une direction d’un autre client à un objectif.
+- Création / mise à jour / suppression direction : scoping `clientId` ; impossible de lier une direction d’un autre client à un objectif.
+- `DELETE` direction : **404** si hors client ; **400** si stratégies de direction dépendantes ; **204** si succès.
 - `PATCH` objectif avec `directionId` invalide → `400` ou `404` cohérent avec le reste du module.
 - `GET .../kpis/by-direction` : jeux de données avec objectifs avec/sans direction ; projets archivés exclus ; cohérence avec `GET .../kpis` global.
 - Audit : au moins un test sur `direction_changed`.
@@ -215,7 +220,7 @@ Les définitions numériques de chaque compteur **reprennent les mêmes règles*
 
 ## 8) Critères d’acceptation (produit)
 
-- [ ] Un administrateur métier peut définir la **liste des directions** du client avec libellés stables.
+- [ ] Un administrateur métier peut définir la **liste des directions** du client avec libellés stables (via l’onglet **Directions** sous `/strategic-vision`).
 - [ ] Un objectif peut être **rattaché** à une direction (ou laissé non affecté) depuis l’UI autorisée.
 - [ ] Le cockpit expose une **lecture par direction** (KPI + liste objectifs / alertes filtrables) cohérente avec la vision active.
 - [ ] Aucune fuite inter-client ; pas de `clientId` injecté depuis le client.

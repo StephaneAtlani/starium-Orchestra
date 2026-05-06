@@ -89,6 +89,59 @@ export async function listStrategicDirections(
   return res.json() as Promise<StrategicDirectionDto[]>;
 }
 
+export type CreateStrategicDirectionInput = {
+  code: string;
+  name: string;
+  description?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+};
+
+export async function createStrategicDirection(
+  authFetch: AuthFetch,
+  body: CreateStrategicDirectionInput,
+): Promise<StrategicDirectionDto> {
+  const res = await authFetch('/api/strategic-directions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicDirectionDto>;
+}
+
+export type UpdateStrategicDirectionInput = {
+  code?: string;
+  name?: string;
+  description?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+};
+
+export async function updateStrategicDirection(
+  authFetch: AuthFetch,
+  directionId: string,
+  body: UpdateStrategicDirectionInput,
+): Promise<StrategicDirectionDto> {
+  const res = await authFetch(`/api/strategic-directions/${directionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicDirectionDto>;
+}
+
+export async function deleteStrategicDirection(
+  authFetch: AuthFetch,
+  directionId: string,
+): Promise<void> {
+  const res = await authFetch(`/api/strategic-directions/${directionId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+}
+
 export type UpdateStrategicVisionInput = {
   title?: string;
   statement?: string;

@@ -7,6 +7,7 @@ import {
 import {
   Prisma,
   StrategicDirection,
+  StrategicDirectionStrategyStatus,
   StrategicLinkType,
   StrategicObjectiveStatus,
 } from '@prisma/client';
@@ -101,12 +102,16 @@ export class StrategicVisionService {
   private async resolveDirectionForClient(
     clientId: string,
     directionId: string,
+    options?: { mustBeActive?: boolean },
   ): Promise<StrategicDirection> {
     const direction = await this.prisma.strategicDirection.findFirst({
       where: { id: directionId, clientId },
     });
     if (!direction) {
       throw new BadRequestException('strategic direction not found for active client');
+    }
+    if (options?.mustBeActive && !direction.isActive) {
+      throw new BadRequestException('strategic direction is inactive');
     }
     return direction;
   }
@@ -638,6 +643,51 @@ export class StrategicVisionService {
       }
       throw error;
     }
+  }
+
+  async deleteDirection(
+    clientId: string,
+    directionId: string,
+    context?: StrategicAuditContext,
+  ) {
+    const existing = await this.prisma.strategicDirection.findFirst({
+      where: { id: directionId, clientId },
+      include: {
+        _count: {
+          select: {
+            strategies: {
+              where: { NOT: { status: StrategicDirectionStrategyStatus.ARCHIVED } },
+            },
+          },
+        },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('Strategic direction not found');
+    }
+    if (existing._count.strategies > 0) {
+      throw new BadRequestException(
+        'Cannot delete strategic direction while strategic direction strategies exist; remove or reassign them first',
+      );
+    }
+    await this.prisma.strategicDirection.delete({
+      where: { id: directionId },
+    });
+    await this.audit(
+      clientId,
+      context,
+      'strategic_direction.deleted',
+      'strategic_direction',
+      directionId,
+      {
+        code: existing.code,
+        name: existing.name,
+        description: existing.description,
+        sortOrder: existing.sortOrder,
+        isActive: existing.isActive,
+      },
+      undefined,
+    );
   }
 
   async createAxis(

@@ -80,7 +80,7 @@ Section **« Administration client »** (visible uniquement si `activeClient?.ro
 - **Administration** → `/client/administration` (page d’accueil : cartes Membres, Rôles, **Microsoft 365**)
 - Depuis cette page : **Membres** → `/client/members`, **Rôles** → `/client/roles`, **Microsoft 365** → `/client/administration/microsoft-365` (configuration OAuth par client Starium, alignée [RFC-PROJ-INT-003](../RFC/RFC-PROJ-INT-003%20—%20Auth%20Microsoft%20OAuth.md))
 
-Config : [apps/web/src/config/navigation.ts](../../apps/web/src/config/navigation.ts).
+Config : [apps/web/src/config/navigation.ts](../../apps/web/src/config/navigation.ts) (menus client **Pilotage stratégique** : entrée **Vision stratégique** en sous-menu — **Vision Entreprise**, **Stratégie** — voir RFC-STRAT-003 § compléments).
 
 ### 4.2 Structure (feature client-rbac)
 

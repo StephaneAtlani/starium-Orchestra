@@ -36,6 +36,7 @@ import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
 import { ActivityTypesModule } from './modules/activity-types/activity-types.module';
 import { ResourceTimeEntriesModule } from './modules/resource-time-entries/resource-time-entries.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
+import { StrategicDirectionStrategyModule } from './modules/strategic-direction-strategy/strategic-direction-strategy.module';
 import { StrategicVisionModule } from './modules/strategic-vision/strategic-vision.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -87,6 +88,7 @@ import { SearchModule } from './modules/search/search.module';
     ActivityTypesModule,
     ResourceTimeEntriesModule,
     ContractsModule,
+    StrategicDirectionStrategyModule,
     StrategicVisionModule,
     QueueModule,
     EmailModule,

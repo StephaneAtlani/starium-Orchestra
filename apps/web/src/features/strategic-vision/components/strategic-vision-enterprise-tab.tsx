@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/tooltip';
 import type {
   StrategicAxisDto,
-  StrategicDirectionDto,
   StrategicObjectiveDto,
   StrategicVisionDto,
 } from '../types/strategic-vision.types';
@@ -36,7 +35,6 @@ export function StrategicVisionEnterpriseTab({
   visions,
   axes,
   objectives,
-  directions,
   canUpdate,
   canCreate,
 }: {
@@ -44,40 +42,53 @@ export function StrategicVisionEnterpriseTab({
   visions: StrategicVisionDto[];
   axes: StrategicAxisDto[];
   objectives: StrategicObjectiveDto[];
-  directions: StrategicDirectionDto[];
   canUpdate: boolean;
   canCreate: boolean;
 }) {
   const [editingVision, setEditingVision] = useState(false);
+  const [visionToEdit, setVisionToEdit] = useState<StrategicVisionDto | null>(null);
   const [creatingVision, setCreatingVision] = useState(false);
   const updateVision = useUpdateStrategicVisionMutation();
   const updateObjective = useUpdateStrategicObjectiveMutation();
 
+  const allVisions = [...visions].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const activeVision = allVisions.find((item) => item.isActive) ?? null;
+  const draftVisions = allVisions.filter(
+    (item) => !item.isActive && !item.title.startsWith('ARCHIVE · '),
+  );
+  const archivedVisions = allVisions.filter((item) => item.title.startsWith('ARCHIVE · '));
+
   const headerActions = (
     <div className="flex justify-end gap-2">
       <Button disabled={!canCreate} onClick={() => setCreatingVision(true)}>
-        Nouvelle vision
+        Nouvelle vision (brouillon)
       </Button>
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger render={<span tabIndex={0} />}>
-            <Button disabled={!canUpdate || !vision} onClick={() => setEditingVision(true)}>
-              Modifier la vision
+            <Button
+              disabled={!canUpdate || !activeVision}
+              onClick={() => {
+                setVisionToEdit(activeVision);
+                setEditingVision(true);
+              }}
+            >
+              Modifier la vision active
             </Button>
           </TooltipTrigger>
           {!canUpdate ? (
             <TooltipContent>Permission strategic_vision.update requise</TooltipContent>
-          ) : !vision ? (
+          ) : !activeVision ? (
             <TooltipContent>Aucune vision active à modifier</TooltipContent>
           ) : (
-            <TooltipContent>Modifier la vision active</TooltipContent>
+            <TooltipContent>Modifier la vision actuellement en production</TooltipContent>
           )}
         </Tooltip>
       </TooltipProvider>
     </div>
   );
 
-  if (!vision) {
+  if (!allVisions.length) {
     return (
       <section className="space-y-4">
         {headerActions}
@@ -93,28 +104,41 @@ export function StrategicVisionEnterpriseTab({
   }
 
   const statusCounts = buildObjectiveStatusCounts(objectives);
-  const pastVisions = visions.filter((item) => !item.isActive);
 
-  const handleArchivePastVision = async (pastVision: StrategicVisionDto) => {
+  const handleActivateVision = async (nextVision: StrategicVisionDto) => {
+    if (!canUpdate) return;
+    if (nextVision.isActive) return;
+    try {
+      await updateVision.mutateAsync({
+        visionId: nextVision.id,
+        body: { isActive: true },
+      });
+      toast.success(`Vision active mise à jour: ${nextVision.title}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Activation impossible.');
+    }
+  };
+
+  const handleArchiveVision = async (targetVision: StrategicVisionDto) => {
     if (!canUpdate) return;
     const ok = window.confirm(
-      `Archiver définitivement la vision "${pastVision.title}" et ses objectifs ?`,
+      `Archiver définitivement la vision "${targetVision.title}" et ses objectifs ?`,
     );
     if (!ok) return;
 
     try {
-      const archivedTitle = pastVision.title.startsWith('ARCHIVE · ')
-        ? pastVision.title
-        : `ARCHIVE · ${pastVision.title}`;
+      const archivedTitle = targetVision.title.startsWith('ARCHIVE · ')
+        ? targetVision.title
+        : `ARCHIVE · ${targetVision.title}`;
 
       await updateVision.mutateAsync({
-        visionId: pastVision.id,
+        visionId: targetVision.id,
         body: {
           title: archivedTitle,
         },
       });
 
-      const objectivesToArchive = pastVision.axes.flatMap((axis) => axis.objectives);
+      const objectivesToArchive = targetVision.axes.flatMap((axis) => axis.objectives);
       await Promise.all(
         objectivesToArchive
           .filter((objective) => objective.status !== 'ARCHIVED')
@@ -126,7 +150,7 @@ export function StrategicVisionEnterpriseTab({
           ),
       );
 
-      toast.success('Vision passée archivée avec ses objectifs.');
+      toast.success('Vision archivée avec ses objectifs.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Archivage impossible.');
     }
@@ -136,42 +160,29 @@ export function StrategicVisionEnterpriseTab({
     <section className="space-y-4">
       {headerActions}
 
-      <Card>
+      <Card className="border-primary/30">
         <CardHeader>
-          <CardTitle>{vision.title}</CardTitle>
+          <CardTitle>Vision active</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">{vision.statement}</p>
-          <p className="text-sm">
-            Horizon: <span className="font-medium">{vision.horizonLabel}</span>
-          </p>
-          <p className="text-sm">
-            Statut: <span className="font-medium">{vision.isActive ? 'Active' : 'Inactive'}</span>
-          </p>
-          <p className="text-sm">
-            Cree le: <span className="font-medium">{formatDateTime(vision.createdAt)}</span>
-          </p>
-          <p className="text-sm">
-            Derniere mise a jour:{' '}
-            <span className="font-medium">{formatDateTime(vision.updatedAt)}</span>
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Directions stratégiques</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          {directions.length === 0 ? (
-            <p className="text-muted-foreground">Aucune direction configurée.</p>
-          ) : (
-            directions.map((direction) => (
-              <p key={direction.id}>
-                <span className="font-medium">{direction.name}</span> ({direction.code}) -{' '}
-                {direction.isActive ? 'Active' : 'Archivée'}
+          {activeVision ? (
+            <>
+              <p className="font-medium">{activeVision.title}</p>
+              <p className="text-sm text-muted-foreground">{activeVision.statement}</p>
+              <p className="text-sm">
+                Horizon: <span className="font-medium">{activeVision.horizonLabel}</span>
               </p>
-            ))
+              <p className="text-sm">
+                Dernière mise à jour:{' '}
+                <span className="font-medium">{formatDateTime(activeVision.updatedAt)}</span>
+              </p>
+            </>
+          ) : (
+            <Alert>
+              <AlertDescription>
+                Aucune vision active: active un brouillon pour remettre la gouvernance en production.
+              </AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
@@ -207,42 +218,93 @@ export function StrategicVisionEnterpriseTab({
 
       <Card>
         <CardHeader>
-          <CardTitle>Visions passées</CardTitle>
+          <CardTitle>Workflow des visions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {pastVisions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune vision passée à archiver.</p>
-          ) : (
-            <div className="space-y-2">
-              {pastVisions.map((pastVision) => (
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Brouillons prêts à activer
+            </p>
+            {draftVisions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucun brouillon disponible.</p>
+            ) : (
+              draftVisions.map((draftVision) => (
                 <div
-                  key={pastVision.id}
+                  key={draftVision.id}
                   className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{pastVision.title}</p>
+                    <p className="truncate font-medium">{draftVision.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {pastVision.horizonLabel} · {pastVision.axes.length} axe(s)
+                      {draftVision.horizonLabel} · {draftVision.axes.length} axe(s)
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!canUpdate || updateVision.isPending || updateObjective.isPending}
-                    onClick={() => void handleArchivePastVision(pastVision)}
-                  >
-                    Archiver
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={!canUpdate || updateVision.isPending}
+                      onClick={() => void handleActivateVision(draftVision)}
+                    >
+                      Activer
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canUpdate}
+                      onClick={() => {
+                        setVisionToEdit(draftVision);
+                        setEditingVision(true);
+                      }}
+                    >
+                      Modifier
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canUpdate || updateVision.isPending || updateObjective.isPending}
+                      onClick={() => void handleArchiveVision(draftVision)}
+                    >
+                      Archiver
+                    </Button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Historique archivé
+            </p>
+            {archivedVisions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune vision archivée.</p>
+            ) : (
+              archivedVisions.map((archivedVision) => (
+                <div
+                  key={archivedVision.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-muted-foreground">{archivedVision.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {archivedVision.horizonLabel} · {formatDateTime(archivedVision.updatedAt)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
       <StrategicVisionEditDialog
-        vision={vision}
+        vision={visionToEdit}
         open={editingVision}
-        onOpenChange={setEditingVision}
+        onOpenChange={(next) => {
+          setEditingVision(next);
+          if (!next) {
+            setVisionToEdit(null);
+          }
+        }}
       />
       <StrategicVisionCreateDialog
         open={creatingVision}

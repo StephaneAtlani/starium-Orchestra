@@ -18,6 +18,7 @@ export type HumanResourceComboboxProps = {
   id?: string;
   value: string;
   onChange: (resourceId: string) => void;
+  onPickResource?: (resource: ResourceListItem) => void;
   fallbackLabel?: string | null;
   disabled?: boolean;
   dialogOpen: boolean;
@@ -33,6 +34,7 @@ export function HumanResourceCombobox({
   id: propId,
   value,
   onChange,
+  onPickResource,
   fallbackLabel,
   disabled = false,
   dialogOpen,
@@ -155,6 +157,7 @@ export function HumanResourceCombobox({
     if (excludeResourceId && r.id === excludeResourceId) return;
     setPickedLabel(humanResourceLeadLabel(r));
     onChange(r.id);
+    onPickResource?.(r);
     closeList();
   };
 

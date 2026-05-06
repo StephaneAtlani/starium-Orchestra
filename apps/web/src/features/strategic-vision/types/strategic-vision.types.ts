@@ -29,6 +29,13 @@ export type StrategicDirectionDto = {
   updatedAt: string;
 };
 
+export type StrategicDirectionStrategyStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'ARCHIVED';
+
 export type StrategicObjectiveDto = {
   id: string;
   clientId: string;

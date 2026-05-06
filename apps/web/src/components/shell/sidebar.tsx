@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,7 @@ function visible(
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { activeClient } = useActiveClient();
   const { panel, contextValue } = useSidebarDropdownPanel();
@@ -159,6 +160,66 @@ export function Sidebar() {
                     >
                       {budgetsChildren.map((child) => {
                         const isActive = isBudgetChildActive(child.href);
+
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            role="menuitem"
+                            className={cn(
+                              'block px-3 py-1.5 text-xs starium-dropdown-link',
+                              isActive && 'starium-dropdown-link-active',
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                    </SidebarDropdown>
+                  );
+                }
+
+                const isStrategicVision = item.label === 'Vision stratégique' && (item.children?.length ?? 0) > 0;
+                if (isStrategicVision) {
+                  const visionTab = searchParams?.get('tab') ?? '';
+                  const strategicChildren: { label: string; href: string }[] = [];
+                  if (permsSuccess && has('strategic_vision.read')) {
+                    strategicChildren.push({
+                      label: 'Vision Entreprise',
+                      href: '/strategic-vision?tab=enterprise',
+                    });
+                  }
+                  if (permsSuccess && has('strategic_direction_strategy.read')) {
+                    strategicChildren.push({
+                      label: 'Stratégie',
+                      href: '/strategic-direction-strategy',
+                    });
+                  }
+                  if (strategicChildren.length === 0) {
+                    return null;
+                  }
+
+                  const isEnterpriseActive =
+                    pathname === '/strategic-vision' && visionTab === 'enterprise';
+                  const isStrategyActive =
+                    pathname === '/strategic-direction-strategy' ||
+                    (pathname ?? '').startsWith('/strategic-direction-strategy/');
+
+                  const strategicTriggerActive =
+                    isEnterpriseActive || isStrategyActive;
+
+                  return (
+                    <SidebarDropdown
+                      key="dropdown-strategic-vision"
+                      label={item.label}
+                      icon={item.icon}
+                      triggerActive={strategicTriggerActive}
+                    >
+                      {strategicChildren.map((child) => {
+                        const isActive =
+                          child.href.includes('tab=enterprise')
+                            ? isEnterpriseActive
+                            : isStrategyActive;
 
                         return (
                           <Link

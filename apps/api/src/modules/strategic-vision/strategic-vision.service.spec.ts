@@ -3,6 +3,7 @@ import { Prisma, StrategicLinkType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StrategicVisionService } from './strategic-vision.service';
+import { StrategicDirectionKpiRowDto } from './dto/strategic-vision-kpis-by-direction-response.dto';
 
 type PrismaMock = {
   $transaction: jest.Mock;
@@ -25,6 +26,12 @@ type PrismaMock = {
   };
   strategicDirection: {
     findMany: jest.Mock;
+    findFirst: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    delete: jest.Mock;
+  };
+  strategicDirectionStrategy: {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
@@ -90,6 +97,12 @@ describe('StrategicVisionService', () => {
       },
       strategicDirection: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+      strategicDirectionStrategy: {
         findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -388,9 +401,19 @@ describe('StrategicVisionService', () => {
 
     const out = await service.getKpisByDirection('c1');
 
-    expect(out.rows.map((row) => row.directionCode)).toEqual(['DSI', 'DAF', 'UNASSIGNED']);
-    expect(out.rows.find((row) => row.directionCode === 'UNASSIGNED')?.directionId).toBeNull();
-    expect(out.rows.find((row) => row.directionCode === 'DSI')?.projectAlignmentRate).toBe(0.5);
+    expect(out.rows.map((row: StrategicDirectionKpiRowDto) => row.directionCode)).toEqual([
+      'DSI',
+      'DAF',
+      'UNASSIGNED',
+    ]);
+    expect(
+      out.rows.find((row: StrategicDirectionKpiRowDto) => row.directionCode === 'UNASSIGNED')
+        ?.directionId,
+    ).toBeNull();
+    expect(
+      out.rows.find((row: StrategicDirectionKpiRowDto) => row.directionCode === 'DSI')
+        ?.projectAlignmentRate,
+    ).toBe(0.5);
     expect(out.global.projectAlignmentRate).toBe(1);
   });
 
@@ -413,5 +436,48 @@ describe('StrategicVisionService', () => {
     await expect(
       service.getAlerts('c1', { directionId: 'd1', unassigned: true }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('deleteDirection supprime et audite quand aucune stratégie de direction', async () => {
+    prisma.strategicDirection.findFirst.mockResolvedValue({
+      id: 'd1',
+      clientId: 'c1',
+      code: 'DSI',
+      name: 'DSI',
+      description: null,
+      sortOrder: 1,
+      isActive: true,
+      _count: { strategies: 0 },
+    });
+    prisma.strategicDirection.delete.mockResolvedValue({ id: 'd1' });
+
+    await service.deleteDirection('c1', 'd1', { actorUserId: 'u1' });
+
+    expect(prisma.strategicDirection.delete).toHaveBeenCalledWith({ where: { id: 'd1' } });
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'strategic_direction.deleted' }),
+    );
+  });
+
+  it('deleteDirection rejette si des stratégies de direction subsistent', async () => {
+    prisma.strategicDirection.findFirst.mockResolvedValue({
+      id: 'd1',
+      clientId: 'c1',
+      code: 'DSI',
+      name: 'DSI',
+      description: null,
+      sortOrder: 1,
+      isActive: true,
+      _count: { strategies: 2 },
+    });
+
+    await expect(service.deleteDirection('c1', 'd1')).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.strategicDirection.delete).not.toHaveBeenCalled();
+  });
+
+  it('deleteDirection renvoie NotFound si direction absente', async () => {
+    prisma.strategicDirection.findFirst.mockResolvedValue(null);
+
+    await expect(service.deleteDirection('c1', 'missing')).rejects.toBeInstanceOf(NotFoundException);
   });
 });

@@ -1,0 +1,78 @@
+# RFC-STRAT-006 — Stratégie de direction et validation CODIR
+
+## Statut
+
+✅ **Implémentée (MVP)** — alignée avec [RFC Liste — Strategic Vision](./_RFC%20Liste.md) (entrée Strategy Board). Le corps ci-dessous reste la spécification produit ; le code fait foi pour détails DTO et champs V1.
+
+## Date
+
+2026-05-05 (RFC) ; mise à jour documentaire **2026-05-06**.
+
+## Domaine
+
+Strategic Vision / Gouvernance / CODIR.
+
+## Dépendances
+
+Cette RFC dépend directement de :
+
+- RFC-STRAT-001 — Strategic Vision Core Backend
+- RFC-STRAT-002 — Strategic Vision KPI and Alignment Engine
+- RFC-STRAT-003 — Strategic Vision Frontend UI
+- RFC-STRAT-004 — Strategic Vision Alerts and CODIR Widgets
+- RFC-STRAT-005 — Stratégie par direction et vision stratégique
+
+**Socle déjà livré** (RFC-STRAT-001→005 — référence d’architecture pour consommer ce module) :
+
+- `StrategicDirection` ; `StrategicObjective.directionId` ; KPI et alertes par direction ; filtres cockpit.
+- Permissions `strategic_vision.*` et `strategic_direction_strategy.*` ; page `/strategic-vision`.
+
+---
+
+# 1. Objectif produit
+
+Permettre à chaque direction métier de formaliser sa propre stratégie dans Starium Orchestra, tout en restant alignée sur la vision stratégique de l’entreprise.
+
+L’objectif est de permettre à une direction, par exemple DSI, RH, Finance, Cybersécurité, Data ou Opérations, de documenter :
+
+- son ambition ;
+- son horizon ;
+- son diagnostic ;
+- ses priorités ;
+- ses initiatives structurantes ;
+- ses risques ;
+- ses besoins d’arbitrage CODIR ;
+- ses indicateurs de suivi ;
+- son alignement avec la vision globale.
+
+Cette RFC matérialise un module autonome **Stratégie de direction** relié au module Vision.
+
+Préfixe API canonique du module :
+
+- `/api/strategic-direction-strategies`
+- endpoints : `GET/POST /`, `GET/:id/links`, `PUT/:id/axes`, `PUT/:id/objectives`, `GET/PATCH /:id`, `POST /:id/submit`, `POST /:id/archive`, `POST /:id/review` (ordre Nest : `:id/links` et `PUT …/axes|objectives` déclarés avant `GET /:id` générique).
+- permissions : `strategic_direction_strategy.read|create|update|review`
+
+Compatibilité : aucune route stratégie ne doit rester exposée sous `/api/strategic-vision`.
+
+### Liens métier (sans module Schéma directeur dans ce lot)
+
+- **Alignement cockpit** : en plus du champ obligatoire `alignedVisionId`, une stratégie peut lier explicitement des `StrategicAxis` et des `StrategicObjective` déjà pilotés dans Strategic Vision (`GET /:id/links`, remplacement atomique via `PUT /:id/axes` avec `{ strategicAxisIds }` et `PUT /:id/objectives` avec `{ strategicObjectiveIds }`). Les PUT acceptent des tableaux vides (réinitialisation). Chaque axe doit être de la même vision que `alignedVisionId`. Chaque objectif doit être sur un axe de cette vision ; **si au moins un axe est déjà relié**, seuls les objectifs rattachés à ces axes sont acceptés ; **si aucun axe n’est relié**, tout objectif de la vision est éligible. La purge des liaisons après changement des axes assure la cohérence avec le backend ; audit `axes_replaced` / `objectives_replaced`.
+
+- **Chaîne visée hors périmètre code actuel** : après la stratégie de direction, le **Schéma directeur** représente la trajectoire de transformation commune avant projets/plans opérationnels. Dans ce lot, aucune route métier dédiée Schéma directeur / Exécution n’est exposée ; l’édition de stratégie reste centrée sur la fiche stratégique et l’alignement vision/axes/objectifs.
+
+Voir aussi `docs/API.md` §5.6 pour le détail corps / réponses.
+
+**UI** : route cockpit `apps/web/src/app/(protected)/strategic-direction-strategy/page.tsx`, feature `apps/web/src/features/strategic-direction-strategy/` ; accès depuis la sidebar sous **Vision stratégique › Stratégie** (voir [RFC-STRAT-003](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md) § compléments). Permission lecture : `strategic_direction_strategy.read`.
+
+La stratégie de direction est une couche de formalisation et de validation au-dessus du référentiel déjà existant :
+
+```text
+Vision entreprise
+  → Axes stratégiques
+    → Objectifs stratégiques
+      → Direction porteuse
+        → Stratégie de direction
+→ (Schéma directeur — hors scope ce lot)
+→ Projets / Budgets / Risques / Alertes — hors scope ce lot
+```

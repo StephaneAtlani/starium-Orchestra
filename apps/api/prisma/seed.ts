@@ -1390,6 +1390,44 @@ async function ensureStrategicVisionModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureStrategicDirectionStrategyModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "strategic_direction_strategy" },
+    create: {
+      code: "strategic_direction_strategy",
+      name: "Stratégie de direction",
+      description: "Stratégies par direction et validation CODIR (RFC-STRAT-006)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    {
+      code: "strategic_direction_strategy.read",
+      label: "Stratégie de direction — lecture",
+    },
+    {
+      code: "strategic_direction_strategy.create",
+      label: "Stratégie de direction — création",
+    },
+    {
+      code: "strategic_direction_strategy.update",
+      label: "Stratégie de direction — mise à jour / soumission",
+    },
+    {
+      code: "strategic_direction_strategy.review",
+      label: "Stratégie de direction — revue CODIR",
+    },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label, moduleId: mod.id },
+    });
+  }
+}
+
 async function ensureAlertsAndNotificationsModulesAndPermissions(): Promise<void> {
   const alertsModule = await prisma.module.upsert({
     where: { code: "alerts" },
@@ -3359,6 +3397,7 @@ async function main() {
   await ensureComplianceModuleAndPermissions();
   await ensureContractsModuleAndPermissions();
   await ensureStrategicVisionModuleAndPermissions();
+  await ensureStrategicDirectionStrategyModuleAndPermissions();
   await ensureAlertsAndNotificationsModulesAndPermissions();
   await ensureGlobalSupplierContractKindTypes();
   await ensureCollaboratorsModuleAndPermissions();
