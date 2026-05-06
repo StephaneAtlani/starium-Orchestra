@@ -5,10 +5,9 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RoleScope } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
 import { REQUIRE_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
+import { EffectivePermissionsService } from '../services/effective-permissions.service';
 import { RequestWithClient } from '../types/request-with-client';
 
 /**
@@ -18,8 +17,8 @@ import { RequestWithClient } from '../types/request-with-client';
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly reflector: Reflector,
+    private readonly effectivePermissions: EffectivePermissionsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -45,24 +44,13 @@ export class PermissionsGuard implements CanActivate {
       );
 
     const permissionCodes =
-      request.resolvedPermissionCodes ??
-      (await this.resolvePermissionCodesForRequest({
+      await this.effectivePermissions.resolvePermissionCodesForRequest({
         userId: user.userId,
         clientId: activeClient.id,
         request,
-      }));
+      });
 
     if (anyRequired?.length) {
-      const moduleCodes = new Set(
-        anyRequired
-          .map((p) => p.split('.')[0])
-          .filter((code) => typeof code === 'string' && code.length > 0),
-      );
-      if (moduleCodes.size > 1) {
-        throw new ForbiddenException(
-          'Permissions invalides: une route ne doit référencer qu’un seul module',
-        );
-      }
       const ok = anyRequired.some((code) => permissionCodes.has(code));
       if (!ok) {
         throw new ForbiddenException(
@@ -83,20 +71,7 @@ export class PermissionsGuard implements CanActivate {
       );
 
     if (!required || required.length === 0) {
-      // Aucune permission spécifique requise.
       return true;
-    }
-
-    // Cohérence avec ModuleAccessGuard : une route protégée doit référencer un seul module.
-    const requiredModuleCodes = new Set(
-      required
-        .map((p) => p.split('.')[0])
-        .filter((code) => typeof code === 'string' && code.length > 0),
-    );
-    if (requiredModuleCodes.size > 1) {
-      throw new ForbiddenException(
-        'Permissions invalides: une route ne doit référencer qu’un seul module',
-      );
     }
 
     const missing = required.filter((code) => !permissionCodes.has(code));
@@ -108,47 +83,4 @@ export class PermissionsGuard implements CanActivate {
 
     return true;
   }
-
-  private async resolvePermissionCodesForRequest(params: {
-    userId: string;
-    clientId: string;
-    request: RequestWithClient;
-  }): Promise<Set<string>> {
-    const { userId, clientId, request } = params;
-    const prisma = this.prisma as any;
-
-    const userRoles = await prisma.userRole.findMany({
-      where: {
-        userId,
-        role: {
-          OR: [
-            { scope: RoleScope.CLIENT, clientId },
-            { scope: RoleScope.GLOBAL },
-          ],
-        },
-      },
-      include: {
-        role: {
-          include: {
-            rolePermissions: {
-              include: { permission: true },
-            },
-          },
-        },
-      },
-    });
-
-    const codes = new Set<string>();
-    for (const ur of userRoles) {
-      for (const rp of ur.role.rolePermissions) {
-        if (rp.permission?.code) {
-          codes.add(rp.permission.code);
-        }
-      }
-    }
-
-    request.resolvedPermissionCodes = codes;
-    return codes;
-  }
 }
-

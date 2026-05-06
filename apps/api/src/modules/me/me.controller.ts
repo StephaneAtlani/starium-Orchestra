@@ -45,8 +45,11 @@ export class MeController {
     @RequestUserId() userId: string | undefined,
     @ActiveClientId() clientId: string | undefined,
   ) {
-    const codes = await this.me.getPermissionCodes(userId!, clientId!);
-    return { permissionCodes: codes };
+    const [codes, visibleModuleCodes] = await Promise.all([
+      this.me.getPermissionCodes(userId!, clientId!),
+      this.me.getVisibleModuleCodes(userId!, clientId!),
+    ]);
+    return { permissionCodes: codes, visibleModuleCodes };
   }
 
   /** GET /me/human-resource — Ressource catalogue Humaine alignée sur l’utilisateur (email), pour saisie des temps. */

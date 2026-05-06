@@ -736,9 +736,9 @@ access_group.deleted
 access_group.member_added
 access_group.member_removed
 module_visibility.updated
-resource_acl.updated
-resource_acl.entry_added
-resource_acl.entry_removed
+resource_acl.replaced
+resource_acl.entry_created
+resource_acl.entry_deleted
 ```
 
 Audit minimum : `clientId`, `targetUserId`, `actorUserId`, `resourceType`, `resourceId`, `oldValue`, `newValue`, `licenseType`, `licenseBillingMode`, `subscriptionId`, `reason`, `requestId`, `ipAddress`, `userAgent`, `createdAt`.
@@ -749,11 +749,11 @@ Audit minimum : `clientId`, `targetUserId`, `actorUserId`, `resourceType`, `reso
 
 | RFC | Nom | Objectif | Description | Priorité | État | Dépendances | Livrables principaux |
 |---|---|---|---|---|---|---|---|
-| RFC-ACL-001 | Abonnements et licences client | Mettre en place le socle commercial des licences | Créer les abonnements client, les quotas READ_WRITE, les licences READ_ONLY / READ_WRITE portées par `ClientUser`, et le contrôle de consommation des sièges | P0 | À développer | RBAC existant, ClientUser, PlatformAdminGuard | `ClientSubscription`, extension `ClientUser`, `LicenseService`, `SubscriptionService`, endpoints abonnements, usage licences, tests quota |
-| RFC-ACL-002 | Licences spéciales et évaluation | Gérer les licences non standard | Ajouter les modes `EXTERNAL_BILLABLE`, `NON_BILLABLE`, `PLATFORM_INTERNAL`, `EVALUATION`, avec motif, expiration, audit et conversion | P0 | À développer | RFC-ACL-001 | billing modes, évaluation 30 jours, accès support temporaire, expiration automatique, audit renforcé |
-| RFC-ACL-003 | Groupes d’accès client | Créer des groupes métier d’accès | Permettre au CLIENT_ADMIN de créer des groupes et d’y affecter des utilisateurs pour simplifier la gestion des droits | P1 | À développer | ClientUser, ActiveClientGuard | `AccessGroup`, `AccessGroupMember`, CRUD groupes, gestion membres, UI groupes, audit |
-| RFC-ACL-004 | Visibilité des modules | Masquer ou afficher des modules selon client, groupe ou utilisateur | Permettre au CLIENT_ADMIN de masquer certains modules pour tout le client, un groupe ou un utilisateur, sans désactiver le module côté plateforme | P1 | À développer | RFC-ACL-003, modules client existants | `ClientModuleVisibility`, `ModuleVisibilityService`, `ModuleVisibilityGuard`, navigation filtrée, tests priorité USER > GROUP > CLIENT |
-| RFC-ACL-005 | ACL ressources génériques | Créer le moteur ACL réutilisable | Ajouter une couche d’accès fine sur les ressources métier : utilisateur/groupe + READ/WRITE/ADMIN | P1 | À développer | RFC-ACL-003 | `ResourceAcl`, `AccessControlService`, `ResourceAclGuard`, API générique ACL, règle absence ACL = comportement actuel |
+| RFC-ACL-001 | Abonnements et licences client | Mettre en place le socle commercial des licences | Créer les abonnements client, les quotas READ_WRITE, les licences READ_ONLY / READ_WRITE portées par `ClientUser`, et le contrôle de consommation des sièges | P0 | **Implémentée (backend MVP)** | RBAC existant, ClientUser, PlatformAdminGuard | `ClientSubscription`, extension `ClientUser`, `LicenseService`, `SubscriptionService`, endpoints plateforme + client, usage licences, `LicenseWriteGuard` appliqué sur des routes représentatives ; déploiement global du guard + cockpit licences côté web hors scope MVP |
+| RFC-ACL-002 | Licences spéciales et évaluation | Gérer les licences non standard | Ajouter les modes `EXTERNAL_BILLABLE`, `NON_BILLABLE`, `PLATFORM_INTERNAL`, `EVALUATION`, avec motif, expiration, audit et conversion | P0 | **Implémentée (backend)** | RFC-ACL-001 | Matrice stricte licence/billing, règles `subscriptionId`/motif/dates, blocage écriture si licence expirée, compatibilité backfill ACL-001, tests dédiés ; jobs d’expiration = RFC-ACL-009 |
+| RFC-ACL-003 | Groupes d’accès client | Créer des groupes métier d’accès | Permettre au CLIENT_ADMIN de créer des groupes et d’y affecter des utilisateurs pour simplifier la gestion des droits | P1 | **Implémentée (MVP)** | ClientUser, ActiveClientGuard | `AccessGroup`, `AccessGroupMember`, API `/api/access-groups*`, audit `access_group.*`, UI `/client/access-groups` ; pas de branchement sur permissions métier dans ce lot |
+| RFC-ACL-004 | Visibilité des modules | Masquer ou afficher des modules selon client, groupe ou utilisateur | Permettre au CLIENT_ADMIN de masquer certains modules pour tout le client, un groupe ou un utilisateur, sans désactiver le module côté plateforme | P1 | **Implémentée (MVP)** | RFC-ACL-003 (groupes réutilisables), modules client existants | `ClientModuleVisibility`, `ModuleVisibilityService`, API `/api/module-visibility`, visibilité appliquée dans `ModuleAccessGuard` (+ `EffectivePermissionsService`), `visibleModuleCodes` sur `GET /me/permissions`, UI `/client/administration/module-visibility`, navigation filtrée, tests priorité USER > GROUP (VISIBLE gagnant) > CLIENT |
+| RFC-ACL-005 | ACL ressources génériques | Créer le moteur ACL réutilisable | Ajouter une couche d’accès fine sur les ressources métier : utilisateur/groupe + READ/WRITE/ADMIN | P1 | **Implémentée (backend MVP)** | RFC-ACL-003 | Livré : `ResourceAcl`, `AccessControlModule` (`apps/api/src/modules/access-control/`), API `/api/resource-acl/...`, garde + décorateur, whitelist `resourceType` + validation CUID, transaction `PUT`, `DELETE` scoping strict, audit, transaction `deleteGroup` + `ResourceAcl` ; **règle absence d’entrées = RBAC inchangé** ; UI + branchement métier hors lot (§18.1) |
 | RFC-ACL-006 | Intégration ACL dans les modules métier | Brancher l’ACL sur les ressources réelles | Appliquer progressivement l’ACL sur Documents, Projets, Budgets, Contrats, Fournisseurs, Applications, Vision stratégique et Cycles de pilotage | P2 | À développer | RFC-ACL-005 | filtrage listes, contrôle détail, mutations protégées, onglet Accès par ressource, tests par module |
 | RFC-ACL-007 | Frontend administration ACL | Créer les interfaces d’administration | Ajouter les écrans plateforme et client pour gérer abonnements, licences, groupes, visibilité modules et ACL ressources | P1 | À développer | RFC-ACL-001 à 005 | pages `/admin/clients/[clientId]/subscriptions`, `/admin/clients/[clientId]/licenses`, `/client/administration/licenses`, groupes, visibilité modules, onglet Accès |
 | RFC-ACL-008 | Audit et traçabilité avancée ACL | Renforcer la traçabilité sécurité | Centraliser et normaliser les audit logs sur licences, abonnements, groupes, visibilité modules, ACL et accès support | P1 | À développer | RFC-ACL-001 à 005 | actions audit standardisées, payloads `oldValue/newValue`, filtres audit, événements support/évaluation |
@@ -761,6 +761,45 @@ Audit minimum : `clientId`, `targetUserId`, `actorUserId`, `resourceType`, `reso
 | RFC-ACL-010 | UX cockpit licences & droits | Rendre le modèle lisible pour les admins | Créer une vue claire des licences, quotas, abonnements, statuts et droits effectifs, avec filtres et badges métier | P2 | À développer | RFC-ACL-007 | tableaux lisibles, badges statut, filtres, alertes expiration, aucun ID brut affiché |
 | RFC-ACL-011 | Matrice des droits effectifs | Afficher “pourquoi un utilisateur a accès ou non” | Ajouter une vue de diagnostic des droits effectifs combinant licence, module, RBAC, visibilité module et ACL ressource | P2 | À développer | RFC-ACL-004, RFC-ACL-005 | endpoint diagnostic, UI matrice droits, explication des refus 403 |
 | RFC-ACL-012 | Commercialisation et reporting licences | Préparer la facturation SaaS | Produire des indicateurs commerciaux : licences consommées, abonnements actifs, évaluations en cours, licences non facturables, accès support | P3 | À développer | RFC-ACL-001, RFC-ACL-002 | dashboard plateforme, exports, filtres client, indicateurs billing |
+
+La colonne **État** ci-dessus pour ACL-001 à **005** est alignée avec l’index [docs/RFC/_RFC Liste.md](./_RFC%20Liste.md) et le backend Starium Orchestra (socle licences, groupes, visibilité modules, **ACL ressources génériques**).
+
+### 18.1 RFC-ACL-005 — décisions V1 pour l’implémentation backend
+
+Référence RFC : [RFC-ACL-005 — ACL ressources génériques](./RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md). Le module NestJS **`access-control`** est **livré** sous `apps/api/src/modules/access-control/` et importé depuis **`AppModule`** (sans **`CommonModule`**, pour limiter cycles / exports globaux) ; les règles suivantes décrivent le comportement **V1** réel backend (toujours **sans** UI RFC-ACL-007 et **sans** application de `ResourceAclGuard` aux contrôleurs métier RFC-ACL-006, sauf évolution ultérieure).
+
+**Rôle CLIENT_ADMIN**
+
+- **Mode strict** sur l’accès **métier** derrière `ResourceAclGuard` : même un `CLIENT_ADMIN` doit avoir une entrée ACL **dont le niveau agrégé suffit** dès qu’au moins une entrée existe pour la ressource (mode restreint).
+- Les routes sous **`/api/resource-acl/…`** restent réservées aux **`CLIENT_ADMIN`** (comme pour groupes et visibilité modules).
+- Il n’y a **pas** de contournement implicite de l’ACL côté garde selon le rôle.
+
+**Hiérarchie des permissions**
+
+- Ordre : `READ` &lt; `WRITE` &lt; `ADMIN`.
+- `WRITE` inclut `READ` ; `ADMIN` inclut `WRITE` et `READ`.
+- `canReadResource` : accepte `READ`, `WRITE` ou `ADMIN`.
+- `canWriteResource` : accepte `WRITE` ou `ADMIN` uniquement.
+- `canAdminResource` : accepte `ADMIN` uniquement.
+
+**API `PUT /api/resource-acl/:resourceType/:resourceId` (remplacement du jeu d’entrées)**
+
+- Validation **complète** du payload avant toute suppression en base (DTO, enums, doublons `(subjectType, subjectId)` dans le body → `400` explicite).
+- Vérification que **chaque sujet** `USER` / `GROUP` **appartient au client actif** avant mutation.
+- **Transaction Prisma** : après validations réussies uniquement (`deleteMany` puis recréation) ; **ne jamais** supprimer l’ancien jeu si une validation échoue.
+
+**Paramètres de route**
+
+- `resourceType` et `resourceId` : validation **stricte** (whitelist ou format, longueurs plafonnées, identifiant aligné sur les **CUID** Prisma du repo pour `resourceId`) ; valeurs vides ou invalides → `400`. La vérification d’**existence métier** de la ressource cible reste du ressort de **RFC-ACL-006**.
+
+**Intégrité avec les groupes**
+
+- Lors de la suppression d’un **`AccessGroup`**, supprimer **obligatoirement** les lignes `ResourceAcl` avec `subjectType = GROUP` et `subjectId` = id du groupe, **dans la même transaction** que la suppression du groupe lorsque c’est possible (pas de FK polymorphe sur `subjectId`).
+
+**Périmètre exclu de la livraison RFC-005**
+
+- Aucun branchement de `ResourceAclGuard` sur les contrôleurs métier (projets, budgets, etc.) : **RFC-ACL-006**.
+- Aucun écran d’administration des ACL génériques côté web : **RFC-ACL-007**.
 
 ---
 
@@ -809,8 +848,15 @@ audit obligatoire sur toute modification licence
 module masqué refusé
 ACL utilisateur READ autorise lecture
 ACL utilisateur READ refuse écriture
-ACL groupe WRITE autorise écriture
-CLIENT_ADMIN sans ACL ne voit pas ressource restreinte
+ACL WRITE autorise aussi lecture (via hiérarchie)
+ACL ADMIN autorise lecture et écriture (via hiérarchie)
+ACL groupe WRITE autorise écriture aux membres
+CLIENT_ADMIN sans entrée ACL sur ressource en mode restreint est refusé (strict)
+PUT remplace ACL sans effacer l’ancien jeu si validation ou doublon dans body
+doublons sujet dans body PUT ⇒ 400
+resourceType invalide ⇒ 400
+resourceId invalide ⇒ 400
+suppression groupe supprime les ResourceAcl GROUP associées (même transaction)
 absence ACL conserve comportement actuel
 ```
 
@@ -924,18 +970,17 @@ Services :
 - AccessControlService
 
 Guards :
-- LicenseGuard
-- ModuleVisibilityGuard
-- ResourceAclGuard
+- LicenseWriteGuard (écriture, routes ciblées)
+- ModuleAccessGuard (module activé + visibilité module RFC-ACL-004 + RBAC sur permissions décorées)
+- ResourceAclGuard (RFC-ACL-005, à appliquer sur routes métier en RFC-ACL-006)
 
 Pipeline cible client :
 JwtAuthGuard
 → ActiveClientGuard
 → ModuleAccessGuard
-→ ModuleVisibilityGuard
-→ LicenseGuard
+→ LicenseWriteGuard sur mutations si route annotée
 → PermissionsGuard
-→ ResourceAclGuard si ressource ciblée
+→ ResourceAclGuard si ressource ciblée (RFC-ACL-006)
 
 Endpoints plateforme :
 - GET /api/platform/clients/:clientId/subscriptions
@@ -970,7 +1015,7 @@ Créer :
 - /admin/clients/[clientId]/subscriptions
 - /admin/clients/[clientId]/licenses
 - /client/administration/licenses
-- /client/administration/access-groups
+- /client/access-groups (groupes d’accès)
 - /client/administration/module-visibility
 
 Ajouter progressivement un onglet Accès sur les ressources métier.

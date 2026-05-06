@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 Draft
+✅ Implémentée (backend MVP)
 
 ## 1. Analyse de l’existant
 
@@ -79,6 +79,28 @@ Backend :
 ## 7. Récapitulatif final
 
 Cette RFC pose le socle licence/abonnement sans casser le RBAC existant : quota facturable piloté par abonnement, licence portée par `ClientUser`, et contrôle d’accès renforcé côté backend.
+
+### État d’implémentation (backend)
+
+- Prisma:
+  - enums `ClientUserLicenseType`, `ClientUserLicenseBillingMode`, `ClientSubscriptionStatus`, `SubscriptionBillingPeriod`
+  - modèle `ClientSubscription`
+  - extension `ClientUser` avec champs licence + index RFC
+- Migration:
+  - création schéma ACL-001
+  - backfill role-based (`CLIENT_ADMIN` et `EDITOR` => `READ_WRITE + CLIENT_BILLABLE`, sinon `READ_ONLY + NON_BILLABLE`)
+  - contrainte SQL `CHECK` sur cohérence `subscriptionId`
+- API:
+  - endpoints plateforme/client prévus dans la RFC livrés côté backend
+  - validations quota + statut abonnement (actif / grâce)
+- Enforcement écriture:
+  - `@RequireWriteLicense()` + `LicenseWriteGuard` introduits
+  - application ciblée sur routes mutantes représentatives (déploiement global hors scope ACL-001)
+
+### Hors scope actuel
+
+- Déploiement massif de `@RequireWriteLicense()` sur tous les modules métier (prévu RFC dédiée).
+- Cockpit frontend d’administration ACL complet (RFC-ACL-007+).
 
 ## 8. Points de vigilance
 

@@ -33,9 +33,24 @@ export function usePermissions() {
 
   const has = (code: string): boolean => set.has(code);
 
+  const treatAllModulesVisible = data?.visibleModuleCodes === undefined;
+  const visibleModuleCodes = useMemo(
+    () => data?.visibleModuleCodes ?? [],
+    [data?.visibleModuleCodes],
+  );
+  const visibleModulesSet = useMemo(
+    () => new Set(visibleModuleCodes),
+    [visibleModuleCodes],
+  );
+
+  const isModuleVisible = (moduleCode: string): boolean =>
+    treatAllModulesVisible || visibleModulesSet.has(moduleCode);
+
   return {
     permissionCodes,
+    visibleModuleCodes,
     has,
+    isModuleVisible,
     isLoading,
     /** True only after a successful GET /me/permissions for le client actif (requis pour la nav filtrée). */
     isSuccess,

@@ -11,6 +11,8 @@ describe('navigationItemVisible', () => {
     platformRole: null as string | null,
     clientRole: 'CLIENT_USER' as string | null,
     permsSuccess: true,
+    /** Par défaut tous les modules visibles (comportement sans RFC-ACL-004 côté API). */
+    isModuleVisible: () => true,
   };
 
   it('requiredPermissionsMatch all: exige toutes les permissions (défaut)', () => {
@@ -108,6 +110,40 @@ describe('navigationItemVisible', () => {
       navigationItemVisible(projets, {
         ...baseCtx,
         has: hasFactory(['projects.read']),
+      }),
+    ).toBe(true);
+  });
+
+  it('RFC-ACL-004: masque si module non visible malgré la permission', () => {
+    const budgets: NavigationItem = {
+      label: 'Budgets',
+      href: '/budgets',
+      scope: 'client',
+      moduleCode: 'budgets',
+      requiredPermissions: ['budgets.read'],
+    };
+    expect(
+      navigationItemVisible(budgets, {
+        ...baseCtx,
+        has: hasFactory(['budgets.read']),
+        isModuleVisible: () => false,
+      }),
+    ).toBe(false);
+  });
+
+  it('RFC-ACL-004: visible si module explicitement visible', () => {
+    const budgets: NavigationItem = {
+      label: 'Budgets',
+      href: '/budgets',
+      scope: 'client',
+      moduleCode: 'budgets',
+      requiredPermissions: ['budgets.read'],
+    };
+    expect(
+      navigationItemVisible(budgets, {
+        ...baseCtx,
+        has: hasFactory(['budgets.read']),
+        isModuleVisible: (m) => m === 'budgets',
       }),
     ).toBe(true);
   });

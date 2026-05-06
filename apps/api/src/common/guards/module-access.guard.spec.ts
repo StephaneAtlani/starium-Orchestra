@@ -1,8 +1,10 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ModuleVisibilityService } from '../../modules/module-visibility/module-visibility.service';
 import { REQUIRE_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
+import type { EffectivePermissionsService } from '../services/effective-permissions.service';
 import { RequestWithClient } from '../types/request-with-client';
 import { ModuleAccessGuard } from './module-access.guard';
 
@@ -19,21 +21,35 @@ describe('ModuleAccessGuard', () => {
   let guard: ModuleAccessGuard;
   let prisma: any;
   let reflector: Reflector;
+  let moduleVisibility: jest.Mocked<
+    Pick<ModuleVisibilityService, 'getVisibilityMap'>
+  >;
+  let effectivePermissions: {
+    resolvePermissionCodesForRequest: jest.Mock;
+  };
 
   beforeEach(() => {
     prisma = {
       module: {
+        findMany: jest.fn(),
         findUnique: jest.fn(),
       },
     } as unknown as jest.Mocked<PrismaService>;
     reflector = new Reflector();
-    guard = new ModuleAccessGuard(prisma, reflector);
-    jest.spyOn(reflector, 'get').mockImplementation((metadataKey: unknown) => {
-      if (metadataKey === REQUIRE_PERMISSIONS_KEY || metadataKey === REQUIRE_ANY_PERMISSIONS_KEY) {
-        return undefined;
-      }
-      return undefined;
-    });
+    moduleVisibility = {
+      getVisibilityMap: jest.fn(),
+    };
+    effectivePermissions = {
+      resolvePermissionCodesForRequest: jest.fn(),
+    };
+    guard = new ModuleAccessGuard(
+      prisma,
+      reflector,
+      moduleVisibility as unknown as ModuleVisibilityService,
+      effectivePermissions as unknown as EffectivePermissionsService,
+    );
+    jest.spyOn(reflector, 'get').mockReturnValue(undefined);
+    prisma.module.findMany.mockResolvedValue([]);
   });
 
   it('refuse si contexte client actif absent', async () => {
@@ -59,85 +75,192 @@ describe('ModuleAccessGuard', () => {
     await expect(
       guard.canActivate(createExecutionContext(req)),
     ).resolves.toBe(true);
-    expect(prisma.module.findUnique).not.toHaveBeenCalled();
+    expect(prisma.module.findMany).not.toHaveBeenCalled();
   });
 
-  it('refuse si module inexistant ou inactif', async () => {
+  it('RequirePermissions : refuse si permission non détenue', async () => {
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
     };
-
-    (reflector.get as jest.Mock).mockImplementation((metadataKey: unknown) => {
-      if (metadataKey === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
       return undefined;
     });
-    prisma.module.findUnique.mockResolvedValue(null as any);
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(),
+    );
 
     await expect(
       guard.canActivate(createExecutionContext(req)),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('accepte si module actif et activé pour le client', async () => {
+  it('RequirePermissions : refuse si module masqué', async () => {
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
     };
-
-    (reflector.get as jest.Mock).mockImplementation((metadataKey: unknown) => {
-      if (metadataKey === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
       return undefined;
     });
-    prisma.module.findUnique.mockResolvedValue({
-      isActive: true,
-      clientModules: [{ status: 'ENABLED' }],
-    } as any);
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['budgets.read']),
+    );
+    moduleVisibility.getVisibilityMap.mockResolvedValue(
+      new Map([['budgets', false]]),
+    );
+    prisma.module.findMany.mockResolvedValue([
+      {
+        code: 'budgets',
+        isActive: true,
+        clientModules: [{ id: 'cm-1' }],
+      },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('RequirePermissions : accepte si détenu, activé et visible', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
+      return undefined;
+    });
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['budgets.read']),
+    );
+    moduleVisibility.getVisibilityMap.mockResolvedValue(
+      new Map([['budgets', true]]),
+    );
+    prisma.module.findMany.mockResolvedValue([
+      {
+        code: 'budgets',
+        isActive: true,
+        clientModules: [{ id: 'cm-1' }],
+      },
+    ] as any);
 
     await expect(
       guard.canActivate(createExecutionContext(req)),
     ).resolves.toBe(true);
   });
 
-  it('déduit le module depuis @RequireAnyPermissions si pas de @RequirePermissions', async () => {
+  it('RequireAnyPermissions : projects visible non détenu + budgets détenu hidden => refus', async () => {
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
     };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) {
+        return ['projects.read', 'budgets.read'];
+      }
+      if (key === REQUIRE_PERMISSIONS_KEY) return undefined;
+      return undefined;
+    });
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['budgets.read']),
+    );
+    moduleVisibility.getVisibilityMap.mockResolvedValue(
+      new Map([
+        ['projects', true],
+        ['budgets', false],
+      ]),
+    );
+    prisma.module.findMany.mockResolvedValue([
+      {
+        code: 'projects',
+        isActive: true,
+        clientModules: [{ id: 'cm-p' }],
+      },
+      {
+        code: 'budgets',
+        isActive: true,
+        clientModules: [{ id: 'cm-b' }],
+      },
+    ] as any);
 
-    (reflector.get as jest.Mock).mockImplementation((metadataKey: unknown) => {
-      if (metadataKey === REQUIRE_PERMISSIONS_KEY) return undefined;
-      if (metadataKey === REQUIRE_ANY_PERMISSIONS_KEY) {
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('RequireAnyPermissions : accepte si une alternative détenue + activée + visible', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) {
+        return ['projects.read', 'budgets.read'];
+      }
+      if (key === REQUIRE_PERMISSIONS_KEY) return undefined;
+      return undefined;
+    });
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['budgets.read']),
+    );
+    moduleVisibility.getVisibilityMap.mockResolvedValue(
+      new Map([
+        ['projects', true],
+        ['budgets', true],
+      ]),
+    );
+    prisma.module.findMany.mockResolvedValue([
+      {
+        code: 'projects',
+        isActive: true,
+        clientModules: [{ id: 'cm-p' }],
+      },
+      {
+        code: 'budgets',
+        isActive: true,
+        clientModules: [{ id: 'cm-b' }],
+      },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).resolves.toBe(true);
+  });
+
+  it('RequireAnyPermissions : déduit le module depuis la première alternative valide', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) {
         return ['collaborators.read', 'collaborators.create'];
       }
+      if (key === REQUIRE_PERMISSIONS_KEY) return undefined;
       return undefined;
     });
-    prisma.module.findUnique.mockResolvedValue({
-      isActive: true,
-      clientModules: [{ id: 'cm-1' }],
-    } as any);
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['collaborators.read']),
+    );
+    moduleVisibility.getVisibilityMap.mockResolvedValue(
+      new Map([['collaborators', true]]),
+    );
+    prisma.module.findMany.mockResolvedValue([
+      {
+        code: 'collaborators',
+        isActive: true,
+        clientModules: [{ id: 'cm-1' }],
+      },
+    ] as any);
 
     await expect(
       guard.canActivate(createExecutionContext(req)),
     ).resolves.toBe(true);
-
-    expect(prisma.module.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { code: 'collaborators' },
-      }),
-    );
   });
 });
-

@@ -12,8 +12,10 @@ import { ClientAdminGuard } from '../../common/guards/client-admin.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+import { RequireWriteLicense } from '../../common/decorators/require-write-license.decorator';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { ClientUiBadgesService } from './client-ui-badges.service';
+import { LicenseWriteGuard } from '../../common/guards/license-write.guard';
 
 /**
  * Surcouchages badges UI (libellés / tons) pour le client actif.
@@ -32,8 +34,16 @@ export class ClientUiBadgesController {
   }
 
   @Patch('active/ui-badges')
-  @UseGuards(ClientAdminGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    ActiveClientGuard,
+    ModuleAccessGuard,
+    PermissionsGuard,
+    LicenseWriteGuard,
+    ClientAdminGuard,
+  )
   @RequirePermissions('projects.update')
+  @RequireWriteLicense()
   patchActive(
     @ActiveClientId() clientId: string | undefined,
     @Body() body: unknown,

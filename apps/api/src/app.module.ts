@@ -44,6 +44,9 @@ import { QueueModule } from './modules/queue/queue.module';
 import { EmailModule } from './modules/email/email.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
 import { SearchModule } from './modules/search/search.module';
+import { LicensesModule } from './modules/licenses/licenses.module';
+import { AccessGroupsModule } from './modules/access-groups/access-groups.module';
+import { AccessControlModule } from './modules/access-control/access-control.module';
 
 @Module({
   imports: [
@@ -96,6 +99,9 @@ import { SearchModule } from './modules/search/search.module';
     NotificationsModule,
     ChatbotModule,
     SearchModule,
+    LicensesModule,
+    AccessGroupsModule,
+    AccessControlModule,
   ],
 })
 export class AppModule {}

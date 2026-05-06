@@ -1,8 +1,9 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { PrismaService } from '../../prisma/prisma.service';
 import { REQUIRE_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { EffectivePermissionsService } from '../services/effective-permissions.service';
 import { RequestWithClient } from '../types/request-with-client';
 import { PermissionsGuard } from './permissions.guard';
 
@@ -19,6 +20,7 @@ describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;
   let prisma: any;
   let reflector: Reflector;
+  let effectivePermissions: EffectivePermissionsService;
 
   beforeEach(() => {
     prisma = {
@@ -27,7 +29,8 @@ describe('PermissionsGuard', () => {
       },
     } as unknown as jest.Mocked<PrismaService>;
     reflector = new Reflector();
-    guard = new PermissionsGuard(prisma, reflector);
+    effectivePermissions = new EffectivePermissionsService(prisma);
+    guard = new PermissionsGuard(reflector, effectivePermissions);
     jest.spyOn(reflector, 'get').mockReturnValue(undefined);
   });
 
@@ -48,7 +51,11 @@ describe('PermissionsGuard', () => {
       },
     };
 
-    (reflector.get as jest.Mock).mockReturnValueOnce(['budgets.read']);
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
+      return undefined;
+    });
     prisma.userRole.findMany.mockResolvedValue([] as any);
 
     await expect(
@@ -66,13 +73,15 @@ describe('PermissionsGuard', () => {
       },
     };
 
-    (reflector.get as jest.Mock).mockReturnValueOnce(['budgets.read']);
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
+      return undefined;
+    });
     prisma.userRole.findMany.mockResolvedValue([
       {
         role: {
-          rolePermissions: [
-            { permission: { code: 'budgets.read' } },
-          ],
+          rolePermissions: [{ permission: { code: 'budgets.read' } }],
         },
       },
     ] as any);
@@ -92,10 +101,13 @@ describe('PermissionsGuard', () => {
       },
     };
 
-    (reflector.get as jest.Mock).mockReturnValueOnce([
-      'budgets.read',
-      'budgets.update',
-    ]);
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) {
+        return ['budgets.read', 'budgets.update'];
+      }
+      return undefined;
+    });
 
     prisma.userRole.findMany.mockResolvedValue([
       {
@@ -123,10 +135,11 @@ describe('PermissionsGuard', () => {
       },
     };
 
-    // même contexte deux fois
-    (reflector.get as jest.Mock)
-      .mockReturnValueOnce(['budgets.read'])
-      .mockReturnValueOnce(['budgets.read']);
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
+      return undefined;
+    });
 
     prisma.userRole.findMany.mockResolvedValue([
       {
@@ -146,7 +159,7 @@ describe('PermissionsGuard', () => {
     expect(prisma.userRole.findMany).toHaveBeenCalledTimes(1);
   });
 
-  it('refuse si les permissions requises couvrent plusieurs modules', async () => {
+  it('accepte RequirePermissions sur plusieurs modules si toutes détenues', async () => {
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
       activeClient: {
@@ -158,7 +171,42 @@ describe('PermissionsGuard', () => {
 
     (reflector.get as jest.Mock).mockImplementation((key: string) => {
       if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
-      if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read', 'contracts.read'];
+      if (key === REQUIRE_PERMISSIONS_KEY) {
+        return ['budgets.read', 'contracts.read'];
+      }
+      return undefined;
+    });
+    prisma.userRole.findMany.mockResolvedValue([
+      {
+        role: {
+          rolePermissions: [
+            { permission: { code: 'budgets.read' } },
+            { permission: { code: 'contracts.read' } },
+          ],
+        },
+      },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).resolves.toBe(true);
+  });
+
+  it('refuse RequireAnyPermissions si aucune alternative détenue', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: {
+        id: 'client-1',
+        role: null as any,
+        status: null as any,
+      },
+    };
+
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) {
+        return ['projects.read', 'budgets.read'];
+      }
+      if (key === REQUIRE_PERMISSIONS_KEY) return undefined;
       return undefined;
     });
     prisma.userRole.findMany.mockResolvedValue([] as any);
@@ -166,7 +214,35 @@ describe('PermissionsGuard', () => {
     await expect(
       guard.canActivate(createExecutionContext(req)),
     ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(prisma.userRole.findMany).toHaveBeenCalled();
+  });
+
+  it('accepte RequireAnyPermissions si une alternative est détenue', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: {
+        id: 'client-1',
+        role: null as any,
+        status: null as any,
+      },
+    };
+
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) {
+        return ['projects.read', 'budgets.read'];
+      }
+      if (key === REQUIRE_PERMISSIONS_KEY) return undefined;
+      return undefined;
+    });
+    prisma.userRole.findMany.mockResolvedValue([
+      {
+        role: {
+          rolePermissions: [{ permission: { code: 'budgets.read' } }],
+        },
+      },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).resolves.toBe(true);
   });
 });
-

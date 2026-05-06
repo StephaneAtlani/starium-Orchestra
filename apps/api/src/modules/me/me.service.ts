@@ -23,6 +23,7 @@ import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { CreateUserEmailIdentityDto } from './dto/create-user-email-identity.dto';
 import { UpdateUserEmailIdentityDto } from './dto/update-user-email-identity.dto';
 import { SetDefaultEmailIdentityDto } from './dto/set-default-email-identity.dto';
+import { ModuleVisibilityService } from '../module-visibility/module-visibility.service';
 import { ResourceTimesheetMonthsService } from '../resource-time-entries/resource-timesheet-months.service';
 import { MeAvatarStorageService } from './me-avatar.storage';
 import { ALLOWED_AVATAR_MIME, MAX_AVATAR_BYTES } from './me.constants';
@@ -115,6 +116,7 @@ export class MeService {
     private readonly timesheetMonths: ResourceTimesheetMonthsService,
     private readonly emailService: EmailService,
     private readonly config: ConfigService,
+    private readonly moduleVisibility: ModuleVisibilityService,
   ) {}
 
   /** Ressource catalogue Humaine liée au compte (email membre client), pour saisie temps « mes saisies ». */
@@ -174,6 +176,17 @@ export class MeService {
       }
     }
     return Array.from(codes);
+  }
+
+  /**
+   * Modules activés pour le client et visibles pour l’utilisateur (RFC-ACL-004),
+   * pour filtrer la navigation côté frontend.
+   */
+  async getVisibleModuleCodes(
+    userId: string,
+    clientId: string,
+  ): Promise<string[]> {
+    return this.moduleVisibility.getVisibleModuleCodesForUser(userId, clientId);
   }
 
   /** Retourne le profil User (identité + champs métier + platformRole). */

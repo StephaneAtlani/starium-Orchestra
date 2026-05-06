@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, Shield, Cloud, RefreshCw, ListTree, Tags } from 'lucide-react';
+import { Users, Shield, Cloud, RefreshCw, ListTree, Tags, UsersRound, Eye } from 'lucide-react';
 
 export default async function ClientAdministrationPage() {
   return (
@@ -37,6 +37,36 @@ export default async function ClientAdministrationPage() {
                 <h3 className="font-semibold">Rôles</h3>
                 <p className="text-sm text-muted-foreground">
                   Créer et configurer les rôles métier
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/client/access-groups">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <UsersRound className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Groupes d&apos;accès</h3>
+                <p className="text-sm text-muted-foreground">
+                  Regrouper des utilisateurs pour ciblage ACL
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/client/administration/module-visibility">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <Eye className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Visibilité des modules</h3>
+                <p className="text-sm text-muted-foreground">
+                  Masquer des modules activés par client, groupe ou utilisateur
                 </p>
               </div>
             </CardContent>

@@ -223,6 +223,8 @@ export async function getMyClients(
 
 export interface MePermissionsResponse {
   permissionCodes: string[];
+  /** Absent sur anciennes API : considérer tous les modules activés comme visibles. */
+  visibleModuleCodes?: string[];
 }
 
 /** GET /me/permissions — codes de permission pour le client actif (X-Client-Id requis). */

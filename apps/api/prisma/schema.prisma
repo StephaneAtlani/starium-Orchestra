@@ -24,6 +24,32 @@ enum ClientUserStatus {
   INVITED
 }
 
+enum ClientUserLicenseType {
+  READ_ONLY
+  READ_WRITE
+}
+
+enum ClientUserLicenseBillingMode {
+  CLIENT_BILLABLE
+  EXTERNAL_BILLABLE
+  NON_BILLABLE
+  PLATFORM_INTERNAL
+  EVALUATION
+}
+
+enum ClientSubscriptionStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+  CANCELED
+  EXPIRED
+}
+
+enum SubscriptionBillingPeriod {
+  MONTHLY
+  YEARLY
+}
+
 enum RoleScope {
   CLIENT
   GLOBAL
@@ -229,6 +255,7 @@ model Client {
   taxInputMode                     TaxInputMode                      @default(HT)
   defaultTaxRate                   Decimal?                          @db.Decimal(5, 2)
   clientUsers                      ClientUser[]
+  clientSubscriptions              ClientSubscription[]
   clientModules                    ClientModule[]
   roles                            Role[]
   auditLogs                        AuditLog[]
@@ -361,6 +388,10 @@ model Client {
 
   projectScenarioTasks ProjectScenarioTask[]
   projectScenarioRisks ProjectScenarioRisk[]
+  accessGroups               AccessGroup[]
+  accessGroupMembers         AccessGroupMember[]
+  clientModuleVisibilities   ClientModuleVisibility[]
+  resourceAcls               ResourceAcl[]
 }
 
 /// Défauts globaux badges UI (id = `default`) — fusionnés avant `Client.uiBadgeConfig`.
@@ -498,6 +529,7 @@ model User {
   chatbotKnowledgeEntriesUpdated       ChatbotKnowledgeEntry[]         @relation("ChatbotEntryUpdatedBy")
   platformAuditLogs                    PlatformAuditLog[]
   stariumFeedbackRepliesAuthored       PlatformStariumFeedbackReply[]  @relation("PlatformStariumFeedbackReplyAuthor")
+  accessGroupMembers                   AccessGroupMember[]
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -549,6 +581,12 @@ model ClientUser {
   clientId                   String
   role                       ClientUserRole
   status                     ClientUserStatus   @default(ACTIVE)
+  licenseType                ClientUserLicenseType @default(READ_ONLY)
+  licenseBillingMode         ClientUserLicenseBillingMode @default(NON_BILLABLE)
+  subscriptionId             String?
+  licenseStartsAt            DateTime?
+  licenseEndsAt              DateTime?
+  licenseAssignmentReason    String?
   /// Si true : pas de fiche Humaine dans le catalogue ressources pour ce membre (masquage explicite).
   excludeFromResourceCatalog Boolean            @default(false)
   isDefault                  Boolean            @default(false)
@@ -558,11 +596,119 @@ model ClientUser {
   updatedAt                  DateTime           @updatedAt
   user                       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   client                     Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  subscription               ClientSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
 
   @@unique([userId, clientId])
   @@index([clientId])
   @@index([userId])
   @@index([defaultEmailIdentityId])
+  @@index([clientId, subscriptionId])
+  @@index([clientId, licenseType, licenseBillingMode])
+  @@index([clientId, licenseEndsAt])
+}
+
+/// RFC-ACL-003 — regroupement métier client-scopé (visibilité module / ACL futures).
+model AccessGroup {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  members   AccessGroupMember[]
+
+  @@unique([clientId, name])
+  @@index([clientId])
+}
+
+model AccessGroupMember {
+  id        String      @id @default(cuid())
+  groupId   String
+  userId    String
+  clientId  String
+  createdAt DateTime    @default(now())
+  group     AccessGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client    Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([clientId, userId])
+}
+
+/// RFC-ACL-004 — visibilité fine des modules (CLIENT / GROUP / USER).
+enum ModuleVisibilityScopeType {
+  CLIENT
+  GROUP
+  USER
+}
+
+enum ModuleVisibilityState {
+  VISIBLE
+  HIDDEN
+}
+
+model ClientModuleVisibility {
+  id         String                    @id @default(cuid())
+  clientId   String
+  moduleCode String
+  scopeType  ModuleVisibilityScopeType
+  scopeId    String?
+  visibility ModuleVisibilityState
+  createdAt  DateTime                  @default(now())
+  updatedAt  DateTime                  @updatedAt
+  client     Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, moduleCode])
+  @@index([clientId, scopeType, scopeId])
+}
+
+/// RFC-ACL-005 — sujet d’une entrée ACL ressource.
+enum ResourceAclSubjectType {
+  USER
+  GROUP
+}
+
+/// RFC-ACL-005 — niveau accordé sur la ressource (hiérarchie READ < WRITE < ADMIN).
+enum ResourceAclPermission {
+  READ
+  WRITE
+  ADMIN
+}
+
+/// RFC-ACL-005 — entrée de contrôle d’accès générique par ressource (complète le RBAC).
+model ResourceAcl {
+  id             String                   @id @default(cuid())
+  clientId       String
+  /// Code normalisé (uppercase), whitelist métier V1 côté application.
+  resourceType   String
+  resourceId     String
+  subjectType    ResourceAclSubjectType
+  subjectId      String
+  permission     ResourceAclPermission
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  client         Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, resourceType, resourceId, subjectType, subjectId])
+  @@index([clientId, resourceType, resourceId])
+}
+
+model ClientSubscription {
+  id                  String                    @id @default(cuid())
+  clientId            String
+  status              ClientSubscriptionStatus  @default(DRAFT)
+  billingPeriod       SubscriptionBillingPeriod @default(MONTHLY)
+  readWriteSeatsLimit Int
+  startsAt            DateTime?
+  endsAt              DateTime?
+  graceEndsAt         DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  client              Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientUsers         ClientUser[]
+
+  @@index([clientId])
+  @@index([clientId, status])
 }
 
 /// Catalogue global des modules (budgets, projects, contracts, etc.).

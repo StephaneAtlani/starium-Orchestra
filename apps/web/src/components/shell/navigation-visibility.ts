@@ -5,6 +5,8 @@ export type NavigationVisibilityContext = {
   clientRole: string | null;
   has: (code: string) => boolean;
   permsSuccess: boolean;
+  /** RFC-ACL-004 : false si le module est masqué pour l’utilisateur (backend /me/permissions). */
+  isModuleVisible: (moduleCode: string) => boolean;
 };
 
 /**
@@ -16,7 +18,7 @@ export function navigationItemVisible(
   item: NavigationItem,
   ctx: NavigationVisibilityContext,
 ): boolean {
-  const { platformRole, clientRole, has, permsSuccess } = ctx;
+  const { platformRole, clientRole, has, permsSuccess, isModuleVisible } = ctx;
   if (item.platformOnly && platformRole !== 'PLATFORM_ADMIN') return false;
   if (item.clientAdminOnly && clientRole !== 'CLIENT_ADMIN') return false;
   if (item.allowedClientRoles != null) {
@@ -36,6 +38,7 @@ export function navigationItemVisible(
   if (item.scope === 'client' && item.moduleCode) {
     if (!permsSuccess) return false;
     if (!has(`${item.moduleCode}.read`)) return false;
+    if (!isModuleVisible(item.moduleCode)) return false;
   }
   return true;
 }

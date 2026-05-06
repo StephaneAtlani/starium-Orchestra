@@ -4,7 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ClientUserStatus } from '@prisma/client';
+import {
+  ClientUserLicenseBillingMode,
+  ClientUserLicenseType,
+  ClientUserStatus,
+} from '@prisma/client';
 import bcrypt from '@/lib/bcrypt-compat';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ActiveClientCacheService } from '../../common/cache/active-client-cache.service';
@@ -35,6 +39,9 @@ export class ClientMembershipService {
       lastName: string | null;
       role: string;
       status: ClientUserStatus;
+      licenseType: ClientUserLicenseType;
+      licenseBillingMode: ClientUserLicenseBillingMode;
+      subscriptionId: string | null;
     }[];
   }> {
     const client = await this.prisma.client.findUnique({
@@ -59,6 +66,9 @@ export class ClientMembershipService {
         lastName: link.user.lastName,
         role: link.role,
         status: link.status,
+        licenseType: link.licenseType,
+        licenseBillingMode: link.licenseBillingMode,
+        subscriptionId: link.subscriptionId,
       })),
     };
   }
@@ -148,6 +158,9 @@ export class ClientMembershipService {
         clientId,
         role: dto.role,
         status: dto.status ?? ClientUserStatus.ACTIVE,
+        licenseType: ClientUserLicenseType.READ_ONLY,
+        licenseBillingMode: ClientUserLicenseBillingMode.NON_BILLABLE,
+        subscriptionId: null,
       },
       include: { user: true },
     });
@@ -165,6 +178,9 @@ export class ClientMembershipService {
         clientId: clientUser.clientId,
         role: clientUser.role,
         status: clientUser.status,
+        licenseType: clientUser.licenseType,
+        licenseBillingMode: clientUser.licenseBillingMode,
+        subscriptionId: clientUser.subscriptionId,
       },
     };
     await this.logClientUserEvent('client.user.attached', {

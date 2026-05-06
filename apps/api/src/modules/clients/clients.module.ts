@@ -3,6 +3,7 @@ import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { LicenseWriteGuard } from '../../common/guards/license-write.guard';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
@@ -64,6 +65,7 @@ import { ProcurementModule } from '../procurement/procurement.module';
     ActiveClientGuard,
     ModuleAccessGuard,
     PermissionsGuard,
+    LicenseWriteGuard,
   ],
   exports: [
     ClientsService,

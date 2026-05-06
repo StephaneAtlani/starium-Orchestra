@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ClientUserLicenseBillingMode,
+  ClientUserLicenseType,
   ClientUserRole,
   ClientUserStatus,
   CollaboratorSource,
@@ -37,6 +39,9 @@ export interface UserResponse {
   lastName: string | null;
   role: ClientUserRole;
   status: ClientUserStatus;
+  licenseType: ClientUserLicenseType;
+  licenseBillingMode: ClientUserLicenseBillingMode;
+  subscriptionId: string | null;
   /** false par défaut : fiche Humaine catalogue pour ce membre. */
   excludeFromResourceCatalog: boolean;
   isDirectorySynced?: boolean;
@@ -72,6 +77,9 @@ export class UsersService {
     clientUser: {
       role: ClientUserRole;
       status: ClientUserStatus;
+      licenseType?: ClientUserLicenseType;
+      licenseBillingMode?: ClientUserLicenseBillingMode;
+      subscriptionId?: string | null;
       excludeFromResourceCatalog?: boolean;
     },
     options?: { isDirectorySynced?: boolean; isDirectoryLocked?: boolean },
@@ -83,6 +91,10 @@ export class UsersService {
       lastName: user.lastName,
       role: clientUser.role,
       status: clientUser.status,
+      licenseType: clientUser.licenseType ?? ClientUserLicenseType.READ_ONLY,
+      licenseBillingMode:
+        clientUser.licenseBillingMode ?? ClientUserLicenseBillingMode.NON_BILLABLE,
+      subscriptionId: clientUser.subscriptionId ?? null,
       excludeFromResourceCatalog: clientUser.excludeFromResourceCatalog ?? false,
       isDirectorySynced: options?.isDirectorySynced ?? false,
       isDirectoryLocked: options?.isDirectoryLocked ?? false,
@@ -129,6 +141,9 @@ export class UsersService {
         {
           role: cu.role,
           status: cu.status,
+          licenseType: cu.licenseType,
+          licenseBillingMode: cu.licenseBillingMode,
+          subscriptionId: cu.subscriptionId,
           excludeFromResourceCatalog: cu.excludeFromResourceCatalog,
         },
         {
@@ -180,6 +195,9 @@ export class UsersService {
           clientId,
           role: dto.role,
           status: ClientUserStatus.ACTIVE,
+          licenseType: ClientUserLicenseType.READ_ONLY,
+          licenseBillingMode: ClientUserLicenseBillingMode.NON_BILLABLE,
+          subscriptionId: null,
           excludeFromResourceCatalog: excludeCatalog,
         },
         include: { user: true },
@@ -232,6 +250,9 @@ export class UsersService {
         clientId,
         role: dto.role,
         status: ClientUserStatus.ACTIVE,
+        licenseType: ClientUserLicenseType.READ_ONLY,
+        licenseBillingMode: ClientUserLicenseBillingMode.NON_BILLABLE,
+        subscriptionId: null,
         excludeFromResourceCatalog: excludeCatalog,
       },
     });
@@ -593,6 +614,9 @@ export class UsersService {
     const clientUserData: {
       role?: ClientUserRole;
       status?: ClientUserStatus;
+      licenseType?: ClientUserLicenseType;
+      licenseBillingMode?: ClientUserLicenseBillingMode;
+      subscriptionId?: string | null;
       excludeFromResourceCatalog?: boolean;
     } = {};
     if (dto.role !== undefined) clientUserData.role = dto.role;

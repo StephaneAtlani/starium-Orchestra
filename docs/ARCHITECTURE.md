@@ -512,6 +512,7 @@ Autres domaines
 ├── microsoft (RFC-PROJ-INT-003 OAuth, RFC-PROJ-INT-004 client HTTP Graph)
 ├── contracts
 ├── licenses
+├── access-control (RFC-ACL-005 — `ResourceAcl`, `GET|PUT|POST|DELETE /api/resource-acl/...`, **CLIENT_ADMIN** ; `AccessControlModule` importé dans **`AppModule`** — pas dans `CommonModule`, pour éviter tout couplage / cycle avec le socle global ; les modules métier qui utiliseront `ResourceAclGuard` importeront **`AccessControlModule`** explicitement ; branchement routes métier = RFC-ACL-006)
 ├── applications
 └── ...
 ```

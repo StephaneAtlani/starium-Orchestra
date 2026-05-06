@@ -82,6 +82,9 @@ describe('MeService', () => {
         updateMany: jest.fn(),
       },
     } as unknown as jest.Mocked<PrismaService>;
+    const moduleVisibility = {
+      getVisibleModuleCodesForUser: jest.fn().mockResolvedValue([]),
+    };
     service = new MeService(
       prisma,
       securityLogs as any,
@@ -90,6 +93,7 @@ describe('MeService', () => {
       timesheetMonths as any,
       emailService as any,
       config as any,
+      moduleVisibility as any,
     );
   });
 

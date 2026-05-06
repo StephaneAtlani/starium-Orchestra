@@ -31,12 +31,14 @@ function visible(
   has: (code: string) => boolean,
   /** GET /me/permissions a réussi pour le client actif — sans ça on ne montre pas les entrées à permissions. */
   permsSuccess: boolean,
+  isModuleVisible: (moduleCode: string) => boolean,
 ): boolean {
   return navigationItemVisible(item, {
     platformRole,
     clientRole,
     has,
     permsSuccess,
+    isModuleVisible,
   });
 }
 
@@ -49,7 +51,7 @@ export function Sidebar() {
   const { mobileOpen, closeMobile } = useSidebarNav();
   const platformRole = user?.platformRole ?? null;
   const clientRole = activeClient?.role ?? null;
-  const { has, isSuccess: permsSuccess } = usePermissions();
+  const { has, isSuccess: permsSuccess, isModuleVisible } = usePermissions();
 
   useEffect(() => {
     closeMobile();
@@ -119,7 +121,14 @@ export function Sidebar() {
         <nav className="starium-sidebar-nav min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
         {navigation.map((section) => {
           const items = section.items.filter((item) =>
-            visible(item, platformRole, clientRole, has, permsSuccess),
+            visible(
+              item,
+              platformRole,
+              clientRole,
+              has,
+              permsSuccess,
+              isModuleVisible,
+            ),
           );
           if (items.length === 0) return null;
           return (
@@ -182,13 +191,21 @@ export function Sidebar() {
                 const isStrategicVision = item.label === 'Vision stratégique' && (item.children?.length ?? 0) > 0;
                 if (isStrategicVision) {
                   const strategicChildren: { label: string; href: string }[] = [];
-                  if (permsSuccess && has('strategic_vision.read')) {
+                  if (
+                    permsSuccess &&
+                    has('strategic_vision.read') &&
+                    isModuleVisible('strategic_vision')
+                  ) {
                     strategicChildren.push({
                       label: 'Vision stratégique',
                       href: '/strategic-vision',
                     });
                   }
-                  if (permsSuccess && has('strategic_direction_strategy.read')) {
+                  if (
+                    permsSuccess &&
+                    has('strategic_direction_strategy.read') &&
+                    isModuleVisible('strategic_direction_strategy')
+                  ) {
                     strategicChildren.push({
                       label: 'Stratégie',
                       href: '/strategic-direction-strategy',
@@ -408,19 +425,31 @@ export function Sidebar() {
                 const isEquipes = item.label === 'Équipes';
                 if (isEquipes) {
                   const teamsChildren: { label: string; href: string }[] = [];
-                  if (permsSuccess && has('skills.read')) {
+                  if (
+                    permsSuccess &&
+                    has('skills.read') &&
+                    isModuleVisible('skills')
+                  ) {
                     teamsChildren.push({
                       label: 'Catalogue compétences',
                       href: '/teams/skills',
                     });
                   }
-                  if (permsSuccess && has('teams.read')) {
+                  if (
+                    permsSuccess &&
+                    has('teams.read') &&
+                    isModuleVisible('teams')
+                  ) {
                     teamsChildren.push({
                       label: 'Structure & équipes',
                       href: '/teams/structure/teams',
                     });
                   }
-                  if (permsSuccess && has('resources.read')) {
+                  if (
+                    permsSuccess &&
+                    has('resources.read') &&
+                    isModuleVisible('resources')
+                  ) {
                     teamsChildren.push({
                       label: 'Temps réalisé',
                       href: '/teams/time-entries',
