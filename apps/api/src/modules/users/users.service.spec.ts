@@ -130,6 +130,31 @@ describe('UsersService', () => {
       expect(result[0].email).toBe(mockUser.email);
       expect(result[0].role).toBe(ClientUserRole.CLIENT_ADMIN);
     });
+
+    it('should expose extended license fields (RFC-ACL-010)', async () => {
+      const startsAt = new Date('2026-01-01T00:00:00.000Z');
+      const endsAt = new Date('2026-04-15T00:00:00.000Z');
+      (prisma.clientUser.findMany as jest.Mock).mockResolvedValue([
+        {
+          user: mockUser,
+          role: ClientUserRole.CLIENT_ADMIN,
+          status: ClientUserStatus.ACTIVE,
+          licenseType: 'READ_WRITE',
+          licenseBillingMode: 'EVALUATION',
+          subscriptionId: null,
+          licenseStartsAt: startsAt,
+          licenseEndsAt: endsAt,
+          licenseAssignmentReason: 'POC commercial',
+          excludeFromResourceCatalog: false,
+        },
+      ]);
+      const result = await service.findAll(clientId);
+      expect(result[0].licenseStartsAt).toBe(startsAt.toISOString());
+      expect(result[0].licenseEndsAt).toBe(endsAt.toISOString());
+      expect(result[0].licenseAssignmentReason).toBe('POC commercial');
+      expect(result[0].licenseType).toBe('READ_WRITE');
+      expect(result[0].licenseBillingMode).toBe('EVALUATION');
+    });
   });
 
   describe('listPlatformUsers', () => {

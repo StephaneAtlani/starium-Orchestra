@@ -2,7 +2,19 @@ import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, Shield, Cloud, RefreshCw, ListTree, Tags, UsersRound, Eye, KeyRound } from 'lucide-react';
+import {
+  Users,
+  Shield,
+  ShieldCheck,
+  Cloud,
+  Gauge,
+  RefreshCw,
+  ListTree,
+  Tags,
+  UsersRound,
+  Eye,
+  KeyRound,
+} from 'lucide-react';
 
 export default async function ClientAdministrationPage() {
   return (
@@ -82,6 +94,36 @@ export default async function ClientAdministrationPage() {
                 <h3 className="font-semibold">Licences</h3>
                 <p className="text-sm text-muted-foreground">
                   Gérer les affectations de licences des membres du client
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/client/administration/licenses-cockpit">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <Gauge className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Cockpit licences</h3>
+                <p className="text-sm text-muted-foreground">
+                  KPIs, distribution, expirations et quick-actions licences
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/client/administration/access-cockpit">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <ShieldCheck className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Cockpit accès</h3>
+                <p className="text-sm text-muted-foreground">
+                  Synthèse groupes, visibilité modules et rôles
                 </p>
               </div>
             </CardContent>

@@ -17,6 +17,19 @@ export interface ClientMember {
   lastName: string | null;
   role: 'CLIENT_ADMIN' | 'CLIENT_USER' | string;
   status: 'ACTIVE' | 'SUSPENDED' | 'INVITED' | string;
+  /** Licence — RFC-ACL-001/002, dates et motif exposés depuis RFC-ACL-010. */
+  licenseType?: 'READ_ONLY' | 'READ_WRITE' | string;
+  licenseBillingMode?:
+    | 'CLIENT_BILLABLE'
+    | 'EXTERNAL_BILLABLE'
+    | 'NON_BILLABLE'
+    | 'PLATFORM_INTERNAL'
+    | 'EVALUATION'
+    | string;
+  subscriptionId?: string | null;
+  licenseStartsAt?: string | null;
+  licenseEndsAt?: string | null;
+  licenseAssignmentReason?: string | null;
   /** true = pas de fiche Humaine dans le catalogue pour ce membre. */
   excludeFromResourceCatalog?: boolean;
   isDirectorySynced?: boolean;

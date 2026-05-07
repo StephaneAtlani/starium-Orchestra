@@ -87,6 +87,7 @@ apps/
 │   │   ├── budget-versioning
 │   │   ├── procurement
 │   │   ├── contracts   (RFC-036 — SupplierContract, pièces jointes, module RBAC `contracts`)
+│   │   ├── licenses   (RFC-ACL-001 — abonnements `ClientSubscription`, sièges, `LicenseService`, plateforme `PATCH …/license`, jobs expiration RFC-ACL-009)
 │   │   ├── strategic-vision   (RFC-STRAT-001→005 — vision, axes, objectifs, directions, KPI/alerts client-scopés)
 │   │   ├── strategic-direction-strategy   (RFC-STRAT-006 — stratégie par direction, workflow CODIR)
 │   │   └── ...
@@ -100,6 +101,9 @@ apps/
     ├── features/contracts   (liste / fiche `/contracts`, module `contracts.*`)
     ├── features/strategic-vision   (`/strategic-vision`, onglets cockpit + référentiel directions — RFC-STRAT-003/005)
     ├── features/strategic-direction-strategy   (`/strategic-direction-strategy`, RFC-STRAT-006)
+    ├── features/licenses   (API + hooks `features/licenses/*`, écrans administration licences/client et plateforme — RFC-ACL-007)
+    ├── features/licenses-cockpit   (`/client/administration/licenses-cockpit`, `/admin/clients/[clientId]/licenses-cockpit` — RFC-ACL-010)
+    ├── features/access-cockpit   (`/client/administration/access-cockpit` — RFC-ACL-010)
     ├── features/teams (`collaborators/`, `skills/`, `work-teams/`, `resource-time-entries/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md), [RFC-FE-TEAM-004](./RFC/RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md) ; module Équipes métier = **Resource HUMAN** — [RFC-TEAM-020](./RFC/RFC-TEAM-020%20%E2%80%94%20Refonte%20%C3%89quipes%20Resource%20HUMAN.md))
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)

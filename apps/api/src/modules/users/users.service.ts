@@ -42,6 +42,12 @@ export interface UserResponse {
   licenseType: ClientUserLicenseType;
   licenseBillingMode: ClientUserLicenseBillingMode;
   subscriptionId: string | null;
+  /** ISO date de début de la licence (null si aucune). */
+  licenseStartsAt: string | null;
+  /** ISO date de fin de la licence (null si non bornée). */
+  licenseEndsAt: string | null;
+  /** Motif d’attribution (NON_BILLABLE / EVALUATION / PLATFORM_INTERNAL). */
+  licenseAssignmentReason: string | null;
   /** false par défaut : fiche Humaine catalogue pour ce membre. */
   excludeFromResourceCatalog: boolean;
   isDirectorySynced?: boolean;
@@ -80,10 +86,17 @@ export class UsersService {
       licenseType?: ClientUserLicenseType;
       licenseBillingMode?: ClientUserLicenseBillingMode;
       subscriptionId?: string | null;
+      licenseStartsAt?: Date | string | null;
+      licenseEndsAt?: Date | string | null;
+      licenseAssignmentReason?: string | null;
       excludeFromResourceCatalog?: boolean;
     },
     options?: { isDirectorySynced?: boolean; isDirectoryLocked?: boolean },
   ): UserResponse {
+    const toIso = (v: Date | string | null | undefined): string | null => {
+      if (v == null) return null;
+      return v instanceof Date ? v.toISOString() : v;
+    };
     return {
       id: user.id,
       email: user.email,
@@ -95,6 +108,9 @@ export class UsersService {
       licenseBillingMode:
         clientUser.licenseBillingMode ?? ClientUserLicenseBillingMode.NON_BILLABLE,
       subscriptionId: clientUser.subscriptionId ?? null,
+      licenseStartsAt: toIso(clientUser.licenseStartsAt),
+      licenseEndsAt: toIso(clientUser.licenseEndsAt),
+      licenseAssignmentReason: clientUser.licenseAssignmentReason ?? null,
       excludeFromResourceCatalog: clientUser.excludeFromResourceCatalog ?? false,
       isDirectorySynced: options?.isDirectorySynced ?? false,
       isDirectoryLocked: options?.isDirectoryLocked ?? false,
@@ -144,6 +160,9 @@ export class UsersService {
           licenseType: cu.licenseType,
           licenseBillingMode: cu.licenseBillingMode,
           subscriptionId: cu.subscriptionId,
+          licenseStartsAt: cu.licenseStartsAt,
+          licenseEndsAt: cu.licenseEndsAt,
+          licenseAssignmentReason: cu.licenseAssignmentReason,
           excludeFromResourceCatalog: cu.excludeFromResourceCatalog,
         },
         {
@@ -666,6 +685,12 @@ export class UsersService {
     return this.toResponse(updatedUser, {
       role: updatedClientUser.role,
       status: updatedClientUser.status,
+      licenseType: updatedClientUser.licenseType,
+      licenseBillingMode: updatedClientUser.licenseBillingMode,
+      subscriptionId: updatedClientUser.subscriptionId,
+      licenseStartsAt: updatedClientUser.licenseStartsAt,
+      licenseEndsAt: updatedClientUser.licenseEndsAt,
+      licenseAssignmentReason: updatedClientUser.licenseAssignmentReason,
       excludeFromResourceCatalog: updatedClientUser.excludeFromResourceCatalog,
     });
   }

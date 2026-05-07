@@ -6,6 +6,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { clientRbacKeys } from '@/features/client-rbac/query-keys';
 import { assignPlatformUserLicense, type AssignUserLicensePayload } from '../api/licenses';
 import { licensesKeys } from '../query-keys';
+import { licensesCockpitKeys } from '@/features/licenses-cockpit/query-keys';
 
 export function useAssignPlatformLicense(clientId: string) {
   const authFetch = useAuthenticatedFetch();
@@ -23,6 +24,9 @@ export function useAssignPlatformLicense(clientId: string) {
       });
       void queryClient.invalidateQueries({
         queryKey: clientRbacKeys.members(clientId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: licensesCockpitKeys.platformClientUsers(clientId),
       });
       toast.success('Licence utilisateur mise à jour.');
     },

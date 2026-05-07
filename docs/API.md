@@ -276,6 +276,24 @@ Liste des utilisateurs du **client actif** uniquement (tous les ClientUser pour 
 
 **Erreurs :** 401 (non authentifié), 403 (client invalide ou non admin).
 
+La réponse peut inclure les champs licence sur le lien client (`licenseType`, `licenseBillingMode`, `subscriptionId`, `licenseStartsAt`, `licenseEndsAt`, `licenseAssignmentReason`) lorsque le backend les expose pour ce client.
+
+---
+
+### GET /api/platform/clients/:clientId/users
+
+Liste des membres du client identifié par **`clientId`** (même agrégat User + `ClientUser` que `GET /api/users`, y compris les champs licence ci-dessus).
+
+**Guards :** **`JwtAuthGuard`** + **`PlatformAdminGuard`** uniquement. **Pas** d’`ActiveClientGuard` et **pas** d’en-tête **`X-Client-Id`** : le périmètre est explicitement `:clientId` dans l’URL (plateforme).
+
+**Headers**
+
+- `Authorization: Bearer <accessToken>`
+
+**Réponse 200** : tableau au même format que `GET /api/users`.
+
+**Erreurs :** `401` (non authentifié), `403` (non plateforme admin), `404` si le client n’existe pas.
+
 ---
 
 ### POST /api/users
