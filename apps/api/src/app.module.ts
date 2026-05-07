@@ -45,8 +45,10 @@ import { EmailModule } from './modules/email/email.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
 import { SearchModule } from './modules/search/search.module';
 import { LicensesModule } from './modules/licenses/licenses.module';
+import { LicenseReportingModule } from './modules/license-reporting/license-reporting.module';
 import { AccessGroupsModule } from './modules/access-groups/access-groups.module';
 import { AccessControlModule } from './modules/access-control/access-control.module';
+import { AccessDiagnosticsModule } from './modules/access-diagnostics/access-diagnostics.module';
 
 @Module({
   imports: [
@@ -100,8 +102,10 @@ import { AccessControlModule } from './modules/access-control/access-control.mod
     ChatbotModule,
     SearchModule,
     LicensesModule,
+    LicenseReportingModule,
     AccessGroupsModule,
     AccessControlModule,
+    AccessDiagnosticsModule,
   ],
 })
 export class AppModule {}

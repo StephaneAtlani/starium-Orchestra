@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 Draft
+✅ Implémentée (V1)
 
 ## 1. Analyse de l’existant
 
@@ -14,25 +14,62 @@ Quand un accès est refusé, l’admin ne sait pas rapidement quelle couche bloq
 - La matrice est disponible aux profils autorisés seulement (admin/supervision).
 - Le diagnostic n’outrepasse jamais les règles de confidentialité.
 
-## 3. Liste des fichiers à créer / modifier
+## 3. Liste des fichiers créés / modifiés
 
-- `apps/api/src/modules/access-diagnostics/*`
-- `apps/api/src/modules/licenses/*`
-- `apps/api/src/modules/module-visibility/*`
-- `apps/api/src/modules/access-control/*`
-- `apps/web/src/features/access-diagnostics/*`
+### Backend
+
+- `apps/api/src/modules/access-diagnostics/access-diagnostics.module.ts`
+- `apps/api/src/modules/access-diagnostics/access-diagnostics.service.ts`
+- `apps/api/src/modules/access-diagnostics/access-diagnostics.controller.ts`
+- `apps/api/src/modules/access-diagnostics/platform-access-diagnostics.controller.ts`
+- `apps/api/src/modules/access-diagnostics/resource-diagnostics.registry.ts`
+- `apps/api/src/modules/access-diagnostics/access-diagnostics.types.ts`
+- `apps/api/src/modules/access-diagnostics/dto/effective-rights-query.dto.ts`
+- `apps/api/src/app.module.ts` (import `AccessDiagnosticsModule`)
+
+### Frontend
+
+- `apps/web/src/features/access-diagnostics/api/access-diagnostics.ts`
+- `apps/web/src/features/access-diagnostics/hooks/use-effective-rights-diagnostic.ts`
+- `apps/web/src/features/access-diagnostics/components/effective-rights-matrix.tsx`
+- `apps/web/src/features/access-diagnostics/components/access-diagnostics-page.tsx`
+- `apps/web/src/app/(protected)/client/administration/access-diagnostics/page.tsx`
+- `apps/web/src/app/(protected)/admin/clients/[clientId]/access-diagnostics/page.tsx`
+- `apps/web/src/features/access-cockpit/lib/shortcuts.ts`
+- `apps/web/src/config/navigation.ts`
+- `apps/web/src/app/(protected)/client/administration/page.tsx`
+
+### Tests
+
+- `apps/api/src/modules/access-diagnostics/access-diagnostics.service.spec.ts`
+- `apps/api/src/modules/access-diagnostics/access-diagnostics.controller.spec.ts`
+- `apps/api/src/modules/access-diagnostics/platform-access-diagnostics.controller.spec.ts`
+- `apps/web/src/features/access-diagnostics/api/access-diagnostics.spec.ts`
+- `apps/web/src/features/access-diagnostics/components/effective-rights-matrix.spec.ts`
 
 ## 4. Implémentation complète
 
-- Endpoint diagnostic (exemple) :
-  - `GET /api/access-diagnostics/effective-rights?userId=...&resourceType=...&resourceId=...`
-- Réponse consolidée :
-  - `licenseCheck`, `subscriptionCheck`, `moduleActivationCheck`, `moduleVisibilityCheck`, `rbacCheck`, `aclCheck`
-  - `finalDecision` + `denialReasons[]`.
-- UI matrice :
-  - une ligne par couche ;
-  - statut pass/fail ;
-  - détail textuel exploitable.
+- Mapping canonique `resourceType` V1 (whitelist stricte): `PROJECT`, `BUDGET`, `CONTRACT`, `SUPPLIER`, `STRATEGIC_OBJECTIVE`.
+- Contrôles consolidés:
+  - `licenseCheck`
+  - `subscriptionCheck`
+  - `moduleActivationCheck`
+  - `moduleVisibilityCheck`
+  - `rbacCheck`
+  - `aclCheck`
+- Contrat check stable:
+  - `{ status: "pass" | "fail" | "not_applicable", reasonCode, message, details? }`
+- Décision consolidée:
+  - `finalDecision` + `denialReasons[]` ordonnée + `computedAt`.
+- Endpoints:
+  - Client actif: `GET /api/access-diagnostics/effective-rights?...`
+  - Plateforme: `GET /api/platform/clients/:clientId/access-diagnostics/effective-rights?...`
+- Anti-fuite:
+  - user/ressource hors client => refus générique stable `DIAGNOSTIC_SCOPE_MISMATCH` sans détail sensible.
+- UI:
+  - page dédiée `/client/administration/access-diagnostics`
+  - route plateforme `/admin/clients/[clientId]/access-diagnostics`
+  - jamais d’ID brut comme libellé principal ; sélecteurs métier priorisés.
 
 ## 5. Modifications Prisma si nécessaire
 
@@ -41,14 +78,17 @@ Quand un accès est refusé, l’admin ne sait pas rapidement quelle couche bloq
 
 ## 6. Tests
 
-- renvoie `allowed` quand toutes couches valides.
-- renvoie `denied` avec raison exacte quand une couche échoue.
-- priorise la raison la plus bloquante (message stable).
-- interdit cross-client sur diagnostic.
+- `resourceType` non supporté => `reasonCode=RESOURCE_TYPE_UNSUPPORTED`.
+- `userId` hors client => aucune fuite (refus générique stable).
+- `resourceId` hors client => aucune fuite (refus générique stable).
+- mapping `operation read|write|admin` vers RBAC + ACL.
+- endpoint plateforme: `userId`/`resourceId` doivent appartenir au `clientId` de route.
+- endpoint client: aucun `clientId` libre accepté.
+- UI: aucun ID brut affiché comme libellé principal.
 
 ## 7. Récapitulatif final
 
-Cette RFC crée une matrice de vérité des droits effectifs, utile pour support, admin et réduction des tickets “pourquoi 403”.
+Cette RFC introduit un diagnostic déterministe des droits effectifs, exploitable en support et en administration pour expliquer précisément les refus d’accès sans fuite inter-client.
 
 ## 8. Points de vigilance
 

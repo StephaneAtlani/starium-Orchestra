@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-038 (socle alertes, notifications in-app, file email async), **RFC-ACL-005** (`/api/resource-acl/*`, admin client).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PRO, RFC-ACL-012 (license reporting — `/api/platform/license-reporting`)J-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-038 (socle alertes, notifications in-app, file email async), **RFC-ACL-005** (`/api/resource-acl/*`, admin client), **RFC-ACL-011** (`/api/access-diagnostics/*`, matrice des droits effectifs).
 
 ---
 
@@ -601,6 +601,51 @@ Administration des entrées **ResourceAcl** pour une ressource donnée, **dans l
 - **Corps JSON** : aucun champ `clientId` (rejet `forbidNonWhitelisted` si fourni) ; le client provient du contexte.
 - **Audit** : mutations tracées avec instantanés **old/new** exploitables (`resource_acl.*`).
 - **Garde métier** : `ResourceAclGuard` + `@RequireResourceAcl` (RFC-ACL-006) ; le module Nest du domaine importe **`AccessControlModule`** — il n’est pas fourni via **`CommonModule`**.
+
+## 5.05 Diagnostic droits effectifs — `/api/access-diagnostics` (RFC-ACL-011)
+
+Vue consolidée “pourquoi accès autorisé/refusé” sur les couches `license`, `subscription`, `moduleActivation`, `moduleVisibility`, `RBAC`, `ACL`.
+
+- **Endpoint client actif**
+  - `GET /api/access-diagnostics/effective-rights?userId=...&resourceType=...&resourceId=...&operation=read|write|admin`
+  - Guards: `JwtAuthGuard` → `ActiveClientGuard` → `ClientAdminGuard`
+- **Endpoint plateforme**
+  - `GET /api/platform/clients/:clientId/access-diagnostics/effective-rights?userId=...&resourceType=...&resourceId=...&operation=read|write|admin`
+  - Guards: `JwtAuthGuard` → `PlatformAdminGuard`
+- **Resource types V1 whitelistés**
+  - `PROJECT`, `BUDGET`, `CONTRACT`, `SUPPLIER`, `STRATEGIC_OBJECTIVE`
+  - hors whitelist => `reasonCode=RESOURCE_TYPE_UNSUPPORTED`
+- **Contrat de check unifié**
+  - `{ status: "pass" | "fail" | "not_applicable", reasonCode: string | null, message: string, details?: Record<string, unknown> }`
+- **Réponse consolidée**
+  - `licenseCheck`, `subscriptionCheck`, `moduleActivationCheck`, `moduleVisibilityCheck`, `rbacCheck`, `aclCheck`
+  - `finalDecision`, `denialReasons[]`, `computedAt`
+- **Anti-fuite**
+  - aucune révélation d’existence user/ressource hors client ;
+  - hors périmètre => refus générique stable (`DIAGNOSTIC_SCOPE_MISMATCH`) sans détail sensible.
+
+## 5.06 License Reporting — `/api/platform/license-reporting` (RFC-ACL-012)
+
+KPI commerciaux, trajectoire mensuelle dérivée des dates de licence/abonnement et exports CSV/JSON.
+
+- **Périmètre** : plateforme uniquement (multi-client).
+- **Guards (tous endpoints)** : `JwtAuthGuard` → `PlatformAdminGuard`.
+- **Pas de migration Prisma** : agrégats calculés à la volée à partir de `ClientUser` et `ClientSubscription` (V1). Pas de table `LicenseUsageDailySnapshot`.
+- **Filtres communs (query string)**
+  - `clientId?` (CUID validé) — restreint à un client. `clientId` inexistant => `400` stable (anti-fuite).
+  - `licenseBillingMode?` (`CLIENT_BILLABLE` / `EXTERNAL_BILLABLE` / `NON_BILLABLE` / `PLATFORM_INTERNAL` / `EVALUATION`).
+  - `subscriptionStatus?` (`DRAFT` / `ACTIVE` / `SUSPENDED` / `CANCELED` / `EXPIRED`).
+- **Endpoints**
+  - `GET /api/platform/license-reporting/overview` → snapshot global agrégé (totaux, sièges READ_WRITE billables, distribution licences, distribution abonnements).
+  - `GET /api/platform/license-reporting/clients` → ligne par client (`clientName`, `clientSlug`, totaux, sièges, distributions). Toujours libellé métier, jamais d’ID brut.
+  - `GET /api/platform/license-reporting/monthly?from=YYYY-MM&to=YYYY-MM` → série mensuelle. Par défaut : 12 derniers mois UTC. Fenêtre max **24 mois** (`400` au-delà), `from > to` rejeté.
+  - `GET /api/platform/license-reporting/clients.csv` et `GET /api/platform/license-reporting/monthly.csv` → exports CSV via `StreamableFile` (RFC 4180, BOM UTF-8, `Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment`).
+- **Dictionnaire KPI canonique (V1)** — utilisé identiquement côté API et UI :
+  - `licenses.readOnly`, `clientBillable`, `externalBillable`, `nonBillable`, `evaluationActive`, `evaluationExpired`, `platformInternal`, `platformInternalActive`, `platformInternalExpired`.
+  - `subscriptions.draft|active|suspended|canceled|expired|expiredInGrace`.
+  - `seats.readWriteBillableUsed` (consommation), `seats.readWriteBillableLimit` (capacité).
+- **Sémantique période mensuelle** : une licence ou un abonnement est compté pour le mois `M` si `start = licenseStartsAt ?? createdAt ≤ fin(M)` et (`end = licenseEndsAt` est `null` ou `≥ début(M)`). Bucket `evaluationActive`/`platformInternalActive` vs leurs variantes `Expired` selon comparaison `licenseEndsAt < fin(M)`.
+- **Sémantique grâce abonnement** : `EXPIRED` + `graceEndsAt ≥ now` → comptabilisé en `expired` ET `expiredInGrace`.
 
 ## 5.1 RBAC métier — décorateur et conventions
 

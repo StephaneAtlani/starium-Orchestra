@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
+  BarChart3,
   Building2,
   Boxes,
   ClipboardList,
@@ -272,6 +273,13 @@ export const navigation: NavigationSection[] = [
         scope: 'client',
         clientAdminOnly: true,
       },
+      {
+        label: 'Diagnostic accès',
+        href: '/client/administration/access-diagnostics',
+        icon: ShieldCheck,
+        scope: 'client',
+        clientAdminOnly: true,
+      },
     ],
   },
   {
@@ -316,6 +324,13 @@ export const navigation: NavigationSection[] = [
         label: 'Audit logs',
         href: '/admin/audit',
         icon: FileText,
+        scope: 'platform',
+        platformOnly: true,
+      },
+      {
+        label: 'Reporting licences',
+        href: '/admin/license-reporting',
+        icon: BarChart3,
         scope: 'platform',
         platformOnly: true,
       },

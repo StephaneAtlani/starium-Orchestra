@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Eye, ShieldCheck, Users, UsersRound } from 'lucide-react';
+import { Eye, ShieldCheck, ShieldQuestion, Users, UsersRound } from 'lucide-react';
 
 export interface AccessCockpitShortcut {
   href: string;
@@ -40,5 +40,11 @@ export const ACCESS_COCKPIT_SHORTCUTS: AccessCockpitShortcut[] = [
     title: 'Rôles',
     description: 'Définir les rôles métier et permissions',
     icon: ShieldCheck,
+  },
+  {
+    href: '/client/administration/access-diagnostics',
+    title: 'Diagnostic droits effectifs',
+    description: 'Expliquer un accès autorisé/refusé par couche de contrôle',
+    icon: ShieldQuestion,
   },
 ];
