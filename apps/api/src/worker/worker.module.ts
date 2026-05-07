@@ -5,6 +5,8 @@ import { AuditLogsCoreModule } from '../modules/audit-logs/audit-logs-core.modul
 import { QueueModule } from '../modules/queue/queue.module';
 import { EmailModule } from '../modules/email/email.module';
 import { EmailProcessor } from '../modules/email/email.processor';
+import { LicensesModule } from '../modules/licenses/licenses.module';
+import { LicenseExpirationProcessor } from '../modules/licenses/jobs/license-expiration.processor';
 
 @Module({
   imports: [
@@ -16,7 +18,8 @@ import { EmailProcessor } from '../modules/email/email.processor';
     AuditLogsCoreModule,
     QueueModule,
     EmailModule,
+    LicensesModule,
   ],
-  providers: [EmailProcessor],
+  providers: [EmailProcessor, LicenseExpirationProcessor],
 })
 export class WorkerModule {}

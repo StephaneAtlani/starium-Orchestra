@@ -16,6 +16,7 @@ export const CLIENT_SUBSCRIPTION_ACTION = {
   ACTIVATED: 'client_subscription.activated',
   SUSPENDED: 'client_subscription.suspended',
   CANCELLED: 'client_subscription.cancelled',
+  EXPIRED: 'client_subscription.expired',
 } as const;
 
 /** Licence utilisateur (mutation canonique unique par événement) */
@@ -25,6 +26,10 @@ export const CLIENT_USER_LICENSE_ACTION = {
   EVALUATION_GRANTED: 'client_user.license.evaluation_granted',
   EVALUATION_EXTENDED: 'client_user.license.evaluation_extended',
   SUPPORT_ACCESS_GRANTED: 'client_user.license.support_access_granted',
+  EVALUATION_EXPIRED: 'client_user.license.evaluation_expired',
+  SUPPORT_ACCESS_EXPIRED: 'client_user.license.support_access_expired',
+  SUBSCRIPTION_EXPIRED_DOWNGRADE:
+    'client_user.license.subscription_expired_downgrade',
   BILLING_MODE_CHANGED: 'client_user.license.billing_mode_changed',
   WRITE_DENIED: 'client_user.license.write_denied',
 } as const;
@@ -146,6 +151,8 @@ export function resolveSubscriptionAuditActionForTransition(
       return CLIENT_SUBSCRIPTION_ACTION.SUSPENDED;
     case 'CANCELED':
       return CLIENT_SUBSCRIPTION_ACTION.CANCELLED;
+    case 'EXPIRED':
+      return CLIENT_SUBSCRIPTION_ACTION.EXPIRED;
     default:
       return CLIENT_SUBSCRIPTION_ACTION.UPDATED;
   }

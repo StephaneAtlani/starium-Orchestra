@@ -4,6 +4,8 @@ import IORedis from 'ioredis';
 import {
   EMAIL_QUEUE,
   EMAIL_QUEUE_NAME,
+  LICENSE_EXPIRATION_QUEUE,
+  LICENSE_EXPIRATION_QUEUE_NAME,
   QUEUE_CONNECTION,
 } from './queue.constants';
 import { QueueService } from './queue.service';
@@ -35,8 +37,21 @@ import { QueueService } from './queue.service';
           connection,
         }),
     },
+    {
+      provide: LICENSE_EXPIRATION_QUEUE,
+      inject: [QUEUE_CONNECTION],
+      useFactory: (connection: IORedis) =>
+        new Queue(LICENSE_EXPIRATION_QUEUE_NAME, {
+          connection,
+        }),
+    },
     QueueService,
   ],
-  exports: [QUEUE_CONNECTION, EMAIL_QUEUE, QueueService],
+  exports: [
+    QUEUE_CONNECTION,
+    EMAIL_QUEUE,
+    LICENSE_EXPIRATION_QUEUE,
+    QueueService,
+  ],
 })
 export class QueueModule {}
